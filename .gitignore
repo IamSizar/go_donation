@@ -1,0 +1,20 @@
+# Local credentials
+percentage/admin/config/auth.local.php
+
+# Archives and local bundles
+*.zip
+
+# Flutter generated output and machine-local files
+humanitarian/build/
+humanitarian/ios/Pods/
+humanitarian/macos/Pods/
+humanitarian/android/local.properties
+humanitarian/flutter_*.log
+humanitarian/.dart_tool/
+humanitarian/.flutter-plugins
+humanitarian/.flutter-plugins-dependencies
+humanitarian/.pub/
+humanitarian/.pub-cache/
+
+# Common OS/editor noise
+.DS_Store

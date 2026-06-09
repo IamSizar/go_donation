@@ -1,0 +1,15 @@
+# Local Postgres data volume (do NOT commit your database files)
+db-data/
+
+# Env files (real secrets)
+.env
+.env.local
+
+# Firebase service account (never commit)
+firebase-credentials.json
+
+# Go build artifacts
+/server
+/bin/
+*.test
+*.out

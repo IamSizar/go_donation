@@ -1,0 +1,2 @@
+    sharedPreferences.setString('id_user', result['id'].toString());
+      sharedPreferences.setString('email_user', result['email'].toString());

@@ -1,0 +1,2036 @@
+/* ============================================================
+   Design tokens — Humanitarian Admin
+   ============================================================
+   Visual style: Refined Minimal with subtle depth.
+   Palette rationale: emerald primary signals "giving / verified /
+   trustworthy" — the standard humanitarian color (Red Cross,
+   Charity:Water, UNICEF). Cool slate backgrounds provide a calm
+   data-first reading surface. Amber reserves attention for
+   pending/warning states. Coral red softens the destructive
+   action color so it doesn't feel hostile.
+   ============================================================ */
+
+:root {
+  /* -------- Brand & semantic colors -------- */
+  --color-primary:        #10B981;  /* emerald-500 */
+  --color-primary-hover:  #34D399;  /* emerald-400 */
+  --color-primary-dim:    #059669;  /* emerald-600 — for pressed/borders */
+  --color-warning:        #F59E0B;  /* amber-500  — pending, attention */
+  --color-info:           #38BDF8;  /* sky-400    — secondary links/info */
+  --color-danger:         #EF4444;  /* red-500    — destructive */
+  --color-danger-hover:   #F87171;  /* red-400 */
+
+  /* -------- Dark surface scale -------- */
+  --color-bg:            #0A0F1A;   /* deepest — page background */
+  --color-surface:       #10172A;   /* primary panels */
+  --color-surface-2:     #1A2238;   /* raised inside panels */
+  --color-surface-3:     #232C46;   /* topbar / inset inputs */
+  --color-border:        rgba(255, 255, 255, 0.08);
+  --color-border-strong: rgba(255, 255, 255, 0.14);
+
+  /* -------- Typography colors -------- */
+  --color-text-h:        #F5F7FA;   /* headings, key values */
+  --color-text:          #C5CCDA;   /* body */
+  --color-muted:         #7C8694;   /* labels, hints */
+
+  /* -------- Tinted backgrounds (toast/error/info chips) -------- */
+  --color-primary-bg:    rgba(16, 185, 129, 0.12);
+  --color-warning-bg:    rgba(245, 158, 11, 0.13);
+  --color-danger-bg:     rgba(239, 68, 68, 0.13);
+  --color-info-bg:       rgba(56, 189, 248, 0.13);
+
+  /* -------- Legacy aliases (keep existing components working) -------- */
+  --text:        var(--color-text);
+  --muted:       var(--color-muted);
+  --text-h:      var(--color-text-h);
+  --bg:          var(--color-bg);
+  --panel:       var(--color-surface);
+  --panel-2:     var(--color-surface-2);
+  --border:      var(--color-border);
+  --accent:      var(--color-primary);
+  --accent-hover:var(--color-primary-hover);
+  --danger:      var(--color-danger);
+  --danger-bg:   var(--color-danger-bg);
+  --info-bg:     var(--color-primary-bg);
+  --ok:          var(--color-primary);
+
+  /* -------- 8-pt spacing scale -------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  /* -------- Type scale (1.125 modular) -------- */
+  --text-xs:   11px;
+  --text-sm:   12.5px;
+  --text-base: 14px;
+  --text-md:   15px;
+  --text-lg:   17px;
+  --text-xl:   20px;
+  --text-2xl:  24px;
+  --text-3xl:  30px;
+  --text-4xl:  36px;
+
+  /* -------- Radii -------- */
+  --radius-sm:   6px;
+  --radius:     10px;
+  --radius-lg:  14px;
+  --radius-xl:  20px;
+  --radius-full: 9999px;
+
+  /* -------- Elevation -------- */
+  --shadow-sm: 0 1px 0 rgba(255, 255, 255, 0.04) inset,
+               0 2px 6px rgba(0, 0, 0, 0.25);
+  --shadow:    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+               0 8px 20px -6px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 1px 0 rgba(255, 255, 255, 0.05) inset,
+               0 22px 48px -16px rgba(0, 0, 0, 0.65);
+
+  /* -------- Typography -------- */
+  font-family:
+    'Inter',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    'Helvetica Neue',
+    Arial,
+    sans-serif;
+  font-size: var(--text-base);
+  line-height: 1.5;
+  font-feature-settings: 'cv11', 'ss01', 'ss03';  /* Inter's tabular + alt forms */
+  color: var(--text);
+  background:
+    /* subtle emerald glow top-right, fades into the bg */
+    radial-gradient(60% 40% at 100% 0%, rgba(16, 185, 129, 0.05), transparent 70%),
+    var(--color-bg);
+  background-attachment: fixed;
+  color-scheme: dark;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Monospace inherits its own stack so audit logs / JSON read well. */
+code, pre, .mono {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.92em;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root { height: 100%; margin: 0; }
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { color: var(--accent-hover); }
+
+h1 {
+  color: var(--text-h);
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  letter-spacing: -0.018em;
+  margin: 0 0 var(--space-1);
+  line-height: 1.2;
+}
+h2 {
+  color: var(--text-h);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0 0 var(--space-2);
+  line-height: 1.3;
+}
+p { margin: 0; }
+.muted { color: var(--muted); font-size: var(--text-sm); }
+.hint  { color: var(--muted); font-size: var(--text-xs); line-height: 1.5; }
+.stack > * + * { margin-top: var(--space-3); }
+.row   { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: center; }
+
+/* ---------- Buttons ----------
+   Heights: 36px (md, default) / 28px (sm). Touch target >= 28px even for small.
+   Use box-shadow rather than y-translate on hover so text stays in place. */
+button {
+  background: var(--accent);
+  color: white;
+  border: 1px solid var(--accent);
+  height: 36px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease,
+    box-shadow 200ms ease,
+    transform 120ms ease;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08) inset, 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+button:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) inset, 0 4px 14px -4px rgba(16, 185, 129, 0.5);
+}
+button:active:not(:disabled) { transform: translateY(0.5px); }
+button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+button.secondary {
+  background: var(--color-surface-2);
+  color: var(--text);
+  border-color: var(--color-border);
+  box-shadow: none;
+}
+button.secondary:hover:not(:disabled) {
+  background: var(--color-surface-3);
+  border-color: var(--color-border-strong);
+  color: var(--text-h);
+  box-shadow: 0 2px 8px -3px rgba(0, 0, 0, 0.3);
+}
+
+/* ---------- Form controls ----------
+   36px height matches buttons. Subtle inset shadow on focus to indicate
+   "field is active" beyond just the border color (helps colorblind users). */
+input, select, textarea {
+  width: 100%;
+  background: var(--color-surface-2);
+  color: var(--text-h);
+  border: 1px solid var(--color-border);
+  height: 36px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius);
+  font: inherit;
+  transition: border-color 120ms ease, box-shadow 200ms ease, background 120ms ease;
+}
+textarea { height: auto; padding: var(--space-2) var(--space-3); resize: vertical; min-height: 72px; }
+input::placeholder, textarea::placeholder { color: var(--muted); }
+input:hover:not(:focus), select:hover:not(:focus), textarea:hover:not(:focus) {
+  border-color: var(--color-border-strong);
+}
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  background: var(--color-surface);
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.12);
+}
+input[type="search"] {
+  padding-left: var(--space-4);
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237C8694' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='11' cy='11' r='7'/><path d='m21 21-4.3-4.3'/></svg>");
+  background-repeat: no-repeat;
+  background-position: left var(--space-3) center;
+  background-size: 14px;
+  padding-left: var(--space-7);
+}
+[dir="rtl"] input[type="search"] {
+  padding-left: var(--space-3);
+  padding-right: var(--space-7);
+  background-position: right var(--space-3) center;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+/* Custom scrollbar — subtle, not intrusive */
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: var(--radius-full);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover { background: var(--color-muted); background-clip: content-box; }
+
+/* Selection — emerald-tinted */
+::selection { background: rgba(16, 185, 129, 0.32); color: var(--text-h); }
+
+.error-box {
+  background: var(--color-danger-bg);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 55%, transparent);
+  color: #fecaca;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius);
+  font-size: var(--text-sm);
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+.error-box::before {
+  content: '⚠';
+  font-size: 14px;
+  line-height: 1.2;
+  flex-shrink: 0;
+  color: var(--color-danger);
+}
+.info-box {
+  background: var(--color-primary-bg);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 50%, transparent);
+  color: var(--text-h);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius);
+  font-size: var(--text-sm);
+}
+
+/* ===== Login =====
+   Centered card with an emerald glow positioned behind/above it. The glow
+   is purely decorative — no text behind it gets contrast-hurt because it's
+   between two transparent layers and the card. */
+.login-page {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(50% 50% at 50% 18%, rgba(16, 185, 129, 0.18), transparent 65%),
+    radial-gradient(40% 35% at 80% 90%, rgba(56, 189, 248, 0.10), transparent 70%),
+    var(--color-bg);
+}
+.login-page::before {
+  /* Soft animated dots/grid overlay — purely visual texture */
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 24px 24px;
+  pointer-events: none;
+}
+.login-card {
+  width: 440px;
+  max-width: calc(100vw - 32px);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 40%),
+    var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5) var(--space-5) var(--space-5);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  position: relative;
+  z-index: 1;
+}
+.login-card h1 { font-size: var(--text-2xl); margin-bottom: 2px; }
+.login-card .login-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  background: var(--color-primary-bg);
+  color: var(--color-primary-hover);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: var(--space-2);
+}
+
+/* ===== App shell ===== */
+.app-shell {
+  display: grid;
+  grid-template-columns: 256px 1fr;
+  height: 100%;
+}
+.sidebar {
+  background:
+    linear-gradient(180deg, rgba(16, 185, 129, 0.04), transparent 30%),
+    var(--color-surface);
+  border-right: 1px solid var(--color-border);
+  padding: var(--space-4) var(--space-3);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+[dir="rtl"] .sidebar {
+  border-right: none;
+  border-left: 1px solid var(--color-border);
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+.brand::before {
+  /* Logo mark — emerald gradient diamond */
+  content: '';
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background:
+    linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dim) 100%);
+  box-shadow: 0 4px 12px -2px rgba(16, 185, 129, 0.45),
+              inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  flex-shrink: 0;
+}
+.brand strong { color: var(--text-h); font-size: var(--text-md); font-weight: 600; letter-spacing: -0.01em; line-height: 1.1; }
+.brand .muted { font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.08em; }
+
+/* Sidebar foot — pinned to the bottom of the column.
+   margin-top: auto pushes this block to the bottom of the flex column
+   regardless of how many nav items exist above. */
+.sidebar-foot {
+  margin-top: auto;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+}
+.sidebar-foot .export-btn { width: 100%; justify-content: center; }
+/* Phase 27.12 — logout sits under the export button, same full-width
+   shape, with a small gap above it. */
+.sidebar-foot .logout-btn { width: 100%; justify-content: center; margin-top: var(--space-2); }
+
+/* Amber button variant — for actions that aren't primary (emerald) but
+   need to stand out. Used by the Export-DB button so admins can't miss
+   the data-portability escape hatch. */
+button.amber {
+  background: var(--color-warning);
+  color: #1F2937;                /* dark text reads cleaner on amber */
+  border-color: color-mix(in srgb, var(--color-warning) 75%, black);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.2) inset,
+              0 4px 14px -3px rgba(245, 158, 11, 0.45);
+  font-weight: 600;
+}
+button.amber:hover:not(:disabled) {
+  background: #FBBF24;            /* amber-400, brighter on hover */
+  border-color: var(--color-warning);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.25) inset,
+              0 6px 18px -4px rgba(245, 158, 11, 0.6);
+}
+button.amber:disabled {
+  background: color-mix(in srgb, var(--color-warning) 30%, var(--color-surface));
+  border-color: var(--color-border);
+  color: var(--muted);
+  box-shadow: none;
+}
+.sidebar nav { display: flex; flex-direction: column; gap: 2px; }
+.nav-item {
+  position: relative;            /* anchor the layoutId active pill */
+  display: block;
+  padding: 8px 12px;
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 13px;
+  transition: color 150ms ease, background 150ms ease;
+}
+.nav-item .nav-item-label { position: relative; z-index: 1; }
+.nav-item:hover { background: var(--panel-2); color: var(--text-h); }
+.nav-active-bg {
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.28), rgba(99, 102, 241, 0.12));
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  z-index: 0;
+}
+/* When the pill is present (active), the parent text should pop */
+.nav-item:has(.nav-active-bg) { color: var(--text-h); font-weight: 600; }
+
+/* === Sidebar pending-count badge (Phase 16; spacing tweaked Phase 17) ===
+   Soft-amber pill flush-right with comfortable breathing room from the
+   label. Auto-margin pushes it right; padding-inline-end on the nav-item
+   guarantees the badge never butts up against the sidebar edge. */
+.nav-item { padding-inline-end: 12px; }  /* leave room for the badge */
+.nav-badge {
+  position: relative;
+  z-index: 1;
+  margin-inline-start: 12px;        /* gap from the label text */
+  min-width: 22px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-warning, #F59E0B) 22%, transparent);
+  color: var(--color-warning, #F59E0B);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 22px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  border: 1px solid color-mix(in srgb, var(--color-warning, #F59E0B) 45%, transparent);
+  transition: transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1),
+              background 150ms ease, color 150ms ease;
+}
+.nav-item:hover .nav-badge { transform: scale(1.06); }
+/* Active nav item — turn the badge emerald so it harmonises with the
+   active pill behind the label. */
+.nav-item:has(.nav-active-bg) .nav-badge {
+  background: color-mix(in srgb, var(--color-primary, #10b981) 25%, transparent);
+  color: var(--color-primary, #10b981);
+  border-color: color-mix(in srgb, var(--color-primary, #10b981) 50%, transparent);
+}
+
+/* === Row-highlight (Phase 16; restyled Phase 18d) ===
+   Two-stage highlight applied to any list-page row when the user lands with
+   `?highlight=<id>` in the URL:
+     1. Pulsing emerald ring for ~3 seconds to grab the eye on arrival.
+     2. PERSISTENT emerald-tinted background + 4px left rail + "↳ from live
+        feed" badge that stay until the admin clicks Dismiss on the banner
+        (or navigates away). The persistent style is on .is-highlighted
+        itself; the animation only drives the temporary outline ring. */
+@keyframes row-highlight-pulse {
+  0%   { outline: 2px solid rgba(16, 185, 129, 0.00); outline-offset: 0; }
+  15%  { outline: 3px solid rgba(16, 185, 129, 0.65); outline-offset: 2px; }
+  45%  { outline: 3px solid rgba(16, 185, 129, 0.30); outline-offset: 2px; }
+  70%  { outline: 3px solid rgba(16, 185, 129, 0.55); outline-offset: 2px; }
+  100% { outline: 0    solid rgba(16, 185, 129, 0.00); outline-offset: 0; }
+}
+
+.is-highlighted {
+  position: relative;
+  scroll-margin-top: 90px;          /* keep below the topbar when scrolled into view */
+  border-radius: 10px;
+  /* Persistent tinted bg + left rail — stays as long as the URL has ?highlight= */
+  background: color-mix(in srgb, var(--color-primary, #10b981) 12%, transparent) !important;
+  box-shadow: inset 4px 0 0 var(--color-primary, #10b981);
+  /* Initial attention-grab; runs once on mount, then leaves the persistent style. */
+  animation: row-highlight-pulse 3s ease-out 1;
+}
+[dir="rtl"] .is-highlighted {
+  box-shadow: inset -4px 0 0 var(--color-primary, #10b981);
+}
+
+/* "↳ FROM LIVE FEED" floating chip rendered to the left of the row's first
+   cell. Pure CSS — no JSX per-row additions needed. Hidden on narrow
+   widths where it would collide with the row. */
+.is-highlighted > td:first-of-type {
+  position: relative;
+}
+.is-highlighted > td:first-of-type::after {
+  content: "↳ FROM LIVE FEED";
+  position: absolute;
+  top: 50%;
+  inset-inline-start: -2px;
+  transform: translateY(-50%) translateX(calc(-100% - 6px));
+  padding: 3px 9px;
+  background: var(--color-primary, #10b981);
+  color: white;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  border-radius: 999px;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 4px 12px -2px rgba(16, 185, 129, 0.45);
+  z-index: 1;
+}
+[dir="rtl"] .is-highlighted > td:first-of-type::after {
+  content: "↲ FROM LIVE FEED";
+  transform: translateY(-50%) translateX(calc(100% + 6px));
+}
+@media (max-width: 900px) {
+  /* On narrow screens the chip would overflow the viewport — hide it; the
+     left rail + bg tint still make the row clearly distinct. */
+  .is-highlighted > td:first-of-type::after { display: none; }
+}
+
+/* Banner shown above a list when an admin landed via a live-feed click —
+   confirms which record they jumped to and offers a "clear" affordance. */
+.highlight-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  background: color-mix(in srgb, var(--color-primary, #10b981) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-primary, #10b981) 40%, transparent);
+  color: var(--text-h);
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.35;
+}
+.highlight-banner .hb-icon {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: var(--color-primary, #10b981);
+  color: white;
+  font-weight: 700;
+  font-size: 13px;
+}
+.highlight-banner .hb-text { flex: 1; min-width: 0; }
+.highlight-banner button {
+  background: transparent;
+  border: 1px solid var(--color-border, #2a2a3a);
+  color: var(--text, #c9c9d9);
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 8px;
+  box-shadow: none;
+}
+.highlight-banner button:hover {
+  background: var(--panel-2);
+  color: var(--text-h);
+}
+
+.main { display: flex; flex-direction: column; overflow: hidden; }
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-5);
+  border-bottom: 1px solid var(--color-border);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent),
+    var(--color-surface);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  min-height: 56px;
+  font-size: var(--text-sm);
+}
+.topbar button {
+  height: 30px;
+  padding: 0 var(--space-3);
+  font-size: var(--text-sm);
+}
+.topbar select { height: 30px; font-size: var(--text-sm); padding: 0 28px 0 var(--space-3); }
+
+/* User chip in the topbar — initials avatar + id + phone */
+.user-chip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.user-chip-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dim));
+  color: white;
+  font-weight: 600;
+  font-size: var(--text-xs);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px -2px rgba(16, 185, 129, 0.4),
+              inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+.user-chip-meta {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+.user-chip-id { color: var(--text-h); font-weight: 500; font-size: var(--text-sm); }
+.user-chip-meta .muted { font-size: var(--text-xs); }
+.content {
+  padding: var(--space-5);
+  overflow: auto;
+  flex: 1;
+}
+
+/* ===== Cards / lists ===== */
+.card {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.012), transparent 50%),
+    var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4) var(--space-5);
+  box-shadow: var(--shadow-sm);
+}
+.key-value {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+.key-value li {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px dashed var(--border);
+  padding: 6px 0;
+}
+.key-value li:last-child { border-bottom: none; }
+.key-value span { color: var(--muted); }
+.key-value strong { color: var(--text-h); font-weight: 600; }
+
+/* ===== Page head =====
+   Sits at the top of every list/detail page. Top-aligned so a multi-line
+   title doesn't push the action row off-axis. Generous bottom padding gives
+   the page content breathing room. */
+.page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: var(--space-3);
+  flex-wrap: wrap;
+}
+.page-head > div:first-child { display: flex; flex-direction: column; gap: 2px; }
+.page-head .row { gap: var(--space-2); }
+@media (max-width: 720px) {
+  .page-head { flex-direction: column; align-items: stretch; }
+}
+
+/* ===== Stat grid + cards ===== */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-3);
+}
+.stat-card {
+  position: relative;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 16px 16px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  cursor: default;
+  overflow: hidden;
+  /* Subtle elevation, intensifies on hover via the motion lift */
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.02) inset,
+              0 6px 14px -10px rgba(0, 0, 0, 0.5);
+  transition: box-shadow 200ms ease;
+}
+.stat-card:hover {
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset,
+              0 18px 32px -16px rgba(0, 0, 0, 0.65);
+}
+/* Accent stripe — coloured per trend, runs the full height of the card. */
+.stat-stripe {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 30%, transparent));
+}
+.stat-card-positive .stat-stripe { background: linear-gradient(180deg, #6ee7b7, #34d39933); }
+.stat-card-negative .stat-stripe { background: linear-gradient(180deg, #fca5a5, #ef444433); }
+.stat-card-neutral  .stat-stripe { background: linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 20%, transparent)); }
+
+[dir="rtl"] .stat-stripe { left: auto; right: 0; }
+[dir="rtl"] .stat-card { padding: 16px 22px 16px 16px; }
+
+.stat-label { color: var(--muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.06em; }
+.stat-value { color: var(--text-h); font-size: 26px; font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.stat-hint { color: var(--muted); font-size: 12px; }
+
+/* Dashboard hero (greeting + snapshot pill) */
+.dashboard-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 4px 0 8px 0;
+}
+.dashboard-hero h1 { font-size: 28px; }
+.dashboard-hero-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 14%, var(--panel)), var(--panel));
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+  border-radius: 999px;
+  font-size: 13px;
+}
+.dashboard-hero-stat span { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+.dashboard-hero-stat strong { color: var(--text-h); }
+[dir="rtl"] .dashboard-hero-stat { align-items: flex-start; }
+
+/* ===== Two-column layout ===== */
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+@media (max-width: 900px) {
+  .two-col { grid-template-columns: 1fr; }
+}
+
+/* ===== Data tables =====
+   Headers in uppercase + tracking for scannability. Hovered rows tint
+   emerald. Numeric cells use tabular-nums so amounts align by digit. */
+.table-wrap {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: auto;
+  box-shadow: var(--shadow-sm);
+}
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.data-table thead th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--color-surface-2);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+  position: sticky;
+  top: 0;
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.data-table tbody td {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+  color: var(--text);
+  vertical-align: middle;
+  font-variant-numeric: tabular-nums;
+}
+.data-table tbody tr:last-child td { border-bottom: none; }
+.data-table tbody tr {
+  transition: background 100ms ease;
+}
+.data-table tbody tr:hover td { background: rgba(16, 185, 129, 0.05); }
+.cell-muted { color: var(--muted); padding: var(--space-6); text-align: center; font-size: var(--text-sm); }
+.cell-stack { display: flex; flex-direction: column; gap: 2px; }
+
+/* ===== Pagination ===== */
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding-top: var(--space-1);
+}
+.pagination button { height: 32px; padding: 0 var(--space-3); font-size: var(--text-sm); }
+
+/* ===== Badges (status pills) =====
+   Color-coded by semantic role. Letter-spacing + slightly larger than
+   before so a "pending" badge actually reads as a chip, not a label. */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: var(--color-surface-2);
+  color: var(--text);
+  border: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+.badge.ok       { background: var(--color-primary-bg);  color: #6ee7b7; border-color: color-mix(in srgb, var(--color-primary) 45%, transparent); }
+.badge.off      { background: var(--color-danger-bg);   color: #fca5a5; border-color: color-mix(in srgb, var(--color-danger)  35%, transparent); }
+.badge.role-1   { background: var(--color-primary-bg);  color: #6ee7b7; border-color: color-mix(in srgb, var(--color-primary) 40%, transparent); }
+.badge.role-2   { background: var(--color-warning-bg);  color: #fcd34d; border-color: color-mix(in srgb, var(--color-warning) 45%, transparent); }
+.badge.role-3   { background: var(--color-info-bg);     color: #7dd3fc; border-color: color-mix(in srgb, var(--color-info)    45%, transparent); }
+/* Status semantic colors used across pages */
+.badge.status-success { background: var(--color-primary-bg); color: #6ee7b7; border-color: color-mix(in srgb, var(--color-primary) 45%, transparent); }
+.badge.status-pending { background: var(--color-warning-bg); color: #fcd34d; border-color: color-mix(in srgb, var(--color-warning) 45%, transparent); }
+.badge.status-failed  { background: var(--color-danger-bg);  color: #fca5a5; border-color: color-mix(in srgb, var(--color-danger)  35%, transparent); }
+.badge.status-success { background: rgba(16, 185, 129, 0.15); color: #6ee7b7; border-color: rgba(16, 185, 129, 0.5); }
+.badge.status-pending { background: rgba(245, 158, 11, 0.15); color: #fcd34d; border-color: rgba(245, 158, 11, 0.5); }
+.badge.status-failed  { background: rgba(239, 68, 68, 0.12); color: #fca5a5; border-color: rgba(239, 68, 68, 0.4); }
+
+/* ===== Thumbnails ===== */
+.thumb {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  display: block;
+}
+.thumb-empty {
+  background: var(--panel-2);
+}
+
+/* ===== Tab row =====
+   Pill group: active tab is emerald-tinted, inactive ones are quiet surface
+   buttons. Sits inside .page-head so it lines up next to the title. */
+.tab-row {
+  display: inline-flex;
+  gap: 4px;
+  padding: 3px;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+}
+.tab-row button {
+  height: 30px;
+  padding: 0 var(--space-3);
+  font-size: var(--text-sm);
+  background: transparent;
+  color: var(--text);
+  border: none;
+  border-radius: var(--radius-full);
+  box-shadow: none;
+}
+.tab-row button:not(.secondary) {
+  background: var(--color-primary);
+  color: white;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.15) inset, 0 4px 12px -3px rgba(16, 185, 129, 0.45);
+}
+.tab-row button.secondary { background: transparent; }
+.tab-row button.secondary:hover:not(:disabled) { background: var(--color-surface-3); color: var(--text-h); }
+
+/* ===== Progress bar ===== */
+.progress {
+  width: 140px;
+  height: 6px;
+  background: var(--color-surface-3);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-primary-dim), var(--color-primary-hover));
+  border-radius: var(--radius-full);
+  box-shadow: 0 0 12px -1px var(--color-primary);
+}
+
+/* ===== Trend pill (TrendCard %) ===== */
+.trend-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  margin-top: 6px;
+}
+.trend-pill.trend-positive { color: #6ee7b7; }
+.trend-pill.trend-negative { color: #fca5a5; }
+.trend-pill.trend-neutral  { color: var(--muted); }
+
+/* ===== Events feed ===== */
+.events-feed { display: flex; flex-direction: column; gap: 12px; }
+.events-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.events-status { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.status-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--muted);
+}
+.status-dot.status-connecting { background: #fcd34d; }
+.status-dot.status-connected  { background: #10b981; box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.18); }
+.status-dot.status-error      { background: #ef4444; }
+
+.events-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.events-list {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border);
+  max-height: 480px;
+  overflow-y: auto;
+}
+.event-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.event-row:last-child { border-bottom: none; }
+
+/* Clickable affordance — rows whose event_type maps to a known admin page.
+   The hover bg shifts to the muted-emerald palette so it reads as "actionable
+   row" without competing with the row's tone-coloured icon. */
+.event-row.is-clickable {
+  cursor: pointer;
+  border-radius: 10px;
+  margin: 0 -6px;
+  padding-inline: 10px;
+  transition: background 120ms ease, transform 120ms ease;
+}
+.event-row.is-clickable:hover {
+  background: color-mix(in srgb, var(--color-primary, #10b981) 9%, transparent);
+}
+.event-row.is-clickable:focus-visible {
+  outline: 2px solid var(--color-primary, #10b981);
+  outline-offset: 2px;
+  background: color-mix(in srgb, var(--color-primary, #10b981) 12%, transparent);
+}
+.event-row.is-clickable:active { transform: translateY(1px); }
+
+/* Trailing chevron — purely decorative, hidden on narrow widths where the
+   time stamp already takes the right edge. */
+.event-chevron {
+  flex-shrink: 0;
+  width: 18px;
+  text-align: center;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--muted, #94a3b8);
+  opacity: 0.7;
+  transition: transform 120ms ease, opacity 120ms ease, color 120ms ease;
+}
+.event-row.is-clickable:hover .event-chevron,
+.event-row.is-clickable:focus-visible .event-chevron,
+.events-toast.is-clickable:hover .event-chevron {
+  transform: translateX(2px);
+  opacity: 1;
+  color: var(--color-primary, #10b981);
+}
+[dir="rtl"] .event-chevron { transform: scaleX(-1); }
+[dir="rtl"] .event-row.is-clickable:hover .event-chevron,
+[dir="rtl"] .event-row.is-clickable:focus-visible .event-chevron,
+[dir="rtl"] .events-toast.is-clickable:hover .event-chevron {
+  transform: scaleX(-1) translateX(2px);
+}
+
+/* Toast — same clickable treatment when its underlying event has a route. */
+.events-toast.is-clickable { cursor: pointer; }
+.events-toast.is-clickable:focus-visible {
+  outline: 2px solid var(--color-primary, #10b981);
+  outline-offset: 2px;
+}
+.event-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  font-size: 16px;
+}
+.event-icon.tone-primary  { background: rgba(99, 102, 241, 0.15); border-color: rgba(99, 102, 241, 0.5); }
+.event-icon.tone-info     { background: rgba(56, 189, 248, 0.15); border-color: rgba(56, 189, 248, 0.5); }
+.event-icon.tone-success  { background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.5); }
+.event-icon.tone-warning  { background: rgba(245, 158, 11, 0.15); border-color: rgba(245, 158, 11, 0.5); }
+.event-icon.tone-danger   { background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.5); }
+.badge.tone-primary  { background: rgba(99, 102, 241, 0.15); color: #a5b4fc; border-color: rgba(99, 102, 241, 0.5); }
+.badge.tone-info     { background: rgba(56, 189, 248, 0.15); color: #7dd3fc; border-color: rgba(56, 189, 248, 0.5); }
+.badge.tone-success  { background: rgba(16, 185, 129, 0.15); color: #6ee7b7; border-color: rgba(16, 185, 129, 0.5); }
+.badge.tone-warning  { background: rgba(245, 158, 11, 0.15); color: #fcd34d; border-color: rgba(245, 158, 11, 0.5); }
+.badge.tone-danger   { background: rgba(239, 68, 68, 0.15); color: #fca5a5; border-color: rgba(239, 68, 68, 0.5); }
+
+/* ===== App-wide toast notifications (top-right pop) ===== */
+.toast-host {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 200;
+  pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  min-width: 240px;
+  max-width: 380px;
+  font-size: 13px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  /* framer-motion handles enter/exit; removed legacy CSS keyframes */
+}
+.toast-success { border-color: rgba(16, 185, 129, 0.6); }
+.toast-error   { border-color: rgba(239, 68, 68, 0.6); }
+.toast-info    { border-color: rgba(99, 102, 241, 0.6); }
+.toast-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+}
+.toast-success .toast-icon { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; }
+.toast-error   .toast-icon { background: rgba(239, 68, 68, 0.2);  color: #fca5a5; }
+.toast-info    .toast-icon { background: rgba(99, 102, 241, 0.2); color: #a5b4fc; }
+.toast-message { color: var(--text-h); }
+@keyframes toast-in {
+  from { transform: translateX(12px); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+
+/* StatusCell — compact dropdown in table rows.
+   Made it look more like a chip than an input so it doesn't clash with
+   surrounding read-only cells, while still being recognizably interactive. */
+.status-cell {
+  height: 26px;
+  padding: 0 28px 0 var(--space-3);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: var(--radius-full);
+  background-color: var(--color-surface-3);
+  background-position: right 8px center;
+  background-size: 12px;
+  border: 1px solid var(--color-border);
+  color: var(--text-h);
+  cursor: pointer;
+}
+.status-cell:hover { background-color: var(--color-surface-2); border-color: var(--color-border-strong); }
+.status-cell:focus { box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18); }
+[dir="rtl"] .status-cell { padding: 0 var(--space-3) 0 28px; background-position: left 8px center; }
+
+/* EditModal — full-record edit form (Phase 10) */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  /* framer-motion handles fade now */
+}
+.modal-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  width: min(640px, 92vw);
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.7),
+              0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+  /* framer-motion handles scale-pop */
+}
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.modal-head {
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--color-border);
+}
+.modal-head h2 {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.modal-head .icon {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  height: 28px;
+  width: 28px;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 120ms ease, color 120ms ease;
+}
+.modal-head .icon:hover:not(:disabled) { background: var(--color-surface-2); color: var(--text-h); }
+.modal-body {
+  padding: var(--space-5);
+  overflow-y: auto;
+  flex: 1 1 auto;
+}
+.modal-foot {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+  padding: var(--space-3) var(--space-5);
+  border-top: 1px solid var(--color-border);
+  background: rgba(0, 0, 0, 0.15);
+}
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4) var(--space-4);
+}
+.form-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.form-row.full { grid-column: 1 / -1; }
+.form-label {
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.form-label .req { color: var(--color-danger-hover); margin-left: 4px; }
+.form-row input,
+.form-row textarea,
+.form-row select {
+  width: 100%;
+  background: var(--color-surface-2);
+  color: var(--text-h);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  height: 36px;
+  padding: 0 var(--space-3);
+  font: inherit;
+}
+.form-row textarea { resize: vertical; min-height: 80px; height: auto; padding: var(--space-2) var(--space-3); line-height: 1.5; }
+.form-row select { appearance: none; padding-right: var(--space-7); background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237C8694' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>"); background-repeat: no-repeat; background-position: right var(--space-3) center; background-size: 14px; }
+[dir="rtl"] .form-row select { padding-right: var(--space-3); padding-left: var(--space-7); background-position: left var(--space-3) center; }
+.form-row input:focus,
+.form-row select:focus,
+.form-row textarea:focus { box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.12); }
+@media (max-width: 560px) {
+  .form-grid { grid-template-columns: 1fr; }
+}
+
+/* Row-level "View/Edit/Delete" buttons on table rows.
+   Designed to read as quiet links by default and reveal intent on hover —
+   they appear on every row so they shouldn't dominate the row visually. */
+.row-edit-btn, .row-delete-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  transition: color 120ms, border-color 120ms, background 120ms;
+}
+.row-edit-btn:hover {
+  color: var(--text-h);
+  border-color: color-mix(in srgb, var(--color-primary) 40%, transparent);
+  background: var(--color-primary-bg);
+}
+.row-delete-btn { margin-left: 4px; }
+.row-delete-btn:hover {
+  color: #fca5a5;
+  border-color: color-mix(in srgb, var(--color-danger) 40%, transparent);
+  background: var(--color-danger-bg);
+}
+[dir="rtl"] .row-delete-btn { margin-left: 0; margin-right: 4px; }
+
+/* Destructive button style — softer coral red so it doesn't feel hostile */
+button.danger,
+.bulk-bar button.danger,
+.modal-foot button.danger {
+  background: var(--color-danger);
+  color: #fff;
+  border: 1px solid color-mix(in srgb, var(--color-danger) 80%, black);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.1) inset, 0 2px 6px -1px rgba(239, 68, 68, 0.45);
+}
+button.danger:hover:not(:disabled) {
+  background: var(--color-danger-hover);
+  border-color: var(--color-danger);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.15) inset, 0 4px 14px -3px rgba(239, 68, 68, 0.55);
+}
+button.danger:disabled { background: #5a2a2a; border-color: #5a2a2a; cursor: not-allowed; box-shadow: none; }
+
+/* FileInput (Phase 15): preview + URL field + pick button stacked */
+.file-input {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.file-input-preview {
+  max-width: 120px;
+  max-height: 80px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+}
+.file-input-controls {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.file-input-controls input[type="text"] {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+.file-input-err {
+  color: #ff8080;
+  font-size: 12px;
+}
+
+/* ==========================================================
+   Push compose page — target picker tiles + role pills
+   ==========================================================
+   The "target" is a 4-option single-select. Rendered as cards so
+   each option has room for a code-badge + title + description,
+   in the same visual register as GitHub's repo-visibility picker.
+   On 2-col grid up to ~720px, single col below. */
+.target-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+@media (max-width: 720px) { .target-grid { grid-template-columns: 1fr; } }
+
+.target-tile {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  text-align: start;
+  height: auto;
+  font: inherit;
+  color: var(--text);
+  transition:
+    border-color 150ms ease,
+    background 150ms ease,
+    transform 150ms ease,
+    box-shadow 200ms ease;
+  box-shadow: none;
+}
+.target-tile:hover:not(:disabled) {
+  border-color: var(--color-border-strong);
+  background: var(--color-surface-3);
+}
+.target-tile.is-selected {
+  border-color: var(--color-primary);
+  background: linear-gradient(180deg, var(--color-primary-bg), transparent),
+              var(--color-surface-2);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);
+}
+.target-tile:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+
+/* The 2-3 letter code chip in the leading slot — emerald gradient on
+   selected, neutral surface on idle. Reads like a label, not a button. */
+.target-code {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius);
+  background: var(--color-surface-3);
+  border: 1px solid var(--color-border);
+  color: var(--text-h);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+}
+.target-tile.is-selected .target-code {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dim));
+  border-color: var(--color-primary-dim);
+  color: white;
+  box-shadow: 0 4px 12px -3px rgba(16, 185, 129, 0.5);
+}
+.target-text { display: flex; flex-direction: column; gap: 2px; line-height: 1.35; }
+.target-text strong { color: var(--text-h); font-size: var(--text-md); font-weight: 600; }
+.target-text .muted { font-size: var(--text-sm); }
+
+/* Checkmark in top-right when selected — only mounted in JSX when selected. */
+.target-check {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  color: var(--color-primary-hover);
+}
+[dir="rtl"] .target-check { right: auto; left: var(--space-3); }
+
+/* Role pills — secondary picker shown only when target = ROL */
+.role-pills { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+.role-pill {
+  background: var(--color-surface-2);
+  color: var(--text);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  padding: 0 var(--space-4);
+  height: 34px;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: none;
+  transition: border-color 120ms, background 120ms, color 120ms, box-shadow 200ms;
+}
+.role-pill:hover:not(:disabled) { border-color: var(--color-border-strong); color: var(--text-h); }
+.role-pill.is-selected {
+  background: var(--color-primary);
+  border-color: var(--color-primary-dim);
+  color: white;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.15) inset,
+              0 4px 12px -3px rgba(16, 185, 129, 0.45);
+}
+
+/* Warn box — amber-tinted callout for "Broadcast mode" warning */
+.warn-box {
+  background: var(--color-warning-bg);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 45%, transparent);
+  color: #FCD34D;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius);
+  font-size: var(--text-sm);
+}
+.warn-box strong { color: #FDE68A; margin-right: 4px; }
+
+/* Push response box — dark inset console panel showing the FCM call result.
+   Mirrors the look of the old PHP push form's <div class="response"> block
+   so admins debugging delivery have a familiar "raw output" surface. */
+.push-response {
+  background: #050810;
+  color: #cbd5e1;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius);
+  padding: var(--space-3) var(--space-4);
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-x: auto;
+  max-height: 240px;
+  margin: 0;
+}
+
+/* Phase 16: read-only detail page — definition-list grid */
+.detail-grid {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 4px 14px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+}
+.detail-row {
+  display: contents;
+}
+.detail-key {
+  color: var(--muted);
+  font-size: 12px;
+  padding: 6px 0;
+  border-bottom: 1px dashed var(--border);
+  align-self: start;
+}
+.detail-value {
+  padding: 6px 0;
+  border-bottom: 1px dashed var(--border);
+  word-break: break-word;
+}
+.detail-row:last-child .detail-key,
+.detail-row:last-child .detail-value {
+  border-bottom: none;
+}
+
+/* ============================================================
+ * Phase 19 — RTL layout adjustments.
+ * Triggered by I18nProvider setting <html dir="rtl"> for ar/ckb/kmr.
+ * We rely on logical CSS where possible; these rules fix the few
+ * spots that hardcoded ltr-only positioning.
+ * ============================================================ */
+
+/* Right-anchor margin helpers used in row-* buttons that have margin-left */
+[dir="rtl"] .row-delete-btn { margin-left: 0; margin-right: 4px; }
+
+/* Form: required asterisk sits on the trailing side */
+[dir="rtl"] .form-label .req { margin-left: 0; margin-right: 4px; }
+
+/* The bulk-bar is translated horizontally; the transform origin matters in RTL */
+[dir="rtl"] .bulk-bar { /* nothing to flip — flex order is fine */ }
+
+/* Detail page: in RTL, the key column reads left from the right edge.
+   Use a logical grid template so it flips naturally. */
+[dir="rtl"] .detail-grid {
+  grid-template-columns: 1fr 220px;
+}
+[dir="rtl"] .detail-grid .detail-key { order: 2; text-align: right; }
+[dir="rtl"] .detail-grid .detail-value { order: 1; }
+
+/* Numbers in RTL still read left-to-right; preserve that for code blocks */
+code, pre { direction: ltr; unicode-bidi: bidi-override; }
+[dir="rtl"] .audit-old { text-align: right; }
+
+/* Tab row: invert the visual order so the "first" tab stays on the
+   start side regardless of direction */
+[dir="rtl"] .tab-row { flex-direction: row-reverse; }
+
+/* Selectable row highlight (Phase 12) */
+.row-selected td { background: rgba(99, 179, 237, 0.08); }
+
+/* Bulk action bar fixed at the bottom of the viewport.
+   Centering: framer-motion supplies translateX(-50%) via transformTemplate,
+   so we don't set it in CSS — that would clobber the spring `y` animation. */
+.bulk-bar {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--panel);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  padding: 8px 14px;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.7);
+  z-index: 150;
+}
+.bulk-bar select,
+.bulk-bar button {
+  padding: 4px 10px;
+  height: auto;
+  font-size: 13px;
+}
+
+/* Audit log: old → new visual diff inside a single cell */
+.audit-diff {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+.audit-old {
+  color: var(--muted);
+  text-decoration: line-through;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.audit-arrow {
+  color: var(--accent);
+  font-weight: 600;
+}
+.audit-new {
+  color: var(--text);
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.audit-meta-panel {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 14px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  max-height: 320px;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+/* Floating toast on new event */
+.events-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--panel);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  max-width: 360px;
+  z-index: 100;
+  animation: slide-in 200ms ease-out;
+}
+@keyframes slide-in {
+  from { transform: translateY(8px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+/* ==========================================================================
+   Phase 17 — row-status stripes + topbar sound menu
+   ========================================================================== */
+
+/* Row stripe — 4px coloured bar on the leading edge of each <tr>. The
+   bar is a ::before pseudo-element so it doesn't add a real cell and
+   doesn't interfere with selection / hover backgrounds. The map of
+   status → tone class lives in src/lib/statusColors.ts. */
+.data-table tbody tr[class*="row-stripe-"] {
+  position: relative;
+}
+.data-table tbody tr[class*="row-stripe-"]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 4px;
+  border-radius: 4px;
+  pointer-events: none;
+}
+[dir="rtl"] .data-table tbody tr[class*="row-stripe-"]::before {
+  left: auto;
+  right: 0;
+}
+
+.row-stripe-amber::before { background: var(--color-warning,  #F59E0B); box-shadow: 0 0 8px -1px rgba(245, 158, 11, 0.45); }
+.row-stripe-blue::before  { background: var(--color-info,     #38BDF8); box-shadow: 0 0 8px -1px rgba(56, 189, 248, 0.45); }
+.row-stripe-green::before { background: var(--color-primary,  #10B981); box-shadow: 0 0 8px -1px rgba(16, 185, 129, 0.45); }
+.row-stripe-red::before   { background: var(--color-danger,   #EF4444); box-shadow: 0 0 8px -1px rgba(239, 68, 68,  0.45); }
+.row-stripe-grey::before  { background: var(--color-border-strong, #4B5563); }
+
+/* When a row is BOTH highlighted (from a live-feed click) and striped, the
+   pulse animation owns the visual emphasis — dim the stripe so it doesn't
+   compete during the 4-second pulse. */
+.is-highlighted[class*="row-stripe-"]::before { opacity: 0.4; }
+
+/* === Topbar sound menu (Phase 17) ===
+   Speaker button + dropdown showing on/off, test chime, OS-notification opt-in. */
+.sound-menu { position: relative; display: inline-flex; }
+.sound-btn {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface-2);
+  color: var(--text);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  cursor: pointer;
+  box-shadow: none;
+  font-size: 16px;
+  padding: 0;
+  transition: background 120ms ease, color 120ms ease, transform 120ms ease;
+}
+.sound-btn:hover { background: var(--color-surface-3); color: var(--text-h); }
+.sound-btn.is-on { color: var(--color-primary); border-color: color-mix(in srgb, var(--color-primary) 50%, transparent); }
+/* Subtle pulse when audio is enabled by setting but not yet unlocked by a
+   user click — draws the eye exactly once until clicked. */
+.sound-btn.needs-unlock {
+  animation: sound-pulse 1.8s ease-in-out infinite;
+  color: var(--color-warning);
+  border-color: color-mix(in srgb, var(--color-warning) 50%, transparent);
+}
+@keyframes sound-pulse {
+  0%, 100% { box-shadow: 0 0 0 0   rgba(245, 158, 11, 0.0); }
+  50%      { box-shadow: 0 0 0 6px rgba(245, 158, 11, 0.18); }
+}
+
+.sound-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  inset-inline-end: 0;
+  min-width: 220px;
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.45);
+  padding: 6px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sound-popover button {
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  text-align: start;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  box-shadow: none;
+}
+.sound-popover button:hover { background: var(--color-surface-2); color: var(--text-h); }
+.sound-popover button.is-active { color: var(--color-primary); font-weight: 600; }
+.sound-popover hr { border: 0; border-top: 1px solid var(--color-border); margin: 4px 0; }
+.sound-popover-hint { padding: 6px 10px; color: var(--muted); font-size: 11px; line-height: 1.4; }
+
+/* Floating alert toast (Phase 17). Fixed top-right; click to navigate; auto
+   dismisses. Reuses the existing animation system. */
+.alert-toast {
+  position: fixed;
+  top: 76px;            /* below the topbar */
+  inset-inline-end: 24px;
+  min-width: 280px;
+  max-width: 360px;
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-border-strong);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  box-shadow: 0 16px 40px -10px rgba(0, 0, 0, 0.55);
+  z-index: 80;
+  cursor: pointer;
+  animation: slide-in 220ms ease-out both;
+}
+.alert-toast .at-icon {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--color-primary) 18%, transparent);
+  color: var(--color-primary);
+  font-size: 17px;
+  font-weight: 700;
+}
+.alert-toast .at-body { flex: 1; min-width: 0; line-height: 1.35; }
+.alert-toast .at-body strong { color: var(--text-h); font-weight: 600; }
+.alert-toast .at-body .muted { font-size: 12px; }
+.alert-toast .at-close {
+  flex-shrink: 0;
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+  padding: 4px;
+  cursor: pointer;
+  box-shadow: none;
+}
+.alert-toast .at-close:hover { color: var(--text-h); }
+
+/* ==========================================================================
+   Phase 18e — UserPicker (search-as-you-type combobox)
+   Used on /push to pick a single user for the U1 target. Built generic so
+   it can be reused elsewhere (e.g. mission-assign, ownership-transfer).
+   ========================================================================== */
+.user-picker { position: relative; width: 100%; }
+
+/* Dropdown of results, positioned right under the search input. */
+.up-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  box-shadow: 0 16px 40px -10px rgba(0, 0, 0, 0.45);
+  max-height: 320px;
+  overflow-y: auto;
+}
+.up-empty {
+  padding: 14px 12px;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+/* Each result row */
+.up-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+.up-row.is-highlighted {
+  background: color-mix(in srgb, var(--color-primary, #10b981) 12%, transparent);
+  outline: 1px solid color-mix(in srgb, var(--color-primary, #10b981) 35%, transparent);
+}
+
+.up-row-avatar,
+.up-chip-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dim, #059669));
+  color: white;
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  box-shadow: 0 3px 8px -2px rgba(16, 185, 129, 0.4);
+}
+
+.up-row-text,
+.up-chip-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  line-height: 1.35;
+  min-width: 0;     /* allows ellipsis on long names */
+}
+.up-row-text strong,
+.up-chip-text strong {
+  color: var(--text-h);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.up-row-text .muted,
+.up-chip-text .muted {
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Collapsed state — once a user is picked, the input is replaced with this
+   chip showing their identity + a Change button. */
+.user-picker-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px 8px 8px;
+  background: color-mix(in srgb, var(--color-primary, #10b981) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-primary, #10b981) 35%, transparent);
+  border-radius: 12px;
+}
+.up-chip-body {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+.up-chip-clear {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--color-border, #2a2a3a);
+  padding: 5px 12px;
+  font-size: 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: none;
+  flex-shrink: 0;
+}
+.up-chip-clear:hover { background: var(--color-surface-2); color: var(--text-h); }
+.up-chip-clear:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ==========================================================================
+   Phase 24 — Volunteer board (per-mission Kanban swim-lanes)
+   ========================================================================== */
+
+/* Total chips at the top of the page header */
+.board-total {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border: 1px solid transparent;
+}
+.board-total-amber {
+  background: color-mix(in srgb, var(--color-warning, #F59E0B) 18%, transparent);
+  color: var(--color-warning, #F59E0B);
+  border-color: color-mix(in srgb, var(--color-warning, #F59E0B) 35%, transparent);
+}
+.board-total-blue {
+  background: color-mix(in srgb, var(--color-info, #38BDF8) 18%, transparent);
+  color: var(--color-info, #38BDF8);
+  border-color: color-mix(in srgb, var(--color-info, #38BDF8) 35%, transparent);
+}
+.board-total-info {
+  background: color-mix(in srgb, var(--color-primary, #10b981) 14%, transparent);
+  color: color-mix(in srgb, var(--color-primary, #10b981) 80%, white);
+  border-color: color-mix(in srgb, var(--color-primary, #10b981) 35%, transparent);
+}
+.board-total-green {
+  background: color-mix(in srgb, var(--color-primary, #10b981) 18%, transparent);
+  color: var(--color-primary, #10b981);
+  border-color: color-mix(in srgb, var(--color-primary, #10b981) 35%, transparent);
+}
+
+/* Each mission row — header + 4-lane grid below */
+.board-mission {
+  background: var(--color-surface-1, var(--panel));
+  border: 1px solid var(--color-border, #2a2a3a);
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.board-mission-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed var(--color-border, #2a2a3a);
+}
+
+/* The 4-lane grid — equal columns; stacks to 2-col on narrow widths,
+   single col on phone. */
+.board-lanes {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+@media (max-width: 1100px) {
+  .board-lanes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .board-lanes { grid-template-columns: 1fr; }
+}
+
+/* Each lane — header on top, scrollable card list below */
+.board-lane {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--color-surface-2, rgba(255, 255, 255, 0.02));
+  border: 1px solid var(--color-border, #2a2a3a);
+  border-radius: 12px;
+  padding: 10px;
+  min-height: 120px;
+}
+.board-lane-amber { border-top: 3px solid var(--color-warning, #F59E0B); }
+.board-lane-blue  { border-top: 3px solid var(--color-info,    #38BDF8); }
+.board-lane-info  { border-top: 3px solid var(--color-primary, #10b981); }
+.board-lane-green { border-top: 3px solid var(--color-primary, #10b981); }
+
+.board-lane-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.board-lane-head strong { font-size: 13px; }
+.board-lane-count {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+}
+.board-lane-count-amber { background: var(--color-warning, #F59E0B); color: #1f1300; }
+.board-lane-count-blue  { background: var(--color-info,    #38BDF8); color: #00141f; }
+.board-lane-count-info  { background: var(--color-primary, #10b981); color: white; }
+.board-lane-count-green { background: var(--color-primary, #10b981); color: white; }
+
+.board-lane-sub {
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+.board-lane-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 480px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+.board-lane-empty {
+  font-size: 12px;
+  padding: 16px 8px;
+  text-align: center;
+  font-style: italic;
+}
+
+/* One volunteer card */
+.board-card {
+  background: var(--color-surface-1, var(--panel));
+  border: 1px solid var(--color-border, #2a2a3a);
+  border-radius: 10px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: border-color 120ms ease, transform 120ms ease;
+}
+.board-card:hover {
+  border-color: var(--color-border-strong, #4B5563);
+  transform: translateY(-1px);
+}
+.board-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.board-card-avatar {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--color-primary, #10b981), var(--color-primary-dim, #059669));
+  color: white;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+.board-card-head strong {
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.board-card-meta {
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+/* Phase 27.8 — recommended push template cards: gentle hover lift.
+   Inline styles handle accent color + active ring; this just adds the
+   hover transform that inline styles can't express. */
+.tpl-card:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+.tpl-card {
+  transform: translateY(0);
+}

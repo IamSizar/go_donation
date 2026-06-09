@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "463997425388",
+    "project_id": "human-f1dc6",
+    "storage_bucket": "human-f1dc6.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:463997425388:android:c7351976243aa4657ff7c9",
+        "android_client_info": {
+          "package_name": "com.example.humanitarian"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAaRrGWR1CsQDY4VGfFaY4OQd22kG2ossE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

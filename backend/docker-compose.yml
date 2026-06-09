@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: humanitarian_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: humanitarian
+      POSTGRES_USER: humanitarian
+      POSTGRES_PASSWORD: humanitarian_dev_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --locale=C"
+    ports:
+      - "5435:5432"
+    volumes:
+      - ./db-data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U humanitarian -d humanitarian"]
+      interval: 5s
+      timeout: 5s
+      retries: 10

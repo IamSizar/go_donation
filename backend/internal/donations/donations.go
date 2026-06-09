@@ -1,0 +1,511 @@
+package donations
+
+import (
+	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"strconv"
+	"strings"
+	"time"
+	"unicode/utf8"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+func itoa(n int) string { return strconv.Itoa(n) }
+
+// Lifecycle-gate errors returned from Insert. Handlers should translate these
+// to user-facing 400 / 410 responses rather than 500.
+var (
+	ErrCampaignNotFound     = errors.New("campaign not found")
+	ErrCampaignFinished     = errors.New("campaign has finished and is no longer accepting donations")
+	ErrCampaignNotDonatable = errors.New("campaign is not accepting donations right now")
+)
+
+// Donation is the row returned to clients (mirrors getDonationsByUserId shape).
+type Donation struct {
+	ID              int64   `json:"id"`
+	ReferenceNumber *string `json:"reference_number"`
+	UserID          int64   `json:"user_id"`
+	CampaignID      *int64  `json:"campaign_id"`
+	DonationKind    string  `json:"donation_kind"`
+	CampaignName    *string `json:"campaign_name"`
+	CampaignNameAr  *string `json:"campaign_name_ar"`
+	Currency        string  `json:"currency"`
+	Message         string  `json:"message"`
+	Amount          string  `json:"amount"`
+	PaymentStatus   int     `json:"payment_status"`
+	DeliveryStatus  string  `json:"delivery_status"`
+	PaymentMethod   string  `json:"payment_method"`
+	ImpactNote      *string `json:"impact_note"`
+	TransactionDate time.Time `json:"transaction_date"`
+}
+
+// Stats mirrors the PHP "stats" object on /my_donations.
+type Stats struct {
+	TotalCount    int    `json:"total_count"`
+	TotalAmount   string `json:"total_amount"`
+	SuccessCount  int    `json:"success_count"`
+	SuccessAmount string `json:"success_amount"`
+	PendingCount  int    `json:"pending_count"`
+	PendingAmount string `json:"pending_amount"`
+	FailedCount   int    `json:"failed_count"`
+	FailedAmount  string `json:"failed_amount"`
+}
+
+// InsertedDonation is the small shape returned in the /donate response.
+type InsertedDonation struct {
+	ID              int64  `json:"id"`
+	ReferenceNumber string `json:"reference_number"`
+	UserID          int64  `json:"user_id"`
+	CampaignID      *int64 `json:"campaign_id"`
+	DonationKind    string `json:"donation_kind"`
+}
+
+type Store struct {
+	Pool *pgxpool.Pool
+}
+
+func NewStore(pool *pgxpool.Pool) *Store {
+	return &Store{Pool: pool}
+}
+
+// Insert ports insertDonationUserId(). Validates inputs the same way and
+// returns the inserted-donation metadata.
+func (s *Store) Insert(
+	ctx context.Context,
+	userID int64,
+	campaignID *int64,
+	message *string,
+	amount *string,
+	paymentMethod *string,
+) (*InsertedDonation, error) {
+	if userID <= 0 {
+		return nil, errors.New("invalid userID")
+	}
+	if campaignID != nil && *campaignID <= 0 {
+		campaignID = nil
+	}
+
+	msg := ""
+	if message != nil {
+		msg = strings.TrimSpace(*message)
+		if utf8.RuneCountInString(msg) > 500 {
+			msg = string([]rune(msg)[:500])
+		}
+	}
+
+	var amountStr string
+	if amount != nil {
+		amt := strings.TrimSpace(*amount)
+		var n float64
+		if _, err := fmt.Sscanf(amt, "%f", &n); err == nil && n > 0 && n < 1_000_000 {
+			amountStr = amt
+		}
+	}
+
+	method := ""
+	if paymentMethod != nil {
+		method = strings.TrimSpace(*paymentMethod)
+		if utf8.RuneCountInString(method) > 64 {
+			method = string([]rune(method)[:64])
+		}
+	}
+
+	donationKind := "campaign"
+	if campaignID == nil {
+		donationKind = "general"
+	}
+
+	refHex, err := randHex(4)
+	if err != nil {
+		return nil, err
+	}
+	refNumber := "DON-" + time.Now().UTC().Format("20060102") + "-" + strings.ToUpper(refHex)
+
+	// Phase 15 — the INSERT and the campaign roll-up have to land atomically
+	// so the donor never sees a donation row without the matching bump in
+	// `campaigns.raised_amount`. We use a single transaction; both columns
+	// (donations.amount and campaigns.raised_amount) are VARCHAR for legacy
+	// PHP compatibility, so we cast through ::numeric in the UPDATE.
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	// Best-effort rollback; the happy path commits below.
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	// Phase 15.1 — campaign lifecycle gate. Reject the donation when the
+	// referenced campaign is hidden or finished (or missing entirely). This
+	// runs inside the tx so we don't race against an admin retiring the
+	// campaign mid-checkout.
+	if campaignID != nil {
+		var status string
+		err := tx.QueryRow(ctx,
+			`SELECT status FROM campaigns WHERE id = $1`,
+			*campaignID,
+		).Scan(&status)
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			return nil, ErrCampaignNotFound
+		case err != nil:
+			return nil, err
+		case status == "finished":
+			return nil, ErrCampaignFinished
+		case status != "active":
+			// "hidden" or any unexpected value — donor shouldn't have
+			// reached this point anyway, so treat the same as not-found.
+			return nil, ErrCampaignNotDonatable
+		}
+	}
+
+	var newID int64
+	if err := tx.QueryRow(ctx, `
+		INSERT INTO donations
+		   (reference_number, user_id, campaign_id, donation_kind, message, amount, payment_method)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		RETURNING id`,
+		refNumber, userID, campaignID, donationKind, msg, amountStr, method,
+	).Scan(&newID); err != nil {
+		return nil, err
+	}
+
+	// Roll the donated amount into the campaign total when:
+	//   • the donation actually references a campaign (general donations skip), AND
+	//   • the amount parsed to a positive number above (amountStr != "").
+	//
+	// COALESCE protects against any old rows that snuck in with an empty string
+	// — without it, '' + 100 would produce a NULL and lose the historical total.
+	if campaignID != nil && amountStr != "" {
+		_, err := tx.Exec(ctx, `
+			UPDATE campaigns
+			   SET raised_amount = (
+			           COALESCE(NULLIF(raised_amount, '')::numeric, 0)
+			         + $1::numeric
+			       )::text
+			 WHERE id = $2`,
+			amountStr, *campaignID,
+		)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+
+	return &InsertedDonation{
+		ID:              newID,
+		ReferenceNumber: refNumber,
+		UserID:          userID,
+		CampaignID:      campaignID,
+		DonationKind:    donationKind,
+	}, nil
+}
+
+// CancelByDonor lets a donor cancel their own donation when it's still in
+// an early lifecycle state. Mirrors a self-service "I made a mistake"
+// flow without admin involvement.
+//
+// Phase 23. Rules:
+//   • Donation must belong to userID (the bearer token's user)
+//   • Current delivery_status must be 'registered' (still pending review)
+//     — once admin has 'received' or 'delivered' it, the donor can no
+//     longer rescind; they have to contact support.
+//   • Side effects on success:
+//       - delivery_status = 'cancelled'
+//       - campaigns.raised_amount -= donation.amount
+//         (mirrors the +amount bump in Insert; net zero)
+//
+// All of the above runs in a single transaction so a partial state can't
+// land in the DB.
+//
+// Sentinel errors let the handler emit appropriate HTTP codes:
+var (
+	ErrDonationNotFound       = errors.New("donation not found")
+	ErrDonationNotOwned       = errors.New("you can only cancel your own donations")
+	ErrDonationNotCancellable = errors.New("this donation can no longer be cancelled (already received or delivered)")
+)
+
+// CancelByDonor returns the donation's amount + campaign_id so the caller
+// can fire a confirmation notification if desired.
+func (s *Store) CancelByDonor(ctx context.Context, donationID, userID int64) (amount string, campaignID *int64, err error) {
+	if donationID <= 0 || userID <= 0 {
+		return "", nil, ErrDonationNotFound
+	}
+
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return "", nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var ownerID int64
+	var deliveryStatus string
+	var amt string
+	var cid *int64
+	err = tx.QueryRow(ctx,
+		`SELECT user_id, delivery_status, amount, campaign_id
+		   FROM donations WHERE id = $1`,
+		donationID,
+	).Scan(&ownerID, &deliveryStatus, &amt, &cid)
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		return "", nil, ErrDonationNotFound
+	case err != nil:
+		return "", nil, err
+	}
+	if ownerID != userID {
+		return "", nil, ErrDonationNotOwned
+	}
+	// Only allow self-cancel for "registered" — anything further into the
+	// pipeline is admin's call. ('cancelled' is also a no-op safeguard.)
+	if deliveryStatus != "registered" {
+		return "", nil, ErrDonationNotCancellable
+	}
+
+	if _, err := tx.Exec(ctx,
+		`UPDATE donations SET delivery_status = 'cancelled' WHERE id = $1`,
+		donationID,
+	); err != nil {
+		return "", nil, err
+	}
+
+	// Reverse the raised_amount bump made at Insert time. Same NUMERIC cast
+	// pattern + COALESCE-empty-string guard.
+	if cid != nil && amt != "" {
+		if _, err := tx.Exec(ctx, `
+			UPDATE campaigns
+			   SET raised_amount = (
+			           COALESCE(NULLIF(raised_amount, '')::numeric, 0)
+			         - $1::numeric
+			       )::text
+			 WHERE id = $2`,
+			amt, *cid,
+		); err != nil {
+			return "", nil, err
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return "", nil, err
+	}
+	return amt, cid, nil
+}
+
+// ListByUser ports getDonationsByUserId(). Returns the list + summary stats.
+// "general" donations get a synthetic campaign name like the PHP version.
+func (s *Store) ListByUser(ctx context.Context, userID int64) ([]Donation, Stats, error) {
+	emptyStats := Stats{
+		TotalAmount:   "0",
+		SuccessAmount: "0",
+		PendingAmount: "0",
+		FailedAmount:  "0",
+	}
+	if userID <= 0 {
+		return nil, emptyStats, errors.New("invalid userID")
+	}
+
+	// Phase 18c — donations.campaign_id is a FK to the `campaigns` table
+	// (since Phase 15 unified donor + admin on the campaigns table). This
+	// join was historically pointing at `beneficiary_project_requests`,
+	// which shares ids 1 and 2 with the campaigns table — so donations to
+	// campaign id=1 ("Winter Relief") were displayed as project id=1
+	// ("Solar Panels for Off-Grid Village School"). Fixed to join campaigns
+	// and pull title / title_ar from there. Campaigns has no currency
+	// column today; we hardcode IQD which is what every campaign uses.
+	rows, err := s.Pool.Query(ctx, `
+		SELECT d.id, d.reference_number, d.user_id, d.campaign_id, d.donation_kind,
+		       c.title, c.title_ar,
+		       'IQD'::text AS currency,
+		       d.message, d.amount, d.payment_status, d.delivery_status,
+		       d.payment_method, d.impact_note, d.transaction_date
+		  FROM donations d
+		  LEFT JOIN campaigns c ON d.campaign_id = c.id
+		 WHERE d.user_id = $1
+		 ORDER BY d.transaction_date DESC, d.id DESC`,
+		userID,
+	)
+	if err != nil {
+		return nil, emptyStats, err
+	}
+	defer rows.Close()
+
+	items := []Donation{}
+	for rows.Next() {
+		var d Donation
+		err := rows.Scan(
+			&d.ID, &d.ReferenceNumber, &d.UserID, &d.CampaignID, &d.DonationKind,
+			&d.CampaignName, &d.CampaignNameAr, &d.Currency,
+			&d.Message, &d.Amount, &d.PaymentStatus, &d.DeliveryStatus,
+			&d.PaymentMethod, &d.ImpactNote, &d.TransactionDate,
+		)
+		if err != nil {
+			return nil, emptyStats, err
+		}
+		if d.DonationKind == "general" {
+			gn, gnAr := "General Support", "الدعم العام"
+			d.CampaignName = &gn
+			d.CampaignNameAr = &gnAr
+		}
+		items = append(items, d)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, emptyStats, err
+	}
+
+	// Stats — amount is stored as VARCHAR, so cast to NUMERIC for math.
+	var stats Stats
+	err = s.Pool.QueryRow(ctx, `
+		SELECT
+		  COUNT(*) AS total_count,
+		  COALESCE(SUM(NULLIF(amount,'')::numeric), 0) AS total_amount,
+		  SUM(CASE WHEN payment_status = 1 THEN 1 ELSE 0 END) AS success_count,
+		  COALESCE(SUM(CASE WHEN payment_status = 1 THEN NULLIF(amount,'')::numeric ELSE 0 END), 0) AS success_amount,
+		  SUM(CASE WHEN payment_status = 2 THEN 1 ELSE 0 END) AS pending_count,
+		  COALESCE(SUM(CASE WHEN payment_status = 2 THEN NULLIF(amount,'')::numeric ELSE 0 END), 0) AS pending_amount,
+		  SUM(CASE WHEN payment_status = 3 THEN 1 ELSE 0 END) AS failed_count,
+		  COALESCE(SUM(CASE WHEN payment_status = 3 THEN NULLIF(amount,'')::numeric ELSE 0 END), 0) AS failed_amount
+		FROM donations
+		WHERE user_id = $1`,
+		userID,
+	).Scan(
+		&stats.TotalCount, &stats.TotalAmount,
+		&stats.SuccessCount, &stats.SuccessAmount,
+		&stats.PendingCount, &stats.PendingAmount,
+		&stats.FailedCount, &stats.FailedAmount,
+	)
+	if err != nil {
+		return items, emptyStats, err
+	}
+	return items, stats, nil
+}
+
+// AdminListRow is the row shape for the admin /api/donations table view —
+// donation columns plus joined donor info (phone, full_name) and campaign title.
+type AdminListRow struct {
+	ID              int64     `json:"id"`
+	ReferenceNumber *string   `json:"reference_number"`
+	UserID          int64     `json:"user_id"`
+	DonorPhone      string    `json:"donor_phone"`
+	DonorFullName   *string   `json:"donor_full_name"`
+	CampaignID      *int64    `json:"campaign_id"`
+	CampaignTitle   *string   `json:"campaign_title"`
+	DonationKind    string    `json:"donation_kind"`
+	Amount          string    `json:"amount"`
+	Currency        string    `json:"currency"`
+	PaymentStatus   int       `json:"payment_status"`
+	DeliveryStatus  string    `json:"delivery_status"`
+	PaymentMethod   string    `json:"payment_method"`
+	TransactionDate time.Time `json:"transaction_date"`
+}
+
+// AdminPage is the page response for AdminList.
+type AdminPage struct {
+	Items      []AdminListRow `json:"items"`
+	Page       int            `json:"page"`
+	PerPage    int            `json:"per_page"`
+	TotalItems int            `json:"total_items"`
+	TotalPages int            `json:"total_pages"`
+	HasMore    bool           `json:"has_more"`
+}
+
+// AdminList returns a paginated list of all donations (admin view) with joined
+// donor and campaign info.
+// AdminList returns paginated donations. q searches reference_number, donor
+// name (joined user_profiles), donor phone, and payment_method.
+func (s *Store) AdminList(ctx context.Context, page, perPage int, q string) (*AdminPage, error) {
+	if page < 1 {
+		page = 1
+	}
+	if perPage <= 0 || perPage > 200 {
+		perPage = 20
+	}
+	offset := (page - 1) * perPage
+
+	args := []any{}
+	where := ""
+	if qTrim := strings.TrimSpace(q); qTrim != "" {
+		args = append(args, "%"+qTrim+"%")
+		where = ` WHERE (d.reference_number ILIKE $1 OR u.phone ILIKE $1 OR up.full_name ILIKE $1 OR d.payment_method ILIKE $1)`
+	}
+
+	var total int
+	if err := s.Pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM donations d
+		   LEFT JOIN users u ON u.id = d.user_id
+		   LEFT JOIN user_profiles up ON up.user_id = d.user_id`+where,
+		args...,
+	).Scan(&total); err != nil {
+		return nil, err
+	}
+
+	limIdx := len(args) + 1
+	offIdx := len(args) + 2
+	args = append(args, perPage, offset)
+	// Phase 18c — join campaigns (the table donations.campaign_id actually
+	// references) instead of beneficiary_project_requests. See the comment
+	// on ListByUser above for the full history.
+	rows, err := s.Pool.Query(ctx, `
+		SELECT d.id, d.reference_number, d.user_id, u.phone, up.full_name,
+		       d.campaign_id, c.title,
+		       d.donation_kind, d.amount,
+		       'IQD'::text AS currency,
+		       d.payment_status, d.delivery_status, d.payment_method, d.transaction_date
+		  FROM donations d
+		  LEFT JOIN users u ON u.id = d.user_id
+		  LEFT JOIN user_profiles up ON up.user_id = d.user_id
+		  LEFT JOIN campaigns c ON c.id = d.campaign_id`+where+`
+		 ORDER BY d.transaction_date DESC, d.id DESC
+		 LIMIT $`+itoa(limIdx)+` OFFSET $`+itoa(offIdx),
+		args...,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := []AdminListRow{}
+	for rows.Next() {
+		var r AdminListRow
+		if err := rows.Scan(&r.ID, &r.ReferenceNumber, &r.UserID, &r.DonorPhone, &r.DonorFullName,
+			&r.CampaignID, &r.CampaignTitle,
+			&r.DonationKind, &r.Amount, &r.Currency,
+			&r.PaymentStatus, &r.DeliveryStatus, &r.PaymentMethod, &r.TransactionDate); err != nil {
+			return nil, err
+		}
+		if r.DonationKind == "general" && (r.CampaignTitle == nil || *r.CampaignTitle == "") {
+			gn := "General Support"
+			r.CampaignTitle = &gn
+		}
+		items = append(items, r)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	totalPages := (total + perPage - 1) / perPage
+	if totalPages < 1 {
+		totalPages = 1
+	}
+	return &AdminPage{
+		Items:      items,
+		Page:       page,
+		PerPage:    perPage,
+		TotalItems: total,
+		TotalPages: totalPages,
+		HasMore:    page < totalPages,
+	}, nil
+}
+
+func randHex(n int) (string, error) {
+	b := make([]byte, n)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
+}

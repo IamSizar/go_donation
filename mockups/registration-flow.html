@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Registration → Admin Approval — Flow Mockup (4 languages)</title>
+<style>
+  :root{
+    --bg-top:#08131F; --bg-bot:#0F1B2D;
+    --surface:#16263A; --surface-2:#132033;
+    --line:rgba(148,163,184,.18);
+    --text:#F8FAFC; --muted:#94A3B8;
+    --teal:#14B8A6; --blue:#2563EB; --primary:#0F766E;
+    --amber:#F59E0B; --orange:#FF7043; --sky:#38BDF8;
+    --ok:#22C55E; --warn:#FBBF24; --bad:#EF4444;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:radial-gradient(1200px 700px at 15% -10%, #11243b 0%, #0b1626 55%, #070f1a 100%);
+    color:var(--text); padding:32px 24px 80px;
+  }
+  h1{font-size:22px; margin:0 0 4px}
+  .sub{color:var(--muted); font-size:14px; margin:0 0 6px}
+  .pill{display:inline-block; font-size:12px; font-weight:700; letter-spacing:.3px;
+    color:#7CF3E4; background:rgba(20,184,166,.12); border:1px solid rgba(20,184,166,.35);
+    padding:4px 10px; border-radius:999px; margin-bottom:18px}
+
+  /* language switcher */
+  .langbar{display:flex; gap:8px; flex-wrap:wrap; margin:6px 0 22px}
+  .langbtn{cursor:pointer; border:1px solid var(--line); background:var(--surface-2); color:#cfe0f5;
+    padding:8px 14px; border-radius:10px; font-size:13px; font-weight:700}
+  .langbtn.active{border-color:var(--teal); color:#04210f; background:linear-gradient(135deg,var(--teal),#36d3bd)}
+  .langbtn small{display:block; font-size:10px; font-weight:600; opacity:.7}
+
+  .flow{display:flex; gap:18px; align-items:flex-start; flex-wrap:wrap}
+  .step{display:flex; flex-direction:column; align-items:center; gap:10px}
+  .caption{font-size:12.5px; color:var(--muted); max-width:230px; text-align:center; line-height:1.45}
+  .caption b{color:#cfe0f5}
+  .arrow{align-self:center; color:#3b5170; font-size:30px; padding-top:120px}
+  .tag{font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.6px; padding:3px 9px; border-radius:6px}
+  .tag.keep{color:#9fb3cc; background:rgba(148,163,184,.12); border:1px solid var(--line)}
+  .tag.new{color:#062018; background:linear-gradient(135deg,var(--teal),#36d3bd)}
+  .tag.gone{color:#fff; background:rgba(239,68,68,.18); border:1px solid rgba(239,68,68,.45)}
+
+  .phone{width:250px; height:520px; border-radius:34px; padding:12px;
+    background:linear-gradient(160deg,#1b2c43,#0d1726); border:1px solid rgba(148,163,184,.22);
+    box-shadow:0 30px 60px -20px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.04); position:relative}
+  .screen{position:absolute; inset:12px; border-radius:24px; overflow:hidden;
+    background:linear-gradient(180deg,var(--bg-top),var(--bg-bot)); display:flex; flex-direction:column}
+  .notch{position:absolute; top:14px; left:50%; transform:translateX(-50%); width:90px; height:6px; border-radius:6px; background:rgba(255,255,255,.18); z-index:5}
+  .sc-body{flex:1; overflow:auto; padding:34px 18px 18px; display:flex; flex-direction:column}
+  .sc-body::-webkit-scrollbar{width:0}
+  .logo{width:54px; height:54px; border-radius:50%; background:linear-gradient(135deg,var(--teal),var(--blue)); display:flex; align-items:center; justify-content:center; font-size:26px; margin-bottom:14px}
+  .h{font-size:20px; font-weight:800; line-height:1.25; margin:0 0 6px}
+  .p{font-size:12.5px; color:var(--muted); line-height:1.55; margin:0 0 16px}
+  .label{font-size:11px; color:#9fb3cc; font-weight:700; margin:12px 0 6px; letter-spacing:.3px}
+  .input{background:var(--surface-2); border:1px solid var(--line); border-radius:12px; padding:11px 12px; font-size:13px; color:var(--text); display:flex; align-items:center; gap:8px}
+  .input .ph{color:#5f7796}
+  .input.focus{border-color:var(--teal); box-shadow:0 0 0 3px rgba(20,184,166,.15)}
+  .btn{margin-top:auto; background:linear-gradient(135deg,var(--teal),var(--blue)); color:#fff; border:none; border-radius:14px; padding:13px; font-size:14px; font-weight:800; cursor:pointer; box-shadow:0 12px 26px -10px rgba(37,99,235,.8); width:100%}
+  .btn.ghost{background:transparent; border:1px solid var(--line); color:#cfe0f5; box-shadow:none}
+  .otpgrid{display:flex; gap:8px; justify-content:space-between; margin:6px 0 4px; direction:ltr}
+  .otpcell{flex:1; aspect-ratio:1/1.15; border-radius:12px; background:var(--surface-2); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:20px; font-weight:800}
+  .otpcell.on{border-color:var(--teal); color:#7CF3E4}
+  .demo{font-size:11px; color:#7CF3E4; background:rgba(20,184,166,.1); border:1px dashed rgba(20,184,166,.4); padding:7px 9px; border-radius:9px; margin-top:10px; text-align:center}
+  .roles{display:flex; flex-direction:column; gap:9px; margin-top:4px}
+  .role{display:flex; align-items:center; gap:10px; padding:10px; border-radius:14px; background:linear-gradient(135deg,rgba(22,38,58,.96),rgba(255,255,255,.02)); border:1px solid var(--line); cursor:pointer}
+  .role .ic{width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:18px; flex:none}
+  .role .nm{font-size:13.5px; font-weight:700}
+  .role .ds{font-size:10.5px; color:var(--muted); margin-top:1px}
+  .role .rb{margin-inline-start:auto; width:18px; height:18px; border-radius:50%; border:2px solid #45607f; flex:none}
+  .role.sel{border-color:var(--teal); box-shadow:0 0 0 2px rgba(20,184,166,.18)}
+  .role.sel .rb{border-color:var(--teal); background:radial-gradient(circle at center,var(--teal) 0 6px,transparent 7px)}
+  .r-donor .ic{background:rgba(245,158,11,.16); color:var(--amber)}
+  .r-bene .ic{background:rgba(255,112,67,.16); color:var(--orange)}
+  .r-vol .ic{background:rgba(56,189,248,.16); color:var(--sky)}
+  .center{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:13px}
+  .statusIcon{width:84px; height:84px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:40px}
+  .statusIcon.wait{background:rgba(251,191,36,.14); border:1px solid rgba(251,191,36,.4); color:var(--warn)}
+  .statusIcon.ok{background:rgba(34,197,94,.14); border:1px solid rgba(34,197,94,.45); color:#86efac}
+  .badge{font-size:11px; font-weight:800; letter-spacing:.5px; text-transform:uppercase; padding:5px 12px; border-radius:999px}
+  .badge.wait{color:#1f1602; background:var(--warn)}
+  .badge.ok{color:#04210f; background:var(--ok)}
+  .summary{width:100%; background:var(--surface-2); border:1px solid var(--line); border-radius:14px; padding:12px; margin-top:4px}
+  .row{display:flex; justify-content:space-between; gap:10px; font-size:12px; padding:5px 0; border-bottom:1px dashed var(--line)}
+  .row:last-child{border-bottom:none}
+  .row .k{color:var(--muted)} .row .v{color:#dbe7f7; font-weight:600}
+
+  .admin-wrap{margin-top:44px}
+  .admin{background:linear-gradient(180deg,#0e1a2b,#0b1524); border:1px solid var(--line); border-radius:18px; overflow:hidden; max-width:940px; box-shadow:0 30px 60px -28px rgba(0,0,0,.7)}
+  .admin .top{display:flex; align-items:center; gap:12px; padding:16px 20px; border-bottom:1px solid var(--line); background:rgba(255,255,255,.02)}
+  .admin .top .dot{width:9px;height:9px;border-radius:50%;background:var(--warn);box-shadow:0 0 0 4px rgba(251,191,36,.15)}
+  .admin .top h3{margin:0; font-size:15px}
+  .admin .top .count{margin-inline-start:auto; font-size:12px; font-weight:800; color:#1f1602; background:var(--warn); padding:3px 10px; border-radius:999px}
+  table{width:100%; border-collapse:collapse; font-size:13px}
+  th{text-align:start; color:var(--muted); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.4px; padding:11px 16px; border-bottom:1px solid var(--line)}
+  td{padding:13px 16px; border-bottom:1px solid rgba(148,163,184,.1); vertical-align:middle; text-align:start}
+  tr:last-child td{border-bottom:none}
+  .who{display:flex; align-items:center; gap:10px}
+  .av{width:32px;height:32px;border-radius:50%; display:flex;align-items:center;justify-content:center; font-size:13px; font-weight:800; color:#04210f; background:linear-gradient(135deg,var(--teal),var(--blue)); flex:none}
+  .rchip{font-size:11px; font-weight:700; padding:3px 9px; border-radius:999px; white-space:nowrap}
+  .rchip.donor{color:var(--amber); background:rgba(245,158,11,.14)}
+  .rchip.bene{color:var(--orange); background:rgba(255,112,67,.14)}
+  .rchip.vol{color:var(--sky); background:rgba(56,189,248,.14)}
+  .stchip{font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px;color:#1f1602;background:var(--warn); white-space:nowrap}
+  .acts{display:flex; gap:8px; justify-content:flex-end}
+  .mini{border:none; border-radius:9px; padding:7px 12px; font-size:12px; font-weight:800; cursor:pointer; white-space:nowrap}
+  .mini.acc{color:#04210f; background:var(--ok)}
+  .mini.rej{color:#fff; background:rgba(239,68,68,.16); border:1px solid rgba(239,68,68,.5)}
+
+  .notes{margin-top:38px; max-width:940px; background:rgba(20,184,166,.05); border:1px solid rgba(20,184,166,.25); border-radius:16px; padding:18px 22px}
+  .notes h3{margin:0 0 12px; font-size:15px; color:#9ff0e2}
+  .notes ol{margin:0; padding-left:20px; line-height:1.7; font-size:13.5px; color:#cbd9ec}
+  .notes b{color:#fff}
+  .foot{margin-top:14px; font-size:12px; color:var(--muted)}
+  .toast{position:fixed; left:50%; bottom:28px; transform:translateX(-50%) translateY(140%); background:var(--ok); color:#04210f; font-weight:800; padding:12px 20px; border-radius:12px; box-shadow:0 20px 40px -12px rgba(0,0,0,.6); transition:.4s; z-index:50; font-size:14px}
+  .toast.show{transform:translateX(-50%) translateY(0)}
+  .legend{display:flex; gap:14px; flex-wrap:wrap; margin:6px 0 22px; font-size:12px; color:var(--muted)}
+  .legend span{display:inline-flex; align-items:center; gap:6px}
+</style>
+</head>
+<body>
+
+  <h1>Registration → Admin Approval flow</h1>
+  <p class="sub">Mobile onboarding redesign · admin approval · <b>all 4 app languages</b> with RTL</p>
+  <div class="pill">MOCKUP ONLY — no app code changed yet</div>
+
+  <div class="langbar" id="langbar"></div>
+
+  <div class="legend">
+    <span><span class="tag keep">KEEP</span> existing screen</span>
+    <span><span class="tag new">NEW</span> new screen / behavior</span>
+    <span><span class="tag gone">REMOVED</span> old "Choose your role" screen</span>
+  </div>
+
+  <div id="flowMount"></div>
+  <div class="admin-wrap"><span class="tag new" id="adminTag">NEW · admin side</span><div id="adminMount" style="margin-top:10px"></div></div>
+
+  <div class="notes">
+    <h3>What changes (in plain terms)</h3>
+    <ol>
+      <li>The old <b>"Choose your role"</b> screen is <b>removed</b>. Role is now picked inside the new profile form.</li>
+      <li>After OTP, a new user fills <b>Name, Date of birth, Address, and Role</b> on one screen and taps <b>Submit for approval</b>.</li>
+      <li>The submission creates a <b>pending registration request</b> visible to the admin (table above).</li>
+      <li>The user is <b>blocked from logging in</b> — every login attempt lands on "Awaiting admin review" until a decision is made.</li>
+      <li>Admin <b>Accept</b> → user becomes active and can log in. <b>Reject</b> → denied (wording TBD).</li>
+      <li>Every new string ships in all <b>4 languages</b> (English, العربية, کوردی سۆرانی, کوردی بادینی) with correct <b>RTL</b>.</li>
+    </ol>
+    <p class="foot">👉 Switch languages with the buttons up top, pick a role in screen 3, and click <b>Accept</b> in the admin table to watch the phone flip to "approved".</p>
+    <p class="foot">⚠️ Badini (Kurmancî) strings are a baseline translation — same caveat the app's <code>kmr</code> locale file already notes; a fluent reviewer should confirm before shipping.</p>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+/* ---- translations: en / ar / ckb (Sorani) / kmr (Badini) ---- */
+const LANGS = [
+  {code:'en',  label:'English',          sub:'EN',  dir:'ltr'},
+  {code:'ar',  label:'العربية',          sub:'AR',  dir:'rtl'},
+  {code:'ckb', label:'کوردی سۆرانی',     sub:'CKB', dir:'rtl'},
+  {code:'kmr', label:'کوردی بادینی',     sub:'KMR', dir:'rtl'},
+];
+const T = {
+  en:{
+    welcome:'Welcome', login_sub:'Sign in or register with your phone number.', phone_label:'PHONE NUMBER', send_code:'Send code',
+    verify_title:'Verify code', verify_sub:'Enter the 6-digit code we sent to your number.', demo:'Demo mode code: 123456', verify_btn:'Verify',
+    form_title:'Complete your profile', form_sub:'Tell us about yourself. An admin will review and approve your account.',
+    full_name:'FULL NAME', name_ph:'e.g. Sizar Dildar', dob:'DATE OF BIRTH', address:'ADDRESS', address_ph:'Erbil, Kurdistan', select_role:'SELECT YOUR ROLE',
+    donor:'Donor', donor_d:'Fund campaigns & sponsor families', bene:'Beneficiary', bene_d:'Access aid & support programs', vol:'Volunteer', vol_d:'Join field activities & outreach',
+    submit:'Submit for approval',
+    pending_badge:'Pending approval', pending_title:'Awaiting admin review', pending_sub:"Your account was submitted. You'll be able to sign in once an admin approves it.",
+    k_name:'Name', k_born:'Born', k_address:'Address', k_role:'Role', logout:'Log out',
+    approved_badge:'Approved', approved_title:"You're in!", approved_sub:'An admin approved your account. You can now use the app.', enter_app:'Enter app',
+    admin_title:'Pending registrations', waiting:'waiting', th_applicant:'Applicant', th_born:'Born', th_address:'Address', th_role:'Role', th_status:'Status', th_action:'Action',
+    accept:'Accept', reject:'Reject', st_pending:'Pending', approved_mark:'✓ Approved',
+    cap1t:'1. Register / login', cap1:'Enter phone number.', cap2t:'2. OTP verify', cap2:'Same as today.',
+    cap3t:'3. NEW form', cap3:'Name · Date of birth · Address · Role on one screen → Submit for approval.',
+    cap4t:'4. Locked until approved', cap4:'User cannot log in while pending.',
+    tag_replaces:'NEW · replaces "Choose your role"',
+    toast_submit:'📨 Submitted — sent to admin for approval', toast_approve:'approved — user can now log in',
+    cities:{erbil:'Erbil, Kurdistan', sulay:'Sulaymaniyah', duhok:'Duhok'}
+  },
+  ar:{
+    welcome:'مرحباً', login_sub:'سجّل الدخول أو أنشئ حساباً برقم هاتفك.', phone_label:'رقم الهاتف', send_code:'إرسال الرمز',
+    verify_title:'تأكيد الرمز', verify_sub:'أدخل الرمز المكوّن من 6 أرقام الذي أرسلناه إلى رقمك.', demo:'رمز الوضع التجريبي: 123456', verify_btn:'تأكيد',
+    form_title:'أكمل ملفك الشخصي', form_sub:'أخبرنا عن نفسك. سيقوم المشرف بمراجعة حسابك والموافقة عليه.',
+    full_name:'الاسم الكامل', name_ph:'مثال: سيزار دلدار', dob:'تاريخ الميلاد', address:'العنوان', address_ph:'أربيل، كردستان', select_role:'اختر دورك',
+    donor:'متبرع', donor_d:'تموّل الحملات وترعى العائلات', bene:'مستفيد', bene_d:'الوصول إلى برامج المساعدة والدعم', vol:'متطوع', vol_d:'المشاركة في الأنشطة الميدانية والتوعية',
+    submit:'إرسال للموافقة',
+    pending_badge:'بانتظار الموافقة', pending_title:'بانتظار مراجعة المشرف', pending_sub:'تم إرسال حسابك. ستتمكن من تسجيل الدخول بمجرد موافقة المشرف عليه.',
+    k_name:'الاسم', k_born:'الميلاد', k_address:'العنوان', k_role:'الدور', logout:'تسجيل الخروج',
+    approved_badge:'تمت الموافقة', approved_title:'تم قبولك!', approved_sub:'وافق المشرف على حسابك. يمكنك الآن استخدام التطبيق.', enter_app:'الدخول إلى التطبيق',
+    admin_title:'التسجيلات المعلّقة', waiting:'بالانتظار', th_applicant:'مقدّم الطلب', th_born:'الميلاد', th_address:'العنوان', th_role:'الدور', th_status:'الحالة', th_action:'الإجراء',
+    accept:'قبول', reject:'رفض', st_pending:'قيد الانتظار', approved_mark:'✓ تمت الموافقة',
+    cap1t:'1. التسجيل / الدخول', cap1:'أدخل رقم الهاتف.', cap2t:'2. تأكيد الرمز', cap2:'كما هو الآن.',
+    cap3t:'3. النموذج الجديد', cap3:'الاسم · تاريخ الميلاد · العنوان · الدور في شاشة واحدة → إرسال للموافقة.',
+    cap4t:'4. مقفل حتى الموافقة', cap4:'لا يمكن للمستخدم الدخول أثناء الانتظار.',
+    tag_replaces:'جديد · يحل محل "اختر دورك"',
+    toast_submit:'📨 تم الإرسال — أُرسل إلى المشرف للموافقة', toast_approve:'تمت الموافقة — يمكن للمستخدم الآن تسجيل الدخول',
+    cities:{erbil:'أربيل، كردستان', sulay:'السليمانية', duhok:'دهوك'}
+  },
+  ckb:{
+    welcome:'بەخێربێیت', login_sub:'بە ژمارەی مۆبایلەکەت بچۆرە ژوورەوە یان خۆت تۆمار بکە.', phone_label:'ژمارەی مۆبایل', send_code:'ناردنی کۆد',
+    verify_title:'پشتڕاستکردنەوەی کۆد', verify_sub:'ئەو کۆدە ٦ ژمارەییەی ناردمان بۆ ژمارەکەت بنووسە.', demo:'کۆدی دۆخی تاقیکردنەوە: 123456', verify_btn:'پشتڕاستکردنەوە',
+    form_title:'پڕۆفایلەکەت تەواو بکە', form_sub:'باسی خۆت بۆ بکە. بەڕێوەبەرێک حسابەکەت پێداچوونەوە دەکات و پەسەندی دەکات.',
+    full_name:'ناوی تەواو', name_ph:'نموونە: سیزار دڵدار', dob:'بەرواری لەدایکبوون', address:'ناونیشان', address_ph:'هەولێر، کوردستان', select_role:'ڕۆڵەکەت هەڵبژێرە',
+    donor:'بەخشەر', donor_d:'کەمپینەکان دەخەیتەسەر و خانەوادەکان دەپاڵپشتیت', bene:'سوودمەند', bene_d:'دەستگەیشتن بە پرۆگرامەکانی یارمەتی و پشتگیری', vol:'خۆبەخش', vol_d:'بەشداری چالاکیە مەیدانیەکان بکە',
+    submit:'ناردن بۆ پەسەندکردن',
+    pending_badge:'چاوەڕوانی پەسەندکردن', pending_title:'چاوەڕوانی پێداچوونەوەی بەڕێوەبەر', pending_sub:'حسابەکەت نێردرا. کاتێک بەڕێوەبەرێک پەسەندی بکات، دەتوانیت بچیتە ژوورەوە.',
+    k_name:'ناو', k_born:'لەدایکبوون', k_address:'ناونیشان', k_role:'ڕۆڵ', logout:'چوونەدەرەوە',
+    approved_badge:'پەسەندکرا', approved_title:'گەیشتیت!', approved_sub:'بەڕێوەبەرێک حسابەکەتی پەسەند کرد. ئێستا دەتوانیت ئەپەکە بەکاربهێنیت.', enter_app:'چوونە ناو ئەپ',
+    admin_title:'تۆمارکردنە چاوەڕوانەکان', waiting:'چاوەڕوان', th_applicant:'داواکار', th_born:'لەدایکبوون', th_address:'ناونیشان', th_role:'ڕۆڵ', th_status:'دۆخ', th_action:'کردار',
+    accept:'پەسەندکردن', reject:'ڕەتکردنەوە', st_pending:'چاوەڕوانکراو', approved_mark:'✓ پەسەندکرا',
+    cap1t:'١. تۆمارکردن / چوونەژوورەوە', cap1:'ژمارەی مۆبایل بنووسە.', cap2t:'٢. پشتڕاستکردنەوەی کۆد', cap2:'وەک ئێستا.',
+    cap3t:'٣. فۆڕمی نوێ', cap3:'ناو · بەرواری لەدایکبوون · ناونیشان · ڕۆڵ لە یەک شاشەدا → ناردن بۆ پەسەندکردن.',
+    cap4t:'٤. داخراوە تا پەسەندکردن', cap4:'بەکارهێنەر ناتوانێت بچێتە ژوورەوە لە کاتی چاوەڕوانیدا.',
+    tag_replaces:'نوێ · جێگەی "ڕۆڵەکەت هەڵبژێرە" دەگرێتەوە',
+    toast_submit:'📨 نێردرا — بۆ بەڕێوەبەر نێردرا بۆ پەسەندکردن', toast_approve:'پەسەندکرا — بەکارهێنەر ئێستا دەتوانێت بچێتە ژوورەوە',
+    cities:{erbil:'هەولێر، کوردستان', sulay:'سلێمانی', duhok:'دهۆک'}
+  },
+  kmr:{
+    welcome:'بەخێرهاتی', login_sub:'ب ژمارا تەلەفۆنا خۆ بکەڤە ژوورێ یان خۆ تۆمار بکە.', phone_label:'ژمارا تەلەفۆنێ', send_code:'ناردنا کۆدێ',
+    verify_title:'پشتڕاستکرنا کۆدێ', verify_sub:'ئەو کۆدا ٦ هەژماری یا ئەم ژ تە ڕا شاندی بنڤیسە.', demo:'کۆدا دۆخێ ئەزموونی: 123456', verify_btn:'پشتڕاستکرن',
+    form_title:'پڕۆفایلا خۆ تەمام بکە', form_sub:'دەربارەی خۆ ژ مە ڕا بێژە. بەڕێڤەبەرەک دێ حسابێ تە بنیاسە و پەسەند کەت.',
+    full_name:'ناڤێ تەمام', name_ph:'نموونە: سیزار دڵدار', dob:'دەمێ ژدایکبوونێ', address:'ناونیشان', address_ph:'هەولێر، کوردستان', select_role:'ڕۆلا خۆ هەلبژێرە',
+    donor:'بەخشەر', donor_d:'کەمپینان دەستەک دکەی و خێزانان سپۆنسەر دکەی', bene:'وەرگرتی', bene_d:'گەهشتن ب بەرنامێن هاریکاری و پشتگیریێ', vol:'خۆبەخش', vol_d:'بەشداری چالاکیێن مەیدانی بکە',
+    submit:'ناردن بۆ پەسەندکرنێ',
+    pending_badge:'چاڤەڕوانی پەسەندکرنێ', pending_title:'چاڤەڕوانی پێداچوونا بەڕێڤەبەری', pending_sub:'حسابێ تە هاتە شاندن. دەمێ بەڕێڤەبەرەک پەسەند کەت، تو دێ شێی بکەڤی ژوورێ.',
+    k_name:'ناڤ', k_born:'ژدایکبوون', k_address:'ناونیشان', k_role:'ڕۆل', logout:'دەرکەفتن',
+    approved_badge:'پەسەندکری', approved_title:'تو هاتی ژوورێ!', approved_sub:'بەڕێڤەبەرەکی حسابێ تە پەسەند کر. نوکە تو دشێی ئەپلیکەیشنێ بکاربینی.', enter_app:'کەفتنا ناڤ ئەپێ',
+    admin_title:'تۆمارکرنێن چاڤەڕوان', waiting:'چاڤەڕوان', th_applicant:'داخوازکار', th_born:'ژدایکبوون', th_address:'ناونیشان', th_role:'ڕۆل', th_status:'دۆخ', th_action:'کریار',
+    accept:'پەسەندکرن', reject:'ڕەتکرن', st_pending:'چاڤەڕوانکری', approved_mark:'✓ پەسەندکری',
+    cap1t:'١. تۆمارکرن / کەفتنا ژوورێ', cap1:'ژمارا تەلەفۆنێ بنڤیسە.', cap2t:'٢. پشتڕاستکرنا کۆدێ', cap2:'وەکی نوکە.',
+    cap3t:'٣. فۆرما نوی', cap3:'ناڤ · دەمێ ژدایکبوونێ · ناونیشان · ڕۆل د یەک سکرینێ دا → ناردن بۆ پەسەندکرنێ.',
+    cap4t:'٤. گرتی هەتا پەسەندکرنێ', cap4:'بکارهێنەر د دەمێ چاڤەڕوانیێ دا ناشێت بکەڤیتە ژوورێ.',
+    tag_replaces:'نوی · دێ جهێ "ڕۆلا خۆ هەلبژێرە" گریت',
+    toast_submit:'📨 هاتە شاندن — بۆ بەڕێڤەبەری هاتە شاندن بۆ پەسەندکرنێ', toast_approve:'پەسەندکر — بکارهێنەر نوکە دشێی بکەڤیتە ژوورێ',
+    cities:{erbil:'هەولێر، کوردستان', sulay:'سلێمانی', duhok:'دهۆک'}
+  },
+};
+
+let LANG='en', selectedRole='bene';
+const APPLICANTS=[
+  {id:'sizar', initials:'SD', av:'linear-gradient(135deg,#14B8A6,#2563EB)', name:'Sizar Dildar', phone:'+964 750 858 2031', born:'1998-04-12', city:'erbil', role:'bene', focus:true},
+  {id:'hiwa',  initials:'HA', av:'linear-gradient(135deg,#F59E0B,#FF7043)', name:'Hiwa Ali',     phone:'+964 750 886 9654', born:'2001-09-30', city:'sulay', role:'vol'},
+  {id:'rana',  initials:'RK', av:'linear-gradient(135deg,#38BDF8,#2563EB)', name:'Rana Karim',   phone:'+964 751 223 1144', born:'1995-01-05', city:'duhok', role:'donor'},
+];
+const ROLE_CLASS={donor:'donor', bene:'bene', vol:'vol'};
+let approved={};
+
+function renderLangbar(){
+  document.getElementById('langbar').innerHTML = LANGS.map(l=>
+    `<div class="langbtn ${l.code===LANG?'active':''}" onclick="setLang('${l.code}')">${l.label}<small>${l.sub}</small></div>`).join('');
+}
+function setLang(c){ LANG=c; render(); }
+
+function roleCard(key, cls, icon){
+  const t=T[LANG]; const sel = selectedRole===key ? 'sel':'';
+  const nm = t[key], ds = t[key+'_d'];
+  return `<div class="role r-${cls} ${sel}" onclick="selectedRole='${key}';render()">
+      <div class="ic">${icon}</div><div><div class="nm">${nm}</div><div class="ds">${ds}</div></div><div class="rb"></div></div>`;
+}
+
+function render(){
+  const t=T[LANG]; const dir=LANGS.find(l=>l.code===LANG).dir;
+  renderLangbar();
+
+  // ---- flow (4 phones) ----
+  document.getElementById('flowMount').innerHTML = `
+  <div class="flow">
+    <div class="step"><span class="tag keep">KEEP</span>
+      <div class="phone"><div class="notch"></div><div class="screen"><div class="sc-body" dir="${dir}">
+        <div class="logo">🤝</div><h2 class="h">${t.welcome}</h2><p class="p">${t.login_sub}</p>
+        <div class="label">${t.phone_label}</div><div class="input focus">🇮🇶 <span>+964 750 858 2031</span></div>
+        <button class="btn">${t.send_code}</button>
+      </div></div></div>
+      <div class="caption"><b>${t.cap1t}</b><br>${t.cap1}</div></div>
+
+    <div class="arrow">→</div>
+
+    <div class="step"><span class="tag keep">KEEP</span>
+      <div class="phone"><div class="notch"></div><div class="screen"><div class="sc-body" dir="${dir}">
+        <div class="logo">✉️</div><h2 class="h">${t.verify_title}</h2><p class="p">${t.verify_sub}</p>
+        <div class="otpgrid"><div class="otpcell on">1</div><div class="otpcell on">2</div><div class="otpcell on">3</div><div class="otpcell on">4</div><div class="otpcell on">5</div><div class="otpcell on">6</div></div>
+        <div class="demo">${t.demo}</div><button class="btn">${t.verify_btn}</button>
+      </div></div></div>
+      <div class="caption"><b>${t.cap2t}</b><br>${t.cap2}</div></div>
+
+    <div class="arrow">→</div>
+
+    <div class="step"><span class="tag new">${t.tag_replaces}</span>
+      <div class="phone"><div class="notch"></div><div class="screen"><div class="sc-body" dir="${dir}">
+        <h2 class="h">${t.form_title}</h2><p class="p">${t.form_sub}</p>
+        <div class="label">${t.full_name}</div><div class="input"><span class="ph">${t.name_ph}</span></div>
+        <div class="label">${t.dob}</div><div class="input">📅 <span class="ph">1998-04-12</span></div>
+        <div class="label">${t.address}</div><div class="input">📍 <span class="ph">${t.address_ph}</span></div>
+        <div class="label">${t.select_role}</div>
+        <div class="roles">${roleCard('donor','donor','💛')}${roleCard('bene','bene','🧡')}${roleCard('vol','vol','💙')}</div>
+        <button class="btn" style="margin-top:16px" onclick="showToast(T[LANG].toast_submit,'#FBBF24','#1f1602')">${t.submit}</button>
+      </div></div></div>
+      <div class="caption"><b>${t.cap3t}</b><br>${t.cap3}</div></div>
+
+    <div class="arrow">→</div>
+
+    <div class="step"><span class="tag new">NEW</span>
+      <div class="phone"><div class="notch"></div><div class="screen"><div class="sc-body" dir="${dir}">
+        ${approved['sizar'] ? `
+          <div class="center"><div class="statusIcon ok">✅</div><span class="badge ok">${t.approved_badge}</span>
+            <h2 class="h" style="margin:0">${t.approved_title}</h2><p class="p" style="margin:0">${t.approved_sub}</p>
+            <button class="btn" style="margin-top:6px">${t.enter_app}</button></div>` : `
+          <div class="center"><div class="statusIcon wait">⏳</div><span class="badge wait">${t.pending_badge}</span>
+            <h2 class="h" style="margin:0">${t.pending_title}</h2><p class="p" style="margin:0">${t.pending_sub}</p>
+            <div class="summary">
+              <div class="row"><span class="k">${t.k_name}</span><span class="v">Sizar Dildar</span></div>
+              <div class="row"><span class="k">${t.k_born}</span><span class="v">1998-04-12</span></div>
+              <div class="row"><span class="k">${t.k_address}</span><span class="v">${t.cities.erbil}</span></div>
+              <div class="row"><span class="k">${t.k_role}</span><span class="v">${t.bene}</span></div>
+            </div>
+            <button class="btn ghost" style="margin-top:14px">${t.logout}</button></div>`}
+      </div></div></div>
+      <div class="caption"><b>${t.cap4t}</b><br>${t.cap4}</div></div>
+  </div>`;
+
+  // ---- admin ----
+  const waitingN = APPLICANTS.filter(a=>!approved[a.id]).length;
+  const rows = APPLICANTS.map(a=>{
+    const done = approved[a.id];
+    const roleLabel = t[a.role];
+    const action = done
+      ? `<span style="font-size:12px;color:#86efac;font-weight:700">${t.approved_mark}</span>`
+      : `<div class="acts"><button class="mini acc" onclick="approve('${a.id}')">${t.accept}</button><button class="mini rej">${t.reject}</button></div>`;
+    const status = done
+      ? `<span class="stchip" style="background:#22C55E">${t.approved_badge}</span>`
+      : `<span class="stchip">${t.st_pending}</span>`;
+    return `<tr>
+      <td><div class="who"><div class="av" style="background:${a.av}">${a.initials}</div>
+        <div><div style="font-weight:700">${a.name}</div><div style="font-size:11px;color:var(--muted)">${a.phone}</div></div></div></td>
+      <td>${a.born}</td><td>${t.cities[a.city]}</td>
+      <td><span class="rchip ${ROLE_CLASS[a.role]}">${roleLabel}</span></td>
+      <td>${status}</td><td style="text-align:end">${action}</td></tr>`;
+  }).join('');
+
+  document.getElementById('adminMount').innerHTML = `
+    <div class="admin" dir="${dir}">
+      <div class="top"><span class="dot"></span><h3>${t.admin_title}</h3><span class="count">${waitingN} ${t.waiting}</span></div>
+      <table><thead><tr>
+        <th>${t.th_applicant}</th><th>${t.th_born}</th><th>${t.th_address}</th><th>${t.th_role}</th><th>${t.th_status}</th><th style="text-align:end">${t.th_action}</th>
+      </tr></thead><tbody>${rows}</tbody></table>
+    </div>`;
+}
+
+function approve(id){
+  approved[id]=true; render();
+  const t=T[LANG]; const a=APPLICANTS.find(x=>x.id===id);
+  showToast('✅ '+a.name+' — '+t.toast_approve, '#22C55E', '#04210f');
+}
+function showToast(msg,bg,fg){
+  const el=document.getElementById('toast'); el.textContent=msg; el.style.background=bg; el.style.color=fg;
+  el.classList.add('show'); clearTimeout(window._tt); window._tt=setTimeout(()=>el.classList.remove('show'),2800);
+}
+render();
+</script>
+</body>
+</html>
