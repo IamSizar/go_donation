@@ -90,7 +90,10 @@ class NotificationsController extends GetxController {
   Future<void> _silentRefresh() async {
     final beforeIds = Set<String>.from(_seenIds);
     try {
-      await refreshNotifications();
+      // silent: no spinner, no list-clear on failure, and the list is only
+      // reassigned when its contents actually changed — so an unchanged poll
+      // is a true no-op (no rebuild, no flicker).
+      await refreshNotifications(silent: true);
     } catch (_) {
       // Silent fail — preserve previous state. Next tick retries.
       return;
@@ -108,7 +111,15 @@ class NotificationsController extends GetxController {
     }
   }
 
-  Future<void> refreshNotifications() async {
+  /// Fetches the latest notifications.
+  ///
+  /// When [silent] is true (the periodic poll), the loading spinner is NOT
+  /// shown, a failed request leaves the current list untouched, and the
+  /// observable list is only reassigned when its contents actually changed —
+  /// so a poll that returns the same data is a genuine no-op and the list never
+  /// flickers or "reloads". The non-silent path (first load / pull-to-refresh)
+  /// keeps the spinner and clears on error as before.
+  Future<void> refreshNotifications({bool silent = false}) async {
     final userId = sharedPreferences.getString('id_user') ?? '';
     final roleId = sharedPreferences.getString('role_id') ?? '';
     final query = <String, String>{
@@ -116,58 +127,93 @@ class NotificationsController extends GetxController {
       if (roleId.isNotEmpty) 'role_id': roleId,
     };
     final uri = Uri.parse(appNotificationsUrl).replace(queryParameters: query);
-    isLoading.value = true;
-    errorMessage.value = null;
+    if (!silent) {
+      isLoading.value = true;
+      errorMessage.value = null;
+    }
     try {
       final rows = await const ModuleApi().getItems(uri.toString());
-      notifications.assignAll(
-        rows.map(
-          (row) => AppNotificationModel(
-            id: (row['id'] ?? '').toString(),
-            title: (row['title'] ?? 'Notification').toString(),
-            titleAr: (row['title_ar'] ?? '').toString(),
-            titleSorani: (row['title_sorani'] ?? '').toString(),
-            titleBadini: (row['title_badini'] ?? '').toString(),
-            message: (row['body'] ?? '').toString(),
-            messageAr: (row['body_ar'] ?? '').toString(),
-            messageSorani: (row['body_sorani'] ?? '').toString(),
-            messageBadini: (row['body_badini'] ?? '').toString(),
-            notificationType: (row['notification_type'] ?? '').toString(),
-            notificationCategory: (row['notification_category'] ?? '')
-                .toString(),
-            priority: int.tryParse((row['priority'] ?? '0').toString()) ?? 0,
-            isRead: (row['is_read'] ?? '0').toString() == '1',
-            createdAt: DateTime.tryParse((row['created_at'] ?? '').toString()),
-            readAt: DateTime.tryParse((row['read_at'] ?? '').toString()),
-            actionUrl: (row['action_url'] ?? '').toString(),
-            relatedEntityType: (row['related_entity_type'] ?? '').toString(),
-            relatedEntityId: (row['related_entity_id'] ?? '').toString(),
-          ),
-        ),
-      );
-      notifications.sort((a, b) {
-        final aPinned =
-            !a.isRead &&
-            (a.normalizedCategory == 'urgent' ||
-                a.normalizedCategory == 'payment');
-        final bPinned =
-            !b.isRead &&
-            (b.normalizedCategory == 'urgent' ||
-                b.normalizedCategory == 'payment');
-        if (aPinned != bPinned) return aPinned ? -1 : 1;
-        final weightCompare = b.sortWeight.compareTo(a.sortWeight);
-        if (weightCompare != 0) return weightCompare;
-        final aTime = a.createdAt?.millisecondsSinceEpoch ?? 0;
-        final bTime = b.createdAt?.millisecondsSinceEpoch ?? 0;
-        return bTime.compareTo(aTime);
-      });
+      final fetched = rows
+          .map(
+            (row) => AppNotificationModel(
+              id: (row['id'] ?? '').toString(),
+              title: (row['title'] ?? 'Notification').toString(),
+              titleAr: (row['title_ar'] ?? '').toString(),
+              titleSorani: (row['title_sorani'] ?? '').toString(),
+              titleBadini: (row['title_badini'] ?? '').toString(),
+              message: (row['body'] ?? '').toString(),
+              messageAr: (row['body_ar'] ?? '').toString(),
+              messageSorani: (row['body_sorani'] ?? '').toString(),
+              messageBadini: (row['body_badini'] ?? '').toString(),
+              notificationType: (row['notification_type'] ?? '').toString(),
+              notificationCategory: (row['notification_category'] ?? '')
+                  .toString(),
+              priority: int.tryParse((row['priority'] ?? '0').toString()) ?? 0,
+              isRead: (row['is_read'] ?? '0').toString() == '1',
+              createdAt: DateTime.tryParse((row['created_at'] ?? '').toString()),
+              readAt: DateTime.tryParse((row['read_at'] ?? '').toString()),
+              actionUrl: (row['action_url'] ?? '').toString(),
+              relatedEntityType: (row['related_entity_type'] ?? '').toString(),
+              relatedEntityId: (row['related_entity_id'] ?? '').toString(),
+            ),
+          )
+          .toList()
+        ..sort(_compareNotifications);
+
+      // Only touch the observable list when something actually changed. This is
+      // what stops the every-5s rebuild: an unchanged poll skips assignAll, so
+      // Obx never fires and the ListView is left exactly as it is.
+      if (!_sameNotifications(notifications, fetched)) {
+        notifications.assignAll(fetched);
+      }
+      if (!silent) errorMessage.value = null;
     } catch (e) {
+      if (silent) {
+        // Keep the existing list, stay quiet; let _silentRefresh skip its
+        // new-arrival chime by surfacing the failure.
+        rethrow;
+      }
       notifications.clear();
       errorMessage.value = 'Unable to load notifications.'.tr;
     } finally {
-      isLoading.value = false;
+      if (!silent) isLoading.value = false;
     }
   }
+
+  /// Stable ordering: unread urgent/payment first, then sort weight, then newest.
+  int _compareNotifications(AppNotificationModel a, AppNotificationModel b) {
+    final aPinned =
+        !a.isRead &&
+        (a.normalizedCategory == 'urgent' ||
+            a.normalizedCategory == 'payment');
+    final bPinned =
+        !b.isRead &&
+        (b.normalizedCategory == 'urgent' ||
+            b.normalizedCategory == 'payment');
+    if (aPinned != bPinned) return aPinned ? -1 : 1;
+    final weightCompare = b.sortWeight.compareTo(a.sortWeight);
+    if (weightCompare != 0) return weightCompare;
+    final aTime = a.createdAt?.millisecondsSinceEpoch ?? 0;
+    final bTime = b.createdAt?.millisecondsSinceEpoch ?? 0;
+    return bTime.compareTo(aTime);
+  }
+
+  /// True when both lists render identically — same rows, same order, same
+  /// read state / content. Used to skip needless list reassignment on polls.
+  bool _sameNotifications(
+    List<AppNotificationModel> current,
+    List<AppNotificationModel> next,
+  ) {
+    if (current.length != next.length) return false;
+    for (var i = 0; i < current.length; i++) {
+      if (_signature(current[i]) != _signature(next[i])) return false;
+    }
+    return true;
+  }
+
+  String _signature(AppNotificationModel n) =>
+      '${n.id}|${n.isRead}|${n.priority}|${n.title}|${n.message}'
+      '|${n.createdAt?.millisecondsSinceEpoch ?? 0}';
 
   /// Phase 27.1 — mark every currently-unread notification as read in a
   /// single sweep. Optimistic UI update so the hero card flips to "all

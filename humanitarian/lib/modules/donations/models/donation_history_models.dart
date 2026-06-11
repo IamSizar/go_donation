@@ -179,6 +179,8 @@ class DonationHistoryEntry {
     required this.status,
     required this.reference,
     required this.note,
+    required this.id,
+    required this.campaignId,
   });
 
   final String campaignName;
@@ -188,6 +190,13 @@ class DonationHistoryEntry {
   final DonationRecordStatus status;
   final String reference;
   final String note;
+
+  /// Donation row id — used to start a chat with the campaign owner.
+  final int? id;
+
+  /// Campaign this donation went to (null for general donations). Only
+  /// campaign donations can open a chat with an owner.
+  final int? campaignId;
 
   factory DonationHistoryEntry.fromJson(Map json) {
     final amountRaw = json['amount'];
@@ -236,6 +245,10 @@ class DonationHistoryEntry {
       status: donationRecordStatusFromApi(_statusFieldFromDonationRow(json)),
       reference: ref,
       note: note.isEmpty ? '—' : note,
+      id: idRaw == null ? null : int.tryParse('$idRaw'),
+      campaignId: json['campaign_id'] == null
+          ? null
+          : int.tryParse('${json['campaign_id']}'),
     );
   }
 }

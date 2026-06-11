@@ -147,6 +147,10 @@ export type AdminCampaign = {
   raised_amount: string
   is_active: number       // derived mirror of status === 'active'
   status: CampaignStatus  // 'active' | 'hidden' | 'finished'
+  // Beneficiary owner — set when published from a project request
+  owner_user_id: number | null
+  owner_phone: string | null
+  owner_name: string | null
 }
 
 export type CampaignStatus = 'active' | 'hidden' | 'finished'

@@ -108,3 +108,73 @@ func (h *PushHandler) Send(c *gin.Context) {
 		"results":  results,
 	})
 }
+
+// broadcastReq is the body for the in-app broadcast endpoint. Only the English
+// title + body are required; the other languages fall back to English on the
+// device when omitted.
+type broadcastReq struct {
+	RoleID      int    `json:"role_id"` // 0 = every active user; 1=donor 2=beneficiary 3=volunteer
+	Title       string `json:"title"`
+	TitleAr     string `json:"title_ar"`
+	TitleSorani string `json:"title_sorani"`
+	TitleBadini string `json:"title_badini"`
+	Body        string `json:"body"`
+	BodyAr      string `json:"body_ar"`
+	BodySorani  string `json:"body_sorani"`
+	BodyBadini  string `json:"body_badini"`
+	ActionURL   string `json:"action_url"`
+}
+
+// POST /api/admin/notifications/broadcast — write an in-app notification to
+// every active user (optionally filtered by role_id). This ALWAYS works,
+// independent of FCM/push config, because it persists a row in
+// app_notifications which the mobile "Alerts" tab polls every 5s. When FCM is
+// configured, a best-effort OS push is also attempted per user as a bonus.
+//
+// This is the reliable way to reach every user (push needs a real device +
+// service-account key; in-app does not).
+func (h *PushHandler) BroadcastInApp(c *gin.Context) {
+	if _, ok := auth.UserFromGin(c); !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		return
+	}
+	var req broadcastReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid JSON."})
+		return
+	}
+	req.Title = strings.TrimSpace(req.Title)
+	req.Body = strings.TrimSpace(req.Body)
+	if req.Title == "" || req.Body == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "title and body (English) are required."})
+		return
+	}
+
+	msg := notify.LocalizedMessage{
+		Title: notify.LocalText{
+			En:  req.Title,
+			Ar:  strings.TrimSpace(req.TitleAr),
+			Ckb: strings.TrimSpace(req.TitleSorani),
+			Kmr: strings.TrimSpace(req.TitleBadini),
+		},
+		Body: notify.LocalText{
+			En:  req.Body,
+			Ar:  strings.TrimSpace(req.BodyAr),
+			Ckb: strings.TrimSpace(req.BodySorani),
+			Kmr: strings.TrimSpace(req.BodyBadini),
+		},
+		Type:      "admin_announcement",
+		ActionURL: strings.TrimSpace(req.ActionURL),
+	}
+
+	sent, err := h.Notifier.Broadcast(c.Request.Context(), req.RoleID, msg)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success":     true,
+		"sent":        sent,
+		"fcm_enabled": h.Notifier.FCMConfigured(),
+	})
+}

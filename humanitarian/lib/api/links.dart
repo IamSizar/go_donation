@@ -9,7 +9,7 @@
 //   - LAN device (real phone, same Wi-Fi): your Mac's LAN IP, e.g. 192.168.1.12
 //   - iOS simulator / Flutter web on this Mac: localhost
 //   - Android emulator: 10.0.2.2  (the magic loopback Android emulator uses)
-const String baseUrl = 'http://192.168.1.12:8080/api/';
+const String baseUrl = 'http://localhost:8080/api/';
 
 /// Project root for uploaded/static files (sibling of `api/`, not inside it).
 /// Must end with `/` so [Uri.resolve] appends paths like `images/...` correctly.
@@ -94,6 +94,22 @@ const String submitBeneficiaryProjectUrl =
     '${baseUrl}beneficiary_project_requests/';
 
 const String communityDirectoryUrl = '${baseUrl}community/';
+const String beneficiaryCampaignDonationsUrl = '${baseUrl}beneficiary/campaign-donations';
+
+/// Donor ↔ campaign-owner chat (Phase 28).
+const String chatsUrl = '${baseUrl}chats';
+const String chatRequestUrl = '${baseUrl}chats/request';
+String chatAcceptUrl(int threadId) => '${baseUrl}chats/$threadId/accept';
+String chatDeclineUrl(int threadId) => '${baseUrl}chats/$threadId/decline';
+String chatMessagesUrl(int threadId) => '${baseUrl}chats/$threadId/messages';
+
+/// AI Support Assistant (Phase 29).
+const String assistantChatUrl = '${baseUrl}assistant/chat';
+
+/// Activity event log — the app POSTs analytics/audit events here (the Postgres
+/// replacement for the old Firestore `events` collection).
+const String eventsLogUrl = '${baseUrl}events';
+
 const String marketplaceProductsUrl = '${baseUrl}marketplace/';
 const String volunteerMissionsUrl = '${baseUrl}volunteer_hub/';
 const String partnersUrl = '${baseUrl}partners/';

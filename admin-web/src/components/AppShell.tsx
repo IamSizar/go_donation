@@ -35,6 +35,8 @@ const NAV: NavItem[] = [
   { to: '/partners',      tKey: 'nav.partners' },
   { to: '/media',         tKey: 'nav.media' },
   { to: '/community',     tKey: 'nav.community' },
+  { to: '/city-guide',    tKey: 'nav.city_guide' },
+  { to: '/messages',      tKey: 'nav.messages' },
   { to: '/volunteers',    tKey: 'nav.volunteers',    countKey: 'volunteers' },
   { to: '/volunteer-board', tKey: 'nav.volunteer_board' },
   { to: '/missions',      tKey: 'nav.missions' },

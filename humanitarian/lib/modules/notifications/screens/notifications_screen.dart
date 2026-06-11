@@ -23,7 +23,12 @@ class NotificationsScreen extends GetView<NotificationsController> {
             Expanded(
               child: Obx(() {
                 final items = controller.filteredNotifications;
-                if (controller.isLoading.value) {
+                // Only show the full-screen spinner on the very first load,
+                // when there's nothing to display yet. Once the list exists,
+                // background polls update it in place without ever swapping it
+                // out for a spinner (which read as an ugly reload every ~5s).
+                if (controller.isLoading.value &&
+                    controller.notifications.isEmpty) {
                   return const Center(child: CircularProgressIndicator());
                 }
                 final error = controller.errorMessage.value;

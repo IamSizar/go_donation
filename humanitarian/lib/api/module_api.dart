@@ -241,6 +241,31 @@ class ModuleApi {
     return decoded;
   }
 
+  /// Same as [postJson] but WITHOUT firing [_trackEvent]. Used by the activity
+  /// event logger itself (posting an event must never recursively log another
+  /// event), and for any call that shouldn't generate analytics.
+  Future<Map<String, dynamic>> postJsonNoTrack(
+    String url,
+    Map<String, dynamic> body,
+  ) async {
+    final enrichedBody = withApiAuthJsonBody(body);
+    final response = await http.post(
+      Uri.parse(url),
+      headers: withApiAuthHeaders(const {'Content-Type': 'application/json'}),
+      body: jsonEncode(enrichedBody),
+    );
+    final decoded = _decodeJson(response);
+    if (decoded is! Map<String, dynamic>) {
+      throw Exception('Request failed');
+    }
+    if (response.statusCode < 200 ||
+        response.statusCode >= 300 ||
+        decoded['success'] != true) {
+      throw Exception(decoded['error']?.toString() ?? 'Request failed');
+    }
+    return decoded;
+  }
+
   Future<List<Map<String, dynamic>>> marketplaceProducts() =>
       getItems(marketplaceProductsUrl);
 

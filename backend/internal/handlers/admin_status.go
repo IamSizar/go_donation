@@ -400,6 +400,40 @@ func (h *AdminStatusHandler) MissionSignup(c *gin.Context) {
 
 // ===== Donations (two status columns) =====
 
+// recalcCampaignRaised sets campaigns.raised_amount to the sum of every
+// CONFIRMED donation for that campaign. A donation only counts once the admin
+// has confirmed it ('received') or fulfilled it ('delivered') — 'registered'
+// (just submitted, still pending review), 'under_review', and 'cancelled' do
+// NOT count. Because this recomputes from scratch every time, the stored total
+// can never drift no matter how donations are inserted, edited, or cancelled.
+func recalcCampaignRaised(ctx context.Context, pool *pgxpool.Pool, campaignID int64) {
+	if campaignID <= 0 {
+		return
+	}
+	_, _ = pool.Exec(ctx, `
+		UPDATE campaigns
+		   SET raised_amount = (
+		         SELECT COALESCE(SUM(NULLIF(d.amount,'')::numeric), 0)
+		           FROM donations d
+		          WHERE d.campaign_id = $1
+		            AND d.delivery_status IN ('received','delivered')
+		       )::text
+		 WHERE id = $1`, campaignID)
+}
+
+// recalcCampaignRaisedForDonation looks up the campaign a donation belongs to
+// and recomputes that campaign's raised_amount. Safe no-op for general
+// (campaign-less) donations. Call after any donation status/amount mutation.
+func recalcCampaignRaisedForDonation(ctx context.Context, pool *pgxpool.Pool, donationID int64) {
+	var campaignID *int64
+	if err := pool.QueryRow(ctx,
+		`SELECT campaign_id FROM donations WHERE id = $1`, donationID,
+	).Scan(&campaignID); err != nil || campaignID == nil {
+		return
+	}
+	recalcCampaignRaised(ctx, pool, *campaignID)
+}
+
 type donationStatusReq struct {
 	PaymentStatus  *int    `json:"payment_status"`
 	DeliveryStatus *string `json:"delivery_status"`
@@ -463,6 +497,13 @@ func (h *AdminStatusHandler) Donation(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Not found."})
 		return
 	}
+
+	// Re-derive the campaign's raised_amount from its confirmed donations.
+	// This is what makes a pending donation start (or stop) counting the
+	// moment the admin changes its delivery_status — e.g. registered ->
+	// delivered adds it; delivered -> cancelled removes it. Always recompute
+	// (cheap) so the total can never drift.
+	recalcCampaignRaisedForDonation(c.Request.Context(), h.Pool, id)
 
 	// Phase 18 — notify the donor about the delivery decision (received /
 	// delivered / cancelled).

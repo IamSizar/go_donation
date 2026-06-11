@@ -56,14 +56,9 @@ class _BeneficiaryServices extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        SectionTile(
-          icon: Icons.assignment_add,
-          title: 'Submit beneficiary case',
-          subtitle: 'Send personal, housing, income, and needs details.',
-          color: Colors.green,
-          onTap: () => Get.to(() => const BeneficiaryCaseFormScreen()),
-        ),
-        const SizedBox(height: 12),
+        // "Submit beneficiary case" intentionally lives only in the Kafala /
+        // Beneficiary-support tab, where it sits next to "My beneficiary cases"
+        // tracking — so it is not duplicated here in Services.
         SectionTile(
           icon: Icons.diversity_1_rounded,
           title: 'Marriage service',

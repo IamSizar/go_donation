@@ -95,6 +95,9 @@ const CSV_COLUMNS: CsvColumn<AdminCampaign>[] = [
   { header: 'goal_amount', get: (c) => c.goal_amount },
   { header: 'raised_amount', get: (c) => c.raised_amount },
   { header: 'status', get: (c) => c.status },
+  { header: 'owner_user_id', get: (c) => c.owner_user_id ?? '' },
+  { header: 'owner_name', get: (c) => c.owner_name ?? '' },
+  { header: 'owner_phone', get: (c) => c.owner_phone ?? '' },
 ]
 
 function formatAmount(s: string): string {
@@ -209,6 +212,22 @@ export default function CampaignsPage() {
       ),
     },
     { key: 'address', header: t('col.location'), cell: (c) => c.address },
+    {
+      key: 'owner',
+      header: 'Beneficiary',
+      cell: (c) => {
+        if (!c.owner_user_id) return <span className="muted">—</span>
+        return (
+          <div className="cell-stack">
+            <Link to={`/detail/users/${c.owner_user_id}`} style={{ fontWeight: 700 }}>
+              User #{c.owner_user_id}
+            </Link>
+            {c.owner_name && <span>{c.owner_name}</span>}
+            {c.owner_phone && <span className="muted">{c.owner_phone}</span>}
+          </div>
+        )
+      },
+    },
     {
       key: 'progress',
       header: t('col.raised_goal'),

@@ -55,6 +55,8 @@ dependencies:
   firebase_core: ^4.7.0
   firebase_messaging: ^16.2.0
   cloud_firestore: ^6.3.0
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
 
 dependency_overrides:
   # 12.4.0+ calls NSProcessInfo.isiOSAppOnVision (Xcode 26.1+ only). Pin until Xcode is upgraded.

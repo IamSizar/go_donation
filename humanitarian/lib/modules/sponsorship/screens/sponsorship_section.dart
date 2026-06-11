@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/core/app_state.dart';
+import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_campaign_donations_screen.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_my_projects_screen.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_pending_projects_screen.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_submit_project_screen.dart';
@@ -79,6 +80,16 @@ class _BeneficiarySupportList extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         SectionTile(
+          icon: Icons.volunteer_activism_rounded,
+          title: 'My campaign donations',
+          subtitle: 'See every donation made to your campaigns and who donated.',
+          color: Colors.teal,
+          onTap: () => Get.to(
+            () => const BeneficiaryCampaignDonationsScreen(),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SectionTile(
           icon: Icons.dashboard_customize_rounded,
           title: 'My help requests',
           subtitle: 'See submitted, pending, approved, and rejected requests.',
@@ -109,14 +120,9 @@ class _BeneficiarySupportList extends StatelessWidget {
           color: Colors.teal,
           onTap: () => Get.to(() => const MyBeneficiaryCasesScreen()),
         ),
-        const SizedBox(height: 12),
-        SectionTile(
-          icon: Icons.support_agent_rounded,
-          title: 'Technical support',
-          subtitle: 'Send a message to the support team.',
-          color: Colors.orange,
-          onTap: () => Get.to(() => const SupportTicketFormScreen()),
-        ),
+        // Technical support intentionally lives only in the Services tab (it is
+        // the shared support entry point for every role), so it is not
+        // duplicated here in the beneficiary workspace.
       ],
     );
   }

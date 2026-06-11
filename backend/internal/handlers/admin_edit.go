@@ -1026,6 +1026,10 @@ func (h *AdminEditHandler) Donation(c *gin.Context) {
 	if !b.exec(c, h.Pool, "donations", id) {
 		return
 	}
+	// Editing a donation's amount or delivery_status can change how much the
+	// campaign has confirmed-raised, so re-derive that total. (Shared helper
+	// in admin_status.go — counts only received/delivered donations.)
+	recalcCampaignRaisedForDonation(c.Request.Context(), h.Pool, id)
 	c.JSON(http.StatusOK, gin.H{"success": true, "id": id})
 }
 

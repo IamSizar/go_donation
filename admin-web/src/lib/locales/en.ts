@@ -19,6 +19,8 @@ const en = {
     partners: 'Partners',
     media: 'Media',
     community: 'Community',
+    city_guide: 'City Guide',
+    messages: 'Messages',
     volunteers: 'Volunteers',
     volunteer_board: 'Volunteer board',
     missions: 'Missions',

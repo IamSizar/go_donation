@@ -173,26 +173,13 @@ func (s *Store) Insert(
 		return nil, err
 	}
 
-	// Roll the donated amount into the campaign total when:
-	//   • the donation actually references a campaign (general donations skip), AND
-	//   • the amount parsed to a positive number above (amountStr != "").
-	//
-	// COALESCE protects against any old rows that snuck in with an empty string
-	// — without it, '' + 100 would produce a NULL and lose the historical total.
-	if campaignID != nil && amountStr != "" {
-		_, err := tx.Exec(ctx, `
-			UPDATE campaigns
-			   SET raised_amount = (
-			           COALESCE(NULLIF(raised_amount, '')::numeric, 0)
-			         + $1::numeric
-			       )::text
-			 WHERE id = $2`,
-			amountStr, *campaignID,
-		)
-		if err != nil {
-			return nil, err
-		}
-	}
+	// NOTE: a brand-new donation lands as delivery_status='registered'
+	// (pending admin review), so it deliberately does NOT bump the campaign's
+	// raised_amount yet. The amount only starts counting once the admin
+	// confirms it (delivery_status -> 'received'/'delivered'), at which point
+	// handlers.recalcCampaignRaised recomputes the campaign total from its
+	// confirmed donations. This is what stops a campaign from showing money it
+	// hasn't actually collected.
 
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
@@ -275,21 +262,11 @@ func (s *Store) CancelByDonor(ctx context.Context, donationID, userID int64) (am
 		return "", nil, err
 	}
 
-	// Reverse the raised_amount bump made at Insert time. Same NUMERIC cast
-	// pattern + COALESCE-empty-string guard.
-	if cid != nil && amt != "" {
-		if _, err := tx.Exec(ctx, `
-			UPDATE campaigns
-			   SET raised_amount = (
-			           COALESCE(NULLIF(raised_amount, '')::numeric, 0)
-			         - $1::numeric
-			       )::text
-			 WHERE id = $2`,
-			amt, *cid,
-		); err != nil {
-			return "", nil, err
-		}
-	}
+	// No raised_amount adjustment needed here: self-cancel is only allowed
+	// while the donation is still 'registered' (pending), and pending
+	// donations were never counted toward raised_amount in the first place.
+	// (Confirmed donations are reversed by the admin status flow, which
+	// re-derives the campaign total via handlers.recalcCampaignRaised.)
 
 	if err := tx.Commit(ctx); err != nil {
 		return "", nil, err

@@ -25,6 +25,8 @@ const kmr: DeepPartial<typeof en> = {
     partners: 'هەڤپیشە',
     media: 'میدیا',
     community: 'ڕێبەرێ کۆمەڵا',
+    city_guide: 'ڕێنمایا Bajêr',
+    messages: 'Peyam',
     volunteers: 'خۆبەخش',
     volunteer_board: 'تابلۆیا خۆبەخشان',
     missions: 'مهمە',

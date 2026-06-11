@@ -11,7 +11,9 @@ export default defineConfig({
     // a teammate's laptop, etc.). Localhost-only is the Vite default;
     // we override it so the admin SPA works the same way the Go API does.
     host: true,
-    port: 5173,
+    // Honor the PORT assigned by the tooling/preview harness when present;
+    // fall back to Vite's conventional 5173 for plain `npm run dev`.
+    port: process.env.PORT ? Number(process.env.PORT) : 5173,
     proxy: {
       '/api': {
         target: 'http://localhost:8080',

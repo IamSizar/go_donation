@@ -547,6 +547,10 @@ type adminCampaign struct {
 	RaisedAmount      string  `json:"raised_amount"`
 	IsActive          int     `json:"is_active"` // Mirror of status='active'; kept for legacy SPA clients.
 	Status            string  `json:"status"`    // Phase 15.1 — 'active' | 'hidden' | 'finished'.
+	// Beneficiary owner — set when a project request is published as a campaign.
+	OwnerUserID *int64  `json:"owner_user_id"`
+	OwnerPhone  *string `json:"owner_phone"`
+	OwnerName   *string `json:"owner_name"`
 }
 
 func (h *AdminListsHandler) Campaigns(c *gin.Context) {
@@ -560,14 +564,14 @@ func (h *AdminListsHandler) Campaigns(c *gin.Context) {
 	where := "WHERE 1=1"
 	if q != "" {
 		args = append(args, "%"+q+"%")
-		where += " AND (title ILIKE $" + strconv.Itoa(len(args)) +
-			" OR title_ar ILIKE $" + strconv.Itoa(len(args)) +
-			" OR address ILIKE $" + strconv.Itoa(len(args)) + ")"
+		where += " AND (c.title ILIKE $" + strconv.Itoa(len(args)) +
+			" OR c.title_ar ILIKE $" + strconv.Itoa(len(args)) +
+			" OR c.address ILIKE $" + strconv.Itoa(len(args)) + ")"
 	}
 
 	var total int
 	if err := h.Pool.QueryRow(c.Request.Context(),
-		"SELECT COUNT(*) FROM campaigns "+where, args...,
+		"SELECT COUNT(*) FROM campaigns c "+where, args...,
 	).Scan(&total); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
 		return
@@ -577,12 +581,16 @@ func (h *AdminListsHandler) Campaigns(c *gin.Context) {
 	offsetIdx := len(args) + 2
 	args = append(args, pp, off)
 	rows, err := h.Pool.Query(c.Request.Context(), `
-		SELECT id, title, title_ar, title_sorani, title_badini,
-		       description, description_ar, description_sorani, description_badini,
-		       address, beneficiaries, goal_amount, raised_amount, is_active, status
-		  FROM campaigns
+		SELECT c.id, c.title, c.title_ar, c.title_sorani, c.title_badini,
+		       c.description, c.description_ar, c.description_sorani, c.description_badini,
+		       c.address, c.beneficiaries, c.goal_amount::text, c.raised_amount::text,
+		       c.is_active, c.status,
+		       c.owner_user_id, u.phone, up.full_name
+		  FROM campaigns c
+		  LEFT JOIN users u ON u.id = c.owner_user_id
+		  LEFT JOIN user_profiles up ON up.user_id = c.owner_user_id
 		 `+where+`
-		 ORDER BY id DESC
+		 ORDER BY c.id DESC
 		 LIMIT $`+strconv.Itoa(limitIdx)+` OFFSET $`+strconv.Itoa(offsetIdx),
 		args...,
 	)
@@ -596,7 +604,8 @@ func (h *AdminListsHandler) Campaigns(c *gin.Context) {
 		var cm adminCampaign
 		if err := rows.Scan(&cm.ID, &cm.Title, &cm.TitleAr, &cm.TitleSorani, &cm.TitleBadini,
 			&cm.Description, &cm.DescriptionAr, &cm.DescriptionSorani, &cm.DescriptionBadini,
-			&cm.Address, &cm.Beneficiaries, &cm.GoalAmount, &cm.RaisedAmount, &cm.IsActive, &cm.Status); err != nil {
+			&cm.Address, &cm.Beneficiaries, &cm.GoalAmount, &cm.RaisedAmount, &cm.IsActive, &cm.Status,
+			&cm.OwnerUserID, &cm.OwnerPhone, &cm.OwnerName); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
 			return
 		}

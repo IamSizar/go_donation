@@ -1216,3 +1216,82 @@ func NewMediaPostMsg(postTitle string, postID int64) LocalizedMessage {
 		},
 	}
 }
+
+// ===== Donor ↔ campaign-owner chat (Phase 28) =====
+
+// ChatRequestMsg notifies the recipient that someone wants to start a chat.
+// Type "chat_request" + related_entity_id=threadID drives the Accept/Decline
+// action in the mobile Alerts tab.
+func ChatRequestMsg(requesterName, campaignName string, threadID int64) LocalizedMessage {
+	who := requesterName
+	if who == "" {
+		who = "Someone"
+	}
+	return LocalizedMessage{
+		Type:              "chat_request",
+		RelatedEntityType: "chat_thread",
+		RelatedEntityID:   threadID,
+		Title: LocalText{
+			En:  "New chat request",
+			Ar:  "طلب محادثة جديد",
+			Ckb: "داواکاری گفتوگۆی نوێ",
+			Kmr: "داخوازا axaftinê ya nû",
+		},
+		Body: LocalText{
+			En:  fmt.Sprintf("%s wants to chat with you about \"%s\". Open Alerts to accept.", who, campaignName),
+			Ar:  fmt.Sprintf("يريد %s التحدث معك بخصوص \"%s\". افتح الإشعارات للقبول.", who, campaignName),
+			Ckb: fmt.Sprintf("%s دەیەوێت لەگەڵت گفتوگۆ بکات دەربارەی «%s». ئاگاداریەکان بکەرەوە بۆ پەسەندکردن.", who, campaignName),
+			Kmr: fmt.Sprintf("%s دخوازیت ب تە re biaxive derbarê \"%s\". Hişyariyan veke ji bo qebûlkirinê.", who, campaignName),
+		},
+	}
+}
+
+// ChatAcceptedMsg notifies the initiator that the recipient accepted.
+func ChatAcceptedMsg(accepterName string, threadID int64) LocalizedMessage {
+	who := accepterName
+	if who == "" {
+		who = "Your contact"
+	}
+	return LocalizedMessage{
+		Type:              "chat_accepted",
+		RelatedEntityType: "chat_thread",
+		RelatedEntityID:   threadID,
+		Title: LocalText{
+			En:  "Chat request accepted",
+			Ar:  "تم قبول طلب المحادثة",
+			Ckb: "داواکاری گفتوگۆ پەسەند کرا",
+			Kmr: "Daxwaza axaftinê hat qebûlkirin",
+		},
+		Body: LocalText{
+			En:  fmt.Sprintf("%s accepted your chat request. You can now message each other.", who),
+			Ar:  fmt.Sprintf("قبل %s طلب المحادثة. يمكنكما الآن تبادل الرسائل.", who),
+			Ckb: fmt.Sprintf("%s داواکاری گفتوگۆکەت پەسەند کرد. ئێستا دەتوانن نامە بنێرن.", who),
+			Kmr: fmt.Sprintf("%s daxwaza te ya axaftinê qebûl kir. Niha hûn dikarin ji hev re binivîsin.", who),
+		},
+	}
+}
+
+// ChatNewMessageMsg notifies the other party of a new chat message.
+func ChatNewMessageMsg(senderName, preview string, threadID int64) LocalizedMessage {
+	who := senderName
+	if who == "" {
+		who = "New message"
+	}
+	return LocalizedMessage{
+		Type:              "chat_message",
+		RelatedEntityType: "chat_thread",
+		RelatedEntityID:   threadID,
+		Title: LocalText{
+			En:  fmt.Sprintf("Message from %s", who),
+			Ar:  fmt.Sprintf("رسالة من %s", who),
+			Ckb: fmt.Sprintf("نامە لە %s", who),
+			Kmr: fmt.Sprintf("Peyam ji %s", who),
+		},
+		Body: LocalText{
+			En:  preview,
+			Ar:  preview,
+			Ckb: preview,
+			Kmr: preview,
+		},
+	}
+}

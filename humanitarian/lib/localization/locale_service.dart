@@ -46,6 +46,19 @@ class AppLocaleService {
     };
   }
 
+  /// Canonical language code used by the AI assistant and backend:
+  /// `en | ar | ckb | kmr`. Resolves [locale] (or the live [Get.locale] when
+  /// null) through [contentVariant] so Sorani (ar_IQ) and Badini (ar_TR) are
+  /// distinguished even though both reuse the Arabic language code.
+  static String assistantLang([Locale? locale]) {
+    return switch (contentVariant(locale ?? Get.locale)) {
+      'ar' => 'ar',
+      'sorani' => 'ckb',
+      'badini' => 'kmr',
+      _ => 'en',
+    };
+  }
+
   static List<String> localizedVariantOrder(Locale? locale) {
     final variant = contentVariant(locale);
     return switch (variant) {

@@ -19,6 +19,8 @@ const ar: DeepPartial<typeof en> = {
     partners: 'الشركاء',
     media: 'الأخبار والإعلام',
     community: 'دليل المجتمع',
+    city_guide: 'دليل المدينة',
+    messages: 'الرسائل',
     volunteers: 'المتطوعون',
     volunteer_board: 'لوحة المتطوعين',
     missions: 'المهام',

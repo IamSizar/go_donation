@@ -12,6 +12,7 @@ import 'edit_profile.dart';
 import '../../../localization/locale_service.dart';
 
 const Color _profilePrimary = Color(0xFF0F766E);
+const Color _profilePrimaryDark = Color(0xFF115E59);
 const Color _profileDanger = Color(0xFFEF4444);
 
 class ProfileSection extends StatefulWidget {
@@ -123,7 +124,20 @@ class _ProfileSectionState extends State<ProfileSection> {
     ];
 
     if (details.isEmpty) return 'Beneficiary'.tr;
-    return details.join(' - ');
+    return details.join(' · ');
+  }
+
+  String? _roleLabel() {
+    switch (sharedPreferences.getString('role_id')) {
+      case '1':
+        return 'Donor';
+      case '2':
+        return 'Beneficiary';
+      case '3':
+        return 'Volunteer';
+      default:
+        return null;
+    }
   }
 
   List<String> _missingProfileFields() {
@@ -147,34 +161,19 @@ class _ProfileSectionState extends State<ProfileSection> {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 18),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Move the IconButton next to the profile display section below,
-                  // So remove it from here entirely.
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Profile & Settings'.tr,
-                          style: TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.w800,
-                            color: AppThemeConfig.text(context),
-                          ),
-                        ),
-
-                        const SizedBox(height: 6),
-                      ],
-                    ),
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: Text(
+                  'Profile & Settings'.tr,
+                  style: TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                    color: AppThemeConfig.text(context),
                   ),
-                  // Removed IconButton from here
-                ],
+                ),
               ),
             ),
-
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
@@ -183,138 +182,50 @@ class _ProfileSectionState extends State<ProfileSection> {
                     builder: (context) {
                       final missingFields = _missingProfileFields();
                       final isComplete = missingFields.isEmpty;
-                      return _ProfileCard(
-                        child: Column(
-                          children: [
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Expanded(
-                                  child: ListTile(
-                                    contentPadding: EdgeInsets.zero,
-                                    leading: _ProfileCompletionAvatar(
-                                      isComplete: isComplete,
-                                      radius: 26,
-                                      avatar: CachedProfileAvatar(
-                                        localPath: _localProfileImagePath(),
-                                        imageUrl: _remoteProfileImageUrl(),
-                                        radius: 26,
-                                        backgroundColor: _profilePrimary,
-                                        placeholder: const Icon(
-                                          Icons.person,
-                                          color: Colors.white,
-                                          size: 28,
-                                        ),
-                                      ),
-                                    ),
-                                    title: Text(
-                                      _profileName(),
-                                      style: TextStyle(
-                                        color: AppThemeConfig.text(context),
-                                      ),
-                                    ),
-                                    subtitle: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          _profileSubtitle(),
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            color: AppThemeConfig.mutedText(
-                                              context,
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Builder(
-                                          builder: (context) {
-                                            final String? roleId =
-                                                sharedPreferences.getString(
-                                                  'role_id',
-                                                );
-                                            String? roleLabel;
-                                            if (roleId == '1') {
-                                              roleLabel = 'Donor';
-                                            } else if (roleId == '2') {
-                                              roleLabel = 'Beneficiary';
-                                            } else if (roleId == '3') {
-                                              roleLabel = 'Volunteer';
-                                            }
-                                            if (roleLabel != null) {
-                                              return Row(
-                                                children: [
-                                                  Icon(
-                                                    Icons
-                                                        .verified_user_outlined,
-                                                    size: 17,
-                                                    color:
-                                                        AppThemeConfig.mutedText(
-                                                          context,
-                                                        ),
-                                                  ),
-                                                  const SizedBox(width: 5),
-                                                  Flexible(
-                                                    child: Text(
-                                                      roleLabel.tr,
-                                                      style: TextStyle(
-                                                        color:
-                                                            AppThemeConfig.mutedText(
-                                                              context,
-                                                            ),
-                                                        fontSize: 14,
-                                                        fontStyle:
-                                                            FontStyle.italic,
-                                                      ),
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                    ),
-                                                  ),
-                                                ],
-                                              );
-                                            }
-                                            return const SizedBox();
-                                          },
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                IconButton(
-                                  color: AppThemeConfig.text(context),
-                                  icon: const Icon(Icons.edit_rounded),
-                                  onPressed: _openEditProfile,
-                                ),
-                              ],
-                            ),
-                            if (!isComplete) ...[
-                              const SizedBox(height: 14),
-                              _ProfileCompletionReminder(
-                                missingFields: missingFields,
-                                onEdit: _openEditProfile,
+                      return Column(
+                        children: [
+                          _ProfileHero(
+                            name: _profileName(),
+                            subtitle: _profileSubtitle(),
+                            roleLabel: _roleLabel(),
+                            isComplete: isComplete,
+                            onEdit: _openEditProfile,
+                            avatar: CachedProfileAvatar(
+                              localPath: _localProfileImagePath(),
+                              imageUrl: _remoteProfileImageUrl(),
+                              radius: 38,
+                              backgroundColor: _profilePrimaryDark,
+                              placeholder: const Icon(
+                                Icons.person,
+                                color: Colors.white,
+                                size: 40,
                               ),
-                            ],
+                            ),
+                          ),
+                          if (!isComplete) ...[
+                            const SizedBox(height: 12),
+                            _ProfileCompletionReminder(
+                              missingFields: missingFields,
+                              onEdit: _openEditProfile,
+                            ),
                           ],
-                        ),
+                        ],
                       );
                     },
                   ),
 
-                  const SizedBox(height: 12),
-
-                  const SizedBox(height: 12),
-
-                  const _ProfileOptionTile(
+                  const SizedBox(height: 22),
+                  _SectionLabel('Account'.tr),
+                  const SizedBox(height: 10),
+                  _ProfileOptionTile(
                     icon: Icons.security_rounded,
                     title: "Privacy & Security",
                     subtitle:
                         'Control account access, passwords, and verification.',
                     color: Colors.deepPurple,
                   ),
-
                   const SizedBox(height: 12),
-                  const _ProfileOptionTile(
+                  _ProfileOptionTile(
                     icon: Icons.payment_rounded,
                     title: "Payment Methods",
                     subtitle:
@@ -322,83 +233,22 @@ class _ProfileSectionState extends State<ProfileSection> {
                     color: Colors.green,
                   ),
                   const SizedBox(height: 12),
+                  _ProfileOptionTile(
+                    icon: Icons.tune_rounded,
+                    title: "App Settings",
+                    subtitle:
+                        'Customize notifications, language, and preferences.',
+                    color: Colors.blueAccent,
+                  ),
+
+                  const SizedBox(height: 22),
+                  _SectionLabel('Preferences'.tr),
+                  const SizedBox(height: 10),
                   const _LanguagePreferenceCard(),
                   const SizedBox(height: 12),
                   const _ThemePreferenceCard(),
-                  const SizedBox(height: 12),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 2),
-                    child: GestureDetector(
-                      onTap: () {
-                        // TODO: Implement navigation to App Settings
-                      },
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              Colors.blueAccent.withValues(alpha: 0.92),
-                              Colors.blue[200]!,
-                            ],
-                            begin: Alignment.centerLeft,
-                            end: Alignment.centerRight,
-                          ),
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.blueAccent.withValues(alpha: 0.18),
-                              blurRadius: 16,
-                              offset: const Offset(0, 8),
-                            ),
-                          ],
-                        ),
-                        padding: const EdgeInsets.all(22),
-                        child: Row(
-                          children: [
-                            CircleAvatar(
-                              backgroundColor: Colors.white,
-                              radius: 26,
-                              child: Icon(
-                                Icons.settings_rounded,
-                                size: 28,
-                                color: Colors.blueAccent,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: const [
-                                  Text(
-                                    "App Settings",
-                                    style: TextStyle(
-                                      fontSize: 17,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                  SizedBox(height: 4),
-                                  Text(
-                                    'Customize notifications, language, and preferences.',
-                                    style: TextStyle(
-                                      fontSize: 13.5,
-                                      color: Colors.white70,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const Icon(
-                              Icons.arrow_forward_ios_rounded,
-                              size: 22,
-                              color: Colors.white70,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
 
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 24),
                   _LogoutTile(
                     color: _profileDanger,
                     onTap: () => _handleLogout(context),
@@ -407,6 +257,216 @@ class _ProfileSectionState extends State<ProfileSection> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The redesigned profile header: a gradient identity card with a large ringed
+/// avatar, a completion badge, the name, a role pill and a quick subtitle, plus
+/// a prominent Edit action.
+class _ProfileHero extends StatelessWidget {
+  const _ProfileHero({
+    required this.name,
+    required this.subtitle,
+    required this.roleLabel,
+    required this.isComplete,
+    required this.avatar,
+    required this.onEdit,
+  });
+
+  final String name;
+  final String subtitle;
+  final String? roleLabel;
+  final bool isComplete;
+  final Widget avatar;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    // Ring + badge turn gold/amber when the profile is incomplete, green when
+    // everything's filled in — a calm at-a-glance status.
+    final ringColor = isComplete ? Colors.white : const Color(0xFFFBBF24);
+    final badgeColor = isComplete
+        ? const Color(0xFF22C55E)
+        : const Color(0xFFF59E0B);
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 20, 14, 20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [_profilePrimary, _profilePrimaryDark],
+        ),
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: _profilePrimary.withValues(alpha: 0.35),
+            blurRadius: 22,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Ringed avatar + completion badge.
+          SizedBox(
+            width: 90,
+            height: 90,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(3),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: ringColor, width: 3),
+                  ),
+                  child: avatar,
+                ),
+                PositionedDirectional(
+                  end: 0,
+                  bottom: 0,
+                  child: Container(
+                    width: 26,
+                    height: 26,
+                    decoration: BoxDecoration(
+                      color: badgeColor,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                    child: Icon(
+                      isComplete
+                          ? Icons.check_rounded
+                          : Icons.priority_high_rounded,
+                      color: Colors.white,
+                      size: 15,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 21,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                if (roleLabel != null) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.verified_user_rounded,
+                          size: 14,
+                          color: Colors.white,
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          roleLabel!.tr,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                if (subtitle.isNotEmpty) ...[
+                  const SizedBox(height: 9),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.place_outlined,
+                        size: 14,
+                        color: Colors.white.withValues(alpha: 0.8),
+                      ),
+                      const SizedBox(width: 5),
+                      Expanded(
+                        child: Text(
+                          subtitle,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.85),
+                            fontSize: 13,
+                            height: 1.35,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 6),
+          // Edit button — white pill so it reads as the primary action.
+          Material(
+            color: Colors.white,
+            shape: const CircleBorder(),
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: onEdit,
+              child: const Padding(
+                padding: EdgeInsets.all(10),
+                child: Icon(
+                  Icons.edit_rounded,
+                  color: _profilePrimary,
+                  size: 20,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Small muted section header used to group the settings list.
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsetsDirectional.only(start: 4),
+      child: Text(
+        label.toUpperCase(),
+        style: TextStyle(
+          color: AppThemeConfig.mutedText(context),
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.8,
         ),
       ),
     );
@@ -424,90 +484,17 @@ class _ProfileCard extends StatelessWidget {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: AppThemeConfig.surface(context),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppThemeConfig.border(context)),
         boxShadow: [
           BoxShadow(
             color: AppThemeConfig.shadow(context),
-            blurRadius: 18,
-            offset: const Offset(0, 10),
+            blurRadius: 14,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
       child: child,
-    );
-  }
-}
-
-class _ProfileCompletionAvatar extends StatelessWidget {
-  const _ProfileCompletionAvatar({
-    required this.isComplete,
-    required this.radius,
-    required this.avatar,
-  });
-
-  final bool isComplete;
-  final double radius;
-  final Widget avatar;
-
-  @override
-  Widget build(BuildContext context) {
-    final width = radius * 2 + 16;
-    final shoulderHeight = radius * 0.9;
-    return SizedBox(
-      width: width,
-      height: radius * 2 + 14,
-      child: Stack(
-        clipBehavior: Clip.none,
-        alignment: Alignment.topCenter,
-        children: [
-          if (!isComplete)
-            Positioned(
-              bottom: 0,
-              child: Container(
-                width: width,
-                height: shoulderHeight,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFFFE39A), Color(0xFFF4B942)],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                  ),
-                  borderRadius: BorderRadius.vertical(
-                    top: Radius.circular(shoulderHeight),
-                    bottom: const Radius.circular(24),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFFF4B942).withValues(alpha: 0.24),
-                      blurRadius: 16,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          Positioned(top: 0, child: avatar),
-          if (!isComplete)
-            Positioned(
-              top: -3,
-              right: 0,
-              child: Container(
-                width: 22,
-                height: 22,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF97316),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 1.5),
-                ),
-                child: const Icon(
-                  Icons.priority_high_rounded,
-                  color: Colors.white,
-                  size: 14,
-                ),
-              ),
-            ),
-        ],
-      ),
     );
   }
 }
@@ -632,36 +619,49 @@ class _ProfileOptionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _ProfileCard(
-      child: ListTile(
-        contentPadding: EdgeInsets.zero,
-        leading: Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(16),
+      child: Row(
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(icon, color: color),
           ),
-          child: Icon(icon, color: color),
-        ),
-        title: Text(
-          title.tr,
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            color: AppThemeConfig.text(context),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title.tr,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    color: AppThemeConfig.text(context),
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  subtitle.tr,
+                  style: TextStyle(
+                    color: AppThemeConfig.mutedText(context),
+                    height: 1.35,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        subtitle: Text(
-          subtitle.tr,
-          style: TextStyle(
+          const SizedBox(width: 8),
+          Icon(
+            Icons.arrow_forward_ios_rounded,
+            size: 16,
             color: AppThemeConfig.mutedText(context),
-            height: 1.4,
           ),
-        ),
-        trailing: Icon(
-          Icons.arrow_forward_ios_rounded,
-          size: 18,
-          color: AppThemeConfig.mutedText(context),
-        ),
+        ],
       ),
     );
   }
@@ -675,42 +675,93 @@ class _LogoutTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _ProfileCard(
-      child: ListTile(
-        contentPadding: EdgeInsets.zero,
-        leading: Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Icon(Icons.logout_rounded, color: color),
-        ),
-        title: Text(
-          'Log out'.tr,
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            color: color,
-            fontSize: 17,
-          ),
-        ),
-        subtitle: Text(
-          'Sign out of your account securely.'.tr,
-          style: TextStyle(
-            color: AppThemeConfig.mutedText(context),
-            height: 1.4,
-          ),
-        ),
-        trailing: Icon(Icons.arrow_forward_ios_rounded, color: color, size: 18),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
         onTap: onTap,
+        child: _ProfileCard(
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(Icons.logout_rounded, color: color),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Log out'.tr,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        color: color,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      'Sign out of your account securely.'.tr,
+                      style: TextStyle(
+                        color: AppThemeConfig.mutedText(context),
+                        height: 1.35,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(Icons.arrow_forward_ios_rounded, color: color, size: 16),
+            ],
+          ),
+        ),
       ),
     );
   }
 }
 
+/// One selectable language: a script badge, the name in its OWN script, an
+/// English descriptor, and the locale to switch to.
+class _LanguageOption {
+  const _LanguageOption(
+    this.code,
+    this.nativeName,
+    this.englishName,
+    this.locale,
+  );
+
+  final String code; // short badge glyph, e.g. "EN", "ع", "سۆ", "با"
+  final String nativeName; // shown in the language's own script
+  final String englishName; // descriptor, localized
+  final Locale locale;
+}
+
 class _LanguagePreferenceCard extends StatelessWidget {
   const _LanguagePreferenceCard();
+
+  static const List<_LanguageOption> _options = [
+    _LanguageOption('EN', 'English', 'English', AppLocaleService.english),
+    _LanguageOption('ع', 'العربية', 'Arabic', AppLocaleService.arabic),
+    _LanguageOption(
+      'سۆ',
+      'کوردیی سۆرانی',
+      'Kurdish Sorani',
+      AppLocaleService.kurdishSorani,
+    ),
+    _LanguageOption(
+      'با',
+      'کوردیی بادینی',
+      'Kurdish Badini',
+      AppLocaleService.kurdishBadini,
+    ),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -718,60 +769,155 @@ class _LanguagePreferenceCard extends StatelessWidget {
       Get.locale ?? AppLocaleService.english,
     );
 
-    Widget chip(String label, Locale locale) {
-      final isSelected = currentCode == AppLocaleService.localeTag(locale);
-
-      return ChoiceChip(
-        label: Text(label.tr),
-        selected: isSelected,
-        onSelected: (_) => AppLocaleService.changeLocale(locale),
-        labelStyle: TextStyle(
-          color: isSelected ? Colors.white : AppThemeConfig.text(context),
-          fontWeight: FontWeight.w700,
-        ),
-        selectedColor: _profilePrimary,
-        backgroundColor: AppThemeConfig.softSurface(context),
-        side: BorderSide(
-          color: isSelected
-              ? _profilePrimary
-              : AppThemeConfig.mutedText(context).withValues(alpha: 0.20),
-        ),
-        showCheckmark: false,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      );
-    }
-
     return _ProfileCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Language'.tr,
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              color: AppThemeConfig.text(context),
-              fontSize: 16,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Customize notifications, language, and preferences.'.tr,
-            style: TextStyle(
-              color: AppThemeConfig.mutedText(context),
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 10,
+          Row(
             children: [
-              chip('English', AppLocaleService.english),
-              chip('Arabic', AppLocaleService.arabic),
-              chip('Kurdish Sorani', AppLocaleService.kurdishSorani),
-              chip('Kurdish Badini', AppLocaleService.kurdishBadini),
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: _profilePrimary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.translate_rounded,
+                  color: _profilePrimary,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Language'.tr,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: AppThemeConfig.text(context),
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      'Choose your preferred language.'.tr,
+                      style: TextStyle(
+                        color: AppThemeConfig.mutedText(context),
+                        height: 1.35,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
+          const SizedBox(height: 14),
+          for (var i = 0; i < _options.length; i++) ...[
+            if (i > 0) const SizedBox(height: 8),
+            _LanguageOptionRow(
+              option: _options[i],
+              selected:
+                  currentCode ==
+                  AppLocaleService.localeTag(_options[i].locale),
+            ),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+class _LanguageOptionRow extends StatelessWidget {
+  const _LanguageOptionRow({required this.option, required this.selected});
+
+  final _LanguageOption option;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () => AppLocaleService.changeLocale(option.locale),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          decoration: BoxDecoration(
+            color: selected
+                ? _profilePrimary.withValues(alpha: 0.08)
+                : AppThemeConfig.softSurface(context),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: selected
+                  ? _profilePrimary
+                  : AppThemeConfig.border(context),
+              width: selected ? 1.5 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              // Script badge.
+              Container(
+                width: 38,
+                height: 38,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: selected
+                      ? _profilePrimary
+                      : _profilePrimary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: Text(
+                  option.code,
+                  style: TextStyle(
+                    color: selected ? Colors.white : _profilePrimary,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      option.nativeName,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14.5,
+                        color: AppThemeConfig.text(context),
+                      ),
+                    ),
+                    const SizedBox(height: 1),
+                    Text(
+                      option.englishName.tr,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppThemeConfig.mutedText(context),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                selected
+                    ? Icons.check_circle_rounded
+                    : Icons.radio_button_unchecked_rounded,
+                color: selected
+                    ? _profilePrimary
+                    : AppThemeConfig.mutedText(context).withValues(alpha: 0.5),
+                size: 22,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -790,11 +936,12 @@ class _ThemePreferenceCard extends StatelessWidget {
           return SwitchListTile.adaptive(
             contentPadding: EdgeInsets.zero,
             value: isDark,
-            activeColor: _profilePrimary,
+            activeThumbColor: _profilePrimary,
             title: Text(
               'Dark mode'.tr,
               style: TextStyle(
                 fontWeight: FontWeight.w700,
+                fontSize: 15,
                 color: AppThemeConfig.text(context),
               ),
             ),
@@ -802,15 +949,16 @@ class _ThemePreferenceCard extends StatelessWidget {
               'Use a darker appearance across the app.'.tr,
               style: TextStyle(
                 color: AppThemeConfig.mutedText(context),
-                height: 1.4,
+                height: 1.35,
+                fontSize: 13,
               ),
             ),
             secondary: Container(
-              width: 48,
-              height: 48,
+              width: 46,
+              height: 46,
               decoration: BoxDecoration(
                 color: Colors.indigo.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(14),
               ),
               child: const Icon(Icons.dark_mode_rounded, color: Colors.indigo),
             ),

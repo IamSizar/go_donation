@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
+import 'package:flutter_application_1/modules/chat/chat_actions.dart';
 import 'package:flutter_application_1/modules/donations/controllers/my_donations_controller.dart';
 import 'package:flutter_application_1/modules/donations/models/donation_history_models.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
@@ -288,6 +289,15 @@ class _DonationHistoryCard extends StatelessWidget {
 
   final DonationHistoryEntry item;
 
+  void _openDetails(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _DonationDetailSheet(item: item),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final statusColor = item.status.color;
@@ -364,6 +374,151 @@ class _DonationHistoryCard extends StatelessWidget {
             style: TextStyle(
               color: AppThemeConfig.mutedText(context),
               height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Tap for full details (and to chat with the campaign owner).
+          InkWell(
+            onTap: () => _openDetails(context),
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: _donationHistoryPrimary.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.info_outline_rounded, size: 17, color: _donationHistoryPrimary),
+                  const SizedBox(width: 8),
+                  Text(
+                    'View details'.tr,
+                    style: const TextStyle(
+                      color: _donationHistoryPrimary,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DonationDetailSheet extends StatelessWidget {
+  const _DonationDetailSheet({required this.item});
+
+  final DonationHistoryEntry item;
+
+  Future<void> _chatWithOwner(BuildContext context) async {
+    Navigator.of(context).pop(); // close the sheet first
+    await ChatActions.startChat(
+      context,
+      donationId: item.id,
+      otherPartyLabel: 'the owner of "${item.campaignName}"',
+      conversationTitle: item.campaignName,
+      conversationSubtitle: 'Campaign owner'.tr,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final statusColor = item.status.color;
+    final canChat = item.campaignId != null && item.id != null;
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: GlassPanel(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 42,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppThemeConfig.mutedText(context).withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                item.campaignName,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  color: AppThemeConfig.text(context),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                '${_numFormat.format(item.amount)} IQD',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: statusColor),
+              ),
+              const SizedBox(height: 16),
+              _DetailLine(label: 'Status', value: item.status.label),
+              _DetailLine(label: 'Date', value: item.dateLabel),
+              _DetailLine(label: 'Payment method', value: item.paymentMethod.isEmpty ? '—' : item.paymentMethod),
+              _DetailLine(label: 'Reference', value: item.reference),
+              if (item.note.trim().isNotEmpty && item.note != '—')
+                _DetailLine(label: 'Message', value: item.note),
+              const SizedBox(height: 18),
+              if (canChat)
+                FilledButton.icon(
+                  onPressed: () => _chatWithOwner(context),
+                  icon: const Icon(Icons.forum_rounded, size: 19),
+                  label: Text('Chat with campaign owner'.tr),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    backgroundColor: _donationHistoryPrimary,
+                  ),
+                )
+              else
+                Text(
+                  'Chat is only available for campaign donations.'.tr,
+                  style: TextStyle(color: AppThemeConfig.mutedText(context), fontSize: 13),
+                  textAlign: TextAlign.center,
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DetailLine extends StatelessWidget {
+  const _DetailLine({required this.label, required this.value});
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              label.tr,
+              style: TextStyle(color: AppThemeConfig.mutedText(context), fontWeight: FontWeight.w600),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(color: AppThemeConfig.text(context), fontWeight: FontWeight.w700),
             ),
           ),
         ],

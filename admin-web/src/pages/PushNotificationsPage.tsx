@@ -19,7 +19,12 @@ import type { PushSendResp, PushStatusResp } from '../lib/api-types'
 import UserPicker, { type PickedUser } from '../components/UserPicker'
 import { PUSH_TEMPLATES, type TemplateLang } from '../lib/pushTemplates'
 import { useI18n } from '../lib/i18n'
-import { Sparkles, Check } from 'lucide-react'
+import { Sparkles, Check, Bell, Smartphone } from 'lucide-react'
+
+// Delivery channel. 'inapp' writes a row to every user's Alerts tab (works
+// without FCM, reaches every account). 'push' fires an OS banner via FCM
+// (needs the service-account key + a real device).
+type Channel = 'inapp' | 'push'
 
 // Phase 27.10 — the raw "Direct token" target was removed; sending now
 // always goes through a registered audience (one user / all / one role).
@@ -49,7 +54,9 @@ export default function PushNotificationsPage() {
   // null = still loading; -1 = backend couldn't read; ≥0 = live count.
   const [activeDevices, setActiveDevices] = useState<number | null>(null)
 
-  const [target, setTarget] = useState<TargetKind>('user')
+  // Default to in-app: it always works (push needs FCM + a real device).
+  const [channel, setChannel] = useState<Channel>('inapp')
+  const [target, setTarget] = useState<TargetKind>('all')
   // Phase 18e — U1 target now uses a typeahead UserPicker; pickedUser holds
   // the chosen row (user_id + name + phone) so the form can confirm who
   // exactly is about to get the notification before send.
@@ -107,6 +114,33 @@ export default function PushNotificationsPage() {
     if (!title.trim()) { setError(t('page.push.err_title_required')); return }
     if (!body.trim())  { setError(t('page.push.err_body_required'));  return }
 
+    // ── In-app channel — writes to every user's Alerts tab. Always works,
+    //    no FCM needed. Supports "all users" or "by role".
+    if (channel === 'inapp') {
+      const payload: Record<string, unknown> = { title: title.trim(), body: body.trim() }
+      if (target === 'role') {
+        if (!roleId || roleId <= 0) { setError(t('page.push.err_pick_role')); return }
+        payload.role_id = roleId
+      }
+      // 'all' → role_id omitted (every active user).
+      setBusy(true)
+      try {
+        const res = await api.post<{ success: boolean; sent: number }>(
+          '/api/admin/notifications/broadcast',
+          payload,
+        )
+        setSuccess(
+          `Delivered to ${res.data.sent} user${res.data.sent === 1 ? '' : 's'}' in-app Alerts inbox.`,
+        )
+      } catch (err) {
+        setError(describeError(err))
+      } finally {
+        setBusy(false)
+      }
+      return
+    }
+
+    // ── Push channel — OS banner via FCM (needs key + real device).
     const payload: Record<string, unknown> = { title: title.trim(), body: body.trim() }
     if (imageUrl.trim()) payload.image_url = imageUrl.trim()
 
@@ -180,9 +214,10 @@ export default function PushNotificationsPage() {
       {fcmEnabled === false && (
         <div className="info-box">
           <strong>{t('page.push.fcm_box_title')}</strong>{' '}
-          {t('page.push.fcm_box_pre')}{' '}
+          <strong>In-app notifications still work</strong> — pick the “In-app (Alerts tab)” channel
+          below to reach every user right now. OS push (banners) additionally needs{' '}
           <code style={{ background: 'transparent', padding: 0 }}>backend/firebase-credentials.json</code>{' '}
-          {t('page.push.fcm_box_post')}
+          and a real device. {t('page.push.fcm_box_post')}
         </div>
       )}
 
@@ -374,7 +409,55 @@ export default function PushNotificationsPage() {
       </div>
 
       <form onSubmit={submit} className="card stack">
-        {/* === Target picker — 4 tiles, single-select === */}
+        {/* === Delivery channel — In-app (always works) vs Push (needs FCM) === */}
+        <div>
+          <span className="form-label" style={{ display: 'block', marginBottom: 8 }}>
+            Delivery channel
+          </span>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            {([
+              { kind: 'inapp', Icon: Bell, title: 'In-app (Alerts tab)', desc: 'Shows in every user’s inbox. Always works.' },
+              { kind: 'push',  Icon: Smartphone, title: 'Push (OS banner)', desc: 'Lock-screen banner. Needs FCM + a real device.' },
+            ] as const).map(({ kind, Icon, title: ttl, desc }) => {
+              const selected = channel === kind
+              const disabled = kind === 'push' && fcmEnabled === false
+              return (
+                <button
+                  key={kind}
+                  type="button"
+                  className={`target-tile${selected ? ' is-selected' : ''}`}
+                  onClick={() => {
+                    setChannel(kind)
+                    setError(null); setSuccess(null); setResult(null)
+                    // In-app broadcast supports all/role only — drop single-user.
+                    if (kind === 'inapp' && target === 'user') setTarget('all')
+                  }}
+                  disabled={busy || disabled}
+                  aria-pressed={selected}
+                  style={{ opacity: disabled ? 0.5 : 1 }}
+                  title={disabled ? 'FCM not configured on the server' : undefined}
+                >
+                  <span className="target-code" aria-hidden="true">
+                    <Icon size={20} strokeWidth={2.2} />
+                  </span>
+                  <span className="target-text">
+                    <strong>{ttl}</strong>
+                    <span className="muted">{desc}</span>
+                  </span>
+                  {selected && (
+                    <svg className="target-check" width="18" height="18" viewBox="0 0 24 24"
+                      fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
+                      strokeLinejoin="round" aria-hidden="true">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* === Target picker — single-select === */}
         <div>
           <span className="form-label" style={{ display: 'block', marginBottom: 8 }}>
             {t('page.push.target_label')}
@@ -384,7 +467,7 @@ export default function PushNotificationsPage() {
             role="radiogroup"
             aria-label={t('page.push.target_aria')}
           >
-            {TARGETS.map((tg) => {
+            {TARGETS.filter((tg) => !(channel === 'inapp' && tg.kind === 'user')).map((tg) => {
               const selected = target === tg.kind
               return (
                 <button
@@ -495,15 +578,17 @@ export default function PushNotificationsPage() {
           />
         </label>
 
-        <label>
-          {t('page.push.image_url')} <span className="muted">{t('page.push.optional')}</span>
-          <input
-            value={imageUrl}
-            onChange={(e) => setImageUrl(e.target.value)}
-            placeholder="https://yourapp.com/image.png"
-            disabled={busy}
-          />
-        </label>
+        {channel === 'push' && (
+          <label>
+            {t('page.push.image_url')} <span className="muted">{t('page.push.optional')}</span>
+            <input
+              value={imageUrl}
+              onChange={(e) => setImageUrl(e.target.value)}
+              placeholder="https://yourapp.com/image.png"
+              disabled={busy}
+            />
+          </label>
+        )}
 
         {error && <div className="error-box">{error}</div>}
         {success && (
@@ -513,8 +598,15 @@ export default function PushNotificationsPage() {
         )}
 
         <div className="row">
-          <button type="submit" disabled={busy || fcmEnabled === false}>
-            {busy ? t('page.push.sending') : t('page.push.send')}
+          <button
+            type="submit"
+            disabled={busy || (channel === 'push' && fcmEnabled === false)}
+          >
+            {busy
+              ? t('page.push.sending')
+              : channel === 'inapp'
+              ? 'Send in-app notification'
+              : t('page.push.send')}
           </button>
         </div>
 

@@ -391,6 +391,110 @@ func (h *DonationsHandler) AdminList(c *gin.Context) {
 	})
 }
 
+// GET /api/beneficiary/campaign-donations
+// Bearer required; returns all campaigns owned by the signed-in beneficiary
+// and every donation made to each one, with donor name + phone.
+// Response shape:
+//
+//	{ success, campaigns: [ { id, title, goal_amount, raised_amount, status,
+//	                          donations: [ { id, amount, delivery_status,
+//	                                         payment_method, message,
+//	                                         transaction_date, donor_name,
+//	                                         donor_phone } ] } ] }
+func (h *DonationsHandler) BeneficiaryCampaignDonations(c *gin.Context) {
+	tokenUser, _ := auth.UserFromGin(c)
+	if tokenUser == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		return
+	}
+
+	type donationRow struct {
+		ID              int64   `json:"id"`
+		DonorUserID     int64   `json:"donor_user_id"`
+		Amount          string  `json:"amount"`
+		DeliveryStatus  string  `json:"delivery_status"`
+		PaymentMethod   string  `json:"payment_method"`
+		Message         string  `json:"message"`
+		TransactionDate string  `json:"transaction_date"`
+		DonorName       *string `json:"donor_name"`
+		DonorPhone      *string `json:"donor_phone"`
+	}
+	type campaignRow struct {
+		ID           int64          `json:"id"`
+		Title        string         `json:"title"`
+		TitleAr      string         `json:"title_ar"`
+		GoalAmount   string         `json:"goal_amount"`
+		RaisedAmount string         `json:"raised_amount"`
+		Status       string         `json:"status"`
+		Donations    []*donationRow `json:"donations"`
+	}
+
+	// Step 1: all campaigns owned by this beneficiary.
+	campRows, err := h.Store.Pool.Query(c.Request.Context(), `
+		SELECT id, title, title_ar, goal_amount::text, raised_amount::text, status
+		  FROM campaigns
+		 WHERE owner_user_id = $1
+		 ORDER BY id DESC`, tokenUser.UserID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		return
+	}
+	defer campRows.Close()
+
+	campaigns := []*campaignRow{}
+	campByID := map[int64]*campaignRow{}
+	for campRows.Next() {
+		var cr campaignRow
+		if err := campRows.Scan(&cr.ID, &cr.Title, &cr.TitleAr, &cr.GoalAmount, &cr.RaisedAmount, &cr.Status); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+			return
+		}
+		cr.Donations = []*donationRow{}
+		campaigns = append(campaigns, &cr)
+		campByID[cr.ID] = &cr
+	}
+	campRows.Close()
+
+	if len(campaigns) == 0 {
+		c.JSON(http.StatusOK, gin.H{"success": true, "campaigns": []any{}})
+		return
+	}
+
+	// Step 2: all donations for those campaigns + joined donor info.
+	dRows, err := h.Store.Pool.Query(c.Request.Context(), `
+		SELECT d.id, d.user_id, d.campaign_id, d.amount::text, d.delivery_status,
+		       d.payment_method, d.message, d.transaction_date::text,
+		       up.full_name, u.phone
+		  FROM donations d
+		  JOIN campaigns c ON c.id = d.campaign_id
+		  LEFT JOIN users u ON u.id = d.user_id
+		  LEFT JOIN user_profiles up ON up.user_id = d.user_id
+		 WHERE c.owner_user_id = $1
+		 ORDER BY d.transaction_date DESC`, tokenUser.UserID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		return
+	}
+	defer dRows.Close()
+	for dRows.Next() {
+		var (
+			dr       donationRow
+			campID   int64
+		)
+		if err := dRows.Scan(&dr.ID, &dr.DonorUserID, &campID, &dr.Amount, &dr.DeliveryStatus,
+			&dr.PaymentMethod, &dr.Message, &dr.TransactionDate,
+			&dr.DonorName, &dr.DonorPhone); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+			return
+		}
+		if camp, ok := campByID[campID]; ok {
+			camp.Donations = append(camp.Donations, &dr)
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "campaigns": campaigns})
+}
+
 func toString(v any) string {
 	switch x := v.(type) {
 	case string:

@@ -5,6 +5,7 @@ import 'package:flutter_application_1/core/app_haptics.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/modules/auth/screens/profile.dart';
+import 'package:flutter_application_1/modules/chat/screens/messages_screen.dart';
 import 'package:flutter_application_1/modules/community/screens/community_services_section.dart';
 import 'package:flutter_application_1/modules/dashboard/controllers/featured_campaigns_controller.dart';
 import 'package:flutter_application_1/modules/dashboard/controllers/role_dashboard_controller.dart';
@@ -84,6 +85,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       activeIcon: Icons.apps,
       color: Colors.deepPurple,
     ),
+    NavDestination(
+      label: 'Messages',
+      icon: Icons.forum_outlined,
+      activeIcon: Icons.forum_rounded,
+      color: Colors.teal,
+    ),
   ];
 
   static final List<Widget> _sections = [
@@ -96,15 +103,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
     const ProfileSection(),
     const SupportSection(),
     const ProposalServicesSection(),
+    const MessagesScreen(),
   ];
 
   /// Tabs each role may open from the bottom navigator (others are not their flow).
   static List<int> _navigatorSourceIndices() {
     switch (sharedPreferences.getString('role_id')) {
-      case '1': // Donor — giving, market; not home/kafala/volunteer shells
-        return const [0, 2, 3, 4, 5, 6, 8];
-      case '2': // Beneficiary — aid/kafala, community, alerts, profile
-        return const [0, 1, 3, 5, 6, 8];
+      case '1': // Donor — giving, market, messages; not kafala/volunteer shells
+        return const [0, 2, 3, 4, 9, 5, 6, 8];
+      case '2': // Beneficiary — aid/kafala, community, messages, alerts, profile
+        return const [0, 1, 3, 9, 5, 6, 8];
       case '3': // Volunteer — volunteer hub, community, alerts, profile
         return const [0, 7, 3, 5, 6, 8];
       default:

@@ -21,6 +21,8 @@ const ckb: DeepPartial<typeof en> = {
     partners: 'هاوبەشەکان',
     media: 'میدیا',
     community: 'ڕێبەری کۆمەڵگا',
+    city_guide: 'ڕێنمای شار',
+    messages: 'نامەکان',
     volunteers: 'خۆبەخشەکان',
     volunteer_board: 'تابلۆی خۆبەخشەکان',
     missions: 'میسیۆنەکان',

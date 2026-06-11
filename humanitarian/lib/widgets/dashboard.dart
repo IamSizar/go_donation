@@ -15,6 +15,8 @@ import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_pe
 import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_submit_project_screen.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/sponsorship_overview_screen.dart';
 import 'package:flutter_application_1/modules/support/screens/support_section.dart';
+import 'package:flutter_application_1/modules/community/screens/community_services_section.dart';
+import 'package:flutter_application_1/modules/bot/screens/bot_chat_screen.dart';
 import 'package:flutter_application_1/widgets/firebase_screen_add.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -176,11 +178,16 @@ class DashboardHomeSection extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 9,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.16),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.18),
+                  ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -249,10 +256,11 @@ class DashboardHomeSection extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
       children: [
         _buildHero(
-          firstName: ((sharedPreferences.getString('name_user') ?? 'No name'.tr)
-                  .trim())
-              .split(RegExp(r'\s+'))
-              .first,
+          firstName:
+              ((sharedPreferences.getString('name_user') ?? 'No name'.tr)
+                      .trim())
+                  .split(RegExp(r'\s+'))
+                  .first,
           badge: _heroBadge('donor'),
           body: _heroBody('donor'),
           primaryAction: Material(
@@ -378,6 +386,8 @@ class DashboardHomeSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 22),
+        const _ExploreRow(),
+        const SizedBox(height: 22),
         const _FeaturedCampaignsSection(),
         const SizedBox(height: 22),
         // Phase 27.11 — "Latest news" media strip (public news/activities).
@@ -395,15 +405,16 @@ class DashboardHomeSection extends StatelessWidget {
             const Spacer(),
             Text(
               'See all'.tr,
-              style: const TextStyle(color: _primary, fontWeight: FontWeight.w700),
+              style: const TextStyle(
+                color: _primary,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ],
         ),
         const SizedBox(height: 12),
         if (recentDonations.isEmpty)
-          const _GlassPanel(
-            child: Text('No donations yet.'),
-          )
+          const _GlassPanel(child: Text('No donations yet.'))
         else
           _GlassPanel(
             child: Column(
@@ -420,7 +431,8 @@ class DashboardHomeSection extends StatelessWidget {
                     time: _dateLabel(recentDonations[i]['transaction_date']),
                     onTap: () => Get.to(() => const RoleHistoryScreen()),
                   ),
-                  if (i != recentDonations.length - 1) const SizedBox(height: 14),
+                  if (i != recentDonations.length - 1)
+                    const SizedBox(height: 14),
                 ],
               ],
             ),
@@ -444,7 +456,8 @@ class DashboardHomeSection extends StatelessWidget {
                     time: _dateLabel(recentNotifications[i]['created_at']),
                     onTap: () => Get.toNamed(AppRoutes.notifications),
                   ),
-                  if (i != recentNotifications.length - 1) const SizedBox(height: 14),
+                  if (i != recentNotifications.length - 1)
+                    const SizedBox(height: 14),
                 ],
               ],
             ),
@@ -465,10 +478,11 @@ class DashboardHomeSection extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
       children: [
         _buildHero(
-          firstName: ((sharedPreferences.getString('name_user') ?? 'No name'.tr)
-                  .trim())
-              .split(RegExp(r'\s+'))
-              .first,
+          firstName:
+              ((sharedPreferences.getString('name_user') ?? 'No name'.tr)
+                      .trim())
+                  .split(RegExp(r'\s+'))
+                  .first,
           badge: _heroBadge('beneficiary'),
           body: _heroBody('beneficiary'),
           primaryAction: Material(
@@ -511,7 +525,8 @@ class DashboardHomeSection extends StatelessWidget {
                 value: '${_intValue(stats, 'pending_requests')}',
                 label: 'Pending requests',
                 icon: Icons.schedule_rounded,
-                onTap: () => Get.to(() => const BeneficiaryPendingProjectsScreen()),
+                onTap: () =>
+                    Get.to(() => const BeneficiaryPendingProjectsScreen()),
               ),
             ),
           ],
@@ -574,7 +589,8 @@ class DashboardHomeSection extends StatelessWidget {
                   icon: Icons.add_circle_outline_rounded,
                   label: 'Submit',
                   color: Colors.orange,
-                  onTap: () => Get.to(() => const BeneficiarySubmitProjectScreen()),
+                  onTap: () =>
+                      Get.to(() => const BeneficiarySubmitProjectScreen()),
                 ),
               ),
               const SizedBox(width: 8),
@@ -583,7 +599,8 @@ class DashboardHomeSection extends StatelessWidget {
                   icon: Icons.folder_open_rounded,
                   label: 'My requests',
                   color: Colors.blueAccent,
-                  onTap: () => Get.to(() => const BeneficiaryMyProjectsScreen()),
+                  onTap: () =>
+                      Get.to(() => const BeneficiaryMyProjectsScreen()),
                 ),
               ),
               const SizedBox(width: 8),
@@ -592,12 +609,15 @@ class DashboardHomeSection extends StatelessWidget {
                   icon: Icons.hourglass_bottom_rounded,
                   label: 'Pending',
                   color: Colors.teal,
-                  onTap: () => Get.to(() => const BeneficiaryPendingProjectsScreen()),
+                  onTap: () =>
+                      Get.to(() => const BeneficiaryPendingProjectsScreen()),
                 ),
               ),
             ],
           ),
         ),
+        const SizedBox(height: 22),
+        const _ExploreRow(),
         const SizedBox(height: 22),
         const _SectionLabel(title: 'Recent case updates'),
         const SizedBox(height: 12),
@@ -611,7 +631,8 @@ class DashboardHomeSection extends StatelessWidget {
                   _DashboardActivityTile(
                     icon: Icons.assignment_rounded,
                     color: Colors.indigo,
-                    title: (recentCases[i]['public_title'] ?? 'Case').toString(),
+                    title: (recentCases[i]['public_title'] ?? 'Case')
+                        .toString(),
                     subtitle:
                         '${_statusLabel(recentCases[i]['verification_status'], fallback: 'submitted')} · ${_statusLabel(recentCases[i]['priority_level'], fallback: 'medium')}',
                     time: _dateLabel(recentCases[i]['updated_at']),
@@ -635,14 +656,15 @@ class DashboardHomeSection extends StatelessWidget {
                   _DashboardActivityTile(
                     icon: Icons.flag_rounded,
                     color: Colors.teal,
-                    title:
-                        (recentRequests[i]['project_title'] ?? 'Request').toString(),
+                    title: (recentRequests[i]['project_title'] ?? 'Request')
+                        .toString(),
                     subtitle:
                         '${_moneyLabel(_doubleValue(recentRequests[i], 'amount_needed'))} · ${_statusLabel(recentRequests[i]['status'], fallback: 'submitted')}',
                     time: _dateLabel(recentRequests[i]['updated_at']),
                     onTap: () => Get.to(() => const RoleHistoryScreen()),
                   ),
-                  if (i != recentRequests.length - 1) const SizedBox(height: 14),
+                  if (i != recentRequests.length - 1)
+                    const SizedBox(height: 14),
                 ],
               ],
             ),
@@ -669,7 +691,8 @@ class DashboardHomeSection extends StatelessWidget {
                     time: _dateLabel(recentNotifications[i]['created_at']),
                     onTap: () => Get.toNamed(AppRoutes.notifications),
                   ),
-                  if (i != recentNotifications.length - 1) const SizedBox(height: 14),
+                  if (i != recentNotifications.length - 1)
+                    const SizedBox(height: 14),
                 ],
               ],
             ),
@@ -683,7 +706,9 @@ class DashboardHomeSection extends StatelessWidget {
     Map<String, dynamic> summary,
   ) {
     final stats = Map<String, dynamic>.from(summary['stats'] as Map? ?? {});
-    final application = Map<String, dynamic>.from(summary['application'] as Map? ?? {});
+    final application = Map<String, dynamic>.from(
+      summary['application'] as Map? ?? {},
+    );
     final upcomingMissions = _listValue(summary, 'upcoming_missions');
     final recentNotifications = _listValue(summary, 'recent_notifications');
     final applicationStatus = (stats['application_status'] ?? '').toString();
@@ -691,10 +716,11 @@ class DashboardHomeSection extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
       children: [
         _buildHero(
-          firstName: ((sharedPreferences.getString('name_user') ?? 'No name'.tr)
-                  .trim())
-              .split(RegExp(r'\s+'))
-              .first,
+          firstName:
+              ((sharedPreferences.getString('name_user') ?? 'No name'.tr)
+                      .trim())
+                  .split(RegExp(r'\s+'))
+                  .first,
           badge: _heroBadge('volunteer'),
           body: _heroBody('volunteer'),
           primaryAction: Material(
@@ -731,7 +757,8 @@ class DashboardHomeSection extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: _DashboardHeroStat(
-                value: '${_doubleValue(stats, 'hours_served').toStringAsFixed(0)}h',
+                value:
+                    '${_doubleValue(stats, 'hours_served').toStringAsFixed(0)}h',
                 label: 'Hours served',
                 icon: Icons.timer_rounded,
                 onTap: () => dashboardTabNotifier.value = 7,
@@ -808,7 +835,8 @@ class DashboardHomeSection extends StatelessWidget {
                   icon: Icons.badge_rounded,
                   label: 'Apply',
                   color: Colors.blueAccent,
-                  onTap: () => Get.to(() => const VolunteerApplicationFormScreen()),
+                  onTap: () =>
+                      Get.to(() => const VolunteerApplicationFormScreen()),
                 ),
               ),
               const SizedBox(width: 8),
@@ -824,6 +852,8 @@ class DashboardHomeSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 22),
+        const _ExploreRow(),
+        const SizedBox(height: 22),
         const _SectionLabel(title: 'My mission schedule'),
         const SizedBox(height: 12),
         if (upcomingMissions.isEmpty)
@@ -836,13 +866,15 @@ class DashboardHomeSection extends StatelessWidget {
                   _DashboardActivityTile(
                     icon: Icons.task_alt_rounded,
                     color: Colors.cyan,
-                    title: (upcomingMissions[i]['title'] ?? 'Mission').toString(),
+                    title: (upcomingMissions[i]['title'] ?? 'Mission')
+                        .toString(),
                     subtitle:
                         '${_statusLabel(upcomingMissions[i]['signup_status'])} · ${(upcomingMissions[i]['city'] ?? '').toString()}',
                     time: _dateLabel(upcomingMissions[i]['mission_date']),
                     onTap: () => Get.to(() => const RoleHistoryScreen()),
                   ),
-                  if (i != upcomingMissions.length - 1) const SizedBox(height: 14),
+                  if (i != upcomingMissions.length - 1)
+                    const SizedBox(height: 14),
                 ],
               ],
             ),
@@ -869,7 +901,8 @@ class DashboardHomeSection extends StatelessWidget {
                     time: _dateLabel(recentNotifications[i]['created_at']),
                     onTap: () => Get.toNamed(AppRoutes.notifications),
                   ),
-                  if (i != recentNotifications.length - 1) const SizedBox(height: 14),
+                  if (i != recentNotifications.length - 1)
+                    const SizedBox(height: 14),
                 ],
               ],
             ),
@@ -893,10 +926,10 @@ class DashboardHomeSection extends StatelessWidget {
         title: roleKey == 'donor'
             ? 'Donor dashboard'
             : roleKey == 'beneficiary'
-                ? 'Beneficiary dashboard'
-                : roleKey == 'volunteer'
-                    ? 'Volunteer dashboard'
-                    : 'Dashboard',
+            ? 'Beneficiary dashboard'
+            : roleKey == 'volunteer'
+            ? 'Volunteer dashboard'
+            : 'Dashboard',
         subtitle: _roleSubtitle(roleKey),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
@@ -1130,11 +1163,7 @@ class _HeaderIconButton extends StatelessWidget {
           child: SizedBox(
             width: 48,
             height: 48,
-            child: Icon(
-              icon,
-              color: AppThemeConfig.text(context),
-              size: 22,
-            ),
+            child: Icon(icon, color: AppThemeConfig.text(context), size: 22),
           ),
         ),
       ),
@@ -1274,10 +1303,7 @@ class _IconShell extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            color.withValues(alpha: 0.24),
-            color.withValues(alpha: 0.1),
-          ],
+          colors: [color.withValues(alpha: 0.24), color.withValues(alpha: 0.1)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -1445,6 +1471,47 @@ class _DashboardHeroStat extends StatelessWidget {
         onTap: onTap,
         child: child,
       ),
+    );
+  }
+}
+
+/// Home "Explore" panel — non-role-specific shortcuts that live on Home rather
+/// than inside the Community/Services tabs (e.g. the City Guide map).
+class _ExploreRow extends StatelessWidget {
+  const _ExploreRow();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _SectionLabel(title: 'Explore'),
+        const SizedBox(height: 12),
+        _GlassPanel(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          child: Row(
+            children: [
+              Expanded(
+                child: _QuickAction(
+                  icon: Icons.map_rounded,
+                  label: 'City Guide',
+                  color: Colors.teal,
+                  onTap: () => Get.to(() => const CityGuideScreen()),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _QuickAction(
+                  icon: Icons.smart_toy_rounded,
+                  label: 'Assistant',
+                  color: Colors.deepPurple,
+                  onTap: () => Get.to(() => const BotChatScreen()),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1634,8 +1701,11 @@ class _CampaignCard extends StatelessWidget {
                 // ---- Location (single compact line) ----
                 Row(
                   children: [
-                    Icon(Icons.place_rounded,
-                        size: 13, color: accent.withValues(alpha: 0.9)),
+                    Icon(
+                      Icons.place_rounded,
+                      size: 13,
+                      color: accent.withValues(alpha: 0.9),
+                    ),
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
@@ -1714,10 +1784,7 @@ class _CampaignCard extends StatelessWidget {
                         child: Container(
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
-                              colors: [
-                                accent.withValues(alpha: 0.7),
-                                accent,
-                              ],
+                              colors: [accent.withValues(alpha: 0.7), accent],
                             ),
                             borderRadius: BorderRadius.circular(999),
                           ),
@@ -1785,7 +1852,10 @@ class _NewsStrip extends StatelessWidget {
                 onTap: () => Get.to(() => const NewsActivitiesScreen()),
                 borderRadius: BorderRadius.circular(8),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 2,
+                  ),
                   child: Text(
                     'See all'.tr,
                     style: const TextStyle(
@@ -1851,8 +1921,11 @@ class _NewsCard extends StatelessWidget {
                           ),
                         ),
                         child: const Center(
-                          child: Icon(Icons.article_rounded,
-                              color: Colors.white, size: 34),
+                          child: Icon(
+                            Icons.article_rounded,
+                            color: Colors.white,
+                            size: 34,
+                          ),
                         ),
                       )
                     : CachedNetworkImage(
@@ -1877,8 +1950,11 @@ class _NewsCard extends StatelessWidget {
                             ),
                           ),
                           child: const Center(
-                            child: Icon(Icons.article_rounded,
-                                color: Colors.white, size: 34),
+                            child: Icon(
+                              Icons.article_rounded,
+                              color: Colors.white,
+                              size: 34,
+                            ),
                           ),
                         ),
                       ),
@@ -1893,9 +1969,13 @@ class _NewsCard extends StatelessWidget {
                       children: [
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 3),
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF0F766E).withValues(alpha: 0.12),
+                            color: const Color(
+                              0xFF0F766E,
+                            ).withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(999),
                           ),
                           child: Text(
@@ -1959,13 +2039,14 @@ String? _dashboardMediaUrl(dynamic value) {
   if (path.isEmpty) return null;
   final uri = Uri.tryParse(path);
   if (uri != null && uri.hasScheme) return path;
-  if (RegExp(r'^(www\.)?[-a-zA-Z0-9@:%._+~#=]{2,256}\.[a-zA-Z]{2,}\b')
-      .hasMatch(path)) {
+  if (RegExp(
+    r'^(www\.)?[-a-zA-Z0-9@:%._+~#=]{2,256}\.[a-zA-Z]{2,}\b',
+  ).hasMatch(path)) {
     return 'https://$path';
   }
-  return Uri.parse(publicBaseUrl)
-      .resolve(path.replaceFirst(RegExp(r'^/+'), ''))
-      .toString();
+  return Uri.parse(
+    publicBaseUrl,
+  ).resolve(path.replaceFirst(RegExp(r'^/+'), '')).toString();
 }
 
 // Phase 27.7 — "Our partners" home-tab section. Pulls from
@@ -2145,9 +2226,9 @@ String? _dashboardPartnerLogoUrl(dynamic value) {
   if (path.isEmpty) return null;
   final uri = Uri.tryParse(path);
   if (uri != null && uri.hasScheme) return path;
-  return Uri.parse(publicBaseUrl)
-      .resolve(path.replaceFirst(RegExp(r'^/+'), ''))
-      .toString();
+  return Uri.parse(
+    publicBaseUrl,
+  ).resolve(path.replaceFirst(RegExp(r'^/+'), '')).toString();
 }
 
 class _DashboardActivityTile extends StatelessWidget {

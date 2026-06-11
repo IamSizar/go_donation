@@ -18,6 +18,8 @@ import MarriagePage from './pages/MarriagePage'
 import PartnersPage from './pages/PartnersPage'
 import MediaPage from './pages/MediaPage'
 import CommunityPage from './pages/CommunityPage'
+import CityGuidePage from './pages/CityGuidePage'
+import MessagesPage from './pages/MessagesPage'
 import VolunteersPage from './pages/VolunteersPage'
 import VolunteerBoardPage from './pages/VolunteerBoardPage'
 import MissionsPage from './pages/MissionsPage'
@@ -67,6 +69,8 @@ export default function App() {
             <Route path="partners" element={<PartnersPage />} />
             <Route path="media" element={<MediaPage />} />
             <Route path="community" element={<CommunityPage />} />
+            <Route path="city-guide" element={<CityGuidePage />} />
+            <Route path="messages" element={<MessagesPage />} />
             <Route path="volunteers" element={<VolunteersPage />} />
             <Route path="volunteer-board" element={<VolunteerBoardPage />} />
             <Route path="missions" element={<MissionsPage />} />

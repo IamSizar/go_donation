@@ -6,20 +6,24 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 
+	"github.com/karam-flutter/humanitarian-backend/internal/assistant"
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
 	"github.com/karam-flutter/humanitarian-backend/internal/beneficiary"
 	"github.com/karam-flutter/humanitarian-backend/internal/campaigns"
+	"github.com/karam-flutter/humanitarian-backend/internal/chat"
 	"github.com/karam-flutter/humanitarian-backend/internal/config"
+	"github.com/karam-flutter/humanitarian-backend/internal/dashboard"
 	"github.com/karam-flutter/humanitarian-backend/internal/db"
 	"github.com/karam-flutter/humanitarian-backend/internal/donations"
+	"github.com/karam-flutter/humanitarian-backend/internal/events"
 	"github.com/karam-flutter/humanitarian-backend/internal/handlers"
-	"github.com/karam-flutter/humanitarian-backend/internal/dashboard"
 	"github.com/karam-flutter/humanitarian-backend/internal/history"
 	"github.com/karam-flutter/humanitarian-backend/internal/inkind"
 	"github.com/karam-flutter/humanitarian-backend/internal/listings"
@@ -51,6 +55,17 @@ func main() {
 	defer pool.Close()
 	log.Printf("connected to Postgres")
 
+	// Auto-apply pending SQL migrations when RUN_MIGRATIONS=1 (e.g. on a fresh
+	// Railway Postgres). Each file runs at most once, tracked in
+	// schema_migrations, so redeploys are no-ops. Off by default to never touch
+	// an existing local dev database.
+	if os.Getenv("RUN_MIGRATIONS") == "1" {
+		dir := config.GetEnvDefault("MIGRATIONS_DIR", "./migrations")
+		if err := db.RunMigrations(ctx, pool, dir); err != nil {
+			log.Fatalf("migrations: %v", err)
+		}
+	}
+
 	if cfg.AppEnv == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
@@ -62,7 +77,10 @@ func main() {
 	donationStore := donations.NewStore(pool)
 	beneficiaryStore := beneficiary.NewStore(pool)
 	marketplaceStore := marketplace.NewStore(pool)
+	chatStore := chat.New(pool)
+	eventsStore := events.New(pool)
 	notifier := notify.New(pool)
+	assistantSvc := assistant.New()
 
 	listingsStore := listings.New(pool)
 	supportStore := support.New(pool)
@@ -87,6 +105,11 @@ func main() {
 	} else {
 		log.Printf("[otp] OTPIQ disabled (OTPIQ_API_KEY not set; demo mode still works)")
 	}
+	if assistantSvc.LLMEnabled() {
+		log.Printf("[assistant] AI mode enabled (LLM via ANTHROPIC_API_KEY)")
+	} else {
+		log.Printf("[assistant] local mode (set ANTHROPIC_API_KEY for full AI; keyword engine active)")
+	}
 	authH := handlers.NewAuthHandler(tokenStore, otpStore, userStore, otpiqClient)
 	profileH := handlers.NewProfileHandler(userStore, uploadDir)
 	chooseRoleH := handlers.NewChooseRoleHandler(userStore)
@@ -96,6 +119,9 @@ func main() {
 	donationsH := handlers.NewDonationsHandler(donationStore, notifier)
 	beneficiaryH := handlers.NewBeneficiaryHandler(beneficiaryStore, userStore, notifier)
 	marketplaceH := handlers.NewMarketplaceHandler(marketplaceStore, notifier)
+	chatH := handlers.NewChatHandler(chatStore, notifier, pool)
+	eventsH := handlers.NewEventsHandler(eventsStore, pool)
+	assistantH := handlers.NewAssistantHandler(assistantSvc, pool)
 	notificationsH := handlers.NewNotificationsHandler(notifier)
 	pushH := handlers.NewPushHandler(notifier)
 	kpisH := handlers.NewDashboardKPIsHandler(pool)
@@ -120,6 +146,12 @@ func main() {
 	historyH := handlers.NewHistoryHandler(historyStore, userStore)
 
 	r := gin.Default()
+
+	// CORS — the admin dashboard is served from a different origin in production
+	// (e.g. dashboard.up.railway.app calling backend.up.railway.app), so the
+	// browser needs CORS headers. Auth is via Bearer token (not cookies), so a
+	// permissive default is safe; tighten with CORS_ALLOWED_ORIGINS if desired.
+	r.Use(corsMiddleware())
 
 	r.GET("/health", healthH.Get)
 
@@ -247,6 +279,27 @@ func main() {
 			authed.POST("/marketplace", marketplaceH.Post)
 			authed.POST("/marketplace/", marketplaceH.Post)
 
+			// Beneficiary — view donations made to their own campaigns.
+			authed.GET("/beneficiary/campaign-donations", donationsH.BeneficiaryCampaignDonations)
+			authed.GET("/beneficiary/campaign-donations/", donationsH.BeneficiaryCampaignDonations)
+
+			// Donor ↔ campaign-owner chat (Phase 28).
+			authed.POST("/chats/request", chatH.Request)
+			authed.GET("/chats", chatH.List)
+			authed.GET("/chats/", chatH.List)
+			authed.POST("/chats/:id/accept", chatH.Accept)
+			authed.POST("/chats/:id/decline", chatH.Decline)
+			authed.GET("/chats/:id/messages", chatH.Messages)
+			authed.POST("/chats/:id/messages", chatH.PostMessage)
+
+			// AI Support Assistant (Phase 29).
+			authed.POST("/assistant/chat", assistantH.Chat)
+			authed.POST("/assistant/chat/", assistantH.Chat)
+
+			// Activity event log (Postgres home of the old Firestore feed).
+			authed.POST("/events", eventsH.Log)
+			authed.POST("/events/", eventsH.Log)
+
 			// Notifications
 			authed.GET("/notifications", notificationsH.List)
 			authed.GET("/notifications/", notificationsH.List)
@@ -321,6 +374,10 @@ func main() {
 			admin.GET("/admin/pending-counts", pendingH.Counts)
 			admin.GET("/admin/pending-counts/", pendingH.Counts)
 
+			// Live activity feed for the admin dashboard.
+			admin.GET("/admin/events", eventsH.AdminList)
+			admin.GET("/admin/events/", eventsH.AdminList)
+
 			// Cross-user paginated lists.
 			admin.GET("/admin/beneficiary_cases", beneficiaryH.AdminCases)
 			admin.GET("/admin/beneficiary_cases/", beneficiaryH.AdminCases)
@@ -372,6 +429,15 @@ func main() {
 			// Push composition + KPIs.
 			admin.GET("/admin/push/status", pushH.Status)
 			admin.POST("/admin/push/send", pushH.Send)
+			// In-app broadcast to every user (works without FCM).
+			admin.POST("/admin/notifications/broadcast", pushH.BroadcastInApp)
+			admin.POST("/admin/notifications/broadcast/", pushH.BroadcastInApp)
+
+			// Donor ↔ owner chat — admin (support) oversight.
+			admin.GET("/admin/chats", chatH.AdminList)
+			admin.GET("/admin/chats/", chatH.AdminList)
+			admin.GET("/admin/chats/:id/messages", chatH.AdminMessages)
+			admin.POST("/admin/chats/:id/messages", chatH.AdminPostMessage)
 			admin.GET("/admin/dashboard_kpis", kpisH.Get)
 			admin.GET("/admin/dashboard_kpis/", kpisH.Get)
 
@@ -482,5 +548,37 @@ func main() {
 	defer shutdownCancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		log.Printf("shutdown: %v", err)
+	}
+}
+
+// corsMiddleware returns a Gin middleware that adds CORS headers. The allowed
+// origins come from CORS_ALLOWED_ORIGINS (comma-separated); when unset or "*",
+// any origin is reflected. Auth uses Bearer tokens (no cookies), so credentials
+// are not required and "*" is safe.
+func corsMiddleware() gin.HandlerFunc {
+	raw := strings.TrimSpace(os.Getenv("CORS_ALLOWED_ORIGINS"))
+	allowAll := raw == "" || raw == "*"
+	allowed := map[string]bool{}
+	if !allowAll {
+		for _, o := range strings.Split(raw, ",") {
+			if o = strings.TrimSpace(o); o != "" {
+				allowed[o] = true
+			}
+		}
+	}
+	return func(c *gin.Context) {
+		origin := c.GetHeader("Origin")
+		if origin != "" && (allowAll || allowed[origin]) {
+			c.Header("Access-Control-Allow-Origin", origin)
+			c.Header("Vary", "Origin")
+			c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+			c.Header("Access-Control-Allow-Headers", "Authorization, Content-Type, Accept")
+			c.Header("Access-Control-Max-Age", "86400")
+		}
+		if c.Request.Method == http.MethodOptions {
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+		c.Next()
 	}
 }

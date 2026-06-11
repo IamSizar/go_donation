@@ -1,11 +1,13 @@
-// globalAlerts.tsx — Phase 17 — one Firestore subscription, app-wide chime,
-// floating toast, and (opt-in) OS notification when the tab is hidden.
+// globalAlerts.tsx — app-wide chime, floating toast, and (opt-in) OS
+// notification when the tab is hidden.
+//
+// Source: polls the Go backend GET /api/admin/events (Postgres `app_events`)
+// every 5s — migrated from the old Firestore `events` onSnapshot subscription.
 //
 // Architecture:
 //
 //   <GlobalAlertsProvider>
-//     ├── owns one onSnapshot(events, …) subscription (lives as long as
-//     │   the user is signed in)
+//     ├── owns one polling loop (lives as long as the user is signed in)
 //     ├── plays a per-event-type chime for genuinely-new rows
 //     ├── shows an in-app <AlertToast> (top-right, click to jump)
 //     ├── shows a window.Notification when the document is hidden + the
@@ -40,23 +42,14 @@ import {
   type ReactNode,
 } from 'react'
 import { useNavigate } from 'react-router-dom'
-import {
-  collection,
-  limit as fbLimit,
-  onSnapshot,
-  orderBy,
-  query,
-  type DocumentData,
-  type QueryDocumentSnapshot,
-} from 'firebase/firestore'
-import { firebaseDb } from './firebase'
+import { api } from './api'
 import { useAuth } from './auth'
 
 // Mirrors the EventRow type in EventsFeed.tsx. Kept local (with the fields
 // this provider actually consumes) so the two files don't have to share
 // a third module.
 export type AlertEvent = {
-  id: string
+  id: string | number
   event_type: string
   created_at_ms?: number
   name?: string
@@ -265,91 +258,98 @@ export function GlobalAlertsProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  // ===== Firestore subscription =====
+  // ===== Backend polling (Postgres `app_events` via /api/admin/events) =====
+  // Replaces the old Firestore onSnapshot subscription. We poll the most recent
+  // 100 events every 5s and diff against the seen-id set to detect genuinely-new
+  // rows (so we don't chime on the initial backfill).
   useEffect(() => {
-    // Don't subscribe when signed out — saves bandwidth + avoids errors.
+    // Don't poll when signed out — saves bandwidth + avoids 401s.
     if (!user) {
       setEvents([])
       setStatus('connecting')
       return
     }
-    const q = query(
-      collection(firebaseDb(), 'events'),
-      orderBy('created_at_ms', 'desc'),
-      fbLimit(100),
-    )
-    const unsub = onSnapshot(
-      q,
-      (snap) => {
-        const next: AlertEvent[] = snap.docs.map((d: QueryDocumentSnapshot<DocumentData>) => ({
-          id: d.id,
-          ...d.data(),
-        } as AlertEvent))
 
-        // Detect new rows once we've seen the initial backfill.
-        if (!firstSnapshotRef.current) {
-          const newRows = next.filter((r) => !seenIdsRef.current.has(r.id))
-          if (newRows.length > 0) {
-            const first = newRows[0]
+    let cancelled = false
 
-            // 1) Chime — only if user enabled it AND audio is unlocked.
-            if (sound) {
-              const ctx = ensureAudio()
-              if (ctx) {
-                if (ctx.state === 'suspended') void ctx.resume()
-                if (audioUnlocked) playChime(ctx, first.event_type)
-              }
+    function handleSnapshot(next: AlertEvent[]) {
+      // Detect new rows once we've seen the initial backfill.
+      if (!firstSnapshotRef.current) {
+        const newRows = next.filter((r) => !seenIdsRef.current.has(String(r.id)))
+        if (newRows.length > 0) {
+          const first = newRows[0]
+
+          // 1) Chime — only if user enabled it AND audio is unlocked.
+          if (sound) {
+            const ctx = ensureAudio()
+            if (ctx) {
+              if (ctx.state === 'suspended') void ctx.resume()
+              if (audioUnlocked) playChime(ctx, first.event_type)
             }
+          }
 
-            // 2) In-app toast (always show — the visual cue is silent).
-            setToast(first)
+          // 2) In-app toast (always show — the visual cue is silent).
+          setToast(first)
 
-            // 3) OS notification when tab is hidden + admin opted in.
-            if (
-              osNotify
-              && notifPermission === 'granted'
-              && typeof document !== 'undefined'
-              && document.hidden
-            ) {
-              try {
-                const body =
-                  first.note?.trim() ||
-                  first.event_label?.trim() ||
-                  [first.module, first.action].filter(Boolean).join(' · ') ||
-                  ''
-                new Notification(
-                  BADGE_LABEL[first.event_type] ?? first.event_type,
-                  {
-                    body: [first.name, body].filter(Boolean).join(' — '),
-                    tag: `alerts-${first.event_type}`,  // collapses duplicates
-                    icon: '/favicon.ico',
-                  },
-                )
-              } catch {
-                // Some browsers throw on rapid-fire Notification constructions.
-                // Silently swallow; we still have the toast + sidebar badge.
-              }
+          // 3) OS notification when tab is hidden + admin opted in.
+          if (
+            osNotify
+            && notifPermission === 'granted'
+            && typeof document !== 'undefined'
+            && document.hidden
+          ) {
+            try {
+              const body =
+                first.note?.trim() ||
+                first.event_label?.trim() ||
+                [first.module, first.action].filter(Boolean).join(' · ') ||
+                ''
+              new Notification(
+                BADGE_LABEL[first.event_type] ?? first.event_type,
+                {
+                  body: [first.name, body].filter(Boolean).join(' — '),
+                  tag: `alerts-${first.event_type}`,  // collapses duplicates
+                  icon: '/favicon.ico',
+                },
+              )
+            } catch {
+              // Some browsers throw on rapid-fire Notification constructions.
+              // Silently swallow; we still have the toast + sidebar badge.
             }
           }
         }
+      }
 
-        seenIdsRef.current = new Set(next.map((r) => r.id))
-        firstSnapshotRef.current = false
-        setEvents(next)
-        setStatus('connected')
-      },
-      (err) => {
+      seenIdsRef.current = new Set(next.map((r) => String(r.id)))
+      firstSnapshotRef.current = false
+      setEvents(next)
+      setStatus('connected')
+    }
+
+    async function poll() {
+      try {
+        const res = await api.get<{ items?: AlertEvent[] }>('/api/admin/events', {
+          params: { limit: 100 },
+        })
+        if (cancelled) return
+        handleSnapshot(res.data.items ?? [])
+      } catch (err) {
+        if (cancelled) return
         // eslint-disable-next-line no-console
         console.error('global alerts feed error:', err)
         setStatus('error')
-        setError(err.message || String(err))
-      },
-    )
-    return () => unsub()
-    // The listener doesn't need to re-create when sound/osNotify/audioUnlocked
-    // change — those reads happen inside the snapshot callback above, which
-    // closes over refs/state on each invocation. Keeping the deps minimal
-    // prevents the listener from being torn down + recreated on every toggle.
+        setError((err as Error)?.message || String(err))
+      }
+    }
+
+    poll()
+    const timer = window.setInterval(poll, 5000)
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
+    // sound/osNotify/audioUnlocked are read inside the poll closure; we keep the
+    // deps minimal so the interval isn't torn down + recreated on every toggle.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
