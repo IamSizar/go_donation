@@ -139,22 +139,22 @@ class _SupportSectionState extends State<SupportSection>
   /// Returns the user-facing snackbar copy for a status transition, or
   /// null when the transition is a no-op (admin re-saved the same state).
   String? _messageForTransition(String from, String to, String missionTitle) {
-    final m = missionTitle.isEmpty ? 'your mission' : '"$missionTitle"';
+    final m = missionTitle.isEmpty ? 'your mission'.tr : '"$missionTitle"';
     switch (to) {
       case 'approved':
-        return 'Your join request for $m was approved!'.tr;
+        return 'Your join request for @m was approved!'.trParams({'m': m});
       case 'rejected':
-        return 'Your join request for $m was rejected.'.tr;
+        return 'Your join request for @m was rejected.'.trParams({'m': m});
       case 'cancelled':
-        return 'Your join request for $m was cancelled.'.tr;
+        return 'Your join request for @m was cancelled.'.trParams({'m': m});
       case 'joined':
-        return 'Your attendance for $m was recorded.'.tr;
+        return 'Your attendance for @m was recorded.'.trParams({'m': m});
       case 'completion_requested':
-        return 'Your completion is under review for $m.'.tr;
+        return 'Your completion is under review for @m.'.trParams({'m': m});
       case 'completed':
-        return 'Mission $m marked complete. Thank you!'.tr;
+        return 'Mission @m marked complete. Thank you!'.trParams({'m': m});
       case 'no_show':
-        return 'You were marked absent for $m.'.tr;
+        return 'You were marked absent for @m.'.trParams({'m': m});
       default:
         return null;
     }

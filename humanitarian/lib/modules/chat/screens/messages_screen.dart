@@ -295,7 +295,7 @@ class _IncomingRequestCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final roleLabel = thread.myRole == 'donor' ? 'campaign owner' : 'donor';
+    final roleLabel = (thread.myRole == 'donor' ? 'campaign owner' : 'donor').tr;
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: GlassPanel(
@@ -317,7 +317,7 @@ class _IncomingRequestCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'wants to chat with you ($roleLabel)'.tr,
+                        'wants to chat with you (@role)'.trParams({'role': roleLabel}),
                         style: TextStyle(fontSize: 12.5, color: AppThemeConfig.mutedText(context)),
                       ),
                       if (thread.campaignTitle != null) ...[

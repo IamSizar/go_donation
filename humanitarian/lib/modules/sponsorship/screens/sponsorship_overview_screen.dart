@@ -211,7 +211,8 @@ class _SponsorshipPlanCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      '$amount $currency monthly'.tr,
+                      '@amount @currency monthly'
+                          .trParams({'amount': amount, 'currency': currency}),
                       style: TextStyle(
                         color: AppThemeConfig.mutedText(context),
                         height: 1.4,

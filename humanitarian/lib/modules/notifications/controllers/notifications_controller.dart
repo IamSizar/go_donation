@@ -262,8 +262,8 @@ class NotificationsController extends GetxController {
         if (i >= 0) notifications[i] = orig;
       }
       notifications.refresh();
-      errorMessage.value =
-          '${failures.length} could not be marked. Try again.'.tr;
+      errorMessage.value = '@count could not be marked. Try again.'
+          .trParams({'count': failures.length.toString()});
     }
   }
 

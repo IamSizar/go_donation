@@ -184,13 +184,13 @@ class MyDonationsController extends GetxController
   String? _messageForDonationTransition(String from, String to, String ref) {
     switch (to) {
       case 'success':
-        return 'Donation $ref was confirmed. Thank you!'.tr;
+        return 'Donation @ref was confirmed. Thank you!'.trParams({'ref': ref});
       case 'failed':
-        return 'Donation $ref could not be confirmed.'.tr;
+        return 'Donation @ref could not be confirmed.'.trParams({'ref': ref});
       case 'pending':
         // Backward transitions (success → pending) are unusual but valid
         // — admin "unconfirmed" the row. Still surface it.
-        return 'Donation $ref is back under review.'.tr;
+        return 'Donation @ref is back under review.'.trParams({'ref': ref});
       default:
         return null;
     }
