@@ -21,5 +21,7 @@ RUN apk add --no-cache ca-certificates tzdata
 WORKDIR /app
 COPY --from=build /out/server /app/server
 COPY backend/migrations /app/migrations
+# Seed/mock images + uploads, served at /images/* (referenced by the seed data).
+COPY backend/images /app/images
 EXPOSE 8080
 CMD ["/app/server"]

@@ -19,5 +19,7 @@ WORKDIR /app
 COPY --from=build /out/server /app/server
 # Migrations travel with the image so RUN_MIGRATIONS=1 can apply them.
 COPY migrations /app/migrations
+# Seed/mock images + uploads, served at /images/* (referenced by the seed data).
+COPY images /app/images
 EXPOSE 8080
 CMD ["/app/server"]

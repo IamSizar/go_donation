@@ -1,54 +1,46 @@
 import 'dart:async';
 
-import 'package:vibration/vibration.dart';
-import 'package:vibration/vibration_presets.dart';
+import 'package:flutter/services.dart';
 
-/// Short, preset-based haptics via [vibration] — safe no-ops when unsupported.
+/// Crisp, modern haptics backed by the platform's native engine — the iOS
+/// Taptic Engine and Android's haptic constants — via Flutter's built-in
+/// [HapticFeedback].
+///
+/// These are short, instant taps (a few milliseconds), NOT the long
+/// duration-based buzzes the app used before. Four semantic levels, ascending
+/// in strength, so every screen feels consistent:
+///
+///   selection → tiny tick   (frequent UI taps)
+///   gentle    → soft tap    (subtle confirmations / background updates)
+///   success   → firm tap    (a flow completed)
+///   error     → strong tap  (something failed)
+///
+/// Every call is fire-and-forget and a safe no-op on platforms/devices without
+/// haptics — it can never throw into or block the UI flow.
 abstract final class AppHaptics {
-  static bool? _hasVibrator;
-  static Future<bool>? _probe;
+  static void _play(Future<void> Function() effect) {
+    unawaited(_guard(effect));
+  }
 
-  static Future<void> _run(Future<void> Function() play) async {
+  static Future<void> _guard(Future<void> Function() effect) async {
     try {
-      _probe ??= Vibration.hasVibrator();
-      _hasVibrator ??= await _probe;
+      await effect();
     } catch (_) {
-      _hasVibrator = false;
-      return;
-    }
-    if (_hasVibrator != true) return;
-    try {
-      await play();
-    } catch (_) {
-      // Ignore a single failed pattern on some devices.
+      // Haptics must never affect the UI flow.
     }
   }
 
-  /// List taps, chips, bottom nav changes, toggles.
-  static void selection() {
-    unawaited(
-      _run(() => Vibration.vibrate(preset: VibrationPreset.singleShortBuzz)),
-    );
-  }
+  /// Light tick for frequent UI taps: list rows, chips, bottom-nav, toggles.
+  static void selection() => _play(HapticFeedback.selectionClick);
 
-  /// Notable confirmations: OTP sent, copy-to-clipboard.
-  static void gentle() {
-    unawaited(
-      _run(() => Vibration.vibrate(preset: VibrationPreset.gentleReminder)),
-    );
-  }
+  /// Soft tap for subtle confirmations and background updates: new data
+  /// arrived, OTP sent, copied to clipboard.
+  static void gentle() => _play(HapticFeedback.lightImpact);
 
-  /// Completed flows: login, role chosen, donation submitted, profile saved.
-  static void success() {
-    unawaited(
-      _run(() => Vibration.vibrate(preset: VibrationPreset.quickSuccessAlert)),
-    );
-  }
+  /// Firm tap for completed flows: login, role chosen, donation submitted,
+  /// profile saved.
+  static void success() => _play(HapticFeedback.mediumImpact);
 
-  /// Failed verify, validation errors (use sparingly).
-  static void error() {
-    unawaited(
-      _run(() => Vibration.vibrate(preset: VibrationPreset.doubleBuzz)),
-    );
-  }
+  /// Strong tap for failures: failed verification, validation errors.
+  static void error() => _play(HapticFeedback.heavyImpact);
 }
