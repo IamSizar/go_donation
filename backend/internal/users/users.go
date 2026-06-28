@@ -92,6 +92,36 @@ func (s *Store) GetPasswordHash(ctx context.Context, userID int64) (string, erro
 	return *hash, nil
 }
 
+// GetByUsername looks up an admin candidate by username and returns its id,
+// bcrypt password hash, and is_admin flag. Returns id=0 (and nil error) when no
+// such username exists, so callers can map that to a generic auth failure.
+//
+// Phase 30 — backs POST /api/auth/admin/login.
+func (s *Store) GetByUsername(ctx context.Context, username string) (id int64, passwordHash string, isAdmin int, err error) {
+	username = strings.TrimSpace(username)
+	if username == "" {
+		return 0, "", 0, nil
+	}
+	var hash *string
+	var admin *int
+	err = s.Pool.QueryRow(ctx,
+		`SELECT id, password_hash, is_admin FROM users WHERE username = $1 LIMIT 1`, username,
+	).Scan(&id, &hash, &admin)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, "", 0, nil
+		}
+		return 0, "", 0, err
+	}
+	if hash != nil {
+		passwordHash = *hash
+	}
+	if admin != nil {
+		isAdmin = *admin
+	}
+	return id, passwordHash, isAdmin, nil
+}
+
 // InsertWithPhone returns the existing user id for the phone, or inserts a new
 // row (role_id NULL) and returns its id. Matches insertUserWithPhone() in PHP.
 func (s *Store) InsertWithPhone(ctx context.Context, phone string) (int64, error) {

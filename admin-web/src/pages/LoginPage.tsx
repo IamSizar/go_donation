@@ -1,17 +1,14 @@
-// LoginPage — admin-only password login.
+// LoginPage — admin-only username + password login.
 //
-// Phase 19a — the OTP flow lives on the Flutter app only; the admin
-// dashboard uses the single-step login at /api/auth/login.
+// Phase 30 — admins sign in with a username + password via
+// POST /api/auth/admin/login. This replaces the old single-tenant
+// hardcoded-phone login, so the dashboard now supports any number of
+// admin accounts (each a users row with a username, bcrypt password_hash,
+// and is_admin=1).
 //
-// Phase 27.5 — phone input removed. The admin shell is single-tenant
-// (one canonical operator account), so requiring the operator to type
-// the phone every time was friction. The phone is hardcoded as
-// ADMIN_PHONE below; the form only asks for the password.
-//
-// Only is_admin=1 accounts are permitted; if someone changes
-// ADMIN_PHONE to a regular user's number the backend still returns an
-// "admin access required" error so the same login can't slip a
-// non-admin into the dashboard.
+// Only is_admin=1 accounts are permitted: the backend rejects non-admins,
+// and this form double-checks is_admin in the response before storing the
+// session.
 
 import { useState, type FormEvent } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
@@ -19,20 +16,14 @@ import { api, describeError } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useI18n } from '../lib/i18n'
 
-// Canonical admin account. To swap which admin is bound to this login
-// form, update this constant — no other code changes needed.
-const ADMIN_PHONE = '9647500000099'
-
 export default function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const { login } = useAuth()
   const { t } = useI18n()
 
-  // DEV CONVENIENCE: the admin password is pre-filled so you don't have to
-  // remember it during local development. REMOVE THIS DEFAULT before any
-  // production / public deployment — replace with useState('').
-  const [password, setPassword] = useState('test123')
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -45,8 +36,8 @@ export default function LoginPage() {
     setError(null)
     setBusy(true)
     try {
-      const { data } = await api.post('/api/auth/login', {
-        phone: ADMIN_PHONE,
+      const { data } = await api.post('/api/auth/admin/login', {
+        username: username.trim(),
         password,
       })
       const token = data?.access_token as string
@@ -58,7 +49,7 @@ export default function LoginPage() {
       }
       login(token, {
         user_id: data.account?.user_id ?? data.user_id,
-        phone: data.account?.phone ?? ADMIN_PHONE,
+        phone: data.account?.phone ?? '',
         role_id: data.account?.role_id ?? data.role_id ?? null,
         is_admin: isAdmin,
       })
@@ -88,10 +79,22 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="stack">
           <label>
+            {t('auth.username')}
+            <input
+              type="text"
+              autoFocus
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="admin"
+              required
+              disabled={busy}
+              autoComplete="username"
+            />
+          </label>
+          <label>
             {t('auth.password')}
             <input
               type="password"
-              autoFocus
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
@@ -100,7 +103,7 @@ export default function LoginPage() {
               autoComplete="current-password"
             />
           </label>
-          <button type="submit" disabled={busy || !password.trim()}>
+          <button type="submit" disabled={busy || !username.trim() || !password.trim()}>
             {busy ? t('auth.signing_in') : t('auth.sign_in')}
           </button>
         </form>

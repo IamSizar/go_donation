@@ -283,6 +283,7 @@ const ar: DeepPartial<typeof en> = {
     eyebrow: 'مشرف · آمن',
     welcome: 'مرحبًا بعودتك',
     subtitle: 'سجّل الدخول لإدارة التبرعات والمستفيدين والشركاء.',
+    username: 'اسم المستخدم',
     password: 'كلمة المرور',
     signing_in: 'جارٍ تسجيل الدخول…',
     sign_in: 'تسجيل الدخول',

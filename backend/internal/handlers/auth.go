@@ -143,6 +143,75 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	})
 }
 
+// adminLoginReq is the body for POST /api/auth/admin/login.
+type adminLoginReq struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+// POST /api/auth/admin/login
+//
+// Phase 30 — username + password login for the admin dashboard. Unlike the
+// phone login this NEVER auto-creates a user: the account must already exist,
+// have a bcrypt password_hash, and be is_admin=1. All failure modes return the
+// same generic message so the endpoint can't be used to enumerate usernames.
+func (h *AuthHandler) AdminLogin(c *gin.Context) {
+	var req adminLoginReq
+	if !bindFlexibleJSON(c, &req) {
+		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "error": "Invalid request body."})
+		return
+	}
+	username := strings.TrimSpace(req.Username)
+	password := req.Password
+	if username == "" || password == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "error": "Username and password are required."})
+		return
+	}
+
+	ctx := c.Request.Context()
+
+	id, hash, isAdmin, err := h.Users.GetByUsername(ctx, username)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "error": "Database error (lookup)."})
+		return
+	}
+	// Generic 401 for unknown user / no password set / wrong password — never
+	// reveal which one failed.
+	if id == 0 || hash == "" || bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"status": "error", "error": "Invalid username or password."})
+		return
+	}
+	if isAdmin != 1 {
+		c.JSON(http.StatusForbidden, gin.H{"status": "error", "error": "Admin access required."})
+		return
+	}
+
+	role, _ := h.Users.GetRoleID(ctx, id)
+	account, _ := h.Users.GetAccountForClient(ctx, id)
+	session, err := h.Tokens.IssueToken(ctx, id, c.Request.UserAgent(), auth.ClientIP(c.Request.RemoteAddr))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "error": "Unable to issue token."})
+		return
+	}
+
+	var roleField any = nil
+	if role > 0 {
+		roleField = role
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"status":       "success",
+		"user_id":      id,
+		"has_role":     role > 0,
+		"role_id":      roleField,
+		"account":      account,
+		"session":      session,
+		"access_token": session.AccessToken,
+		"token_type":   session.TokenType,
+		"expires_at":   session.ExpiresAt,
+		"expires_in":   session.ExpiresIn,
+	})
+}
+
 // otpRequestReq is the body for POST /api/auth/otp/request.
 type otpRequestReq struct {
 	Phone string `json:"phone"`

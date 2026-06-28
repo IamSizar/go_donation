@@ -314,6 +314,7 @@ const en = {
     eyebrow: 'Admin · Secure',
     welcome: 'Welcome back',
     subtitle: 'Sign in to manage donations, beneficiaries, and partners.',
+    username: 'Username',
     password: 'Password',
     signing_in: 'Signing in…',
     sign_in: 'Sign in',

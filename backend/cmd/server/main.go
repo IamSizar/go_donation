@@ -165,6 +165,8 @@ func main() {
 		// Public auth endpoints (no Bearer required).
 		api.POST("/auth/login", authH.Login)
 		api.POST("/auth/login/", authH.Login) // PHP path had trailing slash
+		api.POST("/auth/admin/login", authH.AdminLogin)  // username + password (dashboard)
+		api.POST("/auth/admin/login/", authH.AdminLogin) // trailing-slash tolerant
 		api.POST("/auth/otp/request", authH.OTPRequest)
 		api.POST("/auth/otp/request/", authH.OTPRequest)
 		api.POST("/auth/otp/verify", authH.OTPVerify)
