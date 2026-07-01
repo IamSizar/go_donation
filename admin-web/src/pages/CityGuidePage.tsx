@@ -151,7 +151,7 @@ export default function CityGuidePage() {
           </h1>
           <p className="muted">
             {resp
-              ? `${items.length} places total · ${withCoords.length} with coordinates (shown on the app map)`
+              ? t('common.city_summary', { n: items.length, c: withCoords.length })
               : t('common.loading')}
           </p>
         </div>
@@ -160,7 +160,7 @@ export default function CityGuidePage() {
             type="search"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search places…"
+            placeholder={t('common.city_search')}
             style={{ width: '200px' }}
           />
           <button onClick={() => setCreating(true)}>+ Add place</button>

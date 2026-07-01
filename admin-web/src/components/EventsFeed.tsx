@@ -99,21 +99,20 @@ function campaignIdFor(r: EventRow): number | null {
 //
 // For all other event types we keep the original behavior: note → event_label
 // → "module · action".
-function bodyFor(r: EventRow, campaignMap: Record<number, string>): string {
+function bodyFor(
+  r: EventRow,
+  campaignMap: Record<number, string>,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+): string {
   switch (r.event_type) {
     case 'donation_submit': {
       const amount = formatAmount(Number(r.amount))
       const currency = String(r.currency ?? 'IQD').trim() || 'IQD'
       const campaignId = campaignIdFor(r)
       const campaignTitle = campaignId ? campaignMap[campaignId] : ''
-      // Pick the most informative format we can build from what we have:
-      //   amount + campaign  →  "Donated 33,000 IQD to Medical Aid"
-      //   amount only        →  "Donated 33,000 IQD"
-      //   campaign only      →  "Donated to Medical Aid"
-      //   neither            →  fall through to default
-      if (amount && campaignTitle) return `Donated ${amount} ${currency} to "${campaignTitle}"`
-      if (amount)                  return `Donated ${amount} ${currency}`
-      if (campaignTitle)           return `Donated to "${campaignTitle}"`
+      if (amount && campaignTitle) return t('common.fd_donated_to', { amount, currency, title: campaignTitle })
+      if (amount)                  return t('common.fd_donated', { amount, currency })
+      if (campaignTitle)           return t('common.fd_donated_title', { title: campaignTitle })
       break
     }
     case 'sponsorship_submit': {
@@ -121,9 +120,9 @@ function bodyFor(r: EventRow, campaignMap: Record<number, string>): string {
       const currency = String(r.currency ?? 'IQD').trim() || 'IQD'
       const campaignId = campaignIdFor(r)
       const campaignTitle = campaignId ? campaignMap[campaignId] : ''
-      if (amount && campaignTitle) return `Monthly sponsorship of ${amount} ${currency} for "${campaignTitle}"`
-      if (amount)                  return `Monthly sponsorship of ${amount} ${currency}`
-      if (campaignTitle)           return `Monthly sponsorship for "${campaignTitle}"`
+      if (amount && campaignTitle) return t('common.fd_sponsor_to', { amount, currency, title: campaignTitle })
+      if (amount)                  return t('common.fd_sponsor', { amount, currency })
+      if (campaignTitle)           return t('common.fd_sponsor_title', { title: campaignTitle })
       break
     }
   }
@@ -166,6 +165,18 @@ const EVENT_META: Record<string, EventMeta> = {
 
 function metaFor(type: string): EventMeta {
   return EVENT_META[type] ?? { icon: '•', tone: 'neutral', badge: 'Event', category: 'Activity' }
+}
+
+// Map the English badge/category label to its i18n key so the chips localize.
+const BADGE_KEY: Record<string, string> = {
+  Login: 'bdg_login', Register: 'bdg_register', Role: 'bdg_role', Profile: 'bdg_profile',
+  Donation: 'bdg_donation', Sponsorship: 'bdg_sponsorship', Case: 'bdg_case', Project: 'bdg_project',
+  Marketplace: 'bdg_marketplace', Volunteer: 'bdg_volunteer', Support: 'bdg_support',
+  'In-kind': 'bdg_inkind', Marriage: 'bdg_marriage', Notification: 'bdg_notification', Event: 'bdg_event',
+}
+const CAT_KEY: Record<string, string> = {
+  Core: 'cat_core', People: 'cat_people', Money: 'cat_money', Review: 'cat_review',
+  Orders: 'cat_orders', Activity: 'cat_activity',
 }
 
 // === Click-through routing for live events ===
@@ -427,16 +438,16 @@ export default function EventsFeed() {
               onClick={handleClick}
               onKeyDown={handleKeyDown}
               title={route ? route.label : undefined}
-              aria-label={route ? `${m.badge}: ${bodyFor(r, campaignMap)} — ${route.label}` : undefined}
+              aria-label={route ? `${t('common.' + (BADGE_KEY[m.badge] ?? 'bdg_event'))}: ${bodyFor(r, campaignMap, t)} — ${route.label}` : undefined}
             >
               <span className={`event-icon tone-${m.tone}`}>{m.icon}</span>
               <div className="cell-stack" style={{ flex: 1, minWidth: 0 }}>
                 <div className="row" style={{ gap: 6, alignItems: 'baseline' }}>
                   <strong>{r.event_type || 'event'}</strong>
-                  <span className={`badge tone-${m.tone}`}>{m.badge}</span>
-                  <span className="badge">{m.category}</span>
+                  <span className={`badge tone-${m.tone}`}>{t('common.' + (BADGE_KEY[m.badge] ?? 'bdg_event'))}</span>
+                  <span className="badge">{t('common.' + (CAT_KEY[m.category] ?? 'cat_activity'))}</span>
                 </div>
-                <span className="muted">{actorFor(r)} · {bodyFor(r, campaignMap)}</span>
+                <span className="muted">{actorFor(r)} · {bodyFor(r, campaignMap, t)}</span>
               </div>
               <span className="muted" style={{ whiteSpace: 'nowrap' }}>{formatWhen(r)}</span>
               {route && <span className="event-chevron" aria-hidden="true">›</span>}

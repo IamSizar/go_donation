@@ -620,7 +620,7 @@ function MissionSignupsTab() {
       header: t('col.volunteer'),
       cell: (s) => (
         <div className="cell-stack">
-          <strong>{s.user_full_name ?? `user #${s.user_id}`}</strong>
+          <strong>{s.user_full_name ?? t('common.user_ref_lc', { id: s.user_id })}</strong>
           <span className="muted">{s.user_phone ?? '—'}</span>
         </div>
       ),
@@ -652,7 +652,7 @@ function MissionSignupsTab() {
           allowed={
             SIGNUP_STATUSES.filter((x) => x !== 'all') as unknown as string[]
           }
-          label="Signup status"
+          label={t('common.signup_status_label')}
           onSave={async (next) => {
             await api.post(`/api/admin/volunteer_mission_signups/${s.id}/status`, { status: next })
             setRefreshTick((t) => t + 1)

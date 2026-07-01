@@ -214,10 +214,9 @@ export default function PushNotificationsPage() {
       {fcmEnabled === false && (
         <div className="info-box">
           <strong>{t('page.push.fcm_box_title')}</strong>{' '}
-          <strong>In-app notifications still work</strong> — pick the “In-app (Alerts tab)” channel
-          below to reach every user right now. OS push (banners) additionally needs{' '}
-          <code style={{ background: 'transparent', padding: 0 }}>backend/firebase-credentials.json</code>{' '}
-          and a real device. {t('page.push.fcm_box_post')}
+          <strong>{t('common.push_inapp_bold')}</strong>{t('common.push_inapp_mid')}
+          <code style={{ background: 'transparent', padding: 0 }}>backend/firebase-credentials.json</code>
+          {t('common.push_inapp_end')}{t('page.push.fcm_box_post')}
         </div>
       )}
 

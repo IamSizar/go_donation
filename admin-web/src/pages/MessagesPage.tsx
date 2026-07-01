@@ -39,8 +39,12 @@ type ChatMessage = {
   created_at: string
 }
 
-function name(n: string | null, id: number): string {
-  return n && n.trim() ? n : `User #${id}`
+function name(
+  n: string | null,
+  id: number,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+): string {
+  return n && n.trim() ? n : t('common.user_ref', { id })
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -136,7 +140,7 @@ export default function MessagesPage() {
           type="search"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Search by name or campaign…"
+          placeholder={t('common.msg_search')}
           style={{ width: 240 }}
         />
       </div>
@@ -148,7 +152,7 @@ export default function MessagesPage() {
         <div className="card" style={{ padding: 8, maxHeight: '70vh', overflowY: 'auto' }}>
           {loading && threads.length === 0 && <p className="muted" style={{ padding: 12 }}>Loading…</p>}
           {!loading && threads.length === 0 && (
-            <p className="muted" style={{ padding: 12 }}>No conversations yet.</p>
+            <p className="muted" style={{ padding: 12 }}>{t('common.msg_no_convos')}</p>
           )}
           {threads.map((th) => {
             const active = selected?.id === th.id
@@ -165,7 +169,7 @@ export default function MessagesPage() {
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
                   <strong style={{ fontSize: 13.5 }}>
-                    {name(th.donor_name, th.donor_user_id)} ↔ {name(th.owner_name, th.owner_user_id)}
+                    {name(th.donor_name, th.donor_user_id, t)} ↔ {name(th.owner_name, th.owner_user_id, t)}
                   </strong>
                   <StatusBadge status={th.status} />
                 </div>
@@ -188,7 +192,7 @@ export default function MessagesPage() {
               <div style={{ borderBottom: '1px solid var(--color-border, rgba(127,127,127,0.18))', paddingBottom: 10, marginBottom: 10 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <strong>
-                    {name(selected.donor_name, selected.donor_user_id)} (donor) ↔ {name(selected.owner_name, selected.owner_user_id)} (owner)
+                    {name(selected.donor_name, selected.donor_user_id, t)} {t('common.donor_paren')} ↔ {name(selected.owner_name, selected.owner_user_id, t)} {t('common.owner_paren')}
                   </strong>
                   <StatusBadge status={selected.status} />
                 </div>
@@ -198,7 +202,7 @@ export default function MessagesPage() {
               </div>
 
               <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10, paddingRight: 4 }}>
-                {messages.length === 0 && <p className="muted" style={{ margin: 'auto' }}>No messages yet.</p>}
+                {messages.length === 0 && <p className="muted" style={{ margin: 'auto' }}>{t('common.msg_no_messages')}</p>}
                 {messages.map((m) => {
                   const isSupport = m.sender_role === 0
                   const isOwner = m.sender_user_id === selected.owner_user_id
@@ -211,7 +215,7 @@ export default function MessagesPage() {
                   return (
                     <div key={m.id} style={{ alignSelf: align, maxWidth: '72%' }}>
                       <div className="muted" style={{ fontSize: 11, marginBottom: 2, textAlign: isOwner ? 'right' : 'left' }}>
-                        {isSupport ? '🛡 Support' : m.sender_name ?? `User #${m.sender_user_id}`}
+                        {isSupport ? `🛡 ${t('nav.support')}` : m.sender_name ?? t('common.user_ref', { id: m.sender_user_id })}
                       </div>
                       <div style={{ background: bg, padding: '8px 12px', borderRadius: 12, fontSize: 14, lineHeight: 1.4 }}>
                         {m.body}
@@ -232,7 +236,7 @@ export default function MessagesPage() {
                     value={reply}
                     onChange={(e) => setReply(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') sendReply() }}
-                    placeholder="Reply as Support…"
+                    placeholder={t('common.msg_reply')}
                     style={{ flex: 1 }}
                     disabled={sending}
                   />

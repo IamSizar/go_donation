@@ -219,7 +219,7 @@ export default function AppShell() {
               {String(user?.user_id ?? '?').slice(-2)}
             </div>
             <div className="user-chip-meta">
-              <span className="user-chip-id">User #{user?.user_id}</span>
+              <span className="user-chip-id">{t('common.user_ref', { id: user?.user_id ?? 0 })}</span>
               <span className="muted">{formatPhone(user?.phone)}</span>
             </div>
           </div>

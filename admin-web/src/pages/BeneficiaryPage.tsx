@@ -14,7 +14,7 @@ import EditModal, { type FieldSpec } from '../components/EditModal'
 import BulkBar from '../components/BulkBar'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../lib/toast'
-import { useI18n } from '../lib/i18n'
+import { useI18n, useStatusLabel } from '../lib/i18n'
 import { useSelection } from '../lib/useSelection'
 import { downloadCsv, type CsvColumn } from '../lib/csv'
 import { HighlightBanner, useHighlightedRow } from '../lib/useHighlightedRow'
@@ -189,6 +189,7 @@ export default function BeneficiaryPage() {
 }
 
 function CasesTab() {
+  const statusLabel = useStatusLabel()
   const [page, setPage] = useState(1)
   const [status, setStatus] = useState<string>('all')
   const [q, setQ] = useState('')
@@ -315,7 +316,7 @@ function CasesTab() {
       key: 'user',
       header: t('col.submitted_by'),
       cell: (r) =>
-        r.user_id ? `user #${r.user_id}` : <span className="muted">—</span>,
+        r.user_id ? t('common.user_ref_lc', { id: r.user_id }) : <span className="muted">—</span>,
     },
     {
       key: 'location',
@@ -354,7 +355,7 @@ function CasesTab() {
           onSave={(next) =>
             api.post(`/api/admin/beneficiary_cases/${r.id}/status`, { status: next })
           }
-          label={`Case #${r.id}`}
+          label={t('common.case_ref', { id: r.id })}
         />
       ),
     },
@@ -378,7 +379,7 @@ function CasesTab() {
   return (
     <div className="stack">
       <div className="row" style={{ justifyContent: 'space-between' }}>
-        <p className="muted">{resp ? `${resp.total_items} total cases` : 'Loading…'}</p>
+        <p className="muted">{resp ? t('common.bene_total_cases', { n: resp.total_items }) : t('common.loading')}</p>
         <div className="row">
           <input
             type="search"
@@ -398,7 +399,7 @@ function CasesTab() {
           >
             {CASE_STATUSES.map((s) => (
               <option key={s} value={s}>
-                {s}
+                {statusLabel(s)}
               </option>
             ))}
           </select>
@@ -458,6 +459,7 @@ function CasesTab() {
 }
 
 function RequestsTab() {
+  const statusLabel = useStatusLabel()
   const [page, setPage] = useState(1)
   const [status, setStatus] = useState<string>('all')
   const [q, setQ] = useState('')
@@ -601,7 +603,7 @@ function RequestsTab() {
     {
       key: 'user',
       header: t('col.submitted_by'),
-      cell: (r) => `user #${r.user_id}`,
+      cell: (r) => t('common.user_ref_lc', { id: r.user_id }),
     },
     {
       key: 'community',
@@ -640,7 +642,7 @@ function RequestsTab() {
           onSave={(next) =>
             api.post(`/api/admin/beneficiary_project_requests/${r.id}/status`, { status: next })
           }
-          label={`Request #${r.id}`}
+          label={t('common.request_ref', { id: r.id })}
         />
       ),
     },
@@ -671,7 +673,7 @@ function RequestsTab() {
   return (
     <div className="stack">
       <div className="row" style={{ justifyContent: 'space-between' }}>
-        <p className="muted">{resp ? `${resp.total_items} total requests` : 'Loading…'}</p>
+        <p className="muted">{resp ? t('common.bene_total_requests', { n: resp.total_items }) : t('common.loading')}</p>
         <div className="row">
           <input
             type="search"
@@ -691,7 +693,7 @@ function RequestsTab() {
           >
             {REQUEST_STATUSES.map((s) => (
               <option key={s} value={s}>
-                {s}
+                {statusLabel(s)}
               </option>
             ))}
           </select>

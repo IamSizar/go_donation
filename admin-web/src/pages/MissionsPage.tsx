@@ -226,7 +226,7 @@ export default function MissionsPage() {
         <StatusCell
           value={m.status}
           allowed={EDITABLE_STATUSES as unknown as string[]}
-          label="Mission status"
+          label={t('common.mission_status_label')}
           onSave={async (next) => {
             await api.post(`/api/admin/missions/${m.id}/status`, { status: next })
             setRefreshTick((t) => t + 1)
