@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError } from '../lib/api'
 import type { CommunityEntry } from '../lib/api-types'
 import Table, { type Column } from '../components/Table'
@@ -130,7 +131,7 @@ export default function CommunityPage() {
       cell: (e) => e.website ? <a href={e.website} target="_blank" rel="noreferrer">open ↗</a> : <span className="muted">—</span>,
     },
     {
-      key: 'actions', header: '', width: '170px',
+      key: 'actions', header: t('common.actions'), width: '170px',
       cell: (e) => (
         <>
           <Link className="row-edit-btn" to={`/detail/community/${e.id}`}>{t('common.view')}</Link>
@@ -164,7 +165,7 @@ export default function CommunityPage() {
             <option value="">{t('filter.all_cities')}</option>
             {cities.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
-          <button className="secondary" onClick={exportCsv}>{t('common.export_csv')}</button>
+          <ExportCsvButton onExport={exportCsv} />
           <button onClick={() => setCreating(true)}>{t('page.community.new')}</button>
         </div>
       </div>

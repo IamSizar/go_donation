@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { api, describeError } from '../lib/api'
+import { api, describeError, canExportData } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useI18n, LOCALES } from '../lib/i18n'
 import { usePendingCounts, type PendingCounts } from '../lib/pendingCounts'
@@ -21,6 +21,8 @@ type NavItem = {
   to: string
   tKey: string
   countKey?: keyof Omit<PendingCounts, 'total'>
+  // adminOnly items only render for admin-level staff (Phase 7 · Trash).
+  adminOnly?: boolean
 }
 
 const NAV: NavItem[] = [
@@ -47,6 +49,7 @@ const NAV: NavItem[] = [
   { to: '/push',          tKey: 'nav.push' },
   { to: '/reports',       tKey: 'nav.reports' },
   { to: '/audit-logs',    tKey: 'nav.audit_logs' },
+  { to: '/trash',         tKey: 'nav.trash', adminOnly: true },
 ]
 
 // Show "99+" instead of overflowing the badge with huge digits. ~5 chars max.
@@ -136,7 +139,7 @@ export default function AppShell() {
           </div>
         </div>
         <nav>
-          {NAV.map((n) => {
+          {NAV.filter((n) => !n.adminOnly || canExportData(user)).map((n) => {
             const isActive = n.to === '/'
               ? location.pathname === '/'
               : location.pathname.startsWith(n.to)
@@ -187,15 +190,20 @@ export default function AppShell() {
             emerald primary used everywhere else; this is intentionally a
             "different kind" of action (data export, not a daily op). */}
         <div className="sidebar-foot">
-          <button
-            className="amber export-btn"
-            onClick={handleExport}
-            disabled={exporting}
-            title={t('shell.export_title')}
-          >
-            <span aria-hidden="true" style={{ fontSize: 14, lineHeight: 1 }}>↓</span>
-            {exporting ? t('shell.exporting') : t('shell.export_db')}
-          </button>
+          {/* Raw DB export is restricted to admin-level staff (Phase 7 · M-60);
+              lower tiers never see the button, and the backend enforces the
+              same via RequireAdminTier. */}
+          {canExportData(user) && (
+            <button
+              className="amber export-btn"
+              onClick={handleExport}
+              disabled={exporting}
+              title={t('shell.export_title')}
+            >
+              <span aria-hidden="true" style={{ fontSize: 14, lineHeight: 1 }}>↓</span>
+              {exporting ? t('shell.exporting') : t('shell.export_db')}
+            </button>
+          )}
           {/* Phase 27.12 — logout moved here from the topbar and given a
               filled danger color so it reads as a deliberate sign-out
               action, sitting right under the Export button. */}

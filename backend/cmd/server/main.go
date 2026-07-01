@@ -131,6 +131,7 @@ func main() {
 	adminEditH := handlers.NewAdminEditHandler(pool)
 	adminCreateH := handlers.NewAdminCreateHandler(pool, notifier)
 	adminDeleteH := handlers.NewAdminDeleteHandler(pool)
+	adminTrashH := handlers.NewAdminTrashHandler(pool)
 	adminUploadH := handlers.NewAdminUploadHandler(uploadDir)
 	adminDetailH := handlers.NewAdminDetailHandler(pool)
 	adminExportH := handlers.NewAdminExportHandler(pool)
@@ -167,6 +168,8 @@ func main() {
 		api.POST("/auth/login/", authH.Login) // PHP path had trailing slash
 		api.POST("/auth/admin/login", authH.AdminLogin)  // username + password (dashboard)
 		api.POST("/auth/admin/login/", authH.AdminLogin) // trailing-slash tolerant
+		api.POST("/auth/google", authH.GoogleLogin)      // Google OAuth (Phase 9 · B-09)
+		api.POST("/auth/google/", authH.GoogleLogin)     // trailing-slash tolerant
 		api.POST("/auth/otp/request", authH.OTPRequest)
 		api.POST("/auth/otp/request/", authH.OTPRequest)
 		api.POST("/auth/otp/verify", authH.OTPVerify)
@@ -461,6 +464,15 @@ func main() {
 			admin.POST("/admin/users/:id/role", adminStatusH.UserRole)
 			admin.POST("/admin/users/:id/active", adminStatusH.UserActive)
 			admin.POST("/admin/users/:id/admin", adminStatusH.UserAdmin)
+			admin.POST("/admin/users/:id/password", adminStatusH.UserPassword)
+			// Step-up PIN confirm (own password) for sensitive actions — Phase 7.
+			admin.POST("/admin/verify-password", adminStatusH.VerifyPassword)
+
+			// Trash container (Phase 7 · G-06 / A-16). Deletes land here; restore
+			// and purge are admin-level (purge additionally re-verifies the PIN).
+			admin.GET("/admin/trash", adminTrashH.List)
+			admin.POST("/admin/trash/:id/restore", auth.RequireAdminTier(), adminTrashH.Restore)
+			admin.POST("/admin/trash/:id/purge", auth.RequireAdminTier(), adminTrashH.Purge)
 
 			// Phase 10: partial-update (edit modal) endpoints.
 			admin.PATCH("/admin/partners/:id", adminEditH.Partner)
@@ -523,8 +535,9 @@ func main() {
 			// allowlisted admin resource using SELECT *.
 			admin.GET("/admin/detail/:resource/:id", adminDetailH.Detail)
 
-			// Full-DB JSON export (admin backup tool).
-			admin.GET("/admin/export/all", adminExportH.ExportAll)
+			// Full-DB JSON export (admin backup tool) — restricted to
+			// admin-level staff (Phase 7 · M-60).
+			admin.GET("/admin/export/all", auth.RequireAdminTier(), adminExportH.ExportAll)
 		}
 	}
 

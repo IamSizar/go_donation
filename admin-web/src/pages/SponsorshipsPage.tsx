@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, useRef } from 'react'
 import { Link } from 'react-router-dom'
+import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError } from '../lib/api'
 import { useLivePoll } from '../lib/useLivePoll'
 import type { Sponsorship, SponsorshipsListResp } from '../lib/api-types'
@@ -41,7 +42,7 @@ const SPONSORSHIP_FIELDS: FieldSpec[] = [
 ]
 
 const SPONSORSHIP_CREATE_FIELDS: FieldSpec[] = [
-  { key: 'donor_user_id', label: 'Donor user ID (optional)', labelKey: 'field.donor_user_id_optional', type: 'number' },
+  { key: 'donor_user_id', label: 'Contributor user ID (optional)', labelKey: 'field.donor_user_id_optional', type: 'number' },
   ...SPONSORSHIP_FIELDS,
 ]
 
@@ -192,7 +193,7 @@ export default function SponsorshipsPage() {
       cell: (s) => (
         <div className="cell-stack">
           <strong>{s.project_title}</strong>
-          <span className="muted">{s.sponsorship_type}</span>
+          <span className="muted">{statusLabel(s.sponsorship_type)}</span>
         </div>
       ),
     },
@@ -209,7 +210,7 @@ export default function SponsorshipsPage() {
     {
       key: 'schedule',
       header: t('col.schedule'),
-      cell: (s) => <span className="muted">{s.schedule_interval}</span>,
+      cell: (s) => <span className="muted">{statusLabel(s.schedule_interval)}</span>,
     },
     {
       key: 'next',
@@ -229,7 +230,7 @@ export default function SponsorshipsPage() {
       ),
     },
     {
-      key: 'actions', header: '', width: '170px',
+      key: 'actions', header: t('common.actions'), width: '170px',
       cell: (s) => (
         <>
           <Link className="row-edit-btn" to={`/detail/sponsorships/${s.id}`}>{t('common.view')}</Link>
@@ -271,7 +272,7 @@ export default function SponsorshipsPage() {
               </option>
             ))}
           </select>
-          <button className="secondary" onClick={exportCsv}>{t('common.export_csv')}</button>
+          <ExportCsvButton onExport={exportCsv} />
           <button onClick={() => setCreating(true)}>{t('page.sponsorships.new')}</button>
         </div>
       </div>

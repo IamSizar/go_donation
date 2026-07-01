@@ -9,7 +9,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/crypto/bcrypt"
 
+	"github.com/karam-flutter/humanitarian-backend/internal/auth"
 	"github.com/karam-flutter/humanitarian-backend/internal/notify"
 )
 
@@ -49,7 +51,7 @@ var (
 	sponsorshipStatuses        = []string{"pending", "active", "paused", "delayed", "stopped", "completed", "cancelled"}
 	inKindStatuses             = []string{"submitted", "scheduled", "received", "delivered", "cancelled"}
 	supportStatuses            = []string{"open", "in_progress", "resolved", "closed"}
-	donationDeliveryStatuses   = []string{"registered", "received", "under_review", "delivered", "cancelled"}
+	donationDeliveryStatuses   = []string{"registered", "received", "under_review", "delivered", "paused", "archived", "cancelled"}
 	donationPaymentStatuses    = []int{1, 2, 3} // 1=success, 2=pending, 3=failed
 	// Phase 21 — volunteer_mission_signups CHECK constraint allows exactly these.
 	// 'pending' is the starting state on insert; admin transitions from there.
@@ -571,6 +573,91 @@ func (h *AdminStatusHandler) UserRole(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "id": id, "role_id": req.RoleID})
+}
+
+type userPasswordReq struct {
+	Password string `json:"password"`
+}
+
+// POST /api/admin/users/:id/password — body {password}. Sets (or clears when
+// empty) a user's bcrypt password hash so the dashboard login works for them.
+// Phase 5 (M-05).
+func (h *AdminStatusHandler) UserPassword(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	var req userPasswordReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid JSON body."})
+		return
+	}
+	pw := strings.TrimSpace(req.Password)
+	var arg any = nil // empty password clears the hash (back to phone/OTP login)
+	if pw != "" {
+		if len(pw) < 4 {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Password must be at least 4 characters."})
+			return
+		}
+		hash, err := bcrypt.GenerateFromPassword([]byte(pw), bcrypt.DefaultCost)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to hash password."})
+			return
+		}
+		arg = string(hash)
+	}
+	ct, err := h.Pool.Exec(c.Request.Context(),
+		"UPDATE users SET password_hash = $1 WHERE id = $2", arg, id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
+		return
+	}
+	if ct.RowsAffected() == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Not found."})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "id": id})
+}
+
+// POST /api/admin/verify-password — body {password}. Confirms the CURRENT
+// (requesting) admin's own password. Used as the PIN/step-up confirmation
+// before sensitive actions like exporting data or permanently purging trash
+// (Phase 7 · G-07 / A-16). Returns {ok:true} on match.
+//
+// Fails closed: an account with no password_hash set cannot confirm, so it
+// cannot perform PIN-gated actions until a password is assigned.
+func (h *AdminStatusHandler) VerifyPassword(c *gin.Context) {
+	user, ok := auth.UserFromGin(c)
+	if !ok || user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Not authenticated."})
+		return
+	}
+	var req userPasswordReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid JSON body."})
+		return
+	}
+	pw := strings.TrimSpace(req.Password)
+	if pw == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "ok": false, "error": "Password required."})
+		return
+	}
+	var hash *string
+	if err := h.Pool.QueryRow(c.Request.Context(),
+		"SELECT password_hash FROM users WHERE id = $1", user.UserID).Scan(&hash); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		return
+	}
+	if hash == nil || *hash == "" {
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "ok": false,
+			"error": "No password is set on your account; ask a Super-Admin to set one."})
+		return
+	}
+	if bcrypt.CompareHashAndPassword([]byte(*hash), []byte(pw)) != nil {
+		c.JSON(http.StatusOK, gin.H{"success": true, "ok": false, "error": "Incorrect password."})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "ok": true})
 }
 
 // POST /api/admin/users/:id/active — body {active: 0 or 1}

@@ -14,7 +14,7 @@
 // this component drops in anywhere a text input was used.
 
 import { useRef, useState } from 'react'
-import { api, describeError } from '../lib/api'
+import { api, describeError, assetUrl } from '../lib/api'
 import { useI18n } from '../lib/i18n'
 
 type Props = {
@@ -76,7 +76,7 @@ export default function FileInput({
     <div className="file-input">
       {showPreview && (
         <img
-          src={`/${value}`}
+          src={assetUrl(value)}
           alt=""
           className="file-input-preview"
           onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}

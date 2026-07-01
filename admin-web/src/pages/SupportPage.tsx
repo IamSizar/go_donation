@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, useRef } from 'react'
 import { Link } from 'react-router-dom'
+import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError } from '../lib/api'
 import { useLivePoll } from '../lib/useLivePoll'
 import type { AdminPageResp, AdminTicket } from '../lib/api-types'
@@ -179,7 +180,7 @@ export default function SupportPage() {
     },
     { key: 'created', header: tr('col.created'), cell: (t) => <span className="muted">{t.created_at?.slice(0, 10)}</span> },
     {
-      key: 'actions', header: '', width: '170px',
+      key: 'actions', header: tr('common.actions'), width: '170px',
       cell: (t) => (
         <>
           <Link className="row-edit-btn" to={`/detail/support_tickets/${t.id}`}>{tr('common.view')}</Link>
@@ -208,7 +209,7 @@ export default function SupportPage() {
           <select value={status} onChange={e => { setStatus(e.target.value); setPage(1); sel.clear() }} style={{ width: 'auto' }}>
             {STATUSES.map(s => <option key={s} value={s}>{statusLabel(s)}</option>)}
           </select>
-          <button className="secondary" onClick={exportCsv}>{tr('common.export_csv')}</button>
+          <ExportCsvButton onExport={exportCsv} />
           <button onClick={() => setCreating(true)}>{tr('page.support.new')}</button>
         </div>
       </div>

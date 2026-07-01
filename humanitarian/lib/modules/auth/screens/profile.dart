@@ -130,9 +130,9 @@ class _ProfileSectionState extends State<ProfileSection> {
   String? _roleLabel() {
     switch (sharedPreferences.getString('role_id')) {
       case '1':
-        return 'Donor';
+        return 'Contributor';
       case '2':
-        return 'Beneficiary';
+        return 'Recipient';
       case '3':
         return 'Volunteer';
       default:

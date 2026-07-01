@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError } from '../lib/api'
 import type { AdminPageResp, AdminRegistration } from '../lib/api-types'
 import Table, { type Column } from '../components/Table'
@@ -8,6 +10,7 @@ import { useI18n } from '../lib/i18n'
 import { usePendingCounts } from '../lib/pendingCounts'
 import { useLivePoll } from '../lib/useLivePoll'
 import { formatPhone } from '../lib/phone'
+import { downloadCsv, type CsvColumn } from '../lib/csv'
 
 const PER_PAGE = 20
 const STATUSES = ['pending', 'rejected', 'all'] as const
@@ -25,6 +28,19 @@ function roleKey(roleId: number): string {
       return ''
   }
 }
+
+const REGISTRATION_CSV_COLUMNS: CsvColumn<AdminRegistration>[] = [
+  { header: 'user_id', get: (r) => r.user_id },
+  { header: 'full_name', get: (r) => r.full_name },
+  { header: 'phone', get: (r) => r.phone },
+  { header: 'role_id', get: (r) => r.role_id },
+  { header: 'registration_status', get: (r) => r.registration_status },
+  { header: 'date_of_birth', get: (r) => r.date_of_birth },
+  { header: 'address', get: (r) => r.address },
+  { header: 'submitted_at', get: (r) => r.submitted_at },
+  { header: 'reject_reason', get: (r) => r.reject_reason },
+  { header: 'created_at', get: (r) => r.created_at },
+]
 
 export default function RegistrationsPage() {
   const [page, setPage] = useState(1)
@@ -156,28 +172,37 @@ export default function RegistrationsPage() {
       key: 'status',
       header: t('common.status'),
       cell: (r) => (
-        <span
-          className="status-tag"
-          style={{
-            color: r.registration_status === 'rejected' ? '#b42318' : '#92610a',
-            background:
-              r.registration_status === 'rejected' ? '#fee4e2' : '#fef0c7',
-            padding: '2px 9px',
-            borderRadius: 999,
-            fontSize: 12,
-            fontWeight: 700,
-          }}
-        >
-          {t(`registrations.status_${r.registration_status}`)}
-        </span>
+        <div className="cell-stack">
+          <span
+            className="status-tag"
+            style={{
+              color: r.registration_status === 'rejected' ? '#b42318' : '#92610a',
+              background:
+                r.registration_status === 'rejected' ? '#fee4e2' : '#fef0c7',
+              padding: '2px 9px',
+              borderRadius: 999,
+              fontSize: 12,
+              fontWeight: 700,
+              alignSelf: 'flex-start',
+            }}
+          >
+            {t(`registrations.status_${r.registration_status}`)}
+          </span>
+          {r.registration_status === 'rejected' && r.reject_reason && (
+            <span className="muted" style={{ fontSize: 11, maxWidth: 240, whiteSpace: 'normal' }}>
+              {r.reject_reason}
+            </span>
+          )}
+        </div>
       ),
     },
     {
       key: 'actions',
-      header: '',
-      width: '210px',
+      header: t('common.actions'),
+      width: '280px',
       cell: (r) => (
         <>
+          <Link className="row-edit-btn" to={`/detail/users/${r.user_id}`}>{t('common.view')}</Link>
           <button
             className="row-edit-btn"
             disabled={busyId === r.user_id}
@@ -199,6 +224,12 @@ export default function RegistrationsPage() {
       ),
     },
   ]
+
+  const exportCsv = () => {
+    const rows = resp?.items ?? []
+    if (rows.length === 0) { toast.info(t('common.nothing_to_export')); return }
+    downloadCsv(`registrations-${new Date().toISOString().slice(0, 10)}.csv`, rows, REGISTRATION_CSV_COLUMNS)
+  }
 
   return (
     <div className="stack">
@@ -234,6 +265,7 @@ export default function RegistrationsPage() {
               </option>
             ))}
           </select>
+          <ExportCsvButton onExport={exportCsv} />
         </div>
       </div>
 

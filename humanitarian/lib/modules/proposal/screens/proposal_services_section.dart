@@ -104,7 +104,7 @@ class _DonorServices extends StatelessWidget {
       children: [
         SectionTile(
           icon: Icons.verified_user_rounded,
-          title: 'Beneficiary cases',
+          title: 'Recipient cases',
           subtitle: 'Review verified cases by code, need, and priority.',
           color: Colors.teal,
           onTap: () => Get.to(() => const BeneficiaryCasesScreen()),
@@ -232,7 +232,7 @@ class BeneficiaryCasesScreen extends StatelessWidget {
         : Get.put(BeneficiaryCasesController());
 
     return SectionScaffold(
-      title: 'Beneficiary cases',
+      title: 'Recipient cases',
       subtitle: 'Verified public case records.',
       child: Obx(() {
         final items = controller.cases;
@@ -246,7 +246,7 @@ class BeneficiaryCasesScreen extends StatelessWidget {
               if (controller.errorMessage.value != null)
                 SectionTile(
                   icon: Icons.verified_user_rounded,
-                  title: 'Beneficiary cases',
+                  title: 'Recipient cases',
                   subtitle: controller.errorMessage.value!,
                   color: Colors.teal,
                   onTap: controller.fetchCases,
@@ -256,7 +256,7 @@ class BeneficiaryCasesScreen extends StatelessWidget {
                   items.isEmpty)
                 const SectionTile(
                   icon: Icons.verified_user_rounded,
-                  title: 'Beneficiary cases',
+                  title: 'Recipient cases',
                   subtitle: 'No approved cases are available yet.',
                   color: Colors.teal,
                 ),
@@ -381,7 +381,7 @@ String _localizedCaseTitle(Map<String, dynamic> item) {
   return localizedContentFromMap(
     item,
     'public_title',
-    fallback: 'Beneficiary case',
+    fallback: 'Recipient case',
   );
 }
 
@@ -766,7 +766,7 @@ class _SponsorshipFormScreenState extends State<SponsorshipFormScreen> {
           selectedCampaignId: _selectedCampaignId,
           onSelected: _selectSponsorshipTarget,
         ),
-        _ProposalTextField(controller: _type, label: 'Sponsorship type'),
+        _ProposalTextField(controller: _type, label: 'Support type'),
         _ProposalTextField(controller: _amount, label: 'Monthly amount IQD'),
         _ProposalTextField(controller: _notes, label: 'Notes', maxLines: 3),
       ],

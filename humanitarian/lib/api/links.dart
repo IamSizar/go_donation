@@ -9,7 +9,17 @@
 //   - LAN device (real phone, same Wi-Fi): your Mac's LAN IP, e.g. 192.168.1.12
 //   - iOS simulator / Flutter web on this Mac: localhost
 //   - Android emulator: 10.0.2.2  (the magic loopback Android emulator uses)
-const String baseUrl = 'http://localhost:8080/api/';
+// Production (Railway). Swap back to 'http://localhost:8080/api/' for local dev.
+const String baseUrl = 'https://backend-production-59d2.up.railway.app/api/';
+
+/// Google OAuth Web/Server client ID (Phase 9 · B-09). Supplied at build time:
+///   flutter run --dart-define=GOOGLE_SERVER_CLIENT_ID=xxxx.apps.googleusercontent.com
+/// When empty, Google sign-in initializes without a server client ID (the
+/// backend must then accept the platform client ID as an audience). The backend
+/// separately validates the token against GOOGLE_OAUTH_CLIENT_IDS.
+const String googleServerClientId = String.fromEnvironment(
+  'GOOGLE_SERVER_CLIENT_ID',
+);
 
 /// Project root for uploaded/static files (sibling of `api/`, not inside it).
 /// Must end with `/` so [Uri.resolve] appends paths like `images/...` correctly.

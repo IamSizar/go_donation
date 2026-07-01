@@ -359,7 +359,7 @@ class DashboardHomeSection extends StatelessWidget {
               Expanded(
                 child: _QuickAction(
                   icon: Icons.send_rounded,
-                  label: 'Donate',
+                  label: 'Contribute',
                   color: Colors.orange,
                   onTap: () => dashboardTabNotifier.value = 4,
                 ),
@@ -377,7 +377,7 @@ class DashboardHomeSection extends StatelessWidget {
               Expanded(
                 child: _QuickAction(
                   icon: Icons.favorite_rounded,
-                  label: 'Sponsorships',
+                  label: 'Support',
                   color: Colors.teal,
                   onTap: () => Get.to(() => const SponsorshipOverviewScreen()),
                 ),
@@ -924,9 +924,9 @@ class DashboardHomeSection extends StatelessWidget {
       final roleKey = _roleKey(controller);
       return _SectionScaffold(
         title: roleKey == 'donor'
-            ? 'Donor dashboard'
+            ? 'Contributor dashboard'
             : roleKey == 'beneficiary'
-            ? 'Beneficiary dashboard'
+            ? 'Recipient dashboard'
             : roleKey == 'volunteer'
             ? 'Volunteer dashboard'
             : 'Dashboard',

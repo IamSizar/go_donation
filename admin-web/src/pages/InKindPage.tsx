@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, useRef } from 'react'
 import { Link } from 'react-router-dom'
+import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError } from '../lib/api'
 import { useLivePoll } from '../lib/useLivePoll'
 import type { AdminPageResp, AdminInKind } from '../lib/api-types'
@@ -44,7 +45,7 @@ const INKIND_FIELDS: FieldSpec[] = [
 ]
 
 const INKIND_CREATE_FIELDS: FieldSpec[] = [
-  { key: 'donor_user_id', label: 'Donor user ID (optional)', labelKey: 'field.donor_user_id_optional', type: 'number' },
+  { key: 'donor_user_id', label: 'Contributor user ID (optional)', labelKey: 'field.donor_user_id_optional', type: 'number' },
   ...INKIND_FIELDS,
 ]
 
@@ -172,7 +173,7 @@ export default function InKindPage() {
     },
     { key: 'created', header: t('col.created'), cell: (k) => <span className="muted">{k.created_at?.slice(0, 10)}</span> },
     {
-      key: 'actions', header: '', width: '170px',
+      key: 'actions', header: t('common.actions'), width: '170px',
       cell: (k) => (
         <>
           <Link className="row-edit-btn" to={`/detail/in_kind_donations/${k.id}`}>{t('common.view')}</Link>
@@ -201,7 +202,7 @@ export default function InKindPage() {
           <select value={status} onChange={e => { setStatus(e.target.value); setPage(1); sel.clear() }} style={{ width: 'auto' }}>
             {STATUSES.map(s => <option key={s} value={s}>{statusLabel(s)}</option>)}
           </select>
-          <button className="secondary" onClick={exportCsv}>{t('common.export_csv')}</button>
+          <ExportCsvButton onExport={exportCsv} />
           <button onClick={() => setCreating(true)}>{t('page.in_kind.new')}</button>
         </div>
       </div>

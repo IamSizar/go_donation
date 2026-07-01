@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, useRef } from 'react'
 import { Link } from 'react-router-dom'
+import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError } from '../lib/api'
 import { useLivePoll } from '../lib/useLivePoll'
 import {
@@ -38,7 +39,7 @@ const DONATION_CSV_COLUMNS: CsvColumn<DonationAdminRow>[] = [
 const PER_PAGE = 20
 
 const PAYMENT_LABELS = ['success', 'pending', 'failed']
-const DELIVERY_STATUSES = ['registered', 'received', 'under_review', 'delivered', 'cancelled']
+const DELIVERY_STATUSES = ['registered', 'received', 'under_review', 'delivered', 'paused', 'archived', 'cancelled']
 
 function paymentLabelToCode(label: string): number {
   if (label === 'success') return 1
@@ -60,7 +61,7 @@ const DONATION_FIELDS: FieldSpec[] = [
 ]
 
 const DONATION_CREATE_FIELDS: FieldSpec[] = [
-  { key: 'user_id',       label: 'Donor user ID', labelKey: 'field.donor_user_id',     type: 'number', required: true },
+  { key: 'user_id',       label: 'Contributor user ID', labelKey: 'field.donor_user_id',     type: 'number', required: true },
   { key: 'campaign_id',   label: 'Campaign ID', labelKey: 'field.campaign_id',       type: 'number' },
   { key: 'donation_kind', label: 'Kind', labelKey: 'field.kind',              type: 'select', options: DONATION_KINDS },
   ...DONATION_FIELDS,
@@ -253,7 +254,7 @@ export default function DonationsPage() {
       cell: (d) => <span className="muted">{formatDate(d.transaction_date)}</span>,
     },
     {
-      key: 'actions', header: '', width: '170px',
+      key: 'actions', header: t('common.actions'), width: '170px',
       cell: (d) => (
         <>
           <Link className="row-edit-btn" to={`/detail/donations/${d.id}`}>{t('common.view')}</Link>
@@ -279,7 +280,7 @@ export default function DonationsPage() {
             placeholder={t('page.donations.search_placeholder')}
             style={{ width: '220px' }}
           />
-          <button className="secondary" onClick={exportCsv}>{t('common.export_csv')}</button>
+          <ExportCsvButton onExport={exportCsv} />
           <button onClick={() => setCreating(true)}>{t('page.donations.new')}</button>
         </div>
       </div>

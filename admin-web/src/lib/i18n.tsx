@@ -120,3 +120,29 @@ export function useStatusLabel(): (value: string) => string {
     return label === key ? value : label
   }
 }
+
+// useFieldLabel — localizes a raw DB column key (e.g. 'created_at', 'title_ar')
+// for the read-only Detail view and Audit Logs. It strips a trailing language
+// suffix (_ar/_sorani/_badini/_en) and appends a language tag, then resolves
+// the base via dbfield.* → col.* → field.*. Falls back to the raw key only when
+// nothing matches (so a brand-new column never renders as a bare i18n key).
+const LANG_TAG: Record<string, string> = {
+  ar: 'lang_ar', sorani: 'lang_sorani', badini: 'lang_badini', en: 'lang_en',
+}
+export function useFieldLabel(): (key: string) => string {
+  const { t } = useI18n()
+  return (key: string) => {
+    let base = key
+    let suffix = ''
+    const m = key.match(/^(.*)_(ar|sorani|badini|en)$/)
+    if (m && LANG_TAG[m[2]]) {
+      base = m[1]
+      suffix = ` (${t('common.' + LANG_TAG[m[2]])})`
+    }
+    for (const ns of ['dbfield.', 'col.', 'field.']) {
+      const label = t(ns + base)
+      if (label !== ns + base) return label + suffix
+    }
+    return key
+  }
+}

@@ -61,7 +61,7 @@ export default function Table<T>({ rows, columns, rowKey, empty, loading, select
               </th>
             )}
             {columns.map((c) => (
-              <th key={c.key} style={{ textAlign: c.align ?? 'left', width: c.width }}>
+              <th key={c.key} style={{ textAlign: c.align ?? 'start', width: c.width }}>
                 {c.header}
               </th>
             ))}
@@ -117,7 +117,7 @@ export default function Table<T>({ rows, columns, rowKey, empty, loading, select
                     </td>
                   )}
                   {columns.map((c) => (
-                    <td key={c.key} style={{ textAlign: c.align ?? 'left' }}>
+                    <td key={c.key} style={{ textAlign: c.align ?? 'start' }}>
                       {c.cell(row)}
                     </td>
                   ))}

@@ -13,6 +13,7 @@
 //   • Delete CASCADEs signups — confirm dialog spells this out.
 
 import { useCallback, useEffect, useState, useRef } from 'react'
+import ExportCsvButton from '../components/ExportCsvButton'
 import { Link } from 'react-router-dom'
 import { api, describeError } from '../lib/api'
 import { useLivePoll } from '../lib/useLivePoll'
@@ -236,7 +237,7 @@ export default function MissionsPage() {
     },
     {
       key: 'actions',
-      header: '',
+      header: t('common.actions'),
       width: '230px',
       cell: (m) => (
         <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
@@ -284,7 +285,7 @@ export default function MissionsPage() {
           <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); sel.clear() }} style={{ width: 'auto' }}>
             {STATUSES.map((s) => <option key={s} value={s}>{statusLabel(s)}</option>)}
           </select>
-          <button className="secondary" onClick={exportCsv}>{t('common.export_csv')}</button>
+          <ExportCsvButton onExport={exportCsv} />
           <button onClick={() => setCreating(true)}>{t('page.missions.new')}</button>
         </div>
       </div>

@@ -786,7 +786,7 @@ button.amber:disabled {
   font-size: var(--text-sm);
 }
 .data-table thead th {
-  text-align: left;
+  text-align: start;
   font-weight: 600;
   color: var(--muted);
   background: var(--color-surface-2);

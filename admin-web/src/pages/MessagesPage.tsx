@@ -10,6 +10,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, describeError } from '../lib/api'
 import { useI18n } from '../lib/i18n'
+import { useToast } from '../lib/toast'
+import ExportCsvButton from '../components/ExportCsvButton'
+import { downloadCsv, type CsvColumn } from '../lib/csv'
 
 type AdminThread = {
   id: number
@@ -47,6 +50,24 @@ function name(
   return n && n.trim() ? n : t('common.user_ref', { id })
 }
 
+// Flat CSV shape for a chat thread (Phase 7 · M-33).
+const THREAD_CSV_COLUMNS: CsvColumn<AdminThread>[] = [
+  { header: 'id', get: (t) => t.id },
+  { header: 'status', get: (t) => t.status },
+  { header: 'campaign_id', get: (t) => t.campaign_id ?? '' },
+  { header: 'campaign_title', get: (t) => t.campaign_title ?? '' },
+  { header: 'donor_user_id', get: (t) => t.donor_user_id },
+  { header: 'donor_name', get: (t) => t.donor_name ?? '' },
+  { header: 'donor_phone', get: (t) => t.donor_phone ?? '' },
+  { header: 'owner_user_id', get: (t) => t.owner_user_id },
+  { header: 'owner_name', get: (t) => t.owner_name ?? '' },
+  { header: 'owner_phone', get: (t) => t.owner_phone ?? '' },
+  { header: 'message_count', get: (t) => t.message_count },
+  { header: 'last_message', get: (t) => t.last_message ?? '' },
+  { header: 'last_message_at', get: (t) => t.last_message_at ?? '' },
+  { header: 'created_at', get: (t) => t.created_at },
+]
+
 function StatusBadge({ status }: { status: string }) {
   const tone =
     status === 'active' ? 'success' : status === 'pending' ? 'warning' : 'info'
@@ -55,6 +76,7 @@ function StatusBadge({ status }: { status: string }) {
 
 export default function MessagesPage() {
   const { t } = useI18n()
+  const toast = useToast()
   const [threads, setThreads] = useState<AdminThread[]>([])
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -64,6 +86,11 @@ export default function MessagesPage() {
   const [reply, setReply] = useState('')
   const [sending, setSending] = useState(false)
   const msgEnd = useRef<HTMLDivElement | null>(null)
+
+  const exportCsv = () => {
+    if (threads.length === 0) { toast.info(t('common.nothing_to_export')); return }
+    downloadCsv(`messages-${new Date().toISOString().slice(0, 10)}.csv`, threads, THREAD_CSV_COLUMNS)
+  }
 
   // ── poll thread list ────────────────────────────────────────────
   const loadThreads = useCallback(async () => {
@@ -136,13 +163,16 @@ export default function MessagesPage() {
             {threads.length} conversation{threads.length === 1 ? '' : 's'} · you reply as Support
           </p>
         </div>
-        <input
-          type="search"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder={t('common.msg_search')}
-          style={{ width: 240 }}
-        />
+        <div className="row">
+          <input
+            type="search"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder={t('common.msg_search')}
+            style={{ width: 240 }}
+          />
+          <ExportCsvButton onExport={exportCsv} />
+        </div>
       </div>
 
       {err && <div className="error-box">{err}</div>}

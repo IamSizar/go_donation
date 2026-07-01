@@ -13,7 +13,7 @@ class BeneficiaryCaseDetailScreen extends StatelessWidget {
     final title = localizedContentFromMap(
       caseItem,
       'public_title',
-      fallback: 'Beneficiary case',
+      fallback: 'Recipient case',
     );
     final needs = (caseItem['actual_needs'] ?? '').toString();
 

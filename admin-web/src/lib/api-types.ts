@@ -599,6 +599,8 @@ export function roleLabel(roleId: number): string {
       return 'beneficiary'
     case 3:
       return 'volunteer'
+    case 4:
+      return 'employee'
     case 0:
       return '—'
     default:

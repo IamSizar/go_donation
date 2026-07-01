@@ -56,7 +56,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       color: Colors.indigo,
     ),
     NavDestination(
-      label: 'Donate',
+      label: 'Contribute',
       icon: Icons.volunteer_activism_outlined,
       activeIcon: Icons.volunteer_activism_rounded,
       color: Colors.green,
@@ -206,7 +206,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
         final shouldPop = await _onWillPop();
-        if (shouldPop && mounted) {
+        if (shouldPop && context.mounted) {
           Navigator.of(context).pop();
         }
       },

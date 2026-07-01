@@ -44,6 +44,7 @@ var resourceTables = map[string]string{
 	"support_tickets":               "support_tickets",
 	"donations":                     "donations",
 	"volunteer_applications":        "volunteer_applications",
+	"volunteer_missions":            "volunteer_missions",
 	"campaigns":                     "campaigns",
 	"users":                         "users",
 }

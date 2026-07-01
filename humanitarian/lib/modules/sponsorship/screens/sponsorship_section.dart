@@ -17,7 +17,7 @@ class SponsorshipSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final isBeneficiary = sharedPreferences.getString('role_id') == '2';
     return SectionScaffold(
-      title: isBeneficiary ? 'Beneficiary support' : 'Kafala Sponsorship',
+      title: isBeneficiary ? 'Recipient support' : 'Kafala Support',
       subtitle: isBeneficiary
           ? 'Submit help requests and track admin review in one place.'
           : 'Monitor sponsorship plans, your submitted projects, and stories.',

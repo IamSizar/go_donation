@@ -10,6 +10,7 @@
  * the city_directory_entries table.
  */
 import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { api, describeError } from '../lib/api'
 import type { CommunityEntry } from '../lib/api-types'
 import Table, { type Column } from '../components/Table'
@@ -130,9 +131,10 @@ export default function CityGuidePage() {
         : <span className="muted">—</span>,
     },
     {
-      key: 'actions', header: '', width: '130px',
+      key: 'actions', header: t('common.actions'), width: '200px',
       cell: (e) => (
         <>
+          <Link className="row-edit-btn" to={`/detail/community/${e.id}`}>{t('common.view')}</Link>
           <button className="row-edit-btn" onClick={() => setEditing(e)}>{t('common.edit')}</button>
           <button className="row-delete-btn" onClick={() => setDeleting(e)}>{t('common.delete')}</button>
         </>
@@ -163,7 +165,7 @@ export default function CityGuidePage() {
             placeholder={t('common.city_search')}
             style={{ width: '200px' }}
           />
-          <button onClick={() => setCreating(true)}>+ Add place</button>
+          <button onClick={() => setCreating(true)}>{t('common.city_add_place')}</button>
         </div>
       </div>
 
@@ -190,7 +192,7 @@ export default function CityGuidePage() {
         columns={columns}
         rowKey={(e) => e.id}
         loading={loading}
-        empty="No places yet. Click '+ Add place' to create the first one."
+        empty={t('common.city_empty')}
       />
 
       <EditModal

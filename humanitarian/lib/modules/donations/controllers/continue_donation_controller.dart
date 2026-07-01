@@ -71,7 +71,7 @@ class ContinueDonationController extends GetxController {
       if (decoded['success'] == true) {
         await AppEventFirestore.log(
           eventType: 'donation_submit',
-          eventLabel: 'Donation submitted',
+          eventLabel: 'Contribution submitted',
           module: 'donations',
           action: 'submit',
           userId: userId,

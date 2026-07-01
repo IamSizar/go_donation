@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { api, describeError } from '../lib/api'
+import ExportCsvButton from '../components/ExportCsvButton'
+import { api, describeError, assetUrl } from '../lib/api'
 import type { Partner } from '../lib/api-types'
 import Table, { type Column } from '../components/Table'
 import StatusCell from '../components/StatusCell'
@@ -157,7 +158,7 @@ export default function PartnersPage() {
       width: '56px',
       cell: (p) =>
         p.logo_path ? (
-          <img src={`/${p.logo_path}`} alt="" className="thumb" />
+          <img src={assetUrl(p.logo_path)} alt="" className="thumb" />
         ) : (
           <div className="thumb thumb-empty" />
         ),
@@ -198,7 +199,7 @@ export default function PartnersPage() {
     },
     {
       key: 'actions',
-      header: '',
+      header: t('common.actions'),
       width: '170px',
       cell: (p) => (
         <>
@@ -228,7 +229,7 @@ export default function PartnersPage() {
           <select value={status} onChange={(e) => { setStatus(e.target.value); sel.clear() }} style={{ width: 'auto' }}>
             {STATUSES.map((s) => <option key={s} value={s}>{statusLabel(s)}</option>)}
           </select>
-          <button className="secondary" onClick={exportCsv}>{t('common.export_csv')}</button>
+          <ExportCsvButton onExport={exportCsv} />
           <button onClick={() => setCreating(true)}>{t('page.partners.new')}</button>
         </div>
       </div>

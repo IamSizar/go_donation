@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { api, describeError } from '../lib/api'
+import ExportCsvButton from '../components/ExportCsvButton'
+import { api, describeError, assetUrl } from '../lib/api'
 import type { MediaPost } from '../lib/api-types'
 import Table, { type Column } from '../components/Table'
 import StatusCell from '../components/StatusCell'
@@ -159,7 +160,7 @@ export default function MediaPage() {
       width: '56px',
       cell: (m) =>
         m.media_url ? (
-          <img src={`/${m.media_url}`} alt="" className="thumb" />
+          <img src={assetUrl(m.media_url)} alt="" className="thumb" />
         ) : (
           <div className="thumb thumb-empty" />
         ),
@@ -177,7 +178,7 @@ export default function MediaPage() {
     {
       key: 'type',
       header: t('col.type'),
-      cell: (m) => <span className="badge">{m.post_type}</span>,
+      cell: (m) => <span className="badge">{statusLabel(m.post_type)}</span>,
     },
     {
       key: 'link',
@@ -218,7 +219,7 @@ export default function MediaPage() {
     },
     {
       key: 'actions',
-      header: '',
+      header: t('common.actions'),
       width: '170px',
       cell: (m) => (
         <>
@@ -253,7 +254,7 @@ export default function MediaPage() {
           <select value={status} onChange={(e) => { setStatus(e.target.value); sel.clear() }} style={{ width: 'auto' }}>
             {STATUSES.map((s) => <option key={s} value={s}>{statusLabel(s)}</option>)}
           </select>
-          <button className="secondary" onClick={exportCsv}>{t('common.export_csv')}</button>
+          <ExportCsvButton onExport={exportCsv} />
           <button onClick={() => setCreating(true)}>{t('page.media.new')}</button>
         </div>
       </div>

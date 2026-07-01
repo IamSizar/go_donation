@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, useRef } from 'react'
 import { Link } from 'react-router-dom'
+import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError } from '../lib/api'
 import { useLivePoll } from '../lib/useLivePoll'
 import type { AdminMissionSignup, AdminPageResp, AdminVolunteerApp } from '../lib/api-types'
@@ -367,7 +368,7 @@ function ApplicationsTab() {
     },
     { key: 'created', header: t('col.created'), cell: (a) => <span className="muted">{a.created_at?.slice(0, 10)}</span> },
     {
-      key: 'actions', header: '', width: '170px',
+      key: 'actions', header: t('common.actions'), width: '170px',
       cell: (a) => (
         <>
           <Link className="row-edit-btn" to={`/detail/volunteer_applications/${a.id}`}>{t('common.view')}</Link>
@@ -429,7 +430,7 @@ function ApplicationsTab() {
               <option key={d} value={d}>{dayLabelFor(d, locale)}</option>
             ))}
           </select>
-          <button className="secondary" onClick={exportCsv}>{t('common.export_csv')}</button>
+          <ExportCsvButton onExport={exportCsv} />
           <button onClick={() => setCreating(true)}>{t('page.volunteers.new')}</button>
         </div>
       </div>
@@ -607,8 +608,17 @@ function MissionSignupsTab() {
           { label: t('action.confirm_completed'), status: 'completed' },
           { label: t('action.mark_no_show'), status: 'no_show', tone: 'danger' },
         ]
+      // Terminal states are no longer a dead end: offer an Undo that reverts to
+      // a sensible prior state, so an entry is never button-less / permanently
+      // locked (the status dropdown also stays available for full control).
+      case 'completed':
+      case 'no_show':
+        return [{ label: t('action.undo'), status: 'joined' }]
+      case 'rejected':
+        return [{ label: t('action.undo'), status: 'pending' }]
+      case 'cancelled':
+        return [{ label: t('action.undo'), status: 'approved' }]
       default:
-        // Terminal states (completed / rejected / cancelled / no_show) — read-only.
         return []
     }
   }
@@ -675,7 +685,7 @@ function MissionSignupsTab() {
     },
     {
       key: 'actions',
-      header: '',
+      header: t('common.actions'),
       width: '270px',
       cell: (s) => {
         const acts = actionsFor(s)
@@ -720,7 +730,7 @@ function MissionSignupsTab() {
           >
             {SIGNUP_STATUSES.map((s) => <option key={s} value={s}>{statusLabel(s)}</option>)}
           </select>
-          <button className="secondary" onClick={exportCsv}>{t('common.export_csv')}</button>
+          <ExportCsvButton onExport={exportCsv} />
         </div>
       </div>
       {err && <div className="error-box">{err}</div>}

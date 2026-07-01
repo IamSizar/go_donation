@@ -52,6 +52,7 @@ export default function LoginPage() {
         phone: data.account?.phone ?? '',
         role_id: data.account?.role_id ?? data.role_id ?? null,
         is_admin: isAdmin,
+        staff_tier: data.account?.staff_tier ?? (isAdmin === 1 ? 'admin' : 'user'),
       })
       navigate(from, { replace: true })
     } catch (err) {

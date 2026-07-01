@@ -143,6 +143,77 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	})
 }
 
+// googleLoginReq is the body for POST /api/auth/google.
+type googleLoginReq struct {
+	IDToken string `json:"id_token"`
+}
+
+// POST /api/auth/google — sign in / sign up with a Google ID token (Phase 9,
+// B-09). Verifies the token with Google, find-or-creates the user, then issues
+// an app access token using the SAME response shape as phone login so the app
+// can treat both flows identically.
+func (h *AuthHandler) GoogleLogin(c *gin.Context) {
+	if !auth.GoogleConfigured() {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"status": "error", "error": "Google sign-in is not configured on the server.",
+		})
+		return
+	}
+	var req googleLoginReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "error": "Invalid request body."})
+		return
+	}
+	ctx := c.Request.Context()
+
+	claims, err := auth.VerifyGoogleIDToken(ctx, req.IDToken)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"status": "error", "error": "Google sign-in failed."})
+		return
+	}
+	if !claims.EmailVerified {
+		c.JSON(http.StatusUnauthorized, gin.H{"status": "error", "error": "Your Google email is not verified."})
+		return
+	}
+
+	uid, returning, err := h.Users.UpsertGoogleUser(ctx, claims.Sub, claims.Email, claims.Name)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "error": "Unable to sign in."})
+		return
+	}
+
+	role, _ := h.Users.GetRoleID(ctx, uid)
+	account, _ := h.Users.GetAccountForClient(ctx, uid)
+	session, err := h.Tokens.IssueToken(ctx, uid, c.Request.UserAgent(), auth.ClientIP(c.Request.RemoteAddr))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "error": "Unable to issue token."})
+		return
+	}
+
+	var roleField any = nil
+	if role > 0 {
+		roleField = role
+	}
+	regStatus := ""
+	if account != nil {
+		regStatus = account.RegistrationStatus
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"status":              "success",
+		"user_id":             uid,
+		"returning_user":      returning,
+		"has_role":            role > 0,
+		"role_id":             roleField,
+		"registration_status": regStatus,
+		"account":             account,
+		"session":             session,
+		"access_token":        session.AccessToken,
+		"token_type":          session.TokenType,
+		"expires_at":          session.ExpiresAt,
+		"expires_in":          session.ExpiresIn,
+	})
+}
+
 // adminLoginReq is the body for POST /api/auth/admin/login.
 type adminLoginReq struct {
 	Username string `json:"username"`

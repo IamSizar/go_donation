@@ -8,6 +8,22 @@ export type StoredUser = {
   phone: string
   role_id: number | null
   is_admin: number  // 1 = admin, 0 = not
+  // Phase 6 dashboard access tier: super_admin | admin | supervisor | employee | user
+  staff_tier?: string
+}
+
+// canExportData gates the CSV / DB-export tools to admin-level staff only
+// (Phase 7 · G-07 / M-60). Legacy is_admin=1 accounts are grandfathered in.
+export function canExportData(user: StoredUser | null): boolean {
+  if (!user) return false
+  if (user.staff_tier === 'super_admin' || user.staff_tier === 'admin') return true
+  return user.is_admin === 1
+}
+
+// isSuperAdmin gates the most sensitive tools (raw DB export, permissions
+// management) to the root Super-Admin tier (Phase 7 · M-60).
+export function isSuperAdmin(user: StoredUser | null): boolean {
+  return !!user && user.staff_tier === 'super_admin'
 }
 
 export function getToken(): string | null {
@@ -38,6 +54,17 @@ export const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '',
   timeout: 15000,
 })
+
+// Absolute URL for a backend-served asset. Images live on the API origin, not
+// the dashboard origin, so a bare "/path" would 404. Handles absolute URLs and
+// leading slashes.
+export function assetUrl(path?: string | null): string {
+  if (!path) return ''
+  const p = String(path)
+  if (/^https?:\/\//i.test(p)) return p
+  const base = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '')
+  return `${base}/${p.replace(/^\/+/, '')}`
+}
 
 // Attach Bearer token automatically.
 api.interceptors.request.use((config) => {

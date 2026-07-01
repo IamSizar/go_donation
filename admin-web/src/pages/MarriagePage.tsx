@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError } from '../lib/api'
 import type { MarriageProfile } from '../lib/api-types'
 import Table, { type Column } from '../components/Table'
@@ -164,12 +165,12 @@ export default function MarriagePage() {
     {
       key: 'visibility',
       header: t('col.visibility'),
-      cell: (p) => <span className="badge">{p.visibility_level}</span>,
+      cell: (p) => <span className="badge">{statusLabel(p.visibility_level)}</span>,
     },
     {
       key: 'subscription',
       header: t('col.subscription'),
-      cell: (p) => <span className="badge">{p.subscription_status}</span>,
+      cell: (p) => <span className="badge">{statusLabel(p.subscription_status)}</span>,
     },
     {
       key: 'status',
@@ -189,7 +190,7 @@ export default function MarriagePage() {
       cell: (p) => <span className="muted">{p.created_at?.slice(0, 10)}</span>,
     },
     {
-      key: 'actions', header: '', width: '170px',
+      key: 'actions', header: t('common.actions'), width: '170px',
       cell: (p) => (
         <>
           <Link className="row-edit-btn" to={`/detail/marriage/${p.id}`}>{t('common.view')}</Link>
@@ -218,7 +219,7 @@ export default function MarriagePage() {
           <select value={status} onChange={(e) => { setStatus(e.target.value); sel.clear() }} style={{ width: 'auto' }}>
             {STATUSES.map((s) => <option key={s} value={s}>{statusLabel(s)}</option>)}
           </select>
-          <button className="secondary" onClick={exportCsv}>{t('common.export_csv')}</button>
+          <ExportCsvButton onExport={exportCsv} />
           <button onClick={() => setCreating(true)}>{t('page.marriage.new')}</button>
         </div>
       </div>

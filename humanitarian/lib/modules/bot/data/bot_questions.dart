@@ -4,7 +4,7 @@ import '../models/bot_qa.dart';
 
 /// Returns the FAQ list tailored to the given [roleId].
 ///
-/// role '1' = Donor  |  '2' = Beneficiary  |  '3' = Volunteer
+/// role '1' = Contributor  |  '2' = Recipient  |  '3' = Volunteer
 /// Falls back to donor questions for any other value.
 ///
 /// `actionRoute` values are route keys resolved by BotNavigation, so a chip tap
@@ -76,7 +76,7 @@ const List<BotQA> _aboutAppQAs = [
     },
     answer:
         'Pick what you need from the tabs: Home shows highlights and quick '
-        'actions; Donate and Kafala for giving and sponsorships; Market for '
+        'actions; Contribute and Kafala for giving and support; Market for '
         'products; Services for forms like marriage support and beneficiary '
         'cases; Alerts for updates; and Messages to chat. The admin team '
         'reviews requests and you are notified at every step.',
@@ -139,8 +139,8 @@ const List<BotQA> donorQAs = [
       'kmr': 'ئەز چەوا بۆ کامپینەکێ ببەخشم؟',
     },
     answer:
-        'Open the Donate section and browse active campaigns. Tap a campaign to '
-        'view its goal and progress, then tap "Donate", enter your amount, '
+        'Open the Contribute section and browse active campaigns. Tap a campaign to '
+        'view its goal and progress, then tap "Contribute", enter your amount, '
         'review the summary and confirm. You\'ll be notified when your donation '
         'is received and again once an admin approves it.',
     answersByLang: {
@@ -167,7 +167,7 @@ const List<BotQA> donorQAs = [
       'kmr': 'ئەز چەوا مێژووا بەخشینێن خۆ ببینم؟',
     },
     answer:
-        'Your donation history opens in My Donations. Tap "View Details" on any '
+        'Your contribution history opens in My Contributions. Tap "View Details" on any '
         'item to see its status, amount, and whether it has been approved, '
         'received or delivered.',
     answersByLang: {
@@ -181,7 +181,7 @@ const List<BotQA> donorQAs = [
       'ckb': ['مێژووی بەخشین', 'بەخشینەکانم', 'تاریخچەکە', 'شوێنکردنەوە'],
       'kmr': ['مێژووا بەخشینان', 'بەخشینێن من', 'دۆخ', 'شوپاندن'],
     },
-    actionLabel: 'View My Donations',
+    actionLabel: 'View My Contributions',
     actionRoute: 'my_donations',
   ),
   BotQA(
@@ -194,7 +194,7 @@ const List<BotQA> donorQAs = [
       'kmr': 'ئەز چەوا دگەل خودانێ کامپینێ ئاخفتنێ بکەم؟',
     },
     answer:
-        'After donating, open My Donations and tap "View Details" on that '
+        'After donating, open My Contributions and tap "View Details" on that '
         'donation — you\'ll see a "Chat with campaign owner" button. The owner '
         'is notified and can accept; once accepted, you, the owner and our '
         'support team can message privately.',
@@ -209,7 +209,7 @@ const List<BotQA> donorQAs = [
       'ckb': ['گفتوگۆ', 'خاوەنی کامپەین', 'پەیام', 'پەیوەندی'],
       'kmr': ['ئاخفتن', 'خودانێ کامپینێ', 'پەیام', 'پەیوەندی'],
     },
-    actionLabel: 'View My Donations',
+    actionLabel: 'View My Contributions',
     actionRoute: 'my_donations',
   ),
   BotQA(
@@ -446,7 +446,7 @@ const List<BotQA> beneficiaryQAs = [
       'kmr': 'ئەز چەوا بەخشینێن کامپینێن خۆ ببینم؟',
     },
     answer:
-        'The My Campaign Donations screen lists all your campaigns and every '
+        'The My Campaign Contributions screen lists all your campaigns and every '
         'donor who contributed, along with their amounts and delivery status. '
         'Tap below to open it.',
     answersByLang: {
@@ -460,7 +460,7 @@ const List<BotQA> beneficiaryQAs = [
       'ckb': ['بەخشینی کامپەینم', 'کێ بەخشی', 'بڕی کۆکراوەتەوە', 'بەخشەران'],
       'kmr': ['بەخشینێن کامپینێن من', 'کێ بەخشی', 'بەخشەر'],
     },
-    actionLabel: 'My Campaign Donations',
+    actionLabel: 'My Campaign Contributions',
     actionRoute: 'campaign_donations',
   ),
   BotQA(
@@ -473,7 +473,7 @@ const List<BotQA> beneficiaryQAs = [
       'kmr': 'ئەز چەوا ئاخفتنەکێ دگەل بەخشەرەکی دەست پێ بکەم؟',
     },
     answer:
-        'Open My Campaign Donations, find the donor\'s row and tap the chat icon '
+        'Open My Campaign Contributions, find the contributor\'s row and tap the chat icon '
         'next to their name. The donor is notified and can accept — then you, '
         'the donor and our support team can message privately.',
     answersByLang: {
@@ -487,7 +487,7 @@ const List<BotQA> beneficiaryQAs = [
       'ckb': ['گفتوگۆ', 'بەخشەر', 'پەیام', 'پەیوەندی لەگەڵ بەخشەر'],
       'kmr': ['ئاخفتن', 'بەخشەر', 'پەیام', 'پەیوەندی'],
     },
-    actionLabel: 'My Campaign Donations',
+    actionLabel: 'My Campaign Contributions',
     actionRoute: 'campaign_donations',
   ),
   BotQA(

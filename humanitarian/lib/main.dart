@@ -26,7 +26,20 @@ import 'package:flutter_application_1/firebase_options.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  // On Android the Firebase SDK auto-initializes the default app at process
+  // start (FirebaseInitProvider, driven by google-services.json). Calling
+  // initializeApp() again then throws [core/duplicate-app] — and because the
+  // Dart-side Firebase.apps list may not yet reflect that native app, an
+  // isEmpty guard isn't reliable. Tolerate the duplicate-app error so main()
+  // always reaches runApp() instead of crashing on the native splash; rethrow
+  // anything genuinely wrong.
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } on FirebaseException catch (e) {
+    if (e.code != 'duplicate-app') rethrow;
+  }
 
   // Request the full set of iOS notification permissions explicitly.
   // The default `requestPermission()` call without args still works on

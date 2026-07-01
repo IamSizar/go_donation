@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError } from '../lib/api'
 import { roleLabel, type UsersListResp, type UserAccount } from '../lib/api-types'
 import Table, { type Column } from '../components/Table'
@@ -14,7 +15,7 @@ import { formatPhone } from '../lib/phone'
 
 const PER_PAGE = 20
 
-const ROLE_LABELS = ['donor', 'beneficiary', 'volunteer', 'none']
+const ROLE_LABELS = ['donor', 'beneficiary', 'volunteer', 'employee', 'none']
 const GENDER_OPTIONS = ['', 'Male', 'Female', 'Other']
 
 // Phase 18: editable fields. role / active / is_admin live in their own
@@ -43,6 +44,7 @@ function roleLabelToId(label: string): number {
   if (label === 'donor') return 1
   if (label === 'beneficiary') return 2
   if (label === 'volunteer') return 3
+  if (label === 'employee') return 4
   return 0
 }
 
@@ -172,11 +174,26 @@ export default function UsersPage() {
       cell: (u) => <span className="muted">{u.created_at?.slice(0, 10)}</span>,
     },
     {
-      key: 'actions', header: '', width: '170px',
+      key: 'actions', header: t('common.actions'), width: '250px',
       cell: (u) => (
         <>
           <Link className="row-edit-btn" to={`/detail/users/${u.user_id}`}>{t('common.view')}</Link>
           <button className="row-edit-btn" onClick={() => setEditing(u)}>{t('common.edit')}</button>
+          <button
+            className="row-edit-btn"
+            onClick={async () => {
+              const pw = window.prompt(t('common.set_password_prompt'))
+              if (pw === null) return
+              try {
+                await api.post(`/api/admin/users/${u.user_id}/password`, { password: pw })
+                toast.success(t('common.set_password_ok'))
+              } catch {
+                toast.error(t('common.set_password_fail'))
+              }
+            }}
+          >
+            {t('common.set_password')}
+          </button>
           <button className="row-delete-btn" onClick={() => setDeleting(u)}>{t('common.delete')}</button>
         </>
       ),
@@ -200,7 +217,7 @@ export default function UsersPage() {
             placeholder={t('page.users.search_placeholder')}
             style={{ width: '220px' }}
           />
-          <button className="secondary" onClick={exportCsv}>{t('common.export_csv')}</button>
+          <ExportCsvButton onExport={exportCsv} />
         </div>
       </div>
       {err && <div className="error-box">{err}</div>}

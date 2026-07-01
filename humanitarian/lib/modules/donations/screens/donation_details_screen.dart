@@ -6,9 +6,9 @@ class DonationDetailsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Donation Details')),
+      appBar: AppBar(title: const Text('Contribution Details')),
       body: const Center(
-        child: Text('Donation details screen'),
+        child: Text('Contribution details screen'),
       ),
     );
   }

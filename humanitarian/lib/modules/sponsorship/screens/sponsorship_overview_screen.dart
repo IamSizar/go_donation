@@ -28,7 +28,7 @@ class SponsorshipOverviewScreen extends StatelessWidget {
                 Expanded(
                   child: MetricCard(
                     title: '12',
-                    subtitle: 'Sponsored families',
+                    subtitle: 'Supported families',
                     icon: Icons.family_restroom_rounded,
                     color: Colors.teal,
                   ),
@@ -86,7 +86,7 @@ class SponsorshipOverviewScreen extends StatelessWidget {
                 return const _OverviewNoticeCard(
                   icon: Icons.handshake_rounded,
                   title: 'No sponsorships yet',
-                  subtitle: 'Create one from the Sponsorship page.',
+                  subtitle: 'Create one from the Support page.',
                   color: Colors.pinkAccent,
                 );
               }

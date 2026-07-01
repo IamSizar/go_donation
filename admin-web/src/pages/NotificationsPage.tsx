@@ -4,7 +4,24 @@ import { useLivePoll } from '../lib/useLivePoll'
 import type { AdminNotification, AdminPageResp } from '../lib/api-types'
 import Table, { type Column } from '../components/Table'
 import Pagination from '../components/Pagination'
+import ExportCsvButton from '../components/ExportCsvButton'
+import { downloadCsv, type CsvColumn } from '../lib/csv'
 import { useI18n } from '../lib/i18n'
+import { useToast } from '../lib/toast'
+
+// Flat CSV shape for a notification row (Phase 7 · M-53).
+const NOTIFICATION_CSV_COLUMNS: CsvColumn<AdminNotification>[] = [
+  { header: 'id', get: (n) => n.id },
+  { header: 'target', get: (n) => n.user_id ? `user #${n.user_id}` : n.role_id ? `role ${n.role_id}` : 'broadcast' },
+  { header: 'title', get: (n) => n.title },
+  { header: 'title_ar', get: (n) => n.title_ar ?? '' },
+  { header: 'body', get: (n) => n.body },
+  { header: 'type', get: (n) => n.notification_type ?? '' },
+  { header: 'category', get: (n) => n.notification_category },
+  { header: 'priority', get: (n) => n.priority },
+  { header: 'is_read', get: (n) => n.is_read === 1 ? 'read' : 'unread' },
+  { header: 'created_at', get: (n) => n.created_at ?? '' },
+]
 
 const PER_PAGE = 20
 const CATEGORIES = ['', 'normal', 'urgent', 'payment', 'campaign', 'system', 'reminder']
@@ -35,6 +52,13 @@ export default function NotificationsPage() {
   // stays hidden and the list updates silently (no full reload flash).
   const pollSilent = useRef(false)
   const { t } = useI18n()
+  const toast = useToast()
+
+  const exportCsv = () => {
+    const rows = resp?.items ?? []
+    if (rows.length === 0) { toast.info(t('common.nothing_to_export')); return }
+    downloadCsv(`notifications-${new Date().toISOString().slice(0, 10)}.csv`, rows, NOTIFICATION_CSV_COLUMNS)
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -107,6 +131,7 @@ export default function NotificationsPage() {
               </option>
             ))}
           </select>
+          <ExportCsvButton onExport={exportCsv} />
         </div>
       </div>
       {err && <div className="error-box">{err}</div>}

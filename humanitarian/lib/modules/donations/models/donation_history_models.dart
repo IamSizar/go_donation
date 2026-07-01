@@ -214,7 +214,7 @@ class DonationHistoryEntry {
                 json['campaign_title'] ??
                 json['title'] ??
                 json['campaign'] ??
-                'Donation')
+                'Contribution')
             .toString();
 
     final refExplicit = json['reference']?.toString().trim();

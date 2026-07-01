@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/karam-flutter/humanitarian-backend/internal/permissions"
 )
 
 const contextUserKey = "auth.user"
@@ -147,7 +149,10 @@ func RequireAdmin(store *TokenStore) gin.HandlerFunc {
 			})
 			return
 		}
-		if user.IsAdmin != 1 {
+		// A-19 — only staff tiers may reach the dashboard. Legacy is_admin=1
+		// accounts are grandfathered in; the new supervisor/employee tiers are
+		// admitted via staff_tier; plain app users ('user') are blocked.
+		if user.IsAdmin != 1 && !permissions.CanAccessDashboard(permissions.TierFrom(user.StaffTier)) {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
 				"status": "error",
 				"error":  "Admin access required.",
@@ -155,6 +160,60 @@ func RequireAdmin(store *TokenStore) gin.HandlerFunc {
 			return
 		}
 		c.Set(contextUserKey, user)
+		c.Next()
+	}
+}
+
+// RequirePermission gates a route on a (module, action) permission for the
+// resolved user's staff tier. Run it AFTER RequireAdmin (which attaches the
+// user to the context). Phase 6 (6b).
+func RequirePermission(perms *permissions.Store, module, action string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user, ok := UserFromGin(c)
+		if !ok || user == nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"status": "error", "error": "Not authenticated.",
+			})
+			return
+		}
+		allowed, err := perms.Allowed(c.Request.Context(),
+			permissions.TierFrom(user.StaffTier), module, action)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+				"status": "error", "error": "Permission check failed.",
+			})
+			return
+		}
+		if !allowed {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"status": "error", "error": "You don't have permission for this action.",
+			})
+			return
+		}
+		c.Next()
+	}
+}
+
+// RequireAdminTier gates a route to admin-level staff only (super_admin or
+// admin) — used for the most sensitive actions like the raw DB export.
+// Legacy is_admin=1 accounts are grandfathered in. Run AFTER RequireAdmin.
+// Phase 7 (M-60 / G-07).
+func RequireAdminTier() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user, ok := UserFromGin(c)
+		if !ok || user == nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"status": "error", "error": "Not authenticated.",
+			})
+			return
+		}
+		tier := permissions.TierFrom(user.StaffTier)
+		if user.IsAdmin != 1 && tier != permissions.TierSuperAdmin && tier != permissions.TierAdmin {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"status": "error", "error": "Admin-level access required for this action.",
+			})
+			return
+		}
 		c.Next()
 	}
 }

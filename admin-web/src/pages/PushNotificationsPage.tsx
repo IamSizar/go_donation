@@ -19,7 +19,20 @@ import type { PushSendResp, PushStatusResp } from '../lib/api-types'
 import UserPicker, { type PickedUser } from '../components/UserPicker'
 import { PUSH_TEMPLATES, type TemplateLang } from '../lib/pushTemplates'
 import { useI18n } from '../lib/i18n'
+import { useToast } from '../lib/toast'
+import ExportCsvButton from '../components/ExportCsvButton'
+import { downloadCsv, type CsvColumn } from '../lib/csv'
+import type { PushSendResultRow } from '../lib/api-types'
 import { Sparkles, Check, Bell, Smartphone } from 'lucide-react'
+
+// The push page has no persistent history; the meaningful export is the
+// last broadcast's per-device delivery report (Phase 7 · M-56).
+const PUSH_RESULT_CSV_COLUMNS: CsvColumn<PushSendResultRow>[] = [
+  { header: 'device_token', get: (r) => r.device_token },
+  { header: 'delivered', get: (r) => (r.ok ? 'yes' : 'no') },
+  { header: 'message_name', get: (r) => r.message_name ?? '' },
+  { header: 'error', get: (r) => r.error ?? '' },
+]
 
 // Delivery channel. 'inapp' writes a row to every user's Alerts tab (works
 // without FCM, reaches every account). 'push' fires an OS banner via FCM
@@ -49,6 +62,7 @@ const ROLES = [{ id: 1 }, { id: 2 }, { id: 3 }] as const
 
 export default function PushNotificationsPage() {
   const { t } = useI18n()
+  const toast = useToast()
   const [fcmEnabled, setFcmEnabled] = useState<boolean | null>(null)
   // Phase 27.4 — active device count surfaced from /api/admin/push/status.
   // null = still loading; -1 = backend couldn't read; ≥0 = live count.
@@ -87,6 +101,12 @@ export default function PushNotificationsPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [result, setResult] = useState<PushSendResp | null>(null)
+
+  const exportCsv = () => {
+    const rows = result?.results ?? []
+    if (rows.length === 0) { toast.info(t('common.nothing_to_export')); return }
+    downloadCsv(`push-delivery-${new Date().toISOString().slice(0, 10)}.csv`, rows, PUSH_RESULT_CSV_COLUMNS)
+  }
 
   // Reload status (incl. live device count) on mount AND after each send,
   // since a successful broadcast may auto-deactivate dead tokens. The
@@ -208,6 +228,8 @@ export default function PushNotificationsPage() {
               FCM {fcmEnabled ? t('page.push.fcm_enabled') : t('page.push.fcm_not_configured')}
             </span>
           )}
+          {/* Export the last broadcast's per-device delivery report — Phase 7 · M-56 */}
+          {result && result.results.length > 0 && <ExportCsvButton onExport={exportCsv} />}
         </div>
       </div>
 

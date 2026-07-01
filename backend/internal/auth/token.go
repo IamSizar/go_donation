@@ -41,6 +41,7 @@ type ResolvedUser struct {
 	Phone              string
 	CreatedAt          time.Time
 	RegistrationStatus string // incomplete | pending | approved | rejected
+	StaffTier          string // super_admin | admin | supervisor | employee | user
 }
 
 type TokenStore struct {
@@ -123,16 +124,17 @@ func (s *TokenStore) ResolveToken(ctx context.Context, raw string) (*ResolvedUse
 		phone      string
 		createdAt  time.Time
 		regStatus  *string
+		staffTier  *string
 	)
 	err := s.Pool.QueryRow(ctx,
 		`SELECT t.id, t.user_id, t.token_hash, t.expires_at, t.revoked_at,
-		        u.role_id, u.active, u.is_admin, u.phone, u.created_at, u.registration_status
+		        u.role_id, u.active, u.is_admin, COALESCE(u.phone, ''), u.created_at, u.registration_status, u.staff_tier
 		   FROM api_access_tokens t
 		   JOIN users u ON u.id = t.user_id
 		  WHERE t.token_selector = $1
 		  LIMIT 1`,
 		selector,
-	).Scan(&tokenID, &userID, &storedHash, &expiresAt, &revokedAt, &roleID, &active, &isAdmin, &phone, &createdAt, &regStatus)
+	).Scan(&tokenID, &userID, &storedHash, &expiresAt, &revokedAt, &roleID, &active, &isAdmin, &phone, &createdAt, &regStatus, &staffTier)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			// Constant-time dummy compare to keep timing flat.
@@ -173,6 +175,9 @@ func (s *TokenStore) ResolveToken(ctx context.Context, raw string) (*ResolvedUse
 	}
 	if isAdmin != nil {
 		r.IsAdmin = *isAdmin
+	}
+	if staffTier != nil {
+		r.StaffTier = *staffTier
 	}
 	return r, nil
 }
