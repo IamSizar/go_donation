@@ -126,6 +126,43 @@ func VerifyCode(stored, provided string) bool {
 	return bcrypt.CompareHashAndPassword([]byte(stored), []byte(provided)) == nil
 }
 
+// VerifyAndConsume checks a submitted code against the stored OTP for a phone
+// and, on success, deletes the record so it can't be reused. It applies the
+// same rules as the login verify path (format, existence, demo gate, expiry,
+// attempt cap, hash match). Returns (true, "") on success, or (false, reason)
+// with a user-facing message. Used by the permission-change second factor.
+func (s *OTPStore) VerifyAndConsume(ctx context.Context, phone, code string) (bool, string) {
+	code = strings.TrimSpace(code)
+	if !ValidateCodeFormat(code) {
+		return false, "The code must be a 6-digit number."
+	}
+	rec, err := s.GetRecord(ctx, phone)
+	if err != nil {
+		return false, "Verification lookup failed."
+	}
+	if rec == nil {
+		return false, "No verification code found — request a new one."
+	}
+	if rec.Mode == "demo" && !DemoEnabled() {
+		_ = s.ClearRecord(ctx, phone)
+		return false, "Demo OTP mode is disabled."
+	}
+	if time.Now().After(rec.ExpiresAt) {
+		_ = s.ClearRecord(ctx, phone)
+		return false, "The code has expired — request a new one."
+	}
+	if rec.Attempts >= OTPMaxAttempts {
+		_ = s.ClearRecord(ctx, phone)
+		return false, "Too many failed attempts — request a new code."
+	}
+	if !VerifyCode(rec.CodeHash, code) {
+		_, _ = s.IncAttempts(ctx, phone)
+		return false, "Invalid verification code."
+	}
+	_ = s.ClearRecord(ctx, phone)
+	return true, ""
+}
+
 // IPRateResult is the outcome of an IP-level rate check.
 type IPRateResult struct {
 	Allowed    bool

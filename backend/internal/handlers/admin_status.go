@@ -13,17 +13,151 @@ import (
 
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
 	"github.com/karam-flutter/humanitarian-backend/internal/notify"
+	"github.com/karam-flutter/humanitarian-backend/internal/permissions"
 )
+
+// blockIfProtectedTarget enforces A-14: a super_admin account can only be
+// modified by another super_admin. Returns true (and writes 403) when the
+// caller must be stopped. Call it right after parseID in user-modify handlers.
+func (h *AdminStatusHandler) blockIfProtectedTarget(c *gin.Context, targetID int64) bool {
+	var tier *string
+	if err := h.Pool.QueryRow(c.Request.Context(),
+		"SELECT staff_tier FROM users WHERE id = $1", targetID).Scan(&tier); err != nil {
+		return false // let the handler surface not-found / db errors normally
+	}
+	if tier == nil || *tier != string(permissions.TierSuperAdmin) {
+		return false
+	}
+	actor, ok := auth.UserFromGin(c)
+	if !ok || actor == nil || permissions.TierFrom(actor.StaffTier) != permissions.TierSuperAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"success": false,
+			"error": "This account is protected — only a Super-Admin can modify it."})
+		return true
+	}
+	return false
+}
+
+type userStaffTierReq struct {
+	StaffTier string `json:"staff_tier"`
+}
+
+// POST /api/admin/users/:id/staff_tier — set a user's dashboard tier. Super-Admin
+// only; refuses to demote the last remaining super_admin (Users #c / A-14).
+func (h *AdminStatusHandler) UserStaffTier(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	actor, ok := auth.UserFromGin(c)
+	if !ok || actor == nil || permissions.TierFrom(actor.StaffTier) != permissions.TierSuperAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "error": "Only a Super-Admin can change staff tiers."})
+		return
+	}
+	var req userStaffTierReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid JSON body."})
+		return
+	}
+	newTier := string(permissions.TierFrom(req.StaffTier)) // normalize; unknown → 'user'
+
+	ctx := c.Request.Context()
+	// Guard against removing the last super_admin.
+	var curTier *string
+	_ = h.Pool.QueryRow(ctx, "SELECT staff_tier FROM users WHERE id = $1", id).Scan(&curTier)
+	if curTier != nil && *curTier == string(permissions.TierSuperAdmin) && newTier != string(permissions.TierSuperAdmin) {
+		var supers int
+		_ = h.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM users WHERE staff_tier = $1", string(permissions.TierSuperAdmin)).Scan(&supers)
+		if supers <= 1 {
+			c.JSON(http.StatusConflict, gin.H{"success": false, "error": "Cannot demote the last Super-Admin."})
+			return
+		}
+	}
+
+	ct, err := h.Pool.Exec(ctx, "UPDATE users SET staff_tier = $1 WHERE id = $2", newTier, id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
+		return
+	}
+	if ct.RowsAffected() == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Not found."})
+		return
+	}
+	// Force-logout when a tier is REDUCED, so a demotion (fewer permissions)
+	// takes effect immediately rather than on the user's next token refresh.
+	if curTier != nil && tierRank(*curTier) > tierRank(newTier) {
+		h.forceLogout(ctx, id)
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "id": id, "staff_tier": newTier})
+}
+
+// tierRank orders staff tiers by privilege so we can detect a demotion.
+func tierRank(t string) int {
+	switch permissions.TierFrom(t) {
+	case permissions.TierSuperAdmin:
+		return 4
+	case permissions.TierAdmin:
+		return 3
+	case permissions.TierSupervisor:
+		return 2
+	case permissions.TierEmployee:
+		return 1
+	default:
+		return 0
+	}
+}
+
+type createUserReq struct {
+	Phone    string `json:"phone"`
+	RoleID   *int   `json:"role_id"`
+	FullName string `json:"full_name"`
+}
+
+// POST /api/admin/users — staff manually creates a user (Users #g / M-07).
+// Admin-created accounts skip the mobile approval flow (registration_status
+// 'approved'). Phone is required and unique.
+func (h *AdminStatusHandler) CreateUser(c *gin.Context) {
+	var req createUserReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid JSON body."})
+		return
+	}
+	phone := strings.TrimSpace(req.Phone)
+	if phone == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Phone number is required."})
+		return
+	}
+	ctx := c.Request.Context()
+	var roleArg any = nil
+	if req.RoleID != nil && *req.RoleID > 0 {
+		roleArg = *req.RoleID
+	}
+	var id int64
+	err := h.Pool.QueryRow(ctx,
+		`INSERT INTO users (phone, role_id, registration_status)
+		 VALUES ($1, $2, 'approved') RETURNING id`, phone, roleArg).Scan(&id)
+	if err != nil {
+		if strings.Contains(err.Error(), "23505") || strings.Contains(strings.ToLower(err.Error()), "duplicate") {
+			c.JSON(http.StatusConflict, gin.H{"success": false, "error": "A user with this phone already exists."})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
+		return
+	}
+	if name := strings.TrimSpace(req.FullName); name != "" {
+		_, _ = h.Pool.Exec(ctx, `INSERT INTO user_profiles (user_id, full_name) VALUES ($1, $2)`, id, name)
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "id": id})
+}
 
 // AdminStatusHandler exposes status-mutation endpoints for Phase 9.
 // Every method behaves the same way:
-//   1. Parse :id from path.
-//   2. Parse JSON body for the new value(s).
-//   3. Validate the new value against the allowed-values list for that resource.
-//   4. UPDATE the row (one statement, one column).
-//   5. Phase 18 — fire a user-facing notification when the new status is one
-//      we have copy for (see admin_status_notify.go).
-//   6. Return {success, id, status} on 200, or a precise 400/404 on bad input.
+//  1. Parse :id from path.
+//  2. Parse JSON body for the new value(s).
+//  3. Validate the new value against the allowed-values list for that resource.
+//  4. UPDATE the row (one statement, one column).
+//  5. Phase 18 — fire a user-facing notification when the new status is one
+//     we have copy for (see admin_status_notify.go).
+//  6. Return {success, id, status} on 200, or a precise 400/404 on bad input.
 //
 // All routes are wired under the `admin` group in main.go, so RequireAdmin
 // has already authenticated the caller before any code in here runs.
@@ -34,6 +168,82 @@ type AdminStatusHandler struct {
 
 func NewAdminStatusHandler(pool *pgxpool.Pool, n *notify.Notifier) *AdminStatusHandler {
 	return &AdminStatusHandler{Pool: pool, Notifier: n}
+}
+
+// forceLogout revokes every active session token for a user — the "force
+// logout" security primitive. Called when an account is deactivated or its
+// staff_tier is reduced, so the affected user is signed out immediately and
+// the updated permissions take effect on their next request. Best-effort: a
+// failure here must never block the security action that triggered it.
+func (h *AdminStatusHandler) forceLogout(ctx context.Context, userID int64) {
+	_, _ = h.Pool.Exec(ctx,
+		`UPDATE api_access_tokens SET revoked_at = NOW()
+		  WHERE user_id = $1 AND revoked_at IS NULL`, userID)
+}
+
+// POST /api/admin/users/:id/force_logout — on-demand revoke of every active
+// session for a user (mobile + browser), without changing their account state.
+// Section 25 "Force Logout of Active Sessions".
+func (h *AdminStatusHandler) UserForceLogout(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	if h.blockIfProtectedTarget(c, id) {
+		return
+	}
+	h.forceLogout(c.Request.Context(), id)
+	c.JSON(http.StatusOK, gin.H{"success": true, "id": id, "logged_out": true})
+}
+
+type userAccountStatusReq struct {
+	Status string `json:"status"`
+}
+
+// POST /api/admin/users/:id/account_status — body {status: active|suspended|banned}.
+// Section 25 "Immediate Administrative Actions": suspended (temporary) and
+// banned (permanent) both deactivate the account and force-logout every live
+// session; active restores the account. ResolveToken denies any request from a
+// suspended/banned account, so the block is enforced app-wide.
+func (h *AdminStatusHandler) UserAccountStatus(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	if h.blockIfProtectedTarget(c, id) {
+		return
+	}
+	var req userAccountStatusReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid JSON body."})
+		return
+	}
+	status := strings.ToLower(strings.TrimSpace(req.Status))
+	if status != "active" && status != "suspended" && status != "banned" {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "status must be active, suspended, or banned."})
+		return
+	}
+	ctx := c.Request.Context()
+	// Keep the legacy `active` flag consistent with the lifecycle status.
+	active := 0
+	if status == "active" {
+		active = 1
+	}
+	ct, err := h.Pool.Exec(ctx,
+		"UPDATE users SET account_status = $1, active = $2 WHERE id = $3", status, active, id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
+		return
+	}
+	if ct.RowsAffected() == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Not found."})
+		return
+	}
+	// Suspend / ban → sign the account out of every device immediately.
+	if status != "active" {
+		h.forceLogout(ctx, id)
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "id": id, "account_status": status})
 }
 
 // ===== Allowed-value lists (match CHECK constraints in the schema) =====
@@ -184,9 +394,9 @@ func (h *AdminStatusHandler) SupportTicket(c *gin.Context) {
 // donations.go automatically.
 //
 // Rules:
-//   • project_request must exist
-//   • project_request.status must be 'approved'
-//   • idempotent-ish: if a campaign with the same title already exists
+//   - project_request must exist
+//   - project_request.status must be 'approved'
+//   - idempotent-ish: if a campaign with the same title already exists
 //     we return it instead of creating a duplicate (admin clicking
 //     Publish twice shouldn't double-insert).
 func (h *AdminStatusHandler) PublishProjectRequest(c *gin.Context) {
@@ -241,10 +451,10 @@ func (h *AdminStatusHandler) PublishProjectRequest(c *gin.Context) {
 		ownerID, title,
 	).Scan(&existing); err == nil {
 		c.JSON(http.StatusOK, gin.H{
-			"success":  true,
-			"id":       existing,
-			"already":  true,
-			"message":  "This project is already published to donors.",
+			"success": true,
+			"id":      existing,
+			"already": true,
+			"message": "This project is already published to donors.",
 		})
 		return
 	}
@@ -317,11 +527,11 @@ func (h *AdminStatusHandler) PublishProjectRequest(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"success":     true,
-		"id":          newID,
-		"campaign_id": newID,
+		"success":       true,
+		"id":            newID,
+		"campaign_id":   newID,
 		"owner_user_id": ownerID,
-		"message":     "Project published to the donor page.",
+		"message":       "Project published to the donor page.",
 	})
 }
 
@@ -549,6 +759,9 @@ func (h *AdminStatusHandler) UserRole(c *gin.Context) {
 	if !ok {
 		return
 	}
+	if h.blockIfProtectedTarget(c, id) {
+		return
+	}
 	var req userRoleReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid JSON body."})
@@ -585,6 +798,9 @@ type userPasswordReq struct {
 func (h *AdminStatusHandler) UserPassword(c *gin.Context) {
 	id, ok := parseID(c)
 	if !ok {
+		return
+	}
+	if h.blockIfProtectedTarget(c, id) {
 		return
 	}
 	var req userPasswordReq
@@ -666,6 +882,9 @@ func (h *AdminStatusHandler) UserActive(c *gin.Context) {
 	if !ok {
 		return
 	}
+	if h.blockIfProtectedTarget(c, id) {
+		return
+	}
 	var req userActiveReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid JSON body."})
@@ -685,6 +904,11 @@ func (h *AdminStatusHandler) UserActive(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Not found."})
 		return
 	}
+	// Force-logout: deactivating an account must sign it out immediately so
+	// the block takes effect instantly (not on the next token expiry).
+	if req.Active == 0 {
+		h.forceLogout(c.Request.Context(), id)
+	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "id": id, "active": req.Active})
 }
 
@@ -693,6 +917,9 @@ func (h *AdminStatusHandler) UserActive(c *gin.Context) {
 func (h *AdminStatusHandler) UserAdmin(c *gin.Context) {
 	id, ok := parseID(c)
 	if !ok {
+		return
+	}
+	if h.blockIfProtectedTarget(c, id) {
 		return
 	}
 	var req userAdminReq
@@ -745,4 +972,3 @@ func inSetInt(v int, allowed []int) bool {
 	}
 	return false
 }
-

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, useRef } from 'react'
+import RowDeleteButton from '../components/RowDeleteButton'
 import { Link } from 'react-router-dom'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError } from '../lib/api'
@@ -151,7 +152,7 @@ export default function InKindPage() {
       key: 'donor', header: t('col.donor'),
       cell: (k) => (
         <div className="cell-stack">
-          <strong>{k.donor_full_name ?? (k.donor_user_id ? `user #${k.donor_user_id}` : '—')}</strong>
+          <strong>{k.donor_full_name ?? (k.donor_user_id ? t('common.user_ref_lc', { id: k.donor_user_id }) : '—')}</strong>
           {k.donor_phone && <span className="muted">{k.donor_phone}</span>}
         </div>
       ),
@@ -167,7 +168,7 @@ export default function InKindPage() {
           value={k.status}
           allowed={STATUSES.filter((s) => s !== 'all')}
           onSave={(next) => api.post(`/api/admin/in_kind_donations/${k.id}/status`, { status: next })}
-          label={`In-kind #${k.id}`}
+          label={t('common.status')}
         />
       ),
     },
@@ -178,7 +179,7 @@ export default function InKindPage() {
         <>
           <Link className="row-edit-btn" to={`/detail/in_kind_donations/${k.id}`}>{t('common.view')}</Link>
           <button className="row-edit-btn" onClick={() => setEditing(k)}>{t('common.edit')}</button>
-          <button className="row-delete-btn" onClick={() => setDeleting(k)}>{t('common.delete')}</button>
+          <RowDeleteButton onClick={() => setDeleting(k)} />
         </>
       ),
     },

@@ -40,6 +40,9 @@ type Account struct {
 	// StaffTier is the dashboard access tier (Phase 6): super_admin | admin |
 	// supervisor | employee | user.
 	StaffTier string `json:"staff_tier"`
+	// AccountStatus is the lifecycle status (Section 25): active | suspended |
+	// banned.
+	AccountStatus string `json:"account_status"`
 }
 
 type Store struct {
@@ -229,21 +232,22 @@ func (s *Store) GetAccountForClient(ctx context.Context, userID int64) (*Account
 		return nil, nil
 	}
 	var (
-		acc       Account
-		roleID    *int
-		active    *int
-		isAdmin   *int
-		regStatus *string
-		staffTier *string
-		profileID *int64
-		fullName  *string
-		gender    *string
-		address   *string
-		picture   *string
-		dob       *string
+		acc        Account
+		roleID     *int
+		active     *int
+		isAdmin    *int
+		regStatus  *string
+		staffTier  *string
+		profileID  *int64
+		fullName   *string
+		gender     *string
+		address    *string
+		picture    *string
+		dob        *string
+		acctStatus *string
 	)
 	err := s.Pool.QueryRow(ctx,
-		`SELECT u.id, COALESCE(u.phone, '') AS phone, u.role_id, u.active, u.is_admin, u.created_at, u.registration_status, u.staff_tier,
+		`SELECT u.id, COALESCE(u.phone, '') AS phone, u.role_id, u.active, u.is_admin, u.created_at, u.registration_status, u.staff_tier, u.account_status,
 		        up.id, up.full_name, up.gender, up.address, up.profile_picture,
 		        to_char(up.date_of_birth, 'YYYY-MM-DD')
 		   FROM users u
@@ -251,7 +255,7 @@ func (s *Store) GetAccountForClient(ctx context.Context, userID int64) (*Account
 		  WHERE u.id = $1
 		  LIMIT 1`,
 		userID,
-	).Scan(&acc.UserID, &acc.Phone, &roleID, &active, &isAdmin, &acc.CreatedAt, &regStatus, &staffTier,
+	).Scan(&acc.UserID, &acc.Phone, &roleID, &active, &isAdmin, &acc.CreatedAt, &regStatus, &staffTier, &acctStatus,
 		&profileID, &fullName, &gender, &address, &picture, &dob)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -273,6 +277,9 @@ func (s *Store) GetAccountForClient(ctx context.Context, userID int64) (*Account
 	}
 	if staffTier != nil {
 		acc.StaffTier = *staffTier
+	}
+	if acctStatus != nil {
+		acc.AccountStatus = *acctStatus
 	}
 	if profileID != nil && *profileID > 0 {
 		acc.Profile = &Profile{
@@ -296,7 +303,7 @@ func nilIfEmpty(s *string) *string {
 
 // PageUsers is the response for the admin users-list endpoint.
 type PageUsers struct {
-	Items      []Account `json:"items"`
+	Items      []Account  `json:"items"`
 	Pagination Pagination `json:"pagination"`
 }
 
@@ -340,7 +347,7 @@ func (s *Store) PaginatedList(ctx context.Context, page, perPage int, q string) 
 	offIdx := len(args) + 2
 	args = append(args, perPage, offset)
 	rows, err := s.Pool.Query(ctx, `
-		SELECT u.id, COALESCE(u.phone, '') AS phone, u.role_id, u.active, u.is_admin, u.created_at, u.registration_status,
+		SELECT u.id, COALESCE(u.phone, '') AS phone, u.role_id, u.active, u.is_admin, u.created_at, u.registration_status, u.staff_tier, u.account_status,
 		       up.id, up.full_name, up.gender, up.address, up.profile_picture,
 		       to_char(up.date_of_birth, 'YYYY-MM-DD')
 		  FROM users u
@@ -357,19 +364,21 @@ func (s *Store) PaginatedList(ctx context.Context, page, perPage int, q string) 
 	items := []Account{}
 	for rows.Next() {
 		var (
-			acc       Account
-			roleID    *int
-			active    *int
-			isAdmin   *int
-			regStatus *string
-			profileID *int64
-			fullName  *string
-			gender    *string
-			address   *string
-			picture   *string
-			dob       *string
+			acc        Account
+			roleID     *int
+			active     *int
+			isAdmin    *int
+			regStatus  *string
+			staffTier  *string
+			profileID  *int64
+			fullName   *string
+			gender     *string
+			address    *string
+			picture    *string
+			dob        *string
+			acctStatus *string
 		)
-		err := rows.Scan(&acc.UserID, &acc.Phone, &roleID, &active, &isAdmin, &acc.CreatedAt, &regStatus,
+		err := rows.Scan(&acc.UserID, &acc.Phone, &roleID, &active, &isAdmin, &acc.CreatedAt, &regStatus, &staffTier, &acctStatus,
 			&profileID, &fullName, &gender, &address, &picture, &dob)
 		if err != nil {
 			return nil, err
@@ -385,6 +394,12 @@ func (s *Store) PaginatedList(ctx context.Context, page, perPage int, q string) 
 		}
 		if regStatus != nil {
 			acc.RegistrationStatus = *regStatus
+		}
+		if staffTier != nil {
+			acc.StaffTier = *staffTier
+		}
+		if acctStatus != nil {
+			acc.AccountStatus = *acctStatus
 		}
 		if profileID != nil && *profileID > 0 {
 			acc.Profile = &Profile{

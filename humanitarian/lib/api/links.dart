@@ -9,7 +9,8 @@
 //   - LAN device (real phone, same Wi-Fi): your Mac's LAN IP, e.g. 192.168.1.12
 //   - iOS simulator / Flutter web on this Mac: localhost
 //   - Android emulator: 10.0.2.2  (the magic loopback Android emulator uses)
-// Production (Railway). Swap back to 'http://localhost:8080/api/' for local dev.
+// Production (Railway). For local dev, swap to 'http://localhost:8080/api/'
+// (iOS Simulator shares the Mac's localhost; Android emulator uses 10.0.2.2).
 const String baseUrl = 'https://backend-production-59d2.up.railway.app/api/';
 
 /// Google OAuth Web/Server client ID (Phase 9 · B-09). Supplied at build time:
@@ -59,6 +60,11 @@ const String insertUserWithPhoneUrl = '${baseUrl}auth/login/';
 ///   user_id + role_id + expires_at), so calling code can swap in transparently.
 const String otpRequestUrl = '${baseUrl}auth/otp/request/';
 const String otpVerifyUrl  = '${baseUrl}auth/otp/verify/';
+
+/// Section 27.5 — POST (Bearer required) to revoke the current session token
+/// server-side on logout, so it can never be reused. Best-effort: the client
+/// still clears local state even if this call fails offline.
+const String logoutUrl = '${baseUrl}auth/logout';
 
 /// POST JSON: `user_id`, `role_id`. Returning users keep an existing role (`role_unchanged`).
 const String chooseRoleUrl = '${baseUrl}choose_role/';

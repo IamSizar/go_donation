@@ -52,26 +52,35 @@ type serviceAccountFile struct {
 // loadFCMClient reads the Firebase service-account JSON and prepares an FCM
 // client. Returns (nil, nil) if no credentials file is configured.
 func loadFCMClient() (*fcmClient, error) {
-	path := strings.TrimSpace(os.Getenv("FIREBASE_CREDENTIALS_FILE"))
-	if path == "" {
-		path = "./firebase-credentials.json"
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
+	// Prefer the raw-JSON env var (FIREBASE_CREDENTIALS_JSON) — this is how the
+	// service account is supplied on hosts without a writable secret filesystem
+	// (e.g. Railway). Fall back to the file path (local dev / mounted secret).
+	var data []byte
+	if inline := strings.TrimSpace(os.Getenv("FIREBASE_CREDENTIALS_JSON")); inline != "" {
+		data = []byte(inline)
+	} else {
+		path := strings.TrimSpace(os.Getenv("FIREBASE_CREDENTIALS_FILE"))
+		if path == "" {
+			path = "./firebase-credentials.json"
 		}
-		return nil, fmt.Errorf("read %s: %w", path, err)
+		fileData, err := os.ReadFile(path)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("read %s: %w", path, err)
+		}
+		data = fileData
 	}
 	var sa serviceAccountFile
 	if err := json.Unmarshal(data, &sa); err != nil {
-		return nil, fmt.Errorf("parse %s: %w", path, err)
+		return nil, fmt.Errorf("parse firebase credentials: %w", err)
 	}
 	if sa.Type != "service_account" {
-		return nil, fmt.Errorf("%s: expected type=service_account, got %q", path, sa.Type)
+		return nil, fmt.Errorf("firebase credentials: expected type=service_account, got %q", sa.Type)
 	}
 	if sa.ProjectID == "" || sa.ClientEmail == "" || sa.PrivateKey == "" {
-		return nil, fmt.Errorf("%s: missing required fields", path)
+		return nil, fmt.Errorf("firebase credentials: missing required fields")
 	}
 
 	block, _ := pem.Decode([]byte(sa.PrivateKey))

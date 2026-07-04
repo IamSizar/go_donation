@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, useRef } from 'react'
+import RowDeleteButton from '../components/RowDeleteButton'
 import { Link } from 'react-router-dom'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError } from '../lib/api'
@@ -371,7 +372,7 @@ function CasesTab() {
         <>
           <Link className="row-edit-btn" to={`/detail/beneficiary_cases/${r.id}`}>{t('common.view')}</Link>
           <button className="row-edit-btn" onClick={() => setEditing(r)}>{t('common.edit')}</button>
-          <button className="row-delete-btn" onClick={() => setDeleting(r)}>{t('common.delete')}</button>
+          <RowDeleteButton onClick={() => setDeleting(r)} />
         </>
       ),
     },
@@ -665,7 +666,7 @@ function RequestsTab() {
               {t('page.beneficiary.publish')}
             </button>
           )}
-          <button className="row-delete-btn" onClick={() => setDeleting(r)}>{t('common.delete')}</button>
+          <RowDeleteButton onClick={() => setDeleting(r)} />
         </>
       ),
     },

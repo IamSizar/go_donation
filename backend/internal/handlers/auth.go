@@ -322,6 +322,16 @@ func (h *AuthHandler) OTPRequest(c *gin.Context) {
 		return
 	}
 
+	// Section 27 — progressive per-phone lockout. If this number is already
+	// serving a lock (2h / 6h / 24h), refuse before doing anything else.
+	if locked, retryAfter := h.OTPs.PhoneLockStatus(ctx, phone); locked {
+		c.JSON(http.StatusTooManyRequests, gin.H{
+			"error":       "This number is temporarily locked after too many verification requests. Try again later.",
+			"retry_after": retryAfter,
+		})
+		return
+	}
+
 	existing, err := h.OTPs.GetRecord(ctx, phone)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error (otp lookup)."})
@@ -337,6 +347,17 @@ func (h *AuthHandler) OTPRequest(c *gin.Context) {
 			})
 			return
 		}
+	}
+
+	// Section 27 — count this genuine (past-cooldown) request against the
+	// per-phone window; if it crosses the threshold, apply the next escalating
+	// lock and refuse now.
+	if locked, retryAfter := h.OTPs.RegisterPhoneRequest(ctx, phone); locked {
+		c.JSON(http.StatusTooManyRequests, gin.H{
+			"error":       "This number is now temporarily locked after too many verification requests. Try again later.",
+			"retry_after": retryAfter,
+		})
+		return
 	}
 
 	if mode == "demo" {

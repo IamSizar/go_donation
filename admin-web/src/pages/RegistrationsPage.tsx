@@ -110,6 +110,11 @@ export default function RegistrationsPage() {
   const doReject = useCallback(async () => {
     if (!rejecting) return
     const r = rejecting
+    // Global notice #k — a rejection reason is mandatory.
+    if (!reason.trim()) {
+      toast.error(t('registrations.reason_required'))
+      return
+    }
     setBusyId(r.user_id)
     try {
       await api.post(`/api/admin/registrations/${r.user_id}/reject`, {

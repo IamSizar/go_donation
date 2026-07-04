@@ -149,9 +149,7 @@ export default function PushNotificationsPage() {
           '/api/admin/notifications/broadcast',
           payload,
         )
-        setSuccess(
-          `Delivered to ${res.data.sent} user${res.data.sent === 1 ? '' : 's'}' in-app Alerts inbox.`,
-        )
+        setSuccess(t('page.push.inapp_delivered', { n: res.data.sent }))
       } catch (err) {
         setError(describeError(err))
       } finally {
@@ -433,12 +431,12 @@ export default function PushNotificationsPage() {
         {/* === Delivery channel — In-app (always works) vs Push (needs FCM) === */}
         <div>
           <span className="form-label" style={{ display: 'block', marginBottom: 8 }}>
-            Delivery channel
+            {t('page.push.channel_label')}
           </span>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             {([
-              { kind: 'inapp', Icon: Bell, title: 'In-app (Alerts tab)', desc: 'Shows in every user’s inbox. Always works.' },
-              { kind: 'push',  Icon: Smartphone, title: 'Push (OS banner)', desc: 'Lock-screen banner. Needs FCM + a real device.' },
+              { kind: 'inapp', Icon: Bell, title: t('page.push.channel_inapp_title'), desc: t('page.push.channel_inapp_desc') },
+              { kind: 'push',  Icon: Smartphone, title: t('page.push.channel_push_title'), desc: t('page.push.channel_push_desc') },
             ] as const).map(({ kind, Icon, title: ttl, desc }) => {
               const selected = channel === kind
               const disabled = kind === 'push' && fcmEnabled === false
@@ -456,7 +454,7 @@ export default function PushNotificationsPage() {
                   disabled={busy || disabled}
                   aria-pressed={selected}
                   style={{ opacity: disabled ? 0.5 : 1 }}
-                  title={disabled ? 'FCM not configured on the server' : undefined}
+                  title={disabled ? t('page.push.fcm_disabled_tip') : undefined}
                 >
                   <span className="target-code" aria-hidden="true">
                     <Icon size={20} strokeWidth={2.2} />
@@ -626,7 +624,7 @@ export default function PushNotificationsPage() {
             {busy
               ? t('page.push.sending')
               : channel === 'inapp'
-              ? 'Send in-app notification'
+              ? t('page.push.send_inapp')
               : t('page.push.send')}
           </button>
         </div>

@@ -119,6 +119,39 @@ for (const cat of SKILL_CATEGORIES) {
   for (const s of cat.skills) skillIndex.set(s.key, s)
 }
 
+// --- Section 13: admin-added custom professions -------------------------
+// The base catalogue above is fixed in code; these are professions the admin
+// adds at runtime (fetched from /api/admin/professions). Registering them lets
+// skillLabelFor resolve their labels and the dropdown list them.
+
+export interface CustomProfession {
+  skill_key: string
+  category: string
+  label_en: string
+  label_ar: string
+  label_ckb: string
+  label_kmr: string
+}
+
+let customSkillList: SkillEntry[] = []
+
+/** Register admin-added professions (idempotent — replaces the previous set). */
+export function registerCustomSkills(items: CustomProfession[]): void {
+  customSkillList = items.map((p) => ({
+    key: p.skill_key,
+    en: p.label_en,
+    ar: p.label_ar || p.label_en,
+    ckb: p.label_ckb || p.label_en,
+    kmr: p.label_kmr || p.label_en,
+  }))
+  for (const e of customSkillList) skillIndex.set(e.key, e)
+}
+
+/** The registered custom professions, for the dropdown's "Custom" group. */
+export function getCustomSkills(): SkillEntry[] {
+  return customSkillList
+}
+
 /** Pick the localized label for a single skill key. Falls back to en. */
 export function skillLabelFor(key: string, locale: string | undefined): string {
   const entry = skillIndex.get(key)

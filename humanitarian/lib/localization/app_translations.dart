@@ -35,7 +35,7 @@ class AppTranslations extends Translations {
     'Check status': 'Check status',
     'Still waiting for approval. Please check back soon.': 'Still waiting for approval. Please check back soon.',
     'Your details': 'Your details',
-    'Humanitarian Platform': 'Humanitarian Platform',
+    'Humanitarian Platform': 'BalanceNex',
     'Secure Verification': 'Secure Verification',
     'Verify': 'Verify',
     'Choose your role': 'Choose your role',
@@ -221,7 +221,7 @@ class AppTranslations extends Translations {
     'Use a darker appearance across the app.':
         'Use a darker appearance across the app.',
     'Sign out of your account securely.': 'Sign out of your account securely.',
-    'Humanitarian platform': 'Humanitarian platform',
+    'Humanitarian platform': 'BalanceNex',
     'Build impact with a calmer, smarter experience.':
         'Build impact with a calmer, smarter experience.',
     'Empower communities, coordinate your work, and keep every important step in one beautiful place.':
@@ -1213,7 +1213,7 @@ class AppTranslations extends Translations {
     'Check status': 'تحقق من الحالة',
     'Still waiting for approval. Please check back soon.': 'لا يزال بانتظار الموافقة. يرجى التحقق لاحقاً.',
     'Your details': 'بياناتك',
-    'Humanitarian Platform': 'المنصة الإنسانية',
+    'Humanitarian Platform': 'توازن',
     'Secure Verification': 'تحقق آمن',
     'Verify': 'تحقق',
     'Choose your role': 'اختر دورك',
@@ -1396,7 +1396,7 @@ class AppTranslations extends Translations {
     'Use a darker appearance across the app.':
         'استخدم مظهرا داكنا في جميع أنحاء التطبيق.',
     'Sign out of your account securely.': 'سجل الخروج من حسابك بأمان.',
-    'Humanitarian platform': 'منصة إنسانية',
+    'Humanitarian platform': 'توازن',
     'Build impact with a calmer, smarter experience.':
         'اصنع أثرا بتجربة أهدأ وأكثر ذكاء.',
     'Empower communities, coordinate your work, and keep every important step in one beautiful place.':
@@ -2368,7 +2368,7 @@ class AppTranslations extends Translations {
     'Check status': 'دۆخ بپشکنە',
     'Still waiting for approval. Please check back soon.': 'هێشتا چاوەڕوانی پەسەندکردنە. تکایە دواتر بگەڕێوە.',
     'Your details': 'زانیاریەکانت',
-    'Humanitarian Platform': 'پلاتفۆرمی مرۆیی',
+    'Humanitarian Platform': 'توازن',
     'Secure Verification': 'دڵنیاییپارێزیی پارێزراو',
     'Verify': 'دڵنیابوونەوە',
     'Choose your role': 'ڕۆڵەکەت هەڵبژێرە',
@@ -3250,7 +3250,7 @@ class AppTranslations extends Translations {
     'raised': 'کۆکراوەتەوە',
     'records': 'تۆمارەکان',
     'Priority @priority': 'پلەی @priority',
-    'Humanitarian platform': 'پلاتفۆڕمی مرۆڤدۆستانە',
+    'Humanitarian platform': 'توازن',
     'Community-first': 'کۆمەڵگا لە پێشینەدا',
     'Phone sign-in endpoint returned an invalid response.': 'خاڵی چوونەژوورەوە بە مۆبایل وەڵامێکی نادروستی گەڕاندەوە.',
     'Could not complete phone sign in. Please try again.': 'نەتوانرا چوونەژوورەوە بە مۆبایل تەواو بکرێت. تکایە دووبارە هەوڵبدەرەوە.',
@@ -3485,7 +3485,7 @@ class AppTranslations extends Translations {
     'Check status': 'دۆخی ببینە',
     'Still waiting for approval. Please check back soon.': 'هێشتا چاڤەڕوانی پەسەندکرنێیە. ژ کەرەما خۆ پشتی دەمەکی ڤەگەڕە.',
     'Your details': 'زانیاریێن تە',
-    "Humanitarian Platform": "پلاتفۆرمێ مرۆڤایەتی",
+    "Humanitarian Platform": "توازن",
     "Secure Verification": "پ پشتراستکرنا پاراستی",
     "Verify": "پشتراستکرن",
     "Choose your role": "رۆلێ خۆ هەلبژێرە",
@@ -3667,7 +3667,7 @@ class AppTranslations extends Translations {
     "Use a darker appearance across the app.":
         "بکارهێنانا رەنگێ تاری د ناڤ بەرنامەی دا.",
     "Sign out of your account securely.": "دەرکەفتنا پاراستی ژ هەژمارا تە.",
-    "Humanitarian platform": "پلاتفۆرمێ مرۆڤایەتی",
+    "Humanitarian platform": "توازن",
     "Build impact with a calmer, smarter experience.":
         "کارتێکرنا خۆ دروست بکە ب ئەزموونەکا ئارامتر و زیرەکتر.",
     "Empower communities, coordinate your work, and keep every important step in one beautiful place.":

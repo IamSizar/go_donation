@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, useRef } from 'react'
+import RowDeleteButton from '../components/RowDeleteButton'
 import { Link } from 'react-router-dom'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError, assetUrl } from '../lib/api'
@@ -282,7 +283,7 @@ function ProductsTab() {
         <>
           <Link className="row-edit-btn" to={`/detail/products/${p.id}`}>{t('common.view')}</Link>
           <button className="row-edit-btn" onClick={() => setEditing(p)}>{t('common.edit')}</button>
-          <button className="row-delete-btn" onClick={() => setDeleting(p)}>{t('common.delete')}</button>
+          <RowDeleteButton onClick={() => setDeleting(p)} />
         </>
       ),
     },
@@ -498,7 +499,7 @@ function OrdersTab() {
         <>
           <Link className="row-edit-btn" to={`/detail/orders/${o.id}`}>{t('common.view')}</Link>
           <button className="row-edit-btn" onClick={() => setEditing(o)}>{t('common.edit')}</button>
-          <button className="row-delete-btn" onClick={() => setDeleting(o)}>{t('common.delete')}</button>
+          <RowDeleteButton onClick={() => setDeleting(o)} />
         </>
       ),
     },

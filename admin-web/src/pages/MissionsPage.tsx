@@ -13,6 +13,7 @@
 //   • Delete CASCADEs signups — confirm dialog spells this out.
 
 import { useCallback, useEffect, useState, useRef } from 'react'
+import RowDeleteButton from '../components/RowDeleteButton'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { Link } from 'react-router-dom'
 import { api, describeError } from '../lib/api'
@@ -73,11 +74,12 @@ const CSV_COLUMNS: CsvColumn<AdminMission>[] = [
 // progressLabel renders "5 / 8" when needed_volunteers is set, else just "5".
 // Pads with the pending count in subtle gray when there are pending requests
 // the admin hasn't acted on yet.
-function progressLabel(m: AdminMission): { accepted: string; pending: string } {
+type TFn = (key: string, vars?: Record<string, string | number>) => string
+function progressLabel(m: AdminMission, t: TFn): { accepted: string; pending: string } {
   const needed = m.needed_volunteers ?? null
   return {
     accepted: needed ? `${m.accepted_volunteers} / ${needed}` : String(m.accepted_volunteers),
-    pending: m.pending_volunteers > 0 ? `+${m.pending_volunteers} pending` : '',
+    pending: m.pending_volunteers > 0 ? t('page.missions.pending_badge', { n: m.pending_volunteers }) : '',
   }
 }
 
@@ -206,7 +208,7 @@ export default function MissionsPage() {
       header: t('col.volunteers'),
       align: 'right',
       cell: (m) => {
-        const p = progressLabel(m)
+        const p = progressLabel(m, t)
         return (
           <div className="cell-stack" style={{ alignItems: 'flex-end' }}>
             <strong>{p.accepted}</strong>
@@ -243,23 +245,30 @@ export default function MissionsPage() {
         <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
           <Link className="row-edit-btn" to={`/detail/volunteer_missions/${m.id}`}>{t('common.view')}</Link>
           <button className="row-edit-btn" onClick={() => setEditing(m)}>{t('common.edit')}</button>
-          {/* Status quick-actions per current state */}
+          {/* Status quick-actions per current state. Terminal states
+              (completed/cancelled) keep a Reopen button so the action panel
+              never fully disappears after "Mark completed". */}
           {m.status === 'draft' && (
             <button className="row-edit-btn" onClick={() => handleQuickStatus(m.id, 'open')}>
-              Open
+              {t('action.open_mission')}
             </button>
           )}
           {m.status === 'open' && (
             <button className="row-edit-btn" onClick={() => handleQuickStatus(m.id, 'closed')}>
-              Close
+              {t('action.close_mission')}
             </button>
           )}
           {(m.status === 'closed' || m.status === 'open') && (
             <button className="row-edit-btn" onClick={() => handleQuickStatus(m.id, 'completed')}>
-              Mark completed
+              {t('action.mark_completed')}
             </button>
           )}
-          <button className="row-delete-btn" onClick={() => setDeleting(m)}>{t('common.delete')}</button>
+          {(m.status === 'completed' || m.status === 'cancelled') && (
+            <button className="row-edit-btn" onClick={() => handleQuickStatus(m.id, 'open')}>
+              {t('action.reopen')}
+            </button>
+          )}
+          <RowDeleteButton onClick={() => setDeleting(m)} />
         </div>
       ),
     },

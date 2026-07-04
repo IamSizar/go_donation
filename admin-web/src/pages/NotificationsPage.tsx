@@ -6,7 +6,7 @@ import Table, { type Column } from '../components/Table'
 import Pagination from '../components/Pagination'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { downloadCsv, type CsvColumn } from '../lib/csv'
-import { useI18n } from '../lib/i18n'
+import { useI18n, useStatusLabel } from '../lib/i18n'
 import { useToast } from '../lib/toast'
 
 // Flat CSV shape for a notification row (Phase 7 · M-53).
@@ -52,6 +52,7 @@ export default function NotificationsPage() {
   // stays hidden and the list updates silently (no full reload flash).
   const pollSilent = useRef(false)
   const { t } = useI18n()
+  const statusLabel = useStatusLabel()
   const toast = useToast()
 
   const exportCsv = () => {
@@ -106,7 +107,7 @@ export default function NotificationsPage() {
     { key: 'type', header: t('col.type'), cell: (n) => n.notification_type ? <code style={{ background: 'transparent', padding: 0 }}>{n.notification_type}</code> : <span className="muted">—</span> },
     {
       key: 'cat', header: t('col.category'),
-      cell: (n) => <span className={`badge ${categoryBadge(n.notification_category)}`}>{n.notification_category}</span>,
+      cell: (n) => <span className={`badge ${categoryBadge(n.notification_category)}`}>{statusLabel(n.notification_category)}</span>,
     },
     { key: 'prio', header: t('col.pri'), align: 'right', cell: (n) => n.priority },
     { key: 'read', header: t('col.read'), cell: (n) => n.is_read === 1 ? <span className="badge ok">{t('common.yes')}</span> : <span className="badge off">{t('common.no')}</span> },
@@ -122,7 +123,7 @@ export default function NotificationsPage() {
         </div>
         <div className="row">
           <select value={category} onChange={(e) => { setCategory(e.target.value); setPage(1) }} style={{ width: 'auto' }}>
-            {CATEGORIES.map(c => <option key={c} value={c}>{c === '' ? t('filter.all_categories') : c}</option>)}
+            {CATEGORIES.map(c => <option key={c} value={c}>{c === '' ? t('filter.all_categories') : statusLabel(c)}</option>)}
           </select>
           <select value={readStatus} onChange={(e) => { setReadStatus(e.target.value); setPage(1) }} style={{ width: 'auto' }}>
             {READ.map(r => (

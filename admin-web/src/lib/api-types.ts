@@ -14,6 +14,8 @@ export type UserAccount = {
   role_id: number
   active: number
   is_admin: number
+  staff_tier?: string
+  account_status?: string
   created_at: string
   profile: UserProfile | null
 }

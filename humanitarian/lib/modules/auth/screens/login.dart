@@ -8,6 +8,8 @@ import 'package:flutter_application_1/core/push_registration.dart';
 import 'package:get/get.dart';
 
 import 'package:flutter_application_1/core/auth_navigation.dart';
+import 'package:flutter_application_1/api/guest_session.dart';
+import 'package:flutter_application_1/routes/app_routes.dart';
 
 import '../../../widgets/auth_ui.dart';
 import '../../../controllers/login.dart';
@@ -30,7 +32,7 @@ class LoginPage extends StatelessWidget {
 
     return AuthScaffold(
       child: AuthGlassCard(
-        padding: const EdgeInsets.fromLTRB(28, 28, 28, 22),
+        padding: const EdgeInsets.fromLTRB(24, 22, 24, 18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -40,17 +42,16 @@ class LoginPage extends StatelessWidget {
                 label: 'Secure sign in',
               ),
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 18),
             Text('Welcome back'.tr, style: titleStyle),
-            const SizedBox(height: 10),
+            const SizedBox(height: 6),
             Text(
-              'Sign in to manage your impact, stay connected, and continue your humanitarian journey.'
-                  .tr,
+              'Sign in to continue.'.tr,
               style: subtitleStyle,
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 18),
             const _LoginForm(),
-            const SizedBox(height: 14),
+            const SizedBox(height: 8),
             Center(
               child: Wrap(
                 crossAxisAlignment: WrapCrossAlignment.center,
@@ -171,6 +172,13 @@ class _LoginFormState extends State<_LoginForm> {
     }
   }
 
+  /// Section 27 — Guest Mode. Enter the app signed-out; only the Super-Admin-
+  /// enabled screens show, and account actions prompt to sign in.
+  Future<void> _continueAsGuest() async {
+    await enterGuestMode();
+    Get.offAllNamed(AppRoutes.home);
+  }
+
   @override
   void dispose() {
     _phoneController.dispose();
@@ -251,15 +259,7 @@ class _LoginFormState extends State<_LoginForm> {
             },
             onFieldSubmitted: (_) => _handleSendOtp(),
           ),
-          const SizedBox(height: 18),
-          Text(
-            'We will send a 6-digit code to verify your number.'.tr,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.78),
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 14),
           // Phase 19b — OTP delivery mode picker. Two visual segments
           // (Real / Demo) so the user can swap between OTPIQ-backed
           // verification and the local-dev "always 123456" flow.
@@ -267,7 +267,7 @@ class _LoginFormState extends State<_LoginForm> {
             value: _otpMode,
             onChanged: (next) => setState(() => _otpMode = next),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
           Obx(
             () => SizedBox(
               width: double.infinity,
@@ -292,7 +292,7 @@ class _LoginFormState extends State<_LoginForm> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.white,
                   foregroundColor: const Color(0xFF0B385D),
-                  padding: const EdgeInsets.symmetric(vertical: 18),
+                  padding: const EdgeInsets.symmetric(vertical: 15),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(18),
                   ),
@@ -301,7 +301,7 @@ class _LoginFormState extends State<_LoginForm> {
               ),
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
@@ -386,6 +386,29 @@ class _LoginFormState extends State<_LoginForm> {
                           ),
                         ],
                       ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Section 27 — Guest Mode: browse without an account.
+          SizedBox(
+            width: double.infinity,
+            child: TextButton.icon(
+              onPressed: _loginController.isLoading.value
+                  ? null
+                  : _continueAsGuest,
+              icon: Icon(
+                Icons.person_outline_rounded,
+                color: Colors.white.withValues(alpha: 0.85),
+                size: 20,
+              ),
+              label: Text(
+                'Continue as guest'.tr,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.85),
+                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                ),
               ),
             ),
           ),

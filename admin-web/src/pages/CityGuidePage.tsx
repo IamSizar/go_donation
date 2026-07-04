@@ -10,6 +10,7 @@
  * the city_directory_entries table.
  */
 import { useCallback, useEffect, useState } from 'react'
+import RowDeleteButton from '../components/RowDeleteButton'
 import { Link } from 'react-router-dom'
 import { api, describeError } from '../lib/api'
 import type { CommunityEntry } from '../lib/api-types'
@@ -136,7 +137,7 @@ export default function CityGuidePage() {
         <>
           <Link className="row-edit-btn" to={`/detail/community/${e.id}`}>{t('common.view')}</Link>
           <button className="row-edit-btn" onClick={() => setEditing(e)}>{t('common.edit')}</button>
-          <button className="row-delete-btn" onClick={() => setDeleting(e)}>{t('common.delete')}</button>
+          <RowDeleteButton onClick={() => setDeleting(e)} />
         </>
       ),
     },

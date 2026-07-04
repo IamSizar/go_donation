@@ -125,16 +125,17 @@ func (s *TokenStore) ResolveToken(ctx context.Context, raw string) (*ResolvedUse
 		createdAt  time.Time
 		regStatus  *string
 		staffTier  *string
+		acctStatus *string
 	)
 	err := s.Pool.QueryRow(ctx,
 		`SELECT t.id, t.user_id, t.token_hash, t.expires_at, t.revoked_at,
-		        u.role_id, u.active, u.is_admin, COALESCE(u.phone, ''), u.created_at, u.registration_status, u.staff_tier
+		        u.role_id, u.active, u.is_admin, COALESCE(u.phone, ''), u.created_at, u.registration_status, u.staff_tier, u.account_status
 		   FROM api_access_tokens t
 		   JOIN users u ON u.id = t.user_id
 		  WHERE t.token_selector = $1
 		  LIMIT 1`,
 		selector,
-	).Scan(&tokenID, &userID, &storedHash, &expiresAt, &revokedAt, &roleID, &active, &isAdmin, &phone, &createdAt, &regStatus, &staffTier)
+	).Scan(&tokenID, &userID, &storedHash, &expiresAt, &revokedAt, &roleID, &active, &isAdmin, &phone, &createdAt, &regStatus, &staffTier, &acctStatus)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			// Constant-time dummy compare to keep timing flat.
@@ -148,6 +149,12 @@ func (s *TokenStore) ResolveToken(ctx context.Context, raw string) (*ResolvedUse
 		return nil, nil
 	}
 	if time.Now().After(expiresAt) {
+		return nil, nil
+	}
+	// Section 25 — a suspended (temporary) or banned (permanent) account is
+	// denied on EVERY authenticated request, dashboard and mobile alike, by
+	// treating its token as invalid here (the single auth chokepoint).
+	if acctStatus != nil && (*acctStatus == "suspended" || *acctStatus == "banned") {
 		return nil, nil
 	}
 	if subtle.ConstantTimeCompare([]byte(storedHash), []byte(providedHash)) != 1 {
@@ -192,6 +199,19 @@ func (s *TokenStore) RevokeToken(ctx context.Context, raw string) error {
 		`UPDATE api_access_tokens SET revoked_at = NOW()
 		  WHERE token_selector = $1 AND revoked_at IS NULL`,
 		parts[0],
+	)
+	return err
+}
+
+// RevokeAllForUser revokes every active token for a user — the "force logout"
+// primitive. Called when an account is deactivated or its staff_tier is
+// lowered, so the affected user is signed out immediately and the updated
+// permissions take effect on their next request (401 → re-login).
+func (s *TokenStore) RevokeAllForUser(ctx context.Context, userID int64) error {
+	_, err := s.Pool.Exec(ctx,
+		`UPDATE api_access_tokens SET revoked_at = NOW()
+		  WHERE user_id = $1 AND revoked_at IS NULL`,
+		userID,
 	)
 	return err
 }

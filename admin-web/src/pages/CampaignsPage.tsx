@@ -7,6 +7,7 @@
 // the underlying table.
 
 import { useCallback, useEffect, useState } from 'react'
+import RowDeleteButton from '../components/RowDeleteButton'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { Link } from 'react-router-dom'
 import { api, describeError } from '../lib/api'
@@ -270,7 +271,7 @@ export default function CampaignsPage() {
         <>
           <Link className="row-edit-btn" to={`/detail/campaigns/${c.id}`}>{t('common.view')}</Link>
           <button className="row-edit-btn" onClick={() => setEditing(c)}>{t('common.edit')}</button>
-          <button className="row-delete-btn" onClick={() => setDeleting(c)}>{t('common.delete')}</button>
+          <RowDeleteButton onClick={() => setDeleting(c)} />
         </>
       ),
     },

@@ -60,9 +60,12 @@ export default function TrashPage() {
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<number | null>(null)
+  const [selected, setSelected] = useState<Set<number>>(new Set())
 
   const allowed = canExportData(user)
-  const canPurge = isSuperAdmin(user) || user?.is_admin === 1
+  // Permanent deletion is restricted to the Primary Administrator only
+  // (Section 25) — the backend also enforces RequireSuperAdmin on purge.
+  const canPurge = isSuperAdmin(user)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -110,6 +113,37 @@ export default function TrashPage() {
     }
   }
 
+  const toggle = (id: number) =>
+    setSelected((s) => {
+      const n = new Set(s)
+      if (n.has(id)) n.delete(id)
+      else n.add(id)
+      return n
+    })
+  const toggleAll = () =>
+    setSelected((s) => (s.size === items.length ? new Set() : new Set(items.map((it) => it.id))))
+
+  // Bulk permanent purge (super-admin) — one PIN prompt, then purge each selected.
+  const purgeSelected = async () => {
+    if (selected.size === 0 || busyId) return
+    const pin = window.prompt(t('page.trash.purge_prompt'))
+    if (pin == null) return
+    if (!pin.trim()) { toast.error(t('export.pin_required')); return }
+    const ids = [...selected]
+    let ok = 0
+    for (const id of ids) {
+      try {
+        await api.post(`/api/admin/trash/${id}/purge`, { password: pin })
+        ok++
+      } catch {
+        /* keep going; report the successful count */
+      }
+    }
+    toast.success(t('page.trash.purged_n', { n: ok }))
+    setSelected(new Set())
+    await load()
+  }
+
   if (!allowed) {
     return (
       <div className="stack">
@@ -118,7 +152,20 @@ export default function TrashPage() {
     )
   }
 
+  const selectCol: Column<TrashItem> = {
+    key: 'sel', header: '', width: '38px',
+    cell: (it) => (
+      <input
+        type="checkbox"
+        checked={selected.has(it.id)}
+        onChange={() => toggle(it.id)}
+        aria-label={t('common.select_row')}
+      />
+    ),
+  }
+
   const columns: Column<TrashItem>[] = [
+    ...(canPurge ? [selectCol] : []),
     { key: 'module', header: t('page.trash.col_module'), cell: (it) => (
       MODULE_TKEY[it.source_table]
         ? <strong>{t(MODULE_TKEY[it.source_table])}</strong>
@@ -155,6 +202,21 @@ export default function TrashPage() {
             {loading ? t('common.loading') : t('page.trash.subtitle', { n: items.length })}
           </p>
         </div>
+        {canPurge && items.length > 0 && (
+          <div className="row" style={{ gap: 12, alignItems: 'center' }}>
+            <label className="row" style={{ gap: 6, alignItems: 'center', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={selected.size === items.length}
+                onChange={toggleAll}
+              />
+              <span className="muted">{t('page.trash.select_all')}</span>
+            </label>
+            <button className="danger" disabled={selected.size === 0} onClick={purgeSelected}>
+              {t('page.trash.purge_selected', { n: selected.size })}
+            </button>
+          </div>
+        )}
       </div>
       {err && <div className="error-box">{err}</div>}
       <Table<TrashItem>

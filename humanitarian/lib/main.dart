@@ -23,6 +23,25 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_application_1/firebase_options.dart';
 
+/// Handles pushes that arrive while the app is backgrounded or terminated.
+/// Runs in its OWN isolate, so it must initialise Firebase itself — nothing
+/// from main()'s isolate is available here. Notification-type messages are
+/// still shown by the OS automatically; this handler is what lets data-only
+/// messages (and any background bookkeeping) be processed instead of dropped.
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } on FirebaseException catch (e) {
+    if (e.code != 'duplicate-app') rethrow;
+  }
+  debugPrint(
+    '[push] background: ${message.notification?.title} — data=${message.data}',
+  );
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -40,6 +59,10 @@ Future<void> main() async {
   } on FirebaseException catch (e) {
     if (e.code != 'duplicate-app') rethrow;
   }
+
+  // Register the background/terminated push handler BEFORE any other messaging
+  // setup so no early message is missed.
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
   // Request the full set of iOS notification permissions explicitly.
   // The default `requestPermission()` call without args still works on
@@ -103,7 +126,7 @@ class HumanitarianApp extends StatelessWidget {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: appThemeMode,
       builder: (context, themeMode, _) => GetMaterialApp(
-        title: 'Humanitarian Platform',
+        title: 'BalanceNex',
         debugShowCheckedModeBanner: false,
         translations: AppTranslations(),
         locale: appLocale,

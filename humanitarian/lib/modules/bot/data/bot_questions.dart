@@ -46,7 +46,7 @@ const List<BotQA> _aboutAppQAs = [
       'kmr': 'ئەڤ ئەپە چییە و چ دکەت؟',
     },
     answer:
-        'This is a humanitarian aid platform that connects donors, '
+        'BalanceNex is a humanitarian aid platform that connects donors, '
         'beneficiaries and volunteers. You can donate to campaigns, sponsor '
         'families through Kafala, request or receive aid, buy and sell in the '
         'beneficiary marketplace, join volunteer missions, and reach community '

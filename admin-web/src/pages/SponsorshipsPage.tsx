@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, useRef } from 'react'
+import RowDeleteButton from '../components/RowDeleteButton'
 import { Link } from 'react-router-dom'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError } from '../lib/api'
@@ -182,7 +183,7 @@ export default function SponsorshipsPage() {
       header: t('col.donor'),
       cell: (s) =>
         s.donor_user_id ? (
-          <span>user #{s.donor_user_id}</span>
+          <span>{t('common.user_ref_lc', { id: s.donor_user_id })}</span>
         ) : (
           <span className="muted">—</span>
         ),
@@ -225,7 +226,7 @@ export default function SponsorshipsPage() {
           value={s.status}
           allowed={SPONSORSHIP_STATUSES}
           onSave={(next) => api.post(`/api/admin/sponsorships/${s.id}/status`, { status: next })}
-          label={`Sponsorship #${s.id}`}
+          label={t('common.status')}
         />
       ),
     },
@@ -235,7 +236,7 @@ export default function SponsorshipsPage() {
         <>
           <Link className="row-edit-btn" to={`/detail/sponsorships/${s.id}`}>{t('common.view')}</Link>
           <button className="row-edit-btn" onClick={() => setEditing(s)}>{t('common.edit')}</button>
-          <button className="row-delete-btn" onClick={() => setDeleting(s)}>{t('common.delete')}</button>
+          <RowDeleteButton onClick={() => setDeleting(s)} />
         </>
       ),
     },
@@ -299,7 +300,7 @@ export default function SponsorshipsPage() {
         onApply={applyBulkStatus}
         onDelete={applyBulkDelete}
         onClear={sel.clear}
-        noun="sponsorships"
+        noun={t('noun.sponsorship')}
       />
       <ConfirmDialog
         open={deleting !== null}

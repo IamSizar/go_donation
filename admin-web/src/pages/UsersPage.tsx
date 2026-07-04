@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
+import RowDeleteButton from '../components/RowDeleteButton'
 import { Link } from 'react-router-dom'
 import ExportCsvButton from '../components/ExportCsvButton'
-import { api, describeError } from '../lib/api'
+import { api, describeError, isSuperAdmin } from '../lib/api'
+import { useAuth } from '../lib/auth'
 import { roleLabel, type UsersListResp, type UserAccount } from '../lib/api-types'
 import Table, { type Column } from '../components/Table'
 import Pagination from '../components/Pagination'
@@ -27,6 +29,13 @@ const USER_FIELDS: FieldSpec[] = [
   { key: 'gender',          label: 'Gender', labelKey: 'field.gender',          type: 'select', options: GENDER_OPTIONS },
   { key: 'address',         label: 'Address', labelKey: 'field.address',         type: 'textarea', rows: 2 },
   { key: 'profile_picture', label: 'Profile picture', labelKey: 'field.profile_picture', type: 'file', full: true },
+]
+
+// New-User form (Users #g). Role is a select; phone is required.
+const NEW_USER_FIELDS: FieldSpec[] = [
+  { key: 'phone',     label: 'Phone', labelKey: 'field.phone',     type: 'text', required: true },
+  { key: 'full_name', label: 'Full name', labelKey: 'field.full_name', type: 'text' },
+  { key: 'role',      label: 'Role', labelKey: 'col.role',         type: 'select', options: ['donor', 'beneficiary', 'volunteer', 'employee'] },
 ]
 
 const USER_CSV_COLUMNS: CsvColumn<UserAccount>[] = [
@@ -69,9 +78,20 @@ export default function UsersPage() {
   const [err, setErr] = useState<string | null>(null)
   const [editing, setEditing] = useState<UserAccount | null>(null)
   const [deleting, setDeleting] = useState<UserAccount | null>(null)
+  const [creating, setCreating] = useState(false)
   const [refreshTick, setRefreshTick] = useState(0)
   const toast = useToast()
   const { t } = useI18n()
+  const { user: authUser } = useAuth()
+  const amSuper = isSuperAdmin(authUser)
+
+  // PIN step-up used before sensitive user changes (role/tier).
+  const verifyPin = async () => {
+    const pin = window.prompt(t('export.pin_prompt'))
+    if (pin == null || !pin.trim()) throw new Error(t('export.pin_required'))
+    const { data } = await api.post('/api/admin/verify-password', { password: pin })
+    if (!data?.ok) throw new Error(data?.error || t('export.pin_incorrect'))
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -133,9 +153,10 @@ export default function UsersPage() {
         <StatusCell
           value={roleLabel(u.role_id)}
           allowed={ROLE_LABELS}
-          onSave={(next) =>
-            api.post(`/api/admin/users/${u.user_id}/role`, { role_id: roleLabelToId(next) })
-          }
+          onSave={async (next) => {
+            await verifyPin() // Global notice #b — PIN before a role change.
+            await api.post(`/api/admin/users/${u.user_id}/role`, { role_id: roleLabelToId(next) })
+          }}
           label={`User #${u.user_id} role`}
         />
       ),
@@ -169,6 +190,43 @@ export default function UsersPage() {
       ),
     },
     {
+      // Staff access tier (Users #c). Only the Super-Admin can change it;
+      // others see it read-only. PIN-confirmed.
+      key: 'tier',
+      header: t('col.tier'),
+      cell: (u) => (
+        <StatusCell
+          value={u.staff_tier ?? 'user'}
+          allowed={['super_admin', 'admin', 'supervisor', 'employee', 'user']}
+          disabled={!amSuper}
+          onSave={async (next) => {
+            await verifyPin()
+            await api.post(`/api/admin/users/${u.user_id}/staff_tier`, { staff_tier: next })
+          }}
+          label={`User #${u.user_id} tier`}
+        />
+      ),
+    },
+    {
+      // Account lifecycle status (Section 25): active / suspended (temporary) /
+      // banned (permanent). Super-Admin only, PIN-confirmed. Suspending or
+      // banning force-logs-out every session server-side.
+      key: 'account_status',
+      header: t('col.account_status'),
+      cell: (u) => (
+        <StatusCell
+          value={u.account_status ?? 'active'}
+          allowed={['active', 'suspended', 'banned']}
+          disabled={!amSuper}
+          onSave={async (next) => {
+            await verifyPin()
+            await api.post(`/api/admin/users/${u.user_id}/account_status`, { status: next })
+          }}
+          label={t('col.account_status')}
+        />
+      ),
+    },
+    {
       key: 'created',
       header: t('col.created'),
       cell: (u) => <span className="muted">{u.created_at?.slice(0, 10)}</span>,
@@ -194,11 +252,46 @@ export default function UsersPage() {
           >
             {t('common.set_password')}
           </button>
-          <button className="row-delete-btn" onClick={() => setDeleting(u)}>{t('common.delete')}</button>
+          {/* Force Logout — Super-Admin only; revokes every session for the
+              user across mobile + browser (Section 25). */}
+          {amSuper && (
+            <button
+              className="row-edit-btn"
+              onClick={async () => {
+                try {
+                  await api.post(`/api/admin/users/${u.user_id}/force_logout`)
+                  toast.success(t('page.users.force_logout_ok'))
+                } catch {
+                  toast.error(t('page.users.force_logout_fail'))
+                }
+              }}
+            >
+              {t('page.users.force_logout')}
+            </button>
+          )}
+          <RowDeleteButton onClick={() => setDeleting(u)} />
         </>
       ),
     },
   ]
+
+  const handleCreate = async (patch: Record<string, unknown>) => {
+    const phone = String(patch.phone ?? '').trim()
+    const roleSel = String(patch.role ?? '')
+    try {
+      await api.post('/api/admin/users', {
+        phone,
+        full_name: String(patch.full_name ?? ''),
+        role_id: roleSel ? roleLabelToId(roleSel) : undefined,
+      })
+      toast.success(t('toast.created', { noun: t('noun.user') }))
+      setCreating(false)
+      setRefreshTick((n) => n + 1)
+    } catch (e) {
+      toast.error(describeError(e))
+      throw e
+    }
+  }
 
   return (
     <div className="stack">
@@ -217,6 +310,9 @@ export default function UsersPage() {
             placeholder={t('page.users.search_placeholder')}
             style={{ width: '220px' }}
           />
+          <button className="primary" onClick={() => setCreating(true)}>
+            {t('page.users.new_user')}
+          </button>
           <ExportCsvButton onExport={exportCsv} />
         </div>
       </div>
@@ -241,6 +337,14 @@ export default function UsersPage() {
         fields={USER_FIELDS}
         onSave={(patch) => handleSave(editing!.user_id, patch)}
         onClose={() => setEditing(null)}
+      />
+      <EditModal
+        open={creating}
+        title={t('page.users.new_user')}
+        initial={{}}
+        fields={NEW_USER_FIELDS}
+        onSave={handleCreate}
+        onClose={() => setCreating(false)}
       />
       <ConfirmDialog
         open={deleting !== null}

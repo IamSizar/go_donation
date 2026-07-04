@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, useRef } from 'react'
+import RowDeleteButton from '../components/RowDeleteButton'
 import { Link } from 'react-router-dom'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError } from '../lib/api'
@@ -23,6 +24,9 @@ import {
   SKILL_CATEGORIES,
   dayLabelFor,
   skillLabelFor,
+  registerCustomSkills,
+  getCustomSkills,
+  type CustomProfession,
 } from '../lib/skillCatalogue'
 import { SKILL_ICON, colorForSkill } from '../lib/skillIcons'
 
@@ -134,6 +138,14 @@ export default function VolunteersPage() {
   )
 }
 
+// Section 13 — fields for the "add profession" modal (name in 4 languages).
+const PROFESSION_FIELDS: FieldSpec[] = [
+  { key: 'label_en',  label: 'Name (EN)',      labelKey: 'field.title_en',      type: 'text', required: true },
+  { key: 'label_ar',  label: 'Name (AR)',      labelKey: 'field.title_ar',      type: 'text', dir: 'rtl' },
+  { key: 'label_ckb', label: 'Name (Sorani)',  labelKey: 'field.title_sorani',  type: 'text', dir: 'rtl' },
+  { key: 'label_kmr', label: 'Name (Badini)',  labelKey: 'field.title_badini',  type: 'text', dir: 'rtl' },
+]
+
 function ApplicationsTab() {
   const [page, setPage] = useState(1)
   const [status, setStatus] = useState('all')
@@ -156,6 +168,27 @@ function ApplicationsTab() {
   const statusLabel = useStatusLabel()
   const sel = useSelection<AdminVolunteerApp>((a) => a.id)
   const highlight = useHighlightedRow()
+  // Section 13 — admin-added professions merged into the skill dropdown.
+  const [profs, setProfs] = useState<CustomProfession[]>([])
+  const [addProfOpen, setAddProfOpen] = useState(false)
+
+  const loadProfessions = useCallback(async () => {
+    try {
+      const r = await api.get<{ items: CustomProfession[] }>('/api/admin/professions')
+      registerCustomSkills(r.data.items ?? [])
+      setProfs(r.data.items ?? [])
+    } catch { /* dropdown just shows the built-in catalogue */ }
+  }, [])
+  useEffect(() => { void loadProfessions() }, [loadProfessions])
+
+  const handleAddProfession = useCallback(
+    async (data: Record<string, unknown>) => {
+      await api.post('/api/admin/professions', data)
+      toast.success(t('page.volunteers.profession_added'))
+      await loadProfessions()
+    },
+    [loadProfessions, toast, t],
+  )
 
   useEffect(() => {
     let cancelled = false
@@ -373,7 +406,7 @@ function ApplicationsTab() {
         <>
           <Link className="row-edit-btn" to={`/detail/volunteer_applications/${a.id}`}>{t('common.view')}</Link>
           <button className="row-edit-btn" onClick={() => setEditing(a)}>{t('common.edit')}</button>
-          <button className="row-delete-btn" onClick={() => setDeleting(a)}>{t('common.delete')}</button>
+          <RowDeleteButton onClick={() => setDeleting(a)} />
         </>
       ),
     },
@@ -416,9 +449,23 @@ function ApplicationsTab() {
                 ))}
               </optgroup>
             ))}
+            {/* Section 13 — admin-added professions. */}
+            {profs.length > 0 && (
+              <optgroup label={t('page.volunteers.custom_professions')}>
+                {getCustomSkills().map((s) => (
+                  <option key={s.key} value={s.key}>
+                    {'✚ ' + skillLabelFor(s.key, locale)}
+                  </option>
+                ))}
+              </optgroup>
+            )}
             {/* Unused — ALL_SKILL_KEYS kept for future flat-iteration. */}
             {false && ALL_SKILL_KEYS.map((k) => <option key={k} value={k} />)}
           </select>
+          {/* Section 13 — add a new profession to the skill dropdown. */}
+          <button className="secondary" onClick={() => setAddProfOpen(true)}>
+            {t('page.volunteers.add_profession')}
+          </button>
           <select
             value={dayFilter}
             onChange={(e) => { setDayFilter(e.target.value); setPage(1); sel.clear() }}
@@ -485,6 +532,16 @@ function ApplicationsTab() {
         fields={creating ? VOLUNTEER_CREATE_FIELDS : VOLUNTEER_FIELDS}
         onSave={(data) => (creating ? handleCreate(data) : handleSave(editing!.id, data))}
         onClose={closeModal}
+      />
+      {/* Section 13 — add a new profession to the skill catalogue. */}
+      <EditModal
+        open={addProfOpen}
+        mode="create"
+        title={t('page.volunteers.add_profession')}
+        initial={{}}
+        fields={PROFESSION_FIELDS}
+        onSave={handleAddProfession}
+        onClose={() => setAddProfOpen(false)}
       />
     </div>
   )
@@ -583,9 +640,14 @@ function MissionSignupsTab() {
     downloadCsv(`mission-signups-${new Date().toISOString().slice(0, 10)}.csv`, rows, SIGNUP_CSV_COLUMNS)
   }
 
-  // The action buttons rendered depend on the current row status — the
-  // map below mirrors the schema's allowed transitions to keep admin
-  // from accidentally jumping a row from 'pending' directly to 'completed'.
+  // Persistent action panel — every application ALWAYS shows management
+  // buttons, so an admin can approve, reject, or reverse a decision at any
+  // point (the buttons never "disappear" once a row leaves the pending
+  // state). Each row exposes the natural forward action(s) for its current
+  // state PLUS a Revert that steps back to a sensible prior state. The
+  // status dropdown still gives full arbitrary control; these buttons are
+  // the quick, always-available path. The backend validates every
+  // transition, so an out-of-order change is rejected server-side.
   function actionsFor(s: AdminMissionSignup): { label: string; status: string; tone?: 'danger' }[] {
     switch (s.status) {
       case 'pending':
@@ -597,16 +659,19 @@ function MissionSignupsTab() {
         return [
           { label: t('action.mark_attended'), status: 'joined' },
           { label: t('common.cancel'), status: 'cancelled', tone: 'danger' },
+          { label: t('action.undo'), status: 'pending' },
         ]
       case 'joined':
         return [
           { label: t('action.mark_completed'), status: 'completed' },
           { label: t('action.mark_no_show'), status: 'no_show', tone: 'danger' },
+          { label: t('action.undo'), status: 'approved' },
         ]
       case 'completion_requested':
         return [
           { label: t('action.confirm_completed'), status: 'completed' },
           { label: t('action.mark_no_show'), status: 'no_show', tone: 'danger' },
+          { label: t('action.undo'), status: 'approved' },
         ]
       // Terminal states are no longer a dead end: offer an Undo that reverts to
       // a sensible prior state, so an entry is never button-less / permanently
@@ -618,8 +683,10 @@ function MissionSignupsTab() {
         return [{ label: t('action.undo'), status: 'pending' }]
       case 'cancelled':
         return [{ label: t('action.undo'), status: 'approved' }]
+      // Unknown/new status: never leave the row without a way out — offer a
+      // revert to pending so the action panel is always present.
       default:
-        return []
+        return [{ label: t('action.undo'), status: 'pending' }]
     }
   }
 

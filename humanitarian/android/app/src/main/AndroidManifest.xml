@@ -6,7 +6,7 @@
     <!-- Android 13+ requires this for FCM push notifications to be shown. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
-        android:label="humanitarian"
+        android:label="BalanceNex"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

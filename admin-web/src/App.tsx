@@ -35,6 +35,8 @@ const ReportsPage = lazy(() => import('./pages/ReportsPage'))
 const AuditLogsPage = lazy(() => import('./pages/AuditLogsPage'))
 const PushNotificationsPage = lazy(() => import('./pages/PushNotificationsPage'))
 const TrashPage = lazy(() => import('./pages/TrashPage'))
+const PermissionsPage = lazy(() => import('./pages/PermissionsPage'))
+const GuestAccessPage = lazy(() => import('./pages/GuestAccessPage'))
 const DetailPage = lazy(() => import('./pages/DetailPage'))
 
 function PageFallback() {
@@ -104,6 +106,8 @@ export default function App() {
             <Route path="audit-logs" element={<AuditLogsPage />} />
             <Route path="push" element={<PushNotificationsPage />} />
             <Route path="trash" element={<TrashPage />} />
+            <Route path="permissions" element={<PermissionsPage />} />
+            <Route path="guest-access" element={<GuestAccessPage />} />
             <Route path="detail/:resource/:id" element={<DetailPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

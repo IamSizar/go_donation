@@ -62,12 +62,11 @@ class _ProfileSectionState extends State<ProfileSection> {
                 child: Text('Cancel'.tr),
               ),
               TextButton(
-                onPressed: () {
-                  sharedPreferences.clear();
-
-                  Navigator.of(context).pop(true);
-                },
-
+                // 27.4 — DON'T clear prefs here: doing it while the dashboard
+                // tree is still mounted made every section rebuild against wiped
+                // storage and the app went black/frozen. Just confirm; the
+                // clearing happens after we've navigated away.
+                onPressed: () => Navigator.of(context).pop(true),
                 style: TextButton.styleFrom(foregroundColor: _profileDanger),
                 child: Text('Log out'.tr),
               ),
@@ -77,16 +76,13 @@ class _ProfileSectionState extends State<ProfileSection> {
         false;
 
     if (confirmed) {
-      await sharedPreferences.remove('id_user');
-      await sharedPreferences.remove('email_user');
-      await sharedPreferences.remove('phone_user');
-      await sharedPreferences.remove('name_user');
-      await sharedPreferences.remove('address_user');
-      await sharedPreferences.remove('gender_user');
-      await sharedPreferences.remove('profile_image_path');
-      await sharedPreferences.remove('profile_picture_url');
-      await clearApiSession();
+      // 27.4 — navigate to login FIRST so the authenticated dashboard tree is
+      // torn down before any prefs are cleared (prevents the black screen).
       Get.offAllNamed('/login');
+      // 27.5 — then revoke the token server-side and clear local session +
+      // identity + guest flag, so the session is truly invalidated and can't
+      // auto re-login on next launch.
+      await logout();
     }
   }
 

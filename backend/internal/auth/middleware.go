@@ -218,6 +218,32 @@ func RequireAdminTier() gin.HandlerFunc {
 	}
 }
 
+// RequireSuperAdmin gates a route to the Primary Administrator (super_admin)
+// ONLY — stricter than RequireAdminTier, which also lets plain admins through.
+// Used for the raw DB (JSON) export, which must be exclusive to the
+// super-admin (legacy is_admin=1 accounts do NOT qualify). Run AFTER
+// RequireAdmin. A grant path via the Permissions-Management module can extend
+// this later; for now tier is the sole gate, matching the frontend
+// isSuperAdmin() check.
+func RequireSuperAdmin() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user, ok := UserFromGin(c)
+		if !ok || user == nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"status": "error", "error": "Not authenticated.",
+			})
+			return
+		}
+		if permissions.TierFrom(user.StaffTier) != permissions.TierSuperAdmin {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"status": "error", "error": "Super-admin access required for this action.",
+			})
+			return
+		}
+		c.Next()
+	}
+}
+
 // UserFromGin is the Gin-typed convenience accessor used by handlers.
 func UserFromGin(c *gin.Context) (*ResolvedUser, bool) {
 	if v, exists := c.Get(contextUserKey); exists {

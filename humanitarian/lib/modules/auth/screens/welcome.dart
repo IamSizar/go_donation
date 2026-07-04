@@ -31,10 +31,10 @@ class WelcomeScreen extends StatelessWidget {
               child: _LanguageSelector(),
             ),
             const SizedBox(height: 20),
-            const Center(
+            Center(
               child: AuthBadge(
                 icon: Icons.volunteer_activism_rounded,
-                label: 'Humanitarian platform',
+                label: 'Humanitarian platform'.tr,
               ),
             ),
             const SizedBox(height: 28),

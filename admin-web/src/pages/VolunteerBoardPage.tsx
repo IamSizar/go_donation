@@ -346,7 +346,7 @@ function SignupCard({
       <div className="board-card-head">
         <span className="board-card-avatar" aria-hidden="true">{initials}</span>
         <div className="cell-stack" style={{ minWidth: 0 }}>
-          <strong>{signup.full_name?.trim() || `user #${signup.user_id}`}</strong>
+          <strong>{signup.full_name?.trim() || t('common.user_ref_lc', { id: signup.user_id })}</strong>
           <span className="muted" style={{ fontSize: 11 }}>{signup.phone ?? '—'}</span>
         </div>
       </div>
