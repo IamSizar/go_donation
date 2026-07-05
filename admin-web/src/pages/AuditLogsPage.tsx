@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api, describeError } from '../lib/api'
+import ExportCsvButton from '../components/ExportCsvButton'
 import type { AdminAuditLog, AdminPageResp } from '../lib/api-types'
 import Table, { type Column } from '../components/Table'
 import Pagination from '../components/Pagination'
-import { useToast } from '../lib/toast'
-import { useI18n } from '../lib/i18n'
-import { downloadCsv, type CsvColumn } from '../lib/csv'
+import { useI18n, useFieldLabel } from '../lib/i18n'
+import { type CsvColumn } from '../lib/csv'
 
 const PER_PAGE = 30
 
@@ -43,8 +43,13 @@ export default function AuditLogsPage() {
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<number | null>(null)
-  const toast = useToast()
   const { t } = useI18n()
+  const fieldLabel = useFieldLabel()
+  const actorLabel = (s: string) => {
+    const k = `common.actor_${s}`
+    const v = t(k)
+    return v === k ? s : v
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -70,10 +75,6 @@ export default function AuditLogsPage() {
   const fields = useMemo(() => Array.from(new Set(itemsAll.map(a => a.changed_field))).sort(), [itemsAll])
   const actors = useMemo(() => Array.from(new Set(itemsAll.map(a => a.actor_source))).sort(), [itemsAll])
 
-  const exportCsv = () => {
-    if (items.length === 0) { toast.info(t('common.nothing_to_export')); return }
-    downloadCsv(`audit-${new Date().toISOString().slice(0, 10)}.csv`, items, AUDIT_CSV_COLUMNS)
-  }
 
   // Highlight the changed_field as a code chip; render old → new with a
   // visual arrow so the diff is scannable. Empty values render as `null`.
@@ -85,11 +86,11 @@ export default function AuditLogsPage() {
     },
     {
       key: 'user', header: t('col.subject'), width: '110px',
-      cell: (a) => <span>user #{a.user_id}</span>,
+      cell: (a) => <span>{t('common.user_ref_lc', { id: a.user_id })}</span>,
     },
     {
       key: 'field', header: t('col.field'),
-      cell: (a) => <code style={{ background: 'transparent', padding: 0 }}>{a.changed_field}</code>,
+      cell: (a) => <span title={a.changed_field}>{fieldLabel(a.changed_field)}</span>,
     },
     {
       key: 'diff', header: t('col.change'),
@@ -105,7 +106,7 @@ export default function AuditLogsPage() {
       key: 'actor', header: t('col.actor'), width: '140px',
       cell: (a) => (
         <div className="cell-stack">
-          <span className={`badge ${actorClass(a.actor_source)}`}>{a.actor_source}</span>
+          <span className={`badge ${actorClass(a.actor_source)}`}>{actorLabel(a.actor_source)}</span>
           {a.actor_user_id && <span className="muted">#{a.actor_user_id}</span>}
         </div>
       ),
@@ -134,18 +135,24 @@ export default function AuditLogsPage() {
             min={1}
             value={userIDFilter}
             onChange={(e) => { setUserIDFilter(e.target.value); setPage(1) }}
-            placeholder="user_id"
+            placeholder={t('dbfield.user_id')}
             style={{ width: '120px' }}
           />
           <select value={field} onChange={(e) => { setField(e.target.value); setPage(1) }} style={{ width: 'auto' }}>
             <option value="">{t('filter.all_fields')}</option>
-            {fields.map(f => <option key={f} value={f}>{f}</option>)}
+            {fields.map(f => <option key={f} value={f}>{fieldLabel(f)}</option>)}
           </select>
           <select value={actor} onChange={(e) => setActor(e.target.value)} style={{ width: 'auto' }}>
             <option value="">{t('filter.all_actors')}</option>
-            {actors.map(a => <option key={a} value={a}>{a}</option>)}
+            {actors.map(a => <option key={a} value={a}>{actorLabel(a)}</option>)}
           </select>
-          <button className="secondary" onClick={exportCsv}>{t('common.export_csv')}</button>
+          <ExportCsvButton
+            rows={items}
+            columns={AUDIT_CSV_COLUMNS}
+            filenameBase="audit"
+            title={t('nav.audit_logs')}
+            module="audit"
+          />
         </div>
       </div>
       {err && <div className="error-box">{err}</div>}
@@ -158,7 +165,7 @@ export default function AuditLogsPage() {
         catch { pretty = row.metadata_json }
         return (
           <pre className="audit-meta-panel">
-            <strong>metadata for #{row.id}</strong>{'\n'}{pretty}
+            <strong>{t('common.meta_for', { id: row.id })}</strong>{'\n'}{pretty}
           </pre>
         )
       })()}

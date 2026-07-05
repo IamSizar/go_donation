@@ -76,16 +76,17 @@ dev_dependencies:
   # mark. Run: dart run flutter_launcher_icons
   flutter_launcher_icons: ^0.14.1
 
-# ET launcher-icon config. The blue ET mark is full-bleed; iOS/Android
-# apply their own corner masking. Android adaptive icon uses the same
-# blue as the background so the foreground ET sits on brand color.
+# BalanceNex launcher-icon config. The gold/black balanced-leaves mark sits on
+# a near-white background; iOS/Android apply their own corner masking. The
+# Android adaptive icon uses the same near-white as the background so the mark
+# foreground stays centered within the safe zone.
 flutter_launcher_icons:
   android: true
   ios: true
   remove_alpha_ios: true
-  image_path: "assets/branding/et_logo.png"
-  adaptive_icon_background: "#1B37C9"
-  adaptive_icon_foreground: "assets/branding/et_logo.png"
+  image_path: "assets/branding/balancenex_icon.png"
+  adaptive_icon_background: "#FEFEFE"
+  adaptive_icon_foreground: "assets/branding/balancenex_icon.png"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -112,6 +113,10 @@ flutter:
     # splash / about; also the source for the launcher + notification icons).
     - assets/branding/et_logo.png
     - assets/branding/et_logo_mono.png
+    # BalanceNex brand mark (icon crop) + full logo with wordmark, shown in-app
+    # on splash / welcome / login and used as the launcher-icon source.
+    - assets/branding/balancenex_icon.png
+    - assets/branding/balancenex_logo.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:

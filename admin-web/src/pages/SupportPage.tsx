@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState, useRef } from 'react'
+import RowDeleteButton from '../components/RowDeleteButton'
 import { Link } from 'react-router-dom'
+import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError } from '../lib/api'
 import { useLivePoll } from '../lib/useLivePoll'
 import type { AdminPageResp, AdminTicket } from '../lib/api-types'
@@ -12,7 +14,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../lib/toast'
 import { useI18n, useStatusLabel } from '../lib/i18n'
 import { useSelection } from '../lib/useSelection'
-import { downloadCsv, type CsvColumn } from '../lib/csv'
+import { type CsvColumn } from '../lib/csv'
 import { HighlightBanner, useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForStatus } from '../lib/statusColors'
 
@@ -137,11 +139,6 @@ export default function SupportPage() {
     [toast],
   )
 
-  const exportCsv = () => {
-    const rows = resp?.items ?? []
-    if (rows.length === 0) { toast.info(tr('common.nothing_to_export')); return }
-    downloadCsv(`tickets-${new Date().toISOString().slice(0, 10)}.csv`, rows, TICKET_CSV_COLUMNS)
-  }
 
   const columns: Column<AdminTicket>[] = [
     { key: 'id', header: tr('col.id'), width: '60px', cell: (t) => <strong>#{t.id}</strong> },
@@ -179,12 +176,12 @@ export default function SupportPage() {
     },
     { key: 'created', header: tr('col.created'), cell: (t) => <span className="muted">{t.created_at?.slice(0, 10)}</span> },
     {
-      key: 'actions', header: '', width: '170px',
+      key: 'actions', header: tr('common.actions'), width: '170px',
       cell: (t) => (
         <>
           <Link className="row-edit-btn" to={`/detail/support_tickets/${t.id}`}>{tr('common.view')}</Link>
           <button className="row-edit-btn" onClick={() => setEditing(t)}>{tr('common.edit')}</button>
-          <button className="row-delete-btn" onClick={() => setDeleting(t)}>{tr('common.delete')}</button>
+          <RowDeleteButton onClick={() => setDeleting(t)} />
         </>
       ),
     },
@@ -208,7 +205,13 @@ export default function SupportPage() {
           <select value={status} onChange={e => { setStatus(e.target.value); setPage(1); sel.clear() }} style={{ width: 'auto' }}>
             {STATUSES.map(s => <option key={s} value={s}>{statusLabel(s)}</option>)}
           </select>
-          <button className="secondary" onClick={exportCsv}>{tr('common.export_csv')}</button>
+          <ExportCsvButton
+            rows={resp?.items ?? []}
+            columns={TICKET_CSV_COLUMNS}
+            filenameBase="tickets"
+            title={tr('nav.support')}
+            module="support"
+          />
           <button onClick={() => setCreating(true)}>{tr('page.support.new')}</button>
         </div>
       </div>

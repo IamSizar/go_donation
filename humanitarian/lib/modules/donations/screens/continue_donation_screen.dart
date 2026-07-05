@@ -217,7 +217,7 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
                         optionColor: widget.optionColor,
                       ),
                       const SizedBox(height: 22),
-                      const SectionLabel(title: 'Donor details'),
+                      const SectionLabel(title: 'Contributor details'),
                       const SizedBox(height: 12),
                       GlassPanel(
                         child: Column(
@@ -328,7 +328,7 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
                         ),
                       ],
                       const SizedBox(height: 22),
-                      const SectionLabel(title: 'Donation summary'),
+                      const SectionLabel(title: 'Contribution summary'),
                       const SizedBox(height: 12),
                       GlassPanel(
                         child: Column(
@@ -371,7 +371,7 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
                             ),
                             const SizedBox(height: 18),
                             _SummaryLine(
-                              label: 'Donation amount',
+                              label: 'Contribution amount',
                               value: '$donationAmount IQD',
                             ),
                             const Padding(

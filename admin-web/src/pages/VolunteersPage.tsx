@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useState, useRef } from 'react'
+import { useCallback, useEffect, useState, useRef, type ChangeEvent } from 'react'
+import RowDeleteButton from '../components/RowDeleteButton'
 import { Link } from 'react-router-dom'
+import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError } from '../lib/api'
 import { useLivePoll } from '../lib/useLivePoll'
 import type { AdminMissionSignup, AdminPageResp, AdminVolunteerApp } from '../lib/api-types'
@@ -22,6 +24,11 @@ import {
   SKILL_CATEGORIES,
   dayLabelFor,
   skillLabelFor,
+  registerCustomSkills,
+  getCustomSkills,
+  categoryLabelFor,
+  PROFESSION_CATEGORY_KEYS,
+  type CustomProfession,
 } from '../lib/skillCatalogue'
 import { SKILL_ICON, colorForSkill } from '../lib/skillIcons'
 
@@ -133,6 +140,14 @@ export default function VolunteersPage() {
   )
 }
 
+// Section 13 — fields for the "add profession" modal (name in 4 languages).
+const PROFESSION_FIELDS: FieldSpec[] = [
+  { key: 'label_en',  label: 'Name (EN)',      labelKey: 'field.title_en',      type: 'text', required: true },
+  { key: 'label_ar',  label: 'Name (AR)',      labelKey: 'field.title_ar',      type: 'text', dir: 'rtl' },
+  { key: 'label_ckb', label: 'Name (Sorani)',  labelKey: 'field.title_sorani',  type: 'text', dir: 'rtl' },
+  { key: 'label_kmr', label: 'Name (Badini)',  labelKey: 'field.title_badini',  type: 'text', dir: 'rtl' },
+]
+
 function ApplicationsTab() {
   const [page, setPage] = useState(1)
   const [status, setStatus] = useState('all')
@@ -155,6 +170,53 @@ function ApplicationsTab() {
   const statusLabel = useStatusLabel()
   const sel = useSelection<AdminVolunteerApp>((a) => a.id)
   const highlight = useHighlightedRow()
+  // Section 13 — admin-added professions merged into the skill dropdown.
+  const [profs, setProfs] = useState<CustomProfession[]>([])
+  const [addProfOpen, setAddProfOpen] = useState(false)
+  const [manageProfOpen, setManageProfOpen] = useState(false)
+
+  const loadProfessions = useCallback(async () => {
+    try {
+      const r = await api.get<{ items: CustomProfession[] }>('/api/admin/professions')
+      registerCustomSkills(r.data.items ?? [])
+      setProfs(r.data.items ?? [])
+    } catch { /* dropdown just shows the built-in catalogue */ }
+  }, [])
+  useEffect(() => { void loadProfessions() }, [loadProfessions])
+
+  const handleAddProfession = useCallback(
+    async (data: Record<string, unknown>) => {
+      await api.post('/api/admin/professions', data)
+      toast.success(t('page.volunteers.profession_added'))
+      await loadProfessions()
+    },
+    [loadProfessions, toast, t],
+  )
+
+  // Section 13 — edit labels/category, reorder, and delete existing professions.
+  const handleUpdateProfession = useCallback(
+    async (id: number, data: Record<string, unknown>) => {
+      await api.patch(`/api/admin/professions/${id}`, data)
+      toast.success(t('page.volunteers.profession_updated'))
+      await loadProfessions()
+    },
+    [loadProfessions, toast, t],
+  )
+  const handleDeleteProfession = useCallback(
+    async (id: number) => {
+      await api.delete(`/api/admin/professions/${id}`)
+      toast.success(t('page.volunteers.profession_deleted'))
+      await loadProfessions()
+    },
+    [loadProfessions, toast, t],
+  )
+  const handleReorderProfessions = useCallback(
+    async (ids: number[]) => {
+      await api.post('/api/admin/professions/reorder', { ids })
+      await loadProfessions()
+    },
+    [loadProfessions],
+  )
 
   useEffect(() => {
     let cancelled = false
@@ -367,12 +429,12 @@ function ApplicationsTab() {
     },
     { key: 'created', header: t('col.created'), cell: (a) => <span className="muted">{a.created_at?.slice(0, 10)}</span> },
     {
-      key: 'actions', header: '', width: '170px',
+      key: 'actions', header: t('common.actions'), width: '170px',
       cell: (a) => (
         <>
           <Link className="row-edit-btn" to={`/detail/volunteer_applications/${a.id}`}>{t('common.view')}</Link>
           <button className="row-edit-btn" onClick={() => setEditing(a)}>{t('common.edit')}</button>
-          <button className="row-delete-btn" onClick={() => setDeleting(a)}>{t('common.delete')}</button>
+          <RowDeleteButton onClick={() => setDeleting(a)} />
         </>
       ),
     },
@@ -415,9 +477,29 @@ function ApplicationsTab() {
                 ))}
               </optgroup>
             ))}
+            {/* Section 13 — admin-added professions. */}
+            {profs.length > 0 && (
+              <optgroup label={t('page.volunteers.custom_professions')}>
+                {getCustomSkills().map((s) => (
+                  <option key={s.key} value={s.key}>
+                    {'✚ ' + skillLabelFor(s.key, locale)}
+                  </option>
+                ))}
+              </optgroup>
+            )}
             {/* Unused — ALL_SKILL_KEYS kept for future flat-iteration. */}
             {false && ALL_SKILL_KEYS.map((k) => <option key={k} value={k} />)}
           </select>
+          {/* Section 13 — add a new profession to the skill dropdown. */}
+          <button className="secondary" onClick={() => setAddProfOpen(true)}>
+            {t('page.volunteers.add_profession')}
+          </button>
+          {/* Section 13 — edit / reorder / recategorize existing professions. */}
+          {profs.length > 0 && (
+            <button className="secondary" onClick={() => setManageProfOpen(true)}>
+              {t('page.volunteers.manage_professions')}
+            </button>
+          )}
           <select
             value={dayFilter}
             onChange={(e) => { setDayFilter(e.target.value); setPage(1); sel.clear() }}
@@ -429,7 +511,7 @@ function ApplicationsTab() {
               <option key={d} value={d}>{dayLabelFor(d, locale)}</option>
             ))}
           </select>
-          <button className="secondary" onClick={exportCsv}>{t('common.export_csv')}</button>
+          <ExportCsvButton onExport={exportCsv} />
           <button onClick={() => setCreating(true)}>{t('page.volunteers.new')}</button>
         </div>
       </div>
@@ -485,6 +567,167 @@ function ApplicationsTab() {
         onSave={(data) => (creating ? handleCreate(data) : handleSave(editing!.id, data))}
         onClose={closeModal}
       />
+      {/* Section 13 — add a new profession to the skill catalogue. */}
+      <EditModal
+        open={addProfOpen}
+        mode="create"
+        title={t('page.volunteers.add_profession')}
+        initial={{}}
+        fields={PROFESSION_FIELDS}
+        onSave={handleAddProfession}
+        onClose={() => setAddProfOpen(false)}
+      />
+      {/* Section 13 — manage (edit / reorder / recategorize / delete). */}
+      <ManageProfessionsModal
+        open={manageProfOpen}
+        professions={profs}
+        onClose={() => setManageProfOpen(false)}
+        onUpdate={handleUpdateProfession}
+        onDelete={handleDeleteProfession}
+        onReorder={handleReorderProfessions}
+      />
+    </div>
+  )
+}
+
+// ── Section 13 — Manage professions modal ─────────────────────────────
+// Lists the admin-added professions in display order with ▲/▼ reorder
+// controls, an inline edit form (labels in 4 languages + category), and a
+// delete button. Reordering is optimistic: the list reshuffles instantly,
+// then the new id-sequence is persisted via onReorder.
+function ManageProfessionsModal({
+  open, professions, onClose, onUpdate, onDelete, onReorder,
+}: {
+  open: boolean
+  professions: CustomProfession[]
+  onClose: () => void
+  onUpdate: (id: number, data: Record<string, unknown>) => Promise<void>
+  onDelete: (id: number) => Promise<void>
+  onReorder: (ids: number[]) => Promise<void>
+}) {
+  const { t, locale } = useI18n()
+  // Local working copy so reordering feels instant before the server confirms.
+  const [order, setOrder] = useState<CustomProfession[]>(professions)
+  const [editing, setEditing] = useState<CustomProfession | null>(null)
+  const [confirmDel, setConfirmDel] = useState<CustomProfession | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => { setOrder(professions) }, [professions])
+
+  if (!open) return null
+
+  async function move(idx: number, dir: -1 | 1) {
+    const next = [...order]
+    const j = idx + dir
+    if (j < 0 || j >= next.length) return
+    ;[next[idx], next[j]] = [next[j], next[idx]]
+    setOrder(next)
+    setBusy(true)
+    try { await onReorder(next.map((p) => p.id)) } finally { setBusy(false) }
+  }
+
+  return (
+    <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="modal-card" style={{ maxWidth: 640 }}>
+        <div className="modal-head">
+          <h2>{t('page.volunteers.manage_professions')}</h2>
+          <button className="icon" onClick={onClose} aria-label={t('common.close')}>×</button>
+        </div>
+        <div className="modal-body">
+          {order.length === 0 && <p className="muted">{t('page.volunteers.no_professions')}</p>}
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {order.map((p, i) => (
+              <li key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 10, background: 'var(--color-surface-2, rgba(127,127,127,0.08))' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <button className="secondary" disabled={busy || i === 0} title={t('common.move_up')} onClick={() => move(i, -1)} style={{ padding: '0 8px', lineHeight: 1.4 }}>▲</button>
+                  <button className="secondary" disabled={busy || i === order.length - 1} title={t('common.move_down')} onClick={() => move(i, 1)} style={{ padding: '0 8px', lineHeight: 1.4 }}>▼</button>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <strong>{skillLabelFor(p.skill_key, locale)}</strong>
+                  <div className="muted" style={{ fontSize: 12 }}>{categoryLabelFor(p.category, locale)}</div>
+                </div>
+                <button className="secondary" onClick={() => setEditing(p)}>{t('common.edit')}</button>
+                <button className="danger" onClick={() => setConfirmDel(p)}>{t('common.delete')}</button>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="modal-foot">
+          <button className="secondary" onClick={onClose}>{t('common.close')}</button>
+        </div>
+      </div>
+
+      {/* Edit one profession — labels (4 langs) + category select. */}
+      {editing && (
+        <EditProfessionForm
+          profession={editing}
+          onClose={() => setEditing(null)}
+          onSave={async (data) => { await onUpdate(editing.id, data); setEditing(null) }}
+        />
+      )}
+
+      <ConfirmDialog
+        open={confirmDel !== null}
+        title={confirmDel ? t('page.volunteers.delete_profession') : ''}
+        message={confirmDel ? t('page.volunteers.delete_profession_body', { name: skillLabelFor(confirmDel.skill_key, locale) }) : ''}
+        onConfirm={async () => { const p = confirmDel!; setConfirmDel(null); await onDelete(p.id) }}
+        onCancel={() => setConfirmDel(null)}
+      />
+    </div>
+  )
+}
+
+// Inline edit form for a single profession (Section 13). Localized category
+// <select> so the option labels obey the current UI language.
+function EditProfessionForm({
+  profession, onClose, onSave,
+}: {
+  profession: CustomProfession
+  onClose: () => void
+  onSave: (data: Record<string, unknown>) => Promise<void>
+}) {
+  const { t, locale } = useI18n()
+  const [form, setForm] = useState({
+    label_en: profession.label_en ?? '',
+    label_ar: profession.label_ar ?? '',
+    label_ckb: profession.label_ckb ?? '',
+    label_kmr: profession.label_kmr ?? '',
+    category: profession.category || 'custom',
+  })
+  const [saving, setSaving] = useState(false)
+  const set = (k: keyof typeof form) => (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+    setForm((f) => ({ ...f, [k]: e.target.value }))
+
+  return (
+    <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose() }} style={{ zIndex: 60 }}>
+      <div className="modal-card" style={{ maxWidth: 460 }}>
+        <div className="modal-head">
+          <h2>{t('page.volunteers.edit_profession')}</h2>
+          <button className="icon" onClick={onClose} aria-label={t('common.close')}>×</button>
+        </div>
+        <div className="modal-body" style={{ display: 'grid', gap: 10 }}>
+          <label className="form-row"><span className="form-label">{t('field.title_en')}</span>
+            <input value={form.label_en} onChange={set('label_en')} /></label>
+          <label className="form-row"><span className="form-label">{t('field.title_ar')}</span>
+            <input dir="rtl" value={form.label_ar} onChange={set('label_ar')} /></label>
+          <label className="form-row"><span className="form-label">{t('field.title_sorani')}</span>
+            <input dir="rtl" value={form.label_ckb} onChange={set('label_ckb')} /></label>
+          <label className="form-row"><span className="form-label">{t('field.title_badini')}</span>
+            <input dir="rtl" value={form.label_kmr} onChange={set('label_kmr')} /></label>
+          <label className="form-row"><span className="form-label">{t('page.volunteers.category')}</span>
+            <select value={form.category} onChange={set('category')}>
+              {PROFESSION_CATEGORY_KEYS.map((c) => (
+                <option key={c} value={c}>{c === 'custom' ? t('page.volunteers.category_custom') : categoryLabelFor(c, locale)}</option>
+              ))}
+            </select></label>
+        </div>
+        <div className="modal-foot">
+          <button className="secondary" onClick={onClose} disabled={saving}>{t('common.cancel')}</button>
+          <button disabled={saving || !form.label_en.trim()} onClick={async () => { setSaving(true); try { await onSave(form) } finally { setSaving(false) } }}>
+            {saving ? t('common.saving') : t('common.save')}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -582,9 +825,14 @@ function MissionSignupsTab() {
     downloadCsv(`mission-signups-${new Date().toISOString().slice(0, 10)}.csv`, rows, SIGNUP_CSV_COLUMNS)
   }
 
-  // The action buttons rendered depend on the current row status — the
-  // map below mirrors the schema's allowed transitions to keep admin
-  // from accidentally jumping a row from 'pending' directly to 'completed'.
+  // Persistent action panel — every application ALWAYS shows management
+  // buttons, so an admin can approve, reject, or reverse a decision at any
+  // point (the buttons never "disappear" once a row leaves the pending
+  // state). Each row exposes the natural forward action(s) for its current
+  // state PLUS a Revert that steps back to a sensible prior state. The
+  // status dropdown still gives full arbitrary control; these buttons are
+  // the quick, always-available path. The backend validates every
+  // transition, so an out-of-order change is rejected server-side.
   function actionsFor(s: AdminMissionSignup): { label: string; status: string; tone?: 'danger' }[] {
     switch (s.status) {
       case 'pending':
@@ -596,20 +844,34 @@ function MissionSignupsTab() {
         return [
           { label: t('action.mark_attended'), status: 'joined' },
           { label: t('common.cancel'), status: 'cancelled', tone: 'danger' },
+          { label: t('action.undo'), status: 'pending' },
         ]
       case 'joined':
         return [
           { label: t('action.mark_completed'), status: 'completed' },
           { label: t('action.mark_no_show'), status: 'no_show', tone: 'danger' },
+          { label: t('action.undo'), status: 'approved' },
         ]
       case 'completion_requested':
         return [
           { label: t('action.confirm_completed'), status: 'completed' },
           { label: t('action.mark_no_show'), status: 'no_show', tone: 'danger' },
+          { label: t('action.undo'), status: 'approved' },
         ]
+      // Terminal states are no longer a dead end: offer an Undo that reverts to
+      // a sensible prior state, so an entry is never button-less / permanently
+      // locked (the status dropdown also stays available for full control).
+      case 'completed':
+      case 'no_show':
+        return [{ label: t('action.undo'), status: 'joined' }]
+      case 'rejected':
+        return [{ label: t('action.undo'), status: 'pending' }]
+      case 'cancelled':
+        return [{ label: t('action.undo'), status: 'approved' }]
+      // Unknown/new status: never leave the row without a way out — offer a
+      // revert to pending so the action panel is always present.
       default:
-        // Terminal states (completed / rejected / cancelled / no_show) — read-only.
-        return []
+        return [{ label: t('action.undo'), status: 'pending' }]
     }
   }
 
@@ -675,7 +937,7 @@ function MissionSignupsTab() {
     },
     {
       key: 'actions',
-      header: '',
+      header: t('common.actions'),
       width: '270px',
       cell: (s) => {
         const acts = actionsFor(s)
@@ -720,7 +982,7 @@ function MissionSignupsTab() {
           >
             {SIGNUP_STATUSES.map((s) => <option key={s} value={s}>{statusLabel(s)}</option>)}
           </select>
-          <button className="secondary" onClick={exportCsv}>{t('common.export_csv')}</button>
+          <ExportCsvButton onExport={exportCsv} />
         </div>
       </div>
       {err && <div className="error-box">{err}</div>}

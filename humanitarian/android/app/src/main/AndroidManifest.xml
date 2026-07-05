@@ -1,6 +1,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Required so release builds can reach the backend. Flutter only adds
+         INTERNET to the debug/profile manifests automatically, so without this
+         line a release APK would have no network access. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Android 13+ requires this for FCM push notifications to be shown. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
-        android:label="humanitarian"
+        android:label="BalanceNex"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

@@ -3,7 +3,10 @@ package handlers
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"image/jpeg"
+	"mime/multipart"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -100,12 +103,34 @@ func (h *AdminUploadHandler) Upload(c *gin.Context) {
 	// Save under <UploadDir>/uploads. The directory is created by the
 	// startup code in main.go (or manually); we don't mkdir on every upload.
 	dest := filepath.Join(h.UploadDir, "uploads", name)
-	if err := c.SaveUploadedFile(file, dest); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"error":   "Failed to save file: " + err.Error(),
-		})
-		return
+
+	// Section 27 — automatically compress JPEG uploads (typical phone photos /
+	// profile images) to cut storage + speed up loading, UNLESS the caller
+	// flags the file as sensitive (medical reports, case documents, house /
+	// property images, official documents) — those keep their original bytes
+	// for inspection/verification. PNG/GIF/WEBP/SVG/PDF are stored untouched
+	// (transparency / vector / document integrity). Any compression failure
+	// falls back to saving the original file, so uploads never break.
+	saved := false
+	if (ext == ".jpg" || ext == ".jpeg") && !isSensitiveUpload(c) {
+		if err := saveCompressedJPEG(file, dest); err == nil {
+			saved = true
+		}
+	}
+	if !saved {
+		if err := c.SaveUploadedFile(file, dest); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"success": false,
+				"error":   "Failed to save file: " + err.Error(),
+			})
+			return
+		}
+	}
+
+	// Report the actual on-disk size (compression may have shrunk it).
+	size := file.Size
+	if fi, statErr := os.Stat(dest); statErr == nil {
+		size = fi.Size()
 	}
 
 	// Path the SPA stores back into the row: relative, no leading slash, so
@@ -114,7 +139,47 @@ func (h *AdminUploadHandler) Upload(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"path":    relPath,
-		"size":    file.Size,
+		"size":    size,
 		"mime":    mime,
 	})
+}
+
+// isSensitiveUpload reports whether an upload must retain its original bytes
+// (no compression). Callers signal this with either sensitive=1/true or a
+// kind of medical/case-document/property/official (Section 27).
+func isSensitiveUpload(c *gin.Context) bool {
+	s := strings.ToLower(strings.TrimSpace(c.PostForm("sensitive")))
+	if s == "1" || s == "true" || s == "yes" {
+		return true
+	}
+	switch strings.ToLower(strings.TrimSpace(c.PostForm("kind"))) {
+	case "medical", "medical_report", "case_document", "document",
+		"property", "house", "official":
+		return true
+	}
+	return false
+}
+
+// saveCompressedJPEG decodes an uploaded JPEG and re-encodes it at a reduced
+// quality to the destination path. Returns an error (without writing a partial
+// file the caller would keep) if the input can't be decoded, so the caller can
+// fall back to storing the original bytes verbatim.
+func saveCompressedJPEG(file *multipart.FileHeader, dest string) error {
+	src, err := file.Open()
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+	img, err := jpeg.Decode(src)
+	if err != nil {
+		return err
+	}
+	out, err := os.Create(dest)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	// Quality 82 is visually near-lossless for photos but typically 40–60%
+	// smaller than a phone camera's default ~95.
+	return jpeg.Encode(out, img, &jpeg.Options{Quality: 82})
 }

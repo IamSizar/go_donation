@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState, useRef } from 'react'
+import RowDeleteButton from '../components/RowDeleteButton'
 import { Link } from 'react-router-dom'
+import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError } from '../lib/api'
 import { useLivePoll } from '../lib/useLivePoll'
 import {
@@ -14,7 +16,7 @@ import EditModal, { type FieldSpec } from '../components/EditModal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../lib/toast'
 import { useI18n } from '../lib/i18n'
-import { downloadCsv, type CsvColumn } from '../lib/csv'
+import { type CsvColumn } from '../lib/csv'
 import { HighlightBanner, useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForDonation } from '../lib/statusColors'
 import { formatPhone } from '../lib/phone'
@@ -38,7 +40,7 @@ const DONATION_CSV_COLUMNS: CsvColumn<DonationAdminRow>[] = [
 const PER_PAGE = 20
 
 const PAYMENT_LABELS = ['success', 'pending', 'failed']
-const DELIVERY_STATUSES = ['registered', 'received', 'under_review', 'delivered', 'cancelled']
+const DELIVERY_STATUSES = ['registered', 'received', 'under_review', 'delivered', 'paused', 'archived', 'cancelled']
 
 function paymentLabelToCode(label: string): number {
   if (label === 'success') return 1
@@ -60,7 +62,7 @@ const DONATION_FIELDS: FieldSpec[] = [
 ]
 
 const DONATION_CREATE_FIELDS: FieldSpec[] = [
-  { key: 'user_id',       label: 'Donor user ID', labelKey: 'field.donor_user_id',     type: 'number', required: true },
+  { key: 'user_id',       label: 'Contributor user ID', labelKey: 'field.donor_user_id',     type: 'number', required: true },
   { key: 'campaign_id',   label: 'Campaign ID', labelKey: 'field.campaign_id',       type: 'number' },
   { key: 'donation_kind', label: 'Kind', labelKey: 'field.kind',              type: 'select', options: DONATION_KINDS },
   ...DONATION_FIELDS,
@@ -154,11 +156,6 @@ export default function DonationsPage() {
   const modalOpen = editing !== null || creating
   const closeModal = () => { setEditing(null); setCreating(false) }
 
-  const exportCsv = () => {
-    const rows = resp?.items ?? []
-    if (rows.length === 0) { toast.info(t('common.nothing_to_export')); return }
-    downloadCsv(`donations-${new Date().toISOString().slice(0, 10)}.csv`, rows, DONATION_CSV_COLUMNS)
-  }
 
   const handleDelete = useCallback(
     async (id: number) => {
@@ -253,12 +250,12 @@ export default function DonationsPage() {
       cell: (d) => <span className="muted">{formatDate(d.transaction_date)}</span>,
     },
     {
-      key: 'actions', header: '', width: '170px',
+      key: 'actions', header: t('common.actions'), width: '170px',
       cell: (d) => (
         <>
           <Link className="row-edit-btn" to={`/detail/donations/${d.id}`}>{t('common.view')}</Link>
           <button className="row-edit-btn" onClick={() => setEditing(d)}>{t('common.edit')}</button>
-          <button className="row-delete-btn" onClick={() => setDeleting(d)}>{t('common.delete')}</button>
+          <RowDeleteButton onClick={() => setDeleting(d)} />
         </>
       ),
     },
@@ -279,7 +276,13 @@ export default function DonationsPage() {
             placeholder={t('page.donations.search_placeholder')}
             style={{ width: '220px' }}
           />
-          <button className="secondary" onClick={exportCsv}>{t('common.export_csv')}</button>
+          <ExportCsvButton
+            rows={resp?.items ?? []}
+            columns={DONATION_CSV_COLUMNS}
+            filenameBase="donations"
+            title={t('nav.donations')}
+            module="donations"
+          />
           <button onClick={() => setCreating(true)}>{t('page.donations.new')}</button>
         </div>
       </div>

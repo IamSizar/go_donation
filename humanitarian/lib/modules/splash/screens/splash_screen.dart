@@ -4,6 +4,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/auth_session.dart';
+import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:get/get.dart';
 
 import '../../../api/profile_api.dart';
@@ -90,6 +91,12 @@ class _SplashScreenState extends State<SplashScreen>
     _barController.stop();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      // Section 27 — a returning guest (skip sign-in) lands on Home, not the
+      // welcome/login flow.
+      if (isGuestMode()) {
+        Get.offAllNamed(AppRoutes.home);
+        return;
+      }
       if (effectiveUserId == null || effectiveUserId.isEmpty) {
         Get.offAllNamed(AppRoutes.welcome);
       } else {
@@ -172,7 +179,7 @@ class _SplashScreenState extends State<SplashScreen>
                           end: Alignment.bottomRight,
                         ).createShader(bounds),
                         child: Text(
-                          'Humanitarian Platform',
+                          'Humanitarian Platform'.tr,
                           textAlign: TextAlign.center,
                           style: Theme.of(context).textTheme.headlineLarge
                               ?.copyWith(
@@ -403,10 +410,14 @@ class _GlassHeroMark extends StatelessWidget {
                             ),
                           ],
                         ),
-                        child: const Icon(
-                          Icons.favorite_rounded,
-                          color: Colors.white,
-                          size: 28,
+                        // BalanceNex brand mark, clipped into the splash badge.
+                        child: ClipOval(
+                          child: Image.asset(
+                            'assets/branding/balancenex_icon.png',
+                            width: 58,
+                            height: 58,
+                            fit: BoxFit.cover,
+                          ),
                         ),
                       ),
                     ),

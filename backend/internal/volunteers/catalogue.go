@@ -1,6 +1,42 @@
 package volunteers
 
-import "strings"
+import (
+	"strings"
+	"sync"
+)
+
+// customSkillKeys holds admin-added profession keys (Section 13). It augments
+// the built-in catalogue so FilterSkillKeys accepts them too. Populated at
+// startup from the custom_professions table and updated when a new profession
+// is added. Guarded by a RWMutex because reads happen on every save.
+var (
+	customSkillMu   sync.RWMutex
+	customSkillKeys = map[string]struct{}{}
+)
+
+// RegisterCustomSkillKeys marks extra keys as valid volunteer skills. Idempotent.
+func RegisterCustomSkillKeys(keys ...string) {
+	customSkillMu.Lock()
+	defer customSkillMu.Unlock()
+	for _, k := range keys {
+		k = strings.ToLower(strings.TrimSpace(k))
+		if k != "" {
+			customSkillKeys[k] = struct{}{}
+		}
+	}
+}
+
+// isKnownSkill reports whether a key is either a built-in or a registered
+// custom profession.
+func isKnownSkill(k string) bool {
+	if _, ok := skillKeySet[k]; ok {
+		return true
+	}
+	customSkillMu.RLock()
+	_, ok := customSkillKeys[k]
+	customSkillMu.RUnlock()
+	return ok
+}
 
 // SkillKeys is the canonical 28-key catalogue. The volunteer mobile form
 // renders one chip per key (in 4 languages), and the admin SPA filters by
@@ -47,7 +83,7 @@ func FilterSkillKeys(raw []string) []string {
 		if k == "" {
 			continue
 		}
-		if _, ok := skillKeySet[k]; !ok {
+		if !isKnownSkill(k) {
 			continue
 		}
 		if _, dup := seen[k]; dup {

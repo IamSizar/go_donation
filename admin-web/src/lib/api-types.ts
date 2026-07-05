@@ -14,6 +14,8 @@ export type UserAccount = {
   role_id: number
   active: number
   is_admin: number
+  staff_tier?: string
+  account_status?: string
   created_at: string
   profile: UserProfile | null
 }
@@ -599,6 +601,8 @@ export function roleLabel(roleId: number): string {
       return 'beneficiary'
     case 3:
       return 'volunteer'
+    case 4:
+      return 'employee'
     case 0:
       return '—'
     default:

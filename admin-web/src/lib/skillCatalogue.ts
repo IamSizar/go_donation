@@ -119,6 +119,61 @@ for (const cat of SKILL_CATEGORIES) {
   for (const s of cat.skills) skillIndex.set(s.key, s)
 }
 
+// --- Section 13: admin-added custom professions -------------------------
+// The base catalogue above is fixed in code; these are professions the admin
+// adds at runtime (fetched from /api/admin/professions). Registering them lets
+// skillLabelFor resolve their labels and the dropdown list them.
+
+export interface CustomProfession {
+  id: number
+  skill_key: string
+  category: string
+  label_en: string
+  label_ar: string
+  label_ckb: string
+  label_kmr: string
+  display_order?: number
+}
+
+/** Category keys an admin may file a custom profession under: every built-in
+ *  category plus the catch-all 'custom'. */
+export const PROFESSION_CATEGORY_KEYS: string[] = [
+  ...SKILL_CATEGORIES.map((c) => c.key),
+  'custom',
+]
+
+/** Localized name for a category key (built-in categories resolve to their
+ *  catalogue label; 'custom' / unknown keys fall back to the key itself). */
+export function categoryLabelFor(key: string, locale: string | undefined): string {
+  const cat = SKILL_CATEGORIES.find((c) => c.key === key)
+  if (!cat) return key
+  switch ((locale ?? 'en').toLowerCase()) {
+    case 'ar': return cat.ar
+    case 'ckb': return cat.ckb
+    case 'kmr': return cat.kmr
+    default: return cat.en
+  }
+}
+
+let customSkillList: SkillEntry[] = []
+
+/** Register admin-added professions (idempotent — replaces the previous set). */
+export function registerCustomSkills(items: CustomProfession[]): void {
+  customSkillList = items.map((p) => ({
+    key: p.skill_key,
+    en: p.label_en,
+    ar: p.label_ar || p.label_en,
+    ckb: p.label_ckb || p.label_en,
+    kmr: p.label_kmr || p.label_en,
+  }))
+  for (const e of customSkillList) skillIndex.set(e.key, e)
+}
+
+/** The registered custom professions, for the dropdown's "Custom" group. */
+export function getCustomSkills(): SkillEntry[] {
+  return customSkillList
+}
+
 /** Pick the localized label for a single skill key. Falls back to en. */
 export function skillLabelFor(key: string, locale: string | undefined): string {
   const entry = skillIndex.get(key)

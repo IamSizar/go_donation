@@ -1217,6 +1217,29 @@ func NewMediaPostMsg(postTitle string, postID int64) LocalizedMessage {
 	}
 }
 
+// NewCampaignMsg — broadcast to everyone when a new fundraising campaign is
+// published, so donors can discover and support it. (New content parity with
+// NewMediaPostMsg / NewPartnerMsg.)
+func NewCampaignMsg(campaignTitle string, campaignID int64) LocalizedMessage {
+	return LocalizedMessage{
+		Type:              "new_campaign",
+		RelatedEntityType: "campaigns",
+		RelatedEntityID:   campaignID,
+		Title: LocalText{
+			En:  "New campaign to support",
+			Ar:  "حملة جديدة للدعم",
+			Ckb: "کەمپینێکی نوێ بۆ پشتگیری",
+			Kmr: "کامپانیایەکا نوو بۆ پشتگیریێ",
+		},
+		Body: LocalText{
+			En:  fmt.Sprintf("A new campaign is live: %s.", campaignTitle),
+			Ar:  fmt.Sprintf("حملة جديدة متاحة: %s.", campaignTitle),
+			Ckb: fmt.Sprintf("کەمپینێکی نوێ بەردەستە: %s.", campaignTitle),
+			Kmr: fmt.Sprintf("کامپانیایەکا نوو بەردەست ە: %s.", campaignTitle),
+		},
+	}
+}
+
 // ===== Donor ↔ campaign-owner chat (Phase 28) =====
 
 // ChatRequestMsg notifies the recipient that someone wants to start a chat.

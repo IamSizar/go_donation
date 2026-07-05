@@ -1,35 +1,59 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider, RequireAuth } from './lib/auth'
 import { GlobalAlertsProvider } from './lib/globalAlerts'
 import { PendingCountsProvider } from './lib/pendingCounts'
 import { ToastProvider } from './lib/toast'
-import { I18nProvider } from './lib/i18n'
+import { I18nProvider, useI18n } from './lib/i18n'
 import LoginPage from './pages/LoginPage'
 import AppShell from './components/AppShell'
-import DashboardPage from './pages/DashboardPage'
-import UsersPage from './pages/UsersPage'
-import RegistrationsPage from './pages/RegistrationsPage'
-import DonationsPage from './pages/DonationsPage'
-import CampaignsPage from './pages/CampaignsPage'
-import SponsorshipsPage from './pages/SponsorshipsPage'
-import BeneficiaryPage from './pages/BeneficiaryPage'
-import MarketplacePage from './pages/MarketplacePage'
-import MarriagePage from './pages/MarriagePage'
-import PartnersPage from './pages/PartnersPage'
-import MediaPage from './pages/MediaPage'
-import CommunityPage from './pages/CommunityPage'
-import CityGuidePage from './pages/CityGuidePage'
-import MessagesPage from './pages/MessagesPage'
-import VolunteersPage from './pages/VolunteersPage'
-import VolunteerBoardPage from './pages/VolunteerBoardPage'
-import MissionsPage from './pages/MissionsPage'
-import InKindPage from './pages/InKindPage'
-import SupportPage from './pages/SupportPage'
-import NotificationsPage from './pages/NotificationsPage'
-import ReportsPage from './pages/ReportsPage'
-import AuditLogsPage from './pages/AuditLogsPage'
-import PushNotificationsPage from './pages/PushNotificationsPage'
-import DetailPage from './pages/DetailPage'
+
+// Route-level code-splitting (Phase 10 · 10d). Each page becomes its own chunk
+// so the initial bundle only ships the login screen + shell; pages load on
+// demand. Cuts the >1 MB single-bundle down to small per-route chunks.
+const DashboardPage = lazy(() => import('./pages/DashboardPage'))
+const UsersPage = lazy(() => import('./pages/UsersPage'))
+const RegistrationsPage = lazy(() => import('./pages/RegistrationsPage'))
+const DonationsPage = lazy(() => import('./pages/DonationsPage'))
+const CampaignsPage = lazy(() => import('./pages/CampaignsPage'))
+const SponsorshipsPage = lazy(() => import('./pages/SponsorshipsPage'))
+const BeneficiaryPage = lazy(() => import('./pages/BeneficiaryPage'))
+const MarketplacePage = lazy(() => import('./pages/MarketplacePage'))
+const MarriagePage = lazy(() => import('./pages/MarriagePage'))
+const PartnersPage = lazy(() => import('./pages/PartnersPage'))
+const MediaPage = lazy(() => import('./pages/MediaPage'))
+const CommunityPage = lazy(() => import('./pages/CommunityPage'))
+const CityGuidePage = lazy(() => import('./pages/CityGuidePage'))
+const MessagesPage = lazy(() => import('./pages/MessagesPage'))
+const VolunteersPage = lazy(() => import('./pages/VolunteersPage'))
+const VolunteerBoardPage = lazy(() => import('./pages/VolunteerBoardPage'))
+const MissionsPage = lazy(() => import('./pages/MissionsPage'))
+const InKindPage = lazy(() => import('./pages/InKindPage'))
+const SupportPage = lazy(() => import('./pages/SupportPage'))
+const NotificationsPage = lazy(() => import('./pages/NotificationsPage'))
+const ReportsPage = lazy(() => import('./pages/ReportsPage'))
+const AuditLogsPage = lazy(() => import('./pages/AuditLogsPage'))
+const PushNotificationsPage = lazy(() => import('./pages/PushNotificationsPage'))
+const TrashPage = lazy(() => import('./pages/TrashPage'))
+const PermissionsPage = lazy(() => import('./pages/PermissionsPage'))
+const GuestAccessPage = lazy(() => import('./pages/GuestAccessPage'))
+const DetailPage = lazy(() => import('./pages/DetailPage'))
+
+function PageFallback() {
+  const { t } = useI18n()
+  return (
+    <div
+      style={{
+        display: 'grid',
+        placeItems: 'center',
+        minHeight: '60vh',
+        color: 'var(--color-muted, #888)',
+      }}
+    >
+      {t('common.loading')}
+    </div>
+  )
+}
 
 export default function App() {
   return (
@@ -47,6 +71,7 @@ export default function App() {
             Must be inside BrowserRouter (uses useNavigate) and AuthProvider
             (skips subscription when signed out). */}
         <GlobalAlertsProvider>
+        <Suspense fallback={<PageFallback />}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route
@@ -80,10 +105,14 @@ export default function App() {
             <Route path="reports" element={<ReportsPage />} />
             <Route path="audit-logs" element={<AuditLogsPage />} />
             <Route path="push" element={<PushNotificationsPage />} />
+            <Route path="trash" element={<TrashPage />} />
+            <Route path="permissions" element={<PermissionsPage />} />
+            <Route path="guest-access" element={<GuestAccessPage />} />
             <Route path="detail/:resource/:id" element={<DetailPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </Suspense>
         </GlobalAlertsProvider>
         </PendingCountsProvider>
         </ToastProvider>

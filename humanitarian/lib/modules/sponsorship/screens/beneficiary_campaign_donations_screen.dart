@@ -17,7 +17,7 @@ class BeneficiaryCampaignDonationsScreen extends StatelessWidget {
         : Get.put(BeneficiaryCampaignDonationsController());
 
     return SectionScaffold(
-      title: 'Campaign Donations',
+      title: 'Campaign Contributions',
       subtitle: 'All donations received for your published campaigns.',
       child: Obx(() {
         if (ctrl.isLoading.value) {
@@ -35,7 +35,7 @@ class BeneficiaryCampaignDonationsScreen extends StatelessWidget {
             children: [
               SectionTile(
                 icon: Icons.refresh_rounded,
-                title: 'Campaign Donations',
+                title: 'Campaign Contributions',
                 subtitle: ctrl.errorMessage.value!,
                 color: Colors.orange,
                 onTap: ctrl.fetch,
@@ -333,7 +333,7 @@ class _DonationRow extends StatelessWidget {
       donorUserId: donorId,
       campaignId: campaignId,
       otherPartyLabel: donorName.isEmpty ? 'this donor' : donorName,
-      conversationTitle: donorName.isEmpty ? 'Donor' : donorName,
+      conversationTitle: donorName.isEmpty ? 'Contributor' : donorName,
       conversationSubtitle: campaignTitle,
     );
   }

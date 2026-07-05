@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState, useRef } from 'react'
+import RowDeleteButton from '../components/RowDeleteButton'
 import { Link } from 'react-router-dom'
-import { api, describeError } from '../lib/api'
+import ExportCsvButton from '../components/ExportCsvButton'
+import { api, describeError, assetUrl } from '../lib/api'
 import { useLivePoll } from '../lib/useLivePoll'
 import type {
   AdminPageResp,
@@ -71,7 +73,7 @@ const PRODUCT_FIELDS: FieldSpec[] = [
 // Create form adds optional seller/case linkage at the top.
 const PRODUCT_CREATE_FIELDS: FieldSpec[] = [
   { key: 'seller_user_id',       label: 'Seller user ID', labelKey: 'field.seller_user_id',       type: 'number' },
-  { key: 'beneficiary_case_id',  label: 'Beneficiary case ID', labelKey: 'field.beneficiary_case_id',  type: 'number' },
+  { key: 'beneficiary_case_id',  label: 'Recipient case ID', labelKey: 'field.beneficiary_case_id',  type: 'number' },
   ...PRODUCT_FIELDS,
 ]
 
@@ -225,7 +227,7 @@ function ProductsTab() {
       width: '56px',
       cell: (p) =>
         p.image_path ? (
-          <img src={`/${p.image_path}`} alt="" className="thumb" />
+          <img src={assetUrl(p.image_path)} alt="" className="thumb" />
         ) : (
           <div className="thumb thumb-empty" />
         ),
@@ -276,12 +278,12 @@ function ProductsTab() {
       ),
     },
     {
-      key: 'actions', header: '', width: '170px',
+      key: 'actions', header: t('common.actions'), width: '170px',
       cell: (p) => (
         <>
           <Link className="row-edit-btn" to={`/detail/products/${p.id}`}>{t('common.view')}</Link>
           <button className="row-edit-btn" onClick={() => setEditing(p)}>{t('common.edit')}</button>
-          <button className="row-delete-btn" onClick={() => setDeleting(p)}>{t('common.delete')}</button>
+          <RowDeleteButton onClick={() => setDeleting(p)} />
         </>
       ),
     },
@@ -302,7 +304,7 @@ function ProductsTab() {
           <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); sel.clear() }} style={{ width: 'auto' }}>
             {PRODUCT_STATUSES.map((s) => <option key={s} value={s}>{statusLabel(s)}</option>)}
           </select>
-          <button className="secondary" onClick={exportCsv}>{t('common.export_csv')}</button>
+          <ExportCsvButton onExport={exportCsv} />
           <button onClick={() => setCreating(true)}>{t('page.marketplace.new_product')}</button>
         </div>
       </div>
@@ -453,7 +455,7 @@ function OrdersTab() {
       cell: (o) => (
         <div className="cell-stack">
           <strong>{o.name ?? `Product #${o.product_id}`}</strong>
-          {o.category && <span className="muted">{o.category}</span>}
+          {o.category && <span className="muted">{statusLabel(o.category)}</span>}
         </div>
       ),
     },
@@ -492,12 +494,12 @@ function OrdersTab() {
       cell: (o) => <span className="muted">{o.created_at?.slice(0, 10)}</span>,
     },
     {
-      key: 'actions', header: '', width: '170px',
+      key: 'actions', header: t('common.actions'), width: '170px',
       cell: (o) => (
         <>
           <Link className="row-edit-btn" to={`/detail/orders/${o.id}`}>{t('common.view')}</Link>
           <button className="row-edit-btn" onClick={() => setEditing(o)}>{t('common.edit')}</button>
-          <button className="row-delete-btn" onClick={() => setDeleting(o)}>{t('common.delete')}</button>
+          <RowDeleteButton onClick={() => setDeleting(o)} />
         </>
       ),
     },
@@ -518,7 +520,7 @@ function OrdersTab() {
           <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); sel.clear() }} style={{ width: 'auto' }}>
             {ORDER_STATUSES.map((s) => <option key={s} value={s}>{statusLabel(s)}</option>)}
           </select>
-          <button className="secondary" onClick={exportCsv}>{t('common.export_csv')}</button>
+          <ExportCsvButton onExport={exportCsv} />
         </div>
       </div>
       {err && <div className="error-box">{err}</div>}

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
+import RowDeleteButton from '../components/RowDeleteButton'
 import { Link } from 'react-router-dom'
-import { api, describeError } from '../lib/api'
+import ExportCsvButton from '../components/ExportCsvButton'
+import { api, describeError, assetUrl } from '../lib/api'
 import type { MediaPost } from '../lib/api-types'
 import Table, { type Column } from '../components/Table'
 import StatusCell from '../components/StatusCell'
@@ -10,7 +12,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../lib/toast'
 import { useI18n, useStatusLabel } from '../lib/i18n'
 import { useSelection } from '../lib/useSelection'
-import { downloadCsv, type CsvColumn } from '../lib/csv'
+import { type CsvColumn } from '../lib/csv'
 
 const MEDIA_CSV_COLUMNS: CsvColumn<MediaPost>[] = [
   { header: 'id', get: (m) => m.id },
@@ -145,11 +147,6 @@ export default function MediaPage() {
     [toast],
   )
 
-  const exportCsv = () => {
-    const rows = resp?.items ?? []
-    if (rows.length === 0) { toast.info(t('common.nothing_to_export')); return }
-    downloadCsv(`media-${new Date().toISOString().slice(0, 10)}.csv`, rows, MEDIA_CSV_COLUMNS)
-  }
 
   const columns: Column<MediaPost>[] = [
     { key: 'id', header: t('col.id'), width: '60px', cell: (m) => <strong>#{m.id}</strong> },
@@ -159,7 +156,7 @@ export default function MediaPage() {
       width: '56px',
       cell: (m) =>
         m.media_url ? (
-          <img src={`/${m.media_url}`} alt="" className="thumb" />
+          <img src={assetUrl(m.media_url)} alt="" className="thumb" />
         ) : (
           <div className="thumb thumb-empty" />
         ),
@@ -177,7 +174,7 @@ export default function MediaPage() {
     {
       key: 'type',
       header: t('col.type'),
-      cell: (m) => <span className="badge">{m.post_type}</span>,
+      cell: (m) => <span className="badge">{statusLabel(m.post_type)}</span>,
     },
     {
       key: 'link',
@@ -218,13 +215,13 @@ export default function MediaPage() {
     },
     {
       key: 'actions',
-      header: '',
+      header: t('common.actions'),
       width: '170px',
       cell: (m) => (
         <>
           <Link className="row-edit-btn" to={`/detail/media/${m.id}`}>{t('common.view')}</Link>
           <button className="row-edit-btn" onClick={() => setEditing(m)}>{t('common.edit')}</button>
-          <button className="row-delete-btn" onClick={() => setDeleting(m)}>{t('common.delete')}</button>
+          <RowDeleteButton onClick={() => setDeleting(m)} />
         </>
       ),
     },
@@ -253,7 +250,13 @@ export default function MediaPage() {
           <select value={status} onChange={(e) => { setStatus(e.target.value); sel.clear() }} style={{ width: 'auto' }}>
             {STATUSES.map((s) => <option key={s} value={s}>{statusLabel(s)}</option>)}
           </select>
-          <button className="secondary" onClick={exportCsv}>{t('common.export_csv')}</button>
+          <ExportCsvButton
+            rows={resp?.items ?? []}
+            columns={MEDIA_CSV_COLUMNS}
+            filenameBase="media"
+            title={t('nav.media')}
+            module="media"
+          />
           <button onClick={() => setCreating(true)}>{t('page.media.new')}</button>
         </div>
       </div>

@@ -8,6 +8,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -41,14 +43,35 @@ type ResolvedUser struct {
 	Phone              string
 	CreatedAt          time.Time
 	RegistrationStatus string // incomplete | pending | approved | rejected
+	StaffTier          string // super_admin | admin | supervisor | employee | user
 }
 
 type TokenStore struct {
 	Pool *pgxpool.Pool
+	// IdleTimeout enforces a server-side inactivity limit on PRIVILEGED
+	// (staff/admin) sessions only (Requirement 6c). Zero disables it, leaving
+	// the 30-day absolute expiry as the only bound. Set from
+	// SESSION_IDLE_TIMEOUT_MINUTES at construction.
+	IdleTimeout time.Duration
 }
 
 func NewTokenStore(pool *pgxpool.Pool) *TokenStore {
-	return &TokenStore{Pool: pool}
+	return &TokenStore{Pool: pool, IdleTimeout: loadIdleTimeout()}
+}
+
+// loadIdleTimeout reads SESSION_IDLE_TIMEOUT_MINUTES (default 60). A value of 0
+// (or an unparseable one) disables idle enforcement.
+func loadIdleTimeout() time.Duration {
+	mins := 60
+	if v := strings.TrimSpace(os.Getenv("SESSION_IDLE_TIMEOUT_MINUTES")); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			mins = n
+		}
+	}
+	if mins <= 0 {
+		return 0
+	}
+	return time.Duration(mins) * time.Minute
 }
 
 // IssueToken mints a new token for the user and stores its hash.
@@ -112,27 +135,31 @@ func (s *TokenStore) ResolveToken(ctx context.Context, raw string) (*ResolvedUse
 	providedHash := sha256Hex(secret)
 
 	var (
-		tokenID    int64
-		userID     int64
-		storedHash string
-		expiresAt  time.Time
-		revokedAt  *time.Time
-		roleID     *int
-		active     *int
-		isAdmin    *int
-		phone      string
-		createdAt  time.Time
-		regStatus  *string
+		tokenID     int64
+		userID      int64
+		storedHash  string
+		expiresAt   time.Time
+		revokedAt   *time.Time
+		idleSeconds *float64 // NOW() - last_used_at, computed DB-side (NULL until first use)
+		roleID      *int
+		active      *int
+		isAdmin     *int
+		phone       string
+		createdAt   time.Time
+		regStatus   *string
+		staffTier   *string
+		acctStatus  *string
 	)
 	err := s.Pool.QueryRow(ctx,
 		`SELECT t.id, t.user_id, t.token_hash, t.expires_at, t.revoked_at,
-		        u.role_id, u.active, u.is_admin, u.phone, u.created_at, u.registration_status
+		        EXTRACT(EPOCH FROM (NOW() - t.last_used_at)),
+		        u.role_id, u.active, u.is_admin, COALESCE(u.phone, ''), u.created_at, u.registration_status, u.staff_tier, u.account_status
 		   FROM api_access_tokens t
 		   JOIN users u ON u.id = t.user_id
 		  WHERE t.token_selector = $1
 		  LIMIT 1`,
 		selector,
-	).Scan(&tokenID, &userID, &storedHash, &expiresAt, &revokedAt, &roleID, &active, &isAdmin, &phone, &createdAt, &regStatus)
+	).Scan(&tokenID, &userID, &storedHash, &expiresAt, &revokedAt, &idleSeconds, &roleID, &active, &isAdmin, &phone, &createdAt, &regStatus, &staffTier, &acctStatus)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			// Constant-time dummy compare to keep timing flat.
@@ -148,8 +175,32 @@ func (s *TokenStore) ResolveToken(ctx context.Context, raw string) (*ResolvedUse
 	if time.Now().After(expiresAt) {
 		return nil, nil
 	}
+	// Section 25 — a suspended (temporary) or banned (permanent) account is
+	// denied on EVERY authenticated request, dashboard and mobile alike, by
+	// treating its token as invalid here (the single auth chokepoint).
+	if acctStatus != nil && (*acctStatus == "suspended" || *acctStatus == "banned") {
+		return nil, nil
+	}
 	if subtle.ConstantTimeCompare([]byte(storedHash), []byte(providedHash)) != 1 {
 		return nil, nil
+	}
+
+	// Requirement 6c — server-side idle timeout for PRIVILEGED sessions. Staff
+	// and admins are logged out after a period of inactivity; ordinary
+	// donor/mobile sessions keep the 30-day absolute expiry so donors are not
+	// signed out mid-use. The idle interval is computed DB-side (NOW() -
+	// last_used_at) so it is timezone-frame consistent with the touch below.
+	// idleSeconds is NULL until the first authed request, so a freshly issued
+	// token is never idle-expired on its opening call.
+	if s.IdleTimeout > 0 && idleSeconds != nil {
+		privileged := (isAdmin != nil && *isAdmin == 1) ||
+			(staffTier != nil && *staffTier != "" && *staffTier != "user")
+		if privileged && *idleSeconds > s.IdleTimeout.Seconds() {
+			// Kill the idle session so it can't be revived; the client re-logs in.
+			_, _ = s.Pool.Exec(ctx,
+				`UPDATE api_access_tokens SET revoked_at = NOW() WHERE id = $1 AND revoked_at IS NULL`, tokenID)
+			return nil, nil
+		}
 	}
 
 	// Best-effort last_used_at touch; failure should not block auth.
@@ -174,6 +225,9 @@ func (s *TokenStore) ResolveToken(ctx context.Context, raw string) (*ResolvedUse
 	if isAdmin != nil {
 		r.IsAdmin = *isAdmin
 	}
+	if staffTier != nil {
+		r.StaffTier = *staffTier
+	}
 	return r, nil
 }
 
@@ -187,6 +241,19 @@ func (s *TokenStore) RevokeToken(ctx context.Context, raw string) error {
 		`UPDATE api_access_tokens SET revoked_at = NOW()
 		  WHERE token_selector = $1 AND revoked_at IS NULL`,
 		parts[0],
+	)
+	return err
+}
+
+// RevokeAllForUser revokes every active token for a user — the "force logout"
+// primitive. Called when an account is deactivated or its staff_tier is
+// lowered, so the affected user is signed out immediately and the updated
+// permissions take effect on their next request (401 → re-login).
+func (s *TokenStore) RevokeAllForUser(ctx context.Context, userID int64) error {
+	_, err := s.Pool.Exec(ctx,
+		`UPDATE api_access_tokens SET revoked_at = NOW()
+		  WHERE user_id = $1 AND revoked_at IS NULL`,
+		userID,
 	)
 	return err
 }

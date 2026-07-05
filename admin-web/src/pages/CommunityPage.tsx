@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
+import RowDeleteButton from '../components/RowDeleteButton'
 import { Link } from 'react-router-dom'
+import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError } from '../lib/api'
 import type { CommunityEntry } from '../lib/api-types'
 import Table, { type Column } from '../components/Table'
@@ -7,7 +9,7 @@ import EditModal, { type FieldSpec } from '../components/EditModal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../lib/toast'
 import { useI18n } from '../lib/i18n'
-import { downloadCsv, type CsvColumn } from '../lib/csv'
+import { type CsvColumn } from '../lib/csv'
 
 const COMMUNITY_CSV_COLUMNS: CsvColumn<CommunityEntry>[] = [
   { header: 'id', get: (e) => e.id },
@@ -91,11 +93,6 @@ export default function CommunityPage() {
   const modalOpen = editing !== null || creating
   const closeModal = () => { setEditing(null); setCreating(false) }
 
-  const exportCsv = () => {
-    const rows = items
-    if (rows.length === 0) { toast.info(t('common.nothing_to_export')); return }
-    downloadCsv(`community-${new Date().toISOString().slice(0, 10)}.csv`, rows, COMMUNITY_CSV_COLUMNS)
-  }
 
   const handleDelete = useCallback(
     async (id: number) => {
@@ -130,12 +127,12 @@ export default function CommunityPage() {
       cell: (e) => e.website ? <a href={e.website} target="_blank" rel="noreferrer">open ↗</a> : <span className="muted">—</span>,
     },
     {
-      key: 'actions', header: '', width: '170px',
+      key: 'actions', header: t('common.actions'), width: '170px',
       cell: (e) => (
         <>
           <Link className="row-edit-btn" to={`/detail/community/${e.id}`}>{t('common.view')}</Link>
           <button className="row-edit-btn" onClick={() => setEditing(e)}>{t('common.edit')}</button>
-          <button className="row-delete-btn" onClick={() => setDeleting(e)}>{t('common.delete')}</button>
+          <RowDeleteButton onClick={() => setDeleting(e)} />
         </>
       ),
     },
@@ -164,7 +161,13 @@ export default function CommunityPage() {
             <option value="">{t('filter.all_cities')}</option>
             {cities.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
-          <button className="secondary" onClick={exportCsv}>{t('common.export_csv')}</button>
+          <ExportCsvButton
+            rows={items}
+            columns={COMMUNITY_CSV_COLUMNS}
+            filenameBase="community"
+            title={t('nav.community')}
+            module="community"
+          />
           <button onClick={() => setCreating(true)}>{t('page.community.new')}</button>
         </div>
       </div>

@@ -46,7 +46,7 @@ class _MyDonationsPageState extends State<MyDonationsPage> {
           children: [
             const Padding(
               padding: EdgeInsets.fromLTRB(20, 12, 20, 18),
-              child: PageTopBar(title: 'My Donations'),
+              child: PageTopBar(title: 'My Contributions'),
             ),
             Expanded(
               child: Obx(() {
@@ -94,7 +94,7 @@ class _MyDonationsPageState extends State<MyDonationsPage> {
                         pendingCount: s.pendingCount,
                       ),
                       const SizedBox(height: 22),
-                      const SectionLabel(title: 'Donation status'),
+                      const SectionLabel(title: 'Contribution status'),
                       const SizedBox(height: 12),
                       Center(
                         child: Wrap(

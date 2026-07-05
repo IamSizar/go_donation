@@ -10,6 +10,17 @@
    action color so it doesn't feel hostile.
    ============================================================ */
 
+/* Kurdish / Arabic display font. Used only for RTL locales (ar / ckb / kmr)
+   where it renders Arabic-script text more clearly than Inter. English (LTR)
+   keeps Inter. `font-display: swap` avoids a blank flash while it loads. */
+@font-face {
+  font-family: 'Kurdfont';
+  src: url('/fonts/Kurdfont.woff') format('woff');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   /* -------- Brand & semantic colors -------- */
   --color-primary:        #10B981;  /* emerald-500 */
@@ -786,7 +797,7 @@ button.amber:disabled {
   font-size: var(--text-sm);
 }
 .data-table thead th {
-  text-align: left;
+  text-align: start;
   font-weight: 600;
   color: var(--muted);
   background: var(--color-surface-2);
@@ -2033,4 +2044,56 @@ code, pre { direction: ltr; unicode-bidi: bidi-override; }
 }
 .tpl-card {
   transform: translateY(0);
+}
+
+/* Unified top action bar (global notice #7) */
+.top-action-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0 14px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--color-border, rgba(255, 255, 255, 0.08));
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--color-bg, #0b0f1a);
+}
+.top-action-bar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ============================================================
+   Arabic + Kurdish (RTL) typography
+   ============================================================
+   The i18n layer sets <html dir="rtl"> for ar / ckb / kmr, so these rules
+   apply only to those locales — English stays Inter/LTR untouched. Kurdfont
+   renders Arabic-script letterforms more clearly than Inter, and the extra
+   line-height + antialiasing make dense data screens easier on the eyes.
+   Arabic must never be letter-spaced (it breaks the connected letterforms). */
+html[dir='rtl'],
+html[dir='rtl'] body {
+  font-family: 'Kurdfont', 'Inter', 'Segoe UI', Tahoma, Arial, sans-serif;
+  line-height: 1.75;
+  letter-spacing: 0;
+  font-feature-settings: normal;      /* drop Inter's Latin-only cvXX/ssXX alts */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Form controls + tables don't inherit font-family by default, so force it. */
+html[dir='rtl'] :where(button, input, select, textarea, table, th, td,
+  h1, h2, h3, h4, h5, h6, .badge, .nav-item, label, option) {
+  font-family: 'Kurdfont', 'Inter', 'Segoe UI', Tahoma, Arial, sans-serif;
+  letter-spacing: 0;
+}
+
+/* Slightly roomier lines inside data tables + cards so Arabic ascenders and
+   diacritics don't crowd the row above. */
+html[dir='rtl'] .data-table td,
+html[dir='rtl'] .data-table th {
+  line-height: 1.7;
 }

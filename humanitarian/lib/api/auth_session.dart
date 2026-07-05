@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/api/links.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:http/http.dart' as http;
@@ -79,6 +80,58 @@ Future<void> persistApiSessionFromResponse(Map<String, dynamic> body) async {
 Future<void> clearApiSession() async {
   await sharedPreferences.remove(kApiAccessTokenPrefsKey);
   await sharedPreferences.remove(kApiAccessTokenExpiryPrefsKey);
+}
+
+/// Identity keys wiped on logout. Intentionally does NOT include preferences
+/// the user expects to survive a logout (selected language, theme) — those are
+/// left untouched so the app doesn't reset to English after signing out.
+const List<String> _identityPrefsKeys = [
+  'id_user',
+  'email_user',
+  'phone_user',
+  'name_user',
+  'address_user',
+  'gender_user',
+  'profile_image_path',
+  'profile_picture_url',
+  'role_id',
+  'registration_status',
+  'reject_reason',
+];
+
+/// Section 27.5 — full logout. Revokes the session token on the server (so it
+/// can never be reused / auto-restored), then clears the local session,
+/// identity, and guest flag. Best-effort on the network call: local state is
+/// always cleared even if the device is offline.
+///
+/// IMPORTANT: navigate away from the authenticated screen (Get.offAllNamed to
+/// the login/welcome route) BEFORE awaiting this, so no still-mounted section
+/// rebuilds against the cleared prefs (that was the black-screen bug, 27.4).
+Future<void> logout() async {
+  final token = currentApiAccessToken();
+  if (token != null && token.isNotEmpty) {
+    try {
+      await http
+          .post(
+            Uri.parse(logoutUrl),
+            headers: {
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          )
+          .timeout(const Duration(seconds: 5));
+    } catch (_) {
+      // Offline / server unreachable — local state is still cleared below, and
+      // the token expires server-side on its own TTL.
+    }
+  }
+  await clearApiSession();
+  for (final key in _identityPrefsKeys) {
+    await sharedPreferences.remove(key);
+  }
+  // A signed-out user is not a guest either; drop the guest flag so the splash
+  // routes to welcome/login, not straight into guest Home.
+  await exitGuestMode();
 }
 
 Future<bool> ensureApiSession({

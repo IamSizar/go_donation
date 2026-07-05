@@ -22,7 +22,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { describeError } from '../lib/api'
-import { useI18n } from '../lib/i18n'
+import { useI18n, useStatusLabel } from '../lib/i18n'
 import FileInput from './FileInput'
 
 export type FieldType = 'text' | 'textarea' | 'number' | 'select' | 'file'
@@ -66,6 +66,7 @@ function toInputValue(v: unknown): string {
 
 export default function EditModal({ open, title, initial, fields, onSave, onClose, mode = 'edit', saveLabel }: Props) {
   const { t } = useI18n()
+  const statusLabel = useStatusLabel()
   const initialStrings = useMemo(() => {
     const m: Record<string, string> = {}
     for (const f of fields) m[f.key] = toInputValue(initial[f.key])
@@ -237,7 +238,7 @@ export default function EditModal({ open, title, initial, fields, onSave, onClos
                       onChange={(e) => setV(e.target.value)}
                     >
                       {(f.options ?? []).map((opt) => (
-                        <option key={opt} value={opt}>{opt}</option>
+                        <option key={opt} value={opt}>{statusLabel(opt)}</option>
                       ))}
                     </select>
                   </label>

@@ -4,7 +4,23 @@ import { useLivePoll } from '../lib/useLivePoll'
 import type { AdminNotification, AdminPageResp } from '../lib/api-types'
 import Table, { type Column } from '../components/Table'
 import Pagination from '../components/Pagination'
-import { useI18n } from '../lib/i18n'
+import ExportCsvButton from '../components/ExportCsvButton'
+import { type CsvColumn } from '../lib/csv'
+import { useI18n, useStatusLabel } from '../lib/i18n'
+
+// Flat CSV shape for a notification row (Phase 7 · M-53).
+const NOTIFICATION_CSV_COLUMNS: CsvColumn<AdminNotification>[] = [
+  { header: 'id', get: (n) => n.id },
+  { header: 'target', get: (n) => n.user_id ? `user #${n.user_id}` : n.role_id ? `role ${n.role_id}` : 'broadcast' },
+  { header: 'title', get: (n) => n.title },
+  { header: 'title_ar', get: (n) => n.title_ar ?? '' },
+  { header: 'body', get: (n) => n.body },
+  { header: 'type', get: (n) => n.notification_type ?? '' },
+  { header: 'category', get: (n) => n.notification_category },
+  { header: 'priority', get: (n) => n.priority },
+  { header: 'is_read', get: (n) => n.is_read === 1 ? 'read' : 'unread' },
+  { header: 'created_at', get: (n) => n.created_at ?? '' },
+]
 
 const PER_PAGE = 20
 const CATEGORIES = ['', 'normal', 'urgent', 'payment', 'campaign', 'system', 'reminder']
@@ -35,6 +51,8 @@ export default function NotificationsPage() {
   // stays hidden and the list updates silently (no full reload flash).
   const pollSilent = useRef(false)
   const { t } = useI18n()
+  const statusLabel = useStatusLabel()
+
 
   useEffect(() => {
     let cancelled = false
@@ -82,7 +100,7 @@ export default function NotificationsPage() {
     { key: 'type', header: t('col.type'), cell: (n) => n.notification_type ? <code style={{ background: 'transparent', padding: 0 }}>{n.notification_type}</code> : <span className="muted">—</span> },
     {
       key: 'cat', header: t('col.category'),
-      cell: (n) => <span className={`badge ${categoryBadge(n.notification_category)}`}>{n.notification_category}</span>,
+      cell: (n) => <span className={`badge ${categoryBadge(n.notification_category)}`}>{statusLabel(n.notification_category)}</span>,
     },
     { key: 'prio', header: t('col.pri'), align: 'right', cell: (n) => n.priority },
     { key: 'read', header: t('col.read'), cell: (n) => n.is_read === 1 ? <span className="badge ok">{t('common.yes')}</span> : <span className="badge off">{t('common.no')}</span> },
@@ -98,7 +116,7 @@ export default function NotificationsPage() {
         </div>
         <div className="row">
           <select value={category} onChange={(e) => { setCategory(e.target.value); setPage(1) }} style={{ width: 'auto' }}>
-            {CATEGORIES.map(c => <option key={c} value={c}>{c === '' ? t('filter.all_categories') : c}</option>)}
+            {CATEGORIES.map(c => <option key={c} value={c}>{c === '' ? t('filter.all_categories') : statusLabel(c)}</option>)}
           </select>
           <select value={readStatus} onChange={(e) => { setReadStatus(e.target.value); setPage(1) }} style={{ width: 'auto' }}>
             {READ.map(r => (
@@ -107,6 +125,13 @@ export default function NotificationsPage() {
               </option>
             ))}
           </select>
+          <ExportCsvButton
+            rows={resp?.items ?? []}
+            columns={NOTIFICATION_CSV_COLUMNS}
+            filenameBase="notifications"
+            title={t('nav.notifications')}
+            module="notifications"
+          />
         </div>
       </div>
       {err && <div className="error-box">{err}</div>}

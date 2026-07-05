@@ -31,10 +31,10 @@ class WelcomeScreen extends StatelessWidget {
               child: _LanguageSelector(),
             ),
             const SizedBox(height: 20),
-            const Center(
+            Center(
               child: AuthBadge(
                 icon: Icons.volunteer_activism_rounded,
-                label: 'Humanitarian platform',
+                label: 'Humanitarian platform'.tr,
               ),
             ),
             const SizedBox(height: 28),
@@ -46,10 +46,14 @@ class WelcomeScreen extends StatelessWidget {
                 shape: BoxShape.circle,
                 border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
               ),
-              child: const Icon(
-                Icons.favorite_rounded,
-                size: 44,
-                color: Colors.white,
+              // BalanceNex brand mark, clipped to the circular badge.
+              child: ClipOval(
+                child: Image.asset(
+                  'assets/branding/balancenex_icon.png',
+                  width: 88,
+                  height: 88,
+                  fit: BoxFit.cover,
+                ),
               ),
             ),
             const SizedBox(height: 24),

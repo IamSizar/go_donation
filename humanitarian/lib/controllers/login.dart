@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:developer';
 import 'dart:convert';
-import 'dart:math' show Random;
 
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
@@ -11,7 +10,6 @@ import 'package:flutter_application_1/api/links.dart';
 import 'package:flutter_application_1/api/profile_api.dart';
 import 'package:flutter_application_1/core/app_event_firestore.dart';
 import 'package:flutter_application_1/core/app_haptics.dart';
-import 'package:flutter_application_1/core/app_state.dart';
 import 'package:get/get.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
@@ -21,8 +19,6 @@ class LoginController extends GetxController {
   final pendingPhone = ''.obs;
   final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
   bool _googleInitialized = false;
-  final Random _random = Random();
-  Map<String, dynamic>? _pendingUser;
   // Phase 19 — these were the local-only OTP placeholder fields the pre-19
   // code used. We keep them as nullable for back-compat with code paths
   // that still touch them (clearPendingOtp, the demo-snackbar branch), but
@@ -53,7 +49,13 @@ class LoginController extends GetxController {
 
   Future<void> _ensureGoogleInitialized() async {
     if (_googleInitialized) return;
-    await _googleSignIn.initialize();
+    // Passing the server (Web) client ID makes the returned idToken's audience
+    // the Web client ID, which the backend verifies. Empty → platform default.
+    await _googleSignIn.initialize(
+      serverClientId: googleServerClientId.isEmpty
+          ? null
+          : googleServerClientId,
+    );
     _googleInitialized = true;
   }
 
@@ -89,7 +91,6 @@ class LoginController extends GetxController {
       // We keep `pendingPhone` so the verify screen can show "Code sent to
       // +964…" and so resendOtp() works without re-asking the phone.
       pendingPhone.value = normalizedPhone;
-      _pendingUser = null; // legacy local-OTP state cleared
 
       // Coerce the mode to one of the two accepted values — anything else
       // (including null / typos) becomes 'real' for safety.
@@ -98,10 +99,7 @@ class LoginController extends GetxController {
 
       final resp = await _loginSessionDio.post<dynamic>(
         otpRequestUrl,
-        data: <String, dynamic>{
-          'phone': normalizedPhone,
-          'mode': resolvedMode,
-        },
+        data: <String, dynamic>{'phone': normalizedPhone, 'mode': resolvedMode},
         options: Options(contentType: Headers.jsonContentType),
       );
 
@@ -112,14 +110,17 @@ class LoginController extends GetxController {
         // Map common backend errors to user-friendly messages.
         final raw = body?['error']?.toString() ?? body?['message']?.toString();
         if (code == 429) {
-          errorMessage.value = raw ??
-              'Too many requests. Please wait before trying again.'.tr;
+          errorMessage.value =
+              raw ?? 'Too many requests. Please wait before trying again.'.tr;
         } else if (code == 502 || code == 503) {
-          errorMessage.value = raw ??
-              'Verification service is temporarily unavailable.'.tr;
+          errorMessage.value =
+              raw ?? 'Verification service is temporarily unavailable.'.tr;
         } else {
           errorMessage.value =
-              raw ?? 'Failed to send code. (@code)'.trParams({'code': code.toString()});
+              raw ??
+              'Failed to send code. (@code)'.trParams({
+                'code': code.toString(),
+              });
         }
         return false;
       }
@@ -183,10 +184,7 @@ class LoginController extends GetxController {
 
       final resp = await _loginSessionDio.post<dynamic>(
         otpVerifyUrl,
-        data: <String, dynamic>{
-          'phone': pendingPhone.value,
-          'code': code,
-        },
+        data: <String, dynamic>{'phone': pendingPhone.value, 'code': code},
         options: Options(contentType: Headers.jsonContentType),
       );
 
@@ -196,19 +194,24 @@ class LoginController extends GetxController {
       if (status == 401) {
         final left = body?['attempts_left'];
         errorMessage.value = (left is num && left > 0)
-            ? 'Incorrect code. @n attempts left.'.trParams({'n': left.toString()})
+            ? 'Incorrect code. @n attempts left.'.trParams({
+                'n': left.toString(),
+              })
             : (body?['error']?.toString() ?? 'Incorrect verification code.'.tr);
         return null;
       }
       if (status == 410 || status == 404 || status == 429) {
         errorMessage.value =
-            body?['error']?.toString() ?? 'This code is no longer valid. Tap Resend.'.tr;
+            body?['error']?.toString() ??
+            'This code is no longer valid. Tap Resend.'.tr;
         return null;
       }
       if (status != 200 || body == null) {
         errorMessage.value =
             body?['error']?.toString() ??
-            'Verification failed. (@code)'.trParams({'code': status.toString()});
+            'Verification failed. (@code)'.trParams({
+              'code': status.toString(),
+            });
         return null;
       }
 
@@ -264,10 +267,8 @@ class LoginController extends GetxController {
           final p = userData['phone']?.toString().trim();
           return (p != null && p.isNotEmpty) ? p : phoneFallback;
         }();
-    final resolvedName = pickFromAccountMap(
-          accountMap,
-          ['full_name', 'name', 'display_name'],
-        ) ??
+    final resolvedName =
+        pickFromAccountMap(accountMap, ['full_name', 'name', 'display_name']) ??
         userData['name']?.toString();
     final resolvedEmail =
         pickFromAccountMap(accountMap, ['email']) ??
@@ -343,17 +344,12 @@ class LoginController extends GetxController {
   void clearPendingOtp() {
     pendingPhone.value = '';
     _pendingOtp = null;
-    _pendingUser = null;
     _otpExpiresAt = null;
     unawaited(_loginSessionJar.deleteAll());
   }
 
   String _normalizePhone(String phone) {
     return phone.replaceAll(RegExp(r'[\s()-]'), '').trim();
-  }
-
-  String _generateOtp() {
-    return (100000 + _random.nextInt(900000)).toString();
   }
 
   String _lastDigits(String value) {
@@ -375,213 +371,6 @@ class LoginController extends GetxController {
       } catch (_) {}
     }
     return null;
-  }
-
-  /// GET [loginGetTokenUrl] with `action=login` when user requests OTP (primes PHP session + CSRF).
-  Future<bool> _fetchLoginCsrfToken() async {
-    try {
-      final uri = Uri.parse(
-        loginGetTokenUrl,
-      ).replace(queryParameters: const {'action': 'login'});
-      final resp = await _loginSessionDio.get<dynamic>(uri.toString());
-      if (resp.statusCode != 200) {
-        errorMessage.value = 'Could not load login security token. (@code)'
-            .trParams({'code': '${resp.statusCode}'});
-        return false;
-      }
-      final map = _dioDataAsMap(resp.data);
-      if (map == null) {
-        errorMessage.value = 'Login security token response was invalid.'.tr;
-        return false;
-      }
-      if (map['status']?.toString() != 'success') {
-        errorMessage.value =
-            map['error']?.toString() ??
-            'Could not load login security token.'.tr;
-        return false;
-      }
-      final token = map['csrf_token']?.toString();
-      if (token == null || token.isEmpty) {
-        errorMessage.value =
-            'Login security token missing. Check @url on the server.'.trParams({
-              'url': loginGetTokenUrl,
-            });
-        return false;
-      }
-      log('Login CSRF token (action=login): $token');
-      sharedPreferences.setString('csrf_token', token);
-      return true;
-    } on DioException catch (e, stack) {
-      log('Login CSRF fetch error: $e', stackTrace: stack);
-      final data = _dioDataAsMap(e.response?.data);
-      errorMessage.value =
-          data?['error']?.toString() ??
-          'Could not reach login security endpoint. Check your network.'.tr;
-      return false;
-    } catch (e, stack) {
-      log('Login CSRF fetch error: $e', stackTrace: stack);
-      errorMessage.value = 'Could not load login security token.'.tr;
-      return false;
-    }
-  }
-
-  /// POST [insertUserWithPhoneUrl] with JSON `{ phone }` after OTP is OK.
-  /// Reuses [_loginSessionDio] so session matches the Send OTP CSRF request.
-  Future<Map<String, dynamic>?> _insertUserWithPhone(String phone) async {
-    try {
-      final loginResp = await _loginSessionDio.post<dynamic>(
-        insertUserWithPhoneUrl,
-        data: <String, dynamic>{'phone': phone},
-        options: Options(contentType: Headers.jsonContentType),
-      );
-
-      final code = loginResp.statusCode ?? 0;
-      final body = _dioDataAsMap(loginResp.data);
-
-      if (code == 400) {
-        errorMessage.value =
-            body?['error']?.toString() ?? 'Invalid phone number.'.tr;
-        return null;
-      }
-
-      if (code != 200 && code != 201) {
-        errorMessage.value =
-            body?['error']?.toString() ??
-            'Phone sign-in failed. (@code)'.trParams({'code': code.toString()});
-        return null;
-      }
-
-      if (body == null) {
-        final raw = loginResp.data?.toString().trim() ?? '';
-        final rawInsertedId = int.tryParse(raw);
-        if (rawInsertedId != null) {
-          return _buildPhoneUser(
-            id: rawInsertedId.toString(),
-            phone: phone,
-            name: _pendingUser?['name']?.toString(),
-          );
-        }
-        errorMessage.value =
-            'Phone sign-in endpoint returned an invalid response.'.tr;
-        return null;
-      }
-
-      final isSuccess = body['status'] == 'success' || body['success'] == true;
-      if (!isSuccess) {
-        errorMessage.value =
-            body['message']?.toString() ??
-            body['error']?.toString() ??
-            'Could not complete phone sign in. Please try again.'.tr;
-        return null;
-      }
-
-      final insertedId = _extractInsertedUserId(body);
-      if (insertedId == null || insertedId.isEmpty) {
-        errorMessage.value =
-            'Phone sign-in endpoint returned an invalid response.'.tr;
-        return null;
-      }
-
-      final userData = body['user'] is Map<String, dynamic>
-          ? Map<String, dynamic>.from(body['user'] as Map<String, dynamic>)
-          : body['data'] is Map<String, dynamic>
-          ? Map<String, dynamic>.from(body['data'] as Map<String, dynamic>)
-          : <String, dynamic>{};
-
-      Map<String, dynamic>? accountMap;
-      final accRaw = body['account'];
-      if (accRaw is Map) {
-        accountMap = flattenAccountMap(Map<String, dynamic>.from(accRaw));
-      }
-
-      final resolvedPhone =
-          pickFromAccountMap(accountMap, ['phone', 'number', 'phone_number']) ??
-          () {
-            final p = userData['phone']?.toString().trim();
-            return (p != null && p.isNotEmpty) ? p : phone;
-          }();
-
-      final resolvedName =
-          pickFromAccountMap(accountMap, [
-            'full_name',
-            'name',
-            'display_name',
-          ]) ??
-          () {
-            final n = userData['name']?.toString().trim();
-            return (n != null && n.isNotEmpty) ? n : null;
-          }() ??
-          _pendingUser?['name']?.toString();
-
-      final resolvedEmail =
-          pickFromAccountMap(accountMap, ['email']) ??
-          userData['email']?.toString();
-
-      final user = _buildPhoneUser(
-        id: userData['id']?.toString() ?? insertedId,
-        phone: resolvedPhone,
-        name: resolvedName,
-        email: resolvedEmail,
-      );
-
-      if (accountMap != null) {
-        user['account'] = accountMap;
-      }
-
-      await persistApiSessionFromResponse(body);
-
-      // `auth/login/index.php`: has_role, role_id, returning_user
-      final hasRole = body['has_role'] == true || body['has_role'] == 1;
-      user['has_role'] = hasRole;
-      if (body['returning_user'] != null) {
-        user['returning_user'] =
-            body['returning_user'] == true || body['returning_user'] == 1;
-      }
-      final rawRole = body['role_id'];
-      if (rawRole != null && rawRole.toString().trim().isNotEmpty) {
-        final rid = int.tryParse(rawRole.toString());
-        if (rid != null && rid > 0) {
-          user['role_id'] = rid;
-        }
-      }
-      if (!hasRole) {
-        user.remove('role_id');
-      }
-
-      await AppEventFirestore.log(
-        eventType: user['returning_user'] == true ? 'login' : 'register',
-        eventLabel: user['returning_user'] == true
-            ? 'User logged in'
-            : 'User registered',
-        module: 'auth',
-        action: user['returning_user'] == true ? 'login' : 'register',
-        userId: int.tryParse(user['id']?.toString() ?? ''),
-        roleId: user['role_id'] is int
-            ? user['role_id'] as int
-            : int.tryParse(user['role_id']?.toString() ?? ''),
-        name: resolvedName,
-        number: resolvedPhone,
-        note: user['returning_user'] == true
-            ? 'Phone login succeeded'
-            : 'Phone registration succeeded',
-      );
-
-      return user;
-    } on DioException catch (e, stack) {
-      log('Phone sign-in error: $e', stackTrace: stack);
-      final data = _dioDataAsMap(e.response?.data);
-      errorMessage.value =
-          data?['error']?.toString() ??
-          'Phone sign-in failed. Please check your internet or API endpoint.'
-              .tr;
-      return null;
-    } catch (e, stack) {
-      log('Phone sign-in error: $e', stackTrace: stack);
-      errorMessage.value =
-          'Phone sign-in failed. Please check your internet or API endpoint.'
-              .tr;
-      return null;
-    }
   }
 
   String? _extractInsertedUserId(Map<String, dynamic> decoded) {
@@ -641,17 +430,44 @@ class LoginController extends GetxController {
       }
 
       final GoogleSignInAccount googleUser = await _googleSignIn.authenticate();
-      final String fallbackName = googleUser.email.split('@').first;
 
-      return <String, dynamic>{
-        'id': googleUser.id,
-        'email': googleUser.email,
-        'name':
-            (googleUser.displayName != null &&
-                googleUser.displayName!.trim().isNotEmpty)
-            ? googleUser.displayName!.trim()
-            : fallbackName,
-      };
+      // The ID token is what the backend verifies (its signature/audience).
+      final String? idToken = googleUser.authentication.idToken;
+      if (idToken == null || idToken.isEmpty) {
+        errorMessage.value =
+            'Google sign-in did not return an ID token. Check the client-ID setup.'
+                .tr;
+        return null;
+      }
+
+      // Exchange the Google ID token for an app session at our backend. The
+      // response mirrors /auth/login, so _buildUserFromLoginResponse persists
+      // the access_token, runs the registration/approval branch, and logs the
+      // analytics event — identical to the phone/OTP path.
+      final resp = await _loginSessionDio.post(
+        '${baseUrl}auth/google',
+        data: {'id_token': idToken},
+      );
+      final body = _dioDataAsMap(resp.data);
+      if (body == null || body['status'] != 'success') {
+        errorMessage.value =
+            body?['error']?.toString() ?? 'Google sign-in failed.'.tr;
+        return null;
+      }
+
+      final user = await _buildUserFromLoginResponse(body, '');
+      if (user == null) {
+        errorMessage.value = 'Google sign-in returned an invalid response.'.tr;
+        return null;
+      }
+      return user;
+    } on DioException catch (e, stack) {
+      log('Google backend auth error: $e', stackTrace: stack);
+      final data = _dioDataAsMap(e.response?.data);
+      errorMessage.value =
+          data?['error']?.toString() ??
+          'Google sign-in could not reach the server.'.tr;
+      return null;
     } on GoogleSignInException catch (e, stack) {
       log('Google sign-in error: $e', stackTrace: stack);
       errorMessage.value = switch (e.code) {

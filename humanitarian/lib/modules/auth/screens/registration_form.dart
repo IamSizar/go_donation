@@ -193,7 +193,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                       _RoleTile(
                         icon: Icons.volunteer_activism_rounded,
                         color: Colors.amber,
-                        label: 'Donor',
+                        label: 'Contributor',
                         tagline: 'Give and support causes',
                         selected: _roleId == 1,
                         onTap: () => setState(() => _roleId = 1),
@@ -202,7 +202,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                       _RoleTile(
                         icon: Icons.family_restroom_rounded,
                         color: Colors.deepOrangeAccent,
-                        label: 'Beneficiary',
+                        label: 'Recipient',
                         tagline: 'Receive aid and support',
                         selected: _roleId == 2,
                         onTap: () => setState(() => _roleId = 2),

@@ -4,4 +4,10 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Local dev only (debug variant). Android 9+ blocks cleartext http:// by
+         default; this permits it so the debug app can reach the local backend
+         at http://localhost:8080 (via `adb reverse tcp:8080 tcp:8080`) or
+         http://10.0.2.2:8080. Release/profile builds do NOT get this — they
+         talk HTTPS to production. Mirrors the iOS NSAllowsLocalNetworking. -->
+    <application android:usesCleartextTraffic="true" />
 </manifest>

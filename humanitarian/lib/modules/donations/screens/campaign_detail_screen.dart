@@ -118,7 +118,7 @@ class CampaignDetailScreen extends StatelessWidget {
                             hideIfEmpty: true,
                           ),
                           _DetailRow(
-                            label: 'Beneficiary community',
+                            label: 'Recipient community',
                             value: c.beneficiaryCommunity,
                             hideIfEmpty: true,
                           ),

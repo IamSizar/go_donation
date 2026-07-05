@@ -23,6 +23,7 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/db"
 	"github.com/karam-flutter/humanitarian-backend/internal/donations"
 	"github.com/karam-flutter/humanitarian-backend/internal/events"
+	"github.com/karam-flutter/humanitarian-backend/internal/guest"
 	"github.com/karam-flutter/humanitarian-backend/internal/handlers"
 	"github.com/karam-flutter/humanitarian-backend/internal/history"
 	"github.com/karam-flutter/humanitarian-backend/internal/inkind"
@@ -30,6 +31,7 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/marketplace"
 	"github.com/karam-flutter/humanitarian-backend/internal/marriage"
 	"github.com/karam-flutter/humanitarian-backend/internal/notify"
+	"github.com/karam-flutter/humanitarian-backend/internal/permissions"
 	"github.com/karam-flutter/humanitarian-backend/internal/reports"
 	"github.com/karam-flutter/humanitarian-backend/internal/sponsorships"
 	"github.com/karam-flutter/humanitarian-backend/internal/support"
@@ -72,6 +74,7 @@ func main() {
 
 	tokenStore := auth.NewTokenStore(pool)
 	otpStore := auth.NewOTPStore(pool)
+	loginLockStore := auth.NewLoginLockStore(pool) // Requirement 6c — login brute-force throttle
 	userStore := users.NewStore(pool)
 	campaignStore := campaigns.NewStore(pool)
 	donationStore := donations.NewStore(pool)
@@ -88,6 +91,13 @@ func main() {
 	marriageStore := marriage.New(pool)
 	sponsorshipsStore := sponsorships.New(pool)
 	volunteersStore := volunteers.New(pool)
+	professionStore := volunteers.NewProfessionStore(pool)
+	// Section 13 — register admin-added professions so volunteers can be
+	// tagged with them (survives restart). Best-effort; a failure just means
+	// custom skills won't validate until first added again.
+	if err := professionStore.LoadAndRegister(ctx); err != nil {
+		log.Printf("[professions] load failed: %v", err)
+	}
 	reportsStore := reports.New(pool)
 	dashboardStore := dashboard.New(pool)
 	historyStore := history.New(pool)
@@ -110,7 +120,7 @@ func main() {
 	} else {
 		log.Printf("[assistant] local mode (set ANTHROPIC_API_KEY for full AI; keyword engine active)")
 	}
-	authH := handlers.NewAuthHandler(tokenStore, otpStore, userStore, otpiqClient)
+	authH := handlers.NewAuthHandler(tokenStore, otpStore, userStore, otpiqClient, loginLockStore)
 	profileH := handlers.NewProfileHandler(userStore, uploadDir)
 	chooseRoleH := handlers.NewChooseRoleHandler(userStore)
 	registrationH := handlers.NewRegistrationHandler(userStore)
@@ -131,9 +141,21 @@ func main() {
 	adminEditH := handlers.NewAdminEditHandler(pool)
 	adminCreateH := handlers.NewAdminCreateHandler(pool, notifier)
 	adminDeleteH := handlers.NewAdminDeleteHandler(pool)
+	adminTrashH := handlers.NewAdminTrashHandler(pool)
 	adminUploadH := handlers.NewAdminUploadHandler(uploadDir)
 	adminDetailH := handlers.NewAdminDetailHandler(pool)
 	adminExportH := handlers.NewAdminExportHandler(pool)
+	permStore := permissions.New(pool)
+	// Requirement 6c — stamp the hash chain onto any pre-chain audit rows so the
+	// ledger verifies as intact from the first request. Best-effort: a failure
+	// here must not stop the server from booting.
+	if err := permStore.BackfillChain(ctx); err != nil {
+		log.Printf("[audit] chain backfill failed: %v", err)
+	}
+	adminPermsH := handlers.NewAdminPermissionsHandler(permStore, otpStore, otpiqClient)
+	adminProfessionsH := handlers.NewAdminProfessionsHandler(professionStore)
+	guestStore := guest.New(pool)
+	guestH := handlers.NewGuestHandler(guestStore)
 	listingsH := handlers.NewListingsHandler(listingsStore)
 	usersAdminH := handlers.NewUsersAdminHandler(userStore)
 	supportH := handlers.NewSupportHandler(supportStore, notifier)
@@ -164,9 +186,11 @@ func main() {
 
 		// Public auth endpoints (no Bearer required).
 		api.POST("/auth/login", authH.Login)
-		api.POST("/auth/login/", authH.Login) // PHP path had trailing slash
+		api.POST("/auth/login/", authH.Login)            // PHP path had trailing slash
 		api.POST("/auth/admin/login", authH.AdminLogin)  // username + password (dashboard)
 		api.POST("/auth/admin/login/", authH.AdminLogin) // trailing-slash tolerant
+		api.POST("/auth/google", authH.GoogleLogin)      // Google OAuth (Phase 9 · B-09)
+		api.POST("/auth/google/", authH.GoogleLogin)     // trailing-slash tolerant
 		api.POST("/auth/otp/request", authH.OTPRequest)
 		api.POST("/auth/otp/request/", authH.OTPRequest)
 		api.POST("/auth/otp/verify", authH.OTPVerify)
@@ -188,6 +212,11 @@ func main() {
 		api.GET("/auth/login/get_token", csrfStub)
 
 		// Public list of campaigns (read-only).
+		// Section 27 — Guest Mode: which screens a signed-out guest may browse.
+		// Public (no auth) so the app can read it before login.
+		api.GET("/guest/config", guestH.PublicConfig)
+		api.GET("/guest/config/", guestH.PublicConfig)
+
 		api.GET("/campaigns", campaignsH.List)
 		api.GET("/campaigns/", campaignsH.List)
 
@@ -356,164 +385,193 @@ func main() {
 		admin := api.Group("/")
 		admin.Use(auth.RequireAdmin(tokenStore))
 		{
+			// 24-a — per-route permission enforcement. Every admin resource
+			// route below is gated by the (module, action) matrix via
+			// permissions.Store: GET=view, create=add, PATCH/status=edit,
+			// DELETE=delete. super_admin & admin pass by default; supervisor/
+			// employee are limited per the matrix + any Super-Admin override.
+			// Routes already pinned to RequireSuperAdmin / RequireAdminTier keep
+			// those (stricter) gates; a few pure-utility endpoints (own-password
+			// step-up, upload, generic detail, professions read) stay ungated
+			// beyond RequireAdmin.
+			perm := func(module, action string) gin.HandlerFunc {
+				return auth.RequirePermission(permStore, module, action)
+			}
+
 			// Admin-only lists that previously lived on the public API but
 			// expose cross-user data — moved here under /admin/*.
-			admin.GET("/admin/users", usersAdminH.List)
-			admin.GET("/admin/users/", usersAdminH.List)
-			admin.GET("/admin/donations", donationsH.AdminList)
-			admin.GET("/admin/donations/", donationsH.AdminList)
+			admin.GET("/admin/users", perm("users", "view"), usersAdminH.List)
+			admin.GET("/admin/users/", perm("users", "view"), usersAdminH.List)
+			admin.GET("/admin/donations", perm("donations", "view"), donationsH.AdminList)
+			admin.GET("/admin/donations/", perm("donations", "view"), donationsH.AdminList)
 
 			// New-user registration approval queue.
-			admin.GET("/admin/registrations", registrationAdminH.List)
-			admin.GET("/admin/registrations/", registrationAdminH.List)
-			admin.POST("/admin/registrations/:id/approve", registrationAdminH.Approve)
-			admin.POST("/admin/registrations/:id/reject", registrationAdminH.Reject)
+			admin.GET("/admin/registrations", perm("registrations", "view"), registrationAdminH.List)
+			admin.GET("/admin/registrations/", perm("registrations", "view"), registrationAdminH.List)
+			admin.POST("/admin/registrations/:id/approve", perm("registrations", "edit"), registrationAdminH.Approve)
+			admin.POST("/admin/registrations/:id/reject", perm("registrations", "edit"), registrationAdminH.Reject)
 
 			// Phase 16 — sidebar live notifications. Polled every 5s by the
 			// SPA. Returns pending-action counts across all moderated tables
 			// in a single query.
 			pendingH := handlers.NewPendingCountsHandler(pool)
-			admin.GET("/admin/pending-counts", pendingH.Counts)
-			admin.GET("/admin/pending-counts/", pendingH.Counts)
+			admin.GET("/admin/pending-counts", perm("dashboard", "view"), pendingH.Counts)
+			admin.GET("/admin/pending-counts/", perm("dashboard", "view"), pendingH.Counts)
 
 			// Live activity feed for the admin dashboard.
-			admin.GET("/admin/events", eventsH.AdminList)
-			admin.GET("/admin/events/", eventsH.AdminList)
+			admin.GET("/admin/events", perm("dashboard", "view"), eventsH.AdminList)
+			admin.GET("/admin/events/", perm("dashboard", "view"), eventsH.AdminList)
 
 			// Cross-user paginated lists.
-			admin.GET("/admin/beneficiary_cases", beneficiaryH.AdminCases)
-			admin.GET("/admin/beneficiary_cases/", beneficiaryH.AdminCases)
-			admin.GET("/admin/beneficiary_project_requests", beneficiaryH.AdminRequests)
-			admin.GET("/admin/beneficiary_project_requests/", beneficiaryH.AdminRequests)
-			admin.GET("/admin/marketplace/products", marketplaceH.AdminProducts)
-			admin.GET("/admin/marketplace/products/", marketplaceH.AdminProducts)
-			admin.GET("/admin/marketplace/orders", marketplaceH.AdminOrders)
-			admin.GET("/admin/marketplace/orders/", marketplaceH.AdminOrders)
-			admin.GET("/admin/notifications", adminListsH.Notifications)
-			admin.GET("/admin/notifications/", adminListsH.Notifications)
-			admin.GET("/admin/in_kind_donations", adminListsH.InKindDonations)
-			admin.GET("/admin/in_kind_donations/", adminListsH.InKindDonations)
-			admin.GET("/admin/support_tickets", adminListsH.SupportTickets)
-			admin.GET("/admin/support_tickets/", adminListsH.SupportTickets)
-			admin.GET("/admin/volunteer_applications", adminListsH.VolunteerApplications)
-			admin.GET("/admin/volunteer_applications/", adminListsH.VolunteerApplications)
+			admin.GET("/admin/beneficiary_cases", perm("beneficiary", "view"), beneficiaryH.AdminCases)
+			admin.GET("/admin/beneficiary_cases/", perm("beneficiary", "view"), beneficiaryH.AdminCases)
+			admin.GET("/admin/beneficiary_project_requests", perm("beneficiary", "view"), beneficiaryH.AdminRequests)
+			admin.GET("/admin/beneficiary_project_requests/", perm("beneficiary", "view"), beneficiaryH.AdminRequests)
+			admin.GET("/admin/marketplace/products", perm("marketplace", "view"), marketplaceH.AdminProducts)
+			admin.GET("/admin/marketplace/products/", perm("marketplace", "view"), marketplaceH.AdminProducts)
+			admin.GET("/admin/marketplace/orders", perm("marketplace", "view"), marketplaceH.AdminOrders)
+			admin.GET("/admin/marketplace/orders/", perm("marketplace", "view"), marketplaceH.AdminOrders)
+			admin.GET("/admin/notifications", perm("notifications", "view"), adminListsH.Notifications)
+			admin.GET("/admin/notifications/", perm("notifications", "view"), adminListsH.Notifications)
+			admin.GET("/admin/in_kind_donations", perm("in_kind", "view"), adminListsH.InKindDonations)
+			admin.GET("/admin/in_kind_donations/", perm("in_kind", "view"), adminListsH.InKindDonations)
+			admin.GET("/admin/support_tickets", perm("support", "view"), adminListsH.SupportTickets)
+			admin.GET("/admin/support_tickets/", perm("support", "view"), adminListsH.SupportTickets)
+			admin.GET("/admin/volunteer_applications", perm("volunteers", "view"), adminListsH.VolunteerApplications)
+			admin.GET("/admin/volunteer_applications/", perm("volunteers", "view"), adminListsH.VolunteerApplications)
 			// Phase 21 — moderation of mission signups (the join requests
 			// volunteers send for specific missions). Has its own status
 			// transitions (approved/joined/completed/no_show etc.) plus
 			// timestamp side-effects on checked_in_at + completed_at.
-			admin.GET("/admin/volunteer_mission_signups", adminListsH.VolunteerMissionSignups)
-			admin.GET("/admin/volunteer_mission_signups/", adminListsH.VolunteerMissionSignups)
-			admin.POST("/admin/volunteer_mission_signups/:id/status", adminStatusH.MissionSignup)
+			admin.GET("/admin/volunteer_mission_signups", perm("volunteers", "view"), adminListsH.VolunteerMissionSignups)
+			admin.GET("/admin/volunteer_mission_signups/", perm("volunteers", "view"), adminListsH.VolunteerMissionSignups)
+			admin.POST("/admin/volunteer_mission_signups/:id/status", perm("volunteers", "edit"), adminStatusH.MissionSignup)
 
 			// Phase 24 — per-mission Kanban "Volunteer board" view.
 			// Groups signups into 4 lanes (pending/approved/on_mission/
 			// completed-30d) per mission for the admin overview screen.
-			admin.GET("/admin/volunteer_board", adminListsH.VolunteerBoard)
-			admin.GET("/admin/volunteer_board/", adminListsH.VolunteerBoard)
+			admin.GET("/admin/volunteer_board", perm("volunteers", "view"), adminListsH.VolunteerBoard)
+			admin.GET("/admin/volunteer_board/", perm("volunteers", "view"), adminListsH.VolunteerBoard)
 
 			// Phase 23 — admin action to publish an approved beneficiary
 			// project request to the donor-facing campaigns list.
-			admin.POST("/admin/beneficiary_project_requests/:id/publish", adminStatusH.PublishProjectRequest)
+			admin.POST("/admin/beneficiary_project_requests/:id/publish", perm("beneficiary", "edit"), adminStatusH.PublishProjectRequest)
 
 			// Phase 22 — mission CRUD. Creating a mission with status='open'
 			// (or transitioning a draft to open) broadcasts NewVolunteerMissionMsg
 			// to all volunteers (role_id=3) in 4 languages.
-			admin.GET("/admin/missions", adminListsH.VolunteerMissions)
-			admin.GET("/admin/missions/", adminListsH.VolunteerMissions)
-			admin.POST("/admin/missions", adminCreateH.Mission)
-			admin.POST("/admin/missions/", adminCreateH.Mission)
-			admin.PATCH("/admin/missions/:id", adminEditH.Mission)
-			admin.POST("/admin/missions/:id/status", adminStatusH.Mission)
-			admin.DELETE("/admin/missions/:id", adminDeleteH.VolunteerMission)
-			admin.GET("/admin/audit_logs", adminListsH.AuditLogs)
-			admin.GET("/admin/audit_logs/", adminListsH.AuditLogs)
+			admin.GET("/admin/missions", perm("missions", "view"), adminListsH.VolunteerMissions)
+			admin.GET("/admin/missions/", perm("missions", "view"), adminListsH.VolunteerMissions)
+			admin.POST("/admin/missions", perm("missions", "add"), adminCreateH.Mission)
+			admin.POST("/admin/missions/", perm("missions", "add"), adminCreateH.Mission)
+			admin.PATCH("/admin/missions/:id", perm("missions", "edit"), adminEditH.Mission)
+			admin.POST("/admin/missions/:id/status", perm("missions", "edit"), adminStatusH.Mission)
+			admin.DELETE("/admin/missions/:id", perm("missions", "delete"), adminDeleteH.VolunteerMission)
+			admin.GET("/admin/audit_logs", perm("audit", "view"), adminListsH.AuditLogs)
+			admin.GET("/admin/audit_logs/", perm("audit", "view"), adminListsH.AuditLogs)
 
 			// Push composition + KPIs.
-			admin.GET("/admin/push/status", pushH.Status)
-			admin.POST("/admin/push/send", pushH.Send)
+			admin.GET("/admin/push/status", perm("push", "view"), pushH.Status)
+			admin.POST("/admin/push/send", perm("push", "add"), pushH.Send)
 			// In-app broadcast to every user (works without FCM).
-			admin.POST("/admin/notifications/broadcast", pushH.BroadcastInApp)
-			admin.POST("/admin/notifications/broadcast/", pushH.BroadcastInApp)
+			admin.POST("/admin/notifications/broadcast", perm("notifications", "add"), pushH.BroadcastInApp)
+			admin.POST("/admin/notifications/broadcast/", perm("notifications", "add"), pushH.BroadcastInApp)
 
 			// Donor ↔ owner chat — admin (support) oversight.
-			admin.GET("/admin/chats", chatH.AdminList)
-			admin.GET("/admin/chats/", chatH.AdminList)
-			admin.GET("/admin/chats/:id/messages", chatH.AdminMessages)
-			admin.POST("/admin/chats/:id/messages", chatH.AdminPostMessage)
-			admin.GET("/admin/dashboard_kpis", kpisH.Get)
-			admin.GET("/admin/dashboard_kpis/", kpisH.Get)
+			admin.GET("/admin/chats", perm("messages", "view"), chatH.AdminList)
+			admin.GET("/admin/chats/", perm("messages", "view"), chatH.AdminList)
+			admin.GET("/admin/chats/:id/messages", perm("messages", "view"), chatH.AdminMessages)
+			admin.POST("/admin/chats/:id/messages", perm("messages", "add"), chatH.AdminPostMessage)
+			admin.GET("/admin/dashboard_kpis", perm("dashboard", "view"), kpisH.Get)
+			admin.GET("/admin/dashboard_kpis/", perm("dashboard", "view"), kpisH.Get)
 
 			// Phase 9: status-change mutations. Each endpoint validates the
 			// new status against the resource's allowed-values list.
-			admin.POST("/admin/beneficiary_cases/:id/status", adminStatusH.BeneficiaryCase)
-			admin.POST("/admin/beneficiary_project_requests/:id/status", adminStatusH.ProjectRequest)
-			admin.POST("/admin/marketplace/products/:id/status", adminStatusH.MarketplaceProduct)
-			admin.POST("/admin/marketplace/orders/:id/status", adminStatusH.MarketplaceOrder)
-			admin.POST("/admin/marriage/:id/status", adminStatusH.Marriage)
-			admin.POST("/admin/partners/:id/status", adminStatusH.Partner)
-			admin.POST("/admin/media/:id/status", adminStatusH.Media)
-			admin.POST("/admin/community/:id/status", adminStatusH.Community)
-			admin.POST("/admin/volunteer_applications/:id/status", adminStatusH.VolunteerApplication)
-			admin.POST("/admin/sponsorships/:id/status", adminStatusH.Sponsorship)
-			admin.POST("/admin/in_kind_donations/:id/status", adminStatusH.InKindDonation)
-			admin.POST("/admin/support_tickets/:id/status", adminStatusH.SupportTicket)
-			admin.POST("/admin/donations/:id/status", adminStatusH.Donation)
-			admin.POST("/admin/users/:id/role", adminStatusH.UserRole)
-			admin.POST("/admin/users/:id/active", adminStatusH.UserActive)
-			admin.POST("/admin/users/:id/admin", adminStatusH.UserAdmin)
+			admin.POST("/admin/beneficiary_cases/:id/status", perm("beneficiary", "edit"), adminStatusH.BeneficiaryCase)
+			admin.POST("/admin/beneficiary_project_requests/:id/status", perm("beneficiary", "edit"), adminStatusH.ProjectRequest)
+			admin.POST("/admin/marketplace/products/:id/status", perm("marketplace", "edit"), adminStatusH.MarketplaceProduct)
+			admin.POST("/admin/marketplace/orders/:id/status", perm("marketplace", "edit"), adminStatusH.MarketplaceOrder)
+			admin.POST("/admin/marriage/:id/status", perm("marriage", "edit"), adminStatusH.Marriage)
+			admin.POST("/admin/partners/:id/status", perm("partners", "edit"), adminStatusH.Partner)
+			admin.POST("/admin/media/:id/status", perm("media", "edit"), adminStatusH.Media)
+			admin.POST("/admin/community/:id/status", perm("community", "edit"), adminStatusH.Community)
+			admin.POST("/admin/volunteer_applications/:id/status", perm("volunteers", "edit"), adminStatusH.VolunteerApplication)
+			admin.POST("/admin/sponsorships/:id/status", perm("sponsorships", "edit"), adminStatusH.Sponsorship)
+			admin.POST("/admin/in_kind_donations/:id/status", perm("in_kind", "edit"), adminStatusH.InKindDonation)
+			admin.POST("/admin/support_tickets/:id/status", perm("support", "edit"), adminStatusH.SupportTicket)
+			admin.POST("/admin/donations/:id/status", perm("donations", "edit"), adminStatusH.Donation)
+			admin.POST("/admin/users/:id/role", perm("users", "edit"), adminStatusH.UserRole)
+			admin.POST("/admin/users/:id/active", perm("users", "edit"), adminStatusH.UserActive)
+			admin.POST("/admin/users/:id/admin", perm("users", "edit"), adminStatusH.UserAdmin)
+			admin.POST("/admin/users/:id/password", perm("users", "edit"), adminStatusH.UserPassword)
+			admin.POST("/admin/users/:id/staff_tier", perm("users", "edit"), adminStatusH.UserStaffTier) // Users #c
+			// Section 25 — immediate administrative actions (super-admin only).
+			admin.POST("/admin/users/:id/force_logout", auth.RequireSuperAdmin(), adminStatusH.UserForceLogout)
+			admin.POST("/admin/users/:id/account_status", auth.RequireSuperAdmin(), adminStatusH.UserAccountStatus)
+			admin.POST("/admin/users", perm("users", "add"), adminStatusH.CreateUser) // Users #g (New User)
+			// Step-up PIN confirm (own password) for sensitive actions — Phase 7.
+			admin.POST("/admin/verify-password", adminStatusH.VerifyPassword)
+
+			// Trash container (Phase 7 · G-06 / A-16). Deletes land here; restore
+			// and purge are admin-level (purge additionally re-verifies the PIN).
+			admin.GET("/admin/trash", perm("trash", "view"), adminTrashH.List)
+			admin.POST("/admin/trash/:id/restore", auth.RequireAdminTier(), adminTrashH.Restore)
+			// Permanent deletion is restricted to the Primary Administrator
+			// (super_admin) ONLY (Section 25) — still PIN-gated in the handler.
+			admin.POST("/admin/trash/:id/purge", auth.RequireSuperAdmin(), adminTrashH.Purge)
 
 			// Phase 10: partial-update (edit modal) endpoints.
-			admin.PATCH("/admin/partners/:id", adminEditH.Partner)
-			admin.PATCH("/admin/media/:id", adminEditH.Media)
-			admin.PATCH("/admin/community/:id", adminEditH.Community)
-			admin.PATCH("/admin/marriage/:id", adminEditH.Marriage)
-			admin.PATCH("/admin/marketplace/products/:id", adminEditH.MarketplaceProduct)
-			admin.PATCH("/admin/marketplace/orders/:id", adminEditH.MarketplaceOrder)
-			admin.PATCH("/admin/beneficiary_cases/:id", adminEditH.BeneficiaryCase)
-			admin.PATCH("/admin/beneficiary_project_requests/:id", adminEditH.ProjectRequest)
-			admin.PATCH("/admin/sponsorships/:id", adminEditH.Sponsorship)
-			admin.PATCH("/admin/in_kind_donations/:id", adminEditH.InKindDonation)
-			admin.PATCH("/admin/support_tickets/:id", adminEditH.SupportTicket)
-			admin.PATCH("/admin/donations/:id", adminEditH.Donation)
-			admin.PATCH("/admin/volunteer_applications/:id", adminEditH.VolunteerApplication)
-			admin.PATCH("/admin/users/:id", adminEditH.User)
+			admin.PATCH("/admin/partners/:id", perm("partners", "edit"), adminEditH.Partner)
+			admin.PATCH("/admin/media/:id", perm("media", "edit"), adminEditH.Media)
+			admin.PATCH("/admin/community/:id", perm("community", "edit"), adminEditH.Community)
+			admin.PATCH("/admin/marriage/:id", perm("marriage", "edit"), adminEditH.Marriage)
+			admin.PATCH("/admin/marketplace/products/:id", perm("marketplace", "edit"), adminEditH.MarketplaceProduct)
+			admin.PATCH("/admin/marketplace/orders/:id", perm("marketplace", "edit"), adminEditH.MarketplaceOrder)
+			admin.PATCH("/admin/beneficiary_cases/:id", perm("beneficiary", "edit"), adminEditH.BeneficiaryCase)
+			admin.PATCH("/admin/beneficiary_project_requests/:id", perm("beneficiary", "edit"), adminEditH.ProjectRequest)
+			admin.PATCH("/admin/sponsorships/:id", perm("sponsorships", "edit"), adminEditH.Sponsorship)
+			admin.PATCH("/admin/in_kind_donations/:id", perm("in_kind", "edit"), adminEditH.InKindDonation)
+			admin.PATCH("/admin/support_tickets/:id", perm("support", "edit"), adminEditH.SupportTicket)
+			admin.PATCH("/admin/donations/:id", perm("donations", "edit"), adminEditH.Donation)
+			admin.PATCH("/admin/volunteer_applications/:id", perm("volunteers", "edit"), adminEditH.VolunteerApplication)
+			admin.PATCH("/admin/users/:id", perm("users", "edit"), adminEditH.User)
 
 			// Phase 11: create (admin) endpoints.
-			admin.POST("/admin/partners", adminCreateH.Partner)
-			admin.POST("/admin/media", adminCreateH.Media)
-			admin.POST("/admin/community", adminCreateH.Community)
-			admin.POST("/admin/marriage", adminCreateH.MarriageProfile)
-			admin.POST("/admin/marketplace/products", adminCreateH.MarketplaceProduct)
-			admin.POST("/admin/beneficiary_cases", adminCreateH.BeneficiaryCase)
-			admin.POST("/admin/beneficiary_project_requests", adminCreateH.ProjectRequest)
-			admin.POST("/admin/sponsorships", adminCreateH.Sponsorship)
-			admin.POST("/admin/in_kind_donations", adminCreateH.InKindDonation)
-			admin.POST("/admin/support_tickets", adminCreateH.SupportTicket)
-			admin.POST("/admin/donations", adminCreateH.Donation)
-			admin.POST("/admin/volunteer_applications", adminCreateH.VolunteerApplication)
+			admin.POST("/admin/partners", perm("partners", "add"), adminCreateH.Partner)
+			admin.POST("/admin/media", perm("media", "add"), adminCreateH.Media)
+			admin.POST("/admin/community", perm("community", "add"), adminCreateH.Community)
+			admin.POST("/admin/marriage", perm("marriage", "add"), adminCreateH.MarriageProfile)
+			admin.POST("/admin/marketplace/products", perm("marketplace", "add"), adminCreateH.MarketplaceProduct)
+			admin.POST("/admin/beneficiary_cases", perm("beneficiary", "add"), adminCreateH.BeneficiaryCase)
+			admin.POST("/admin/beneficiary_project_requests", perm("beneficiary", "add"), adminCreateH.ProjectRequest)
+			admin.POST("/admin/sponsorships", perm("sponsorships", "add"), adminCreateH.Sponsorship)
+			admin.POST("/admin/in_kind_donations", perm("in_kind", "add"), adminCreateH.InKindDonation)
+			admin.POST("/admin/support_tickets", perm("support", "add"), adminCreateH.SupportTicket)
+			admin.POST("/admin/donations", perm("donations", "add"), adminCreateH.Donation)
+			admin.POST("/admin/volunteer_applications", perm("volunteers", "add"), adminCreateH.VolunteerApplication)
 
 			// Phase 13: hard-delete endpoints.
-			admin.DELETE("/admin/partners/:id", adminDeleteH.Partner)
-			admin.DELETE("/admin/media/:id", adminDeleteH.Media)
-			admin.DELETE("/admin/community/:id", adminDeleteH.Community)
-			admin.DELETE("/admin/marriage/:id", adminDeleteH.Marriage)
-			admin.DELETE("/admin/marketplace/products/:id", adminDeleteH.MarketplaceProduct)
-			admin.DELETE("/admin/marketplace/orders/:id", adminDeleteH.MarketplaceOrder)
-			admin.DELETE("/admin/beneficiary_cases/:id", adminDeleteH.BeneficiaryCase)
-			admin.DELETE("/admin/beneficiary_project_requests/:id", adminDeleteH.ProjectRequest)
-			admin.DELETE("/admin/sponsorships/:id", adminDeleteH.Sponsorship)
-			admin.DELETE("/admin/in_kind_donations/:id", adminDeleteH.InKindDonation)
-			admin.DELETE("/admin/support_tickets/:id", adminDeleteH.SupportTicket)
-			admin.DELETE("/admin/donations/:id", adminDeleteH.Donation)
-			admin.DELETE("/admin/volunteer_applications/:id", adminDeleteH.VolunteerApplication)
-			admin.DELETE("/admin/users/:id", adminDeleteH.User)
+			admin.DELETE("/admin/partners/:id", perm("partners", "delete"), adminDeleteH.Partner)
+			admin.DELETE("/admin/media/:id", perm("media", "delete"), adminDeleteH.Media)
+			admin.DELETE("/admin/community/:id", perm("community", "delete"), adminDeleteH.Community)
+			admin.DELETE("/admin/marriage/:id", perm("marriage", "delete"), adminDeleteH.Marriage)
+			admin.DELETE("/admin/marketplace/products/:id", perm("marketplace", "delete"), adminDeleteH.MarketplaceProduct)
+			admin.DELETE("/admin/marketplace/orders/:id", perm("marketplace", "delete"), adminDeleteH.MarketplaceOrder)
+			admin.DELETE("/admin/beneficiary_cases/:id", perm("beneficiary", "delete"), adminDeleteH.BeneficiaryCase)
+			admin.DELETE("/admin/beneficiary_project_requests/:id", perm("beneficiary", "delete"), adminDeleteH.ProjectRequest)
+			admin.DELETE("/admin/sponsorships/:id", perm("sponsorships", "delete"), adminDeleteH.Sponsorship)
+			admin.DELETE("/admin/in_kind_donations/:id", perm("in_kind", "delete"), adminDeleteH.InKindDonation)
+			admin.DELETE("/admin/support_tickets/:id", perm("support", "delete"), adminDeleteH.SupportTicket)
+			admin.DELETE("/admin/donations/:id", perm("donations", "delete"), adminDeleteH.Donation)
+			admin.DELETE("/admin/volunteer_applications/:id", perm("volunteers", "delete"), adminDeleteH.VolunteerApplication)
+			admin.DELETE("/admin/users/:id", perm("users", "delete"), adminDeleteH.User)
 
 			// Phase 14: campaigns CRUD (admin view of the real `campaigns` table).
-			admin.GET("/admin/campaigns", adminListsH.Campaigns)
-			admin.GET("/admin/campaigns/", adminListsH.Campaigns)
-			admin.POST("/admin/campaigns", adminCreateH.Campaign)
-			admin.PATCH("/admin/campaigns/:id", adminEditH.Campaign)
-			admin.DELETE("/admin/campaigns/:id", adminDeleteH.Campaign)
+			admin.GET("/admin/campaigns", perm("campaigns", "view"), adminListsH.Campaigns)
+			admin.GET("/admin/campaigns/", perm("campaigns", "view"), adminListsH.Campaigns)
+			admin.POST("/admin/campaigns", perm("campaigns", "add"), adminCreateH.Campaign)
+			admin.PATCH("/admin/campaigns/:id", perm("campaigns", "edit"), adminEditH.Campaign)
+			admin.DELETE("/admin/campaigns/:id", perm("campaigns", "delete"), adminDeleteH.Campaign)
 
 			// Phase 15: file uploads. Multipart POST returns a path that the
 			// SPA stores in the relevant column (logo_path, image_path, etc.).
@@ -523,8 +581,33 @@ func main() {
 			// allowlisted admin resource using SELECT *.
 			admin.GET("/admin/detail/:resource/:id", adminDetailH.Detail)
 
-			// Full-DB JSON export (admin backup tool).
-			admin.GET("/admin/export/all", adminExportH.ExportAll)
+			// Full-DB JSON export (admin backup tool) — restricted to the
+			// Primary Administrator (super_admin) ONLY (Phase 7 · M-60).
+			admin.GET("/admin/export/all", auth.RequireSuperAdmin(), adminExportH.ExportAll)
+
+			// Section 24 — Permissions Management. The matrix + audit are
+			// super-admin only; /me is any authenticated staff (used to hide
+			// unauthorized menu entries in the SPA).
+			admin.GET("/admin/permissions", auth.RequireSuperAdmin(), adminPermsH.Matrix)
+			admin.POST("/admin/permissions", auth.RequireSuperAdmin(), adminPermsH.SetPermission)
+			// Section 24 — phone OTP second factor for permission changes.
+			admin.POST("/admin/permissions/otp", auth.RequireSuperAdmin(), adminPermsH.RequestOTP)
+			admin.GET("/admin/permissions/audit", auth.RequireSuperAdmin(), adminPermsH.Audit)
+			// Requirement 6c — verify the audit ledger's hash chain is intact.
+			admin.GET("/admin/permissions/audit/verify", auth.RequireSuperAdmin(), adminPermsH.VerifyAudit)
+			admin.GET("/admin/permissions/me", adminPermsH.Effective)
+
+			// Section 13 — admin-added volunteer professions. Any staff can
+			// read (to populate the skill dropdown); admin-level staff add.
+			admin.GET("/admin/professions", adminProfessionsH.List)
+			admin.POST("/admin/professions", auth.RequireAdminTier(), adminProfessionsH.Add)
+			admin.PATCH("/admin/professions/:id", auth.RequireAdminTier(), adminProfessionsH.Update)
+			admin.POST("/admin/professions/reorder", auth.RequireAdminTier(), adminProfessionsH.Reorder)
+			admin.DELETE("/admin/professions/:id", auth.RequireAdminTier(), adminProfessionsH.Delete)
+
+			// Section 27 — Guest Mode config. Super-Admin only.
+			admin.GET("/admin/guest_settings", auth.RequireSuperAdmin(), guestH.AdminList)
+			admin.POST("/admin/guest_settings", auth.RequireSuperAdmin(), guestH.Set)
 		}
 	}
 

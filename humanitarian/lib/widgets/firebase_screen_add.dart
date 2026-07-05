@@ -39,6 +39,8 @@ class _FirebaseScreenAddState extends State<FirebaseScreenAdd> {
       return;
     }
 
+    // Capture the messenger before the async gap so we don't use context after await.
+    final messenger = ScaffoldMessenger.of(context);
     try {
       debugPrint('Apps count: ${Firebase.apps.length}');
       debugPrint('App name: ${Firebase.app().name}');
@@ -51,7 +53,7 @@ class _FirebaseScreenAddState extends State<FirebaseScreenAdd> {
       });
 
       debugPrint('Write success');
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         const SnackBar(content: Text('Firestore write succeeded')),
       );
 
@@ -61,9 +63,9 @@ class _FirebaseScreenAddState extends State<FirebaseScreenAdd> {
     } catch (e, s) {
       debugPrint('Firestore error: $e');
       debugPrint('$s');
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Firestore write failed: $e')));
+      messenger.showSnackBar(
+        SnackBar(content: Text('Firestore write failed: $e')),
+      );
     } finally {
       setState(() {
         _isLoading = false;

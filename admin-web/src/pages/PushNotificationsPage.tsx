@@ -19,7 +19,19 @@ import type { PushSendResp, PushStatusResp } from '../lib/api-types'
 import UserPicker, { type PickedUser } from '../components/UserPicker'
 import { PUSH_TEMPLATES, type TemplateLang } from '../lib/pushTemplates'
 import { useI18n } from '../lib/i18n'
+import ExportCsvButton from '../components/ExportCsvButton'
+import { type CsvColumn } from '../lib/csv'
+import type { PushSendResultRow } from '../lib/api-types'
 import { Sparkles, Check, Bell, Smartphone } from 'lucide-react'
+
+// The push page has no persistent history; the meaningful export is the
+// last broadcast's per-device delivery report (Phase 7 · M-56).
+const PUSH_RESULT_CSV_COLUMNS: CsvColumn<PushSendResultRow>[] = [
+  { header: 'device_token', get: (r) => r.device_token },
+  { header: 'delivered', get: (r) => (r.ok ? 'yes' : 'no') },
+  { header: 'message_name', get: (r) => r.message_name ?? '' },
+  { header: 'error', get: (r) => r.error ?? '' },
+]
 
 // Delivery channel. 'inapp' writes a row to every user's Alerts tab (works
 // without FCM, reaches every account). 'push' fires an OS banner via FCM
@@ -88,6 +100,7 @@ export default function PushNotificationsPage() {
   const [success, setSuccess] = useState<string | null>(null)
   const [result, setResult] = useState<PushSendResp | null>(null)
 
+
   // Reload status (incl. live device count) on mount AND after each send,
   // since a successful broadcast may auto-deactivate dead tokens. The
   // ref-tick pattern matches what the other admin pages use.
@@ -129,9 +142,7 @@ export default function PushNotificationsPage() {
           '/api/admin/notifications/broadcast',
           payload,
         )
-        setSuccess(
-          `Delivered to ${res.data.sent} user${res.data.sent === 1 ? '' : 's'}' in-app Alerts inbox.`,
-        )
+        setSuccess(t('page.push.inapp_delivered', { n: res.data.sent }))
       } catch (err) {
         setError(describeError(err))
       } finally {
@@ -207,6 +218,16 @@ export default function PushNotificationsPage() {
             <span className={`badge ${fcmEnabled ? 'ok' : 'off'}`}>
               FCM {fcmEnabled ? t('page.push.fcm_enabled') : t('page.push.fcm_not_configured')}
             </span>
+          )}
+          {/* Export the last broadcast's per-device delivery report — Phase 7 · M-56 */}
+          {result && result.results.length > 0 && (
+            <ExportCsvButton
+              rows={result.results}
+              columns={PUSH_RESULT_CSV_COLUMNS}
+              filenameBase="push-delivery"
+              title={t('nav.push')}
+              module="push"
+            />
           )}
         </div>
       </div>
@@ -411,12 +432,12 @@ export default function PushNotificationsPage() {
         {/* === Delivery channel — In-app (always works) vs Push (needs FCM) === */}
         <div>
           <span className="form-label" style={{ display: 'block', marginBottom: 8 }}>
-            Delivery channel
+            {t('page.push.channel_label')}
           </span>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             {([
-              { kind: 'inapp', Icon: Bell, title: 'In-app (Alerts tab)', desc: 'Shows in every user’s inbox. Always works.' },
-              { kind: 'push',  Icon: Smartphone, title: 'Push (OS banner)', desc: 'Lock-screen banner. Needs FCM + a real device.' },
+              { kind: 'inapp', Icon: Bell, title: t('page.push.channel_inapp_title'), desc: t('page.push.channel_inapp_desc') },
+              { kind: 'push',  Icon: Smartphone, title: t('page.push.channel_push_title'), desc: t('page.push.channel_push_desc') },
             ] as const).map(({ kind, Icon, title: ttl, desc }) => {
               const selected = channel === kind
               const disabled = kind === 'push' && fcmEnabled === false
@@ -434,7 +455,7 @@ export default function PushNotificationsPage() {
                   disabled={busy || disabled}
                   aria-pressed={selected}
                   style={{ opacity: disabled ? 0.5 : 1 }}
-                  title={disabled ? 'FCM not configured on the server' : undefined}
+                  title={disabled ? t('page.push.fcm_disabled_tip') : undefined}
                 >
                   <span className="target-code" aria-hidden="true">
                     <Icon size={20} strokeWidth={2.2} />
@@ -604,7 +625,7 @@ export default function PushNotificationsPage() {
             {busy
               ? t('page.push.sending')
               : channel === 'inapp'
-              ? 'Send in-app notification'
+              ? t('page.push.send_inapp')
               : t('page.push.send')}
           </button>
         </div>

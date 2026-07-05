@@ -37,6 +37,12 @@ type Account struct {
 	// RegistrationStatus drives the new-user approval flow:
 	// incomplete | pending | approved | rejected.
 	RegistrationStatus string `json:"registration_status"`
+	// StaffTier is the dashboard access tier (Phase 6): super_admin | admin |
+	// supervisor | employee | user.
+	StaffTier string `json:"staff_tier"`
+	// AccountStatus is the lifecycle status (Section 25): active | suspended |
+	// banned.
+	AccountStatus string `json:"account_status"`
 }
 
 type Store struct {
@@ -168,26 +174,80 @@ func (s *Store) GetRoleID(ctx context.Context, userID int64) (int, error) {
 	return *role, nil
 }
 
+// UpsertGoogleUser finds a user by google_sub, then by email (linking Google to
+// an existing account), otherwise creates a new one with a NULL phone and
+// registration_status 'incomplete' so it still passes through the approval
+// flow. Returns the user id and whether the account already existed.
+// Phase 9 (B-09).
+func (s *Store) UpsertGoogleUser(ctx context.Context, sub, email, _name string) (int64, bool, error) {
+	sub = strings.TrimSpace(sub)
+	if sub == "" {
+		return 0, false, errors.New("empty google subject")
+	}
+	email = strings.ToLower(strings.TrimSpace(email))
+
+	// 1) Existing Google account.
+	var id int64
+	err := s.Pool.QueryRow(ctx, `SELECT id FROM users WHERE google_sub = $1`, sub).Scan(&id)
+	if err == nil {
+		return id, true, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return 0, false, err
+	}
+
+	// 2) Existing account with the same email → link the Google subject to it.
+	if email != "" {
+		err = s.Pool.QueryRow(ctx, `SELECT id FROM users WHERE email = $1`, email).Scan(&id)
+		if err == nil {
+			if _, e := s.Pool.Exec(ctx, `UPDATE users SET google_sub = $1 WHERE id = $2`, sub, id); e != nil {
+				return 0, false, e
+			}
+			return id, true, nil
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return 0, false, err
+		}
+	}
+
+	// 3) Brand-new user (no phone). Onboarding is still required.
+	var emailArg any = nil
+	if email != "" {
+		emailArg = email
+	}
+	err = s.Pool.QueryRow(ctx,
+		`INSERT INTO users (phone, role_id, registration_status, google_sub, email)
+		 VALUES (NULL, NULL, 'incomplete', $1, $2) RETURNING id`,
+		sub, emailArg,
+	).Scan(&id)
+	if err != nil {
+		return 0, false, err
+	}
+	return id, false, nil
+}
+
 // GetAccountForClient returns the user + joined profile, mirroring the PHP shape.
 func (s *Store) GetAccountForClient(ctx context.Context, userID int64) (*Account, error) {
 	if userID <= 0 {
 		return nil, nil
 	}
 	var (
-		acc       Account
-		roleID    *int
-		active    *int
-		isAdmin   *int
-		regStatus *string
-		profileID *int64
-		fullName  *string
-		gender    *string
-		address   *string
-		picture   *string
-		dob       *string
+		acc        Account
+		roleID     *int
+		active     *int
+		isAdmin    *int
+		regStatus  *string
+		staffTier  *string
+		profileID  *int64
+		fullName   *string
+		gender     *string
+		address    *string
+		picture    *string
+		dob        *string
+		acctStatus *string
 	)
 	err := s.Pool.QueryRow(ctx,
-		`SELECT u.id, u.phone, u.role_id, u.active, u.is_admin, u.created_at, u.registration_status,
+		`SELECT u.id, COALESCE(u.phone, '') AS phone, u.role_id, u.active, u.is_admin, u.created_at, u.registration_status, u.staff_tier, u.account_status,
 		        up.id, up.full_name, up.gender, up.address, up.profile_picture,
 		        to_char(up.date_of_birth, 'YYYY-MM-DD')
 		   FROM users u
@@ -195,7 +255,7 @@ func (s *Store) GetAccountForClient(ctx context.Context, userID int64) (*Account
 		  WHERE u.id = $1
 		  LIMIT 1`,
 		userID,
-	).Scan(&acc.UserID, &acc.Phone, &roleID, &active, &isAdmin, &acc.CreatedAt, &regStatus,
+	).Scan(&acc.UserID, &acc.Phone, &roleID, &active, &isAdmin, &acc.CreatedAt, &regStatus, &staffTier, &acctStatus,
 		&profileID, &fullName, &gender, &address, &picture, &dob)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -214,6 +274,12 @@ func (s *Store) GetAccountForClient(ctx context.Context, userID int64) (*Account
 	}
 	if regStatus != nil {
 		acc.RegistrationStatus = *regStatus
+	}
+	if staffTier != nil {
+		acc.StaffTier = *staffTier
+	}
+	if acctStatus != nil {
+		acc.AccountStatus = *acctStatus
 	}
 	if profileID != nil && *profileID > 0 {
 		acc.Profile = &Profile{
@@ -237,7 +303,7 @@ func nilIfEmpty(s *string) *string {
 
 // PageUsers is the response for the admin users-list endpoint.
 type PageUsers struct {
-	Items      []Account `json:"items"`
+	Items      []Account  `json:"items"`
 	Pagination Pagination `json:"pagination"`
 }
 
@@ -281,7 +347,7 @@ func (s *Store) PaginatedList(ctx context.Context, page, perPage int, q string) 
 	offIdx := len(args) + 2
 	args = append(args, perPage, offset)
 	rows, err := s.Pool.Query(ctx, `
-		SELECT u.id, u.phone, u.role_id, u.active, u.is_admin, u.created_at, u.registration_status,
+		SELECT u.id, COALESCE(u.phone, '') AS phone, u.role_id, u.active, u.is_admin, u.created_at, u.registration_status, u.staff_tier, u.account_status,
 		       up.id, up.full_name, up.gender, up.address, up.profile_picture,
 		       to_char(up.date_of_birth, 'YYYY-MM-DD')
 		  FROM users u
@@ -298,19 +364,21 @@ func (s *Store) PaginatedList(ctx context.Context, page, perPage int, q string) 
 	items := []Account{}
 	for rows.Next() {
 		var (
-			acc       Account
-			roleID    *int
-			active    *int
-			isAdmin   *int
-			regStatus *string
-			profileID *int64
-			fullName  *string
-			gender    *string
-			address   *string
-			picture   *string
-			dob       *string
+			acc        Account
+			roleID     *int
+			active     *int
+			isAdmin    *int
+			regStatus  *string
+			staffTier  *string
+			profileID  *int64
+			fullName   *string
+			gender     *string
+			address    *string
+			picture    *string
+			dob        *string
+			acctStatus *string
 		)
-		err := rows.Scan(&acc.UserID, &acc.Phone, &roleID, &active, &isAdmin, &acc.CreatedAt, &regStatus,
+		err := rows.Scan(&acc.UserID, &acc.Phone, &roleID, &active, &isAdmin, &acc.CreatedAt, &regStatus, &staffTier, &acctStatus,
 			&profileID, &fullName, &gender, &address, &picture, &dob)
 		if err != nil {
 			return nil, err
@@ -326,6 +394,12 @@ func (s *Store) PaginatedList(ctx context.Context, page, perPage int, q string) 
 		}
 		if regStatus != nil {
 			acc.RegistrationStatus = *regStatus
+		}
+		if staffTier != nil {
+			acc.StaffTier = *staffTier
+		}
+		if acctStatus != nil {
+			acc.AccountStatus = *acctStatus
 		}
 		if profileID != nil && *profileID > 0 {
 			acc.Profile = &Profile{

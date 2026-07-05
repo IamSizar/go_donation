@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
+import RowDeleteButton from '../components/RowDeleteButton'
 import { Link } from 'react-router-dom'
-import { api, describeError } from '../lib/api'
+import ExportCsvButton from '../components/ExportCsvButton'
+import { api, describeError, assetUrl } from '../lib/api'
 import type { Partner } from '../lib/api-types'
 import Table, { type Column } from '../components/Table'
 import StatusCell from '../components/StatusCell'
@@ -10,7 +12,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../lib/toast'
 import { useI18n, useStatusLabel } from '../lib/i18n'
 import { useSelection } from '../lib/useSelection'
-import { downloadCsv, type CsvColumn } from '../lib/csv'
+import { type CsvColumn } from '../lib/csv'
 
 type Resp = { success: true; items: Partner[] }
 
@@ -140,14 +142,6 @@ export default function PartnersPage() {
     [toast],
   )
 
-  const exportCsv = () => {
-    const rows = resp?.items ?? []
-    if (rows.length === 0) {
-      toast.info(t('common.nothing_to_export'))
-      return
-    }
-    downloadCsv(`partners-${new Date().toISOString().slice(0, 10)}.csv`, rows, CSV_COLUMNS)
-  }
 
   const columns: Column<Partner>[] = [
     { key: 'id', header: t('col.id'), width: '60px', cell: (p) => <strong>#{p.id}</strong> },
@@ -157,7 +151,7 @@ export default function PartnersPage() {
       width: '56px',
       cell: (p) =>
         p.logo_path ? (
-          <img src={`/${p.logo_path}`} alt="" className="thumb" />
+          <img src={assetUrl(p.logo_path)} alt="" className="thumb" />
         ) : (
           <div className="thumb thumb-empty" />
         ),
@@ -198,13 +192,13 @@ export default function PartnersPage() {
     },
     {
       key: 'actions',
-      header: '',
+      header: t('common.actions'),
       width: '170px',
       cell: (p) => (
         <>
           <Link className="row-edit-btn" to={`/detail/partners/${p.id}`}>{t('common.view')}</Link>
           <button className="row-edit-btn" onClick={() => setEditing(p)}>{t('common.edit')}</button>
-          <button className="row-delete-btn" onClick={() => setDeleting(p)}>{t('common.delete')}</button>
+          <RowDeleteButton onClick={() => setDeleting(p)} />
         </>
       ),
     },
@@ -228,7 +222,13 @@ export default function PartnersPage() {
           <select value={status} onChange={(e) => { setStatus(e.target.value); sel.clear() }} style={{ width: 'auto' }}>
             {STATUSES.map((s) => <option key={s} value={s}>{statusLabel(s)}</option>)}
           </select>
-          <button className="secondary" onClick={exportCsv}>{t('common.export_csv')}</button>
+          <ExportCsvButton
+            rows={resp?.items ?? []}
+            columns={CSV_COLUMNS}
+            filenameBase="partners"
+            title={t('nav.partners')}
+            module="partners"
+          />
           <button onClick={() => setCreating(true)}>{t('page.partners.new')}</button>
         </div>
       </div>

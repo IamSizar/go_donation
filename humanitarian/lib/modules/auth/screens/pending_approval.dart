@@ -58,31 +58,18 @@ class _PendingApprovalPageState extends State<PendingApprovalPage> {
   }
 
   Future<void> _logout() async {
-    for (final k in [
-      'id_user',
-      'email_user',
-      'phone_user',
-      'name_user',
-      'address_user',
-      'gender_user',
-      'profile_image_path',
-      'profile_picture_url',
-      'role_id',
-      'registration_status',
-      'reject_reason',
-    ]) {
-      await sharedPreferences.remove(k);
-    }
-    await clearApiSession();
+    // 27.4/27.5 — leave this screen first, then revoke server-side + clear all
+    // local session/identity/guest state via the unified logout().
     Get.offAllNamed(AppRoutes.authLogin);
+    await logout();
   }
 
   String? _roleLabel() {
     switch (int.tryParse(sharedPreferences.getString('role_id') ?? '')) {
       case 1:
-        return 'Donor';
+        return 'Contributor';
       case 2:
-        return 'Beneficiary';
+        return 'Recipient';
       case 3:
         return 'Volunteer';
       default:

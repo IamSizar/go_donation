@@ -2,7 +2,40 @@ import { useEffect, useState } from 'react'
 import { api, describeError } from '../lib/api'
 import type { ReportsResp } from '../lib/api-types'
 import StatCard from '../components/StatCard'
+import ExportCsvButton from '../components/ExportCsvButton'
+import { type CsvColumn } from '../lib/csv'
 import { useI18n } from '../lib/i18n'
+
+// A report is a set of headline figures, not a row list — so the export is a
+// flat (section, metric, value) sheet of every number on the page (Phase 7 · M-58).
+type ReportMetric = { section: string; metric: string; value: string | number }
+const REPORT_CSV_COLUMNS: CsvColumn<ReportMetric>[] = [
+  { header: 'section', get: (r) => r.section },
+  { header: 'metric', get: (r) => r.metric },
+  { header: 'value', get: (r) => r.value },
+]
+
+// Flatten the reports response into export rows.
+function reportMetrics(r: ReportsResp): ReportMetric[] {
+  const rows: ReportMetric[] = [
+    { section: 'donations', metric: 'total_count', value: r.donations.total_count },
+    { section: 'donations', metric: 'completed_amount', value: r.donations.completed_amount },
+    { section: 'donations', metric: 'pending_amount', value: r.donations.pending_amount },
+    { section: 'donations', metric: 'failed_amount', value: r.donations.failed_amount },
+    { section: 'volunteers', metric: 'applications_total', value: r.volunteers.applications_total },
+    { section: 'volunteers', metric: 'applications_approved', value: r.volunteers.applications_approved },
+    { section: 'volunteers', metric: 'missions_open', value: r.volunteers.missions_open },
+    { section: 'volunteers', metric: 'missions_completed', value: r.volunteers.missions_completed },
+    { section: 'volunteers', metric: 'signups_pending', value: r.volunteers.signups_pending },
+    { section: 'volunteers', metric: 'signups_active', value: r.volunteers.signups_active },
+    { section: 'volunteers', metric: 'hours_served', value: r.volunteers.hours_served },
+  ]
+  for (const b of r.beneficiary_cases ?? []) rows.push({ section: 'beneficiary_cases', metric: b.label, value: b.total })
+  for (const b of r.project_requests ?? []) rows.push({ section: 'project_requests', metric: b.label, value: b.total })
+  for (const b of r.volunteer_signup_statuses ?? []) rows.push({ section: 'volunteer_signup_statuses', metric: b.label, value: b.total })
+  for (const e of r.expenses ?? []) rows.push({ section: 'expenses', metric: e.expense_type, value: e.amount })
+  return rows
+}
 
 function fmt(s: string | number): string {
   const n = typeof s === 'number' ? s : parseFloat(s)
@@ -15,6 +48,7 @@ export default function ReportsPage() {
   const [err, setErr] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const { t } = useI18n()
+
 
   useEffect(() => {
     let cancelled = false
@@ -32,6 +66,13 @@ export default function ReportsPage() {
           <h1>{t('page.reports.title')}</h1>
           <p className="muted">{t('page.reports.subtitle')}</p>
         </div>
+        <ExportCsvButton
+          rows={resp ? reportMetrics(resp) : []}
+          columns={REPORT_CSV_COLUMNS}
+          filenameBase="reports"
+          title={t('nav.reports')}
+          module="reports"
+        />
       </div>
       {err && <div className="error-box">{err}</div>}
 

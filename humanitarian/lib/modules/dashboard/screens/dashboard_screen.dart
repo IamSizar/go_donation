@@ -1,6 +1,8 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/core/app_haptics.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
@@ -9,6 +11,7 @@ import 'package:flutter_application_1/modules/chat/screens/messages_screen.dart'
 import 'package:flutter_application_1/modules/community/screens/community_services_section.dart';
 import 'package:flutter_application_1/modules/dashboard/controllers/featured_campaigns_controller.dart';
 import 'package:flutter_application_1/modules/dashboard/controllers/role_dashboard_controller.dart';
+import 'package:flutter_application_1/modules/dashboard/screens/guest_sections.dart';
 import 'package:flutter_application_1/modules/donations/screens/donations_section.dart';
 import 'package:flutter_application_1/modules/marketplace/screens/marketplace_section.dart';
 import 'package:flutter_application_1/modules/notifications/controllers/notifications_controller.dart';
@@ -56,7 +59,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       color: Colors.indigo,
     ),
     NavDestination(
-      label: 'Donate',
+      label: 'Contribute',
       icon: Icons.volunteer_activism_outlined,
       activeIcon: Icons.volunteer_activism_rounded,
       color: Colors.green,
@@ -93,14 +96,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
     ),
   ];
 
-  static final List<Widget> _sections = [
-    const DashboardHomeSection(),
+  // Section 27 — for a guest, swap the auth-gated Home + Profile tabs for
+  // guest-friendly browse/sign-in screens (instance getter so it can read the
+  // live guest flag).
+  List<Widget> get _sections => [
+    // Non-const on purpose: GuestHomeSection reads the guest config (which
+    // loads async), so it must rebuild when setState fires after the fetch.
+    isGuestMode() ? GuestHomeSection() : const DashboardHomeSection(),
     const SponsorshipSection(),
     const MarketplaceSection(),
     const CommunityServicesSection(),
     const DonationsSection(),
     const NotificationsSection(),
-    const ProfileSection(),
+    isGuestMode() ? GuestAccountSection() : const ProfileSection(),
     const SupportSection(),
     const ProposalServicesSection(),
     const MessagesScreen(),
@@ -108,6 +116,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   /// Tabs each role may open from the bottom navigator (others are not their flow).
   static List<int> _navigatorSourceIndices() {
+    // Section 27 — Guest Mode: a signed-out guest sees only the Super-Admin-
+    // enabled browse screens (Home is always the landing). All account tabs
+    // (Kafala, Contribute, Alerts, Profile, Volunteer, Messages) are hidden.
+    if (isGuestMode()) {
+      final tabs = <int>[0]; // Home
+      if (guestCanSee('marketplace')) tabs.add(2); // Market
+      if (guestCanSee('city_directory')) tabs.add(3); // Community
+      tabs.add(6); // Profile — always available so a guest can sign in
+      return tabs;
+    }
     switch (sharedPreferences.getString('role_id')) {
       case '1': // Donor — giving, market, messages; not kafala/volunteer shells
         return const [0, 2, 3, 4, 9, 5, 6, 8];
@@ -129,13 +147,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (!Get.isRegistered<RoleDashboardController>()) {
       Get.put(RoleDashboardController());
     }
-    Get.find<RoleDashboardController>().fetchSummary();
+    // Guests have no token — skip the auth-gated summary (it would 401 and show
+    // "Please sign in again"); the GuestHomeSection replaces that tab anyway.
+    if (!isGuestMode()) {
+      Get.find<RoleDashboardController>().fetchSummary();
+    }
     if (!Get.isRegistered<NotificationsController>()) {
       Get.put(NotificationsController());
     }
     _currentIndex = dashboardTabNotifier.value.clamp(0, _sections.length - 1);
     _ensureCurrentTabVisibleForRole();
     dashboardTabNotifier.addListener(_handleDashboardTabChange);
+
+    // Section 27 — refresh the guest whitelist on a fresh launch (the in-memory
+    // map is empty after a restart), then rebuild so the nav shows the right
+    // browse tabs.
+    if (isGuestMode() && guestScreenConfig.isEmpty) {
+      fetchGuestConfig().then((_) {
+        if (mounted) setState(_ensureCurrentTabVisibleForRole);
+      });
+    }
   }
 
   @override
@@ -169,7 +200,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() => _currentIndex = nextIndex);
   }
 
-  Future<bool> _onWillPop() async {
+  Future<bool> _confirmExit() async {
     return await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
@@ -190,6 +221,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
         false;
   }
 
+  // 27.3 — the phone Back button on the main screen must NOT log the user out
+  // and must NOT pop the root route (popping it left an empty navigator = black
+  // screen). Instead: from any non-Home tab, Back returns to Home; from Home,
+  // Back asks to exit and — if confirmed — backgrounds/closes the app.
+  Future<void> _handleBack() async {
+    const homeIndex = 0; // Home is always the first destination.
+    if (_currentIndex != homeIndex) {
+      setState(() => _currentIndex = homeIndex);
+      if (dashboardTabNotifier.value != homeIndex) {
+        dashboardTabNotifier.value = homeIndex;
+      }
+      return;
+    }
+    final shouldExit = await _confirmExit();
+    if (shouldExit) {
+      // Android: sends the app to the background (like the Home button). iOS:
+      // no-op (Apple disallows programmatic exit) — the dialog just closes.
+      await SystemNavigator.pop();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final sourceIndices = _navigatorSourceIndices();
@@ -205,10 +257,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
-        final shouldPop = await _onWillPop();
-        if (shouldPop && mounted) {
-          Navigator.of(context).pop();
-        }
+        await _handleBack();
       },
       child: Scaffold(
         extendBody: true,
@@ -237,14 +286,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   builder: (context, profileIncomplete, _) {
                     return Obx(() {
                       final notifications = Get.find<NotificationsController>();
+                      // Always read the observable so this Obx has something to
+                      // watch even when the Alerts tab is hidden (e.g. a guest),
+                      // otherwise GetX throws "improper use of GetX".
+                      final unread = notifications.unreadCount;
                       final alertsIndex = sourceIndices.indexOf(5);
                       final profileIndex = sourceIndices.indexOf(6);
                       return ModernBottomNavigator(
                         currentIndex: safeNavIndex,
                         destinations: visibleDestinations,
                         badgeCounts: {
-                          if (alertsIndex >= 0)
-                            alertsIndex: notifications.unreadCount,
+                          if (alertsIndex >= 0) alertsIndex: unread,
                         },
                         dotIndicators: {
                           if (profileIncomplete && profileIndex >= 0)

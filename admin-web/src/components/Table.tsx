@@ -42,6 +42,18 @@ type Props<T> = {
   rowProps?: (row: T) => RowAttrs | undefined
 }
 
+// Map a column's (physical) align to a LOGICAL one so headers + cells flip
+// correctly under RTL (Arabic/Kurdish). 'left'→'start', 'right'→'end' — both
+// track the reading direction, so a numeric column right-aligned in English
+// becomes left-aligned (the row's end) in Arabic instead of staying stuck on
+// the physical right. Default is 'start'. (Global notice #6.1)
+function logicalAlign(a?: 'left' | 'right' | 'center'): 'start' | 'end' | 'center' {
+  if (a === 'left') return 'start'
+  if (a === 'right') return 'end'
+  if (a === 'center') return 'center'
+  return 'start'
+}
+
 export default function Table<T>({ rows, columns, rowKey, empty, loading, selectable, rowProps }: Props<T>) {
   const { t } = useI18n()
   const totalCols = columns.length + (selectable ? 1 : 0)
@@ -61,7 +73,7 @@ export default function Table<T>({ rows, columns, rowKey, empty, loading, select
               </th>
             )}
             {columns.map((c) => (
-              <th key={c.key} style={{ textAlign: c.align ?? 'left', width: c.width }}>
+              <th key={c.key} style={{ textAlign: logicalAlign(c.align), width: c.width }}>
                 {c.header}
               </th>
             ))}
@@ -117,7 +129,7 @@ export default function Table<T>({ rows, columns, rowKey, empty, loading, select
                     </td>
                   )}
                   {columns.map((c) => (
-                    <td key={c.key} style={{ textAlign: c.align ?? 'left' }}>
+                    <td key={c.key} style={{ textAlign: logicalAlign(c.align) }}>
                       {c.cell(row)}
                     </td>
                   ))}

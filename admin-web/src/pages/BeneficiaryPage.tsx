@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState, useRef } from 'react'
+import RowDeleteButton from '../components/RowDeleteButton'
 import { Link } from 'react-router-dom'
+import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError } from '../lib/api'
 import { useLivePoll } from '../lib/useLivePoll'
 import StatusCell from '../components/StatusCell'
@@ -341,7 +343,7 @@ function CasesTab() {
       header: t('col.priority'),
       cell: (r) => (
         <span className={`badge ${priorityClass(r.priority_level)}`}>
-          {r.priority_level}
+          {statusLabel(r.priority_level)}
         </span>
       ),
     },
@@ -365,12 +367,12 @@ function CasesTab() {
       cell: (r) => <span className="muted">{r.updated_at?.slice(0, 10)}</span>,
     },
     {
-      key: 'actions', header: '', width: '170px',
+      key: 'actions', header: t('common.actions'), width: '170px',
       cell: (r) => (
         <>
           <Link className="row-edit-btn" to={`/detail/beneficiary_cases/${r.id}`}>{t('common.view')}</Link>
           <button className="row-edit-btn" onClick={() => setEditing(r)}>{t('common.edit')}</button>
-          <button className="row-delete-btn" onClick={() => setDeleting(r)}>{t('common.delete')}</button>
+          <RowDeleteButton onClick={() => setDeleting(r)} />
         </>
       ),
     },
@@ -403,7 +405,7 @@ function CasesTab() {
               </option>
             ))}
           </select>
-          <button className="secondary" onClick={exportCsv}>{t('common.export_csv')}</button>
+          <ExportCsvButton onExport={exportCsv} />
           <button onClick={() => setCreating(true)}>{t('page.beneficiary.new_case')}</button>
         </div>
       </div>
@@ -647,7 +649,7 @@ function RequestsTab() {
       ),
     },
     {
-      key: 'actions', header: '', width: '260px',
+      key: 'actions', header: t('common.actions'), width: '260px',
       cell: (r) => (
         <>
           <Link className="row-edit-btn" to={`/detail/beneficiary_project_requests/${r.id}`}>{t('common.view')}</Link>
@@ -664,7 +666,7 @@ function RequestsTab() {
               {t('page.beneficiary.publish')}
             </button>
           )}
-          <button className="row-delete-btn" onClick={() => setDeleting(r)}>{t('common.delete')}</button>
+          <RowDeleteButton onClick={() => setDeleting(r)} />
         </>
       ),
     },
@@ -697,7 +699,7 @@ function RequestsTab() {
               </option>
             ))}
           </select>
-          <button className="secondary" onClick={exportCsv}>{t('common.export_csv')}</button>
+          <ExportCsvButton onExport={exportCsv} />
           <button onClick={() => setCreating(true)}>{t('page.beneficiary.new_request')}</button>
         </div>
       </div>

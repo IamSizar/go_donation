@@ -6,6 +6,7 @@ import 'package:flutter_application_1/core/push_registration.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/localization/app_translations.dart';
 import 'package:flutter_application_1/localization/locale_service.dart';
+import 'package:flutter_application_1/shared/widgets/dismiss_keyboard.dart';
 import 'package:flutter_application_1/modules/auth/screens/login.dart';
 import 'package:flutter_application_1/modules/auth/screens/pending_approval.dart';
 import 'package:flutter_application_1/modules/auth/screens/register.dart';
@@ -23,10 +24,46 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_application_1/firebase_options.dart';
 
+/// Handles pushes that arrive while the app is backgrounded or terminated.
+/// Runs in its OWN isolate, so it must initialise Firebase itself — nothing
+/// from main()'s isolate is available here. Notification-type messages are
+/// still shown by the OS automatically; this handler is what lets data-only
+/// messages (and any background bookkeeping) be processed instead of dropped.
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } on FirebaseException catch (e) {
+    if (e.code != 'duplicate-app') rethrow;
+  }
+  debugPrint(
+    '[push] background: ${message.notification?.title} — data=${message.data}',
+  );
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  // On Android the Firebase SDK auto-initializes the default app at process
+  // start (FirebaseInitProvider, driven by google-services.json). Calling
+  // initializeApp() again then throws [core/duplicate-app] — and because the
+  // Dart-side Firebase.apps list may not yet reflect that native app, an
+  // isEmpty guard isn't reliable. Tolerate the duplicate-app error so main()
+  // always reaches runApp() instead of crashing on the native splash; rethrow
+  // anything genuinely wrong.
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } on FirebaseException catch (e) {
+    if (e.code != 'duplicate-app') rethrow;
+  }
+
+  // Register the background/terminated push handler BEFORE any other messaging
+  // setup so no early message is missed.
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
   // Request the full set of iOS notification permissions explicitly.
   // The default `requestPermission()` call without args still works on
@@ -90,8 +127,14 @@ class HumanitarianApp extends StatelessWidget {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: appThemeMode,
       builder: (context, themeMode, _) => GetMaterialApp(
-        title: 'Humanitarian Platform',
+        title: 'BalanceNex',
         debugShowCheckedModeBanner: false,
+        // Global swipe-back: enable the iOS-style edge drag-to-pop gesture on
+        // every pushed route AND on Android (GetX defaults this to iOS-only).
+        // On the root shell there's nothing to pop, so the gesture is inert
+        // there and the shell's own PopScope/back handling is unaffected. The
+        // Cupertino back gesture honors Directionality, so it mirrors under RTL.
+        popGesture: true,
         translations: AppTranslations(),
         locale: appLocale,
         fallbackLocale: AppLocaleService.english,
@@ -111,7 +154,14 @@ class HumanitarianApp extends StatelessWidget {
             Theme.of(context),
             locale,
           );
-          return Theme(data: themed, child: child ?? const SizedBox.shrink());
+          // Global keyboard dismiss: a tap on any empty area anywhere in the
+          // app unfocuses the active field and closes the keyboard.
+          return Theme(
+            data: themed,
+            child: DismissKeyboardOnTap(
+              child: child ?? const SizedBox.shrink(),
+            ),
+          );
         },
         initialRoute: AppRoutes.splash,
         getPages: [

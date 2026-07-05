@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState, useRef } from 'react'
+import RowDeleteButton from '../components/RowDeleteButton'
 import { Link } from 'react-router-dom'
+import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError } from '../lib/api'
 import { useLivePoll } from '../lib/useLivePoll'
 import type { Sponsorship, SponsorshipsListResp } from '../lib/api-types'
@@ -11,7 +13,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../lib/toast'
 import { useI18n, useStatusLabel } from '../lib/i18n'
 import { useSelection } from '../lib/useSelection'
-import { downloadCsv, type CsvColumn } from '../lib/csv'
+import { type CsvColumn } from '../lib/csv'
 import { HighlightBanner, useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForStatus } from '../lib/statusColors'
 
@@ -41,7 +43,7 @@ const SPONSORSHIP_FIELDS: FieldSpec[] = [
 ]
 
 const SPONSORSHIP_CREATE_FIELDS: FieldSpec[] = [
-  { key: 'donor_user_id', label: 'Donor user ID (optional)', labelKey: 'field.donor_user_id_optional', type: 'number' },
+  { key: 'donor_user_id', label: 'Contributor user ID (optional)', labelKey: 'field.donor_user_id_optional', type: 'number' },
   ...SPONSORSHIP_FIELDS,
 ]
 
@@ -163,11 +165,6 @@ export default function SponsorshipsPage() {
     [toast],
   )
 
-  const exportCsv = () => {
-    const rows = visible
-    if (rows.length === 0) { toast.info(t('common.nothing_to_export')); return }
-    downloadCsv(`sponsorships-${new Date().toISOString().slice(0, 10)}.csv`, rows, SPONSORSHIP_CSV_COLUMNS)
-  }
 
   const all = resp?.items ?? []
   const visible =
@@ -181,7 +178,7 @@ export default function SponsorshipsPage() {
       header: t('col.donor'),
       cell: (s) =>
         s.donor_user_id ? (
-          <span>user #{s.donor_user_id}</span>
+          <span>{t('common.user_ref_lc', { id: s.donor_user_id })}</span>
         ) : (
           <span className="muted">—</span>
         ),
@@ -192,7 +189,7 @@ export default function SponsorshipsPage() {
       cell: (s) => (
         <div className="cell-stack">
           <strong>{s.project_title}</strong>
-          <span className="muted">{s.sponsorship_type}</span>
+          <span className="muted">{statusLabel(s.sponsorship_type)}</span>
         </div>
       ),
     },
@@ -209,7 +206,7 @@ export default function SponsorshipsPage() {
     {
       key: 'schedule',
       header: t('col.schedule'),
-      cell: (s) => <span className="muted">{s.schedule_interval}</span>,
+      cell: (s) => <span className="muted">{statusLabel(s.schedule_interval)}</span>,
     },
     {
       key: 'next',
@@ -224,17 +221,17 @@ export default function SponsorshipsPage() {
           value={s.status}
           allowed={SPONSORSHIP_STATUSES}
           onSave={(next) => api.post(`/api/admin/sponsorships/${s.id}/status`, { status: next })}
-          label={`Sponsorship #${s.id}`}
+          label={t('common.status')}
         />
       ),
     },
     {
-      key: 'actions', header: '', width: '170px',
+      key: 'actions', header: t('common.actions'), width: '170px',
       cell: (s) => (
         <>
           <Link className="row-edit-btn" to={`/detail/sponsorships/${s.id}`}>{t('common.view')}</Link>
           <button className="row-edit-btn" onClick={() => setEditing(s)}>{t('common.edit')}</button>
-          <button className="row-delete-btn" onClick={() => setDeleting(s)}>{t('common.delete')}</button>
+          <RowDeleteButton onClick={() => setDeleting(s)} />
         </>
       ),
     },
@@ -271,7 +268,13 @@ export default function SponsorshipsPage() {
               </option>
             ))}
           </select>
-          <button className="secondary" onClick={exportCsv}>{t('common.export_csv')}</button>
+          <ExportCsvButton
+            rows={visible}
+            columns={SPONSORSHIP_CSV_COLUMNS}
+            filenameBase="sponsorships"
+            title={t('nav.sponsorships')}
+            module="sponsorships"
+          />
           <button onClick={() => setCreating(true)}>{t('page.sponsorships.new')}</button>
         </div>
       </div>
@@ -298,7 +301,7 @@ export default function SponsorshipsPage() {
         onApply={applyBulkStatus}
         onDelete={applyBulkDelete}
         onClear={sel.clear}
-        noun="sponsorships"
+        noun={t('noun.sponsorship')}
       />
       <ConfirmDialog
         open={deleting !== null}

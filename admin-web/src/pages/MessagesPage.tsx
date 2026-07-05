@@ -9,7 +9,9 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, describeError } from '../lib/api'
-import { useI18n } from '../lib/i18n'
+import { useI18n, useStatusLabel } from '../lib/i18n'
+import ExportCsvButton from '../components/ExportCsvButton'
+import { type CsvColumn } from '../lib/csv'
 
 type AdminThread = {
   id: number
@@ -47,14 +49,34 @@ function name(
   return n && n.trim() ? n : t('common.user_ref', { id })
 }
 
+// Flat CSV shape for a chat thread (Phase 7 · M-33).
+const THREAD_CSV_COLUMNS: CsvColumn<AdminThread>[] = [
+  { header: 'id', get: (t) => t.id },
+  { header: 'status', get: (t) => t.status },
+  { header: 'campaign_id', get: (t) => t.campaign_id ?? '' },
+  { header: 'campaign_title', get: (t) => t.campaign_title ?? '' },
+  { header: 'donor_user_id', get: (t) => t.donor_user_id },
+  { header: 'donor_name', get: (t) => t.donor_name ?? '' },
+  { header: 'donor_phone', get: (t) => t.donor_phone ?? '' },
+  { header: 'owner_user_id', get: (t) => t.owner_user_id },
+  { header: 'owner_name', get: (t) => t.owner_name ?? '' },
+  { header: 'owner_phone', get: (t) => t.owner_phone ?? '' },
+  { header: 'message_count', get: (t) => t.message_count },
+  { header: 'last_message', get: (t) => t.last_message ?? '' },
+  { header: 'last_message_at', get: (t) => t.last_message_at ?? '' },
+  { header: 'created_at', get: (t) => t.created_at },
+]
+
 function StatusBadge({ status }: { status: string }) {
+  const statusLabel = useStatusLabel()
   const tone =
     status === 'active' ? 'success' : status === 'pending' ? 'warning' : 'info'
-  return <span className={`badge tone-${tone}`}>{status}</span>
+  return <span className={`badge tone-${tone}`}>{statusLabel(status)}</span>
 }
 
 export default function MessagesPage() {
   const { t } = useI18n()
+  const statusLabel = useStatusLabel()
   const [threads, setThreads] = useState<AdminThread[]>([])
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -64,6 +86,7 @@ export default function MessagesPage() {
   const [reply, setReply] = useState('')
   const [sending, setSending] = useState(false)
   const msgEnd = useRef<HTMLDivElement | null>(null)
+
 
   // ── poll thread list ────────────────────────────────────────────
   const loadThreads = useCallback(async () => {
@@ -133,16 +156,25 @@ export default function MessagesPage() {
             {t('nav.messages')}
           </h1>
           <p className="muted">
-            {threads.length} conversation{threads.length === 1 ? '' : 's'} · you reply as Support
+            {t('common.msg_convos_count', { n: threads.length })}
           </p>
         </div>
-        <input
-          type="search"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder={t('common.msg_search')}
-          style={{ width: 240 }}
-        />
+        <div className="row">
+          <input
+            type="search"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder={t('common.msg_search')}
+            style={{ width: 240 }}
+          />
+          <ExportCsvButton
+            rows={threads}
+            columns={THREAD_CSV_COLUMNS}
+            filenameBase="messages"
+            title={t('nav.messages')}
+            module="messages"
+          />
+        </div>
       </div>
 
       {err && <div className="error-box">{err}</div>}
@@ -150,7 +182,7 @@ export default function MessagesPage() {
       <div style={{ display: 'grid', gridTemplateColumns: '340px 1fr', gap: 16, alignItems: 'start' }}>
         {/* ── Thread list ─────────────────────────────────────────── */}
         <div className="card" style={{ padding: 8, maxHeight: '70vh', overflowY: 'auto' }}>
-          {loading && threads.length === 0 && <p className="muted" style={{ padding: 12 }}>Loading…</p>}
+          {loading && threads.length === 0 && <p className="muted" style={{ padding: 12 }}>{t('common.loading')}</p>}
           {!loading && threads.length === 0 && (
             <p className="muted" style={{ padding: 12 }}>{t('common.msg_no_convos')}</p>
           )}
@@ -185,7 +217,7 @@ export default function MessagesPage() {
         <div className="card" style={{ display: 'flex', flexDirection: 'column', minHeight: '70vh', maxHeight: '70vh' }}>
           {!selected ? (
             <div className="muted" style={{ margin: 'auto', textAlign: 'center' }}>
-              Select a conversation to view and reply.
+              {t('common.msg_select_convo')}
             </div>
           ) : (
             <>
@@ -197,7 +229,7 @@ export default function MessagesPage() {
                   <StatusBadge status={selected.status} />
                 </div>
                 {selected.campaign_title && (
-                  <span className="muted" style={{ fontSize: 12.5 }}>Campaign: {selected.campaign_title}</span>
+                  <span className="muted" style={{ fontSize: 12.5 }}>{t('common.msg_campaign')}: {selected.campaign_title}</span>
                 )}
               </div>
 
@@ -241,12 +273,12 @@ export default function MessagesPage() {
                     disabled={sending}
                   />
                   <button onClick={sendReply} disabled={sending || !reply.trim()}>
-                    {sending ? 'Sending…' : 'Send'}
+                    {sending ? t('common.msg_sending') : t('common.msg_send')}
                   </button>
                 </div>
               ) : (
                 <div className="muted" style={{ marginTop: 10, fontSize: 13 }}>
-                  This chat is <strong>{selected.status}</strong> — you can reply once it’s accepted.
+                  {t('common.msg_chat_inactive', { status: statusLabel(selected.status) })}
                 </div>
               )}
             </>

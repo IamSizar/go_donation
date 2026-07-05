@@ -171,13 +171,31 @@ class ModuleApi {
     }
   }
 
-  Future<List<Map<String, dynamic>>> getItems(String url) async {
-    final uri = Uri.parse(url).replace(
+  /// 27.2 — authed GET with a single self-heal retry. In the moments right
+  /// after login the session token can be briefly stale/not-yet-attached; the
+  /// first request then comes back 401/403 and the screen would otherwise be
+  /// stuck on a hard error. On that auth failure we refresh the session ONCE
+  /// (re-derives a token from the stored phone) and retry with fresh headers
+  /// before surfacing the error. This is what makes "screens fail on login"
+  /// self-heal instead of dead-ending.
+  Future<http.Response> _authedGet(String url) async {
+    Uri buildUri() => Uri.parse(url).replace(
       queryParameters: withApiAuthQueryParameters(
         Uri.parse(url).queryParameters,
       ),
     );
-    final response = await http.get(uri, headers: withApiAuthHeaders());
+    var response = await http.get(buildUri(), headers: withApiAuthHeaders());
+    if (response.statusCode == 401 || response.statusCode == 403) {
+      final refreshed = await ensureApiSession(forceRefresh: true);
+      if (refreshed) {
+        response = await http.get(buildUri(), headers: withApiAuthHeaders());
+      }
+    }
+    return response;
+  }
+
+  Future<List<Map<String, dynamic>>> getItems(String url) async {
+    final response = await _authedGet(url);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception('Request failed (${response.statusCode})');
     }
@@ -198,12 +216,7 @@ class ModuleApi {
   }
 
   Future<Map<String, dynamic>> getObject(String url) async {
-    final uri = Uri.parse(url).replace(
-      queryParameters: withApiAuthQueryParameters(
-        Uri.parse(url).queryParameters,
-      ),
-    );
-    final response = await http.get(uri, headers: withApiAuthHeaders());
+    final response = await _authedGet(url);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception('Request failed (${response.statusCode})');
     }

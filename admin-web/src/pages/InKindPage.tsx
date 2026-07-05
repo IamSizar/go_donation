@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState, useRef } from 'react'
+import RowDeleteButton from '../components/RowDeleteButton'
 import { Link } from 'react-router-dom'
+import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError } from '../lib/api'
 import { useLivePoll } from '../lib/useLivePoll'
 import type { AdminPageResp, AdminInKind } from '../lib/api-types'
@@ -12,7 +14,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../lib/toast'
 import { useI18n, useStatusLabel } from '../lib/i18n'
 import { useSelection } from '../lib/useSelection'
-import { downloadCsv, type CsvColumn } from '../lib/csv'
+import { type CsvColumn } from '../lib/csv'
 import { HighlightBanner, useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForStatus } from '../lib/statusColors'
 
@@ -44,7 +46,7 @@ const INKIND_FIELDS: FieldSpec[] = [
 ]
 
 const INKIND_CREATE_FIELDS: FieldSpec[] = [
-  { key: 'donor_user_id', label: 'Donor user ID (optional)', labelKey: 'field.donor_user_id_optional', type: 'number' },
+  { key: 'donor_user_id', label: 'Contributor user ID (optional)', labelKey: 'field.donor_user_id_optional', type: 'number' },
   ...INKIND_FIELDS,
 ]
 
@@ -138,11 +140,6 @@ export default function InKindPage() {
     [toast],
   )
 
-  const exportCsv = () => {
-    const rows = resp?.items ?? []
-    if (rows.length === 0) { toast.info(t('common.nothing_to_export')); return }
-    downloadCsv(`inkind-${new Date().toISOString().slice(0, 10)}.csv`, rows, INKIND_CSV_COLUMNS)
-  }
 
   const columns: Column<AdminInKind>[] = [
     { key: 'id', header: t('col.id'), width: '60px', cell: (k) => <strong>#{k.id}</strong> },
@@ -150,7 +147,7 @@ export default function InKindPage() {
       key: 'donor', header: t('col.donor'),
       cell: (k) => (
         <div className="cell-stack">
-          <strong>{k.donor_full_name ?? (k.donor_user_id ? `user #${k.donor_user_id}` : '—')}</strong>
+          <strong>{k.donor_full_name ?? (k.donor_user_id ? t('common.user_ref_lc', { id: k.donor_user_id }) : '—')}</strong>
           {k.donor_phone && <span className="muted">{k.donor_phone}</span>}
         </div>
       ),
@@ -166,18 +163,18 @@ export default function InKindPage() {
           value={k.status}
           allowed={STATUSES.filter((s) => s !== 'all')}
           onSave={(next) => api.post(`/api/admin/in_kind_donations/${k.id}/status`, { status: next })}
-          label={`In-kind #${k.id}`}
+          label={t('common.status')}
         />
       ),
     },
     { key: 'created', header: t('col.created'), cell: (k) => <span className="muted">{k.created_at?.slice(0, 10)}</span> },
     {
-      key: 'actions', header: '', width: '170px',
+      key: 'actions', header: t('common.actions'), width: '170px',
       cell: (k) => (
         <>
           <Link className="row-edit-btn" to={`/detail/in_kind_donations/${k.id}`}>{t('common.view')}</Link>
           <button className="row-edit-btn" onClick={() => setEditing(k)}>{t('common.edit')}</button>
-          <button className="row-delete-btn" onClick={() => setDeleting(k)}>{t('common.delete')}</button>
+          <RowDeleteButton onClick={() => setDeleting(k)} />
         </>
       ),
     },
@@ -201,7 +198,13 @@ export default function InKindPage() {
           <select value={status} onChange={e => { setStatus(e.target.value); setPage(1); sel.clear() }} style={{ width: 'auto' }}>
             {STATUSES.map(s => <option key={s} value={s}>{statusLabel(s)}</option>)}
           </select>
-          <button className="secondary" onClick={exportCsv}>{t('common.export_csv')}</button>
+          <ExportCsvButton
+            rows={resp?.items ?? []}
+            columns={INKIND_CSV_COLUMNS}
+            filenameBase="inkind"
+            title={t('nav.in_kind')}
+            module="in_kind"
+          />
           <button onClick={() => setCreating(true)}>{t('page.in_kind.new')}</button>
         </div>
       </div>

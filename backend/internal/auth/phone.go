@@ -6,8 +6,13 @@ import (
 )
 
 var (
-	// Strip human formatting: spaces, dashes, parens, dots.
-	phoneStripRE = regexp.MustCompile(`[\s\-\(\)\.]+`)
+	// Strip human formatting: spaces, dashes, parens, dots — plus any Unicode
+	// whitespace and bidi/format marks. Go's \s is ASCII-only, so Arabic-mode
+	// input can carry a non-breaking space (U+00A0) or a bidirectional mark
+	// (U+200E/U+200F/U+202A–202E) that would otherwise survive and make the
+	// same number look like a different string (the "Arabic spacing" duplicate
+	// bug). \p{Z} = all Unicode separators; \p{Cf} = format/bidi/zero-width.
+	phoneStripRE = regexp.MustCompile(`[\s\p{Z}\p{Cf}\-\(\)\.]+`)
 	digitsOnlyRE = regexp.MustCompile(`^\d+$`)
 )
 

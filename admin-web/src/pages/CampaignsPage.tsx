@@ -7,6 +7,8 @@
 // the underlying table.
 
 import { useCallback, useEffect, useState } from 'react'
+import RowDeleteButton from '../components/RowDeleteButton'
+import ExportCsvButton from '../components/ExportCsvButton'
 import { Link } from 'react-router-dom'
 import { api, describeError } from '../lib/api'
 import type { AdminCampaign, AdminPageResp, CampaignStatus } from '../lib/api-types'
@@ -17,7 +19,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../lib/toast'
 import { useI18n, useStatusLabel } from '../lib/i18n'
 import { useSelection } from '../lib/useSelection'
-import { downloadCsv, type CsvColumn } from '../lib/csv'
+import { type CsvColumn } from '../lib/csv'
 
 const PER_PAGE = 12
 
@@ -49,7 +51,7 @@ const CAMPAIGN_FIELDS: FieldSpec[] = [
   { key: 'title_sorani',       label: 'Title (Sorani)', labelKey: 'field.title_sorani',      type: 'text',     dir: 'rtl' },
   { key: 'title_badini',       label: 'Title (Badini)', labelKey: 'field.title_badini',      type: 'text',     dir: 'rtl' },
   { key: 'address',            label: 'Address', labelKey: 'field.address',             type: 'text',     required: true },
-  { key: 'beneficiaries',      label: 'Beneficiaries', labelKey: 'field.beneficiaries',       type: 'text',     required: true, placeholder: 'e.g. 50 families' },
+  { key: 'beneficiaries',      label: 'Recipients', labelKey: 'field.beneficiaries',       type: 'text',     required: true, placeholder: 'e.g. 50 families' },
   { key: 'goal_amount',        label: 'Goal amount', labelKey: 'field.goal_amount',         type: 'text',     required: true, placeholder: 'IQD' },
   { key: 'raised_amount',      label: 'Raised amount', labelKey: 'field.raised_amount',       type: 'text',     placeholder: '0' },
   { key: 'description',        label: 'Description (EN)', labelKey: 'field.description_en',    type: 'textarea', rows: 4, required: true },
@@ -190,11 +192,6 @@ export default function CampaignsPage() {
     return { ok, fail: results.length - ok }
   }, [sel])
 
-  const exportCsv = () => {
-    const rows = resp?.items ?? []
-    if (rows.length === 0) { toast.info(t('common.nothing_to_export')); return }
-    downloadCsv(`campaigns-${new Date().toISOString().slice(0, 10)}.csv`, rows, CSV_COLUMNS)
-  }
 
   const modalOpen = editing !== null || creating
   const closeModal = () => { setEditing(null); setCreating(false) }
@@ -214,7 +211,7 @@ export default function CampaignsPage() {
     { key: 'address', header: t('col.location'), cell: (c) => c.address },
     {
       key: 'owner',
-      header: 'Beneficiary',
+      header: 'Recipient',
       cell: (c) => {
         if (!c.owner_user_id) return <span className="muted">—</span>
         return (
@@ -263,13 +260,13 @@ export default function CampaignsPage() {
     },
     {
       key: 'actions',
-      header: '',
+      header: t('common.actions'),
       width: '170px',
       cell: (c) => (
         <>
           <Link className="row-edit-btn" to={`/detail/campaigns/${c.id}`}>{t('common.view')}</Link>
           <button className="row-edit-btn" onClick={() => setEditing(c)}>{t('common.edit')}</button>
-          <button className="row-delete-btn" onClick={() => setDeleting(c)}>{t('common.delete')}</button>
+          <RowDeleteButton onClick={() => setDeleting(c)} />
         </>
       ),
     },
@@ -292,7 +289,13 @@ export default function CampaignsPage() {
             placeholder={t('page.campaigns.search_placeholder')}
             style={{ width: '220px' }}
           />
-          <button className="secondary" onClick={exportCsv}>{t('common.export_csv')}</button>
+          <ExportCsvButton
+            rows={resp?.items ?? []}
+            columns={CSV_COLUMNS}
+            filenameBase="campaigns"
+            title={t('nav.campaigns')}
+            module="campaigns"
+          />
           <button onClick={() => setCreating(true)}>{t('page.campaigns.new')}</button>
         </div>
       </div>

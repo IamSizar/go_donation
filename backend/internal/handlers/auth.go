@@ -19,11 +19,14 @@ type AuthHandler struct {
 	Users  *users.Store
 	// Phase 19 — OTPIQ delivery client. nil when OTPIQ_API_KEY is not set;
 	// the handler then refuses real-mode OTP with a 502 (demo still works).
-	OTPIQ  *auth.OTPIQClient
+	OTPIQ *auth.OTPIQClient
+	// Requirement 6c — login brute-force throttle. Counts failed password
+	// attempts per identity and locks after too many.
+	LoginLocks *auth.LoginLockStore
 }
 
-func NewAuthHandler(t *auth.TokenStore, o *auth.OTPStore, u *users.Store, otpiq *auth.OTPIQClient) *AuthHandler {
-	return &AuthHandler{Tokens: t, OTPs: o, Users: u, OTPIQ: otpiq}
+func NewAuthHandler(t *auth.TokenStore, o *auth.OTPStore, u *users.Store, otpiq *auth.OTPIQClient, ll *auth.LoginLockStore) *AuthHandler {
+	return &AuthHandler{Tokens: t, OTPs: o, Users: u, OTPIQ: otpiq, LoginLocks: ll}
 }
 
 // loginReq accepts both {"phone": "..."} and {"number": "..."} (matches PHP).
@@ -83,10 +86,24 @@ func (h *AuthHandler) Login(c *gin.Context) {
 			return
 		}
 		if hash != "" {
+			// Requirement 6c — brute-force throttle. Password accounts are
+			// locked after too many failed attempts within the window.
+			lockID := "p:" + phone
+			if h.LoginLocks != nil {
+				if locked, retryAfter := h.LoginLocks.Status(ctx, lockID); locked {
+					c.JSON(http.StatusTooManyRequests, gin.H{
+						"status":      "error",
+						"error":       "Too many failed attempts. Try again later.",
+						"retry_after": retryAfter,
+					})
+					return
+				}
+			}
 			provided := strings.TrimSpace(req.Password)
 			if provided == "" {
 				// Tell the client a password is required so the SPA can
-				// re-prompt without having to guess.
+				// re-prompt without having to guess. (Not counted as a failed
+				// attempt — no password was submitted to verify.)
 				c.JSON(http.StatusUnauthorized, gin.H{
 					"status":            "error",
 					"error":             "Password required for this account.",
@@ -95,11 +112,25 @@ func (h *AuthHandler) Login(c *gin.Context) {
 				return
 			}
 			if err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(provided)); err != nil {
+				if h.LoginLocks != nil {
+					if locked, retryAfter := h.LoginLocks.RegisterFailure(ctx, lockID); locked {
+						c.JSON(http.StatusTooManyRequests, gin.H{
+							"status":      "error",
+							"error":       "Too many failed attempts. Try again later.",
+							"retry_after": retryAfter,
+						})
+						return
+					}
+				}
 				c.JSON(http.StatusUnauthorized, gin.H{
 					"status": "error",
 					"error":  "Incorrect phone or password.",
 				})
 				return
+			}
+			// Correct password — clear any accumulated failed-attempt counter.
+			if h.LoginLocks != nil {
+				h.LoginLocks.Reset(ctx, lockID)
 			}
 		}
 	}
@@ -113,6 +144,77 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	role, _ := h.Users.GetRoleID(ctx, uid)
 	account, _ := h.Users.GetAccountForClient(ctx, uid)
 
+	session, err := h.Tokens.IssueToken(ctx, uid, c.Request.UserAgent(), auth.ClientIP(c.Request.RemoteAddr))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "error": "Unable to issue token."})
+		return
+	}
+
+	var roleField any = nil
+	if role > 0 {
+		roleField = role
+	}
+	regStatus := ""
+	if account != nil {
+		regStatus = account.RegistrationStatus
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"status":              "success",
+		"user_id":             uid,
+		"returning_user":      returning,
+		"has_role":            role > 0,
+		"role_id":             roleField,
+		"registration_status": regStatus,
+		"account":             account,
+		"session":             session,
+		"access_token":        session.AccessToken,
+		"token_type":          session.TokenType,
+		"expires_at":          session.ExpiresAt,
+		"expires_in":          session.ExpiresIn,
+	})
+}
+
+// googleLoginReq is the body for POST /api/auth/google.
+type googleLoginReq struct {
+	IDToken string `json:"id_token"`
+}
+
+// POST /api/auth/google — sign in / sign up with a Google ID token (Phase 9,
+// B-09). Verifies the token with Google, find-or-creates the user, then issues
+// an app access token using the SAME response shape as phone login so the app
+// can treat both flows identically.
+func (h *AuthHandler) GoogleLogin(c *gin.Context) {
+	if !auth.GoogleConfigured() {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"status": "error", "error": "Google sign-in is not configured on the server.",
+		})
+		return
+	}
+	var req googleLoginReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "error": "Invalid request body."})
+		return
+	}
+	ctx := c.Request.Context()
+
+	claims, err := auth.VerifyGoogleIDToken(ctx, req.IDToken)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"status": "error", "error": "Google sign-in failed."})
+		return
+	}
+	if !claims.EmailVerified {
+		c.JSON(http.StatusUnauthorized, gin.H{"status": "error", "error": "Your Google email is not verified."})
+		return
+	}
+
+	uid, returning, err := h.Users.UpsertGoogleUser(ctx, claims.Sub, claims.Email, claims.Name)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "error": "Unable to sign in."})
+		return
+	}
+
+	role, _ := h.Users.GetRoleID(ctx, uid)
+	account, _ := h.Users.GetAccountForClient(ctx, uid)
 	session, err := h.Tokens.IssueToken(ctx, uid, c.Request.UserAgent(), auth.ClientIP(c.Request.RemoteAddr))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "error": "Unable to issue token."})
@@ -170,20 +272,45 @@ func (h *AuthHandler) AdminLogin(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
+	// Requirement 6c — brute-force throttle for the admin dashboard login.
+	lockID := "u:" + username
+	if h.LoginLocks != nil {
+		if locked, retryAfter := h.LoginLocks.Status(ctx, lockID); locked {
+			c.JSON(http.StatusTooManyRequests, gin.H{
+				"status": "error", "error": "Too many failed attempts. Try again later.",
+				"retry_after": retryAfter,
+			})
+			return
+		}
+	}
+
 	id, hash, isAdmin, err := h.Users.GetByUsername(ctx, username)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "error": "Database error (lookup)."})
 		return
 	}
 	// Generic 401 for unknown user / no password set / wrong password — never
-	// reveal which one failed.
+	// reveal which one failed. Every such failure counts toward the lockout.
 	if id == 0 || hash == "" || bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) != nil {
+		if h.LoginLocks != nil {
+			if locked, retryAfter := h.LoginLocks.RegisterFailure(ctx, lockID); locked {
+				c.JSON(http.StatusTooManyRequests, gin.H{
+					"status": "error", "error": "Too many failed attempts. Try again later.",
+					"retry_after": retryAfter,
+				})
+				return
+			}
+		}
 		c.JSON(http.StatusUnauthorized, gin.H{"status": "error", "error": "Invalid username or password."})
 		return
 	}
 	if isAdmin != 1 {
 		c.JSON(http.StatusForbidden, gin.H{"status": "error", "error": "Admin access required."})
 		return
+	}
+	// Successful admin login — clear the failed-attempt counter.
+	if h.LoginLocks != nil {
+		h.LoginLocks.Reset(ctx, lockID)
 	}
 
 	role, _ := h.Users.GetRoleID(ctx, id)
@@ -251,6 +378,16 @@ func (h *AuthHandler) OTPRequest(c *gin.Context) {
 		return
 	}
 
+	// Section 27 — progressive per-phone lockout. If this number is already
+	// serving a lock (2h / 6h / 24h), refuse before doing anything else.
+	if locked, retryAfter := h.OTPs.PhoneLockStatus(ctx, phone); locked {
+		c.JSON(http.StatusTooManyRequests, gin.H{
+			"error":       "This number is temporarily locked after too many verification requests. Try again later.",
+			"retry_after": retryAfter,
+		})
+		return
+	}
+
 	existing, err := h.OTPs.GetRecord(ctx, phone)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error (otp lookup)."})
@@ -266,6 +403,17 @@ func (h *AuthHandler) OTPRequest(c *gin.Context) {
 			})
 			return
 		}
+	}
+
+	// Section 27 — count this genuine (past-cooldown) request against the
+	// per-phone window; if it crosses the threshold, apply the next escalating
+	// lock and refuse now.
+	if locked, retryAfter := h.OTPs.RegisterPhoneRequest(ctx, phone); locked {
+		c.JSON(http.StatusTooManyRequests, gin.H{
+			"error":       "This number is now temporarily locked after too many verification requests. Try again later.",
+			"retry_after": retryAfter,
+		})
+		return
 	}
 
 	if mode == "demo" {

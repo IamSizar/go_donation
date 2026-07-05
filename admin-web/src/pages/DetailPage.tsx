@@ -15,8 +15,8 @@
 
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { api, describeError } from '../lib/api'
-import { useI18n } from '../lib/i18n'
+import { api, describeError, assetUrl } from '../lib/api'
+import { useI18n, useFieldLabel, useStatusLabel } from '../lib/i18n'
 
 type DetailResp = {
   success: true
@@ -40,6 +40,7 @@ const RESOURCE_LABELS: Record<string, { labelKey: string; list: string }> = {
   support_tickets:              { labelKey: 'noun.support_ticket',        list: '/support' },
   donations:                    { labelKey: 'noun.donation',              list: '/donations' },
   volunteer_applications:       { labelKey: 'noun.volunteer_application', list: '/volunteers' },
+  volunteer_missions:           { labelKey: 'noun.mission',               list: '/missions' },
   campaigns:                    { labelKey: 'noun.campaign',              list: '/campaigns' },
   users:                        { labelKey: 'noun.user',                  list: '/users' },
 }
@@ -58,12 +59,17 @@ function dirFor(key: string): 'rtl' | 'ltr' {
   return /(_ar|_sorani|_badini)$/i.test(key) ? 'rtl' : 'ltr'
 }
 
-function renderValue(key: string, val: unknown, t: (k: string) => string) {
+function renderValue(
+  key: string,
+  val: unknown,
+  t: (k: string) => string,
+  statusLabel: (v: string) => string,
+) {
   if (val === null || val === undefined || val === '') {
     return <span className="muted">—</span>
   }
   if (looksLikeImagePath(key, val)) {
-    return <img src={`/${String(val)}`} alt="" className="file-input-preview" />
+    return <img src={assetUrl(String(val))} alt="" className="file-input-preview" />
   }
   if (typeof val === 'object') {
     return <pre className="audit-meta-panel" style={{ margin: 0 }}>{JSON.stringify(val, null, 2)}</pre>
@@ -71,16 +77,56 @@ function renderValue(key: string, val: unknown, t: (k: string) => string) {
   if (typeof val === 'boolean') {
     return <span>{val ? t('common.yes') : t('common.no')}</span>
   }
-  return <span dir={dirFor(key)}>{String(val)}</span>
+  // Localize controlled-vocabulary values (status/priority enums). statusLabel
+  // returns the raw string when there's no matching status.* key, so free data
+  // (names, cities, dates) is left untouched.
+  return <span dir={dirFor(key)}>{statusLabel(String(val))}</span>
 }
 
 export default function DetailPage() {
   const { resource = '', id = '' } = useParams<{ resource: string; id: string }>()
   const nav = useNavigate()
   const { t } = useI18n()
+  const fieldLabel = useFieldLabel()
+  const statusLabel = useStatusLabel()
   const [resp, setResp] = useState<DetailResp | null>(null)
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+
+  // Resolve user-id references (owner, donor, reviewed_by, …) to real names so
+  // the read-only view shows "Sizar Ahmed (#18)" instead of a bare "18".
+  const [userMap, setUserMap] = useState<Record<number, string>>({})
+  useEffect(() => {
+    let cancelled = false
+    api
+      .get<{ data?: Array<{ user_id: number; phone?: string | null; profile?: { full_name?: string | null } | null }> }>(
+        '/api/admin/users', { params: { per_page: 1000 } })
+      .then((r) => {
+        if (cancelled) return
+        const m: Record<number, string> = {}
+        for (const u of r.data?.data ?? []) {
+          m[u.user_id] = (u.profile?.full_name?.trim() || u.phone || '') as string
+        }
+        setUserMap(m)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+
+  // role_id → role name, and *_user_id/*_by → user name.
+  const ROLE_KEY: Record<number, string> = {
+    1: 'registrations.role_donor', 2: 'registrations.role_beneficiary', 3: 'registrations.role_volunteer',
+  }
+  const roleLabel = (v: unknown) => {
+    const k = ROLE_KEY[Number(v)]
+    return k ? t(k) : String(v)
+  }
+  const userName = (v: unknown) => {
+    const idn = Number(v)
+    const n = userMap[idn]
+    return n ? `${n} (#${idn})` : t('common.user_ref', { id: idn })
+  }
+  const USER_REF = /(_user_id|_by)$/
 
   const meta = RESOURCE_LABELS[resource]
 
@@ -123,8 +169,16 @@ export default function DetailPage() {
         <div className="detail-grid">
           {Object.entries(resp.item).map(([k, v]) => (
             <div key={k} className="detail-row">
-              <div className="detail-key"><code>{k}</code></div>
-              <div className="detail-value">{renderValue(k, v, t)}</div>
+              <div className="detail-key" title={k}>{fieldLabel(k)}</div>
+              <div className="detail-value">{
+                v === null || v === undefined || v === ''
+                  ? <span className="muted">—</span>
+                  : k === 'role_id'
+                    ? <span>{roleLabel(v)}</span>
+                    : (USER_REF.test(k) || k === 'user_id')
+                      ? <span>{userName(v)}</span>
+                      : renderValue(k, v, t, statusLabel)
+              }</div>
             </div>
           ))}
         </div>

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
+import RowDeleteButton from '../components/RowDeleteButton'
 import { Link } from 'react-router-dom'
+import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError } from '../lib/api'
 import type { MarriageProfile } from '../lib/api-types'
 import Table, { type Column } from '../components/Table'
@@ -10,7 +12,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../lib/toast'
 import { useI18n, useStatusLabel } from '../lib/i18n'
 import { useSelection } from '../lib/useSelection'
-import { downloadCsv, type CsvColumn } from '../lib/csv'
+import { type CsvColumn } from '../lib/csv'
 
 const MARRIAGE_CSV_COLUMNS: CsvColumn<MarriageProfile>[] = [
   { header: 'id', get: (p) => p.id },
@@ -135,11 +137,6 @@ export default function MarriagePage() {
     [toast],
   )
 
-  const exportCsv = () => {
-    const rows = resp?.items ?? []
-    if (rows.length === 0) { toast.info(t('common.nothing_to_export')); return }
-    downloadCsv(`marriage-${new Date().toISOString().slice(0, 10)}.csv`, rows, MARRIAGE_CSV_COLUMNS)
-  }
 
   const columns: Column<MarriageProfile>[] = [
     { key: 'id', header: t('col.id'), width: '60px', cell: (p) => <strong>#{p.id}</strong> },
@@ -164,12 +161,12 @@ export default function MarriagePage() {
     {
       key: 'visibility',
       header: t('col.visibility'),
-      cell: (p) => <span className="badge">{p.visibility_level}</span>,
+      cell: (p) => <span className="badge">{statusLabel(p.visibility_level)}</span>,
     },
     {
       key: 'subscription',
       header: t('col.subscription'),
-      cell: (p) => <span className="badge">{p.subscription_status}</span>,
+      cell: (p) => <span className="badge">{statusLabel(p.subscription_status)}</span>,
     },
     {
       key: 'status',
@@ -189,12 +186,12 @@ export default function MarriagePage() {
       cell: (p) => <span className="muted">{p.created_at?.slice(0, 10)}</span>,
     },
     {
-      key: 'actions', header: '', width: '170px',
+      key: 'actions', header: t('common.actions'), width: '170px',
       cell: (p) => (
         <>
           <Link className="row-edit-btn" to={`/detail/marriage/${p.id}`}>{t('common.view')}</Link>
           <button className="row-edit-btn" onClick={() => setEditing(p)}>{t('common.edit')}</button>
-          <button className="row-delete-btn" onClick={() => setDeleting(p)}>{t('common.delete')}</button>
+          <RowDeleteButton onClick={() => setDeleting(p)} />
         </>
       ),
     },
@@ -218,7 +215,13 @@ export default function MarriagePage() {
           <select value={status} onChange={(e) => { setStatus(e.target.value); sel.clear() }} style={{ width: 'auto' }}>
             {STATUSES.map((s) => <option key={s} value={s}>{statusLabel(s)}</option>)}
           </select>
-          <button className="secondary" onClick={exportCsv}>{t('common.export_csv')}</button>
+          <ExportCsvButton
+            rows={resp?.items ?? []}
+            columns={MARRIAGE_CSV_COLUMNS}
+            filenameBase="marriage"
+            title={t('nav.marriage')}
+            module="marriage"
+          />
           <button onClick={() => setCreating(true)}>{t('page.marriage.new')}</button>
         </div>
       </div>

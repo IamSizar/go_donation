@@ -22,8 +22,68 @@ import type { AdminBoardMission, AdminBoardSignup, AdminVolunteerBoard } from '.
 import { useToast } from '../lib/toast'
 import { usePendingCounts } from '../lib/pendingCounts'
 import { useI18n, useStatusLabel } from '../lib/i18n'
+import ExportCsvButton from '../components/ExportCsvButton'
+import { type CsvColumn } from '../lib/csv'
 
 const POLL_MS = 10_000
+
+// The board is a Kanban of signups grouped by mission — the export flattens
+// every signup (across all missions and lanes) into one row, carrying its
+// mission context (Phase 7 · M-43).
+type BoardExportRow = {
+  mission_id: number
+  mission_title: string
+  mission_city: string
+  mission_date: string
+  signup_id: number
+  user_id: number
+  full_name: string
+  phone: string
+  status: string
+  hours_served: string
+  created_at: string
+  completed_at: string
+}
+const BOARD_CSV_COLUMNS: CsvColumn<BoardExportRow>[] = [
+  { header: 'mission_id', get: (r) => r.mission_id },
+  { header: 'mission_title', get: (r) => r.mission_title },
+  { header: 'mission_city', get: (r) => r.mission_city },
+  { header: 'mission_date', get: (r) => r.mission_date },
+  { header: 'signup_id', get: (r) => r.signup_id },
+  { header: 'user_id', get: (r) => r.user_id },
+  { header: 'full_name', get: (r) => r.full_name },
+  { header: 'phone', get: (r) => r.phone },
+  { header: 'status', get: (r) => r.status },
+  { header: 'hours_served', get: (r) => r.hours_served },
+  { header: 'created_at', get: (r) => r.created_at },
+  { header: 'completed_at', get: (r) => r.completed_at },
+]
+
+function boardExportRows(board: AdminVolunteerBoard): BoardExportRow[] {
+  const rows: BoardExportRow[] = []
+  for (const m of board.missions) {
+    const lanes = [m.lanes.pending, m.lanes.approved, m.lanes.on_mission, m.lanes.completed]
+    for (const lane of lanes) {
+      for (const s of lane) {
+        rows.push({
+          mission_id: m.id,
+          mission_title: m.title,
+          mission_city: m.city ?? '',
+          mission_date: m.mission_date ?? '',
+          signup_id: s.id,
+          user_id: s.user_id,
+          full_name: s.full_name ?? '',
+          phone: s.phone ?? '',
+          status: s.status,
+          hours_served: s.hours_served,
+          created_at: s.created_at,
+          completed_at: s.completed_at ?? '',
+        })
+      }
+    }
+  }
+  return rows
+}
 
 // Display config per lane — title, count chip color, allowed quick-actions
 // per card. Keeping it as a single config table makes adding a new lane
@@ -83,6 +143,7 @@ export default function VolunteerBoardPage() {
   const { t } = useI18n()
   const statusLabel = useStatusLabel()
   const { refresh: refreshPendingCounts } = usePendingCounts()
+
 
   // Fetch once on mount + then on a 10s poll so the board stays fresh.
   // Same pattern as PendingCountsProvider — uses an AbortController to
@@ -151,6 +212,13 @@ export default function VolunteerBoardPage() {
           <span className="board-total board-total-blue">📋 {t('board.total_approved', { n: data.totals.approved })}</span>
           <span className="board-total board-total-info">🛠 {t('board.total_on_mission', { n: data.totals.on_mission })}</span>
           <span className="board-total board-total-green">✓ {t('board.total_completed', { n: data.totals.completed })}</span>
+          <ExportCsvButton
+            rows={data ? boardExportRows(data) : []}
+            columns={BOARD_CSV_COLUMNS}
+            filenameBase="volunteer-board"
+            title={t('nav.volunteer_board')}
+            module="volunteers"
+          />
         </div>
       </div>
 
@@ -279,7 +347,7 @@ function SignupCard({
       <div className="board-card-head">
         <span className="board-card-avatar" aria-hidden="true">{initials}</span>
         <div className="cell-stack" style={{ minWidth: 0 }}>
-          <strong>{signup.full_name?.trim() || `user #${signup.user_id}`}</strong>
+          <strong>{signup.full_name?.trim() || t('common.user_ref_lc', { id: signup.user_id })}</strong>
           <span className="muted" style={{ fontSize: 11 }}>{signup.phone ?? '—'}</span>
         </div>
       </div>

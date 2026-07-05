@@ -417,7 +417,7 @@ class _BeneficiarySubmitProjectScreenState
                   ),
                   const SizedBox(height: 14),
                   _LabeledField(
-                    label: 'Beneficiary or community name',
+                    label: 'Recipient or community name',
                     child: TextFormField(
                       controller: _beneficiaryNameController,
                       textInputAction: TextInputAction.next,
