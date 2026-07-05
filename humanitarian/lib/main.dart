@@ -6,6 +6,7 @@ import 'package:flutter_application_1/core/push_registration.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/localization/app_translations.dart';
 import 'package:flutter_application_1/localization/locale_service.dart';
+import 'package:flutter_application_1/shared/widgets/dismiss_keyboard.dart';
 import 'package:flutter_application_1/modules/auth/screens/login.dart';
 import 'package:flutter_application_1/modules/auth/screens/pending_approval.dart';
 import 'package:flutter_application_1/modules/auth/screens/register.dart';
@@ -128,6 +129,12 @@ class HumanitarianApp extends StatelessWidget {
       builder: (context, themeMode, _) => GetMaterialApp(
         title: 'BalanceNex',
         debugShowCheckedModeBanner: false,
+        // Global swipe-back: enable the iOS-style edge drag-to-pop gesture on
+        // every pushed route AND on Android (GetX defaults this to iOS-only).
+        // On the root shell there's nothing to pop, so the gesture is inert
+        // there and the shell's own PopScope/back handling is unaffected. The
+        // Cupertino back gesture honors Directionality, so it mirrors under RTL.
+        popGesture: true,
         translations: AppTranslations(),
         locale: appLocale,
         fallbackLocale: AppLocaleService.english,
@@ -147,7 +154,14 @@ class HumanitarianApp extends StatelessWidget {
             Theme.of(context),
             locale,
           );
-          return Theme(data: themed, child: child ?? const SizedBox.shrink());
+          // Global keyboard dismiss: a tap on any empty area anywhere in the
+          // app unfocuses the active field and closes the keyboard.
+          return Theme(
+            data: themed,
+            child: DismissKeyboardOnTap(
+              child: child ?? const SizedBox.shrink(),
+            ),
+          );
         },
         initialRoute: AppRoutes.splash,
         getPages: [

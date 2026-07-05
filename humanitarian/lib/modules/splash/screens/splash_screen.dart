@@ -410,10 +410,14 @@ class _GlassHeroMark extends StatelessWidget {
                             ),
                           ],
                         ),
-                        child: const Icon(
-                          Icons.favorite_rounded,
-                          color: Colors.white,
-                          size: 28,
+                        // BalanceNex brand mark, clipped into the splash badge.
+                        child: ClipOval(
+                          child: Image.asset(
+                            'assets/branding/balancenex_icon.png',
+                            width: 58,
+                            height: 58,
+                            fit: BoxFit.cover,
+                          ),
                         ),
                       ),
                     ),
