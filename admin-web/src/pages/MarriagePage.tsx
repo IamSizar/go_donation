@@ -12,7 +12,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../lib/toast'
 import { useI18n, useStatusLabel } from '../lib/i18n'
 import { useSelection } from '../lib/useSelection'
-import { downloadCsv, type CsvColumn } from '../lib/csv'
+import { type CsvColumn } from '../lib/csv'
 
 const MARRIAGE_CSV_COLUMNS: CsvColumn<MarriageProfile>[] = [
   { header: 'id', get: (p) => p.id },
@@ -137,11 +137,6 @@ export default function MarriagePage() {
     [toast],
   )
 
-  const exportCsv = () => {
-    const rows = resp?.items ?? []
-    if (rows.length === 0) { toast.info(t('common.nothing_to_export')); return }
-    downloadCsv(`marriage-${new Date().toISOString().slice(0, 10)}.csv`, rows, MARRIAGE_CSV_COLUMNS)
-  }
 
   const columns: Column<MarriageProfile>[] = [
     { key: 'id', header: t('col.id'), width: '60px', cell: (p) => <strong>#{p.id}</strong> },
@@ -220,7 +215,13 @@ export default function MarriagePage() {
           <select value={status} onChange={(e) => { setStatus(e.target.value); sel.clear() }} style={{ width: 'auto' }}>
             {STATUSES.map((s) => <option key={s} value={s}>{statusLabel(s)}</option>)}
           </select>
-          <ExportCsvButton onExport={exportCsv} />
+          <ExportCsvButton
+            rows={resp?.items ?? []}
+            columns={MARRIAGE_CSV_COLUMNS}
+            filenameBase="marriage"
+            title={t('nav.marriage')}
+            module="marriage"
+          />
           <button onClick={() => setCreating(true)}>{t('page.marriage.new')}</button>
         </div>
       </div>

@@ -4,9 +4,8 @@ import ExportCsvButton from '../components/ExportCsvButton'
 import type { AdminAuditLog, AdminPageResp } from '../lib/api-types'
 import Table, { type Column } from '../components/Table'
 import Pagination from '../components/Pagination'
-import { useToast } from '../lib/toast'
 import { useI18n, useFieldLabel } from '../lib/i18n'
-import { downloadCsv, type CsvColumn } from '../lib/csv'
+import { type CsvColumn } from '../lib/csv'
 
 const PER_PAGE = 30
 
@@ -44,7 +43,6 @@ export default function AuditLogsPage() {
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<number | null>(null)
-  const toast = useToast()
   const { t } = useI18n()
   const fieldLabel = useFieldLabel()
   const actorLabel = (s: string) => {
@@ -77,10 +75,6 @@ export default function AuditLogsPage() {
   const fields = useMemo(() => Array.from(new Set(itemsAll.map(a => a.changed_field))).sort(), [itemsAll])
   const actors = useMemo(() => Array.from(new Set(itemsAll.map(a => a.actor_source))).sort(), [itemsAll])
 
-  const exportCsv = () => {
-    if (items.length === 0) { toast.info(t('common.nothing_to_export')); return }
-    downloadCsv(`audit-${new Date().toISOString().slice(0, 10)}.csv`, items, AUDIT_CSV_COLUMNS)
-  }
 
   // Highlight the changed_field as a code chip; render old → new with a
   // visual arrow so the diff is scannable. Empty values render as `null`.
@@ -152,7 +146,13 @@ export default function AuditLogsPage() {
             <option value="">{t('filter.all_actors')}</option>
             {actors.map(a => <option key={a} value={a}>{actorLabel(a)}</option>)}
           </select>
-          <ExportCsvButton onExport={exportCsv} />
+          <ExportCsvButton
+            rows={items}
+            columns={AUDIT_CSV_COLUMNS}
+            filenameBase="audit"
+            title={t('nav.audit_logs')}
+            module="audit"
+          />
         </div>
       </div>
       {err && <div className="error-box">{err}</div>}

@@ -19,9 +19,8 @@ import type { PushSendResp, PushStatusResp } from '../lib/api-types'
 import UserPicker, { type PickedUser } from '../components/UserPicker'
 import { PUSH_TEMPLATES, type TemplateLang } from '../lib/pushTemplates'
 import { useI18n } from '../lib/i18n'
-import { useToast } from '../lib/toast'
 import ExportCsvButton from '../components/ExportCsvButton'
-import { downloadCsv, type CsvColumn } from '../lib/csv'
+import { type CsvColumn } from '../lib/csv'
 import type { PushSendResultRow } from '../lib/api-types'
 import { Sparkles, Check, Bell, Smartphone } from 'lucide-react'
 
@@ -62,7 +61,6 @@ const ROLES = [{ id: 1 }, { id: 2 }, { id: 3 }] as const
 
 export default function PushNotificationsPage() {
   const { t } = useI18n()
-  const toast = useToast()
   const [fcmEnabled, setFcmEnabled] = useState<boolean | null>(null)
   // Phase 27.4 — active device count surfaced from /api/admin/push/status.
   // null = still loading; -1 = backend couldn't read; ≥0 = live count.
@@ -102,11 +100,6 @@ export default function PushNotificationsPage() {
   const [success, setSuccess] = useState<string | null>(null)
   const [result, setResult] = useState<PushSendResp | null>(null)
 
-  const exportCsv = () => {
-    const rows = result?.results ?? []
-    if (rows.length === 0) { toast.info(t('common.nothing_to_export')); return }
-    downloadCsv(`push-delivery-${new Date().toISOString().slice(0, 10)}.csv`, rows, PUSH_RESULT_CSV_COLUMNS)
-  }
 
   // Reload status (incl. live device count) on mount AND after each send,
   // since a successful broadcast may auto-deactivate dead tokens. The
@@ -227,7 +220,15 @@ export default function PushNotificationsPage() {
             </span>
           )}
           {/* Export the last broadcast's per-device delivery report — Phase 7 · M-56 */}
-          {result && result.results.length > 0 && <ExportCsvButton onExport={exportCsv} />}
+          {result && result.results.length > 0 && (
+            <ExportCsvButton
+              rows={result.results}
+              columns={PUSH_RESULT_CSV_COLUMNS}
+              filenameBase="push-delivery"
+              title={t('nav.push')}
+              module="push"
+            />
+          )}
         </div>
       </div>
 

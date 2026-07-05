@@ -3,9 +3,8 @@ import { api, describeError } from '../lib/api'
 import type { ReportsResp } from '../lib/api-types'
 import StatCard from '../components/StatCard'
 import ExportCsvButton from '../components/ExportCsvButton'
-import { downloadCsv, type CsvColumn } from '../lib/csv'
+import { type CsvColumn } from '../lib/csv'
 import { useI18n } from '../lib/i18n'
-import { useToast } from '../lib/toast'
 
 // A report is a set of headline figures, not a row list — so the export is a
 // flat (section, metric, value) sheet of every number on the page (Phase 7 · M-58).
@@ -49,12 +48,7 @@ export default function ReportsPage() {
   const [err, setErr] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const { t } = useI18n()
-  const toast = useToast()
 
-  const exportCsv = () => {
-    if (!resp) { toast.info(t('common.nothing_to_export')); return }
-    downloadCsv(`reports-${new Date().toISOString().slice(0, 10)}.csv`, reportMetrics(resp), REPORT_CSV_COLUMNS)
-  }
 
   useEffect(() => {
     let cancelled = false
@@ -72,7 +66,13 @@ export default function ReportsPage() {
           <h1>{t('page.reports.title')}</h1>
           <p className="muted">{t('page.reports.subtitle')}</p>
         </div>
-        <ExportCsvButton onExport={exportCsv} />
+        <ExportCsvButton
+          rows={resp ? reportMetrics(resp) : []}
+          columns={REPORT_CSV_COLUMNS}
+          filenameBase="reports"
+          title={t('nav.reports')}
+          module="reports"
+        />
       </div>
       {err && <div className="error-box">{err}</div>}
 

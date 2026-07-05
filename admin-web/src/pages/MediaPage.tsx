@@ -12,7 +12,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../lib/toast'
 import { useI18n, useStatusLabel } from '../lib/i18n'
 import { useSelection } from '../lib/useSelection'
-import { downloadCsv, type CsvColumn } from '../lib/csv'
+import { type CsvColumn } from '../lib/csv'
 
 const MEDIA_CSV_COLUMNS: CsvColumn<MediaPost>[] = [
   { header: 'id', get: (m) => m.id },
@@ -147,11 +147,6 @@ export default function MediaPage() {
     [toast],
   )
 
-  const exportCsv = () => {
-    const rows = resp?.items ?? []
-    if (rows.length === 0) { toast.info(t('common.nothing_to_export')); return }
-    downloadCsv(`media-${new Date().toISOString().slice(0, 10)}.csv`, rows, MEDIA_CSV_COLUMNS)
-  }
 
   const columns: Column<MediaPost>[] = [
     { key: 'id', header: t('col.id'), width: '60px', cell: (m) => <strong>#{m.id}</strong> },
@@ -255,7 +250,13 @@ export default function MediaPage() {
           <select value={status} onChange={(e) => { setStatus(e.target.value); sel.clear() }} style={{ width: 'auto' }}>
             {STATUSES.map((s) => <option key={s} value={s}>{statusLabel(s)}</option>)}
           </select>
-          <ExportCsvButton onExport={exportCsv} />
+          <ExportCsvButton
+            rows={resp?.items ?? []}
+            columns={MEDIA_CSV_COLUMNS}
+            filenameBase="media"
+            title={t('nav.media')}
+            module="media"
+          />
           <button onClick={() => setCreating(true)}>{t('page.media.new')}</button>
         </div>
       </div>

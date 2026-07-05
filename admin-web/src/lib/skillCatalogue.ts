@@ -125,12 +125,34 @@ for (const cat of SKILL_CATEGORIES) {
 // skillLabelFor resolve their labels and the dropdown list them.
 
 export interface CustomProfession {
+  id: number
   skill_key: string
   category: string
   label_en: string
   label_ar: string
   label_ckb: string
   label_kmr: string
+  display_order?: number
+}
+
+/** Category keys an admin may file a custom profession under: every built-in
+ *  category plus the catch-all 'custom'. */
+export const PROFESSION_CATEGORY_KEYS: string[] = [
+  ...SKILL_CATEGORIES.map((c) => c.key),
+  'custom',
+]
+
+/** Localized name for a category key (built-in categories resolve to their
+ *  catalogue label; 'custom' / unknown keys fall back to the key itself). */
+export function categoryLabelFor(key: string, locale: string | undefined): string {
+  const cat = SKILL_CATEGORIES.find((c) => c.key === key)
+  if (!cat) return key
+  switch ((locale ?? 'en').toLowerCase()) {
+    case 'ar': return cat.ar
+    case 'ckb': return cat.ckb
+    case 'kmr': return cat.kmr
+    default: return cat.en
+  }
 }
 
 let customSkillList: SkillEntry[] = []

@@ -27,7 +27,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../lib/toast'
 import { useI18n, useStatusLabel } from '../lib/i18n'
 import { useSelection } from '../lib/useSelection'
-import { downloadCsv, type CsvColumn } from '../lib/csv'
+import { type CsvColumn } from '../lib/csv'
 import { HighlightBanner, useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForStatus } from '../lib/statusColors'
 
@@ -172,11 +172,6 @@ export default function MissionsPage() {
     [toast],
   )
 
-  const exportCsv = () => {
-    const rows = resp?.items ?? []
-    if (rows.length === 0) { toast.info(t('common.nothing_to_export')); return }
-    downloadCsv(`missions-${new Date().toISOString().slice(0, 10)}.csv`, rows, CSV_COLUMNS)
-  }
 
   const modalOpen = editing !== null || creating
   const closeModal = () => { setEditing(null); setCreating(false) }
@@ -294,7 +289,13 @@ export default function MissionsPage() {
           <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); sel.clear() }} style={{ width: 'auto' }}>
             {STATUSES.map((s) => <option key={s} value={s}>{statusLabel(s)}</option>)}
           </select>
-          <ExportCsvButton onExport={exportCsv} />
+          <ExportCsvButton
+            rows={resp?.items ?? []}
+            columns={CSV_COLUMNS}
+            filenameBase="missions"
+            title={t('nav.missions')}
+            module="missions"
+          />
           <button onClick={() => setCreating(true)}>{t('page.missions.new')}</button>
         </div>
       </div>

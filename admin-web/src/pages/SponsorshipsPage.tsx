@@ -13,7 +13,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../lib/toast'
 import { useI18n, useStatusLabel } from '../lib/i18n'
 import { useSelection } from '../lib/useSelection'
-import { downloadCsv, type CsvColumn } from '../lib/csv'
+import { type CsvColumn } from '../lib/csv'
 import { HighlightBanner, useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForStatus } from '../lib/statusColors'
 
@@ -165,11 +165,6 @@ export default function SponsorshipsPage() {
     [toast],
   )
 
-  const exportCsv = () => {
-    const rows = visible
-    if (rows.length === 0) { toast.info(t('common.nothing_to_export')); return }
-    downloadCsv(`sponsorships-${new Date().toISOString().slice(0, 10)}.csv`, rows, SPONSORSHIP_CSV_COLUMNS)
-  }
 
   const all = resp?.items ?? []
   const visible =
@@ -273,7 +268,13 @@ export default function SponsorshipsPage() {
               </option>
             ))}
           </select>
-          <ExportCsvButton onExport={exportCsv} />
+          <ExportCsvButton
+            rows={visible}
+            columns={SPONSORSHIP_CSV_COLUMNS}
+            filenameBase="sponsorships"
+            title={t('nav.sponsorships')}
+            module="sponsorships"
+          />
           <button onClick={() => setCreating(true)}>{t('page.sponsorships.new')}</button>
         </div>
       </div>

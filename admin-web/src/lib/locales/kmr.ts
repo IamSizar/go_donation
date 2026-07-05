@@ -76,6 +76,10 @@ const kmr: DeepPartial<typeof en> = {
     pin_prompt: 'پەیڤا نهێنی بنڤیسە بۆ پشتڕاستکرنا ڤێ هیناردنێ:',
     pin_required: 'پەیڤا نهێنی پێدڤی یە بۆ هیناردنێ.',
     pin_incorrect: 'پەیڤا نهێنی چەوت — هیناردن هاتە بەتالکرن.',
+    export: 'هیناردن',
+    csv: 'CSV',
+    excel: 'Excel',
+    pdf: 'PDF',
   },
 
   toolbar: {
@@ -138,6 +142,8 @@ const kmr: DeepPartial<typeof en> = {
     edit: 'دەستکاری',
     view: 'دیتن',
     delete: 'ژێبرن',
+    move_up: 'بلندکرن',
+    move_down: 'نزمکرن',
     deleting: 'ژێبرن…',
     create: 'دروستکرن',
     new: 'نوو',
@@ -281,6 +287,11 @@ const kmr: DeepPartial<typeof en> = {
       tab_applications: 'داخواز', tab_signups: 'تۆمارکرنا ئەرکی',
       add_profession: '+ زێدەکرنا پیشەی', custom_professions: 'پیشەیێن تایبەت',
       profession_added: 'پیشە هاتە زێدەکرن — نوکە د لیستا شارەزاییان دایە.',
+      manage_professions: 'بەڕێڤەبرنا پیشەیان', edit_profession: 'دەستکاریا پیشەی',
+      profession_updated: 'پیشە هاتە نویکرن.', profession_deleted: 'پیشە هاتە ژێبرن.',
+      no_professions: 'هێشتا چ پیشەیێن تایبەت نینن.', category: 'پۆل', category_custom: 'تایبەت',
+      delete_profession: 'ژێبرنا پیشەی',
+      delete_profession_body: 'ژێبرنا «{name}»؟ ئەو خۆبەخشێن پێ نیشانکری نیشانا خۆ دهێلن.',
       signups_search_placeholder: 'گەڕیان بۆ خۆبەخش یان ئەرکی…',
     },
     missions: {

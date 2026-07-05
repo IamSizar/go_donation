@@ -10,7 +10,7 @@ import { useI18n } from '../lib/i18n'
 import { usePendingCounts } from '../lib/pendingCounts'
 import { useLivePoll } from '../lib/useLivePoll'
 import { formatPhone } from '../lib/phone'
-import { downloadCsv, type CsvColumn } from '../lib/csv'
+import { type CsvColumn } from '../lib/csv'
 
 const PER_PAGE = 20
 const STATUSES = ['pending', 'rejected', 'all'] as const
@@ -230,11 +230,6 @@ export default function RegistrationsPage() {
     },
   ]
 
-  const exportCsv = () => {
-    const rows = resp?.items ?? []
-    if (rows.length === 0) { toast.info(t('common.nothing_to_export')); return }
-    downloadCsv(`registrations-${new Date().toISOString().slice(0, 10)}.csv`, rows, REGISTRATION_CSV_COLUMNS)
-  }
 
   return (
     <div className="stack">
@@ -270,7 +265,13 @@ export default function RegistrationsPage() {
               </option>
             ))}
           </select>
-          <ExportCsvButton onExport={exportCsv} />
+          <ExportCsvButton
+            rows={resp?.items ?? []}
+            columns={REGISTRATION_CSV_COLUMNS}
+            filenameBase="registrations"
+            title={t('nav.registrations')}
+            module="registrations"
+          />
         </div>
       </div>
 

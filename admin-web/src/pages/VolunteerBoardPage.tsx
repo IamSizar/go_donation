@@ -23,7 +23,7 @@ import { useToast } from '../lib/toast'
 import { usePendingCounts } from '../lib/pendingCounts'
 import { useI18n, useStatusLabel } from '../lib/i18n'
 import ExportCsvButton from '../components/ExportCsvButton'
-import { downloadCsv, type CsvColumn } from '../lib/csv'
+import { type CsvColumn } from '../lib/csv'
 
 const POLL_MS = 10_000
 
@@ -144,11 +144,6 @@ export default function VolunteerBoardPage() {
   const statusLabel = useStatusLabel()
   const { refresh: refreshPendingCounts } = usePendingCounts()
 
-  const exportCsv = () => {
-    const rows = data ? boardExportRows(data) : []
-    if (rows.length === 0) { toast.info(t('common.nothing_to_export')); return }
-    downloadCsv(`volunteer-board-${new Date().toISOString().slice(0, 10)}.csv`, rows, BOARD_CSV_COLUMNS)
-  }
 
   // Fetch once on mount + then on a 10s poll so the board stays fresh.
   // Same pattern as PendingCountsProvider — uses an AbortController to
@@ -217,7 +212,13 @@ export default function VolunteerBoardPage() {
           <span className="board-total board-total-blue">📋 {t('board.total_approved', { n: data.totals.approved })}</span>
           <span className="board-total board-total-info">🛠 {t('board.total_on_mission', { n: data.totals.on_mission })}</span>
           <span className="board-total board-total-green">✓ {t('board.total_completed', { n: data.totals.completed })}</span>
-          <ExportCsvButton onExport={exportCsv} />
+          <ExportCsvButton
+            rows={data ? boardExportRows(data) : []}
+            columns={BOARD_CSV_COLUMNS}
+            filenameBase="volunteer-board"
+            title={t('nav.volunteer_board')}
+            module="volunteers"
+          />
         </div>
       </div>
 

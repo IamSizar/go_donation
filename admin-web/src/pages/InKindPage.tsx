@@ -14,7 +14,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../lib/toast'
 import { useI18n, useStatusLabel } from '../lib/i18n'
 import { useSelection } from '../lib/useSelection'
-import { downloadCsv, type CsvColumn } from '../lib/csv'
+import { type CsvColumn } from '../lib/csv'
 import { HighlightBanner, useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForStatus } from '../lib/statusColors'
 
@@ -140,11 +140,6 @@ export default function InKindPage() {
     [toast],
   )
 
-  const exportCsv = () => {
-    const rows = resp?.items ?? []
-    if (rows.length === 0) { toast.info(t('common.nothing_to_export')); return }
-    downloadCsv(`inkind-${new Date().toISOString().slice(0, 10)}.csv`, rows, INKIND_CSV_COLUMNS)
-  }
 
   const columns: Column<AdminInKind>[] = [
     { key: 'id', header: t('col.id'), width: '60px', cell: (k) => <strong>#{k.id}</strong> },
@@ -203,7 +198,13 @@ export default function InKindPage() {
           <select value={status} onChange={e => { setStatus(e.target.value); setPage(1); sel.clear() }} style={{ width: 'auto' }}>
             {STATUSES.map(s => <option key={s} value={s}>{statusLabel(s)}</option>)}
           </select>
-          <ExportCsvButton onExport={exportCsv} />
+          <ExportCsvButton
+            rows={resp?.items ?? []}
+            columns={INKIND_CSV_COLUMNS}
+            filenameBase="inkind"
+            title={t('nav.in_kind')}
+            module="in_kind"
+          />
           <button onClick={() => setCreating(true)}>{t('page.in_kind.new')}</button>
         </div>
       </div>

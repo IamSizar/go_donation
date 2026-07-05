@@ -75,6 +75,10 @@ const ckb: DeepPartial<typeof en> = {
     pin_prompt: 'وشەی نهێنی بنووسە بۆ پشتڕاستکردنەوەی ئەم دەرکردنە:',
     pin_required: 'وشەی نهێنی پێویستە بۆ دەرکردن.',
     pin_incorrect: 'وشەی نهێنی هەڵەیە — دەرکردن هەڵوەشێنرایەوە.',
+    export: 'دەرکردن',
+    csv: 'CSV',
+    excel: 'Excel',
+    pdf: 'PDF',
   },
 
   toolbar: {
@@ -137,6 +141,8 @@ const ckb: DeepPartial<typeof en> = {
     edit: 'دەستکاری',
     view: 'بینین',
     delete: 'سڕینەوە',
+    move_up: 'بردنە سەرەوە',
+    move_down: 'بردنە خوارەوە',
     deleting: 'سڕینەوە…',
     create: 'دروستکردن',
     new: 'نوێ',
@@ -280,6 +286,11 @@ const ckb: DeepPartial<typeof en> = {
       tab_applications: 'داواکارییەکان', tab_signups: 'تۆمارکردنی ئەرک',
       add_profession: '+ زیادکردنی پیشە', custom_professions: 'پیشە تایبەتەکان',
       profession_added: 'پیشە زیادکرا — ئێستا لە لیستی شارەزاییەکاندایە.',
+      manage_professions: 'بەڕێوەبردنی پیشەکان', edit_profession: 'دەستکاریی پیشە',
+      profession_updated: 'پیشە نوێکرایەوە.', profession_deleted: 'پیشە سڕایەوە.',
+      no_professions: 'هێشتا هیچ پیشەیەکی تایبەت نییە.', category: 'پۆل', category_custom: 'تایبەت',
+      delete_profession: 'سڕینەوەی پیشە',
+      delete_profession_body: 'سڕینەوەی «{name}»؟ ئەو خۆبەخشانەی پێی نیشانکراون نیشانەکەیان دەمێنێتەوە.',
       signups_search_placeholder: 'گەڕان بۆ خۆبەخش یان ئەرک…',
     },
     missions: {

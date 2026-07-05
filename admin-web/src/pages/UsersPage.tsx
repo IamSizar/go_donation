@@ -12,7 +12,7 @@ import EditModal, { type FieldSpec } from '../components/EditModal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../lib/toast'
 import { useI18n } from '../lib/i18n'
-import { downloadCsv, type CsvColumn } from '../lib/csv'
+import { type CsvColumn } from '../lib/csv'
 import { formatPhone } from '../lib/phone'
 
 const PER_PAGE = 20
@@ -132,11 +132,6 @@ export default function UsersPage() {
     [toast],
   )
 
-  const exportCsv = () => {
-    const rows = resp?.data ?? []
-    if (rows.length === 0) { toast.info(t('common.nothing_to_export')); return }
-    downloadCsv(`users-${new Date().toISOString().slice(0, 10)}.csv`, rows, USER_CSV_COLUMNS)
-  }
 
   const columns: Column<UserAccount>[] = [
     { key: 'id', header: t('col.id'), width: '60px', cell: (u) => <strong>#{u.user_id}</strong> },
@@ -313,7 +308,13 @@ export default function UsersPage() {
           <button className="primary" onClick={() => setCreating(true)}>
             {t('page.users.new_user')}
           </button>
-          <ExportCsvButton onExport={exportCsv} />
+          <ExportCsvButton
+            rows={resp?.data ?? []}
+            columns={USER_CSV_COLUMNS}
+            filenameBase="users"
+            title={t('nav.users')}
+            module="users"
+          />
         </div>
       </div>
       {err && <div className="error-box">{err}</div>}

@@ -16,7 +16,7 @@ import EditModal, { type FieldSpec } from '../components/EditModal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../lib/toast'
 import { useI18n } from '../lib/i18n'
-import { downloadCsv, type CsvColumn } from '../lib/csv'
+import { type CsvColumn } from '../lib/csv'
 import { HighlightBanner, useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForDonation } from '../lib/statusColors'
 import { formatPhone } from '../lib/phone'
@@ -156,11 +156,6 @@ export default function DonationsPage() {
   const modalOpen = editing !== null || creating
   const closeModal = () => { setEditing(null); setCreating(false) }
 
-  const exportCsv = () => {
-    const rows = resp?.items ?? []
-    if (rows.length === 0) { toast.info(t('common.nothing_to_export')); return }
-    downloadCsv(`donations-${new Date().toISOString().slice(0, 10)}.csv`, rows, DONATION_CSV_COLUMNS)
-  }
 
   const handleDelete = useCallback(
     async (id: number) => {
@@ -281,7 +276,13 @@ export default function DonationsPage() {
             placeholder={t('page.donations.search_placeholder')}
             style={{ width: '220px' }}
           />
-          <ExportCsvButton onExport={exportCsv} />
+          <ExportCsvButton
+            rows={resp?.items ?? []}
+            columns={DONATION_CSV_COLUMNS}
+            filenameBase="donations"
+            title={t('nav.donations')}
+            module="donations"
+          />
           <button onClick={() => setCreating(true)}>{t('page.donations.new')}</button>
         </div>
       </div>

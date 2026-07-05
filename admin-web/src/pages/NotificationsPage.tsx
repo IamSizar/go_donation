@@ -5,9 +5,8 @@ import type { AdminNotification, AdminPageResp } from '../lib/api-types'
 import Table, { type Column } from '../components/Table'
 import Pagination from '../components/Pagination'
 import ExportCsvButton from '../components/ExportCsvButton'
-import { downloadCsv, type CsvColumn } from '../lib/csv'
+import { type CsvColumn } from '../lib/csv'
 import { useI18n, useStatusLabel } from '../lib/i18n'
-import { useToast } from '../lib/toast'
 
 // Flat CSV shape for a notification row (Phase 7 · M-53).
 const NOTIFICATION_CSV_COLUMNS: CsvColumn<AdminNotification>[] = [
@@ -53,13 +52,7 @@ export default function NotificationsPage() {
   const pollSilent = useRef(false)
   const { t } = useI18n()
   const statusLabel = useStatusLabel()
-  const toast = useToast()
 
-  const exportCsv = () => {
-    const rows = resp?.items ?? []
-    if (rows.length === 0) { toast.info(t('common.nothing_to_export')); return }
-    downloadCsv(`notifications-${new Date().toISOString().slice(0, 10)}.csv`, rows, NOTIFICATION_CSV_COLUMNS)
-  }
 
   useEffect(() => {
     let cancelled = false
@@ -132,7 +125,13 @@ export default function NotificationsPage() {
               </option>
             ))}
           </select>
-          <ExportCsvButton onExport={exportCsv} />
+          <ExportCsvButton
+            rows={resp?.items ?? []}
+            columns={NOTIFICATION_CSV_COLUMNS}
+            filenameBase="notifications"
+            title={t('nav.notifications')}
+            module="notifications"
+          />
         </div>
       </div>
       {err && <div className="error-box">{err}</div>}

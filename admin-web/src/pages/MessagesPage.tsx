@@ -10,9 +10,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, describeError } from '../lib/api'
 import { useI18n, useStatusLabel } from '../lib/i18n'
-import { useToast } from '../lib/toast'
 import ExportCsvButton from '../components/ExportCsvButton'
-import { downloadCsv, type CsvColumn } from '../lib/csv'
+import { type CsvColumn } from '../lib/csv'
 
 type AdminThread = {
   id: number
@@ -78,7 +77,6 @@ function StatusBadge({ status }: { status: string }) {
 export default function MessagesPage() {
   const { t } = useI18n()
   const statusLabel = useStatusLabel()
-  const toast = useToast()
   const [threads, setThreads] = useState<AdminThread[]>([])
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -89,10 +87,6 @@ export default function MessagesPage() {
   const [sending, setSending] = useState(false)
   const msgEnd = useRef<HTMLDivElement | null>(null)
 
-  const exportCsv = () => {
-    if (threads.length === 0) { toast.info(t('common.nothing_to_export')); return }
-    downloadCsv(`messages-${new Date().toISOString().slice(0, 10)}.csv`, threads, THREAD_CSV_COLUMNS)
-  }
 
   // ── poll thread list ────────────────────────────────────────────
   const loadThreads = useCallback(async () => {
@@ -173,7 +167,13 @@ export default function MessagesPage() {
             placeholder={t('common.msg_search')}
             style={{ width: 240 }}
           />
-          <ExportCsvButton onExport={exportCsv} />
+          <ExportCsvButton
+            rows={threads}
+            columns={THREAD_CSV_COLUMNS}
+            filenameBase="messages"
+            title={t('nav.messages')}
+            module="messages"
+          />
         </div>
       </div>
 
