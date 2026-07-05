@@ -1043,6 +1043,12 @@ func (h *AdminCreateHandler) Campaign(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
 		return
 	}
+	// Notify all users about a newly published campaign so donors can discover
+	// and support it. Only broadcast for publicly-visible (active) campaigns —
+	// hidden/finished ones shouldn't ping everyone.
+	if status == "active" {
+		h.broadcastInBackground(0 /* all users */, notify.NewCampaignMsg(title, id))
+	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "id": id})
 }
 

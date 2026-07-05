@@ -13,7 +13,11 @@ package permissions
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -189,16 +193,198 @@ type AuditEntry struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-// LogAudit appends an immutable record of a permission-related action. Failures
-// are returned so callers can decide, but the audit row is best-effort by
-// convention (a failed write must never block the security action itself).
+// ── Requirement 6c — tamper-evident hash chain ─────────────────────────
+//
+// The ledger was already append-only (the app never UPDATEs/DELETEs rows). The
+// chain makes it tamper-EVIDENT: each row stores prev_hash (the previous row's
+// row_hash) and row_hash = sha256(prev_hash ∥ canonical(row)). Editing or
+// deleting any row changes/invalidates every subsequent row_hash, which
+// VerifyChain() detects. created_at is intentionally NOT part of the hash to
+// avoid timestamp-precision round-trip fragility; the meaningful content
+// (who / what / old → new / from-where) is fully covered.
+const auditGenesisHash = "0000000000000000000000000000000000000000000000000000000000000000"
+
+// auditChainLockKey is a fixed advisory-lock key that serializes chain appends
+// so two concurrent writers can't read the same head and fork the chain.
+const auditChainLockKey int64 = 6120240613
+
+// auditRowHash computes a row's hash from the previous hash and the row's
+// content. Fields are joined with the ASCII Unit Separator (0x1F), which cannot
+// occur in these values, so the concatenation is unambiguous. Nil actor and
+// empty/NULL text fields both canonicalize to "" — matching how VerifyChain
+// reads them back.
+func auditRowHash(prevHash string, actorID *int64, action, target, oldVal, newVal, ip string) string {
+	actor := ""
+	if actorID != nil {
+		actor = strconv.FormatInt(*actorID, 10)
+	}
+	canonical := strings.Join([]string{prevHash, actor, action, target, oldVal, newVal, ip}, "\x1f")
+	sum := sha256.Sum256([]byte(canonical))
+	return hex.EncodeToString(sum[:])
+}
+
+// deref returns "" for a nil *string, else its value.
+func deref(p *string) string {
+	if p == nil {
+		return ""
+	}
+	return *p
+}
+
+// LogAudit appends an immutable, hash-chained record of a permission-related
+// action. Failures are returned so callers can decide, but the audit row is
+// best-effort by convention (a failed write must never block the security
+// action itself). The whole append runs under an advisory lock + transaction so
+// the prev→row hash linkage is race-free.
 func (s *Store) LogAudit(ctx context.Context, actorID *int64, action, target, oldVal, newVal, ip string) error {
-	_, err := s.Pool.Exec(ctx,
-		`INSERT INTO permission_audit_log (actor_id, action, target, old_value, new_value, ip_address)
-		 VALUES ($1, $2, $3, $4, $5, $6)`,
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// Serialize concurrent appenders so the chain head is read-modify-write safe.
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, auditChainLockKey); err != nil {
+		return err
+	}
+
+	prev := auditGenesisHash
+	var lastHash *string
+	err = tx.QueryRow(ctx,
+		`SELECT row_hash FROM permission_audit_log ORDER BY id DESC LIMIT 1`).Scan(&lastHash)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	if lastHash != nil && *lastHash != "" {
+		prev = *lastHash
+	}
+
+	rowHash := auditRowHash(prev, actorID, action, target, oldVal, newVal, ip)
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO permission_audit_log
+		   (actor_id, action, target, old_value, new_value, ip_address, prev_hash, row_hash)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
 		actorID, action, nullIfEmpty(target), nullIfEmpty(oldVal), nullIfEmpty(newVal), nullIfEmpty(ip),
-	)
-	return err
+		prev, rowHash,
+	); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+// BackfillChain stamps prev_hash/row_hash onto any rows that predate the chain
+// (e.g. rows written before migration 024, or on an environment where the
+// column was just added). Idempotent: rows that already have a row_hash are
+// left untouched, and it chains the remaining NULL rows in id order onto the
+// existing head. Safe to call once at startup.
+func (s *Store) BackfillChain(ctx context.Context) error {
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, auditChainLockKey); err != nil {
+		return err
+	}
+
+	// Head = row_hash of the highest already-hashed row (genesis if none).
+	prev := auditGenesisHash
+	var head *string
+	err = tx.QueryRow(ctx,
+		`SELECT row_hash FROM permission_audit_log
+		  WHERE row_hash IS NOT NULL ORDER BY id DESC LIMIT 1`).Scan(&head)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	if head != nil && *head != "" {
+		prev = *head
+	}
+
+	rows, err := tx.Query(ctx,
+		`SELECT id, actor_id, action, target, old_value, new_value, ip_address
+		   FROM permission_audit_log
+		  WHERE row_hash IS NULL ORDER BY id`)
+	if err != nil {
+		return err
+	}
+	type pending struct {
+		id                            int64
+		actorID                       *int64
+		action                        string
+		target, oldVal, newVal, ipAdr *string
+	}
+	var todo []pending
+	for rows.Next() {
+		var p pending
+		if err := rows.Scan(&p.id, &p.actorID, &p.action, &p.target, &p.oldVal, &p.newVal, &p.ipAdr); err != nil {
+			rows.Close()
+			return err
+		}
+		todo = append(todo, p)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	for _, p := range todo {
+		rowHash := auditRowHash(prev, p.actorID, p.action, deref(p.target), deref(p.oldVal), deref(p.newVal), deref(p.ipAdr))
+		if _, err := tx.Exec(ctx,
+			`UPDATE permission_audit_log SET prev_hash = $2, row_hash = $3 WHERE id = $1`,
+			p.id, prev, rowHash); err != nil {
+			return err
+		}
+		prev = rowHash
+	}
+	return tx.Commit(ctx)
+}
+
+// ChainStatus is the result of verifying the audit ledger's hash chain.
+type ChainStatus struct {
+	Intact   bool   `json:"intact"`
+	Count    int    `json:"count"`
+	BrokenAt *int64 `json:"broken_at_id"` // id of the first row that fails to verify
+}
+
+// VerifyChain walks the ledger in id order and recomputes each row_hash from the
+// running previous hash. It returns intact=false with the offending row id on
+// the first mismatch (a content edit, a deletion, or a reordering all surface
+// here). An empty ledger is trivially intact.
+func (s *Store) VerifyChain(ctx context.Context) (ChainStatus, error) {
+	rows, err := s.Pool.Query(ctx,
+		`SELECT id, actor_id, action, target, old_value, new_value, ip_address, prev_hash, row_hash
+		   FROM permission_audit_log ORDER BY id`)
+	if err != nil {
+		return ChainStatus{}, err
+	}
+	defer rows.Close()
+
+	prev := auditGenesisHash
+	count := 0
+	for rows.Next() {
+		var (
+			id                            int64
+			actorID                       *int64
+			action                        string
+			target, oldVal, newVal, ipAdr *string
+			prevHash, rowHash             *string
+		)
+		if err := rows.Scan(&id, &actorID, &action, &target, &oldVal, &newVal, &ipAdr, &prevHash, &rowHash); err != nil {
+			return ChainStatus{}, err
+		}
+		count++
+		want := auditRowHash(prev, actorID, action, deref(target), deref(oldVal), deref(newVal), deref(ipAdr))
+		if rowHash == nil || *rowHash != want || deref(prevHash) != prev {
+			bad := id
+			return ChainStatus{Intact: false, Count: count, BrokenAt: &bad}, rows.Err()
+		}
+		prev = *rowHash
+	}
+	if err := rows.Err(); err != nil {
+		return ChainStatus{}, err
+	}
+	return ChainStatus{Intact: true, Count: count}, nil
 }
 
 // ListAudit returns the most recent audit rows (newest first), resolving the

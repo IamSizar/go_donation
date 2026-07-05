@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 
@@ -48,4 +49,54 @@ func (h *AdminProfessionsHandler) Add(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "profession": saved})
+}
+
+// PATCH /api/admin/professions/:id — edit labels + category (skill_key is fixed).
+func (h *AdminProfessionsHandler) Update(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid profession id."})
+		return
+	}
+	var req volunteers.Profession
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid JSON body."})
+		return
+	}
+	saved, err := h.Store.Update(c.Request.Context(), id, req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "profession": saved})
+}
+
+// POST /api/admin/professions/reorder — body {ids: [3,1,2]} sets display order.
+func (h *AdminProfessionsHandler) Reorder(c *gin.Context) {
+	var req struct {
+		IDs []int64 `json:"ids"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid JSON body."})
+		return
+	}
+	if err := h.Store.Reorder(c.Request.Context(), req.IDs); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true})
+}
+
+// DELETE /api/admin/professions/:id — remove a custom profession.
+func (h *AdminProfessionsHandler) Delete(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid profession id."})
+		return
+	}
+	if err := h.Store.Delete(c.Request.Context(), id); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true})
 }

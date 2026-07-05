@@ -188,6 +188,18 @@ func (h *AdminPermissionsHandler) Audit(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "items": entries})
 }
 
+// GET /api/admin/permissions/audit/verify — Requirement 6c. Recomputes the
+// audit ledger's hash chain and reports whether it is intact, so a Super-Admin
+// can prove no row was silently altered or removed.
+func (h *AdminPermissionsHandler) VerifyAudit(c *gin.Context) {
+	status, err := h.Perms.VerifyChain(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "chain": status})
+}
+
 // GET /api/admin/permissions/me — the effective permission map for the calling
 // user's tier: { module: { action: bool } }. The SPA uses the "view" flag per
 // module to hide unauthorized menu entries.

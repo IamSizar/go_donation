@@ -74,6 +74,7 @@ func main() {
 
 	tokenStore := auth.NewTokenStore(pool)
 	otpStore := auth.NewOTPStore(pool)
+	loginLockStore := auth.NewLoginLockStore(pool) // Requirement 6c — login brute-force throttle
 	userStore := users.NewStore(pool)
 	campaignStore := campaigns.NewStore(pool)
 	donationStore := donations.NewStore(pool)
@@ -119,7 +120,7 @@ func main() {
 	} else {
 		log.Printf("[assistant] local mode (set ANTHROPIC_API_KEY for full AI; keyword engine active)")
 	}
-	authH := handlers.NewAuthHandler(tokenStore, otpStore, userStore, otpiqClient)
+	authH := handlers.NewAuthHandler(tokenStore, otpStore, userStore, otpiqClient, loginLockStore)
 	profileH := handlers.NewProfileHandler(userStore, uploadDir)
 	chooseRoleH := handlers.NewChooseRoleHandler(userStore)
 	registrationH := handlers.NewRegistrationHandler(userStore)
@@ -145,6 +146,12 @@ func main() {
 	adminDetailH := handlers.NewAdminDetailHandler(pool)
 	adminExportH := handlers.NewAdminExportHandler(pool)
 	permStore := permissions.New(pool)
+	// Requirement 6c — stamp the hash chain onto any pre-chain audit rows so the
+	// ledger verifies as intact from the first request. Best-effort: a failure
+	// here must not stop the server from booting.
+	if err := permStore.BackfillChain(ctx); err != nil {
+		log.Printf("[audit] chain backfill failed: %v", err)
+	}
 	adminPermsH := handlers.NewAdminPermissionsHandler(permStore, otpStore, otpiqClient)
 	adminProfessionsH := handlers.NewAdminProfessionsHandler(professionStore)
 	guestStore := guest.New(pool)
@@ -586,12 +593,17 @@ func main() {
 			// Section 24 — phone OTP second factor for permission changes.
 			admin.POST("/admin/permissions/otp", auth.RequireSuperAdmin(), adminPermsH.RequestOTP)
 			admin.GET("/admin/permissions/audit", auth.RequireSuperAdmin(), adminPermsH.Audit)
+			// Requirement 6c — verify the audit ledger's hash chain is intact.
+			admin.GET("/admin/permissions/audit/verify", auth.RequireSuperAdmin(), adminPermsH.VerifyAudit)
 			admin.GET("/admin/permissions/me", adminPermsH.Effective)
 
 			// Section 13 — admin-added volunteer professions. Any staff can
 			// read (to populate the skill dropdown); admin-level staff add.
 			admin.GET("/admin/professions", adminProfessionsH.List)
 			admin.POST("/admin/professions", auth.RequireAdminTier(), adminProfessionsH.Add)
+			admin.PATCH("/admin/professions/:id", auth.RequireAdminTier(), adminProfessionsH.Update)
+			admin.POST("/admin/professions/reorder", auth.RequireAdminTier(), adminProfessionsH.Reorder)
+			admin.DELETE("/admin/professions/:id", auth.RequireAdminTier(), adminProfessionsH.Delete)
 
 			// Section 27 — Guest Mode config. Super-Admin only.
 			admin.GET("/admin/guest_settings", auth.RequireSuperAdmin(), guestH.AdminList)
