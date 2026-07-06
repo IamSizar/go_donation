@@ -207,6 +207,98 @@ Legend: ✅ done · ⬜ not started · **App**=Flutter · **API**=backend · **A
 
 ---
 
+## 4b. Plain-language feature guide — what every task means IN THE APP
+
+> For each of the 54 tasks: what the user actually gets. The app itself ships in **4 languages (English, Arabic, Kurdish Sorani, Kurdish Badini)** and every feature below is fully translated in all four.
+
+### Phase 1 — Quick wins ✅
+| # | Feature | What it means in the app | Status |
+|---|---|---|---|
+| 1 | Submit alerts | When someone submits a case/request, admins & staff get an instant alert so nothing is missed | ✅ |
+| 2 | "Grantor" wording | The person who gives is now called **Grantor** everywhere (was "Donor") | ✅ |
+| 3 | "Eligible" wording | The person who receives help is now called **Eligible** everywhere (was "Recipient/Beneficiary") | ✅ |
+| 4 | Cleaner welcome | The home welcome card was tidied up | ✅ |
+| 5 | No double alerts | The same notification never shows twice | ✅ |
+| 6 | Services in Profile | The Services section moved under Profile to declutter the home | ✅ |
+| 7 | No duplicate button | Removed a duplicated "Submit project" button | ✅ |
+| 8 | Support up top | The help/Support button now sits at the top, easy to reach | ✅ |
+| 9 | Terms & Conditions | A Terms & Conditions page you can read in-app; admin can edit its text | ✅ |
+
+### Phase 2 — Home & navigation ✅
+| # | Feature | What it means in the app | Status |
+|---|---|---|---|
+| 10 | Impact slider | The home shows a rotating banner of impact numbers (grantors, eligibles, completed works, total given) | ✅ |
+| 11 | One stats panel | Those numbers are grouped neatly into a single panel | ✅ |
+| 12 | Profile menu | A profile icon at the top-right opens your account menu | ✅ |
+| 13 | Simpler eligible view | For eligible users, messages & community are tucked into Profile to keep their screen simple | ✅ |
+
+### Phase 3 — Donations & finance ✅
+| # | Feature | What it means in the app | Status |
+|---|---|---|---|
+| 14 | Reference codes | Every donation gets a tidy reference code per section (e.g. `CAM-000042`) for tracking | ✅ |
+| 15 | Arrival SMS | When a donation arrives, the section's contact person can receive an SMS alert | ✅ |
+| 16 | Donation type | Donors can mark a gift as **general / zakat / sadaqah** | ✅ |
+| 17 | Managed categories | Admin manages the list of project categories (4 languages) that eligibles choose from | ✅ |
+| 18 | Give Now | A quick "Give Now / Comprehensive Giving" shortcut to donate fast | ✅ |
+| 19 | Managed payment methods | Admin controls which payment methods (bank/cash/wallet) show, with account details | ✅ |
+
+### Phase 4 — Sponsorship calendar ✅
+| # | Feature | What it means in the app | Status |
+|---|---|---|---|
+| 20 | Auto reminders | Sponsors are automatically reminded when their monthly sponsorship payment is due | ✅ |
+| 21 | My Entitlements + voice | An eligible person sees the sponsorships supporting them and can **hear a spoken summary** (helps low-literacy users) | ✅ |
+
+### Phase 5 — Content sections 🔨 (7/9)
+| # | Feature | What it means in the app | Status |
+|---|---|---|---|
+| 22 | "Our Work" categories | News & activities are grouped into categories with filter chips; admin manages the list | ✅ |
+| 23 | Richer posts | Posts can include a **location** and a **photo gallery** | ✅ |
+| 24 | Like / comment / share | People can like, comment on, and share posts | ✅ |
+| 25 | Clean comments | Admins review comments; comments with bad words are auto-held for review | ✅ |
+| 26 | Reachable partners | Partner cards show tappable **email, social links, and a map location** | ✅ |
+| 27 | Partner ratings | Users rate partners **1–5 stars**; the average shows on the card | ✅ |
+| 28 | Richer marketplace | Products get **categories, an SKU, a spec sheet, and badges** (new/sale/featured/used/in-stock) | ✅ |
+| 29 | City Guide sectors | The City Guide gets **6 sectors, opening hours, a gallery, map links, and a call button** | ⬜ **NEXT** |
+| 30 | Add an Activity | Users can **submit a new place/activity** that admins approve before it shows | ⬜ |
+
+### Phase 6 — Settings, profile, privacy ⬜
+| # | Feature | What it means in the app | Status |
+|---|---|---|---|
+| 31 | Notification switch | Turn notifications on/off in settings | ⬜ |
+| 32 | Field privacy | Choose which of your profile fields are public or hidden | ⬜ |
+| 33 | Global search | Search across the whole app from one box | ⬜ |
+| 34 | Clear cache | A button to clear the app's stored/cached data | ⬜ |
+| 35 | About & Contact | An About Us + Contact Us page, editable by admin | ⬜ |
+| 36 | WhatsApp handoff | After 3 support messages, offer to continue on WhatsApp | ⬜ |
+| 37 | Mute switch | A toggle to mute the app's sounds & vibrations | ⬜ |
+| 38 | Language dropdown | Pick the app language from a dropdown | ⬜ |
+
+### Phase 7 — Registration forms ⬜
+| # | Feature | What it means in the app | Status |
+|---|---|---|---|
+| 39 | Grantor sign-up | A complete sign-up form for grantors with all needed fields | ⬜ |
+| 40 | Eligible sign-up | A complete sign-up form for eligibles | ⬜ |
+| 41 | Volunteer sign-up | A sign-up form for volunteers/employees | ⬜ |
+| 42 | Marriage form | A marriage/engagement profile form with privacy controls | ⬜ |
+| 43 | Field rules (admin) | Admin decides which registration fields are required vs optional | ⬜ |
+| 44 | Guest gating | Guests can browse but are prompted to sign in before acting | ⬜ |
+
+### Phase 8 — Cross-cutting / advanced ⬜
+| # | Feature | What it means in the app | Status |
+|---|---|---|---|
+| 45 | Direct chat | Chat between grantor↔eligible, volunteer↔tech support, and marriage↔tech | ⬜ |
+| 46 | Marriage search | Search, save, and request a meeting on marriage profiles | ⬜ |
+| 47 | World phone codes | Login supports international phone country codes | ⬜ |
+| 48 | Approx. location | Show an approximate (~500m) map location for privacy | ⬜ |
+| 49 | Share app/post | Share the app or a post to other apps | ⬜ |
+| 50 | Digital receipt | A digital aid-delivery receipt with photos | ⬜ |
+| 51 | Word export | Export reports as Word documents | ⬜ |
+| 52 | AI helper per section | An AI assistant icon in each section | ⬜ |
+| 53 | Hide sponsorship money | Hide the sponsorship money details from the eligible person | ⬜ |
+| 54 | ID-code privacy | Protect/hide ID codes everywhere they appear | ⬜ |
+
+---
+
 ## 5. What was built this session (tasks #10–#28) — detailed log
 
 > Every task below is **built + verified (go build/vet, admin tsc + vite build, flutter analyze all clean)** and committed to `new-update`. **None deployed.**
