@@ -24,8 +24,9 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { describeError } from '../lib/api'
 import { useI18n, useStatusLabel } from '../lib/i18n'
 import FileInput from './FileInput'
+import GalleryInput from './GalleryInput'
 
-export type FieldType = 'text' | 'textarea' | 'number' | 'select' | 'file'
+export type FieldType = 'text' | 'textarea' | 'number' | 'select' | 'file' | 'gallery' | 'multiselect'
 
 export type FieldSpec = {
   key: string                  // JSON key sent to backend + initial values key
@@ -69,7 +70,15 @@ export default function EditModal({ open, title, initial, fields, onSave, onClos
   const statusLabel = useStatusLabel()
   const initialStrings = useMemo(() => {
     const m: Record<string, string> = {}
-    for (const f of fields) m[f.key] = toInputValue(initial[f.key])
+    for (const f of fields) {
+      if (f.type === 'gallery' || f.type === 'multiselect') {
+        // Serialize the array column to a JSON string so it fits the string map.
+        const v = initial[f.key]
+        m[f.key] = JSON.stringify(Array.isArray(v) ? v : [])
+      } else {
+        m[f.key] = toInputValue(initial[f.key])
+      }
+    }
     return m
   }, [initial, fields])
 
@@ -116,6 +125,19 @@ export default function EditModal({ open, title, initial, fields, onSave, onClos
       } else {
         // create mode — skip blanks for non-required fields entirely
         if (next === '' && !f.required) continue
+      }
+      if (f.type === 'gallery' || f.type === 'multiselect') {
+        let arr: string[] = []
+        try {
+          const parsed = JSON.parse(next || '[]')
+          arr = Array.isArray(parsed) ? parsed.map((x) => String(x)).filter((s) => s.trim() !== '') : []
+        } catch {
+          arr = []
+        }
+        // In create mode, an empty array adds nothing — let the DB default.
+        if (mode === 'create' && arr.length === 0) continue
+        patch[f.key] = arr
+        continue
       }
       if (f.type === 'number') {
         if (next === '') {
@@ -208,6 +230,35 @@ export default function EditModal({ open, title, initial, fields, onSave, onClos
                       accept={f.accept}
                       hidePreview={f.hidePreview}
                     />
+                  </div>
+                )
+              }
+              if (f.type === 'gallery') {
+                return (
+                  <div key={f.key} className={`form-row${f.full ? ' full' : ''}`}>
+                    <span className="form-label">{label}</span>
+                    <GalleryInput value={v} onChange={setV} disabled={busy} />
+                  </div>
+                )
+              }
+              if (f.type === 'multiselect') {
+                let selected: string[] = []
+                try { const p = JSON.parse(v || '[]'); selected = Array.isArray(p) ? p.map((x) => String(x)) : [] } catch { selected = [] }
+                const toggle = (opt: string) => {
+                  const next = selected.includes(opt) ? selected.filter((s) => s !== opt) : [...selected, opt]
+                  setV(JSON.stringify(next))
+                }
+                return (
+                  <div key={f.key} className={`form-row${f.full ? ' full' : ''}`}>
+                    <span className="form-label">{label}</span>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+                      {(f.options ?? []).map((opt) => (
+                        <label key={opt} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                          <input type="checkbox" checked={selected.includes(opt)} disabled={busy} onChange={() => toggle(opt)} />
+                          <span>{statusLabel(opt)}</span>
+                        </label>
+                      ))}
+                    </div>
                   </div>
                 )
               }

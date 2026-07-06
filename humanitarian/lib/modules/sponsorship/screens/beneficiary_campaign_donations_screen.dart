@@ -327,13 +327,13 @@ class _DonationRow extends StatelessWidget {
   Future<void> _suggestChat(BuildContext context) async {
     final donorId = int.tryParse('${donation['donor_user_id']}');
     if (donorId == null || campaignId == null) return;
-    final donorName = (donation['donor_name'] ?? 'this donor').toString().trim();
+    final donorName = (donation['donor_name'] ?? 'Anonymous Donor'.tr).toString().trim();
     await ChatActions.startChat(
       context,
       donorUserId: donorId,
       campaignId: campaignId,
-      otherPartyLabel: donorName.isEmpty ? 'this donor' : donorName,
-      conversationTitle: donorName.isEmpty ? 'Contributor' : donorName,
+      otherPartyLabel: donorName.isEmpty ? 'Anonymous Donor'.tr : donorName,
+      conversationTitle: donorName.isEmpty ? 'Anonymous Donor'.tr : donorName,
       conversationSubtitle: campaignTitle,
     );
   }

@@ -67,9 +67,9 @@ class _PendingApprovalPageState extends State<PendingApprovalPage> {
   String? _roleLabel() {
     switch (int.tryParse(sharedPreferences.getString('role_id') ?? '')) {
       case 1:
-        return 'Contributor';
+        return 'Donor'.tr;
       case 2:
-        return 'Recipient';
+        return 'Beneficiary'.tr;
       case 3:
         return 'Volunteer';
       default:

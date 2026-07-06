@@ -86,6 +86,7 @@ var (
 	ErrOTPIQBadPhone       = errors.New("OTPIQ rejected the phone number format")
 	ErrOTPIQRateLimited    = errors.New("OTPIQ rate-limited this account")
 	ErrOTPIQUpstreamFailed = errors.New("OTPIQ upstream call failed")
+	ErrOTPIQNoSenderID     = errors.New("OTPIQ_SENDER_ID is required for custom messages")
 )
 
 // SendVerification sends a 6-digit code to a phone via OTPIQ's verification
@@ -114,7 +115,42 @@ func (c *OTPIQClient) SendVerification(ctx context.Context, phone, code string) 
 	if c.senderID != "" {
 		body["senderId"] = c.senderID
 	}
+	return c.postSMS(ctx, body)
+}
 
+// SendMessage sends a free-form ("custom") SMS to a phone via OTPIQ. Custom
+// messages require a configured sender id (OTPIQ_SENDER_ID) and are always sent
+// over the plain SMS provider. Used for operational alerts such as the #15
+// donation-arrived notification to a section's contact. Non-digits are stripped
+// from phone; returns ErrOTPIQNoSenderID when no sender id is configured.
+func (c *OTPIQClient) SendMessage(ctx context.Context, phone, message string) (*SendResult, error) {
+	if c == nil {
+		return nil, ErrOTPIQNotConfigured
+	}
+	if c.senderID == "" {
+		return nil, ErrOTPIQNoSenderID
+	}
+	cleanPhone := stripToDigits(phone)
+	if cleanPhone == "" {
+		return nil, ErrOTPIQBadPhone
+	}
+	if strings.TrimSpace(message) == "" {
+		return nil, errors.New("empty otpiq message")
+	}
+	body := map[string]any{
+		"phoneNumber":   cleanPhone,
+		"smsType":       "custom",
+		"customMessage": message,
+		"senderId":      c.senderID,
+		"provider":      "sms", // custom messages always go over plain SMS
+	}
+	return c.postSMS(ctx, body)
+}
+
+// postSMS marshals body, POSTs it to /sms, and maps the response to a
+// SendResult or one of the sentinel errors. Shared by SendVerification and
+// SendMessage.
+func (c *OTPIQClient) postSMS(ctx context.Context, body map[string]any) (*SendResult, error) {
 	bodyBytes, err := json.Marshal(body)
 	if err != nil {
 		return nil, fmt.Errorf("marshal otpiq payload: %w", err)

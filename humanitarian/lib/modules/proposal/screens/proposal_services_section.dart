@@ -104,7 +104,7 @@ class _DonorServices extends StatelessWidget {
       children: [
         SectionTile(
           icon: Icons.verified_user_rounded,
-          title: 'Recipient cases',
+          title: 'Beneficiary cases'.tr,
           subtitle: 'Review verified cases by code, need, and priority.',
           color: Colors.teal,
           onTap: () => Get.to(() => const BeneficiaryCasesScreen()),
@@ -232,7 +232,7 @@ class BeneficiaryCasesScreen extends StatelessWidget {
         : Get.put(BeneficiaryCasesController());
 
     return SectionScaffold(
-      title: 'Recipient cases',
+      title: 'Beneficiary cases'.tr,
       subtitle: 'Verified public case records.',
       child: Obx(() {
         final items = controller.cases;
@@ -246,7 +246,7 @@ class BeneficiaryCasesScreen extends StatelessWidget {
               if (controller.errorMessage.value != null)
                 SectionTile(
                   icon: Icons.verified_user_rounded,
-                  title: 'Recipient cases',
+                  title: 'Beneficiary cases'.tr,
                   subtitle: controller.errorMessage.value!,
                   color: Colors.teal,
                   onTap: controller.fetchCases,
@@ -254,9 +254,9 @@ class BeneficiaryCasesScreen extends StatelessWidget {
               if (!controller.isLoading.value &&
                   controller.errorMessage.value == null &&
                   items.isEmpty)
-                const SectionTile(
+                SectionTile(
                   icon: Icons.verified_user_rounded,
-                  title: 'Recipient cases',
+                  title: 'Beneficiary cases'.tr,
                   subtitle: 'No approved cases are available yet.',
                   color: Colors.teal,
                 ),
@@ -381,7 +381,7 @@ String _localizedCaseTitle(Map<String, dynamic> item) {
   return localizedContentFromMap(
     item,
     'public_title',
-    fallback: 'Recipient case',
+    fallback: 'Eligible case',
   );
 }
 

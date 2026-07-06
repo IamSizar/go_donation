@@ -29,7 +29,13 @@ const PARTNER_FIELDS: FieldSpec[] = [
   { key: 'partner_type',        label: 'Type', labelKey: 'field.type',                type: 'text' },
   { key: 'status',              label: 'Status', labelKey: 'field.status',              type: 'select',   options: EDITABLE_STATUSES },
   { key: 'contact_phone',       label: 'Contact phone', labelKey: 'field.contact_phone',       type: 'text' },
+  { key: 'email',               label: 'Email', labelKey: 'field.email',               type: 'text' },
   { key: 'website',             label: 'Website', labelKey: 'field.website',             type: 'text' },
+  { key: 'social_links',        label: 'Social links', labelKey: 'field.social_links',        type: 'textarea', rows: 3, full: true, placeholder: 'One link per line' },
+  { key: 'location',            label: 'Location (EN)', labelKey: 'field.location',            type: 'text' },
+  { key: 'location_ar',         label: 'Location (AR)', labelKey: 'field.location_ar',         type: 'text', dir: 'rtl' },
+  { key: 'location_sorani',     label: 'Location (Sorani)', labelKey: 'field.location_sorani',     type: 'text', dir: 'rtl' },
+  { key: 'location_badini',     label: 'Location (Badini)', labelKey: 'field.location_badini',     type: 'text', dir: 'rtl' },
   { key: 'logo_path',           label: 'Logo', labelKey: 'field.logo',                type: 'file', full: true },
   { key: 'description',         label: 'Description (EN)', labelKey: 'field.description_en',    type: 'textarea', rows: 3 },
   { key: 'description_ar',      label: 'Description (AR)', labelKey: 'field.description_ar',    type: 'textarea', rows: 3, dir: 'rtl' },
@@ -178,6 +184,16 @@ export default function PartnersPage() {
         ),
     },
     { key: 'phone', header: t('col.phone'), cell: (p) => p.contact_phone ?? <span className="muted">—</span> },
+    {
+      key: 'rating',
+      header: t('col.rating'),
+      cell: (p) =>
+        p.rating_count > 0 ? (
+          <span title={`${p.rating_count}`}>★ {Number(p.avg_rating ?? 0).toFixed(1)} <span className="muted">({p.rating_count})</span></span>
+        ) : (
+          <span className="muted">—</span>
+        ),
+    },
     {
       key: 'status',
       header: t('col.status'),

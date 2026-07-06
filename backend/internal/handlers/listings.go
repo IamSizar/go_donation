@@ -30,7 +30,9 @@ func (h *ListingsHandler) Partners(c *gin.Context) {
 	case strings.EqualFold(status, "all"):
 		status = ""
 	}
-	items, err := h.Store.ListPartners(c.Request.Context(), status, c.Query("q"), limit)
+	// #27 — optional user_id so the list can flag the viewer's own rating.
+	userID, _ := strconv.ParseInt(strings.TrimSpace(c.Query("user_id")), 10, 64)
+	items, err := h.Store.ListPartners(c.Request.Context(), status, c.Query("q"), limit, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
 		return
@@ -47,7 +49,9 @@ func (h *ListingsHandler) Media(c *gin.Context) {
 	case strings.EqualFold(status, "all"):
 		status = ""
 	}
-	items, err := h.Store.ListMediaPosts(c.Request.Context(), status, c.Query("type"), c.Query("q"), limit)
+	// #24 — optional user_id so the feed can flag which posts the viewer liked.
+	userID, _ := strconv.ParseInt(strings.TrimSpace(c.Query("user_id")), 10, 64)
+	items, err := h.Store.ListMediaPosts(c.Request.Context(), status, c.Query("type"), c.Query("q"), limit, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
 		return

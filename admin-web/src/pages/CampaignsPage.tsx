@@ -51,7 +51,7 @@ const CAMPAIGN_FIELDS: FieldSpec[] = [
   { key: 'title_sorani',       label: 'Title (Sorani)', labelKey: 'field.title_sorani',      type: 'text',     dir: 'rtl' },
   { key: 'title_badini',       label: 'Title (Badini)', labelKey: 'field.title_badini',      type: 'text',     dir: 'rtl' },
   { key: 'address',            label: 'Address', labelKey: 'field.address',             type: 'text',     required: true },
-  { key: 'beneficiaries',      label: 'Recipients', labelKey: 'field.beneficiaries',       type: 'text',     required: true, placeholder: 'e.g. 50 families' },
+  { key: 'beneficiaries',      label: 'Eligibles', labelKey: 'field.beneficiaries',       type: 'text',     required: true, placeholder: 'e.g. 50 families' },
   { key: 'goal_amount',        label: 'Goal amount', labelKey: 'field.goal_amount',         type: 'text',     required: true, placeholder: 'IQD' },
   { key: 'raised_amount',      label: 'Raised amount', labelKey: 'field.raised_amount',       type: 'text',     placeholder: '0' },
   { key: 'description',        label: 'Description (EN)', labelKey: 'field.description_en',    type: 'textarea', rows: 4, required: true },
@@ -211,7 +211,7 @@ export default function CampaignsPage() {
     { key: 'address', header: t('col.location'), cell: (c) => c.address },
     {
       key: 'owner',
-      header: 'Recipient',
+      header: 'Eligible',
       cell: (c) => {
         if (!c.owner_user_id) return <span className="muted">—</span>
         return (

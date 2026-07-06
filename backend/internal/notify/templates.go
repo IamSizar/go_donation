@@ -30,11 +30,11 @@ import (
 
 // ============================================================================
 // SUBMIT-TIME TEMPLATES — replaces the inline EN+AR strings that lived in
-// extras.go, beneficiary.go, marketplace.go. Each is now 4-language.
+// extras.go, eligible.go, marketplace.go. Each is now 4-language.
 // ============================================================================
 
-// DonationSubmittedMsg — donor just submitted a donation. The PHP API
-// never sent one; this is a new-in-Go acknowledgement so donors get
+// DonationSubmittedMsg — grantor just submitted a donation. The PHP API
+// never sent one; this is a new-in-Go acknowledgement so grantors get
 // instant confirmation in their notifications list (rather than only seeing
 // something happen when admin approves, which can be hours later).
 func DonationSubmittedMsg(amount, currency, campaignName string, donationID int64) LocalizedMessage {
@@ -57,7 +57,7 @@ func DonationSubmittedMsg(amount, currency, campaignName string, donationID int6
 	}
 }
 
-// SponsorshipSubmittedMsg — donor just created a sponsorship.
+// SponsorshipSubmittedMsg — grantor just created a sponsorship.
 func SponsorshipSubmittedMsg(amount, currency, projectName string, sponsorshipID int64) LocalizedMessage {
 	return LocalizedMessage{
 		Type:              "sponsorship_submitted",
@@ -78,7 +78,7 @@ func SponsorshipSubmittedMsg(amount, currency, projectName string, sponsorshipID
 	}
 }
 
-// SponsorshipCancelledByDonorMsg — donor cancelled their own active sponsorship.
+// SponsorshipCancelledByDonorMsg — grantor cancelled their own active sponsorship.
 func SponsorshipCancelledByDonorMsg(projectName string, sponsorshipID int64) LocalizedMessage {
 	return LocalizedMessage{
 		Type:              "sponsorship_cancelled",
@@ -99,7 +99,7 @@ func SponsorshipCancelledByDonorMsg(projectName string, sponsorshipID int64) Loc
 	}
 }
 
-// InKindSubmittedMsg — donor created an in-kind donation pending pickup.
+// InKindSubmittedMsg — grantor created an in-kind donation pending pickup.
 func InKindSubmittedMsg(itemName string, inKindID int64) LocalizedMessage {
 	return LocalizedMessage{
 		Type:              "in_kind_donation_submitted",
@@ -120,7 +120,7 @@ func InKindSubmittedMsg(itemName string, inKindID int64) LocalizedMessage {
 	}
 }
 
-// MarketplaceOrderSubmittedMsg — donor placed a marketplace order.
+// MarketplaceOrderSubmittedMsg — grantor placed a marketplace order.
 func MarketplaceOrderSubmittedMsg(orderID int64) LocalizedMessage {
 	return LocalizedMessage{
 		Type:              "marketplace_order_submitted",
@@ -183,23 +183,68 @@ func MarriageSubmittedMsg(profileCode string, profileID int64) LocalizedMessage 
 	}
 }
 
-// BeneficiaryCaseSubmittedMsg — beneficiary submitted a new case.
+// BeneficiaryCaseSubmittedMsg — eligible submitted a new case.
 func BeneficiaryCaseSubmittedMsg(title string, caseID int64) LocalizedMessage {
 	return LocalizedMessage{
 		Type:              "beneficiary_case_submitted",
 		RelatedEntityType: "beneficiary_cases",
 		RelatedEntityID:   caseID,
 		Title: LocalText{
-			En:  "Beneficiary case submitted",
-			Ar:  "تم إرسال حالة المستفيد",
-			Ckb: "دۆسیەی سوودمەند نێردرا",
+			En:  "Eligible case submitted",
+			Ar:  "تم إرسال حالة المستحق",
+			Ckb: "دۆسیەی مستحق نێردرا",
 			Kmr: "دۆسیا هەژاری هاتە شاندن",
 		},
 		Body: LocalText{
-			En:  fmt.Sprintf("Your beneficiary case \"%s\" was sent for admin review.", title),
+			En:  fmt.Sprintf("Your eligible case \"%s\" was sent for admin review.", title),
 			Ar:  fmt.Sprintf("تم إرسال حالتك \"%s\" إلى المسؤول للمراجعة.", title),
-			Ckb: fmt.Sprintf("دۆسیە سوودمەندیت «%s» بۆ پێداچوونەوەی بەڕێوەبەر نێردرا.", title),
+			Ckb: fmt.Sprintf("دۆسیە مستحقیت «%s» بۆ پێداچوونەوەی بەڕێوەبەر نێردرا.", title),
 			Kmr: fmt.Sprintf("دۆسیا تە یا هەژاری «%s» بۆ پشکنینا بەرپرسی هاتە شاندن.", title),
+		},
+	}
+}
+
+// NewBeneficiaryCaseAdminMsg — alerts STAFF (dashboard) that a eligible just
+// submitted a new case needing review (Requirement B1). Sent via
+// BroadcastToStaff, alongside the eligible's own acknowledgement.
+func NewBeneficiaryCaseAdminMsg(title string, caseID int64) LocalizedMessage {
+	return LocalizedMessage{
+		Type:              "admin_new_beneficiary_case",
+		RelatedEntityType: "beneficiary_cases",
+		RelatedEntityID:   caseID,
+		Title: LocalText{
+			En:  "New eligible case to review",
+			Ar:  "حالة مستحق جديدة للمراجعة",
+			Ckb: "دۆسیەیەکی نوێی مستحق بۆ پێداچوونەوە",
+			Kmr: "دۆسیایەکا نوو یا هەژاری بۆ پشکنینێ",
+		},
+		Body: LocalText{
+			En:  fmt.Sprintf("An eligible person submitted a new case: \"%s\". Open it to review.", title),
+			Ar:  fmt.Sprintf("قدّم أحد المستحقين حالة جديدة: «%s». افتحها للمراجعة.", title),
+			Ckb: fmt.Sprintf("مستحقێک دۆسیەیەکی نوێی ناردووە: «%s». بیکەرەوە بۆ پێداچوونەوە.", title),
+			Kmr: fmt.Sprintf("هەژارەکی دۆسیایەکا نوو شاند: «%s». ڤەکە بۆ پشکنینێ.", title),
+		},
+	}
+}
+
+// NewProjectRequestAdminMsg — alerts STAFF (dashboard) that a eligible just
+// submitted a new project (aid) request needing review (Requirement B1).
+func NewProjectRequestAdminMsg(title string, requestID int64) LocalizedMessage {
+	return LocalizedMessage{
+		Type:              "admin_new_project_request",
+		RelatedEntityType: "beneficiary_project_requests",
+		RelatedEntityID:   requestID,
+		Title: LocalText{
+			En:  "New project request to review",
+			Ar:  "طلب مشروع جديد للمراجعة",
+			Ckb: "داواکاریی پڕۆژەیەکی نوێ بۆ پێداچوونەوە",
+			Kmr: "داخوازا پرۆژەیەکا نوو بۆ پشکنینێ",
+		},
+		Body: LocalText{
+			En:  fmt.Sprintf("An eligible person submitted a new project request: \"%s\". Open it to review.", title),
+			Ar:  fmt.Sprintf("قدّم أحد المستحقين طلب مشروع جديد: «%s». افتحه للمراجعة.", title),
+			Ckb: fmt.Sprintf("مستحقێک داواکاریی پڕۆژەیەکی نوێی ناردووە: «%s». بیکەرەوە بۆ پێداچوونەوە.", title),
+			Kmr: fmt.Sprintf("هەژارەکی داخوازا پرۆژەیەکا نوو شاند: «%s». ڤەکە بۆ پشکنینێ.", title),
 		},
 	}
 }
@@ -239,7 +284,7 @@ func VolunteerApplicationSubmittedMsg(applicantName string, appID int64) Localiz
 //
 // Different from MissionSignupDecisionMsg, which fires AFTER the admin
 // decides; this one fires the moment the request is submitted, mirroring
-// the donor / beneficiary submit acknowledgements.
+// the grantor / eligible submit acknowledgements.
 //
 // Phase 21b.
 func VolunteerMissionJoinSubmittedMsg(missionTitle string, signupID int64) LocalizedMessage {
@@ -266,7 +311,7 @@ func VolunteerMissionJoinSubmittedMsg(missionTitle string, signupID int64) Local
 	}
 }
 
-// ProjectRequestSubmittedMsg — beneficiary submitted a project funding request.
+// ProjectRequestSubmittedMsg — eligible submitted a project funding request.
 func ProjectRequestSubmittedMsg(title string, requestID int64) LocalizedMessage {
 	return LocalizedMessage{
 		Type:              "project_request_submitted",
@@ -387,7 +432,7 @@ func formatPercentKurd(raised, goal float64) string {
 	return fmt.Sprintf(" (%.0f%% لە ئامانج)", pct)
 }
 
-// DonationCancelledByDonorMsg — confirmation when a donor self-cancels a
+// DonationCancelledByDonorMsg — confirmation when a grantor self-cancels a
 // pending donation (POST /api/donate/:id/cancel). Phase 23.
 func DonationCancelledByDonorMsg(amount, currency, campaignName string, donationID int64) LocalizedMessage {
 	return LocalizedMessage{
@@ -410,7 +455,7 @@ func DonationCancelledByDonorMsg(amount, currency, campaignName string, donation
 }
 
 // DonationApprovedMsg — admin marked a donation as approved/received/delivered.
-// Body shows: donor amount + which campaign + the campaign's NEW running total
+// Body shows: grantor amount + which campaign + the campaign's NEW running total
 // after this donation + percent funded. raisedAmount and goalAmount are
 // strings (the column types are varchar) but expected to parse as numbers.
 func DonationApprovedMsg(amount, currency, campaignName, raisedAmount, goalAmount string, donationID int64) LocalizedMessage {
@@ -455,7 +500,7 @@ func DonationApprovedMsg(amount, currency, campaignName, raisedAmount, goalAmoun
 }
 
 // DonationRejectedMsg — admin rejected a donation entry. Body still shows the
-// amount + campaign so the donor remembers which donation this is about.
+// amount + campaign so the grantor remembers which donation this is about.
 func DonationRejectedMsg(amount, currency, campaignName string, donationID int64) LocalizedMessage {
 	return LocalizedMessage{
 		Type:              "donation_rejected",
@@ -477,10 +522,10 @@ func DonationRejectedMsg(amount, currency, campaignName string, donationID int64
 }
 
 // DonationPaymentConfirmedMsg — Phase 27.2 — admin set payment_status=1
-// (success), i.e. they've verified the donor's payment was received. This
+// (success), i.e. they've verified the grantor's payment was received. This
 // is the most common "accept" action triggered from the donations admin
 // page — before this template existed, that click was silent and the
-// donor got no push.
+// grantor got no push.
 //
 // Distinct from DonationApprovedMsg (which fires on delivery_status =
 // received/delivered) so both can land without dedup conflict; one is the
@@ -506,8 +551,8 @@ func DonationPaymentConfirmedMsg(amount, currency, campaignName string, donation
 }
 
 // DonationPaymentFailedMsg — Phase 27.2 — admin set payment_status=3
-// (failed), i.e. they couldn't verify the donor's payment or it was
-// rejected by the payment processor. Donor needs to know so they can
+// (failed), i.e. they couldn't verify the grantor's payment or it was
+// rejected by the payment processor. Grantor needs to know so they can
 // resend or follow up.
 func DonationPaymentFailedMsg(amount, currency, campaignName string, donationID int64) LocalizedMessage {
 	return LocalizedMessage{
@@ -551,8 +596,8 @@ func formatThousands(n float64, raw string) string {
 	return out
 }
 
-// DonationReceivedOnProjectMsg — fires on the beneficiary (project owner)
-// every time a donor donates to their project. Matches old PHP behavior.
+// DonationReceivedOnProjectMsg — fires on the eligible (project owner)
+// every time a grantor donates to their project. Matches old PHP behavior.
 func DonationReceivedOnProjectMsg(amount, currency, projectTitle, donorName string, donationID int64) LocalizedMessage {
 	return LocalizedMessage{
 		Type:              "donation_received_on_project",
@@ -614,6 +659,32 @@ func SponsorshipStatusChangedMsg(projectName, status string, sponsorshipID int64
 			Ar:  fmt.Sprintf("كفالتك الشهرية للمشروع \"%s\" أصبحت الآن %s.", projectName, status),
 			Ckb: fmt.Sprintf("سپۆنسەری مانگانەی تۆ بۆ «%s» ئێستا %s ە.", projectName, status),
 			Kmr: fmt.Sprintf("سپۆنسەریا تە یا مەهانە بۆ «%s» نوکە %s یە.", projectName, status),
+		},
+	}
+}
+
+// SponsorshipPaymentDueMsg — task #20 (reminder scheduler). Fires from the
+// background scheduler when an active sponsorship's next payment is due
+// (within the configured reminder window, or already overdue). dueDate is a
+// pre-formatted, locale-neutral date string (YYYY-MM-DD) so the four copies
+// stay consistent. Notification type contains "reminder" + "due" so it lands
+// in the reminder category (see resolveCategory).
+func SponsorshipPaymentDueMsg(amount, currency, projectName, dueDate string, sponsorshipID int64) LocalizedMessage {
+	return LocalizedMessage{
+		Type:              "sponsorship_payment_due_reminder",
+		RelatedEntityType: "sponsorships",
+		RelatedEntityID:   sponsorshipID,
+		Title: LocalText{
+			En:  "Sponsorship payment due",
+			Ar:  "موعد دفع الكفالة",
+			Ckb: "کاتی پارەدانی سپۆنسەری",
+			Kmr: "دەمێ پارەدانا سپۆنسەریێ",
+		},
+		Body: LocalText{
+			En:  fmt.Sprintf("Your %s %s sponsorship for \"%s\" is due on %s. Please complete your payment to keep the support going.", amount, currency, projectName, dueDate),
+			Ar:  fmt.Sprintf("موعد كفالتك بمبلغ %s %s للمشروع \"%s\" هو %s. يرجى إتمام الدفع لاستمرار الدعم.", amount, currency, projectName, dueDate),
+			Ckb: fmt.Sprintf("کاتی سپۆنسەری تۆ بە بڕی %s %s بۆ «%s» لە %s ە. تکایە پارەدانەکەت تەواو بکە بۆ بەردەوامبوونی پشتگیری.", amount, currency, projectName, dueDate),
+			Kmr: fmt.Sprintf("دەمێ سپۆنسەریا تە یا %s %s بۆ «%s» ل %s ە. ژکەرەما خۆ پارەدانا خۆ تەواو بکە دا پشتگیری بەردەوام بیت.", amount, currency, projectName, dueDate),
 		},
 	}
 }
@@ -742,7 +813,7 @@ func InKindReceivedMsg(itemName, qty string, inKindID int64) LocalizedMessage {
 	}
 }
 
-// InKindDeliveredMsg — admin delivered the donation to the beneficiary.
+// InKindDeliveredMsg — admin delivered the donation to the eligible.
 func InKindDeliveredMsg(itemName, qty string, inKindID int64) LocalizedMessage {
 	q := quantityLine(qty)
 	return LocalizedMessage{
@@ -851,45 +922,45 @@ func MarriageStatusChangedMsg(profileCode, status string, profileID int64) Local
 	}
 }
 
-// --- Beneficiary cases & project requests ---------------------------------
+// --- Eligible cases & project requests ---------------------------------
 
-// BeneficiaryCaseApprovedMsg — admin approved a beneficiary case.
+// BeneficiaryCaseApprovedMsg — admin approved a eligible case.
 func BeneficiaryCaseApprovedMsg(title string, caseID int64) LocalizedMessage {
 	return LocalizedMessage{
 		Type:              "beneficiary_case_approved",
 		RelatedEntityType: "beneficiary_cases",
 		RelatedEntityID:   caseID,
 		Title: LocalText{
-			En:  "Beneficiary case approved",
-			Ar:  "تمت الموافقة على حالة المستفيد",
-			Ckb: "دۆسیەی سوودمەند پەسەند کرا",
+			En:  "Eligible case approved",
+			Ar:  "تمت الموافقة على حالة المستحق",
+			Ckb: "دۆسیەی مستحق پەسەند کرا",
 			Kmr: "دۆسیا هەژاری هاتە قبوولکرن",
 		},
 		Body: LocalText{
-			En:  fmt.Sprintf("Your beneficiary case \"%s\" was approved by the admin.", title),
-			Ar:  fmt.Sprintf("تمت الموافقة على حالة المستفيد \"%s\" من قِبَل المسؤول.", title),
-			Ckb: fmt.Sprintf("دۆسیە سوودمەندیت «%s» لەلایەن بەڕێوەبەرەوە پەسەند کرا.", title),
+			En:  fmt.Sprintf("Your eligible case \"%s\" was approved by the admin.", title),
+			Ar:  fmt.Sprintf("تمت الموافقة على حالة المستحق \"%s\" من قِبَل المسؤول.", title),
+			Ckb: fmt.Sprintf("دۆسیە مستحقیت «%s» لەلایەن بەڕێوەبەرەوە پەسەند کرا.", title),
 			Kmr: fmt.Sprintf("دۆسیا تە یا هەژاری «%s» ژلایێ بەرپرسی ڤە هاتە قبوولکرن.", title),
 		},
 	}
 }
 
-// BeneficiaryCaseRejectedMsg — admin rejected a beneficiary case.
+// BeneficiaryCaseRejectedMsg — admin rejected a eligible case.
 func BeneficiaryCaseRejectedMsg(title string, caseID int64) LocalizedMessage {
 	return LocalizedMessage{
 		Type:              "beneficiary_case_rejected",
 		RelatedEntityType: "beneficiary_cases",
 		RelatedEntityID:   caseID,
 		Title: LocalText{
-			En:  "Beneficiary case rejected",
-			Ar:  "تم رفض حالة المستفيد",
-			Ckb: "دۆسیەی سوودمەند ڕەتکرایەوە",
+			En:  "Eligible case rejected",
+			Ar:  "تم رفض حالة المستحق",
+			Ckb: "دۆسیەی مستحق ڕەتکرایەوە",
 			Kmr: "دۆسیا هەژاری هاتە رەتکرن",
 		},
 		Body: LocalText{
-			En:  fmt.Sprintf("Your beneficiary case \"%s\" was rejected. Please contact support for details.", title),
-			Ar:  fmt.Sprintf("تم رفض حالة المستفيد \"%s\". يرجى التواصل مع الدعم للمزيد من التفاصيل.", title),
-			Ckb: fmt.Sprintf("دۆسیە سوودمەندیت «%s» ڕەتکرایەوە. تکایە پەیوەندی بە پشتگیریەوە بکە.", title),
+			En:  fmt.Sprintf("Your eligible case \"%s\" was rejected. Please contact support for details.", title),
+			Ar:  fmt.Sprintf("تم رفض حالة المستحق \"%s\". يرجى التواصل مع الدعم للمزيد من التفاصيل.", title),
+			Ckb: fmt.Sprintf("دۆسیە مستحقیت «%s» ڕەتکرایەوە. تکایە پەیوەندی بە پشتگیریەوە بکە.", title),
 			Kmr: fmt.Sprintf("دۆسیا تە یا هەژاری «%s» هاتە رەتکرن. ژکەرەما خۆ دگەل پشتگیریێ پەیوەندیێ بکە.", title),
 		},
 	}
@@ -908,10 +979,10 @@ func ProjectRequestApprovedMsg(title string, requestID int64) LocalizedMessage {
 			Kmr: "داخوازا پرۆژەیێ هاتە قبوولکرن",
 		},
 		Body: LocalText{
-			En:  fmt.Sprintf("Your project request \"%s\" was approved by the admin. Donors can now contribute.", title),
-			Ar:  fmt.Sprintf("تمت الموافقة على طلب المشروع \"%s\" من قِبَل المسؤول. يمكن للمتبرعين الآن المساهمة.", title),
-			Ckb: fmt.Sprintf("داواکاری پڕۆژەکەت «%s» لەلایەن بەڕێوەبەرەوە پەسەند کرا. بەخشینکەرەکان ئێستا دەتوانن بەشداربن.", title),
-			Kmr: fmt.Sprintf("داخوازا تە یا پرۆژەیێ «%s» ژلایێ بەرپرسی ڤە هاتە قبوولکرن. بەخشکار نوکە دشێن بەشدار ببن.", title),
+			En:  fmt.Sprintf("Your project request \"%s\" was approved by the admin. Grantors can now contribute.", title),
+			Ar:  fmt.Sprintf("تمت الموافقة على طلب المشروع \"%s\" من قِبَل المسؤول. يمكن للمانحين الآن المساهمة.", title),
+			Ckb: fmt.Sprintf("داواکاری پڕۆژەکەت «%s» لەلایەن بەڕێوەبەرەوە پەسەند کرا. بەخشەرەکان ئێستا دەتوانن بەشداربن.", title),
+			Kmr: fmt.Sprintf("داخوازا تە یا پرۆژەیێ «%s» ژلایێ بەرپرسی ڤە هاتە قبوولکرن. بەخشەر نوکە دشێن بەشدار ببن.", title),
 		},
 	}
 }
@@ -1217,8 +1288,34 @@ func NewMediaPostMsg(postTitle string, postID int64) LocalizedMessage {
 	}
 }
 
+// NewCommentOnYourPostMsg — #24. Sent to a post's author when another user
+// comments on their post. commenterName is the commenter's display name;
+// snippet is a short excerpt of the comment body.
+func NewCommentOnYourPostMsg(commenterName, snippet string, postID int64) LocalizedMessage {
+	if commenterName == "" {
+		commenterName = "Someone"
+	}
+	return LocalizedMessage{
+		Type:              "post_comment_received",
+		RelatedEntityType: "media_posts",
+		RelatedEntityID:   postID,
+		Title: LocalText{
+			En:  "New comment on your post",
+			Ar:  "تعليق جديد على منشورك",
+			Ckb: "لێدوانێکی نوێ لەسەر پۆستەکەت",
+			Kmr: "شرۆڤەیەکا نوو ل سەر پۆستا تە",
+		},
+		Body: LocalText{
+			En:  fmt.Sprintf("%s commented: \"%s\"", commenterName, snippet),
+			Ar:  fmt.Sprintf("علّق %s: «%s»", commenterName, snippet),
+			Ckb: fmt.Sprintf("%s لێدوانی دا: «%s»", commenterName, snippet),
+			Kmr: fmt.Sprintf("%s شرۆڤە کر: «%s»", commenterName, snippet),
+		},
+	}
+}
+
 // NewCampaignMsg — broadcast to everyone when a new fundraising campaign is
-// published, so donors can discover and support it. (New content parity with
+// published, so grantors can discover and support it. (New content parity with
 // NewMediaPostMsg / NewPartnerMsg.)
 func NewCampaignMsg(campaignTitle string, campaignID int64) LocalizedMessage {
 	return LocalizedMessage{
@@ -1240,7 +1337,7 @@ func NewCampaignMsg(campaignTitle string, campaignID int64) LocalizedMessage {
 	}
 }
 
-// ===== Donor ↔ campaign-owner chat (Phase 28) =====
+// ===== Grantor ↔ campaign-owner chat (Phase 28) =====
 
 // ChatRequestMsg notifies the recipient that someone wants to start a chat.
 // Type "chat_request" + related_entity_id=threadID drives the Accept/Decline

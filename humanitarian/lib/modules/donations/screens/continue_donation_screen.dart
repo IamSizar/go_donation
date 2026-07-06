@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_application_1/core/app_haptics.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
+import 'package:flutter_application_1/api/payment_methods_api.dart';
 import 'package:flutter_application_1/modules/donations/controllers/continue_donation_controller.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
@@ -47,21 +48,27 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
   late final ContinueDonationController _submitController;
 
   int _selectedPaymentIndex = 0;
+  String _donationType = 'general';
 
-  static const String _fibAccountNumber = '7510208962';
-
-  static const List<_PaymentMethodData> _paymentMethods = [
+  // #19 — payment methods are admin-managed (fetched from /api/payment-methods).
+  // These two are the offline fallback so the donate form always works.
+  static const List<_PaymentMethodData> _fallbackMethods = [
     _PaymentMethodData(
       title: 'Cash',
       subtitle: 'Pay in person or at a collection point',
       icon: Icons.payments_rounded,
+      submitName: 'Cash',
     ),
     _PaymentMethodData(
       title: 'FIB',
       subtitle: 'First Iraqi Bank and supported channels',
       icon: Icons.account_balance_rounded,
+      accountNumber: '7510208962',
+      submitName: 'FIB',
     ),
   ];
+
+  List<_PaymentMethodData> _paymentMethods = _fallbackMethods;
 
   @override
   void initState() {
@@ -77,6 +84,41 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
       _selectedPaymentIndex = i;
     }
     _moneyController.text = widget.amount.toString();
+    _loadPaymentMethods();
+  }
+
+  // #19 — fetch the admin-managed payment methods; keep the built-in fallback
+  // (Cash/FIB) if the list is empty or the request fails.
+  Future<void> _loadPaymentMethods() async {
+    final fetched = await fetchPaymentMethods();
+    if (!mounted || fetched.isEmpty) return;
+    setState(() {
+      _paymentMethods = [
+        for (final m in fetched)
+          _PaymentMethodData(
+            title: m.localizedName,
+            subtitle: m.localizedInstructions,
+            icon: _iconForMethodType(m.methodType),
+            accountNumber: m.accountNumber,
+            accountName: m.accountName,
+            submitName: m.nameEn.isNotEmpty ? m.nameEn : m.localizedName,
+          ),
+      ];
+      final idx =
+          _paymentMethods.indexWhere((p) => p.title == widget.paymentMethod);
+      _selectedPaymentIndex = idx >= 0 ? idx : 0;
+    });
+  }
+
+  static IconData _iconForMethodType(String type) {
+    switch (type) {
+      case 'cash':
+        return Icons.payments_rounded;
+      case 'wallet':
+        return Icons.account_balance_wallet_rounded;
+      default:
+        return Icons.account_balance_rounded;
+    }
   }
 
   @override
@@ -104,7 +146,10 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
       campaignsId: widget.campaignsId,
       message: note.isEmpty ? null : note,
       amount: amount,
-      paymentMethod: paymentMethod.title,
+      paymentMethod: paymentMethod.submitName.isNotEmpty
+          ? paymentMethod.submitName
+          : paymentMethod.title,
+      donationType: _donationType,
     );
 
     if (!mounted) return;
@@ -168,8 +213,10 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
     );
   }
 
-  void _copyFibAccountNumberToClipboard() {
-    Clipboard.setData(ClipboardData(text: _fibAccountNumber));
+  void _copyAccountNumberToClipboard() {
+    final acct = _paymentMethods[_selectedPaymentIndex].accountNumber;
+    if (acct.isEmpty) return;
+    Clipboard.setData(ClipboardData(text: acct));
     AppHaptics.gentle();
     Get.snackbar(
       'Copied'.tr,
@@ -217,7 +264,7 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
                         optionColor: widget.optionColor,
                       ),
                       const SizedBox(height: 22),
-                      const SectionLabel(title: 'Contributor details'),
+                      const SectionLabel(title: 'Donor details'),
                       const SizedBox(height: 12),
                       GlassPanel(
                         child: Column(
@@ -301,6 +348,15 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
                         ),
                       ),
                       const SizedBox(height: 22),
+                      const SectionLabel(title: 'Donation type'),
+                      const SizedBox(height: 12),
+                      _DonationTypeSelector(
+                        selected: _donationType,
+                        accentColor: widget.optionColor,
+                        onSelected: (t) =>
+                            setState(() => _donationType = t),
+                      ),
+                      const SizedBox(height: 22),
                       const SectionLabel(title: 'Payment method'),
                       const SizedBox(height: 12),
                       ...List.generate(_paymentMethods.length, (index) {
@@ -318,13 +374,14 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
                           ),
                         );
                       }),
-                      if (_paymentMethods[_selectedPaymentIndex].title ==
-                          'FIB') ...[
+                      if (_paymentMethods[_selectedPaymentIndex]
+                          .accountNumber
+                          .isNotEmpty) ...[
                         const SizedBox(height: 8),
-                        _FibAccountCard(
+                        _AccountCard(
                           accentColor: widget.optionColor,
-                          accountNumber: _fibAccountNumber,
-                          onCopy: _copyFibAccountNumberToClipboard,
+                          method: _paymentMethods[_selectedPaymentIndex],
+                          onCopy: _copyAccountNumberToClipboard,
                         ),
                       ],
                       const SizedBox(height: 22),
@@ -575,21 +632,23 @@ class _HeroMetricChip extends StatelessWidget {
   }
 }
 
-class _FibAccountCard extends StatelessWidget {
-  const _FibAccountCard({
+class _AccountCard extends StatelessWidget {
+  const _AccountCard({
     required this.accentColor,
-    required this.accountNumber,
+    required this.method,
     required this.onCopy,
   });
 
   final Color accentColor;
-  final String accountNumber;
+  final _PaymentMethodData method;
   final VoidCallback onCopy;
 
   @override
   Widget build(BuildContext context) {
     final muted = AppThemeConfig.mutedText(context);
     final text = AppThemeConfig.text(context);
+    final label =
+        method.accountName.isNotEmpty ? method.accountName : method.title;
 
     return GlassPanel(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -602,7 +661,7 @@ class _FibAccountCard extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'FIB account'.tr,
+                  label,
                   style: TextStyle(
                     color: muted,
                     fontSize: 12,
@@ -611,7 +670,7 @@ class _FibAccountCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 SelectableText(
-                  accountNumber,
+                  method.accountNumber,
                   style: TextStyle(
                     color: text,
                     fontSize: 16,
@@ -710,6 +769,132 @@ class _CheckoutTextField extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _DonationTypeOption {
+  const _DonationTypeOption({
+    required this.value,
+    required this.label,
+    required this.icon,
+  });
+
+  final String value;
+  final String label;
+  final IconData icon;
+}
+
+/// Segmented selector for the donor-facing donation type (#16): General / Zakat
+/// / Sadaqah. Stored on the donation and orthogonal to the campaign choice.
+class _DonationTypeSelector extends StatelessWidget {
+  const _DonationTypeSelector({
+    required this.selected,
+    required this.accentColor,
+    required this.onSelected,
+  });
+
+  final String selected;
+  final Color accentColor;
+  final ValueChanged<String> onSelected;
+
+  static const List<_DonationTypeOption> _options = [
+    _DonationTypeOption(
+      value: 'general',
+      label: 'General',
+      icon: Icons.volunteer_activism_rounded,
+    ),
+    _DonationTypeOption(
+      value: 'zakat',
+      label: 'Zakat',
+      icon: Icons.mosque,
+    ),
+    _DonationTypeOption(
+      value: 'sadaqah',
+      label: 'Sadaqah',
+      icon: Icons.favorite_rounded,
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        for (int i = 0; i < _options.length; i++) ...[
+          if (i > 0) const SizedBox(width: 10),
+          Expanded(
+            child: _DonationTypeChip(
+              option: _options[i],
+              selected: selected == _options[i].value,
+              accentColor: accentColor,
+              onTap: () => onSelected(_options[i].value),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _DonationTypeChip extends StatelessWidget {
+  const _DonationTypeChip({
+    required this.option,
+    required this.selected,
+    required this.accentColor,
+    required this.onTap,
+  });
+
+  final _DonationTypeOption option;
+  final bool selected;
+  final Color accentColor;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
+          decoration: BoxDecoration(
+            color: selected
+                ? accentColor.withValues(alpha: 0.14)
+                : AppThemeConfig.surface(context),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: selected ? accentColor : AppThemeConfig.border(context),
+              width: selected ? 2 : 1,
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                option.icon,
+                size: 22,
+                color:
+                    selected ? accentColor : AppThemeConfig.mutedText(context),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                option.label.tr,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: selected
+                      ? AppThemeConfig.text(context)
+                      : AppThemeConfig.mutedText(context),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -854,9 +1039,15 @@ class _PaymentMethodData {
     required this.title,
     required this.subtitle,
     required this.icon,
+    this.accountNumber = '',
+    this.accountName = '',
+    this.submitName = '',
   });
 
-  final String title;
-  final String subtitle;
+  final String title; // localized display name
+  final String subtitle; // localized instructions
   final IconData icon;
+  final String accountNumber; // '' → no transfer details for this method
+  final String accountName;
+  final String submitName; // canonical name (name_en) sent to the backend
 }

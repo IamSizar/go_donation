@@ -4,6 +4,7 @@ import 'package:flutter_application_1/core/app_haptics.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/auth_navigation.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
+import 'package:flutter_application_1/modules/legal/screens/terms_screen.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 
@@ -25,6 +26,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
   int? _roleId;
   bool _loading = false;
   String? _error;
+  bool _agreeToTerms = false;
 
   @override
   void initState() {
@@ -67,6 +69,12 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
     if (!formOk) return;
     if (_roleId == null) {
       setState(() => _error = 'Please select your role'.tr);
+      return;
+    }
+    if (!_agreeToTerms) {
+      setState(
+        () => _error = 'Please accept the Terms & Conditions to continue'.tr,
+      );
       return;
     }
     AppHaptics.selection();
@@ -193,7 +201,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                       _RoleTile(
                         icon: Icons.volunteer_activism_rounded,
                         color: Colors.amber,
-                        label: 'Contributor',
+                        label: 'Donor',
                         tagline: 'Give and support causes',
                         selected: _roleId == 1,
                         onTap: () => setState(() => _roleId = 1),
@@ -202,7 +210,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                       _RoleTile(
                         icon: Icons.family_restroom_rounded,
                         color: Colors.deepOrangeAccent,
-                        label: 'Recipient',
+                        label: 'Beneficiary',
                         tagline: 'Receive aid and support',
                         selected: _roleId == 2,
                         onTap: () => setState(() => _roleId = 2),
@@ -226,6 +234,49 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                           ),
                         ),
                       ],
+                      const SizedBox(height: 18),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(
+                            width: 28,
+                            height: 28,
+                            child: Checkbox(
+                              value: _agreeToTerms,
+                              onChanged: (v) =>
+                                  setState(() => _agreeToTerms = v ?? false),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () => Get.to(() => const TermsScreen()),
+                              child: Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text.rich(
+                                  TextSpan(
+                                    style: TextStyle(
+                                      color: AppThemeConfig.mutedText(context),
+                                      fontSize: 13.5,
+                                    ),
+                                    children: [
+                                      TextSpan(text: 'I agree to the '.tr),
+                                      TextSpan(
+                                        text: 'Terms & Conditions'.tr,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          decoration: TextDecoration.underline,
+                                          color: AppThemeConfig.text(context),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                       const SizedBox(height: 22),
                       SizedBox(
                         width: double.infinity,

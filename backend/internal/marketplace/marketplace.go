@@ -29,6 +29,11 @@ type Product struct {
 	ImagePath          *string `json:"image_path"`
 	StockQuantity      *int    `json:"stock_quantity"`
 	Status             string  `json:"status"`
+	// #28 — CMS category + SKU + specs + labels.
+	CategorySlug *string  `json:"category_slug"`
+	SKU          *string  `json:"sku"`
+	Specs        *string  `json:"specs"`
+	Labels       []string `json:"labels"`
 }
 
 // Order is the row shape returned by ?view=orders.
@@ -74,7 +79,8 @@ func (s *Store) ListProducts(ctx context.Context, page, limit int) ([]Product, e
 		SELECT id, seller_user_id, beneficiary_case_id,
 		       name, name_ar, name_sorani, name_badini,
 		       description, description_ar, description_sorani, description_badini,
-		       category, price::text, currency, image_path, stock_quantity, status
+		       category, price::text, currency, image_path, stock_quantity, status,
+		       category_slug, sku, specs, COALESCE(labels, '{}')
 		  FROM marketplace_products
 		 WHERE status = 'approved'
 		 ORDER BY id DESC
@@ -93,6 +99,7 @@ func (s *Store) ListProducts(ctx context.Context, page, limit int) ([]Product, e
 			&p.Name, &p.NameAr, &p.NameSorani, &p.NameBadini,
 			&p.Description, &p.DescriptionAr, &p.DescriptionSorani, &p.DescriptionBadini,
 			&p.Category, &p.Price, &p.Currency, &p.ImagePath, &p.StockQuantity, &p.Status,
+			&p.CategorySlug, &p.SKU, &p.Specs, &p.Labels,
 		)
 		if err != nil {
 			return nil, err
@@ -196,7 +203,8 @@ func (s *Store) AdminListProducts(ctx context.Context, page, perPage int, status
 		SELECT id, seller_user_id, beneficiary_case_id,
 		       name, name_ar, name_sorani, name_badini,
 		       description, description_ar, description_sorani, description_badini,
-		       category, price::text, currency, image_path, stock_quantity, status
+		       category, price::text, currency, image_path, stock_quantity, status,
+		       category_slug, sku, specs, COALESCE(labels, '{}')
 		  FROM marketplace_products`+where+`
 		 ORDER BY id DESC
 		 LIMIT $`+itoa(limitIdx)+` OFFSET $`+itoa(offsetIdx),
@@ -214,6 +222,7 @@ func (s *Store) AdminListProducts(ctx context.Context, page, perPage int, status
 			&p.Name, &p.NameAr, &p.NameSorani, &p.NameBadini,
 			&p.Description, &p.DescriptionAr, &p.DescriptionSorani, &p.DescriptionBadini,
 			&p.Category, &p.Price, &p.Currency, &p.ImagePath, &p.StockQuantity, &p.Status,
+			&p.CategorySlug, &p.SKU, &p.Specs, &p.Labels,
 		); err != nil {
 			return nil, err
 		}

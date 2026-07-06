@@ -16,8 +16,11 @@ import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_su
 import 'package:flutter_application_1/modules/sponsorship/screens/sponsorship_overview_screen.dart';
 import 'package:flutter_application_1/modules/support/screens/support_section.dart';
 import 'package:flutter_application_1/modules/community/screens/community_services_section.dart';
+import 'package:flutter_application_1/modules/proposal/screens/proposal_services_section.dart';
 import 'package:flutter_application_1/modules/bot/screens/bot_chat_screen.dart';
 import 'package:flutter_application_1/widgets/firebase_screen_add.dart';
+import 'package:flutter_application_1/widgets/impact_stats_slider.dart';
+import 'package:flutter_application_1/widgets/profile_menu.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
@@ -115,17 +118,6 @@ class DashboardHomeSection extends StatelessWidget {
     };
   }
 
-  String _heroBody(String roleKey) {
-    return switch (roleKey) {
-      'beneficiary' =>
-        'See what is under review, what needs action, and which requests have already moved forward.',
-      'volunteer' =>
-        'Stay ready for the next mission, keep an eye on approvals, and track the work you have already completed.',
-      _ =>
-        'Your giving is supporting families, community requests, and trusted campaigns with live updates.',
-    };
-  }
-
   Widget _buildRefreshButton(RoleDashboardController controller) {
     return Obx(
       () => _HeaderIconButton(
@@ -141,7 +133,6 @@ class DashboardHomeSection extends StatelessWidget {
   Widget _buildHero({
     required String firstName,
     required String badge,
-    required String body,
     required Widget primaryAction,
     required Widget secondaryAction,
     required List<Widget> stats,
@@ -218,15 +209,6 @@ class DashboardHomeSection extends StatelessWidget {
                   height: 1.1,
                 ),
               ),
-              const SizedBox(height: 10),
-              Text(
-                body.tr,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  height: 1.5,
-                ),
-              ),
               const SizedBox(height: 22),
               Row(
                 children: [
@@ -262,7 +244,6 @@ class DashboardHomeSection extends StatelessWidget {
                   .split(RegExp(r'\s+'))
                   .first,
           badge: _heroBadge('donor'),
-          body: _heroBody('donor'),
           primaryAction: Material(
             color: Colors.white,
             borderRadius: BorderRadius.circular(8),
@@ -305,47 +286,34 @@ class DashboardHomeSection extends StatelessWidget {
             ),
           ],
         ),
+        const SizedBox(height: 18),
+        const ImpactStatsSlider(),
         const SizedBox(height: 20),
-        Row(
-          children: [
-            Expanded(
-              child: _MetricCard(
-                title: '${_intValue(stats, 'successful_count')}',
-                subtitle: 'Confirmed donations',
-                icon: Icons.volunteer_activism_rounded,
-                color: Colors.green,
-              ),
+        _StatPanel(
+          items: [
+            _StatItem(
+              value: '${_intValue(stats, 'successful_count')}',
+              label: 'Confirmed donations',
+              icon: Icons.volunteer_activism_rounded,
+              color: Colors.green,
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _MetricCard(
-                title: '${_intValue(stats, 'pending_count')}',
-                subtitle: 'Pending payments',
-                icon: Icons.hourglass_top_rounded,
-                color: Colors.orange,
-              ),
+            _StatItem(
+              value: '${_intValue(stats, 'pending_count')}',
+              label: 'Pending payments',
+              icon: Icons.hourglass_top_rounded,
+              color: Colors.orange,
             ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _MetricCard(
-                title: '${_intValue(stats, 'active_campaigns')}',
-                subtitle: 'Open campaigns',
-                icon: Icons.track_changes_rounded,
-                color: Colors.indigo,
-              ),
+            _StatItem(
+              value: '${_intValue(stats, 'active_campaigns')}',
+              label: 'Open campaigns',
+              icon: Icons.track_changes_rounded,
+              color: Colors.indigo,
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _MetricCard(
-                title: '${_intValue(stats, 'pending_sponsorships')}',
-                subtitle: 'Pending sponsorships',
-                icon: Icons.schedule_rounded,
-                color: Colors.pink,
-              ),
+            _StatItem(
+              value: '${_intValue(stats, 'pending_sponsorships')}',
+              label: 'Pending sponsorships',
+              icon: Icons.schedule_rounded,
+              color: Colors.pink,
             ),
           ],
         ),
@@ -484,7 +452,6 @@ class DashboardHomeSection extends StatelessWidget {
                   .split(RegExp(r'\s+'))
                   .first,
           badge: _heroBadge('beneficiary'),
-          body: _heroBody('beneficiary'),
           primaryAction: Material(
             color: Colors.white,
             borderRadius: BorderRadius.circular(8),
@@ -531,49 +498,36 @@ class DashboardHomeSection extends StatelessWidget {
             ),
           ],
         ),
+        const SizedBox(height: 18),
+        const ImpactStatsSlider(),
         const SizedBox(height: 20),
         const _FeaturedCampaignsSection(),
         const SizedBox(height: 20),
-        Row(
-          children: [
-            Expanded(
-              child: _MetricCard(
-                title: '${_intValue(stats, 'approved_cases')}',
-                subtitle: 'Approved cases',
-                icon: Icons.verified_rounded,
-                color: Colors.green,
-              ),
+        _StatPanel(
+          items: [
+            _StatItem(
+              value: '${_intValue(stats, 'approved_cases')}',
+              label: 'Approved cases',
+              icon: Icons.verified_rounded,
+              color: Colors.green,
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _MetricCard(
-                title: '${_intValue(stats, 'needs_changes_cases')}',
-                subtitle: 'Needs changes',
-                icon: Icons.edit_note_rounded,
-                color: Colors.orange,
-              ),
+            _StatItem(
+              value: '${_intValue(stats, 'needs_changes_cases')}',
+              label: 'Needs changes',
+              icon: Icons.edit_note_rounded,
+              color: Colors.orange,
             ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _MetricCard(
-                title: '${_intValue(stats, 'approved_requests')}',
-                subtitle: 'Approved requests',
-                icon: Icons.volunteer_activism_rounded,
-                color: Colors.teal,
-              ),
+            _StatItem(
+              value: '${_intValue(stats, 'approved_requests')}',
+              label: 'Approved requests',
+              icon: Icons.volunteer_activism_rounded,
+              color: Colors.teal,
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _MetricCard(
-                title: '${_intValue(stats, 'open_support_tickets')}',
-                subtitle: 'Open support tickets',
-                icon: Icons.support_agent_rounded,
-                color: Colors.indigo,
-              ),
+            _StatItem(
+              value: '${_intValue(stats, 'open_support_tickets')}',
+              label: 'Open support tickets',
+              icon: Icons.support_agent_rounded,
+              color: Colors.indigo,
             ),
           ],
         ),
@@ -722,7 +676,6 @@ class DashboardHomeSection extends StatelessWidget {
                   .split(RegExp(r'\s+'))
                   .first,
           badge: _heroBadge('volunteer'),
-          body: _heroBody('volunteer'),
           primaryAction: Material(
             color: Colors.white,
             borderRadius: BorderRadius.circular(8),
@@ -766,51 +719,38 @@ class DashboardHomeSection extends StatelessWidget {
             ),
           ],
         ),
+        const SizedBox(height: 18),
+        const ImpactStatsSlider(),
         const SizedBox(height: 20),
         const _FeaturedCampaignsSection(),
         const SizedBox(height: 20),
-        Row(
-          children: [
-            Expanded(
-              child: _MetricCard(
-                title: '${_intValue(stats, 'available_missions')}',
-                subtitle: 'Available missions',
-                icon: Icons.assignment_turned_in_rounded,
-                color: Colors.cyan,
-              ),
+        _StatPanel(
+          items: [
+            _StatItem(
+              value: '${_intValue(stats, 'available_missions')}',
+              label: 'Available missions',
+              icon: Icons.assignment_turned_in_rounded,
+              color: Colors.cyan,
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _MetricCard(
-                title: '${_intValue(stats, 'completed_missions')}',
-                subtitle: 'Completed missions',
-                icon: Icons.workspace_premium_rounded,
-                color: Colors.green,
-              ),
+            _StatItem(
+              value: '${_intValue(stats, 'completed_missions')}',
+              label: 'Completed missions',
+              icon: Icons.workspace_premium_rounded,
+              color: Colors.green,
             ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _MetricCard(
-                title: applicationStatus.isEmpty
-                    ? 'None'
-                    : applicationStatus.replaceAll('_', ' '),
-                subtitle: 'Application status',
-                icon: Icons.person_add_alt_1_rounded,
-                color: Colors.orange,
-              ),
+            _StatItem(
+              value: applicationStatus.isEmpty
+                  ? 'None'
+                  : applicationStatus.replaceAll('_', ' '),
+              label: 'Application status',
+              icon: Icons.person_add_alt_1_rounded,
+              color: Colors.orange,
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _MetricCard(
-                title: (application['city'] ?? '—').toString(),
-                subtitle: 'Application city',
-                icon: Icons.location_city_rounded,
-                color: Colors.indigo,
-              ),
+            _StatItem(
+              value: (application['city'] ?? '—').toString(),
+              label: 'Application city',
+              icon: Icons.location_city_rounded,
+              color: Colors.indigo,
             ),
           ],
         ),
@@ -924,9 +864,9 @@ class DashboardHomeSection extends StatelessWidget {
       final roleKey = _roleKey(controller);
       return _SectionScaffold(
         title: roleKey == 'donor'
-            ? 'Contributor dashboard'
+            ? 'Donor dashboard'
             : roleKey == 'beneficiary'
-            ? 'Recipient dashboard'
+            ? 'Beneficiary dashboard'
             : roleKey == 'volunteer'
             ? 'Volunteer dashboard'
             : 'Dashboard',
@@ -935,12 +875,14 @@ class DashboardHomeSection extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             _HeaderIconButton(
-              tooltip: 'Notifications'.tr,
-              icon: Icons.notifications_none_rounded,
-              onPressed: () => Get.toNamed(AppRoutes.notifications),
+              tooltip: 'Technical support'.tr,
+              icon: Icons.support_agent_rounded,
+              onPressed: () => Get.to(() => const SupportTicketFormScreen()),
             ),
             const SizedBox(width: 8),
             _buildRefreshButton(controller),
+            const SizedBox(width: 8),
+            const ProfileMenuButton(),
           ],
         ),
         child: Builder(
@@ -1334,58 +1276,98 @@ class _TileIcon extends StatelessWidget {
   }
 }
 
-class _MetricCard extends StatelessWidget {
-  const _MetricCard({
-    required this.title,
-    required this.subtitle,
+/// One stat shown inside a [_StatPanel] cell (task #11).
+class _StatItem {
+  const _StatItem({
+    required this.value,
+    required this.label,
     required this.icon,
     required this.color,
   });
 
-  final String title;
-  final String subtitle;
+  final String value;
+  final String label;
   final IconData icon;
   final Color color;
+}
+
+/// Groups several stats into ONE rounded rectangle as segmented cells (two per
+/// row, split by hairline dividers) instead of a grid of separate tiles —
+/// task #11. Theme-aware and RTL-safe; handles 3 or 4 items cleanly.
+class _StatPanel extends StatelessWidget {
+  const _StatPanel({required this.items});
+
+  final List<_StatItem> items;
 
   @override
   Widget build(BuildContext context) {
+    final divider = AppThemeConfig.border(context);
+    // Chunk into rows of two so any count (3 or 4) lays out as a tidy grid.
+    final rows = <List<_StatItem>>[];
+    for (var i = 0; i < items.length; i += 2) {
+      rows.add(items.sublist(i, i + 2 > items.length ? items.length : i + 2));
+    }
     return _GlassPanel(
+      padding: const EdgeInsets.all(4),
+      child: Column(
+        children: [
+          for (var r = 0; r < rows.length; r++) ...[
+            if (r > 0) Divider(height: 1, thickness: 1, color: divider),
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (var c = 0; c < rows[r].length; c++) ...[
+                    if (c > 0)
+                      VerticalDivider(width: 1, thickness: 1, color: divider),
+                    Expanded(child: _StatCell(item: rows[r][c])),
+                  ],
+                  // Keep a lone trailing cell half-width for a tidy grid.
+                  if (rows[r].length.isOdd) const Expanded(child: SizedBox()),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _StatCell extends StatelessWidget {
+  const _StatCell({required this.item});
+
+  final _StatItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _IconShell(icon: icon, color: color, size: 56, iconSize: 25),
-              const Spacer(),
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: AppThemeConfig.softSurface(context),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  Icons.arrow_outward_rounded,
-                  size: 18,
-                  color: AppThemeConfig.mutedText(context),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
+          _IconShell(icon: item.icon, color: item.color, size: 46, iconSize: 21),
+          const SizedBox(height: 12),
           Text(
-            title.tr,
+            item.value.tr,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 28,
+              fontSize: 24,
               fontWeight: FontWeight.w800,
               color: AppThemeConfig.text(context),
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           Text(
-            subtitle.tr,
-            style: TextStyle(color: AppThemeConfig.mutedText(context)),
+            item.label.tr,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 12.5,
+              height: 1.3,
+              color: AppThemeConfig.mutedText(context),
+            ),
           ),
         ],
       ),

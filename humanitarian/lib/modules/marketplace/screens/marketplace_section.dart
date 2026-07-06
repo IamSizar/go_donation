@@ -187,7 +187,8 @@ class _MarketplaceProductTileState extends State<_MarketplaceProductTile> {
       'name',
       fallback: 'Product',
     );
-    final category = (widget.item['category'] ?? 'Product').toString();
+    final category = widget.controller.categoryLabel(widget.item); // #28
+    final labels = _productLabels(widget.item['labels']); // #28
     final price = _amountFrom(widget.item['price']);
     final currency = (widget.item['currency'] ?? 'IQD').toString();
     final imageUrl = _marketplaceImageUrl(widget.item['image_path']);
@@ -219,13 +220,19 @@ class _MarketplaceProductTileState extends State<_MarketplaceProductTile> {
                       color: AppThemeConfig.text(context),
                     ),
                   ),
-                  const SizedBox(height: 5),
-                  Text(
-                    category.tr,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: AppThemeConfig.mutedText(context)),
-                  ),
+                  if (category.trim().isNotEmpty) ...[
+                    const SizedBox(height: 5),
+                    Text(
+                      category.tr,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: AppThemeConfig.mutedText(context)),
+                    ),
+                  ],
+                  if (labels.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    _ProductLabelChips(labels: labels),
+                  ],
                   const SizedBox(height: 10),
                   Text(
                     _formatMoney(price, currency),
@@ -290,7 +297,10 @@ class _ProductDetailsSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final title = localizedContentFromMap(item, 'name', fallback: 'Product');
-    final category = (item['category'] ?? 'Product').toString();
+    final category = controller.categoryLabel(item); // #28
+    final labels = _productLabels(item['labels']); // #28
+    final sku = (item['sku'] ?? '').toString(); // #28
+    final specs = _productSpecs(item['specs']); // #28
     final description = localizedContentFromMap(item, 'description');
     final price = _amountFrom(item['price']);
     final currency = (item['currency'] ?? 'IQD').toString();
@@ -349,13 +359,19 @@ class _ProductDetailsSheet extends StatelessWidget {
                     color: AppThemeConfig.text(context),
                   ),
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  category.tr,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: AppThemeConfig.mutedText(context)),
-                ),
+                if (category.trim().isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    category.tr,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: AppThemeConfig.mutedText(context)),
+                  ),
+                ],
+                if (labels.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  _ProductLabelChips(labels: labels),
+                ],
                 if (description.trim().isNotEmpty) ...[
                   const SizedBox(height: 10),
                   Text(
@@ -367,6 +383,21 @@ class _ProductDetailsSheet extends StatelessWidget {
                       color: AppThemeConfig.mutedText(context),
                     ),
                   ),
+                ],
+                if (sku.trim().isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    '${'SKU'.tr}: $sku',
+                    style: TextStyle(
+                      color: AppThemeConfig.mutedText(context),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+                if (specs.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  _ProductSpecs(specs: specs),
                 ],
                 const SizedBox(height: 14),
                 Row(
@@ -395,6 +426,141 @@ class _ProductDetailsSheet extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+// #28 — product labels (fixed enum) rendered as colored badges.
+List<String> _productLabels(dynamic raw) {
+  if (raw is List) {
+    return raw
+        .map((e) => e.toString())
+        .where((s) => s.trim().isNotEmpty)
+        .toList();
+  }
+  return const [];
+}
+
+// #28 — parse the free-text specs sheet ("Key: Value" per line) into rows.
+List<MapEntry<String, String>> _productSpecs(dynamic raw) {
+  final text = (raw ?? '').toString();
+  if (text.trim().isEmpty) return const [];
+  final out = <MapEntry<String, String>>[];
+  for (final line in text.split('\n')) {
+    final t = line.trim();
+    if (t.isEmpty) continue;
+    final idx = t.indexOf(':');
+    if (idx > 0) {
+      out.add(MapEntry(t.substring(0, idx).trim(), t.substring(idx + 1).trim()));
+    } else {
+      out.add(MapEntry(t, ''));
+    }
+  }
+  return out;
+}
+
+class _ProductLabelChips extends StatelessWidget {
+  const _ProductLabelChips({required this.labels});
+
+  final List<String> labels;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: [for (final l in labels) _LabelChip(label: l)],
+    );
+  }
+}
+
+class _LabelChip extends StatelessWidget {
+  const _LabelChip({required this.label});
+
+  final String label;
+
+  Color _color() {
+    switch (label) {
+      case 'new':
+        return Colors.green;
+      case 'sale':
+        return Colors.red;
+      case 'featured':
+        return Colors.amber.shade800;
+      case 'used':
+        return Colors.blueGrey;
+      case 'in_stock':
+        return Colors.teal;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = _color();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: c.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        ('label_$label').tr,
+        style: TextStyle(color: c, fontWeight: FontWeight.w800, fontSize: 11.5),
+      ),
+    );
+  }
+}
+
+class _ProductSpecs extends StatelessWidget {
+  const _ProductSpecs({required this.specs});
+
+  final List<MapEntry<String, String>> specs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final s in specs)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (s.value.isNotEmpty) ...[
+                  Text(
+                    '${s.key}: ',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: AppThemeConfig.text(context),
+                      fontSize: 13,
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      s.value,
+                      style: TextStyle(
+                        color: AppThemeConfig.mutedText(context),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ] else
+                  Expanded(
+                    child: Text(
+                      s.key,
+                      style: TextStyle(
+                        color: AppThemeConfig.mutedText(context),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }

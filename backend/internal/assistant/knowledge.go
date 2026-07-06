@@ -87,11 +87,11 @@ func act(label string, r Route) *Action { return &Action{Label: label, Route: r}
 func roleName(roleID int) string {
 	switch roleID {
 	case 2:
-		return "Beneficiary"
+		return "Eligible"
 	case 3:
 		return "Volunteer"
 	default:
-		return "Donor"
+		return "Grantor"
 	}
 }
 
@@ -237,7 +237,7 @@ func routeDescription(r Route) string {
 	case RouteMyDonations:
 		return "opens the user's own donation history & details screen directly"
 	case RouteMarket:
-		return "the beneficiary marketplace to buy products"
+		return "the eligible marketplace to buy products"
 	case RouteKafala:
 		return "the Kafala sponsorship hub"
 	case RouteSubmitProject:
@@ -245,7 +245,7 @@ func routeDescription(r Route) string {
 	case RoutePendingProjects:
 		return "opens the Pending Projects screen directly"
 	case RouteCampaignDonations:
-		return "opens the My Campaign Donations screen directly (donors who gave to your campaigns)"
+		return "opens the My Campaign Donations screen directly (grantors who gave to your campaigns)"
 	case RouteCommunity:
 		return "community guides, city map, partner organisations"
 	case RouteAlerts:
@@ -274,10 +274,10 @@ func routeDescription(r Route) string {
 // capabilityText is the prose feature list per role, embedded in the prompt.
 func capabilityText(roleID int) string {
 	switch roleID {
-	case 2: // Beneficiary
+	case 2: // Eligible
 		return `- Submit a project/campaign for admin approval (Kafala → My Projects → Submit New Project).
-- View all donations to their campaigns, with donor names and delivery status (Kafala → My Campaign Donations).
-- Start a chat with any donor who gave to their campaign (tap the chat icon by the donor's name). The donor must accept; support is included in every chat.
+- View all donations to their campaigns, with grantor names and delivery status (Kafala → My Campaign Donations).
+- Start a chat with any grantor who gave to their campaign (tap the chat icon by the grantor's name). The grantor must accept; support is included in every chat.
 - Accept or decline incoming chat requests from the Alerts tab or the Messages tab.
 - Check pending project requests awaiting admin approval (Kafala → Pending Projects).
 - Sell handmade/local products in the marketplace (Services → marketplace listing).
@@ -289,11 +289,11 @@ func capabilityText(roleID int) string {
 - Update skills and availability in their profile so coordinators can match them.
 - Get notified about new missions and urgent assignments in Alerts.
 - Browse community guides and the city map; contact the coordination team via Services → Support.`
-	default: // Donor
+	default: // Grantor
 		return `- Donate to active campaigns (Donate tab → pick a campaign → Donate → enter amount → confirm). Donations are confirmed when received and again when approved by admin.
 - View their donation history and per-donation status/details (Donate tab → My Donations).
 - Chat with a campaign owner after donating (My Donations → View Details → "Chat with campaign owner"). The owner must accept; support is included.
-- Buy handmade/local products from beneficiaries in the Market tab — every purchase supports the seller.
+- Buy handmade/local products from eligibles in the Market tab — every purchase supports the seller.
 - Request marriage support and other services (Services tab).
 - Sponsor a family through Kafala for ongoing impact.
 - Read notifications in Alerts, edit their profile, and explore community resources.`
@@ -301,7 +301,7 @@ func capabilityText(roleID int) string {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// Donor fallback intents
+// Grantor fallback intents
 // ──────────────────────────────────────────────────────────────────────────
 
 var donorIntents = []Intent{
@@ -361,11 +361,11 @@ var donorIntents = []Intent{
 			"ckb": {"بازاڕ", "کڕین", "بەرهەم", "مەحسووڵ"},
 			"kmr": {"بازار", "کڕین", "بەرهەم", "فرۆشگەه"},
 		},
-		Answer: "Open the Market tab to browse handmade and local products sold by beneficiaries. Tap a product for photos and price, then place your order — every purchase directly supports the seller's livelihood.",
+		Answer: "Open the Market tab to browse handmade and local products sold by eligibles. Tap a product for photos and price, then place your order — every purchase directly supports the seller's livelihood.",
 		Answers: map[string]string{
-			"ar":  "افتح تبويب السوق لتصفح المنتجات اليدوية والمحلية التي يبيعها المستفيدون. اضغط على أي منتج للاطلاع على الصور والسعر، ثم ضع طلبك — كل عملية شراء تدعم البائع مباشرة.",
-			"ckb": "تابی بازاڕ بکەوە بۆ گەڕان لە بەرهەمە دەستکردەکان و شوێنییەکانی فرۆشراو لەلایەن سوودمەنداکانەوە. لەسەر بەرهەمێک بپەڕە بۆ وێنەکان و نرخ، ئەوکات داواکارییەکەت بنێرە — هەر کڕینێک ڕاستەوخۆ پشتگیری فرۆشەندەکە دەکات.",
-			"kmr": "تابا بازارێ ڤەکە دا بەرهەمێن دەستکرن و خۆجهی یێن کو ژ لایێ سوودمەندان ڤە تێنە فرۆتن ببینی. ل بەرهەمەکێ کلیک بکە بۆ وێنە و بها، پاشی داخوازا خۆ بنێرە — هەر کڕینەک رەستەوخۆ پشتگیریا فرۆشیاری دکەت.",
+			"ar":  "افتح تبويب السوق لتصفح المنتجات اليدوية والمحلية التي يبيعها المستحقون. اضغط على أي منتج للاطلاع على الصور والسعر، ثم ضع طلبك — كل عملية شراء تدعم البائع مباشرة.",
+			"ckb": "تابی بازاڕ بکەوە بۆ گەڕان لە بەرهەمە دەستکردەکان و شوێنییەکانی فرۆشراو لەلایەن مستحقاکانەوە. لەسەر بەرهەمێک بپەڕە بۆ وێنەکان و نرخ، ئەوکات داواکارییەکەت بنێرە — هەر کڕینێک ڕاستەوخۆ پشتگیری فرۆشەندەکە دەکات.",
+			"kmr": "تابا بازارێ ڤەکە دا بەرهەمێن دەستکرن و خۆجهی یێن کو ژ لایێ مستحقان ڤە تێنە فرۆتن ببینی. ل بەرهەمەکێ کلیک بکە بۆ وێنە و بها، پاشی داخوازا خۆ بنێرە — هەر کڕینەک رەستەوخۆ پشتگیریا فرۆشیاری دکەت.",
 		},
 		Action: act("Open Market", RouteMarket),
 	},
@@ -393,11 +393,11 @@ var donorIntents = []Intent{
 			"ckb": {"کەفالە", "پاڵپشتی", "خێزان", "پاڵپشتی مانگانە"},
 			"kmr": {"کەفالە", "پشتگیری", "خێزان", "پشتگیریا مانگانە"},
 		},
-		Answer: "Kafala is our sponsorship programme connecting donors with families who need ongoing support. You can browse beneficiary profiles, read their stories and contribute regularly — a lasting impact for a specific family.",
+		Answer: "Kafala is our sponsorship programme connecting grantors with families who need ongoing support. You can browse eligible profiles, read their stories and contribute regularly — a lasting impact for a specific family.",
 		Answers: map[string]string{
-			"ar":  "الكفالة هي برنامج الرعاية لدينا الذي يربط المتبرعين بالأسر المحتاجة لدعم مستمر. يمكنك تصفح ملفات المستفيدين وقراءة قصصهم والمساهمة بانتظام — تأثير دائم لأسرة بعينها.",
-			"ckb": "کەفالە بەرنامەی پاڵپشتییمانە کە بەخشەران بە خێزانانی پێویستمەند بە پشتگیری بەردەوام دەبەستێتەوە. دەتوانیت پرۆفایلی سوودمەنداکان ببینیت، چیرۆکەکانیان بخوێنیتەوە و بە ریتم بەشداری بکەیت — کاریگەرییەکی مەزن بۆ خێزانێکی دیاریکراو.",
-			"kmr": "کەفالە بەرنامەیا پشتگیریا مەیە یا کو بەخشەران دگەل خێزانێن پێدڤی ب پشتگیریا بەردەوام گرێ ددەت. تو دشێی پرۆفایلێن سوودمەندان ببینی، چیرۆکێن وان بخوینی و ب رێکوپێک بەشداری بکەی — کاریگەرییەکا مایندە بۆ خێزانەکا دیاریکری.",
+			"ar":  "الكفالة هي برنامج الرعاية لدينا الذي يربط المانحين بالأسر المحتاجة لدعم مستمر. يمكنك تصفح ملفات المستحقين وقراءة قصصهم والمساهمة بانتظام — تأثير دائم لأسرة بعينها.",
+			"ckb": "کەفالە بەرنامەی پاڵپشتییمانە کە بەخشەران بە خێزانانی پێویستمەند بە پشتگیری بەردەوام دەبەستێتەوە. دەتوانیت پرۆفایلی مستحقاکان ببینیت، چیرۆکەکانیان بخوێنیتەوە و بە ریتم بەشداری بکەیت — کاریگەرییەکی مەزن بۆ خێزانێکی دیاریکراو.",
+			"kmr": "کەفالە بەرنامەیا پشتگیریا مەیە یا کو بەخشەران دگەل خێزانێن پێدڤی ب پشتگیریا بەردەوام گرێ ددەت. تو دشێی پرۆفایلێن مستحقان ببینی، چیرۆکێن وان بخوینی و ب رێکوپێک بەشداری بکەی — کاریگەرییەکا مایندە بۆ خێزانەکا دیاریکری.",
 		},
 		Action: act("Open Kafala", RouteKafala),
 	},
@@ -468,7 +468,7 @@ var donorIntents = []Intent{
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// Beneficiary fallback intents
+// Eligible fallback intents
 // ──────────────────────────────────────────────────────────────────────────
 
 var beneficiaryIntents = []Intent{
@@ -490,15 +490,15 @@ var beneficiaryIntents = []Intent{
 	},
 	{
 		ID:       "b_donations",
-		Keywords: []string{"donation", "received", "my campaign", "how much", "raised", "donor list", "who donated"},
+		Keywords: []string{"donation", "received", "my campaign", "how much", "raised", "grantor list", "who donated"},
 		KeywordsMap: map[string][]string{
-			"ar":  {"تبرعات حملتي", "من تبرع", "مبلغ مجمع", "المتبرعون", "تبرعات مستلمة"},
+			"ar":  {"تبرعات حملتي", "من تبرع", "مبلغ مجمع", "المانحون", "تبرعات مستلمة"},
 			"ckb": {"بەخشینی کامپەینم", "کێ بەخشی", "بڕی کۆکراوەتەوە", "بەخشەران"},
 			"kmr": {"بەخشینێن کامپینێن من", "کێ بەخشی", "بەخشەر"},
 		},
-		Answer: "The My Campaign Donations screen lists all your campaigns and every donor who contributed, with their amounts and delivery status. Tap below to open it.",
+		Answer: "The My Campaign Donations screen lists all your campaigns and every grantor who contributed, with their amounts and delivery status. Tap below to open it.",
 		Answers: map[string]string{
-			"ar":  "تعرض شاشة تبرعات حملتي جميع حملاتك وكل متبرع ساهم، مع المبالغ وحالة التسليم. اضغط أدناه لفتحها.",
+			"ar":  "تعرض شاشة تبرعات حملتي جميع حملاتك وكل مانح ساهم، مع المبالغ وحالة التسليم. اضغط أدناه لفتحها.",
 			"ckb": "شاشەی تۆمارکردنی بەخشینی کامپەینەکانم هەموو کامپەینەکانت و هەموو بەخشەرێک کە بەشداری کردووە لیست دەکات، لەگەڵ بڕەکان و حاڵەتی گەیاندن. تەکمەی خوارەوە بپەڕە بۆ کردنەوەی.",
 			"kmr": "سکرینا \"بەخشینێن کامپینێن من\" هەمی کامپینێن تە و هەر بەخشەرەکێ بەشداربووی، دگەل بڕان و دۆخێ گەهاندنێ لیست دکەت. ل خوارێ کلیک بکە دا ڤەکەی.",
 		},
@@ -506,15 +506,15 @@ var beneficiaryIntents = []Intent{
 	},
 	{
 		ID:       "b_chat_donor",
-		Keywords: []string{"chat", "donor", "message", "contact", "talk", "reach donor"},
+		Keywords: []string{"chat", "grantor", "message", "contact", "talk", "reach grantor"},
 		KeywordsMap: map[string][]string{
-			"ar":  {"محادثة متبرع", "تواصل مع متبرع", "رسالة للمتبرع", "كلام المتبرع"},
+			"ar":  {"محادثة مانح", "تواصل مع مانح", "رسالة للمانح", "كلام المانح"},
 			"ckb": {"گفتوگۆ", "بەخشەر", "پەیام", "پەیوەندی لەگەڵ بەخشەر"},
 			"kmr": {"ئاخفتن", "بەخشەر", "پەیام", "پەیوەندی"},
 		},
-		Answer: "Open My Campaign Donations, find the donor's row and tap the chat icon next to their name. The donor is notified and can accept — then you, the donor and our support team can message privately.",
+		Answer: "Open My Campaign Donations, find the grantor's row and tap the chat icon next to their name. The grantor is notified and can accept — then you, the grantor and our support team can message privately.",
 		Answers: map[string]string{
-			"ar":  "افتح تبرعات حملتي، ابحث عن صف المتبرع واضغط على أيقونة المحادثة بجانب اسمه. سيتلقى المتبرع إشعاراً ويمكنه القبول — ثم يمكنكم أنتم والمتبرع وفريق الدعم التراسل بشكل خاص.",
+			"ar":  "افتح تبرعات حملتي، ابحث عن صف المانح واضغط على أيقونة المحادثة بجانب اسمه. سيتلقى المانح إشعاراً ويمكنه القبول — ثم يمكنكم أنتم والمانح وفريق الدعم التراسل بشكل خاص.",
 			"ckb": "تۆمارکردنی بەخشینی کامپەینەکانم بکەوە، ڕیزەکەی بەخشەر بدۆزەوە و ئایکۆنی گفتوگۆ لەتەنیشت ناوەکەی بپەڕە. بەخشەرەکە ئاگادار دەکرێیتەوە و دەتوانێت قبووڵ بکات — ئەوکات تۆ، بەخشەرەکە و تیمی پشتگیریمان دەتوانن بە تایبەتی پەیامبنێرن.",
 			"kmr": "بەخشینێن کامپینێن خۆ ڤەکە، رێزا بەخشەری بدۆزە و ئایکۆنا ئاخفتنێ ل تەنشتا ناڤێ وی کلیک بکە. بەخشەر دێ ئاگەهدار بیت و دشێت پەسەند بکەت — پاشی تو، بەخشەر و تیمێ پشتگیریا مە دشێن ب تایبەتی پەیاما بشینن.",
 		},
@@ -528,9 +528,9 @@ var beneficiaryIntents = []Intent{
 			"ckb": {"هەڵواسراو", "هەڵچاو", "چاوەڕوانی موافەقەت", "حاڵەتی داواکاری"},
 			"kmr": {"چاڤەڕوانی", "ل بەندا پەسەندکرنێ", "دۆخێ داخوازێ"},
 		},
-		Answer: "The Pending Projects screen shows every submission awaiting admin approval. Once approved, it moves to My Projects and becomes visible to donors. Tap below to open it.",
+		Answer: "The Pending Projects screen shows every submission awaiting admin approval. Once approved, it moves to My Projects and becomes visible to grantors. Tap below to open it.",
 		Answers: map[string]string{
-			"ar":  "تعرض شاشة المشاريع المعلقة كل طلب ينتظر موافقة المشرف. بعد الموافقة، ينتقل إلى مشاريعي ويصبح مرئياً للمتبرعين. اضغط أدناه لفتحها.",
+			"ar":  "تعرض شاشة المشاريع المعلقة كل طلب ينتظر موافقة المشرف. بعد الموافقة، ينتقل إلى مشاريعي ويصبح مرئياً للمانحين. اضغط أدناه لفتحها.",
 			"ckb": "شاشەی پڕۆژەکانی هەڵواسراو هەموو تەقدیمێکی چاوەڕواوی موافەقەتی بەڕێوەبەرانی نیشان دەدات. دوای موافەقەت، بۆ پڕۆژەکانم دەگوازرێتەوە و بۆ بەخشەراکان بەچاوەرواندەکرێت. تەکمەی خوارەوە بپەڕە بۆ کردنەوەی.",
 			"kmr": "سکرینا \"پرۆژەیێن چاڤەڕوانیێ\" هەر ناردنەکا چاڤەڕوانی پەسەندکرنا بەڕێڤەبەری نیشان ددەت. پشتی پەسەندکرنێ، دچیتە \"پرۆژەیێن من\" و بۆ بەخشەران دیار دبیت. ل خوارێ کلیک بکە دا ڤەکەی.",
 		},
@@ -544,9 +544,9 @@ var beneficiaryIntents = []Intent{
 			"ckb": {"قبووڵکردن", "ڕەتکردنەوە", "داواکاریی گفتوگۆ", "موافەقەت"},
 			"kmr": {"پەسەندکرن", "ڕەتکرن", "داخوازا ئاخفتنێ"},
 		},
-		Answer: "When a donor requests a chat you'll get a notification in Alerts with Accept and Decline buttons right inside it. You can also accept or decline from the top of the Messages tab.",
+		Answer: "When a grantor requests a chat you'll get a notification in Alerts with Accept and Decline buttons right inside it. You can also accept or decline from the top of the Messages tab.",
 		Answers: map[string]string{
-			"ar":  "عندما يطلب متبرع محادثة، ستتلقى إشعاراً في التنبيهات بزري القبول والرفض مباشرة فيه. يمكنك أيضاً القبول أو الرفض من أعلى تبويب الرسائل.",
+			"ar":  "عندما يطلب مانح محادثة، ستتلقى إشعاراً في التنبيهات بزري القبول والرفض مباشرة فيه. يمكنك أيضاً القبول أو الرفض من أعلى تبويب الرسائل.",
 			"ckb": "کاتێک بەخشەرێک گفتوگۆ داوا دەکات، ئاگادارکردنەوەیەکت لە تابی ئاگادارکردنەوەکان دەگات لەگەڵ تەکمەکانی قبووڵکردن و ڕەتکردنەوە ڕاستەوخۆ تیایدا. دەتوانیت هەروەها قبووڵ بکەیت یان ڕەتی بکەیتەوە لە سەرەوەی تابی پەیامەکان.",
 			"kmr": "دەمێ بەخشەرەک داخوازا ئاخفتنێ دکەت، دێ ئاگەهداریەک د تابا ئاگەهداریان دا دگەل دوگمەیێن پەسەندکرن و ڕەتکرنێ رەستەوخۆ تێدا بگری. تو دشێی هەروەسا ژ سەرێ تابا پەیامان پەسەند یان ڕەت بکەی.",
 		},
@@ -560,9 +560,9 @@ var beneficiaryIntents = []Intent{
 			"ckb": {"فرۆشتن", "بازاڕ", "بەرهەم", "داهات"},
 			"kmr": {"فرۆتن", "بازار", "بەرهەم", "داهات"},
 		},
-		Answer: "Go to Services to add a marketplace listing — upload photos, a price and a description. Once approved, donors browsing the Market can buy it, giving you a direct source of income.",
+		Answer: "Go to Services to add a marketplace listing — upload photos, a price and a description. Once approved, grantors browsing the Market can buy it, giving you a direct source of income.",
 		Answers: map[string]string{
-			"ar":  "اذهب إلى الخدمات لإضافة قائمة في السوق — ارفع صوراً وسعراً ووصفاً. بعد الموافقة، يمكن للمتبرعين المتصفحين في السوق شراؤه، مما يوفر لك مصدر دخل مباشر.",
+			"ar":  "اذهب إلى الخدمات لإضافة قائمة في السوق — ارفع صوراً وسعراً ووصفاً. بعد الموافقة، يمكن للمانحين المتصفحين في السوق شراؤه، مما يوفر لك مصدر دخل مباشر.",
 			"ckb": "بچۆ بۆ خزمەتگوزارییەکان بۆ زیادکردنی لیستە بازاڕییەکە — وێنە، نرخ و وەسف بکەوتەوە. دوای موافەقەت، بەخشەرانی گەڕانی بازاڕ دەتوانن بیکڕن، کە سەرچاوەیەکی داهاتی ڕاستەوخۆت پێ دەبەخشێت.",
 			"kmr": "بچۆ خزمەتگوزاریان دا لیستەیەکا بازارێ زێدە بکەی — وێنە، بها و پێناسە. پشتی پەسەندکرنێ، بەخشەرێن د بازارێ دا دگەڕن دشێن بکڕن، کو سەرچاوەیەکا داهاتی رەستەوخۆ ددەتە تە.",
 		},
@@ -576,9 +576,9 @@ var beneficiaryIntents = []Intent{
 			"ckb": {"پرۆفایل", "دەستکاریکردن", "زانیاریم", "وێنە"},
 			"kmr": {"پرۆفایل", "دەستکاری", "زانیاریێن من"},
 		},
-		Answer: "Keep your contact details and photo current on the Edit Profile screen — donors and the support team see your profile when reviewing your campaigns. Tap below to open it.",
+		Answer: "Keep your contact details and photo current on the Edit Profile screen — grantors and the support team see your profile when reviewing your campaigns. Tap below to open it.",
 		Answers: map[string]string{
-			"ar":  "احتفظ ببيانات الاتصال وصورتك محدّثة في شاشة تعديل الملف الشخصي — يرى المتبرعون وفريق الدعم ملفك الشخصي عند مراجعة حملاتك. اضغط أدناه لفتحها.",
+			"ar":  "احتفظ ببيانات الاتصال وصورتك محدّثة في شاشة تعديل الملف الشخصي — يرى المانحون وفريق الدعم ملفك الشخصي عند مراجعة حملاتك. اضغط أدناه لفتحها.",
 			"ckb": "وردەکاریی پەیوەندی و وێنەکەت کاتبەکات لە شاشەی دەستکاریکردنی پرۆفایل — بەخشەران و تیمی پشتگیری پرۆفایلەکەت دەبینن کاتێک کامپەینەکانت پشکنینەوە دەکەن. تەکمەی خوارەوە بپەڕە بۆ کردنەوەی.",
 			"kmr": "وردەکاریێن پەیوەندیێ و وێنەیێ خۆ ل سەر سکرینا دەستکاریا پرۆفایلێ رۆژانە بهێلە — بەخشەر و تیمێ پشتگیری پرۆفایلا تە دەمێ کامپینێن تە ددەنە بەر چاڤان دبینن. ل خوارێ کلیک بکە دا ڤەکەی.",
 		},
@@ -782,11 +782,11 @@ var aboutAppIntents = []Intent{
 			"ckb": {"دەربارەی ئەپ", "ئەپ چییە", "ئەمە چییە", "سەکۆ"},
 			"kmr": {"دەربارەی ئەپی", "ئەپ چییە", "ئەڤ چییە", "پلاتفۆرم"},
 		},
-		Answer: "This is a humanitarian aid platform that connects donors, beneficiaries and volunteers. You can donate to campaigns, sponsor families through Kafala, request or receive aid, buy and sell in the beneficiary marketplace, join volunteer missions, and reach community services — all in one place.",
+		Answer: "This is a humanitarian aid platform that connects grantors, eligibles and volunteers. You can donate to campaigns, sponsor families through Kafala, request or receive aid, buy and sell in the eligible marketplace, join volunteer missions, and reach community services — all in one place.",
 		Answers: map[string]string{
-			"ar":  "هذه منصة إغاثة إنسانية تربط المتبرعين والمستفيدين والمتطوعين. يمكنك التبرع للحملات، كفالة أسر عبر الكفالة، طلب أو تلقي المساعدة، البيع والشراء في سوق المستفيدين، الانضمام لمهام التطوع، والوصول إلى خدمات المجتمع — كل ذلك في مكان واحد.",
-			"ckb": "ئەمە سەکۆیەکی یارمەتی مرۆییە کە بەخشەر، سوودمەند و خۆبەخشان بەیەکەوە دەبەستێتەوە. دەتوانیت بەخشین بۆ کامپەینەکان بکەیت، خێزان لەڕێی کەفالەوە پاڵپشتی بکەیت، داوای یارمەتی بکەیت یان وەریبگریت، لە بازاڕی سوودمەنداندا بکڕیت و بفرۆشیت، بەشداری ئەرکی خۆبەخشی بکەیت، و دەستت بگات بە خزمەتگوزاریی کۆمەڵگا — هەمووی لە یەک شوێندا.",
-			"kmr": "ئەڤ پلاتفۆرمەکا یارمەتیا مرۆڤایەتییە یا کو بەخشەر، سوودمەند و خۆبەخشان بەیەکڤە گرێ ددەت. تو دشێی بۆ کامپینان ببەخشی، خێزانان ب کەفالە پاڵپشتی بکەی، داخوازا یارمەتیێ بکەی یان وەربگری، ل بازارا سوودمەندان بکڕی و بفرۆشی، بەشداری ئەرکێن خۆبەخشیێ بکەی، و گەهشتنا خزمەتگوزاریێن جڤاکی بکەی — هەمی ل یەک جهی.",
+			"ar":  "هذه منصة إغاثة إنسانية تربط المانحين والمستحقين والمتطوعين. يمكنك التبرع للحملات، كفالة أسر عبر الكفالة، طلب أو تلقي المساعدة، البيع والشراء في سوق المستحقين، الانضمام لمهام التطوع، والوصول إلى خدمات المجتمع — كل ذلك في مكان واحد.",
+			"ckb": "ئەمە سەکۆیەکی یارمەتی مرۆییە کە بەخشەر، مستحق و خۆبەخشان بەیەکەوە دەبەستێتەوە. دەتوانیت بەخشین بۆ کامپەینەکان بکەیت، خێزان لەڕێی کەفالەوە پاڵپشتی بکەیت، داوای یارمەتی بکەیت یان وەریبگریت، لە بازاڕی مستحقاندا بکڕیت و بفرۆشیت، بەشداری ئەرکی خۆبەخشی بکەیت، و دەستت بگات بە خزمەتگوزاریی کۆمەڵگا — هەمووی لە یەک شوێندا.",
+			"kmr": "ئەڤ پلاتفۆرمەکا یارمەتیا مرۆڤایەتییە یا کو بەخشەر، مستحق و خۆبەخشان بەیەکڤە گرێ ددەت. تو دشێی بۆ کامپینان ببەخشی، خێزانان ب کەفالە پاڵپشتی بکەی، داخوازا یارمەتیێ بکەی یان وەربگری، ل بازارا مستحقان بکڕی و بفرۆشی، بەشداری ئەرکێن خۆبەخشیێ بکەی، و گەهشتنا خزمەتگوزاریێن جڤاکی بکەی — هەمی ل یەک جهی.",
 		},
 		Action: act("Explore Services", RouteServices),
 	},
@@ -798,11 +798,11 @@ var aboutAppIntents = []Intent{
 			"ckb": {"چۆن کار دەکات", "چۆن بەکاربهێنم", "ڕێنمایی"},
 			"kmr": {"چەوا کار دکەت", "چەوا بکاربینم", "رێبەری"},
 		},
-		Answer: "Pick what you need from the tabs: Home shows highlights and quick actions; Donate and Kafala for giving and sponsorships; Market for products; Services for forms like marriage support and beneficiary cases; Alerts for updates; and Messages to chat. The admin team reviews requests and you are notified at every step.",
+		Answer: "Pick what you need from the tabs: Home shows highlights and quick actions; Donate and Kafala for giving and sponsorships; Market for products; Services for forms like marriage support and eligible cases; Alerts for updates; and Messages to chat. The admin team reviews requests and you are notified at every step.",
 		Answers: map[string]string{
-			"ar":  "اختر ما تحتاجه من التبويبات: الرئيسية تعرض أهم الأمور والإجراءات السريعة؛ التبرع والكفالة للعطاء والكفالات؛ السوق للمنتجات؛ الخدمات للنماذج مثل دعم الزواج وحالات المستفيدين؛ التنبيهات للتحديثات؛ والرسائل للمحادثة. يراجع فريق الإدارة الطلبات وتصلك إشعارات في كل خطوة.",
-			"ckb": "ئەوەی پێویستتە لە تابەکان هەڵبژێرە: سەرەتا گرنگترین شتەکان و کردارە خێراکان پیشان دەدات؛ بەخشین و کەفالە بۆ بەخشین و کەفالەکان؛ بازاڕ بۆ بەرهەمەکان؛ خزمەتگوزارییەکان بۆ فۆرمەکان وەک پشتگیری زەواج و کەیسی سوودمەندان؛ ئاگادارکردنەوەکان بۆ نوێکارییەکان؛ و پەیامەکان بۆ گفتوگۆ. تیمی بەڕێوەبردن داواکارییەکان پشکنینەوە دەکات و لە هەر هەنگاوێکدا ئاگادار دەکرێیتەوە.",
-			"kmr": "ئەوا پێدڤیی تە یە ژ تابان هەلبژێرە: سەرەکی گرنگترین تشتان و کارێن لەز نیشان ددەت؛ بەخشین و کەفالە بۆ بەخشین و کەفالان؛ بازار بۆ بەرهەمان؛ خزمەتگوزاری بۆ فۆرمان وەک پشتگیریا زەواجێ و کەیسێن سوودمەندان؛ ئاگەهداری بۆ نویکاریان؛ و پەیام بۆ ئاخفتنێ. تیمێ بەڕێڤەبرینێ داخوازان ددەتە بەر چاڤان و تو د هەر گاڤەکێ دا ئاگەهدار دبی.",
+			"ar":  "اختر ما تحتاجه من التبويبات: الرئيسية تعرض أهم الأمور والإجراءات السريعة؛ التبرع والكفالة للعطاء والكفالات؛ السوق للمنتجات؛ الخدمات للنماذج مثل دعم الزواج وحالات المستحقين؛ التنبيهات للتحديثات؛ والرسائل للمحادثة. يراجع فريق الإدارة الطلبات وتصلك إشعارات في كل خطوة.",
+			"ckb": "ئەوەی پێویستتە لە تابەکان هەڵبژێرە: سەرەتا گرنگترین شتەکان و کردارە خێراکان پیشان دەدات؛ بەخشین و کەفالە بۆ بەخشین و کەفالەکان؛ بازاڕ بۆ بەرهەمەکان؛ خزمەتگوزارییەکان بۆ فۆرمەکان وەک پشتگیری زەواج و کەیسی مستحقان؛ ئاگادارکردنەوەکان بۆ نوێکارییەکان؛ و پەیامەکان بۆ گفتوگۆ. تیمی بەڕێوەبردن داواکارییەکان پشکنینەوە دەکات و لە هەر هەنگاوێکدا ئاگادار دەکرێیتەوە.",
+			"kmr": "ئەوا پێدڤیی تە یە ژ تابان هەلبژێرە: سەرەکی گرنگترین تشتان و کارێن لەز نیشان ددەت؛ بەخشین و کەفالە بۆ بەخشین و کەفالان؛ بازار بۆ بەرهەمان؛ خزمەتگوزاری بۆ فۆرمان وەک پشتگیریا زەواجێ و کەیسێن مستحقان؛ ئاگەهداری بۆ نویکاریان؛ و پەیام بۆ ئاخفتنێ. تیمێ بەڕێڤەبرینێ داخوازان ددەتە بەر چاڤان و تو د هەر گاڤەکێ دا ئاگەهدار دبی.",
 		},
 		Action: act("Explore Services", RouteServices),
 	},

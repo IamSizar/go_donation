@@ -37,11 +37,18 @@ const NAV: NavItem[] = [
   { to: '/registrations', tKey: 'nav.registrations', countKey: 'registrations', module: 'registrations' },
   { to: '/campaigns',     tKey: 'nav.campaigns',      module: 'campaigns' },
   { to: '/donations',     tKey: 'nav.donations',     countKey: 'donations', module: 'donations' },
+  { to: '/donation-codes', tKey: 'nav.donation_codes', module: 'donations' },
+  { to: '/payment-methods', tKey: 'nav.payment_methods', module: 'donations' },
   { to: '/beneficiary',   tKey: 'nav.beneficiary',   countKey: 'beneficiary', module: 'beneficiary' },
+  { to: '/project-categories', tKey: 'nav.project_categories', module: 'beneficiary' },
   { to: '/marketplace',   tKey: 'nav.marketplace',   countKey: 'marketplace', module: 'marketplace' },
+  { to: '/marketplace-categories', tKey: 'nav.marketplace_categories', module: 'marketplace' },
   { to: '/marriage',      tKey: 'nav.marriage',      countKey: 'marriage', module: 'marriage' },
   { to: '/partners',      tKey: 'nav.partners',       module: 'partners' },
   { to: '/media',         tKey: 'nav.media',          module: 'media' },
+  { to: '/media-categories', tKey: 'nav.media_categories', module: 'media' },
+  { to: '/comments',      tKey: 'nav.comments',        module: 'media' },
+  { to: '/banned-words',  tKey: 'nav.banned_words',    module: 'media' },
   { to: '/community',     tKey: 'nav.community',       module: 'community' },
   { to: '/city-guide',    tKey: 'nav.city_guide',     module: 'city' },
   { to: '/messages',      tKey: 'nav.messages',        module: 'messages' },
@@ -58,6 +65,7 @@ const NAV: NavItem[] = [
   { to: '/trash',         tKey: 'nav.trash', adminOnly: true, module: 'trash' },
   { to: '/permissions',   tKey: 'nav.permissions', superAdminOnly: true },
   { to: '/guest-access',  tKey: 'nav.guest_access', superAdminOnly: true },
+  { to: '/terms',         tKey: 'nav.terms',        superAdminOnly: true },
 ]
 
 // Show "99+" instead of overflowing the badge with huge digits. ~5 chars max.

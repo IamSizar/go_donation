@@ -82,6 +82,13 @@ type partnerEditReq struct {
 	DescriptionBadini *string `json:"description_badini"`
 	LogoPath          *string `json:"logo_path"`
 	Status            *string `json:"status"`
+	// #26 — contact + location.
+	Email          *string `json:"email"`
+	SocialLinks    *string `json:"social_links"`
+	Location       *string `json:"location"`
+	LocationAr     *string `json:"location_ar"`
+	LocationSorani *string `json:"location_sorani"`
+	LocationBadini *string `json:"location_badini"`
 }
 
 func (h *AdminEditHandler) Partner(c *gin.Context) {
@@ -115,6 +122,12 @@ func (h *AdminEditHandler) Partner(c *gin.Context) {
 	addOptString(&b, "description_sorani", req.DescriptionSorani)
 	addOptString(&b, "description_badini", req.DescriptionBadini)
 	addOptString(&b, "logo_path", req.LogoPath)
+	addOptString(&b, "email", req.Email)                 // #26
+	addOptString(&b, "social_links", req.SocialLinks)    // #26
+	addOptString(&b, "location", req.Location)           // #26
+	addOptString(&b, "location_ar", req.LocationAr)
+	addOptString(&b, "location_sorani", req.LocationSorani)
+	addOptString(&b, "location_badini", req.LocationBadini)
 
 	if req.Status != nil {
 		s := strings.TrimSpace(*req.Status)
@@ -152,6 +165,14 @@ type mediaEditReq struct {
 	LinkURL     *string `json:"link_url"`
 	EventDate   *string `json:"event_date"` // YYYY-MM-DD or "" to clear
 	Status      *string `json:"status"`
+	// #22 — "Our Work" category tag.
+	CategorySlug *string `json:"category_slug"`
+	// #23 — 4-language location + media gallery.
+	Location       *string   `json:"location"`
+	LocationAr     *string   `json:"location_ar"`
+	LocationSorani *string   `json:"location_sorani"`
+	LocationBadini *string   `json:"location_badini"`
+	Gallery        *[]string `json:"gallery"`
 }
 
 var mediaPostTypes = []string{"news", "activity", "event", "article", "video", "marriage"}
@@ -184,6 +205,14 @@ func (h *AdminEditHandler) Media(c *gin.Context) {
 	addOptString(&b, "body_badini", req.BodyBadini)
 	addOptString(&b, "media_url", req.MediaURL)
 	addOptString(&b, "link_url", req.LinkURL)
+	addOptString(&b, "category_slug", req.CategorySlug) // #22
+	addOptString(&b, "location", req.Location)          // #23
+	addOptString(&b, "location_ar", req.LocationAr)
+	addOptString(&b, "location_sorani", req.LocationSorani)
+	addOptString(&b, "location_badini", req.LocationBadini)
+	if req.Gallery != nil { // #23 — replace the whole gallery array
+		b.add("gallery", cleanStringSlice(*req.Gallery))
+	}
 	if req.PostType != nil {
 		pt := strings.TrimSpace(*req.PostType)
 		if !inSet(pt, mediaPostTypes) {
@@ -379,6 +408,28 @@ type productEditReq struct {
 	ImagePath         *string  `json:"image_path"`
 	StockQuantity     *int     `json:"stock_quantity"`
 	Status            *string  `json:"status"`
+	// #28 — CMS category + SKU + specs + labels.
+	CategorySlug *string   `json:"category_slug"`
+	SKU          *string   `json:"sku"`
+	Specs        *string   `json:"specs"`
+	Labels       *[]string `json:"labels"`
+}
+
+// marketplaceLabels is the fixed set of allowed product badges (#28).
+var marketplaceLabels = []string{"new", "sale", "featured", "used", "in_stock"}
+
+// sanitizeLabels keeps only recognized labels, de-duplicated, preserving order.
+func sanitizeLabels(in []string) []string {
+	seen := map[string]bool{}
+	out := []string{}
+	for _, s := range in {
+		s = strings.ToLower(strings.TrimSpace(s))
+		if s != "" && inSet(s, marketplaceLabels) && !seen[s] {
+			seen[s] = true
+			out = append(out, s)
+		}
+	}
+	return out
 }
 
 func (h *AdminEditHandler) MarketplaceProduct(c *gin.Context) {
@@ -408,6 +459,12 @@ func (h *AdminEditHandler) MarketplaceProduct(c *gin.Context) {
 	addOptString(&b, "description_sorani", req.DescriptionSorani)
 	addOptString(&b, "description_badini", req.DescriptionBadini)
 	addOptString(&b, "category", req.Category)
+	addOptString(&b, "category_slug", req.CategorySlug) // #28
+	addOptString(&b, "sku", req.SKU)
+	addOptString(&b, "specs", req.Specs)
+	if req.Labels != nil {
+		b.add("labels", sanitizeLabels(*req.Labels))
+	}
 	if req.Price != nil {
 		if *req.Price < 0 {
 			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "price must be >= 0."})
@@ -969,6 +1026,7 @@ type donationEditReq struct {
 	ImpactNote      *string `json:"impact_note"`
 	PaymentStatus   *int    `json:"payment_status"`
 	DeliveryStatus  *string `json:"delivery_status"`
+	DonationType    *string `json:"donation_type"`
 }
 
 func (h *AdminEditHandler) Donation(c *gin.Context) {
@@ -1022,6 +1080,14 @@ func (h *AdminEditHandler) Donation(c *gin.Context) {
 			return
 		}
 		b.add("delivery_status", v)
+	}
+	if req.DonationType != nil {
+		v := strings.ToLower(strings.TrimSpace(*req.DonationType))
+		if !inSet(v, donationTypes) {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid donation_type. Allowed: " + strings.Join(donationTypes, ", ")})
+			return
+		}
+		b.add("donation_type", v)
 	}
 	if !b.exec(c, h.Pool, "donations", id) {
 		return
@@ -1101,6 +1167,19 @@ func (h *AdminEditHandler) VolunteerApplication(c *gin.Context) {
 }
 
 // ===== shared helpers =====
+
+// cleanStringSlice trims each entry and drops the empties, so a gallery array
+// never stores blank paths. Returns a non-nil empty slice for a wholly-empty
+// input (→ an empty Postgres array, not NULL).
+func cleanStringSlice(in []string) []string {
+	out := make([]string, 0, len(in))
+	for _, s := range in {
+		if s = strings.TrimSpace(s); s != "" {
+			out = append(out, s)
+		}
+	}
+	return out
+}
 
 // addOptString appends a column update only when the pointer is non-nil. An
 // empty string is allowed (lets admins blank out a field). When the column is

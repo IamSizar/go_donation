@@ -100,6 +100,13 @@ func (h *DonationsHandler) Create(c *gin.Context) {
 		methodPtr = &v
 	}
 
+	// #16 — donor-facing donation type (general/zakat/sadaqah); normalized in the
+	// store. Absent/unknown → general.
+	donationType := ""
+	if v, ok := get("donation_type"); ok {
+		donationType = v
+	}
+
 	// Phase 18 — capture the donor's display name now so the project-owner
 	// notification reads "Sizar Ahmed donated …" rather than "user #8 …".
 	donorName := ""
@@ -108,7 +115,7 @@ func (h *DonationsHandler) Create(c *gin.Context) {
 	}
 	_ = donorName // used below in the post-insert notify step
 
-	ins, err := h.Store.Insert(c.Request.Context(), uid, campaignID, msgPtr, amountPtr, methodPtr)
+	ins, err := h.Store.Insert(c.Request.Context(), uid, campaignID, msgPtr, amountPtr, methodPtr, donationType)
 	if err != nil {
 		// Lifecycle-gate errors map to 400/410 so the donor app can show
 		// a meaningful "this campaign just ended" message instead of a

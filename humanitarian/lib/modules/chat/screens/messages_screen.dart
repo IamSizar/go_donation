@@ -145,7 +145,7 @@ class _ThreadTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final roleLabel = thread.myRole == 'donor' ? 'Campaign owner' : 'Contributor';
+    final roleLabel = thread.myRole == 'donor' ? 'Campaign owner' : 'Donor';
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: GlassPanel(

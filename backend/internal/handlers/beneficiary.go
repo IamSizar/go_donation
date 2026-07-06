@@ -1,9 +1,12 @@
 package handlers
 
 import (
+	"context"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -13,6 +16,22 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/users"
 	"github.com/karam-flutter/humanitarian-backend/internal/volunteers"
 )
+
+// notifyStaffInBackground alerts staff (dashboard) about a new submission on a
+// detached goroutine, so a slow fan-out never blocks the user's 200 response.
+// Best-effort — errors are logged, not returned.
+func (h *BeneficiaryHandler) notifyStaffInBackground(m notify.LocalizedMessage) {
+	if h.Notifier == nil {
+		return
+	}
+	go func() {
+		bg, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if _, err := h.Notifier.BroadcastToStaff(bg, m); err != nil {
+			log.Printf("[notify] staff submission alert failed: %v", err)
+		}
+	}()
+}
 
 // BeneficiaryHandler ports percentage/api/beneficiary_cases and
 // percentage/api/beneficiary_project_requests.
@@ -122,6 +141,9 @@ func (h *BeneficiaryHandler) PostCase(c *gin.Context) {
 	// inline strings here are now in notify/templates.go for consistency.
 	_, _ = h.Notifier.Send(c.Request.Context(), uid,
 		notify.BeneficiaryCaseSubmittedMsg(in.PublicTitle, id))
+	// Requirement B1 — also alert staff on the dashboard that a new case needs
+	// review (previously only the submitting beneficiary was notified).
+	h.notifyStaffInBackground(notify.NewBeneficiaryCaseAdminMsg(in.PublicTitle, id))
 	c.JSON(http.StatusOK, gin.H{
 		"success":   true,
 		"id":        id,
@@ -235,13 +257,16 @@ func (h *BeneficiaryHandler) PostRequest(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
-			"error":   "Invalid or incomplete data. Required: user_id, project title, category, summary, description, amount > 0, currency, location, beneficiary name.",
+			"error":   "Invalid or incomplete data. Required: user_id, project title, category, summary, description, amount > 0, currency, location, eligible name.",
 		})
 		return
 	}
 	// Phase 18 — uses centralised 4-language template.
 	_, _ = h.Notifier.Send(c.Request.Context(), uid,
 		notify.ProjectRequestSubmittedMsg(in.ProjectTitle, id))
+	// Requirement B1 — also alert staff on the dashboard that a new project
+	// request needs review.
+	h.notifyStaffInBackground(notify.NewProjectRequestAdminMsg(in.ProjectTitle, id))
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"id":      id,

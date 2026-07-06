@@ -3,12 +3,20 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
+	"time"
 )
 
 type Config struct {
 	DatabaseURL string
 	HTTPPort    string
 	AppEnv      string
+
+	// Task #20 — sponsorship reminder scheduler. Off by default so nothing
+	// fires until RUN_SCHEDULER=1 is set (mirrors RUN_MIGRATIONS).
+	RunScheduler       bool
+	SchedulerInterval  time.Duration // how often the scheduler wakes to scan
+	ReminderDaysBefore int           // remind when due within this many days
 }
 
 func Load() (*Config, error) {
@@ -26,7 +34,48 @@ func Load() (*Config, error) {
 	if c.DatabaseURL == "" {
 		return nil, fmt.Errorf("DATABASE_URL is required (copy backend/.env.example to backend/.env)")
 	}
+
+	// Task #20 — reminder scheduler config. All optional; safe defaults.
+	c.RunScheduler = os.Getenv("RUN_SCHEDULER") == "1"
+	c.SchedulerInterval = parseDurationDefault("SCHEDULER_INTERVAL", 6*time.Hour, time.Minute)
+	c.ReminderDaysBefore = parseIntDefault("REMINDER_DAYS_BEFORE", 3, 0, 60)
+
 	return c, nil
+}
+
+// parseDurationDefault reads a Go duration string (e.g. "6h", "30m") from the
+// environment, clamping to a sane minimum so a typo can't spin the scheduler
+// into a hot loop. Falls back to def when unset or unparseable.
+func parseDurationDefault(key string, def, min time.Duration) time.Duration {
+	v := os.Getenv(key)
+	if v == "" {
+		return def
+	}
+	d, err := time.ParseDuration(v)
+	if err != nil || d < min {
+		return def
+	}
+	return d
+}
+
+// parseIntDefault reads an int from the environment, clamped to [min,max].
+// Falls back to def when unset or unparseable.
+func parseIntDefault(key string, def, min, max int) int {
+	v := os.Getenv(key)
+	if v == "" {
+		return def
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil {
+		return def
+	}
+	if n < min {
+		n = min
+	}
+	if n > max {
+		n = max
+	}
+	return n
 }
 
 func getEnvDefault(key, fallback string) string {

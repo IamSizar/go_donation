@@ -15,12 +15,12 @@ class DonationsSection extends StatelessWidget {
 
   static const List<_DonationOptionData> _options = [
     _DonationOptionData(
-      title: 'General Support',
+      title: 'Comprehensive Giving',
       summary:
           'One simple donation that can be used wherever support is needed most.',
       typeLabel: 'One-time',
       supportNote: 'A flexible way to help the most urgent needs right away.',
-      icon: Icons.favorite_rounded,
+      icon: Icons.all_inclusive,
       color: Colors.teal,
     ),
   ];
@@ -80,6 +80,15 @@ class _DonationsSectionBodyState extends State<_DonationsSectionBody> {
       _selectedCampaignId = null;
       _selectedPaymentMethod = '';
     });
+  }
+
+  // #18 — "Give Now": jump straight into comprehensive (unrestricted) giving.
+  // Select it (campaign = null) and scroll the donor to the amount picker so
+  // they can complete a general donation fast.
+  void _giveNow() {
+    AppHaptics.selection();
+    setState(() => _selectedCampaignId = null);
+    _scrollToQuickAmount();
   }
 
   void _scrollToQuickAmount({bool animated = true}) {
@@ -169,6 +178,8 @@ class _DonationsSectionBodyState extends State<_DonationsSectionBody> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              _GiveNowCard(onTap: _giveNow),
+              const SizedBox(height: 20),
               const SectionLabel(title: 'Featured campaigns'),
               const SizedBox(height: 12),
               Obx(() {
@@ -316,7 +327,7 @@ class _DonationsSectionBodyState extends State<_DonationsSectionBody> {
                 donorName: donorName,
               ),
               const SizedBox(height: 22),
-              const SectionLabel(title: 'General support'),
+              const SectionLabel(title: 'Comprehensive Giving'),
               const SizedBox(height: 12),
               _DonationOptionCard(
                 option: DonationsSection._options.first,
@@ -327,6 +338,88 @@ class _DonationsSectionBodyState extends State<_DonationsSectionBody> {
                 },
               ),
               const _SimpleDonationInfoCard(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// #18 — prominent "Give Now" hero CTA at the top of the Contribute tab: a fast
+// entry into comprehensive (unrestricted) giving.
+class _GiveNowCard extends StatelessWidget {
+  const _GiveNowCard({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(22),
+        onTap: onTap,
+        child: Ink(
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF0F766E), Color(0xFF14B8A6)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.teal.withValues(alpha: 0.3),
+                blurRadius: 18,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.all(18),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(
+                  Icons.all_inclusive,
+                  color: Colors.white,
+                  size: 26,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Give Now'.tr,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 19,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      DonationsSection._options.first.summary.tr,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        fontSize: 13,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Icon(Icons.arrow_forward_rounded, color: Colors.white),
             ],
           ),
         ),

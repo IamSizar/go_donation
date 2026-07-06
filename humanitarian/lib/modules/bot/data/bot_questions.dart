@@ -4,8 +4,8 @@ import '../models/bot_qa.dart';
 
 /// Returns the FAQ list tailored to the given [roleId].
 ///
-/// role '1' = Contributor  |  '2' = Recipient  |  '3' = Volunteer
-/// Falls back to donor questions for any other value.
+/// role '1' = Grantor  |  '2' = Eligible  |  '3' = Volunteer
+/// Falls back to grantor questions for any other value.
 ///
 /// `actionRoute` values are route keys resolved by BotNavigation, so a chip tap
 /// (offline path) navigates to the SAME concrete screen the AI would route to.
@@ -46,15 +46,15 @@ const List<BotQA> _aboutAppQAs = [
       'kmr': 'ئەڤ ئەپە چییە و چ دکەت؟',
     },
     answer:
-        'BalanceNex is a humanitarian aid platform that connects donors, '
-        'beneficiaries and volunteers. You can donate to campaigns, sponsor '
+        'BalanceNex is a humanitarian aid platform that connects grantors, '
+        'eligibles and volunteers. You can donate to campaigns, sponsor '
         'families through Kafala, request or receive aid, buy and sell in the '
-        'beneficiary marketplace, join volunteer missions, and reach community '
+        'eligible marketplace, join volunteer missions, and reach community '
         'services — all in one place.',
     answersByLang: {
-      'ar': 'هذه منصة إغاثة إنسانية تربط المتبرعين والمستفيدين والمتطوعين. يمكنك التبرع للحملات، كفالة أسر عبر الكفالة، طلب أو تلقي المساعدة، البيع والشراء في سوق المستفيدين، الانضمام لمهام التطوع، والوصول إلى خدمات المجتمع — كل ذلك في مكان واحد.',
-      'ckb': 'ئەمە سەکۆیەکی یارمەتی مرۆییە کە بەخشەر، سوودمەند و خۆبەخشان بەیەکەوە دەبەستێتەوە. دەتوانیت بەخشین بۆ کامپەینەکان بکەیت، خێزان لەڕێی کەفالەوە پاڵپشتی بکەیت، داوای یارمەتی بکەیت یان وەریبگریت، لە بازاڕی سوودمەنداندا بکڕیت و بفرۆشیت، بەشداری ئەرکی خۆبەخشی بکەیت، و دەستت بگات بە خزمەتگوزاریی کۆمەڵگا — هەمووی لە یەک شوێندا.',
-      'kmr': 'ئەڤ پلاتفۆرمەکا یارمەتیا مرۆڤایەتییە یا کو بەخشەر، سوودمەند و خۆبەخشان بەیەکڤە گرێ ددەت. تو دشێی بۆ کامپینان ببەخشی، خێزانان ب کەفالە پاڵپشتی بکەی، داخوازا یارمەتیێ بکەی یان وەربگری، ل بازارا سوودمەندان بکڕی و بفرۆشی، بەشداری ئەرکێن خۆبەخشیێ بکەی، و گەهشتنا خزمەتگوزاریێن جڤاکی بکەی — هەمی ل یەک جهی.',
+      'ar': 'هذه منصة إغاثة إنسانية تربط المانحين والمستحقين والمتطوعين. يمكنك التبرع للحملات، كفالة أسر عبر الكفالة، طلب أو تلقي المساعدة، البيع والشراء في سوق المستحقين، الانضمام لمهام التطوع، والوصول إلى خدمات المجتمع — كل ذلك في مكان واحد.',
+      'ckb': 'ئەمە سەکۆیەکی یارمەتی مرۆییە کە بەخشەر، مستحق و خۆبەخشان بەیەکەوە دەبەستێتەوە. دەتوانیت بەخشین بۆ کامپەینەکان بکەیت، خێزان لەڕێی کەفالەوە پاڵپشتی بکەیت، داوای یارمەتی بکەیت یان وەریبگریت، لە بازاڕی مستحقاندا بکڕیت و بفرۆشیت، بەشداری ئەرکی خۆبەخشی بکەیت، و دەستت بگات بە خزمەتگوزاریی کۆمەڵگا — هەمووی لە یەک شوێندا.',
+      'kmr': 'ئەڤ پلاتفۆرمەکا یارمەتیا مرۆڤایەتییە یا کو بەخشەر، مستحق و خۆبەخشان بەیەکڤە گرێ ددەت. تو دشێی بۆ کامپینان ببەخشی، خێزانان ب کەفالە پاڵپشتی بکەی، داخوازا یارمەتیێ بکەی یان وەربگری، ل بازارا مستحقان بکڕی و بفرۆشی، بەشداری ئەرکێن خۆبەخشیێ بکەی، و گەهشتنا خزمەتگوزاریێن جڤاکی بکەی — هەمی ل یەک جهی.',
     },
     keywords: ['about', 'what is this app', 'what app', 'platform', 'purpose', 'what does this app'],
     keywordsByLang: {
@@ -77,13 +77,13 @@ const List<BotQA> _aboutAppQAs = [
     answer:
         'Pick what you need from the tabs: Home shows highlights and quick '
         'actions; Contribute and Kafala for giving and support; Market for '
-        'products; Services for forms like marriage support and beneficiary '
+        'products; Services for forms like marriage support and eligible '
         'cases; Alerts for updates; and Messages to chat. The admin team '
         'reviews requests and you are notified at every step.',
     answersByLang: {
-      'ar': 'اختر ما تحتاجه من التبويبات: الرئيسية تعرض أهم الأمور والإجراءات السريعة؛ التبرع والكفالة للعطاء والكفالات؛ السوق للمنتجات؛ الخدمات للنماذج مثل دعم الزواج وحالات المستفيدين؛ التنبيهات للتحديثات؛ والرسائل للمحادثة. يراجع فريق الإدارة الطلبات وتصلك إشعارات في كل خطوة.',
-      'ckb': 'ئەوەی پێویستتە لە تابەکان هەڵبژێرە: سەرەتا گرنگترین شتەکان و کردارە خێراکان پیشان دەدات؛ بەخشین و کەفالە بۆ بەخشین و کەفالەکان؛ بازاڕ بۆ بەرهەمەکان؛ خزمەتگوزارییەکان بۆ فۆرمەکان وەک پشتگیری زەواج و کەیسی سوودمەندان؛ ئاگادارکردنەوەکان بۆ نوێکارییەکان؛ و پەیامەکان بۆ گفتوگۆ. تیمی بەڕێوەبردن داواکارییەکان پشکنینەوە دەکات و لە هەر هەنگاوێکدا ئاگادار دەکرێیتەوە.',
-      'kmr': 'ئەوا پێدڤیی تە یە ژ تابان هەلبژێرە: سەرەکی گرنگترین تشتان و کارێن لەز نیشان ددەت؛ بەخشین و کەفالە بۆ بەخشین و کەفالان؛ بازار بۆ بەرهەمان؛ خزمەتگوزاری بۆ فۆرمان وەک پشتگیریا زەواجێ و کەیسێن سوودمەندان؛ ئاگەهداری بۆ نویکاریان؛ و پەیام بۆ ئاخفتنێ. تیمێ بەڕێڤەبرینێ داخوازان ددەتە بەر چاڤان و تو د هەر گاڤەکێ دا ئاگەهدار دبی.',
+      'ar': 'اختر ما تحتاجه من التبويبات: الرئيسية تعرض أهم الأمور والإجراءات السريعة؛ التبرع والكفالة للعطاء والكفالات؛ السوق للمنتجات؛ الخدمات للنماذج مثل دعم الزواج وحالات المستحقين؛ التنبيهات للتحديثات؛ والرسائل للمحادثة. يراجع فريق الإدارة الطلبات وتصلك إشعارات في كل خطوة.',
+      'ckb': 'ئەوەی پێویستتە لە تابەکان هەڵبژێرە: سەرەتا گرنگترین شتەکان و کردارە خێراکان پیشان دەدات؛ بەخشین و کەفالە بۆ بەخشین و کەفالەکان؛ بازاڕ بۆ بەرهەمەکان؛ خزمەتگوزارییەکان بۆ فۆرمەکان وەک پشتگیری زەواج و کەیسی مستحقان؛ ئاگادارکردنەوەکان بۆ نوێکارییەکان؛ و پەیامەکان بۆ گفتوگۆ. تیمی بەڕێوەبردن داواکارییەکان پشکنینەوە دەکات و لە هەر هەنگاوێکدا ئاگادار دەکرێیتەوە.',
+      'kmr': 'ئەوا پێدڤیی تە یە ژ تابان هەلبژێرە: سەرەکی گرنگترین تشتان و کارێن لەز نیشان ددەت؛ بەخشین و کەفالە بۆ بەخشین و کەفالان؛ بازار بۆ بەرهەمان؛ خزمەتگوزاری بۆ فۆرمان وەک پشتگیریا زەواجێ و کەیسێن مستحقان؛ ئاگەهداری بۆ نویکاریان؛ و پەیام بۆ ئاخفتنێ. تیمێ بەڕێڤەبرینێ داخوازان ددەتە بەر چاڤان و تو د هەر گاڤەکێ دا ئاگەهدار دبی.',
     },
     keywords: ['how it works', 'how does', 'how to use', 'navigate', 'guide me'],
     keywordsByLang: {
@@ -223,12 +223,12 @@ const List<BotQA> donorQAs = [
     },
     answer:
         'Open the Market tab to browse handmade and local products sold by '
-        'beneficiaries. Tap a product to view photos and the price, then place '
+        'eligibles. Tap a product to view photos and the price, then place '
         'your order — every purchase directly supports the seller.',
     answersByLang: {
-      'ar': 'افتح تبويب السوق لتصفح المنتجات اليدوية والمحلية التي يبيعها المستفيدون. اضغط على أي منتج للاطلاع على الصور والسعر، ثم ضع طلبك — كل عملية شراء تدعم البائع مباشرة.',
-      'ckb': 'تابی بازاڕ بکەوە بۆ گەڕان لە بەرهەمە دەستکردەکان و شوێنییەکانی فرۆشراو لەلایەن سوودمەنداکانەوە. لەسەر بەرهەمێک بپەڕە بۆ وێنەکان و نرخ، ئەوکات داواکارییەکەت بنێرە — هەر کڕینێک ڕاستەوخۆ پشتگیری فرۆشەندەکە دەکات.',
-      'kmr': 'تابا بازارێ ڤەکە دا بەرهەمێن دەستکرن و خۆجهی یێن کو ژ لایێ سوودمەندان ڤە تێنە فرۆتن ببینی. ل بەرهەمەکێ کلیک بکە بۆ وێنە و بها، پاشی داخوازا خۆ بنێرە — هەر کڕینەک رەستەوخۆ پشتگیریا فرۆشیاری دکەت.',
+      'ar': 'افتح تبويب السوق لتصفح المنتجات اليدوية والمحلية التي يبيعها المستحقون. اضغط على أي منتج للاطلاع على الصور والسعر، ثم ضع طلبك — كل عملية شراء تدعم البائع مباشرة.',
+      'ckb': 'تابی بازاڕ بکەوە بۆ گەڕان لە بەرهەمە دەستکردەکان و شوێنییەکانی فرۆشراو لەلایەن مستحقاکانەوە. لەسەر بەرهەمێک بپەڕە بۆ وێنەکان و نرخ، ئەوکات داواکارییەکەت بنێرە — هەر کڕینێک ڕاستەوخۆ پشتگیری فرۆشەندەکە دەکات.',
+      'kmr': 'تابا بازارێ ڤەکە دا بەرهەمێن دەستکرن و خۆجهی یێن کو ژ لایێ مستحقان ڤە تێنە فرۆتن ببینی. ل بەرهەمەکێ کلیک بکە بۆ وێنە و بها، پاشی داخوازا خۆ بنێرە — هەر کڕینەک رەستەوخۆ پشتگیریا فرۆشیاری دکەت.',
     },
     keywords: ['market', 'buy', 'shop', 'product', 'order', 'purchase', 'marketplace'],
     keywordsByLang: {
@@ -276,13 +276,13 @@ const List<BotQA> donorQAs = [
       'kmr': 'کەفالە چییە و چەوا کار دکەت؟',
     },
     answer:
-        'Kafala is our sponsorship programme that connects donors with families '
-        'who need ongoing support. Browse beneficiary profiles, read their '
+        'Kafala is our sponsorship programme that connects grantors with families '
+        'who need ongoing support. Browse eligible profiles, read their '
         'stories and contribute regularly for a lasting impact.',
     answersByLang: {
-      'ar': 'الكفالة هي برنامج الرعاية لدينا الذي يربط المتبرعين بالأسر المحتاجة لدعم مستمر. يمكنك تصفح ملفات المستفيدين وقراءة قصصهم والمساهمة بانتظام — تأثير دائم لأسرة بعينها.',
-      'ckb': 'کەفالە بەرنامەی پاڵپشتییمانە کە بەخشەران بە خێزانانی پێویستمەند بە پشتگیری بەردەوام دەبەستێتەوە. دەتوانیت پرۆفایلی سوودمەنداکان ببینیت، چیرۆکەکانیان بخوێنیتەوە و بە ریتم بەشداری بکەیت — کاریگەرییەکی مەزن بۆ خێزانێکی دیاریکراو.',
-      'kmr': 'کەفالە بەرنامەیا پشتگیریا مەیە یا کو بەخشەران دگەل خێزانێن پێدڤی ب پشتگیریا بەردەوام گرێ ددەت. تو دشێی پرۆفایلێن سوودمەندان ببینی، چیرۆکێن وان بخوینی و ب رێکوپێک بەشداری بکەی — کاریگەرییەکا مایندە بۆ خێزانەکا دیاریکری.',
+      'ar': 'الكفالة هي برنامج الرعاية لدينا الذي يربط المانحين بالأسر المحتاجة لدعم مستمر. يمكنك تصفح ملفات المستحقين وقراءة قصصهم والمساهمة بانتظام — تأثير دائم لأسرة بعينها.',
+      'ckb': 'کەفالە بەرنامەی پاڵپشتییمانە کە بەخشەران بە خێزانانی پێویستمەند بە پشتگیری بەردەوام دەبەستێتەوە. دەتوانیت پرۆفایلی مستحقاکان ببینیت، چیرۆکەکانیان بخوێنیتەوە و بە ریتم بەشداری بکەیت — کاریگەرییەکی مەزن بۆ خێزانێکی دیاریکراو.',
+      'kmr': 'کەفالە بەرنامەیا پشتگیریا مەیە یا کو بەخشەران دگەل خێزانێن پێدڤی ب پشتگیریا بەردەوام گرێ ددەت. تو دشێی پرۆفایلێن مستحقان ببینی، چیرۆکێن وان بخوینی و ب رێکوپێک بەشداری بکەی — کاریگەرییەکا مایندە بۆ خێزانەکا دیاریکری.',
     },
     keywords: ['kafala', 'sponsor', 'sponsorship', 'family', 'adopt', 'ongoing', 'monthly'],
     keywordsByLang: {
@@ -384,7 +384,7 @@ const List<BotQA> donorQAs = [
     },
     answer:
         'Beyond campaigns and donations the app offers marriage support, Kafala '
-        'family sponsorship, the beneficiary marketplace, volunteer '
+        'family sponsorship, the eligible marketplace, volunteer '
         'opportunities and local community guides. Open Services to explore '
         'everything.',
     answersByLang: {
@@ -447,16 +447,16 @@ const List<BotQA> beneficiaryQAs = [
     },
     answer:
         'The My Campaign Contributions screen lists all your campaigns and every '
-        'donor who contributed, along with their amounts and delivery status. '
+        'grantor who contributed, along with their amounts and delivery status. '
         'Tap below to open it.',
     answersByLang: {
-      'ar': 'تعرض شاشة تبرعات حملتي جميع حملاتك وكل متبرع ساهم، مع المبالغ وحالة التسليم. اضغط أدناه لفتحها.',
+      'ar': 'تعرض شاشة تبرعات حملتي جميع حملاتك وكل مانح ساهم، مع المبالغ وحالة التسليم. اضغط أدناه لفتحها.',
       'ckb': 'شاشەی تۆمارکردنی بەخشینی کامپەینەکانم هەموو کامپەینەکانت و هەموو بەخشەرێک کە بەشداری کردووە لیست دەکات، لەگەڵ بڕەکان و حاڵەتی گەیاندن. تەکمەی خوارەوە بپەڕە بۆ کردنەوەی.',
       'kmr': 'سکرینا "بەخشینێن کامپینێن من" هەمی کامپینێن تە و هەر بەخشەرەکێ بەشداربووی، دگەل بڕان و دۆخێ گەهاندنێ لیست دکەت. ل خوارێ کلیک بکە دا ڤەکەی.',
     },
-    keywords: ['donat', 'received', 'my campaign', 'how much', 'raised', 'donor list', 'contribution'],
+    keywords: ['donat', 'received', 'my campaign', 'how much', 'raised', 'grantor list', 'contribution'],
     keywordsByLang: {
-      'ar': ['تبرعات حملتي', 'من تبرع', 'مبلغ مجمع', 'المتبرعون', 'تبرعات مستلمة'],
+      'ar': ['تبرعات حملتي', 'من تبرع', 'مبلغ مجمع', 'المانحون', 'تبرعات مستلمة'],
       'ckb': ['بەخشینی کامپەینم', 'کێ بەخشی', 'بڕی کۆکراوەتەوە', 'بەخشەران'],
       'kmr': ['بەخشینێن کامپینێن من', 'کێ بەخشی', 'بەخشەر'],
     },
@@ -466,24 +466,24 @@ const List<BotQA> beneficiaryQAs = [
   BotQA(
     id: 'b_chat_donor',
     icon: Icons.chat_bubble_rounded,
-    question: 'How do I start a chat with a donor?',
+    question: 'How do I start a chat with a grantor?',
     questionsByLang: {
-      'ar': 'كيف أبدأ محادثة مع متبرع؟',
+      'ar': 'كيف أبدأ محادثة مع مانح؟',
       'ckb': 'چۆن گفتوگۆیەک لەگەڵ بەخشەرێک دەست پێ بکەم؟',
       'kmr': 'ئەز چەوا ئاخفتنەکێ دگەل بەخشەرەکی دەست پێ بکەم؟',
     },
     answer:
-        'Open My Campaign Contributions, find the contributor\'s row and tap the chat icon '
-        'next to their name. The donor is notified and can accept — then you, '
-        'the donor and our support team can message privately.',
+        'Open My Campaign Contributions, find the grantor\'s row and tap the chat icon '
+        'next to their name. The grantor is notified and can accept — then you, '
+        'the grantor and our support team can message privately.',
     answersByLang: {
-      'ar': 'افتح تبرعات حملتي، ابحث عن صف المتبرع واضغط على أيقونة المحادثة بجانب اسمه. سيتلقى المتبرع إشعاراً ويمكنه القبول — ثم يمكنكم أنتم والمتبرع وفريق الدعم التراسل بشكل خاص.',
+      'ar': 'افتح تبرعات حملتي، ابحث عن صف المانح واضغط على أيقونة المحادثة بجانب اسمه. سيتلقى المانح إشعاراً ويمكنه القبول — ثم يمكنكم أنتم والمانح وفريق الدعم التراسل بشكل خاص.',
       'ckb': 'تۆمارکردنی بەخشینی کامپەینەکانم بکەوە، ڕیزەکەی بەخشەر بدۆزەوە و ئایکۆنی گفتوگۆ لەتەنیشت ناوەکەی بپەڕە. بەخشەرەکە ئاگادار دەکرێیتەوە و دەتوانێت قبووڵ بکات — ئەوکات تۆ، بەخشەرەکە و تیمی پشتگیریمان دەتوانن بە تایبەتی پەیامبنێرن.',
       'kmr': 'بەخشینێن کامپینێن خۆ ڤەکە، رێزا بەخشەری بدۆزە و ئایکۆنا ئاخفتنێ ل تەنشتا ناڤێ وی کلیک بکە. بەخشەر دێ ئاگەهدار بیت و دشێت پەسەند بکەت — پاشی تو، بەخشەر و تیمێ پشتگیریا مە دشێن ب تایبەتی پەیاما بشینن.',
     },
-    keywords: ['chat', 'donor', 'message', 'contact', 'talk', 'communicate', 'reach donor'],
+    keywords: ['chat', 'grantor', 'message', 'contact', 'talk', 'communicate', 'reach grantor'],
     keywordsByLang: {
-      'ar': ['محادثة متبرع', 'تواصل مع متبرع', 'رسالة للمتبرع', 'كلام المتبرع'],
+      'ar': ['محادثة مانح', 'تواصل مع مانح', 'رسالة للمانح', 'كلام المانح'],
       'ckb': ['گفتوگۆ', 'بەخشەر', 'پەیام', 'پەیوەندی لەگەڵ بەخشەر'],
       'kmr': ['ئاخفتن', 'بەخشەر', 'پەیام', 'پەیوەندی'],
     },
@@ -502,9 +502,9 @@ const List<BotQA> beneficiaryQAs = [
     answer:
         'The Pending Projects screen lists every submission awaiting admin '
         'approval. Once approved it moves to My Projects and becomes visible to '
-        'donors. Tap below to open it.',
+        'grantors. Tap below to open it.',
     answersByLang: {
-      'ar': 'تعرض شاشة المشاريع المعلقة كل طلب ينتظر موافقة المشرف. بعد الموافقة، ينتقل إلى مشاريعي ويصبح مرئياً للمتبرعين. اضغط أدناه لفتحها.',
+      'ar': 'تعرض شاشة المشاريع المعلقة كل طلب ينتظر موافقة المشرف. بعد الموافقة، ينتقل إلى مشاريعي ويصبح مرئياً للمانحين. اضغط أدناه لفتحها.',
       'ckb': 'شاشەی پڕۆژەکانی هەڵواسراو هەموو تەقدیمێکی چاوەڕواوی موافەقەتی بەڕێوەبەرانی نیشان دەدات. دوای موافەقەت، بۆ پڕۆژەکانم دەگوازرێتەوە و بۆ بەخشەراکان بەچاوەرواندەکرێت. تەکمەی خوارەوە بپەڕە بۆ کردنەوەی.',
       'kmr': 'سکرینا "پرۆژەیێن چاڤەڕوانیێ" هەر ناردنەکا چاڤەڕوانی پەسەندکرنا بەڕێڤەبەری نیشان ددەت. پشتی پەسەندکرنێ، دچیتە "پرۆژەیێن من" و بۆ بەخشەران دیار دبیت. ل خوارێ کلیک بکە دا ڤەکەی.',
     },
@@ -520,22 +520,22 @@ const List<BotQA> beneficiaryQAs = [
   BotQA(
     id: 'b_accept_chat',
     icon: Icons.mark_chat_read_rounded,
-    question: 'How do I accept or decline a chat request from a donor?',
+    question: 'How do I accept or decline a chat request from a grantor?',
     questionsByLang: {
-      'ar': 'كيف أقبل أو أرفض طلب محادثة من متبرع؟',
+      'ar': 'كيف أقبل أو أرفض طلب محادثة من مانح؟',
       'ckb': 'چۆن داواکارییەکی گفتوگۆ لە بەخشەرێک قبووڵ یان ڕەت بکەمەوە؟',
       'kmr': 'ئەز چەوا داخوازا ئاخفتنێ ژ بەخشەرەکی پەسەند یان ڕەت بکەم؟',
     },
     answer:
-        'When a donor requests a chat you get a notification in Alerts with '
+        'When a grantor requests a chat you get a notification in Alerts with '
         'Accept and Decline buttons right inside it. You can also accept or '
         'decline from the top of the Messages tab.',
     answersByLang: {
-      'ar': 'عندما يطلب متبرع محادثة، ستتلقى إشعاراً في التنبيهات بزري القبول والرفض مباشرة فيه. يمكنك أيضاً القبول أو الرفض من أعلى تبويب الرسائل.',
+      'ar': 'عندما يطلب مانح محادثة، ستتلقى إشعاراً في التنبيهات بزري القبول والرفض مباشرة فيه. يمكنك أيضاً القبول أو الرفض من أعلى تبويب الرسائل.',
       'ckb': 'کاتێک بەخشەرێک گفتوگۆ داوا دەکات، ئاگادارکردنەوەیەکت لە تابی ئاگادارکردنەوەکان دەگات لەگەڵ تەکمەکانی قبووڵکردن و ڕەتکردنەوە ڕاستەوخۆ تیایدا. دەتوانیت هەروەها قبووڵ بکەیت یان ڕەتی بکەیتەوە لە سەرەوەی تابی پەیامەکان.',
       'kmr': 'دەمێ بەخشەرەک داخوازا ئاخفتنێ دکەت، دێ ئاگەهداریەک د تابا ئاگەهداریان دا دگەل دوگمەیێن پەسەندکرن و ڕەتکرنێ رەستەوخۆ تێدا بگری. تو دشێی هەروەسا ژ سەرێ تابا پەیامان پەسەند یان ڕەت بکەی.',
     },
-    keywords: ['accept', 'decline', 'chat request', 'request', 'incoming', 'donor ask'],
+    keywords: ['accept', 'decline', 'chat request', 'request', 'incoming', 'grantor ask'],
     keywordsByLang: {
       'ar': ['قبول محادثة', 'رفض محادثة', 'طلب محادثة', 'موافقة على محادثة'],
       'ckb': ['قبووڵکردن', 'ڕەتکردنەوە', 'داواکاریی گفتوگۆ', 'موافەقەت'],
@@ -555,10 +555,10 @@ const List<BotQA> beneficiaryQAs = [
     },
     answer:
         'Go to Services to add a marketplace listing — photos, a price and a '
-        'description. Once approved, donors browsing the Market can buy it, '
+        'description. Once approved, grantors browsing the Market can buy it, '
         'giving you a direct source of income.',
     answersByLang: {
-      'ar': 'اذهب إلى الخدمات لإضافة قائمة في السوق — ارفع صوراً وسعراً ووصفاً. بعد الموافقة، يمكن للمتبرعين المتصفحين في السوق شراؤه، مما يوفر لك مصدر دخل مباشر.',
+      'ar': 'اذهب إلى الخدمات لإضافة قائمة في السوق — ارفع صوراً وسعراً ووصفاً. بعد الموافقة، يمكن للمانحين المتصفحين في السوق شراؤه، مما يوفر لك مصدر دخل مباشر.',
       'ckb': 'بچۆ بۆ خزمەتگوزارییەکان بۆ زیادکردنی لیستە بازاڕییەکە — وێنە، نرخ و وەسف بکەوتەوە. دوای موافەقەت، بەخشەرانی گەڕانی بازاڕ دەتوانن بیکڕن، کە سەرچاوەیەکی داهاتی ڕاستەوخۆت پێ دەبەخشێت.',
       'kmr': 'بچۆ خزمەتگوزاریان دا لیستەیەکا بازارێ زێدە بکەی — وێنە، بها و پێناسە. پشتی پەسەندکرنێ، بەخشەرێن د بازارێ دا دگەڕن دشێن بکڕن، کو سەرچاوەیەکا داهاتی رەستەوخۆ ددەتە تە.',
     },
@@ -582,10 +582,10 @@ const List<BotQA> beneficiaryQAs = [
     },
     answer:
         'Keep your contact details and photo current on the Edit Profile screen '
-        '— donors and the support team see your profile when reviewing your '
+        '— grantors and the support team see your profile when reviewing your '
         'campaigns. Tap below to open it.',
     answersByLang: {
-      'ar': 'احتفظ ببيانات الاتصال وصورتك محدّثة في شاشة تعديل الملف الشخصي — يرى المتبرعون وفريق الدعم ملفك الشخصي عند مراجعة حملاتك. اضغط أدناه لفتحها.',
+      'ar': 'احتفظ ببيانات الاتصال وصورتك محدّثة في شاشة تعديل الملف الشخصي — يرى المانحون وفريق الدعم ملفك الشخصي عند مراجعة حملاتك. اضغط أدناه لفتحها.',
       'ckb': 'وردەکاریی پەیوەندی و وێنەکەت کاتبەکات لە شاشەی دەستکاریکردنی پرۆفایل — بەخشەران و تیمی پشتگیری پرۆفایلەکەت دەبینن کاتێک کامپەینەکانت پشکنینەوە دەکەن. تەکمەی خوارەوە بپەڕە بۆ کردنەوەی.',
       'kmr': 'وردەکاریێن پەیوەندیێ و وێنەیێ خۆ ل سەر سکرینا دەستکاریا پرۆفایلێ رۆژانە بهێلە — بەخشەر و تیمێ پشتگیری پرۆفایلا تە دەمێ کامپینێن تە ددەنە بەر چاڤان دبینن. ل خوارێ کلیک بکە دا ڤەکەی.',
     },

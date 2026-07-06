@@ -178,7 +178,7 @@ export const PUSH_TEMPLATES: PushTemplate[] = [
   {
     id: 'thank_you',
     icon: Heart,
-    label: 'Thank Donors',
+    label: 'Thank Grantors',
     tagline: 'Donor appreciation',
     accent: '#16A34A',
     title: { en: 'Thank you for your generosity 🙏', ar: 'شكراً لكرمكم 🙏' },

@@ -256,6 +256,7 @@ var (
 	marriageStatuses           = []string{"submitted", "under_review", "active", "paused", "matched", "rejected", "closed"}
 	partnerStatuses            = []string{"pending", "active", "hidden"}
 	mediaStatuses              = []string{"draft", "published", "hidden"}
+	commentStatuses            = []string{"pending", "approved", "hidden"} // #25 comment moderation
 	communityStatuses          = []string{"pending", "approved", "rejected", "hidden"}
 	volunteerAppStatuses       = []string{"submitted", "approved", "rejected", "inactive"}
 	sponsorshipStatuses        = []string{"pending", "active", "paused", "delayed", "stopped", "completed", "cancelled"}
@@ -368,6 +369,11 @@ func (h *AdminStatusHandler) Media(c *gin.Context) {
 func (h *AdminStatusHandler) Community(c *gin.Context) {
 	h.updateStringStatus(c, "city_directory_entries", "status", communityStatuses, nil)
 }
+
+// MediaComment — #25. Moderate a post comment (pending → approved / hidden).
+func (h *AdminStatusHandler) MediaComment(c *gin.Context) {
+	h.updateStringStatus(c, "post_comments", "status", commentStatuses, nil)
+}
 func (h *AdminStatusHandler) VolunteerApplication(c *gin.Context) {
 	h.updateStringStatus(c, "volunteer_applications", "status",
 		volunteerAppStatuses, h.notifyVolunteerAppDecision)
@@ -388,7 +394,7 @@ func (h *AdminStatusHandler) SupportTicket(c *gin.Context) {
 // PublishProjectRequest — POST /api/admin/beneficiary_project_requests/:id/publish
 //
 // Phase 23. Copies an approved beneficiary_project_request into the
-// `campaigns` table so donors see it on /api/campaigns. The new campaign
+// `campaigns` table so grantors see it on /api/campaigns. The new campaign
 // row stores `owner_user_id = project_request.user_id`, which activates
 // the dormant "donation received on your project" notification wire in
 // donations.go automatically.
@@ -438,7 +444,7 @@ func (h *AdminStatusHandler) PublishProjectRequest(c *gin.Context) {
 	if status != "approved" {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
-			"error":   "Only approved project requests can be published to donors. Current status: " + status,
+			"error":   "Only approved project requests can be published to grantors. Current status: " + status,
 		})
 		return
 	}
@@ -454,7 +460,7 @@ func (h *AdminStatusHandler) PublishProjectRequest(c *gin.Context) {
 			"success": true,
 			"id":      existing,
 			"already": true,
-			"message": "This project is already published to donors.",
+			"message": "This project is already published to grantors.",
 		})
 		return
 	}
@@ -531,7 +537,7 @@ func (h *AdminStatusHandler) PublishProjectRequest(c *gin.Context) {
 		"id":            newID,
 		"campaign_id":   newID,
 		"owner_user_id": ownerID,
-		"message":       "Project published to the donor page.",
+		"message":       "Project published to the grantor page.",
 	})
 }
 

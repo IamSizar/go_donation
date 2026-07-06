@@ -114,6 +114,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     const MessagesScreen(),
   ];
 
+  /// Services (ProposalServicesSection) lives at this section index. Backlog #6:
+  /// it's reachable from the Profile "Services" entry + bot deep-links, but it is
+  /// intentionally NOT a bottom-nav tab. It stays in the allowed set below so
+  /// navigation to it isn't bounced; it's only excluded from the VISIBLE bar.
+  static const int _servicesTabIndex = 8;
+
   /// Tabs each role may open from the bottom navigator (others are not their flow).
   static List<int> _navigatorSourceIndices() {
     // Section 27 — Guest Mode: a signed-out guest sees only the Super-Admin-
@@ -136,6 +142,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
       default:
         return List<int>.generate(_destinations.length, (i) => i);
     }
+  }
+
+  /// #13 — indices kept in the allowed source set (so navigation to them isn't
+  /// bounced) but hidden from the VISIBLE bottom bar for a given role. For a
+  /// beneficiary, Community services (3) and Messages (9) move into the profile
+  /// menu, so they're dropped from the bar — same rationale as Services (8).
+  static Set<int> _hiddenNavIndices() {
+    if (!isGuestMode() && sharedPreferences.getString('role_id') == '2') {
+      return const {3, 9};
+    }
+    return const {};
   }
 
   @override
@@ -245,10 +262,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final sourceIndices = _navigatorSourceIndices();
-    final visibleDestinations = [
-      for (final i in sourceIndices) _destinations[i],
+    // #6 — Services (index 8) stays reachable (Profile entry + bot deep-links) but
+    // is no longer a bottom-nav tab: keep it allowed above, exclude it here.
+    final hiddenIndices = _hiddenNavIndices();
+    final navIndices = [
+      for (final i in sourceIndices)
+        if (i != _servicesTabIndex && !hiddenIndices.contains(i)) i,
     ];
-    final navigatorSelectedIndex = sourceIndices.indexOf(_currentIndex);
+    final visibleDestinations = [
+      for (final i in navIndices) _destinations[i],
+    ];
+    final navigatorSelectedIndex = navIndices.indexOf(_currentIndex);
     final safeNavIndex = navigatorSelectedIndex >= 0
         ? navigatorSelectedIndex
         : 0;
@@ -290,8 +314,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       // watch even when the Alerts tab is hidden (e.g. a guest),
                       // otherwise GetX throws "improper use of GetX".
                       final unread = notifications.unreadCount;
-                      final alertsIndex = sourceIndices.indexOf(5);
-                      final profileIndex = sourceIndices.indexOf(6);
+                      final alertsIndex = navIndices.indexOf(5);
+                      final profileIndex = navIndices.indexOf(6);
                       return ModernBottomNavigator(
                         currentIndex: safeNavIndex,
                         destinations: visibleDestinations,
@@ -303,7 +327,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             profileIndex,
                         },
                         onSelected: (visibleIndex) {
-                          final actualIndex = sourceIndices[visibleIndex];
+                          final actualIndex = navIndices[visibleIndex];
                           if (actualIndex == _currentIndex) return;
                           AppHaptics.selection();
                           dashboardTabNotifier.value = actualIndex;

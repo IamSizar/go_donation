@@ -37,6 +37,14 @@ const PushNotificationsPage = lazy(() => import('./pages/PushNotificationsPage')
 const TrashPage = lazy(() => import('./pages/TrashPage'))
 const PermissionsPage = lazy(() => import('./pages/PermissionsPage'))
 const GuestAccessPage = lazy(() => import('./pages/GuestAccessPage'))
+const TermsPage = lazy(() => import('./pages/TermsPage'))
+const DonationCodesPage = lazy(() => import('./pages/DonationCodesPage'))
+const ProjectCategoriesPage = lazy(() => import('./pages/ProjectCategoriesPage'))
+const MediaCategoriesPage = lazy(() => import('./pages/MediaCategoriesPage'))
+const CommentsPage = lazy(() => import('./pages/CommentsPage'))
+const BannedWordsPage = lazy(() => import('./pages/BannedWordsPage'))
+const MarketplaceCategoriesPage = lazy(() => import('./pages/MarketplaceCategoriesPage'))
+const PaymentMethodsPage = lazy(() => import('./pages/PaymentMethodsPage'))
 const DetailPage = lazy(() => import('./pages/DetailPage'))
 
 function PageFallback() {
@@ -86,6 +94,13 @@ export default function App() {
             <Route path="users" element={<UsersPage />} />
             <Route path="registrations" element={<RegistrationsPage />} />
             <Route path="donations" element={<DonationsPage />} />
+            <Route path="donation-codes" element={<DonationCodesPage />} />
+            <Route path="project-categories" element={<ProjectCategoriesPage />} />
+            <Route path="media-categories" element={<MediaCategoriesPage />} />
+            <Route path="comments" element={<CommentsPage />} />
+            <Route path="banned-words" element={<BannedWordsPage />} />
+            <Route path="marketplace-categories" element={<MarketplaceCategoriesPage />} />
+            <Route path="payment-methods" element={<PaymentMethodsPage />} />
             <Route path="campaigns" element={<CampaignsPage />} />
             <Route path="sponsorships" element={<SponsorshipsPage />} />
             <Route path="beneficiary" element={<BeneficiaryPage />} />
@@ -108,6 +123,7 @@ export default function App() {
             <Route path="trash" element={<TrashPage />} />
             <Route path="permissions" element={<PermissionsPage />} />
             <Route path="guest-access" element={<GuestAccessPage />} />
+            <Route path="terms" element={<TermsPage />} />
             <Route path="detail/:resource/:id" element={<DetailPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

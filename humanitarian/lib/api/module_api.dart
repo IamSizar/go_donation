@@ -282,6 +282,10 @@ class ModuleApi {
   Future<List<Map<String, dynamic>>> marketplaceProducts() =>
       getItems(marketplaceProductsUrl);
 
+  /// #28 — admin-managed marketplace categories for name lookup + filter chips.
+  Future<List<Map<String, dynamic>>> marketplaceCategories() =>
+      getItems(marketplaceCategoriesUrl);
+
   Future<List<Map<String, dynamic>>> communityDirectory() =>
       getItems(communityDirectoryUrl);
 
@@ -306,9 +310,53 @@ class ModuleApi {
     });
   }
 
-  Future<List<Map<String, dynamic>>> partners() => getItems(partnersUrl);
+  Future<List<Map<String, dynamic>>> partners({int? userId}) {
+    // #27 — pass user_id so the list flags the viewer's own rating.
+    if (userId != null && userId > 0) {
+      final uri = Uri.parse(
+        partnersUrl,
+      ).replace(queryParameters: {'user_id': '$userId'});
+      return getItems(uri.toString());
+    }
+    return getItems(partnersUrl);
+  }
 
-  Future<List<Map<String, dynamic>>> mediaPosts() => getItems(mediaPostsUrl);
+  /// #27 — submit a 1–5 star rating for a partner. Returns
+  /// {avg_rating, rating_count, my_rating}.
+  Future<Map<String, dynamic>> ratePartner(int partnerId, int stars) =>
+      postJsonNoTrack(partnerRateUrl(partnerId), {'stars': stars});
+
+  Future<List<Map<String, dynamic>>> mediaPosts({int? userId}) {
+    // #24 — pass user_id when logged in so the feed flags liked posts.
+    if (userId != null && userId > 0) {
+      final uri = Uri.parse(
+        mediaPostsUrl,
+      ).replace(queryParameters: {'user_id': '$userId'});
+      return getItems(uri.toString());
+    }
+    return getItems(mediaPostsUrl);
+  }
+
+  /// #24 — toggle like on a post. Returns {liked, like_count}.
+  Future<Map<String, dynamic>> likeMediaPost(int postId) =>
+      postJsonNoTrack(mediaLikeUrl(postId), const {});
+
+  /// #24 — approved comments for a post.
+  Future<List<Map<String, dynamic>>> mediaComments(int postId) =>
+      getItems(mediaCommentsUrl(postId));
+
+  /// #24 — submit a comment. Returns {comment, held} (held = awaiting review).
+  Future<Map<String, dynamic>> postMediaComment(int postId, String body) =>
+      postJsonNoTrack(mediaCommentsUrl(postId), {'body': body});
+
+  /// #24 — record a share. Returns {share_count}.
+  Future<Map<String, dynamic>> shareMediaPost(int postId) =>
+      postJsonNoTrack(mediaShareUrl(postId), const {});
+
+  /// #22 — admin-managed "Our Work" categories for the News & Activities
+  /// filter chips. Returns [] on error (the feed still works unfiltered).
+  Future<List<Map<String, dynamic>>> mediaCategories() =>
+      getItems(mediaCategoriesUrl);
 
   /// Media posts filtered by post_type (e.g. "marriage" for the marriage
   /// service's posts tab). The backend keeps these out of the general feed.
@@ -339,6 +387,15 @@ class ModuleApi {
     final uri = Uri.parse(
       sponsorshipsUrl,
     ).replace(queryParameters: {'user_id': '$userId'});
+    return getItems(uri.toString());
+  }
+
+  /// #21 — sponsorships that BENEFIT this user (their case is sponsored),
+  /// for the beneficiary "My Entitlements" screen.
+  Future<List<Map<String, dynamic>>> sponsorshipsAsBeneficiary(int userId) {
+    final uri = Uri.parse(sponsorshipsUrl).replace(
+      queryParameters: {'as': 'beneficiary', 'user_id': '$userId'},
+    );
     return getItems(uri.toString());
   }
 

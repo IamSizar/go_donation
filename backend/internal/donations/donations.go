@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -13,9 +14,24 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/karam-flutter/humanitarian-backend/internal/sectioncodes"
 )
 
 func itoa(n int) string { return strconv.Itoa(n) }
+
+// normalizeDonationType maps a donor-supplied donation type to a known value
+// (general / zakat / sadaqah), defaulting to general (#16).
+func normalizeDonationType(t string) string {
+	switch strings.ToLower(strings.TrimSpace(t)) {
+	case "zakat":
+		return "zakat"
+	case "sadaqah", "sadaqa":
+		return "sadaqah"
+	default:
+		return "general"
+	}
+}
 
 // Lifecycle-gate errors returned from Insert. Handlers should translate these
 // to user-facing 400 / 410 responses rather than 500.
@@ -63,10 +79,19 @@ type InsertedDonation struct {
 	UserID          int64  `json:"user_id"`
 	CampaignID      *int64 `json:"campaign_id"`
 	DonationKind    string `json:"donation_kind"`
+	DonationType    string `json:"donation_type"`
 }
 
 type Store struct {
 	Pool *pgxpool.Pool
+	// Codes issues per-section transaction-code namespaces (#14). Optional: when
+	// nil (or the kind has no config row), Insert falls back to the legacy
+	// DON-YYYYMMDD-HEX reference.
+	Codes *sectioncodes.Store
+	// SendSMS sends a best-effort operational SMS (#15 donation-arrived alert).
+	// Optional: when nil, no SMS is sent. Kept as a func so this package doesn't
+	// depend on the SMS-provider package.
+	SendSMS func(ctx context.Context, phone, message string) error
 }
 
 func NewStore(pool *pgxpool.Pool) *Store {
@@ -82,6 +107,7 @@ func (s *Store) Insert(
 	message *string,
 	amount *string,
 	paymentMethod *string,
+	donationType string,
 ) (*InsertedDonation, error) {
 	if userID <= 0 {
 		return nil, errors.New("invalid userID")
@@ -120,11 +146,9 @@ func (s *Store) Insert(
 		donationKind = "general"
 	}
 
-	refHex, err := randHex(4)
-	if err != nil {
-		return nil, err
-	}
-	refNumber := "DON-" + time.Now().UTC().Format("20060102") + "-" + strings.ToUpper(refHex)
+	// #16 — the donor-facing giving type (general/zakat/sadaqah), orthogonal to
+	// the internal donation_kind routing. Normalized to a known value.
+	dType := normalizeDonationType(donationType)
 
 	// Phase 15 — the INSERT and the campaign roll-up have to land atomically
 	// so the donor never sees a donation row without the matching bump in
@@ -162,13 +186,21 @@ func (s *Store) Insert(
 		}
 	}
 
+	// #14 — issue this section's next namespaced reference inside the tx, so a
+	// rolled-back donation doesn't leave a gap in the sequence. Falls back to the
+	// legacy DON-YYYYMMDD-HEX code when no namespace is configured for the kind.
+	refNumber, err := s.nextReference(ctx, tx, donationKind)
+	if err != nil {
+		return nil, err
+	}
+
 	var newID int64
 	if err := tx.QueryRow(ctx, `
 		INSERT INTO donations
-		   (reference_number, user_id, campaign_id, donation_kind, message, amount, payment_method)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		   (reference_number, user_id, campaign_id, donation_kind, donation_type, message, amount, payment_method)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		RETURNING id`,
-		refNumber, userID, campaignID, donationKind, msg, amountStr, method,
+		refNumber, userID, campaignID, donationKind, dType, msg, amountStr, method,
 	).Scan(&newID); err != nil {
 		return nil, err
 	}
@@ -185,13 +217,91 @@ func (s *Store) Insert(
 		return nil, err
 	}
 
+	// #15 — best-effort: SMS the section's contact that a donation arrived. Runs
+	// detached with its own timeout so a slow/absent SMS provider never affects
+	// the donor response, and a send failure never fails the donation.
+	s.notifySectionArrival(donationKind, amountStr, refNumber)
+
 	return &InsertedDonation{
 		ID:              newID,
 		ReferenceNumber: refNumber,
 		UserID:          userID,
 		CampaignID:      campaignID,
 		DonationKind:    donationKind,
+		DonationType:    dType,
 	}, nil
+}
+
+// notifySectionArrival fires a best-effort SMS to a section's configured contact
+// after a donation commits (#15). No-op when SMS isn't wired, the section has no
+// phone, or notifications are disabled for it.
+func (s *Store) notifySectionArrival(kind, amount, reference string) {
+	if s.SendSMS == nil || s.Codes == nil {
+		return
+	}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		phone, enabled, ok, err := s.Codes.GetNotify(ctx, kind)
+		if err != nil || !ok || !enabled {
+			return
+		}
+		phone = strings.TrimSpace(phone)
+		if phone == "" {
+			return
+		}
+		if err := s.SendSMS(ctx, phone, arrivalSMS(kind, amount, reference)); err != nil {
+			log.Printf("[donation-sms] section=%s ref=%s: %v", kind, reference, err)
+		}
+	}()
+}
+
+// arrivalSMS builds the Arabic donation-arrived alert for a section contact.
+func arrivalSMS(kind, amount, reference string) string {
+	amt := strings.TrimSpace(amount)
+	if amt == "" {
+		amt = "—"
+	}
+	return fmt.Sprintf("مساهمة جديدة (%s): %s د.ع — الرمز: %s", sectionLabelAr(kind), amt, reference)
+}
+
+// sectionLabelAr maps a donation_kind to its Arabic section label for SMS.
+func sectionLabelAr(kind string) string {
+	switch kind {
+	case "general":
+		return "عام"
+	case "campaign":
+		return "حملة"
+	case "sponsorship":
+		return "كفالة"
+	case "in_kind":
+		return "عيني"
+	case "operational":
+		return "تشغيلي"
+	default:
+		return kind
+	}
+}
+
+// nextReference returns the next namespaced code for kind (e.g. CAM-000042),
+// falling back to the legacy DON-YYYYMMDD-HEX format when no namespace store is
+// wired or the kind has no config row. Pass the donation's tx as q so a
+// consumed number rolls back with a failed donation.
+func (s *Store) nextReference(ctx context.Context, q sectioncodes.Querier, kind string) (string, error) {
+	if s.Codes != nil {
+		code, ok, err := s.Codes.NextReference(ctx, q, kind)
+		if err != nil {
+			return "", err
+		}
+		if ok {
+			return code, nil
+		}
+	}
+	refHex, err := randHex(4)
+	if err != nil {
+		return "", err
+	}
+	return "DON-" + time.Now().UTC().Format("20060102") + "-" + strings.ToUpper(refHex), nil
 }
 
 // CancelByDonor lets a donor cancel their own donation when it's still in
@@ -373,6 +483,7 @@ type AdminListRow struct {
 	CampaignID      *int64    `json:"campaign_id"`
 	CampaignTitle   *string   `json:"campaign_title"`
 	DonationKind    string    `json:"donation_kind"`
+	DonationType    string    `json:"donation_type"`
 	Amount          string    `json:"amount"`
 	Currency        string    `json:"currency"`
 	PaymentStatus   int       `json:"payment_status"`
@@ -430,7 +541,7 @@ func (s *Store) AdminList(ctx context.Context, page, perPage int, q string) (*Ad
 	rows, err := s.Pool.Query(ctx, `
 		SELECT d.id, d.reference_number, d.user_id, u.phone, up.full_name,
 		       d.campaign_id, c.title,
-		       d.donation_kind, d.amount,
+		       d.donation_kind, d.donation_type, d.amount,
 		       'IQD'::text AS currency,
 		       d.payment_status, d.delivery_status, d.payment_method, d.transaction_date
 		  FROM donations d
@@ -451,7 +562,7 @@ func (s *Store) AdminList(ctx context.Context, page, perPage int, q string) (*Ad
 		var r AdminListRow
 		if err := rows.Scan(&r.ID, &r.ReferenceNumber, &r.UserID, &r.DonorPhone, &r.DonorFullName,
 			&r.CampaignID, &r.CampaignTitle,
-			&r.DonationKind, &r.Amount, &r.Currency,
+			&r.DonationKind, &r.DonationType, &r.Amount, &r.Currency,
 			&r.PaymentStatus, &r.DeliveryStatus, &r.PaymentMethod, &r.TransactionDate); err != nil {
 			return nil, err
 		}

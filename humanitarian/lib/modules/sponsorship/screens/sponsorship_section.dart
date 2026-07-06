@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_campaign_donations_screen.dart';
+import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_entitlements_screen.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_my_projects_screen.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_pending_projects_screen.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_submit_project_screen.dart';
@@ -17,7 +18,7 @@ class SponsorshipSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final isBeneficiary = sharedPreferences.getString('role_id') == '2';
     return SectionScaffold(
-      title: isBeneficiary ? 'Recipient support' : 'Kafala Support',
+      title: isBeneficiary ? 'Eligible support' : 'Kafala Support',
       subtitle: isBeneficiary
           ? 'Submit help requests and track admin review in one place.'
           : 'Monitor sponsorship plans, your submitted projects, and stories.',
@@ -77,6 +78,14 @@ class _BeneficiarySupportList extends StatelessWidget {
           subtitle: 'Send a project request with budget, location, and needs.',
           color: Colors.deepPurple,
           onTap: () => Get.to(() => const BeneficiarySubmitProjectScreen()),
+        ),
+        const SizedBox(height: 12),
+        SectionTile(
+          icon: Icons.card_giftcard_rounded,
+          title: 'My entitlements',
+          subtitle: 'Sponsorships supporting you and your next support date.',
+          color: Colors.pinkAccent,
+          onTap: () => Get.to(() => const BeneficiaryEntitlementsScreen()),
         ),
         const SizedBox(height: 12),
         SectionTile(
@@ -159,24 +168,6 @@ class _SponsorshipList extends StatelessWidget {
           subtitle: 'See updates, family needs, and sponsorship history.',
           color: Colors.amber,
           onTap: () => Get.to(() => const OrphanFamilyProfilesScreen()),
-        ),
-        const SizedBox(height: 12),
-        SectionTile(
-          icon: Icons.upload_file_rounded,
-          title: 'Submit project for help',
-          subtitle:
-              'Propose a new initiative (e.g. water for all): title, budget, details.',
-          color: Colors.deepPurple,
-          onTap: () => Get.to(() => const BeneficiarySubmitProjectScreen()),
-        ),
-        const SizedBox(height: 12),
-        SectionTile(
-          icon: Icons.dashboard_customize_rounded,
-          title: 'My projects',
-          subtitle:
-              'See each request’s status (pending, success, or failed), who liked it, and comments.',
-          color: Colors.indigo,
-          onTap: () => Get.to(() => const BeneficiaryMyProjectsScreen()),
         ),
       ],
     );

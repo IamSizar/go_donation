@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import RowDeleteButton from '../components/RowDeleteButton'
 import { Link } from 'react-router-dom'
 import ExportCsvButton from '../components/ExportCsvButton'
@@ -53,16 +53,24 @@ const EDITABLE_PRODUCT_STATUSES = PRODUCT_STATUSES.filter((s) => s !== 'all')
 const ORDER_STATUSES = ['all', 'pending', 'approved', 'processing', 'completed', 'cancelled']
 const EDITABLE_ORDER_STATUSES = ORDER_STATUSES.filter((s) => s !== 'all')
 
+// #28 — fixed set of product badges (must match backend marketplaceLabels).
+const PRODUCT_LABELS = ['new', 'sale', 'featured', 'used', 'in_stock']
+
+type MarketCategory = { slug: string; name_en: string }
+
 const PRODUCT_FIELDS: FieldSpec[] = [
   { key: 'name',                label: 'Name (EN)', labelKey: 'field.name_en',          type: 'text',     required: true },
   { key: 'name_ar',             label: 'Name (AR)', labelKey: 'field.name_ar',          type: 'text',     dir: 'rtl' },
   { key: 'name_sorani',         label: 'Name (Sorani)', labelKey: 'field.name_sorani',      type: 'text',     dir: 'rtl' },
   { key: 'name_badini',         label: 'Name (Badini)', labelKey: 'field.name_badini',      type: 'text',     dir: 'rtl' },
   { key: 'category',            label: 'Category', labelKey: 'field.category',           type: 'text' },
+  { key: 'sku',                 label: 'SKU', labelKey: 'field.sku',                 type: 'text' },
   { key: 'status',              label: 'Status', labelKey: 'field.status',             type: 'select',   options: EDITABLE_PRODUCT_STATUSES },
   { key: 'price',               label: 'Price', labelKey: 'field.price',              type: 'number' },
   { key: 'currency',            label: 'Currency', labelKey: 'field.currency',           type: 'text',     placeholder: 'IQD' },
   { key: 'stock_quantity',      label: 'Stock quantity', labelKey: 'field.stock_quantity',     type: 'number' },
+  { key: 'labels',              label: 'Labels', labelKey: 'field.labels',             type: 'multiselect', full: true, options: PRODUCT_LABELS },
+  { key: 'specs',               label: 'Specs', labelKey: 'field.specs',              type: 'textarea', rows: 3, full: true, placeholder: 'One "Key: Value" per line' },
   { key: 'image_path',          label: 'Image', labelKey: 'field.image',              type: 'file', full: true },
   { key: 'description',         label: 'Description (EN)', labelKey: 'field.description_en',   type: 'textarea', rows: 3 },
   { key: 'description_ar',      label: 'Description (AR)', labelKey: 'field.description_ar',   type: 'textarea', rows: 3, dir: 'rtl' },
@@ -73,7 +81,7 @@ const PRODUCT_FIELDS: FieldSpec[] = [
 // Create form adds optional seller/case linkage at the top.
 const PRODUCT_CREATE_FIELDS: FieldSpec[] = [
   { key: 'seller_user_id',       label: 'Seller user ID', labelKey: 'field.seller_user_id',       type: 'number' },
-  { key: 'beneficiary_case_id',  label: 'Recipient case ID', labelKey: 'field.beneficiary_case_id',  type: 'number' },
+  { key: 'beneficiary_case_id',  label: 'Eligible case ID', labelKey: 'field.beneficiary_case_id',  type: 'number' },
   ...PRODUCT_FIELDS,
 ]
 
@@ -133,6 +141,33 @@ function ProductsTab() {
   const statusLabel = useStatusLabel()
   const sel = useSelection<Product>((p) => p.id)
   const highlight = useHighlightedRow()
+  const [categories, setCategories] = useState<MarketCategory[]>([]) // #28
+
+  // #28 — load marketplace categories for the product form's category dropdown.
+  useEffect(() => {
+    let cancelled = false
+    api
+      .get<{ items: MarketCategory[] }>('/api/admin/marketplace/categories')
+      .then((res) => { if (!cancelled) setCategories(res.data.items ?? []) })
+      .catch(() => { if (!cancelled) setCategories([]) })
+    return () => { cancelled = true }
+  }, [])
+
+  const productFields = useMemo<FieldSpec[]>(() => {
+    const catField: FieldSpec = {
+      key: 'category_slug', label: 'Category', labelKey: 'field.category',
+      type: 'select', options: ['', ...categories.map((c) => c.slug)],
+    }
+    const out = [...PRODUCT_FIELDS]
+    const at = out.findIndex((f) => f.key === 'category')
+    out.splice(at + 1, 0, catField)
+    return out
+  }, [categories])
+
+  const productCreateFields = useMemo<FieldSpec[]>(
+    () => [PRODUCT_CREATE_FIELDS[0], PRODUCT_CREATE_FIELDS[1], ...productFields],
+    [productFields],
+  )
 
   useEffect(() => {
     let cancelled = false
@@ -346,7 +381,7 @@ function ProductsTab() {
         mode={creating ? 'create' : 'edit'}
         title={creating ? t('common.modal_new', { noun: t('noun.product') }) : editing ? t('common.modal_edit', { noun: t('noun.product'), id: editing.id }) : ''}
         initial={creating ? {} : (editing as unknown as Record<string, unknown> ?? {})}
-        fields={creating ? PRODUCT_CREATE_FIELDS : PRODUCT_FIELDS}
+        fields={creating ? productCreateFields : productFields}
         onSave={(data) => (creating ? handleCreate(data) : handleSave(editing!.id, data))}
         onClose={closeModal}
       />

@@ -109,6 +109,26 @@ const String myDonationsHistoryUrl = '${baseUrl}donate/my_donations';
 const String submitBeneficiaryProjectUrl =
     '${baseUrl}beneficiary_project_requests/';
 
+/// GET: admin-managed project categories for the submit-project dropdown (#17).
+const String projectCategoriesUrl = '${baseUrl}project-categories';
+
+/// GET: admin-managed donation payment methods for the donate screen (#19).
+const String paymentMethodsUrl = '${baseUrl}payment-methods';
+
+/// GET: admin-managed "Our Work" categories for the News & Activities filter (#22).
+const String mediaCategoriesUrl = '${baseUrl}media-categories';
+
+/// GET: admin-managed marketplace product categories (#28).
+const String marketplaceCategoriesUrl = '${baseUrl}marketplace/categories';
+
+/// #27 — rate a partner (authed).
+String partnerRateUrl(int partnerId) => '${baseUrl}partners/$partnerId/rate';
+
+/// #24 — media post engagement endpoints (authed).
+String mediaLikeUrl(int postId) => '${baseUrl}media/$postId/like';
+String mediaCommentsUrl(int postId) => '${baseUrl}media/$postId/comments';
+String mediaShareUrl(int postId) => '${baseUrl}media/$postId/share';
+
 const String communityDirectoryUrl = '${baseUrl}community/';
 const String beneficiaryCampaignDonationsUrl = '${baseUrl}beneficiary/campaign-donations';
 

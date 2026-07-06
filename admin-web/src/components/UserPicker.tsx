@@ -40,8 +40,8 @@ type AdminUsersResp = {
 }
 
 const ROLE_LABEL: Record<number, string> = {
-  1: 'Contributor',
-  2: 'Recipient',
+  1: 'Grantor',
+  2: 'Eligible',
   3: 'Volunteer',
 }
 

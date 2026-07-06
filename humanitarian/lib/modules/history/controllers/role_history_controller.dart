@@ -121,7 +121,7 @@ class RoleHistoryController extends GetxController
   String get title => switch (role.value) {
         'donor' => 'Contribution history',
         'volunteer' => 'Volunteer history',
-        'beneficiary' => 'Recipient history',
+        'beneficiary' => 'Beneficiary history'.tr,
         _ => 'My history',
       };
 

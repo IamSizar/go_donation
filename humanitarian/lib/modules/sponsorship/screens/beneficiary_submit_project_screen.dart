@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
+import 'package:flutter_application_1/api/project_categories_api.dart';
 import 'package:flutter_application_1/modules/sponsorship/controllers/beneficiary_submit_project_controller.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
@@ -20,6 +21,11 @@ class _BeneficiarySubmitProjectScreenState
   final _formKey = GlobalKey<FormState>();
 
   late final BeneficiarySubmitProjectController _submitController;
+
+  // #17 — admin-managed project categories for the dropdown (empty = free-text
+  // fallback while loading or offline).
+  List<ProjectCategory> _categories = const [];
+  ProjectCategory? _selectedCategory;
 
   final _titleController = TextEditingController();
   final _categoryController = TextEditingController();
@@ -46,10 +52,68 @@ class _BeneficiarySubmitProjectScreenState
     super.initState();
     _submitController = Get.put(BeneficiarySubmitProjectController());
     _peopleAffectedController.addListener(_onPeopleAffectedChanged);
+    _loadCategories();
+  }
+
+  Future<void> _loadCategories() async {
+    final cats = await fetchProjectCategories();
+    if (!mounted) return;
+    setState(() => _categories = cats);
   }
 
   void _onPeopleAffectedChanged() {
     if (mounted) setState(() {});
+  }
+
+  // #17 — CMS-fed category dropdown; graceful free-text fallback while loading
+  // or when the list is empty/offline so the form is always usable.
+  Widget _buildCategoryField(BuildContext context) {
+    if (_categories.isEmpty) {
+      return TextFormField(
+        controller: _categoryController,
+        textInputAction: TextInputAction.next,
+        style: TextStyle(color: AppThemeConfig.text(context)),
+        decoration: _fieldDecoration(
+          context,
+          hintText: 'e.g. Water, Health, Education, Shelter',
+          icon: Icons.category_rounded,
+        ),
+        validator: (v) {
+          if (v == null || v.trim().isEmpty) {
+            return 'Enter a category'.tr;
+          }
+          return null;
+        },
+      );
+    }
+    return DropdownButtonFormField<ProjectCategory>(
+      initialValue: _selectedCategory,
+      isExpanded: true,
+      style: TextStyle(color: AppThemeConfig.text(context)),
+      decoration: _fieldDecoration(
+        context,
+        hintText: 'Select a category',
+        icon: Icons.category_rounded,
+      ),
+      hint: Text(
+        'Select a category'.tr,
+        style: TextStyle(color: AppThemeConfig.mutedText(context)),
+      ),
+      items: [
+        for (final c in _categories)
+          DropdownMenuItem<ProjectCategory>(
+            value: c,
+            child: Text(c.localizedName),
+          ),
+      ],
+      onChanged: (c) {
+        setState(() {
+          _selectedCategory = c;
+          _categoryController.text = c?.localizedName ?? '';
+        });
+      },
+      validator: (v) => v == null ? 'Enter a category'.tr : null,
+    );
   }
 
   void _clearForm() {
@@ -249,22 +313,7 @@ class _BeneficiarySubmitProjectScreenState
                   const SizedBox(height: 14),
                   _LabeledField(
                     label: 'Category / type',
-                    child: TextFormField(
-                      controller: _categoryController,
-                      textInputAction: TextInputAction.next,
-                      style: TextStyle(color: AppThemeConfig.text(context)),
-                      decoration: _fieldDecoration(
-                        context,
-                        hintText: 'e.g. Water, Health, Education, Shelter',
-                        icon: Icons.category_rounded,
-                      ),
-                      validator: (v) {
-                        if (v == null || v.trim().isEmpty) {
-                          return 'Enter a category'.tr;
-                        }
-                        return null;
-                      },
-                    ),
+                    child: _buildCategoryField(context),
                   ),
                   const SizedBox(height: 14),
                   _LabeledField(
@@ -417,7 +466,7 @@ class _BeneficiarySubmitProjectScreenState
                   ),
                   const SizedBox(height: 14),
                   _LabeledField(
-                    label: 'Recipient or community name',
+                    label: 'Beneficiary or community name'.tr,
                     child: TextFormField(
                       controller: _beneficiaryNameController,
                       textInputAction: TextInputAction.next,

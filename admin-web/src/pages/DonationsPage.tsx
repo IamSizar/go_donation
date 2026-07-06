@@ -34,6 +34,7 @@ const DONATION_CSV_COLUMNS: CsvColumn<DonationAdminRow>[] = [
   { header: 'payment_status', get: (d) => paymentStatusLabel(d.payment_status) },
   { header: 'delivery_status', get: (d) => d.delivery_status },
   { header: 'payment_method', get: (d) => d.payment_method },
+  { header: 'donation_type', get: (d) => d.donation_type },
   { header: 'transaction_date', get: (d) => d.transaction_date },
 ]
 
@@ -50,6 +51,7 @@ function paymentLabelToCode(label: string): number {
 }
 
 const DONATION_KINDS = ['general', 'campaign', 'sponsorship', 'in_kind', 'operational']
+const DONATION_TYPES = ['general', 'zakat', 'sadaqah']
 
 const DONATION_FIELDS: FieldSpec[] = [
   { key: 'reference_number', label: 'Reference #', labelKey: 'field.reference',    type: 'text' },
@@ -57,12 +59,13 @@ const DONATION_FIELDS: FieldSpec[] = [
   { key: 'payment_method',   label: 'Payment method', labelKey: 'field.payment_method', type: 'text', required: true },
   { key: 'payment_status',   label: 'Payment', labelKey: 'field.payment',        type: 'select', options: PAYMENT_LABELS },
   { key: 'delivery_status',  label: 'Delivery', labelKey: 'field.delivery',       type: 'select', options: DELIVERY_STATUSES },
+  { key: 'donation_type',    label: 'Type', labelKey: 'field.donation_type',   type: 'select', options: DONATION_TYPES },
   { key: 'message',          label: 'Message', labelKey: 'field.message',        type: 'textarea', rows: 3, required: true },
   { key: 'impact_note',      label: 'Impact note', labelKey: 'field.impact_note',    type: 'textarea', rows: 3 },
 ]
 
 const DONATION_CREATE_FIELDS: FieldSpec[] = [
-  { key: 'user_id',       label: 'Contributor user ID', labelKey: 'field.donor_user_id',     type: 'number', required: true },
+  { key: 'user_id',       label: 'Grantor user ID', labelKey: 'field.donor_user_id',     type: 'number', required: true },
   { key: 'campaign_id',   label: 'Campaign ID', labelKey: 'field.campaign_id',       type: 'number' },
   { key: 'donation_kind', label: 'Kind', labelKey: 'field.kind',              type: 'select', options: DONATION_KINDS },
   ...DONATION_FIELDS,
@@ -244,6 +247,7 @@ export default function DonationsPage() {
       ),
     },
     { key: 'method', header: t('col.method'), cell: (d) => d.payment_method || <span className="muted">—</span> },
+    { key: 'type', header: t('col.type'), cell: (d) => <span className="muted">{d.donation_type || '—'}</span> },
     {
       key: 'date',
       header: t('col.date'),

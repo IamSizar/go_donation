@@ -10,6 +10,7 @@ import 'package:get/get.dart';
 
 import 'edit_profile.dart';
 import '../../../localization/locale_service.dart';
+import 'package:flutter_application_1/modules/legal/screens/terms_screen.dart';
 
 const Color _profilePrimary = Color(0xFF0F766E);
 const Color _profilePrimaryDark = Color(0xFF115E59);
@@ -126,9 +127,9 @@ class _ProfileSectionState extends State<ProfileSection> {
   String? _roleLabel() {
     switch (sharedPreferences.getString('role_id')) {
       case '1':
-        return 'Contributor';
+        return 'Donor'.tr;
       case '2':
-        return 'Recipient';
+        return 'Beneficiary'.tr;
       case '3':
         return 'Volunteer';
       default:
@@ -238,11 +239,35 @@ class _ProfileSectionState extends State<ProfileSection> {
                   ),
 
                   const SizedBox(height: 22),
+                  _SectionLabel('Services'.tr),
+                  const SizedBox(height: 10),
+                  _ProfileOptionTile(
+                    icon: Icons.apps_rounded,
+                    title: 'Services',
+                    subtitle: 'Requests, forms, partners, support, and more.',
+                    color: Colors.deepPurple,
+                    // #6 — Services moved off the bottom nav; open its section
+                    // (index 8) which stays reachable via dashboardTabNotifier.
+                    onTap: () => dashboardTabNotifier.value = 8,
+                  ),
+
+                  const SizedBox(height: 22),
                   _SectionLabel('Preferences'.tr),
                   const SizedBox(height: 10),
                   const _LanguagePreferenceCard(),
                   const SizedBox(height: 12),
                   const _ThemePreferenceCard(),
+
+                  const SizedBox(height: 22),
+                  _SectionLabel('Legal'.tr),
+                  const SizedBox(height: 10),
+                  _ProfileOptionTile(
+                    icon: Icons.description_rounded,
+                    title: 'Terms & Conditions',
+                    subtitle: 'Read the terms that apply to using the app.',
+                    color: Colors.blueGrey,
+                    onTap: () => Get.to(() => const TermsScreen()),
+                  ),
 
                   const SizedBox(height: 24),
                   _LogoutTile(
@@ -605,16 +630,18 @@ class _ProfileOptionTile extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.color,
+    this.onTap,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
   final Color color;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return _ProfileCard(
+    final Widget card = _ProfileCard(
       child: Row(
         children: [
           Container(
@@ -660,6 +687,13 @@ class _ProfileOptionTile extends StatelessWidget {
         ],
       ),
     );
+    return onTap == null
+        ? card
+        : GestureDetector(
+            onTap: onTap,
+            behavior: HitTestBehavior.opaque,
+            child: card,
+          );
   }
 }
 

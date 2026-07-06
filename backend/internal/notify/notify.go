@@ -212,6 +212,46 @@ func (n *Notifier) Broadcast(ctx context.Context, roleID int, m LocalizedMessage
 	return sent, nil
 }
 
+// BroadcastToStaff sends a notification to every active STAFF member — the
+// dashboard operators who review submissions. Staff are identified by is_admin=1
+// or a staff staff_tier (super_admin/admin/supervisor/employee), NOT by role_id
+// (role_id is the app-side role: donor/beneficiary/volunteer). Use this for
+// "new X needs review" alerts so they land on the admin dashboard bell.
+// Best-effort: individual send failures are logged, not fatal.
+func (n *Notifier) BroadcastToStaff(ctx context.Context, m LocalizedMessage) (int, error) {
+	rows, err := n.Pool.Query(ctx,
+		`SELECT id FROM users
+		  WHERE active = 1
+		    AND (is_admin = 1
+		         OR staff_tier IN ('super_admin','admin','supervisor','employee'))`)
+	if err != nil {
+		return 0, err
+	}
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			rows.Close()
+			return 0, err
+		}
+		ids = append(ids, id)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+
+	sent := 0
+	for _, uid := range ids {
+		if newID, err := n.Send(ctx, uid, m); err != nil {
+			log.Printf("[notify] staff broadcast send user=%d failed: %v", uid, err)
+		} else if newID > 0 {
+			sent++
+		}
+	}
+	return sent, nil
+}
+
 // NotifyUser is kept for back-compat with EN+AR callsites in extras.go,
 // beneficiary.go, marketplace.go that haven't been migrated to Send yet.
 // New code should use Send(LocalizedMessage) instead.

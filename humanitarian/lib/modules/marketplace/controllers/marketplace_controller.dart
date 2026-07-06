@@ -5,6 +5,7 @@ import 'package:flutter_application_1/core/app_haptics.dart';
 import 'package:flutter_application_1/core/app_sound.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/realtime_polling.dart';
+import 'package:flutter_application_1/localization/locale_service.dart';
 import 'package:get/get.dart';
 
 class MarketplaceController extends GetxController
@@ -18,6 +19,7 @@ class MarketplaceController extends GetxController
   final isCheckingOut = false.obs;
   final hasMoreProducts = true.obs;
   final products = <Map<String, dynamic>>[].obs;
+  final categories = <Map<String, dynamic>>[].obs; // #28
   final orders = <Map<String, dynamic>>[].obs;
   final cartQuantities = <int, int>{}.obs;
   final errorMessage = RxnString();
@@ -31,6 +33,7 @@ class MarketplaceController extends GetxController
   void onInit() {
     super.onInit();
     fetchProducts(reset: true);
+    fetchCategories(); // #28
     fetchOrders();
     // Only orders need real-time updates; products refresh on manual
     // pull-to-refresh. Polling orders alone keeps the request volume low.
@@ -273,6 +276,42 @@ class MarketplaceController extends GetxController
     } finally {
       isCheckingOut.value = false;
     }
+  }
+
+  // #28 — best-effort category load for name lookup; feed still works without.
+  Future<void> fetchCategories() async {
+    try {
+      categories.assignAll(await const ModuleApi().marketplaceCategories());
+    } catch (_) {
+      categories.clear();
+    }
+  }
+
+  String localizedCategoryName(Map<String, dynamic> cat) {
+    const byLang = {
+      'en': 'name_en',
+      'ar': 'name_ar',
+      'ckb': 'name_ckb',
+      'kmr': 'name_kmr',
+    };
+    final key = byLang[AppLocaleService.assistantLang()] ?? 'name_en';
+    final v = (cat[key] ?? '').toString().trim();
+    if (v.isNotEmpty) return v;
+    return (cat['name_en'] ?? '').toString();
+  }
+
+  /// Localized category name for a product: prefers its category_slug (CMS),
+  /// falls back to the legacy free-text category.
+  String categoryLabel(Map<String, dynamic> product) {
+    final slug = (product['category_slug'] ?? '').toString();
+    if (slug.isNotEmpty) {
+      for (final cat in categories) {
+        if ((cat['slug'] ?? '').toString() == slug) {
+          return localizedCategoryName(cat);
+        }
+      }
+    }
+    return (product['category'] ?? '').toString();
   }
 
   int? _productId(dynamic value) {

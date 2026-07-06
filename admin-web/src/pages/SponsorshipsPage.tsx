@@ -43,7 +43,7 @@ const SPONSORSHIP_FIELDS: FieldSpec[] = [
 ]
 
 const SPONSORSHIP_CREATE_FIELDS: FieldSpec[] = [
-  { key: 'donor_user_id', label: 'Contributor user ID (optional)', labelKey: 'field.donor_user_id_optional', type: 'number' },
+  { key: 'donor_user_id', label: 'Grantor user ID (optional)', labelKey: 'field.donor_user_id_optional', type: 'number' },
   ...SPONSORSHIP_FIELDS,
 ]
 

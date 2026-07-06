@@ -43,6 +43,7 @@ export type DonationAdminRow = {
   campaign_id: number | null
   campaign_title: string | null
   donation_kind: string
+  donation_type: string
   amount: string
   currency: string
   payment_status: number
@@ -269,6 +270,22 @@ export type Product = {
   image_path: string | null
   stock_quantity: number | null
   status: string
+  // #28 — CMS category + SKU + specs + labels.
+  category_slug: string | null
+  sku: string | null
+  specs: string | null
+  labels: string[] | null
+}
+
+export type MarketplaceCategory = {
+  id: number
+  slug: string
+  name_en: string
+  name_ar: string
+  name_ckb: string
+  name_kmr: string
+  display_order: number
+  active: boolean
 }
 
 export type MarketOrder = {
@@ -316,6 +333,16 @@ export type Partner = {
   description_badini: string | null
   logo_path: string | null
   status: string
+  // #26 — contact + location.
+  email: string | null
+  social_links: string | null
+  location: string | null
+  location_ar: string | null
+  location_sorani: string | null
+  location_badini: string | null
+  // #27 — rating aggregate.
+  avg_rating: number | null
+  rating_count: number
 }
 
 export type MediaPost = {
@@ -334,6 +361,14 @@ export type MediaPost = {
   event_date: string | null
   status: string
   created_at: string
+  // #22 — "Our Work" category tag.
+  category_slug: string | null
+  // #23 — 4-language location + media gallery.
+  location: string | null
+  location_ar: string | null
+  location_sorani: string | null
+  location_badini: string | null
+  gallery: string[] | null
 }
 
 export type CommunityEntry = {

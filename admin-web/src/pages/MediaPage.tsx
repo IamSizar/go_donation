@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import RowDeleteButton from '../components/RowDeleteButton'
 import { Link } from 'react-router-dom'
 import ExportCsvButton from '../components/ExportCsvButton'
@@ -35,7 +35,11 @@ const EDITABLE_STATUSES = STATUSES.filter((s) => s !== 'all')
 const POST_TYPES = ['', 'news', 'activity', 'event', 'article', 'video', 'marriage']
 const EDITABLE_POST_TYPES = POST_TYPES.filter((t) => t !== '')
 
-const MEDIA_FIELDS: FieldSpec[] = [
+type MediaCategory = { slug: string; name_en: string }
+
+// Static part of the media edit form. The category select is injected at
+// render time (its options come from the media-categories CMS, #22).
+const MEDIA_BASE_FIELDS: FieldSpec[] = [
   { key: 'title',         label: 'Title (EN)', labelKey: 'field.title_en',         type: 'text',     required: true },
   { key: 'title_ar',      label: 'Title (AR)', labelKey: 'field.title_ar',         type: 'text',     dir: 'rtl' },
   { key: 'title_sorani',  label: 'Title (Sorani)', labelKey: 'field.title_sorani',     type: 'text',     dir: 'rtl' },
@@ -43,8 +47,13 @@ const MEDIA_FIELDS: FieldSpec[] = [
   { key: 'post_type',     label: 'Type', labelKey: 'field.type',               type: 'select',   options: EDITABLE_POST_TYPES },
   { key: 'status',        label: 'Status', labelKey: 'field.status',             type: 'select',   options: EDITABLE_STATUSES },
   { key: 'media_url',     label: 'Media', labelKey: 'field.media',              type: 'file', full: true },
+  { key: 'gallery',       label: 'Gallery', labelKey: 'field.gallery',            type: 'gallery', full: true },
   { key: 'link_url',      label: 'Link URL', labelKey: 'field.link_url',           type: 'text' },
   { key: 'event_date',    label: 'Event date', labelKey: 'field.event_date',         type: 'text',     placeholder: 'YYYY-MM-DD' },
+  { key: 'location',        label: 'Location (EN)', labelKey: 'field.location',         type: 'text' },
+  { key: 'location_ar',     label: 'Location (AR)', labelKey: 'field.location_ar',      type: 'text', dir: 'rtl' },
+  { key: 'location_sorani', label: 'Location (Sorani)', labelKey: 'field.location_sorani',  type: 'text', dir: 'rtl' },
+  { key: 'location_badini', label: 'Location (Badini)', labelKey: 'field.location_badini',  type: 'text', dir: 'rtl' },
   { key: 'body',          label: 'Body (EN)', labelKey: 'field.body_en',          type: 'textarea', rows: 4 },
   { key: 'body_ar',       label: 'Body (AR)', labelKey: 'field.body_ar',          type: 'textarea', rows: 4, dir: 'rtl' },
   { key: 'body_sorani',   label: 'Body (Sorani)', labelKey: 'field.body_sorani',      type: 'textarea', rows: 4, dir: 'rtl' },
@@ -62,6 +71,7 @@ export default function MediaPage() {
   const [creating, setCreating] = useState(false)
   const [deleting, setDeleting] = useState<MediaPost | null>(null)
   const [refreshTick, setRefreshTick] = useState(0)
+  const [categories, setCategories] = useState<MediaCategory[]>([])
   const toast = useToast()
   const { t } = useI18n()
   const statusLabel = useStatusLabel()
@@ -84,6 +94,32 @@ export default function MediaPage() {
       })
     return () => { cancelled = true }
   }, [status, postType, q, refreshTick])
+
+  // #22 — load the "Our Work" categories so the post form can offer them as a
+  // dropdown. Best-effort: on failure the category select just shows "none".
+  useEffect(() => {
+    let cancelled = false
+    api
+      .get<{ items: MediaCategory[] }>('/api/admin/media-categories')
+      .then((res) => { if (!cancelled) setCategories(res.data.items ?? []) })
+      .catch(() => { if (!cancelled) setCategories([]) })
+    return () => { cancelled = true }
+  }, [])
+
+  const mediaFields = useMemo<FieldSpec[]>(() => {
+    const categoryField: FieldSpec = {
+      key: 'category_slug',
+      label: 'Category',
+      labelKey: 'field.category',
+      type: 'select',
+      options: ['', ...categories.map((c) => c.slug)],
+    }
+    // Insert the category select right after the post-type field.
+    const out = [...MEDIA_BASE_FIELDS]
+    const at = out.findIndex((f) => f.key === 'post_type')
+    out.splice(at + 1, 0, categoryField)
+    return out
+  }, [categories])
 
   const trimDate = (p: Record<string, unknown>): Record<string, unknown> => {
     const out = { ...p }
@@ -289,7 +325,7 @@ export default function MediaPage() {
         mode={creating ? 'create' : 'edit'}
         title={creating ? t('common.modal_new', { noun: t('noun.media_post') }) : editing ? t('common.modal_edit', { noun: t('noun.media_post'), id: editing.id }) : ''}
         initial={creating ? {} : (editing as unknown as Record<string, unknown> ?? {})}
-        fields={MEDIA_FIELDS}
+        fields={mediaFields}
         onSave={(data) => (creating ? handleCreate(data) : handleSave(editing!.id, data))}
         onClose={closeModal}
       />

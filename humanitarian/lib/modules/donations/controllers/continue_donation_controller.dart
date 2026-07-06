@@ -16,6 +16,7 @@ class ContinueDonationController extends GetxController {
     String? message,
     required int amount,
     required String paymentMethod,
+    String donationType = 'general',
   }) async {
     if (isSubmitting.value) {
       return 'Please wait'.tr;
@@ -38,6 +39,7 @@ class ContinueDonationController extends GetxController {
       final body = <String, String>{
         'amount': amount.toString(),
         'payment_method': paymentMethod,
+        'donation_type': donationType,
       };
       final token = apiAuthTokenFieldValue();
       if (token != null && token.isNotEmpty) {

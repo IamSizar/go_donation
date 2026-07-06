@@ -13,6 +13,7 @@ import (
 
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
 	"github.com/karam-flutter/humanitarian-backend/internal/notify"
+	"github.com/karam-flutter/humanitarian-backend/internal/sectioncodes"
 	"github.com/karam-flutter/humanitarian-backend/internal/volunteers"
 )
 
@@ -29,6 +30,10 @@ import (
 type AdminCreateHandler struct {
 	Pool     *pgxpool.Pool
 	Notifier *notify.Notifier // Phase 18 — broadcast to all users on partner/media create.
+	// Codes issues per-section transaction-code namespaces (#14). Optional: when
+	// nil, admin-created donations keep the legacy behaviour (NULL reference when
+	// the admin doesn't supply one).
+	Codes *sectioncodes.Store
 }
 
 func NewAdminCreateHandler(pool *pgxpool.Pool, n *notify.Notifier) *AdminCreateHandler {
@@ -118,14 +123,18 @@ func (h *AdminCreateHandler) Partner(c *gin.Context) {
 	err := h.Pool.QueryRow(c.Request.Context(), `
 		INSERT INTO partners
 		  (name, name_ar, name_sorani, name_badini, partner_type, contact_phone, website,
-		   description, description_ar, description_sorani, description_badini, logo_path, status)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+		   description, description_ar, description_sorani, description_badini, logo_path, status,
+		   email, social_links, location, location_ar, location_sorani, location_badini)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
 		RETURNING id`,
 		name,
 		optStringOrNil(req.NameAr), optStringOrNil(req.NameSorani), optStringOrNil(req.NameBadini),
 		optStringOrNil(req.PartnerType), optStringOrNil(req.ContactPhone), optStringOrNil(req.Website),
 		optStringOrNil(req.Description), optStringOrNil(req.DescriptionAr), optStringOrNil(req.DescriptionSorani),
 		optStringOrNil(req.DescriptionBadini), optStringOrNil(req.LogoPath), status,
+		optStringOrNil(req.Email), optStringOrNil(req.SocialLinks), // #26
+		optStringOrNil(req.Location), optStringOrNil(req.LocationAr),
+		optStringOrNil(req.LocationSorani), optStringOrNil(req.LocationBadini),
 	).Scan(&id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
@@ -189,17 +198,25 @@ func (h *AdminCreateHandler) Media(c *gin.Context) {
 	}
 	createdBy := adminUserID(c)
 	var id int64
+	gallery := []string{} // #23 — empty array (not NULL) when none supplied
+	if req.Gallery != nil {
+		gallery = cleanStringSlice(*req.Gallery)
+	}
 	err := h.Pool.QueryRow(c.Request.Context(), `
 		INSERT INTO media_posts
 		  (title, title_ar, title_sorani, title_badini,
 		   body, body_ar, body_sorani, body_badini,
-		   post_type, media_url, link_url, event_date, status, created_by_user_id)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+		   post_type, media_url, link_url, event_date, status, created_by_user_id,
+		   category_slug, location, location_ar, location_sorani, location_badini, gallery)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
 		RETURNING id`,
 		title,
 		optStringOrNil(req.TitleAr), optStringOrNil(req.TitleSorani), optStringOrNil(req.TitleBadini),
 		optStringOrNil(req.Body), optStringOrNil(req.BodyAr), optStringOrNil(req.BodySorani), optStringOrNil(req.BodyBadini),
 		postType, optStringOrNil(req.MediaURL), optStringOrNil(req.LinkURL), eventDate, status, nullableInt(createdBy),
+		optStringOrNil(req.CategorySlug), // #22
+		optStringOrNil(req.Location), optStringOrNil(req.LocationAr), // #23
+		optStringOrNil(req.LocationSorani), optStringOrNil(req.LocationBadini), gallery,
 	).Scan(&id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
@@ -609,6 +626,15 @@ type productCreateReq struct {
 	BeneficiaryCaseID *int `json:"beneficiary_case_id"`
 }
 
+// productLabels normalizes the optional labels array to a non-nil, sanitized
+// slice (empty → an empty Postgres array, never NULL). #28.
+func productLabels(in *[]string) []string {
+	if in == nil {
+		return []string{}
+	}
+	return sanitizeLabels(*in)
+}
+
 func (h *AdminCreateHandler) MarketplaceProduct(c *gin.Context) {
 	var req productCreateReq
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -663,8 +689,9 @@ func (h *AdminCreateHandler) MarketplaceProduct(c *gin.Context) {
 		  (seller_user_id, beneficiary_case_id,
 		   name, name_ar, name_sorani, name_badini,
 		   description, description_ar, description_sorani, description_badini,
-		   category, price, currency, image_path, stock_quantity, status)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+		   category, price, currency, image_path, stock_quantity, status,
+		   category_slug, sku, specs, labels)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
 		RETURNING id`,
 		sellerID, caseID,
 		name, optStringOrNil(req.NameAr), optStringOrNil(req.NameSorani), optStringOrNil(req.NameBadini),
@@ -672,6 +699,8 @@ func (h *AdminCreateHandler) MarketplaceProduct(c *gin.Context) {
 		optStringOrNil(req.DescriptionSorani), optStringOrNil(req.DescriptionBadini),
 		optStringOrNil(req.Category), price, currency,
 		optStringOrNil(req.ImagePath), nullableIntPtr(req.StockQuantity), status,
+		optStringOrNil(req.CategorySlug), optStringOrNil(req.SKU), // #28
+		optStringOrNil(req.Specs), productLabels(req.Labels),
 	).Scan(&id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
@@ -883,6 +912,10 @@ type donationCreateReq struct {
 
 var donationKinds = []string{"general", "campaign", "sponsorship", "in_kind", "operational"}
 
+// donationTypes are the donor-facing giving types (#16/#16b), distinct from the
+// internal donation_kind routing above.
+var donationTypes = []string{"general", "zakat", "sadaqah"}
+
 func (h *AdminCreateHandler) Donation(c *gin.Context) {
 	var req donationCreateReq
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -939,14 +972,33 @@ func (h *AdminCreateHandler) Donation(c *gin.Context) {
 	if req.CampaignID != nil && *req.CampaignID > 0 {
 		campaignID = *req.CampaignID
 	}
+	// #16b — donor-facing donation type; default general, validated against the
+	// known set.
+	dtype := "general"
+	if req.DonationType != nil && strings.TrimSpace(*req.DonationType) != "" {
+		v := strings.ToLower(strings.TrimSpace(*req.DonationType))
+		if !inSet(v, donationTypes) {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid donation_type. Allowed: " + strings.Join(donationTypes, ", ")})
+			return
+		}
+		dtype = v
+	}
+	// #14 — when the admin didn't supply a reference, issue this section's next
+	// namespaced code (e.g. CAM-000042) instead of leaving it NULL.
+	var reference any = optStringOrNil(req.ReferenceNumber)
+	if (req.ReferenceNumber == nil || strings.TrimSpace(*req.ReferenceNumber) == "") && h.Codes != nil {
+		if code, ok, genErr := h.Codes.NextReference(c.Request.Context(), h.Pool, kind); genErr == nil && ok {
+			reference = code
+		}
+	}
 	var id int64
 	err := h.Pool.QueryRow(c.Request.Context(), `
 		INSERT INTO donations
-		  (reference_number, user_id, campaign_id, donation_kind, message, amount,
+		  (reference_number, user_id, campaign_id, donation_kind, donation_type, message, amount,
 		   payment_status, delivery_status, payment_method, impact_note)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
 		RETURNING id`,
-		optStringOrNil(req.ReferenceNumber), *req.UserID, campaignID, kind,
+		reference, *req.UserID, campaignID, kind, dtype,
 		message, amount, paymentStatus, deliveryStatus, paymentMethod, optStringOrNil(req.ImpactNote),
 	).Scan(&id)
 	if err != nil {

@@ -19,6 +19,7 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/campaigns"
 	"github.com/karam-flutter/humanitarian-backend/internal/chat"
 	"github.com/karam-flutter/humanitarian-backend/internal/config"
+	"github.com/karam-flutter/humanitarian-backend/internal/content"
 	"github.com/karam-flutter/humanitarian-backend/internal/dashboard"
 	"github.com/karam-flutter/humanitarian-backend/internal/db"
 	"github.com/karam-flutter/humanitarian-backend/internal/donations"
@@ -29,10 +30,19 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/inkind"
 	"github.com/karam-flutter/humanitarian-backend/internal/listings"
 	"github.com/karam-flutter/humanitarian-backend/internal/marketplace"
+	"github.com/karam-flutter/humanitarian-backend/internal/marketplacecategories"
 	"github.com/karam-flutter/humanitarian-backend/internal/marriage"
+	"github.com/karam-flutter/humanitarian-backend/internal/mediacategories"
+	"github.com/karam-flutter/humanitarian-backend/internal/moderation"
 	"github.com/karam-flutter/humanitarian-backend/internal/notify"
+	"github.com/karam-flutter/humanitarian-backend/internal/partnerratings"
+	"github.com/karam-flutter/humanitarian-backend/internal/paymentmethods"
 	"github.com/karam-flutter/humanitarian-backend/internal/permissions"
+	"github.com/karam-flutter/humanitarian-backend/internal/postengagement"
+	"github.com/karam-flutter/humanitarian-backend/internal/projectcategories"
 	"github.com/karam-flutter/humanitarian-backend/internal/reports"
+	"github.com/karam-flutter/humanitarian-backend/internal/scheduler"
+	"github.com/karam-flutter/humanitarian-backend/internal/sectioncodes"
 	"github.com/karam-flutter/humanitarian-backend/internal/sponsorships"
 	"github.com/karam-flutter/humanitarian-backend/internal/support"
 	"github.com/karam-flutter/humanitarian-backend/internal/users"
@@ -78,6 +88,8 @@ func main() {
 	userStore := users.NewStore(pool)
 	campaignStore := campaigns.NewStore(pool)
 	donationStore := donations.NewStore(pool)
+	codesStore := sectioncodes.New(pool)
+	donationStore.Codes = codesStore // #14 — per-section transaction-code namespaces
 	beneficiaryStore := beneficiary.NewStore(pool)
 	marketplaceStore := marketplace.NewStore(pool)
 	chatStore := chat.New(pool)
@@ -92,6 +104,13 @@ func main() {
 	sponsorshipsStore := sponsorships.New(pool)
 	volunteersStore := volunteers.New(pool)
 	professionStore := volunteers.NewProfessionStore(pool)
+	projectCatStore := projectcategories.New(pool)
+	mediaCatStore := mediacategories.New(pool)             // #22 — "Our Work" categories
+	postEngageStore := postengagement.New(pool)            // #24 — likes/comments/share
+	bannedWordsStore := moderation.New(pool)               // #25 — banned-words blocklist
+	partnerRatingStore := partnerratings.New(pool)         // #27 — partner ratings
+	marketplaceCatStore := marketplacecategories.New(pool) // #28 — marketplace categories
+	paymentMethodStore := paymentmethods.New(pool)
 	// Section 13 — register admin-added professions so volunteers can be
 	// tagged with them (survives restart). Best-effort; a failure just means
 	// custom skills won't validate until first added again.
@@ -101,6 +120,16 @@ func main() {
 	reportsStore := reports.New(pool)
 	dashboardStore := dashboard.New(pool)
 	historyStore := history.New(pool)
+
+	// #20 — sponsorship payment-due reminder scheduler. Off unless
+	// RUN_SCHEDULER=1, so deploys are safe until explicitly enabled. Runs in
+	// its own goroutine and exits when ctx is cancelled on shutdown.
+	if cfg.RunScheduler {
+		sched := scheduler.New(sponsorshipsStore, notifier, cfg.SchedulerInterval, cfg.ReminderDaysBefore)
+		go sched.Start(ctx)
+	} else {
+		log.Printf("[scheduler] disabled (set RUN_SCHEDULER=1 to enable reminders)")
+	}
 
 	// Where uploaded files live on disk; served back at /images/*.
 	uploadDir := "./images"
@@ -114,6 +143,15 @@ func main() {
 		log.Printf("[otp] OTPIQ enabled (provider=whatsapp-sms by default)")
 	} else {
 		log.Printf("[otp] OTPIQ disabled (OTPIQ_API_KEY not set; demo mode still works)")
+	}
+	// #15 — wire the OTPIQ custom-SMS sender into the donation store so a donation
+	// arrival can alert the section's contact (best-effort, nil-safe).
+	donationStore.SendSMS = func(ctx context.Context, phone, message string) error {
+		if otpiqClient == nil {
+			return nil
+		}
+		_, err := otpiqClient.SendMessage(ctx, phone, message)
+		return err
 	}
 	if assistantSvc.LLMEnabled() {
 		log.Printf("[assistant] AI mode enabled (LLM via ANTHROPIC_API_KEY)")
@@ -140,6 +178,7 @@ func main() {
 	adminStatusH := handlers.NewAdminStatusHandler(pool, notifier)
 	adminEditH := handlers.NewAdminEditHandler(pool)
 	adminCreateH := handlers.NewAdminCreateHandler(pool, notifier)
+	adminCreateH.Codes = codesStore // #14 — namespace admin-created donation refs too
 	adminDeleteH := handlers.NewAdminDeleteHandler(pool)
 	adminTrashH := handlers.NewAdminTrashHandler(pool)
 	adminUploadH := handlers.NewAdminUploadHandler(uploadDir)
@@ -154,8 +193,18 @@ func main() {
 	}
 	adminPermsH := handlers.NewAdminPermissionsHandler(permStore, otpStore, otpiqClient)
 	adminProfessionsH := handlers.NewAdminProfessionsHandler(professionStore)
+	projectCategoriesH := handlers.NewProjectCategoriesHandler(projectCatStore)
+	mediaCategoriesH := handlers.NewMediaCategoriesHandler(mediaCatStore)                           // #22
+	mediaEngageH := handlers.NewMediaEngagementHandler(postEngageStore, bannedWordsStore, notifier) // #24/#25
+	bannedWordsH := handlers.NewBannedWordsHandler(bannedWordsStore)                                // #25
+	partnerEngageH := handlers.NewPartnerEngagementHandler(partnerRatingStore)                      // #27
+	marketplaceCategoriesH := handlers.NewMarketplaceCategoriesHandler(marketplaceCatStore)         // #28
+	paymentMethodsH := handlers.NewPaymentMethodsHandler(paymentMethodStore)
 	guestStore := guest.New(pool)
 	guestH := handlers.NewGuestHandler(guestStore)
+	contentH := handlers.NewContentHandler(content.New(pool))
+	statsH := handlers.NewStatsHandler(pool)
+	donationCodesH := handlers.NewDonationCodesHandler(codesStore)
 	listingsH := handlers.NewListingsHandler(listingsStore)
 	usersAdminH := handlers.NewUsersAdminHandler(userStore)
 	supportH := handlers.NewSupportHandler(supportStore, notifier)
@@ -216,6 +265,18 @@ func main() {
 		// Public (no auth) so the app can read it before login.
 		api.GET("/guest/config", guestH.PublicConfig)
 		api.GET("/guest/config/", guestH.PublicConfig)
+		// #9 — public content pages (Terms & Conditions, etc.) so the app can
+		// render them before/without login.
+		api.GET("/content/:slug", contentH.PublicContent)
+		// #10 — public aggregate impact numbers for the home stats slider
+		// (grantors/eligibles/volunteers/completed works/total given). No auth.
+		api.GET("/stats/impact", statsH.ImpactStats)
+		// #17 — public project categories for the beneficiary submit-project dropdown.
+		api.GET("/project-categories", projectCategoriesH.PublicList)
+		api.GET("/media-categories", mediaCategoriesH.PublicList)             // #22
+		api.GET("/marketplace/categories", marketplaceCategoriesH.PublicList) // #28
+		// #19 — public payment methods for the donate screen.
+		api.GET("/payment-methods", paymentMethodsH.PublicList)
 
 		api.GET("/campaigns", campaignsH.List)
 		api.GET("/campaigns/", campaignsH.List)
@@ -285,6 +346,15 @@ func main() {
 			authed.POST("/profile/set/", profileH.Set)
 			authed.POST("/choose_role", chooseRoleH.Post)
 			authed.POST("/choose_role/", chooseRoleH.Post)
+
+			// #24 — media post engagement (like toggle / comment / share).
+			authed.POST("/media/:id/like", mediaEngageH.Like)
+			authed.GET("/media/:id/comments", mediaEngageH.Comments)
+			authed.POST("/media/:id/comments", mediaEngageH.Comment)
+			authed.POST("/media/:id/share", mediaEngageH.Share)
+
+			// #27 — rate a partner (1–5 stars).
+			authed.POST("/partners/:id/rate", partnerEngageH.Rate)
 
 			// Donations
 			authed.POST("/donate", donationsH.Create)
@@ -403,6 +473,9 @@ func main() {
 			admin.GET("/admin/users", perm("users", "view"), usersAdminH.List)
 			admin.GET("/admin/users/", perm("users", "view"), usersAdminH.List)
 			admin.GET("/admin/donations", perm("donations", "view"), donationsH.AdminList)
+			// #14 — per-section transaction-code namespaces (list + edit prefix).
+			admin.GET("/admin/donation-codes", perm("donations", "view"), donationCodesH.List)
+			admin.PUT("/admin/donation-codes/:kind", perm("donations", "edit"), donationCodesH.UpdatePrefix)
 			admin.GET("/admin/donations/", perm("donations", "view"), donationsH.AdminList)
 
 			// New-user registration approval queue.
@@ -604,10 +677,48 @@ func main() {
 			admin.PATCH("/admin/professions/:id", auth.RequireAdminTier(), adminProfessionsH.Update)
 			admin.POST("/admin/professions/reorder", auth.RequireAdminTier(), adminProfessionsH.Reorder)
 			admin.DELETE("/admin/professions/:id", auth.RequireAdminTier(), adminProfessionsH.Delete)
+			// #17 — project-category CMS (admin-managed, 4-language, ordered).
+			admin.GET("/admin/project-categories", projectCategoriesH.AdminList)
+			admin.POST("/admin/project-categories", auth.RequireAdminTier(), projectCategoriesH.Add)
+			admin.PATCH("/admin/project-categories/:id", auth.RequireAdminTier(), projectCategoriesH.Update)
+			admin.POST("/admin/project-categories/reorder", auth.RequireAdminTier(), projectCategoriesH.Reorder)
+			admin.DELETE("/admin/project-categories/:id", auth.RequireAdminTier(), projectCategoriesH.Delete)
+			// #19 — payment-method CMS (admin-managed, 4-language, ordered).
+			// #22 — "Our Work" media categories (writes gated to admin tier).
+			admin.GET("/admin/media-categories", mediaCategoriesH.AdminList)
+			admin.POST("/admin/media-categories", auth.RequireAdminTier(), mediaCategoriesH.Add)
+			admin.PATCH("/admin/media-categories/:id", auth.RequireAdminTier(), mediaCategoriesH.Update)
+			admin.POST("/admin/media-categories/reorder", auth.RequireAdminTier(), mediaCategoriesH.Reorder)
+			admin.DELETE("/admin/media-categories/:id", auth.RequireAdminTier(), mediaCategoriesH.Delete)
+
+			// #28 — marketplace categories (gated to the marketplace module).
+			admin.GET("/admin/marketplace/categories", perm("marketplace", "view"), marketplaceCategoriesH.AdminList)
+			admin.POST("/admin/marketplace/categories", perm("marketplace", "add"), marketplaceCategoriesH.Add)
+			admin.PATCH("/admin/marketplace/categories/:id", perm("marketplace", "edit"), marketplaceCategoriesH.Update)
+			admin.POST("/admin/marketplace/categories/reorder", perm("marketplace", "edit"), marketplaceCategoriesH.Reorder)
+			admin.DELETE("/admin/marketplace/categories/:id", perm("marketplace", "delete"), marketplaceCategoriesH.Delete)
+
+			// #25 — comment moderation queue + status change + delete.
+			admin.GET("/admin/media-comments", perm("media", "view"), mediaEngageH.AdminComments)
+			admin.POST("/admin/media-comments/:id/status", perm("media", "edit"), adminStatusH.MediaComment)
+			admin.DELETE("/admin/media-comments/:id", perm("media", "delete"), mediaEngageH.AdminDeleteComment)
+
+			// #25 — banned-words blocklist (writes gated to admin tier).
+			admin.GET("/admin/banned-words", perm("media", "view"), bannedWordsH.List)
+			admin.POST("/admin/banned-words", auth.RequireAdminTier(), bannedWordsH.Add)
+			admin.DELETE("/admin/banned-words/:id", auth.RequireAdminTier(), bannedWordsH.Delete)
+
+			admin.GET("/admin/payment-methods", paymentMethodsH.AdminList)
+			admin.POST("/admin/payment-methods", auth.RequireAdminTier(), paymentMethodsH.Add)
+			admin.PATCH("/admin/payment-methods/:id", auth.RequireAdminTier(), paymentMethodsH.Update)
+			admin.POST("/admin/payment-methods/reorder", auth.RequireAdminTier(), paymentMethodsH.Reorder)
+			admin.DELETE("/admin/payment-methods/:id", auth.RequireAdminTier(), paymentMethodsH.Delete)
 
 			// Section 27 — Guest Mode config. Super-Admin only.
 			admin.GET("/admin/guest_settings", auth.RequireSuperAdmin(), guestH.AdminList)
 			admin.POST("/admin/guest_settings", auth.RequireSuperAdmin(), guestH.Set)
+			// #9 — edit static content pages (Terms & Conditions, etc.).
+			admin.PUT("/admin/content/:slug", auth.RequireSuperAdmin(), contentH.AdminUpdateContent)
 		}
 	}
 

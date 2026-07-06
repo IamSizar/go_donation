@@ -260,6 +260,27 @@ func (h *SponsorshipsHandler) Get(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
 		return
 	}
+
+	// #21 — beneficiary "My Entitlements" view: sponsorships that benefit the
+	// caller (their case is being sponsored), rather than ones they fund.
+	if c.Query("as") == "beneficiary" {
+		if tokenUser == nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+			return
+		}
+		beneficiaryUID := uid
+		if beneficiaryUID <= 0 {
+			beneficiaryUID = tokenUser.UserID
+		}
+		items, err := h.Store.ListByBeneficiary(c.Request.Context(), beneficiaryUID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"success": true, "items": items})
+		return
+	}
+
 	limit, _ := strconv.Atoi(strings.TrimSpace(c.Query("limit")))
 	items, err := h.Store.List(c.Request.Context(), uid, c.Query("q"), limit)
 	if err != nil {
