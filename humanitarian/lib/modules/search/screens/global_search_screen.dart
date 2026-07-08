@@ -2,9 +2,38 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/module_api.dart';
+import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/localization/content_localizer.dart';
+import 'package:flutter_application_1/modules/community/screens/community_detail_screen.dart';
+import 'package:flutter_application_1/modules/donations/screens/donations_section.dart';
+import 'package:flutter_application_1/modules/marketplace/screens/marketplace_section.dart';
+import 'package:flutter_application_1/modules/proposal/screens/news_activities_screen.dart';
+import 'package:flutter_application_1/modules/proposal/screens/partners_screen.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
+
+/// #33 — route a tapped search result to the right place. A `place` opens its
+/// own detail (it carries enough data); the other types open their section
+/// screen, since the search payload only has id + name.
+void _openSearchResult(Map<String, dynamic> result) {
+  switch ((result['type'] ?? '').toString()) {
+    case 'place':
+      Get.to(() => CommunityDetailScreen(entry: result));
+      break;
+    case 'partner':
+      Get.to(() => const PartnersScreen());
+      break;
+    case 'media':
+      Get.to(() => const NewsActivitiesScreen());
+      break;
+    case 'product':
+      Get.to(() => const MarketplaceSection());
+      break;
+    case 'campaign':
+      Get.to(() => const DonationsSection());
+      break;
+  }
+}
 
 /// #33 — Global search: one box that queries the whole app (campaigns, news,
 /// products, partners, city places) and lists typed, localized results.
@@ -123,38 +152,49 @@ class _ResultTile extends StatelessWidget {
     final type = (result['type'] ?? '').toString();
     final m = meta[type];
     final name = localizedContentFromMap(result, 'name', fallback: '—');
-    return GlassPanel(
-      child: Row(
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: (m?.color ?? Colors.grey).withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(12),
+    return GestureDetector(
+      onTap: () => _openSearchResult(result),
+      child: GlassPanel(
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: (m?.color ?? Colors.grey).withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(m?.icon ?? Icons.search_rounded, color: m?.color ?? Colors.grey),
             ),
-            child: Icon(m?.icon ?? Icons.search_rounded, color: m?.color ?? Colors.grey),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  (m?.labelKey ?? type).tr,
-                  style: TextStyle(fontSize: 12, color: m?.color ?? Colors.grey),
-                ),
-              ],
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14.5,
+                      color: AppThemeConfig.text(context),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    (m?.labelKey ?? type).tr,
+                    style: TextStyle(fontSize: 12, color: m?.color ?? Colors.grey),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+            Icon(
+              Icons.chevron_right_rounded,
+              color: AppThemeConfig.mutedText(context),
+            ),
+          ],
+        ),
       ),
     );
   }

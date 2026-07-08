@@ -3,6 +3,7 @@ import RowDeleteButton from '../components/RowDeleteButton'
 import { Link } from 'react-router-dom'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError } from '../lib/api'
+import SupportWhatsappCard from '../components/SupportWhatsappCard'
 import { useLivePoll } from '../lib/useLivePoll'
 import type { AdminPageResp, AdminTicket } from '../lib/api-types'
 import Table, { type Column } from '../components/Table'
@@ -215,6 +216,7 @@ export default function SupportPage() {
           <button onClick={() => setCreating(true)}>{tr('page.support.new')}</button>
         </div>
       </div>
+      <SupportWhatsappCard />
       {err && <div className="error-box">{err}</div>}
       <HighlightBanner kind={tr('noun.support_ticket')} />
       <Table<AdminTicket>

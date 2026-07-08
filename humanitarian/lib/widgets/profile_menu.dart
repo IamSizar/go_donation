@@ -104,14 +104,22 @@ class _AvatarInitial extends StatelessWidget {
   Widget build(BuildContext context) {
     final name = (sharedPreferences.getString('name_user') ?? '').trim();
     if (name.isEmpty) {
-      return Icon(Icons.person, color: Colors.white, size: size + 4);
+      return Center(
+        child: Icon(Icons.person, color: Colors.white, size: size + 4),
+      );
     }
-    return Text(
-      name.substring(0, 1).toUpperCase(),
-      style: TextStyle(
-        color: Colors.white,
-        fontSize: size,
-        fontWeight: FontWeight.w800,
+    // Center + FittedBox so the initial always sits dead-centre and never
+    // overflows the circle.
+    return Center(
+      child: Text(
+        name.substring(0, 1).toUpperCase(),
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: size,
+          fontWeight: FontWeight.w800,
+          height: 1.0,
+        ),
       ),
     );
   }

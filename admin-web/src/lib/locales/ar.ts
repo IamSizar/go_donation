@@ -6,6 +6,16 @@ import type en from './en'
 type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : (T[K] extends string ? string : T[K]) }
 
 const ar: DeepPartial<typeof en> = {
+  support_wa: {
+    title: 'التحويل إلى واتساب',
+    desc: 'الرقم الذي يُعرض عندما يرسل المستخدم 3 رسائل أو أكثر في محادثة الذكاء الاصطناعي. اتركه فارغًا للتعطيل.',
+    label: 'رقم واتساب',
+    save: 'حفظ',
+    saved: 'تم حفظ رقم واتساب',
+    fib_title: 'رقم حساب FIB',
+    fib_desc: 'رقم حساب FIB الذي يظهر للمتبرعين في شاشة التبرع.',
+    fib_saved: 'تم حفظ رقم FIB',
+  },
   nav: {
     trash: 'المهملات',
     dashboard: 'لوحة التحكم',

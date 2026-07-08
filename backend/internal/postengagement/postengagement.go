@@ -99,7 +99,8 @@ func (s *Store) AddComment(ctx context.Context, postID, userID int64, body, stat
 		return nil, err
 	}
 	// Best-effort name fill so the fresh comment shows the author's name.
-	_ = s.Pool.QueryRow(ctx, `SELECT full_name FROM users WHERE id = $1`, userID).Scan(&out.UserName)
+	// full_name lives on user_profiles (not users).
+	_ = s.Pool.QueryRow(ctx, `SELECT full_name FROM user_profiles WHERE user_id = $1`, userID).Scan(&out.UserName)
 	return &out, nil
 }
 
@@ -117,7 +118,7 @@ func (s *Store) ListComments(ctx context.Context, postID int64, onlyApproved boo
 		`SELECT c.id, c.post_id, c.user_id, COALESCE(u.full_name, 'User'),
 		        c.body, c.status, (c.flagged = 1), c.created_at
 		   FROM post_comments c
-		   LEFT JOIN users u ON u.id = c.user_id
+		   LEFT JOIN user_profiles u ON u.user_id = c.user_id
 		  WHERE `+where+`
 		  ORDER BY c.created_at DESC, c.id DESC
 		  LIMIT `+itoa(limit),
@@ -145,7 +146,7 @@ func (s *Store) AdminListComments(ctx context.Context, statusFilter string, limi
 		`SELECT c.id, c.post_id, c.user_id, COALESCE(u.full_name, 'User'),
 		        COALESCE(p.title, ''), c.body, c.status, (c.flagged = 1), c.created_at
 		   FROM post_comments c
-		   LEFT JOIN users u ON u.id = c.user_id
+		   LEFT JOIN user_profiles u ON u.user_id = c.user_id
 		   LEFT JOIN media_posts p ON p.id = c.post_id
 		  WHERE `+where+`
 		  ORDER BY (c.status = 'pending') DESC, c.created_at DESC, c.id DESC

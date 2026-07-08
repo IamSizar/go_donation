@@ -6,6 +6,16 @@
 // short and grouped by where they're used.
 
 const en = {
+  support_wa: {
+    title: 'WhatsApp handoff',
+    desc: 'The number offered when a user sends 3+ messages in the AI chat. Leave empty to disable.',
+    label: 'WhatsApp number',
+    save: 'Save',
+    saved: 'WhatsApp number saved',
+    fib_title: 'FIB account number',
+    fib_desc: 'The FIB account number shown to donors on the donate screen.',
+    fib_saved: 'FIB number saved',
+  },
   nav: {
     trash: 'Trash',
     dashboard: 'Dashboard',

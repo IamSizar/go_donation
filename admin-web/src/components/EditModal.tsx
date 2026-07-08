@@ -26,7 +26,7 @@ import { useI18n, useStatusLabel } from '../lib/i18n'
 import FileInput from './FileInput'
 import GalleryInput from './GalleryInput'
 
-export type FieldType = 'text' | 'textarea' | 'number' | 'select' | 'file' | 'gallery' | 'multiselect'
+export type FieldType = 'text' | 'textarea' | 'number' | 'date' | 'select' | 'file' | 'gallery' | 'multiselect'
 
 export type FieldSpec = {
   key: string                  // JSON key sent to backend + initial values key
@@ -34,6 +34,7 @@ export type FieldSpec = {
   labelKey?: string            // i18n key; when set, resolved via t() instead of `label`
   type: FieldType
   options?: string[]           // for type='select'
+  optionLabels?: Record<string, string> // for type='select': value → display label (else statusLabel(value))
   placeholder?: string
   rows?: number                // for textarea
   required?: boolean           // disallow empty on save
@@ -289,7 +290,7 @@ export default function EditModal({ open, title, initial, fields, onSave, onClos
                       onChange={(e) => setV(e.target.value)}
                     >
                       {(f.options ?? []).map((opt) => (
-                        <option key={opt} value={opt}>{statusLabel(opt)}</option>
+                        <option key={opt} value={opt}>{f.optionLabels?.[opt] ?? statusLabel(opt)}</option>
                       ))}
                     </select>
                   </label>
@@ -300,7 +301,7 @@ export default function EditModal({ open, title, initial, fields, onSave, onClos
                   <span className="form-label">{label}{f.required && <span className="req">*</span>}</span>
                   <input
                     ref={ref as React.RefObject<HTMLInputElement>}
-                    type={f.type === 'number' ? 'number' : 'text'}
+                    type={f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : 'text'}
                     value={v}
                     placeholder={f.placeholder}
                     disabled={busy}

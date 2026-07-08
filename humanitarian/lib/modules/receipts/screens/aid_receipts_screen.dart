@@ -1,8 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/api/links.dart';
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/core/id_privacy.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
+
+// #50 — resolve a stored photo path to a full URL. Uploads are saved as
+// relative paths (e.g. images/uploads/x.png); Image.network needs an absolute
+// URL, so resolve those against the server host. Already-absolute URLs pass
+// through unchanged.
+String _receiptPhotoUrl(String path) {
+  final p = path.trim();
+  if (p.isEmpty) return p;
+  final uri = Uri.tryParse(p);
+  if (uri != null && uri.hasScheme) return p;
+  return Uri.parse(publicBaseUrl)
+      .resolve(p.replaceFirst(RegExp(r'^/+'), ''))
+      .toString();
+}
 
 /// #50 — the current user's digital aid-delivery receipts (items + proof
 /// photos + reference code). Read-only; recorded by staff.
@@ -66,7 +81,11 @@ class _ReceiptCard extends StatelessWidget {
     final deliveredBy = (receipt['delivered_by'] ?? '').toString();
     final notes = (receipt['notes'] ?? '').toString();
     final photos = (receipt['photos'] is List)
-        ? (receipt['photos'] as List).map((e) => e.toString()).where((s) => s.isNotEmpty).toList()
+        ? (receipt['photos'] as List)
+            .map((e) => e.toString())
+            .where((s) => s.isNotEmpty)
+            .map(_receiptPhotoUrl)
+            .toList()
         : <String>[];
 
     return GlassPanel(

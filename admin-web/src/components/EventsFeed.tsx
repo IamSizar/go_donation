@@ -209,6 +209,8 @@ const EVENT_ROUTES: Record<string, EventRoute> = {
   volunteer_application_submit: { resource: 'volunteer_applications',   list: '/volunteers' },
   volunteer_mission_join:       { resource: 'volunteer_applications',   list: '/volunteers' },
   marriage_profile_submit:      { resource: 'marriage',                 list: '/marriage' },
+  // #24 — a new comment; deep-link to the Comments moderation page.
+  comment_submit:               { resource: '',                        list: '/comments' },
   // Identity events — the user themselves is the target
   profile_update: { resource: 'users', list: '/users', useUserId: true },
   login:          { resource: 'users', list: '/users', useUserId: true },

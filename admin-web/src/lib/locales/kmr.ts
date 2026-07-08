@@ -7,6 +7,16 @@ import type en from './en'
 type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : (T[K] extends string ? string : T[K]) }
 
 const kmr: DeepPartial<typeof en> = {
+  support_wa: {
+    title: 'Veguhastina bo WhatsApp',
+    desc: 'Ew hejmara ku tê pêşkêşkirin dema bikarhêner 3 peyam an zêdetir dişîne di axaftina AI de. Ji bo neçalakkirinê vala bihêle.',
+    label: 'Hejmara WhatsAppê',
+    save: 'Tomarkirin',
+    saved: 'Hejmara WhatsAppê hate tomarkirin',
+    fib_title: 'Hejmara hesabê FIB',
+    fib_desc: 'Hejmara hesabê FIB ya ku li ser dikana bexşînê ji bexşîneran re tê nîşandan.',
+    fib_saved: 'Hejmara FIB hate tomarkirin',
+  },
   nav: {
     trash: 'ژبڵدان',
     dashboard: 'داشبۆرد',

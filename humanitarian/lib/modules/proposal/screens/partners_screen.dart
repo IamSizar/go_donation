@@ -407,52 +407,113 @@ void _openRatePicker(BuildContext context, Map<String, dynamic> item) {
   final controller = Get.isRegistered<PartnersController>()
       ? Get.find<PartnersController>()
       : Get.put(PartnersController());
-  final current = (item['my_rating'] as num?)?.toInt() ?? 0;
   showModalBottomSheet<void>(
     context: context,
-    backgroundColor: AppThemeConfig.surface(context),
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-    ),
-    builder: (_) => SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Rate this partner'.tr,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w900,
-                color: AppThemeConfig.text(context),
+    // Transparent so the sheet's own opaque container is the only background.
+    backgroundColor: Colors.transparent,
+    builder: (_) => _RatePickerSheet(item: item, controller: controller),
+  );
+}
+
+/// #27 — star picker with an explicit Submit button. Tapping a star only
+/// *selects* it (nothing is sent until Submit), and the sheet has a solid
+/// opaque background so nothing shows through.
+class _RatePickerSheet extends StatefulWidget {
+  const _RatePickerSheet({required this.item, required this.controller});
+
+  final Map<String, dynamic> item;
+  final PartnersController controller;
+
+  @override
+  State<_RatePickerSheet> createState() => _RatePickerSheetState();
+}
+
+class _RatePickerSheetState extends State<_RatePickerSheet> {
+  late int _selected = (widget.item['my_rating'] as num?)?.toInt() ?? 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Container(
+        decoration: BoxDecoration(
+          // elevatedSurface = fully opaque (solid), unlike surface().
+          color: AppThemeConfig.elevatedSurface(context),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+          border: Border.all(color: AppThemeConfig.border(context)),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 44,
+                height: 5,
+                decoration: BoxDecoration(
+                  color:
+                      AppThemeConfig.mutedText(context).withValues(alpha: 0.35),
+                  borderRadius: BorderRadius.circular(3),
+                ),
               ),
-            ),
-            const SizedBox(height: 18),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(5, (i) {
-                final star = i + 1;
-                return IconButton(
-                  iconSize: 42,
-                  color: Colors.amber,
-                  icon: Icon(
-                    star <= current
-                        ? Icons.star_rounded
-                        : Icons.star_border_rounded,
+              const SizedBox(height: 18),
+              Text(
+                'Rate this partner'.tr,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  color: AppThemeConfig.text(context),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(5, (i) {
+                  final star = i + 1;
+                  return IconButton(
+                    iconSize: 44,
+                    color: Colors.amber,
+                    icon: Icon(
+                      star <= _selected
+                          ? Icons.star_rounded
+                          : Icons.star_border_rounded,
+                    ),
+                    onPressed: () => setState(() => _selected = star),
+                  );
+                }),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _selected > 0
+                      ? () {
+                          widget.controller
+                              .submitRating(widget.item, _selected);
+                          Navigator.of(context).pop();
+                        }
+                      : null,
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                   ),
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    controller.submitRating(item, star);
-                  },
-                );
-              }),
-            ),
-          ],
+                  child: Text(
+                    'Submit'.tr,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 List<String> _socialLinks(dynamic raw) {

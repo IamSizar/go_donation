@@ -40,8 +40,8 @@ double _fitZoom(List<({LatLng pos, Map<String, dynamic> entry})> pins) {
 }
 
 // ── Accent colours ────────────────────────────────────────────────────────────
-const _kPinA = Color(0xFF00E5FF); // vivid cyan
-const _kPinB = Color(0xFF0072FF); // deep blue
+const _kPinA = Color(0xFF45B8D1); // soft cyan — calmer, easier on the eyes
+const _kPinB = Color(0xFF3C7CB0); // muted blue
 const _kCardA = Color(0xFF0D1B2A); // header top
 const _kCardB = Color(0xFF1A3349); // header bottom
 
@@ -97,16 +97,8 @@ class _CommunityServicesList extends StatelessWidget {
                 color: Colors.indigo,
               ),
             for (final item in items) ...[
-              SectionTile(
-                icon: Icons.local_library_rounded,
-                title: localizedContentFromMap(
-                  item,
-                  'name',
-                  fallback: 'Service',
-                ),
-                subtitle:
-                    '${item['category'] ?? 'Service'} • ${item['city'] ?? ''} • ${item['phone'] ?? ''}',
-                color: Colors.indigo,
+              _CityServiceCard(
+                entry: item,
                 onTap: () => Get.to(() => CommunityDetailScreen(entry: item)),
               ),
               const SizedBox(height: 12),
@@ -292,14 +284,18 @@ class _CityGuideScreenState extends State<CityGuideScreen> {
               const SizedBox(height: 10),
               SizedBox(
                 width: double.infinity,
-                child: OutlinedButton.icon(
+                child: ElevatedButton.icon(
                   onPressed: () => Get.to(() => const AddActivityScreen()),
                   icon: const Icon(Icons.add_location_alt_rounded, size: 18),
                   label: Text('add_activity'.tr),
-                  style: OutlinedButton.styleFrom(
+                  // Filled soft-cyan button: white-on-white was invisible in
+                  // light mode; a solid accent reads clearly in both themes.
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _kPinB,
                     foregroundColor: Colors.white,
-                    side: BorderSide(color: _kPinA.withValues(alpha: 0.4)),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    textStyle: const TextStyle(fontWeight: FontWeight.w800),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
@@ -823,6 +819,172 @@ class _MapChip extends StatelessWidget {
 }
 
 /// A place card in the horizontal strip beneath the map.
+// #29 — soft, eye-friendly accent colour per service category (was a single
+// harsh indigo for everything). Muted tones so a long list stays calm to read.
+Color _categoryColor(String category) {
+  final c = category.toLowerCase();
+  if (c.contains('health') ||
+      c.contains('clinic') ||
+      c.contains('hospital') ||
+      c.contains('medical')) {
+    return const Color(0xFF4CA97E); // soft green
+  }
+  if (c.contains('educat') ||
+      c.contains('school') ||
+      c.contains('library') ||
+      c.contains('training')) {
+    return const Color(0xFF5B8DEF); // soft blue
+  }
+  if (c.contains('water') || c.contains('sanit')) {
+    return const Color(0xFF3FA9C4); // soft teal
+  }
+  if (c.contains('food') || c.contains('nutri')) {
+    return const Color(0xFFD79A45); // soft amber
+  }
+  if (c.contains('shelter') || c.contains('hous')) {
+    return const Color(0xFFC58457); // soft terracotta
+  }
+  if (c.contains('relief') || c.contains('emergen') || c.contains('aid')) {
+    return const Color(0xFFCF6B6B); // soft rose
+  }
+  if (c.contains('women') || c.contains('coop') || c.contains('social')) {
+    return const Color(0xFF9B72CF); // soft violet
+  }
+  return const Color(0xFF6D79C4); // soft indigo (default)
+}
+
+// #29 — City Guide service card: soft category colour, a category chip, the
+// address, and a city · phone line. Replaces the old flat indigo tile.
+class _CityServiceCard extends StatelessWidget {
+  const _CityServiceCard({required this.entry, required this.onTap});
+
+  final Map<String, dynamic> entry;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = localizedContentFromMap(entry, 'name', fallback: 'Service');
+    final category = (entry['category'] ?? '').toString().trim();
+    final city = (entry['city'] ?? '').toString().trim();
+    final phone = (entry['phone'] ?? '').toString().trim();
+    final address = (entry['address'] ?? '').toString().trim();
+    final accent = _categoryColor(category);
+    final meta = [city, phone].where((s) => s.isNotEmpty).join('   ·   ');
+
+    return Material(
+      color: AppThemeConfig.elevatedSurface(context),
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppThemeConfig.border(context)),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(
+                  Icons.location_city_rounded,
+                  color: accent,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                        color: AppThemeConfig.text(context),
+                      ),
+                    ),
+                    if (category.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: accent.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          category,
+                          style: TextStyle(
+                            color: accent,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 11.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                    if (address.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            Icons.place_outlined,
+                            size: 15,
+                            color: AppThemeConfig.mutedText(context),
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              address,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                height: 1.3,
+                                color: AppThemeConfig.text(context)
+                                    .withValues(alpha: 0.8),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    if (meta.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        meta,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppThemeConfig.mutedText(context),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _PlaceCard extends StatelessWidget {
   const _PlaceCard({required this.entry});
   final Map<String, dynamic> entry;

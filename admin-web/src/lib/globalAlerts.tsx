@@ -77,6 +77,7 @@ const ROUTE_TABLE: Record<string, RouteSpec> = {
   volunteer_application_submit: { list: '/volunteers' },
   volunteer_mission_join:       { list: '/volunteers' },
   marriage_profile_submit:      { list: '/marriage' },
+  comment_submit:               { list: '/comments' },
   profile_update:               { list: '/users', useUserId: true },
   login:                        { list: '/users', useUserId: true },
   register:                     { list: '/users', useUserId: true },
@@ -95,6 +96,7 @@ const BADGE_LABEL: Record<string, string> = {
   volunteer_application_submit: 'New volunteer application',
   volunteer_mission_join:       'Volunteer joined mission',
   marriage_profile_submit:      'New marriage profile',
+  comment_submit:               'New comment',
 }
 
 function toId(v: unknown): string {
@@ -128,6 +130,7 @@ function playChime(audioCtx: AudioContext, eventType: string) {
     beneficiary_case_submit:  { freq: 520, dur: 0.22 },
     project_request_submit:   { freq: 500, dur: 0.22 },
     support_ticket_submit:    { freq: 440, dur: 0.24 },
+    comment_submit:           { freq: 580, dur: 0.14 },
     register:                 { freq: 620, dur: 0.14 },
     login:                    { freq: 600, dur: 0.10 },
   }

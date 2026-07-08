@@ -280,29 +280,36 @@ class _EngagementBar extends StatelessWidget {
     final likeCount = (item['like_count'] as num?)?.toInt() ?? 0;
     final commentCount = (item['comment_count'] as num?)?.toInt() ?? 0;
     final shareCount = (item['share_count'] as num?)?.toInt() ?? 0;
+    // Three evenly-weighted actions across the full width — clear, balanced,
+    // and each with a comfortable tap target.
     return Row(
       children: [
-        _EngageButton(
-          icon: liked
-              ? Icons.favorite_rounded
-              : Icons.favorite_border_rounded,
-          color: liked ? Colors.red : null,
-          label: likeCount > 0 ? '$likeCount' : 'Like'.tr,
-          // #44 — guests are prompted to sign in before acting.
-          onTap: () async {
-            if (await requireSignIn(context)) controller.toggleLike(item);
-          },
+        Expanded(
+          child: _EngageButton(
+            icon: liked
+                ? Icons.favorite_rounded
+                : Icons.favorite_border_rounded,
+            color: liked ? Colors.red : null,
+            label: likeCount > 0 ? '$likeCount' : 'Like'.tr,
+            // #44 — guests are prompted to sign in before acting.
+            onTap: () async {
+              if (await requireSignIn(context)) controller.toggleLike(item);
+            },
+          ),
         ),
-        _EngageButton(
-          icon: Icons.mode_comment_outlined,
-          label: commentCount > 0 ? '$commentCount' : 'Comment'.tr,
-          onTap: () => _openComments(context, item, controller),
+        Expanded(
+          child: _EngageButton(
+            icon: Icons.mode_comment_outlined,
+            label: commentCount > 0 ? '$commentCount' : 'Comment'.tr,
+            onTap: () => _openComments(context, item, controller),
+          ),
         ),
-        const Spacer(),
-        _EngageButton(
-          icon: Icons.share_outlined,
-          label: shareCount > 0 ? '$shareCount' : 'Share'.tr,
-          onTap: () => _sharePost(item, controller),
+        Expanded(
+          child: _EngageButton(
+            icon: Icons.share_outlined,
+            label: shareCount > 0 ? '$shareCount' : 'Share'.tr,
+            onTap: () => _sharePost(item, controller),
+          ),
         ),
       ],
     );
@@ -326,21 +333,24 @@ class _EngageButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final tint = color ?? AppThemeConfig.mutedText(context);
     return InkWell(
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(12),
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(icon, size: 20, color: tint),
             const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                color: tint,
-                fontWeight: FontWeight.w700,
-                fontSize: 13,
+            Flexible(
+              child: Text(
+                label,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: tint,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
               ),
             ),
           ],
@@ -379,10 +389,10 @@ void _openComments(
   showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: AppThemeConfig.surface(context),
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-    ),
+    // Transparent here so the sheet's own opaque Container (below) is the ONLY
+    // background — otherwise the DraggableScrollableSheet content had no solid
+    // surface of its own and showed through as transparent.
+    backgroundColor: Colors.transparent,
     builder: (_) => _CommentsSheet(postId: id, controller: controller),
   );
 }
@@ -464,95 +474,192 @@ class _CommentsSheetState extends State<_CommentsSheet> {
         minChildSize: 0.4,
         maxChildSize: 0.95,
         builder: (context, scrollController) {
-          return Column(
-            children: [
-              const SizedBox(height: 10),
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppThemeConfig.border(context),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  child: Text(
-                    'Comments'.tr,
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
-                      color: AppThemeConfig.text(context),
-                    ),
+          // Solid, self-contained surface with a rounded top. clipBehavior keeps
+          // the list + rounded corners tidy so nothing bleeds past the edge.
+          return Container(
+            decoration: BoxDecoration(
+              // elevatedSurface is fully OPAQUE (solid white in light mode,
+              // solid dark in dark mode). surface() is translucent by design
+              // (glassmorphism), which is what made this sheet see-through.
+              color: AppThemeConfig.elevatedSurface(context),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(22)),
+              border: Border.all(color: AppThemeConfig.border(context)),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                const SizedBox(height: 10),
+                // Grab handle.
+                Container(
+                  width: 44,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: AppThemeConfig.mutedText(context)
+                        .withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(3),
                   ),
                 ),
-              ),
-              Expanded(
-                child: _loading
-                    ? const Center(child: CircularProgressIndicator())
-                    : _comments.isEmpty
-                    ? Center(
-                        child: Text(
-                          'No comments yet.'.tr,
-                          style: TextStyle(
-                            color: AppThemeConfig.mutedText(context),
-                          ),
-                        ),
-                      )
-                    : ListView.separated(
-                        controller: scrollController,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: _comments.length,
-                        separatorBuilder: (_, __) => const Divider(height: 16),
-                        itemBuilder: (_, i) =>
-                            _CommentTile(comment: _comments[i]),
-                      ),
-              ),
-              SafeArea(
-                top: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                // Header: title + live count pill + close.
+                Padding(
+                  padding: const EdgeInsetsDirectional.fromSTEB(20, 14, 8, 12),
                   child: Row(
                     children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _input,
-                          minLines: 1,
-                          maxLines: 4,
-                          textInputAction: TextInputAction.send,
-                          decoration: InputDecoration(
-                            hintText: 'Write a comment…'.tr,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 10,
+                      Text(
+                        'Comments'.tr,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          color: AppThemeConfig.text(context),
+                        ),
+                      ),
+                      if (_comments.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 9,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color:
+                                AppThemeConfig.primary.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            '${_comments.length}',
+                            style: TextStyle(
+                              color: AppThemeConfig.primary,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 12,
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
+                      ],
+                      const Spacer(),
                       IconButton(
-                        color: AppThemeConfig.primary,
-                        onPressed: _sending ? null : _submit,
-                        icon: _sending
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Icon(Icons.send_rounded),
+                        onPressed: () => Navigator.of(context).maybePop(),
+                        icon: Icon(
+                          Icons.close_rounded,
+                          color: AppThemeConfig.mutedText(context),
+                        ),
                       ),
                     ],
                   ),
                 ),
-              ),
-            ],
+                Divider(height: 1, color: AppThemeConfig.border(context)),
+                Expanded(
+                  child: _loading
+                      ? const Center(child: CircularProgressIndicator())
+                      : _comments.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.mode_comment_outlined,
+                                size: 40,
+                                color: AppThemeConfig.mutedText(context)
+                                    .withValues(alpha: 0.5),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'No comments yet.'.tr,
+                                style: TextStyle(
+                                  color: AppThemeConfig.mutedText(context),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : ListView.separated(
+                          controller: scrollController,
+                          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                          itemCount: _comments.length,
+                          separatorBuilder: (_, __) =>
+                              const Divider(height: 20),
+                          itemBuilder: (_, i) =>
+                              _CommentTile(comment: _comments[i]),
+                        ),
+                ),
+                Divider(height: 1, color: AppThemeConfig.border(context)),
+                // Composer: filled pill field + circular send button.
+                SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _input,
+                            minLines: 1,
+                            maxLines: 4,
+                            textInputAction: TextInputAction.send,
+                            onSubmitted: (_) => _submit(),
+                            style:
+                                TextStyle(color: AppThemeConfig.text(context)),
+                            decoration: InputDecoration(
+                              hintText: 'Write a comment…'.tr,
+                              filled: true,
+                              fillColor: AppThemeConfig.softSurface(context),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(24),
+                                borderSide: BorderSide.none,
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(24),
+                                borderSide: BorderSide.none,
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(24),
+                                borderSide: BorderSide(
+                                  color: AppThemeConfig.primary
+                                      .withValues(alpha: 0.5),
+                                ),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 18,
+                                vertical: 12,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Material(
+                          color: _sending
+                              ? AppThemeConfig.primary.withValues(alpha: 0.5)
+                              : AppThemeConfig.primary,
+                          shape: const CircleBorder(),
+                          child: InkWell(
+                            customBorder: const CircleBorder(),
+                            onTap: _sending ? null : _submit,
+                            child: Padding(
+                              padding: const EdgeInsets.all(11),
+                              child: _sending
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Icon(
+                                      Icons.send_rounded,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           );
         },
       ),

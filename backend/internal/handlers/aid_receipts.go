@@ -104,12 +104,36 @@ func (h *AidReceiptsHandler) AdminCreate(c *gin.Context) {
 		}
 		return s
 	}
+
+	// Auto-fill the recipient name from the picked user's profile when the admin
+	// selected a recipient but left the name blank.
+	if strings.TrimSpace(req.RecipientName) == "" && req.RecipientUserID != nil {
+		var fn string
+		if e := h.Pool.QueryRow(c.Request.Context(),
+			`SELECT full_name FROM user_profiles WHERE user_id = $1`, *req.RecipientUserID).Scan(&fn); e == nil {
+			req.RecipientName = fn
+		}
+	}
+
+	// Only accept a valid YYYY-MM-DD date; stray text becomes NULL instead of a
+	// DB timestamp error.
+	deliveredAt := func() any {
+		s := strings.TrimSpace(req.DeliveredAt)
+		if s == "" {
+			return nil
+		}
+		if _, e := time.Parse("2006-01-02", s); e != nil {
+			return nil
+		}
+		return s
+	}()
+
 	var id int64
 	err := h.Pool.QueryRow(c.Request.Context(), `
 		INSERT INTO aid_receipts (receipt_code, recipient_user_id, recipient_name, items, delivered_at, delivered_by, photos, notes)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
 		code, req.RecipientUserID, nilStr(req.RecipientName), nilStr(req.Items),
-		nilStr(req.DeliveredAt), nilStr(req.DeliveredBy), req.Photos, nilStr(req.Notes),
+		deliveredAt, nilStr(req.DeliveredBy), req.Photos, nilStr(req.Notes),
 	).Scan(&id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})

@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
+	"github.com/karam-flutter/humanitarian-backend/internal/events"
 	"github.com/karam-flutter/humanitarian-backend/internal/moderation"
 	"github.com/karam-flutter/humanitarian-backend/internal/notify"
 	"github.com/karam-flutter/humanitarian-backend/internal/postengagement"
@@ -21,10 +22,11 @@ type MediaEngagementHandler struct {
 	Store    *postengagement.Store
 	Banned   *moderation.Store
 	Notifier *notify.Notifier
+	Events   *events.Store // #24 — surface new comments on the admin activity feed
 }
 
-func NewMediaEngagementHandler(s *postengagement.Store, b *moderation.Store, n *notify.Notifier) *MediaEngagementHandler {
-	return &MediaEngagementHandler{Store: s, Banned: b, Notifier: n}
+func NewMediaEngagementHandler(s *postengagement.Store, b *moderation.Store, n *notify.Notifier, ev *events.Store) *MediaEngagementHandler {
+	return &MediaEngagementHandler{Store: s, Banned: b, Notifier: n, Events: ev}
 }
 
 // mediaPostID parses the :id path param. Writes a 400 and returns ok=false when
@@ -123,6 +125,28 @@ func (h *MediaEngagementHandler) Comment(c *gin.Context) {
 	if status == "approved" && authorID > 0 && authorID != user.UserID {
 		_, _ = h.Notifier.Send(c.Request.Context(), authorID,
 			notify.NewCommentOnYourPostMsg(cmt.UserName, snippet(body, 80), postID))
+	}
+
+	// #24 — surface the comment on the admin activity feed. entity_id = comment
+	// id, so a click deep-links to the Comments page and highlights the row.
+	// Flagged/pending comments especially need a moderator's attention.
+	if h.Events != nil {
+		uid := user.UserID
+		cid := cmt.ID
+		pid := postID
+		_, _ = h.Events.Insert(c.Request.Context(), events.Event{
+			EventType:  "comment_submit",
+			EventLabel: "New comment",
+			Module:     "media",
+			Action:     "submit",
+			Status:     status,
+			Source:     "app",
+			UserID:     &uid,
+			EntityID:   &cid,
+			TargetID:   &pid,
+			Note:       snippet(body, 80),
+			Metadata:   map[string]interface{}{"post_id": postID, "flagged": flagged},
+		})
 	}
 
 	c.JSON(http.StatusOK, gin.H{"success": true, "comment": cmt, "held": flagged})

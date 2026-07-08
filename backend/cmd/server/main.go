@@ -25,6 +25,7 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/db"
 	"github.com/karam-flutter/humanitarian-backend/internal/donations"
 	"github.com/karam-flutter/humanitarian-backend/internal/events"
+	"github.com/karam-flutter/humanitarian-backend/internal/appsettings"
 	"github.com/karam-flutter/humanitarian-backend/internal/guest"
 	"github.com/karam-flutter/humanitarian-backend/internal/handlers"
 	"github.com/karam-flutter/humanitarian-backend/internal/history"
@@ -203,7 +204,7 @@ func main() {
 	fieldRulesH := handlers.NewFieldRulesHandler(pool)                                              // #43
 	aidReceiptsH := handlers.NewAidReceiptsHandler(pool)                                            // #50
 	mediaCategoriesH := handlers.NewMediaCategoriesHandler(mediaCatStore)                           // #22
-	mediaEngageH := handlers.NewMediaEngagementHandler(postEngageStore, bannedWordsStore, notifier) // #24/#25
+	mediaEngageH := handlers.NewMediaEngagementHandler(postEngageStore, bannedWordsStore, notifier, eventsStore) // #24/#25
 	bannedWordsH := handlers.NewBannedWordsHandler(bannedWordsStore)                                // #25
 	partnerEngageH := handlers.NewPartnerEngagementHandler(partnerRatingStore)                      // #27
 	marketplaceCategoriesH := handlers.NewMarketplaceCategoriesHandler(marketplaceCatStore)         // #28
@@ -211,6 +212,8 @@ func main() {
 	guestStore := guest.New(pool)
 	guestH := handlers.NewGuestHandler(guestStore)
 	contentH := handlers.NewContentHandler(content.New(pool))
+	settingsStore := appsettings.New(pool) // #36 — admin-editable app settings.
+	settingsH := handlers.NewSettingsHandler(settingsStore)
 	statsH := handlers.NewStatsHandler(pool)
 	donationCodesH := handlers.NewDonationCodesHandler(codesStore)
 	listingsH := handlers.NewListingsHandler(listingsStore)
@@ -284,9 +287,15 @@ func main() {
 		api.GET("/city-sectors", citySectorsH.PublicList)                     // #29 — City Guide filter chips
 		api.GET("/search", searchH.Search)                                    // #33 — global search
 		api.GET("/registration/field-rules", fieldRulesH.PublicList)          // #43 — required-field rules
-		// #36 — support WhatsApp handoff number (env SUPPORT_WHATSAPP; empty = disabled).
+		// #36 — support WhatsApp handoff number. The admin-editable DB value
+		// (app_settings) wins; the SUPPORT_WHATSAPP env var is the fallback
+		// default. Empty = handoff disabled.
 		api.GET("/support/whatsapp", func(c *gin.Context) {
-			c.JSON(http.StatusOK, gin.H{"success": true, "number": cfg.SupportWhatsApp, "enabled": cfg.SupportWhatsApp != ""})
+			number := cfg.SupportWhatsApp
+			if v, err := settingsStore.Get(c.Request.Context(), appsettings.KeySupportWhatsApp); err == nil && v != "" {
+				number = v
+			}
+			c.JSON(http.StatusOK, gin.H{"success": true, "number": number, "enabled": number != ""})
 		})
 		api.GET("/media-categories", mediaCategoriesH.PublicList)             // #22
 		api.GET("/marketplace/categories", marketplaceCategoriesH.PublicList) // #28
@@ -761,6 +770,15 @@ func main() {
 			// Section 27 — Guest Mode config. Super-Admin only.
 			admin.GET("/admin/guest_settings", auth.RequireSuperAdmin(), guestH.AdminList)
 			admin.POST("/admin/guest_settings", auth.RequireSuperAdmin(), guestH.Set)
+
+			// #36 — admin-editable support WhatsApp handoff number (admin tier,
+			// like the other CMS settings such as payment methods).
+			admin.GET("/admin/settings/support-whatsapp", settingsH.GetSupportWhatsApp)
+			admin.PUT("/admin/settings/support-whatsapp", auth.RequireAdminTier(), settingsH.SetSupportWhatsApp)
+			// FIB account number — a convenience alias over the FIB payment method
+			// (shown on the donate screen), editable from the same settings card.
+			admin.GET("/admin/settings/fib-number", settingsH.GetFibNumber)
+			admin.PUT("/admin/settings/fib-number", auth.RequireAdminTier(), settingsH.SetFibNumber)
 			// #9 — edit static content pages (Terms & Conditions, etc.).
 			admin.PUT("/admin/content/:slug", auth.RequireSuperAdmin(), contentH.AdminUpdateContent)
 		}

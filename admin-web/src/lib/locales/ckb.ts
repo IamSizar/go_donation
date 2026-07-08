@@ -6,6 +6,16 @@ import type en from './en'
 type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : (T[K] extends string ? string : T[K]) }
 
 const ckb: DeepPartial<typeof en> = {
+  support_wa: {
+    title: 'گواستنەوە بۆ واتساپ',
+    desc: 'ئەو ژمارەیەی کە پێشکەش دەکرێت کاتێک بەکارهێنەر ٣ نامە یان زیاتر دەنێرێت لە گفتوگۆی زیرەکیی دەستکرد. بۆ ناچالاککردن بەتاڵی بهێڵەوە.',
+    label: 'ژمارەی واتساپ',
+    save: 'پاشەکەوتکردن',
+    saved: 'ژمارەی واتساپ پاشەکەوت کرا',
+    fib_title: 'ژمارەی هەژماری FIB',
+    fib_desc: 'ژمارەی هەژماری FIB کە لە شاشەی بەخشیندا بۆ بەخشەران پیشان دەدرێت.',
+    fib_saved: 'ژمارەی FIB پاشەکەوت کرا',
+  },
   nav: {
     trash: 'زبڵدان',
     dashboard: 'داشبۆرد',

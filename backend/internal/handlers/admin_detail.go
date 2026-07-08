@@ -83,5 +83,26 @@ func (h *AdminDetailHandler) Detail(c *gin.Context) {
 		return
 	}
 
+	// For a user, merge in the registration profile (name, DOB, address, gender,
+	// city, occupation + role-specific fields) so the admin detail view shows
+	// what the person actually submitted at sign-up — not just the account row.
+	if table == "users" {
+		if prows, perr := h.Pool.Query(c.Request.Context(),
+			`SELECT full_name, date_of_birth, address, gender, city, occupation,
+			        family_size, housing_status, monthly_income,
+			        skills, availability, experience, profile_picture
+			   FROM user_profiles WHERE user_id = $1`, id); perr == nil {
+			prof, e := pgx.CollectOneRow(prows, pgx.RowToMap)
+			prows.Close()
+			if e == nil {
+				for k, v := range prof {
+					if _, exists := row[k]; !exists {
+						row[k] = v
+					}
+				}
+			}
+		}
+	}
+
 	c.JSON(http.StatusOK, gin.H{"success": true, "resource": slug, "item": row})
 }

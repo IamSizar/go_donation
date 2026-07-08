@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/module_api.dart';
+import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/modules/community/controllers/community_controller.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
@@ -102,7 +103,10 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('field_sectors'.tr,
-                    style: const TextStyle(fontWeight: FontWeight.w800)),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: AppThemeConfig.text(context),
+                    )),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
@@ -148,9 +152,27 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
       child: TextField(
         controller: c,
         keyboardType: keyboard,
+        // Explicit theme-aware text colour — without this the input text
+        // inherited the dark-theme default (white) and was invisible in light
+        // mode.
+        style: TextStyle(color: AppThemeConfig.text(context)),
         decoration: InputDecoration(
           labelText: required ? '$label *' : label,
-          border: const OutlineInputBorder(),
+          labelStyle: TextStyle(color: AppThemeConfig.mutedText(context)),
+          filled: true,
+          fillColor: AppThemeConfig.softSurface(context),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: AppThemeConfig.border(context)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: AppThemeConfig.border(context)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: AppThemeConfig.primary, width: 1.5),
+          ),
         ),
       ),
     );
