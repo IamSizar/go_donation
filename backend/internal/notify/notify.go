@@ -88,6 +88,15 @@ func (n *Notifier) Send(ctx context.Context, userID int64, m LocalizedMessage) (
 		return 0, errors.New("LocalizedMessage requires at least Title.En + Body.En")
 	}
 
+	// #31 — respect the user's notification switch. When off, skip silently
+	// (no in-app row, no push). A query error defaults to enabled so a transient
+	// failure never mutes a user.
+	notifEnabled := 1
+	if err := n.Pool.QueryRow(ctx,
+		`SELECT notifications_enabled FROM users WHERE id = $1`, userID).Scan(&notifEnabled); err == nil && notifEnabled == 0 {
+		return 0, nil
+	}
+
 	category := resolveCategory(m.Type)
 	priority := defaultPriority(category)
 

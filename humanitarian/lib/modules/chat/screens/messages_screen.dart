@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/modules/bot/screens/bot_chat_screen.dart';
 import 'package:flutter_application_1/modules/chat/controllers/chat_controller.dart';
@@ -9,6 +10,21 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
 /// The "Messages" tab — lists all of a user's chat threads.
+// #45 — open (or reuse) a direct chat with support/tech and jump into it.
+Future<void> openSupportChat(BuildContext context) async {
+  try {
+    final id = await const ModuleApi().startSupportChat();
+    if (id == null || !context.mounted) return;
+    Get.to(() => ChatConversationScreen(threadId: id, title: 'chat_support'.tr));
+  } catch (_) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('chat_support_failed'.tr)),
+      );
+    }
+  }
+}
+
 class MessagesScreen extends StatelessWidget {
   const MessagesScreen({super.key});
 
@@ -42,9 +58,19 @@ class MessagesScreen extends StatelessWidget {
         if (ctrl.threads.isEmpty) {
           return ListView(
             padding: const EdgeInsets.all(20),
-            children: const [
-              _BotAssistantCard(),
+            children: [
+              const _BotAssistantCard(),
+              const SizedBox(height: 10),
+              // #45 — direct chat with support/tech staff.
               SectionTile(
+                icon: Icons.support_agent_rounded,
+                title: 'chat_support'.tr,
+                subtitle: 'chat_support_desc'.tr,
+                color: Colors.teal,
+                onTap: () => openSupportChat(context),
+              ),
+              const SizedBox(height: 10),
+              const SectionTile(
                 icon: Icons.forum_outlined,
                 title: 'No conversations yet',
                 subtitle:
@@ -67,6 +93,15 @@ class MessagesScreen extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
             children: [
               const _BotAssistantCard(),
+              const SizedBox(height: 10),
+              // #45 — direct chat with support/tech staff.
+              SectionTile(
+                icon: Icons.support_agent_rounded,
+                title: 'chat_support'.tr,
+                subtitle: 'chat_support_desc'.tr,
+                color: Colors.teal,
+                onTap: () => openSupportChat(context),
+              ),
               if (incoming.isNotEmpty) ...[
                 _SectionLabel(label: 'Chat requests', count: incoming.length),
                 for (final t in incoming) _IncomingRequestCard(thread: t, ctrl: ctrl),

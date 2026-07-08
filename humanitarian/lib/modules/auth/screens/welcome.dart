@@ -140,32 +140,22 @@ class _LanguageSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // #38 — pick the app language from a dropdown.
+    final options = <(String, Locale)>[
+      ('English', AppLocaleService.english),
+      ('Arabic', AppLocaleService.arabic),
+      ('Kurdish Sorani', AppLocaleService.kurdishSorani),
+      ('Kurdish Badini', AppLocaleService.kurdishBadini),
+    ];
     final currentCode = AppLocaleService.localeTag(
       Get.locale ?? AppLocaleService.english,
     );
-
-    Widget languageChip({required String label, required Locale locale}) {
-      final isSelected = currentCode == AppLocaleService.localeTag(locale);
-
-      return ChoiceChip(
-        label: Text(label.tr),
-        selected: isSelected,
-        onSelected: (_) => AppLocaleService.changeLocale(locale),
-        labelStyle: TextStyle(
-          color: isSelected ? const Color(0xFF0B385D) : Colors.white,
-          fontWeight: FontWeight.w700,
-        ),
-        selectedColor: Colors.white,
-        backgroundColor: const Color(0xFF0B385D).withValues(alpha: 0.38),
-        side: BorderSide(
-          color: isSelected
-              ? Colors.white.withValues(alpha: 0.22)
-              : Colors.white.withValues(alpha: 0.30),
-        ),
-        showCheckmark: false,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      );
-    }
+    final current = options
+        .firstWhere(
+          (o) => AppLocaleService.localeTag(o.$2) == currentCode,
+          orElse: () => options.first,
+        )
+        .$2;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
@@ -178,20 +168,32 @@ class _LanguageSelector extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 10),
-        Wrap(
-          spacing: 8,
-          children: [
-            languageChip(label: 'English', locale: AppLocaleService.english),
-            languageChip(label: 'Arabic', locale: AppLocaleService.arabic),
-            languageChip(
-              label: 'Kurdish Sorani',
-              locale: AppLocaleService.kurdishSorani,
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0B385D).withValues(alpha: 0.38),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.30)),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<Locale>(
+              value: current,
+              isDense: true,
+              dropdownColor: const Color(0xFF0B385D),
+              iconEnabledColor: Colors.white,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+              ),
+              items: [
+                for (final o in options)
+                  DropdownMenuItem<Locale>(value: o.$2, child: Text(o.$1.tr)),
+              ],
+              onChanged: (loc) {
+                if (loc != null) AppLocaleService.changeLocale(loc);
+              },
             ),
-            languageChip(
-              label: 'Kurdish Badini',
-              locale: AppLocaleService.kurdishBadini,
-            ),
-          ],
+          ),
         ),
       ],
     );

@@ -22,11 +22,21 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _addressController = TextEditingController();
+  final _cityController = TextEditingController();
+  final _occupationController = TextEditingController();
+  String? _gender; // #39 — optional: Male | Female | Other
+  final _familySizeController = TextEditingController(); // #40 — eligible
+  final _incomeController = TextEditingController();
+  String? _housingStatus; // owned | rented | hosted | displaced
+  final _skillsController = TextEditingController(); // #41 — volunteer
+  final _availabilityController = TextEditingController();
+  String? _experience; // none | lt1 | y1to3 | gt3
   DateTime? _dob;
   int? _roleId;
   bool _loading = false;
   String? _error;
   bool _agreeToTerms = false;
+  Set<String> _required = {}; // #43 — admin-configured required optional fields
 
   @override
   void initState() {
@@ -40,12 +50,44 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
     _addressController.text = sharedPreferences.getString('address_user') ?? '';
     final rid = int.tryParse(sharedPreferences.getString('role_id') ?? '');
     if (rid != null && rid >= 1 && rid <= 3) _roleId = rid;
+    // #43 — load admin-configured required fields.
+    fetchRequiredFields().then((s) {
+      if (mounted) setState(() => _required = s);
+    });
+  }
+
+  // #43 — returns the label key of the first required-but-empty field, or null.
+  String? _firstMissingRequired() {
+    bool blank(String v) => v.trim().isEmpty;
+    final checks = <String, ({bool applies, bool filled, String labelKey})>{
+      'gender': (applies: true, filled: _gender != null, labelKey: 'reg_gender'),
+      'date_of_birth': (applies: true, filled: _dob != null, labelKey: 'Date of birth'),
+      'city': (applies: true, filled: !blank(_cityController.text), labelKey: 'reg_city'),
+      'occupation': (applies: true, filled: !blank(_occupationController.text), labelKey: 'reg_occupation'),
+      'family_size': (applies: _roleId == 2, filled: !blank(_familySizeController.text), labelKey: 'reg_family_size'),
+      'housing_status': (applies: _roleId == 2, filled: _housingStatus != null, labelKey: 'reg_housing'),
+      'monthly_income': (applies: _roleId == 2, filled: !blank(_incomeController.text), labelKey: 'reg_income'),
+      'skills': (applies: _roleId == 3, filled: !blank(_skillsController.text), labelKey: 'reg_skills'),
+      'availability': (applies: _roleId == 3, filled: !blank(_availabilityController.text), labelKey: 'reg_availability'),
+      'experience': (applies: _roleId == 3, filled: _experience != null, labelKey: 'reg_experience'),
+    };
+    for (final key in _required) {
+      final c = checks[key];
+      if (c != null && c.applies && !c.filled) return c.labelKey;
+    }
+    return null;
   }
 
   @override
   void dispose() {
     _nameController.dispose();
     _addressController.dispose();
+    _cityController.dispose();
+    _occupationController.dispose();
+    _familySizeController.dispose();
+    _incomeController.dispose();
+    _skillsController.dispose();
+    _availabilityController.dispose();
     super.dispose();
   }
 
@@ -77,6 +119,12 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
       );
       return;
     }
+    // #43 — enforce admin-configured required fields.
+    final missing = _firstMissingRequired();
+    if (missing != null) {
+      setState(() => _error = '${missing.tr}: ${'reg_required_missing'.tr}');
+      return;
+    }
     AppHaptics.selection();
     setState(() => _loading = true);
     final res = await submitRegistration(
@@ -84,6 +132,15 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
       dateOfBirth: _dob == null ? '' : _fmt(_dob!),
       address: _addressController.text.trim(),
       roleId: _roleId!,
+      gender: _gender ?? '',
+      city: _cityController.text.trim(),
+      occupation: _occupationController.text.trim(),
+      familySize: _roleId == 2 ? _familySizeController.text.trim() : '',
+      housingStatus: _roleId == 2 ? (_housingStatus ?? '') : '',
+      monthlyIncome: _roleId == 2 ? _incomeController.text.trim() : '',
+      skills: _roleId == 3 ? _skillsController.text.trim() : '',
+      availability: _roleId == 3 ? _availabilityController.text.trim() : '',
+      experience: _roleId == 3 ? (_experience ?? '') : '',
     );
     if (!mounted) return;
     setState(() => _loading = false);
@@ -192,6 +249,44 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                       ? 'Please enter your address'.tr
                                       : null,
                             ),
+                            // #39 — fuller sign-up fields (all optional).
+                            const SizedBox(height: 16),
+                            _label(context, 'reg_gender'),
+                            const SizedBox(height: 6),
+                            DropdownButtonFormField<String>(
+                              initialValue: _gender,
+                              decoration: const InputDecoration(
+                                prefixIcon: Icon(Icons.wc_outlined),
+                              ),
+                              hint: Text('reg_gender_hint'.tr),
+                              items: [
+                                for (final g in const ['Male', 'Female', 'Other'])
+                                  DropdownMenuItem(value: g, child: Text(g.tr)),
+                              ],
+                              onChanged: (v) => setState(() => _gender = v),
+                            ),
+                            const SizedBox(height: 16),
+                            _label(context, 'reg_city'),
+                            const SizedBox(height: 6),
+                            TextFormField(
+                              controller: _cityController,
+                              textInputAction: TextInputAction.next,
+                              decoration: InputDecoration(
+                                hintText: 'reg_city_hint'.tr,
+                                prefixIcon: const Icon(Icons.location_city_outlined),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            _label(context, 'reg_occupation'),
+                            const SizedBox(height: 6),
+                            TextFormField(
+                              controller: _occupationController,
+                              textInputAction: TextInputAction.done,
+                              decoration: InputDecoration(
+                                hintText: 'reg_occupation_hint'.tr,
+                                prefixIcon: const Icon(Icons.work_outline),
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -224,6 +319,109 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                         selected: _roleId == 3,
                         onTap: () => setState(() => _roleId = 3),
                       ),
+                      // #40 — eligible (beneficiary) sign-up: extra fields.
+                      if (_roleId == 2) ...[
+                        const SizedBox(height: 18),
+                        GlassPanel(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _label(context, 'reg_eligible_section'),
+                              const SizedBox(height: 12),
+                              _label(context, 'reg_family_size'),
+                              const SizedBox(height: 6),
+                              TextFormField(
+                                controller: _familySizeController,
+                                keyboardType: TextInputType.number,
+                                textInputAction: TextInputAction.next,
+                                decoration: InputDecoration(
+                                  hintText: 'reg_family_size_hint'.tr,
+                                  prefixIcon: const Icon(Icons.group_outlined),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              _label(context, 'reg_housing'),
+                              const SizedBox(height: 6),
+                              DropdownButtonFormField<String>(
+                                initialValue: _housingStatus,
+                                decoration: const InputDecoration(
+                                  prefixIcon: Icon(Icons.home_outlined),
+                                ),
+                                hint: Text('reg_housing_hint'.tr),
+                                items: [
+                                  for (final h in const ['owned', 'rented', 'hosted', 'displaced'])
+                                    DropdownMenuItem(value: h, child: Text('housing_$h'.tr)),
+                                ],
+                                onChanged: (v) => setState(() => _housingStatus = v),
+                              ),
+                              const SizedBox(height: 16),
+                              _label(context, 'reg_income'),
+                              const SizedBox(height: 6),
+                              TextFormField(
+                                controller: _incomeController,
+                                textInputAction: TextInputAction.done,
+                                decoration: InputDecoration(
+                                  hintText: 'reg_income_hint'.tr,
+                                  prefixIcon: const Icon(Icons.payments_outlined),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                      // #41 — volunteer/employee sign-up: extra fields.
+                      if (_roleId == 3) ...[
+                        const SizedBox(height: 18),
+                        GlassPanel(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _label(context, 'reg_volunteer_section'),
+                              const SizedBox(height: 12),
+                              _label(context, 'reg_skills'),
+                              const SizedBox(height: 6),
+                              TextFormField(
+                                controller: _skillsController,
+                                minLines: 1,
+                                maxLines: 3,
+                                textInputAction: TextInputAction.next,
+                                decoration: InputDecoration(
+                                  hintText: 'reg_skills_hint'.tr,
+                                  prefixIcon: const Icon(Icons.star_outline),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              _label(context, 'reg_availability'),
+                              const SizedBox(height: 6),
+                              TextFormField(
+                                controller: _availabilityController,
+                                textInputAction: TextInputAction.next,
+                                decoration: InputDecoration(
+                                  hintText: 'reg_availability_hint'.tr,
+                                  prefixIcon: const Icon(Icons.schedule_outlined),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              _label(context, 'reg_experience'),
+                              const SizedBox(height: 6),
+                              DropdownButtonFormField<String>(
+                                initialValue: _experience,
+                                decoration: const InputDecoration(
+                                  prefixIcon: Icon(Icons.badge_outlined),
+                                ),
+                                hint: Text('reg_experience_hint'.tr),
+                                items: [
+                                  for (final e in const ['none', 'lt1', 'y1to3', 'gt3'])
+                                    DropdownMenuItem(value: e, child: Text('exp_$e'.tr)),
+                                ],
+                                onChanged: (v) => setState(() => _experience = v),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       if (_error != null) ...[
                         const SizedBox(height: 16),
                         Text(

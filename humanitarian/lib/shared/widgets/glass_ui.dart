@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
+import 'package:flutter_application_1/modules/bot/screens/bot_chat_screen.dart';
 import 'package:get/get.dart';
 
 class GradientScreen extends StatelessWidget {
@@ -260,7 +261,27 @@ class SectionScaffold extends StatelessWidget {
                       ],
                     ),
                   ),
-                  if (trailing != null) trailing!,
+                  // #52 — AI helper available in every section.
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppThemeConfig.surface(context),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppThemeConfig.border(context)),
+                    ),
+                    child: IconButton(
+                      tooltip: 'ai_helper'.tr,
+                      onPressed: () => Get.to(() => const BotChatScreen()),
+                      icon: Icon(
+                        Icons.smart_toy_outlined,
+                        size: 18,
+                        color: AppThemeConfig.text(context),
+                      ),
+                    ),
+                  ),
+                  if (trailing != null) ...[
+                    const SizedBox(width: 8),
+                    trailing!,
+                  ],
                 ],
               ),
             ),

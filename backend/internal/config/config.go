@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -17,6 +18,11 @@ type Config struct {
 	RunScheduler       bool
 	SchedulerInterval  time.Duration // how often the scheduler wakes to scan
 	ReminderDaysBefore int           // remind when due within this many days
+
+	// Task #36 — support WhatsApp handoff. When set (digits, e.g. 9647500000000),
+	// the in-app support chat offers "Continue on WhatsApp" after 3 messages.
+	// Empty disables the offer.
+	SupportWhatsApp string
 }
 
 func Load() (*Config, error) {
@@ -39,6 +45,14 @@ func Load() (*Config, error) {
 	c.RunScheduler = os.Getenv("RUN_SCHEDULER") == "1"
 	c.SchedulerInterval = parseDurationDefault("SCHEDULER_INTERVAL", 6*time.Hour, time.Minute)
 	c.ReminderDaysBefore = parseIntDefault("REMINDER_DAYS_BEFORE", 3, 0, 60)
+
+	// Task #36 — support WhatsApp number (digits only, no + or spaces).
+	c.SupportWhatsApp = strings.Map(func(r rune) rune {
+		if r >= '0' && r <= '9' {
+			return r
+		}
+		return -1
+	}, os.Getenv("SUPPORT_WHATSAPP"))
 
 	return c, nil
 }

@@ -229,11 +229,22 @@ type Community struct {
 	DescriptionBadini *string `json:"description_badini"`
 	Latitude      *string  `json:"latitude"`
 	Longitude     *string  `json:"longitude"`
+	// #29 — City Guide sectors, 4-language opening hours, photo gallery.
+	Sectors            []string `json:"sectors"`
+	OpeningHours       *string  `json:"opening_hours"`
+	OpeningHoursAr     *string  `json:"opening_hours_ar"`
+	OpeningHoursSorani *string  `json:"opening_hours_sorani"`
+	OpeningHoursBadini *string  `json:"opening_hours_badini"`
+	Gallery            []string `json:"gallery"`
+	Status             *string  `json:"status,omitempty"`
+	// #48 — 'approx' (coords snapped to ~500m in the public API) or 'exact'.
+	ApproxLocation string `json:"approx_location"`
 }
 
 // ListCommunity returns approved community-directory entries. q searches
-// across name, name_ar, address, phone, and category.
-func (s *Store) ListCommunity(ctx context.Context, category, city, q string, limit int) ([]Community, error) {
+// across name, name_ar, address, phone, and category. sector, when set,
+// keeps only places tagged with that sector slug (#29).
+func (s *Store) ListCommunity(ctx context.Context, category, city, q, sector string, limit int) ([]Community, error) {
 	limit = clampLimit(limit)
 	args := []any{}
 	where := []string{"status = 'approved'"}
@@ -245,15 +256,24 @@ func (s *Store) ListCommunity(ctx context.Context, category, city, q string, lim
 		args = append(args, city)
 		where = append(where, "city = $"+itoa(len(args)))
 	}
+	if sector = strings.TrimSpace(sector); sector != "" {
+		args = append(args, []string{sector})
+		where = append(where, "sectors @> $"+itoa(len(args)))
+	}
 	if q = strings.TrimSpace(q); q != "" {
 		args = append(args, "%"+q+"%")
 		idx := itoa(len(args))
 		where = append(where, "(name ILIKE $"+idx+" OR name_ar ILIKE $"+idx+" OR address ILIKE $"+idx+" OR phone ILIKE $"+idx+" OR category ILIKE $"+idx+")")
 	}
+	// #48 — snap coords to a ~500m grid for entries flagged approx_location,
+	// so exact coordinates never reach app users.
 	sql := `SELECT id, name, name_ar, name_sorani, name_badini,
 	               category, city, address, phone, email, website,
 	               description, description_ar, description_sorani, description_badini,
-	               latitude::text, longitude::text
+	               CASE WHEN approx_location = 1 THEN (ROUND(latitude  / 0.005) * 0.005)::text ELSE latitude::text  END,
+	               CASE WHEN approx_location = 1 THEN (ROUND(longitude / 0.005) * 0.005)::text ELSE longitude::text END,
+	               sectors, opening_hours, opening_hours_ar, opening_hours_sorani, opening_hours_badini,
+	               gallery, CASE WHEN approx_location = 1 THEN 'approx' ELSE 'exact' END
 	          FROM city_directory_entries
 	         WHERE ` + strings.Join(where, " AND ") + `
 	         ORDER BY category ASC, name ASC
@@ -272,12 +292,115 @@ func (s *Store) ListCommunity(ctx context.Context, category, city, q string, lim
 			&c.Category, &c.City, &c.Address, &c.Phone, &c.Email, &c.Website,
 			&c.Description, &c.DescriptionAr, &c.DescriptionSorani, &c.DescriptionBadini,
 			&c.Latitude, &c.Longitude,
+			&c.Sectors, &c.OpeningHours, &c.OpeningHoursAr, &c.OpeningHoursSorani, &c.OpeningHoursBadini,
+			&c.Gallery, &c.ApproxLocation,
 		); err != nil {
 			return nil, err
+		}
+		if c.Sectors == nil {
+			c.Sectors = []string{}
+		}
+		if c.Gallery == nil {
+			c.Gallery = []string{}
 		}
 		items = append(items, c)
 	}
 	return items, rows.Err()
+}
+
+// ListCommunityAdmin returns directory entries for the admin queue (#30),
+// optionally filtered by status (empty = all statuses, incl. pending).
+func (s *Store) ListCommunityAdmin(ctx context.Context, status string, limit int) ([]Community, error) {
+	limit = clampLimit(limit)
+	args := []any{}
+	where := []string{"1=1"}
+	if status = strings.TrimSpace(status); status != "" {
+		args = append(args, status)
+		where = append(where, "status = $"+itoa(len(args)))
+	}
+	// Admin sees EXACT coordinates + the approx_location flag (they edit it).
+	sql := `SELECT id, name, name_ar, name_sorani, name_badini,
+	               category, city, address, phone, email, website,
+	               description, description_ar, description_sorani, description_badini,
+	               latitude::text, longitude::text,
+	               sectors, opening_hours, opening_hours_ar, opening_hours_sorani, opening_hours_badini,
+	               gallery, status, CASE WHEN approx_location = 1 THEN 'approx' ELSE 'exact' END
+	          FROM city_directory_entries
+	         WHERE ` + strings.Join(where, " AND ") + `
+	         ORDER BY (status = 'pending') DESC, created_at DESC
+	         LIMIT ` + itoa(limit)
+	rows, err := s.Pool.Query(ctx, sql, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Community{}
+	for rows.Next() {
+		var c Community
+		if err := rows.Scan(
+			&c.ID, &c.Name, &c.NameAr, &c.NameSorani, &c.NameBadini,
+			&c.Category, &c.City, &c.Address, &c.Phone, &c.Email, &c.Website,
+			&c.Description, &c.DescriptionAr, &c.DescriptionSorani, &c.DescriptionBadini,
+			&c.Latitude, &c.Longitude,
+			&c.Sectors, &c.OpeningHours, &c.OpeningHoursAr, &c.OpeningHoursSorani, &c.OpeningHoursBadini,
+			&c.Gallery, &c.Status, &c.ApproxLocation,
+		); err != nil {
+			return nil, err
+		}
+		if c.Sectors == nil {
+			c.Sectors = []string{}
+		}
+		if c.Gallery == nil {
+			c.Gallery = []string{}
+		}
+		items = append(items, c)
+	}
+	return items, rows.Err()
+}
+
+// CommunitySubmission is a user-submitted place awaiting admin approval (#30).
+type CommunitySubmission struct {
+	Name         string
+	NameAr       string
+	NameSorani   string
+	NameBadini   string
+	Category     string
+	City         string
+	Address      string
+	Phone        string
+	Website      string
+	Latitude     string
+	Longitude    string
+	Sectors      []string
+	OpeningHours string
+	SubmittedBy  *int64
+}
+
+// SubmitCommunity inserts a user-submitted place with status='pending' (#30),
+// so it stays out of the public directory until an admin approves it.
+func (s *Store) SubmitCommunity(ctx context.Context, sub CommunitySubmission) (int64, error) {
+	if sub.Sectors == nil {
+		sub.Sectors = []string{}
+	}
+	nilIfEmpty := func(v string) any {
+		if strings.TrimSpace(v) == "" {
+			return nil
+		}
+		return v
+	}
+	var id int64
+	err := s.Pool.QueryRow(ctx, `
+		INSERT INTO city_directory_entries
+		  (name, name_ar, name_sorani, name_badini, category, city, address, phone, website,
+		   latitude, longitude, sectors, opening_hours, status, submitted_by)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'pending',$14)
+		RETURNING id`,
+		sub.Name, nilIfEmpty(sub.NameAr), nilIfEmpty(sub.NameSorani), nilIfEmpty(sub.NameBadini),
+		sub.Category, nilIfEmpty(sub.City), nilIfEmpty(sub.Address), nilIfEmpty(sub.Phone),
+		nilIfEmpty(sub.Website), nilIfEmpty(sub.Latitude), nilIfEmpty(sub.Longitude),
+		sub.Sectors, nilIfEmpty(sub.OpeningHours), sub.SubmittedBy,
+	).Scan(&id)
+	return id, err
 }
 
 // ----------------- helpers -----------------

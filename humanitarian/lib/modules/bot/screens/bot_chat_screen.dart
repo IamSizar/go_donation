@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'package:flutter_application_1/localization/locale_service.dart';
 
@@ -122,6 +123,12 @@ class _BotChatScreenState extends State<BotChatScreen> {
                 ],
               );
             }),
+          ),
+          // #36 — after 3 user messages, offer to continue on WhatsApp.
+          Obx(
+            () => ctrl.showWhatsappOffer
+                ? _WhatsappOffer(number: ctrl.whatsappNumber.value!)
+                : const SizedBox.shrink(),
           ),
           _TapHint(lang: lang),
         ],
@@ -631,6 +638,48 @@ class _BotAvatar extends StatelessWidget {
 
 /// Replaces the free-text input: this assistant is tap-only, so users pick from
 /// the recommended questions rather than typing.
+// #36 — "Continue on WhatsApp" banner shown after 3 user messages.
+class _WhatsappOffer extends StatelessWidget {
+  const _WhatsappOffer({required this.number});
+  final String number;
+
+  Future<void> _open() async {
+    final uri = Uri.parse('https://wa.me/$number');
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      color: const Color(0xFF25D366).withValues(alpha: 0.12),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+      child: Row(
+        children: [
+          const Icon(Icons.chat_rounded, color: Color(0xFF25D366), size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'whatsapp_offer'.tr,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+          ),
+          const SizedBox(width: 8),
+          TextButton(
+            onPressed: _open,
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF25D366),
+            ),
+            child: Text('whatsapp_open'.tr),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _TapHint extends StatelessWidget {
   const _TapHint({required this.lang});
   final String lang;

@@ -28,6 +28,18 @@ type registrationSubmitReq struct {
 	DateOfBirth string `json:"date_of_birth" form:"date_of_birth"`
 	Address     string `json:"address" form:"address"`
 	RoleID      int    `json:"role_id" form:"role_id"`
+	// #39 — optional fuller sign-up fields (grantor form; reused by #40/#41).
+	Gender     string `json:"gender" form:"gender"`
+	City       string `json:"city" form:"city"`
+	Occupation string `json:"occupation" form:"occupation"`
+	// #40 — eligible (beneficiary) fields.
+	FamilySize    string `json:"family_size" form:"family_size"`
+	HousingStatus string `json:"housing_status" form:"housing_status"`
+	MonthlyIncome string `json:"monthly_income" form:"monthly_income"`
+	// #41 — volunteer/employee fields.
+	Skills       string `json:"skills" form:"skills"`
+	Availability string `json:"availability" form:"availability"`
+	Experience   string `json:"experience" form:"experience"`
 }
 
 // POST /api/registration/submit
@@ -66,7 +78,17 @@ func (h *RegistrationHandler) Submit(c *gin.Context) {
 		return
 	}
 
-	newStatus, err := h.Users.SubmitRegistration(c.Request.Context(), tokenUser.UserID, fullName, dob, address, req.RoleID)
+	newStatus, err := h.Users.SubmitRegistration(c.Request.Context(), tokenUser.UserID, fullName, dob, address, req.RoleID, users.RegistrationExtras{
+		Gender:        strings.TrimSpace(req.Gender),
+		City:          strings.TrimSpace(req.City),
+		Occupation:    strings.TrimSpace(req.Occupation),
+		FamilySize:    strings.TrimSpace(req.FamilySize),
+		HousingStatus: strings.TrimSpace(req.HousingStatus),
+		MonthlyIncome: strings.TrimSpace(req.MonthlyIncome),
+		Skills:        strings.TrimSpace(req.Skills),
+		Availability:  strings.TrimSpace(req.Availability),
+		Experience:    strings.TrimSpace(req.Experience),
+	})
 	if err != nil {
 		if errors.Is(err, users.ErrRegistrationNotSubmittable) {
 			c.JSON(http.StatusConflict, gin.H{"status": "error", "error": "Registration cannot be submitted in its current state."})

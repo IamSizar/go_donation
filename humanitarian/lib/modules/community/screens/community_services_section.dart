@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/modules/community/controllers/community_controller.dart';
+import 'package:flutter_application_1/modules/community/screens/add_activity_screen.dart';
 import 'package:flutter_application_1/modules/community/screens/community_detail_screen.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -279,12 +280,41 @@ class _CityGuideScreenState extends State<CityGuideScreen> {
       title: 'City Guide',
       subtitle: 'Find local services on the map · Mosul, Iraq',
       child: Obx(() {
-        final items = _controller.entries.toList();
+        final items = _controller.filteredEntries;
+        final sectors = _controller.sectors.toList();
+        final selected = _controller.selectedSector.value;
         return Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           child: Column(
             children: [
               _CityGuideHeader(count: items.length),
+              // #30 — let users suggest a new place (goes to the admin queue).
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => Get.to(() => const AddActivityScreen()),
+                  icon: const Icon(Icons.add_location_alt_rounded, size: 18),
+                  label: Text('add_activity'.tr),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: BorderSide(color: _kPinA.withValues(alpha: 0.4)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ),
+              // #29 — sector filter chips (admin-managed, 4-language).
+              if (sectors.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                _SectorFilterRow(
+                  sectors: sectors,
+                  selected: selected,
+                  onSelect: _controller.selectSector,
+                ),
+              ],
               const SizedBox(height: 14),
               Expanded(child: _CityMap(entries: items)),
               if (items.isNotEmpty) ...[
@@ -314,6 +344,147 @@ void _showEntrySheet(BuildContext ctx, Map<String, dynamic> entry) {
     isScrollControlled: true,
     builder: (_) => _EntrySheet(entry: entry),
   );
+}
+
+// #29 — resolve a sector slug to its localized display name using the fetched
+// sector list. Falls back to the slug if the sector is unknown.
+String _sectorLabel(String slug, List<Map<String, dynamic>> sectors) {
+  for (final s in sectors) {
+    if ((s['slug'] ?? '').toString() == slug) {
+      return localizedContentFromValues(
+        base: (s['name_en'] ?? '').toString(),
+        arabic: (s['name_ar'] ?? '').toString(),
+        sorani: (s['name_ckb'] ?? '').toString(),
+        badini: (s['name_kmr'] ?? '').toString(),
+        fallback: slug,
+      );
+    }
+  }
+  return slug;
+}
+
+List<String> _entrySectors(Map<String, dynamic> entry) {
+  final raw = entry['sectors'];
+  if (raw is List) {
+    return raw.map((s) => s.toString()).where((s) => s.isNotEmpty).toList();
+  }
+  return const [];
+}
+
+// #29 — horizontal "All + one-per-sector" filter chip row above the map.
+class _SectorFilterRow extends StatelessWidget {
+  const _SectorFilterRow({
+    required this.sectors,
+    required this.selected,
+    required this.onSelect,
+  });
+  final List<Map<String, dynamic>> sectors;
+  final String? selected;
+  final void Function(String?) onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 38,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: [
+          _SectorChip(
+            label: 'city_all'.tr,
+            active: selected == null,
+            onTap: () => onSelect(null),
+          ),
+          for (final s in sectors) ...[
+            const SizedBox(width: 8),
+            _SectorChip(
+              label: _sectorLabel((s['slug'] ?? '').toString(), sectors),
+              active: selected == (s['slug'] ?? '').toString(),
+              onTap: () => onSelect((s['slug'] ?? '').toString()),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _SectorChip extends StatelessWidget {
+  const _SectorChip({
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          gradient: active
+              ? const LinearGradient(colors: [_kPinA, _kPinB])
+              : null,
+          color: active ? null : Colors.white.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: active
+                ? Colors.transparent
+                : Colors.white.withValues(alpha: 0.18),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: active ? Colors.white : const Color(0xFF8ECAE6),
+            fontSize: 12.5,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// #29 — full-screen swipeable gallery viewer for a place's photos.
+class _GalleryViewer extends StatelessWidget {
+  const _GalleryViewer({required this.images, this.initialIndex = 0});
+  final List<String> images;
+  final int initialIndex;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: PageView.builder(
+        controller: PageController(initialPage: initialIndex),
+        itemCount: images.length,
+        itemBuilder: (_, i) => InteractiveViewer(
+          child: Center(
+            child: Image.network(
+              images[i],
+              fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) => const Icon(
+                Icons.broken_image_rounded,
+                color: Colors.white30,
+                size: 64,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 // ── Redesigned map ────────────────────────────────────────────────────────────
@@ -750,6 +921,18 @@ class _EntrySheet extends StatelessWidget {
     final lat = _parseCoord(entry['latitude']);
     final lng = _parseCoord(entry['longitude']);
     final subtitle = [category, city].where((s) => s.isNotEmpty).join(' • ');
+    // #29 — opening hours (4-language), sector tags, and photo gallery.
+    final hours = localizedContentFromMap(entry, 'opening_hours');
+    final sectorSlugs = _entrySectors(entry);
+    final allSectors = Get.isRegistered<CommunityController>()
+        ? Get.find<CommunityController>().sectors.toList()
+        : <Map<String, dynamic>>[];
+    final gallery = (entry['gallery'] is List)
+        ? (entry['gallery'] as List)
+              .map((e) => e.toString())
+              .where((s) => s.isNotEmpty)
+              .toList()
+        : <String>[];
 
     return Container(
       decoration: const BoxDecoration(
@@ -858,14 +1041,55 @@ class _EntrySheet extends StatelessWidget {
                 ),
             ],
           ),
+          // #29 — sector tags.
+          if (sectorSlugs.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final slug in sectorSlugs)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _kPinA.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: _kPinA.withValues(alpha: 0.35),
+                      ),
+                    ),
+                    child: Text(
+                      _sectorLabel(slug, allSectors),
+                      style: const TextStyle(
+                        color: Color(0xFF8ECAE6),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
           const SizedBox(height: 18),
           if (phone.isNotEmpty) ...[
             _SheetRow(
               icon: Icons.phone_rounded,
               label: phone,
               iconColor: const Color(0xFF4CAF50),
-              actionLabel: 'Call',
+              actionLabel: 'Call'.tr,
               onTap: () => _launch('tel:$phone'),
+            ),
+            const SizedBox(height: 10),
+          ],
+          // #29 — opening hours.
+          if (hours.trim().isNotEmpty) ...[
+            _SheetRow(
+              icon: Icons.schedule_rounded,
+              label: hours,
+              iconColor: const Color(0xFFFFB74D),
             ),
             const SizedBox(height: 10),
           ],
@@ -888,6 +1112,50 @@ class _EntrySheet extends StatelessWidget {
               iconColor: Colors.white38,
             ),
             const SizedBox(height: 10),
+          ],
+          // #29 — photo gallery strip; tap opens a full-screen viewer.
+          if (gallery.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              'city_photos'.tr,
+              style: const TextStyle(
+                color: Color(0xFF8ECAE6),
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 84,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: gallery.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 10),
+                itemBuilder: (_, i) => GestureDetector(
+                  onTap: () => Get.to(
+                    () => _GalleryViewer(images: gallery, initialIndex: i),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.network(
+                      gallery[i],
+                      width: 110,
+                      height: 84,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        width: 110,
+                        height: 84,
+                        color: Colors.white.withValues(alpha: 0.08),
+                        child: const Icon(
+                          Icons.broken_image_rounded,
+                          color: Colors.white30,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ],
           const SizedBox(height: 14),
           SizedBox(

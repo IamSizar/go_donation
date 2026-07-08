@@ -6,6 +6,7 @@
 // engine or a language isn't installed, calls silently do nothing rather than
 // throwing.
 
+import 'package:flutter_application_1/core/app_mute.dart';
 import 'package:flutter_application_1/localization/locale_service.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 
@@ -44,7 +45,7 @@ abstract final class AppVoice {
   /// Speak [text] aloud, cancelling any in-progress speech first. langCode
   /// overrides the app locale when given. Safe no-op on failure.
   static Future<void> speak(String text, {String? langCode}) async {
-    if (_disabled || text.trim().isEmpty) return;
+    if (_disabled || AppMute.isMuted || text.trim().isEmpty) return; // #37 — global mute
     try {
       final t = await _ensure();
       await t.stop();

@@ -24,6 +24,7 @@ const PartnersPage = lazy(() => import('./pages/PartnersPage'))
 const MediaPage = lazy(() => import('./pages/MediaPage'))
 const CommunityPage = lazy(() => import('./pages/CommunityPage'))
 const CityGuidePage = lazy(() => import('./pages/CityGuidePage'))
+const CitySectorsPage = lazy(() => import('./pages/CitySectorsPage'))
 const MessagesPage = lazy(() => import('./pages/MessagesPage'))
 const VolunteersPage = lazy(() => import('./pages/VolunteersPage'))
 const VolunteerBoardPage = lazy(() => import('./pages/VolunteerBoardPage'))
@@ -38,6 +39,10 @@ const TrashPage = lazy(() => import('./pages/TrashPage'))
 const PermissionsPage = lazy(() => import('./pages/PermissionsPage'))
 const GuestAccessPage = lazy(() => import('./pages/GuestAccessPage'))
 const TermsPage = lazy(() => import('./pages/TermsPage'))
+const AboutPage = lazy(() => import('./pages/AboutPage'))
+const FieldRulesPage = lazy(() => import('./pages/FieldRulesPage'))
+const ReceiptsPage = lazy(() => import('./pages/ReceiptsPage'))
+const ContactPage = lazy(() => import('./pages/ContactPage'))
 const DonationCodesPage = lazy(() => import('./pages/DonationCodesPage'))
 const ProjectCategoriesPage = lazy(() => import('./pages/ProjectCategoriesPage'))
 const MediaCategoriesPage = lazy(() => import('./pages/MediaCategoriesPage'))
@@ -110,6 +115,7 @@ export default function App() {
             <Route path="media" element={<MediaPage />} />
             <Route path="community" element={<CommunityPage />} />
             <Route path="city-guide" element={<CityGuidePage />} />
+            <Route path="city-sectors" element={<CitySectorsPage />} />
             <Route path="messages" element={<MessagesPage />} />
             <Route path="volunteers" element={<VolunteersPage />} />
             <Route path="volunteer-board" element={<VolunteerBoardPage />} />
@@ -124,6 +130,10 @@ export default function App() {
             <Route path="permissions" element={<PermissionsPage />} />
             <Route path="guest-access" element={<GuestAccessPage />} />
             <Route path="terms" element={<TermsPage />} />
+            <Route path="about" element={<AboutPage />} />
+            <Route path="field-rules" element={<FieldRulesPage />} />
+            <Route path="receipts" element={<ReceiptsPage />} />
+            <Route path="contact" element={<ContactPage />} />
             <Route path="detail/:resource/:id" element={<DetailPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

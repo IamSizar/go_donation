@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -166,6 +168,43 @@ func (h *ChatHandler) Request(c *gin.Context) {
 		"status":      thread.Status,
 		"already":     !isNew,
 	})
+}
+
+// SupportThread — POST /api/chats/support (#45). Opens (or reuses) a direct
+// chat between the current user and the configured support/tech staff user
+// (env SUPPORT_USER_ID). Powers the volunteer↔support and marriage↔tech pairs;
+// grantor↔eligible already flows through Request. Reuses the whole message
+// pipeline; the support user accepts from their chat list.
+func (h *ChatHandler) SupportThread(c *gin.Context) {
+	user, _ := auth.UserFromGin(c)
+	if user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		return
+	}
+	supportID, _ := strconv.ParseInt(strings.TrimSpace(os.Getenv("SUPPORT_USER_ID")), 10, 64)
+	if supportID <= 0 {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"success": false, "error": "Support chat is not configured."})
+		return
+	}
+	if supportID == user.UserID {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "You cannot start a support chat with yourself."})
+		return
+	}
+	thread, recipient, isNew, err := h.Store.RequestThread(c.Request.Context(), user.UserID, supportID, nil, user.UserID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
+		return
+	}
+	if isNew {
+		name := h.fullName(user.UserID)
+		tid := thread.ID
+		go func() {
+			ctx, cancel := h.bg()
+			defer cancel()
+			_, _ = h.Notifier.Send(ctx, recipient, notify.ChatRequestMsg(name, "", tid))
+		}()
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "thread_id": thread.ID, "status": thread.Status, "already": !isNew})
 }
 
 // POST /api/chats/:id/accept

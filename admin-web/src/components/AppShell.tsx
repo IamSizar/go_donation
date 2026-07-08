@@ -51,6 +51,9 @@ const NAV: NavItem[] = [
   { to: '/banned-words',  tKey: 'nav.banned_words',    module: 'media' },
   { to: '/community',     tKey: 'nav.community',       module: 'community' },
   { to: '/city-guide',    tKey: 'nav.city_guide',     module: 'city' },
+  { to: '/city-sectors',  tKey: 'nav.city_sectors',   module: 'city' },
+  { to: '/field-rules',   tKey: 'nav.field_rules',    module: 'users' },
+  { to: '/receipts',      tKey: 'nav.receipts',       module: 'beneficiary' },
   { to: '/messages',      tKey: 'nav.messages',        module: 'messages' },
   { to: '/volunteers',    tKey: 'nav.volunteers',    countKey: 'volunteers', module: 'volunteers' },
   { to: '/volunteer-board', tKey: 'nav.volunteer_board', module: 'volunteers' },
@@ -66,6 +69,8 @@ const NAV: NavItem[] = [
   { to: '/permissions',   tKey: 'nav.permissions', superAdminOnly: true },
   { to: '/guest-access',  tKey: 'nav.guest_access', superAdminOnly: true },
   { to: '/terms',         tKey: 'nav.terms',        superAdminOnly: true },
+  { to: '/about',         tKey: 'nav.about',        superAdminOnly: true },
+  { to: '/contact',       tKey: 'nav.contact',      superAdminOnly: true },
 ]
 
 // Show "99+" instead of overflowing the badge with huge digits. ~5 chars max.

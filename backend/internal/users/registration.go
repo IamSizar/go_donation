@@ -3,6 +3,7 @@ package users
 import (
 	"context"
 	"errors"
+	"strconv"
 	"strings"
 	"time"
 
@@ -25,13 +26,43 @@ var ErrRegistrationNotSubmittable = errors.New("registration not submittable in 
 // Returns the resulting registration_status ("pending" for new/rejected users,
 // or "approved" when an already-approved user is just completing their role/
 // profile — e.g. a grandfathered account that never picked a role).
-func (s *Store) SubmitRegistration(ctx context.Context, userID int64, fullName, dob, address string, roleID int) (string, error) {
+// RegistrationExtras carries the optional fuller sign-up fields (#39). Empty
+// strings mean "not provided" and never overwrite an existing value.
+type RegistrationExtras struct {
+	Gender     string
+	City       string
+	Occupation string
+	// #40 — eligible (beneficiary) fields. FamilySize is a numeric string.
+	FamilySize    string
+	HousingStatus string
+	MonthlyIncome string
+	// #41 — volunteer/employee fields.
+	Skills       string
+	Availability string
+	Experience   string
+}
+
+func (s *Store) SubmitRegistration(ctx context.Context, userID int64, fullName, dob, address string, roleID int, extras RegistrationExtras) (string, error) {
 	if userID <= 0 {
 		return "", errors.New("invalid userID")
 	}
 	fullName = strings.TrimSpace(fullName)
 	address = strings.TrimSpace(address)
 	dob = strings.TrimSpace(dob)
+	gender := strings.TrimSpace(extras.Gender)
+	city := strings.TrimSpace(extras.City)
+	occupation := strings.TrimSpace(extras.Occupation)
+	housingStatus := strings.TrimSpace(extras.HousingStatus)
+	monthlyIncome := strings.TrimSpace(extras.MonthlyIncome)
+	skills := strings.TrimSpace(extras.Skills)
+	availability := strings.TrimSpace(extras.Availability)
+	experience := strings.TrimSpace(extras.Experience)
+	var familySize *int
+	if v := strings.TrimSpace(extras.FamilySize); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+			familySize = &n
+		}
+	}
 	if fullName == "" {
 		return "", errors.New("full_name required")
 	}
@@ -57,19 +88,30 @@ func (s *Store) SubmitRegistration(ctx context.Context, userID int64, fullName, 
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 		if _, err = tx.Exec(ctx,
-			`INSERT INTO user_profiles (user_id, full_name, address, gender, profile_picture, date_of_birth)
-			 VALUES ($1, $2, $3, '', '0', $4)`,
-			userID, fullName, address, dobArg,
+			`INSERT INTO user_profiles (user_id, full_name, address, gender, profile_picture, date_of_birth, city, occupation, family_size, housing_status, monthly_income, skills, availability, experience)
+			 VALUES ($1, $2, $3, $4, '0', $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+			userID, fullName, address, gender, dobArg, city, occupation, familySize, housingStatus, monthlyIncome, skills, availability, experience,
 		); err != nil {
 			return "", err
 		}
 	case err != nil:
 		return "", err
 	default:
+		// #39 — non-empty extras update; empty values keep the existing value.
 		if _, err = tx.Exec(ctx,
-			`UPDATE user_profiles SET full_name = $1, address = $2, date_of_birth = $3
+			`UPDATE user_profiles
+			    SET full_name = $1, address = $2, date_of_birth = $3,
+			        gender         = CASE WHEN $5 <> '' THEN $5 ELSE gender END,
+			        city           = COALESCE(NULLIF($6, ''), city),
+			        occupation     = COALESCE(NULLIF($7, ''), occupation),
+			        family_size    = COALESCE($8, family_size),
+			        housing_status = COALESCE(NULLIF($9, ''), housing_status),
+			        monthly_income = COALESCE(NULLIF($10, ''), monthly_income),
+			        skills         = COALESCE(NULLIF($11, ''), skills),
+			        availability   = COALESCE(NULLIF($12, ''), availability),
+			        experience     = COALESCE(NULLIF($13, ''), experience)
 			  WHERE user_id = $4`,
-			fullName, address, dobArg, userID,
+			fullName, address, dobArg, userID, gender, city, occupation, familySize, housingStatus, monthlyIncome, skills, availability, experience,
 		); err != nil {
 			return "", err
 		}

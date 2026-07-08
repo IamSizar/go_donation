@@ -389,6 +389,26 @@ export type CommunityEntry = {
   description_badini: string | null
   latitude: string | null
   longitude: string | null
+  // #29 — City Guide sectors, 4-language opening hours, photo gallery.
+  sectors: string[] | null
+  opening_hours: string | null
+  opening_hours_ar: string | null
+  opening_hours_sorani: string | null
+  opening_hours_badini: string | null
+  gallery: string[] | null
+  status?: string
+  approx_location?: string // #48 — 'exact' | 'approx'
+}
+
+export type CitySector = {
+  id: number
+  slug: string
+  name_en: string
+  name_ar: string
+  name_ckb: string
+  name_kmr: string
+  display_order: number
+  active: boolean
 }
 
 export type AdminNotification = {

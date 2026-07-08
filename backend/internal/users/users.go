@@ -43,6 +43,8 @@ type Account struct {
 	// AccountStatus is the lifecycle status (Section 25): active | suspended |
 	// banned.
 	AccountStatus string `json:"account_status"`
+	// FieldPrivacy (#32) is the list of profile field keys the user hides.
+	FieldPrivacy []string `json:"field_privacy"`
 }
 
 type Store struct {
@@ -51,6 +53,56 @@ type Store struct {
 
 func NewStore(pool *pgxpool.Pool) *Store {
 	return &Store{Pool: pool}
+}
+
+// GetNotificationsEnabled returns the user's notification switch (#31). Missing
+// user or column defaults to true so nothing is silently muted.
+func (s *Store) GetNotificationsEnabled(ctx context.Context, userID int64) (bool, error) {
+	var v int
+	err := s.Pool.QueryRow(ctx,
+		`SELECT notifications_enabled FROM users WHERE id = $1`, userID).Scan(&v)
+	if err != nil {
+		return true, err
+	}
+	return v != 0, nil
+}
+
+// SetNotificationsEnabled flips the user's notification switch (#31).
+func (s *Store) SetNotificationsEnabled(ctx context.Context, userID int64, enabled bool) error {
+	v := 0
+	if enabled {
+		v = 1
+	}
+	_, err := s.Pool.Exec(ctx,
+		`UPDATE users SET notifications_enabled = $2 WHERE id = $1`, userID, v)
+	return err
+}
+
+// GetFieldPrivacy returns the profile field keys the user hides (#32).
+func (s *Store) GetFieldPrivacy(ctx context.Context, userID int64) ([]string, error) {
+	var hidden []string
+	err := s.Pool.QueryRow(ctx,
+		`SELECT COALESCE(field_privacy, '{}') FROM user_profiles WHERE user_id = $1`, userID).Scan(&hidden)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return []string{}, nil
+		}
+		return nil, err
+	}
+	if hidden == nil {
+		hidden = []string{}
+	}
+	return hidden, nil
+}
+
+// SetFieldPrivacy stores the profile field keys the user hides (#32).
+func (s *Store) SetFieldPrivacy(ctx context.Context, userID int64, hidden []string) error {
+	if hidden == nil {
+		hidden = []string{}
+	}
+	_, err := s.Pool.Exec(ctx,
+		`UPDATE user_profiles SET field_privacy = $2 WHERE user_id = $1`, userID, hidden)
+	return err
 }
 
 // GetIDByPhone returns the user id for a phone, or 0 if not found.
@@ -245,18 +297,19 @@ func (s *Store) GetAccountForClient(ctx context.Context, userID int64) (*Account
 		picture    *string
 		dob        *string
 		acctStatus *string
+		privacy    []string
 	)
 	err := s.Pool.QueryRow(ctx,
 		`SELECT u.id, COALESCE(u.phone, '') AS phone, u.role_id, u.active, u.is_admin, u.created_at, u.registration_status, u.staff_tier, u.account_status,
 		        up.id, up.full_name, up.gender, up.address, up.profile_picture,
-		        to_char(up.date_of_birth, 'YYYY-MM-DD')
+		        to_char(up.date_of_birth, 'YYYY-MM-DD'), COALESCE(up.field_privacy, '{}')
 		   FROM users u
 		   LEFT JOIN user_profiles up ON up.user_id = u.id
 		  WHERE u.id = $1
 		  LIMIT 1`,
 		userID,
 	).Scan(&acc.UserID, &acc.Phone, &roleID, &active, &isAdmin, &acc.CreatedAt, &regStatus, &staffTier, &acctStatus,
-		&profileID, &fullName, &gender, &address, &picture, &dob)
+		&profileID, &fullName, &gender, &address, &picture, &dob, &privacy)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
@@ -281,6 +334,10 @@ func (s *Store) GetAccountForClient(ctx context.Context, userID int64) (*Account
 	if acctStatus != nil {
 		acc.AccountStatus = *acctStatus
 	}
+	if privacy == nil {
+		privacy = []string{}
+	}
+	acc.FieldPrivacy = privacy
 	if profileID != nil && *profileID > 0 {
 		acc.Profile = &Profile{
 			ProfileID:      *profileID,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/localization/content_localizer.dart';
+import 'package:flutter_application_1/modules/community/controllers/community_controller.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -12,6 +13,55 @@ double? _parseCoord(dynamic v) {
   if (v is int) return v.toDouble();
   if (v is String) return double.tryParse(v);
   return null;
+}
+
+// #29 — resolve a sector slug to its localized name from the fetched list.
+String _sectorLabel(String slug, List<Map<String, dynamic>> sectors) {
+  for (final s in sectors) {
+    if ((s['slug'] ?? '').toString() == slug) {
+      return localizedContentFromValues(
+        base: (s['name_en'] ?? '').toString(),
+        arabic: (s['name_ar'] ?? '').toString(),
+        sorani: (s['name_ckb'] ?? '').toString(),
+        badini: (s['name_kmr'] ?? '').toString(),
+        fallback: slug,
+      );
+    }
+  }
+  return slug;
+}
+
+// #29 — full-screen swipeable viewer for a place's gallery.
+void _openImage(BuildContext context, List<String> images, int initialIndex) {
+  Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => Scaffold(
+        backgroundColor: Colors.black,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          iconTheme: const IconThemeData(color: Colors.white),
+        ),
+        body: PageView.builder(
+          controller: PageController(initialPage: initialIndex),
+          itemCount: images.length,
+          itemBuilder: (_, i) => InteractiveViewer(
+            child: Center(
+              child: Image.network(
+                images[i],
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const Icon(
+                  Icons.broken_image_rounded,
+                  color: Colors.white30,
+                  size: 64,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 class CommunityDetailScreen extends StatelessWidget {
@@ -33,6 +83,23 @@ class CommunityDetailScreen extends StatelessWidget {
     final website = (entry['website'] ?? '').toString().trim();
     final lat = _parseCoord(entry['latitude']);
     final lng = _parseCoord(entry['longitude']);
+    // #29 — opening hours (4-language), sector tags, and photo gallery.
+    final hours = localizedContentFromMap(entry, 'opening_hours');
+    final sectorSlugs = (entry['sectors'] is List)
+        ? (entry['sectors'] as List)
+              .map((s) => s.toString())
+              .where((s) => s.isNotEmpty)
+              .toList()
+        : <String>[];
+    final allSectors = Get.isRegistered<CommunityController>()
+        ? Get.find<CommunityController>().sectors.toList()
+        : <Map<String, dynamic>>[];
+    final gallery = (entry['gallery'] is List)
+        ? (entry['gallery'] as List)
+              .map((e) => e.toString())
+              .where((s) => s.isNotEmpty)
+              .toList()
+        : <String>[];
 
     return GradientScreen(
       child: SafeArea(
@@ -133,6 +200,55 @@ class CommunityDetailScreen extends StatelessWidget {
                             value:
                                 '${lat.toStringAsFixed(5)}, ${lng.toStringAsFixed(5)}',
                           ),
+                        // #48 — privacy: coords are snapped to ~500m server-side.
+                        if ((entry['approx_location'] ?? '') == 'approx')
+                          _DetailLine(
+                            icon: Icons.privacy_tip_outlined,
+                            label: 'approx_location_note',
+                            value: 'approx_location_hint',
+                          ),
+                        // #29 — opening hours.
+                        if (hours.trim().isNotEmpty)
+                          _DetailLine(
+                            icon: Icons.schedule_rounded,
+                            label: 'city_opening_hours',
+                            value: hours,
+                          ),
+                        // #29 — sector tags.
+                        if (sectorSlugs.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              for (final slug in sectorSlugs)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(
+                                      0xFF667EEA,
+                                    ).withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color: const Color(
+                                        0xFF667EEA,
+                                      ).withValues(alpha: 0.4),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    _sectorLabel(slug, allSectors),
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -153,6 +269,58 @@ class CommunityDetailScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 10),
                           Text(description.tr),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  // ── Photo gallery (#29) ──────────────────────────────────
+                  if (gallery.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    GlassPanel(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'city_photos'.tr,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            height: 96,
+                            child: ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: gallery.length,
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(width: 10),
+                              itemBuilder: (_, i) => GestureDetector(
+                                onTap: () => _openImage(context, gallery, i),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: Image.network(
+                                    gallery[i],
+                                    width: 128,
+                                    height: 96,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Container(
+                                      width: 128,
+                                      height: 96,
+                                      color: Colors.white.withValues(
+                                        alpha: 0.08,
+                                      ),
+                                      child: const Icon(
+                                        Icons.broken_image_rounded,
+                                        color: Colors.white30,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),

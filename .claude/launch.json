@@ -6,7 +6,8 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 5173,
-      "cwd": "admin-web"
+      "cwd": "admin-web",
+      "env": { "API_TARGET": "http://localhost:8090" }
     }
   ]
 }

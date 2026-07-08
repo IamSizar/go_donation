@@ -15,6 +15,7 @@
 import 'dart:async';
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter_application_1/core/app_mute.dart';
 
 abstract final class AppSound {
   static AudioPlayer? _player;
@@ -42,7 +43,7 @@ abstract final class AppSound {
   ///   - the platform / device rejects audio (e.g. web before first user
   ///     gesture). Catches everything so callers don't need try/catch.
   static void notification() {
-    if (_disabled) return;
+    if (_disabled || AppMute.isMuted) return; // #37 — global mute
     final now = DateTime.now();
     if (_lastPlayed != null && now.difference(_lastPlayed!) < _minInterval) {
       return;

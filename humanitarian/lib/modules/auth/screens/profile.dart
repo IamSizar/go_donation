@@ -2,14 +2,25 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/auth_session.dart';
+import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/api/profile_api.dart';
+import 'package:flutter_application_1/core/app_mute.dart';
+import 'package:flutter_application_1/core/app_share.dart';
 import 'package:flutter_application_1/core/app_state.dart';
+import 'package:flutter_application_1/core/app_voice.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/widgets/cached_profile_avatar.dart';
 import 'package:get/get.dart';
+import 'package:path_provider/path_provider.dart';
 
 import 'edit_profile.dart';
+import 'field_privacy_screen.dart';
+import '../../marriage/screens/marriage_form_screen.dart';
+import '../../marriage/screens/marriage_search_screen.dart';
+import '../../search/screens/global_search_screen.dart';
+import '../../receipts/screens/aid_receipts_screen.dart';
 import '../../../localization/locale_service.dart';
+import 'package:flutter_application_1/modules/legal/screens/content_page_screen.dart';
 import 'package:flutter_application_1/modules/legal/screens/terms_screen.dart';
 
 const Color _profilePrimary = Color(0xFF0F766E);
@@ -84,6 +95,47 @@ class _ProfileSectionState extends State<ProfileSection> {
       // identity + guest flag, so the session is truly invalidated and can't
       // auto re-login on next launch.
       await logout();
+    }
+  }
+
+  // #34 — clear cached data: the in-memory image cache + the temp directory
+  // (where cached_network_image stores its disk cache). Deliberately does NOT
+  // touch SharedPreferences, so the session/login stays intact.
+  Future<void> _clearCache(BuildContext context) async {
+    final confirmed =
+        await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text('clear_cache'.tr),
+            content: Text('cache_clear_confirm'.tr),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: Text('Cancel'.tr),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: Text('clear_cache'.tr),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed) return;
+    try {
+      PaintingBinding.instance.imageCache.clear();
+      PaintingBinding.instance.imageCache.clearLiveImages();
+      final tmp = await getTemporaryDirectory();
+      if (tmp.existsSync()) {
+        for (final e in tmp.listSync()) {
+          try {
+            e.deleteSync(recursive: true);
+          } catch (_) {}
+        }
+      }
+      Get.snackbar('clear_cache'.tr, 'cache_cleared'.tr);
+    } catch (_) {
+      Get.snackbar('clear_cache'.tr, 'cache_clear_failed'.tr);
     }
   }
 
@@ -222,6 +274,15 @@ class _ProfileSectionState extends State<ProfileSection> {
                     color: Colors.deepPurple,
                   ),
                   const SizedBox(height: 12),
+                  // #32 — choose which profile fields are public/hidden.
+                  _ProfileOptionTile(
+                    icon: Icons.visibility_off_rounded,
+                    title: 'Field privacy',
+                    subtitle: 'privacy_desc',
+                    color: Colors.indigo,
+                    onTap: () => Get.to(() => const FieldPrivacyScreen()),
+                  ),
+                  const SizedBox(height: 12),
                   _ProfileOptionTile(
                     icon: Icons.payment_rounded,
                     title: "Payment Methods",
@@ -237,10 +298,66 @@ class _ProfileSectionState extends State<ProfileSection> {
                         'Customize notifications, language, and preferences.',
                     color: Colors.blueAccent,
                   ),
+                  const SizedBox(height: 12),
+                  // #34 — clear cached data (images / temp files).
+                  _ProfileOptionTile(
+                    icon: Icons.cleaning_services_rounded,
+                    title: 'clear_cache',
+                    subtitle: 'clear_cache_desc',
+                    color: Colors.brown,
+                    onTap: () => _clearCache(context),
+                  ),
 
                   const SizedBox(height: 22),
                   _SectionLabel('Services'.tr),
                   const SizedBox(height: 10),
+                  // #33 — global search across the whole app.
+                  _ProfileOptionTile(
+                    icon: Icons.search_rounded,
+                    title: 'search_title',
+                    subtitle: 'search_subtitle',
+                    color: Colors.blue,
+                    onTap: () => Get.to(() => const GlobalSearchScreen()),
+                  ),
+                  const SizedBox(height: 12),
+                  // #50 — the user's digital aid-delivery receipts.
+                  _ProfileOptionTile(
+                    icon: Icons.receipt_long_rounded,
+                    title: 'receipts_title',
+                    subtitle: 'receipts_subtitle',
+                    color: Colors.teal,
+                    onTap: () => Get.to(() => const AidReceiptsScreen()),
+                  ),
+                  const SizedBox(height: 12),
+                  // #49 — share the app to other apps (WhatsApp, Telegram, …).
+                  _ProfileOptionTile(
+                    icon: Icons.ios_share_rounded,
+                    title: 'share_app',
+                    subtitle: 'share_app_desc',
+                    color: Colors.green,
+                    onTap: shareApp,
+                  ),
+                  // #42 — marriage profile (eligible role only, matching backend).
+                  if (sharedPreferences.getString('role_id') == '2') ...[
+                    const SizedBox(height: 12),
+                    _ProfileOptionTile(
+                      icon: Icons.favorite_outline_rounded,
+                      title: 'marriage_title',
+                      subtitle: 'marriage_subtitle',
+                      color: Colors.pink,
+                      onTap: () => Get.to(() => const MarriageFormScreen()),
+                    ),
+                    const SizedBox(height: 12),
+                    // #46 — search/save/request-meeting on marriage profiles.
+                    _ProfileOptionTile(
+                      icon: Icons.search_rounded,
+                      title: 'marriage_search',
+                      subtitle: 'marriage_search_desc',
+                      color: Colors.pinkAccent,
+                      onTap: () => Get.to(() => const MarriageSearchScreen()),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
                   _ProfileOptionTile(
                     icon: Icons.apps_rounded,
                     title: 'Services',
@@ -257,6 +374,10 @@ class _ProfileSectionState extends State<ProfileSection> {
                   const _LanguagePreferenceCard(),
                   const SizedBox(height: 12),
                   const _ThemePreferenceCard(),
+                  const SizedBox(height: 12),
+                  const _NotificationPreferenceCard(),
+                  const SizedBox(height: 12),
+                  const _MutePreferenceCard(),
 
                   const SizedBox(height: 22),
                   _SectionLabel('Legal'.tr),
@@ -267,6 +388,29 @@ class _ProfileSectionState extends State<ProfileSection> {
                     subtitle: 'Read the terms that apply to using the app.',
                     color: Colors.blueGrey,
                     onTap: () => Get.to(() => const TermsScreen()),
+                  ),
+                  const SizedBox(height: 12),
+                  // #35 — About Us + Contact (admin-editable content pages).
+                  _ProfileOptionTile(
+                    icon: Icons.info_outline_rounded,
+                    title: 'About Us',
+                    subtitle: 'about_desc',
+                    color: Colors.teal,
+                    onTap: () => Get.to(() => const ContentPageScreen(
+                          slug: 'about',
+                          titleKey: 'About Us',
+                        )),
+                  ),
+                  const SizedBox(height: 12),
+                  _ProfileOptionTile(
+                    icon: Icons.mail_outline_rounded,
+                    title: 'Contact Us',
+                    subtitle: 'contact_desc',
+                    color: Colors.orange,
+                    onTap: () => Get.to(() => const ContentPageScreen(
+                          slug: 'contact',
+                          titleKey: 'Contact Us',
+                        )),
                   ),
 
                   const SizedBox(height: 24),
@@ -948,6 +1092,144 @@ class _LanguageOptionRow extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+// #31 — notification on/off switch, persisted server-side. When off, the
+// backend skips this user's in-app + push notifications.
+class _NotificationPreferenceCard extends StatefulWidget {
+  const _NotificationPreferenceCard();
+
+  @override
+  State<_NotificationPreferenceCard> createState() =>
+      _NotificationPreferenceCardState();
+}
+
+class _NotificationPreferenceCardState
+    extends State<_NotificationPreferenceCard> {
+  bool _enabled = true;
+  bool _loading = true;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final v = await const ModuleApi().getNotificationSetting();
+      if (mounted) setState(() => _enabled = v);
+    } catch (_) {
+      // Keep the optimistic default (on) if the fetch fails.
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _toggle(bool next) async {
+    setState(() {
+      _enabled = next;
+      _saving = true;
+    });
+    try {
+      await const ModuleApi().setNotificationSetting(next);
+    } catch (_) {
+      if (mounted) setState(() => _enabled = !next); // revert on failure
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _ProfileCard(
+      child: SwitchListTile.adaptive(
+        contentPadding: EdgeInsets.zero,
+        value: _enabled,
+        activeThumbColor: _profilePrimary,
+        onChanged: (_loading || _saving) ? null : _toggle,
+        title: Text(
+          'Notifications'.tr,
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 15,
+            color: AppThemeConfig.text(context),
+          ),
+        ),
+        subtitle: Text(
+          'Receive updates and alerts from the app.'.tr,
+          style: TextStyle(
+            color: AppThemeConfig.mutedText(context),
+            height: 1.35,
+            fontSize: 13,
+          ),
+        ),
+        secondary: Container(
+          width: 46,
+          height: 46,
+          decoration: BoxDecoration(
+            color: Colors.teal.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: const Icon(Icons.notifications_rounded, color: Colors.teal),
+        ),
+      ),
+    );
+  }
+}
+
+// #37 — mute switch: silences sounds, haptics, and spoken summaries.
+class _MutePreferenceCard extends StatelessWidget {
+  const _MutePreferenceCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return _ProfileCard(
+      child: ValueListenableBuilder<bool>(
+        valueListenable: AppMute.muted,
+        builder: (context, muted, _) {
+          return SwitchListTile.adaptive(
+            contentPadding: EdgeInsets.zero,
+            value: muted,
+            activeThumbColor: _profilePrimary,
+            onChanged: (v) {
+              AppMute.set(v);
+              if (v) AppVoice.stop();
+            },
+            title: Text(
+              'mute_all'.tr,
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 15,
+                color: AppThemeConfig.text(context),
+              ),
+            ),
+            subtitle: Text(
+              'mute_all_desc'.tr,
+              style: TextStyle(
+                color: AppThemeConfig.mutedText(context),
+                height: 1.35,
+                fontSize: 13,
+              ),
+            ),
+            secondary: Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                color: Colors.blueGrey.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(
+                muted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+                color: Colors.blueGrey,
+              ),
+            ),
+          );
+        },
       ),
     );
   }

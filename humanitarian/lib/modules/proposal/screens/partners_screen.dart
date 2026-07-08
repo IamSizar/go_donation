@@ -6,6 +6,7 @@ import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/modules/proposal/controllers/partners_controller.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class PartnersScreen extends StatelessWidget {
@@ -363,7 +364,12 @@ class _PartnerRating extends StatelessWidget {
         ),
         const Spacer(),
         OutlinedButton.icon(
-          onPressed: () => _openRatePicker(context, item),
+          // #44 — guests are prompted to sign in before acting.
+          onPressed: () async {
+            if (!await requireSignIn(context)) return;
+            if (!context.mounted) return;
+            _openRatePicker(context, item);
+          },
           icon: Icon(
             mine > 0 ? Icons.star_rounded : Icons.star_border_rounded,
             size: 18,

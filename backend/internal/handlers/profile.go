@@ -27,6 +27,80 @@ func NewProfileHandler(u *users.Store, uploadDir string) *ProfileHandler {
 	return &ProfileHandler{Users: u, UploadDir: uploadDir}
 }
 
+// GET /api/profile/notifications (#31) — the current user's notification switch.
+func (h *ProfileHandler) GetNotificationSetting(c *gin.Context) {
+	user, ok := auth.UserFromGin(c)
+	if !ok || user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		return
+	}
+	enabled, err := h.Users.GetNotificationsEnabled(c.Request.Context(), user.UserID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "enabled": enabled})
+}
+
+// GET /api/profile/privacy (#32) — the current user's hidden profile fields.
+func (h *ProfileHandler) GetFieldPrivacy(c *gin.Context) {
+	user, ok := auth.UserFromGin(c)
+	if !ok || user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		return
+	}
+	hidden, err := h.Users.GetFieldPrivacy(c.Request.Context(), user.UserID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "hidden": hidden})
+}
+
+// POST /api/profile/privacy (#32) — body {hidden: ["phone","address"]}. Replaces
+// the current user's hidden-field list.
+func (h *ProfileHandler) SetFieldPrivacy(c *gin.Context) {
+	user, ok := auth.UserFromGin(c)
+	if !ok || user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		return
+	}
+	var req struct {
+		Hidden []string `json:"hidden"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid JSON body."})
+		return
+	}
+	if err := h.Users.SetFieldPrivacy(c.Request.Context(), user.UserID, req.Hidden); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "hidden": req.Hidden})
+}
+
+// POST /api/profile/notifications (#31) — body {enabled: bool}. Toggles the
+// current user's notification switch.
+func (h *ProfileHandler) SetNotificationSetting(c *gin.Context) {
+	user, ok := auth.UserFromGin(c)
+	if !ok || user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		return
+	}
+	var req struct {
+		Enabled bool `json:"enabled"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid JSON body."})
+		return
+	}
+	if err := h.Users.SetNotificationsEnabled(c.Request.Context(), user.UserID, req.Enabled); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "enabled": req.Enabled})
+}
+
 // GET /api/profile/get?user_id=N
 // Bearer required; user_id MUST match the resolved user.
 func (h *ProfileHandler) Get(c *gin.Context) {

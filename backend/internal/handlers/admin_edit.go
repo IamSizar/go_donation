@@ -262,6 +262,15 @@ type communityEditReq struct {
 	Latitude          *string `json:"latitude"`
 	Longitude         *string `json:"longitude"`
 	Status            *string `json:"status"`
+	// #29 — City Guide sectors, 4-language opening hours, photo gallery.
+	Sectors            *[]string `json:"sectors"`
+	OpeningHours       *string   `json:"opening_hours"`
+	OpeningHoursAr     *string   `json:"opening_hours_ar"`
+	OpeningHoursSorani *string   `json:"opening_hours_sorani"`
+	OpeningHoursBadini *string   `json:"opening_hours_badini"`
+	Gallery            *[]string `json:"gallery"`
+	// #48 — approximate location for privacy ('approx' | 'exact').
+	ApproxLocation *string `json:"approx_location"`
 }
 
 func (h *AdminEditHandler) Community(c *gin.Context) {
@@ -305,6 +314,24 @@ func (h *AdminEditHandler) Community(c *gin.Context) {
 	addOptString(&b, "description_badini", req.DescriptionBadini)
 	addOptString(&b, "latitude", req.Latitude)
 	addOptString(&b, "longitude", req.Longitude)
+	// #29 — sectors + 4-language opening hours + gallery.
+	addOptString(&b, "opening_hours", req.OpeningHours)
+	addOptString(&b, "opening_hours_ar", req.OpeningHoursAr)
+	addOptString(&b, "opening_hours_sorani", req.OpeningHoursSorani)
+	addOptString(&b, "opening_hours_badini", req.OpeningHoursBadini)
+	if req.Sectors != nil { // replace the whole sectors array
+		b.add("sectors", cleanStringSlice(*req.Sectors))
+	}
+	if req.Gallery != nil { // replace the whole gallery array
+		b.add("gallery", cleanStringSlice(*req.Gallery))
+	}
+	if req.ApproxLocation != nil { // #48 — privacy: 'approx' → 1, else 0
+		v := 0
+		if s := strings.TrimSpace(*req.ApproxLocation); s == "approx" || s == "1" {
+			v = 1
+		}
+		b.add("approx_location", v)
+	}
 	if req.Status != nil {
 		s := strings.TrimSpace(*req.Status)
 		if !inSet(s, communityStatuses) {

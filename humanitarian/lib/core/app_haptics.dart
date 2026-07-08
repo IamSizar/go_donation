@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/services.dart';
+import 'package:flutter_application_1/core/app_mute.dart';
 
 /// Crisp, modern haptics backed by the platform's native engine — the iOS
 /// Taptic Engine and Android's haptic constants — via Flutter's built-in
@@ -19,6 +20,7 @@ import 'package:flutter/services.dart';
 /// haptics — it can never throw into or block the UI flow.
 abstract final class AppHaptics {
   static void _play(Future<void> Function() effect) {
+    if (AppMute.isMuted) return; // #37 — global mute
     unawaited(_guard(effect));
   }
 

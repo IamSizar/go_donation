@@ -103,6 +103,51 @@ export function downloadExcel<T>(filename: string, rows: T[], columns: CsvColumn
   triggerDownload(new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8' }), filename)
 }
 
+// #51 — Word export, dependency-free. Builds a UTF-8 HTML document saved with
+// the Word MIME type (.doc); Microsoft Word, Pages and Google Docs all open it
+// natively as a document. Includes a title + timestamp + row count. RTL-aware.
+export function downloadWord<T>(
+  filename: string,
+  title: string,
+  rows: T[],
+  columns: CsvColumn<T>[],
+): void {
+  const rtl = isRtl()
+  const align = rtl ? 'right' : 'left'
+  const thead =
+    '<tr>' +
+    columns
+      .map(
+        (c) =>
+          `<th style="background:#0E5B54;color:#fff;border:1px solid #999;padding:4px 8px;text-align:${align}">${escapeHtml(c.header)}</th>`,
+      )
+      .join('') +
+    '</tr>'
+  const tbody = rows
+    .map(
+      (r) =>
+        '<tr>' +
+        columns
+          .map(
+            (c) =>
+              `<td style="border:1px solid #ccc;padding:3px 8px;text-align:${align}">${escapeHtml(cellText(c.get(r)))}</td>`,
+          )
+          .join('') +
+        '</tr>',
+    )
+    .join('')
+  const stamp = new Date().toLocaleString()
+  const html =
+    '﻿<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word">' +
+    `<head><meta charset="utf-8"><title>${escapeHtml(title)}</title></head>` +
+    `<body dir="${rtl ? 'rtl' : 'ltr'}">` +
+    `<h2 style="font-family:Arial,sans-serif;margin:0 0 2px">${escapeHtml(title)}</h2>` +
+    `<p style="font-family:Arial,sans-serif;color:#666;font-size:12px;margin:0 0 12px">${escapeHtml(stamp)} · ${rows.length} rows</p>` +
+    `<table border="1" style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:12px">${thead}${tbody}</table>` +
+    '</body></html>'
+  triggerDownload(new Blob([html], { type: 'application/msword;charset=utf-8' }), filename)
+}
+
 // 24-b — PDF export, dependency-free. Opens a print window with a styled table
 // and triggers the browser's print dialog, where the admin chooses "Save as
 // PDF". RTL-aware; includes a title + timestamp + row count.

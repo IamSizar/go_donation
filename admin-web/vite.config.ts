@@ -3,6 +3,9 @@ import react from '@vitejs/plugin-react'
 
 // Dev server proxies /api to the Go backend on :8080 so the SPA can call
 // the API at the same origin during development (no CORS plumbing needed).
+// Override with API_TARGET when the backend runs on a non-default port
+// (e.g. when :8080 is already taken by another local service).
+const apiTarget = process.env.API_TARGET || 'http://localhost:8080'
 export default defineConfig({
   plugins: [react()],
   server: {
@@ -16,11 +19,11 @@ export default defineConfig({
     port: process.env.PORT ? Number(process.env.PORT) : 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:8080',
+        target: apiTarget,
         changeOrigin: true,
       },
       '/images': {
-        target: 'http://localhost:8080',
+        target: apiTarget,
         changeOrigin: true,
       },
     },

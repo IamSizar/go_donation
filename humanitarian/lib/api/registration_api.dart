@@ -5,6 +5,23 @@ import 'package:flutter_application_1/api/links.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:http/http.dart' as http;
 
+/// #43 — the set of optional registration field keys the admin marked required.
+/// Empty on error/offline (so the form falls back to its baseline validation).
+Future<Set<String>> fetchRequiredFields() async {
+  try {
+    final resp = await http.get(
+      Uri.parse(fieldRulesUrl),
+      headers: const {'Accept': 'application/json'},
+    );
+    if (resp.statusCode != 200) return {};
+    final decoded = jsonDecode(resp.body);
+    if (decoded is Map && decoded['required'] is List) {
+      return (decoded['required'] as List).map((e) => e.toString()).toSet();
+    }
+  } catch (_) {}
+  return {};
+}
+
 /// Result of POSTing the registration form.
 class RegistrationSubmitResult {
   RegistrationSubmitResult({required this.ok, this.status, this.error});
@@ -23,6 +40,15 @@ Future<RegistrationSubmitResult> submitRegistration({
   required String dateOfBirth, // "YYYY-MM-DD" or ""
   required String address,
   required int roleId,
+  String gender = '', // #39 — optional fuller sign-up fields
+  String city = '',
+  String occupation = '',
+  String familySize = '', // #40 — eligible fields
+  String housingStatus = '',
+  String monthlyIncome = '',
+  String skills = '', // #41 — volunteer fields
+  String availability = '',
+  String experience = '',
 }) async {
   try {
     final resp = await http.post(
@@ -34,6 +60,15 @@ Future<RegistrationSubmitResult> submitRegistration({
           'date_of_birth': dateOfBirth,
           'address': address,
           'role_id': roleId,
+          'gender': gender,
+          'city': city,
+          'occupation': occupation,
+          'family_size': familySize,
+          'housing_status': housingStatus,
+          'monthly_income': monthlyIncome,
+          'skills': skills,
+          'availability': availability,
+          'experience': experience,
         }),
       ),
     );

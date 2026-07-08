@@ -8,11 +8,12 @@ import 'package:http/http.dart' as http;
 
 const String contentTermsUrl = '${baseUrl}content/terms';
 
-/// Fetches the Terms & Conditions content map, or null on error/offline.
-Future<Map<String, dynamic>?> fetchTermsContent() async {
+/// Fetches an app_content page by slug (terms / about / contact …), or null on
+/// error/offline. Returns the {title_*/body_*} map.
+Future<Map<String, dynamic>?> fetchContent(String slug) async {
   try {
     final resp = await http.get(
-      Uri.parse(contentTermsUrl),
+      Uri.parse('${baseUrl}content/$slug'),
       headers: const {'Accept': 'application/json'},
     );
     if (resp.statusCode != 200) return null;
@@ -25,3 +26,6 @@ Future<Map<String, dynamic>?> fetchTermsContent() async {
     return null;
   }
 }
+
+/// Fetches the Terms & Conditions content map, or null on error/offline.
+Future<Map<String, dynamic>?> fetchTermsContent() => fetchContent('terms');

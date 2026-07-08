@@ -185,12 +185,77 @@ func NewMarriageHandler(s *marriage.Store, n *notify.Notifier) *MarriageHandler 
 
 func (h *MarriageHandler) Get(c *gin.Context) {
 	limit, _ := strconv.Atoi(strings.TrimSpace(c.Query("limit")))
-	items, err := h.Store.List(c.Request.Context(), strings.TrimSpace(c.Query("status")), c.Query("q"), limit)
+	minAge, _ := strconv.Atoi(strings.TrimSpace(c.Query("min_age")))
+	maxAge, _ := strconv.Atoi(strings.TrimSpace(c.Query("max_age")))
+	items, err := h.Store.List(c.Request.Context(), marriage.SearchFilters{
+		Status: strings.TrimSpace(c.Query("status")),
+		Q:      c.Query("q"),
+		Gender: strings.TrimSpace(c.Query("gender")),
+		MinAge: minAge,
+		MaxAge: maxAge,
+		Limit:  limit,
+	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "items": items})
+}
+
+// SavedList — GET /api/marriage/saved (#46). The current user's bookmarks.
+func (h *MarriageHandler) SavedList(c *gin.Context) {
+	user, _ := auth.UserFromGin(c)
+	if user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		return
+	}
+	items, err := h.Store.List(c.Request.Context(), marriage.SearchFilters{Status: "all", SavedByUser: user.UserID})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "items": items})
+}
+
+// ToggleSave — POST /api/marriage/:id/save (#46).
+func (h *MarriageHandler) ToggleSave(c *gin.Context) {
+	user, _ := auth.UserFromGin(c)
+	if user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		return
+	}
+	pid, _ := strconv.ParseInt(strings.TrimSpace(c.Param("id")), 10, 64)
+	if pid <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid profile id."})
+		return
+	}
+	saved, err := h.Store.ToggleSaved(c.Request.Context(), user.UserID, pid)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "saved": saved})
+}
+
+// RequestMeeting — POST /api/marriage/:id/request-meeting (#46) — body {message}.
+func (h *MarriageHandler) RequestMeeting(c *gin.Context) {
+	user, _ := auth.UserFromGin(c)
+	if user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		return
+	}
+	pid, _ := strconv.ParseInt(strings.TrimSpace(c.Param("id")), 10, 64)
+	if pid <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid profile id."})
+		return
+	}
+	data := collectBody(c)
+	id, err := h.Store.RequestMeeting(c.Request.Context(), user.UserID, pid, asStr(data["message"]))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "id": id, "status": "pending"})
 }
 
 func (h *MarriageHandler) Post(c *gin.Context) {
@@ -228,8 +293,9 @@ func (h *MarriageHandler) Post(c *gin.Context) {
 		agePtr = &n
 	}
 	subStatus := strings.TrimSpace(asStr(data["subscription_status"]))
+	visibility := strings.TrimSpace(asStr(data["visibility_level"])) // #42 — privacy
 
-	id, code, err := h.Store.Insert(c.Request.Context(), uid, gender, agePtr, city, social, private, subStatus)
+	id, code, err := h.Store.Insert(c.Request.Context(), uid, gender, agePtr, city, social, private, subStatus, visibility)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to create profile."})
 		return
@@ -276,6 +342,12 @@ func (h *SponsorshipsHandler) Get(c *gin.Context) {
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
 			return
+		}
+		// #53 — hide the sponsorship money from the eligible person. The amount
+		// and currency never leave the server for this view.
+		for i := range items {
+			items[i].Amount = ""
+			items[i].Currency = ""
 		}
 		c.JSON(http.StatusOK, gin.H{"success": true, "items": items})
 		return

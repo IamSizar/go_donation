@@ -8,6 +8,7 @@ import 'package:flutter_application_1/modules/donations/screens/continue_donatio
 import 'package:flutter_application_1/modules/donations/screens/my_donations_page.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:intl/intl.dart'; // Added for number formatting
 
 class DonationsSection extends StatelessWidget {
@@ -245,7 +246,9 @@ class _DonationsSectionBodyState extends State<_DonationsSectionBody> {
                                 }
                               });
                             },
-                            onDonatePressed: () {
+                            // #44 — guests are prompted to sign in before acting.
+                            onDonatePressed: () async {
+                              if (!await requireSignIn(context)) return;
                               AppHaptics.selection();
                               setState(() => _selectedCampaignId = campaign.id);
                               _scrollToQuickAmount(animated: true);

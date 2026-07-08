@@ -7,7 +7,9 @@ import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/modules/proposal/controllers/media_posts_controller.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:flutter_application_1/core/app_share.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
 
@@ -286,7 +288,10 @@ class _EngagementBar extends StatelessWidget {
               : Icons.favorite_border_rounded,
           color: liked ? Colors.red : null,
           label: likeCount > 0 ? '$likeCount' : 'Like'.tr,
-          onTap: () => controller.toggleLike(item),
+          // #44 — guests are prompted to sign in before acting.
+          onTap: () async {
+            if (await requireSignIn(context)) controller.toggleLike(item);
+          },
         ),
         _EngageButton(
           icon: Icons.mode_comment_outlined,
@@ -354,7 +359,8 @@ Future<void> _sharePost(
   final body = localizedContentFromMap(item, 'body');
   final parts = <String>[title];
   if (body.trim().isNotEmpty) parts.add(body);
-  await Share.share(parts.join('\n\n'));
+  // #49 — include the app link so recipients can find the app.
+  await Share.share(withAppLink(parts.join('\n\n')));
   if (id > 0) {
     try {
       await const ModuleApi().shareMediaPost(id);

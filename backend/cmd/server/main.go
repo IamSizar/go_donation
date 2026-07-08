@@ -18,6 +18,7 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/beneficiary"
 	"github.com/karam-flutter/humanitarian-backend/internal/campaigns"
 	"github.com/karam-flutter/humanitarian-backend/internal/chat"
+	"github.com/karam-flutter/humanitarian-backend/internal/citysectors"
 	"github.com/karam-flutter/humanitarian-backend/internal/config"
 	"github.com/karam-flutter/humanitarian-backend/internal/content"
 	"github.com/karam-flutter/humanitarian-backend/internal/dashboard"
@@ -42,6 +43,7 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/projectcategories"
 	"github.com/karam-flutter/humanitarian-backend/internal/reports"
 	"github.com/karam-flutter/humanitarian-backend/internal/scheduler"
+	"github.com/karam-flutter/humanitarian-backend/internal/search"
 	"github.com/karam-flutter/humanitarian-backend/internal/sectioncodes"
 	"github.com/karam-flutter/humanitarian-backend/internal/sponsorships"
 	"github.com/karam-flutter/humanitarian-backend/internal/support"
@@ -105,6 +107,8 @@ func main() {
 	volunteersStore := volunteers.New(pool)
 	professionStore := volunteers.NewProfessionStore(pool)
 	projectCatStore := projectcategories.New(pool)
+	citySectorStore := citysectors.New(pool)               // #29 — City Guide sectors
+	searchStore := search.New(pool)                        // #33 — global search
 	mediaCatStore := mediacategories.New(pool)             // #22 — "Our Work" categories
 	postEngageStore := postengagement.New(pool)            // #24 — likes/comments/share
 	bannedWordsStore := moderation.New(pool)               // #25 — banned-words blocklist
@@ -194,6 +198,10 @@ func main() {
 	adminPermsH := handlers.NewAdminPermissionsHandler(permStore, otpStore, otpiqClient)
 	adminProfessionsH := handlers.NewAdminProfessionsHandler(professionStore)
 	projectCategoriesH := handlers.NewProjectCategoriesHandler(projectCatStore)
+	citySectorsH := handlers.NewCitySectorsHandler(citySectorStore)                                 // #29
+	searchH := handlers.NewSearchHandler(searchStore)                                               // #33
+	fieldRulesH := handlers.NewFieldRulesHandler(pool)                                              // #43
+	aidReceiptsH := handlers.NewAidReceiptsHandler(pool)                                            // #50
 	mediaCategoriesH := handlers.NewMediaCategoriesHandler(mediaCatStore)                           // #22
 	mediaEngageH := handlers.NewMediaEngagementHandler(postEngageStore, bannedWordsStore, notifier) // #24/#25
 	bannedWordsH := handlers.NewBannedWordsHandler(bannedWordsStore)                                // #25
@@ -273,6 +281,13 @@ func main() {
 		api.GET("/stats/impact", statsH.ImpactStats)
 		// #17 — public project categories for the beneficiary submit-project dropdown.
 		api.GET("/project-categories", projectCategoriesH.PublicList)
+		api.GET("/city-sectors", citySectorsH.PublicList)                     // #29 — City Guide filter chips
+		api.GET("/search", searchH.Search)                                    // #33 — global search
+		api.GET("/registration/field-rules", fieldRulesH.PublicList)          // #43 — required-field rules
+		// #36 — support WhatsApp handoff number (env SUPPORT_WHATSAPP; empty = disabled).
+		api.GET("/support/whatsapp", func(c *gin.Context) {
+			c.JSON(http.StatusOK, gin.H{"success": true, "number": cfg.SupportWhatsApp, "enabled": cfg.SupportWhatsApp != ""})
+		})
 		api.GET("/media-categories", mediaCategoriesH.PublicList)             // #22
 		api.GET("/marketplace/categories", marketplaceCategoriesH.PublicList) // #28
 		// #19 — public payment methods for the donate screen.
@@ -344,6 +359,12 @@ func main() {
 			authed.GET("/profile/get/", profileH.Get)
 			authed.POST("/profile/set", profileH.Set)
 			authed.POST("/profile/set/", profileH.Set)
+			// #31 — per-user notification switch.
+			authed.GET("/profile/notifications", profileH.GetNotificationSetting)
+			authed.POST("/profile/notifications", profileH.SetNotificationSetting)
+			// #32 — per-user profile field privacy (which fields are hidden).
+			authed.GET("/profile/privacy", profileH.GetFieldPrivacy)
+			authed.POST("/profile/privacy", profileH.SetFieldPrivacy)
 			authed.POST("/choose_role", chooseRoleH.Post)
 			authed.POST("/choose_role/", chooseRoleH.Post)
 
@@ -355,6 +376,9 @@ func main() {
 
 			// #27 — rate a partner (1–5 stars).
 			authed.POST("/partners/:id/rate", partnerEngageH.Rate)
+
+			// #30 — suggest a City Guide place (enters the admin queue as pending).
+			authed.POST("/community/submit", listingsH.SubmitCommunity)
 
 			// Donations
 			authed.POST("/donate", donationsH.Create)
@@ -386,6 +410,7 @@ func main() {
 
 			// Donor ↔ campaign-owner chat (Phase 28).
 			authed.POST("/chats/request", chatH.Request)
+			authed.POST("/chats/support", chatH.SupportThread) // #45 — direct chat with support/tech
 			authed.GET("/chats", chatH.List)
 			authed.GET("/chats/", chatH.List)
 			authed.POST("/chats/:id/accept", chatH.Accept)
@@ -423,6 +448,12 @@ func main() {
 			authed.POST("/in_kind_donations/", inkindH.Post)
 
 			authed.POST("/marriage", marriageH.Post)
+			// #50 — the current user's digital aid-delivery receipts.
+			authed.GET("/aid-receipts", aidReceiptsH.MyList)
+			// #46 — marriage search: save + request-meeting.
+			authed.GET("/marriage/saved", marriageH.SavedList)
+			authed.POST("/marriage/:id/save", marriageH.ToggleSave)
+			authed.POST("/marriage/:id/request-meeting", marriageH.RequestMeeting)
 			authed.POST("/marriage/", marriageH.Post)
 
 			authed.GET("/sponsorships", sponsorshipsH.Get)
@@ -567,6 +598,7 @@ func main() {
 			admin.POST("/admin/marriage/:id/status", perm("marriage", "edit"), adminStatusH.Marriage)
 			admin.POST("/admin/partners/:id/status", perm("partners", "edit"), adminStatusH.Partner)
 			admin.POST("/admin/media/:id/status", perm("media", "edit"), adminStatusH.Media)
+			admin.GET("/admin/community", listingsH.CommunityAdmin) // #30 — queue incl. pending
 			admin.POST("/admin/community/:id/status", perm("community", "edit"), adminStatusH.Community)
 			admin.POST("/admin/volunteer_applications/:id/status", perm("volunteers", "edit"), adminStatusH.VolunteerApplication)
 			admin.POST("/admin/sponsorships/:id/status", perm("sponsorships", "edit"), adminStatusH.Sponsorship)
@@ -683,6 +715,18 @@ func main() {
 			admin.PATCH("/admin/project-categories/:id", auth.RequireAdminTier(), projectCategoriesH.Update)
 			admin.POST("/admin/project-categories/reorder", auth.RequireAdminTier(), projectCategoriesH.Reorder)
 			admin.DELETE("/admin/project-categories/:id", auth.RequireAdminTier(), projectCategoriesH.Delete)
+			// #29 — City Guide sector CMS (admin-managed, 4-language, ordered).
+			// #50 — digital aid-delivery receipts.
+			admin.GET("/admin/aid-receipts", aidReceiptsH.AdminList)
+			admin.POST("/admin/aid-receipts", auth.RequireAdminTier(), aidReceiptsH.AdminCreate)
+			// #43 — registration field rules (required vs optional).
+			admin.GET("/admin/registration/field-rules", fieldRulesH.AdminList)
+			admin.POST("/admin/registration/field-rules/:key", auth.RequireAdminTier(), fieldRulesH.SetRequired)
+			admin.GET("/admin/city-sectors", citySectorsH.AdminList)
+			admin.POST("/admin/city-sectors", auth.RequireAdminTier(), citySectorsH.Add)
+			admin.PATCH("/admin/city-sectors/:id", auth.RequireAdminTier(), citySectorsH.Update)
+			admin.POST("/admin/city-sectors/reorder", auth.RequireAdminTier(), citySectorsH.Reorder)
+			admin.DELETE("/admin/city-sectors/:id", auth.RequireAdminTier(), citySectorsH.Delete)
 			// #19 — payment-method CMS (admin-managed, 4-language, ordered).
 			// #22 — "Our Work" media categories (writes gated to admin tier).
 			admin.GET("/admin/media-categories", mediaCategoriesH.AdminList)

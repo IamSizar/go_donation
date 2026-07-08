@@ -289,6 +289,80 @@ class ModuleApi {
   Future<List<Map<String, dynamic>>> communityDirectory() =>
       getItems(communityDirectoryUrl);
 
+  Future<List<Map<String, dynamic>>> citySectors() => getItems(citySectorsUrl);
+
+  Future<Map<String, dynamic>> submitCommunity(Map<String, dynamic> body) =>
+      postJson(communitySubmitUrl, body);
+
+  // #31 — per-user notification switch.
+  Future<bool> getNotificationSetting() async {
+    final res = await getObject(notificationSettingUrl);
+    return res['enabled'] == true;
+  }
+
+  Future<bool> setNotificationSetting(bool enabled) async {
+    final res = await postJson(notificationSettingUrl, {'enabled': enabled});
+    return res['enabled'] == true;
+  }
+
+  // #32 — profile field privacy (list of hidden field keys).
+  Future<List<String>> getFieldPrivacy() async {
+    final res = await getObject(fieldPrivacyUrl);
+    final raw = res['hidden'];
+    return raw is List ? raw.map((e) => e.toString()).toList() : <String>[];
+  }
+
+  Future<void> setFieldPrivacy(List<String> hidden) =>
+      postJson(fieldPrivacyUrl, {'hidden': hidden});
+
+  // #33 — global search across the app's content.
+  Future<List<Map<String, dynamic>>> globalSearch(String q) =>
+      getItems('$globalSearchUrl?q=${Uri.encodeQueryComponent(q)}');
+
+  // #42 — create a marriage/engagement profile.
+  Future<Map<String, dynamic>> submitMarriage(Map<String, dynamic> body) =>
+      postJson(marriageSubmitUrl, body);
+
+  // #46 — search marriage profiles (q + gender).
+  Future<List<Map<String, dynamic>>> searchMarriage({String q = '', String gender = ''}) {
+    final params = <String, String>{'status': 'active'};
+    if (q.trim().isNotEmpty) params['q'] = q.trim();
+    if (gender.trim().isNotEmpty) params['gender'] = gender.trim();
+    final uri = Uri.parse(marriageSubmitUrl).replace(queryParameters: params);
+    return getItems(uri.toString());
+  }
+
+  // #46 — toggle-save a profile; returns the resulting saved state.
+  Future<bool> toggleSaveMarriage(int profileId) async {
+    final res = await postJson('$marriageSubmitUrl/$profileId/save', {});
+    return res['saved'] == true;
+  }
+
+  // #46 — request a meeting about a profile.
+  Future<void> requestMarriageMeeting(int profileId, String message) =>
+      postJson('$marriageSubmitUrl/$profileId/request-meeting', {'message': message});
+
+  // #50 — the current user's digital aid-delivery receipts.
+  Future<List<Map<String, dynamic>>> myAidReceipts() => getItems(aidReceiptsUrl);
+
+  // #45 — open (or reuse) a direct chat with support/tech; returns thread_id.
+  Future<int?> startSupportChat() async {
+    final res = await postJson(chatSupportUrl, {});
+    final id = res['thread_id'];
+    return id is int ? id : int.tryParse('$id');
+  }
+
+  // #36 — support WhatsApp number (null when disabled/unset).
+  Future<String?> supportWhatsapp() async {
+    try {
+      final res = await getObject(supportWhatsappUrl);
+      final number = (res['number'] ?? '').toString().trim();
+      return (res['enabled'] == true && number.isNotEmpty) ? number : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<List<Map<String, dynamic>>> volunteerMissions() =>
       getItems(volunteerMissionsUrl);
 

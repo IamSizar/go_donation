@@ -20,6 +20,11 @@ class AssistantController extends GetxController {
   final messages = <BotMessage>[].obs;
   final isTyping = false.obs;
 
+  // #36 — support WhatsApp handoff. The number is fetched once; the offer shows
+  // once the user has sent at least 3 messages.
+  final whatsappNumber = RxnString();
+  static const int _whatsappAfterMessages = 3;
+
   late final String roleId;
   late final List<BotQA> suggestions;
 
@@ -28,6 +33,18 @@ class AssistantController extends GetxController {
     super.onInit();
     roleId = sharedPreferences.getString('role_id') ?? '1';
     suggestions = getBotQAs(roleId);
+    _loadWhatsapp();
+  }
+
+  Future<void> _loadWhatsapp() async {
+    whatsappNumber.value = await const ModuleApi().supportWhatsapp();
+  }
+
+  /// True once WhatsApp is configured AND the user has sent ≥3 messages.
+  bool get showWhatsappOffer {
+    final n = whatsappNumber.value;
+    if (n == null || n.isEmpty) return false;
+    return messages.where((m) => m.isUser).length >= _whatsappAfterMessages;
   }
 
   /// Minimum time the typing indicator stays on screen, so the "AI is thinking"

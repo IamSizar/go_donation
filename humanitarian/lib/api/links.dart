@@ -118,6 +118,40 @@ const String paymentMethodsUrl = '${baseUrl}payment-methods';
 /// GET: admin-managed "Our Work" categories for the News & Activities filter (#22).
 const String mediaCategoriesUrl = '${baseUrl}media-categories';
 
+/// GET: admin-managed City Guide sectors for the directory filter chips (#29).
+const String citySectorsUrl = '${baseUrl}city-sectors';
+
+/// POST: a user suggests a new City Guide place → admin approval queue (#30).
+const String communitySubmitUrl = '${baseUrl}community/submit';
+
+/// GET/POST: the current user's notification on/off switch (#31).
+const String notificationSettingUrl = '${baseUrl}profile/notifications';
+
+/// GET/POST: the current user's hidden profile fields (#32).
+const String fieldPrivacyUrl = '${baseUrl}profile/privacy';
+
+/// GET: app-wide global search across content tables (#33).
+const String globalSearchUrl = '${baseUrl}search';
+
+/// GET: support WhatsApp handoff number (#36); empty when disabled.
+const String supportWhatsappUrl = '${baseUrl}support/whatsapp';
+
+/// POST: create a marriage/engagement profile (#42). Eligible role only.
+const String marriageSubmitUrl = '${baseUrl}marriage';
+
+/// GET: admin-configured required registration fields (#43).
+const String fieldRulesUrl = '${baseUrl}registration/field-rules';
+
+/// POST: open a direct chat with support/tech staff (#45).
+const String chatSupportUrl = '${baseUrl}chats/support';
+
+/// #49 — public link shared when sharing the app or a post (store / website).
+/// Set this to the real download/website URL; empty = share text only (no link).
+const String appShareUrl = '';
+
+/// GET: the current user's digital aid-delivery receipts (#50).
+const String aidReceiptsUrl = '${baseUrl}aid-receipts';
+
 /// GET: admin-managed marketplace product categories (#28).
 const String marketplaceCategoriesUrl = '${baseUrl}marketplace/categories';
 

@@ -259,12 +259,28 @@ func (h *AdminCreateHandler) Community(c *gin.Context) {
 			status = v
 		}
 	}
+	// #29 — sectors + gallery default to empty arrays (not NULL) when omitted.
+	sectors := []string{}
+	if req.Sectors != nil {
+		sectors = cleanStringSlice(*req.Sectors)
+	}
+	gallery := []string{}
+	if req.Gallery != nil {
+		gallery = cleanStringSlice(*req.Gallery)
+	}
+	approx := 0 // #48 — privacy: approximate location flag
+	if req.ApproxLocation != nil {
+		if s := strings.TrimSpace(*req.ApproxLocation); s == "approx" || s == "1" {
+			approx = 1
+		}
+	}
 	var id int64
 	err := h.Pool.QueryRow(c.Request.Context(), `
 		INSERT INTO city_directory_entries
 		  (name, name_ar, name_sorani, name_badini, category, city, address, phone, email, website,
-		   description, description_ar, description_sorani, description_badini, latitude, longitude, status)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+		   description, description_ar, description_sorani, description_badini, latitude, longitude, status,
+		   sectors, opening_hours, opening_hours_ar, opening_hours_sorani, opening_hours_badini, gallery, approx_location)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
 		RETURNING id`,
 		name,
 		optStringOrNil(req.NameAr), optStringOrNil(req.NameSorani), optStringOrNil(req.NameBadini),
@@ -273,6 +289,8 @@ func (h *AdminCreateHandler) Community(c *gin.Context) {
 		optStringOrNil(req.Description), optStringOrNil(req.DescriptionAr),
 		optStringOrNil(req.DescriptionSorani), optStringOrNil(req.DescriptionBadini),
 		optStringOrNil(req.Latitude), optStringOrNil(req.Longitude), status,
+		sectors, optStringOrNil(req.OpeningHours), optStringOrNil(req.OpeningHoursAr),
+		optStringOrNil(req.OpeningHoursSorani), optStringOrNil(req.OpeningHoursBadini), gallery, approx,
 	).Scan(&id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})

@@ -4,9 +4,9 @@ import { useAuth } from '../lib/auth'
 import { useI18n } from '../lib/i18n'
 import { useToast } from '../lib/toast'
 import { useExportAllowed } from '../lib/permissions'
-import { downloadCsv, downloadExcel, downloadPdf, type CsvColumn } from '../lib/csv'
+import { downloadCsv, downloadExcel, downloadPdf, downloadWord, type CsvColumn } from '../lib/csv'
 
-type Format = 'csv' | 'excel' | 'pdf'
+type Format = 'csv' | 'excel' | 'pdf' | 'word'
 
 type Props<T> = {
   // --- 24-b multi-format mode: pass the data + module and get CSV/Excel/PDF ---
@@ -92,6 +92,7 @@ export default function ExportCsvButton<T>({
       const base = `${filenameBase}-${date}`
       if (format === 'csv') downloadCsv(`${base}.csv`, rows!, columns!)
       else if (format === 'excel') downloadExcel(`${base}.xls`, rows!, columns!)
+      else if (format === 'word') downloadWord(`${base}.doc`, title ?? filenameBase!, rows!, columns!)
       else downloadPdf(title ?? filenameBase!, rows!, columns!)
     } catch {
       toast.error(t('export.pin_incorrect'))
@@ -155,6 +156,9 @@ export default function ExportCsvButton<T>({
           </button>
           <button role="menuitem" style={itemStyle} onClick={() => run('pdf')}>
             {t('export.pdf')}
+          </button>
+          <button role="menuitem" style={itemStyle} onClick={() => run('word')}>
+            {t('export.word')}
           </button>
         </div>
       )}
