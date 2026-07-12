@@ -1015,6 +1015,33 @@ button.amber:disabled {
   transform: scaleX(-1) translateX(2px);
 }
 
+/* Notification Center — Super-Admin-only purge button on each feed row. Kept
+   subtle until row hover so it doesn't compete with the click-through. */
+.event-purge-btn {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--radius-full, 999px);
+  background: transparent;
+  color: var(--muted, #94a3b8);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms ease, background-color 120ms ease, color 120ms ease;
+}
+.event-row:hover .event-purge-btn,
+.event-purge-btn:focus-visible { opacity: 0.75; }
+.event-purge-btn:hover {
+  opacity: 1;
+  background: rgba(220, 38, 38, 0.12);
+  color: #dc2626;
+}
+
 /* Toast — same clickable treatment when its underlying event has a route. */
 .events-toast.is-clickable { cursor: pointer; }
 .events-toast.is-clickable:focus-visible {
@@ -1109,6 +1136,16 @@ button.amber:disabled {
   border: 1px solid var(--color-border);
   color: var(--text-h);
   cursor: pointer;
+  /* Long labels (e.g. the Arabic/Kurdish "needs_changes") must not stretch the
+     column or wrap and blow out the 26px row height. Clamp the width and clip
+     the selected-value text; the native dropdown still shows each option in
+     full when opened. */
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
 }
 .status-cell:hover { background-color: var(--color-surface-2); border-color: var(--color-border-strong); }
 .status-cell:focus { box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18); }
@@ -1488,13 +1525,12 @@ button.danger:disabled { background: #5a2a2a; border-color: #5a2a2a; cursor: not
 /* The bulk-bar is translated horizontally; the transform origin matters in RTL */
 [dir="rtl"] .bulk-bar { /* nothing to flip — flex order is fine */ }
 
-/* Detail page: in RTL, the key column reads left from the right edge.
-   Use a logical grid template so it flips naturally. */
-[dir="rtl"] .detail-grid {
-  grid-template-columns: 1fr 220px;
-}
-[dir="rtl"] .detail-grid .detail-key { order: 2; text-align: right; }
-[dir="rtl"] .detail-grid .detail-value { order: 1; }
+/* Detail page (global notice #3): no RTL override needed — CSS grid follows
+   the inline direction, so under dir="rtl" the base `220px 1fr` template
+   already places the key column at the RIGHT edge with the value immediately
+   to its left, both start-aligned (= right). The old override here swapped
+   the template AND the item order (a double flip), which stranded labels and
+   values at opposite edges of the panel. */
 
 /* Numbers in RTL still read left-to-right; preserve that for code blocks */
 code, pre { direction: ltr; unicode-bidi: bidi-override; }
@@ -2097,3 +2133,25 @@ html[dir='rtl'] .data-table td,
 html[dir='rtl'] .data-table th {
   line-height: 1.7;
 }
+
+/* §24 — Permissions section idle auto-lock overlay. */
+.idle-lock-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 12vh;
+  background: color-mix(in srgb, var(--bg, #0b1220) 78%, transparent);
+  backdrop-filter: blur(6px);
+}
+.idle-lock-card {
+  width: min(360px, 90%);
+  background: var(--panel, #10182a);
+  border: 1px solid var(--border, #2a3550);
+  border-radius: var(--radius, 14px);
+  padding: 22px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.4);
+}
+.idle-lock-card h2 { margin: 0 0 4px; font-size: 18px; }

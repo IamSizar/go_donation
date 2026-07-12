@@ -10,9 +10,20 @@
 // the export aligned with whatever filter/page the admin is currently looking
 // at — what you see is what you get.
 
+import { fieldLabelFor, translate } from './i18n'
+
 export type CsvColumn<T> = {
   header: string
   get: (row: T) => unknown
+}
+
+// Localize column headers at the single choke point every export format goes
+// through (global notice #2). Pages pass raw DB field names ('user_id',
+// 'created_at', 'title_ar'); fieldLabelFor resolves them via dbfield.* →
+// col.* → field.* in the current UI language, and returns already-human
+// headers unchanged — so no per-page changes are needed.
+function localizeHeaders<T>(columns: CsvColumn<T>[]): CsvColumn<T>[] {
+  return columns.map((c) => ({ ...c, header: fieldLabelFor(c.header) }))
 }
 
 function escapeCell(v: unknown): string {
@@ -62,6 +73,7 @@ function isRtl(): boolean {
 }
 
 export function downloadCsv<T>(filename: string, rows: T[], columns: CsvColumn<T>[]): void {
+  columns = localizeHeaders(columns)
   const header = columns.map((c) => escapeCell(c.header)).join(',')
   const body = rows.map((r) => columns.map((c) => escapeCell(c.get(r))).join(',')).join('\n')
   // BOM ensures Excel detects UTF-8 (Arabic/Kurdish columns otherwise garble)
@@ -73,6 +85,7 @@ export function downloadCsv<T>(filename: string, rows: T[], columns: CsvColumn<T
 // Excel MIME type; Excel, Numbers and Google Sheets all open it natively as a
 // spreadsheet. The BOM + <meta charset> keep Arabic/Kurdish text intact.
 export function downloadExcel<T>(filename: string, rows: T[], columns: CsvColumn<T>[]): void {
+  columns = localizeHeaders(columns)
   const rtl = isRtl()
   const align = rtl ? 'right' : 'left'
   const thead =
@@ -112,6 +125,7 @@ export function downloadWord<T>(
   rows: T[],
   columns: CsvColumn<T>[],
 ): void {
+  columns = localizeHeaders(columns)
   const rtl = isRtl()
   const align = rtl ? 'right' : 'left'
   const thead =
@@ -142,7 +156,7 @@ export function downloadWord<T>(
     `<head><meta charset="utf-8"><title>${escapeHtml(title)}</title></head>` +
     `<body dir="${rtl ? 'rtl' : 'ltr'}">` +
     `<h2 style="font-family:Arial,sans-serif;margin:0 0 2px">${escapeHtml(title)}</h2>` +
-    `<p style="font-family:Arial,sans-serif;color:#666;font-size:12px;margin:0 0 12px">${escapeHtml(stamp)} · ${rows.length} rows</p>` +
+    `<p style="font-family:Arial,sans-serif;color:#666;font-size:12px;margin:0 0 12px">${escapeHtml(stamp)} · ${escapeHtml(translate('export.rows_n', { n: rows.length }))}</p>` +
     `<table border="1" style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:12px">${thead}${tbody}</table>` +
     '</body></html>'
   triggerDownload(new Blob([html], { type: 'application/msword;charset=utf-8' }), filename)
@@ -152,6 +166,7 @@ export function downloadWord<T>(
 // and triggers the browser's print dialog, where the admin chooses "Save as
 // PDF". RTL-aware; includes a title + timestamp + row count.
 export function downloadPdf<T>(title: string, rows: T[], columns: CsvColumn<T>[]): void {
+  columns = localizeHeaders(columns)
   const rtl = isRtl()
   const align = rtl ? 'right' : 'left'
   const thead =
@@ -179,7 +194,7 @@ export function downloadPdf<T>(title: string, rows: T[], columns: CsvColumn<T>[]
 </style></head>
 <body>
   <h1>${escapeHtml(title)}</h1>
-  <p class="meta">${escapeHtml(stamp)} · ${rows.length} rows</p>
+  <p class="meta">${escapeHtml(stamp)} · ${escapeHtml(translate('export.rows_n', { n: rows.length }))}</p>
   <table>${thead}${tbody}</table>
 </body></html>`
   const win = window.open('', '_blank')

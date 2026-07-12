@@ -35,7 +35,7 @@ const SUBSCRIPTION_STATUSES = ['free', 'paid', 'waived']
 
 const MARRIAGE_EDIT_FIELDS: FieldSpec[] = [
   { key: 'gender',              label: 'Gender', labelKey: 'field.gender',              type: 'text' },
-  { key: 'age',                 label: 'Age',                 type: 'number' },
+  { key: 'age',                 label: 'Age', labelKey: 'dbfield.age',        type: 'number' },
   { key: 'city',                label: 'City', labelKey: 'field.city',                type: 'text' },
   { key: 'visibility_level',    label: 'Visibility', labelKey: 'field.visibility',          type: 'select', options: VISIBILITY_LEVELS },
   { key: 'subscription_status', label: 'Subscription', labelKey: 'field.subscription',        type: 'select', options: SUBSCRIPTION_STATUSES },

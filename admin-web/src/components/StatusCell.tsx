@@ -53,7 +53,11 @@ export default function StatusCell({ value, allowed, onSave, className, disabled
       disabled={busy || disabled}
       onChange={(e) => change(e.target.value)}
       className={`status-cell ${className ?? ''}`}
-      style={{ width: 'auto', minWidth: '120px' }}
+      /* Fixed width (not auto) so the cell doesn't resize — and the column
+         doesn't shift — when the selected option's text length changes. Long
+         labels are clipped with an ellipsis by .status-cell; the dropdown still
+         shows each option in full when opened. (Volunteers §13B layout fix.) */
+      style={{ width: '150px' }}
     >
       {/* Make sure the current value is always present even if not in `allowed` */}
       {!allowed.includes(val) && <option value={val}>{statusLabel(val)}</option>}

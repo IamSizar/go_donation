@@ -211,13 +211,13 @@ export default function CampaignsPage() {
     { key: 'address', header: t('col.location'), cell: (c) => c.address },
     {
       key: 'owner',
-      header: 'Eligible',
+      header: t('nav.beneficiary'),
       cell: (c) => {
         if (!c.owner_user_id) return <span className="muted">—</span>
         return (
           <div className="cell-stack">
             <Link to={`/detail/users/${c.owner_user_id}`} style={{ fontWeight: 700 }}>
-              User #{c.owner_user_id}
+              {t('common.user_ref', { id: c.owner_user_id })}
             </Link>
             {c.owner_name && <span>{c.owner_name}</span>}
             {c.owner_phone && <span className="muted">{c.owner_phone}</span>}

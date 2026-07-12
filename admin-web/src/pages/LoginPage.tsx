@@ -27,6 +27,13 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
+  // §24 admin-login 2FA (only reached when the server has ADMIN_LOGIN_2FA on).
+  // After a correct password the server replies {status:'otp_required'} instead
+  // of a token; we then show a code field and re-submit username+password+otp.
+  const [otpRequired, setOtpRequired] = useState(false)
+  const [otp, setOtp] = useState('')
+  const [phoneHint, setPhoneHint] = useState('')
+
   // Bring the admin back to wherever RequireAuth bounced them from, or
   // fall back to the dashboard root.
   const from = (location.state as { from?: { pathname: string } } | null)?.from?.pathname ?? '/'
@@ -39,7 +46,16 @@ export default function LoginPage() {
       const { data } = await api.post('/api/auth/admin/login', {
         username: username.trim(),
         password,
+        otp: otpRequired ? otp.trim() : undefined,
       })
+      // Two-factor challenge: password was accepted, a code was sent. Reveal the
+      // OTP field and wait for the second submit.
+      if (data?.status === 'otp_required') {
+        setOtpRequired(true)
+        setPhoneHint(String(data.phone_hint ?? ''))
+        if (data.mode === 'demo' && data.demo_code) setOtp(String(data.demo_code))
+        return
+      }
       const token = data?.access_token as string
       if (!token) throw new Error(t('auth.no_token'))
       const isAdmin = Number(data.account?.is_admin ?? 0)
@@ -100,12 +116,29 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
               required
-              disabled={busy}
+              disabled={busy || otpRequired}
               autoComplete="current-password"
             />
           </label>
-          <button type="submit" disabled={busy || !username.trim() || !password.trim()}>
-            {busy ? t('auth.signing_in') : t('auth.sign_in')}
+          {otpRequired && (
+            <label>
+              {t('auth.otp_label')}
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                value={otp}
+                onChange={(e) => setOtp(e.target.value)}
+                placeholder="123456"
+                required
+                autoFocus
+                disabled={busy}
+              />
+              <span className="muted" style={{ fontSize: 12 }}>{t('auth.otp_sent', { hint: phoneHint })}</span>
+            </label>
+          )}
+          <button type="submit" disabled={busy || !username.trim() || !password.trim() || (otpRequired && !otp.trim())}>
+            {busy ? t('auth.signing_in') : otpRequired ? t('auth.verify') : t('auth.sign_in')}
           </button>
         </form>
       </div>

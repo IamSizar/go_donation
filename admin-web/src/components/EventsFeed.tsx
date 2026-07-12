@@ -7,9 +7,11 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { api } from '../lib/api'
+import { api, isSuperAdmin } from '../lib/api'
+import { useAuth } from '../lib/auth'
 import { useGlobalAlerts } from '../lib/globalAlerts'
-import { useI18n } from '../lib/i18n'
+import { useI18n, useStatusLabel } from '../lib/i18n'
+import { useToast } from '../lib/toast'
 
 // Firestore `events` document shape — matches what the old PHP admin writes
 // from the mobile app. Key field is `event_type` (NOT `type`); actor info is
@@ -63,15 +65,16 @@ function formatAmount(n: number): string {
 }
 
 // actorFor mirrors the old admin's helper — prefers "name · phone", falls
-// through to bare name, phone, user id, or a generic label.
-function actorFor(r: EventRow): string {
+// through to bare name, phone, user id, or a generic label. Takes t so the
+// fallback labels follow the UI language (global notice #2).
+function actorFor(r: EventRow, t: (k: string, v?: Record<string, string | number>) => string): string {
   const name = String(r.name ?? '').trim()
   const number = String(r.number ?? '').trim()
   if (name && number) return `${name} · ${number}`
   if (name) return name
   if (number) return number
-  if (r.user_id) return `user #${r.user_id}`
-  return 'App user'
+  if (r.user_id) return t('common.user_ref_lc', { id: r.user_id })
+  return t('common.app_user')
 }
 
 // Try to resolve the campaign id this event references. donation_submit and
@@ -103,7 +106,19 @@ function bodyFor(
   r: EventRow,
   campaignMap: Record<number, string>,
   t: (key: string, vars?: Record<string, string | number>) => string,
+  statusLabel: (v: string) => string,
 ): string {
+  // Admin Notification System — "<new value> · by <admin>", all localized. The
+  // raw `new` enum is stored on the event so we localize it here to the viewer's
+  // language (never on the backend).
+  if (r.event_type.startsWith('admin_user_')) {
+    const meta = (r.metadata ?? {}) as { new?: unknown; actor_name?: unknown }
+    const nv = meta.new != null && String(meta.new).trim() !== '' ? statusLabel(String(meta.new)) : ''
+    const actor = String(meta.actor_name ?? '').trim()
+    const by = actor ? t('feed.by_admin', { admin: actor }) : ''
+    if (nv && by) return `${nv} · ${by}`
+    return nv || by || '—'
+  }
   switch (r.event_type) {
     case 'donation_submit': {
       const amount = formatAmount(Number(r.amount))
@@ -161,6 +176,14 @@ const EVENT_META: Record<string, EventMeta> = {
   in_kind_donation_submit: { icon: '📦', tone: 'success', badge: 'In-kind', category: 'Money' },
   marriage_profile_submit: { icon: '💍', tone: 'info', badge: 'Marriage', category: 'People' },
   notification_mark_read: { icon: '🔕', tone: 'warning', badge: 'Notification', category: 'Orders' },
+  // Admin Notification System — staff actions on user accounts.
+  admin_user_create:   { icon: '👤', tone: 'primary', badge: 'User', category: 'People' },
+  admin_user_role:     { icon: '🪪', tone: 'info',    badge: 'User', category: 'People' },
+  admin_user_tier:     { icon: '🛡', tone: 'warning', badge: 'User', category: 'People' },
+  admin_user_password: { icon: '🔑', tone: 'warning', badge: 'User', category: 'People' },
+  admin_user_active:   { icon: '⏻', tone: 'warning', badge: 'User', category: 'People' },
+  admin_user_admin:    { icon: '🛡', tone: 'warning', badge: 'User', category: 'People' },
+  admin_user_status:   { icon: '⚠', tone: 'danger',  badge: 'User', category: 'People' },
 }
 
 function metaFor(type: string): EventMeta {
@@ -173,6 +196,7 @@ const BADGE_KEY: Record<string, string> = {
   Donation: 'bdg_donation', Sponsorship: 'bdg_sponsorship', Case: 'bdg_case', Project: 'bdg_project',
   Marketplace: 'bdg_marketplace', Volunteer: 'bdg_volunteer', Support: 'bdg_support',
   'In-kind': 'bdg_inkind', Marriage: 'bdg_marriage', Notification: 'bdg_notification', Event: 'bdg_event',
+  User: 'bdg_user',
 }
 const CAT_KEY: Record<string, string> = {
   Core: 'cat_core', People: 'cat_people', Money: 'cat_money', Review: 'cat_review',
@@ -216,6 +240,15 @@ const EVENT_ROUTES: Record<string, EventRoute> = {
   login:          { resource: 'users', list: '/users', useUserId: true },
   register:       { resource: 'users', list: '/users', useUserId: true },
   role_select:    { resource: 'users', list: '/users', useUserId: true },
+  // Admin Notification System — a staff member created/modified a user account.
+  // Deep-link to the affected account's detail page.
+  admin_user_create:   { resource: 'users', list: '/users', useUserId: true },
+  admin_user_role:     { resource: 'users', list: '/users', useUserId: true },
+  admin_user_tier:     { resource: 'users', list: '/users', useUserId: true },
+  admin_user_password: { resource: 'users', list: '/users', useUserId: true },
+  admin_user_active:   { resource: 'users', list: '/users', useUserId: true },
+  admin_user_admin:    { resource: 'users', list: '/users', useUserId: true },
+  admin_user_status:   { resource: 'users', list: '/users', useUserId: true },
   // Non-record event — just take admin to the notifications page
   notification_mark_read: { resource: '', list: '/notifications' },
 }
@@ -235,6 +268,8 @@ function toId(v: unknown): string {
 // in the URL. The list page reads that param via useHighlightedRow() and
 // renders a pulse ring + banner on the matching row, so the admin can act
 // (approve / reject) without leaving the table.
+// `label` is an i18n KEY (common.open_*) — callers render it through t() so
+// the tooltip/aria text follows the UI language (global notice #2).
 function routeForEvent(r: EventRow): { href: string; label: string } | null {
   const m = EVENT_ROUTES[r.event_type]
   if (!m) return null
@@ -244,16 +279,16 @@ function routeForEvent(r: EventRow): { href: string; label: string } | null {
   if (m.useUserId) {
     const uid = toId(r.user_id)
     return uid
-      ? { href: `/detail/users/${uid}`, label: 'Open user' }
-      : { href: m.list, label: 'Open users' }
+      ? { href: `/detail/users/${uid}`, label: 'common.open_user' }
+      : { href: m.list, label: 'common.open_users' }
   }
 
   // Standard records — prefer entity_id, fall back to target_id.
   const id = toId(r.entity_id) || toId(r.target_id)
   if (id && m.list) {
-    return { href: `${m.list}?highlight=${encodeURIComponent(id)}`, label: 'Open & review' }
+    return { href: `${m.list}?highlight=${encodeURIComponent(id)}`, label: 'common.open_review' }
   }
-  return { href: m.list, label: 'Open page' }
+  return { href: m.list, label: 'common.open_page' }
 }
 
 const RANGE_TODAY = 'today'
@@ -279,6 +314,34 @@ function formatWhen(row: EventRow): string {
 export default function EventsFeed() {
   const navigate = useNavigate()
   const { t } = useI18n()
+  const statusLabel = useStatusLabel()
+  const { user } = useAuth()
+  const toast = useToast()
+  const canPurge = isSuperAdmin(user)
+  // Purging a notification is Super-Admin only. We optimistically hide the row
+  // (the backend DELETE makes it permanent — the next 5s poll won't return it).
+  const [deletedIds, setDeletedIds] = useState<Set<string | number>>(new Set())
+  const purgeEvent = async (id: string | number) => {
+    setDeletedIds((prev) => new Set(prev).add(id))
+    try {
+      await api.delete(`/api/admin/events/${id}`)
+    } catch {
+      // Restore on failure so the row isn't silently lost.
+      setDeletedIds((prev) => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
+      toast.error(t('feed.purge_failed'))
+    }
+  }
+  // Localize the row's event-type heading via feed_event.*; unknown/new event
+  // types fall back to the raw machine name so nothing renders as a bare key.
+  const eventTitle = (et: string) => {
+    const key = 'feed_event.' + et
+    const label = t(key)
+    return label === key ? (et || 'event') : label
+  }
   // Phase 17 — the Firestore subscription + sound logic now live in
   // GlobalAlertsProvider so they keep working on every page. This component
   // is a pure rendering surface that consumes events + connection status
@@ -324,6 +387,7 @@ export default function EventsFeed() {
       0
     const term = search.trim().toLowerCase()
     return rows.filter((r) => {
+      if (deletedIds.has(r.id)) return false
       if (cutoff > 0 && timestampMs(r) < cutoff) return false
       if (topic !== 'all') {
         const m = metaFor(r.event_type)
@@ -339,7 +403,7 @@ export default function EventsFeed() {
       }
       return true
     })
-  }, [rows, range, topic, search, hideRead])
+  }, [rows, range, topic, search, hideRead, deletedIds])
 
   return (
     <div className="card events-feed">
@@ -388,7 +452,7 @@ export default function EventsFeed() {
               className={topic === tp ? '' : 'secondary'}
               onClick={() => setTopic(tp)}
             >
-              {tp}
+              {tp === 'all' ? t('common.topic_all') : t('common.' + CAT_KEY[tp])}
             </button>
           ))}
         </div>
@@ -439,20 +503,30 @@ export default function EventsFeed() {
               tabIndex={route ? 0 : undefined}
               onClick={handleClick}
               onKeyDown={handleKeyDown}
-              title={route ? route.label : undefined}
-              aria-label={route ? `${t('common.' + (BADGE_KEY[m.badge] ?? 'bdg_event'))}: ${bodyFor(r, campaignMap, t)} — ${route.label}` : undefined}
+              title={route ? t(route.label) : undefined}
+              aria-label={route ? `${t('common.' + (BADGE_KEY[m.badge] ?? 'bdg_event'))}: ${bodyFor(r, campaignMap, t, statusLabel)} — ${t(route.label)}` : undefined}
             >
               <span className={`event-icon tone-${m.tone}`}>{m.icon}</span>
               <div className="cell-stack" style={{ flex: 1, minWidth: 0 }}>
                 <div className="row" style={{ gap: 6, alignItems: 'baseline' }}>
-                  <strong>{r.event_type || 'event'}</strong>
+                  <strong>{eventTitle(r.event_type)}</strong>
                   <span className={`badge tone-${m.tone}`}>{t('common.' + (BADGE_KEY[m.badge] ?? 'bdg_event'))}</span>
                   <span className="badge">{t('common.' + (CAT_KEY[m.category] ?? 'cat_activity'))}</span>
                 </div>
-                <span className="muted">{actorFor(r)} · {bodyFor(r, campaignMap, t)}</span>
+                <span className="muted">{actorFor(r, t)} · {bodyFor(r, campaignMap, t, statusLabel)}</span>
               </div>
               <span className="muted" style={{ whiteSpace: 'nowrap' }}>{formatWhen(r)}</span>
               {route && <span className="event-chevron" aria-hidden="true">›</span>}
+              {canPurge && (
+                <button
+                  className="event-purge-btn"
+                  title={t('feed.purge')}
+                  aria-label={t('feed.purge')}
+                  onClick={(e) => { e.stopPropagation(); purgeEvent(r.id) }}
+                >
+                  ✕
+                </button>
+              )}
             </div>
           )
         })}
