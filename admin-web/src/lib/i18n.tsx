@@ -69,12 +69,32 @@ function interpolate(template: string, vars?: Record<string, string | number>): 
   return template.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m))
 }
 
+// currentLocale — hook-free accessor for non-React code paths (the CSV/Excel/
+// PDF export builders in lib/csv.ts). Reads the same persisted value the
+// provider syncs to localStorage; safe because exports run on a user click,
+// long after the provider has written the current locale.
+export function currentLocale(): Locale {
+  const stored = localStorage.getItem('locale')
+  if (stored === 'en' || stored === 'ar' || stored === 'ckb' || stored === 'kmr') return stored
+  return 'en'
+}
+
+// translate — hook-free t(). Same resolution as the provider's t: selected
+// locale → English fallback → the key itself.
+export function translate(
+  key: string,
+  vars?: Record<string, string | number>,
+  locale: Locale = currentLocale(),
+): string {
+  const parts = key.split('.')
+  let v = dig(messages[locale], parts)
+  if (typeof v !== 'string') v = dig(messages.en, parts)
+  if (typeof v !== 'string') return key
+  return interpolate(v, vars)
+}
+
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>(() => {
-    const stored = localStorage.getItem('locale')
-    if (stored === 'en' || stored === 'ar' || stored === 'ckb' || stored === 'kmr') return stored
-    return 'en'
-  })
+  const [locale, setLocaleState] = useState<Locale>(() => currentLocale())
 
   const dir: 'ltr' | 'rtl' = RTL_LOCALES.includes(locale) ? 'rtl' : 'ltr'
 
@@ -89,13 +109,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('locale', l)
   }, [])
 
-  const t = useCallback<Ctx['t']>((key, vars) => {
-    const parts = key.split('.')
-    let v = dig(messages[locale], parts)
-    if (typeof v !== 'string') v = dig(messages.en, parts)
-    if (typeof v !== 'string') return key
-    return interpolate(v, vars)
-  }, [locale])
+  const t = useCallback<Ctx['t']>((key, vars) => translate(key, vars, locale), [locale])
 
   const value = useMemo<Ctx>(() => ({ locale, setLocale, t, dir }), [locale, setLocale, t, dir])
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>
@@ -129,20 +143,27 @@ export function useStatusLabel(): (value: string) => string {
 const LANG_TAG: Record<string, string> = {
   ar: 'lang_ar', sorani: 'lang_sorani', badini: 'lang_badini', en: 'lang_en',
 }
+// fieldLabelFor — hook-free version of the same resolution, shared by the
+// hook below and the export builders (lib/csv.ts). Pass a t function to bind
+// it to React state; defaults to the localStorage-backed translate().
+export function fieldLabelFor(
+  key: string,
+  tr: (k: string) => string = (k) => translate(k),
+): string {
+  let base = key
+  let suffix = ''
+  const m = key.match(/^(.*)_(ar|sorani|badini|en)$/)
+  if (m && LANG_TAG[m[2]]) {
+    base = m[1]
+    suffix = ` (${tr('common.' + LANG_TAG[m[2]])})`
+  }
+  for (const ns of ['dbfield.', 'col.', 'field.']) {
+    const label = tr(ns + base)
+    if (label !== ns + base) return label + suffix
+  }
+  return key
+}
 export function useFieldLabel(): (key: string) => string {
   const { t } = useI18n()
-  return (key: string) => {
-    let base = key
-    let suffix = ''
-    const m = key.match(/^(.*)_(ar|sorani|badini|en)$/)
-    if (m && LANG_TAG[m[2]]) {
-      base = m[1]
-      suffix = ` (${t('common.' + LANG_TAG[m[2]])})`
-    }
-    for (const ns of ['dbfield.', 'col.', 'field.']) {
-      const label = t(ns + base)
-      if (label !== ns + base) return label + suffix
-    }
-    return key
-  }
+  return (key: string) => fieldLabelFor(key, t)
 }

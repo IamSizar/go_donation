@@ -14,6 +14,7 @@ import { useToast } from '../lib/toast'
 import { useI18n } from '../lib/i18n'
 import { type CsvColumn } from '../lib/csv'
 import { formatPhone } from '../lib/phone'
+import { useCanViewSensitive, maskContact } from '../lib/permissions'
 
 const PER_PAGE = 20
 
@@ -84,6 +85,7 @@ export default function UsersPage() {
   const { t } = useI18n()
   const { user: authUser } = useAuth()
   const amSuper = isSuperAdmin(authUser)
+  const canViewSensitive = useCanViewSensitive(authUser)
 
   // PIN step-up used before sensitive user changes (role/tier).
   const verifyPin = async () => {
@@ -140,7 +142,7 @@ export default function UsersPage() {
       header: t('col.name'),
       cell: (u) => u.profile?.full_name ?? <span className="muted">—</span>,
     },
-    { key: 'phone', header: t('col.phone'), cell: (u) => formatPhone(u.phone) },
+    { key: 'phone', header: t('col.phone'), cell: (u) => canViewSensitive ? formatPhone(u.phone) : maskContact(u.phone, false) },
     {
       key: 'role',
       header: t('col.role'),

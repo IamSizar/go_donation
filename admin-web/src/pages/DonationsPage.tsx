@@ -41,7 +41,7 @@ const DONATION_CSV_COLUMNS: CsvColumn<DonationAdminRow>[] = [
 const PER_PAGE = 20
 
 const PAYMENT_LABELS = ['success', 'pending', 'failed']
-const DELIVERY_STATUSES = ['registered', 'received', 'under_review', 'delivered', 'paused', 'archived', 'cancelled']
+const DELIVERY_STATUSES = ['registered', 'received', 'under_review', 'delivered', 'suspended', 'paused', 'archived', 'cancelled']
 
 function paymentLabelToCode(label: string): number {
   if (label === 'success') return 1

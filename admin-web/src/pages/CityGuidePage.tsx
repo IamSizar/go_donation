@@ -162,20 +162,20 @@ export default function CityGuidePage() {
   const columns: Column<CommunityEntry>[] = [
     { key: 'id', header: t('col.id'), width: '60px', cell: (e) => <strong>#{e.id}</strong> },
     {
-      key: 'name', header: 'Place', cell: (e) => (
+      key: 'name', header: t('cityGuide.col_place'), cell: (e) => (
         <div className="cell-stack">
           <strong>{e.name}</strong>
           {e.name_ar && <span className="muted" dir="rtl">{e.name_ar}</span>}
         </div>
       ),
     },
-    { key: 'cat',  header: 'Category', cell: (e) => e.category },
+    { key: 'cat',  header: t('col.category'), cell: (e) => e.category },
     { key: 'city', header: t('col.city'),    cell: (e) => e.city ?? <span className="muted">—</span> },
     {
-      key: 'coords', header: 'Coordinates',
+      key: 'coords', header: t('cityGuide.col_coordinates'),
       cell: (e) => (e.latitude && e.longitude)
         ? <code style={{ fontSize: '11px' }}>{Number(e.latitude).toFixed(4)}, {Number(e.longitude).toFixed(4)}</code>
-        : <span className="muted" style={{ color: '#e57373' }}>⚠ no coords</span>,
+        : <span className="muted" style={{ color: '#e57373' }}>⚠ {t('cityGuide.no_coords')}</span>,
     },
     {
       key: 'phone', header: t('col.phone'),
@@ -184,13 +184,13 @@ export default function CityGuidePage() {
         : <span className="muted">—</span>,
     },
     {
-      key: 'link', header: 'Link',
+      key: 'link', header: t('col.link'),
       cell: (e) => e.website
-        ? <a href={e.website} target="_blank" rel="noreferrer">open ↗</a>
+        ? <a href={e.website} target="_blank" rel="noreferrer">{t('cityGuide.open_link')} ↗</a>
         : <span className="muted">—</span>,
     },
     {
-      key: 'status', header: t('col.status') ?? 'Status',
+      key: 'status', header: t('col.status'),
       cell: (e) => e.status === 'pending'
         ? <span className="badge" style={{ background: 'rgba(255,183,77,0.18)', color: '#ffb74d' }}>{t('cityGuide.filter_pending')}</span>
         : <span className="muted">{e.status ?? '—'}</span>,

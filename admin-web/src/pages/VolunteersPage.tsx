@@ -469,7 +469,7 @@ function ApplicationsTab() {
             {/* Group by category so the dropdown is scannable. The
                 native <optgroup> handles the visual indentation. */}
             {SKILL_CATEGORIES.map((cat) => (
-              <optgroup key={cat.key} label={`${cat.en}`}>
+              <optgroup key={cat.key} label={categoryLabelFor(cat.key, locale)}>
                 {cat.skills.map((s) => (
                   <option key={s.key} value={s.key}>
                     {(SKILL_ICON[s.key] ?? '•') + ' ' + skillLabelFor(s.key, locale)}

@@ -31,6 +31,34 @@ function fetchMatrix(): Promise<PermMatrix | null> {
   return inflight
 }
 
+/** §24 — whether the current user may see raw contact info (phone/email). Uses
+ *  the effective matrix (`sensitive_data.view`) when loaded; while loading /
+ *  on failure, falls back to the tier gate (super_admin/admin only) so contact
+ *  data is hidden by default rather than leaked. */
+export function useCanViewSensitive(user: StoredUser | null): boolean {
+  const [matrix, setMatrix] = useState<PermMatrix | null>(cache)
+  useEffect(() => {
+    let active = true
+    fetchMatrix().then((m) => {
+      if (active && m) setMatrix(m)
+    })
+    return () => {
+      active = false
+    }
+  }, [])
+  if (matrix && matrix['sensitive_data']) return matrix['sensitive_data'].view === true
+  const tier = user?.staff_tier
+  return tier === 'super_admin' || tier === 'admin'
+}
+
+/** Mask a contact string unless `canView`. Keeps a 2-char hint. */
+export function maskContact(value: string | null | undefined, canView: boolean): string {
+  const s = (value ?? '').trim()
+  if (canView || s === '') return s
+  if (s.length <= 2) return '••'
+  return '••••' + s.slice(-2)
+}
+
 /** Whether the current user may export `module`. Uses the effective matrix when
  *  loaded; falls back to the tier gate while loading or if the fetch failed. */
 export function useExportAllowed(module: string, user: StoredUser | null): boolean {

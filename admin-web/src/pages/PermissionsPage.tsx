@@ -10,6 +10,7 @@ import { api, describeError, isSuperAdmin } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useI18n } from '../lib/i18n'
 import { useToast } from '../lib/toast'
+import IdleLock from '../components/IdleLock'
 
 type Matrix = {
   tiers: string[]
@@ -40,7 +41,7 @@ const MODULE_LABEL: Record<string, string> = {
   city: 'nav.city_guide', marriage: 'nav.marriage', missions: 'nav.missions',
   volunteers: 'nav.volunteers', messages: 'nav.messages', notifications: 'nav.notifications',
   push: 'nav.push', reports: 'nav.reports', audit: 'nav.audit_logs', support: 'nav.support',
-  trash: 'nav.trash',
+  trash: 'nav.trash', sensitive_data: 'perm.sensitive_data',
 }
 
 const key = (tier: string, module: string, action: string) => `${tier}|${module}|${action}`
@@ -146,6 +147,7 @@ export default function PermissionsPage() {
   }
 
   return (
+    <IdleLock>
     <div className="stack">
       <div className="page-head">
         <div>
@@ -226,5 +228,6 @@ export default function PermissionsPage() {
         </table>
       </div>
     </div>
+    </IdleLock>
   )
 }
