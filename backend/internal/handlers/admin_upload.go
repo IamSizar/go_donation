@@ -3,6 +3,7 @@ package handlers
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"image"
 	"image/jpeg"
 	"mime/multipart"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	xdraw "golang.org/x/image/draw"
 )
 
 // AdminUploadHandler serves Phase 15's POST /api/admin/upload endpoint.
@@ -174,6 +176,12 @@ func saveCompressedJPEG(file *multipart.FileHeader, dest string) error {
 	if err != nil {
 		return err
 	}
+	// Downscale oversized photos so the longest side is at most maxImageDim.
+	// Profile/gallery photos from phones are often 3000–4000px; 1600px is ample
+	// for any dashboard/app display and cuts storage + load time further. Images
+	// already within the limit are left at their native size. (Sensitive uploads
+	// never reach this function — the caller skips compression for them.)
+	img = downscaleToMax(img, maxImageDim)
 	out, err := os.Create(dest)
 	if err != nil {
 		return err
@@ -182,4 +190,35 @@ func saveCompressedJPEG(file *multipart.FileHeader, dest string) error {
 	// Quality 82 is visually near-lossless for photos but typically 40–60%
 	// smaller than a phone camera's default ~95.
 	return jpeg.Encode(out, img, &jpeg.Options{Quality: 82})
+}
+
+// maxImageDim is the longest-side cap (px) applied to compressible uploads.
+const maxImageDim = 1600
+
+// downscaleToMax returns img scaled so its longest side is <= maxDim, preserving
+// aspect ratio with high-quality resampling. Returns img unchanged when it is
+// already within the cap (no upscaling).
+func downscaleToMax(img image.Image, maxDim int) image.Image {
+	b := img.Bounds()
+	w, h := b.Dx(), b.Dy()
+	if w <= maxDim && h <= maxDim || w <= 0 || h <= 0 {
+		return img
+	}
+	nw, nh := w, h
+	if w >= h {
+		nw = maxDim
+		nh = int(float64(h) * float64(maxDim) / float64(w))
+	} else {
+		nh = maxDim
+		nw = int(float64(w) * float64(maxDim) / float64(h))
+	}
+	if nw < 1 {
+		nw = 1
+	}
+	if nh < 1 {
+		nh = 1
+	}
+	dst := image.NewRGBA(image.Rect(0, 0, nw, nh))
+	xdraw.CatmullRom.Scale(dst, dst.Bounds(), img, b, xdraw.Over, nil)
+	return dst
 }

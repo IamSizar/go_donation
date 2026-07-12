@@ -12,6 +12,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
+	"github.com/karam-flutter/humanitarian-backend/internal/events"
 	"github.com/karam-flutter/humanitarian-backend/internal/notify"
 	"github.com/karam-flutter/humanitarian-backend/internal/permissions"
 )
@@ -87,6 +88,7 @@ func (h *AdminStatusHandler) UserStaffTier(c *gin.Context) {
 	if curTier != nil && tierRank(*curTier) > tierRank(newTier) {
 		h.forceLogout(ctx, id)
 	}
+	h.logAdminUserEvent(c, id, "tier", newTier)
 	c.JSON(http.StatusOK, gin.H{"success": true, "id": id, "staff_tier": newTier})
 }
 
@@ -146,6 +148,12 @@ func (h *AdminStatusHandler) CreateUser(c *gin.Context) {
 	if name := strings.TrimSpace(req.FullName); name != "" {
 		_, _ = h.Pool.Exec(ctx, `INSERT INTO user_profiles (user_id, full_name) VALUES ($1, $2)`, id, name)
 	}
+	h.logAdminUserEvent(c, id, "create", roleName(func() int {
+		if req.RoleID != nil {
+			return *req.RoleID
+		}
+		return 0
+	}()))
 	c.JSON(http.StatusOK, gin.H{"success": true, "id": id})
 }
 
@@ -164,10 +172,13 @@ func (h *AdminStatusHandler) CreateUser(c *gin.Context) {
 type AdminStatusHandler struct {
 	Pool     *pgxpool.Pool
 	Notifier *notify.Notifier // Phase 18 — used by post-update notify helpers.
+	Events   *events.Store    // Admin Notification System — user-account CRUD is
+	// appended to app_events so it surfaces in the dashboard Notification Center
+	// and is permanently recorded (append-only audit).
 }
 
-func NewAdminStatusHandler(pool *pgxpool.Pool, n *notify.Notifier) *AdminStatusHandler {
-	return &AdminStatusHandler{Pool: pool, Notifier: n}
+func NewAdminStatusHandler(pool *pgxpool.Pool, n *notify.Notifier, ev *events.Store) *AdminStatusHandler {
+	return &AdminStatusHandler{Pool: pool, Notifier: n, Events: ev}
 }
 
 // forceLogout revokes every active session token for a user — the "force
@@ -243,6 +254,7 @@ func (h *AdminStatusHandler) UserAccountStatus(c *gin.Context) {
 	if status != "active" {
 		h.forceLogout(ctx, id)
 	}
+	h.logAdminUserEvent(c, id, "status", status)
 	c.JSON(http.StatusOK, gin.H{"success": true, "id": id, "account_status": status})
 }
 
@@ -262,7 +274,7 @@ var (
 	sponsorshipStatuses        = []string{"pending", "active", "paused", "delayed", "stopped", "completed", "cancelled"}
 	inKindStatuses             = []string{"submitted", "scheduled", "received", "delivered", "cancelled"}
 	supportStatuses            = []string{"open", "in_progress", "resolved", "closed"}
-	donationDeliveryStatuses   = []string{"registered", "received", "under_review", "delivered", "paused", "archived", "cancelled"}
+	donationDeliveryStatuses   = []string{"registered", "received", "under_review", "delivered", "paused", "suspended", "archived", "cancelled"}
 	donationPaymentStatuses    = []int{1, 2, 3} // 1=success, 2=pending, 3=failed
 	// Phase 21 — volunteer_mission_signups CHECK constraint allows exactly these.
 	// 'pending' is the starting state on insert; admin transitions from there.
@@ -791,6 +803,7 @@ func (h *AdminStatusHandler) UserRole(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Not found."})
 		return
 	}
+	h.logAdminUserEvent(c, id, "role", roleName(req.RoleID))
 	c.JSON(http.StatusOK, gin.H{"success": true, "id": id, "role_id": req.RoleID})
 }
 
@@ -838,6 +851,8 @@ func (h *AdminStatusHandler) UserPassword(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Not found."})
 		return
 	}
+	// Never record the password value — the event notes only that it changed.
+	h.logAdminUserEvent(c, id, "password", "")
 	c.JSON(http.StatusOK, gin.H{"success": true, "id": id})
 }
 
@@ -915,6 +930,7 @@ func (h *AdminStatusHandler) UserActive(c *gin.Context) {
 	if req.Active == 0 {
 		h.forceLogout(c.Request.Context(), id)
 	}
+	h.logAdminUserEvent(c, id, "active", "")
 	c.JSON(http.StatusOK, gin.H{"success": true, "id": id, "active": req.Active})
 }
 
@@ -947,6 +963,7 @@ func (h *AdminStatusHandler) UserAdmin(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Not found."})
 		return
 	}
+	h.logAdminUserEvent(c, id, "admin", "")
 	c.JSON(http.StatusOK, gin.H{"success": true, "id": id, "is_admin": req.IsAdmin})
 }
 

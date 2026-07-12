@@ -85,6 +85,17 @@ func (s *Store) Insert(ctx context.Context, e Event) (int64, error) {
 	return id, err
 }
 
+// Delete permanently removes one event row. Returns whether a row was deleted.
+// Wired only to a Super-Admin-gated route (the Notification Center's purge),
+// matching the "deletable only by the Primary Administrator" rule.
+func (s *Store) Delete(ctx context.Context, id int64) (bool, error) {
+	ct, err := s.Pool.Exec(ctx, "DELETE FROM app_events WHERE id = $1", id)
+	if err != nil {
+		return false, err
+	}
+	return ct.RowsAffected() > 0, nil
+}
+
 // List returns the most recent events, newest first.
 func (s *Store) List(ctx context.Context, limit int) ([]Event, error) {
 	if limit <= 0 || limit > 500 {

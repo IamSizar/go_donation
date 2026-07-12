@@ -110,11 +110,23 @@ func (s *Store) Allowed(ctx context.Context, tier Tier, module, action string) (
 	).Scan(&override)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return defaultAllowed(tier, action), nil
+			return moduleDefaultAllowed(tier, module, action), nil
 		}
 		return false, err
 	}
 	return override, nil
+}
+
+// moduleDefaultAllowed applies per-module exceptions to the module-agnostic
+// baseline. Today the only exception is `sensitive_data` (viewing contact info
+// like phone/email): it defaults to admins only, so a Supervisor or Employee
+// must be explicitly granted it in the matrix — the opposite of the normal
+// "view is allowed by default" rule.
+func moduleDefaultAllowed(tier Tier, module, action string) bool {
+	if module == "sensitive_data" {
+		return tier == TierSuperAdmin || tier == TierAdmin
+	}
+	return defaultAllowed(tier, action)
 }
 
 // Modules is the canonical list of dashboard resource slugs the Super Admin can
@@ -124,6 +136,9 @@ var Modules = []string{
 	"sponsorships", "beneficiary", "marketplace", "in_kind", "partners",
 	"media", "community", "city", "marriage", "missions", "volunteers",
 	"messages", "notifications", "push", "reports", "audit", "support", "trash",
+	// §24 — cross-cutting "may view sensitive contact info (phone/email)" gate.
+	// Only the `view` action is meaningful here; defaults to admins only.
+	"sensitive_data",
 }
 
 // AllActions is the ordered list of actions the matrix exposes per module.

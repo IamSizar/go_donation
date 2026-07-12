@@ -2,11 +2,32 @@ package handlers
 
 import (
 	"net/http"
+	"regexp"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/karam-flutter/humanitarian-backend/internal/auth"
+	"github.com/karam-flutter/humanitarian-backend/internal/permissions"
 )
+
+// contactKeyRe matches column names that hold sensitive contact info, so the
+// detail view can redact them for staff without the sensitive_data permission.
+var contactKeyRe = regexp.MustCompile(`(?i)(phone|mobile|email|whatsapp|contact_number|tel)`)
+
+// maskContact redacts a value, keeping only the last 2 chars for a hint.
+func maskContact(v any) any {
+	s, ok := v.(string)
+	if !ok || s == "" {
+		return v
+	}
+	if len(s) <= 2 {
+		return "••"
+	}
+	return "••••" + s[len(s)-2:]
+}
 
 // AdminDetailHandler exposes Phase 16's GET /api/admin/detail/:resource/:id
 // endpoint. It returns the full row from any allowlisted admin resource so
@@ -21,11 +42,12 @@ import (
 // the SELECTed column names. We use `SELECT *` so the SPA gets every column
 // without us having to mirror schema changes here.
 type AdminDetailHandler struct {
-	Pool *pgxpool.Pool
+	Pool  *pgxpool.Pool
+	Perms *permissions.Store // §24 — gates who sees raw phone/email.
 }
 
-func NewAdminDetailHandler(pool *pgxpool.Pool) *AdminDetailHandler {
-	return &AdminDetailHandler{Pool: pool}
+func NewAdminDetailHandler(pool *pgxpool.Pool, perms *permissions.Store) *AdminDetailHandler {
+	return &AdminDetailHandler{Pool: pool, Perms: perms}
 }
 
 // resourceTables maps the URL :resource slug to the underlying table name.
@@ -98,6 +120,23 @@ func (h *AdminDetailHandler) Detail(c *gin.Context) {
 				for k, v := range prof {
 					if _, exists := row[k]; !exists {
 						row[k] = v
+					}
+				}
+			}
+		}
+	}
+
+	// §24 — redact sensitive contact fields (phone/email/…) unless this staff
+	// member's tier is granted the `sensitive_data` view permission. Enforced
+	// server-side so the raw value never leaves the backend for the ungranted.
+	if h.Perms != nil {
+		if actor, ok := auth.UserFromGin(c); ok && actor != nil {
+			tier := permissions.TierFrom(actor.StaffTier)
+			canSee, _ := h.Perms.Allowed(c.Request.Context(), tier, "sensitive_data", "view")
+			if !canSee {
+				for k, v := range row {
+					if contactKeyRe.MatchString(strings.ToLower(k)) {
+						row[k] = maskContact(v)
 					}
 				}
 			}

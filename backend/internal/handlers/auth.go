@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -249,7 +251,53 @@ func (h *AuthHandler) GoogleLogin(c *gin.Context) {
 type adminLoginReq struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
+	// Otp is the second-factor code, sent on the SECOND call once the client has
+	// received "otp_required" from the first (password-only) call. Empty on the
+	// first call. Only consulted when ADMIN_LOGIN_2FA is enabled.
+	Otp string `json:"otp"`
 }
+
+// adminLogin2FAEnabled gates the optional OTP second factor on admin sign-in
+// (§24). OFF by default so enabling it is a deliberate, reversible ops decision
+// — a misconfigured OTP provider can never silently lock staff out. Accepts
+// 1/true/yes/on.
+func adminLogin2FAEnabled() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("ADMIN_LOGIN_2FA"))) {
+	case "1", "true", "yes", "on":
+		return true
+	}
+	return false
+}
+
+// sendAdminLoginOTP issues a login OTP to phone, mirroring the permission-change
+// OTP flow: demo mode returns the code inline; real mode sends via OTPIQ. Returns
+// (mode, demoCode). demoCode is "" outside demo mode.
+func (h *AuthHandler) sendAdminLoginOTP(ctx context.Context, phone string) (mode, demoCode string, err error) {
+	if auth.DemoEnabled() {
+		code := auth.DemoCode()
+		if err := h.OTPs.StoreCode(ctx, phone, code, "demo"); err != nil {
+			return "", "", err
+		}
+		return "demo", code, nil
+	}
+	if h.OTPIQ == nil {
+		return "", "", errOTPNotConfigured
+	}
+	code, err := auth.GenerateCode()
+	if err != nil {
+		return "", "", err
+	}
+	if err := h.OTPs.StoreCode(ctx, phone, code, "real"); err != nil {
+		return "", "", err
+	}
+	if _, err := h.OTPIQ.SendVerification(ctx, phone, code); err != nil {
+		_ = h.OTPs.ClearRecord(ctx, phone)
+		return "", "", err
+	}
+	return "real", "", nil
+}
+
+var errOTPNotConfigured = errors.New("OTP delivery is not configured (OTPIQ_API_KEY)")
 
 // POST /api/auth/admin/login
 //
@@ -308,6 +356,36 @@ func (h *AuthHandler) AdminLogin(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"status": "error", "error": "Admin access required."})
 		return
 	}
+	// §24 — optional OTP second factor (env-gated, OFF by default). Runs AFTER
+	// the password is confirmed but BEFORE the failed-attempt counter is cleared
+	// or any token is issued. Phoneless admins are intentionally allowed through
+	// (a missing phone must never lock an account out of its own dashboard).
+	if adminLogin2FAEnabled() {
+		phone, _ := h.Users.GetPhoneByID(ctx, id)
+		if phone != "" {
+			if strings.TrimSpace(req.Otp) == "" {
+				// First step: password was correct — send a code and ask for it.
+				// We do NOT clear the lock counter or issue a token yet.
+				mode, demoCode, err := h.sendAdminLoginOTP(ctx, phone)
+				if err != nil {
+					c.JSON(http.StatusBadGateway, gin.H{"status": "error", "error": "Could not send the verification code."})
+					return
+				}
+				resp := gin.H{"status": "otp_required", "phone_hint": maskPhone(phone), "mode": mode}
+				if mode == "demo" {
+					resp["demo_code"] = demoCode
+				}
+				c.JSON(http.StatusOK, resp)
+				return
+			}
+			// Second step: verify the single-use code.
+			if okOtp, reason := h.OTPs.VerifyAndConsume(ctx, phone, strings.TrimSpace(req.Otp)); !okOtp {
+				c.JSON(http.StatusUnauthorized, gin.H{"status": "error", "error": reason})
+				return
+			}
+		}
+	}
+
 	// Successful admin login — clear the failed-attempt counter.
 	if h.LoginLocks != nil {
 		h.LoginLocks.Reset(ctx, lockID)

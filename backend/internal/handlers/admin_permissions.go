@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -148,6 +149,15 @@ func (h *AdminPermissionsHandler) SetPermission(c *gin.Context) {
 		return
 	}
 	ctx := c.Request.Context()
+
+	// Section 24 — suspicious-activity guard: throttle rapid permission changes
+	// (defense-in-depth atop the per-change OTP). No-op unless PERM_CHANGE_MAX_
+	// PER_MIN is configured. Checked before the OTP so a throttled request does
+	// not burn the admin's single-use code.
+	if !permLimiter.allow(actor.UserID, time.Now()) {
+		c.JSON(http.StatusTooManyRequests, gin.H{"success": false, "error": "Too many permission changes in a short time. Please wait a minute and try again."})
+		return
+	}
 
 	// Section 24 — verify the phone OTP second factor BEFORE applying anything.
 	// The code is single-use (consumed on success), so each change needs a

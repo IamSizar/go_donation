@@ -180,6 +180,23 @@ func (s *Store) GetByUsername(ctx context.Context, username string) (id int64, p
 	return id, passwordHash, isAdmin, nil
 }
 
+// GetPhoneByID returns a user's phone (empty string if none/unknown). Used by
+// the admin-login 2FA step to decide where to send the OTP.
+func (s *Store) GetPhoneByID(ctx context.Context, id int64) (string, error) {
+	var phone *string
+	err := s.Pool.QueryRow(ctx, `SELECT phone FROM users WHERE id = $1 LIMIT 1`, id).Scan(&phone)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", nil
+		}
+		return "", err
+	}
+	if phone == nil {
+		return "", nil
+	}
+	return strings.TrimSpace(*phone), nil
+}
+
 // InsertWithPhone returns the existing user id for the phone, or inserts a new
 // row (role_id NULL) and returns its id. Matches insertUserWithPhone() in PHP.
 func (s *Store) InsertWithPhone(ctx context.Context, phone string) (int64, error) {

@@ -180,16 +180,16 @@ func main() {
 	kpisH := handlers.NewDashboardKPIsHandler(pool)
 
 	adminListsH := handlers.NewAdminListsHandler(pool)
-	adminStatusH := handlers.NewAdminStatusHandler(pool, notifier)
+	adminStatusH := handlers.NewAdminStatusHandler(pool, notifier, eventsStore)
 	adminEditH := handlers.NewAdminEditHandler(pool)
 	adminCreateH := handlers.NewAdminCreateHandler(pool, notifier)
 	adminCreateH.Codes = codesStore // #14 — namespace admin-created donation refs too
 	adminDeleteH := handlers.NewAdminDeleteHandler(pool)
 	adminTrashH := handlers.NewAdminTrashHandler(pool)
 	adminUploadH := handlers.NewAdminUploadHandler(uploadDir)
-	adminDetailH := handlers.NewAdminDetailHandler(pool)
-	adminExportH := handlers.NewAdminExportHandler(pool)
 	permStore := permissions.New(pool)
+	adminDetailH := handlers.NewAdminDetailHandler(pool, permStore)
+	adminExportH := handlers.NewAdminExportHandler(pool)
 	// Requirement 6c — stamp the hash chain onto any pre-chain audit rows so the
 	// ledger verifies as intact from the first request. Best-effort: a failure
 	// here must not stop the server from booting.
@@ -531,9 +531,11 @@ func main() {
 			admin.GET("/admin/pending-counts", perm("dashboard", "view"), pendingH.Counts)
 			admin.GET("/admin/pending-counts/", perm("dashboard", "view"), pendingH.Counts)
 
-			// Live activity feed for the admin dashboard.
+			// Live activity feed / Notification Center for the admin dashboard.
 			admin.GET("/admin/events", perm("dashboard", "view"), eventsH.AdminList)
 			admin.GET("/admin/events/", perm("dashboard", "view"), eventsH.AdminList)
+			// Purging a notification is restricted to the Primary Administrator.
+			admin.DELETE("/admin/events/:id", auth.RequireSuperAdmin(), eventsH.AdminDelete)
 
 			// Cross-user paginated lists.
 			admin.GET("/admin/beneficiary_cases", perm("beneficiary", "view"), beneficiaryH.AdminCases)
