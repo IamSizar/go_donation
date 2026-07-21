@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/modules/auth/screens/edit_profile.dart';
 import 'package:flutter_application_1/modules/donations/screens/my_donations_page.dart';
+import 'package:flutter_application_1/modules/marriage/screens/marriage_form_screen.dart';
 import 'package:flutter_application_1/modules/proposal/screens/proposal_services_section.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_campaign_donations_screen.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_pending_projects_screen.dart';
@@ -48,7 +49,7 @@ abstract final class BotNavigation {
     'submit_project': BotNavSpec(1, () => const BeneficiarySubmitProjectScreen()),
     'pending_projects': BotNavSpec(1, () => const BeneficiaryPendingProjectsScreen()),
     'campaign_donations': BotNavSpec(1, () => const BeneficiaryCampaignDonationsScreen()),
-    'marriage': BotNavSpec(8, () => const MarriageProfileFormScreen()),
+    'marriage': BotNavSpec(6, () => const MarriageFormScreen()),
     'support': BotNavSpec(8, () => const SupportTicketFormScreen()),
   };
 

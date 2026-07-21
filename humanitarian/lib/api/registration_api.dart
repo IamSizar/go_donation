@@ -8,18 +8,40 @@ import 'package:http/http.dart' as http;
 /// #43 — the set of optional registration field keys the admin marked required.
 /// Empty on error/offline (so the form falls back to its baseline validation).
 Future<Set<String>> fetchRequiredFields() async {
+  return (await fetchFieldRuleSets()).required;
+}
+
+/// Result of GET /api/registration/field-rules: which optional fields the
+/// admin marked required, and which the admin marked hidden entirely.
+class FieldRuleSets {
+  const FieldRuleSets({required this.required, required this.hidden});
+  final Set<String> required;
+  final Set<String> hidden;
+  static const empty = FieldRuleSets(required: {}, hidden: {});
+}
+
+/// Note #33 — like fetchRequiredFields, but also returns the `hidden` list so
+/// a form can skip rendering fields the admin switched off entirely. Empty on
+/// error/offline (so forms fall back to showing every field, none required).
+Future<FieldRuleSets> fetchFieldRuleSets() async {
   try {
     final resp = await http.get(
       Uri.parse(fieldRulesUrl),
       headers: const {'Accept': 'application/json'},
     );
-    if (resp.statusCode != 200) return {};
+    if (resp.statusCode != 200) return FieldRuleSets.empty;
     final decoded = jsonDecode(resp.body);
-    if (decoded is Map && decoded['required'] is List) {
-      return (decoded['required'] as List).map((e) => e.toString()).toSet();
+    if (decoded is Map) {
+      final required = decoded['required'] is List
+          ? (decoded['required'] as List).map((e) => e.toString()).toSet()
+          : <String>{};
+      final hidden = decoded['hidden'] is List
+          ? (decoded['hidden'] as List).map((e) => e.toString()).toSet()
+          : <String>{};
+      return FieldRuleSets(required: required, hidden: hidden);
     }
   } catch (_) {}
-  return {};
+  return FieldRuleSets.empty;
 }
 
 /// Result of POSTing the registration form.

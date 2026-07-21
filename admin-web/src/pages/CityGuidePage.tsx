@@ -18,9 +18,20 @@ import Table, { type Column } from '../components/Table'
 import EditModal, { type FieldSpec } from '../components/EditModal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../lib/toast'
-import { useI18n } from '../lib/i18n'
+import { useI18n, type Locale } from '../lib/i18n'
 
 type Resp = { success: true; items: CommunityEntry[] }
+
+// Note #19 (Arabization-safe naming) — same pattern as MediaPage/MarketplacePage:
+// each sector already carries its own translated name from the API, so use
+// that directly rather than a shared status.* key (avoids "government" here
+// colliding with the unrelated Sector Type "government" option below, which
+// needs different wording — "Governmental & Sovereign Departments" vs
+// "Government Sector (Public)").
+function sectorName(s: CitySector, locale: Locale): string {
+  const byLocale = { en: s.name_en, ar: s.name_ar, ckb: s.name_ckb, kmr: s.name_kmr }
+  return byLocale[locale]?.trim() || s.name_en
+}
 
 // The always-present fields. The dynamic `sectors` multiselect is spliced in
 // at render time (its options come from the admin-managed sector list). #29
@@ -56,10 +67,15 @@ export default function CityGuidePage() {
   const [deleting, setDeleting] = useState<CommunityEntry | null>(null)
   const [q, setQ] = useState('')
   const [statusFilter, setStatusFilter] = useState('') // '' = all; 'pending' | 'approved' | …
+  // Note #19 — "precise search filtering" by the new 5-sector taxonomy and
+  // the mandatory Sector Type. Filtered client-side like the other City
+  // Guide filters (the admin list is already fetched in full, limit=200).
+  const [sectorFilter, setSectorFilter] = useState('')
+  const [sectorTypeFilter, setSectorTypeFilter] = useState('')
   const [refreshTick, setRefreshTick] = useState(0)
   const [sectors, setSectors] = useState<CitySector[]>([])
   const toast = useToast()
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
 
   useEffect(() => {
     let cancelled = false
@@ -87,26 +103,55 @@ export default function CityGuidePage() {
     return () => { cancelled = true }
   }, [])
 
-  // Splice the dynamic sectors multiselect in after Category so the picker sits
-  // with the other taxonomy fields.
+  // Note #19 — was a multiselect (an entry could carry several sector tags at
+  // once). Replaced with a single-select: each place now belongs to exactly
+  // one of the 5 fixed main sectors, matching the client's ask. The backend
+  // column (`sectors`) stays a TEXT[] array on the wire — the Flutter app
+  // reads it as an array in 4 places (filter logic, detail screen, map
+  // chips), so converting the DB column to a scalar would silently break
+  // sector display/filtering app-side. This page just writes a 1-element
+  // array instead of letting the admin pick several — see buildSectorsPatch.
+  //
+  // Also splices in the new mandatory Sector Type field (government/private,
+  // Note #19's second requirement) right after it.
   const fields = useMemo<FieldSpec[]>(() => {
     const sectorField: FieldSpec = {
-      key: 'sectors',
-      label: 'Sectors',
-      labelKey: 'field.sectors',
-      type: 'multiselect',
-      options: sectors.map((s) => s.slug),
-      full: true,
+      key: 'sector',
+      label: 'Sector',
+      labelKey: 'field.sector',
+      type: 'select',
+      options: ['', ...sectors.map((s) => s.slug)],
+      optionLabels: Object.fromEntries(sectors.map((s) => [s.slug, sectorName(s, locale)])),
+    }
+    const sectorTypeField: FieldSpec = {
+      key: 'sector_type',
+      label: 'Sector Type',
+      labelKey: 'field.sector_type',
+      type: 'select',
+      options: ['government', 'private'],
+      optionLabels: {
+        government: t('cityGuide.sector_type_government'),
+        private: t('cityGuide.sector_type_private'),
+      },
+      required: true,
     }
     const out = [...CITY_GUIDE_FIELDS]
     const catIdx = out.findIndex((f) => f.key === 'category')
-    out.splice(catIdx + 1, 0, sectorField)
+    out.splice(catIdx + 1, 0, sectorField, sectorTypeField)
     return out
-  }, [sectors])
+  }, [sectors, locale, t])
+
+  // Reads the single `sector` value EditModal produced and converts it back
+  // to the `sectors` array shape the API expects (empty array when unset).
+  function buildSectorsPatch(patch: Record<string, unknown>): Record<string, unknown> {
+    if (!('sector' in patch)) return patch
+    const { sector, ...rest } = patch
+    return { ...rest, sectors: sector ? [sector] : [] }
+  }
 
   const handleSave = useCallback(
     async (id: number, patch: Record<string, unknown>) => {
-      await api.patch(`/api/admin/community/${id}`, patch)
+      await api.patch(`/api/admin/community/${id}`, buildSectorsPatch(patch))
       toast.success(`Place #${id} saved.`)
       setRefreshTick((n) => n + 1)
     },
@@ -115,7 +160,7 @@ export default function CityGuidePage() {
 
   const handleCreate = useCallback(
     async (data: Record<string, unknown>) => {
-      const res = await api.post<{ id: number }>('/api/admin/community', data)
+      const res = await api.post<{ id: number }>('/api/admin/community', buildSectorsPatch(data))
       toast.success(`Place #${res.data.id} created.`)
       setRefreshTick((n) => n + 1)
     },
@@ -147,11 +192,13 @@ export default function CityGuidePage() {
 
   const query = q.trim().toLowerCase()
   const items = (resp?.items ?? []).filter((e) =>
-    !query ||
-    e.name.toLowerCase().includes(query) ||
-    (e.name_ar ?? '').toLowerCase().includes(query) ||
-    e.category.toLowerCase().includes(query) ||
-    (e.city ?? '').toLowerCase().includes(query),
+    (!query ||
+      e.name.toLowerCase().includes(query) ||
+      (e.name_ar ?? '').toLowerCase().includes(query) ||
+      e.category.toLowerCase().includes(query) ||
+      (e.city ?? '').toLowerCase().includes(query)) &&
+    (!sectorFilter || (e.sectors ?? []).includes(sectorFilter)) &&
+    (!sectorTypeFilter || e.sector_type === sectorTypeFilter),
   )
   const pendingCount = (resp?.items ?? []).filter((e) => e.status === 'pending').length
   const withCoords = items.filter(
@@ -170,6 +217,20 @@ export default function CityGuidePage() {
       ),
     },
     { key: 'cat',  header: t('col.category'), cell: (e) => e.category },
+    {
+      key: 'sector', header: t('field.sector'),
+      cell: (e) => {
+        const slug = e.sectors?.[0]
+        const s = slug ? sectors.find((x) => x.slug === slug) : undefined
+        return s ? sectorName(s, locale) : <span className="muted">—</span>
+      },
+    },
+    {
+      key: 'sector_type', header: t('field.sector_type'),
+      cell: (e) => e.sector_type === 'government'
+        ? <span className="badge">{t('cityGuide.sector_type_government')}</span>
+        : <span className="muted">{t('cityGuide.sector_type_private')}</span>,
+    },
     { key: 'city', header: t('col.city'),    cell: (e) => e.city ?? <span className="muted">—</span> },
     {
       key: 'coords', header: t('cityGuide.col_coordinates'),
@@ -241,6 +302,18 @@ export default function CityGuidePage() {
             <option value="pending">{t('cityGuide.filter_pending')}{pendingCount ? ` (${pendingCount})` : ''}</option>
             <option value="approved">{t('cityGuide.filter_approved')}</option>
           </select>
+          {/* Note #19 — filter by the 5-sector taxonomy and Sector Type. */}
+          <select value={sectorFilter} onChange={(e) => setSectorFilter(e.target.value)} style={{ minWidth: 160 }}>
+            <option value="">{t('field.sector')}: {t('cityGuide.filter_all')}</option>
+            {sectors.map((s) => (
+              <option key={s.slug} value={s.slug}>{sectorName(s, locale)}</option>
+            ))}
+          </select>
+          <select value={sectorTypeFilter} onChange={(e) => setSectorTypeFilter(e.target.value)} style={{ minWidth: 170 }}>
+            <option value="">{t('field.sector_type')}: {t('cityGuide.filter_all')}</option>
+            <option value="government">{t('cityGuide.sector_type_government')}</option>
+            <option value="private">{t('cityGuide.sector_type_private')}</option>
+          </select>
           <Link className="row-edit-btn" to="/city-sectors">{t('citySectors.manage_link')}</Link>
           <button onClick={() => setCreating(true)}>{t('common.city_add_place')}</button>
         </div>
@@ -276,7 +349,15 @@ export default function CityGuidePage() {
         open={modalOpen}
         mode={creating ? 'create' : 'edit'}
         title={creating ? 'Add new place' : editing ? `Edit place #${editing.id}` : ''}
-        initial={creating ? {} : (editing as unknown as Record<string, unknown> ?? {})}
+        initial={
+          creating
+            ? {}
+            : editing
+              // Note #19 — surface the first (only, going forward) array
+              // element as the plain `sector` value the single-select reads.
+              ? { ...(editing as unknown as Record<string, unknown>), sector: editing.sectors?.[0] ?? '' }
+              : {}
+        }
         fields={fields}
         onSave={(data) => (creating ? handleCreate(data) : handleSave(editing!.id, data))}
         onClose={closeModal}

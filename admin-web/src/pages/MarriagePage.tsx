@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import RowDeleteButton from '../components/RowDeleteButton'
 import { Link } from 'react-router-dom'
 import ExportCsvButton from '../components/ExportCsvButton'
@@ -13,6 +13,7 @@ import { useToast } from '../lib/toast'
 import { useI18n, useStatusLabel } from '../lib/i18n'
 import { useSelection } from '../lib/useSelection'
 import { type CsvColumn } from '../lib/csv'
+import { useFieldRules, type FieldRuleState } from '../lib/fieldRules'
 
 const MARRIAGE_CSV_COLUMNS: CsvColumn<MarriageProfile>[] = [
   { header: 'id', get: (p) => p.id },
@@ -31,24 +32,31 @@ type Resp = { success: true; items: MarriageProfile[] }
 const STATUSES = ['all', 'submitted', 'under_review', 'active', 'paused', 'matched', 'rejected', 'closed']
 const EDITABLE_STATUSES = STATUSES.filter((s) => s !== 'all')
 const VISIBILITY_LEVELS = ['private', 'employee_only', 'matched_summary']
-const SUBSCRIPTION_STATUSES = ['free', 'paid', 'waived']
+// Note #17 — was ['free','paid','waived']. "Free" was misleading (only the
+// search feature is actually free); replaced with the real package tiers.
+// 'bronze' is the entry-level tier that replaces the old 'free' default.
+const SUBSCRIPTION_STATUSES = ['bronze', 'silver', 'gold', 'diamond', 'vip']
 
-const MARRIAGE_EDIT_FIELDS: FieldSpec[] = [
-  { key: 'gender',              label: 'Gender', labelKey: 'field.gender',              type: 'text' },
-  { key: 'age',                 label: 'Age', labelKey: 'dbfield.age',        type: 'number' },
-  { key: 'city',                label: 'City', labelKey: 'field.city',                type: 'text' },
-  { key: 'visibility_level',    label: 'Visibility', labelKey: 'field.visibility',          type: 'select', options: VISIBILITY_LEVELS },
-  { key: 'subscription_status', label: 'Subscription', labelKey: 'field.subscription',        type: 'select', options: SUBSCRIPTION_STATUSES },
-  { key: 'status',              label: 'Status', labelKey: 'field.status',              type: 'select', options: EDITABLE_STATUSES },
-  { key: 'social_summary',      label: 'Social summary', labelKey: 'field.social_summary',      type: 'textarea', rows: 3 },
-  { key: 'private_notes',       label: 'Private notes', labelKey: 'field.private_notes',       type: 'textarea', rows: 3 },
-]
-
-// Create form adds the required user_id at top.
-const MARRIAGE_CREATE_FIELDS: FieldSpec[] = [
-  { key: 'user_id', label: 'User ID', labelKey: 'field.user_id', type: 'number', required: true },
-  ...MARRIAGE_EDIT_FIELDS,
-]
+// Note #33 — gender/age/city/social_summary/private_notes (the applicant
+// data the profile owner actually submits) are Field-Rules-driven via the
+// "marriage_" prefix (migration 056), same mechanism as the Beneficiary
+// case form (Note #32). visibility_level/subscription_status/status/user_id
+// are admin-set operational fields, not applicant data, so they stay fixed.
+function buildMarriageFields(state: Record<string, FieldRuleState>): FieldSpec[] {
+  const isRequired = (key: string) => state[key] === 'required'
+  const isHidden = (key: string) => state[key] === 'hidden'
+  const fields: FieldSpec[] = [
+    { key: 'gender',              label: 'Gender', labelKey: 'field.gender',              type: 'text',     required: isRequired('gender') },
+    { key: 'age',                 label: 'Age', labelKey: 'dbfield.age',        type: 'number',   required: isRequired('age') },
+    { key: 'city',                label: 'City', labelKey: 'field.city',                type: 'text',     required: isRequired('city') },
+    { key: 'visibility_level',    label: 'Visibility', labelKey: 'field.visibility',          type: 'select', options: VISIBILITY_LEVELS },
+    { key: 'subscription_status', label: 'Subscription', labelKey: 'field.subscription',        type: 'select', options: SUBSCRIPTION_STATUSES },
+    { key: 'status',              label: 'Status', labelKey: 'field.status',              type: 'select', options: EDITABLE_STATUSES },
+    { key: 'social_summary',      label: 'Social summary', labelKey: 'field.social_summary',      type: 'textarea', rows: 3, required: isRequired('social_summary') },
+    { key: 'private_notes',       label: 'Private notes', labelKey: 'field.private_notes',       type: 'textarea', rows: 3, required: isRequired('private_notes') },
+  ]
+  return fields.filter((f) => !isHidden(f.key))
+}
 
 export default function MarriagePage() {
   const [status, setStatus] = useState('all')
@@ -64,6 +72,12 @@ export default function MarriagePage() {
   const { t } = useI18n()
   const statusLabel = useStatusLabel()
   const sel = useSelection<MarriageProfile>((p) => p.id)
+  const { state: marriageFieldState } = useFieldRules('marriage_')
+  const editFields = useMemo(() => buildMarriageFields(marriageFieldState), [marriageFieldState])
+  const createFields = useMemo(
+    () => [{ key: 'user_id', label: 'User ID', labelKey: 'field.user_id', type: 'number' as const, required: true }, ...editFields],
+    [editFields],
+  )
 
   useEffect(() => {
     let cancelled = false
@@ -254,7 +268,7 @@ export default function MarriagePage() {
         mode={creating ? 'create' : 'edit'}
         title={creating ? t('common.modal_new', { noun: t('noun.profile') }) : editing ? t('common.modal_edit', { noun: t('noun.profile'), id: editing.id }) : ''}
         initial={creating ? {} : (editing as unknown as Record<string, unknown> ?? {})}
-        fields={creating ? MARRIAGE_CREATE_FIELDS : MARRIAGE_EDIT_FIELDS}
+        fields={creating ? createFields : editFields}
         onSave={(data) => (creating ? handleCreate(data) : handleSave(editing!.id, data))}
         onClose={closeModal}
       />

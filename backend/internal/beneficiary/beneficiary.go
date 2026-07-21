@@ -13,75 +13,90 @@ import (
 
 // Case mirrors the JSON shape returned by the PHP /beneficiary_cases GET.
 type Case struct {
-	ID                  int64   `json:"id"`
-	UserID              *int    `json:"user_id"`
-	CaseCode            string  `json:"case_code"`
-	PublicTitle         string  `json:"public_title"`
-	PublicTitleAr       *string `json:"public_title_ar"`
-	PublicTitleSorani   *string `json:"public_title_sorani"`
-	PublicTitleBadini   *string `json:"public_title_badini"`
-	City                *string `json:"city"`
-	District            *string `json:"district"`
-	Address             *string `json:"address"`
-	FamilyMembersCount  *int    `json:"family_members_count"`
-	IncomeAmount        *string `json:"income_amount"`
-	HousingStatus       *string `json:"housing_status"`
-	WorkStatus          *string `json:"work_status"`
-	HealthStatus        *string `json:"health_status"`
-	EducationStatus     *string `json:"education_status"`
-	ActualNeeds         *string `json:"actual_needs"`
-	PriorityLevel       string  `json:"priority_level"`
-	VerificationStatus  string  `json:"verification_status"`
-	PublicVisibility    string  `json:"public_visibility"`
-	ReviewNotes         *string `json:"review_notes"`
-	CreatedAt           time.Time `json:"created_at"`
-	UpdatedAt           time.Time `json:"updated_at"`
+	ID                 int64   `json:"id"`
+	UserID             *int    `json:"user_id"`
+	CaseCode           string  `json:"case_code"`
+	PublicTitle        string  `json:"public_title"`
+	PublicTitleAr      *string `json:"public_title_ar"`
+	PublicTitleSorani  *string `json:"public_title_sorani"`
+	PublicTitleBadini  *string `json:"public_title_badini"`
+	FullName           *string `json:"full_name"`
+	NationalID         *string `json:"national_id"`
+	Phone              *string `json:"phone"`
+	Gender             *string `json:"gender"`
+	DateOfBirth        *string `json:"date_of_birth"`
+	MaritalStatus      *string `json:"marital_status"`
+	City               *string `json:"city"`
+	District           *string `json:"district"`
+	Address            *string `json:"address"`
+	FamilyMembersCount *int    `json:"family_members_count"`
+	IncomeAmount       *string `json:"income_amount"`
+	HousingStatus      *string `json:"housing_status"`
+	WorkStatus         *string `json:"work_status"`
+	HealthStatus       *string `json:"health_status"`
+	EducationStatus    *string `json:"education_status"`
+	ActualNeeds        *string `json:"actual_needs"`
+	PriorityLevel      string  `json:"priority_level"`
+	// Note #15 — nullable: the column has no NOT NULL/DEFAULT (migrations/
+	// 001_full_v2.sql), and InsertCase below didn't set it, so self-submitted
+	// rows (mobile app) could land with SQL NULL here. Scanning NULL into a
+	// non-pointer string is a hard error that used to abort the ENTIRE list
+	// query — one such row broke the admin Cases screen for every row, not
+	// just itself, surfacing as a generic "Database error."
+	VerificationStatus *string   `json:"verification_status"`
+	PublicVisibility   string    `json:"public_visibility"`
+	ReviewNotes        *string   `json:"review_notes"`
+	CreatedAt          time.Time `json:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at"`
 }
 
 // ProjectRequest matches the GET /beneficiary_project_requests response shape.
 type ProjectRequest struct {
-	ID                              int64     `json:"id"`
-	UserID                          int       `json:"user_id"`
-	ProjectTitle                    string    `json:"project_title"`
-	ProjectTitleAr                  *string   `json:"project_title_ar"`
-	ProjectTitleSorani              *string   `json:"project_title_sorani"`
-	ProjectTitleBadini              *string   `json:"project_title_badini"`
-	Category                        string    `json:"category"`
-	CategoryAr                      *string   `json:"category_ar"`
-	CategorySorani                  *string   `json:"category_sorani"`
-	CategoryBadini                  *string   `json:"category_badini"`
-	Summary                         string    `json:"summary"`
-	SummaryAr                       *string   `json:"summary_ar"`
-	SummarySorani                   *string   `json:"summary_sorani"`
-	SummaryBadini                   *string   `json:"summary_badini"`
-	AmountNeeded                    string    `json:"amount_needed"`
-	RaisedAmount                    int       `json:"raised_amount"`
-	Currency                        string    `json:"currency"`
-	Location                        string    `json:"location"`
-	LocationAr                      *string   `json:"location_ar"`
-	LocationSorani                  *string   `json:"location_sorani"`
-	LocationBadini                  *string   `json:"location_badini"`
-	BeneficiaryCommunityName        string    `json:"beneficiary_community_name"`
-	BeneficiaryCommunityNameAr      *string   `json:"beneficiary_community_name_ar"`
-	BeneficiaryCommunityNameSorani  *string   `json:"beneficiary_community_name_sorani"`
-	BeneficiaryCommunityNameBadini  *string   `json:"beneficiary_community_name_badini"`
-	PeopleAffectedTotal             *int      `json:"people_affected_total"`
-	Status                          string    `json:"status"`
-	LikeCount                       int       `json:"like_count"`
-	CommentCount                    int       `json:"comment_count"`
-	CreatedAt                       time.Time `json:"created_at"`
-	UpdatedAt                       time.Time `json:"updated_at"`
+	ID                             int64     `json:"id"`
+	UserID                         int       `json:"user_id"`
+	ProjectTitle                   string    `json:"project_title"`
+	ProjectTitleAr                 *string   `json:"project_title_ar"`
+	ProjectTitleSorani             *string   `json:"project_title_sorani"`
+	ProjectTitleBadini             *string   `json:"project_title_badini"`
+	Category                       string    `json:"category"`
+	CategoryAr                     *string   `json:"category_ar"`
+	CategorySorani                 *string   `json:"category_sorani"`
+	CategoryBadini                 *string   `json:"category_badini"`
+	Summary                        string    `json:"summary"`
+	SummaryAr                      *string   `json:"summary_ar"`
+	SummarySorani                  *string   `json:"summary_sorani"`
+	SummaryBadini                  *string   `json:"summary_badini"`
+	AmountNeeded                   string    `json:"amount_needed"`
+	RaisedAmount                   int       `json:"raised_amount"`
+	Currency                       string    `json:"currency"`
+	Location                       string    `json:"location"`
+	LocationAr                     *string   `json:"location_ar"`
+	LocationSorani                 *string   `json:"location_sorani"`
+	LocationBadini                 *string   `json:"location_badini"`
+	BeneficiaryCommunityName       string    `json:"beneficiary_community_name"`
+	BeneficiaryCommunityNameAr     *string   `json:"beneficiary_community_name_ar"`
+	BeneficiaryCommunityNameSorani *string   `json:"beneficiary_community_name_sorani"`
+	BeneficiaryCommunityNameBadini *string   `json:"beneficiary_community_name_badini"`
+	PeopleAffectedTotal            *int      `json:"people_affected_total"`
+	Status                         string    `json:"status"`
+	LikeCount                      int       `json:"like_count"`
+	CommentCount                   int       `json:"comment_count"`
+	CreatedAt                      time.Time `json:"created_at"`
+	UpdatedAt                      time.Time `json:"updated_at"`
 }
 
 // CaseInput is the validated payload for POST /api/beneficiary_cases.
 type CaseInput struct {
 	UserID             int64
-	CaseCode           string  // optional; auto-generated if empty
+	CaseCode           string // optional; auto-generated if empty
 	PublicTitle        string
 	PublicTitleAr      *string
 	FullName           *string
 	NationalID         *string
 	Phone              *string
+	Gender             *string
+	DateOfBirth        *string
+	MaritalStatus      *string
 	City               *string
 	District           *string
 	Address            *string
@@ -97,33 +112,33 @@ type CaseInput struct {
 
 // RequestInput is the validated payload for POST /api/beneficiary_project_requests.
 type RequestInput struct {
-	UserID                       int64
-	ProjectTitle                 string
-	ProjectTitleAr               *string
-	Category                     string
-	CategoryAr                   *string
-	Summary                      string
-	SummaryAr                    *string
-	DescriptionLong              string
-	DescriptionLongAr            *string
-	AmountNeeded                 float64
-	Currency                     string
-	Location                     string
-	LocationAr                   *string
-	BeneficiaryCommunityName     string
-	BeneficiaryCommunityNameAr   *string
-	PeopleAffectedTotal          *int
-	MaleCount                    *int
-	FemaleCount                  *int
-	VolunteerAgeProfile          *string
-	VolunteerSkillsKnowledge     *string
-	PeopleVolunteersExtraDesc    *string
-	TimelineTarget               *string
-	ContactPersonName            *string
-	ContactPhone                 *string
-	ContactEmail                 *string
-	OtherNotes                   *string
-	Status                       string // default "submitted"
+	UserID                     int64
+	ProjectTitle               string
+	ProjectTitleAr             *string
+	Category                   string
+	CategoryAr                 *string
+	Summary                    string
+	SummaryAr                  *string
+	DescriptionLong            string
+	DescriptionLongAr          *string
+	AmountNeeded               float64
+	Currency                   string
+	Location                   string
+	LocationAr                 *string
+	BeneficiaryCommunityName   string
+	BeneficiaryCommunityNameAr *string
+	PeopleAffectedTotal        *int
+	MaleCount                  *int
+	FemaleCount                *int
+	VolunteerAgeProfile        *string
+	VolunteerSkillsKnowledge   *string
+	PeopleVolunteersExtraDesc  *string
+	TimelineTarget             *string
+	ContactPersonName          *string
+	ContactPhone               *string
+	ContactEmail               *string
+	OtherNotes                 *string
+	Status                     string // default "submitted"
 }
 
 type Store struct {
@@ -157,6 +172,7 @@ func (s *Store) ListCasesForUser(ctx context.Context, userID int64, status strin
 	args := []any{userID}
 	q := `SELECT id, user_id, case_code, public_title, public_title_ar,
 	             NULL::text, NULL::text,
+	             full_name, national_id, phone, gender, date_of_birth::text, marital_status,
 	             city, district, address, family_members_count,
 	             income_amount::text, housing_status, work_status,
 	             health_status, education_status, actual_needs,
@@ -184,6 +200,7 @@ func (s *Store) ListPublicCases(ctx context.Context, status string, limit int) (
 	}
 	q := `SELECT id, user_id, case_code, public_title, public_title_ar,
 	             NULL::text, NULL::text,
+	             full_name, national_id, phone, gender, date_of_birth::text, marital_status,
 	             city, district, address, family_members_count,
 	             income_amount::text, housing_status, work_status,
 	             health_status, education_status, actual_needs,
@@ -208,6 +225,7 @@ func (s *Store) queryCases(ctx context.Context, q string, args ...any) ([]Case, 
 		err := rows.Scan(
 			&c.ID, &c.UserID, &c.CaseCode, &c.PublicTitle, &c.PublicTitleAr,
 			&c.PublicTitleSorani, &c.PublicTitleBadini,
+			&c.FullName, &c.NationalID, &c.Phone, &c.Gender, &c.DateOfBirth, &c.MaritalStatus,
 			&c.City, &c.District, &c.Address, &c.FamilyMembersCount,
 			&c.IncomeAmount, &c.HousingStatus, &c.WorkStatus,
 			&c.HealthStatus, &c.EducationStatus, &c.ActualNeeds,
@@ -248,22 +266,30 @@ func (s *Store) InsertCase(ctx context.Context, in CaseInput) (int64, string, er
 	}
 
 	var id int64
+	// Note #15 — verification_status is now included explicitly (defaulted to
+	// "submitted", matching the admin-created path in admin_create.go). It
+	// used to be omitted here entirely, and with no DB default that left it
+	// SQL NULL — which crashed the admin list query's Scan (see the
+	// VerificationStatus field comment above).
 	err := s.Pool.QueryRow(ctx, `
 		INSERT INTO beneficiary_cases (
 		  user_id, case_code, public_title, public_title_ar,
-		  full_name, national_id, phone, city, district, address,
+		  full_name, national_id, phone, gender, date_of_birth, marital_status,
+		  city, district, address,
 		  family_members_count, income_amount, housing_status,
 		  work_status, health_status, education_status, actual_needs,
-		  priority_level
+		  priority_level, verification_status
 		) VALUES (
 		  $1, $2, $3, $4,
 		  $5, $6, $7, $8, $9, $10,
 		  $11, $12, $13,
-		  $14, $15, $16, $17,
-		  $18
+		  $14, $15, $16,
+		  $17, $18, $19, $20,
+		  $21, 'submitted'
 		) RETURNING id`,
 		in.UserID, caseCode, title, in.PublicTitleAr,
-		in.FullName, in.NationalID, in.Phone, in.City, in.District, in.Address,
+		in.FullName, in.NationalID, in.Phone, in.Gender, in.DateOfBirth, in.MaritalStatus,
+		in.City, in.District, in.Address,
 		in.FamilyMembersCount, in.IncomeAmount, in.HousingStatus,
 		in.WorkStatus, in.HealthStatus, in.EducationStatus, in.ActualNeeds,
 		priority,
@@ -464,6 +490,7 @@ func (s *Store) AdminListCases(ctx context.Context, page, perPage int, status, q
 	offsetIdx := len(args) + 2
 	sqlStr := `SELECT id, user_id, case_code, public_title, public_title_ar,
 	             NULL::text, NULL::text,
+	             full_name, national_id, phone, gender, date_of_birth::text, marital_status,
 	             city, district, address, family_members_count,
 	             income_amount::text, housing_status, work_status,
 	             health_status, education_status, actual_needs,

@@ -11,6 +11,7 @@ import { useAuth } from '../lib/auth'
 import { useI18n } from '../lib/i18n'
 import { useToast } from '../lib/toast'
 import IdleLock from '../components/IdleLock'
+import type { UsersListResp } from '../lib/api-types'
 
 type Matrix = {
   tiers: string[]
@@ -45,6 +46,173 @@ const MODULE_LABEL: Record<string, string> = {
 }
 
 const key = (tier: string, module: string, action: string) => `${tier}|${module}|${action}`
+
+// ── Note 31 — per-employee overrides ────────────────────────────────────
+// Every account on the same tier is permission-identical by default; this
+// lets a Super-Admin narrow (or widen) ONE specific employee's access
+// without touching their whole tier — e.g. an employee assigned solely to
+// Volunteers never sees Marriage/Partners/Settings, while other employees
+// on the same tier are unaffected.
+type StaffOption = { id: number; label: string; tier: string }
+type UserCell = { allowed: boolean; source: 'user' | 'tier' }
+type UserMatrixResp = {
+  user_id: number
+  tier: string
+  modules: string[]
+  actions: string[]
+  cells: Record<string, Record<string, UserCell>>
+}
+
+function PerEmployeeCard({
+  modules, actions, moduleLabel, actionLabel, verifyPin, onChanged,
+}: {
+  modules: string[]
+  actions: string[]
+  moduleLabel: (m: string) => string
+  actionLabel: (a: string) => string
+  verifyPin: () => Promise<void>
+  onChanged: () => void
+}) {
+  const { t } = useI18n()
+  const toast = useToast()
+  const [staff, setStaff] = useState<StaffOption[]>([])
+  const [selected, setSelected] = useState<number | null>(null)
+  const [userMatrix, setUserMatrix] = useState<UserMatrixResp | null>(null)
+  const [loadingStaff, setLoadingStaff] = useState(true)
+  const [loadingMatrix, setLoadingMatrix] = useState(false)
+  const [saving, setSaving] = useState<string | null>(null)
+
+  useEffect(() => {
+    api
+      .get<UsersListResp>('/api/admin/users', { params: { page: 1, per_page: 200 } })
+      .then((res) => {
+        const opts = (res.data.data ?? [])
+          .filter((u) => u.staff_tier && u.staff_tier !== 'user' && u.staff_tier !== 'super_admin')
+          .map((u) => ({
+            id: u.user_id,
+            tier: u.staff_tier!,
+            label: `${u.profile?.full_name ?? t('common.user_ref', { id: u.user_id })} — ${u.phone}`,
+          }))
+        setStaff(opts)
+      })
+      .catch(() => { /* staff picker is best-effort */ })
+      .finally(() => setLoadingStaff(false))
+  }, [t])
+
+  const loadUserMatrix = useCallback((userID: number) => {
+    setLoadingMatrix(true)
+    api
+      .get<UserMatrixResp>(`/api/admin/permissions/user/${userID}`)
+      .then((res) => setUserMatrix(res.data))
+      .catch((e) => toast.error(describeError(e)))
+      .finally(() => setLoadingMatrix(false))
+  }, [toast])
+
+  useEffect(() => {
+    if (selected != null) loadUserMatrix(selected)
+    else setUserMatrix(null)
+  }, [selected, loadUserMatrix])
+
+  // set: change this employee's override for (module, action). clear: wipe
+  // the override so they fall back to their tier's own value.
+  const change = async (module: string, action: string, next: boolean | null) => {
+    if (selected == null) return
+    const k = `${module}|${action}`
+    setSaving(k)
+    try {
+      await verifyPin()
+      const { data: otpResp } = await api.post('/api/admin/permissions/otp')
+      let promptMsg = t('perm.otp_prompt', { phone: otpResp?.phone_hint ?? '' })
+      if (otpResp?.demo_code) {
+        promptMsg += `\n\n${t('perm.otp_demo_hint', { code: otpResp.demo_code })}`
+      }
+      const otp = window.prompt(promptMsg)
+      if (otp == null || !otp.trim()) throw new Error(t('perm.otp_required'))
+      await api.post(`/api/admin/permissions/user/${selected}`, { module, action, allowed: next, otp: otp.trim() })
+      toast.success(t('perm.saved'))
+      loadUserMatrix(selected)
+      onChanged()
+    } catch (e) {
+      toast.error(describeError(e))
+    } finally {
+      setSaving(null)
+    }
+  }
+
+  return (
+    <div className="card" style={{ overflowX: 'auto' }}>
+      <h2 style={{ marginTop: 0 }}>{t('perm.per_employee_title')}</h2>
+      <p className="muted" style={{ marginTop: 4 }}>{t('perm.per_employee_desc')}</p>
+
+      <label className="field" style={{ maxWidth: 420, marginTop: 12 }}>
+        <span className="muted">{t('perm.employee_label')}</span>
+        <select
+          value={selected ?? ''}
+          disabled={loadingStaff}
+          onChange={(e) => setSelected(e.target.value ? Number(e.target.value) : null)}
+        >
+          <option value="">{t('perm.employee_pick')}</option>
+          {staff.map((s) => (
+            <option key={s.id} value={s.id}>{s.label} ({t(`perm.tier.${s.tier}`)})</option>
+          ))}
+        </select>
+      </label>
+
+      {loadingMatrix && <p className="muted" style={{ marginTop: 12 }}>{t('common.loading')}</p>}
+
+      {userMatrix && !loadingMatrix && (
+        <table className="data-table" style={{ marginTop: 12 }}>
+          <thead>
+            <tr>
+              <th style={{ textAlign: 'start' }}>{t('perm.col_module')}</th>
+              {actions.map((a) => (
+                <th key={a} style={{ textAlign: 'center' }}>{actionLabel(a)}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {modules.map((mod) => (
+              <tr key={mod}>
+                <td style={{ textAlign: 'start' }}><strong>{moduleLabel(mod)}</strong></td>
+                {actions.map((a) => {
+                  const cell = userMatrix.cells[mod]?.[a]
+                  const k = `${mod}|${a}`
+                  const isOverridden = cell?.source === 'user'
+                  return (
+                    <td key={a} style={{ textAlign: 'center' }}>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <input
+                          type="checkbox"
+                          checked={!!cell?.allowed}
+                          disabled={saving === k}
+                          onChange={() => change(mod, a, !cell?.allowed)}
+                          aria-label={`${moduleLabel(mod)} · ${actionLabel(a)}`}
+                          title={isOverridden ? t('perm.overridden_hint') : t('perm.inherited_hint')}
+                          style={isOverridden ? { accentColor: 'var(--color-warning, #F59E0B)' } : undefined}
+                        />
+                        {isOverridden && (
+                          <button
+                            type="button"
+                            className="icon-btn"
+                            disabled={saving === k}
+                            title={t('perm.reset_to_tier')}
+                            onClick={() => change(mod, a, null)}
+                          >
+                            ↺
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  )
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  )
+}
 
 export default function PermissionsPage() {
   const { t } = useI18n()
@@ -195,6 +363,17 @@ export default function PermissionsPage() {
           </table>
         </div>
       ))}
+
+      {matrix && !loading && (
+        <PerEmployeeCard
+          modules={matrix.modules}
+          actions={matrix.actions}
+          moduleLabel={moduleLabel}
+          actionLabel={actionLabel}
+          verifyPin={verifyPin}
+          onChanged={loadAudit}
+        />
+      )}
 
       {/* Read-only, immutable permission audit log. */}
       <div className="card">

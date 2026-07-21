@@ -249,6 +249,30 @@ func NewProjectRequestAdminMsg(title string, requestID int64) LocalizedMessage {
 	}
 }
 
+// NewMarriageProfileAdminMsg — alerts STAFF (dashboard) that a user just
+// submitted a new marriage profile needing review (Note #18 — mirrors
+// NewBeneficiaryCaseAdminMsg; marriage submission previously only notified
+// the submitting user, never the dashboard).
+func NewMarriageProfileAdminMsg(profileCode string, profileID int64) LocalizedMessage {
+	return LocalizedMessage{
+		Type:              "admin_new_marriage_profile",
+		RelatedEntityType: "marriage_profiles",
+		RelatedEntityID:   profileID,
+		Title: LocalText{
+			En:  "New marriage profile to review",
+			Ar:  "ملف زواج جديد للمراجعة",
+			Ckb: "پرۆفایلی زەماوەندی نوێ بۆ پێداچوونەوە",
+			Kmr: "پرۆفایلەکا زەویجێ یا نوو بۆ پشکنینێ",
+		},
+		Body: LocalText{
+			En:  fmt.Sprintf("A user submitted a new marriage profile: \"%s\". Open it to review.", profileCode),
+			Ar:  fmt.Sprintf("قدّم مستخدم ملف زواج جديد: «%s». افتحه للمراجعة.", profileCode),
+			Ckb: fmt.Sprintf("بەکارهێنەرێک پرۆفایلی زەماوەندی نوێی ناردووە: «%s». بیکەرەوە بۆ پێداچوونەوە.", profileCode),
+			Kmr: fmt.Sprintf("بکارهێنەرەکێ پرۆفایلەکا زەویجێ یا نوو شاند: «%s». ڤەکە بۆ پشکنینێ.", profileCode),
+		},
+	}
+}
+
 // VolunteerApplicationSubmittedMsg — volunteer just filled out the
 // application form (POST /api/volunteers action=apply). Acknowledges
 // receipt so the volunteer knows we got it before admin reviews.
@@ -1044,14 +1068,20 @@ func VolunteerApplicationDecisionMsg(applicantName, status string, appID int64) 
 	kmrVerb := status
 	switch {
 	case approve:
-		enVerb = "approved"; arVerb = "تمت الموافقة عليه"
-		ckbVerb = "پەسەند کرا"; kmrVerb = "هاتە قبوولکرن"
+		enVerb = "approved"
+		arVerb = "تمت الموافقة عليه"
+		ckbVerb = "پەسەند کرا"
+		kmrVerb = "هاتە قبوولکرن"
 	case reject:
-		enVerb = "rejected"; arVerb = "تم رفضه"
-		ckbVerb = "ڕەتکرایەوە"; kmrVerb = "هاتە رەتکرن"
+		enVerb = "rejected"
+		arVerb = "تم رفضه"
+		ckbVerb = "ڕەتکرایەوە"
+		kmrVerb = "هاتە رەتکرن"
 	default: // inactive
-		enVerb = "set to inactive"; arVerb = "تم تعطيله"
-		ckbVerb = "ناچالاک کرا"; kmrVerb = "هاتە ناچالاککرن"
+		enVerb = "set to inactive"
+		arVerb = "تم تعطيله"
+		ckbVerb = "ناچالاک کرا"
+		kmrVerb = "هاتە ناچالاککرن"
 	}
 	return LocalizedMessage{
 		Type:              "volunteer_application_" + status,
@@ -1160,7 +1190,7 @@ func MissionSignupDecisionMsg(missionTitle, status string, signupID int64) Local
 		RelatedEntityType: "volunteer_application_missions",
 		RelatedEntityID:   signupID,
 		Title:             LocalText{En: titleEn, Ar: titleAr, Ckb: titleCkb, Kmr: titleKmr},
-		Body:              LocalText{En: bodyEn,  Ar: bodyAr,  Ckb: bodyCkb,  Kmr: bodyKmr},
+		Body:              LocalText{En: bodyEn, Ar: bodyAr, Ckb: bodyCkb, Kmr: bodyKmr},
 	}
 }
 
@@ -1214,7 +1244,7 @@ func SupportTicketStatusMsg(subject, status string, ticketID int64) LocalizedMes
 		RelatedEntityType: "support_tickets",
 		RelatedEntityID:   ticketID,
 		Title:             LocalText{En: titleEn, Ar: titleAr, Ckb: titleCkb, Kmr: titleKmr},
-		Body:              LocalText{En: bodyEn,  Ar: bodyAr,  Ckb: bodyCkb,  Kmr: bodyKmr},
+		Body:              LocalText{En: bodyEn, Ar: bodyAr, Ckb: bodyCkb, Kmr: bodyKmr},
 	}
 }
 
@@ -1400,6 +1430,170 @@ func ChatNewMessageMsg(senderName, preview string, threadID int64) LocalizedMess
 	return LocalizedMessage{
 		Type:              "chat_message",
 		RelatedEntityType: "chat_thread",
+		RelatedEntityID:   threadID,
+		Title: LocalText{
+			En:  fmt.Sprintf("Message from %s", who),
+			Ar:  fmt.Sprintf("رسالة من %s", who),
+			Ckb: fmt.Sprintf("نامە لە %s", who),
+			Kmr: fmt.Sprintf("Peyam ji %s", who),
+		},
+		Body: LocalText{
+			En:  preview,
+			Ar:  preview,
+			Ckb: preview,
+			Kmr: preview,
+		},
+	}
+}
+
+// ===== Marriage mediated chat (Note #35) =====
+//
+// Unlike the donor↔owner chat templates above, none of these ever include a
+// real name — the whole point of the marriage chat is that neither party
+// learns who's on the other end. Generic wording only.
+
+// MarriageChatRequestMsg tells a profile owner that staff approved a meeting
+// request and they need to accept it to start chatting.
+func MarriageChatRequestMsg(threadID int64) LocalizedMessage {
+	return LocalizedMessage{
+		Type:              "marriage_chat_request",
+		RelatedEntityType: "marriage_chat_thread",
+		RelatedEntityID:   threadID,
+		Title: LocalText{
+			En:  "New contact request",
+			Ar:  "طلب تواصل جديد",
+			Ckb: "داواکاری پەیوەندی نوێ",
+			Kmr: "Daxwaza têkiliyê ya nû",
+		},
+		Body: LocalText{
+			En:  "Someone is interested in your marriage profile. Open Marriage to accept or decline.",
+			Ar:  "أحدهم مهتم بملفك في قسم الزواج. افتح قسم الزواج للقبول أو الرفض.",
+			Ckb: "کەسێک بە پرۆفایلی هاوسەرگیریت ئارەزوومەندە. بەشی هاوسەرگیری بکەرەوە بۆ پەسەندکردن یان ڕەتکردنەوە.",
+			Kmr: "Kesek eleqedar e bi profîla te ya hevsergiriyê. Beşê hevsergiriyê veke da qebûl an red bikî.",
+		},
+	}
+}
+
+// MarriageMeetingDeclinedMsg tells the requester that staff declined their meeting request.
+func MarriageMeetingDeclinedMsg() LocalizedMessage {
+	return LocalizedMessage{
+		Type:              "marriage_meeting_declined",
+		RelatedEntityType: "marriage_meeting_request",
+		Title: LocalText{
+			En:  "Meeting request declined",
+			Ar:  "تم رفض طلب اللقاء",
+			Ckb: "داواکاری چاوپێکەوتن ڕەتکرایەوە",
+			Kmr: "Daxwaza hevdîtinê hat redkirin",
+		},
+		Body: LocalText{
+			En:  "Your meeting request could not be approved at this time.",
+			Ar:  "تعذّرت الموافقة على طلب اللقاء الخاص بك في الوقت الحالي.",
+			Ckb: "داواکاری چاوپێکەوتنەکەت لە ئێستادا پەسەند نەکرا.",
+			Kmr: "Daxwaza te ya hevdîtinê niha nehat qebûlkirin.",
+		},
+	}
+}
+
+// MarriageChatAcceptedMsg tells the requester the profile owner accepted — they can now chat.
+func MarriageChatAcceptedMsg(threadID int64) LocalizedMessage {
+	return LocalizedMessage{
+		Type:              "marriage_chat_accepted",
+		RelatedEntityType: "marriage_chat_thread",
+		RelatedEntityID:   threadID,
+		Title: LocalText{
+			En:  "Contact request accepted",
+			Ar:  "تم قبول طلب التواصل",
+			Ckb: "داواکاری پەیوەندی پەسەند کرا",
+			Kmr: "Daxwaza têkiliyê hat qebûlkirin",
+		},
+		Body: LocalText{
+			En:  "The profile owner accepted your request. You can now message each other through staff.",
+			Ar:  "قبِل صاحب الملف طلبك. يمكنكما الآن تبادل الرسائل عبر الموظفين.",
+			Ckb: "خاوەنی پرۆفایلەکە داواکاریت پەسەند کرد. ئێستا دەتوانن لە ڕێگەی کارمەندەوە نامە بنێرن.",
+			Kmr: "Xwediyê profîlê daxwaza te qebûl kir. Niha hûn dikarin bi rêya karmendan peyaman ji hev re bişînin.",
+		},
+	}
+}
+
+// MarriageChatNewMessageMsg notifies the other party of a new message. No
+// sender name in the body — messages here are relayed anonymously.
+func MarriageChatNewMessageMsg(threadID int64) LocalizedMessage {
+	return LocalizedMessage{
+		Type:              "marriage_chat_message",
+		RelatedEntityType: "marriage_chat_thread",
+		RelatedEntityID:   threadID,
+		Title: LocalText{
+			En:  "New message",
+			Ar:  "رسالة جديدة",
+			Ckb: "نامەیەکی نوێ",
+			Kmr: "Peyameke nû",
+		},
+		Body: LocalText{
+			En:  "You have a new message in your Marriage chat.",
+			Ar:  "لديك رسالة جديدة في محادثة قسم الزواج.",
+			Ckb: "نامەیەکی نوێت هەیە لە گفتوگۆی هاوسەرگیریدا.",
+			Kmr: "Peyameke te ya nû di axaftina Hevsergiriyê de heye.",
+		},
+	}
+}
+
+// ===== Staff↔Volunteer↔Beneficiary chat (Note #36, part 3) =====
+
+// CaseVolunteerChatOpenedMsg tells the volunteer and beneficiary a 3-way
+// chat is now open — fires once, when a case-linked signup becomes eligible.
+func CaseVolunteerChatOpenedMsg(threadID int64) LocalizedMessage {
+	return LocalizedMessage{
+		Type:              "case_volunteer_chat_opened",
+		RelatedEntityType: "case_volunteer_chat_thread",
+		RelatedEntityID:   threadID,
+		Title: LocalText{
+			En:  "Chat opened",
+			Ar:  "تم فتح محادثة",
+			Ckb: "گفتوگۆ کرایەوە",
+			Kmr: "Axaftin hate vekirin",
+		},
+		Body: LocalText{
+			En:  "You can now message about this case, with staff able to help.",
+			Ar:  "يمكنك الآن مراسلة الطرف الآخر بخصوص هذه الحالة، والموظفون يمكنهم المساعدة.",
+			Ckb: "ئێستا دەتوانیت دەربارەی ئەم دۆسیەیە نامە بنێریت، کارمەندانیش دەتوانن یارمەتی بدەن.",
+			Kmr: "Niha tu dikarî derbarê vê dosyeyê de peyaman bişînî, karmend jî dikarin arîkarî bikin.",
+		},
+	}
+}
+
+// CaseVolunteerChatNewMessageMsg notifies the other party of a new message.
+func CaseVolunteerChatNewMessageMsg(preview string, threadID int64) LocalizedMessage {
+	return LocalizedMessage{
+		Type:              "case_volunteer_chat_message",
+		RelatedEntityType: "case_volunteer_chat_thread",
+		RelatedEntityID:   threadID,
+		Title: LocalText{
+			En:  "New message",
+			Ar:  "رسالة جديدة",
+			Ckb: "نامەیەکی نوێ",
+			Kmr: "Peyameke nû",
+		},
+		Body: LocalText{
+			En:  preview,
+			Ar:  preview,
+			Ckb: preview,
+			Kmr: preview,
+		},
+	}
+}
+
+// ===== Internal staff chat (Note #36) =====
+
+// StaffChatNewMessageMsg notifies a staff member of a new internal message
+// from another staff member (Manager ↔ Staff Member and any other pair).
+func StaffChatNewMessageMsg(senderName, preview string, threadID int64) LocalizedMessage {
+	who := senderName
+	if who == "" {
+		who = "A colleague"
+	}
+	return LocalizedMessage{
+		Type:              "staff_chat_message",
+		RelatedEntityType: "staff_chat_thread",
 		RelatedEntityID:   threadID,
 		Title: LocalText{
 			En:  fmt.Sprintf("Message from %s", who),

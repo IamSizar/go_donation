@@ -16,11 +16,12 @@ import EditModal, { type FieldSpec } from '../components/EditModal'
 import BulkBar from '../components/BulkBar'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../lib/toast'
-import { useI18n, useStatusLabel } from '../lib/i18n'
+import { useI18n, useStatusLabel, type Locale } from '../lib/i18n'
 import { useSelection } from '../lib/useSelection'
 import { downloadCsv, type CsvColumn } from '../lib/csv'
 import { HighlightBanner, useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForStatus } from '../lib/statusColors'
+import { formatDateParts } from '../lib/dates'
 
 const PRODUCT_CSV_COLUMNS: CsvColumn<Product>[] = [
   { header: 'id', get: (p) => p.id },
@@ -56,7 +57,16 @@ const EDITABLE_ORDER_STATUSES = ORDER_STATUSES.filter((s) => s !== 'all')
 // #28 — fixed set of product badges (must match backend marketplaceLabels).
 const PRODUCT_LABELS = ['new', 'sale', 'featured', 'used', 'in_stock']
 
-type MarketCategory = { slug: string; name_en: string }
+type MarketCategory = { slug: string; name_en: string; name_ar: string; name_ckb: string; name_kmr: string }
+
+// Note #18 (Arabization) — see the identical helper + comment in
+// MediaPage.tsx. Same reasoning: Marketplace's "food" category needs
+// different text than Media's "food" category, so this uses the per-category
+// translated name from the API instead of the shared status.* dictionary.
+function categoryName(c: MarketCategory, locale: Locale): string {
+  const byLocale = { en: c.name_en, ar: c.name_ar, ckb: c.name_ckb, kmr: c.name_kmr }
+  return byLocale[locale]?.trim() || c.name_en
+}
 
 const PRODUCT_FIELDS: FieldSpec[] = [
   { key: 'name',                label: 'Name (EN)', labelKey: 'field.name_en',          type: 'text',     required: true },
@@ -137,7 +147,7 @@ function ProductsTab() {
   // stays hidden and the list updates silently (no full reload flash).
   const pollSilent = useRef(false)
   const toast = useToast()
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const statusLabel = useStatusLabel()
   const sel = useSelection<Product>((p) => p.id)
   const highlight = useHighlightedRow()
@@ -157,12 +167,13 @@ function ProductsTab() {
     const catField: FieldSpec = {
       key: 'category_slug', label: 'Category', labelKey: 'field.category',
       type: 'select', options: ['', ...categories.map((c) => c.slug)],
+      optionLabels: Object.fromEntries(categories.map((c) => [c.slug, categoryName(c, locale)])),
     }
     const out = [...PRODUCT_FIELDS]
     const at = out.findIndex((f) => f.key === 'category')
     out.splice(at + 1, 0, catField)
     return out
-  }, [categories])
+  }, [categories, locale])
 
   const productCreateFields = useMemo<FieldSpec[]>(
     () => [PRODUCT_CREATE_FIELDS[0], PRODUCT_CREATE_FIELDS[1], ...productFields],
@@ -403,10 +414,23 @@ function OrdersTab() {
   // stays hidden and the list updates silently (no full reload flash).
   const pollSilent = useRef(false)
   const toast = useToast()
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const statusLabel = useStatusLabel()
   const sel = useSelection<MarketOrder>((o) => o.id)
   const highlight = useHighlightedRow()
+  // Note #18 (Arabization) — orders show the product's category slug; needs
+  // the same per-category translated name as the product form's dropdown
+  // (see categoryName() + comment above), not the shared status.* dict.
+  const [categories, setCategories] = useState<MarketCategory[]>([])
+
+  useEffect(() => {
+    let cancelled = false
+    api
+      .get<{ items: MarketCategory[] }>('/api/admin/marketplace/categories')
+      .then((res) => { if (!cancelled) setCategories(res.data.items ?? []) })
+      .catch(() => { if (!cancelled) setCategories([]) })
+    return () => { cancelled = true }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -483,14 +507,18 @@ function OrdersTab() {
   }
 
   const columns: Column<MarketOrder>[] = [
-    { key: 'id', header: t('col.id'), width: '60px', cell: (o) => <strong>#{o.id}</strong> },
+    { key: 'id', header: t('col.id'), width: '60px', cell: (o) => <strong>T{o.id}</strong> },
     {
       key: 'product',
       header: t('col.product'),
       cell: (o) => (
         <div className="cell-stack">
           <strong>{o.name ?? `Product #${o.product_id}`}</strong>
-          {o.category && <span className="muted">{statusLabel(o.category)}</span>}
+          {o.category && (
+            <span className="muted">
+              {categoryName(categories.find((c) => c.slug === o.category) ?? { slug: o.category, name_en: o.category, name_ar: '', name_ckb: '', name_kmr: '' }, locale)}
+            </span>
+          )}
         </div>
       ),
     },
@@ -526,7 +554,16 @@ function OrdersTab() {
     {
       key: 'created',
       header: t('col.placed'),
-      cell: (o) => <span className="muted">{o.created_at?.slice(0, 10)}</span>,
+      cell: (o) => {
+        if (!o.created_at) return <span className="muted">—</span>
+        const { date, time } = formatDateParts(o.created_at)
+        return (
+          <div className="cell-stack">
+            <span>{date}</span>
+            <span className="muted">{time}</span>
+          </div>
+        )
+      },
     },
     {
       key: 'actions', header: t('common.actions'), width: '170px',

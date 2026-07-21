@@ -19,7 +19,7 @@ import { useI18n } from '../lib/i18n'
 import { type CsvColumn } from '../lib/csv'
 import { HighlightBanner, useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForDonation } from '../lib/statusColors'
-import { formatPhone } from '../lib/phone'
+import { formatDateParts } from '../lib/dates'
 
 const DONATION_CSV_COLUMNS: CsvColumn<DonationAdminRow>[] = [
   { header: 'id', get: (d) => d.id },
@@ -77,12 +77,11 @@ function formatAmount(s: string): string {
   return n.toLocaleString()
 }
 
-function formatDate(iso: string): string {
-  if (!iso) return ''
-  const d = new Date(iso)
-  if (isNaN(d.getTime())) return iso
-  return d.toLocaleString()
-}
+// Note #14 — was one combined date+time string on a single line, wide enough
+// to squeeze the columns after it. formatDateParts (lib/dates.ts, now also
+// used by VolunteersPage per Note #20) splits it so the cell stacks
+// vertically instead (reuses the .cell-stack class the Donor column already
+// uses for the same reason).
 
 export default function DonationsPage() {
   const [page, setPage] = useState(1)
@@ -177,13 +176,34 @@ export default function DonationsPage() {
   }
 
   const columns: Column<DonationAdminRow>[] = [
-    { key: 'id', header: t('col.id'), width: '60px', cell: (d) => <strong>#{d.id}</strong> },
+    {
+      // Note #14 — was a bare "#15"; the client wants an exported-document
+      // style code instead of a raw hash. Display-only change: `d.id` itself
+      // is still the plain auto-increment int underneath (used unchanged in
+      // every API call/link/search on this page), just prefixed with "T"
+      // (Tawazzun) instead of "#" for the on-screen/export representation.
+      key: 'id', header: t('col.id'), width: '60px', cell: (d) => <strong>T{d.id}</strong>,
+    },
     {
       key: 'ref',
       header: t('col.reference'),
       cell: (d) =>
         d.reference_number ? (
-          <code style={{ background: 'transparent', padding: 0 }}>{d.reference_number}</code>
+          // Note #14 — the full reference_number is kept intact (it's a real
+          // search key and appears in the donor's own donation history, per
+          // investigation — shortening the VALUE would break both). Only the
+          // on-screen presentation is decluttered: truncated with an ellipsis
+          // and the full code available via title-tooltip/selection.
+          <code
+            title={d.reference_number}
+            style={{
+              background: 'transparent', padding: 0, display: 'inline-block',
+              maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap', verticalAlign: 'bottom', fontSize: '0.85em',
+            }}
+          >
+            {d.reference_number}
+          </code>
         ) : (
           <span className="muted">—</span>
         ),
@@ -192,9 +212,13 @@ export default function DonationsPage() {
       key: 'donor',
       header: t('col.donor'),
       cell: (d) => (
+        // Note #14 — was name + phone (+ the adjacent date column reading as
+        // a "year", per the client). Phone is already one click away on the
+        // View page; showing the user's #id here instead keeps the row
+        // scannable and lets an admin cross-reference the Users table.
         <div className="cell-stack">
-          <strong>{d.donor_full_name ?? `#${d.user_id}`}</strong>
-          <span className="muted">{formatPhone(d.donor_phone)}</span>
+          <strong>{d.donor_full_name ?? <span className="muted">—</span>}</strong>
+          <span className="muted">#{d.user_id}</span>
         </div>
       ),
     },
@@ -243,6 +267,13 @@ export default function DonationsPage() {
             api.post(`/api/admin/donations/${d.id}/status`, { delivery_status: next })
           }
           label={`Donation #${d.id} delivery`}
+          // Note #13 — 'paused' reads as a near-duplicate of 'suspended' in
+          // this column's Arabic/Kurdish translations (both landed on some
+          // variant of "temporarily halted"). Here specifically it means a
+          // delivery currently being handled, so it displays as "Processing"
+          // — without touching the shared status.paused label used by
+          // Marriage/Sponsorships, where "Paused" correctly means on-hold.
+          labelOverrides={{ paused: t('status.processing') }}
         />
       ),
     },
@@ -251,7 +282,15 @@ export default function DonationsPage() {
     {
       key: 'date',
       header: t('col.date'),
-      cell: (d) => <span className="muted">{formatDate(d.transaction_date)}</span>,
+      cell: (d) => {
+        const { date, time } = formatDateParts(d.transaction_date)
+        return (
+          <div className="cell-stack">
+            <span className="muted">{date}</span>
+            {time && <span className="muted" style={{ fontSize: '0.85em' }}>{time}</span>}
+          </div>
+        )
+      },
     },
     {
       key: 'actions', header: t('common.actions'), width: '170px',

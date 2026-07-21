@@ -2,11 +2,15 @@ package handlers
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/crypto/bcrypt"
+
+	"github.com/karam-flutter/humanitarian-backend/internal/auth"
 )
 
 // AdminExportHandler dumps every business table as a single JSON document
@@ -99,7 +103,47 @@ var exportTables = []string{
 	"volunteer_mission_signups",
 }
 
+// Note #27 — a full raw-DB export could previously be triggered with one
+// click by anyone who could see the button (Super-Admin only per the route,
+// but with zero extra friction). PIN-gated the same way Purge/Restore
+// already are: the caller must re-supply their own password, verified
+// server-side. POST (not GET) so the password never rides in a URL/query
+// string. POST /api/admin/export/all   body {password}
 func (h *AdminExportHandler) ExportAll(c *gin.Context) {
+	user, ok := auth.UserFromGin(c)
+	if !ok || user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Not authenticated."})
+		return
+	}
+	var req struct {
+		Password string `json:"password"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid JSON body."})
+		return
+	}
+	if strings.TrimSpace(req.Password) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Password required to export."})
+		return
+	}
+
+	// PIN check — verify the acting admin's own password (fails closed).
+	var hash *string
+	if err := h.Pool.QueryRow(c.Request.Context(),
+		"SELECT password_hash FROM users WHERE id = $1", user.UserID).Scan(&hash); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		return
+	}
+	if hash == nil || *hash == "" {
+		c.JSON(http.StatusForbidden, gin.H{"success": false,
+			"error": "No password is set on your account; ask a Super-Admin to set one."})
+		return
+	}
+	if bcrypt.CompareHashAndPassword([]byte(*hash), []byte(strings.TrimSpace(req.Password))) != nil {
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "error": "Incorrect password."})
+		return
+	}
+
 	tables := make(map[string][]map[string]any, len(exportTables))
 	counts := make(map[string]int, len(exportTables))
 

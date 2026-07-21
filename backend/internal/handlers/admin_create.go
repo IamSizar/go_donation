@@ -214,7 +214,7 @@ func (h *AdminCreateHandler) Media(c *gin.Context) {
 		optStringOrNil(req.TitleAr), optStringOrNil(req.TitleSorani), optStringOrNil(req.TitleBadini),
 		optStringOrNil(req.Body), optStringOrNil(req.BodyAr), optStringOrNil(req.BodySorani), optStringOrNil(req.BodyBadini),
 		postType, optStringOrNil(req.MediaURL), optStringOrNil(req.LinkURL), eventDate, status, nullableInt(createdBy),
-		optStringOrNil(req.CategorySlug), // #22
+		optStringOrNil(req.CategorySlug),                             // #22
 		optStringOrNil(req.Location), optStringOrNil(req.LocationAr), // #23
 		optStringOrNil(req.LocationSorani), optStringOrNil(req.LocationBadini), gallery,
 	).Scan(&id)
@@ -248,6 +248,16 @@ func (h *AdminCreateHandler) Community(c *gin.Context) {
 	if !ok {
 		return
 	}
+	// Note #19 — mandatory per the client's ask: every new place must declare
+	// whether it's government or private/non-profit.
+	sectorType, ok := requireString(c, "sector_type", req.SectorType)
+	if !ok {
+		return
+	}
+	if !inSet(sectorType, communitySectorTypes) {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid sector_type. Allowed: " + strings.Join(communitySectorTypes, ", ")})
+		return
+	}
 	status := "approved"
 	if req.Status != nil {
 		v := strings.TrimSpace(*req.Status)
@@ -279,8 +289,9 @@ func (h *AdminCreateHandler) Community(c *gin.Context) {
 		INSERT INTO city_directory_entries
 		  (name, name_ar, name_sorani, name_badini, category, city, address, phone, email, website,
 		   description, description_ar, description_sorani, description_badini, latitude, longitude, status,
-		   sectors, opening_hours, opening_hours_ar, opening_hours_sorani, opening_hours_badini, gallery, approx_location)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
+		   sectors, opening_hours, opening_hours_ar, opening_hours_sorani, opening_hours_badini, gallery, approx_location,
+		   sector_type)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)
 		RETURNING id`,
 		name,
 		optStringOrNil(req.NameAr), optStringOrNil(req.NameSorani), optStringOrNil(req.NameBadini),
@@ -291,6 +302,7 @@ func (h *AdminCreateHandler) Community(c *gin.Context) {
 		optStringOrNil(req.Latitude), optStringOrNil(req.Longitude), status,
 		sectors, optStringOrNil(req.OpeningHours), optStringOrNil(req.OpeningHoursAr),
 		optStringOrNil(req.OpeningHoursSorani), optStringOrNil(req.OpeningHoursBadini), gallery, approx,
+		sectorType,
 	).Scan(&id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
@@ -543,11 +555,13 @@ func (h *AdminCreateHandler) VolunteerApplication(c *gin.Context) {
 	var id int64
 	err := h.Pool.QueryRow(c.Request.Context(), `
 		INSERT INTO volunteer_applications
-		  (user_id, full_name, phone, city, skills, skill_tags, other_skill, experience, availability, cv_link, status)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+		  (user_id, full_name, phone, city, skills, skills_ar, skills_sorani, skills_badini,
+		   skill_tags, other_skill, experience, availability, cv_link, status)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
 		RETURNING id`,
 		userID, fullName,
 		optStringOrNil(req.Phone), optStringOrNil(req.City), optStringOrNil(req.Skills),
+		optStringOrNil(req.SkillsAr), optStringOrNil(req.SkillsSorani), optStringOrNil(req.SkillsBadini),
 		skillTagsArr, optStringOrNil(req.OtherSkill), optStringOrNil(req.Experience),
 		optStringOrNil(req.Availability), optStringOrNil(req.CVLink), status,
 	).Scan(&id)
@@ -588,7 +602,7 @@ func (h *AdminCreateHandler) MarriageProfile(c *gin.Context) {
 			visibility = v
 		}
 	}
-	subscription := "free"
+	subscription := "bronze" // Note #17 — was "free"; bronze is the new entry tier.
 	if req.SubscriptionStatus != nil {
 		v := strings.TrimSpace(*req.SubscriptionStatus)
 		if v != "" {
@@ -793,18 +807,27 @@ func (h *AdminCreateHandler) BeneficiaryCase(c *gin.Context) {
 	}
 	caseCode := "CSE-" + strconv.FormatInt(time.Now().UnixNano()%9_999_999_999, 10)
 	var id int64
+	if req.Gender != nil && strings.TrimSpace(*req.Gender) != "" && !inSet(strings.TrimSpace(*req.Gender), caseGenders) {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid gender. Allowed: " + strings.Join(caseGenders, ", ")})
+		return
+	}
+	if req.MaritalStatus != nil && strings.TrimSpace(*req.MaritalStatus) != "" && !inSet(strings.TrimSpace(*req.MaritalStatus), caseMaritalStatuses) {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid marital_status. Allowed: " + strings.Join(caseMaritalStatuses, ", ")})
+		return
+	}
 	err := h.Pool.QueryRow(c.Request.Context(), `
 		INSERT INTO beneficiary_cases
 		  (user_id, case_code, public_title, public_title_ar, public_title_sorani, public_title_badini,
-		   full_name, national_id, phone, city, district, address,
+		   full_name, national_id, phone, gender, date_of_birth, marital_status, city, district, address,
 		   family_members_count, income_amount,
 		   housing_status, work_status, health_status, education_status, actual_needs,
 		   priority_level, verification_status, public_visibility, review_notes)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)
 		RETURNING id`,
 		userID, caseCode, publicTitle,
 		optStringOrNil(req.PublicTitleAr), optStringOrNil(req.PublicTitleSorani), optStringOrNil(req.PublicTitleBadini),
 		optStringOrNil(req.FullName), optStringOrNil(req.NationalID), optStringOrNil(req.Phone),
+		optStringOrNil(req.Gender), optStringOrNil(req.DateOfBirth), optStringOrNil(req.MaritalStatus),
 		optStringOrNil(req.City), optStringOrNil(req.District), optStringOrNil(req.Address),
 		nullableIntPtr(req.FamilyMembersCount), nullableFloatPtr(req.IncomeAmount),
 		optStringOrNil(req.HousingStatus), optStringOrNil(req.WorkStatus), optStringOrNil(req.HealthStatus),
@@ -923,9 +946,9 @@ func (h *AdminCreateHandler) ProjectRequest(c *gin.Context) {
 
 type donationCreateReq struct {
 	donationEditReq
-	UserID        *int    `json:"user_id"`
-	CampaignID    *int    `json:"campaign_id"`
-	DonationKind  *string `json:"donation_kind"`
+	UserID       *int    `json:"user_id"`
+	CampaignID   *int    `json:"campaign_id"`
+	DonationKind *string `json:"donation_kind"`
 }
 
 var donationKinds = []string{"general", "campaign", "sponsorship", "in_kind", "operational"}
@@ -1164,7 +1187,7 @@ type missionEditReq struct {
 	DescriptionSorani *string `json:"description_sorani"`
 	DescriptionBadini *string `json:"description_badini"`
 	City              *string `json:"city"`
-	MissionDate       *string `json:"mission_date"`        // YYYY-MM-DD or empty
+	MissionDate       *string `json:"mission_date"` // YYYY-MM-DD or empty
 	NeededVolunteers  *int    `json:"needed_volunteers"`
 	Status            *string `json:"status"`
 	ProjectRequestID  *int64  `json:"project_request_id"`
@@ -1239,10 +1262,14 @@ func (h *AdminCreateHandler) Mission(c *gin.Context) {
 	// because nothing has changed for volunteers yet.
 	if status == "open" {
 		city := ""
-		if req.City != nil { city = strings.TrimSpace(*req.City) }
+		if req.City != nil {
+			city = strings.TrimSpace(*req.City)
+		}
 		date := ""
-		if req.MissionDate != nil { date = strings.TrimSpace(*req.MissionDate) }
-		h.broadcastInBackground(3 /* role_id volunteers */,
+		if req.MissionDate != nil {
+			date = strings.TrimSpace(*req.MissionDate)
+		}
+		h.broadcastInBackground(3, /* role_id volunteers */
 			notify.NewVolunteerMissionMsg(title, city, date, id))
 	}
 

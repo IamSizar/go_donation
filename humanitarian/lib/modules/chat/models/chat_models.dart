@@ -14,6 +14,9 @@ class ChatThread {
   final String? lastMessage;
   final DateTime? lastMessageAt;
   final int unreadCount;
+  // Note #36 — the "Responsible Staff Member" who has claimed this thread,
+  // if any (null = unclaimed, any admin may still reply as "Support").
+  final String? assignedStaffName;
 
   const ChatThread({
     required this.id,
@@ -29,6 +32,7 @@ class ChatThread {
     required this.lastMessage,
     required this.lastMessageAt,
     required this.unreadCount,
+    required this.assignedStaffName,
   });
 
   bool get isActive => status == 'active';
@@ -53,6 +57,9 @@ class ChatThread {
       lastMessage: m['last_message']?.toString(),
       lastMessageAt: DateTime.tryParse((m['last_message_at'] ?? '').toString()),
       unreadCount: int.tryParse('${m['unread_count'] ?? 0}') ?? 0,
+      assignedStaffName: (m['assigned_staff_name'] as String?)?.trim().isEmpty == true
+          ? null
+          : m['assigned_staff_name'] as String?,
     );
   }
 }

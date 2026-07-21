@@ -291,6 +291,11 @@ func (h *BeneficiaryHandler) AdminCases(c *gin.Context) {
 	}
 	res, err := h.Store.AdminListCases(c.Request.Context(), page, perPage, status, c.Query("q"))
 	if err != nil {
+		// Note #15 — this generic response used to give zero information when
+		// it fired (e.g. the NULL-verification_status scan bug); logging the
+		// real error means a future incident shows up in server logs instead
+		// of only a bare "Database error." in the browser.
+		log.Printf("[admin] AdminListCases failed: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
 		return
 	}
@@ -319,6 +324,7 @@ func (h *BeneficiaryHandler) AdminRequests(c *gin.Context) {
 	}
 	res, err := h.Store.AdminListRequests(c.Request.Context(), page, perPage, status, c.Query("q"))
 	if err != nil {
+		log.Printf("[admin] AdminListRequests failed: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
 		return
 	}
@@ -457,7 +463,9 @@ func asStrSlice(v any) []string {
 }
 
 // parseSchedule unpacks a JSON array like
-//   [{ "day": "mon", "from": "09:00", "to": "17:00" }, ... ]
+//
+//	[{ "day": "mon", "from": "09:00", "to": "17:00" }, ... ]
+//
 // into the typed []volunteers.DaySchedule. Caller still has to run
 // NormalizeSchedule for validation + dedupe.
 func parseSchedule(v any) []volunteers.DaySchedule {

@@ -13,10 +13,12 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 
+	"github.com/karam-flutter/humanitarian-backend/internal/appsettings"
 	"github.com/karam-flutter/humanitarian-backend/internal/assistant"
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
 	"github.com/karam-flutter/humanitarian-backend/internal/beneficiary"
 	"github.com/karam-flutter/humanitarian-backend/internal/campaigns"
+	"github.com/karam-flutter/humanitarian-backend/internal/casevolchat"
 	"github.com/karam-flutter/humanitarian-backend/internal/chat"
 	"github.com/karam-flutter/humanitarian-backend/internal/citysectors"
 	"github.com/karam-flutter/humanitarian-backend/internal/config"
@@ -25,7 +27,6 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/db"
 	"github.com/karam-flutter/humanitarian-backend/internal/donations"
 	"github.com/karam-flutter/humanitarian-backend/internal/events"
-	"github.com/karam-flutter/humanitarian-backend/internal/appsettings"
 	"github.com/karam-flutter/humanitarian-backend/internal/guest"
 	"github.com/karam-flutter/humanitarian-backend/internal/handlers"
 	"github.com/karam-flutter/humanitarian-backend/internal/history"
@@ -34,6 +35,7 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/marketplace"
 	"github.com/karam-flutter/humanitarian-backend/internal/marketplacecategories"
 	"github.com/karam-flutter/humanitarian-backend/internal/marriage"
+	"github.com/karam-flutter/humanitarian-backend/internal/marriagechat"
 	"github.com/karam-flutter/humanitarian-backend/internal/mediacategories"
 	"github.com/karam-flutter/humanitarian-backend/internal/moderation"
 	"github.com/karam-flutter/humanitarian-backend/internal/notify"
@@ -47,6 +49,7 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/search"
 	"github.com/karam-flutter/humanitarian-backend/internal/sectioncodes"
 	"github.com/karam-flutter/humanitarian-backend/internal/sponsorships"
+	"github.com/karam-flutter/humanitarian-backend/internal/staffchat"
 	"github.com/karam-flutter/humanitarian-backend/internal/support"
 	"github.com/karam-flutter/humanitarian-backend/internal/users"
 	"github.com/karam-flutter/humanitarian-backend/internal/volunteers"
@@ -96,6 +99,8 @@ func main() {
 	beneficiaryStore := beneficiary.NewStore(pool)
 	marketplaceStore := marketplace.NewStore(pool)
 	chatStore := chat.New(pool)
+	staffChatStore := staffchat.New(pool)     // Note #36 — internal staff-to-staff chat
+	caseVolChatStore := casevolchat.New(pool) // Note #36 — Staff↔Volunteer↔Beneficiary chat
 	eventsStore := events.New(pool)
 	notifier := notify.New(pool)
 	assistantSvc := assistant.New()
@@ -104,6 +109,7 @@ func main() {
 	supportStore := support.New(pool)
 	inkindStore := inkind.New(pool)
 	marriageStore := marriage.New(pool)
+	marriageChatStore := marriagechat.New(pool) // Note #35 — staff-mediated marriage chat
 	sponsorshipsStore := sponsorships.New(pool)
 	volunteersStore := volunteers.New(pool)
 	professionStore := volunteers.NewProfessionStore(pool)
@@ -173,6 +179,9 @@ func main() {
 	beneficiaryH := handlers.NewBeneficiaryHandler(beneficiaryStore, userStore, notifier)
 	marketplaceH := handlers.NewMarketplaceHandler(marketplaceStore, notifier)
 	chatH := handlers.NewChatHandler(chatStore, notifier, pool)
+	staffChatH := handlers.NewStaffChatHandler(staffChatStore, notifier, pool)
+	caseVolChatH := handlers.NewCaseVolunteerChatHandler(caseVolChatStore, notifier)
+	volunteerCheckinH := handlers.NewVolunteerCheckinHandler(pool, notifier, caseVolChatStore)
 	eventsH := handlers.NewEventsHandler(eventsStore, pool)
 	assistantH := handlers.NewAssistantHandler(assistantSvc, pool)
 	notificationsH := handlers.NewNotificationsHandler(notifier)
@@ -180,7 +189,7 @@ func main() {
 	kpisH := handlers.NewDashboardKPIsHandler(pool)
 
 	adminListsH := handlers.NewAdminListsHandler(pool)
-	adminStatusH := handlers.NewAdminStatusHandler(pool, notifier, eventsStore)
+	adminStatusH := handlers.NewAdminStatusHandler(pool, notifier, eventsStore, caseVolChatStore)
 	adminEditH := handlers.NewAdminEditHandler(pool)
 	adminCreateH := handlers.NewAdminCreateHandler(pool, notifier)
 	adminCreateH.Codes = codesStore // #14 — namespace admin-created donation refs too
@@ -199,15 +208,15 @@ func main() {
 	adminPermsH := handlers.NewAdminPermissionsHandler(permStore, otpStore, otpiqClient)
 	adminProfessionsH := handlers.NewAdminProfessionsHandler(professionStore)
 	projectCategoriesH := handlers.NewProjectCategoriesHandler(projectCatStore)
-	citySectorsH := handlers.NewCitySectorsHandler(citySectorStore)                                 // #29
-	searchH := handlers.NewSearchHandler(searchStore)                                               // #33
-	fieldRulesH := handlers.NewFieldRulesHandler(pool)                                              // #43
-	aidReceiptsH := handlers.NewAidReceiptsHandler(pool)                                            // #50
-	mediaCategoriesH := handlers.NewMediaCategoriesHandler(mediaCatStore)                           // #22
+	citySectorsH := handlers.NewCitySectorsHandler(citySectorStore)                                              // #29
+	searchH := handlers.NewSearchHandler(searchStore)                                                            // #33
+	fieldRulesH := handlers.NewFieldRulesHandler(pool)                                                           // #43
+	aidReceiptsH := handlers.NewAidReceiptsHandler(pool)                                                         // #50
+	mediaCategoriesH := handlers.NewMediaCategoriesHandler(mediaCatStore)                                        // #22
 	mediaEngageH := handlers.NewMediaEngagementHandler(postEngageStore, bannedWordsStore, notifier, eventsStore) // #24/#25
-	bannedWordsH := handlers.NewBannedWordsHandler(bannedWordsStore)                                // #25
-	partnerEngageH := handlers.NewPartnerEngagementHandler(partnerRatingStore)                      // #27
-	marketplaceCategoriesH := handlers.NewMarketplaceCategoriesHandler(marketplaceCatStore)         // #28
+	bannedWordsH := handlers.NewBannedWordsHandler(bannedWordsStore)                                             // #25
+	partnerEngageH := handlers.NewPartnerEngagementHandler(partnerRatingStore)                                   // #27
+	marketplaceCategoriesH := handlers.NewMarketplaceCategoriesHandler(marketplaceCatStore)                      // #28
 	paymentMethodsH := handlers.NewPaymentMethodsHandler(paymentMethodStore)
 	guestStore := guest.New(pool)
 	guestH := handlers.NewGuestHandler(guestStore)
@@ -221,6 +230,7 @@ func main() {
 	supportH := handlers.NewSupportHandler(supportStore, notifier)
 	inkindH := handlers.NewInKindHandler(inkindStore, notifier)
 	marriageH := handlers.NewMarriageHandler(marriageStore, notifier)
+	marriageChatH := handlers.NewMarriageChatHandler(marriageChatStore, notifier, pool)
 	sponsorshipsH := handlers.NewSponsorshipsHandler(sponsorshipsStore, notifier)
 	volunteersH := handlers.NewVolunteersHandler(volunteersStore, notifier)
 	reportsH := handlers.NewReportsHandler(reportsStore)
@@ -284,9 +294,9 @@ func main() {
 		api.GET("/stats/impact", statsH.ImpactStats)
 		// #17 — public project categories for the beneficiary submit-project dropdown.
 		api.GET("/project-categories", projectCategoriesH.PublicList)
-		api.GET("/city-sectors", citySectorsH.PublicList)                     // #29 — City Guide filter chips
-		api.GET("/search", searchH.Search)                                    // #33 — global search
-		api.GET("/registration/field-rules", fieldRulesH.PublicList)          // #43 — required-field rules
+		api.GET("/city-sectors", citySectorsH.PublicList)            // #29 — City Guide filter chips
+		api.GET("/search", searchH.Search)                           // #33 — global search
+		api.GET("/registration/field-rules", fieldRulesH.PublicList) // #43 — required-field rules
 		// #36 — support WhatsApp handoff number. The admin-editable DB value
 		// (app_settings) wins; the SUPPORT_WHATSAPP env var is the fallback
 		// default. Empty = handoff disabled.
@@ -461,9 +471,25 @@ func main() {
 			authed.GET("/aid-receipts", aidReceiptsH.MyList)
 			// #46 — marriage search: save + request-meeting.
 			authed.GET("/marriage/saved", marriageH.SavedList)
+			// Note #18 — the current user's own submitted profile(s) + status,
+			// so the app can show "pending review" instead of nothing.
+			authed.GET("/marriage/mine", marriageH.MyProfiles)
 			authed.POST("/marriage/:id/save", marriageH.ToggleSave)
 			authed.POST("/marriage/:id/request-meeting", marriageH.RequestMeeting)
 			authed.POST("/marriage/", marriageH.Post)
+
+			// Note #35 — staff-mediated marriage chat (identity-masked).
+			authed.GET("/marriage/chats", marriageChatH.List)
+			authed.GET("/marriage/chats/", marriageChatH.List)
+			authed.POST("/marriage/chats/:id/accept", marriageChatH.Accept)
+			authed.POST("/marriage/chats/:id/decline", marriageChatH.Decline)
+			authed.GET("/marriage/chats/:id/messages", marriageChatH.Messages)
+			authed.POST("/marriage/chats/:id/messages", marriageChatH.PostMessage)
+
+			// Note #36 — Staff↔Volunteer↔Beneficiary chat (volunteer/beneficiary side).
+			authed.GET("/case-chats", caseVolChatH.List)
+			authed.GET("/case-chats/:id/messages", caseVolChatH.Messages)
+			authed.POST("/case-chats/:id/messages", caseVolChatH.PostMessage)
 
 			authed.GET("/sponsorships", sponsorshipsH.Get)
 			authed.GET("/sponsorships/", sponsorshipsH.Get)
@@ -482,6 +508,15 @@ func main() {
 			// without the joined-missions overlay /volunteer_hub adds.
 			authed.GET("/missions", volunteersH.Missions)
 			authed.GET("/missions/", volunteersH.Missions)
+
+			// Note #37 — volunteer self check-in/check-out (GPS + live photo
+			// proof). Reuses the admin upload endpoint's exact handler (no admin
+			// gate here — any approved app user may upload a photo for their own
+			// check-in/out; ownership of the signup itself is still enforced in
+			// the handlers below).
+			authed.POST("/uploads", adminUploadH.Upload)
+			authed.POST("/volunteer_mission_signups/:id/check-in", volunteerCheckinH.CheckIn)
+			authed.POST("/volunteer_mission_signups/:id/check-out", volunteerCheckinH.CheckOut)
 
 			authed.GET("/dashboard", dashboardH.Get)
 			authed.GET("/dashboard/", dashboardH.Get)
@@ -561,6 +596,7 @@ func main() {
 			admin.GET("/admin/volunteer_mission_signups", perm("volunteers", "view"), adminListsH.VolunteerMissionSignups)
 			admin.GET("/admin/volunteer_mission_signups/", perm("volunteers", "view"), adminListsH.VolunteerMissionSignups)
 			admin.POST("/admin/volunteer_mission_signups/:id/status", perm("volunteers", "edit"), adminStatusH.MissionSignup)
+			admin.POST("/admin/volunteer_mission_signups/:id/assign-case", perm("volunteers", "edit"), adminStatusH.AssignSignupCase)
 
 			// Phase 24 — per-mission Kanban "Volunteer board" view.
 			// Groups signups into 4 lanes (pending/approved/on_mission/
@@ -597,6 +633,33 @@ func main() {
 			admin.GET("/admin/chats/", perm("messages", "view"), chatH.AdminList)
 			admin.GET("/admin/chats/:id/messages", perm("messages", "view"), chatH.AdminMessages)
 			admin.POST("/admin/chats/:id/messages", perm("messages", "add"), chatH.AdminPostMessage)
+			// Note #36 — claim/release the "Responsible Staff Member" on a thread.
+			admin.POST("/admin/chats/:id/claim", perm("messages", "edit"), chatH.AdminClaim)
+			admin.POST("/admin/chats/:id/release", perm("messages", "edit"), chatH.AdminRelease)
+
+			// Note #36 — internal staff-to-staff chat. Not perm()-gated: every
+			// dashboard tier (employee and up) can use it regardless of assigned
+			// module permissions, same as the `admin` group's base requirement.
+			admin.GET("/admin/staff-directory", staffChatH.Directory)
+			admin.GET("/admin/staff-chats", staffChatH.List)
+			admin.POST("/admin/staff-chats/start", staffChatH.Start)
+			admin.GET("/admin/staff-chats/:id/messages", staffChatH.Messages)
+			admin.POST("/admin/staff-chats/:id/messages", staffChatH.PostMessage)
+
+			// Note #36 — Staff↔Volunteer↔Beneficiary chat oversight.
+			admin.GET("/admin/case-chats", perm("volunteers", "view"), caseVolChatH.AdminList)
+			admin.GET("/admin/case-chats/:id/messages", perm("volunteers", "view"), caseVolChatH.AdminMessages)
+			admin.POST("/admin/case-chats/:id/messages", perm("volunteers", "add"), caseVolChatH.AdminPostMessage)
+			admin.POST("/admin/case-chats/:id/claim", perm("volunteers", "edit"), caseVolChatH.AdminClaim)
+			admin.POST("/admin/case-chats/:id/release", perm("volunteers", "edit"), caseVolChatH.AdminRelease)
+
+			// Note #35 — marriage meeting-requests inbox + mediated chat oversight.
+			admin.GET("/admin/marriage/meeting-requests", perm("marriage", "view"), marriageChatH.AdminListMeetingRequests)
+			admin.POST("/admin/marriage/meeting-requests/:id/approve", perm("marriage", "edit"), marriageChatH.AdminApproveMeetingRequest)
+			admin.POST("/admin/marriage/meeting-requests/:id/decline", perm("marriage", "edit"), marriageChatH.AdminDeclineMeetingRequest)
+			admin.GET("/admin/marriage/chats", perm("marriage", "view"), marriageChatH.AdminList)
+			admin.GET("/admin/marriage/chats/:id/messages", perm("marriage", "view"), marriageChatH.AdminMessages)
+			admin.POST("/admin/marriage/chats/:id/messages", perm("marriage", "add"), marriageChatH.AdminPostMessage)
 			admin.GET("/admin/dashboard_kpis", perm("dashboard", "view"), kpisH.Get)
 			admin.GET("/admin/dashboard_kpis/", perm("dashboard", "view"), kpisH.Get)
 
@@ -624,6 +687,10 @@ func main() {
 			// Section 25 — immediate administrative actions (super-admin only).
 			admin.POST("/admin/users/:id/force_logout", auth.RequireSuperAdmin(), adminStatusH.UserForceLogout)
 			admin.POST("/admin/users/:id/account_status", auth.RequireSuperAdmin(), adminStatusH.UserAccountStatus)
+			// Note #4 — Archive is deliberately NOT super-admin-only: it's the
+			// non-destructive alternative to Delete that lower tiers can be
+			// granted via the Permissions page.
+			admin.POST("/admin/users/:id/archive", perm("users", "archive"), adminStatusH.UserArchive)
 			admin.POST("/admin/users", perm("users", "add"), adminStatusH.CreateUser) // Users #g (New User)
 			// Step-up PIN confirm (own password) for sensitive actions — Phase 7.
 			admin.POST("/admin/verify-password", adminStatusH.VerifyPassword)
@@ -680,7 +747,15 @@ func main() {
 			admin.DELETE("/admin/support_tickets/:id", perm("support", "delete"), adminDeleteH.SupportTicket)
 			admin.DELETE("/admin/donations/:id", perm("donations", "delete"), adminDeleteH.Donation)
 			admin.DELETE("/admin/volunteer_applications/:id", perm("volunteers", "delete"), adminDeleteH.VolunteerApplication)
-			admin.DELETE("/admin/users/:id", perm("users", "delete"), adminDeleteH.User)
+			// Note #4 — deleting a user account is hard-restricted to the
+			// Primary Administrator (Super Admin), not the overridable
+			// per-tier permission every other table's delete uses. The
+			// client asked for this specifically because employees/
+			// supervisors previously saw a live Delete button with no
+			// backend enforcement stopping them if the permission happened
+			// to be granted. Archive (above) is the reversible action lower
+			// tiers get instead.
+			admin.DELETE("/admin/users/:id", auth.RequireSuperAdmin(), adminDeleteH.User)
 
 			// Phase 14: campaigns CRUD (admin view of the real `campaigns` table).
 			admin.GET("/admin/campaigns", perm("campaigns", "view"), adminListsH.Campaigns)
@@ -699,7 +774,9 @@ func main() {
 
 			// Full-DB JSON export (admin backup tool) — restricted to the
 			// Primary Administrator (super_admin) ONLY (Phase 7 · M-60).
-			admin.GET("/admin/export/all", auth.RequireSuperAdmin(), adminExportH.ExportAll)
+			// POST (Note #27) so the PIN confirmation travels in the body,
+			// never in a URL/query string.
+			admin.POST("/admin/export/all", auth.RequireSuperAdmin(), adminExportH.ExportAll)
 
 			// Section 24 — Permissions Management. The matrix + audit are
 			// super-admin only; /me is any authenticated staff (used to hide
@@ -712,6 +789,10 @@ func main() {
 			// Requirement 6c — verify the audit ledger's hash chain is intact.
 			admin.GET("/admin/permissions/audit/verify", auth.RequireSuperAdmin(), adminPermsH.VerifyAudit)
 			admin.GET("/admin/permissions/me", adminPermsH.Effective)
+			// Note 31 — per-employee overrides (narrower than a tier-wide
+			// change, but just as sensitive — same super-admin gate + OTP).
+			admin.GET("/admin/permissions/user/:id", auth.RequireSuperAdmin(), adminPermsH.UserMatrix)
+			admin.POST("/admin/permissions/user/:id", auth.RequireSuperAdmin(), adminPermsH.SetUserPermission)
 
 			// Section 13 — admin-added volunteer professions. Any staff can
 			// read (to populate the skill dropdown); admin-level staff add.
@@ -732,7 +813,7 @@ func main() {
 			admin.POST("/admin/aid-receipts", auth.RequireAdminTier(), aidReceiptsH.AdminCreate)
 			// #43 — registration field rules (required vs optional).
 			admin.GET("/admin/registration/field-rules", fieldRulesH.AdminList)
-			admin.POST("/admin/registration/field-rules/:key", auth.RequireAdminTier(), fieldRulesH.SetRequired)
+			admin.POST("/admin/registration/field-rules/:key", auth.RequireAdminTier(), fieldRulesH.SetState)
 			admin.GET("/admin/city-sectors", citySectorsH.AdminList)
 			admin.POST("/admin/city-sectors", auth.RequireAdminTier(), citySectorsH.Add)
 			admin.PATCH("/admin/city-sectors/:id", auth.RequireAdminTier(), citySectorsH.Update)
@@ -781,6 +862,22 @@ func main() {
 			// (shown on the donate screen), editable from the same settings card.
 			admin.GET("/admin/settings/fib-number", settingsH.GetFibNumber)
 			admin.PUT("/admin/settings/fib-number", auth.RequireAdminTier(), settingsH.SetFibNumber)
+			// Note #5 — admin dashboard idle-lock duration. GET is open to any
+			// authed staff (everyone needs the value to enforce it client-side);
+			// only the Main Admin (Super Admin) can change it, per the client's
+			// explicit ask — not just "admin tier" like the settings above.
+			admin.GET("/admin/settings/session-timeout", settingsH.GetSessionTimeout)
+			admin.PUT("/admin/settings/session-timeout", auth.RequireSuperAdmin(), settingsH.SetSessionTimeout)
+			// Note #17 — admin-configurable price per Marriage subscription
+			// package tier (bronze/silver/gold/diamond/vip). Same tier as the
+			// other CMS-style settings above (admin tier, not Super-Admin-only).
+			admin.GET("/admin/settings/marriage-package-prices", settingsH.GetMarriagePackagePrices)
+			admin.PUT("/admin/settings/marriage-package-prices", auth.RequireAdminTier(), settingsH.SetMarriagePackagePrices)
+			// Note #29 follow-up — Super-Admin can reorder/regroup the sidebar
+			// itself. Open GET (everyone needs it to render their own sidebar);
+			// only the Main Admin can change it, same tier as session-timeout.
+			admin.GET("/admin/settings/nav-layout", settingsH.GetNavLayout)
+			admin.PUT("/admin/settings/nav-layout", auth.RequireSuperAdmin(), settingsH.SetNavLayout)
 			// #9 — edit static content pages (Terms & Conditions, etc.).
 			admin.PUT("/admin/content/:slug", auth.RequireSuperAdmin(), contentH.AdminUpdateContent)
 		}

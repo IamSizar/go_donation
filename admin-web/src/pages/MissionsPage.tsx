@@ -13,9 +13,8 @@
 //   • Delete CASCADEs signups — confirm dialog spells this out.
 
 import { useCallback, useEffect, useState, useRef } from 'react'
-import RowDeleteButton from '../components/RowDeleteButton'
+import ActionsMenu from '../components/ActionsMenu'
 import ExportCsvButton from '../components/ExportCsvButton'
-import { Link } from 'react-router-dom'
 import { api, describeError } from '../lib/api'
 import { useLivePoll } from '../lib/useLivePoll'
 import type { AdminMission, AdminPageResp } from '../lib/api-types'
@@ -235,37 +234,34 @@ export default function MissionsPage() {
     {
       key: 'actions',
       header: t('common.actions'),
-      width: '230px',
-      cell: (m) => (
-        <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
-          <Link className="row-edit-btn" to={`/detail/volunteer_missions/${m.id}`}>{t('common.view')}</Link>
-          <button className="row-edit-btn" onClick={() => setEditing(m)}>{t('common.edit')}</button>
-          {/* Status quick-actions per current state. Terminal states
-              (completed/cancelled) keep a Reopen button so the action panel
-              never fully disappears after "Mark completed". */}
-          {m.status === 'draft' && (
-            <button className="row-edit-btn" onClick={() => handleQuickStatus(m.id, 'open')}>
-              {t('action.open_mission')}
-            </button>
-          )}
-          {m.status === 'open' && (
-            <button className="row-edit-btn" onClick={() => handleQuickStatus(m.id, 'closed')}>
-              {t('action.close_mission')}
-            </button>
-          )}
-          {(m.status === 'closed' || m.status === 'open') && (
-            <button className="row-edit-btn" onClick={() => handleQuickStatus(m.id, 'completed')}>
-              {t('action.mark_completed')}
-            </button>
-          )}
-          {(m.status === 'completed' || m.status === 'cancelled') && (
-            <button className="row-edit-btn" onClick={() => handleQuickStatus(m.id, 'open')}>
-              {t('action.reopen')}
-            </button>
-          )}
-          <RowDeleteButton onClick={() => setDeleting(m)} />
-        </div>
-      ),
+      width: '110px',
+      cell: (m) => {
+        // Note #21 — this used to render a different set of loose inline
+        // buttons per status (draft → "Open"; open → "Close"+"Mark
+        // completed"; etc.), so the cell's width/height changed the instant
+        // a row's status changed, visibly distorting the table. A single
+        // fixed-footprint dropdown (same pattern as Users' row actions)
+        // keeps the trigger identical regardless of status — only the
+        // portaled menu panel varies, and that never affects table layout.
+        const items = [
+          { key: 'view', label: t('common.view'), href: `/detail/volunteer_missions/${m.id}`, onClick: () => {} },
+          { key: 'edit', label: t('common.edit'), onClick: () => setEditing(m) },
+          ...(m.status === 'draft'
+            ? [{ key: 'open', label: t('action.open_mission'), onClick: () => handleQuickStatus(m.id, 'open') }]
+            : []),
+          ...(m.status === 'open'
+            ? [{ key: 'close', label: t('action.close_mission'), onClick: () => handleQuickStatus(m.id, 'closed') }]
+            : []),
+          ...(m.status === 'closed' || m.status === 'open'
+            ? [{ key: 'complete', label: t('action.mark_completed'), onClick: () => handleQuickStatus(m.id, 'completed') }]
+            : []),
+          ...(m.status === 'completed' || m.status === 'cancelled'
+            ? [{ key: 'reopen', label: t('action.reopen'), onClick: () => handleQuickStatus(m.id, 'open') }]
+            : []),
+          { key: 'delete', label: t('common.delete'), danger: true, onClick: () => setDeleting(m) },
+        ]
+        return <ActionsMenu items={items} />
+      },
     },
   ]
 

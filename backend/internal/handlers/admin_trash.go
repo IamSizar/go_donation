@@ -103,13 +103,51 @@ func (h *AdminTrashHandler) List(c *gin.Context) {
 }
 
 // Restore re-inserts a trashed row back into its source table from the JSON
-// snapshot and marks the trash entry restored. POST /api/admin/trash/:id/restore
+// snapshot and marks the trash entry restored. Note #26 — this used to be a
+// single click with no confirmation, so any admin tier could accidentally
+// restore a deleted record. PIN-gated the same way Purge already is: the
+// caller must re-supply their own password, verified server-side.
+// POST /api/admin/trash/:id/restore   body {password}
 func (h *AdminTrashHandler) Restore(c *gin.Context) {
 	id, ok := parseID(c)
 	if !ok {
 		return
 	}
+	user, ok := auth.UserFromGin(c)
+	if !ok || user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Not authenticated."})
+		return
+	}
+	var req struct {
+		Password string `json:"password"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid JSON body."})
+		return
+	}
+	if strings.TrimSpace(req.Password) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Password required to restore."})
+		return
+	}
+
 	ctx := c.Request.Context()
+
+	// PIN check — verify the acting admin's own password (fails closed).
+	var hash *string
+	if err := h.Pool.QueryRow(ctx,
+		"SELECT password_hash FROM users WHERE id = $1", user.UserID).Scan(&hash); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		return
+	}
+	if hash == nil || *hash == "" {
+		c.JSON(http.StatusForbidden, gin.H{"success": false,
+			"error": "No password is set on your account; ask a Super-Admin to set one."})
+		return
+	}
+	if bcrypt.CompareHashAndPassword([]byte(*hash), []byte(strings.TrimSpace(req.Password))) != nil {
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "error": "Incorrect password."})
+		return
+	}
 
 	tx, err := h.Pool.Begin(ctx)
 	if err != nil {

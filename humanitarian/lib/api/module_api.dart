@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_application_1/api/auth_session.dart';
 import 'package:flutter_application_1/api/links.dart';
@@ -341,6 +342,93 @@ class ModuleApi {
   // #46 — request a meeting about a profile.
   Future<void> requestMarriageMeeting(int profileId, String message) =>
       postJson('$marriageSubmitUrl/$profileId/request-meeting', {'message': message});
+
+  // Note #35 — staff-mediated marriage chat. My threads (identity-masked —
+  // the other party is only ever a profile_code or a generic placeholder,
+  // never a real name/phone).
+  Future<List<Map<String, dynamic>>> marriageChats() =>
+      getItems(marriageChatsUrl);
+
+  // Only the profile owner may accept/decline (enforced server-side too).
+  Future<Map<String, dynamic>> acceptMarriageChat(int threadId) =>
+      postJson('$marriageChatsUrl/$threadId/accept', {});
+
+  Future<Map<String, dynamic>> declineMarriageChat(int threadId) =>
+      postJson('$marriageChatsUrl/$threadId/decline', {});
+
+  // Returns {status, items} — status gates whether the reply box shows.
+  Future<Map<String, dynamic>> marriageChatMessages(int threadId) =>
+      getObject('$marriageChatsUrl/$threadId/messages');
+
+  Future<Map<String, dynamic>> sendMarriageChatMessage(int threadId, String body) =>
+      postJson('$marriageChatsUrl/$threadId/messages', {'body': body});
+
+  // Note #36 — Staff↔Volunteer↔Beneficiary chat. Opens automatically once a
+  // volunteer's signup is linked to a case and approved (or further along);
+  // real identities, no accept/decline step needed (staff already confirmed
+  // the pairing by approving the signup).
+  Future<List<Map<String, dynamic>>> caseChats() => getItems(caseChatsUrl);
+
+  Future<Map<String, dynamic>> caseChatMessages(int threadId) =>
+      getObject('$caseChatsUrl/$threadId/messages');
+
+  Future<Map<String, dynamic>> sendCaseChatMessage(int threadId, String body) =>
+      postJson('$caseChatsUrl/$threadId/messages', {'body': body});
+
+  // Note #37 — uploads a photo (e.g. a check-in/out live photo) and returns
+  // the stored relative path (same "upload, then save the path" convention
+  // used everywhere else — e.g. profile pictures). Reuses the exact same
+  // handler the admin dashboard's uploader hits, just without the admin
+  // gate on this route.
+  Future<String> uploadPhoto(File file) async {
+    final request = http.MultipartRequest('POST', Uri.parse(uploadsUrl));
+    request.headers.addAll(withApiAuthHeaders());
+    request.files.add(await http.MultipartFile.fromPath('file', file.path));
+    final streamed = await request.send();
+    final response = await http.Response.fromStream(streamed);
+    final decoded = _decodeJson(response);
+    if (response.statusCode < 200 ||
+        response.statusCode >= 300 ||
+        decoded is! Map<String, dynamic> ||
+        decoded['success'] != true) {
+      throw Exception(
+        decoded is Map ? decoded['error']?.toString() ?? 'Upload failed' : 'Upload failed',
+      );
+    }
+    return decoded['path'].toString();
+  }
+
+  // Note #37 — volunteer self check-in: records arrival with GPS + a live
+  // photo. Only valid while the signup is 'approved'.
+  Future<Map<String, dynamic>> checkInMissionSignup({
+    required int signupId,
+    required double lat,
+    required double lng,
+    required String photoPath,
+  }) =>
+      postJson('$volunteerMissionSignupsUrl/$signupId/check-in', {
+        'lat': lat,
+        'lng': lng,
+        'photo_path': photoPath,
+      });
+
+  // Note #37 — volunteer self check-out: records departure/self-reported
+  // completion with GPS + a live photo + notes. Only valid while the signup
+  // is 'joined'. Staff still confirms via the dashboard before it becomes
+  // 'completed'.
+  Future<Map<String, dynamic>> checkOutMissionSignup({
+    required int signupId,
+    required double lat,
+    required double lng,
+    required String photoPath,
+    String notes = '',
+  }) =>
+      postJson('$volunteerMissionSignupsUrl/$signupId/check-out', {
+        'lat': lat,
+        'lng': lng,
+        'photo_path': photoPath,
+        'notes': notes,
+      });
 
   // #50 — the current user's digital aid-delivery receipts.
   Future<List<Map<String, dynamic>>> myAidReceipts() => getItems(aidReceiptsUrl);

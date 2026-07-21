@@ -16,9 +16,9 @@
 // manual reload. Combined with the live-events feed on the dashboard,
 // admin gets near-real-time visibility into what their volunteers are doing.
 
-import { useCallback, useEffect, useState } from 'react'
-import { api, describeError } from '../lib/api'
-import type { AdminBoardMission, AdminBoardSignup, AdminVolunteerBoard } from '../lib/api-types'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { api, assetUrl, describeError } from '../lib/api'
+import type { AdminBoardMission, AdminBoardSignup, AdminVolunteerBoard, BeneficiaryCase } from '../lib/api-types'
 import { useToast } from '../lib/toast'
 import { usePendingCounts } from '../lib/pendingCounts'
 import { useI18n, useStatusLabel } from '../lib/i18n'
@@ -189,6 +189,21 @@ export default function VolunteerBoardPage() {
     [toast, refreshPendingCounts, fetchBoard],
   )
 
+  // Volunteer-to-case assignment — foundation for the future
+  // Staff↔Volunteer↔Beneficiary chat. caseId=null unlinks.
+  const assignCase = useCallback(
+    async (signupID: number, caseId: number | null) => {
+      try {
+        await api.post(`/api/admin/volunteer_mission_signups/${signupID}/assign-case`, { beneficiary_case_id: caseId })
+        toast.success(caseId ? t('board.case_linked') : t('board.case_unlinked'))
+        void fetchBoard()
+      } catch (e) {
+        toast.error(describeError(e))
+      }
+    },
+    [toast, t, fetchBoard],
+  )
+
   if (loading && !data) {
     return <div className="stack"><div className="muted">{t('board.loading')}</div></div>
   }
@@ -228,7 +243,7 @@ export default function VolunteerBoardPage() {
         </div>
       ) : (
         data.missions.map((m) => (
-          <MissionRow key={m.id} mission={m} onAction={applyStatus} />
+          <MissionRow key={m.id} mission={m} onAction={applyStatus} onAssignCase={assignCase} />
         ))
       )}
     </div>
@@ -239,9 +254,11 @@ export default function VolunteerBoardPage() {
 function MissionRow({
   mission,
   onAction,
+  onAssignCase,
 }: {
   mission: AdminBoardMission
   onAction: (signupID: number, status: string) => void
+  onAssignCase: (signupID: number, caseId: number | null) => void
 }) {
   const statusLabel = useStatusLabel()
   const needed = mission.needed_volunteers
@@ -277,6 +294,7 @@ function MissionRow({
             cards={mission.lanes[lane]}
             count={mission.counts[lane]}
             onAction={onAction}
+            onAssignCase={onAssignCase}
           />
         ))}
       </div>
@@ -290,11 +308,13 @@ function BoardLane({
   cards,
   count,
   onAction,
+  onAssignCase,
 }: {
   lane: Lane
   cards: AdminBoardSignup[]
   count: number
   onAction: (signupID: number, status: string) => void
+  onAssignCase: (signupID: number, caseId: number | null) => void
 }) {
   const meta = LANE_META[lane]
   const { t } = useI18n()
@@ -309,7 +329,7 @@ function BoardLane({
         {cards.length === 0 ? (
           <div className="board-lane-empty muted">—</div>
         ) : (
-          cards.map((c) => <SignupCard key={c.id} signup={c} onAction={onAction} />)
+          cards.map((c) => <SignupCard key={c.id} signup={c} onAction={onAction} onAssignCase={onAssignCase} />)
         )}
       </div>
     </div>
@@ -322,9 +342,11 @@ function BoardLane({
 function SignupCard({
   signup,
   onAction,
+  onAssignCase,
 }: {
   signup: AdminBoardSignup
   onAction: (signupID: number, status: string) => void
+  onAssignCase: (signupID: number, caseId: number | null) => void
 }) {
   const actions = actionsFor(signup)
   const { t } = useI18n()
@@ -352,6 +374,8 @@ function SignupCard({
         </div>
       </div>
       <span className="board-card-meta muted">{meta}</span>
+      <CheckinEvidence signup={signup} />
+      <CaseLinkControl signup={signup} onAssignCase={onAssignCase} />
       {actions.length > 0 && (
         <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
           {actions.map((a) => (
@@ -366,6 +390,149 @@ function SignupCard({
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+// CaseLinkControl — pairs this specific volunteer's signup with a specific
+// beneficiary case (migration 060). Foundation for the future
+// Staff↔Volunteer↔Beneficiary chat: most signups (generic missions) leave
+// this blank; only case-specific missions (e.g. a home visit) link one.
+// CheckinEvidence — Note #37: the volunteer's own GPS + live-photo proof
+// from check-in (arrival) and/or check-out (departure), shown so staff are
+// actually verifying something before confirming a completion request
+// rather than taking the volunteer's word for it.
+function CheckinEvidence({ signup }: { signup: AdminBoardSignup }) {
+  const { t } = useI18n()
+  const hasCheckin = signup.checkin_photo_path || (signup.checkin_lat != null && signup.checkin_lng != null)
+  const hasCheckout = signup.checkout_photo_path || (signup.checkout_lat != null && signup.checkout_lng != null)
+  if (!hasCheckin && !hasCheckout) return null
+
+  const Evidence = ({ label, photo, lat, lng }: { label: string; photo: string | null; lat: number | null; lng: number | null }) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      {photo && (
+        <a href={assetUrl(photo)} target="_blank" rel="noreferrer">
+          <img src={assetUrl(photo)} alt={label} style={{ width: 32, height: 32, borderRadius: 6, objectFit: 'cover' }} />
+        </a>
+      )}
+      <div className="cell-stack" style={{ gap: 0 }}>
+        <span style={{ fontSize: 10.5, fontWeight: 700 }}>{label}</span>
+        {lat != null && lng != null && (
+          <a
+            href={`https://www.google.com/maps?q=${lat},${lng}`}
+            target="_blank"
+            rel="noreferrer"
+            style={{ fontSize: 10.5 }}
+          >
+            📍 {lat.toFixed(5)}, {lng.toFixed(5)}
+          </a>
+        )}
+      </div>
+    </div>
+  )
+
+  return (
+    <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
+      {hasCheckin && (
+        <Evidence label={t('board.checkin_evidence')} photo={signup.checkin_photo_path} lat={signup.checkin_lat} lng={signup.checkin_lng} />
+      )}
+      {hasCheckout && (
+        <Evidence label={t('board.checkout_evidence')} photo={signup.checkout_photo_path} lat={signup.checkout_lat} lng={signup.checkout_lng} />
+      )}
+    </div>
+  )
+}
+
+function CaseLinkControl({
+  signup,
+  onAssignCase,
+}: {
+  signup: AdminBoardSignup
+  onAssignCase: (signupID: number, caseId: number | null) => void
+}) {
+  const { t } = useI18n()
+  const [open, setOpen] = useState(false)
+  const [q, setQ] = useState('')
+  const [results, setResults] = useState<BeneficiaryCase[]>([])
+  const [searching, setSearching] = useState(false)
+  const debounceRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+    if (debounceRef.current) window.clearTimeout(debounceRef.current)
+    debounceRef.current = window.setTimeout(async () => {
+      setSearching(true)
+      try {
+        const res = await api.get<{ items: BeneficiaryCase[] }>('/api/admin/beneficiary_cases', {
+          params: { q: q || undefined, per_page: 6 },
+        })
+        setResults(res.data.items ?? [])
+      } catch {
+        setResults([])
+      } finally {
+        setSearching(false)
+      }
+    }, 300)
+    return () => { if (debounceRef.current) window.clearTimeout(debounceRef.current) }
+  }, [open, q])
+
+  if (signup.beneficiary_case_id) {
+    return (
+      <div className="row" style={{ gap: 6, alignItems: 'center', fontSize: 11 }}>
+        <span className="badge tone-info">
+          🔗 {signup.beneficiary_case_code}{signup.beneficiary_case_title ? ` — ${signup.beneficiary_case_title}` : ''}
+        </span>
+        <button
+          className="row-delete-btn"
+          style={{ fontSize: 11, padding: '2px 6px' }}
+          onClick={() => onAssignCase(signup.id, null)}
+        >
+          {t('board.unlink')}
+        </button>
+      </div>
+    )
+  }
+
+  if (!open) {
+    return (
+      <button
+        className="row-edit-btn"
+        style={{ fontSize: 11, padding: '3px 8px', alignSelf: 'flex-start' }}
+        onClick={() => setOpen(true)}
+      >
+        {t('board.link_case')}
+      </button>
+    )
+  }
+
+  return (
+    <div className="card" style={{ padding: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div className="row" style={{ gap: 6 }}>
+        <input
+          autoFocus
+          type="search"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder={t('board.case_search_placeholder')}
+          style={{ flex: 1, fontSize: 12 }}
+        />
+        <button className="secondary" style={{ fontSize: 11, padding: '2px 8px' }} onClick={() => setOpen(false)}>
+          {t('common.cancel')}
+        </button>
+      </div>
+      {searching && <span className="muted" style={{ fontSize: 11 }}>{t('common.loading')}</span>}
+      {!searching && results.length === 0 && q.trim() !== '' && (
+        <span className="muted" style={{ fontSize: 11 }}>{t('board.case_no_results')}</span>
+      )}
+      {!searching && results.map((rc) => (
+        <button
+          key={rc.id}
+          onClick={() => { onAssignCase(signup.id, rc.id); setOpen(false); setQ('') }}
+          style={{ textAlign: 'left', border: 'none', cursor: 'pointer', padding: '4px 6px', borderRadius: 6, fontSize: 12 }}
+        >
+          <strong>{rc.case_code}</strong> — {rc.public_title}
+        </button>
+      ))}
     </div>
   )
 }

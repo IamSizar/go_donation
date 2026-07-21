@@ -175,7 +175,11 @@ class _MessageBubble extends StatelessWidget {
         child: Column(
           crossAxisAlignment: mine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
-            // Sender label (name for others / "Support" for admin).
+            // Note #36 — sender label: name for the other party, and now also
+            // the real name of the "Responsible Staff Member" for admin
+            // replies (message.senderName already resolves to the claimed
+            // staff's name, falling back to "Support" only when no staff
+            // member has claimed the thread — see ChatMessage.fromMap).
             if (!mine || isSupport)
               Padding(
                 padding: const EdgeInsets.only(bottom: 3, left: 4, right: 4),
@@ -186,7 +190,7 @@ class _MessageBubble extends StatelessWidget {
                       Icon(Icons.shield_rounded, size: 12, color: Colors.blueGrey),
                     if (isSupport) const SizedBox(width: 4),
                     Text(
-                      isSupport ? 'Support'.tr : message.senderName,
+                      message.senderName,
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,

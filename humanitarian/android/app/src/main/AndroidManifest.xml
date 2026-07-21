@@ -5,6 +5,10 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <!-- Android 13+ requires this for FCM push notifications to be shown. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- Note #37 — volunteer field check-in/check-out: live photo + GPS proof. -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <application
         android:label="BalanceNex"
         android:name="${applicationName}"

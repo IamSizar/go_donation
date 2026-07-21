@@ -6,12 +6,14 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
+	"github.com/karam-flutter/humanitarian-backend/internal/casevolchat"
 	"github.com/karam-flutter/humanitarian-backend/internal/events"
 	"github.com/karam-flutter/humanitarian-backend/internal/notify"
 	"github.com/karam-flutter/humanitarian-backend/internal/permissions"
@@ -108,10 +110,27 @@ func tierRank(t string) int {
 	}
 }
 
+// Note #34 — the "Add New User" window used to only take phone/role/full_name;
+// the rest of user_profiles (already editable via PATCH .../:id, admin_edit.go
+// User()) is now collectible at creation time too, gated per-field by the
+// "user_" Field Rules prefix (migration 057) same as the Edit form's fields
+// mirror the mobile app's own registration fields.
 type createUserReq struct {
-	Phone    string `json:"phone"`
-	RoleID   *int   `json:"role_id"`
-	FullName string `json:"full_name"`
+	Phone          string          `json:"phone"`
+	RoleID         *int            `json:"role_id"`
+	FullName       string          `json:"full_name"`
+	Gender         *string         `json:"gender"`
+	DateOfBirth    *string         `json:"date_of_birth"`
+	Address        *string         `json:"address"`
+	City           *string         `json:"city"`
+	Occupation     *string         `json:"occupation"`
+	FamilySize     jsonNullableInt `json:"family_size"`
+	HousingStatus  *string         `json:"housing_status"`
+	MonthlyIncome  *string         `json:"monthly_income"`
+	Skills         *string         `json:"skills"`
+	Availability   *string         `json:"availability"`
+	Experience     *string         `json:"experience"`
+	ProfilePicture *string         `json:"profile_picture"`
 }
 
 // POST /api/admin/users — staff manually creates a user (Users #g / M-07).
@@ -145,8 +164,42 @@ func (h *AdminStatusHandler) CreateUser(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
 		return
 	}
-	if name := strings.TrimSpace(req.FullName); name != "" {
-		_, _ = h.Pool.Exec(ctx, `INSERT INTO user_profiles (user_id, full_name) VALUES ($1, $2)`, id, name)
+	// user_profiles columns full_name/gender/address/profile_picture are
+	// NOT NULL (empty string default); the rest are nullable — same
+	// pick/pickNull split as admin_edit.go's User() insert branch.
+	pick := func(p *string) string {
+		if p == nil {
+			return ""
+		}
+		return strings.TrimSpace(*p)
+	}
+	pickNull := func(p *string) *string {
+		if p == nil {
+			return nil
+		}
+		s := strings.TrimSpace(*p)
+		if s == "" {
+			return nil
+		}
+		return &s
+	}
+	fullName := strings.TrimSpace(req.FullName)
+	hasProfileData := fullName != "" || req.Gender != nil || req.DateOfBirth != nil || req.Address != nil ||
+		req.City != nil || req.Occupation != nil || req.FamilySize.Set || req.HousingStatus != nil ||
+		req.MonthlyIncome != nil || req.Skills != nil || req.Availability != nil || req.Experience != nil ||
+		req.ProfilePicture != nil
+	if hasProfileData {
+		_, _ = h.Pool.Exec(ctx, `
+			INSERT INTO user_profiles
+			  (user_id, full_name, gender, address, profile_picture,
+			   date_of_birth, city, occupation, family_size, housing_status,
+			   monthly_income, skills, availability, experience)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+			id, fullName, pick(req.Gender), pick(req.Address), pick(req.ProfilePicture),
+			pickNull(req.DateOfBirth), pickNull(req.City), pickNull(req.Occupation), req.FamilySize.IntPtr(),
+			pickNull(req.HousingStatus), pickNull(req.MonthlyIncome), pickNull(req.Skills),
+			pickNull(req.Availability), pickNull(req.Experience),
+		)
 	}
 	h.logAdminUserEvent(c, id, "create", roleName(func() int {
 		if req.RoleID != nil {
@@ -175,10 +228,15 @@ type AdminStatusHandler struct {
 	Events   *events.Store    // Admin Notification System — user-account CRUD is
 	// appended to app_events so it surfaces in the dashboard Notification Center
 	// and is permanently recorded (append-only audit).
+	// Note #36 — opens the Staff↔Volunteer↔Beneficiary chat the moment a
+	// case-linked signup becomes approved (or later). Optional: nil skips the
+	// check (defensive — lets this handler keep working even if the caller
+	// forgets to wire it, just without auto-opening chats).
+	CaseVolChat *casevolchat.Store
 }
 
-func NewAdminStatusHandler(pool *pgxpool.Pool, n *notify.Notifier, ev *events.Store) *AdminStatusHandler {
-	return &AdminStatusHandler{Pool: pool, Notifier: n, Events: ev}
+func NewAdminStatusHandler(pool *pgxpool.Pool, n *notify.Notifier, ev *events.Store, cvc *casevolchat.Store) *AdminStatusHandler {
+	return &AdminStatusHandler{Pool: pool, Notifier: n, Events: ev, CaseVolChat: cvc}
 }
 
 // forceLogout revokes every active session token for a user — the "force
@@ -258,6 +316,72 @@ func (h *AdminStatusHandler) UserAccountStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "id": id, "account_status": status})
 }
 
+type userArchiveReq struct {
+	Archived bool `json:"archived"`
+}
+
+// POST /api/admin/users/:id/archive — body {archived: true|false}. Note #4:
+// a reversible, non-destructive alternative to Delete. Unlike Delete (which
+// snapshots the row to Trash and removes it from the users table — Super
+// Admin only, see admin_delete.go), archiving just flips account_status and
+// leaves the row fully in place; any tier granted the "archive" permission
+// (configurable per-tier on the Permissions page, defaults to Supervisor+)
+// can archive AND un-archive on their own, no Super Admin needed. Distinct
+// from suspended/banned (auth.RequireSuperAdmin, Section 25 "immediate
+// administrative actions") — archiving is a routine housekeeping action, not
+// a punitive one.
+func (h *AdminStatusHandler) UserArchive(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	if h.blockIfProtectedTarget(c, id) {
+		return
+	}
+	var req userArchiveReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid JSON body."})
+		return
+	}
+	status := "active"
+	active := 1
+	if req.Archived {
+		status = "archived"
+		active = 0
+	}
+	ctx := c.Request.Context()
+	// Only ever transition to/from 'archived' — never clobber a suspended or
+	// banned account back to 'active' just because someone hit "un-archive".
+	var currentStatus string
+	if err := h.Pool.QueryRow(ctx, "SELECT COALESCE(account_status, 'active') FROM users WHERE id = $1", id).Scan(&currentStatus); err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Not found."})
+		return
+	}
+	if !req.Archived && currentStatus != "archived" {
+		c.JSON(http.StatusOK, gin.H{"success": true, "id": id, "account_status": currentStatus})
+		return
+	}
+	if req.Archived && currentStatus != "active" && currentStatus != "archived" {
+		c.JSON(http.StatusConflict, gin.H{"success": false, "error": "Suspended or banned accounts can't be archived — restore them first."})
+		return
+	}
+	ct, err := h.Pool.Exec(ctx,
+		"UPDATE users SET account_status = $1, active = $2 WHERE id = $3", status, active, id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
+		return
+	}
+	if ct.RowsAffected() == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Not found."})
+		return
+	}
+	if req.Archived {
+		h.forceLogout(ctx, id)
+	}
+	h.logAdminUserEvent(c, id, "status", status)
+	c.JSON(http.StatusOK, gin.H{"success": true, "id": id, "account_status": status})
+}
+
 // ===== Allowed-value lists (match CHECK constraints in the schema) =====
 
 var (
@@ -270,12 +394,14 @@ var (
 	mediaStatuses              = []string{"draft", "published", "hidden"}
 	commentStatuses            = []string{"pending", "approved", "hidden"} // #25 comment moderation
 	communityStatuses          = []string{"pending", "approved", "rejected", "hidden"}
-	volunteerAppStatuses       = []string{"submitted", "approved", "rejected", "inactive"}
-	sponsorshipStatuses        = []string{"pending", "active", "paused", "delayed", "stopped", "completed", "cancelled"}
-	inKindStatuses             = []string{"submitted", "scheduled", "received", "delivered", "cancelled"}
-	supportStatuses            = []string{"open", "in_progress", "resolved", "closed"}
-	donationDeliveryStatuses   = []string{"registered", "received", "under_review", "delivered", "paused", "suspended", "archived", "cancelled"}
-	donationPaymentStatuses    = []int{1, 2, 3} // 1=success, 2=pending, 3=failed
+	// Note #19 — mandatory classification per City Guide entry.
+	communitySectorTypes     = []string{"government", "private"}
+	volunteerAppStatuses     = []string{"submitted", "approved", "rejected", "inactive"}
+	sponsorshipStatuses      = []string{"pending", "active", "paused", "delayed", "stopped", "completed", "cancelled"}
+	inKindStatuses           = []string{"submitted", "scheduled", "received", "delivered", "cancelled"}
+	supportStatuses          = []string{"open", "in_progress", "resolved", "closed"}
+	donationDeliveryStatuses = []string{"registered", "received", "under_review", "delivered", "paused", "suspended", "archived", "cancelled"}
+	donationPaymentStatuses  = []int{1, 2, 3} // 1=success, 2=pending, 3=failed
 	// Phase 21 — volunteer_mission_signups CHECK constraint allows exactly these.
 	// 'pending' is the starting state on insert; admin transitions from there.
 	volunteerSignupStatuses = []string{
@@ -625,7 +751,93 @@ func (h *AdminStatusHandler) MissionSignup(c *gin.Context) {
 	// Phase 18 — fire the 4-language notification to the volunteer.
 	h.notifyMissionSignupDecision(c.Request.Context(), id, status)
 
+	// Note #36 — this status change may be what makes the signup eligible for
+	// the Staff↔Volunteer↔Beneficiary chat (already case-linked, now approved
+	// or further along).
+	ensureCaseVolChat(c.Request.Context(), h.CaseVolChat, h.Notifier, id)
+
 	c.JSON(http.StatusOK, gin.H{"success": true, "id": id, "status": status})
+}
+
+// ensureCaseVolChat opens the case-volunteer-beneficiary chat thread for a
+// signup if it just became eligible, and notifies both real parties. Safe to
+// call after every write that could change eligibility — a no-op otherwise.
+// Free function (not a method) so both admin-side status changes and the
+// volunteer's own check-in/check-out (Note #37, VolunteerCheckinHandler) can
+// share it.
+func ensureCaseVolChat(ctx context.Context, cvc *casevolchat.Store, notifier *notify.Notifier, signupID int64) {
+	if cvc == nil {
+		return
+	}
+	threadID, err := cvc.EnsureThreadForSignup(ctx, signupID)
+	if err != nil || threadID == nil {
+		return
+	}
+	thread, err := cvc.GetThread(ctx, *threadID)
+	if err != nil {
+		return
+	}
+	for _, uid := range []int64{thread.VolunteerUserID, thread.BeneficiaryUserID} {
+		oid := uid
+		go func() {
+			bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			_, _ = notifier.Send(bgCtx, oid, notify.CaseVolunteerChatOpenedMsg(*threadID))
+		}()
+	}
+}
+
+// AssignSignupCase — POST /api/admin/volunteer_mission_signups/:id/assign-case
+// body {beneficiary_case_id: number|null}. Links (or unlinks, with null) this
+// specific volunteer's signup to a specific beneficiary case — the
+// foundation the future Staff↔Volunteer↔Beneficiary chat pairs off of.
+// Deliberately per-signup, not per-mission: one mission can serve several
+// different beneficiaries.
+func (h *AdminStatusHandler) AssignSignupCase(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	var req struct {
+		BeneficiaryCaseID *int64 `json:"beneficiary_case_id"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid JSON body."})
+		return
+	}
+	if req.BeneficiaryCaseID != nil {
+		var exists bool
+		if err := h.Pool.QueryRow(c.Request.Context(),
+			"SELECT EXISTS (SELECT 1 FROM beneficiary_cases WHERE id = $1)", *req.BeneficiaryCaseID,
+		).Scan(&exists); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
+			return
+		}
+		if !exists {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Unknown beneficiary case."})
+			return
+		}
+	}
+	ct, err := h.Pool.Exec(c.Request.Context(),
+		"UPDATE volunteer_mission_signups SET beneficiary_case_id = $1 WHERE id = $2",
+		req.BeneficiaryCaseID, id,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
+		return
+	}
+	if ct.RowsAffected() == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Not found."})
+		return
+	}
+
+	// Note #36 — linking a case may be what makes an already-approved signup
+	// eligible for the Staff↔Volunteer↔Beneficiary chat.
+	if req.BeneficiaryCaseID != nil {
+		ensureCaseVolChat(c.Request.Context(), h.CaseVolChat, h.Notifier, id)
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "id": id, "beneficiary_case_id": req.BeneficiaryCaseID})
 }
 
 // ===== Donations (two status columns) =====

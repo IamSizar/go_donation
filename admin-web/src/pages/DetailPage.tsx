@@ -14,35 +14,15 @@
 // clicks "Back" or if the lookup 404s.
 
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, describeError, assetUrl } from '../lib/api'
 import { useI18n, useFieldLabel, useStatusLabel } from '../lib/i18n'
+import { RESOURCE_LABELS } from '../lib/resourceLabels'
 
 type DetailResp = {
   success: true
   resource: string
   item: Record<string, unknown>
-}
-
-// Maps :resource path slug → human label + list URL. Anything not in this map
-// renders as "Unknown resource" (the backend would 404 anyway).
-const RESOURCE_LABELS: Record<string, { labelKey: string; list: string }> = {
-  partners:                     { labelKey: 'noun.partner',               list: '/partners' },
-  media:                        { labelKey: 'noun.media_post',            list: '/media' },
-  community:                    { labelKey: 'noun.community_entry',       list: '/community' },
-  marriage:                     { labelKey: 'noun.profile',               list: '/marriage' },
-  products:                     { labelKey: 'noun.product',               list: '/marketplace' },
-  orders:                       { labelKey: 'noun.order',                 list: '/marketplace' },
-  beneficiary_cases:            { labelKey: 'noun.case',                  list: '/beneficiary' },
-  beneficiary_project_requests: { labelKey: 'noun.project_request',       list: '/beneficiary' },
-  sponsorships:                 { labelKey: 'noun.sponsorship',           list: '/sponsorships' },
-  in_kind_donations:            { labelKey: 'noun.in_kind_donation',      list: '/in-kind' },
-  support_tickets:              { labelKey: 'noun.support_ticket',        list: '/support' },
-  donations:                    { labelKey: 'noun.donation',              list: '/donations' },
-  volunteer_applications:       { labelKey: 'noun.volunteer_application', list: '/volunteers' },
-  volunteer_missions:           { labelKey: 'noun.mission',               list: '/missions' },
-  campaigns:                    { labelKey: 'noun.campaign',              list: '/campaigns' },
-  users:                        { labelKey: 'noun.user',                  list: '/users' },
 }
 
 // Heuristic: any string-valued column whose key ends in _path or _url and
@@ -57,6 +37,24 @@ function looksLikeImagePath(key: string, val: unknown): boolean {
 // rendered value cell.
 function dirFor(key: string): 'rtl' | 'ltr' {
   return /(_ar|_sorani|_badini)$/i.test(key) ? 'rtl' : 'ltr'
+}
+
+// Note #7 — several user_profiles fields are only ever COLLECTED for one
+// specific role's registration form (mobile app: registration_form.dart) —
+// e.g. a Grantor is never even asked for "skills" or "family size". An empty
+// value there isn't missing/broken data, it's a field that doesn't apply to
+// this account's role. Rather than showing a bare "—" that reads as "this is
+// broken," show WHY it's empty. Only meaningful on the `users` resource,
+// where `role_id` is present on the row (1=grantor, 2=beneficiary,
+// 3=volunteer — see RegistrationsPage.tsx's roleKey for the same mapping).
+const VOLUNTEER_ONLY_FIELDS = new Set(['availability', 'experience', 'skills'])
+const BENEFICIARY_ONLY_FIELDS = new Set(['family_size', 'housing_status', 'monthly_income'])
+
+function emptyFieldHint(key: string, roleId: number | undefined, t: (k: string) => string): string | null {
+  if (VOLUNTEER_ONLY_FIELDS.has(key) && roleId !== 3) return t('detail.field_volunteer_only')
+  if (BENEFICIARY_ONLY_FIELDS.has(key) && roleId !== 2) return t('detail.field_beneficiary_only')
+  if (key === 'email') return t('detail.field_email_hint')
+  return null
 }
 
 function renderValue(
@@ -156,6 +154,13 @@ export default function DetailPage() {
     <div className="stack">
       <div className="page-head">
         <div>
+          {/* Note #11 — breadcrumb so the admin always knows where they are;
+              the sidebar highlight alone used to vanish on this page. */}
+          <nav className="breadcrumb" aria-label="Breadcrumb">
+            <Link to={meta.list}>{t(meta.sectionKey)}</Link>
+            <span aria-hidden="true"> &gt; </span>
+            <span>{t(meta.labelKey)} #{id}</span>
+          </nav>
           <h1>{t(meta.labelKey)} #{id}</h1>
           <p className="muted">{t('common.read_only_view')}</p>
         </div>
@@ -172,7 +177,14 @@ export default function DetailPage() {
               <div className="detail-key" title={k}>{fieldLabel(k)}</div>
               <div className="detail-value">{
                 v === null || v === undefined || v === ''
-                  ? <span className="muted">—</span>
+                  ? (() => {
+                      const hint = resource === 'users'
+                        ? emptyFieldHint(k, Number(resp.item.role_id), t)
+                        : null
+                      return hint
+                        ? <span className="muted" title={hint}>— <em style={{ fontStyle: 'normal', fontSize: '0.9em' }}>({hint})</em></span>
+                        : <span className="muted">—</span>
+                    })()
                   : k === 'role_id'
                     ? <span>{roleLabel(v)}</span>
                     : (USER_REF.test(k) || k === 'user_id')

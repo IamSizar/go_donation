@@ -8,9 +8,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// FieldRulesHandler powers the admin-configurable registration field rules
-// (#43). A public GET feeds the app's form validation; admin routes toggle
-// whether each optional field is required.
+// FieldRulesHandler powers the admin-configurable data-collection field
+// rules (#43, extended by Note 33). A public GET feeds the app's forms
+// (which fields to validate as required, which to hide entirely); admin
+// routes let the Main Admin set each field's state.
 type FieldRulesHandler struct {
 	Pool *pgxpool.Pool
 }
@@ -19,15 +20,19 @@ func NewFieldRulesHandler(pool *pgxpool.Pool) *FieldRulesHandler {
 	return &FieldRulesHandler{Pool: pool}
 }
 
+// fieldRuleStates is the fixed set Note 33 asks for: a field is Required,
+// Optional, or completely hidden from the form.
+var fieldRuleStates = []string{"required", "optional", "hidden"}
+
 type fieldRule struct {
 	FieldKey     string `json:"field_key"`
-	Required     bool   `json:"required"`
+	State        string `json:"state"`
 	DisplayOrder int    `json:"display_order"`
 }
 
 func (h *FieldRulesHandler) list(c *gin.Context) ([]fieldRule, bool) {
 	rows, err := h.Pool.Query(c.Request.Context(),
-		`SELECT field_key, (required = 1), display_order
+		`SELECT field_key, state, display_order
 		   FROM registration_field_rules ORDER BY display_order, field_key`)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
@@ -37,7 +42,7 @@ func (h *FieldRulesHandler) list(c *gin.Context) ([]fieldRule, bool) {
 	out := []fieldRule{}
 	for rows.Next() {
 		var r fieldRule
-		if err := rows.Scan(&r.FieldKey, &r.Required, &r.DisplayOrder); err != nil {
+		if err := rows.Scan(&r.FieldKey, &r.State, &r.DisplayOrder); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
 			return nil, false
 		}
@@ -46,20 +51,28 @@ func (h *FieldRulesHandler) list(c *gin.Context) ([]fieldRule, bool) {
 	return out, true
 }
 
-// PublicList — GET /api/registration/field-rules. Returns {required: [keys]} so
-// the app knows which optional fields to enforce.
+// PublicList — GET /api/registration/field-rules. Returns
+// {required: [keys], hidden: [keys]} so a form knows which optional fields
+// to enforce and which to not render at all. `required` is kept as the
+// existing key name for backward compatibility with the app's current
+// fetchRequiredFields() (Note 33 only ADDS the hidden list, doesn't rename
+// anything already relied on).
 func (h *FieldRulesHandler) PublicList(c *gin.Context) {
 	rules, ok := h.list(c)
 	if !ok {
 		return
 	}
 	required := []string{}
+	hidden := []string{}
 	for _, r := range rules {
-		if r.Required {
+		switch r.State {
+		case "required":
 			required = append(required, r.FieldKey)
+		case "hidden":
+			hidden = append(hidden, r.FieldKey)
 		}
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "required": required})
+	c.JSON(http.StatusOK, gin.H{"success": true, "required": required, "hidden": hidden})
 }
 
 // AdminList — GET /api/admin/registration/field-rules (full rows).
@@ -71,22 +84,24 @@ func (h *FieldRulesHandler) AdminList(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "items": rules})
 }
 
-// SetRequired — POST /api/admin/registration/field-rules/:key — body {required: bool}.
-func (h *FieldRulesHandler) SetRequired(c *gin.Context) {
+// SetState — POST /api/admin/registration/field-rules/:key — body
+// {state: "required"|"optional"|"hidden"}.
+func (h *FieldRulesHandler) SetState(c *gin.Context) {
 	key := strings.TrimSpace(c.Param("key"))
 	var req struct {
-		Required bool `json:"required"`
+		State string `json:"state"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid JSON body."})
 		return
 	}
-	v := 0
-	if req.Required {
-		v = 1
+	state := strings.TrimSpace(req.State)
+	if !inSet(state, fieldRuleStates) {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "state must be one of: " + strings.Join(fieldRuleStates, ", ")})
+		return
 	}
 	ct, err := h.Pool.Exec(c.Request.Context(),
-		`UPDATE registration_field_rules SET required = $2 WHERE field_key = $1`, key, v)
+		`UPDATE registration_field_rules SET state = $2 WHERE field_key = $1`, key, state)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
 		return
@@ -95,5 +110,5 @@ func (h *FieldRulesHandler) SetRequired(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Unknown field."})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "field_key": key, "required": req.Required})
+	c.JSON(http.StatusOK, gin.H{"success": true, "field_key": key, "state": state})
 }

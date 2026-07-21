@@ -10,7 +10,7 @@ import EditModal, { type FieldSpec } from '../components/EditModal'
 import BulkBar from '../components/BulkBar'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../lib/toast'
-import { useI18n, useStatusLabel } from '../lib/i18n'
+import { useI18n, useStatusLabel, type Locale } from '../lib/i18n'
 import { useSelection } from '../lib/useSelection'
 import { type CsvColumn } from '../lib/csv'
 
@@ -35,7 +35,20 @@ const EDITABLE_STATUSES = STATUSES.filter((s) => s !== 'all')
 const POST_TYPES = ['', 'news', 'activity', 'event', 'article', 'video', 'marriage']
 const EDITABLE_POST_TYPES = POST_TYPES.filter((t) => t !== '')
 
-type MediaCategory = { slug: string; name_en: string }
+type MediaCategory = { slug: string; name_en: string; name_ar: string; name_ckb: string; name_kmr: string }
+
+// Note #18 (Arabization) — the category dropdown used to fall back to the
+// raw English slug (e.g. "food") for any value the global status.* i18n
+// dictionary didn't happen to cover. Adding those slugs there was rejected:
+// Marketplace's product category also uses "food" for a DIFFERENT item
+// ("Food" vs Media's "Food Aid", with different Arabic text too), so a
+// shared key would silently mislabel one of the two. The categories API
+// already returns a real, distinct name per language per category — use
+// that directly instead of duplicating/colliding translations.
+function categoryName(c: MediaCategory, locale: Locale): string {
+  const byLocale = { en: c.name_en, ar: c.name_ar, ckb: c.name_ckb, kmr: c.name_kmr }
+  return byLocale[locale]?.trim() || c.name_en
+}
 
 // Static part of the media edit form. The category select is injected at
 // render time (its options come from the media-categories CMS, #22).
@@ -73,7 +86,7 @@ export default function MediaPage() {
   const [refreshTick, setRefreshTick] = useState(0)
   const [categories, setCategories] = useState<MediaCategory[]>([])
   const toast = useToast()
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const statusLabel = useStatusLabel()
   const sel = useSelection<MediaPost>((m) => m.id)
 
@@ -113,13 +126,14 @@ export default function MediaPage() {
       labelKey: 'field.category',
       type: 'select',
       options: ['', ...categories.map((c) => c.slug)],
+      optionLabels: Object.fromEntries(categories.map((c) => [c.slug, categoryName(c, locale)])),
     }
     // Insert the category select right after the post-type field.
     const out = [...MEDIA_BASE_FIELDS]
     const at = out.findIndex((f) => f.key === 'post_type')
     out.splice(at + 1, 0, categoryField)
     return out
-  }, [categories])
+  }, [categories, locale])
 
   const trimDate = (p: Record<string, unknown>): Record<string, unknown> => {
     const out = { ...p }

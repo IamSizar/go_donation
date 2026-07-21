@@ -18,7 +18,7 @@
 //   support_tickets              status          IN ('open','in_progress')
 //   in_kind_donations            status          = 'scheduled'
 //   volunteer_applications       status          = 'submitted'
-//   marriage_profiles            status          = 'pending'
+//   marriage_profiles            status          = 'submitted' (Note #18 fix — was 'pending', a value this column never holds)
 //
 // The combined "beneficiary" badge sums beneficiary_cases + project_requests
 // because the admin's sidebar has one entry for both.
@@ -47,17 +47,17 @@ func NewPendingCountsHandler(pool *pgxpool.Pool) *PendingCountsHandler {
 type PendingCounts struct {
 	Donations      int `json:"donations"`
 	Sponsorships   int `json:"sponsorships"`
-	Beneficiary    int `json:"beneficiary"`     // cases + project_requests, combined
+	Beneficiary    int `json:"beneficiary"` // cases + project_requests, combined
 	Marketplace    int `json:"marketplace"`
 	Support        int `json:"support"`
 	InKind         int `json:"in_kind"`
-	Volunteers     int `json:"volunteers"`     // volunteer_applications submitted
+	Volunteers     int `json:"volunteers"`      // volunteer_applications submitted
 	MissionSignups int `json:"mission_signups"` // Phase 21 — join requests awaiting admin
 	Marriage       int `json:"marriage"`
 	Registrations  int `json:"registrations"` // new-user signups awaiting approval
 	// Total is server-derived so the client doesn't have to re-sum it for the
 	// global "all pending" indicator (e.g. window title prefix).
-	Total          int `json:"total"`
+	Total int `json:"total"`
 }
 
 // Counts handles GET /api/admin/pending-counts.
@@ -94,8 +94,14 @@ func (h *PendingCountsHandler) Counts(c *gin.Context) {
 		  -- they're surfaced as a single count.
 		  (SELECT COUNT(*) FROM volunteer_mission_signups
 		     WHERE status IN ('pending', 'completion_requested'))             AS mission_signups,
+		  -- Note #18 — was status = 'pending', a value marriage_profiles.status
+		  -- never actually holds (its lifecycle is submitted/under_review/
+		  -- active/paused/matched/rejected/closed — migration 001; a new
+		  -- profile is always created with status="submitted", never
+		  -- "pending" — see MarriageHandler.Post). This badge was silently
+		  -- reporting 0 forever.
 		  (SELECT COUNT(*) FROM marriage_profiles
-		     WHERE status = 'pending')                                        AS marriage,
+		     WHERE status = 'submitted')                                       AS marriage,
 		  (SELECT COUNT(*) FROM users
 		     WHERE registration_status = 'pending')                           AS registrations
 	`

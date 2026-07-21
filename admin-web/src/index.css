@@ -360,6 +360,13 @@ label {
   display: grid;
   grid-template-columns: 256px 1fr;
   height: 100%;
+  transition: grid-template-columns 200ms ease;
+}
+/* Note #2 — collapsible sidebar. Wide tables (Users worst of all, 5 stacked
+   status dropdowns) lose columns off-screen at normal browser widths;
+   hiding the 256px sidebar hands that width straight to the content. */
+.app-shell.sidebar-collapsed {
+  grid-template-columns: 0px 1fr;
 }
 .sidebar {
   background:
@@ -368,13 +375,59 @@ label {
   border-right: 1px solid var(--color-border);
   padding: var(--space-4) var(--space-3);
   overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  transition: padding 200ms ease, opacity 150ms ease;
+}
+.sidebar-collapsed .sidebar {
+  padding: var(--space-4) 0;
+  opacity: 0;
+  pointer-events: none;
+  border-right-color: transparent;
 }
 [dir="rtl"] .sidebar {
   border-right: none;
   border-left: 1px solid var(--color-border);
+}
+[dir="rtl"] .sidebar-collapsed .sidebar {
+  border-left-color: transparent;
+}
+/* Note #2 follow-up — the icon-only version of this button tested too small
+   and unclear for the client to notice it did anything. Now icon + a visible
+   text label ("Hide sidebar" / "Show sidebar"), a proper button height to
+   match the rest of the topbar chrome, and a colored border so it reads as
+   an actionable control at a glance instead of blending into the topbar. */
+.sidebar-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 9px;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 45%, var(--color-border));
+  background: var(--color-surface-2);
+  color: var(--text-h);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 150ms ease, border-color 150ms ease, color 150ms ease, transform 150ms ease;
+}
+.sidebar-toggle-btn:hover {
+  background: var(--color-surface-3);
+  border-color: var(--color-primary);
+  color: var(--text-h);
+  transform: translateY(-1px);
+}
+.sidebar-toggle-btn span { line-height: 1; }
+/* Below ~860px the label would crowd the user-chip / language picker — drop
+   back to icon-only there, same as a typical responsive toolbar button. */
+@media (max-width: 860px) {
+  .sidebar-toggle-btn span { display: none; }
+  .sidebar-toggle-btn { padding: 0; width: 36px; justify-content: center; }
 }
 .brand {
   display: flex;
@@ -489,6 +542,106 @@ button.amber:disabled {
   color: var(--color-primary, #10b981);
   border-color: color-mix(in srgb, var(--color-primary, #10b981) 50%, transparent);
 }
+
+/* === Sidebar nav groups (Note #29) ===
+   Collapsible sections that group the ~40 flat nav items into the client's
+   10 categories. The header button reuses .nav-item's look-and-feel (same
+   padding/radius/hover) so a group reads as "one more row" in the list, not
+   a visually distinct widget — the chevron + indented children are what
+   communicate the hierarchy. */
+.nav-group-header {
+  /* Reset the site-wide `button` defaults (solid accent bg/border, fixed
+     36px height, centered content, inset shadow) — this button needs to
+     read as a plain nav row, not a call-to-action button. */
+  border: none;
+  height: auto;
+  box-shadow: none;
+  justify-content: flex-start;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+  transition: color 150ms ease, background 150ms ease;
+}
+/* `nav ` prefix bumps specificity to match/beat the global
+   `button:hover:not(:disabled)` rule (0,2,1) — without it that rule's loud
+   accent-green hover background would win out over this subtle one. */
+nav .nav-group-header:hover { background: var(--panel-2); color: var(--text-h); border-color: transparent; }
+.nav-group-header svg { flex-shrink: 0; opacity: 0.7; }
+.nav-group-header .nav-badge { margin-inline-start: auto; }
+.nav-group-items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 2px;
+}
+/* Indent + a faint left rail so nested items read as children of the group
+   header above them, echoing the sidebar's own border-right divider. */
+.nav-item-nested {
+  padding-inline-start: 30px;
+  border-inline-start: 1px solid var(--color-border);
+  margin-inline-start: 18px;
+  border-radius: 0 8px 8px 0;
+}
+[dir="rtl"] .nav-item-nested { border-radius: 8px 0 0 8px; }
+
+/* === Sidebar Layout editor (Dashboard Settings, Note #29 follow-up) === */
+.icon-btn {
+  border: 1px solid var(--color-border);
+  height: 24px;
+  width: 24px;
+  padding: 0;
+  border-radius: 6px;
+  background: var(--color-surface-2);
+  color: var(--text);
+  box-shadow: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.icon-btn:hover:not(:disabled) {
+  background: var(--color-surface-3);
+  border-color: var(--color-border-strong, var(--color-border));
+  color: var(--text-h);
+  transform: none;
+  box-shadow: none;
+}
+.sidebar-layout-section {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 10px 12px;
+}
+.sidebar-layout-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.sidebar-layout-updown {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sidebar-layout-items {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+  padding-inline-start: 30px;
+  border-inline-start: 1px solid var(--color-border);
+  margin-inline-start: 12px;
+}
+.sidebar-layout-item {
+  padding: 4px 0;
+}
+.sidebar-layout-item span:not(.muted) { flex: 1; }
+.sidebar-layout-item select { height: 30px; font-size: var(--text-xs); max-width: 220px; }
 
 /* === Row-highlight (Phase 16; restyled Phase 18d) ===
    Two-stage highlight applied to any list-page row when the user lands with
@@ -697,6 +850,9 @@ button.amber:disabled {
   flex-wrap: wrap;
 }
 .page-head > div:first-child { display: flex; flex-direction: column; gap: 2px; }
+.breadcrumb { font-size: var(--text-xs); color: var(--muted); margin-bottom: 2px; }
+.breadcrumb a { color: var(--muted); text-decoration: none; }
+.breadcrumb a:hover { color: var(--text); text-decoration: underline; }
 .page-head .row { gap: var(--space-2); }
 @media (max-width: 720px) {
   .page-head { flex-direction: column; align-items: stretch; }
@@ -788,9 +944,44 @@ button.amber:disabled {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
+  /* Note #28 — table-wrap always had `overflow: auto` (needed on the x-axis
+     for wide tables — Note #1/#2) plus `.data-table thead th`'s
+     `position: sticky; top: 0` below, but table-wrap had no height cap, so
+     it always grew to fit its content and never actually scrolled
+     vertically itself — the sticky rule had nothing to stick against.
+     (Tried excluding table-wrap from the y-axis via overflow-y: hidden/
+     visible so the header would stick against `.content` instead, but ANY
+     non-`visible` overflow-y — even `hidden` — still makes an element a
+     valid sticky containing block even when it never scrolls, so the
+     header just rode along 1:1 with the page instead of clamping — visible
+     as it sailing straight off the top on any table taller than a
+     screenful. And `overflow-y: visible` gets silently forced back to
+     `auto` by browsers whenever overflow-x isn't also `visible`.) The
+     robust fix: give table-wrap an actual height cap (max-height below) so
+     it becomes a genuine internally-scrolling pane, and let the header
+     stick to ITS OWN top edge (top: 0, unchanged) rather than trying to
+     coordinate offsets with `.content` and the sticky toolbar above it. */
+  max-height: calc(100vh - 320px);
   overflow: auto;
   box-shadow: var(--shadow-sm);
+  /* Firefox: the site-wide thin/subtle scrollbar is too faint to notice on
+     a wide table where it's the ONLY hint more columns exist off-screen. */
+  scrollbar-color: var(--color-muted) transparent;
+  scrollbar-width: auto;
 }
+/* Note #2 — the site-wide scrollbar (rgba(255,255,255,0.14) thumb) is
+   deliberately subtle everywhere else, but on a wide table it's the only
+   signal that data is cut off, and it sits at the very bottom of however
+   many rows the table has — easy to never notice. Taller track + a
+   brighter, higher-contrast thumb specifically here so it reads as "there's
+   more to scroll to," not as page chrome. */
+.table-wrap::-webkit-scrollbar { height: 14px; width: 14px; }
+.table-wrap::-webkit-scrollbar-thumb {
+  background: var(--color-muted);
+  border: 3px solid var(--color-surface);
+  background-clip: content-box;
+}
+.table-wrap::-webkit-scrollbar-thumb:hover { background: var(--color-text-h); background-clip: content-box; }
 .data-table {
   width: 100%;
   border-collapse: collapse;
@@ -805,6 +996,7 @@ button.amber:disabled {
   border-bottom: 1px solid var(--color-border);
   position: sticky;
   top: 0;
+  z-index: 2;
   font-size: var(--text-xs);
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -815,6 +1007,7 @@ button.amber:disabled {
   color: var(--text);
   vertical-align: middle;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 .data-table tbody tr:last-child td { border-bottom: none; }
 .data-table tbody tr {
@@ -832,6 +1025,55 @@ button.amber:disabled {
   padding-top: var(--space-1);
 }
 .pagination button { height: 32px; padding: 0 var(--space-3); font-size: var(--text-sm); }
+
+/* ===== Generic dropdown menu (Note #3 · Note #4) =====
+   Started as the Export menu's fix (was using var(--card, #fff) / var(--text,
+   #1a1a1a) — variables that don't exist in this theme, so it rendered
+   white-on-white-ish). Generalized into a reusable dropdown-menu, now also
+   backing the Users row "Actions" menu (Note #4). Real theme tokens
+   throughout. */
+.dropdown-menu {
+  position: absolute;
+  z-index: 30;
+  margin-top: 4px;
+  min-width: 160px;
+  background: var(--color-surface-2);
+  color: var(--text-h);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg), 0 10px 30px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+.dropdown-menu-item {
+  display: block;
+  width: 100%;
+  text-align: start;
+  padding: 9px 14px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  color: var(--text-h);
+  transition: background 120ms ease, color 120ms ease;
+}
+.dropdown-menu-item:hover,
+.dropdown-menu-item:focus-visible {
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+  outline: none;
+}
+.dropdown-menu-item:disabled {
+  color: var(--color-muted);
+  cursor: not-allowed;
+}
+.dropdown-menu-item:disabled:hover { background: transparent; }
+/* Destructive items (e.g. Delete) — red on hover instead of the primary
+   green, so a dangerous action doesn't look like a routine one. */
+.dropdown-menu-item.danger-item:hover,
+.dropdown-menu-item.danger-item:focus-visible {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
 
 /* ===== Badges (status pills) =====
    Color-coded by semantic role. Letter-spacing + slightly larger than
@@ -1417,6 +1659,63 @@ button.danger:disabled { background: #5a2a2a; border-color: #5a2a2a; cursor: not
 .target-text strong { color: var(--text-h); font-size: var(--text-md); font-weight: 600; }
 .target-text .muted { font-size: var(--text-sm); }
 
+/* Quick-templates cards (push compose). Redesigned to match .target-tile's
+   flat, restrained language instead of the old per-card linear-gradient +
+   drop-shadow icon tiles, which read as gaudy/dated next to the rest of the
+   dashboard. Each card sets --tpl-accent inline (the occasion's color); the
+   accent only tints — it's never the dominant surface. */
+.tpl-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  text-align: start;
+  color: var(--text);
+  font: inherit;
+  transition: border-color 150ms ease, background 150ms ease, transform 150ms ease;
+}
+.tpl-card:hover:not(:disabled) {
+  border-color: var(--color-border-strong);
+  background: var(--color-surface-3);
+  transform: translateY(-1px);
+}
+.tpl-card:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.tpl-card.is-selected {
+  border-color: var(--tpl-accent);
+  background: color-mix(in srgb, var(--tpl-accent) 12%, var(--color-surface-2));
+}
+.tpl-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--tpl-accent) 16%, var(--color-surface-3));
+  color: var(--tpl-accent);
+}
+.tpl-card.is-selected .tpl-icon {
+  background: var(--tpl-accent);
+  color: #fff;
+}
+.tpl-check {
+  position: absolute;
+  top: 8px;
+  inset-inline-end: 8px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: var(--tpl-accent);
+  color: #fff;
+}
+
 /* Checkmark in top-right when selected — only mounted in JSX when selected. */
 .target-check {
   position: absolute;
@@ -1637,10 +1936,26 @@ code, pre { direction: ltr; unicode-bidi: bidi-override; }
    bar is a ::before pseudo-element so it doesn't add a real cell and
    doesn't interfere with selection / hover backgrounds. The map of
    status → tone class lives in src/lib/statusColors.ts. */
-.data-table tbody tr[class*="row-stripe-"] {
+/* Note #1 — this used to put `position: relative` + a `::before` directly on
+   the <tr>. Browsers apply "table box fix-up" to a table-row's children, and
+   a generated-content pseudo-element hanging directly off a <tr> was getting
+   boxed as a phantom anonymous <td> — shifting every REAL cell in the row one
+   column to the right of its header. Confirmed live: removing the stripe
+   class snapped a misaligned row's cells back in line with their headers
+   instantly. Anchoring the stripe to the row's first real <td> instead (a
+   cell already, so no fix-up can happen) gives the identical visual result
+   with none of the layout risk. */
+/* Note #22 — on a selectable table, the checkbox <td> is td:first-child, so
+   this used to anchor the stripe to the SELECT column instead of the actual
+   data (it just happened to look right on tables without selection). Target
+   the first real data cell explicitly: td:first-child when there's no
+   checkbox cell, or the cell right after .select-cell when there is. */
+.data-table tbody tr[class*="row-stripe-"] td:first-child:not(.select-cell),
+.data-table tbody tr[class*="row-stripe-"] td.select-cell + td {
   position: relative;
 }
-.data-table tbody tr[class*="row-stripe-"]::before {
+.data-table tbody tr[class*="row-stripe-"] td:first-child:not(.select-cell)::before,
+.data-table tbody tr[class*="row-stripe-"] td.select-cell + td::before {
   content: "";
   position: absolute;
   left: 0;
@@ -1650,21 +1965,23 @@ code, pre { direction: ltr; unicode-bidi: bidi-override; }
   border-radius: 4px;
   pointer-events: none;
 }
-[dir="rtl"] .data-table tbody tr[class*="row-stripe-"]::before {
+[dir="rtl"] .data-table tbody tr[class*="row-stripe-"] td:first-child:not(.select-cell)::before,
+[dir="rtl"] .data-table tbody tr[class*="row-stripe-"] td.select-cell + td::before {
   left: auto;
   right: 0;
 }
 
-.row-stripe-amber::before { background: var(--color-warning,  #F59E0B); box-shadow: 0 0 8px -1px rgba(245, 158, 11, 0.45); }
-.row-stripe-blue::before  { background: var(--color-info,     #38BDF8); box-shadow: 0 0 8px -1px rgba(56, 189, 248, 0.45); }
-.row-stripe-green::before { background: var(--color-primary,  #10B981); box-shadow: 0 0 8px -1px rgba(16, 185, 129, 0.45); }
-.row-stripe-red::before   { background: var(--color-danger,   #EF4444); box-shadow: 0 0 8px -1px rgba(239, 68, 68,  0.45); }
-.row-stripe-grey::before  { background: var(--color-border-strong, #4B5563); }
+.row-stripe-amber td:first-child:not(.select-cell)::before, .row-stripe-amber td.select-cell + td::before { background: var(--color-warning,  #F59E0B); box-shadow: 0 0 8px -1px rgba(245, 158, 11, 0.45); }
+.row-stripe-blue td:first-child:not(.select-cell)::before,  .row-stripe-blue td.select-cell + td::before  { background: var(--color-info,     #38BDF8); box-shadow: 0 0 8px -1px rgba(56, 189, 248, 0.45); }
+.row-stripe-green td:first-child:not(.select-cell)::before, .row-stripe-green td.select-cell + td::before { background: var(--color-primary,  #10B981); box-shadow: 0 0 8px -1px rgba(16, 185, 129, 0.45); }
+.row-stripe-red td:first-child:not(.select-cell)::before,   .row-stripe-red td.select-cell + td::before   { background: var(--color-danger,   #EF4444); box-shadow: 0 0 8px -1px rgba(239, 68, 68,  0.45); }
+.row-stripe-grey td:first-child:not(.select-cell)::before,  .row-stripe-grey td.select-cell + td::before  { background: var(--color-border-strong, #4B5563); }
 
 /* When a row is BOTH highlighted (from a live-feed click) and striped, the
    pulse animation owns the visual emphasis — dim the stripe so it doesn't
    compete during the 4-second pulse. */
-.is-highlighted[class*="row-stripe-"]::before { opacity: 0.4; }
+.is-highlighted[class*="row-stripe-"] td:first-child:not(.select-cell)::before,
+.is-highlighted[class*="row-stripe-"] td.select-cell + td::before { opacity: 0.4; }
 
 /* === Topbar sound menu (Phase 17) ===
    Speaker button + dropdown showing on/off, test chime, OS-notification opt-in. */

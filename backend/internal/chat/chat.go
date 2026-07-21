@@ -28,41 +28,48 @@ const (
 )
 
 var (
-	ErrNotFound     = errors.New("thread not found")
-	ErrNotParty     = errors.New("you are not a participant in this chat")
-	ErrNotRecipient = errors.New("only the invited party can accept or decline")
-	ErrNotActive    = errors.New("this chat is not active yet")
+	ErrNotFound       = errors.New("thread not found")
+	ErrNotParty       = errors.New("you are not a participant in this chat")
+	ErrNotRecipient   = errors.New("only the invited party can accept or decline")
+	ErrNotActive      = errors.New("this chat is not active yet")
+	ErrAlreadyClaimed = errors.New("this chat is already claimed by another staff member")
 )
 
 // Thread is the raw row.
 type Thread struct {
-	ID          int64      `json:"id"`
-	DonorUserID int64      `json:"donor_user_id"`
-	OwnerUserID int64      `json:"owner_user_id"`
-	CampaignID  *int64     `json:"campaign_id"`
-	Status      string     `json:"status"`
-	InitiatedBy int64      `json:"initiated_by"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
+	ID          int64  `json:"id"`
+	DonorUserID int64  `json:"donor_user_id"`
+	OwnerUserID int64  `json:"owner_user_id"`
+	CampaignID  *int64 `json:"campaign_id"`
+	Status      string `json:"status"`
+	InitiatedBy int64  `json:"initiated_by"`
+	// Note #36 — the specific staff member who has claimed this thread, so a
+	// donor/beneficiary sees a named "Responsible Staff Member" instead of an
+	// anonymous "Support" relay. Nil = unclaimed (any admin may still reply).
+	AssignedStaffUserID *int64    `json:"assigned_staff_user_id"`
+	CreatedAt           time.Time `json:"created_at"`
+	UpdatedAt           time.Time `json:"updated_at"`
 }
 
 // ThreadView is a thread enriched for one viewing user: the OTHER party's
 // identity, the last message, and the viewer's unread count.
 type ThreadView struct {
-	ID            int64      `json:"id"`
-	Status        string     `json:"status"`
-	CampaignID    *int64     `json:"campaign_id"`
-	CampaignTitle *string    `json:"campaign_title"`
-	InitiatedBy   int64      `json:"initiated_by"`
-	MyRole        string     `json:"my_role"`        // "donor" | "owner"
-	IncomingPending bool     `json:"incoming_pending"` // pending AND I'm the one who must accept
-	OtherUserID   int64      `json:"other_user_id"`
-	OtherName     *string    `json:"other_name"`
-	OtherPhone    *string    `json:"other_phone"`
-	LastMessage   *string    `json:"last_message"`
-	LastMessageAt *time.Time `json:"last_message_at"`
-	UnreadCount   int        `json:"unread_count"`
-	UpdatedAt     time.Time  `json:"updated_at"`
+	ID              int64   `json:"id"`
+	Status          string  `json:"status"`
+	CampaignID      *int64  `json:"campaign_id"`
+	CampaignTitle   *string `json:"campaign_title"`
+	InitiatedBy     int64   `json:"initiated_by"`
+	MyRole          string  `json:"my_role"`          // "donor" | "owner"
+	IncomingPending bool    `json:"incoming_pending"` // pending AND I'm the one who must accept
+	OtherUserID     int64   `json:"other_user_id"`
+	OtherName       *string `json:"other_name"`
+	OtherPhone      *string `json:"other_phone"`
+	// Note #36 — the claimed staff member's name, if any (nil = unclaimed).
+	AssignedStaffName *string    `json:"assigned_staff_name"`
+	LastMessage       *string    `json:"last_message"`
+	LastMessageAt     *time.Time `json:"last_message_at"`
+	UnreadCount       int        `json:"unread_count"`
+	UpdatedAt         time.Time  `json:"updated_at"`
 }
 
 // Message is one chat message with the sender's display name.
@@ -94,12 +101,12 @@ func (s *Store) RequestThread(ctx context.Context, donorID, ownerID int64, campa
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	err = tx.QueryRow(ctx, `
-		SELECT id, donor_user_id, owner_user_id, campaign_id, status, initiated_by, created_at, updated_at
+		SELECT id, donor_user_id, owner_user_id, campaign_id, status, initiated_by, assigned_staff_user_id, created_at, updated_at
 		  FROM chat_threads
 		 WHERE donor_user_id = $1 AND owner_user_id = $2
 		 FOR UPDATE`,
 		donorID, ownerID,
-	).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.CreatedAt, &t.UpdatedAt)
+	).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt)
 
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
@@ -107,9 +114,9 @@ func (s *Store) RequestThread(ctx context.Context, donorID, ownerID int64, campa
 		if err := tx.QueryRow(ctx, `
 			INSERT INTO chat_threads (donor_user_id, owner_user_id, campaign_id, status, initiated_by)
 			VALUES ($1, $2, $3, 'pending', $4)
-			RETURNING id, donor_user_id, owner_user_id, campaign_id, status, initiated_by, created_at, updated_at`,
+			RETURNING id, donor_user_id, owner_user_id, campaign_id, status, initiated_by, assigned_staff_user_id, created_at, updated_at`,
 			donorID, ownerID, campaignID, initiatorID,
-		).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.CreatedAt, &t.UpdatedAt); err != nil {
+		).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt); err != nil {
 			return t, 0, false, err
 		}
 		if err := tx.Commit(ctx); err != nil {
@@ -128,9 +135,9 @@ func (s *Store) RequestThread(ctx context.Context, donorID, ownerID int64, campa
 			   SET status = 'pending', initiated_by = $2,
 			       campaign_id = COALESCE($3, campaign_id), updated_at = CURRENT_TIMESTAMP
 			 WHERE id = $1
-			RETURNING id, donor_user_id, owner_user_id, campaign_id, status, initiated_by, created_at, updated_at`,
+			RETURNING id, donor_user_id, owner_user_id, campaign_id, status, initiated_by, assigned_staff_user_id, created_at, updated_at`,
 			t.ID, initiatorID, campaignID,
-		).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.CreatedAt, &t.UpdatedAt); err != nil {
+		).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt); err != nil {
 			return t, 0, false, err
 		}
 		if err := tx.Commit(ctx); err != nil {
@@ -166,9 +173,9 @@ func (s *Store) AcceptThread(ctx context.Context, threadID, userID int64) (Threa
 	if err := s.Pool.QueryRow(ctx, `
 		UPDATE chat_threads SET status = 'active', updated_at = CURRENT_TIMESTAMP
 		 WHERE id = $1
-		RETURNING id, donor_user_id, owner_user_id, campaign_id, status, initiated_by, created_at, updated_at`,
+		RETURNING id, donor_user_id, owner_user_id, campaign_id, status, initiated_by, assigned_staff_user_id, created_at, updated_at`,
 		threadID,
-	).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.CreatedAt, &t.UpdatedAt); err != nil {
+	).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt); err != nil {
 		return t, 0, err
 	}
 	return t, t.InitiatedBy, nil
@@ -197,10 +204,10 @@ func (s *Store) DeclineThread(ctx context.Context, threadID, userID int64) (Thre
 func (s *Store) GetThread(ctx context.Context, threadID int64) (Thread, error) {
 	var t Thread
 	err := s.Pool.QueryRow(ctx, `
-		SELECT id, donor_user_id, owner_user_id, campaign_id, status, initiated_by, created_at, updated_at
+		SELECT id, donor_user_id, owner_user_id, campaign_id, status, initiated_by, assigned_staff_user_id, created_at, updated_at
 		  FROM chat_threads WHERE id = $1`,
 		threadID,
-	).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.CreatedAt, &t.UpdatedAt)
+	).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return t, ErrNotFound
 	}
@@ -212,6 +219,44 @@ func (t Thread) IsParticipant(userID int64) bool {
 	return userID == t.DonorUserID || userID == t.OwnerUserID
 }
 
+// ClaimThread assigns a specific staff member as this thread's "Responsible
+// Staff Member" (Note #36) — so the donor/beneficiary see a real name instead
+// of anonymous "Support". Only succeeds when the thread is currently
+// unclaimed (or already claimed by the same staff member — idempotent);
+// returns ErrAlreadyClaimed otherwise.
+func (s *Store) ClaimThread(ctx context.Context, threadID, staffUserID int64) (Thread, error) {
+	t, err := s.GetThread(ctx, threadID)
+	if err != nil {
+		return t, err
+	}
+	if t.AssignedStaffUserID != nil && *t.AssignedStaffUserID != staffUserID {
+		return t, ErrAlreadyClaimed
+	}
+	if _, err := s.Pool.Exec(ctx,
+		`UPDATE chat_threads SET assigned_staff_user_id = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+		threadID, staffUserID); err != nil {
+		return t, err
+	}
+	t.AssignedStaffUserID = &staffUserID
+	return t, nil
+}
+
+// ReleaseThread clears the claim, returning the thread to "any admin may
+// reply anonymously as Support."
+func (s *Store) ReleaseThread(ctx context.Context, threadID int64) (Thread, error) {
+	t, err := s.GetThread(ctx, threadID)
+	if err != nil {
+		return t, err
+	}
+	if _, err := s.Pool.Exec(ctx,
+		`UPDATE chat_threads SET assigned_staff_user_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+		threadID); err != nil {
+		return t, err
+	}
+	t.AssignedStaffUserID = nil
+	return t, nil
+}
+
 // ListThreadsForUser returns every thread the user belongs to (as donor or
 // owner), newest-activity first, with the other party + last message + unread.
 func (s *Store) ListThreadsForUser(ctx context.Context, userID int64) ([]ThreadView, error) {
@@ -220,6 +265,7 @@ func (s *Store) ListThreadsForUser(ctx context.Context, userID int64) ([]ThreadV
 		       CASE WHEN t.donor_user_id = $1 THEN 'donor' ELSE 'owner' END AS my_role,
 		       CASE WHEN t.donor_user_id = $1 THEN t.owner_user_id ELSE t.donor_user_id END AS other_id,
 		       op.full_name, ou.phone,
+		       sp.full_name AS assigned_staff_name,
 		       lm.body, lm.created_at,
 		       COALESCE((
 		         SELECT COUNT(*) FROM chat_messages m
@@ -232,6 +278,7 @@ func (s *Store) ListThreadsForUser(ctx context.Context, userID int64) ([]ThreadV
 		  LEFT JOIN campaigns c ON c.id = t.campaign_id
 		  LEFT JOIN users ou ON ou.id = (CASE WHEN t.donor_user_id = $1 THEN t.owner_user_id ELSE t.donor_user_id END)
 		  LEFT JOIN user_profiles op ON op.user_id = (CASE WHEN t.donor_user_id = $1 THEN t.owner_user_id ELSE t.donor_user_id END)
+		  LEFT JOIN user_profiles sp ON sp.user_id = t.assigned_staff_user_id
 		  LEFT JOIN LATERAL (
 		      SELECT body, created_at FROM chat_messages m
 		       WHERE m.thread_id = t.id ORDER BY m.id DESC LIMIT 1
@@ -249,7 +296,8 @@ func (s *Store) ListThreadsForUser(ctx context.Context, userID int64) ([]ThreadV
 	for rows.Next() {
 		var v ThreadView
 		if err := rows.Scan(&v.ID, &v.Status, &v.CampaignID, &v.CampaignTitle, &v.InitiatedBy, &v.UpdatedAt,
-			&v.MyRole, &v.OtherUserID, &v.OtherName, &v.OtherPhone, &v.LastMessage, &v.LastMessageAt, &v.UnreadCount); err != nil {
+			&v.MyRole, &v.OtherUserID, &v.OtherName, &v.OtherPhone, &v.AssignedStaffName,
+			&v.LastMessage, &v.LastMessageAt, &v.UnreadCount); err != nil {
 			return nil, err
 		}
 		v.IncomingPending = v.Status == "pending" && v.InitiatedBy != userID
@@ -354,21 +402,24 @@ func (t Thread) CounterpartIDs(senderID int64) []int64 {
 
 // AdminThreadView is the admin list row: both parties + counts.
 type AdminThreadView struct {
-	ID            int64      `json:"id"`
-	Status        string     `json:"status"`
-	CampaignID    *int64     `json:"campaign_id"`
-	CampaignTitle *string    `json:"campaign_title"`
-	DonorUserID   int64      `json:"donor_user_id"`
-	DonorName     *string    `json:"donor_name"`
-	DonorPhone    *string    `json:"donor_phone"`
-	OwnerUserID   int64      `json:"owner_user_id"`
-	OwnerName     *string    `json:"owner_name"`
-	OwnerPhone    *string    `json:"owner_phone"`
-	MessageCount  int        `json:"message_count"`
-	LastMessage   *string    `json:"last_message"`
-	LastMessageAt *time.Time `json:"last_message_at"`
-	CreatedAt     time.Time  `json:"created_at"`
-	UpdatedAt     time.Time  `json:"updated_at"`
+	ID            int64   `json:"id"`
+	Status        string  `json:"status"`
+	CampaignID    *int64  `json:"campaign_id"`
+	CampaignTitle *string `json:"campaign_title"`
+	DonorUserID   int64   `json:"donor_user_id"`
+	DonorName     *string `json:"donor_name"`
+	DonorPhone    *string `json:"donor_phone"`
+	OwnerUserID   int64   `json:"owner_user_id"`
+	OwnerName     *string `json:"owner_name"`
+	OwnerPhone    *string `json:"owner_phone"`
+	// Note #36 — the claimed "Responsible Staff Member," if any.
+	AssignedStaffUserID *int64     `json:"assigned_staff_user_id"`
+	AssignedStaffName   *string    `json:"assigned_staff_name"`
+	MessageCount        int        `json:"message_count"`
+	LastMessage         *string    `json:"last_message"`
+	LastMessageAt       *time.Time `json:"last_message_at"`
+	CreatedAt           time.Time  `json:"created_at"`
+	UpdatedAt           time.Time  `json:"updated_at"`
 }
 
 // ListAllThreads returns every thread for the admin Messages page.
@@ -383,6 +434,7 @@ func (s *Store) ListAllThreads(ctx context.Context, q string) ([]AdminThreadView
 		SELECT t.id, t.status, t.campaign_id, c.title,
 		       t.donor_user_id, dp.full_name, du.phone,
 		       t.owner_user_id, opf.full_name, ou.phone,
+		       t.assigned_staff_user_id, sp.full_name,
 		       COALESCE((SELECT COUNT(*) FROM chat_messages m WHERE m.thread_id = t.id), 0),
 		       lm.body, lm.created_at,
 		       t.created_at, t.updated_at
@@ -392,6 +444,7 @@ func (s *Store) ListAllThreads(ctx context.Context, q string) ([]AdminThreadView
 		  LEFT JOIN user_profiles dp ON dp.user_id = t.donor_user_id
 		  LEFT JOIN users ou ON ou.id = t.owner_user_id
 		  LEFT JOIN user_profiles opf ON opf.user_id = t.owner_user_id
+		  LEFT JOIN user_profiles sp ON sp.user_id = t.assigned_staff_user_id
 		  LEFT JOIN LATERAL (
 		     SELECT body, created_at FROM chat_messages m
 		      WHERE m.thread_id = t.id ORDER BY m.id DESC LIMIT 1
@@ -410,6 +463,7 @@ func (s *Store) ListAllThreads(ctx context.Context, q string) ([]AdminThreadView
 		if err := rows.Scan(&v.ID, &v.Status, &v.CampaignID, &v.CampaignTitle,
 			&v.DonorUserID, &v.DonorName, &v.DonorPhone,
 			&v.OwnerUserID, &v.OwnerName, &v.OwnerPhone,
+			&v.AssignedStaffUserID, &v.AssignedStaffName,
 			&v.MessageCount, &v.LastMessage, &v.LastMessageAt,
 			&v.CreatedAt, &v.UpdatedAt); err != nil {
 			return nil, err

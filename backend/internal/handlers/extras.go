@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"context"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -183,6 +185,23 @@ func NewMarriageHandler(s *marriage.Store, n *notify.Notifier) *MarriageHandler 
 	return &MarriageHandler{Store: s, Notifier: n}
 }
 
+// notifyStaffInBackground alerts staff (dashboard) about a new submission on a
+// detached goroutine, so a slow fan-out never blocks the user's 200 response.
+// Best-effort — errors are logged, not returned. Mirrors
+// BeneficiaryHandler.notifyStaffInBackground (beneficiary.go).
+func (h *MarriageHandler) notifyStaffInBackground(m notify.LocalizedMessage) {
+	if h.Notifier == nil {
+		return
+	}
+	go func() {
+		bg, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if _, err := h.Notifier.BroadcastToStaff(bg, m); err != nil {
+			log.Printf("[notify] staff submission alert failed: %v", err)
+		}
+	}()
+}
+
 func (h *MarriageHandler) Get(c *gin.Context) {
 	limit, _ := strconv.Atoi(strings.TrimSpace(c.Query("limit")))
 	minAge, _ := strconv.Atoi(strings.TrimSpace(c.Query("min_age")))
@@ -195,6 +214,25 @@ func (h *MarriageHandler) Get(c *gin.Context) {
 		MaxAge: maxAge,
 		Limit:  limit,
 	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "items": items})
+}
+
+// MyProfiles — GET /api/marriage/mine (Note #18). The current user's OWN
+// submitted profile(s), in any status — unlike the public Get/List above
+// (which only surfaces active/under_review/submitted profiles to browsers),
+// a user needs to see their own profile even when it's rejected/closed/
+// paused, so status is unfiltered here.
+func (h *MarriageHandler) MyProfiles(c *gin.Context) {
+	user, _ := auth.UserFromGin(c)
+	if user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		return
+	}
+	items, err := h.Store.List(c.Request.Context(), marriage.SearchFilters{Status: "all", OwnedByUser: user.UserID})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
 		return
@@ -303,6 +341,10 @@ func (h *MarriageHandler) Post(c *gin.Context) {
 	// Phase 18 — centralised 4-language template.
 	_, _ = h.Notifier.Send(c.Request.Context(), uid,
 		notify.MarriageSubmittedMsg(code, id))
+	// Note #18 — also alert staff on the dashboard that a new profile needs
+	// review (previously only the submitting user was notified, same gap
+	// beneficiary cases had before Requirement B1).
+	h.notifyStaffInBackground(notify.NewMarriageProfileAdminMsg(code, id))
 	c.JSON(http.StatusOK, gin.H{"success": true, "id": id, "profile_code": code, "status": "submitted"})
 }
 
@@ -719,12 +761,12 @@ func (h *ReportsHandler) Get(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"success":                  true,
-		"donations":                r.Donations,
-		"beneficiary_cases":        r.BeneficiaryCases,
-		"project_requests":         r.ProjectRequests,
-		"expenses":                 r.Expenses,
-		"volunteers":               r.Volunteers,
+		"success":                   true,
+		"donations":                 r.Donations,
+		"beneficiary_cases":         r.BeneficiaryCases,
+		"project_requests":          r.ProjectRequests,
+		"expenses":                  r.Expenses,
+		"volunteers":                r.Volunteers,
 		"volunteer_signup_statuses": r.VolunteerSignupStatuses,
 	})
 }

@@ -110,16 +110,27 @@ export default function Table<T>({ rows, columns, rowKey, empty, loading, select
               // Strip className from the spread so we don't pass it twice.
               const { className: _ignored, ...dataAttrs } = extra
               return (
+                // Note #1 — this used to also animate `y` (translateY), a
+                // CSS transform. If that mount animation didn't finish
+                // cleanly (backgrounded tab, slow render, browser rAF
+                // throttling — all normal in real usage), the row stayed
+                // permanently mid-transform. Applying any transform to a
+                // <tr> can pull it out of the table's native column-tracking
+                // layout, and that's exactly what caused headers to visibly
+                // drift away from their column data — confirmed live and
+                // reproducible. Opacity alone never affects layout, so this
+                // whole bug class is now structurally impossible regardless
+                // of whether the animation ever completes.
                 <motion.tr
                   key={rowKey(row)}
                   className={className}
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
                   transition={{ duration: 0.22, delay: staggerDelay, ease: 'easeOut' }}
                   {...dataAttrs}
                 >
                   {selectable && (
-                    <td style={{ textAlign: 'center' }}>
+                    <td className="select-cell" style={{ textAlign: 'center' }}>
                       <input
                         type="checkbox"
                         aria-label={t('common.select_row')}

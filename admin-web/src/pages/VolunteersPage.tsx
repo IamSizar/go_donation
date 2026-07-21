@@ -18,6 +18,8 @@ import { downloadCsv, type CsvColumn } from '../lib/csv'
 import { HighlightBanner, useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForStatus } from '../lib/statusColors'
 import { usePendingCounts } from '../lib/pendingCounts'
+import { formatDateParts } from '../lib/dates'
+import AvailabilityCell from '../components/AvailabilityCell'
 import {
   ALL_SKILL_KEYS,
   DAY_KEYS,
@@ -57,6 +59,9 @@ const VOLUNTEER_FIELDS: FieldSpec[] = [
   { key: 'cv_link',      label: 'CV link', labelKey: 'field.cv_link',      type: 'text' },
   { key: 'availability', label: 'Availability notes', labelKey: 'field.availability_notes', type: 'textarea', rows: 2 },
   { key: 'skills',       label: 'Skills (free text)', labelKey: 'field.skills_free', type: 'textarea', rows: 3 },
+  { key: 'skills_ar',     label: 'Skills (AR)', labelKey: 'field.skills_ar',     type: 'textarea', rows: 3, dir: 'rtl' },
+  { key: 'skills_sorani', label: 'Skills (Sorani)', labelKey: 'field.skills_sorani', type: 'textarea', rows: 3, dir: 'rtl' },
+  { key: 'skills_badini', label: 'Skills (Badini)', labelKey: 'field.skills_badini', type: 'textarea', rows: 3, dir: 'rtl' },
   // Phase 26 — skill_tags is TEXT[] server-side. The modal still uses a
   // plain text input (comma-separated), and the page-level handlers
   // normalize the value before POST/PATCH (csvToArray).
@@ -309,13 +314,20 @@ function ApplicationsTab() {
   }
 
   const columns: Column<AdminVolunteerApp>[] = [
-    { key: 'id', header: t('col.id'), width: '60px', cell: (a) => <strong>#{a.id}</strong> },
+    {
+      // Note #20 — display-only change, same treatment as Donations (Note
+      // #14): `#5` → `T5`. a.id itself is unchanged everywhere it's actually
+      // used (API calls, links, row keys).
+      key: 'id', header: t('col.id'), width: '60px', cell: (a) => <strong>T{a.id}</strong>,
+    },
     {
       key: 'who', header: t('col.applicant'),
       cell: (a) => (
+        // Note #20 — was name + phone number; phone is one click away on
+        // View, same reasoning as the Donations Donor column fix.
         <div className="cell-stack">
           <strong>{a.full_name}</strong>
-          <span className="muted">{a.phone ?? a.user_phone ?? '—'}</span>
+          <span className="muted">{a.user_id ? `#${a.user_id}` : '—'}</span>
         </div>
       ),
     },
@@ -326,9 +338,15 @@ function ApplicationsTab() {
       cell: (a) => {
         // Prefer the structured chips when present; show free-form
         // below the chips only when it differs from the auto-synthesized
-        // CSV the backend builds.
+        // CSV the backend builds. The free text itself is admin-translatable
+        // (skills_ar/_sorani/_badini) — show the variant matching the
+        // dashboard's current locale when the admin has filled one in,
+        // falling back to the original text the volunteer typed.
         const keys = a.skill_tags ?? []
-        const freeText = (a.skills ?? '').trim()
+        const localizedSkills =
+          (locale === 'ar' ? a.skills_ar : locale === 'ckb' ? a.skills_sorani : locale === 'kmr' ? a.skills_badini : null)
+            ?.trim() || null
+        const freeText = (localizedSkills || a.skills || '').trim()
         const showFreeText =
           freeText.length > 0 &&
           freeText.toLowerCase() !== keys.join(', ').toLowerCase()
@@ -374,47 +392,19 @@ function ApplicationsTab() {
       },
     },
     {
+      // Note #20 — was always-expanded vertical list of every day/time,
+      // making the row tall for anyone available most of the week. Now a
+      // compact "N days" badge that opens a small card on click; see
+      // AvailabilityCell for the clipping-safe portal positioning.
       key: 'avail',
       header: t('col.availability'),
-      cell: (a) => {
-        const rows = a.availability_schedule ?? []
-        if (rows.length === 0) {
-          return a.availability ? <span>{a.availability}</span> : <span className="muted">—</span>
-        }
-        // Compact two-column layout — day pill on the left, time on the right.
-        return (
-          <div className="cell-stack" style={{ gap: 3 }}>
-            {rows.map((r) => (
-              <div
-                key={r.day}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  fontSize: 11,
-                }}
-              >
-                <span
-                  style={{
-                    display: 'inline-block',
-                    width: 30,
-                    padding: '1px 0',
-                    textAlign: 'center',
-                    borderRadius: 6,
-                    fontWeight: 700,
-                    fontSize: 10,
-                    color: '#fff',
-                    background: 'var(--accent, #4F46E5)',
-                  }}
-                >
-                  {dayLabelFor(r.day, locale).slice(0, 3)}
-                </span>
-                <span style={{ fontFamily: 'monospace' }}>{r.from} – {r.to}</span>
-              </div>
-            ))}
-          </div>
-        )
-      },
+      cell: (a) => (
+        <AvailabilityCell
+          schedule={a.availability_schedule ?? []}
+          freeText={a.availability}
+          locale={locale}
+        />
+      ),
     },
     {
       key: 'status', header: t('col.status'),
@@ -427,7 +417,20 @@ function ApplicationsTab() {
         />
       ),
     },
-    { key: 'created', header: t('col.created'), cell: (a) => <span className="muted">{a.created_at?.slice(0, 10)}</span> },
+    {
+      // Note #20 — was date-only, single line. Now splits date/time onto two
+      // lines like Donations (Note #14) — reuses the same shared helper.
+      key: 'created', header: t('col.created'),
+      cell: (a) => {
+        const { date, time } = formatDateParts(a.created_at)
+        return (
+          <div className="cell-stack">
+            <span className="muted">{date}</span>
+            {time && <span className="muted" style={{ fontSize: '0.85em' }}>{time}</span>}
+          </div>
+        )
+      },
+    },
     {
       key: 'actions', header: t('common.actions'), width: '170px',
       cell: (a) => (

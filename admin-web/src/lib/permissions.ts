@@ -77,3 +77,24 @@ export function useExportAllowed(module: string, user: StoredUser | null): boole
   if (matrix && matrix[module]) return matrix[module].export === true
   return canExportData(user)
 }
+
+/** Note #4 — generic per-module/per-action permission check, e.g.
+ *  usePermission('users', 'archive', user). Same load/fallback shape as
+ *  useExportAllowed/useCanViewSensitive; falls back to the tier gate
+ *  (admin/super_admin) while the matrix is loading or on fetch failure, so a
+ *  transient error hides the action rather than exposing it to everyone. */
+export function usePermission(module: string, action: string, user: StoredUser | null): boolean {
+  const [matrix, setMatrix] = useState<PermMatrix | null>(cache)
+  useEffect(() => {
+    let active = true
+    fetchMatrix().then((m) => {
+      if (active && m) setMatrix(m)
+    })
+    return () => {
+      active = false
+    }
+  }, [])
+  if (matrix && matrix[module]) return matrix[module][action] === true
+  const tier = user?.staff_tier
+  return tier === 'super_admin' || tier === 'admin'
+}

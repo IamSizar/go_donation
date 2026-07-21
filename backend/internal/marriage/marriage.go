@@ -13,7 +13,11 @@ import (
 )
 
 type Profile struct {
-	ID                 int64     `json:"id"`
+	ID int64 `json:"id"`
+	// Note #18 — exposed so "my own profile" responses (OwnedByUser filter)
+	// can be told apart from another user's; omitted from nothing (it was
+	// always selected, just never scanned/exposed before).
+	UserID             int64     `json:"user_id"`
 	ProfileCode        string    `json:"profile_code"`
 	Gender             *string   `json:"gender"`
 	Age                *int      `json:"age"`
@@ -42,6 +46,7 @@ type SearchFilters struct {
 	MinAge      int
 	MaxAge      int
 	SavedByUser int64 // when >0, only profiles this user saved
+	OwnedByUser int64 // Note #18 — when >0, only profiles this user submitted
 	Limit       int
 }
 
@@ -82,13 +87,17 @@ func (s *Store) List(ctx context.Context, f SearchFilters) ([]Profile, error) {
 		args = append(args, f.SavedByUser)
 		conds = append(conds, "id IN (SELECT profile_id FROM marriage_saved WHERE user_id = $"+itoa(len(args))+")")
 	}
+	if f.OwnedByUser > 0 {
+		args = append(args, f.OwnedByUser)
+		conds = append(conds, "user_id = $"+itoa(len(args)))
+	}
 	where := ""
 	if len(conds) > 0 {
 		where = "WHERE " + strings.Join(conds, " AND ")
 	}
 	args = append(args, limit)
 	limitIdx := len(args)
-	sqlStr := `SELECT id, profile_code, gender, age, city, social_summary,
+	sqlStr := `SELECT id, user_id, profile_code, gender, age, city, social_summary,
 	             visibility_level, subscription_status, status, created_at
 	        FROM marriage_profiles ` + where + `
 	       ORDER BY id DESC
@@ -101,7 +110,7 @@ func (s *Store) List(ctx context.Context, f SearchFilters) ([]Profile, error) {
 	items := []Profile{}
 	for rows.Next() {
 		var p Profile
-		if err := rows.Scan(&p.ID, &p.ProfileCode, &p.Gender, &p.Age, &p.City, &p.SocialSummary,
+		if err := rows.Scan(&p.ID, &p.UserID, &p.ProfileCode, &p.Gender, &p.Age, &p.City, &p.SocialSummary,
 			&p.VisibilityLevel, &p.SubscriptionStatus, &p.Status, &p.CreatedAt); err != nil {
 			return nil, err
 		}
@@ -149,10 +158,11 @@ func (s *Store) Insert(ctx context.Context, userID int64,
 	if userID <= 0 {
 		return 0, "", errors.New("invalid userID")
 	}
+	// Note #17 — was free/paid/waived; bronze is the new entry tier.
 	switch subscriptionStatus {
-	case "free", "paid", "waived":
+	case "bronze", "silver", "gold", "diamond", "vip":
 	default:
-		subscriptionStatus = "free"
+		subscriptionStatus = "bronze"
 	}
 	// #42 — privacy: who can see the profile. Falls back to the DB default.
 	switch visibilityLevel {

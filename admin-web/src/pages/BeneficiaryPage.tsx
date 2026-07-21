@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import RowDeleteButton from '../components/RowDeleteButton'
 import { Link } from 'react-router-dom'
 import ExportCsvButton from '../components/ExportCsvButton'
@@ -21,6 +21,8 @@ import { useSelection } from '../lib/useSelection'
 import { downloadCsv, type CsvColumn } from '../lib/csv'
 import { HighlightBanner, useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForStatus } from '../lib/statusColors'
+import { IRAQ_GOVERNORATES } from '../lib/iraqGovernorates'
+import { useFieldRules, type FieldRuleState } from '../lib/fieldRules'
 
 const CASE_CSV_COLUMNS: CsvColumn<BeneficiaryCase>[] = [
   { header: 'id', get: (r) => r.id },
@@ -78,37 +80,65 @@ const EDITABLE_REQUEST_STATUSES = REQUEST_STATUSES.filter((s) => s !== 'all')
 
 const PRIORITY_LEVELS = ['low', 'medium', 'high', 'urgent']
 const CASE_VISIBILITY = ['code_only', 'summary', 'hidden']
+const CASE_GENDERS = ['male', 'female']
+const CASE_MARITAL_STATUSES = ['single', 'married', 'widowed', 'divorced']
 
-// Editable subset of beneficiary_cases.
-const CASE_FIELDS: FieldSpec[] = [
-  { key: 'public_title',         label: 'Public title (EN)', labelKey: 'field.public_title_en',  type: 'text',     required: true },
-  { key: 'public_title_ar',      label: 'Public title (AR)', labelKey: 'field.public_title_ar',  type: 'text',     dir: 'rtl' },
-  { key: 'public_title_sorani',  label: 'Public title (Sorani)', labelKey: 'field.public_title_sorani', type: 'text',  dir: 'rtl' },
-  { key: 'public_title_badini',  label: 'Public title (Badini)', labelKey: 'field.public_title_badini', type: 'text',  dir: 'rtl' },
-  { key: 'full_name',            label: 'Full name', labelKey: 'field.full_name',          type: 'text' },
-  { key: 'national_id',          label: 'National ID', labelKey: 'field.national_id',        type: 'text' },
-  { key: 'phone',                label: 'Phone', labelKey: 'field.phone',              type: 'text' },
-  { key: 'city',                 label: 'City', labelKey: 'field.city',               type: 'text' },
-  { key: 'district',             label: 'District', labelKey: 'field.district',           type: 'text' },
-  { key: 'family_members_count', label: 'Family members', labelKey: 'field.family_members',     type: 'number' },
-  { key: 'income_amount',        label: 'Income amount', labelKey: 'field.income_amount',      type: 'number' },
-  { key: 'priority_level',       label: 'Priority', labelKey: 'field.priority',           type: 'select',   options: PRIORITY_LEVELS },
-  { key: 'verification_status',  label: 'Verification status', labelKey: 'field.verification_status',type: 'select',   options: EDITABLE_CASE_STATUSES },
-  { key: 'public_visibility',    label: 'Public visibility', labelKey: 'field.public_visibility',  type: 'select',   options: CASE_VISIBILITY },
-  { key: 'housing_status',       label: 'Housing status', labelKey: 'field.housing_status',     type: 'text' },
-  { key: 'work_status',          label: 'Work status', labelKey: 'field.work_status',        type: 'text' },
-  { key: 'address',              label: 'Address', labelKey: 'field.address',            type: 'textarea', rows: 2 },
-  { key: 'health_status',        label: 'Health status', labelKey: 'field.health_status',      type: 'textarea', rows: 2 },
-  { key: 'education_status',     label: 'Education status', labelKey: 'field.education_status',   type: 'textarea', rows: 2 },
-  { key: 'actual_needs',         label: 'Actual needs', labelKey: 'field.actual_needs',       type: 'textarea', rows: 3 },
-  { key: 'review_notes',         label: 'Review notes', labelKey: 'field.review_notes',       type: 'textarea', rows: 3 },
-]
-
-// Create form adds optional user_id at the top.
-const CASE_CREATE_FIELDS: FieldSpec[] = [
-  { key: 'user_id', label: 'User ID (optional)', labelKey: 'field.user_id_optional', type: 'number' },
-  ...CASE_FIELDS,
-]
+// Note #32 — every field an admin actually fills in when adding/editing a
+// case is now Field-Rules-driven: `required` comes from the "case_<key>"
+// row in registration_field_rules (Dashboard Settings → Field Rules)
+// instead of being hardcoded here, so a Super-Admin can flip Required/
+// Optional per field without a code change. Workflow fields (priority,
+// verification status, visibility, review notes) are admin-set operational
+// state rather than applicant data, so they're deliberately NOT in the
+// field-rules set and keep their existing behavior.
+// `city` is relabeled "Governorate" and switched to a dropdown (the client's
+// ask) — same underlying DB column/API field, just a structured input.
+function buildCaseFields(
+  state: Record<string, FieldRuleState>,
+  locale: string | undefined,
+  t: (key: string) => string,
+): FieldSpec[] {
+  const governorateLabels: Record<string, string> = {}
+  for (const g of IRAQ_GOVERNORATES) {
+    governorateLabels[g.value] = locale === 'ar' || locale === 'ckb' || locale === 'kmr' ? g.ar : g.en
+  }
+  const genderLabels: Record<string, string> = { male: t('option.gender_male'), female: t('option.gender_female') }
+  const maritalLabels: Record<string, string> = {
+    single: t('option.marital_single'), married: t('option.marital_married'),
+    widowed: t('option.marital_widowed'), divorced: t('option.marital_divorced'),
+  }
+  // ruleKey defaults to the FieldSpec key; a handful of DB columns are named
+  // differently from their field-rules row (city -> governorate, etc).
+  const isRequired = (ruleKey: string) => state[ruleKey] === 'required'
+  const isHidden = (ruleKey: string) => state[ruleKey] === 'hidden'
+  const fields: (FieldSpec & { ruleKey?: string })[] = [
+    { key: 'public_title',         label: 'Public title (EN)', labelKey: 'field.public_title_en',  type: 'text',     required: isRequired('public_title') || (state.public_title === undefined) },
+    { key: 'public_title_ar',      label: 'Public title (AR)', labelKey: 'field.public_title_ar',  type: 'text',     dir: 'rtl' },
+    { key: 'public_title_sorani',  label: 'Public title (Sorani)', labelKey: 'field.public_title_sorani', type: 'text',  dir: 'rtl' },
+    { key: 'public_title_badini',  label: 'Public title (Badini)', labelKey: 'field.public_title_badini', type: 'text',  dir: 'rtl' },
+    { key: 'full_name',            label: 'Full name', labelKey: 'field.full_name',          type: 'text',     required: isRequired('full_name') },
+    { key: 'national_id',          label: 'National ID', labelKey: 'field.national_id',        type: 'text',     required: isRequired('national_id') },
+    { key: 'gender',                label: 'Gender', labelKey: 'field.gender',              type: 'select',   options: CASE_GENDERS, optionLabels: genderLabels, required: isRequired('gender') },
+    { key: 'date_of_birth',        label: 'Date of birth', labelKey: 'field.date_of_birth',      type: 'date',     required: isRequired('date_of_birth') },
+    { key: 'marital_status',       label: 'Marital status', labelKey: 'field.marital_status',     type: 'select',   options: CASE_MARITAL_STATUSES, optionLabels: maritalLabels, required: isRequired('marital_status') },
+    { key: 'phone',                label: 'Phone', labelKey: 'field.phone',              type: 'text',     required: isRequired('phone') },
+    { key: 'city',                 label: 'Governorate', labelKey: 'field.governorate',        type: 'select',   options: IRAQ_GOVERNORATES.map((g) => g.value), optionLabels: governorateLabels, required: isRequired('governorate'), ruleKey: 'governorate' },
+    { key: 'district',             label: 'Neighborhood / District', labelKey: 'field.district', type: 'text', required: isRequired('district') },
+    { key: 'family_members_count', label: 'Family members', labelKey: 'field.family_members',     type: 'number',   required: isRequired('family_members_count') },
+    { key: 'income_amount',        label: 'Income amount', labelKey: 'field.income_amount',      type: 'number',   required: isRequired('income_amount') },
+    { key: 'priority_level',       label: 'Priority', labelKey: 'field.priority',           type: 'select',   options: PRIORITY_LEVELS },
+    { key: 'verification_status',  label: 'Verification status', labelKey: 'field.verification_status',type: 'select',   options: EDITABLE_CASE_STATUSES },
+    { key: 'public_visibility',    label: 'Public visibility', labelKey: 'field.public_visibility',  type: 'select',   options: CASE_VISIBILITY },
+    { key: 'housing_status',       label: 'Housing status', labelKey: 'field.housing_status',     type: 'text',     required: isRequired('housing_status') },
+    { key: 'work_status',          label: 'Work status', labelKey: 'field.work_status',        type: 'text',     required: isRequired('work_status') },
+    { key: 'address',              label: 'Address', labelKey: 'field.address',            type: 'textarea', rows: 2, required: isRequired('address') },
+    { key: 'health_status',        label: 'Health status', labelKey: 'field.health_status',      type: 'textarea', rows: 2, required: isRequired('health_status') },
+    { key: 'education_status',     label: 'Education status', labelKey: 'field.education_status',   type: 'textarea', rows: 2, required: isRequired('education_status') },
+    { key: 'actual_needs',         label: 'Actual needs', labelKey: 'field.actual_needs',       type: 'textarea', rows: 3, required: isRequired('actual_needs') },
+    { key: 'review_notes',         label: 'Review notes', labelKey: 'field.review_notes',       type: 'textarea', rows: 3 },
+  ]
+  return fields.filter((f) => !isHidden(f.ruleKey ?? f.key))
+}
 
 const REQUEST_FIELDS: FieldSpec[] = [
   { key: 'project_title',          label: 'Title (EN)', labelKey: 'field.title_en',     type: 'text',     required: true },
@@ -206,10 +236,18 @@ function CasesTab() {
   // stays hidden and the list updates silently (no full reload flash).
   const pollSilent = useRef(false)
   const toast = useToast()
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const sel = useSelection<BeneficiaryCase>((r) => r.id)
   // Live-feed click → pulse the matching case row.
   const highlight = useHighlightedRow()
+  // Note #32 — Field Rules (Dashboard Settings) drives which of these
+  // fields are Required vs Optional.
+  const { state: caseFieldState } = useFieldRules('case_')
+  const caseFields = useMemo(() => buildCaseFields(caseFieldState, locale, t), [caseFieldState, locale, t])
+  const caseCreateFields = useMemo(
+    () => [{ key: 'user_id', label: 'User ID (optional)', labelKey: 'field.user_id_optional', type: 'number' as const }, ...caseFields],
+    [caseFields],
+  )
 
   useEffect(() => {
     let cancelled = false
@@ -352,7 +390,11 @@ function CasesTab() {
       header: t('col.status'),
       cell: (r) => (
         <StatusCell
-          value={r.verification_status}
+          // Note #15 — legacy self-submitted cases can have a null
+          // verification_status (backend now defaults new ones to
+          // "submitted"); fall back the same way so an old row still renders
+          // a normal, editable status instead of an empty/uncontrolled select.
+          value={r.verification_status ?? 'submitted'}
           allowed={EDITABLE_CASE_STATUSES}
           onSave={(next) =>
             api.post(`/api/admin/beneficiary_cases/${r.id}/status`, { status: next })
@@ -421,7 +463,7 @@ function CasesTab() {
         rowProps={(r) => ({
           className: [
             highlight.isHighlighted(r.id) ? 'is-highlighted' : '',
-            stripeForStatus(r.verification_status),
+            stripeForStatus(r.verification_status ?? 'submitted'),
           ].filter(Boolean).join(' '),
           'data-highlight-id': String(r.id),
         })}
@@ -452,7 +494,7 @@ function CasesTab() {
         mode={creating ? 'create' : 'edit'}
         title={creating ? t('common.modal_new', { noun: t('noun.case') }) : editing ? t('common.modal_edit', { noun: t('noun.case'), id: editing.id }) : ''}
         initial={creating ? {} : (editing as unknown as Record<string, unknown> ?? {})}
-        fields={creating ? CASE_CREATE_FIELDS : CASE_FIELDS}
+        fields={creating ? caseCreateFields : caseFields}
         onSave={(data) => (creating ? handleCreate(data) : handleSave(editing!.id, data))}
         onClose={closeModal}
       />

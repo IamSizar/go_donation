@@ -73,5 +73,10 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<!-- Note #37 — volunteer field check-in/check-out: live photo + GPS proof. -->
+	<key>NSCameraUsageDescription</key>
+	<string>Used to take a live photo when checking in or out of a volunteer mission.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Used to record your location when checking in or out of a volunteer mission.</string>
 </dict>
 </plist>

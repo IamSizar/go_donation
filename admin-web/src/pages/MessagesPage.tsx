@@ -24,6 +24,9 @@ type AdminThread = {
   owner_user_id: number
   owner_name: string | null
   owner_phone: string | null
+  // Note #36 — the "Responsible Staff Member" claim.
+  assigned_staff_user_id: number | null
+  assigned_staff_name: string | null
   message_count: number
   last_message: string | null
   last_message_at: string | null
@@ -61,6 +64,8 @@ const THREAD_CSV_COLUMNS: CsvColumn<AdminThread>[] = [
   { header: 'owner_user_id', get: (t) => t.owner_user_id },
   { header: 'owner_name', get: (t) => t.owner_name ?? '' },
   { header: 'owner_phone', get: (t) => t.owner_phone ?? '' },
+  { header: 'assigned_staff_user_id', get: (t) => t.assigned_staff_user_id ?? '' },
+  { header: 'assigned_staff_name', get: (t) => t.assigned_staff_name ?? '' },
   { header: 'message_count', get: (t) => t.message_count },
   { header: 'last_message', get: (t) => t.last_message ?? '' },
   { header: 'last_message_at', get: (t) => t.last_message_at ?? '' },
@@ -85,6 +90,7 @@ export default function MessagesPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [reply, setReply] = useState('')
   const [sending, setSending] = useState(false)
+  const [claiming, setClaiming] = useState(false)
   const msgEnd = useRef<HTMLDivElement | null>(null)
 
 
@@ -94,10 +100,13 @@ export default function MessagesPage() {
       const res = await api.get<{ items: AdminThread[] }>('/api/admin/chats', {
         params: { q: q || undefined },
       })
-      setThreads(res.data.items ?? [])
+      const items = res.data.items ?? []
+      setThreads(items)
       setErr(null)
+      return items
     } catch (e) {
       setErr(describeError(e))
+      return null
     }
   }, [q])
 
@@ -144,6 +153,35 @@ export default function MessagesPage() {
       setErr(describeError(e))
     } finally {
       setSending(false)
+    }
+  }
+
+  // Note #36 — claim/release the "Responsible Staff Member" on this thread.
+  async function claim() {
+    if (!selected || claiming) return
+    setClaiming(true)
+    try {
+      await api.post(`/api/admin/chats/${selected.id}/claim`)
+      const items = await loadThreads()
+      if (items) setSelected((s) => (s ? items.find((t) => t.id === s.id) ?? s : s))
+    } catch (e) {
+      setErr(describeError(e))
+    } finally {
+      setClaiming(false)
+    }
+  }
+
+  async function release() {
+    if (!selected || claiming) return
+    setClaiming(true)
+    try {
+      await api.post(`/api/admin/chats/${selected.id}/release`)
+      const items = await loadThreads()
+      if (items) setSelected((s) => (s ? items.find((t) => t.id === s.id) ?? s : s))
+    } catch (e) {
+      setErr(describeError(e))
+    } finally {
+      setClaiming(false)
     }
   }
 
@@ -231,6 +269,23 @@ export default function MessagesPage() {
                 {selected.campaign_title && (
                   <span className="muted" style={{ fontSize: 12.5 }}>{t('common.msg_campaign')}: {selected.campaign_title}</span>
                 )}
+                {/* Note #36 — "Responsible Staff Member" claim/release. */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+                  {selected.assigned_staff_user_id ? (
+                    <>
+                      <span className="muted" style={{ fontSize: 12.5 }}>
+                        {t('common.msg_assigned_to')}: <strong>{name(selected.assigned_staff_name, selected.assigned_staff_user_id, t)}</strong>
+                      </span>
+                      <button className="secondary" style={{ padding: '2px 10px', fontSize: 12 }} onClick={release} disabled={claiming}>
+                        {t('common.msg_release')}
+                      </button>
+                    </>
+                  ) : (
+                    <button className="secondary" style={{ padding: '2px 10px', fontSize: 12 }} onClick={claim} disabled={claiming}>
+                      {t('common.msg_claim')}
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10, paddingRight: 4 }}>
@@ -247,7 +302,9 @@ export default function MessagesPage() {
                   return (
                     <div key={m.id} style={{ alignSelf: align, maxWidth: '72%' }}>
                       <div className="muted" style={{ fontSize: 11, marginBottom: 2, textAlign: isOwner ? 'right' : 'left' }}>
-                        {isSupport ? `🛡 ${t('nav.support')}` : m.sender_name ?? t('common.user_ref', { id: m.sender_user_id })}
+                        {isSupport
+                          ? `🛡 ${m.sender_name ?? t('nav.support')}`
+                          : m.sender_name ?? t('common.user_ref', { id: m.sender_user_id })}
                       </div>
                       <div style={{ background: bg, padding: '8px 12px', borderRadius: 12, fontSize: 14, lineHeight: 1.4 }}>
                         {m.body}

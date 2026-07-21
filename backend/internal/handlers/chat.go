@@ -64,8 +64,8 @@ type chatRequestReq struct {
 
 // POST /api/chats/request
 // Two entry styles:
-//   • Donor, from a donation's detail:  { "donation_id": N }
-//   • Owner, from campaign-donations:   { "donor_user_id": N, "campaign_id": M }
+//   - Donor, from a donation's detail:  { "donation_id": N }
+//   - Owner, from campaign-donations:   { "donor_user_id": N, "campaign_id": M }
 func (h *ChatHandler) Request(c *gin.Context) {
 	user, _ := auth.UserFromGin(c)
 	if user == nil {
@@ -163,10 +163,10 @@ func (h *ChatHandler) Request(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"success":     true,
-		"thread_id":   thread.ID,
-		"status":      thread.Status,
-		"already":     !isNew,
+		"success":   true,
+		"thread_id": thread.ID,
+		"status":    thread.Status,
+		"already":   !isNew,
 	})
 }
 
@@ -364,6 +364,8 @@ func (h *ChatHandler) chatErr(c *gin.Context, err error) {
 		c.JSON(http.StatusForbidden, gin.H{"success": false, "error": "Only the invited party can accept or decline."})
 	case errors.Is(err, chat.ErrNotActive):
 		c.JSON(http.StatusConflict, gin.H{"success": false, "error": "This chat is not active yet."})
+	case errors.Is(err, chat.ErrAlreadyClaimed):
+		c.JSON(http.StatusConflict, gin.H{"success": false, "error": "This chat is already claimed by another staff member."})
 	default:
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
 	}
@@ -453,4 +455,44 @@ func (h *ChatHandler) AdminPostMessage(c *gin.Context) {
 		}()
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": msg})
+}
+
+// POST /api/admin/chats/:id/claim — Note #36: a staff member claims a thread,
+// becoming the named "Responsible Staff Member" shown to the donor/owner
+// instead of anonymous "Support". Idempotent for the same staff member;
+// 409s if another staff member already holds the claim.
+func (h *ChatHandler) AdminClaim(c *gin.Context) {
+	user, ok := auth.UserFromGin(c)
+	if !ok || user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		return
+	}
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	thread, err := h.Store.ClaimThread(c.Request.Context(), id, user.UserID)
+	if err != nil {
+		h.chatErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "thread_id": thread.ID, "assigned_staff_user_id": thread.AssignedStaffUserID})
+}
+
+// POST /api/admin/chats/:id/release — clears the claim.
+func (h *ChatHandler) AdminRelease(c *gin.Context) {
+	if _, ok := auth.UserFromGin(c); !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		return
+	}
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	thread, err := h.Store.ReleaseThread(c.Request.Context(), id)
+	if err != nil {
+		h.chatErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "thread_id": thread.ID})
 }

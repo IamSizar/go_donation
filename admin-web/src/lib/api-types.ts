@@ -6,6 +6,17 @@ export type UserProfile = {
   gender: string | null
   address: string | null
   profile_picture: string | null
+  date_of_birth?: string | null
+  // Note #6 — the rest of the registration profile, now editable from the
+  // Users table (previously only visible read-only on the Detail page).
+  city: string | null
+  occupation: string | null
+  family_size: number | null
+  housing_status: string | null
+  monthly_income: string | null
+  skills: string | null
+  availability: string | null
+  experience: string | null
 }
 
 export type UserAccount = {
@@ -161,6 +172,8 @@ export type CampaignStatus = 'active' | 'hidden' | 'finished'
 export type Sponsorship = {
   id: number
   donor_user_id: number | null
+  donor_phone: string | null
+  donor_full_name: string | null
   beneficiary_case_id: number | null
   project_request_id: number | null
   sponsorship_type: string
@@ -186,6 +199,12 @@ export type BeneficiaryCase = {
   case_code: string
   public_title: string
   public_title_ar: string | null
+  full_name: string | null
+  national_id: string | null
+  phone: string | null
+  gender: string | null
+  date_of_birth: string | null
+  marital_status: string | null
   city: string | null
   district: string | null
   address: string | null
@@ -197,7 +216,9 @@ export type BeneficiaryCase = {
   education_status: string | null
   actual_needs: string | null
   priority_level: string
-  verification_status: string
+  // Note #15 — nullable now: legacy self-submitted cases can have SQL NULL
+  // here (the backend used to crash the whole list on such a row instead).
+  verification_status: string | null
   public_visibility: string
   review_notes: string | null
   created_at: string
@@ -398,6 +419,8 @@ export type CommunityEntry = {
   gallery: string[] | null
   status?: string
   approx_location?: string // #48 — 'exact' | 'approx'
+  // Note #19 — mandatory classification: 'government' | 'private'.
+  sector_type: string
 }
 
 export type CitySector = {
@@ -468,6 +491,18 @@ export type AdminBoardSignup = {
   completion_requested_at: string | null
   hours_served: string
   created_at: string
+  // Volunteer-to-case assignment — the foundation for the future
+  // Staff↔Volunteer↔Beneficiary chat.
+  beneficiary_case_id: number | null
+  beneficiary_case_code: string | null
+  beneficiary_case_title: string | null
+  // Note #37 — self check-in/check-out evidence (GPS + live photo).
+  checkin_lat: number | null
+  checkin_lng: number | null
+  checkin_photo_path: string | null
+  checkout_lat: number | null
+  checkout_lng: number | null
+  checkout_photo_path: string | null
 }
 
 export type AdminBoardMission = {
@@ -573,6 +608,9 @@ export type AdminVolunteerApp = {
   phone: string | null
   city: string | null
   skills: string | null
+  skills_ar: string | null
+  skills_sorani: string | null
+  skills_badini: string | null
   skill_tags: string[]
   experience: string | null
   availability: string | null

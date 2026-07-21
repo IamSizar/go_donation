@@ -109,18 +109,6 @@ export default function ExportCsvButton<T>({
     )
   }
 
-  const itemStyle: React.CSSProperties = {
-    display: 'block',
-    width: '100%',
-    textAlign: 'start',
-    padding: '8px 14px',
-    background: 'transparent',
-    border: 'none',
-    cursor: 'pointer',
-    font: 'inherit',
-    color: 'inherit',
-  }
-
   return (
     <div ref={ref} style={{ position: 'relative', display: 'inline-block' }}>
       <button
@@ -133,31 +121,26 @@ export default function ExportCsvButton<T>({
         {t('export.export')} <span aria-hidden="true">▾</span>
       </button>
       {open && (
-        <div
-          role="menu"
-          style={{
-            position: 'absolute',
-            zIndex: 30,
-            marginTop: 4,
-            minWidth: 160,
-            background: 'var(--card, #fff)',
-            color: 'var(--text, #1a1a1a)',
-            border: '1px solid var(--border, #e2e2e2)',
-            borderRadius: 10,
-            boxShadow: '0 10px 30px rgba(0,0,0,.14)',
-            overflow: 'hidden',
-          }}
-        >
-          <button role="menuitem" style={itemStyle} onClick={() => run('csv')}>
+        // Note #3 — this used to be styled with var(--card, #fff) /
+        // var(--text, #1a1a1a) / var(--border, #e2e2e2). None of --card,
+        // --text, --border exist in this theme (the real names are
+        // --color-surface-2 / --text-h / --color-border), so every fallback
+        // fired: a white menu with light-gray (#C5CCDA, meant for DARK
+        // backgrounds) text — nearly unreadable. Moved to a real CSS class
+        // using the theme's actual tokens, with a proper :hover state
+        // (inline styles can't do :hover at all, which is why there wasn't
+        // one before).
+        <div className="dropdown-menu" role="menu">
+          <button role="menuitem" className="dropdown-menu-item" onClick={() => run('csv')}>
             {t('export.csv')}
           </button>
-          <button role="menuitem" style={itemStyle} onClick={() => run('excel')}>
+          <button role="menuitem" className="dropdown-menu-item" onClick={() => run('excel')}>
             {t('export.excel')}
           </button>
-          <button role="menuitem" style={itemStyle} onClick={() => run('pdf')}>
+          <button role="menuitem" className="dropdown-menu-item" onClick={() => run('pdf')}>
             {t('export.pdf')}
           </button>
-          <button role="menuitem" style={itemStyle} onClick={() => run('word')}>
+          <button role="menuitem" className="dropdown-menu-item" onClick={() => run('word')}>
             {t('export.word')}
           </button>
         </div>

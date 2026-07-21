@@ -82,11 +82,18 @@ export default function TrashPage() {
 
   useEffect(() => { if (allowed) void load() }, [allowed, load])
 
+  // Note #26 — used to restore with a single click and no confirmation, so
+  // any admin tier could accidentally (or casually) bring back a deleted
+  // record. PIN-gated the same way Purge already is: prompt for the acting
+  // admin's own password and let the backend verify it (A-16 pattern).
   const restore = async (it: TrashItem) => {
     if (busyId) return
+    const pin = window.prompt(t('page.trash.restore_prompt'))
+    if (pin == null) return
+    if (!pin.trim()) { toast.error(t('export.pin_required')); return }
     setBusyId(it.id)
     try {
-      await api.post(`/api/admin/trash/${it.id}/restore`)
+      await api.post(`/api/admin/trash/${it.id}/restore`, { password: pin })
       toast.success(t('page.trash.restored'))
       await load()
     } catch (e) {
@@ -179,7 +186,13 @@ export default function TrashPage() {
     ) },
     { key: 'by', header: t('page.trash.col_deleted_by'), cell: (it) => it.deleted_by_name || <span className="muted">—</span> },
     { key: 'at', header: t('page.trash.col_deleted_at'), cell: (it) => <span className="muted">{it.deleted_at?.slice(0, 16).replace('T', ' ')}</span> },
-    { key: 'actions', header: t('common.actions'), cell: (it) => (
+    {
+      // Note #26 — the header text was left-aligned by default while the
+      // button group inside the cell was pushed to the right via flexbox
+      // (justifyContent: 'flex-end'), so "Actions" visibly sat over empty
+      // space instead of over the buttons it labels. Align the header to
+      // match where the data actually renders.
+      key: 'actions', header: t('common.actions'), align: 'right', cell: (it) => (
       <div className="row" style={{ gap: 6, justifyContent: 'flex-end' }}>
         <button className="secondary" disabled={busyId === it.id} onClick={() => restore(it)}>
           {t('action.restore')}

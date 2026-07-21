@@ -25,7 +25,11 @@ import {
   Heart,
 } from 'lucide-react'
 
-export type TemplateLang = 'en' | 'ar'
+// Note #23 — Kurdish added as a third/fourth template language, alongside
+// English and Arabic: Badini (kmr) and Sorani (ckb). Client-supplied,
+// native-reviewed translations (Iraqi/Duhok Badini script + Iraqi Sorani
+// script) — see conversation for the source text.
+export type TemplateLang = 'en' | 'ar' | 'ckb' | 'kmr'
 
 export interface PushTemplate {
   /** Stable key (used as the card React key). */
@@ -38,8 +42,8 @@ export interface PushTemplate {
   tagline: string
   /** Accent hex — tints the icon badge, border, and active state. */
   accent: string
-  title: { en: string; ar: string }
-  body: { en: string; ar: string }
+  title: { en: string; ar: string; ckb: string; kmr: string }
+  body: { en: string; ar: string; ckb: string; kmr: string }
 }
 
 export const PUSH_TEMPLATES: PushTemplate[] = [
@@ -49,10 +53,12 @@ export const PUSH_TEMPLATES: PushTemplate[] = [
     label: "Jumu'ah Mubarak",
     tagline: 'Weekly Friday blessing',
     accent: '#0F766E',
-    title: { en: "Jumu'ah Mubarak 🕌", ar: 'جمعة مباركة 🕌' },
+    title: { en: "Jumu'ah Mubarak 🕌", ar: 'جمعة مباركة 🕌', ckb: 'هەینی پیرۆز 🕌', kmr: 'جومعه‌ موباره‌ک 🕌' },
     body: {
       en: 'May this blessed Friday bring you peace and reward. A small gift today reaches a family in need — give your Sadaqah now.',
       ar: 'نتمنى أن يحمل لكم هذا اليوم المبارك السلام والأجر. تبرّعك اليوم يصل إلى عائلة محتاجة — تصدّق الآن.',
+      ckb: 'با ئەم هەینییە پیرۆزە ئاشتی و پاداشتتان بۆ بهێنێت. دیارییەکی بچووک لە ئەمڕۆدا دەگات بە خێزانێکی هەژار — ئێستا سەدەقەکەت ببەخشە.',
+      kmr: 'بلا ئه‌ڤ روژا ئینیا پیروز ئاشتی و خێرێ بینیت. دیاریه‌کا بچووک ئه‌ڤرو دگه‌هیت مالباته‌کا هه‌ژار — نها سه‌ده‌قه‌یا خو بده‌.',
     },
   },
   {
@@ -61,10 +67,12 @@ export const PUSH_TEMPLATES: PushTemplate[] = [
     label: 'Ramadan Kareem',
     tagline: 'Start of the holy month',
     accent: '#6366F1',
-    title: { en: 'Ramadan Kareem 🌙', ar: 'رمضان كريم 🌙' },
+    title: { en: 'Ramadan Kareem 🌙', ar: 'رمضان كريم 🌙', ckb: 'ڕەمەزان پیرۆز 🌙', kmr: 'ره‌مه‌زان که‌ریم 🌙' },
     body: {
       en: 'Ramadan is here — the month of mercy and giving. Let your generosity feed and comfort those who need it most.',
       ar: 'حلّ رمضان، شهر الرحمة والعطاء. اجعل كرمك يُطعِم ويواسي من هم في أمسّ الحاجة.',
+      ckb: 'ڕەمەزان هات — مانگی میهرەبانی و بەخشندەیی. با دەستکراوەیی تۆ ئەوانەی پێویستیانە تێر و دڵخۆش بکات.',
+      kmr: 'ره‌مه‌زان هات — مه‌ها دلوڤانی و به‌خشنینێ. بلا ده‌ستێ ته‌ یێ بده‌ هه‌وجه‌داران تێر بکه‌ت و دلێ وان خوه‌ش بکه‌ت.',
     },
   },
   {
@@ -73,10 +81,12 @@ export const PUSH_TEMPLATES: PushTemplate[] = [
     label: 'Iftar Sponsor',
     tagline: 'Sponsor a fasting family',
     accent: '#F59E0B',
-    title: { en: 'Sponsor an Iftar tonight 🍽️', ar: 'ارعَ إفطار صائم الليلة 🍽️' },
+    title: { en: 'Sponsor an Iftar tonight 🍽️', ar: 'ارعَ إفطار صائم الليلة 🍽️', ckb: 'ژەمی بەربانگ دابین بکە 🍽️', kmr: 'ئفتاره‌کێ بکرین 🍽️' },
     body: {
       en: 'No one should break their fast hungry. Sponsor an iftar meal tonight and share the blessing of Ramadan with a fasting family.',
       ar: 'لا أحد يجب أن يفطر جائعاً. ارعَ وجبة إفطار الليلة وشارك بركة رمضان مع عائلة صائمة.',
+      ckb: 'نابێت کەس بە برسیێتی بەربانگ بکاتەوە. ئەمڕۆ ژەمێکی بەربانگ دابین بکە و خێری ڕەمەزان لەگەڵ خێزانێکی هەژاردا بەش بکە.',
+      kmr: 'پێدڤیه‌ که‌س ب روژی نه‌هێته‌ هێلان. ئه‌ڤرو خوارنا ئفتاره‌کێ بگره‌ و خێرا ره‌مه‌زانێ دگه‌ل مالباته‌کا هه‌ژار پارڤه‌ بکه‌.',
     },
   },
   {
@@ -85,10 +95,12 @@ export const PUSH_TEMPLATES: PushTemplate[] = [
     label: 'Laylat al-Qadr',
     tagline: 'The night of a thousand months',
     accent: '#8B5CF6',
-    title: { en: 'The best night for giving ✨', ar: 'أفضل ليلة للعطاء ✨' },
+    title: { en: 'The best night for giving ✨', ar: 'أفضل ليلة للعطاء ✨', ckb: 'شەوی قەدر، باشترین شەوی بەخشین ✨', kmr: 'شه‌ڤا هه‌ری باش یا خێرخوازێ ✨' },
     body: {
       en: 'A deed on Laylat al-Qadr is better than a thousand months. Multiply your reward tonight — give generously while the night lasts.',
       ar: 'العمل في ليلة القدر خير من ألف شهر. ضاعِف أجرك الليلة — تبرّع بسخاء ما دامت الليلة قائمة.',
+      ckb: 'چاکەیەک لە شەوی قەدردا لە هەزار مانگ باشترە. ئەمشەو پاداشتەکەت زۆر بکە — بە دڵفراوانی ببەخشە تا شەو بەردەوامە.',
+      kmr: 'خێرا شه‌ڤا قه‌درێ ژ هزار مه‌هان چێتره‌. ڤێ شه‌ڤێ خێرا خو زێده‌ بکه‌ — به‌ری شه‌ڤ ب دوماهی بهێت، ب دل فره‌هی بده‌.',
     },
   },
   {
@@ -97,10 +109,12 @@ export const PUSH_TEMPLATES: PushTemplate[] = [
     label: 'Eid al-Fitr',
     tagline: 'Celebrate the end of Ramadan',
     accent: '#10B981',
-    title: { en: 'Eid Mubarak! 🌙', ar: 'عيد فطر مبارك! 🌙' },
+    title: { en: 'Eid Mubarak! 🌙', ar: 'عيد فطر مبارك! 🌙', ckb: 'جەژن پیرۆز 🌙', kmr: 'جه‌ژنا وه‌ پیروز! 🌙' },
     body: {
       en: 'Eid Mubarak to you and your loved ones! May your fasting and prayers be accepted, your home be filled with joy, and your kindness return to you multiplied. Share the happiness of Eid with a family who has little — your gift turns their Eid into a celebration too.',
       ar: 'عيد فطر مبارك لكم ولأحبائكم! تقبّل الله صيامكم وقيامكم، وملأ بيوتكم فرحاً، وردّ إحسانكم أضعافاً مضاعفة. شاركوا فرحة العيد مع عائلة لا تملك الكثير — تبرّعكم يحوّل عيدهم إلى احتفال أيضاً.',
+      ckb: 'جەژنتان پیرۆز بێت! با ڕۆژوو و نوێژتان قبوڵ بێت، ماڵتان پڕ لە خۆشی بێت. خۆشیی جەژن لەگەڵ خێزانێکی هەژاردا بەش بکە — دیارییەکەت جەژنی ئەوانیش دەکات بە ئاهەنگ.',
+      kmr: 'جه‌ژنا وه‌ و مالباتێ پیروز بیت! بلا روژی و نڤێژێن وه‌ قه‌بول بن، مالێن وه‌ ب شاهیێ تژی بن. شاهیێ دگه‌ل مالباته‌کا هه‌ژار پارڤه‌ بکه‌ — دیاریا ته‌ جه‌ژنا وان دکه‌ت جه‌ژن.',
     },
   },
   {
@@ -109,10 +123,12 @@ export const PUSH_TEMPLATES: PushTemplate[] = [
     label: 'Eid al-Adha',
     tagline: 'Share your Qurbani',
     accent: '#E11D48',
-    title: { en: 'Eid al-Adha Mubarak 🐑', ar: 'عيد أضحى مبارك 🐑' },
+    title: { en: 'Eid al-Adha Mubarak 🐑', ar: 'عيد أضحى مبارك 🐑', ckb: 'جەژنی قوربان پیرۆز 🐑', kmr: 'جه‌ژنا قوربانێ پیروز بیت 🐑' },
     body: {
       en: 'Eid al-Adha Mubarak! On this blessed Eid of sacrifice, share your Qurbani with families who rarely taste meat. Your offering feeds the hungry and brings the joy of Eid to those who need it most — may it be accepted from you.',
       ar: 'عيد أضحى مبارك! في عيد التضحية المبارك، شاركوا أضحيتكم مع عائلات قلّما تذوق اللحم. أضحيتكم تُطعِم الجائع وتُدخِل فرحة العيد على من هم في أشدّ الحاجة — تقبّل الله منكم.',
+      ckb: 'جەژنتان پیرۆز بێت! لەم جەژنە پیرۆزەدا، قوربانییەکەت لەگەڵ ئەو خێزانانە بەش بکە کە کەم گۆشت دەخۆن. بەخشینەکەت برسییەکان تێر دەکات و دڵی ئەوانەی پێویستیانە خۆش دەکات.',
+      kmr: 'جه‌ژنا وه‌ پیروز! د ڤێ جه‌ژنا پیروز دا، قوربانیا خو دگه‌ل وان مالباتان پارڤه‌ بکه‌ یێن کێم گوشت دخون. خێرا ته‌ یا خوارنێ شاهیێ دئینیت بو که‌سێن هه‌ری هه‌وجه‌دار.',
     },
   },
   {
@@ -121,10 +137,12 @@ export const PUSH_TEMPLATES: PushTemplate[] = [
     label: 'Zakat Reminder',
     tagline: 'Annual obligatory charity',
     accent: '#0891B2',
-    title: { en: 'Have you given your Zakat? 🤲', ar: 'هل أدّيت زكاتك؟ 🤲' },
+    title: { en: 'Have you given your Zakat? 🤲', ar: 'هل أدّيت زكاتك؟ 🤲', ckb: 'زەکاتەکەت بەخشیوە؟ 🤲', kmr: 'ته‌ زه‌کاتا خو دایه‌؟ 🤲' },
     body: {
       en: 'Zakat purifies your wealth and lifts a family out of hardship. Calculate and give your Zakat today — it reaches those who truly deserve it.',
       ar: 'الزكاة تطهّر مالك وتنتشل عائلة من الضيق. احسب زكاتك وأدِّها اليوم — تصل إلى مستحقّيها فعلاً.',
+      ckb: 'زەکات ماڵەکەت پاک دەکاتەوە و خێزانێک لە تەنگانە ڕزگار دەکات. ئەمڕۆ زەکاتەکەت حیساب بکە و بیدە — دەگات بەوانەی شایەنی ئەون.',
+      kmr: 'زه‌کات مالێ ته‌ پاقژ دکه‌ت و مالباته‌کا هه‌ژار ژ زه‌حمه‌تیان رزگار دکه‌ت. زه‌کاتا خو ئه‌ڤرو هژمار بکه‌ و بده‌ — ئه‌و دگه‌هیت که‌سێن راسته‌قینه‌ هه‌وجه‌دار.',
     },
   },
   {
@@ -133,10 +151,12 @@ export const PUSH_TEMPLATES: PushTemplate[] = [
     label: 'Winter Relief',
     tagline: 'Seasonal cold-weather appeal',
     accent: '#0EA5E9',
-    title: { en: 'Keep a family warm this winter ❄️', ar: 'ادفئ عائلة هذا الشتاء ❄️' },
+    title: { en: 'Keep a family warm this winter ❄️', ar: 'ادفئ عائلة هذا الشتاء ❄️', ckb: 'خێزانێک گەرم بکەرەوە ❄️', kmr: 'مالباته‌کا گه‌رم بکه‌ ❄️' },
     body: {
       en: 'The cold is here and many families have no heating. Your gift provides blankets, fuel and warm shelter — give warmth today.',
       ar: 'حلّ البرد وكثير من العائلات بلا تدفئة. تبرّعك يوفّر البطانيات والوقود والمأوى الدافئ — امنح الدفء اليوم.',
+      ckb: 'زستان هات و زۆر خێزان بێ گەرمکەرەوەن. دیارییەکەت بەتانی، سووتەمەنی و پەناگەیان بۆ دابین دەکات — ئەمڕۆ گەرمی ببەخشە.',
+      kmr: 'زڤستان هات و گه‌له‌ک مالبات بێ گه‌رمی نه‌. دیاریا ته‌ به‌تانی، سوته‌مه‌نی و په‌ناگه‌هه‌کێ دئینیت — ئه‌ڤرو گه‌رمیێ بده‌.',
     },
   },
   {
@@ -145,10 +165,12 @@ export const PUSH_TEMPLATES: PushTemplate[] = [
     label: 'Orphan Sponsor',
     tagline: 'Monthly child sponsorship',
     accent: '#EC4899',
-    title: { en: 'Sponsor an orphan this month 👶', ar: 'اكفل يتيماً هذا الشهر 👶' },
+    title: { en: 'Sponsor an orphan this month 👶', ar: 'اكفل يتيماً هذا الشهر 👶', ckb: 'سەرپەرشتی هەتیوێک بکە 👶', kmr: 'سه‌رپه‌رشتیا سێویه‌کی بکه‌ 👶' },
     body: {
       en: 'Be the reason an orphan smiles. Your monthly sponsorship covers food, clothing and schooling — change a child’s whole future.',
       ar: 'كن سبباً في ابتسامة يتيم. كفالتك الشهرية تغطّي الطعام والكساء والتعليم — غيّر مستقبل طفل بأكمله.',
+      ckb: 'ببە هۆکاری زەردەخەنەی هەتیوێک. سەرپەرشتییە مانگانەکەت خواردن، جلوبەرگ و خوێندنیان بۆ دابین دەکات — ژیانی منداڵێک بگۆڕە.',
+      kmr: 'ببه‌ سه‌ده‌مێ که‌نێ سێویه‌کی. سه‌رپه‌رشتیا ته‌ یا مه‌هانه‌ خوارن، کێل و خواندنێ دابین دکه‌ت — ژیانا زاروه‌کی بگوهوڕه‌.',
     },
   },
   {
@@ -157,10 +179,12 @@ export const PUSH_TEMPLATES: PushTemplate[] = [
     label: 'Sadaqah',
     tagline: 'Everyday voluntary giving',
     accent: '#D946EF',
-    title: { en: 'A small Sadaqah, a big change 💝', ar: 'صدقة صغيرة، أثر كبير 💝' },
+    title: { en: 'A small Sadaqah, a big change 💝', ar: 'صدقة صغيرة، أثر كبير 💝', ckb: 'سەدەقەیەکی بچووک، گۆڕانکارییەکی گەورە 💝', kmr: 'سه‌ده‌قه‌یا بچووک، گوهرینه‌کا مه‌زن 💝' },
     body: {
       en: 'Charity never decreases wealth. Even a small Sadaqah today brings relief to someone in need and blessing to your day.',
       ar: 'ما نقص مالٌ من صدقة. حتى صدقة صغيرة اليوم تُفرّج عن محتاج وتبارك يومك.',
+      ckb: 'خێرکردن ماڵ کەم ناکات. تەنانەت سەدەقەیەکی بچووکیش لەمڕۆدا دڵی کەسێک خۆش دەکات و بەرەکەت بۆ ڕۆژەکەت دەهێنێت.',
+      kmr: 'خێرکرن مالێ کێم ناکه‌ت. ته‌نانه‌ت سه‌ده‌قه‌یا بچووک ژی ئه‌ڤرو دلێ که‌سه‌کی خوه‌ش دکه‌ت و خێرێ دئینیت مالێ.',
     },
   },
   {
@@ -169,10 +193,12 @@ export const PUSH_TEMPLATES: PushTemplate[] = [
     label: 'Emergency Appeal',
     tagline: 'Urgent disaster response',
     accent: '#DC2626',
-    title: { en: 'Urgent appeal — families need you 🚨', ar: 'نداء عاجل — العائلات بحاجتك 🚨' },
+    title: { en: 'Urgent appeal — families need you 🚨', ar: 'نداء عاجل — العائلات بحاجتك 🚨', ckb: 'داوای بەپەلە — خێزانەکان پێویستیان بە تۆیە 🚨', kmr: 'هاوار! مالبات هه‌وجه‌داری ته‌ نه‌ 🚨' },
     body: {
       en: 'An emergency has left families without the basics. Every minute counts — donate now to deliver food, water and shelter fast.',
       ar: 'حالة طارئة تركت عائلات دون أساسيات الحياة. كل دقيقة تهمّ — تبرّع الآن لإيصال الطعام والماء والمأوى بسرعة.',
+      ckb: 'دۆخێکی بەپەلە خێزانەکانی بێ پێداویستییە سەرەتاییەکان هێشتووەتەوە. هەر خولەکێک گرنگە — ئێستا ببەخشە بۆ گەیاندنی خۆراک و ئاو.',
+      kmr: 'ره‌وشه‌کا ئاوارتێ مالبات بێ پێدڤیێن سه‌ره‌کی هێلاینه‌. هه‌ر ده‌قیقیه‌ک گرنگه‌ — نها هاریکاریا خو بده‌ دا ئه‌م خوارن و ئاڤێ بگهینین.',
     },
   },
   {
@@ -181,10 +207,12 @@ export const PUSH_TEMPLATES: PushTemplate[] = [
     label: 'Thank Grantors',
     tagline: 'Donor appreciation',
     accent: '#16A34A',
-    title: { en: 'Thank you for your generosity 🙏', ar: 'شكراً لكرمكم 🙏' },
+    title: { en: 'Thank you for your generosity 🙏', ar: 'شكراً لكرمكم 🙏', ckb: 'سوپاس بۆ بەخشندەییت 🙏', kmr: 'سپاس بو دلوڤانیا ته‌ 🙏' },
     body: {
       en: 'Because of you, families ate, children learned, and hope returned. Thank you for standing with those in need — your kindness changes lives.',
       ar: 'بفضلكم أكلت عائلات، وتعلّم أطفال، وعادت آمال. شكراً لوقوفكم مع المحتاجين — كرمكم يغيّر الحياة.',
+      ckb: 'بە هۆی تۆوە، خێزانەکان تێر بوون، منداڵان فێری خوێندن بوون، و هیوا گەڕایەوە. سوپاس کە لە تەنیشت ئەوانەی پێویستیانە وەستاوی — بەخشندەییت ژیان دەگۆڕێت.',
+      kmr: 'ب سایه‌یا ته‌، مالباتان خوارن خار، زاروکان خاند و هیڤی ڤه‌گه‌ریا. سپاس کو تو ل که‌له‌کا هه‌وجه‌داران راوستیای — دلوڤانیا ته‌ ژیانێ دگوهوڕیت.',
     },
   },
 ]

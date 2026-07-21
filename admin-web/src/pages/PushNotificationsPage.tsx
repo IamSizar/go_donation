@@ -74,22 +74,29 @@ export default function PushNotificationsPage() {
   // exactly is about to get the notification before send.
   const [pickedUser, setPickedUser] = useState<PickedUser | null>(null)
   const [roleId, setRoleId] = useState<number>(1)
-  const [title, setTitle] = useState('')
-  const [body, setBody] = useState('')
+  // Auto-language sending — a message now carries all 4 languages at once
+  // (en/ar/ckb/kmr) instead of just one flat string. The in-app channel
+  // sends all 4 to the backend, which already resolves each recipient's own
+  // language (internal/notify.LocalizedMessage) — so a single "Send" reaches
+  // every user in their own app language automatically. `templateLang` here
+  // now only controls which language is shown/edited in the Title/Text
+  // boxes; it no longer decides what gets sent.
+  const emptyLocalized = (): Record<TemplateLang, string> => ({ en: '', ar: '', ckb: '', kmr: '' })
+  const [titleDraft, setTitleDraft] = useState<Record<TemplateLang, string>>(emptyLocalized)
+  const [bodyDraft, setBodyDraft] = useState<Record<TemplateLang, string>>(emptyLocalized)
   const [imageUrl, setImageUrl] = useState('')
-  // Phase 27.8 — language used when a recommended template is applied.
-  // Only affects which language's text drops into Title/Text; the admin
-  // can still hand-edit afterward.
+  // Phase 27.8 — which language's text is currently shown in the Title/Text
+  // boxes for preview/editing.
   const [templateLang, setTemplateLang] = useState<TemplateLang>('en')
   // Highlights the last-applied template card so the admin sees what they
-  // picked. Cleared when they edit the title by hand.
+  // picked. Cleared when they edit a title/body field by hand.
   const [activeTemplate, setActiveTemplate] = useState<string | null>(null)
 
-  function applyTemplate(id: string, lang: TemplateLang) {
+  function applyTemplate(id: string) {
     const tpl = PUSH_TEMPLATES.find((t) => t.id === id)
     if (!tpl) return
-    setTitle(tpl.title[lang])
-    setBody(tpl.body[lang])
+    setTitleDraft({ en: tpl.title.en, ar: tpl.title.ar, ckb: tpl.title.ckb, kmr: tpl.title.kmr })
+    setBodyDraft({ en: tpl.body.en, ar: tpl.body.ar, ckb: tpl.body.ckb, kmr: tpl.body.kmr })
     setActiveTemplate(id)
     setError(null)
     setSuccess(null)
@@ -124,13 +131,24 @@ export default function PushNotificationsPage() {
     setSuccess(null)
     setResult(null)
 
-    if (!title.trim()) { setError(t('page.push.err_title_required')); return }
-    if (!body.trim())  { setError(t('page.push.err_body_required'));  return }
-
     // ── In-app channel — writes to every user's Alerts tab. Always works,
-    //    no FCM needed. Supports "all users" or "by role".
+    //    no FCM needed. Supports "all users" or "by role". Sends all 4
+    //    languages so each recipient's device shows their own app language
+    //    automatically (backend falls back to English for any language left
+    //    blank).
     if (channel === 'inapp') {
-      const payload: Record<string, unknown> = { title: title.trim(), body: body.trim() }
+      if (!titleDraft.en.trim()) { setError(t('page.push.err_title_required')); return }
+      if (!bodyDraft.en.trim())  { setError(t('page.push.err_body_required'));  return }
+      const payload: Record<string, unknown> = {
+        title: titleDraft.en.trim(),
+        title_ar: titleDraft.ar.trim(),
+        title_sorani: titleDraft.ckb.trim(),
+        title_badini: titleDraft.kmr.trim(),
+        body: bodyDraft.en.trim(),
+        body_ar: bodyDraft.ar.trim(),
+        body_sorani: bodyDraft.ckb.trim(),
+        body_badini: bodyDraft.kmr.trim(),
+      }
       if (target === 'role') {
         if (!roleId || roleId <= 0) { setError(t('page.push.err_pick_role')); return }
         payload.role_id = roleId
@@ -151,8 +169,15 @@ export default function PushNotificationsPage() {
       return
     }
 
-    // ── Push channel — OS banner via FCM (needs key + real device).
-    const payload: Record<string, unknown> = { title: title.trim(), body: body.trim() }
+    // ── Push channel — OS banner via FCM (needs key + real device). Unlike
+    //    in-app, a single FCM push carries one fixed language — the backend
+    //    has no per-recipient localization for OS banners — so this sends
+    //    whichever language is currently shown in the Title/Text boxes.
+    const pushTitle = titleDraft[templateLang].trim()
+    const pushBody = bodyDraft[templateLang].trim()
+    if (!pushTitle) { setError(t('page.push.err_title_required')); return }
+    if (!pushBody)  { setError(t('page.push.err_body_required'));  return }
+    const payload: Record<string, unknown> = { title: pushTitle, body: pushBody }
     if (imageUrl.trim()) payload.image_url = imageUrl.trim()
 
     switch (target) {
@@ -277,7 +302,8 @@ export default function PushNotificationsPage() {
               gap: 2,
             }}
           >
-            {(['en', 'ar'] as const).map((lang) => {
+            {/* Note #23 — Kurdish (Badini + Sorani) added alongside EN / AR. */}
+            {(['en', 'ar', 'ckb', 'kmr'] as const).map((lang) => {
               const on = templateLang === lang
               return (
                 <button
@@ -285,12 +311,7 @@ export default function PushNotificationsPage() {
                   type="button"
                   role="radio"
                   aria-checked={on}
-                  onClick={() => {
-                    setTemplateLang(lang)
-                    // Re-apply the current pick in the new language so the
-                    // form updates live without a second card tap.
-                    if (activeTemplate) applyTemplate(activeTemplate, lang)
-                  }}
+                  onClick={() => setTemplateLang(lang)}
                   style={{
                     minWidth: 64,
                     padding: '6px 14px',
@@ -305,7 +326,7 @@ export default function PushNotificationsPage() {
                     transition: 'background .15s ease, color .15s ease, box-shadow .15s ease',
                   }}
                 >
-                  {lang === 'en' ? 'EN' : 'عربي'}
+                  {lang === 'en' ? 'EN' : lang === 'ar' ? 'عربي' : lang === 'ckb' ? 'سۆرانی' : 'بادینی'}
                 </button>
               )
             })}
@@ -326,97 +347,61 @@ export default function PushNotificationsPage() {
               <button
                 key={tpl.id}
                 type="button"
-                onClick={() => applyTemplate(tpl.id, templateLang)}
+                onClick={() => applyTemplate(tpl.id)}
                 title={tpl.title[templateLang]}
-                className="tpl-card"
-                style={{
-                  position: 'relative',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 13,
-                  padding: '14px 15px',
-                  borderRadius: 18,
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  // A 2px accent ring when active (via boxShadow inset so it
-                  // doesn't shift layout), 1px neutral border otherwise.
-                  border: '1px solid var(--color-border, rgba(127,127,127,0.16))',
-                  background: isActive
-                    ? `color-mix(in srgb, ${tpl.accent} 14%, var(--color-surface))`
-                    : 'var(--color-surface)',
-                  boxShadow: isActive
-                    ? `inset 0 0 0 2px ${tpl.accent}, 0 10px 24px -8px color-mix(in srgb, ${tpl.accent} 55%, transparent)`
-                    : '0 1px 2px rgba(0,0,0,0.05)',
-                  color: 'inherit',
-                  transition:
-                    'box-shadow .18s ease, background .18s ease, transform .18s ease',
-                }}
+                className={`tpl-card${isActive ? ' is-selected' : ''}`}
+                // Redesigned (was a bespoke linear-gradient + drop-shadow
+                // icon tile per card — read as loud/dated). Now matches the
+                // flat .target-tile language used elsewhere on this page;
+                // --tpl-accent is the only per-card customization, consumed
+                // by the .tpl-icon / .tpl-check CSS rules in index.css.
+                style={{ ['--tpl-accent' as string]: tpl.accent }}
               >
-                {/* Gradient icon tile — white glyph on the occasion's accent
-                    gradient with a soft colored glow. The premium lift. */}
-                <span
-                  aria-hidden
-                  style={{
-                    flexShrink: 0,
-                    width: 48,
-                    height: 48,
-                    borderRadius: 14,
-                    display: 'grid',
-                    placeItems: 'center',
-                    background: `linear-gradient(135deg, ${tpl.accent}, color-mix(in srgb, ${tpl.accent} 62%, #000))`,
-                    boxShadow: `0 6px 14px -4px color-mix(in srgb, ${tpl.accent} 65%, transparent)`,
-                  }}
-                >
-                  <Icon size={24} strokeWidth={2.3} color="#fff" />
+                <span className="tpl-icon" aria-hidden>
+                  <Icon size={20} strokeWidth={2.2} />
                 </span>
-                {/* Label + tagline */}
-                <span style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
+                {/* Label + tagline. Note #23 — these are always English (see
+                    the PushTemplate.label/tagline doc comment), so they must
+                    keep an explicit ltr direction + left alignment even when
+                    the dashboard itself is RTL (Arabic/Kurdish). Without this,
+                    text-overflow: ellipsis truncates from the visual start of
+                    the RTL block instead of the end, so "The night of a
+                    thousand months" rendered as "...ht of a thousand months"
+                    — confirmed live, this is what read as "overlapping". */}
+                <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
                   <span
+                    dir="ltr"
                     style={{
-                      fontSize: 14,
-                      fontWeight: 800,
-                      lineHeight: 1.15,
-                      color: 'var(--color-text-h)',
+                      fontSize: 13.5,
+                      fontWeight: 700,
+                      lineHeight: 1.2,
+                      color: 'var(--text-h)',
                       whiteSpace: 'nowrap',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
+                      textAlign: 'left',
                     }}
                   >
                     {tpl.label}
                   </span>
                   <span
                     className="muted"
+                    dir="ltr"
                     style={{
                       fontSize: 11.5,
-                      fontWeight: 500,
                       lineHeight: 1.25,
                       whiteSpace: 'nowrap',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
+                      textAlign: 'left',
                     }}
                   >
                     {tpl.tagline}
                   </span>
                 </span>
-                {/* Active = filled accent check in the corner */}
                 {isActive && (
-                  <span
-                    aria-hidden
-                    style={{
-                      position: 'absolute',
-                      top: 10,
-                      insetInlineEnd: 10,
-                      width: 20,
-                      height: 20,
-                      borderRadius: 999,
-                      background: tpl.accent,
-                      color: '#fff',
-                      display: 'grid',
-                      placeItems: 'center',
-                      boxShadow: `0 2px 6px color-mix(in srgb, ${tpl.accent} 55%, transparent)`,
-                    }}
-                  >
-                    <Check size={13} strokeWidth={3.2} />
+                  <span className="tpl-check" aria-hidden>
+                    <Check size={11} strokeWidth={3.2} />
                   </span>
                 )}
               </button>
@@ -575,26 +560,37 @@ export default function PushNotificationsPage() {
           </div>
         )}
 
-        {/* === Standard message inputs === */}
+        {/* === Standard message inputs — editing the box for the currently
+            previewed language (the EN/AR/CKB/KMR pill above the templates)
+            only changes THAT language's slot; the other 3 stay as typed. === */}
+        {channel === 'inapp' && (
+          <span className="hint">{t('page.push.auto_language_hint')}</span>
+        )}
         <label>
-          {t('col.title')}
+          {t('col.title')} <span className="muted">({templateLang.toUpperCase()})</span>
           <input
-            value={title}
-            onChange={(e) => { setTitle(e.target.value); setActiveTemplate(null) }}
+            value={titleDraft[templateLang]}
+            onChange={(e) => {
+              setTitleDraft((d) => ({ ...d, [templateLang]: e.target.value }))
+              setActiveTemplate(null)
+            }}
             placeholder={t('page.push.title_placeholder')}
             disabled={busy}
-            dir="auto"
+            dir={templateLang === 'en' ? 'ltr' : 'rtl'}
           />
         </label>
 
         <label>
-          {t('col.body')}
+          {t('col.body')} <span className="muted">({templateLang.toUpperCase()})</span>
           <input
-            value={body}
-            onChange={(e) => { setBody(e.target.value); setActiveTemplate(null) }}
+            value={bodyDraft[templateLang]}
+            onChange={(e) => {
+              setBodyDraft((d) => ({ ...d, [templateLang]: e.target.value }))
+              setActiveTemplate(null)
+            }}
             placeholder={t('page.push.body_placeholder')}
             disabled={busy}
-            dir="auto"
+            dir={templateLang === 'en' ? 'ltr' : 'rtl'}
           />
         </label>
 

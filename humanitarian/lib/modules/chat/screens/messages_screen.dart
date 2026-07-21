@@ -4,6 +4,7 @@ import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/modules/bot/screens/bot_chat_screen.dart';
 import 'package:flutter_application_1/modules/chat/controllers/chat_controller.dart';
 import 'package:flutter_application_1/modules/chat/models/chat_models.dart';
+import 'package:flutter_application_1/modules/chat/screens/case_chat_conversation_screen.dart';
 import 'package:flutter_application_1/modules/chat/screens/chat_conversation_screen.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
@@ -70,6 +71,8 @@ class MessagesScreen extends StatelessWidget {
                 onTap: () => openSupportChat(context),
               ),
               const SizedBox(height: 10),
+              const _CaseChatsSection(),
+              const SizedBox(height: 10),
               const SectionTile(
                 icon: Icons.forum_outlined,
                 title: 'No conversations yet',
@@ -102,6 +105,8 @@ class MessagesScreen extends StatelessWidget {
                 color: Colors.teal,
                 onTap: () => openSupportChat(context),
               ),
+              const SizedBox(height: 10),
+              const _CaseChatsSection(),
               if (incoming.isNotEmpty) ...[
                 _SectionLabel(label: 'Chat requests', count: incoming.length),
                 for (final t in incoming) _IncomingRequestCard(thread: t, ctrl: ctrl),
@@ -120,6 +125,121 @@ class MessagesScreen extends StatelessWidget {
           ),
         );
       }),
+    );
+  }
+}
+
+// Note #36 — Staff↔Volunteer↔Beneficiary chats. Opens automatically once a
+// volunteer's case-linked signup is approved; renders nothing when the user
+// has none (most users never will — this only applies to case-linked
+// volunteer signups and the case's beneficiary).
+class _CaseChatsSection extends StatefulWidget {
+  const _CaseChatsSection();
+
+  @override
+  State<_CaseChatsSection> createState() => _CaseChatsSectionState();
+}
+
+class _CaseChatsSectionState extends State<_CaseChatsSection> {
+  late Future<List<Map<String, dynamic>>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = const ModuleApi().caseChats();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _future,
+      builder: (context, snapshot) {
+        final items = snapshot.data ?? const <Map<String, dynamic>>[];
+        if (items.isEmpty) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SectionLabel(label: 'case_chats_label', count: items.length),
+              for (final item in items) _CaseChatTile(thread: item),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _CaseChatTile extends StatelessWidget {
+  const _CaseChatTile({required this.thread});
+  final Map<String, dynamic> thread;
+
+  @override
+  Widget build(BuildContext context) {
+    final id = int.tryParse('${thread['id']}') ?? 0;
+    final otherName = (thread['other_name'] ?? '').toString().trim();
+    final title = otherName.isNotEmpty ? otherName : 'User'.tr;
+    final caseCode = (thread['case_code'] ?? '').toString();
+    final lastMessage = (thread['last_message'] ?? '').toString();
+    final unread = int.tryParse('${thread['unread_count'] ?? 0}') ?? 0;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: GlassPanel(
+        padding: EdgeInsets.zero,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(24),
+          onTap: () => Get.to(() => CaseChatConversationScreen(
+                threadId: id,
+                title: title,
+                subtitle: caseCode,
+              )),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                _Avatar(name: title, color: Colors.deepPurple),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppThemeConfig.text(context)),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        lastMessage.isNotEmpty ? lastMessage : caseCode,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 13, color: AppThemeConfig.mutedText(context)),
+                      ),
+                    ],
+                  ),
+                ),
+                if (unread > 0) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(color: AppThemeConfig.primary, shape: BoxShape.circle),
+                    constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                    child: Center(
+                      child: Text(
+                        '$unread',
+                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -236,6 +356,20 @@ class _ThreadTile extends StatelessWidget {
                           fontWeight: thread.unreadCount > 0 ? FontWeight.w700 : FontWeight.w400,
                         ),
                       ),
+                      // Note #36 — the "Responsible Staff Member," if claimed.
+                      if (thread.assignedStaffName != null) ...[
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            Icon(Icons.shield_rounded, size: 11, color: Colors.blueGrey),
+                            const SizedBox(width: 3),
+                            Text(
+                              'helped_by'.trParams({'name': thread.assignedStaffName!}),
+                              style: const TextStyle(fontSize: 11, color: Colors.blueGrey, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),

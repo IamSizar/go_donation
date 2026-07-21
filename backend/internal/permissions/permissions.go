@@ -195,6 +195,90 @@ func (s *Store) SetOverride(ctx context.Context, tier, module, action string, al
 	return err
 }
 
+// ── Note 31 — per-employee overrides ────────────────────────────────────
+//
+// Everything above resolves permissions per TIER: two employees on the same
+// tier are always identical. AllowedForUser adds one more layer in front of
+// that: a per-user override (module, action) → allowed, keyed by user_id
+// alone (never tier), wins over the tier's own override/default. Clearing a
+// user's override falls straight back to Allowed()'s tier-based answer — no
+// separate "unset" state to track beyond "the row doesn't exist".
+
+// AllowedForUser resolves the effective permission for a SPECIFIC staff
+// member: their own override (if any) → their tier's override/default.
+func (s *Store) AllowedForUser(ctx context.Context, userID int64, tier Tier, module, action string) (bool, error) {
+	if tier == TierSuperAdmin {
+		return true, nil
+	}
+	var override bool
+	err := s.Pool.QueryRow(ctx,
+		`SELECT allowed FROM role_permissions WHERE user_id=$1 AND module=$2 AND action=$3`,
+		userID, module, action,
+	).Scan(&override)
+	if err == nil {
+		return override, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return false, err
+	}
+	return s.Allowed(ctx, tier, module, action)
+}
+
+// UserOverride is one stored per-employee (module, action) → allowed row.
+type UserOverride struct {
+	Module  string `json:"module"`
+	Action  string `json:"action"`
+	Allowed bool   `json:"allowed"`
+}
+
+// ListUserOverrides returns every override stored for one specific user.
+func (s *Store) ListUserOverrides(ctx context.Context, userID int64) ([]UserOverride, error) {
+	rows, err := s.Pool.Query(ctx,
+		`SELECT module, action, allowed FROM role_permissions WHERE user_id=$1 ORDER BY module, action`,
+		userID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []UserOverride{}
+	for rows.Next() {
+		var o UserOverride
+		if err := rows.Scan(&o.Module, &o.Action, &o.Allowed); err != nil {
+			return nil, err
+		}
+		out = append(out, o)
+	}
+	return out, rows.Err()
+}
+
+// SetUserOverride upserts one per-employee (module, action) → allowed row.
+// tier is stored alongside for the audit trail only; resolution never reads
+// it back (AllowedForUser looks up by user_id alone).
+func (s *Store) SetUserOverride(ctx context.Context, userID int64, tier Tier, module, action string, allowed bool) error {
+	if tier == TierSuperAdmin {
+		return errors.New("super_admin permissions cannot be overridden")
+	}
+	_, err := s.Pool.Exec(ctx,
+		`INSERT INTO role_permissions (user_id, tier, module, action, allowed, updated_at)
+		 VALUES ($1, $2, $3, $4, $5, NOW())
+		 ON CONFLICT (user_id, module, action) WHERE user_id IS NOT NULL
+		 DO UPDATE SET allowed = EXCLUDED.allowed, tier = EXCLUDED.tier, updated_at = NOW()`,
+		userID, string(tier), module, action, allowed,
+	)
+	return err
+}
+
+// ClearUserOverride removes one per-employee override so the user falls back
+// to their tier's own override/default again.
+func (s *Store) ClearUserOverride(ctx context.Context, userID int64, module, action string) error {
+	_, err := s.Pool.Exec(ctx,
+		`DELETE FROM role_permissions WHERE user_id=$1 AND module=$2 AND action=$3`,
+		userID, module, action,
+	)
+	return err
+}
+
 // AuditEntry is one row of the immutable permission_audit_log.
 type AuditEntry struct {
 	ID        int64     `json:"id"`

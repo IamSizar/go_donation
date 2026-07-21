@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
@@ -10,6 +11,37 @@ import (
 
 	"github.com/karam-flutter/humanitarian-backend/internal/volunteers"
 )
+
+// jsonNullableInt distinguishes "field omitted" from "field explicitly set to
+// null" for a JSON int field — a plain *int can't tell those apart (both
+// decode to a nil pointer), which would silently swallow "clear this field
+// back to empty" for a nullable integer column like family_size (Note #6).
+type jsonNullableInt struct {
+	Set   bool
+	Valid bool
+	Value int
+}
+
+func (n *jsonNullableInt) UnmarshalJSON(data []byte) error {
+	n.Set = true
+	if string(data) == "null" {
+		n.Valid = false
+		return nil
+	}
+	n.Valid = true
+	return json.Unmarshal(data, &n.Value)
+}
+
+// IntPtr converts to *int for a plain INSERT parameter — nil for both
+// "omitted" and "explicitly null" (an INSERT with no value given should
+// just leave the column NULL either way).
+func (n jsonNullableInt) IntPtr() *int {
+	if !n.Valid {
+		return nil
+	}
+	v := n.Value
+	return &v
+}
 
 // AdminEditHandler exposes partial-update ("edit modal") endpoints for Phase 10.
 //
@@ -122,9 +154,9 @@ func (h *AdminEditHandler) Partner(c *gin.Context) {
 	addOptString(&b, "description_sorani", req.DescriptionSorani)
 	addOptString(&b, "description_badini", req.DescriptionBadini)
 	addOptString(&b, "logo_path", req.LogoPath)
-	addOptString(&b, "email", req.Email)                 // #26
-	addOptString(&b, "social_links", req.SocialLinks)    // #26
-	addOptString(&b, "location", req.Location)           // #26
+	addOptString(&b, "email", req.Email)              // #26
+	addOptString(&b, "social_links", req.SocialLinks) // #26
+	addOptString(&b, "location", req.Location)        // #26
 	addOptString(&b, "location_ar", req.LocationAr)
 	addOptString(&b, "location_sorani", req.LocationSorani)
 	addOptString(&b, "location_badini", req.LocationBadini)
@@ -271,6 +303,8 @@ type communityEditReq struct {
 	Gallery            *[]string `json:"gallery"`
 	// #48 — approximate location for privacy ('approx' | 'exact').
 	ApproxLocation *string `json:"approx_location"`
+	// Note #19 — mandatory classification: 'government' or 'private'.
+	SectorType *string `json:"sector_type"`
 }
 
 func (h *AdminEditHandler) Community(c *gin.Context) {
@@ -340,6 +374,14 @@ func (h *AdminEditHandler) Community(c *gin.Context) {
 		}
 		b.add("status", s)
 	}
+	if req.SectorType != nil {
+		s := strings.TrimSpace(*req.SectorType)
+		if !inSet(s, communitySectorTypes) {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid sector_type. Allowed: " + strings.Join(communitySectorTypes, ", ")})
+			return
+		}
+		b.add("sector_type", s)
+	}
 	if !b.exec(c, h.Pool, "city_directory_entries", id) {
 		return
 	}
@@ -362,7 +404,15 @@ type marriageEditReq struct {
 }
 
 var marriageVisibility = []string{"private", "employee_only", "matched_summary"}
-var marriageSubscription = []string{"free", "paid", "waived"}
+
+// Note #17 — was ["free","paid","waived"]. The "free" label was misleading
+// (only the search feature is actually free); replaced with 5 real package
+// tiers. "bronze" is the new entry-level/free-equivalent tier — see
+// migrations/051_marriage_subscription_tiers.sql for the data migration.
+// Also reused by SettingsHandler (admin_settings.go) as the key list for
+// the admin-configurable per-tier prices, so this is the single source of
+// truth for valid tier names.
+var marriageSubscription = []string{"bronze", "silver", "gold", "diamond", "vip"}
 
 func (h *AdminEditHandler) Marriage(c *gin.Context) {
 	id, ok := parseID(c)
@@ -601,6 +651,9 @@ type caseEditReq struct {
 	FullName           *string  `json:"full_name"`
 	NationalID         *string  `json:"national_id"`
 	Phone              *string  `json:"phone"`
+	Gender             *string  `json:"gender"`
+	DateOfBirth        *string  `json:"date_of_birth"`
+	MaritalStatus      *string  `json:"marital_status"`
 	City               *string  `json:"city"`
 	District           *string  `json:"district"`
 	Address            *string  `json:"address"`
@@ -619,6 +672,8 @@ type caseEditReq struct {
 
 var casePriorityLevels = []string{"low", "medium", "high", "urgent"}
 var casePublicVisibility = []string{"code_only", "summary", "hidden"}
+var caseGenders = []string{"male", "female"}
+var caseMaritalStatuses = []string{"single", "married", "widowed", "divorced"}
 
 func (h *AdminEditHandler) BeneficiaryCase(c *gin.Context) {
 	id, ok := parseID(c)
@@ -645,6 +700,17 @@ func (h *AdminEditHandler) BeneficiaryCase(c *gin.Context) {
 	addOptString(&b, "full_name", req.FullName)
 	addOptString(&b, "national_id", req.NationalID)
 	addOptString(&b, "phone", req.Phone)
+	if req.Gender != nil && strings.TrimSpace(*req.Gender) != "" && !inSet(strings.TrimSpace(*req.Gender), caseGenders) {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid gender. Allowed: " + strings.Join(caseGenders, ", ")})
+		return
+	}
+	addOptString(&b, "gender", req.Gender)
+	addOptString(&b, "date_of_birth", req.DateOfBirth)
+	if req.MaritalStatus != nil && strings.TrimSpace(*req.MaritalStatus) != "" && !inSet(strings.TrimSpace(*req.MaritalStatus), caseMaritalStatuses) {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid marital_status. Allowed: " + strings.Join(caseMaritalStatuses, ", ")})
+		return
+	}
+	addOptString(&b, "marital_status", req.MaritalStatus)
 	addOptString(&b, "city", req.City)
 	addOptString(&b, "district", req.District)
 	addOptString(&b, "address", req.Address)
@@ -1131,10 +1197,13 @@ func (h *AdminEditHandler) Donation(c *gin.Context) {
 // ============================================================
 
 type volunteerEditReq struct {
-	FullName     *string   `json:"full_name"`
-	Phone        *string   `json:"phone"`
-	City         *string   `json:"city"`
-	Skills       *string   `json:"skills"`
+	FullName *string `json:"full_name"`
+	Phone    *string `json:"phone"`
+	City     *string `json:"city"`
+	Skills   *string `json:"skills"`
+	SkillsAr     *string `json:"skills_ar"`
+	SkillsSorani *string `json:"skills_sorani"`
+	SkillsBadini *string `json:"skills_badini"`
 	// Phase 26 — skill_tags is now TEXT[] in postgres; admin SPA passes an
 	// array of canonical keys (driver_car, first_aid, ...). Keys that
 	// don't match the catalogue are dropped silently.
@@ -1168,6 +1237,9 @@ func (h *AdminEditHandler) VolunteerApplication(c *gin.Context) {
 	addOptString(&b, "phone", req.Phone)
 	addOptString(&b, "city", req.City)
 	addOptString(&b, "skills", req.Skills)
+	addOptString(&b, "skills_ar", req.SkillsAr)
+	addOptString(&b, "skills_sorani", req.SkillsSorani)
+	addOptString(&b, "skills_badini", req.SkillsBadini)
 	if req.SkillTags != nil {
 		// Catalogue-filter so admins can't insert junk that won't render
 		// in either the SPA or the mobile chip grid. `add` handles the
@@ -1238,12 +1310,27 @@ func addOptString(b *setBuilder, col string, val *string) {
 // a failure on the profile UPDATE rolls back the phone change too — admins
 // never see a half-applied edit.
 
+// Note #6 — the Edit User form used to only cover 5 of the 16 columns
+// user_profiles actually has (the rest, collected at registration, were
+// simply not editable from the dashboard at all). Extended to the full set;
+// the new fields are all nullable in the schema (unlike full_name/gender/
+// address/profile_picture, which are NOT NULL), so empty input clears them
+// to NULL instead of storing "".
 type userEditReq struct {
-	Phone          *string `json:"phone"`
-	FullName       *string `json:"full_name"`
-	Gender         *string `json:"gender"`
-	Address        *string `json:"address"`
-	ProfilePicture *string `json:"profile_picture"`
+	Phone          *string         `json:"phone"`
+	FullName       *string         `json:"full_name"`
+	Gender         *string         `json:"gender"`
+	Address        *string         `json:"address"`
+	ProfilePicture *string         `json:"profile_picture"`
+	DateOfBirth    *string         `json:"date_of_birth"`
+	City           *string         `json:"city"`
+	Occupation     *string         `json:"occupation"`
+	FamilySize     jsonNullableInt `json:"family_size"`
+	HousingStatus  *string         `json:"housing_status"`
+	MonthlyIncome  *string         `json:"monthly_income"`
+	Skills         *string         `json:"skills"`
+	Availability   *string         `json:"availability"`
+	Experience     *string         `json:"experience"`
 }
 
 func (h *AdminEditHandler) User(c *gin.Context) {
@@ -1258,7 +1345,10 @@ func (h *AdminEditHandler) User(c *gin.Context) {
 	}
 
 	usersHasChange := req.Phone != nil
-	profileHasChange := req.FullName != nil || req.Gender != nil || req.Address != nil || req.ProfilePicture != nil
+	profileHasChange := req.FullName != nil || req.Gender != nil || req.Address != nil || req.ProfilePicture != nil ||
+		req.DateOfBirth != nil || req.City != nil || req.Occupation != nil || req.FamilySize.Set ||
+		req.HousingStatus != nil || req.MonthlyIncome != nil || req.Skills != nil || req.Availability != nil ||
+		req.Experience != nil
 	if !usersHasChange && !profileHasChange {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "No fields to update."})
 		return
@@ -1317,6 +1407,37 @@ func (h *AdminEditHandler) User(c *gin.Context) {
 			addNotNullString("gender", req.Gender)
 			addNotNullString("address", req.Address)
 			addNotNullString("profile_picture", req.ProfilePicture)
+			// Note #6 — the rest of user_profiles is nullable (unlike the 4
+			// above), so empty input clears the column to NULL instead of
+			// storing "". Same pattern already used for date_of_birth
+			// elsewhere (internal/users/profile.go).
+			addNullableString := func(col string, val *string) {
+				if val == nil {
+					return
+				}
+				s := strings.TrimSpace(*val)
+				if s == "" {
+					b.sets = append(b.sets, col+" = NULL")
+					return
+				}
+				b.args = append(b.args, s)
+				b.sets = append(b.sets, col+" = $"+strconv.Itoa(len(b.args)))
+			}
+			addNullableString("date_of_birth", req.DateOfBirth)
+			addNullableString("city", req.City)
+			addNullableString("occupation", req.Occupation)
+			addNullableString("housing_status", req.HousingStatus)
+			addNullableString("monthly_income", req.MonthlyIncome)
+			addNullableString("skills", req.Skills)
+			addNullableString("availability", req.Availability)
+			addNullableString("experience", req.Experience)
+			if req.FamilySize.Set {
+				if req.FamilySize.Valid {
+					b.add("family_size", req.FamilySize.Value)
+				} else {
+					b.sets = append(b.sets, "family_size = NULL")
+				}
+			}
 			if len(b.sets) > 0 {
 				b.args = append(b.args, pid)
 				sql := "UPDATE user_profiles SET " + strings.Join(b.sets, ", ") +
@@ -1347,11 +1468,27 @@ func (h *AdminEditHandler) User(c *gin.Context) {
 				}
 				return strings.TrimSpace(*p)
 			}
+			// The rest are nullable — nil stays nil (NULL), not "".
+			pickNull := func(p *string) *string {
+				if p == nil {
+					return nil
+				}
+				s := strings.TrimSpace(*p)
+				if s == "" {
+					return nil
+				}
+				return &s
+			}
 			_, err := tx.Exec(c.Request.Context(), `
 				INSERT INTO user_profiles
-				  (user_id, full_name, gender, address, profile_picture)
-				VALUES ($1, $2, $3, $4, $5)`,
+				  (user_id, full_name, gender, address, profile_picture,
+				   date_of_birth, city, occupation, family_size, housing_status,
+				   monthly_income, skills, availability, experience)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
 				id, pick(req.FullName), pick(req.Gender), pick(req.Address), pick(req.ProfilePicture),
+				pickNull(req.DateOfBirth), pickNull(req.City), pickNull(req.Occupation), req.FamilySize.IntPtr(),
+				pickNull(req.HousingStatus), pickNull(req.MonthlyIncome), pickNull(req.Skills),
+				pickNull(req.Availability), pickNull(req.Experience),
 			)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})

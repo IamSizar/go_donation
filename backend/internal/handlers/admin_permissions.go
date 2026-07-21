@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -210,9 +211,12 @@ func (h *AdminPermissionsHandler) VerifyAudit(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "chain": status})
 }
 
-// GET /api/admin/permissions/me — the effective permission map for the calling
-// user's tier: { module: { action: bool } }. The SPA uses the "view" flag per
-// module to hide unauthorized menu entries.
+// GET /api/admin/permissions/me — the effective permission map for the
+// calling user: their own per-employee overrides (Note 31) first, then
+// their tier's override/default. { module: { action: bool } }. The SPA uses
+// the "view" flag per module to hide unauthorized menu entries — so a
+// per-employee override here is what actually hides/shows a sidebar section
+// for just that one account.
 func (h *AdminPermissionsHandler) Effective(c *gin.Context) {
 	actor, ok := auth.UserFromGin(c)
 	if !ok || actor == nil {
@@ -225,7 +229,7 @@ func (h *AdminPermissionsHandler) Effective(c *gin.Context) {
 	for _, m := range permissions.Modules {
 		row := map[string]bool{}
 		for _, a := range permissions.AllActions {
-			allowed, err := h.Perms.Allowed(ctx, tier, m, a)
+			allowed, err := h.Perms.AllowedForUser(ctx, int64(actor.UserID), tier, m, a)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Permission check failed."})
 				return
@@ -235,6 +239,140 @@ func (h *AdminPermissionsHandler) Effective(c *gin.Context) {
 		perms[m] = row
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "tier": string(tier), "permissions": perms})
+}
+
+// ── Note 31 — per-employee permission overrides ─────────────────────────
+
+// GET /api/admin/permissions/user/:id — the effective matrix for one
+// specific employee, with each cell tagged by where its value comes from
+// (their own override vs their tier), so the UI can show "this is
+// customized for this person" distinctly from "this is just their tier".
+func (h *AdminPermissionsHandler) UserMatrix(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	ctx := c.Request.Context()
+	var tierStr string
+	if err := h.Perms.Pool.QueryRow(ctx, "SELECT staff_tier FROM users WHERE id = $1", id).Scan(&tierStr); err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "User not found."})
+		return
+	}
+	tier := permissions.TierFrom(tierStr)
+
+	userOverrides, err := h.Perms.ListUserOverrides(ctx, id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
+		return
+	}
+	overrideSet := map[string]bool{}
+	for _, o := range userOverrides {
+		overrideSet[o.Module+"|"+o.Action] = true
+	}
+
+	cells := map[string]map[string]gin.H{}
+	for _, m := range permissions.Modules {
+		row := map[string]gin.H{}
+		for _, a := range permissions.AllActions {
+			allowed, err := h.Perms.AllowedForUser(ctx, id, tier, m, a)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Permission check failed."})
+				return
+			}
+			source := "tier"
+			if overrideSet[m+"|"+a] {
+				source = "user"
+			}
+			row[a] = gin.H{"allowed": allowed, "source": source}
+		}
+		cells[m] = row
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success": true, "user_id": id, "tier": string(tier),
+		"modules": permissions.Modules, "actions": permissions.AllActions, "cells": cells,
+	})
+}
+
+type setUserPermissionReq struct {
+	Module string `json:"module"`
+	Action string `json:"action"`
+	// Allowed is nil to CLEAR the override (revert to the tier's own
+	// override/default) rather than set a value.
+	Allowed *bool  `json:"allowed"`
+	Otp     string `json:"otp"`
+}
+
+// POST /api/admin/permissions/user/:id — set or clear one per-employee
+// (module, action) override. Same two-factor rigor as the tier matrix's
+// SetPermission (PIN checked client-side via /admin/verify-password, OTP
+// verified here), same rate limit, same immutable audit trail — this is
+// just as sensitive as a tier-wide change, only narrower in blast radius.
+func (h *AdminPermissionsHandler) SetUserPermission(c *gin.Context) {
+	targetID, ok := parseID(c)
+	if !ok {
+		return
+	}
+	var req setUserPermissionReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid JSON body."})
+		return
+	}
+	if !validIn(req.Module, permissions.Modules) || !validIn(req.Action, permissions.AllActions) {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Unknown module or action."})
+		return
+	}
+
+	actor, ok := auth.UserFromGin(c)
+	if !ok || actor == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Not authenticated."})
+		return
+	}
+	ctx := c.Request.Context()
+
+	if !permLimiter.allow(actor.UserID, time.Now()) {
+		c.JSON(http.StatusTooManyRequests, gin.H{"success": false, "error": "Too many permission changes in a short time. Please wait a minute and try again."})
+		return
+	}
+
+	phone := strings.TrimSpace(actor.Phone)
+	if phone == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Your account has no phone number for 2FA."})
+		return
+	}
+	if okOtp, reason := h.OTPs.VerifyAndConsume(ctx, phone, req.Otp); !okOtp {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": reason})
+		return
+	}
+
+	var tierStr string
+	if err := h.Perms.Pool.QueryRow(ctx, "SELECT staff_tier FROM users WHERE id = $1", targetID).Scan(&tierStr); err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "User not found."})
+		return
+	}
+	tier := permissions.TierFrom(tierStr)
+
+	oldAllowed, _ := h.Perms.AllowedForUser(ctx, targetID, tier, req.Module, req.Action)
+	target := "user#" + strconv.FormatInt(targetID, 10) + "/" + req.Module + "/" + req.Action
+
+	if req.Allowed == nil {
+		if err := h.Perms.ClearUserOverride(ctx, targetID, req.Module, req.Action); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
+			return
+		}
+		newAllowed, _ := h.Perms.AllowedForUser(ctx, targetID, tier, req.Module, req.Action)
+		id := actor.UserID
+		_ = h.Perms.LogAudit(ctx, &id, "user_permission_cleared", target, boolWord(oldAllowed), boolWord(newAllowed), c.ClientIP())
+		c.JSON(http.StatusOK, gin.H{"success": true, "user_id": targetID, "module": req.Module, "action": req.Action, "allowed": newAllowed, "source": "tier"})
+		return
+	}
+
+	if err := h.Perms.SetUserOverride(ctx, targetID, tier, req.Module, req.Action, *req.Allowed); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
+		return
+	}
+	id := actor.UserID
+	_ = h.Perms.LogAudit(ctx, &id, "user_permission_set", target, boolWord(oldAllowed), boolWord(*req.Allowed), c.ClientIP())
+	c.JSON(http.StatusOK, gin.H{"success": true, "user_id": targetID, "module": req.Module, "action": req.Action, "allowed": *req.Allowed, "source": "user"})
 }
 
 func validIn(v string, set []string) bool {

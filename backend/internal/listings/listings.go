@@ -21,20 +21,20 @@ func New(pool *pgxpool.Pool) *Store { return &Store{Pool: pool} }
 // ----------------- partners -----------------
 
 type Partner struct {
-	ID            int64   `json:"id"`
-	Name          string  `json:"name"`
-	NameAr        *string `json:"name_ar"`
-	NameSorani    *string `json:"name_sorani"`
-	NameBadini    *string `json:"name_badini"`
-	PartnerType   *string `json:"partner_type"`
-	ContactPhone  *string `json:"contact_phone"`
-	Website       *string `json:"website"`
-	Description   *string `json:"description"`
-	DescriptionAr *string `json:"description_ar"`
+	ID                int64   `json:"id"`
+	Name              string  `json:"name"`
+	NameAr            *string `json:"name_ar"`
+	NameSorani        *string `json:"name_sorani"`
+	NameBadini        *string `json:"name_badini"`
+	PartnerType       *string `json:"partner_type"`
+	ContactPhone      *string `json:"contact_phone"`
+	Website           *string `json:"website"`
+	Description       *string `json:"description"`
+	DescriptionAr     *string `json:"description_ar"`
 	DescriptionSorani *string `json:"description_sorani"`
 	DescriptionBadini *string `json:"description_badini"`
-	LogoPath      *string `json:"logo_path"`
-	Status        string  `json:"status"`
+	LogoPath          *string `json:"logo_path"`
+	Status            string  `json:"status"`
 	// #26 — contact + location.
 	Email          *string `json:"email"`
 	SocialLinks    *string `json:"social_links"`
@@ -109,21 +109,21 @@ func (s *Store) ListPartners(ctx context.Context, status, q string, limit int, u
 // ----------------- media posts -----------------
 
 type MediaPost struct {
-	ID         int64      `json:"id"`
-	Title      string     `json:"title"`
-	TitleAr    *string    `json:"title_ar"`
-	TitleSorani *string   `json:"title_sorani"`
-	TitleBadini *string   `json:"title_badini"`
-	Body       *string    `json:"body"`
-	BodyAr     *string    `json:"body_ar"`
-	BodySorani *string    `json:"body_sorani"`
-	BodyBadini *string    `json:"body_badini"`
-	PostType   string     `json:"post_type"`
-	MediaURL   *string    `json:"media_url"`
-	LinkURL    *string    `json:"link_url"`
-	EventDate  *time.Time `json:"event_date"`
-	Status     string     `json:"status"`
-	CreatedAt  time.Time  `json:"created_at"`
+	ID          int64      `json:"id"`
+	Title       string     `json:"title"`
+	TitleAr     *string    `json:"title_ar"`
+	TitleSorani *string    `json:"title_sorani"`
+	TitleBadini *string    `json:"title_badini"`
+	Body        *string    `json:"body"`
+	BodyAr      *string    `json:"body_ar"`
+	BodySorani  *string    `json:"body_sorani"`
+	BodyBadini  *string    `json:"body_badini"`
+	PostType    string     `json:"post_type"`
+	MediaURL    *string    `json:"media_url"`
+	LinkURL     *string    `json:"link_url"`
+	EventDate   *time.Time `json:"event_date"`
+	Status      string     `json:"status"`
+	CreatedAt   time.Time  `json:"created_at"`
 	// #22 — "Our Work" category tag (nullable; matches a media_categories.slug).
 	CategorySlug *string `json:"category_slug"`
 	// #23 — 4-language location + media gallery.
@@ -212,23 +212,23 @@ func (s *Store) ListMediaPosts(ctx context.Context, status, postType, q string, 
 // ----------------- city directory / community -----------------
 
 type Community struct {
-	ID            int64    `json:"id"`
-	Name          string   `json:"name"`
-	NameAr        *string  `json:"name_ar"`
-	NameSorani    *string  `json:"name_sorani"`
-	NameBadini    *string  `json:"name_badini"`
-	Category      string   `json:"category"`
-	City          *string  `json:"city"`
-	Address       *string  `json:"address"`
-	Phone         *string  `json:"phone"`
-	Email         *string  `json:"email"`
-	Website       *string  `json:"website"`
-	Description   *string  `json:"description"`
-	DescriptionAr *string  `json:"description_ar"`
+	ID                int64   `json:"id"`
+	Name              string  `json:"name"`
+	NameAr            *string `json:"name_ar"`
+	NameSorani        *string `json:"name_sorani"`
+	NameBadini        *string `json:"name_badini"`
+	Category          string  `json:"category"`
+	City              *string `json:"city"`
+	Address           *string `json:"address"`
+	Phone             *string `json:"phone"`
+	Email             *string `json:"email"`
+	Website           *string `json:"website"`
+	Description       *string `json:"description"`
+	DescriptionAr     *string `json:"description_ar"`
 	DescriptionSorani *string `json:"description_sorani"`
 	DescriptionBadini *string `json:"description_badini"`
-	Latitude      *string  `json:"latitude"`
-	Longitude     *string  `json:"longitude"`
+	Latitude          *string `json:"latitude"`
+	Longitude         *string `json:"longitude"`
 	// #29 — City Guide sectors, 4-language opening hours, photo gallery.
 	Sectors            []string `json:"sectors"`
 	OpeningHours       *string  `json:"opening_hours"`
@@ -239,6 +239,8 @@ type Community struct {
 	Status             *string  `json:"status,omitempty"`
 	// #48 — 'approx' (coords snapped to ~500m in the public API) or 'exact'.
 	ApproxLocation string `json:"approx_location"`
+	// Note #19 — mandatory classification: 'government' or 'private'.
+	SectorType string `json:"sector_type"`
 }
 
 // ListCommunity returns approved community-directory entries. q searches
@@ -273,7 +275,7 @@ func (s *Store) ListCommunity(ctx context.Context, category, city, q, sector str
 	               CASE WHEN approx_location = 1 THEN (ROUND(latitude  / 0.005) * 0.005)::text ELSE latitude::text  END,
 	               CASE WHEN approx_location = 1 THEN (ROUND(longitude / 0.005) * 0.005)::text ELSE longitude::text END,
 	               sectors, opening_hours, opening_hours_ar, opening_hours_sorani, opening_hours_badini,
-	               gallery, CASE WHEN approx_location = 1 THEN 'approx' ELSE 'exact' END
+	               gallery, CASE WHEN approx_location = 1 THEN 'approx' ELSE 'exact' END, sector_type
 	          FROM city_directory_entries
 	         WHERE ` + strings.Join(where, " AND ") + `
 	         ORDER BY category ASC, name ASC
@@ -293,7 +295,7 @@ func (s *Store) ListCommunity(ctx context.Context, category, city, q, sector str
 			&c.Description, &c.DescriptionAr, &c.DescriptionSorani, &c.DescriptionBadini,
 			&c.Latitude, &c.Longitude,
 			&c.Sectors, &c.OpeningHours, &c.OpeningHoursAr, &c.OpeningHoursSorani, &c.OpeningHoursBadini,
-			&c.Gallery, &c.ApproxLocation,
+			&c.Gallery, &c.ApproxLocation, &c.SectorType,
 		); err != nil {
 			return nil, err
 		}
@@ -324,7 +326,7 @@ func (s *Store) ListCommunityAdmin(ctx context.Context, status string, limit int
 	               description, description_ar, description_sorani, description_badini,
 	               latitude::text, longitude::text,
 	               sectors, opening_hours, opening_hours_ar, opening_hours_sorani, opening_hours_badini,
-	               gallery, status, CASE WHEN approx_location = 1 THEN 'approx' ELSE 'exact' END
+	               gallery, status, CASE WHEN approx_location = 1 THEN 'approx' ELSE 'exact' END, sector_type
 	          FROM city_directory_entries
 	         WHERE ` + strings.Join(where, " AND ") + `
 	         ORDER BY (status = 'pending') DESC, created_at DESC
@@ -343,7 +345,7 @@ func (s *Store) ListCommunityAdmin(ctx context.Context, status string, limit int
 			&c.Description, &c.DescriptionAr, &c.DescriptionSorani, &c.DescriptionBadini,
 			&c.Latitude, &c.Longitude,
 			&c.Sectors, &c.OpeningHours, &c.OpeningHoursAr, &c.OpeningHoursSorani, &c.OpeningHoursBadini,
-			&c.Gallery, &c.Status, &c.ApproxLocation,
+			&c.Gallery, &c.Status, &c.ApproxLocation, &c.SectorType,
 		); err != nil {
 			return nil, err
 		}

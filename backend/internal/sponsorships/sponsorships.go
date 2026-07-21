@@ -14,6 +14,8 @@ import (
 type Sponsorship struct {
 	ID                int64     `json:"id"`
 	DonorUserID       *int      `json:"donor_user_id"`
+	DonorPhone        *string   `json:"donor_phone"`
+	DonorFullName     *string   `json:"donor_full_name"`
 	BeneficiaryCaseID *int64    `json:"beneficiary_case_id"`
 	ProjectRequestID  *int64    `json:"project_request_id"`
 	SponsorshipType   string    `json:"sponsorship_type"`
@@ -52,13 +54,16 @@ func (s *Store) List(ctx context.Context, donorUserID int64, q string, limit int
 		where = append(where, "(s.sponsorship_type ILIKE $"+idx+" OR s.notes ILIKE $"+idx+" OR p.project_title ILIKE $"+idx+")")
 	}
 	sqlStr := `
-		SELECT s.id, s.donor_user_id, s.beneficiary_case_id, s.project_request_id,
+		SELECT s.id, s.donor_user_id, u.phone, up.full_name,
+		       s.beneficiary_case_id, s.project_request_id,
 		       s.sponsorship_type, s.amount::text, s.currency, s.schedule_interval,
 		       s.next_due_date, s.status, s.notes, s.created_at,
 		       COALESCE(p.project_title, 'General support') AS project_title,
 		       COALESCE(p.project_title_ar, 'الدعم العام')  AS project_title_ar
 		  FROM sponsorships s
 		  LEFT JOIN beneficiary_project_requests p ON p.id = s.project_request_id
+		  LEFT JOIN users u ON u.id = s.donor_user_id
+		  LEFT JOIN user_profiles up ON up.user_id = s.donor_user_id
 		 WHERE ` + strings.Join(where, " AND ") + `
 		 ORDER BY
 		   CASE s.status
@@ -78,7 +83,8 @@ func (s *Store) List(ctx context.Context, donorUserID int64, q string, limit int
 	items := []Sponsorship{}
 	for rows.Next() {
 		var x Sponsorship
-		if err := rows.Scan(&x.ID, &x.DonorUserID, &x.BeneficiaryCaseID, &x.ProjectRequestID,
+		if err := rows.Scan(&x.ID, &x.DonorUserID, &x.DonorPhone, &x.DonorFullName,
+			&x.BeneficiaryCaseID, &x.ProjectRequestID,
 			&x.SponsorshipType, &x.Amount, &x.Currency, &x.ScheduleInterval,
 			&x.NextDueDate, &x.Status, &x.Notes, &x.CreatedAt,
 			&x.ProjectTitle, &x.ProjectTitleAr); err != nil {

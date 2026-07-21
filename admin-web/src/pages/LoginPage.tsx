@@ -38,6 +38,20 @@ export default function LoginPage() {
   // fall back to the dashboard root.
   const from = (location.state as { from?: { pathname: string } } | null)?.from?.pathname ?? '/'
 
+  // Local-dev convenience: fills (never submits) the form from
+  // VITE_DEV_ADMIN_USERNAME/PASSWORD in .env.local. import.meta.env.DEV is
+  // Vite's build-time flag — false in a production build, so this whole
+  // branch (and the credentials) is dead-code-eliminated out of anything
+  // actually shipped. Only shown when both vars are actually set, so an
+  // empty .env.local just hides the button instead of filling blanks.
+  const devUsername = import.meta.env.DEV ? import.meta.env.VITE_DEV_ADMIN_USERNAME : undefined
+  const devPassword = import.meta.env.DEV ? import.meta.env.VITE_DEV_ADMIN_PASSWORD : undefined
+  const showAutofill = Boolean(devUsername && devPassword)
+  function autofill() {
+    setUsername(devUsername ?? '')
+    setPassword(devPassword ?? '')
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError(null)
@@ -91,6 +105,19 @@ export default function LoginPage() {
         <span className="login-eyebrow">{t('auth.eyebrow')}</span>
         <h1>{t('auth.welcome')}</h1>
         <p className="muted">{t('auth.subtitle')}</p>
+
+        {showAutofill && (
+          <button
+            type="button"
+            className="secondary"
+            onClick={autofill}
+            disabled={busy || otpRequired}
+            style={{ marginBottom: 4, fontSize: 13 }}
+            title={t('auth.dev_autofill_hint')}
+          >
+            {t('auth.dev_autofill')}
+          </button>
+        )}
 
         {error && <div className="error-box">{error}</div>}
 

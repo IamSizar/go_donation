@@ -16,10 +16,13 @@ import { useSelection } from '../lib/useSelection'
 import { type CsvColumn } from '../lib/csv'
 import { HighlightBanner, useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForStatus } from '../lib/statusColors'
+import { formatDateParts } from '../lib/dates'
 
 const SPONSORSHIP_CSV_COLUMNS: CsvColumn<Sponsorship>[] = [
-  { header: 'id', get: (s) => s.id },
+  { header: 'id', get: (s) => sponsorshipCode(s.id) },
   { header: 'donor_user_id', get: (s) => s.donor_user_id },
+  { header: 'donor_full_name', get: (s) => s.donor_full_name },
+  { header: 'donor_phone', get: (s) => s.donor_phone },
   { header: 'project_title', get: (s) => s.project_title },
   { header: 'sponsorship_type', get: (s) => s.sponsorship_type },
   { header: 'amount', get: (s) => s.amount },
@@ -27,6 +30,7 @@ const SPONSORSHIP_CSV_COLUMNS: CsvColumn<Sponsorship>[] = [
   { header: 'schedule_interval', get: (s) => s.schedule_interval },
   { header: 'next_due_date', get: (s) => s.next_due_date },
   { header: 'status', get: (s) => s.status },
+  { header: 'created_at', get: (s) => s.created_at },
 ]
 
 const SPONSORSHIP_STATUSES = ['pending', 'active', 'paused', 'delayed', 'stopped', 'completed', 'cancelled']
@@ -57,6 +61,12 @@ function formatDate(iso: string | null): string {
   if (!iso) return '—'
   // backend stores DATE values; trim to YYYY-MM-DD when possible
   return iso.length >= 10 ? iso.slice(0, 10) : iso
+}
+
+// Replace the raw "#42" id with the app-wide "T{id}" code used everywhere
+// else (Volunteers, Donations, Orders) instead of a section-specific prefix.
+function sponsorshipCode(id: number): string {
+  return `T${id}`
 }
 
 export default function SponsorshipsPage() {
@@ -172,13 +182,18 @@ export default function SponsorshipsPage() {
   const statusOptions = Array.from(new Set(all.map((s) => s.status))).sort()
 
   const columns: Column<Sponsorship>[] = [
-    { key: 'id', header: t('col.id'), width: '60px', cell: (s) => <strong>#{s.id}</strong> },
+    {
+      key: 'id',
+      header: t('col.id'),
+      width: '70px',
+      cell: (s) => <code style={{ background: 'transparent', padding: 0 }}>{sponsorshipCode(s.id)}</code>,
+    },
     {
       key: 'donor',
       header: t('col.donor'),
       cell: (s) =>
         s.donor_user_id ? (
-          <span>{t('common.user_ref_lc', { id: s.donor_user_id })}</span>
+          <span>{s.donor_full_name ?? t('common.user_ref_lc', { id: s.donor_user_id })}</span>
         ) : (
           <span className="muted">—</span>
         ),
@@ -212,6 +227,19 @@ export default function SponsorshipsPage() {
       key: 'next',
       header: t('col.next_due'),
       cell: (s) => <span className="muted">{formatDate(s.next_due_date)}</span>,
+    },
+    {
+      key: 'created',
+      header: t('col.created'),
+      cell: (s) => {
+        const { date, time } = formatDateParts(s.created_at)
+        return (
+          <div className="cell-stack">
+            <span>{date}</span>
+            {time && <span className="muted">{time}</span>}
+          </div>
+        )
+      },
     },
     {
       key: 'status',

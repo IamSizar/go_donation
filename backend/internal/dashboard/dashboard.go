@@ -33,12 +33,15 @@ type Donation struct {
 }
 
 type Case struct {
-	ID                 int64     `json:"id"`
-	CaseCode           string    `json:"case_code"`
-	PublicTitle        string    `json:"public_title"`
-	PublicTitleAr      *string   `json:"public_title_ar"`
-	PriorityLevel      string    `json:"priority_level"`
-	VerificationStatus string    `json:"verification_status"`
+	ID            int64   `json:"id"`
+	CaseCode      string  `json:"case_code"`
+	PublicTitle   string  `json:"public_title"`
+	PublicTitleAr *string `json:"public_title_ar"`
+	PriorityLevel string  `json:"priority_level"`
+	// Note #15 — nullable, same reason as beneficiary.Case.VerificationStatus:
+	// the column has no NOT NULL/DEFAULT, and legacy self-submitted rows can
+	// have SQL NULL here.
+	VerificationStatus *string   `json:"verification_status"`
 	UpdatedAt          time.Time `json:"updated_at"`
 }
 
@@ -74,12 +77,12 @@ type UpcomingMission struct {
 }
 
 type Summary struct {
-	Stats               Stats               `json:"stats"`
-	RecentDonations     []Donation          `json:"recent_donations,omitempty"`
-	RecentCases         []Case              `json:"recent_cases,omitempty"`
-	RecentRequests      []Request           `json:"recent_requests,omitempty"`
-	Application         *Application        `json:"application,omitempty"`
-	UpcomingMissions    []UpcomingMission   `json:"upcoming_missions,omitempty"`
+	Stats               Stats                `json:"stats"`
+	RecentDonations     []Donation           `json:"recent_donations,omitempty"`
+	RecentCases         []Case               `json:"recent_cases,omitempty"`
+	RecentRequests      []Request            `json:"recent_requests,omitempty"`
+	Application         *Application         `json:"application,omitempty"`
+	UpcomingMissions    []UpcomingMission    `json:"upcoming_missions,omitempty"`
 	RecentNotifications []RecentNotification `json:"recent_notifications"`
 }
 
@@ -147,12 +150,12 @@ func (s *Store) recentNotifications(ctx context.Context, userID int64) ([]Recent
 
 func (s *Store) donorSummary(ctx context.Context, userID int64) (*Summary, error) {
 	stats := Stats{
-		"successful_amount":     "0",
-		"successful_count":      0,
-		"pending_count":         0,
-		"active_sponsorships":   0,
-		"pending_sponsorships":  0,
-		"active_campaigns":      0,
+		"successful_amount":    "0",
+		"successful_count":     0,
+		"pending_count":        0,
+		"active_sponsorships":  0,
+		"pending_sponsorships": 0,
+		"active_campaigns":     0,
 	}
 
 	// Donation rollup
@@ -215,12 +218,12 @@ func (s *Store) donorSummary(ctx context.Context, userID int64) (*Summary, error
 
 func (s *Store) beneficiarySummary(ctx context.Context, userID int64) (*Summary, error) {
 	stats := Stats{
-		"active_cases":          0,
-		"approved_cases":        0,
-		"needs_changes_cases":   0,
-		"pending_requests":      0,
-		"approved_requests":     0,
-		"open_support_tickets":  0,
+		"active_cases":         0,
+		"approved_cases":       0,
+		"needs_changes_cases":  0,
+		"pending_requests":     0,
+		"approved_requests":    0,
+		"open_support_tickets": 0,
 	}
 	var act, app, ncc int
 	_ = s.Pool.QueryRow(ctx, `
@@ -290,11 +293,11 @@ func (s *Store) beneficiarySummary(ctx context.Context, userID int64) (*Summary,
 
 func (s *Store) volunteerSummary(ctx context.Context, userID int64) (*Summary, error) {
 	stats := Stats{
-		"application_status":  "",
-		"active_missions":     0,
-		"completed_missions":  0,
-		"hours_served":        "0",
-		"available_missions":  0,
+		"application_status": "",
+		"active_missions":    0,
+		"completed_missions": 0,
+		"hours_served":       "0",
+		"available_missions": 0,
 	}
 
 	var app *Application

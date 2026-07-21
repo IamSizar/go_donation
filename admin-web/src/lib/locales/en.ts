@@ -28,6 +28,9 @@ const en = {
     marketplace: 'Marketplace',
     marketplace_categories: 'Product categories',
     marriage: 'Marriage',
+    marriage_requests: 'Marriage Requests',
+    marriage_chats: 'Marriage Chats',
+    marriage_posts: 'Marriage Posts',
     partners: 'Partners',
     media: 'Media',
     community: 'Community',
@@ -36,6 +39,8 @@ const en = {
     field_rules: 'Field rules',
     receipts: 'Aid receipts',
     messages: 'Messages',
+    staff_chat: 'Staff Chat',
+    case_volunteer_chats: 'Case ↔ Volunteer Chats',
     volunteers: 'Volunteers',
     volunteer_board: 'Volunteer board',
     missions: 'Missions',
@@ -50,6 +55,7 @@ const en = {
     terms: 'Terms & Conditions',
     about: 'About Us',
     contact: 'Contact Us',
+    settings: 'Dashboard Settings',
     donation_codes: 'Transaction codes',
     project_categories: 'Project categories',
     payment_methods: 'Payment methods',
@@ -57,6 +63,19 @@ const en = {
     comments: 'Comments',
     banned_words: 'Banned words',
     logout: 'Logout',
+  },
+
+  // Note #29 — sidebar group headers (Dashboard/Marriage/Partners stay
+  // standalone, so they're not here).
+  nav_group: {
+    users_members: 'Users & Members',
+    aid_campaigns: 'Aid & Campaigns',
+    city_guide: 'City Guide',
+    store_marketplace: 'Store & Marketplace',
+    communication_support: 'Communication & Support',
+    monitoring_reports: 'Monitoring & Reports',
+    system_settings: 'System Settings',
+    unsorted: 'Unsorted',
   },
 
   // Section 27 — Guest Mode config (Super-Admin).
@@ -102,11 +121,32 @@ const en = {
     need_en: 'English name is required.',
     active: 'Active (shown in the app)',
   },
+  // Select-option labels for beneficiary case fields (Note #32) — kept in
+  // their own namespace rather than the shared status.* one since case
+  // insensitivity there already collides with UsersPage's capitalized
+  // 'Male'/'Female' gender options.
+  option: {
+    gender_male: 'Male',
+    gender_female: 'Female',
+    marital_single: 'Single',
+    marital_married: 'Married',
+    marital_widowed: 'Widowed',
+    marital_divorced: 'Divorced',
+  },
   fieldRules: {
     title: 'Registration field rules',
     subtitle: 'Choose which optional sign-up fields are required. Applies to grantor, eligible, and volunteer forms.',
     required: 'Required',
+    optional: 'Optional',
+    hidden: 'Hidden',
     saved: 'Field rule saved.',
+    section_registration: 'Registration form fields',
+    section_case: 'Add Case form fields',
+    section_case_desc: 'Controls which fields are Required vs Optional in the admin dashboard’s Add Case (Recipient) form.',
+    section_marriage: 'Marriage form fields',
+    section_marriage_desc: 'Controls which fields are Required, Optional, or Hidden in the admin dashboard’s Marriage/Engagement form.',
+    section_new_user: 'Add New User form fields',
+    section_new_user_desc: 'Controls which fields are Required, Optional, or Hidden in the admin dashboard’s Add New User window.',
   },
   receipts: {
     title: 'Aid receipts',
@@ -165,6 +205,11 @@ const en = {
     col_coordinates: 'Coordinates',
     no_coords: 'no coords',
     open_link: 'open',
+    // Note #19 — separate from the sector taxonomy (Governmental/Educational/
+    // Health/Commercial/Industrial): whether the place itself is run by the
+    // government or is private/non-profit.
+    sector_type_government: 'Government Sector (Public)',
+    sector_type_private: 'Non-profit / Private Sector (Private)',
   },
   mediaCategories: {
     title: 'Our Work categories',
@@ -244,6 +289,37 @@ const en = {
     hidden: 'Hidden',
   },
 
+  // Note #5 — Dashboard Settings. Home for system-wide settings that don't
+  // deserve their own sidebar section.
+  settings: {
+    title: 'Dashboard Settings',
+    subtitle: 'System-wide settings for the admin dashboard.',
+    saved: 'Setting saved.',
+    session_timeout_title: 'Session Timeout',
+    session_timeout_desc: 'How long an admin can stay inactive before the dashboard automatically signs them out.',
+    session_timeout_label: 'Minutes',
+    session_timeout_hint: 'Must be between 5 and 480 minutes (8 hours).',
+    session_timeout_range: 'Enter a number between 5 and 480.',
+    whatsapp_title: 'Support WhatsApp Number',
+    whatsapp_desc: 'Shown to users when the in-app AI assistant offers to hand off to a human over WhatsApp.',
+    whatsapp_label: 'Phone number',
+    fib_title: 'FIB Account Number',
+    fib_desc: 'The FIB payment account number shown on the donate screen.',
+    fib_label: 'Account number',
+    marriage_prices_title: 'Marriage Subscription Package Prices',
+    marriage_prices_desc: 'The price (IQD) for each Marriage section subscription package. Bronze is the free/entry tier; the others unlock paid features.',
+    marriage_prices_invalid: 'Enter a valid price (0 or more) for {tier}.',
+    sidebar_layout_title: 'Sidebar Layout',
+    sidebar_layout_desc: 'Reorder the sidebar groups, reorder items within a group, or move an item into a different group.',
+    sidebar_layout_move_up: 'Move up',
+    sidebar_layout_move_down: 'Move down',
+    sidebar_layout_move_to: 'Move {item} to group',
+    sidebar_layout_standalone: 'Standalone (no group)',
+    sidebar_layout_item_count: '{n} items',
+    sidebar_layout_reset: 'Reset to default',
+    sidebar_layout_reset_ok: 'Sidebar layout reset to default.',
+  },
+
   // Section 24 — Super-Admin Permissions Management.
   lock: {
     title: 'Section locked',
@@ -273,6 +349,13 @@ const en = {
     col_time: 'Time',
     action: { view: 'View', add: 'Create', edit: 'Edit', archive: 'Archive', delete: 'Delete', export: 'Export' },
     tier: { admin: 'Administrator', supervisor: 'Supervisor', employee: 'Employee', user: 'User' },
+    per_employee_title: 'Per-Employee Access',
+    per_employee_desc: 'Narrow (or widen) one specific employee’s access without touching their whole tier — e.g. an employee assigned solely to Volunteers won’t see Marriage, Partners, or Settings, while everyone else on the same tier is unaffected.',
+    employee_label: 'Employee',
+    employee_pick: 'Choose an employee…',
+    overridden_hint: 'Customized for this employee — click ↺ to revert to their tier default.',
+    inherited_hint: 'Inherited from this employee’s tier.',
+    reset_to_tier: 'Reset to tier default',
   },
 
   export: {
@@ -317,6 +400,12 @@ const en = {
     msg_send: 'Send',
     msg_sending: 'Sending…',
     msg_chat_inactive: 'This chat is {status} — you can reply once it’s accepted.',
+    msg_requester_paren: '(requester)',
+    msg_owner_paren: '(profile owner)',
+    msg_assigned_to: 'Responsible staff',
+    msg_claim: 'Claim',
+    msg_release: 'Release',
+    msg_reply_plain: 'Type a message…',
     city_summary: '{n} places total · {c} with coordinates (shown on the app map)',
     city_search: 'Search places…',
     mission_status_label: 'Mission status',
@@ -447,6 +536,7 @@ const en = {
       no_access: 'You do not have access to the trash.',
       restored: 'Record restored.',
       purged: 'Permanently deleted.',
+      restore_prompt: 'Enter your password to restore this record:',
       purge_prompt: 'Enter your password to permanently delete this record:',
       col_module: 'Module',
       col_record: 'Record',
@@ -465,7 +555,11 @@ const en = {
                     vs_last_month: 'vs {n} last month', donations_30d: 'Contributions · last 30 days' },
     users:        { title: 'Users',          new_user: '+ New user', search_placeholder: 'search phone / full name',
                     force_logout: 'Force logout', force_logout_ok: 'All sessions revoked — the user is signed out.', force_logout_fail: 'Could not force logout.',
-                    delete_body: '{name} will be permanently removed. Contributions and other records linked to this user will block the delete (a clear error message will appear if so).' },
+                    archive: 'Archive', unarchive: 'Un-archive',
+                    archived_ok: '{noun} archived.', unarchived_ok: '{noun} restored from archive.',
+                    delete_body: '{name} will be permanently removed. Contributions and other records linked to this user will block the delete (a clear error message will appear if so).',
+                    password_non_staff_warning: 'This account is not a staff/admin account. The mobile app has no screen for a regular user to enter a password — setting one here will require a password on their NEXT phone login, and they will be locked out with no way back in through the app. Continue anyway?',
+                    password_cancelled: 'Password change cancelled.' },
     donations:    { title: 'Contributions',      search_placeholder: 'search ref# / grantor / method', new: '+ New contribution' },
     campaigns:    { title: 'Campaigns',      search_placeholder: 'search title or address',     new: '+ New campaign',
                     delete_extra: 'Contributions linked to this campaign will keep their amount but lose their campaign reference.' },
@@ -483,6 +577,24 @@ const en = {
                     products_search_placeholder: 'search name / category',
                     orders_search_placeholder: 'search product / note' },
     marriage:     { title: 'Marriage',       search_placeholder: 'search code / city', new: '+ New profile' },
+    marriage_requests: {
+      subtitle: 'Every "request a meeting" tap from the app lands here. Approve to open a staff-mediated chat, or decline.',
+      from: 'From', about_profile: 'About profile', profile_owner: 'Profile owner',
+      approve: 'Approve', decline: 'Decline',
+      approved: 'Request approved — chat thread opened.', declined: 'Request declined.',
+      empty: 'No meeting requests yet.',
+    },
+    marriage_posts: { title: 'Marriage Posts', new: '+ New post', empty: 'No marriage posts yet.' },
+    staff_chat: {
+      subtitle: 'Direct messages between dashboard staff — Manager ↔ Staff Member, or any other pair.',
+      new: '+ New chat', empty: 'No chats yet.', pick_someone: 'Start a chat with…',
+    },
+    case_volunteer_chats: {
+      subtitle: 'Opens automatically once a volunteer signup is linked to a case and approved.',
+      empty: 'No chats yet.',
+      volunteer_paren: '(volunteer)',
+      beneficiary_paren: '(beneficiary)',
+    },
     partners:     { title: 'Partners',       search_placeholder: 'search name / type',  new: '+ New partner' },
     media:        { title: 'Media',          search_placeholder: 'search title / body', new: '+ New post' },
     community:    { title: 'Community directory', search_placeholder: 'search name / address', new: '+ New entry' },
@@ -495,7 +607,8 @@ const en = {
                     no_professions: 'No custom professions yet.', category: 'Category', category_custom: 'Custom',
                     delete_profession: 'Delete profession',
                     delete_profession_body: 'Delete “{name}”? Volunteers already tagged with it keep the tag.',
-                    signups_search_placeholder: 'Search volunteer or mission…' },
+                    signups_search_placeholder: 'Search volunteer or mission…',
+                    days_count: '{n} days' },
     missions:     { title: 'Missions',       search_placeholder: 'Search title or city…', new: 'New mission',
                     cascade_warn: 'Warning: {n} volunteer signup(s) will be deleted via CASCADE — they won\'t be notified.',
                     no_signups: 'No signups will be affected.',
@@ -529,6 +642,7 @@ const en = {
                     quick_templates_sub: 'One tap fills the message below — pick an occasion.',
                     template_language: 'Template language',
                     templates_hint: 'Tap a template to fill the Title and Text below in the selected language, then choose a target and send. You can edit the text after.',
+                    auto_language_hint: 'In-app notifications send all 4 languages at once — each recipient automatically sees the notification in their own app language.',
                     target_label: 'Target', target_aria: 'Notification target',
                     target_user_title: 'One user', target_user_desc: 'Send to every active device saved for one user.',
                     target_user_hint: 'Search by name or phone — the matching user gets the push only.',
@@ -572,7 +686,7 @@ const en = {
   // headers stay machine-readable snake_case and are NOT translated.
   col: {
     rating: 'Rating',
-    tier: 'Access tier',
+    tier: 'Access permission',
     account_status: 'Account status',
     id: 'ID',
     status: 'Status',
@@ -594,7 +708,7 @@ const en = {
     reference: 'Reference',
     date: 'Date',
     website: 'Website',
-    role: 'Role',
+    role: 'User type',
     active: 'Active',
     admin: 'Admin',
     user: 'User',
@@ -683,6 +797,8 @@ const en = {
     otp_label: 'Verification code',
     otp_sent: 'We sent a code to {hint}. Enter it to finish signing in.',
     verify: 'Verify & sign in',
+    dev_autofill: '⚡ Autofill (dev)',
+    dev_autofill_hint: 'Fills the local dev admin credentials — does not sign in for you.',
   },
 
   // App shell chrome (sidebar foot + topbar).
@@ -691,6 +807,8 @@ const en = {
     exporting: 'Exporting…',
     export_title: 'Download every business table as a single JSON file',
     idle_locked: 'Session locked after inactivity — please sign in again.',
+    sidebar_hide: 'Hide sidebar',
+    sidebar_show: 'Show sidebar',
     export_result: 'Exported {tables} tables · {rows} rows',
     logout_title: 'Sign out of the admin dashboard',
     logout_message: "You'll be signed out of the admin dashboard.",
@@ -739,6 +857,7 @@ const en = {
     campaign: 'Campaign',
     partner: 'Partner',
     media_post: 'Media post',
+    marriage_post: 'Marriage post',
     community_entry: 'Community entry',
     profile: 'Profile',
   },
@@ -838,6 +957,9 @@ const en = {
     weekly: 'Weekly', monthly: 'Monthly', quarterly: 'Quarterly', yearly: 'Yearly',
     private: 'Private', employee_only: 'Employee only', matched_summary: 'Matched summary',
     free: 'Free', paid: 'Paid', waived: 'Waived',
+    // Note #17 — Marriage subscription package tiers (replaced the
+    // misleading "Free" single value).
+    bronze: 'Bronze', silver: 'Silver', gold: 'Gold', diamond: 'Diamond', vip: 'VIP',
     news: 'News', activity: 'Activity', event: 'Event', article: 'Article', video: 'Video', marriage: 'Marriage',
     code_only: 'Code only', summary: 'Summary',
     general: 'General', sponsorship: 'Assistance', in_kind: 'In-kind', operational: 'Operational', campaign: 'Campaign',
@@ -850,6 +972,9 @@ const en = {
     scheduled: 'Scheduled',
     submitted: 'Submitted',
     new: 'New',
+    // Note #18 (Arabization) — Marketplace product labels + Donation types.
+    sale: 'Sale', featured: 'Featured', used: 'Used', in_stock: 'In stock',
+    zakat: 'Zakat', sadaqah: 'Sadaqah',
     processing: 'Processing',
     received: 'Received',
     in_progress: 'In progress',
@@ -871,7 +996,7 @@ const en = {
     expired: 'Expired',
     inactive: 'Inactive',
     suspended: 'Suspended',
-    banned: 'Banned',
+    banned: 'Blocked',
     joined: 'Joined',
     completion_requested: 'Completion requested',
     no_show: 'No-show',
@@ -920,11 +1045,22 @@ const en = {
     claims_completion: '🟡 volunteer claims completion — review',
     done: 'done {when}',
     hours_served: '· {h} h served',
+    link_case: '🔗 Link to case',
+    unlink: 'Unlink',
+    case_linked: 'Linked to case.',
+    case_unlinked: 'Case link removed.',
+    case_search_placeholder: 'search case code / title…',
+    case_no_results: 'No matching cases.',
+    checkin_evidence: 'Check-in',
+    checkout_evidence: 'Check-out',
   },
 
   // Read-only record detail page.
   detail: {
     no_view: 'No detail view for "{resource}".',
+    field_volunteer_only: 'only collected for Volunteer registrations',
+    field_beneficiary_only: 'only collected for Beneficiary registrations',
+    field_email_hint: 'only set via Google Sign-In, not phone registration',
   },
 
   // Unimplemented-section placeholder.
@@ -935,6 +1071,9 @@ const en = {
 
   // EditModal field labels. Resolved via FieldSpec.labelKey.
   field: {
+    new_password: 'New password',
+    date_of_birth: 'Date of birth', occupation: 'Occupation', family_size: 'Family size',
+    monthly_income: 'Monthly income', availability: 'Availability', skills: 'Skills',
     social_links: 'Social links',
     sku: 'SKU', specs: 'Specs', labels: 'Labels',
     status: 'Status', city: 'City', phone: 'Phone', currency: 'Currency', category: 'Category',
@@ -945,6 +1084,7 @@ const en = {
     work_status: 'Work status', visibility: 'Visibility', verification_status: 'Verification status',
     total: 'Total', timeline_target: 'Timeline target', subscription: 'Subscription', subject: 'Subject',
     stock_quantity: 'Stock quantity', social_summary: 'Social summary', skills_free: 'Skills (free text)',
+    skills_ar: 'Skills (AR)', skills_sorani: 'Skills (Sorani)', skills_badini: 'Skills (Badini)',
     skill_tags: 'Skill tags (comma-separated canonical keys, e.g. driver_car, first_aid)',
     seller_user_id: 'Seller user ID', schedule: 'Schedule', review_notes: 'Review notes',
     reference: 'Reference #', raised_amount: 'Raised amount', public_visibility: 'Public visibility',
@@ -961,6 +1101,7 @@ const en = {
     health_status: 'Health status', goal_amount: 'Goal amount', finished: 'Finished',
     female_count: 'Female count', family_members: 'Family members', experience: 'Experience',
     event_date: 'Event date', email: 'Email', education_status: 'Education status', district: 'District',
+    governorate: 'Governorate', marital_status: 'Marital status',
     donation_type: 'Type', delivery: 'Delivery', contact_name: 'Contact name', contact_email: 'Contact email',
     condition: 'Condition', community: 'Community', campaign_id: 'Campaign ID', cv_link: 'CV link',
     buyer_note: 'Buyer note', beneficiary_case_id: 'Recipient case ID', beneficiaries: 'Recipients',
@@ -970,6 +1111,8 @@ const en = {
     name_en: 'Name (EN)', name_ar: 'Name (AR)', name_sorani: 'Name (Sorani)', name_badini: 'Name (Badini)',
     description_en: 'Description (EN)', description_ar: 'Description (AR)', description_sorani: 'Description (Sorani)', description_badini: 'Description (Badini)',
     sectors: 'Sectors',
+    sector: 'Sector',
+    sector_type: 'Sector Type',
     map_privacy: 'Map privacy',
     opening_hours_en: 'Opening Hours (EN)', opening_hours_ar: 'Opening Hours (AR)',
     opening_hours_sorani: 'Opening Hours (Sorani)', opening_hours_badini: 'Opening Hours (Badini)',
@@ -979,6 +1122,7 @@ const en = {
   },
   // Raw DB column names → labels for the read-only Detail view + Audit Logs.
   dbfield: {
+    donor_full_name: 'Grantor name', donor_phone: 'Grantor phone',
     approx_location: 'Approximate location', category_slug: 'Category code', date_of_birth: 'Date of birth',
     family_size: 'Family size', google_sub: 'Google account ID', last_reminder_due_date: 'Last reminder due',
     monthly_income: 'Monthly income', notifications_enabled: 'Notifications enabled', occupation: 'Occupation',

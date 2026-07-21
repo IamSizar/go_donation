@@ -23,6 +23,17 @@ type Profile struct {
 	Address        *string `json:"address"`
 	ProfilePicture *string `json:"profile_picture"`
 	DateOfBirth    *string `json:"date_of_birth"` // "YYYY-MM-DD" or null
+	// Note #6 — the rest of the registration profile, previously only
+	// readable via the generic Detail view, now also surfaced on the Users
+	// list so the Edit User form can pre-populate them.
+	City          *string `json:"city"`
+	Occupation    *string `json:"occupation"`
+	FamilySize    *int    `json:"family_size"`
+	HousingStatus *string `json:"housing_status"`
+	MonthlyIncome *string `json:"monthly_income"`
+	Skills        *string `json:"skills"`
+	Availability  *string `json:"availability"`
+	Experience    *string `json:"experience"`
 }
 
 // Account mirrors getUserAccountForClient() in percentage/database/fetch.php.
@@ -423,7 +434,9 @@ func (s *Store) PaginatedList(ctx context.Context, page, perPage int, q string) 
 	rows, err := s.Pool.Query(ctx, `
 		SELECT u.id, COALESCE(u.phone, '') AS phone, u.role_id, u.active, u.is_admin, u.created_at, u.registration_status, u.staff_tier, u.account_status,
 		       up.id, up.full_name, up.gender, up.address, up.profile_picture,
-		       to_char(up.date_of_birth, 'YYYY-MM-DD')
+		       to_char(up.date_of_birth, 'YYYY-MM-DD'),
+		       up.city, up.occupation, up.family_size, up.housing_status,
+		       up.monthly_income, up.skills, up.availability, up.experience
 		  FROM users u
 		  LEFT JOIN user_profiles up ON up.user_id = u.id`+where+`
 		 ORDER BY u.id DESC
@@ -438,22 +451,31 @@ func (s *Store) PaginatedList(ctx context.Context, page, perPage int, q string) 
 	items := []Account{}
 	for rows.Next() {
 		var (
-			acc        Account
-			roleID     *int
-			active     *int
-			isAdmin    *int
-			regStatus  *string
-			staffTier  *string
-			profileID  *int64
-			fullName   *string
-			gender     *string
-			address    *string
-			picture    *string
-			dob        *string
-			acctStatus *string
+			acc           Account
+			roleID        *int
+			active        *int
+			isAdmin       *int
+			regStatus     *string
+			staffTier     *string
+			profileID     *int64
+			fullName      *string
+			gender        *string
+			address       *string
+			picture       *string
+			dob           *string
+			acctStatus    *string
+			city          *string
+			occupation    *string
+			familySize    *int
+			housingStatus *string
+			monthlyIncome *string
+			skills        *string
+			availability  *string
+			experience    *string
 		)
 		err := rows.Scan(&acc.UserID, &acc.Phone, &roleID, &active, &isAdmin, &acc.CreatedAt, &regStatus, &staffTier, &acctStatus,
-			&profileID, &fullName, &gender, &address, &picture, &dob)
+			&profileID, &fullName, &gender, &address, &picture, &dob,
+			&city, &occupation, &familySize, &housingStatus, &monthlyIncome, &skills, &availability, &experience)
 		if err != nil {
 			return nil, err
 		}
@@ -483,6 +505,14 @@ func (s *Store) PaginatedList(ctx context.Context, page, perPage int, q string) 
 				Address:        nilIfEmpty(address),
 				ProfilePicture: nilIfEmpty(picture),
 				DateOfBirth:    nilIfEmpty(dob),
+				City:           nilIfEmpty(city),
+				Occupation:     nilIfEmpty(occupation),
+				FamilySize:     familySize,
+				HousingStatus:  nilIfEmpty(housingStatus),
+				MonthlyIncome:  nilIfEmpty(monthlyIncome),
+				Skills:         nilIfEmpty(skills),
+				Availability:   nilIfEmpty(availability),
+				Experience:     nilIfEmpty(experience),
 			}
 		}
 		items = append(items, acc)

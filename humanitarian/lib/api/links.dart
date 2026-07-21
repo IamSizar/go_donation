@@ -139,6 +139,12 @@ const String supportWhatsappUrl = '${baseUrl}support/whatsapp';
 /// POST: create a marriage/engagement profile (#42). Eligible role only.
 const String marriageSubmitUrl = '${baseUrl}marriage';
 
+/// GET: the current user's own submitted marriage profile(s) + status
+/// (Note #18). Unlike marriageProfilesUrl (public browse), this is never
+/// status-filtered — a user needs to see their own profile even when it's
+/// rejected/closed/paused.
+const String myMarriageProfileUrl = '${baseUrl}marriage/mine';
+
 /// GET: admin-configured required registration fields (#43).
 const String fieldRulesUrl = '${baseUrl}registration/field-rules';
 
@@ -191,5 +197,12 @@ const String beneficiaryCasesUrl = '${baseUrl}beneficiary_cases/';
 const String sponsorshipsUrl = '${baseUrl}sponsorships/';
 const String inKindDonationsUrl = '${baseUrl}in_kind_donations/';
 const String marriageProfilesUrl = '${baseUrl}marriage/';
+// Note #35 — staff-mediated marriage chat.
+const String marriageChatsUrl = '${baseUrl}marriage/chats';
+// Note #36 — Staff↔Volunteer↔Beneficiary chat.
+const String caseChatsUrl = '${baseUrl}case-chats';
+// Note #37 — generic authed photo upload + volunteer self check-in/out.
+const String uploadsUrl = '${baseUrl}uploads';
+const String volunteerMissionSignupsUrl = '${baseUrl}volunteer_mission_signups';
 const String supportTicketsUrl = '${baseUrl}support/';
 const String reportsUrl = '${baseUrl}reports/';

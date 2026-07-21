@@ -20,12 +20,17 @@ const SponsorshipsPage = lazy(() => import('./pages/SponsorshipsPage'))
 const BeneficiaryPage = lazy(() => import('./pages/BeneficiaryPage'))
 const MarketplacePage = lazy(() => import('./pages/MarketplacePage'))
 const MarriagePage = lazy(() => import('./pages/MarriagePage'))
+const MarriageMeetingRequestsPage = lazy(() => import('./pages/MarriageMeetingRequestsPage'))
+const MarriageChatsPage = lazy(() => import('./pages/MarriageChatsPage'))
+const MarriagePostsPage = lazy(() => import('./pages/MarriagePostsPage'))
 const PartnersPage = lazy(() => import('./pages/PartnersPage'))
 const MediaPage = lazy(() => import('./pages/MediaPage'))
 const CommunityPage = lazy(() => import('./pages/CommunityPage'))
 const CityGuidePage = lazy(() => import('./pages/CityGuidePage'))
 const CitySectorsPage = lazy(() => import('./pages/CitySectorsPage'))
 const MessagesPage = lazy(() => import('./pages/MessagesPage'))
+const StaffChatPage = lazy(() => import('./pages/StaffChatPage'))
+const CaseVolunteerChatsPage = lazy(() => import('./pages/CaseVolunteerChatsPage'))
 const VolunteersPage = lazy(() => import('./pages/VolunteersPage'))
 const VolunteerBoardPage = lazy(() => import('./pages/VolunteerBoardPage'))
 const MissionsPage = lazy(() => import('./pages/MissionsPage'))
@@ -38,6 +43,7 @@ const PushNotificationsPage = lazy(() => import('./pages/PushNotificationsPage')
 const TrashPage = lazy(() => import('./pages/TrashPage'))
 const PermissionsPage = lazy(() => import('./pages/PermissionsPage'))
 const GuestAccessPage = lazy(() => import('./pages/GuestAccessPage'))
+const SettingsPage = lazy(() => import('./pages/SettingsPage'))
 const TermsPage = lazy(() => import('./pages/TermsPage'))
 const AboutPage = lazy(() => import('./pages/AboutPage'))
 const FieldRulesPage = lazy(() => import('./pages/FieldRulesPage'))
@@ -111,12 +117,17 @@ export default function App() {
             <Route path="beneficiary" element={<BeneficiaryPage />} />
             <Route path="marketplace" element={<MarketplacePage />} />
             <Route path="marriage" element={<MarriagePage />} />
+            <Route path="marriage-requests" element={<MarriageMeetingRequestsPage />} />
+            <Route path="marriage-chats" element={<MarriageChatsPage />} />
+            <Route path="marriage-posts" element={<MarriagePostsPage />} />
             <Route path="partners" element={<PartnersPage />} />
             <Route path="media" element={<MediaPage />} />
             <Route path="community" element={<CommunityPage />} />
             <Route path="city-guide" element={<CityGuidePage />} />
             <Route path="city-sectors" element={<CitySectorsPage />} />
             <Route path="messages" element={<MessagesPage />} />
+            <Route path="staff-chat" element={<StaffChatPage />} />
+            <Route path="case-volunteer-chats" element={<CaseVolunteerChatsPage />} />
             <Route path="volunteers" element={<VolunteersPage />} />
             <Route path="volunteer-board" element={<VolunteerBoardPage />} />
             <Route path="missions" element={<MissionsPage />} />
@@ -129,6 +140,7 @@ export default function App() {
             <Route path="trash" element={<TrashPage />} />
             <Route path="permissions" element={<PermissionsPage />} />
             <Route path="guest-access" element={<GuestAccessPage />} />
+            <Route path="settings" element={<SettingsPage />} />
             <Route path="terms" element={<TermsPage />} />
             <Route path="about" element={<AboutPage />} />
             <Route path="field-rules" element={<FieldRulesPage />} />

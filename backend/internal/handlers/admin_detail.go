@@ -126,6 +126,28 @@ func (h *AdminDetailHandler) Detail(c *gin.Context) {
 		}
 	}
 
+	// Note #22 — a sponsorship's own row has no phone/name column; merge in the
+	// donor's contact info (via users/user_profiles) so the View page can show
+	// it, matching the client's ask to surface the phone only in View, not in
+	// the list table.
+	if table == "sponsorships" {
+		if donorID, ok := row["donor_user_id"]; ok && donorID != nil {
+			if prows, perr := h.Pool.Query(c.Request.Context(),
+				`SELECT u.phone AS donor_phone, up.full_name AS donor_full_name
+				   FROM users u
+				   LEFT JOIN user_profiles up ON up.user_id = u.id
+				  WHERE u.id = $1`, donorID); perr == nil {
+				prof, e := pgx.CollectOneRow(prows, pgx.RowToMap)
+				prows.Close()
+				if e == nil {
+					for k, v := range prof {
+						row[k] = v
+					}
+				}
+			}
+		}
+	}
+
 	// §24 — redact sensitive contact fields (phone/email/…) unless this staff
 	// member's tier is granted the `sensitive_data` view permission. Enforced
 	// server-side so the raw value never leaves the backend for the ungranted.

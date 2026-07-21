@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/links.dart';
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/core/app_state.dart';
-import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/data/featured_campaigns.dart';
 import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/modules/dashboard/controllers/featured_campaigns_controller.dart';
+import 'package:flutter_application_1/modules/marriage/screens/marriage_posts_screen.dart';
 import 'package:flutter_application_1/modules/notifications/controllers/notifications_controller.dart';
 import 'package:flutter_application_1/modules/proposal/controllers/beneficiary_cases_controller.dart';
 import 'package:flutter_application_1/modules/proposal/screens/beneficiary_case_detail_screen.dart';
@@ -59,12 +59,17 @@ class _BeneficiaryServices extends StatelessWidget {
         // "Submit beneficiary case" intentionally lives only in the Kafala /
         // Beneficiary-support tab, where it sits next to "My beneficiary cases"
         // tracking — so it is not duplicated here in Services.
+        //
+        // Submitting/editing your own marriage profile already has 4 tiles on
+        // the Profile tab (form, search, my profile, chats — modules/marriage);
+        // not re-duplicated here. Only the public posts feed is repeated,
+        // since Services is explicitly the "public updates" hub.
         SectionTile(
           icon: Icons.diversity_1_rounded,
-          title: 'Marriage service',
-          subtitle: 'Create or review private marriage service requests.',
+          title: 'marriage_posts_title',
+          subtitle: 'marriage_posts_services_subtitle',
           color: Colors.deepPurple,
-          onTap: () => Get.to(() => const MarriageProfileFormScreen()),
+          onTap: () => Get.to(() => const MarriagePostsScreen()),
         ),
         const SizedBox(height: 12),
         SectionTile(
@@ -158,12 +163,14 @@ class _DonorServices extends StatelessWidget {
           onTap: () => Get.to(() => const ReportsScreen()),
         ),
         const SizedBox(height: 12),
+        // Note: submitting a marriage profile is a beneficiary-only action
+        // (backend-enforced) — donors only get the public posts feed here.
         SectionTile(
           icon: Icons.diversity_1_rounded,
-          title: 'Marriage service',
-          subtitle: 'Create or review private marriage service requests.',
+          title: 'marriage_posts_title',
+          subtitle: 'marriage_posts_services_subtitle',
           color: Colors.deepPurple,
-          onTap: () => Get.to(() => const MarriageProfileFormScreen()),
+          onTap: () => Get.to(() => const MarriagePostsScreen()),
         ),
       ],
     );
@@ -210,12 +217,14 @@ class _VolunteerServices extends StatelessWidget {
           onTap: () => Get.to(() => const SupportTicketFormScreen()),
         ),
         const SizedBox(height: 12),
+        // Note: submitting a marriage profile is a beneficiary-only action
+        // (backend-enforced) — volunteers only get the public posts feed here.
         SectionTile(
           icon: Icons.diversity_1_rounded,
-          title: 'Marriage service',
-          subtitle: 'Create or review private marriage service requests.',
+          title: 'marriage_posts_title',
+          subtitle: 'marriage_posts_services_subtitle',
           color: Colors.deepPurple,
-          onTap: () => Get.to(() => const MarriageProfileFormScreen()),
+          onTap: () => Get.to(() => const MarriagePostsScreen()),
         ),
       ],
     );
@@ -897,300 +906,6 @@ class _InKindDonationFormScreenState extends State<InKindDonationFormScreen> {
         _ProposalTextField(controller: _quantity, label: 'Quantity'),
         _ProposalTextField(controller: _address, label: 'Pickup address'),
       ],
-    );
-  }
-}
-
-class MarriageProfileFormScreen extends StatefulWidget {
-  const MarriageProfileFormScreen({super.key});
-
-  @override
-  State<MarriageProfileFormScreen> createState() =>
-      _MarriageProfileFormScreenState();
-}
-
-class _MarriageProfileFormScreenState extends State<MarriageProfileFormScreen> {
-  final _gender = TextEditingController();
-  final _age = TextEditingController();
-  final _city = TextEditingController();
-  final _summary = TextEditingController();
-  bool _loading = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _gender.text = sharedPreferences.getString('gender_user')?.trim() ?? '';
-  }
-
-  @override
-  void dispose() {
-    _gender.dispose();
-    _age.dispose();
-    _city.dispose();
-    _summary.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submit() async {
-    setState(() => _loading = true);
-    try {
-      await const ModuleApi().postJson(marriageProfilesUrl, {
-        'user_id': sharedPreferences.getString('id_user') ?? '',
-        'gender': _gender.text.trim(),
-        'age': _age.text,
-        'city': _city.text,
-        'social_summary': _summary.text,
-      });
-      if (!mounted) return;
-      if (Get.isRegistered<NotificationsController>()) {
-        await Get.find<NotificationsController>().refreshNotifications();
-      }
-      Get.back<void>();
-      Get.snackbar('Submitted'.tr, 'Marriage service profile saved.'.tr);
-    } catch (e) {
-      if (mounted) Get.snackbar('Error'.tr, e.toString());
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
-      child: SectionScaffold(
-        title: 'Marriage service',
-        subtitle: 'Private request reviewed by the institution.',
-        child: Column(
-          children: [
-            const _MarriageHero(),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 12),
-              child: _SegmentedTabs(tabs: ['Marriage posts'.tr, 'Request'.tr]),
-            ),
-            Expanded(
-              child: TabBarView(
-                children: [
-                  const _MarriageMediaTab(),
-                  _buildRequestTab(),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRequestTab() {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 40),
-      children: [
-        GlassPanel(
-          child: Column(
-            children: [
-              _ProposalTextField(controller: _gender, label: 'Gender'),
-              const SizedBox(height: 14),
-              _ProposalTextField(controller: _age, label: 'Age'),
-              const SizedBox(height: 14),
-              _ProposalTextField(controller: _city, label: 'City'),
-              const SizedBox(height: 14),
-              _ProposalTextField(
-                controller: _summary,
-                label: 'Social summary',
-                maxLines: 4,
-              ),
-              const SizedBox(height: 14),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _loading ? null : _submit,
-                  child: _loading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Text('Submit profile'.tr),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// Marriage-specific media feed (post_type='marriage'), shown as the second
-/// tab of the Marriage service screen. Visible to every role.
-class _MarriageMediaTab extends StatefulWidget {
-  const _MarriageMediaTab();
-
-  @override
-  State<_MarriageMediaTab> createState() => _MarriageMediaTabState();
-}
-
-class _MarriageMediaTabState extends State<_MarriageMediaTab> {
-  late Future<List<Map<String, dynamic>>> _future;
-
-  @override
-  void initState() {
-    super.initState();
-    _future = const ModuleApi().mediaPostsByType('marriage');
-  }
-
-  Future<void> _refresh() async {
-    setState(() {
-      _future = const ModuleApi().mediaPostsByType('marriage');
-    });
-    await _future;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<List<Map<String, dynamic>>>(
-      future: _future,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final items = snapshot.data ?? const <Map<String, dynamic>>[];
-        return RefreshIndicator(
-          onRefresh: _refresh,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 40),
-            children: [
-              if (snapshot.hasError)
-                SectionTile(
-                  icon: Icons.diversity_1_rounded,
-                  title: 'Marriage posts',
-                  subtitle: 'Could not load posts. Pull to retry.',
-                  color: Colors.deepPurple,
-                  onTap: _refresh,
-                )
-              else if (items.isEmpty)
-                const SectionTile(
-                  icon: Icons.diversity_1_rounded,
-                  title: 'Marriage posts',
-                  subtitle: 'No marriage posts have been published yet.',
-                  color: Colors.deepPurple,
-                )
-              else
-                for (final item in items) ...[
-                  MediaPostCard(item: item),
-                  const SizedBox(height: 14),
-                ],
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-/// Decorative gradient banner at the top of the Marriage service screen.
-class _MarriageHero extends StatelessWidget {
-  const _MarriageHero();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-      child: Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(22),
-          gradient: const LinearGradient(
-            colors: [Color(0xFF7C3AED), Color(0xFFEC4899)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF7C3AED).withValues(alpha: 0.30),
-              blurRadius: 22,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.20),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: const Icon(
-                Icons.favorite_rounded,
-                color: Colors.white,
-                size: 28,
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Marriage service'.tr,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 18,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Programs, stories, and private requests.'.tr,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.92),
-                      fontSize: 12.5,
-                      height: 1.3,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Pill-style segmented control wrapping a [TabBar] (must sit under a
-/// DefaultTabController). `tabs` are already-localized labels.
-class _SegmentedTabs extends StatelessWidget {
-  const _SegmentedTabs({required this.tabs});
-
-  final List<String> tabs;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: AppThemeConfig.surface(context),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppThemeConfig.border(context)),
-      ),
-      child: TabBar(
-        indicator: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
-          gradient: const LinearGradient(colors: AppThemeConfig.heroGradient),
-        ),
-        indicatorSize: TabBarIndicatorSize.tab,
-        dividerColor: Colors.transparent,
-        splashBorderRadius: BorderRadius.circular(10),
-        labelColor: Colors.white,
-        unselectedLabelColor: AppThemeConfig.mutedText(context),
-        labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
-        tabs: [for (final t in tabs) Tab(text: t)],
-      ),
     );
   }
 }

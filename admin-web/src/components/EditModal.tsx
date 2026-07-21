@@ -26,7 +26,7 @@ import { useI18n, useStatusLabel } from '../lib/i18n'
 import FileInput from './FileInput'
 import GalleryInput from './GalleryInput'
 
-export type FieldType = 'text' | 'textarea' | 'number' | 'date' | 'select' | 'file' | 'gallery' | 'multiselect'
+export type FieldType = 'text' | 'textarea' | 'number' | 'date' | 'select' | 'file' | 'gallery' | 'multiselect' | 'password'
 
 export type FieldSpec = {
   key: string                  // JSON key sent to backend + initial values key
@@ -88,9 +88,21 @@ export default function EditModal({ open, title, initial, fields, onSave, onClos
   const [err, setErr] = useState<string | null>(null)
   const firstRef = useRef<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null>(null)
 
-  // Reset state every time the modal opens with a new row.
+  // Note #16 — reset state only on the false→true transition (the modal
+  // actually opening), not on every render where `initialStrings` happens to
+  // be a new object. Callers commonly pass an inline `initial={{}}` /
+  // `initial={creating ? {} : row}` literal, which is a brand-new reference
+  // every render of the PARENT — and several parent pages poll every 5-10s
+  // for live updates. With the old `[open, initialStrings]` dependency, that
+  // poll-triggered re-render alone re-ran this effect and wiped whatever the
+  // admin had typed, even though the modal never closed. Tracking the
+  // previous `open` value via a ref keeps the "reset on open" behavior while
+  // ignoring `initialStrings` identity churn that happens while already open.
+  const wasOpenRef = useRef(false)
   useEffect(() => {
-    if (!open) return
+    const wasOpen = wasOpenRef.current
+    wasOpenRef.current = open
+    if (!open || wasOpen) return
     setValues(initialStrings)
     setBusy(false)
     setErr(null)
@@ -301,7 +313,8 @@ export default function EditModal({ open, title, initial, fields, onSave, onClos
                   <span className="form-label">{label}{f.required && <span className="req">*</span>}</span>
                   <input
                     ref={ref as React.RefObject<HTMLInputElement>}
-                    type={f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : 'text'}
+                    type={f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : f.type === 'password' ? 'password' : 'text'}
+                    autoComplete={f.type === 'password' ? 'new-password' : undefined}
                     value={v}
                     placeholder={f.placeholder}
                     disabled={busy}

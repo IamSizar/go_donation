@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/links.dart';
@@ -10,7 +11,9 @@ import 'package:flutter_application_1/modules/notifications/controllers/notifica
 import 'package:flutter_application_1/modules/support/widgets/availability_schedule_picker.dart';
 import 'package:flutter_application_1/modules/support/widgets/skill_chip_picker.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
+import 'package:image_picker/image_picker.dart';
 
 class SupportSection extends StatefulWidget {
   const SupportSection({super.key});
@@ -271,6 +274,9 @@ class _SupportSectionState extends State<SupportSection>
                         alreadyJoined: true,
                         signupStatus: (mission['signup_status'] ?? '')
                             .toString(),
+                        signupId: int.tryParse(
+                          (mission['signup_id'] ?? '').toString(),
+                        ),
                       ),
                     );
                       if (changed == true && mounted) await _refresh();
@@ -316,6 +322,7 @@ class _SupportSectionState extends State<SupportSection>
                         mission: mission,
                         alreadyJoined: signupStatus.isNotEmpty,
                         signupStatus: signupStatus,
+                        signupId: _signupIdFor(mission, joinedMissions),
                       ),
                     );
                     if (changed == true && mounted) await _refresh();
@@ -337,11 +344,15 @@ class VolunteerMissionDetailScreen extends StatefulWidget {
     required this.mission,
     required this.alreadyJoined,
     required this.signupStatus,
+    this.signupId,
   });
 
   final Map<String, dynamic> mission;
   final bool alreadyJoined;
   final String signupStatus;
+  // Note #37 — needed to call the check-in/check-out endpoints. Null when
+  // the volunteer hasn't joined this mission yet (no signup row exists).
+  final int? signupId;
 
   @override
   State<VolunteerMissionDetailScreen> createState() =>
@@ -351,6 +362,7 @@ class VolunteerMissionDetailScreen extends StatefulWidget {
 class _VolunteerMissionDetailScreenState
     extends State<VolunteerMissionDetailScreen> {
   bool _loading = false;
+  bool _checkingInOut = false;
   late bool _joined;
   late String _signupStatus;
 
@@ -359,6 +371,115 @@ class _VolunteerMissionDetailScreenState
     super.initState();
     _joined = widget.alreadyJoined;
     _signupStatus = widget.signupStatus;
+  }
+
+  // Note #37 — captures device GPS + a camera-only ("live") photo, uploads
+  // the photo, and returns both — or null if the volunteer cancelled or a
+  // permission was denied (an error/snackbar has already been shown).
+  Future<({double lat, double lng, String photoPath})?> _captureEvidence() async {
+    try {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        Get.snackbar('Error'.tr, 'location_permission_required'.tr);
+        return null;
+      }
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        Get.snackbar('Error'.tr, 'location_services_disabled'.tr);
+        return null;
+      }
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      );
+
+      final picked = await ImagePicker().pickImage(
+        source: ImageSource.camera,
+        imageQuality: 85,
+      );
+      if (picked == null) return null; // volunteer cancelled the camera
+
+      final path = await const ModuleApi().uploadPhoto(File(picked.path));
+      return (lat: position.latitude, lng: position.longitude, photoPath: path);
+    } catch (e) {
+      Get.snackbar('Error'.tr, e.toString());
+      return null;
+    }
+  }
+
+  Future<void> _checkIn() async {
+    if (widget.signupId == null || _checkingInOut) return;
+    setState(() => _checkingInOut = true);
+    try {
+      final evidence = await _captureEvidence();
+      if (evidence == null) return;
+      await const ModuleApi().checkInMissionSignup(
+        signupId: widget.signupId!,
+        lat: evidence.lat,
+        lng: evidence.lng,
+        photoPath: evidence.photoPath,
+      );
+      if (!mounted) return;
+      setState(() => _signupStatus = 'joined');
+      Get.snackbar('Submitted'.tr, 'checkin_recorded'.tr);
+    } catch (e) {
+      if (mounted) Get.snackbar('Error'.tr, e.toString());
+    } finally {
+      if (mounted) setState(() => _checkingInOut = false);
+    }
+  }
+
+  Future<void> _checkOut() async {
+    if (widget.signupId == null || _checkingInOut) return;
+    final notes = await _promptCheckoutNotes();
+    if (notes == null) return; // cancelled the notes dialog
+    setState(() => _checkingInOut = true);
+    try {
+      final evidence = await _captureEvidence();
+      if (evidence == null) return;
+      await const ModuleApi().checkOutMissionSignup(
+        signupId: widget.signupId!,
+        lat: evidence.lat,
+        lng: evidence.lng,
+        photoPath: evidence.photoPath,
+        notes: notes,
+      );
+      if (!mounted) return;
+      setState(() => _signupStatus = 'completion_requested');
+      Get.snackbar('Submitted'.tr, 'checkout_recorded'.tr);
+    } catch (e) {
+      if (mounted) Get.snackbar('Error'.tr, e.toString());
+    } finally {
+      if (mounted) setState(() => _checkingInOut = false);
+    }
+  }
+
+  Future<String?> _promptCheckoutNotes() async {
+    final controller = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('checkout_notes_title'.tr),
+        content: TextField(
+          controller: controller,
+          maxLines: 3,
+          decoration: InputDecoration(hintText: 'checkout_notes_hint'.tr),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text('Cancel'.tr),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(controller.text.trim()),
+            child: Text('Confirm'.tr),
+          ),
+        ],
+      ),
+    );
+    return result;
   }
 
   Future<void> _joinMission() async {
@@ -449,6 +570,48 @@ class _VolunteerMissionDetailScreenState
                     ),
                   ),
                 ),
+                // Note #37 — self check-in/check-out with GPS + live photo.
+                if (widget.signupId != null && _signupStatus == 'approved') ...[
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _checkingInOut ? null : _checkIn,
+                      icon: _checkingInOut
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.camera_alt_rounded),
+                      label: Text('check_in_action'.tr),
+                    ),
+                  ),
+                ],
+                if (widget.signupId != null && _signupStatus == 'joined') ...[
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _checkingInOut ? null : _checkOut,
+                      icon: _checkingInOut
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.camera_alt_rounded),
+                      label: Text('check_out_action'.tr),
+                    ),
+                  ),
+                ],
+                if (_signupStatus == 'completion_requested') ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    'checkout_pending_review'.tr,
+                    style: const TextStyle(fontStyle: FontStyle.italic),
+                  ),
+                ],
               ],
             ),
           ),
@@ -822,6 +985,22 @@ String _signupStatusFor(
     }
   }
   return '';
+}
+
+// Note #37 — cross-references the "available missions" listing (which has
+// no signup_id of its own) against the "joined missions" listing (which
+// does) so the detail screen can call the check-in/out endpoints.
+int? _signupIdFor(
+  Map<String, dynamic> mission,
+  List<Map<String, dynamic>> joinedMissions,
+) {
+  final missionId = (mission['id'] ?? '').toString();
+  for (final item in joinedMissions) {
+    if ((item['id'] ?? '').toString() == missionId) {
+      return int.tryParse((item['signup_id'] ?? '').toString());
+    }
+  }
+  return null;
 }
 
 String _missionCapacityLabel(Map<String, dynamic> mission) {

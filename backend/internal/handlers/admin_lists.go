@@ -239,15 +239,15 @@ func (h *AdminListsHandler) InKindDonations(c *gin.Context) {
 // =====================================================
 
 type adminTicket struct {
-	ID            int64     `json:"id"`
-	UserID        *int      `json:"user_id"`
-	UserPhone     *string   `json:"user_phone"`
-	UserFullName  *string   `json:"user_full_name"`
-	Subject       string    `json:"subject"`
-	Message       string    `json:"message"`
-	Status        string    `json:"status"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	ID           int64     `json:"id"`
+	UserID       *int      `json:"user_id"`
+	UserPhone    *string   `json:"user_phone"`
+	UserFullName *string   `json:"user_full_name"`
+	Subject      string    `json:"subject"`
+	Message      string    `json:"message"`
+	Status       string    `json:"status"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 func (h *AdminListsHandler) SupportTickets(c *gin.Context) {
@@ -322,19 +322,22 @@ type scheduleRow struct {
 }
 
 type adminApplication struct {
-	ID                   int64          `json:"id"`
-	UserID               *int           `json:"user_id"`
-	UserPhone            *string        `json:"user_phone"`
-	FullName             string         `json:"full_name"`
-	Phone                *string        `json:"phone"`
-	City                 *string        `json:"city"`
-	Skills               *string        `json:"skills"`
-	SkillTags            []string       `json:"skill_tags"`
-	Experience           *string        `json:"experience"`
-	Availability         *string        `json:"availability"`
-	AvailabilitySchedule []scheduleRow  `json:"availability_schedule"`
-	Status               string         `json:"status"`
-	CreatedAt            time.Time      `json:"created_at"`
+	ID                   int64         `json:"id"`
+	UserID               *int          `json:"user_id"`
+	UserPhone            *string       `json:"user_phone"`
+	FullName             string        `json:"full_name"`
+	Phone                *string       `json:"phone"`
+	City                 *string       `json:"city"`
+	Skills               *string       `json:"skills"`
+	SkillsAr             *string       `json:"skills_ar"`
+	SkillsSorani         *string       `json:"skills_sorani"`
+	SkillsBadini         *string       `json:"skills_badini"`
+	SkillTags            []string      `json:"skill_tags"`
+	Experience           *string       `json:"experience"`
+	Availability         *string       `json:"availability"`
+	AvailabilitySchedule []scheduleRow `json:"availability_schedule"`
+	Status               string        `json:"status"`
+	CreatedAt            time.Time     `json:"created_at"`
 }
 
 func (h *AdminListsHandler) VolunteerApplications(c *gin.Context) {
@@ -390,6 +393,7 @@ func (h *AdminListsHandler) VolunteerApplications(c *gin.Context) {
 	// schedule without an N+1.
 	rows, err := h.Pool.Query(c.Request.Context(), `
 		SELECT a.id, a.user_id, u.phone, a.full_name, a.phone, a.city, a.skills,
+		       a.skills_ar, a.skills_sorani, a.skills_badini,
 		       a.skill_tags,
 		       a.experience, a.availability,
 		       COALESCE(sched.schedule_json, '[]'::json),
@@ -427,7 +431,8 @@ func (h *AdminListsHandler) VolunteerApplications(c *gin.Context) {
 		var a adminApplication
 		var scheduleJSON []byte
 		if err := rows.Scan(&a.ID, &a.UserID, &a.UserPhone, &a.FullName, &a.Phone, &a.City,
-			&a.Skills, &a.SkillTags, &a.Experience, &a.Availability,
+			&a.Skills, &a.SkillsAr, &a.SkillsSorani, &a.SkillsBadini,
+			&a.SkillTags, &a.Experience, &a.Availability,
 			&scheduleJSON, &a.Status, &a.CreatedAt); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
 			return
@@ -451,15 +456,15 @@ func (h *AdminListsHandler) VolunteerApplications(c *gin.Context) {
 // =====================================================
 
 type adminAuditLog struct {
-	ID            int64     `json:"id"`
-	UserID        int       `json:"user_id"`
-	ActorSource   string    `json:"actor_source"`
-	ActorUserID   *int      `json:"actor_user_id"`
-	ChangedField  string    `json:"changed_field"`
-	OldValue      *string   `json:"old_value"`
-	NewValue      *string   `json:"new_value"`
-	MetadataJSON  *string   `json:"metadata_json"`
-	CreatedAt     time.Time `json:"created_at"`
+	ID           int64     `json:"id"`
+	UserID       int       `json:"user_id"`
+	ActorSource  string    `json:"actor_source"`
+	ActorUserID  *int      `json:"actor_user_id"`
+	ChangedField string    `json:"changed_field"`
+	OldValue     *string   `json:"old_value"`
+	NewValue     *string   `json:"new_value"`
+	MetadataJSON *string   `json:"metadata_json"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 func (h *AdminListsHandler) AuditLogs(c *gin.Context) {
@@ -629,22 +634,27 @@ func (h *AdminListsHandler) Campaigns(c *gin.Context) {
 //   ?q=… — free-text match across mission title + volunteer name + phone.
 
 type adminMissionSignup struct {
-	ID                     int64   `json:"id"`
-	UserID                 int64   `json:"user_id"`
-	UserFullName           *string `json:"user_full_name"`
-	UserPhone              *string `json:"user_phone"`
-	MissionID              int64   `json:"mission_id"`
-	MissionTitle           string  `json:"mission_title"`
-	MissionCity            *string `json:"mission_city"`
-	MissionDate            *string `json:"mission_date"`     // YYYY-MM-DD or null
-	Status                 string  `json:"status"`
-	HoursServed            string  `json:"hours_served"`     // numeric → string for display safety
-	CheckedInAt            *string `json:"checked_in_at"`    // ISO-8601 or null
-	CompletedAt            *string `json:"completed_at"`
-	CompletionRequestedAt  *string `json:"completion_requested_at"`
-	Notes                  *string `json:"notes"`
+	ID                      int64   `json:"id"`
+	UserID                  int64   `json:"user_id"`
+	UserFullName            *string `json:"user_full_name"`
+	UserPhone               *string `json:"user_phone"`
+	MissionID               int64   `json:"mission_id"`
+	MissionTitle            string  `json:"mission_title"`
+	MissionCity             *string `json:"mission_city"`
+	MissionDate             *string `json:"mission_date"` // YYYY-MM-DD or null
+	Status                  string  `json:"status"`
+	HoursServed             string  `json:"hours_served"`  // numeric → string for display safety
+	CheckedInAt             *string `json:"checked_in_at"` // ISO-8601 or null
+	CompletedAt             *string `json:"completed_at"`
+	CompletionRequestedAt   *string `json:"completion_requested_at"`
+	Notes                   *string `json:"notes"`
 	VolunteerCompletionNote *string `json:"volunteer_completion_note"`
-	CreatedAt              string  `json:"created_at"`
+	CreatedAt               string  `json:"created_at"`
+	// Volunteer-to-case assignment (migration 060) — the foundation for the
+	// future Staff↔Volunteer↔Beneficiary chat.
+	BeneficiaryCaseID    *int64  `json:"beneficiary_case_id"`
+	BeneficiaryCaseCode  *string `json:"beneficiary_case_code"`
+	BeneficiaryCaseTitle *string `json:"beneficiary_case_title"`
 }
 
 func (h *AdminListsHandler) VolunteerMissionSignups(c *gin.Context) {
@@ -694,11 +704,13 @@ func (h *AdminListsHandler) VolunteerMissionSignups(c *gin.Context) {
 		       to_char(s.completed_at,            'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS completed_at,
 		       to_char(s.completion_requested_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS completion_requested_at,
 		       s.notes, s.volunteer_completion_note,
-		       to_char(s.created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at
+		       to_char(s.created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at,
+		       s.beneficiary_case_id, bc.case_code, bc.public_title
 		  FROM volunteer_mission_signups s
 		  LEFT JOIN volunteer_missions m ON m.id = s.mission_id
 		  LEFT JOIN users u              ON u.id = s.user_id
 		  LEFT JOIN user_profiles up     ON up.user_id = s.user_id
+		  LEFT JOIN beneficiary_cases bc ON bc.id = s.beneficiary_case_id
 		 `+where+`
 		 ORDER BY
 		   CASE s.status
@@ -727,6 +739,7 @@ func (h *AdminListsHandler) VolunteerMissionSignups(c *gin.Context) {
 			&r.CheckedInAt, &r.CompletedAt, &r.CompletionRequestedAt,
 			&r.Notes, &r.VolunteerCompletionNote,
 			&r.CreatedAt,
+			&r.BeneficiaryCaseID, &r.BeneficiaryCaseCode, &r.BeneficiaryCaseTitle,
 		); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
 			return
@@ -748,23 +761,23 @@ var _ = time.Now
 // can see "5 of 8 needed volunteers approved" at a glance.
 
 type adminMission struct {
-	ID                int64   `json:"id"`
-	Title             string  `json:"title"`
-	TitleAr           *string `json:"title_ar"`
-	TitleSorani       *string `json:"title_sorani"`
-	TitleBadini       *string `json:"title_badini"`
-	Description       *string `json:"description"`
-	DescriptionAr     *string `json:"description_ar"`
-	DescriptionSorani *string `json:"description_sorani"`
-	DescriptionBadini *string `json:"description_badini"`
-	City              *string `json:"city"`
-	MissionDate       *string `json:"mission_date"`        // YYYY-MM-DD
-	NeededVolunteers  *int    `json:"needed_volunteers"`
-	Status            string  `json:"status"`
-	ProjectRequestID  *int64  `json:"project_request_id"`
-	AcceptedVolunteers int    `json:"accepted_volunteers"` // approved+joined+completed
-	PendingVolunteers  int    `json:"pending_volunteers"`  // pending+completion_requested
-	CreatedAt         string  `json:"created_at"`
+	ID                 int64   `json:"id"`
+	Title              string  `json:"title"`
+	TitleAr            *string `json:"title_ar"`
+	TitleSorani        *string `json:"title_sorani"`
+	TitleBadini        *string `json:"title_badini"`
+	Description        *string `json:"description"`
+	DescriptionAr      *string `json:"description_ar"`
+	DescriptionSorani  *string `json:"description_sorani"`
+	DescriptionBadini  *string `json:"description_badini"`
+	City               *string `json:"city"`
+	MissionDate        *string `json:"mission_date"` // YYYY-MM-DD
+	NeededVolunteers   *int    `json:"needed_volunteers"`
+	Status             string  `json:"status"`
+	ProjectRequestID   *int64  `json:"project_request_id"`
+	AcceptedVolunteers int     `json:"accepted_volunteers"` // approved+joined+completed
+	PendingVolunteers  int     `json:"pending_volunteers"`  // pending+completion_requested
+	CreatedAt          string  `json:"created_at"`
 }
 
 func (h *AdminListsHandler) VolunteerMissions(c *gin.Context) {
@@ -818,14 +831,7 @@ func (h *AdminListsHandler) VolunteerMissions(c *gin.Context) {
 		     GROUP BY mission_id
 		  ) c ON c.mission_id = m.id
 		 `+where+`
-		 ORDER BY
-		   CASE m.status
-		     WHEN 'draft'  THEN 0
-		     WHEN 'open'   THEN 1
-		     WHEN 'closed' THEN 2
-		     ELSE             9
-		   END,
-		   COALESCE(m.mission_date, '2999-12-31'::date) ASC, m.id DESC
+		 ORDER BY m.id DESC
 		 LIMIT $`+strconv.Itoa(limitIdx)+` OFFSET $`+strconv.Itoa(offsetIdx),
 		args...,
 	)
@@ -882,6 +888,17 @@ type boardSignup struct {
 	CompletionReq *string `json:"completion_requested_at"`
 	HoursServed   string  `json:"hours_served"`
 	CreatedAt     string  `json:"created_at"`
+	// Volunteer-to-case assignment (migration 060).
+	BeneficiaryCaseID    *int64  `json:"beneficiary_case_id"`
+	BeneficiaryCaseCode  *string `json:"beneficiary_case_code"`
+	BeneficiaryCaseTitle *string `json:"beneficiary_case_title"`
+	// Note #37 — self check-in/check-out evidence (GPS + live photo).
+	CheckinLat        *float64 `json:"checkin_lat"`
+	CheckinLng        *float64 `json:"checkin_lng"`
+	CheckinPhotoPath  *string  `json:"checkin_photo_path"`
+	CheckoutLat       *float64 `json:"checkout_lat"`
+	CheckoutLng       *float64 `json:"checkout_lng"`
+	CheckoutPhotoPath *string  `json:"checkout_photo_path"`
 }
 
 type boardLanes struct {
@@ -892,16 +909,16 @@ type boardLanes struct {
 }
 
 type boardMission struct {
-	ID                int64   `json:"id"`
-	Title             string  `json:"title"`
-	TitleAr           *string `json:"title_ar"`
-	TitleSorani       *string `json:"title_sorani"`
-	TitleBadini       *string `json:"title_badini"`
-	City              *string `json:"city"`
-	MissionDate       *string `json:"mission_date"`
-	NeededVolunteers  *int    `json:"needed_volunteers"`
-	Status            string  `json:"status"`
-	Lanes             boardLanes `json:"lanes"`
+	ID               int64      `json:"id"`
+	Title            string     `json:"title"`
+	TitleAr          *string    `json:"title_ar"`
+	TitleSorani      *string    `json:"title_sorani"`
+	TitleBadini      *string    `json:"title_badini"`
+	City             *string    `json:"city"`
+	MissionDate      *string    `json:"mission_date"`
+	NeededVolunteers *int       `json:"needed_volunteers"`
+	Status           string     `json:"status"`
+	Lanes            boardLanes `json:"lanes"`
 	// Quick counts so the SPA can render header chips without re-iterating.
 	Counts struct {
 		Pending   int `json:"pending"`
@@ -964,10 +981,14 @@ func (h *AdminListsHandler) VolunteerBoard(c *gin.Context) {
 		       to_char(s.completed_at,  'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS completed_at,
 		       to_char(s.completion_requested_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS comp_req_at,
 		       s.hours_served::text,
-		       to_char(s.created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at
+		       to_char(s.created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at,
+		       s.beneficiary_case_id, bc.case_code, bc.public_title,
+		       s.checkin_lat, s.checkin_lng, s.checkin_photo_path,
+		       s.checkout_lat, s.checkout_lng, s.checkout_photo_path
 		  FROM volunteer_mission_signups s
 		  LEFT JOIN users u          ON u.id = s.user_id
 		  LEFT JOIN user_profiles up ON up.user_id = s.user_id
+		  LEFT JOIN beneficiary_cases bc ON bc.id = s.beneficiary_case_id
 		 WHERE s.status IN ('pending', 'approved', 'joined', 'completion_requested', 'completed')
 		   AND (s.status <> 'completed' OR s.completed_at >= CURRENT_TIMESTAMP - INTERVAL '30 days')
 		 ORDER BY s.id DESC`)
@@ -985,6 +1006,9 @@ func (h *AdminListsHandler) VolunteerBoard(c *gin.Context) {
 			&sg.Status, &sg.Notes,
 			&sg.CheckedInAt, &sg.CompletedAt, &sg.CompletionReq,
 			&sg.HoursServed, &sg.CreatedAt,
+			&sg.BeneficiaryCaseID, &sg.BeneficiaryCaseCode, &sg.BeneficiaryCaseTitle,
+			&sg.CheckinLat, &sg.CheckinLng, &sg.CheckinPhotoPath,
+			&sg.CheckoutLat, &sg.CheckoutLng, &sg.CheckoutPhotoPath,
 		); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
 			return
