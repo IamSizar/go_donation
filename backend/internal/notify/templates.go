@@ -249,6 +249,28 @@ func NewProjectRequestAdminMsg(title string, requestID int64) LocalizedMessage {
 	}
 }
 
+// NewGuestAccountAdminMsg — alerts STAFF (dashboard) that a new guest
+// (username/password, browsing-only) account was created (Note #40).
+func NewGuestAccountAdminMsg(username string, userID int64) LocalizedMessage {
+	return LocalizedMessage{
+		Type:              "admin_new_guest_account",
+		RelatedEntityType: "users",
+		RelatedEntityID:   userID,
+		Title: LocalText{
+			En:  "New guest account",
+			Ar:  "حساب زائر جديد",
+			Ckb: "هەژماری میوانی نوێ",
+			Kmr: "هەژمارەکا مێڤانا نوو",
+		},
+		Body: LocalText{
+			En:  fmt.Sprintf("Someone created a guest account: \"%s\". Browsing only until they upgrade.", username),
+			Ar:  fmt.Sprintf("أنشأ أحدهم حساب زائر: «%s». تصفح فقط حتى يقوم بترقية الحساب.", username),
+			Ckb: fmt.Sprintf("یەکێک هەژمارێکی میوانی دروستکرد: «%s». تەنها گەڕان تا کاتێک هەژمارەکە نوێ بکاتەوە.", username),
+			Kmr: fmt.Sprintf("یەکێ هەژمارەکا مێڤانێ دروستکر: «%s». تنێ گەڕان هەتا هەژمار بلندتر بکەت.", username),
+		},
+	}
+}
+
 // NewMarriageProfileAdminMsg — alerts STAFF (dashboard) that a user just
 // submitted a new marriage profile needing review (Note #18 — mirrors
 // NewBeneficiaryCaseAdminMsg; marriage submission previously only notified

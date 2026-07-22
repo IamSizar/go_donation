@@ -1,18 +1,27 @@
 import 'package:flutter/services.dart';
 
 /// Phone display/formatting helpers. The DB stores one canonical form
-/// ("07508582031"); the UI shows it grouped with spaces ("0750 858 2031").
+/// (`<dial code><national number>`, e.g. "9647508582031"); the UI shows
+/// Iraqi numbers grouped in their familiar local form ("0750 858 2031") and
+/// any other country's number as `+<dial code><number>`.
 
-/// Format any stored/typed phone for display: "07508582031" / "9647508582031"
-/// / "7508582031" → "0750 858 2031". Falls back to the trimmed input when it
-/// can't reduce to a 10-digit national number.
+/// #39 — international phone support: format any stored/typed phone for
+/// display. Iraqi numbers (new "964..." canonical, the old "0..." canonical,
+/// or a bare "750...") render as "0750 858 2031"; any other country renders
+/// as `+<digits>` since there's no client-side per-country grouping table.
+/// Falls back to the trimmed input when it isn't a recognizable digit string.
 String formatPhoneForDisplay(String? raw) {
   if (raw == null) return '';
-  var d = raw.replaceAll(RegExp(r'\D'), '');
-  d = d.replaceFirst(RegExp(r'^(00)?964'), '');
-  d = d.replaceFirst(RegExp(r'^0+'), '');
-  if (d.length != 10) return raw.trim();
-  return '0${d.substring(0, 3)} ${d.substring(3, 6)} ${d.substring(6)}';
+  final digits = raw.replaceAll(RegExp(r'\D'), '');
+  if (digits.isEmpty) return raw.trim();
+
+  var national = digits.replaceFirst(RegExp(r'^(00)?964'), '');
+  national = national.replaceFirst(RegExp(r'^0+'), '');
+  if (national.length == 10) {
+    return '0${national.substring(0, 3)} ${national.substring(3, 6)} ${national.substring(6)}';
+  }
+
+  return '+$digits';
 }
 
 /// Live input formatter that groups digits with spaces as the user types:

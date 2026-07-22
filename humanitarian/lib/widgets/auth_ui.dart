@@ -59,12 +59,62 @@ class AuthScaffold extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
                 child: ConstrainedBox(
                   constraints: BoxConstraints(maxWidth: maxWidth),
-                  child: child,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // #39 — free navigation: only shown when there's
+                      // actually somewhere to go back to.
+                      Builder(
+                        builder: (context) => Navigator.of(context).canPop()
+                            ? const Padding(
+                                padding: EdgeInsets.only(bottom: 16),
+                                child: _AuthBackButton(),
+                              )
+                            : const SizedBox.shrink(),
+                      ),
+                      child,
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// #39 — circular translucent back arrow shown at the top of auth screens
+/// whenever the nav stack has something to pop to. Mirrors direction for RTL
+/// locales instead of relying on the (non-directional) arrow_back glyph.
+class _AuthBackButton extends StatelessWidget {
+  const _AuthBackButton();
+
+  @override
+  Widget build(BuildContext context) {
+    final isRtl = Directionality.of(context) == TextDirection.rtl;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: () => Navigator.of(context).maybePop(),
+        child: Container(
+          width: 42,
+          height: 42,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.14),
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white.withValues(alpha: 0.20)),
+          ),
+          child: Icon(
+            isRtl ? Icons.arrow_forward_rounded : Icons.arrow_back_rounded,
+            color: Colors.white,
+            size: 20,
+          ),
+        ),
       ),
     );
   }

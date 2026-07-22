@@ -122,13 +122,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   /// Tabs each role may open from the bottom navigator (others are not their flow).
   static List<int> _navigatorSourceIndices() {
-    // Section 27 — Guest Mode: a signed-out guest sees only the Super-Admin-
-    // enabled browse screens (Home is always the landing). All account tabs
-    // (Kafala, Contribute, Alerts, Profile, Volunteer, Messages) are hidden.
+    // Note #40 — Guest Mode: a signed-out guest sees only the fixed
+    // three-category browse scope (Humanitarian work / Home is always the
+    // landing, Marketplace, Marriage — reached via a tile inside
+    // GuestHomeSection, not the bottom bar). City Directory is NEVER a
+    // reachable bottom-nav tab for a guest — it's a hard block, surfaced as
+    // an always-visible-but-locked tile on Home instead (see
+    // guest_sections.dart). All account tabs (Kafala, Contribute, Alerts,
+    // Volunteer, Messages) are hidden.
     if (isGuestMode()) {
       final tabs = <int>[0]; // Home
       if (guestCanSee('marketplace')) tabs.add(2); // Market
-      if (guestCanSee('city_directory')) tabs.add(3); // Community
       tabs.add(6); // Profile — always available so a guest can sign in
       return tabs;
     }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/api/links.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/localization/content_localizer.dart';
@@ -749,9 +750,14 @@ class _CartSummary extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               FilledButton.icon(
+                // Note #40 — a marketplace order is a "purchase", restricted
+                // for guests (also enforced server-side).
                 onPressed: controller.isCheckingOut.value
                     ? null
-                    : controller.checkoutCart,
+                    : () async {
+                        if (!await requireUpgrade(context)) return;
+                        controller.checkoutCart();
+                      },
                 icon: controller.isCheckingOut.value
                     ? const SizedBox(
                         width: 16,

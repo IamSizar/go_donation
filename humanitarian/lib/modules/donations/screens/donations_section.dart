@@ -246,9 +246,11 @@ class _DonationsSectionBodyState extends State<_DonationsSectionBody> {
                                 }
                               });
                             },
-                            // #44 — guests are prompted to sign in before acting.
+                            // #44 / Note #40 — donating is a "purchase", so
+                            // guests are prompted to upgrade their account
+                            // before acting (also enforced server-side).
                             onDonatePressed: () async {
-                              if (!await requireSignIn(context)) return;
+                              if (!await requireUpgrade(context)) return;
                               AppHaptics.selection();
                               setState(() => _selectedCampaignId = campaign.id);
                               _scrollToQuickAmount(animated: true);

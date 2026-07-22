@@ -9,9 +9,12 @@
 //   - LAN device (real phone, same Wi-Fi): your Mac's LAN IP, e.g. 192.168.1.12
 //   - iOS simulator / Flutter web on this Mac: localhost
 //   - Android emulator: 10.0.2.2  (the magic loopback Android emulator uses)
-// Production (Railway). For local dev, swap to 'http://localhost:8080/api/'
-// (iOS Simulator shares the Mac's localhost; Android emulator uses 10.0.2.2).
-const String baseUrl = 'https://backend-production-59d2.up.railway.app/api/';
+// Production (Railway): 'https://backend-production-59d2.up.railway.app/api/'
+// Local dev — pick the host for your run target:
+//   iOS Simulator: 'http://localhost:8081/api/'
+//   Android emulator: 'http://10.0.2.2:8081/api/'
+//   Real device on same Wi-Fi: 'http://<your-Mac-LAN-IP>:8081/api/'
+const String baseUrl = 'http://localhost:8081/api/';
 
 /// Google OAuth Web/Server client ID (Phase 9 · B-09). Supplied at build time:
 ///   flutter run --dart-define=GOOGLE_SERVER_CLIENT_ID=xxxx.apps.googleusercontent.com
@@ -150,6 +153,16 @@ const String fieldRulesUrl = '${baseUrl}registration/field-rules';
 
 /// POST: open a direct chat with support/tech staff (#45).
 const String chatSupportUrl = '${baseUrl}chats/support';
+
+/// Note #40 — real (username + password) guest accounts.
+/// POST {username, password}: create a new guest account.
+const String guestRegisterUrl = '${baseUrl}auth/guest/register';
+/// POST {username, password}: sign back into an existing guest account.
+const String guestLoginUrl = '${baseUrl}auth/guest/login';
+/// POST (Bearer, guest only) {phone, code}: consume the phone's OTP (sent via
+/// the existing [otpRequestUrl]) and attach it to the current guest account,
+/// converting it to a full account.
+const String guestUpgradeVerifyUrl = '${baseUrl}auth/guest/upgrade/verify';
 
 /// #49 — public link shared when sharing the app or a post (store / website).
 /// Set this to the real download/website URL; empty = share text only (no link).

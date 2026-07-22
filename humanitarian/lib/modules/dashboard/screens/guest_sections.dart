@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
+import 'package:flutter_application_1/modules/marriage/screens/marriage_search_screen.dart';
 import 'package:flutter_application_1/routes/app_routes.dart';
 import 'package:get/get.dart';
 
@@ -21,8 +22,12 @@ class GuestHomeSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Note #40 — the guest browsing scope is fixed to exactly three
+    // categories: Humanitarian work (this Home tab), Marriage, and Store.
+    // City Directory is a HARD block regardless of the admin toggle — see
+    // the always-shown locked tile below.
     final canMarket = guestCanSee('marketplace');
-    final canCommunity = guestCanSee('city_directory');
+    final canMarriage = guestCanSee('marriage');
 
     return SafeArea(
       bottom: false,
@@ -125,15 +130,30 @@ class GuestHomeSection extends StatelessWidget {
                 subtitle: 'Products from productive families'.tr,
                 onTap: () => dashboardTabNotifier.value = 2,
               ),
-            if (canCommunity)
+            if (canMarriage)
               _BrowseTile(
-                icon: Icons.groups_rounded,
-                color: Colors.indigo,
-                title: 'Community'.tr,
-                subtitle: 'Local services and directory'.tr,
-                onTap: () => dashboardTabNotifier.value = 3,
+                icon: Icons.favorite_rounded,
+                color: Colors.pinkAccent,
+                title: 'Marriage'.tr,
+                subtitle: 'Browse marriage profiles'.tr,
+                onTap: () => Get.to(() => const MarriageSearchScreen()),
               ),
-            if (!canMarket && !canCommunity)
+            // Note #40 — City Directory is ALWAYS shown (so guests can
+            // discover it exists) but never navigable: tapping it surfaces
+            // the "full registration required" notification the client
+            // asked for, instead of hiding the section outright.
+            _BrowseTile(
+              icon: Icons.groups_rounded,
+              color: Colors.indigo,
+              title: 'Community'.tr,
+              subtitle: 'Requires a full account'.tr,
+              locked: true,
+              onTap: () => requireUpgrade(
+                context,
+                reason: 'Full registration is required to view the City Directory.',
+              ),
+            ),
+            if (!canMarket && !canMarriage)
               Text(
                 'Sign in to access more of the app.'.tr,
                 style: TextStyle(color: AppThemeConfig.mutedText(context)),
@@ -152,6 +172,7 @@ class _BrowseTile extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.onTap,
+    this.locked = false,
   });
 
   final IconData icon;
@@ -159,6 +180,9 @@ class _BrowseTile extends StatelessWidget {
   final String title;
   final String subtitle;
   final VoidCallback onTap;
+  // Note #40 — shows a lock badge instead of the usual chevron, for tiles
+  // that are visible-but-blocked (City Directory).
+  final bool locked;
 
   @override
   Widget build(BuildContext context) {
@@ -211,8 +235,13 @@ class _BrowseTile extends StatelessWidget {
                     ],
                   ),
                 ),
-                Icon(Icons.arrow_forward_ios_rounded,
-                    size: 15, color: AppThemeConfig.mutedText(context)),
+                Icon(
+                  locked
+                      ? Icons.lock_outline_rounded
+                      : Icons.arrow_forward_ios_rounded,
+                  size: locked ? 18 : 15,
+                  color: AppThemeConfig.mutedText(context),
+                ),
               ],
             ),
           ),

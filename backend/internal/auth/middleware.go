@@ -79,6 +79,79 @@ func RequireApproved() gin.HandlerFunc {
 	}
 }
 
+// RequireNotGuest gates a route behind full-account status (Note #40). MUST
+// run after RequireBearer. Guests are rejected with a distinguishable
+// "guest_restricted" code so the client can show its Upgrade Account prompt
+// instead of a generic error. Use on: messaging (marriage chat, donor/
+// beneficiary chat, assistant chat) and any purchase/service-request-creation
+// route (donations, marketplace orders, beneficiary cases/project requests,
+// sponsorships, in-kind donations, marriage profile submission/meeting
+// requests, community submissions).
+func RequireNotGuest() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		u, ok := UserFromGin(c)
+		if !ok || u == nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"status": "error",
+				"error":  "Unauthorized.",
+			})
+			return
+		}
+		if u.IsGuest {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"status": "error",
+				"error":  "This action requires a full account. Please upgrade your account.",
+				"code":   "guest_restricted",
+			})
+			return
+		}
+		c.Next()
+	}
+}
+
+// BlockGuestOptional pairs with OptionalBearer on routes that stay public for
+// anonymous callers but must still block a signed-in guest account (Note #40
+// — City Directory). Requests with no token, or a non-guest token, pass
+// through unchanged; only a resolved guest is rejected.
+func BlockGuestOptional() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if u, ok := UserFromGin(c); ok && u != nil && u.IsGuest {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"status": "error",
+				"error":  "Full registration is required to view this section.",
+				"code":   "guest_restricted",
+			})
+			return
+		}
+		c.Next()
+	}
+}
+
+// RequireGuest gates a route behind CURRENTLY-guest status — the inverse of
+// RequireNotGuest. MUST run after RequireBearer. Used only by the guest
+// upgrade-phone endpoint, so a full account can't accidentally re-run the
+// guest-upgrade flow against itself.
+func RequireGuest() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		u, ok := UserFromGin(c)
+		if !ok || u == nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"status": "error",
+				"error":  "Unauthorized.",
+			})
+			return
+		}
+		if !u.IsGuest {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"status": "error",
+				"error":  "This account is not a guest account.",
+			})
+			return
+		}
+		c.Next()
+	}
+}
+
 // UserFromContext returns the user attached by RequireBearer.
 func UserFromContext(ctx context.Context) (*ResolvedUser, bool) {
 	if c, ok := ctx.(*gin.Context); ok {

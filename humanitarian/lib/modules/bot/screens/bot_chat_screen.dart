@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
@@ -66,7 +67,10 @@ class _BotChatScreenState extends State<BotChatScreen> {
     });
   }
 
-  void _send(String text, {String? intentID}) {
+  // Note #40 — "assistance-related conversations" (the AI assistant chat)
+  // are restricted for guests.
+  Future<void> _send(String text, {String? intentID}) async {
+    if (!await requireUpgrade(context)) return;
     ctrl.send(text, intentID: intentID);
   }
 

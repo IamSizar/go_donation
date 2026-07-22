@@ -59,6 +59,9 @@ dependencies:
   flutter_map: ^7.0.2
   geolocator: ^13.0.2
   latlong2: ^0.9.1
+  # #39 — international phone number entry on the login screen (country
+  # picker with dial codes + flags), replacing the hardcoded +964-only chip.
+  country_code_picker: ^3.0.0
 
 dependency_overrides:
   # 12.4.0+ calls NSProcessInfo.isiOSAppOnVision (Xcode 26.1+ only). Pin until Xcode is upgraded.

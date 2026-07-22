@@ -29,6 +29,9 @@ export type UserAccount = {
   account_status?: string
   created_at: string
   profile: UserProfile | null
+  // Note #40 — guest (username + password, browsing-only) accounts.
+  is_guest?: boolean
+  username?: string
 }
 
 export type PaginationMeta = {

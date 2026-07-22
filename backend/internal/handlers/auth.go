@@ -3,8 +3,10 @@ package handlers
 import (
 	"context"
 	"errors"
+	"log"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -12,6 +14,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
+	"github.com/karam-flutter/humanitarian-backend/internal/notify"
 	"github.com/karam-flutter/humanitarian-backend/internal/users"
 )
 
@@ -25,10 +28,29 @@ type AuthHandler struct {
 	// Requirement 6c — login brute-force throttle. Counts failed password
 	// attempts per identity and locks after too many.
 	LoginLocks *auth.LoginLockStore
+	// Note #40 — alerts staff when a new guest account is created. nil-safe
+	// (see notifyStaffInBackground).
+	Notifier *notify.Notifier
 }
 
-func NewAuthHandler(t *auth.TokenStore, o *auth.OTPStore, u *users.Store, otpiq *auth.OTPIQClient, ll *auth.LoginLockStore) *AuthHandler {
-	return &AuthHandler{Tokens: t, OTPs: o, Users: u, OTPIQ: otpiq, LoginLocks: ll}
+func NewAuthHandler(t *auth.TokenStore, o *auth.OTPStore, u *users.Store, otpiq *auth.OTPIQClient, ll *auth.LoginLockStore, n *notify.Notifier) *AuthHandler {
+	return &AuthHandler{Tokens: t, OTPs: o, Users: u, OTPIQ: otpiq, LoginLocks: ll, Notifier: n}
+}
+
+// notifyStaffInBackground alerts staff (dashboard) on a detached goroutine, so
+// a slow fan-out never blocks the caller's response. Best-effort — errors are
+// logged, not returned. Same pattern as BeneficiaryHandler's.
+func (h *AuthHandler) notifyStaffInBackground(m notify.LocalizedMessage) {
+	if h.Notifier == nil {
+		return
+	}
+	go func() {
+		bg, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if _, err := h.Notifier.BroadcastToStaff(bg, m); err != nil {
+			log.Printf("[notify] staff alert failed: %v", err)
+		}
+	}()
 }
 
 // loginReq accepts both {"phone": "..."} and {"number": "..."} (matches PHP).
@@ -332,7 +354,7 @@ func (h *AuthHandler) AdminLogin(c *gin.Context) {
 		}
 	}
 
-	id, hash, isAdmin, err := h.Users.GetByUsername(ctx, username)
+	id, hash, isAdmin, _, err := h.Users.GetByUsername(ctx, username)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "error": "Database error (lookup)."})
 		return
@@ -588,6 +610,47 @@ type otpVerifyReq struct {
 	Code  string `json:"code"`
 }
 
+// consumeOTPCode validates a submitted code against the stored OTP record for
+// phone — lookup, demo-mode gate, expiry, attempt limit, hash compare — and
+// clears the record on success. Shared by OTPVerify and the guest-upgrade
+// phone-attach flow (Note #40 — GuestUpgradeVerify) so both apply identical
+// rate/attempt/expiry rules. On success mode is the record's delivery mode
+// ("demo"/"real"); on failure body is the ready-to-send JSON error payload.
+func (h *AuthHandler) consumeOTPCode(ctx context.Context, phone, code string) (ok bool, mode string, status int, body gin.H) {
+	rec, err := h.OTPs.GetRecord(ctx, phone)
+	if err != nil {
+		return false, "", http.StatusInternalServerError, gin.H{"error": "Database error (otp lookup)."}
+	}
+	if rec == nil {
+		return false, "", http.StatusNotFound, gin.H{"error": "No verification code found for this phone number."}
+	}
+	if rec.Mode == "demo" && !auth.DemoEnabled() {
+		_ = h.OTPs.ClearRecord(ctx, phone)
+		return false, "", http.StatusForbidden, gin.H{"error": "Demo OTP mode is disabled."}
+	}
+	if time.Now().After(rec.ExpiresAt) {
+		_ = h.OTPs.ClearRecord(ctx, phone)
+		return false, "", http.StatusGone, gin.H{"error": "Verification code has expired."}
+	}
+	if rec.Attempts >= auth.OTPMaxAttempts {
+		_ = h.OTPs.ClearRecord(ctx, phone)
+		return false, "", http.StatusTooManyRequests, gin.H{"error": "Too many failed attempts. Request a new code."}
+	}
+	if !auth.VerifyCode(rec.CodeHash, code) {
+		newCount, _ := h.OTPs.IncAttempts(ctx, phone)
+		left := auth.OTPMaxAttempts - newCount
+		if left < 0 {
+			left = 0
+		}
+		return false, "", http.StatusUnauthorized, gin.H{
+			"error":         "Invalid verification code.",
+			"attempts_left": left,
+		}
+	}
+	_ = h.OTPs.ClearRecord(ctx, phone)
+	return true, rec.Mode, http.StatusOK, nil
+}
+
 // POST /api/auth/otp/verify
 // Mirrors percentage/api/auth/otp/verify/index.php.
 func (h *AuthHandler) OTPVerify(c *gin.Context) {
@@ -610,44 +673,11 @@ func (h *AuthHandler) OTPVerify(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
-	rec, err := h.OTPs.GetRecord(ctx, phone)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error (otp lookup)."})
+	ok, mode, status, body := h.consumeOTPCode(ctx, phone, code)
+	if !ok {
+		c.JSON(status, body)
 		return
 	}
-	if rec == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "No verification code found for this phone number."})
-		return
-	}
-	if rec.Mode == "demo" && !auth.DemoEnabled() {
-		_ = h.OTPs.ClearRecord(ctx, phone)
-		c.JSON(http.StatusForbidden, gin.H{"error": "Demo OTP mode is disabled."})
-		return
-	}
-	if time.Now().After(rec.ExpiresAt) {
-		_ = h.OTPs.ClearRecord(ctx, phone)
-		c.JSON(http.StatusGone, gin.H{"error": "Verification code has expired."})
-		return
-	}
-	if rec.Attempts >= auth.OTPMaxAttempts {
-		_ = h.OTPs.ClearRecord(ctx, phone)
-		c.JSON(http.StatusTooManyRequests, gin.H{"error": "Too many failed attempts. Request a new code."})
-		return
-	}
-	if !auth.VerifyCode(rec.CodeHash, code) {
-		newCount, _ := h.OTPs.IncAttempts(ctx, phone)
-		left := auth.OTPMaxAttempts - newCount
-		if left < 0 {
-			left = 0
-		}
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"error":         "Invalid verification code.",
-			"attempts_left": left,
-		})
-		return
-	}
-
-	_ = h.OTPs.ClearRecord(ctx, phone)
 
 	existingID, _ := h.Users.GetIDByPhone(ctx, phone)
 	returning := existingID > 0
@@ -680,7 +710,7 @@ func (h *AuthHandler) OTPVerify(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status":              "success",
 		"message":             "Verification code is valid.",
-		"mode":                rec.Mode,
+		"mode":                mode,
 		"phone":               phone,
 		"user_id":             uid,
 		"returning_user":      returning,
@@ -704,6 +734,229 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 		_ = h.Tokens.RevokeToken(c.Request.Context(), parts[1])
 	}
 	c.JSON(http.StatusOK, gin.H{"status": "success"})
+}
+
+// guestUsernameRE — 3-32 chars, letters/digits/underscore only. Deliberately
+// simple (no i18n/unicode username support) so it stays easy to type and
+// unambiguous to read back during support.
+var guestUsernameRE = regexp.MustCompile(`^[A-Za-z0-9_]{3,32}$`)
+
+// guestCredentialsReq is the body for both POST /api/auth/guest/register and
+// POST /api/auth/guest/login.
+type guestCredentialsReq struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+// respondWithGuestSession issues a token for uid and writes the same response
+// shape the phone/Google/OTP login endpoints use, so the Flutter client can
+// treat a guest session identically to any other login response.
+func (h *AuthHandler) respondWithGuestSession(c *gin.Context, uid int64, returning bool) {
+	ctx := c.Request.Context()
+	role, _ := h.Users.GetRoleID(ctx, uid)
+	account, _ := h.Users.GetAccountForClient(ctx, uid)
+	session, err := h.Tokens.IssueToken(ctx, uid, c.Request.UserAgent(), auth.ClientIP(c.Request.RemoteAddr))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "error": "Unable to issue token."})
+		return
+	}
+	var roleField any = nil
+	if role > 0 {
+		roleField = role
+	}
+	regStatus := ""
+	if account != nil {
+		regStatus = account.RegistrationStatus
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"status":              "success",
+		"user_id":             uid,
+		"returning_user":      returning,
+		"has_role":            role > 0,
+		"role_id":             roleField,
+		"registration_status": regStatus,
+		"is_guest":            true,
+		"account":             account,
+		"session":             session,
+		"access_token":        session.AccessToken,
+		"token_type":          session.TokenType,
+		"expires_at":          session.ExpiresAt,
+		"expires_in":          session.ExpiresIn,
+	})
+}
+
+// POST /api/auth/guest/register — Note #40. Body: {username, password}.
+// Creates a new lightweight browsing account: no phone, no admin review
+// (registration_status starts 'approved' so the client goes straight to
+// Home), server-side restricted from City Directory/messaging/purchases
+// until it's upgraded (see auth.RequireNotGuest / GuestUpgradeVerify below).
+func (h *AuthHandler) GuestRegister(c *gin.Context) {
+	var req guestCredentialsReq
+	if !bindFlexibleJSON(c, &req) {
+		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "error": "Invalid request body."})
+		return
+	}
+	username := strings.TrimSpace(req.Username)
+	if !guestUsernameRE.MatchString(username) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status": "error",
+			"error":  "Username must be 3-32 characters: letters, numbers, underscore only.",
+		})
+		return
+	}
+	if len(req.Password) < 6 {
+		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "error": "Password must be at least 6 characters."})
+		return
+	}
+
+	ctx := c.Request.Context()
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "error": "Failed to hash password."})
+		return
+	}
+	uid, err := h.Users.InsertGuest(ctx, username, string(hash))
+	if err != nil {
+		if errors.Is(err, users.ErrUsernameTaken) {
+			c.JSON(http.StatusConflict, gin.H{
+				"status": "error",
+				"error":  "That username is taken. Please choose another.",
+				"code":   "username_taken",
+			})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "error": "Unable to create guest account."})
+		return
+	}
+	h.notifyStaffInBackground(notify.NewGuestAccountAdminMsg(username, uid))
+	h.respondWithGuestSession(c, uid, false)
+}
+
+// POST /api/auth/guest/login — Note #40. Body: {username, password}. Only
+// succeeds against a row with is_guest=true, so a full account's credentials
+// can never authenticate through this endpoint (see users.GetByUsername).
+// Every failure mode returns the same generic message so the endpoint can't
+// be used to enumerate usernames — same convention as AdminLogin above.
+func (h *AuthHandler) GuestLogin(c *gin.Context) {
+	var req guestCredentialsReq
+	if !bindFlexibleJSON(c, &req) {
+		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "error": "Invalid request body."})
+		return
+	}
+	username := strings.TrimSpace(req.Username)
+	password := req.Password
+	if username == "" || password == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "error": "Username and password are required."})
+		return
+	}
+
+	ctx := c.Request.Context()
+
+	lockID := "g:" + username
+	if h.LoginLocks != nil {
+		if locked, retryAfter := h.LoginLocks.Status(ctx, lockID); locked {
+			c.JSON(http.StatusTooManyRequests, gin.H{
+				"status": "error", "error": "Too many failed attempts. Try again later.",
+				"retry_after": retryAfter,
+			})
+			return
+		}
+	}
+
+	id, hash, _, isGuest, err := h.Users.GetByUsername(ctx, username)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "error": "Database error (lookup)."})
+		return
+	}
+	if id == 0 || !isGuest || hash == "" || bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) != nil {
+		if h.LoginLocks != nil {
+			if locked, retryAfter := h.LoginLocks.RegisterFailure(ctx, lockID); locked {
+				c.JSON(http.StatusTooManyRequests, gin.H{
+					"status": "error", "error": "Too many failed attempts. Try again later.",
+					"retry_after": retryAfter,
+				})
+				return
+			}
+		}
+		c.JSON(http.StatusUnauthorized, gin.H{"status": "error", "error": "Invalid username or password."})
+		return
+	}
+	if h.LoginLocks != nil {
+		h.LoginLocks.Reset(ctx, lockID)
+	}
+	h.respondWithGuestSession(c, id, true)
+}
+
+// guestUpgradeVerifyReq is the body for POST /api/auth/guest/upgrade/verify.
+type guestUpgradeVerifyReq struct {
+	Phone string `json:"phone"`
+	Code  string `json:"code"`
+}
+
+// POST /api/auth/guest/upgrade/verify — Note #40, "Account Upgrade and
+// Conversion". Authed + auth.RequireGuest() only. The phone's OTP is sent via
+// the EXISTING public POST /api/auth/otp/request (no change needed there —
+// sending a code to a phone number needs no special guest handling); this
+// endpoint only consumes that code and, on success, attaches the phone to the
+// CURRENT guest's row (instead of OTPVerify's find-or-create-by-phone, which
+// would create a second, disconnected account). is_guest flips to false and
+// registration_status resets to 'incomplete', so the client's very next step
+// is the exact same "complete your registration" form any new phone signup
+// goes through — full_name/DOB/address/role via the existing
+// POST /api/registration/submit.
+func (h *AuthHandler) GuestUpgradeVerify(c *gin.Context) {
+	tokenUser, ok := auth.UserFromGin(c)
+	if !ok || tokenUser == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"status": "error", "error": "Unauthorized."})
+		return
+	}
+
+	var req guestUpgradeVerifyReq
+	if !bindFlexibleJSON(c, &req) {
+		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "error": "Invalid request body."})
+		return
+	}
+	phone := auth.NormalizePhone(req.Phone)
+	if phone == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "error": "A valid mobile number is required."})
+		return
+	}
+	code := strings.TrimSpace(req.Code)
+	if !auth.ValidateCodeFormat(code) {
+		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "error": "Verification code must be a 6-digit number."})
+		return
+	}
+
+	ctx := c.Request.Context()
+
+	ok2, _, status, body := h.consumeOTPCode(ctx, phone, code)
+	if !ok2 {
+		body["status"] = "error"
+		c.JSON(status, body)
+		return
+	}
+
+	if err := h.Users.UpgradeGuestPhone(ctx, tokenUser.UserID, phone); err != nil {
+		switch {
+		case errors.Is(err, users.ErrPhoneTaken):
+			c.JSON(http.StatusConflict, gin.H{"status": "error", "error": "This phone number is already registered."})
+		case errors.Is(err, users.ErrNotGuest):
+			c.JSON(http.StatusForbidden, gin.H{"status": "error", "error": "This account is not a guest account."})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "error": "Unable to upgrade account."})
+		}
+		return
+	}
+
+	account, _ := h.Users.GetAccountForClient(ctx, tokenUser.UserID)
+	c.JSON(http.StatusOK, gin.H{
+		"status":              "success",
+		"user_id":             tokenUser.UserID,
+		"phone":               phone,
+		"registration_status": "incomplete",
+		"account":             account,
+	})
 }
 
 // bindFlexibleJSON accepts either application/json or form-encoded bodies into v.

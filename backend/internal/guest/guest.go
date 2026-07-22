@@ -18,16 +18,23 @@ type Screen struct {
 }
 
 // Screens is the canonical list guests can be granted. Keep the keys in sync
-// with the mobile app's screen router. Defaults: read-only public content is
-// on; account-leaning screens (marketplace/marriage/volunteer) start off and
-// the Super Admin opts them in.
+// with the mobile app's screen router.
+//
+// Note #40 fixed the guest browsing scope to exactly three categories —
+// Humanitarian work (campaigns/news/partners, under the Home tab),
+// Marriage, and Store (marketplace) — so those three default ON. Volunteer
+// isn't part of that scope and stays off. city_directory is kept in this
+// list (existing admin toggle infra, harmless to leave) but is no longer
+// enforced here: City Directory is now a HARD, unconditional block for
+// guests regardless of this setting — see auth.BlockGuestOptional and its
+// use on GET /community in cmd/server/main.go.
 var Screens = []Screen{
 	{Key: "campaigns", DefaultEnabled: true},
 	{Key: "news", DefaultEnabled: true},
 	{Key: "city_directory", DefaultEnabled: true},
 	{Key: "partners", DefaultEnabled: true},
-	{Key: "marketplace", DefaultEnabled: false},
-	{Key: "marriage", DefaultEnabled: false},
+	{Key: "marketplace", DefaultEnabled: true},
+	{Key: "marriage", DefaultEnabled: true},
 	{Key: "volunteer", DefaultEnabled: false},
 }
 

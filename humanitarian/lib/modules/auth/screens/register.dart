@@ -25,6 +25,16 @@ class _RegisterPageState extends State<RegisterPage> {
     }
   }
 
+  // #39 — pop back to Login (keeps the stack, unlike the old offAllNamed)
+  // with a fallback if Register was somehow opened with nothing to pop to.
+  void _goToLogin() {
+    if (Navigator.of(context).canPop()) {
+      Get.back();
+    } else {
+      Get.offNamed('/login');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final titleStyle = Theme.of(context).textTheme.headlineMedium?.copyWith(
@@ -173,7 +183,10 @@ class _RegisterPageState extends State<RegisterPage> {
             const SizedBox(height: 12),
             Center(
               child: TextButton(
-                onPressed: loading ? null : () => Get.offAllNamed('/login'),
+                // #39 — pop back to Login (keeps the stack, unlike the old
+                // offAllNamed) with a fallback if Register was somehow
+                // opened with nothing to pop to.
+                onPressed: loading ? null : _goToLogin,
                 style: TextButton.styleFrom(
                   foregroundColor: Colors.white,
                   textStyle: const TextStyle(

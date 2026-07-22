@@ -16,43 +16,70 @@ var (
 	digitsOnlyRE = regexp.MustCompile(`^\d+$`)
 )
 
-// NormalizePhone collapses every way an Iraqi mobile number can be written into
-// ONE canonical form stored in the DB: a leading "0" followed by the 10-digit
-// national number, e.g. "07508582031".
+// iraqDialCode is the default country code assumed when the input carries no
+// explicit "+"/"00" international prefix — Iraq stays the implicit default
+// (Note #39) so existing Iraqi users typing "0750...", "750...", etc. keep
+// working exactly as before, while other countries are now also supported.
+const iraqDialCode = "964"
+
+// NormalizePhone collapses every way a phone number can be written into ONE
+// canonical form stored in the DB: <country dial code><national number>,
+// digits only, no "+", no leading trunk "0" — e.g. an Iraqi number becomes
+// "9647508582031". This is also exactly the format OTPIQ expects.
 //
-// All of these map to "07508582031":
+// Bare local input (no "+"/dial code) is assumed to be Iraqi, same as
+// before:
 //
-//	7508582031        0750 858 2031     07508582031
-//	+964 750 858 2031  9647508582031    00964 750 858 2031
+//	7508582031        0750 858 2031     07508582031     9647508582031
 //
-// This is what prevents the "0750…" vs "750…" (and "+964…") duplicate-account
-// bug: login + OTP all run input through here, so the same human is always the
-// same row regardless of how they typed it.
+// all map to "9647508582031". Input with an explicit "+" or "00"
+// international prefix is treated as an already country-coded international
+// number and passed through digits-only after a basic E.164 range check:
 //
-// Returns "" when the input doesn't reduce to a 10-digit national number
-// (callers treat "" as "invalid phone").
+//	+1 202 555 0182    00447700900000
+//
+// map to "12025550182" and "447700900000" respectively.
+//
+// Returns "" when the input can't be reduced to a valid number (callers
+// treat "" as "invalid phone").
 func NormalizePhone(raw string) string {
 	p := strings.TrimSpace(raw)
 	if p == "" {
 		return ""
 	}
 	p = phoneStripRE.ReplaceAllString(p, "")
-	p = strings.TrimPrefix(p, "+")
-	// "00" is the international call prefix (e.g. 00964…) — drop it so the
-	// country code is handled uniformly below.
-	if strings.HasPrefix(p, "00") {
+
+	explicitCountryCode := false
+	if strings.HasPrefix(p, "+") {
+		p = strings.TrimPrefix(p, "+")
+		explicitCountryCode = true
+	} else if strings.HasPrefix(p, "00") {
 		p = p[2:]
+		explicitCountryCode = true
 	}
 	if p == "" || !digitsOnlyRE.MatchString(p) {
 		return ""
 	}
-	// Drop the Iraq country code if present, then any national trunk "0".
-	// Iraqi mobile NSNs start with 7, so a real 10-digit NSN never begins
-	// with "964" — stripping it here is safe.
-	p = strings.TrimPrefix(p, "964")
-	p = strings.TrimLeft(p, "0")
-	if len(p) != 10 {
+
+	if !explicitCountryCode {
+		// Bare input, no "+"/"00" — assume Iraq. Accept either a local
+		// number (strip the trunk "0", require a 10-digit NSN) or one that
+		// already carries the Iraq dial code with no "+" in front of it.
+		if strings.HasPrefix(p, iraqDialCode) {
+			if national := strings.TrimPrefix(p, iraqDialCode); len(national) == 10 {
+				return iraqDialCode + national
+			}
+		}
+		if national := strings.TrimLeft(p, "0"); len(national) == 10 {
+			return iraqDialCode + national
+		}
 		return ""
 	}
-	return "0" + p
+
+	// Explicit "+"/"00" international prefix — already <dialcode><number>.
+	// Basic E.164 sanity range: 7-15 digits total (country code + number).
+	if len(p) < 7 || len(p) > 15 {
+		return ""
+	}
+	return p
 }

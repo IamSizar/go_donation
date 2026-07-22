@@ -155,14 +155,16 @@ Future<bool> ensureApiSession({
   }
 
   try {
-    final response = await http.post(
-      Uri.parse(insertUserWithPhoneUrl),
-      headers: const {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode({'phone': phoneValue}),
-    );
+    final response = await http
+        .post(
+          Uri.parse(insertUserWithPhoneUrl),
+          headers: const {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode({'phone': phoneValue}),
+        )
+        .timeout(const Duration(seconds: 12));
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       return false;

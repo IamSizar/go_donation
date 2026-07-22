@@ -1,12 +1,20 @@
-// Phone display helper. The DB stores one canonical form ("07508582031");
-// everywhere we show a phone we group it with spaces ("0750 858 2031").
+// Phone display helper. The DB stores one canonical form
+// ("<dial code><national number>", e.g. "9647508582031") — Iraqi numbers
+// display in their familiar local grouping ("0750 858 2031"); any other
+// country displays as "+<dial code><number>" (#39 — international support).
 //
-// Accepts any stored form (canonical, "964…", bare "750…") and falls back to
-// the trimmed input when it can't reduce to a 10-digit national number.
+// Accepts any stored/legacy form (new canonical, old "0…" canonical, bare
+// "750…") and falls back to the trimmed input when it isn't a recognizable
+// digit string.
 export function formatPhone(raw: string | null | undefined): string {
   if (!raw) return ''
-  let d = String(raw).replace(/\D/g, '')
-  d = d.replace(/^(00)?964/, '').replace(/^0+/, '')
-  if (d.length !== 10) return String(raw).trim()
-  return `0${d.slice(0, 3)} ${d.slice(3, 6)} ${d.slice(6)}`
+  const digits = String(raw).replace(/\D/g, '')
+  if (!digits) return String(raw).trim()
+
+  const national = digits.replace(/^(00)?964/, '').replace(/^0+/, '')
+  if (national.length === 10) {
+    return `0${national.slice(0, 3)} ${national.slice(3, 6)} ${national.slice(6)}`
+  }
+
+  return `+${digits}`
 }

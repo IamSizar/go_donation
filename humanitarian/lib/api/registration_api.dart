@@ -122,10 +122,12 @@ Future<RegistrationSubmitResult> submitRegistration({
 /// Returns the decoded body, or null on network/auth failure.
 Future<Map<String, dynamic>?> fetchRegistrationStatus() async {
   try {
-    final resp = await http.get(
-      Uri.parse(registrationStatusUrl),
-      headers: withApiAuthHeaders(),
-    );
+    final resp = await http
+        .get(
+          Uri.parse(registrationStatusUrl),
+          headers: withApiAuthHeaders(),
+        )
+        .timeout(const Duration(seconds: 12));
     if (resp.statusCode != 200) return null;
     final body = _decode(resp.body);
 

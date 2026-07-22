@@ -210,15 +210,16 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   bool get _isDraftProfileComplete => _draftMissingProfileFields.isEmpty;
 
-  // The signed-in user's phone, normalized for display. Stored as e.g.
-  // "9647508582031"; we prefix a "+" when it's a bare international number
-  // so it reads as a proper E.164 phone.
+  // #39 — the signed-in user's phone, normalized for display. Stored
+  // canonically as "<dial code><national number>" with no leading "+"
+  // (e.g. "9647508582031"); we prefix a "+" so it reads as a proper E.164
+  // phone. Range matches the backend's NormalizePhone sanity check (7-15
+  // digits total).
   String _displayPhone() {
     final raw = (sharedPreferences.getString('phone_user') ?? '').trim();
     if (raw.isEmpty) return '—';
     if (raw.startsWith('+')) return raw;
-    // Only prefix '+' for all-digit international numbers (length ≥ 10).
-    final digitsOnly = RegExp(r'^\d{10,}$').hasMatch(raw);
+    final digitsOnly = RegExp(r'^\d{7,15}$').hasMatch(raw);
     return digitsOnly ? '+$raw' : raw;
   }
 
@@ -364,20 +365,25 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     children: [
                       // Read-only phone number — this is the OTP-verified
                       // login identity, so it's shown but not editable here.
-                      TextFormField(
-                        readOnly: true,
-                        initialValue: _displayPhone(),
-                        decoration: _inputDecoration(
-                          context,
-                          label: 'Phone number',
-                          icon: Icons.phone_outlined,
-                        ).copyWith(
-                          suffixIcon: Icon(
-                            Icons.lock_outline_rounded,
-                            size: 18,
-                            color: AppThemeConfig.mutedText(context),
+                      // #39 — forced LTR so the digit grouping doesn't
+                      // mirror under an RTL (Arabic/Kurdish) locale.
+                      Directionality(
+                        textDirection: TextDirection.ltr,
+                        child: TextFormField(
+                          readOnly: true,
+                          initialValue: _displayPhone(),
+                          decoration: _inputDecoration(
+                            context,
+                            label: 'Phone number',
+                            icon: Icons.phone_outlined,
+                          ).copyWith(
+                            suffixIcon: Icon(
+                              Icons.lock_outline_rounded,
+                              size: 18,
+                              color: AppThemeConfig.mutedText(context),
+                            ),
+                            helperText: 'Your verified number'.tr,
                           ),
-                          helperText: 'Your verified number'.tr,
                         ),
                       ),
                       const SizedBox(height: 14),

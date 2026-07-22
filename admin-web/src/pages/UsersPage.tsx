@@ -271,7 +271,18 @@ export default function UsersPage() {
     {
       key: 'name',
       header: t('col.name'),
-      cell: (u) => u.profile?.full_name ?? <span className="muted">—</span>,
+      // Note #40 — guests have no user_profiles row, so fall back to their
+      // username with a "Guest" badge so they read as distinct from a
+      // normal account with a missing name.
+      cell: (u) =>
+        u.profile?.full_name ?? (u.is_guest ? (
+          <span>
+            {u.username ?? <span className="muted">—</span>}{' '}
+            <span className="badge" style={{ opacity: 0.75 }}>{t('page.users.guest_badge')}</span>
+          </span>
+        ) : (
+          <span className="muted">—</span>
+        )),
     },
     { key: 'phone', header: t('col.phone'), cell: (u) => canViewSensitive ? formatPhone(u.phone) : maskContact(u.phone, false) },
     {

@@ -56,6 +56,12 @@ type Account struct {
 	AccountStatus string `json:"account_status"`
 	// FieldPrivacy (#32) is the list of profile field keys the user hides.
 	FieldPrivacy []string `json:"field_privacy"`
+	// IsGuest (#40) — a lightweight username/password browsing account,
+	// restricted server-side until upgraded to a full phone account.
+	IsGuest bool `json:"is_guest"`
+	// Username (#40) — set for guest accounts (and admin-login accounts,
+	// Phase 30); empty for a normal phone/OTP or Google account.
+	Username string `json:"username,omitempty"`
 }
 
 type Store struct {
@@ -161,26 +167,30 @@ func (s *Store) GetPasswordHash(ctx context.Context, userID int64) (string, erro
 	return *hash, nil
 }
 
-// GetByUsername looks up an admin candidate by username and returns its id,
-// bcrypt password hash, and is_admin flag. Returns id=0 (and nil error) when no
-// such username exists, so callers can map that to a generic auth failure.
+// GetByUsername looks up an account by username and returns its id, bcrypt
+// password hash, is_admin flag, and is_guest flag. Returns id=0 (and nil
+// error) when no such username exists, so callers can map that to a generic
+// auth failure.
 //
 // Phase 30 — backs POST /api/auth/admin/login.
-func (s *Store) GetByUsername(ctx context.Context, username string) (id int64, passwordHash string, isAdmin int, err error) {
+// Note #40 — also backs POST /api/auth/guest/login (isGuest lets that
+// endpoint refuse to authenticate a non-guest account through the guest
+// door, even if the username/password happen to match).
+func (s *Store) GetByUsername(ctx context.Context, username string) (id int64, passwordHash string, isAdmin int, isGuest bool, err error) {
 	username = strings.TrimSpace(username)
 	if username == "" {
-		return 0, "", 0, nil
+		return 0, "", 0, false, nil
 	}
 	var hash *string
 	var admin *int
 	err = s.Pool.QueryRow(ctx,
-		`SELECT id, password_hash, is_admin FROM users WHERE username = $1 LIMIT 1`, username,
-	).Scan(&id, &hash, &admin)
+		`SELECT id, password_hash, is_admin, is_guest FROM users WHERE username = $1 LIMIT 1`, username,
+	).Scan(&id, &hash, &admin, &isGuest)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return 0, "", 0, nil
+			return 0, "", 0, false, nil
 		}
-		return 0, "", 0, err
+		return 0, "", 0, false, err
 	}
 	if hash != nil {
 		passwordHash = *hash
@@ -188,7 +198,7 @@ func (s *Store) GetByUsername(ctx context.Context, username string) (id int64, p
 	if admin != nil {
 		isAdmin = *admin
 	}
-	return id, passwordHash, isAdmin, nil
+	return id, passwordHash, isAdmin, isGuest, nil
 }
 
 // GetPhoneByID returns a user's phone (empty string if none/unknown). Used by
@@ -306,6 +316,74 @@ func (s *Store) UpsertGoogleUser(ctx context.Context, sub, email, _name string) 
 	return id, false, nil
 }
 
+// ErrUsernameTaken is returned by InsertGuest when the chosen username
+// already belongs to another account (guest or otherwise — username is a
+// single shared namespace, see migration 014).
+var ErrUsernameTaken = errors.New("username already taken")
+
+// ErrNotGuest is returned by UpgradeGuestPhone when the target row isn't
+// (or is no longer) a guest account.
+var ErrNotGuest = errors.New("account is not a guest")
+
+// ErrPhoneTaken is returned by UpgradeGuestPhone when the phone being
+// attached already belongs to a different account.
+var ErrPhoneTaken = errors.New("phone already in use")
+
+// InsertGuest creates a new lightweight guest account (Note #40): username +
+// bcrypt password hash, no phone, registration_status 'approved' (self-serve,
+// no admin review needed to browse), role_id NULL until upgraded. Returns
+// ErrUsernameTaken if the username is already in use.
+func (s *Store) InsertGuest(ctx context.Context, username, passwordHash string) (int64, error) {
+	username = strings.TrimSpace(username)
+	if username == "" || passwordHash == "" {
+		return 0, errors.New("username and password_hash are required")
+	}
+	var id int64
+	err := s.Pool.QueryRow(ctx,
+		`INSERT INTO users (username, password_hash, is_guest, role_id, registration_status)
+		 VALUES ($1, $2, TRUE, NULL, 'approved') RETURNING id`,
+		username, passwordHash,
+	).Scan(&id)
+	if err != nil {
+		if strings.Contains(err.Error(), "23505") || strings.Contains(strings.ToLower(err.Error()), "duplicate") {
+			return 0, ErrUsernameTaken
+		}
+		return 0, err
+	}
+	return id, nil
+}
+
+// UpgradeGuestPhone attaches a verified phone number to an existing guest
+// account, converting it into a normal phone-identified account: is_guest
+// flips to false and registration_status resets to 'incomplete' so the
+// account flows through the SAME "complete your registration" form as any
+// other brand-new phone signup (Note #40 — Account Upgrade and Conversion).
+// The username/password_hash are left in place (harmless — GuestLogin
+// refuses non-guest rows via is_guest, so the old guest credentials simply
+// stop being a valid entry point once this runs).
+func (s *Store) UpgradeGuestPhone(ctx context.Context, userID int64, phone string) error {
+	phone = strings.TrimSpace(phone)
+	if userID <= 0 || phone == "" {
+		return errors.New("userID and phone are required")
+	}
+	tag, err := s.Pool.Exec(ctx,
+		`UPDATE users
+		    SET phone = $1, is_guest = FALSE, registration_status = 'incomplete'
+		  WHERE id = $2 AND is_guest = TRUE`,
+		phone, userID,
+	)
+	if err != nil {
+		if strings.Contains(err.Error(), "23505") || strings.Contains(strings.ToLower(err.Error()), "duplicate") {
+			return ErrPhoneTaken
+		}
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotGuest
+	}
+	return nil
+}
+
 // GetAccountForClient returns the user + joined profile, mirroring the PHP shape.
 func (s *Store) GetAccountForClient(ctx context.Context, userID int64) (*Account, error) {
 	if userID <= 0 {
@@ -327,8 +405,9 @@ func (s *Store) GetAccountForClient(ctx context.Context, userID int64) (*Account
 		acctStatus *string
 		privacy    []string
 	)
+	var username *string
 	err := s.Pool.QueryRow(ctx,
-		`SELECT u.id, COALESCE(u.phone, '') AS phone, u.role_id, u.active, u.is_admin, u.created_at, u.registration_status, u.staff_tier, u.account_status,
+		`SELECT u.id, COALESCE(u.phone, '') AS phone, u.role_id, u.active, u.is_admin, u.created_at, u.registration_status, u.staff_tier, u.account_status, u.is_guest, u.username,
 		        up.id, up.full_name, up.gender, up.address, up.profile_picture,
 		        to_char(up.date_of_birth, 'YYYY-MM-DD'), COALESCE(up.field_privacy, '{}')
 		   FROM users u
@@ -336,7 +415,7 @@ func (s *Store) GetAccountForClient(ctx context.Context, userID int64) (*Account
 		  WHERE u.id = $1
 		  LIMIT 1`,
 		userID,
-	).Scan(&acc.UserID, &acc.Phone, &roleID, &active, &isAdmin, &acc.CreatedAt, &regStatus, &staffTier, &acctStatus,
+	).Scan(&acc.UserID, &acc.Phone, &roleID, &active, &isAdmin, &acc.CreatedAt, &regStatus, &staffTier, &acctStatus, &acc.IsGuest, &username,
 		&profileID, &fullName, &gender, &address, &picture, &dob, &privacy)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -361,6 +440,9 @@ func (s *Store) GetAccountForClient(ctx context.Context, userID int64) (*Account
 	}
 	if acctStatus != nil {
 		acc.AccountStatus = *acctStatus
+	}
+	if username != nil {
+		acc.Username = *username
 	}
 	if privacy == nil {
 		privacy = []string{}
@@ -432,7 +514,7 @@ func (s *Store) PaginatedList(ctx context.Context, page, perPage int, q string) 
 	offIdx := len(args) + 2
 	args = append(args, perPage, offset)
 	rows, err := s.Pool.Query(ctx, `
-		SELECT u.id, COALESCE(u.phone, '') AS phone, u.role_id, u.active, u.is_admin, u.created_at, u.registration_status, u.staff_tier, u.account_status,
+		SELECT u.id, COALESCE(u.phone, '') AS phone, u.role_id, u.active, u.is_admin, u.created_at, u.registration_status, u.staff_tier, u.account_status, u.is_guest, u.username,
 		       up.id, up.full_name, up.gender, up.address, up.profile_picture,
 		       to_char(up.date_of_birth, 'YYYY-MM-DD'),
 		       up.city, up.occupation, up.family_size, up.housing_status,
@@ -472,8 +554,9 @@ func (s *Store) PaginatedList(ctx context.Context, page, perPage int, q string) 
 			skills        *string
 			availability  *string
 			experience    *string
+			username      *string
 		)
-		err := rows.Scan(&acc.UserID, &acc.Phone, &roleID, &active, &isAdmin, &acc.CreatedAt, &regStatus, &staffTier, &acctStatus,
+		err := rows.Scan(&acc.UserID, &acc.Phone, &roleID, &active, &isAdmin, &acc.CreatedAt, &regStatus, &staffTier, &acctStatus, &acc.IsGuest, &username,
 			&profileID, &fullName, &gender, &address, &picture, &dob,
 			&city, &occupation, &familySize, &housingStatus, &monthlyIncome, &skills, &availability, &experience)
 		if err != nil {
@@ -496,6 +579,9 @@ func (s *Store) PaginatedList(ctx context.Context, page, perPage int, q string) 
 		}
 		if acctStatus != nil {
 			acc.AccountStatus = *acctStatus
+		}
+		if username != nil {
+			acc.Username = *username
 		}
 		if profileID != nil && *profileID > 0 {
 			acc.Profile = &Profile{

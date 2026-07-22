@@ -162,6 +162,9 @@ type EventMeta = {
 const EVENT_META: Record<string, EventMeta> = {
   login: { icon: '↪', tone: 'primary', badge: 'Login', category: 'Core' },
   register: { icon: '＋', tone: 'primary', badge: 'Register', category: 'Core' },
+  // Note #40 — guest (username + password, browsing-only) accounts.
+  guest_register: { icon: '☆', tone: 'info', badge: 'Guest', category: 'Core' },
+  guest_login: { icon: '↪', tone: 'info', badge: 'Guest', category: 'Core' },
   role_select: { icon: '🪪', tone: 'primary', badge: 'Role', category: 'Core' },
   profile_update: { icon: '✎', tone: 'info', badge: 'Profile', category: 'People' },
   donation_submit: { icon: '$', tone: 'success', badge: 'Donation', category: 'Money' },
@@ -196,7 +199,7 @@ const BADGE_KEY: Record<string, string> = {
   Donation: 'bdg_donation', Sponsorship: 'bdg_sponsorship', Case: 'bdg_case', Project: 'bdg_project',
   Marketplace: 'bdg_marketplace', Volunteer: 'bdg_volunteer', Support: 'bdg_support',
   'In-kind': 'bdg_inkind', Marriage: 'bdg_marriage', Notification: 'bdg_notification', Event: 'bdg_event',
-  User: 'bdg_user',
+  User: 'bdg_user', Guest: 'bdg_guest',
 }
 const CAT_KEY: Record<string, string> = {
   Core: 'cat_core', People: 'cat_people', Money: 'cat_money', Review: 'cat_review',
@@ -239,6 +242,8 @@ const EVENT_ROUTES: Record<string, EventRoute> = {
   profile_update: { resource: 'users', list: '/users', useUserId: true },
   login:          { resource: 'users', list: '/users', useUserId: true },
   register:       { resource: 'users', list: '/users', useUserId: true },
+  guest_register: { resource: 'users', list: '/users', useUserId: true },
+  guest_login:    { resource: 'users', list: '/users', useUserId: true },
   role_select:    { resource: 'users', list: '/users', useUserId: true },
   // Admin Notification System — a staff member created/modified a user account.
   // Deep-link to the affected account's detail page.

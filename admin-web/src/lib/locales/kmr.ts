@@ -278,6 +278,9 @@ const kmr: DeepPartial<typeof en> = {
     col_visible: 'دیار بۆ مێڤانان',
     shown: 'دیار',
     hidden: 'ڤەشارتی',
+    always_blocked: 'هەمیشە بلۆکەکری',
+    city_directory_locked_note:
+      'تێبینی ٤٠ — ڕێبەرێ شاری هەمیشە ژ بۆ مێڤانان بلۆکەکری یە، سەرباری ڤێ ڕێکخستنێ.',
   },
 
   settings: {
@@ -412,6 +415,7 @@ const kmr: DeepPartial<typeof en> = {
     bdg_marketplace: 'بازار', bdg_volunteer: 'خۆبەخش', bdg_support: 'پشتگیری',
     bdg_inkind: 'شتومەک', bdg_marriage: 'هاوسەرگیری', bdg_notification: 'ئاگه‌هداری', bdg_event: 'بویەر',
     bdg_user: 'بکارهێنەر',
+    bdg_guest: 'مێڤان',
     cat_core: 'سەرەکی', cat_people: 'کەس', cat_money: 'دراڤ', cat_review: 'پێداچوون',
     cat_orders: 'داخواز', cat_activity: 'چالاکی',
     push_inapp_bold: 'ئاگه‌هداریێن ناڤ ئەپێ هێشتا کار دکەن',
@@ -544,6 +548,7 @@ const kmr: DeepPartial<typeof en> = {
     },
     users: {
       title: 'بکارهێنەر', new_user: '+ بکارهێنەرێ نوو', search_placeholder: 'گەڕیان ب تەلەفۆن / ناڤێ تەمام',
+      guest_badge: 'مێڤان',
       force_logout: 'دەرکرنا ب زۆر', force_logout_ok: 'هەمی دانیشتن هاتنە بەتالکرن — بکارهێنەر هاتە دەرکرن.', force_logout_fail: 'نەشیا ب زۆر بهێتە دەرکرن.',
       archive: 'ئەرشیڤکرن', unarchive: 'لابرنا ئەرشیڤێ',
       archived_ok: '{noun} هاتە ئەرشیڤکرن.', unarchived_ok: '{noun} ژ ئەرشیڤێ هاتە ڤەگەراندن.',

@@ -44,6 +44,10 @@ type ResolvedUser struct {
 	CreatedAt          time.Time
 	RegistrationStatus string // incomplete | pending | approved | rejected
 	StaffTier          string // super_admin | admin | supervisor | employee | user
+	// IsGuest (#40) — a lightweight username/password browsing account,
+	// restricted from City Directory, messaging, and purchases/service
+	// requests until upgraded (see RequireNotGuest/RequireGuest).
+	IsGuest bool
 }
 
 type TokenStore struct {
@@ -149,17 +153,18 @@ func (s *TokenStore) ResolveToken(ctx context.Context, raw string) (*ResolvedUse
 		regStatus   *string
 		staffTier   *string
 		acctStatus  *string
+		isGuest     bool
 	)
 	err := s.Pool.QueryRow(ctx,
 		`SELECT t.id, t.user_id, t.token_hash, t.expires_at, t.revoked_at,
 		        EXTRACT(EPOCH FROM (NOW() - t.last_used_at)),
-		        u.role_id, u.active, u.is_admin, COALESCE(u.phone, ''), u.created_at, u.registration_status, u.staff_tier, u.account_status
+		        u.role_id, u.active, u.is_admin, COALESCE(u.phone, ''), u.created_at, u.registration_status, u.staff_tier, u.account_status, u.is_guest
 		   FROM api_access_tokens t
 		   JOIN users u ON u.id = t.user_id
 		  WHERE t.token_selector = $1
 		  LIMIT 1`,
 		selector,
-	).Scan(&tokenID, &userID, &storedHash, &expiresAt, &revokedAt, &idleSeconds, &roleID, &active, &isAdmin, &phone, &createdAt, &regStatus, &staffTier, &acctStatus)
+	).Scan(&tokenID, &userID, &storedHash, &expiresAt, &revokedAt, &idleSeconds, &roleID, &active, &isAdmin, &phone, &createdAt, &regStatus, &staffTier, &acctStatus, &isGuest)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			// Constant-time dummy compare to keep timing flat.
@@ -212,6 +217,7 @@ func (s *TokenStore) ResolveToken(ctx context.Context, raw string) (*ResolvedUse
 		UserID:    userID,
 		Phone:     phone,
 		CreatedAt: createdAt,
+		IsGuest:   isGuest,
 	}
 	if regStatus != nil {
 		r.RegistrationStatus = *regStatus

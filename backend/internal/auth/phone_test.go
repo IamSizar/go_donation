@@ -3,7 +3,7 @@ package auth
 import "testing"
 
 func TestNormalizePhone(t *testing.T) {
-	const canon = "07508582031"
+	const canon = "9647508582031"
 	cases := map[string]string{
 		// Every accepted way to write the same Iraqi mobile → one canonical value.
 		"7508582031":         canon,
@@ -18,15 +18,22 @@ func TestNormalizePhone(t *testing.T) {
 		"00964 750 858 2031": canon,
 		"964 750 858 2031":   canon,
 
+		// #39 — international numbers (explicit "+"/"00" prefix) pass through
+		// digits-only, no longer hard-rejected as Iraq-only.
+		"+1 202 555 0182": "12025550182",
+		"+44 7700 900000": "447700900000",
+		"00447700900000":  "447700900000",
+		"+9661234567":     "9661234567",
+
 		// Section 27 — leading/trailing/duplicate ASCII spaces plus Arabic-mode
 		// invisible characters must all collapse to the same canonical value:
 		// non-breaking space (U+00A0), bidi marks (U+200E/U+200F), and
 		// zero-width joiner (U+200D). Built with \u escapes so the source stays
 		// ASCII and the intent is unambiguous.
-		"  0750  858  2031  ":                            canon, // leading/trailing/duplicate spaces
-		"0750 858 2031":                        canon, // non-breaking spaces
-		"‏0750 858 2031‎":                      canon, // RTL/LTR bidi marks
-		"0750858‍2031":                              canon, // zero-width joiner
+		"  0750  858  2031  ": canon, // leading/trailing/duplicate spaces
+		"0750 858 2031":       canon, // non-breaking spaces
+		"‏0750 858 2031‎":     canon, // RTL/LTR bidi marks
+		"0750858‍2031":        canon, // zero-width joiner
 
 		// Invalid → "".
 		"":            "",
@@ -46,7 +53,7 @@ func TestNormalizePhone(t *testing.T) {
 
 // Idempotence: normalizing an already-canonical value returns it unchanged.
 func TestNormalizePhoneIdempotent(t *testing.T) {
-	for _, in := range []string{"07508582031", "07700000001"} {
+	for _, in := range []string{"9647508582031", "9647700000001"} {
 		once := NormalizePhone(in)
 		twice := NormalizePhone(once)
 		if once != in || twice != once {

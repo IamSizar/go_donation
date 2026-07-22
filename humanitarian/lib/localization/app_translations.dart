@@ -441,6 +441,8 @@ class AppTranslations extends Translations {
         'Use a darker appearance across the app.',
     'Sign out of your account securely.': 'Sign out of your account securely.',
     'Humanitarian platform': 'BalanceNex',
+    'Balance and Stability for a Better Life!':
+        'Balance and Stability for a Better Life!',
     'Build impact with a calmer, smarter experience.':
         'Build impact with a calmer, smarter experience.',
     'Empower communities, coordinate your work, and keep every important step in one beautiful place.':
@@ -448,8 +450,12 @@ class AppTranslations extends Translations {
     'Community-first': 'Community-first',
     'Track progress': 'Track progress',
     'Fast onboarding': 'Fast onboarding',
+    'Select your country · 200+ available':
+        'Select your country · 200+ available',
+    'Search country': 'Search country',
     'Sign in': 'Sign in',
     'Create account': 'Create account',
+    'Continue as guest': 'Continue as guest',
     'Create your account': 'Create your account',
     'Join the platform': 'Join the platform',
     'Create your account to support communities, track your actions, and stay connected to every mission.':
@@ -1857,6 +1863,8 @@ class AppTranslations extends Translations {
         'استخدم مظهرا داكنا في جميع أنحاء التطبيق.',
     'Sign out of your account securely.': 'سجل الخروج من حسابك بأمان.',
     'Humanitarian platform': 'توازن',
+    'Balance and Stability for a Better Life!':
+        'توازن واستقرار من أجل حياة أفضل!',
     'Build impact with a calmer, smarter experience.':
         'اصنع أثرا بتجربة أهدأ وأكثر ذكاء.',
     'Empower communities, coordinate your work, and keep every important step in one beautiful place.':
@@ -1864,8 +1872,11 @@ class AppTranslations extends Translations {
     'Community-first': 'المجتمع أولا',
     'Track progress': 'تتبع التقدم',
     'Fast onboarding': 'بدء سريع',
+    'Select your country · 200+ available': 'اختر بلدك · أكثر من 200 دولة متاحة',
+    'Search country': 'ابحث عن دولة',
     'Sign in': 'تسجيل الدخول',
-    'Create account': 'إنشاء حساب',
+    'Create account': 'انشئ حسابا',
+    'Continue as guest': 'الدخول كزائر',
     'Create your account': 'أنشئ حسابك',
     'Join the platform': 'انضم إلى المنصة',
     'Create your account to support communities, track your actions, and stay connected to every mission.':
@@ -3250,14 +3261,20 @@ class AppTranslations extends Translations {
         'بەکارهێنانی ڕوکارێکی تاریک لە هەموو ئەپەکەدا.',
     'Sign out of your account securely.':
         'بە شێوەیەکی پارێزراو لە ئەکاونتەکەت بچۆ دەرەوە.',
+    'Balance and Stability for a Better Life!':
+        'هاوسەنگی و جێگیری بۆ ژیانێکی باشتر!',
     'Build impact with a calmer, smarter experience.':
         'کاریگەری دروست بکە بە ئەزموونێکی ئارامتر و زیرەکتر.',
     'Empower communities, coordinate your work, and keep every important step in one beautiful place.':
         'کۆمەڵگەکان بەهێز بکە، کارەکانت ڕێکبخە و هەموو هەنگاوە گرنگەکان لە یەک شوێنی جواندا بپارێزە.',
     'Track progress': 'چاودێری بەرەوپێشچوون',
     'Fast onboarding': 'دەستپێکردنی خێرا',
+    'Select your country · 200+ available':
+        'وڵاتەکەت هەڵبژێرە · زیاتر لە ٢٠٠ وڵات بەردەستە',
+    'Search country': 'بەدوای وڵاتێکدا بگەڕێ',
     'Sign in': 'چوونە ژوورەوە',
     'Create account': 'دروستکردنی ئەکاونت',
+    'Continue as guest': 'وەک میوان بەردەوامبە',
     'Create your account': 'ئەکاونتەکەت دروست بکە',
     'Join the platform': 'ببەرە ئەندامی پلاتفۆرمەکە',
     'Create your account to support communities, track your actions, and stay connected to every mission.':
@@ -4454,6 +4471,8 @@ class AppTranslations extends Translations {
         "بکارهێنانا رەنگێ تاری د ناڤ بەرنامەی دا.",
     "Sign out of your account securely.": "دەرکەفتنا پاراستی ژ هەژمارا تە.",
     "Humanitarian platform": "توازن",
+    "Balance and Stability for a Better Life!":
+        "هاوسەنگی و ئارامی بۆ ژیانەکا باشتر!",
     "Build impact with a calmer, smarter experience.":
         "کارتێکرنا خۆ دروست بکە ب ئەزموونەکا ئارامتر و زیرەکتر.",
     "Empower communities, coordinate your work, and keep every important step in one beautiful place.":
@@ -4461,8 +4480,12 @@ class AppTranslations extends Translations {
     "Community-first": "جڤاک ل پێشیێ یە",
     "Track progress": "چاڤدێریا پێشڤەچوونێ",
     "Fast onboarding": "دەسپێکرنەکا ب لەز",
+    "Select your country · 200+ available":
+        "وەلاتێ خۆ هەلبژێرە · زیاتر ژ ٢٠٠ وەلاتی هەیە",
+    "Search country": "ل وەلاتەکێ بگەڕە",
     "Sign in": "چوونە ژوور",
     "Create account": "دروستکرنا هەژمارێ",
+    "Continue as guest": "وەک میوان بەردەوامبە",
     "Create your account": "هەژمارا خۆ دروست بکە",
     "Join the platform": "ببیتە ئەندام د پلاتفۆرمی دا",
     "Create your account to support communities, track your actions, and stay connected to every mission.":

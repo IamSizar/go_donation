@@ -122,7 +122,14 @@ class _VerificationPageState extends State<VerificationPage> {
                       Text(
                         hasPendingPhone
                             ? 'Enter the 6-digit code sent to @phone'.trParams({
-                                'phone': formatPhoneForDisplay(pendingPhone),
+                                // #39 — isolate the embedded number as LTR
+                                // (U+2066 LRI ... U+2069 PDI) so its digit
+                                // grouping doesn't mirror when this sentence
+                                // renders inside an RTL (Arabic/Kurdish)
+                                // locale, while the rest of the sentence
+                                // still flows RTL normally.
+                                'phone':
+                                    '\u2066${formatPhoneForDisplay(pendingPhone)}\u2069',
                               })
                             : 'Request an OTP from the login page first.'.tr,
                         style: TextStyle(

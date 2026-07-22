@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/core/id_privacy.dart';
 import 'package:flutter_application_1/localization/content_localizer.dart';
@@ -65,7 +66,10 @@ class _MarriageSearchScreenState extends State<MarriageSearchScreen> {
     } catch (_) {}
   }
 
+  // Note #40 — requesting a meeting is what opens the staff-mediated marriage
+  // chat, so it's gated the same as any other messaging entry point.
   Future<void> _requestMeeting(int id) async {
+    if (!await requireUpgrade(context)) return;
     try {
       await const ModuleApi().requestMarriageMeeting(id, '');
       Get.snackbar('marriage_search'.tr, 'meeting_requested'.tr);

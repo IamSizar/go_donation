@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/modules/chat/controllers/chat_controller.dart';
 import 'package:flutter_application_1/modules/chat/screens/chat_conversation_screen.dart';
 import 'package:get/get.dart';
@@ -21,6 +22,9 @@ abstract final class ChatActions {
     String? conversationTitle,
     String? conversationSubtitle,
   }) async {
+    // Note #40 — "assistance-related conversations" are restricted for guests.
+    if (!await requireUpgrade(context)) return;
+    if (!context.mounted) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(

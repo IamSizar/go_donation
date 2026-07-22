@@ -277,6 +277,9 @@ const ar: DeepPartial<typeof en> = {
     col_visible: 'ظاهرة للضيوف',
     shown: 'ظاهرة',
     hidden: 'مخفية',
+    always_blocked: 'محظور دائمًا',
+    city_directory_locked_note:
+      'ملاحظة ٤٠ — دليل المدينة محظور دائمًا على الضيوف، بغض النظر عن هذا الإعداد.',
   },
 
   settings: {
@@ -411,6 +414,7 @@ const ar: DeepPartial<typeof en> = {
     bdg_marketplace: 'السوق', bdg_volunteer: 'تطوّع', bdg_support: 'الدعم',
     bdg_inkind: 'عينية', bdg_marriage: 'زواج', bdg_notification: 'إشعار', bdg_event: 'حدث',
     bdg_user: 'مستخدم',
+    bdg_guest: 'زائر',
     cat_core: 'أساسي', cat_people: 'الأشخاص', cat_money: 'المال', cat_review: 'المراجعة',
     cat_orders: 'الطلبات', cat_activity: 'النشاط',
     push_inapp_bold: 'الإشعارات داخل التطبيق تعمل',
@@ -513,6 +517,7 @@ const ar: DeepPartial<typeof en> = {
                     open_missions: 'المهام المفتوحة', open_tickets: 'التذاكر المفتوحة',
                     vs_last_month: 'مقابل {n} الشهر الماضي', donations_30d: 'المساهمات · آخر ٣٠ يومًا' },
     users:        { title: 'المستخدمون', new_user: '+ مستخدم جديد', search_placeholder: 'بحث بالهاتف / الاسم',
+                    guest_badge: 'زائر',
                     force_logout: 'تسجيل خروج قسري', force_logout_ok: 'تم إلغاء كل الجلسات — تم تسجيل خروج المستخدم.', force_logout_fail: 'تعذّر تسجيل الخروج القسري.',
                     archive: 'أرشفة', unarchive: 'إلغاء الأرشفة',
                     archived_ok: 'تمت أرشفة {noun}.', unarchived_ok: 'تمت استعادة {noun} من الأرشيف.',

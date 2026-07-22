@@ -287,6 +287,9 @@ const en = {
     col_visible: 'Visible to guests',
     shown: 'Shown',
     hidden: 'Hidden',
+    always_blocked: 'Always blocked',
+    city_directory_locked_note:
+      'Note #40 — City Directory is always blocked for guests, regardless of this setting.',
   },
 
   // Note #5 — Dashboard Settings. Home for system-wide settings that don't
@@ -423,6 +426,7 @@ const en = {
     bdg_marketplace: 'Marketplace', bdg_volunteer: 'Volunteer', bdg_support: 'Support',
     bdg_inkind: 'In-kind', bdg_marriage: 'Marriage', bdg_notification: 'Notification', bdg_event: 'Event',
     bdg_user: 'User',
+    bdg_guest: 'Guest',
     cat_core: 'Core', cat_people: 'People', cat_money: 'Money', cat_review: 'Review',
     cat_orders: 'Orders', cat_activity: 'Activity',
     push_inapp_bold: 'In-app notifications still work',
@@ -554,6 +558,7 @@ const en = {
                     open_missions: 'Open missions', open_tickets: 'Open tickets',
                     vs_last_month: 'vs {n} last month', donations_30d: 'Contributions · last 30 days' },
     users:        { title: 'Users',          new_user: '+ New user', search_placeholder: 'search phone / full name',
+                    guest_badge: 'Guest',
                     force_logout: 'Force logout', force_logout_ok: 'All sessions revoked — the user is signed out.', force_logout_fail: 'Could not force logout.',
                     archive: 'Archive', unarchive: 'Un-archive',
                     archived_ok: '{noun} archived.', unarchived_ok: '{noun} restored from archive.',

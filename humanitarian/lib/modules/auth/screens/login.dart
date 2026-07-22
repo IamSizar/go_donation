@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:country_code_picker/country_code_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // LengthLimitingTextInputFormatter
 import 'package:flutter_application_1/core/app_state.dart';
@@ -101,6 +102,10 @@ class _LoginFormState extends State<_LoginForm> {
 
   final TextEditingController _phoneController = TextEditingController();
 
+  // #39 — international phone support: the selected country's dial code
+  // (no "+"), defaulting to Iraq. Changed via the CountryCodePicker.
+  String _dialCode = '964';
+
   // Phase 19b — OTP delivery mode toggle. 'real' (default) sends via OTPIQ
   // → WhatsApp first, SMS fallback. 'demo' skips OTPIQ and the backend
   // returns the static demo code (123456) for development without burning
@@ -150,19 +155,17 @@ class _LoginFormState extends State<_LoginForm> {
     }
   }
 
-  /// Convert a locally-typed phone to the full international form.
+  /// Convert a locally-typed phone (with the selected _dialCode) to the
+  /// full international form: strip a leading national trunk "0" if present
+  /// (standard when combining a local number with its country code), then
+  /// prepend the selected dial code.
   ///
-  ///   7508582031     → 9647508582031   (10 digits → add 964)
-  ///   07508582031    → 9647508582031   (11 digits, leading 0 → strip + add 964)
-  ///   anything else  → returned as-is (validator should have already rejected)
+  ///   964 + 7508582031    → 9647508582031
+  ///   964 + 07508582031   → 9647508582031  (leading trunk 0 stripped)
+  ///   44  + 07700900000   → 447700900000
   String _normalizeLocalPhone(String digits) {
-    if (digits.length == 11 && digits.startsWith('0')) {
-      return '964${digits.substring(1)}';
-    }
-    if (digits.length == 10) {
-      return '964$digits';
-    }
-    return digits;
+    final national = digits.startsWith('0') ? digits.substring(1) : digits;
+    return '$_dialCode$national';
   }
 
   Future<void> _handleGoogleLogin() async {
@@ -172,11 +175,19 @@ class _LoginFormState extends State<_LoginForm> {
     }
   }
 
-  /// Section 27 — Guest Mode. Enter the app signed-out; only the Super-Admin-
-  /// enabled screens show, and account actions prompt to sign in.
+  /// Note #40 — Guest Registration Process. Opens a lightweight
+  /// username+password sheet; on success the guest lands straight in Home
+  /// (no sub-page detour), same as the old anonymous guest mode did.
   Future<void> _continueAsGuest() async {
-    await enterGuestMode();
-    Get.offAllNamed(AppRoutes.home);
+    final ok = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const _GuestAccessSheet(),
+    );
+    if (ok == true) {
+      Get.offAllNamed(AppRoutes.home);
+    }
   }
 
   @override
@@ -214,12 +225,20 @@ class _LoginFormState extends State<_LoginForm> {
             ),
           ),
           const SizedBox(height: 10),
-          // Phase 19c — phone field with locked +964 prefix tile. The user
-          // types ONLY the local number (e.g. 7508582031, 10-11 digits).
-          // _normalizeLocalPhone() prepends 964 before we hand the value
-          // to sendOtp(). digitsOnly formatter prevents pasting spaces /
-          // + / hyphens that the backend would have to strip anyway.
-          TextFormField(
+          // #39 — phone field with an interactive country-code picker
+          // (defaults to Iraq). The user types ONLY the local number;
+          // _normalizeLocalPhone() prepends the selected dial code before
+          // we hand the value to sendOtp().
+          //
+          // Forced LTR: a phone number is a fixed left-to-right digit
+          // group ("0750 858 2031"); under the ambient RTL Directionality
+          // of an Arabic/Kurdish locale, the bidi algorithm mirrors that
+          // grouping ("2031 858 0750"), which reads as a different number.
+          // Locking this whole field to LTR keeps the digits — and the
+          // hint text — in the same order in every locale.
+          Directionality(
+            textDirection: TextDirection.ltr,
+            child: TextFormField(
             controller: _phoneController,
             style: const TextStyle(color: Colors.white, fontSize: 16),
             cursorColor: Colors.white,
@@ -228,9 +247,84 @@ class _LoginFormState extends State<_LoginForm> {
               hintText: '750 858 2031',
               icon: Icons.phone_outlined,
             ).copyWith(
-              // Replace the generic phone-icon prefix with a chip that
-              // clearly tells the user the country code is already there.
-              prefixIcon: const _CountryCodeChip(),
+              // Replace the generic phone-icon prefix with a picker that
+              // shows the selected country's flag + dial code. The picker
+              // dialog is restyled to match the app's dark glass look (the
+              // package default is a plain white Material dialog) and its
+              // header spells out that Iraq is just the default — the full
+              // list of 200+ countries is one tap away.
+              prefixIcon: CountryCodePicker(
+                onChanged: (code) => setState(
+                  () => _dialCode = (code.dialCode ?? '+964').replaceFirst(
+                    '+',
+                    '',
+                  ),
+                ),
+                initialSelection: 'IQ',
+                favorite: const ['+964', 'IQ'],
+                showCountryOnly: false,
+                showOnlyCountryWhenClosed: false,
+                alignLeft: false,
+                padding: const EdgeInsets.only(left: 14, right: 4),
+                flagWidth: 22,
+                // A visible chevron on the closed state itself hints that
+                // Iraq is just the current pick, not the only option.
+                showDropDownButton: true,
+                textStyle: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                ),
+                flagDecoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(4),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.25),
+                      blurRadius: 3,
+                    ),
+                  ],
+                ),
+                dialogSize: const Size(360, 520),
+                boxDecoration: BoxDecoration(
+                  color: const Color(0xFF0E3B5C),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+                ),
+                barrierColor: Colors.black.withValues(alpha: 0.55),
+                closeIcon: const Icon(Icons.close_rounded, color: Colors.white70),
+                headerText: 'Select your country · 200+ available'.tr,
+                headerTextStyle: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                ),
+                topBarPadding: const EdgeInsets.fromLTRB(20, 18, 12, 8),
+                searchPadding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+                searchDecoration: InputDecoration(
+                  hintText: 'Search country'.tr,
+                  hintStyle: const TextStyle(color: Colors.white54),
+                  prefixIcon: const Icon(
+                    Icons.search_rounded,
+                    color: Colors.white70,
+                  ),
+                  filled: true,
+                  fillColor: Colors.white.withValues(alpha: 0.10),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+                searchStyle: const TextStyle(color: Colors.white),
+                dialogTextStyle: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w500,
+                ),
+                dialogItemPadding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+              ),
               prefixIconConstraints: const BoxConstraints(
                 minWidth: 0,
                 minHeight: 0,
@@ -239,11 +333,12 @@ class _LoginFormState extends State<_LoginForm> {
             ),
             keyboardType: TextInputType.number,
             // Group digits with spaces as they type ("750 858 2031"). The
-            // value is digit-stripped before submit, so the spaces are purely
-            // cosmetic. 14 chars fits "0750 858 2031".
+            // value is digit-stripped before submit, so the spaces are
+            // purely cosmetic. 20 chars comfortably fits the longest
+            // international national numbers plus grouping spaces.
             inputFormatters: [
               PhoneSpaceInputFormatter(),
-              LengthLimitingTextInputFormatter(14),
+              LengthLimitingTextInputFormatter(20),
             ],
             textInputAction: TextInputAction.done,
             validator: (value) {
@@ -251,13 +346,23 @@ class _LoginFormState extends State<_LoginForm> {
                 return 'Please enter your phone number'.tr;
               }
               final digits = value.replaceAll(RegExp(r'\D'), '');
-              // Accept 10 digits (e.g. 7508582031) OR 11 with a leading
-              // 0 (e.g. 07508582031). Both normalize to +964 + 10 digits.
-              if (digits.length == 10) return null;
-              if (digits.length == 11 && digits.startsWith('0')) return null;
-              return 'Enter 10 digits (or 11 starting with 0)'.tr;
+              if (_dialCode == '964') {
+                // Iraq keeps its precise NSN-length check (10 digits, or 11
+                // with a leading trunk 0).
+                if (digits.length == 10) return null;
+                if (digits.length == 11 && digits.startsWith('0')) {
+                  return null;
+                }
+                return 'Enter 10 digits (or 11 starting with 0)'.tr;
+              }
+              // Other countries: no client-side per-country length table —
+              // a generic sanity range; the backend applies the
+              // authoritative E.164 check.
+              if (digits.length >= 4 && digits.length <= 14) return null;
+              return 'Enter a valid phone number'.tr;
             },
             onFieldSubmitted: (_) => _handleSendOtp(),
+            ),
           ),
           const SizedBox(height: 14),
           // Phase 19b — OTP delivery mode picker. Two visual segments
@@ -313,7 +418,7 @@ class _LoginFormState extends State<_LoginForm> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Text(
-                  'or continue with',
+                  'or continue with'.tr,
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.72),
                     fontWeight: FontWeight.w500,
@@ -549,48 +654,223 @@ class _Segment extends StatelessWidget {
   }
 }
 
-/// _CountryCodeChip — visually-locked Iraq country code shown as the
-/// prefix of the phone input. NOT interactive; the user can't change it.
-///
-/// Layout: 🇮🇶  +964  │   (flag · code · vertical divider)
-/// The divider sits flush against the cursor so the typed digits look
-/// like a natural continuation of the prefix.
-class _CountryCodeChip extends StatelessWidget {
-  const _CountryCodeChip();
+/// #40 — the guest access sheet. One username + one password field, "quickly
+/// access" the app: the primary action always tries to REGISTER a new guest
+/// account first; if that username is already taken, a secondary "Log in
+/// instead" action appears using the same two fields. Pops `true` on success
+/// so the caller knows to navigate to Home.
+class _GuestAccessSheet extends StatefulWidget {
+  const _GuestAccessSheet();
+
+  @override
+  State<_GuestAccessSheet> createState() => _GuestAccessSheetState();
+}
+
+class _GuestAccessSheetState extends State<_GuestAccessSheet> {
+  final _formKey = GlobalKey<FormState>();
+  final _usernameController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _loading = false;
+  bool _obscure = true;
+  String _error = '';
+  bool _usernameTaken = false;
+
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit({required bool asLogin}) async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() {
+      _loading = true;
+      _error = '';
+    });
+    final username = _usernameController.text.trim();
+    final password = _passwordController.text;
+    final result = asLogin
+        ? await loginGuest(username, password)
+        : await registerGuest(username, password);
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+      _usernameTaken = result.code == 'username_taken';
+      _error = result.ok ? '' : (result.error ?? 'Something went wrong.');
+    });
+    if (result.ok) {
+      Navigator.of(context).pop(true);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final fg = Colors.white;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 0, 10, 0),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Flag emoji — renders the country glyph on platforms that
-          // support emoji-flags (iOS, most modern Android). On Android
-          // builds without emoji-flag fonts the chip still reads as
-          // "+964" so the meaning is intact.
-          Text('🇮🇶', style: TextStyle(fontSize: 18, color: fg)),
-          const SizedBox(width: 8),
-          Text(
-            '+964',
-            style: TextStyle(
-              color: fg,
-              fontWeight: FontWeight.w700,
-              fontSize: 15,
-              letterSpacing: 0.2,
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        child: Container(
+          padding: EdgeInsets.fromLTRB(
+            24,
+            22,
+            24,
+            24 + MediaQuery.of(context).padding.bottom,
+          ),
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF0E3B5C), Color(0xFF114C72)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
           ),
-          const SizedBox(width: 10),
-          // Vertical divider — purely visual, separates the locked prefix
-          // from the editable digits.
-          Container(
-            width: 1,
-            height: 20,
-            color: Colors.white.withValues(alpha: 0.25),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 18),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.28),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+                Text(
+                  'Continue as guest'.tr,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 20,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Just a username and password to quickly browse.'.tr,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.72),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                if (_error.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(
+                      _error,
+                      style: const TextStyle(
+                        color: Colors.redAccent,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                TextFormField(
+                  controller: _usernameController,
+                  style: const TextStyle(color: Colors.white),
+                  cursorColor: Colors.white,
+                  decoration: authInputDecoration(
+                    label: 'Username',
+                    hintText: 'guest_name',
+                    icon: Icons.person_outline_rounded,
+                  ),
+                  validator: (v) {
+                    final s = (v ?? '').trim();
+                    if (s.length < 3 || s.length > 32) {
+                      return 'Use 3-32 letters, numbers or underscore'.tr;
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 14),
+                TextFormField(
+                  controller: _passwordController,
+                  style: const TextStyle(color: Colors.white),
+                  cursorColor: Colors.white,
+                  obscureText: _obscure,
+                  decoration:
+                      authInputDecoration(
+                        label: 'Password',
+                        hintText: '••••••',
+                        icon: Icons.lock_outline_rounded,
+                      ).copyWith(
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscure
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                            color: Colors.white70,
+                          ),
+                          onPressed: () =>
+                              setState(() => _obscure = !_obscure),
+                        ),
+                      ),
+                  validator: (v) => (v ?? '').length < 6
+                      ? 'At least 6 characters'.tr
+                      : null,
+                  onFieldSubmitted: (_) => _submit(asLogin: false),
+                ),
+                const SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _loading ? null : () => _submit(asLogin: false),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: const Color(0xFF0B385D),
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: _loading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              color: Color(0xFF0B385D),
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : Text(
+                            'Continue as guest'.tr,
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                  ),
+                ),
+                if (_usernameTaken) ...[
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: _loading ? null : () => _submit(asLogin: true),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        side: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.34),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 15),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                      ),
+                      child: Text(
+                        'That\'s me — log in instead'.tr,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
-          const SizedBox(width: 4),
-        ],
+        ),
       ),
     );
   }

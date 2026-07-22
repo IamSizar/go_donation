@@ -277,6 +277,9 @@ const ckb: DeepPartial<typeof en> = {
     col_visible: 'دیارە بۆ میوان',
     shown: 'دیارە',
     hidden: 'شاراوە',
+    always_blocked: 'هەمیشە بلۆککراوە',
+    city_directory_locked_note:
+      'تێبینی ٤٠ — ڕێنیشاندەری شار هەمیشە بۆ میوان بلۆککراوە، سەرباری ئەم ڕێکخستنە.',
   },
 
   settings: {
@@ -411,6 +414,7 @@ const ckb: DeepPartial<typeof en> = {
     bdg_marketplace: 'بازاڕ', bdg_volunteer: 'خۆبەخش', bdg_support: 'پشتگیری',
     bdg_inkind: 'شتومەک', bdg_marriage: 'هاوسەرگیری', bdg_notification: 'ئاگاداری', bdg_event: 'ڕووداو',
     bdg_user: 'بەکارهێنەر',
+    bdg_guest: 'میوان',
     cat_core: 'سەرەکی', cat_people: 'کەسان', cat_money: 'پارە', cat_review: 'پێداچوونەوە',
     cat_orders: 'داواکارییەکان', cat_activity: 'چالاکی',
     push_inapp_bold: 'ئاگادارییەکانی ناو ئەپ هێشتا کار دەکەن',
@@ -543,6 +547,7 @@ const ckb: DeepPartial<typeof en> = {
     },
     users: {
       title: 'بەکارهێنەران', new_user: '+ بەکارهێنەری نوێ', search_placeholder: 'گەڕان بە مۆبایل / ناوی تەواو',
+      guest_badge: 'میوان',
       force_logout: 'دەرکردنی بەزۆر', force_logout_ok: 'هەموو دانیشتنەکان هەڵوەشێنرانەوە — بەکارهێنەر دەرکرا.', force_logout_fail: 'نەتوانرا بەزۆر دەربکرێت.',
       archive: 'ئەرشیفکردن', unarchive: 'لابردنی ئەرشیف',
       archived_ok: '{noun} ئەرشیف کرا.', unarchived_ok: '{noun} لە ئەرشیفەوە گەڕایەوە.',

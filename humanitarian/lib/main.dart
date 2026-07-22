@@ -7,6 +7,7 @@ import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/localization/app_translations.dart';
 import 'package:flutter_application_1/localization/locale_service.dart';
 import 'package:flutter_application_1/shared/widgets/dismiss_keyboard.dart';
+import 'package:flutter_application_1/modules/auth/screens/guest_upgrade.dart';
 import 'package:flutter_application_1/modules/auth/screens/login.dart';
 import 'package:flutter_application_1/modules/auth/screens/pending_approval.dart';
 import 'package:flutter_application_1/modules/auth/screens/register.dart';
@@ -194,6 +195,10 @@ class HumanitarianApp extends StatelessWidget {
             transitionDuration: const Duration(milliseconds: 320),
           ),
           GetPage(name: AppRoutes.home, page: () => const DashboardScreen()),
+          GetPage(
+            name: AppRoutes.guestUpgrade,
+            page: () => const GuestUpgradeScreen(),
+          ),
           GetPage(
             name: AppRoutes.notifications,
             page: () => const NotificationsScreen(),

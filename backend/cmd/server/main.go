@@ -169,7 +169,7 @@ func main() {
 	} else {
 		log.Printf("[assistant] local mode (set ANTHROPIC_API_KEY for full AI; keyword engine active)")
 	}
-	authH := handlers.NewAuthHandler(tokenStore, otpStore, userStore, otpiqClient, loginLockStore)
+	authH := handlers.NewAuthHandler(tokenStore, otpStore, userStore, otpiqClient, loginLockStore, notifier)
 	profileH := handlers.NewProfileHandler(userStore, uploadDir)
 	chooseRoleH := handlers.NewChooseRoleHandler(userStore)
 	registrationH := handlers.NewRegistrationHandler(userStore)
@@ -265,6 +265,9 @@ func main() {
 		api.POST("/auth/otp/request/", authH.OTPRequest)
 		api.POST("/auth/otp/verify", authH.OTPVerify)
 		api.POST("/auth/otp/verify/", authH.OTPVerify)
+		// Note #40 — real (username + password) guest accounts.
+		api.POST("/auth/guest/register", authH.GuestRegister)
+		api.POST("/auth/guest/login", authH.GuestLogin)
 
 		// Compatibility stub for the existing Flutter CSRF flow.
 		// The Go API is Bearer-only, so there's nothing to issue here, but
@@ -320,8 +323,12 @@ func main() {
 		api.GET("/partners/", listingsH.Partners)
 		api.GET("/media", listingsH.Media)
 		api.GET("/media/", listingsH.Media)
-		api.GET("/community", listingsH.Community)
-		api.GET("/community/", listingsH.Community)
+		// Note #40 — City Directory is restricted for guests even though this
+		// route stays public for everyone else: OptionalBearer resolves a
+		// token if present (without requiring one), BlockGuestOptional then
+		// rejects only a resolved GUEST caller.
+		api.GET("/community", auth.OptionalBearer(tokenStore), auth.BlockGuestOptional(), listingsH.Community)
+		api.GET("/community/", auth.OptionalBearer(tokenStore), auth.BlockGuestOptional(), listingsH.Community)
 		api.GET("/marriage", marriageH.Get)
 		api.GET("/marriage/", marriageH.Get)
 		api.GET("/reports", reportsH.Get)
@@ -373,6 +380,12 @@ func main() {
 		authed := api.Group("/")
 		authed.Use(auth.RequireBearer(tokenStore), auth.RequireApproved())
 		{
+			// Note #40 — Account Upgrade and Conversion. The phone's OTP is
+			// sent via the existing public POST /auth/otp/request; this
+			// endpoint only consumes that code and attaches the phone to
+			// the CURRENT guest's own row.
+			authed.POST("/auth/guest/upgrade/verify", auth.RequireGuest(), authH.GuestUpgradeVerify)
+
 			// Profile + role
 			authed.GET("/profile/get", profileH.Get)
 			authed.GET("/profile/get/", profileH.Get)
@@ -397,11 +410,11 @@ func main() {
 			authed.POST("/partners/:id/rate", partnerEngageH.Rate)
 
 			// #30 — suggest a City Guide place (enters the admin queue as pending).
-			authed.POST("/community/submit", listingsH.SubmitCommunity)
+			authed.POST("/community/submit", auth.RequireNotGuest(), listingsH.SubmitCommunity)
 
 			// Donations
-			authed.POST("/donate", donationsH.Create)
-			authed.POST("/donate/", donationsH.Create)
+			authed.POST("/donate", auth.RequireNotGuest(), donationsH.Create)
+			authed.POST("/donate/", auth.RequireNotGuest(), donationsH.Create)
 			authed.POST("/donate/my_donations", donationsH.My)
 			authed.POST("/donate/my_donations/", donationsH.My)
 			authed.GET("/donate/my_donations", donationsH.My)
@@ -410,36 +423,36 @@ func main() {
 			authed.POST("/donate/:id/cancel", donationsH.Cancel)
 
 			// Beneficiary cases — submit (Bearer + role 2)
-			authed.POST("/beneficiary_cases", beneficiaryH.PostCase)
-			authed.POST("/beneficiary_cases/", beneficiaryH.PostCase)
+			authed.POST("/beneficiary_cases", auth.RequireNotGuest(), beneficiaryH.PostCase)
+			authed.POST("/beneficiary_cases/", auth.RequireNotGuest(), beneficiaryH.PostCase)
 
 			// Beneficiary project requests
 			authed.GET("/beneficiary_project_requests", beneficiaryH.GetRequests)
 			authed.GET("/beneficiary_project_requests/", beneficiaryH.GetRequests)
-			authed.POST("/beneficiary_project_requests", beneficiaryH.PostRequest)
-			authed.POST("/beneficiary_project_requests/", beneficiaryH.PostRequest)
+			authed.POST("/beneficiary_project_requests", auth.RequireNotGuest(), beneficiaryH.PostRequest)
+			authed.POST("/beneficiary_project_requests/", auth.RequireNotGuest(), beneficiaryH.PostRequest)
 
 			// Marketplace — POST (create order)
-			authed.POST("/marketplace", marketplaceH.Post)
-			authed.POST("/marketplace/", marketplaceH.Post)
+			authed.POST("/marketplace", auth.RequireNotGuest(), marketplaceH.Post)
+			authed.POST("/marketplace/", auth.RequireNotGuest(), marketplaceH.Post)
 
 			// Beneficiary — view donations made to their own campaigns.
 			authed.GET("/beneficiary/campaign-donations", donationsH.BeneficiaryCampaignDonations)
 			authed.GET("/beneficiary/campaign-donations/", donationsH.BeneficiaryCampaignDonations)
 
 			// Donor ↔ campaign-owner chat (Phase 28).
-			authed.POST("/chats/request", chatH.Request)
-			authed.POST("/chats/support", chatH.SupportThread) // #45 — direct chat with support/tech
+			authed.POST("/chats/request", auth.RequireNotGuest(), chatH.Request)
+			authed.POST("/chats/support", auth.RequireNotGuest(), chatH.SupportThread) // #45 — direct chat with support/tech
 			authed.GET("/chats", chatH.List)
 			authed.GET("/chats/", chatH.List)
-			authed.POST("/chats/:id/accept", chatH.Accept)
-			authed.POST("/chats/:id/decline", chatH.Decline)
+			authed.POST("/chats/:id/accept", auth.RequireNotGuest(), chatH.Accept)
+			authed.POST("/chats/:id/decline", auth.RequireNotGuest(), chatH.Decline)
 			authed.GET("/chats/:id/messages", chatH.Messages)
-			authed.POST("/chats/:id/messages", chatH.PostMessage)
+			authed.POST("/chats/:id/messages", auth.RequireNotGuest(), chatH.PostMessage)
 
 			// AI Support Assistant (Phase 29).
-			authed.POST("/assistant/chat", assistantH.Chat)
-			authed.POST("/assistant/chat/", assistantH.Chat)
+			authed.POST("/assistant/chat", auth.RequireNotGuest(), assistantH.Chat)
+			authed.POST("/assistant/chat/", auth.RequireNotGuest(), assistantH.Chat)
 
 			// Activity event log (Postgres home of the old Firestore feed).
 			authed.POST("/events", eventsH.Log)
@@ -463,10 +476,10 @@ func main() {
 
 			authed.GET("/in_kind_donations", inkindH.Get)
 			authed.GET("/in_kind_donations/", inkindH.Get)
-			authed.POST("/in_kind_donations", inkindH.Post)
-			authed.POST("/in_kind_donations/", inkindH.Post)
+			authed.POST("/in_kind_donations", auth.RequireNotGuest(), inkindH.Post)
+			authed.POST("/in_kind_donations/", auth.RequireNotGuest(), inkindH.Post)
 
-			authed.POST("/marriage", marriageH.Post)
+			authed.POST("/marriage", auth.RequireNotGuest(), marriageH.Post)
 			// #50 — the current user's digital aid-delivery receipts.
 			authed.GET("/aid-receipts", aidReceiptsH.MyList)
 			// #46 — marriage search: save + request-meeting.
@@ -475,16 +488,16 @@ func main() {
 			// so the app can show "pending review" instead of nothing.
 			authed.GET("/marriage/mine", marriageH.MyProfiles)
 			authed.POST("/marriage/:id/save", marriageH.ToggleSave)
-			authed.POST("/marriage/:id/request-meeting", marriageH.RequestMeeting)
-			authed.POST("/marriage/", marriageH.Post)
+			authed.POST("/marriage/:id/request-meeting", auth.RequireNotGuest(), marriageH.RequestMeeting)
+			authed.POST("/marriage/", auth.RequireNotGuest(), marriageH.Post)
 
 			// Note #35 — staff-mediated marriage chat (identity-masked).
 			authed.GET("/marriage/chats", marriageChatH.List)
 			authed.GET("/marriage/chats/", marriageChatH.List)
-			authed.POST("/marriage/chats/:id/accept", marriageChatH.Accept)
-			authed.POST("/marriage/chats/:id/decline", marriageChatH.Decline)
+			authed.POST("/marriage/chats/:id/accept", auth.RequireNotGuest(), marriageChatH.Accept)
+			authed.POST("/marriage/chats/:id/decline", auth.RequireNotGuest(), marriageChatH.Decline)
 			authed.GET("/marriage/chats/:id/messages", marriageChatH.Messages)
-			authed.POST("/marriage/chats/:id/messages", marriageChatH.PostMessage)
+			authed.POST("/marriage/chats/:id/messages", auth.RequireNotGuest(), marriageChatH.PostMessage)
 
 			// Note #36 — Staff↔Volunteer↔Beneficiary chat (volunteer/beneficiary side).
 			authed.GET("/case-chats", caseVolChatH.List)
@@ -493,8 +506,8 @@ func main() {
 
 			authed.GET("/sponsorships", sponsorshipsH.Get)
 			authed.GET("/sponsorships/", sponsorshipsH.Get)
-			authed.POST("/sponsorships", sponsorshipsH.Post)
-			authed.POST("/sponsorships/", sponsorshipsH.Post)
+			authed.POST("/sponsorships", auth.RequireNotGuest(), sponsorshipsH.Post)
+			authed.POST("/sponsorships/", auth.RequireNotGuest(), sponsorshipsH.Post)
 
 			authed.GET("/volunteers", volunteersH.Get)
 			authed.GET("/volunteers/", volunteersH.Get)
