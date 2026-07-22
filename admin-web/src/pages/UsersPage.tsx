@@ -434,7 +434,8 @@ export default function UsersPage() {
                           return
                         }
                         try {
-                          await verifyPin() // Note #9 — PIN before crediting a wallet.
+                          // No PIN step here by request — test-phase wallet
+                          // top-up, kept to a single amount prompt.
                           const { data } = await api.post(`/api/admin/users/${u.user_id}/wallet/topup`, {
                             amount_iqd: amount,
                           })
