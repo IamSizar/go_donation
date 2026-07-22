@@ -5,14 +5,17 @@ import 'package:flutter_application_1/core/app_haptics.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/modules/auth/screens/edit_profile.dart';
+import 'package:flutter_application_1/modules/auth/screens/profile.dart';
+import 'package:flutter_application_1/modules/dashboard/screens/guest_sections.dart';
 import 'package:flutter_application_1/modules/legal/screens/terms_screen.dart';
 import 'package:flutter_application_1/widgets/cached_profile_avatar.dart';
 import 'package:get/get.dart';
 
-// Dashboard tab indices (mirror modules/dashboard/screens/dashboard_screen.dart).
-const int _kProfileTab = 6;
-const int _kCommunityTab = 3;
-const int _kMessagesTab = 9;
+// Note #41 — Profile/Community/Messages are no longer bottom-nav tabs, so
+// this menu pushes real screens now instead of switching a tab index.
+// (Community services folded into the City Guide tab; Messages moved to a
+// persistent top-bar icon — both dropped from here to avoid a duplicate
+// entry point.)
 
 const Color _brandTeal = Color(0xFF0F766E);
 const Color _brandTealLight = Color(0xFF14B8A6);
@@ -44,8 +47,15 @@ String _roleLabel() {
 /// Top-right profile avatar button that opens a quick profile menu (task #12).
 /// Shows the user's photo (or their initial / a person icon), and on tap opens
 /// a role/guest-aware bottom sheet of profile shortcuts.
+///
+/// Note #41 — now shown in the persistent top bar on every tab (previously
+/// only on Home). [showIndicatorDot] surfaces the "profile incomplete" nudge
+/// that used to live on the Profile bottom-nav icon, now that Profile isn't
+/// a tab anymore.
 class ProfileMenuButton extends StatelessWidget {
-  const ProfileMenuButton({super.key});
+  const ProfileMenuButton({super.key, this.showIndicatorDot = false});
+
+  final bool showIndicatorDot;
 
   @override
   Widget build(BuildContext context) {
@@ -62,30 +72,52 @@ class ProfileMenuButton extends StatelessWidget {
             AppHaptics.selection();
             _showProfileMenu(context);
           },
-          child: Container(
-            padding: const EdgeInsets.all(2),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: const LinearGradient(
-                colors: [_brandTeal, _brandTealLight],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppThemeConfig.shadow(context),
-                  blurRadius: 14,
-                  offset: const Offset(0, 8),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    colors: [_brandTeal, _brandTealLight],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppThemeConfig.shadow(context),
+                      blurRadius: 14,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: CachedProfileAvatar(
-              localPath: _profileImagePath(),
-              imageUrl: _profileImageUrl(),
-              radius: 19,
-              backgroundColor: _avatarBg,
-              placeholder: _AvatarInitial(size: 18),
-            ),
+                child: CachedProfileAvatar(
+                  localPath: _profileImagePath(),
+                  imageUrl: _profileImageUrl(),
+                  radius: 19,
+                  backgroundColor: _avatarBg,
+                  placeholder: _AvatarInitial(size: 18),
+                ),
+              ),
+              if (showIndicatorDot)
+                Positioned(
+                  top: -1,
+                  right: -1,
+                  child: Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: _danger,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: AppThemeConfig.navBarSurface(context),
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ),
@@ -140,11 +172,6 @@ class _ProfileMenuSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final guest = isGuestMode();
-    final role = sharedPreferences.getString('role_id');
-    final showMessages = !guest && (role == '1' || role == '2');
-    // #13 — beneficiaries reach Community services from here (it's removed from
-    // their bottom bar).
-    final showCommunity = !guest && role == '2';
 
     return SafeArea(
       top: false,
@@ -230,7 +257,13 @@ class _ProfileMenuSheet extends StatelessWidget {
               label: 'Open profile',
               onTap: () {
                 Navigator.of(context).pop();
-                dashboardTabNotifier.value = _kProfileTab;
+                Get.to(
+                  () => Scaffold(
+                    body: guest
+                        ? GuestAccountSection()
+                        : const ProfileSection(),
+                  ),
+                );
               },
             ),
             if (!guest)
@@ -240,24 +273,6 @@ class _ProfileMenuSheet extends StatelessWidget {
                 onTap: () {
                   Navigator.of(context).pop();
                   Get.to<bool>(() => const EditProfilePage());
-                },
-              ),
-            if (showCommunity)
-              _MenuTile(
-                icon: Icons.groups_rounded,
-                label: 'Community services',
-                onTap: () {
-                  Navigator.of(context).pop();
-                  dashboardTabNotifier.value = _kCommunityTab;
-                },
-              ),
-            if (showMessages)
-              _MenuTile(
-                icon: Icons.forum_rounded,
-                label: 'Messages',
-                onTap: () {
-                  Navigator.of(context).pop();
-                  dashboardTabNotifier.value = _kMessagesTab;
                 },
               ),
             _MenuTile(

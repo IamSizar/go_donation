@@ -1,25 +1,31 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
 	"github.com/karam-flutter/humanitarian-backend/internal/marketplace"
 	"github.com/karam-flutter/humanitarian-backend/internal/notify"
+	"github.com/karam-flutter/humanitarian-backend/internal/wallet"
 )
 
 // MarketplaceHandler ports percentage/api/marketplace/index.php.
 type MarketplaceHandler struct {
 	Store    *marketplace.Store
 	Notifier *notify.Notifier
+	// Wallet — Note #42, lets payment_method=="app_wallet" debit the buyer's
+	// internal test-phase wallet for an order.
+	Wallet *wallet.Store
 }
 
-func NewMarketplaceHandler(s *marketplace.Store, n *notify.Notifier) *MarketplaceHandler {
-	return &MarketplaceHandler{Store: s, Notifier: n}
+func NewMarketplaceHandler(s *marketplace.Store, n *notify.Notifier, w *wallet.Store) *MarketplaceHandler {
+	return &MarketplaceHandler{Store: s, Notifier: n, Wallet: w}
 }
 
 // GET /api/marketplace
@@ -111,17 +117,71 @@ func (h *MarketplaceHandler) Post(c *gin.Context) {
 		qty = 1
 	}
 	note := strings.TrimSpace(firstNonEmpty(asStr(data["buyer_note"]), asStr(data["note"])))
+	payWithWallet := asStr(data["payment_method"]) == "app_wallet"
 
-	id, result, stockLeft, err := h.Store.CreateOrder(c.Request.Context(), buyerID, productID, qty, note)
+	ctx := c.Request.Context()
+
+	// Note #42 — pay with the internal test-phase wallet: debit BEFORE
+	// creating the order, so an insufficient balance never creates a stray
+	// order. CreateOrder re-validates price/stock itself right after, so a
+	// price/stock change in between is still caught; if that happens (or the
+	// insert otherwise fails) the debit is refunded below.
+	var walletDebitedIQD int64
+	if payWithWallet {
+		price, _, stock, err := h.Store.ProductPriceInfo(ctx, productID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Product not found or not approved."})
+				return
+			}
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+			return
+		}
+		if stock != nil && *stock > 0 && qty > *stock {
+			c.JSON(http.StatusConflict, gin.H{
+				"success": false,
+				"error":   "Only " + strconv.Itoa(*stock) + " available.",
+			})
+			return
+		}
+		walletDebitedIQD = int64(price*float64(qty) + 0.5)
+		if walletDebitedIQD <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid order total."})
+			return
+		}
+		if err := h.Wallet.Debit(ctx, buyerID, walletDebitedIQD, "purchase", "marketplace_orders", 0, "Marketplace order payment"); err != nil {
+			if errors.Is(err, wallet.ErrInsufficientBalance) {
+				c.JSON(http.StatusPaymentRequired, gin.H{
+					"success": false,
+					"error":   "Insufficient wallet balance.",
+					"code":    "insufficient_balance",
+				})
+				return
+			}
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Unable to charge wallet."})
+			return
+		}
+	}
+
+	id, result, stockLeft, err := h.Store.CreateOrder(ctx, buyerID, productID, qty, note)
 	if err != nil {
+		if walletDebitedIQD > 0 {
+			_, _ = h.Wallet.Refund(ctx, buyerID, walletDebitedIQD, "marketplace_orders", 0, "Refund: order failed to save")
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
 		return
 	}
 	switch result {
 	case marketplace.OrderProductNotFound:
+		if walletDebitedIQD > 0 {
+			_, _ = h.Wallet.Refund(ctx, buyerID, walletDebitedIQD, "marketplace_orders", 0, "Refund: product no longer available")
+		}
 		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Product not found or not approved."})
 		return
 	case marketplace.OrderOutOfStock:
+		if walletDebitedIQD > 0 {
+			_, _ = h.Wallet.Refund(ctx, buyerID, walletDebitedIQD, "marketplace_orders", 0, "Refund: out of stock")
+		}
 		c.JSON(http.StatusConflict, gin.H{
 			"success": false,
 			"error":   "Only " + strconv.Itoa(stockLeft) + " available.",

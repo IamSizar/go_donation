@@ -32,6 +32,12 @@ export type UserAccount = {
   // Note #40 — guest (username + password, browsing-only) accounts.
   is_guest?: boolean
   username?: string
+  // Note #42 — test-phase internal app wallet balance, whole IQD.
+  wallet_balance_iqd?: number
+  // Whether this account currently has a password_hash set. Lets the UI tell
+  // a bootstrap "set first password" action (no PIN step-up possible yet)
+  // apart from "change existing password" (still requires PIN step-up).
+  has_password?: boolean
 }
 
 export type PaginationMeta = {

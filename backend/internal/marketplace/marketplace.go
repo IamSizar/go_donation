@@ -337,6 +337,19 @@ const (
 	OrderOutOfStock
 )
 
+// ProductPriceInfo reads a product's price/currency/stock the same way
+// CreateOrder itself does, so a caller (Note #42 — wallet payment) can
+// compute the exact total to debit BEFORE calling CreateOrder.
+func (s *Store) ProductPriceInfo(ctx context.Context, productID int64) (price float64, currency string, stock *int, err error) {
+	err = s.Pool.QueryRow(ctx, `
+		SELECT price::float8, currency, stock_quantity
+		  FROM marketplace_products
+		 WHERE id = $1 AND status = 'approved'`,
+		productID,
+	).Scan(&price, &currency, &stock)
+	return price, currency, stock, err
+}
+
 // CreateOrder validates the product, stock, then inserts. Returns the new id,
 // a result code, and the stock count when result == OrderOutOfStock.
 func (s *Store) CreateOrder(

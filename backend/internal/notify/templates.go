@@ -57,6 +57,27 @@ func DonationSubmittedMsg(amount, currency, campaignName string, donationID int6
 	}
 }
 
+// WalletToppedUpMsg — Note #42 (test-phase internal app wallet): an admin
+// credited the user's wallet from the dashboard. amountIQD/newBalanceIQD are
+// whole Iraqi Dinars.
+func WalletToppedUpMsg(amountIQD, newBalanceIQD int64) LocalizedMessage {
+	return LocalizedMessage{
+		Type: "wallet_topup",
+		Title: LocalText{
+			En:  "Wallet topped up",
+			Ar:  "تم شحن المحفظة",
+			Ckb: "جزدانەکەت پڕکرایەوە",
+			Kmr: "جزدانا تە هاتە پڕکرن",
+		},
+		Body: LocalText{
+			En:  fmt.Sprintf("Your wallet was topped up with %d IQD. New balance: %d IQD.", amountIQD, newBalanceIQD),
+			Ar:  fmt.Sprintf("تم شحن محفظتك بمبلغ %d دينار عراقي. الرصيد الجديد: %d دينار عراقي.", amountIQD, newBalanceIQD),
+			Ckb: fmt.Sprintf("جزدانەکەت بە بڕی %d دیناری عێراقی پڕکرایەوە. باڵانسی نوێ: %d دیناری عێراقی.", amountIQD, newBalanceIQD),
+			Kmr: fmt.Sprintf("جزدانا تە ب %d دیناری عێراقی هاتە پڕکرن. باقیمایا نوو: %d دیناری عێراقی.", amountIQD, newBalanceIQD),
+		},
+	}
+}
+
 // SponsorshipSubmittedMsg — grantor just created a sponsorship.
 func SponsorshipSubmittedMsg(amount, currency, projectName string, sponsorshipID int64) LocalizedMessage {
 	return LocalizedMessage{

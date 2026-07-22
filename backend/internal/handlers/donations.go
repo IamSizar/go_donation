@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -13,16 +14,33 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
 	"github.com/karam-flutter/humanitarian-backend/internal/donations"
 	"github.com/karam-flutter/humanitarian-backend/internal/notify"
+	"github.com/karam-flutter/humanitarian-backend/internal/wallet"
 )
 
 // DonationsHandler ports percentage/api/donate/*.
 type DonationsHandler struct {
 	Store    *donations.Store
 	Notifier *notify.Notifier // Phase 18 — campaign-owner notification on donate
+	// Wallet — Note #42, lets payment_method=="app_wallet" debit the donor's
+	// internal test-phase wallet instead of just recording a manual method.
+	Wallet *wallet.Store
 }
 
-func NewDonationsHandler(s *donations.Store, n *notify.Notifier) *DonationsHandler {
-	return &DonationsHandler{Store: s, Notifier: n}
+func NewDonationsHandler(s *donations.Store, n *notify.Notifier, w *wallet.Store) *DonationsHandler {
+	return &DonationsHandler{Store: s, Notifier: n, Wallet: w}
+}
+
+// parseIQDAmount parses a donation/order amount string into whole IQD,
+// matching the same sanity range donations.Store.Insert already applies
+// (0 &lt; amount &lt; 1,000,000) so a wallet debit never charges more or less
+// than what actually gets recorded on the row it's paying for.
+func parseIQDAmount(s string) (int64, bool) {
+	s = strings.TrimSpace(s)
+	var n float64
+	if _, err := fmt.Sscanf(s, "%f", &n); err != nil || n <= 0 || n >= 1_000_000 {
+		return 0, false
+	}
+	return int64(n + 0.5), true
 }
 
 // POST /api/donate?user_id=N
@@ -115,8 +133,42 @@ func (h *DonationsHandler) Create(c *gin.Context) {
 	}
 	_ = donorName // used below in the post-insert notify step
 
-	ins, err := h.Store.Insert(c.Request.Context(), uid, campaignID, msgPtr, amountPtr, methodPtr, donationType)
+	ctx := c.Request.Context()
+
+	// Note #42 — pay with the internal test-phase wallet: debit BEFORE the
+	// donation row exists, so an insufficient balance never creates a stray
+	// donation. If the insert fails afterward anyway, the debit is refunded.
+	var walletDebitedIQD int64
+	if methodPtr != nil && *methodPtr == "app_wallet" {
+		if amountPtr == nil {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "A valid amount is required."})
+			return
+		}
+		amt, ok := parseIQDAmount(*amountPtr)
+		if !ok {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "A valid amount is required."})
+			return
+		}
+		if err := h.Wallet.Debit(ctx, uid, amt, "donation", "donations", 0, "Donation payment"); err != nil {
+			if errors.Is(err, wallet.ErrInsufficientBalance) {
+				c.JSON(http.StatusPaymentRequired, gin.H{
+					"success": false,
+					"error":   "Insufficient wallet balance.",
+					"code":    "insufficient_balance",
+				})
+				return
+			}
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Unable to charge wallet."})
+			return
+		}
+		walletDebitedIQD = amt
+	}
+
+	ins, err := h.Store.Insert(ctx, uid, campaignID, msgPtr, amountPtr, methodPtr, donationType)
 	if err != nil {
+		if walletDebitedIQD > 0 {
+			_, _ = h.Wallet.Refund(ctx, uid, walletDebitedIQD, "donations", 0, "Refund: donation failed to save")
+		}
 		// Lifecycle-gate errors map to 400/410 so the donor app can show
 		// a meaningful "this campaign just ended" message instead of a
 		// generic "Failed to insert donation."

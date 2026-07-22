@@ -1,8 +1,10 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/links.dart';
+import 'package:flutter_application_1/api/wallet_api.dart';
 import 'package:flutter_application_1/modules/dashboard/controllers/featured_campaigns_controller.dart';
 import 'package:flutter_application_1/modules/donations/screens/campaign_detail_screen.dart';
+import 'package:flutter_application_1/modules/donations/screens/donations_section.dart';
 import 'package:flutter_application_1/modules/proposal/controllers/partners_controller.dart';
 import 'package:flutter_application_1/modules/proposal/controllers/media_posts_controller.dart';
 import 'package:flutter_application_1/modules/proposal/screens/partners_screen.dart';
@@ -15,12 +17,10 @@ import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_pe
 import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_submit_project_screen.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/sponsorship_overview_screen.dart';
 import 'package:flutter_application_1/modules/support/screens/support_section.dart';
-import 'package:flutter_application_1/modules/community/screens/community_services_section.dart';
 import 'package:flutter_application_1/modules/proposal/screens/proposal_services_section.dart';
 import 'package:flutter_application_1/modules/bot/screens/bot_chat_screen.dart';
 import 'package:flutter_application_1/widgets/firebase_screen_add.dart';
 import 'package:flutter_application_1/widgets/impact_stats_slider.dart';
-import 'package:flutter_application_1/widgets/profile_menu.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
@@ -249,7 +249,7 @@ class DashboardHomeSection extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
             child: InkWell(
               borderRadius: BorderRadius.circular(8),
-              onTap: () => dashboardTabNotifier.value = 4,
+              onTap: () => Get.to(() => const DonationsSection()),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 child: Text(
@@ -286,6 +286,9 @@ class DashboardHomeSection extends StatelessWidget {
             ),
           ],
         ),
+        const SizedBox(height: 18),
+        // Note #42, Section One — Financial Wallet (test phase).
+        const _WalletCard(),
         const SizedBox(height: 18),
         const ImpactStatsSlider(),
         const SizedBox(height: 20),
@@ -329,7 +332,7 @@ class DashboardHomeSection extends StatelessWidget {
                   icon: Icons.send_rounded,
                   label: 'Contribute',
                   color: Colors.orange,
-                  onTap: () => dashboardTabNotifier.value = 4,
+                  onTap: () => Get.to(() => const DonationsSection()),
                 ),
               ),
               const SizedBox(width: 8),
@@ -681,7 +684,7 @@ class DashboardHomeSection extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
             child: InkWell(
               borderRadius: BorderRadius.circular(8),
-              onTap: () => dashboardTabNotifier.value = 7,
+              onTap: () => Get.to(() => const SupportSection()),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 child: Text(
@@ -714,7 +717,7 @@ class DashboardHomeSection extends StatelessWidget {
                     '${_doubleValue(stats, 'hours_served').toStringAsFixed(0)}h',
                 label: 'Hours served',
                 icon: Icons.timer_rounded,
-                onTap: () => dashboardTabNotifier.value = 7,
+                onTap: () => Get.to(() => const SupportSection()),
               ),
             ),
           ],
@@ -766,7 +769,7 @@ class DashboardHomeSection extends StatelessWidget {
                   icon: Icons.front_hand_rounded,
                   label: 'Missions',
                   color: Colors.orange,
-                  onTap: () => dashboardTabNotifier.value = 7,
+                  onTap: () => Get.to(() => const SupportSection()),
                 ),
               ),
               const SizedBox(width: 8),
@@ -871,6 +874,9 @@ class DashboardHomeSection extends StatelessWidget {
             ? 'Volunteer dashboard'
             : 'Dashboard',
         subtitle: _roleSubtitle(roleKey),
+        // Note #41 — the profile avatar moved to the persistent top bar
+        // (shown above every tab now, not just Home), so it's no longer
+        // repeated here too.
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -881,8 +887,6 @@ class DashboardHomeSection extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             _buildRefreshButton(controller),
-            const SizedBox(width: 8),
-            const ProfileMenuButton(),
           ],
         ),
         child: Builder(
@@ -926,6 +930,111 @@ class DashboardHomeSection extends StatelessWidget {
         ),
       );
     });
+  }
+}
+
+/// Note #42 — "Financial Wallet" card (test phase). Shows the donor's
+/// current IQD balance. There's no in-app top-up button: for now, funds are
+/// only added by an admin from the dashboard (see AdminTopUp) — a real
+/// payment-gateway top-up flow is a later piece of this note, not this one.
+/// The balance is spendable today as an "App Wallet" payment option on the
+/// donation and marketplace checkout screens.
+class _WalletCard extends StatefulWidget {
+  const _WalletCard();
+
+  @override
+  State<_WalletCard> createState() => _WalletCardState();
+}
+
+class _WalletCardState extends State<_WalletCard> {
+  int? _balanceIQD;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final balance = await fetchWalletBalance();
+    if (!mounted) return;
+    setState(() => _balanceIQD = balance.balanceIQD);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final balance = _balanceIQD;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0F766E), Color(0xFF14B8A6)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.account_balance_wallet_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'My wallet'.tr,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  balance == null
+                      ? '···'
+                      : '${NumberFormat('#,##0').format(balance)} IQD',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 26,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'How do I add funds?'.tr,
+            icon: const Icon(Icons.info_outline_rounded, color: Colors.white),
+            onPressed: () => Get.dialog(
+              AlertDialog(
+                title: Text('My wallet'.tr),
+                content: Text(
+                  'Wallet top-ups are added by our team for now. Contact support to add funds, then use "App Wallet" as a payment option when donating or buying.'
+                      .tr,
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Get.back(),
+                    child: Text('OK'.tr),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -1473,15 +1582,8 @@ class _ExploreRow extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
           child: Row(
             children: [
-              Expanded(
-                child: _QuickAction(
-                  icon: Icons.map_rounded,
-                  label: 'City Guide',
-                  color: Colors.teal,
-                  onTap: () => Get.to(() => const CityGuideScreen()),
-                ),
-              ),
-              const SizedBox(width: 8),
+              // Note #41 — City Guide moved to its own bottom-nav tab, so
+              // this quick-action row is just the assistant now.
               Expanded(
                 child: _QuickAction(
                   icon: Icons.smart_toy_rounded,

@@ -62,6 +62,15 @@ type Account struct {
 	// Username (#40) — set for guest accounts (and admin-login accounts,
 	// Phase 30); empty for a normal phone/OTP or Google account.
 	Username string `json:"username,omitempty"`
+	// WalletBalanceIQD (#42) — test-phase internal app wallet balance, whole
+	// Iraqi Dinars.
+	WalletBalanceIQD int64 `json:"wallet_balance_iqd"`
+	// HasPassword — whether this account currently has a password_hash set.
+	// Never exposes the hash itself; only lets the admin dashboard tell a
+	// "changing an existing password" action (needs the PIN step-up) apart
+	// from a "setting the very first password" bootstrap action (which has
+	// nothing to confirm against yet, so it must skip the PIN step).
+	HasPassword bool `json:"has_password"`
 }
 
 type Store struct {
@@ -407,7 +416,8 @@ func (s *Store) GetAccountForClient(ctx context.Context, userID int64) (*Account
 	)
 	var username *string
 	err := s.Pool.QueryRow(ctx,
-		`SELECT u.id, COALESCE(u.phone, '') AS phone, u.role_id, u.active, u.is_admin, u.created_at, u.registration_status, u.staff_tier, u.account_status, u.is_guest, u.username,
+		`SELECT u.id, COALESCE(u.phone, '') AS phone, u.role_id, u.active, u.is_admin, u.created_at, u.registration_status, u.staff_tier, u.account_status, u.is_guest, u.username, u.wallet_balance_iqd,
+		        (u.password_hash IS NOT NULL AND u.password_hash <> ''),
 		        up.id, up.full_name, up.gender, up.address, up.profile_picture,
 		        to_char(up.date_of_birth, 'YYYY-MM-DD'), COALESCE(up.field_privacy, '{}')
 		   FROM users u
@@ -415,7 +425,7 @@ func (s *Store) GetAccountForClient(ctx context.Context, userID int64) (*Account
 		  WHERE u.id = $1
 		  LIMIT 1`,
 		userID,
-	).Scan(&acc.UserID, &acc.Phone, &roleID, &active, &isAdmin, &acc.CreatedAt, &regStatus, &staffTier, &acctStatus, &acc.IsGuest, &username,
+	).Scan(&acc.UserID, &acc.Phone, &roleID, &active, &isAdmin, &acc.CreatedAt, &regStatus, &staffTier, &acctStatus, &acc.IsGuest, &username, &acc.WalletBalanceIQD, &acc.HasPassword,
 		&profileID, &fullName, &gender, &address, &picture, &dob, &privacy)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -514,7 +524,8 @@ func (s *Store) PaginatedList(ctx context.Context, page, perPage int, q string) 
 	offIdx := len(args) + 2
 	args = append(args, perPage, offset)
 	rows, err := s.Pool.Query(ctx, `
-		SELECT u.id, COALESCE(u.phone, '') AS phone, u.role_id, u.active, u.is_admin, u.created_at, u.registration_status, u.staff_tier, u.account_status, u.is_guest, u.username,
+		SELECT u.id, COALESCE(u.phone, '') AS phone, u.role_id, u.active, u.is_admin, u.created_at, u.registration_status, u.staff_tier, u.account_status, u.is_guest, u.username, u.wallet_balance_iqd,
+		       (u.password_hash IS NOT NULL AND u.password_hash <> ''),
 		       up.id, up.full_name, up.gender, up.address, up.profile_picture,
 		       to_char(up.date_of_birth, 'YYYY-MM-DD'),
 		       up.city, up.occupation, up.family_size, up.housing_status,
@@ -556,7 +567,7 @@ func (s *Store) PaginatedList(ctx context.Context, page, perPage int, q string) 
 			experience    *string
 			username      *string
 		)
-		err := rows.Scan(&acc.UserID, &acc.Phone, &roleID, &active, &isAdmin, &acc.CreatedAt, &regStatus, &staffTier, &acctStatus, &acc.IsGuest, &username,
+		err := rows.Scan(&acc.UserID, &acc.Phone, &roleID, &active, &isAdmin, &acc.CreatedAt, &regStatus, &staffTier, &acctStatus, &acc.IsGuest, &username, &acc.WalletBalanceIQD, &acc.HasPassword,
 			&profileID, &fullName, &gender, &address, &picture, &dob,
 			&city, &occupation, &familySize, &housingStatus, &monthlyIncome, &skills, &availability, &experience)
 		if err != nil {

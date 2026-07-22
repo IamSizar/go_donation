@@ -1,12 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_application_1/core/app_haptics.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/api/payment_methods_api.dart';
+import 'package:flutter_application_1/api/wallet_api.dart';
 import 'package:flutter_application_1/modules/donations/controllers/continue_donation_controller.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
+import 'package:intl/intl.dart';
 
 class ContinueDonationScreen extends StatefulWidget {
   const ContinueDonationScreen({
@@ -70,6 +74,27 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
 
   List<_PaymentMethodData> _paymentMethods = _fallbackMethods;
 
+  // Note #42 — the internal test-phase wallet. Prepended to whatever
+  // admin-managed methods exist (it's not one of them), always at index 0 of
+  // [_displayMethods]; _selectedPaymentIndex stays offset by 1 from
+  // _paymentMethods so existing indexWhere/default logic below is otherwise
+  // unchanged.
+  int _walletBalanceIQD = 0;
+
+  _PaymentMethodData get _walletMethod => _PaymentMethodData(
+    title: 'App Wallet',
+    subtitle: '${'Balance'.tr}: ${_formatIQD(_walletBalanceIQD)} IQD',
+    icon: Icons.account_balance_wallet_rounded,
+    submitName: 'app_wallet',
+  );
+
+  List<_PaymentMethodData> get _displayMethods => [
+    _walletMethod,
+    ..._paymentMethods,
+  ];
+
+  static String _formatIQD(int n) => NumberFormat('#,##0').format(n);
+
   @override
   void initState() {
     super.initState();
@@ -77,14 +102,24 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
       Get.delete<ContinueDonationController>();
     }
     _submitController = Get.put(ContinueDonationController());
+    // +1: index 0 is always the wallet (see _displayMethods); never
+    // default-select it unless the caller explicitly asked for it by name.
+    _selectedPaymentIndex = 1;
     final i = _paymentMethods.indexWhere(
       (m) => m.title == widget.paymentMethod,
     );
     if (i >= 0) {
-      _selectedPaymentIndex = i;
+      _selectedPaymentIndex = i + 1;
     }
     _moneyController.text = widget.amount.toString();
     _loadPaymentMethods();
+    _loadWalletBalance();
+  }
+
+  Future<void> _loadWalletBalance() async {
+    final balance = await fetchWalletBalance();
+    if (!mounted) return;
+    setState(() => _walletBalanceIQD = balance.balanceIQD);
   }
 
   // #19 — fetch the admin-managed payment methods; keep the built-in fallback
@@ -104,9 +139,10 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
             submitName: m.nameEn.isNotEmpty ? m.nameEn : m.localizedName,
           ),
       ];
-      final idx =
-          _paymentMethods.indexWhere((p) => p.title == widget.paymentMethod);
-      _selectedPaymentIndex = idx >= 0 ? idx : 0;
+      final idx = _paymentMethods.indexWhere(
+        (p) => p.title == widget.paymentMethod,
+      );
+      _selectedPaymentIndex = idx >= 0 ? idx + 1 : 1;
     });
   }
 
@@ -136,7 +172,7 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
   Future<void> _handleConfirmDonation() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final paymentMethod = _paymentMethods[_selectedPaymentIndex];
+    final paymentMethod = _displayMethods[_selectedPaymentIndex];
     final amount = int.parse(_moneyController.text.trim());
     final userId = int.tryParse(sharedPreferences.getString('id_user') ?? '');
     final note = _noteController.text.trim();
@@ -153,6 +189,13 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
     );
 
     if (!mounted) return;
+
+    if (paymentMethod.submitName == 'app_wallet') {
+      // Refresh the displayed balance regardless of outcome — a failed
+      // submit still leaves the debit-then-refund cycle possibly reflected
+      // server-side, and a success obviously changed it.
+      unawaited(_loadWalletBalance());
+    }
 
     if (err != null) {
       Get.snackbar(
@@ -214,7 +257,7 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
   }
 
   void _copyAccountNumberToClipboard() {
-    final acct = _paymentMethods[_selectedPaymentIndex].accountNumber;
+    final acct = _displayMethods[_selectedPaymentIndex].accountNumber;
     if (acct.isEmpty) return;
     Clipboard.setData(ClipboardData(text: acct));
     AppHaptics.gentle();
@@ -353,14 +396,13 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
                       _DonationTypeSelector(
                         selected: _donationType,
                         accentColor: widget.optionColor,
-                        onSelected: (t) =>
-                            setState(() => _donationType = t),
+                        onSelected: (t) => setState(() => _donationType = t),
                       ),
                       const SizedBox(height: 22),
                       const SectionLabel(title: 'Payment method'),
                       const SizedBox(height: 12),
-                      ...List.generate(_paymentMethods.length, (index) {
-                        final paymentMethod = _paymentMethods[index];
+                      ...List.generate(_displayMethods.length, (index) {
+                        final paymentMethod = _displayMethods[index];
                         final isSelected = index == _selectedPaymentIndex;
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 12),
@@ -374,13 +416,13 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
                           ),
                         );
                       }),
-                      if (_paymentMethods[_selectedPaymentIndex]
+                      if (_displayMethods[_selectedPaymentIndex]
                           .accountNumber
                           .isNotEmpty) ...[
                         const SizedBox(height: 8),
                         _AccountCard(
                           accentColor: widget.optionColor,
-                          method: _paymentMethods[_selectedPaymentIndex],
+                          method: _displayMethods[_selectedPaymentIndex],
                           onCopy: _copyAccountNumberToClipboard,
                         ),
                       ],
@@ -647,8 +689,9 @@ class _AccountCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final muted = AppThemeConfig.mutedText(context);
     final text = AppThemeConfig.text(context);
-    final label =
-        method.accountName.isNotEmpty ? method.accountName : method.title;
+    final label = method.accountName.isNotEmpty
+        ? method.accountName
+        : method.title;
 
     return GlassPanel(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -804,11 +847,7 @@ class _DonationTypeSelector extends StatelessWidget {
       label: 'General',
       icon: Icons.volunteer_activism_rounded,
     ),
-    _DonationTypeOption(
-      value: 'zakat',
-      label: 'Zakat',
-      icon: Icons.mosque,
-    ),
+    _DonationTypeOption(value: 'zakat', label: 'Zakat', icon: Icons.mosque),
     _DonationTypeOption(
       value: 'sadaqah',
       label: 'Sadaqah',
@@ -875,8 +914,9 @@ class _DonationTypeChip extends StatelessWidget {
               Icon(
                 option.icon,
                 size: 22,
-                color:
-                    selected ? accentColor : AppThemeConfig.mutedText(context),
+                color: selected
+                    ? accentColor
+                    : AppThemeConfig.mutedText(context),
               ),
               const SizedBox(height: 6),
               Text(

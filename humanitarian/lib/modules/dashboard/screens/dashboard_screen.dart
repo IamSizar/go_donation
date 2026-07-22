@@ -6,23 +6,31 @@ import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/core/app_haptics.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
-import 'package:flutter_application_1/modules/auth/screens/profile.dart';
+import 'package:flutter_application_1/modules/chat/controllers/chat_controller.dart';
 import 'package:flutter_application_1/modules/chat/screens/messages_screen.dart';
 import 'package:flutter_application_1/modules/community/screens/community_services_section.dart';
 import 'package:flutter_application_1/modules/dashboard/controllers/featured_campaigns_controller.dart';
 import 'package:flutter_application_1/modules/dashboard/controllers/role_dashboard_controller.dart';
 import 'package:flutter_application_1/modules/dashboard/screens/guest_sections.dart';
-import 'package:flutter_application_1/modules/donations/screens/donations_section.dart';
 import 'package:flutter_application_1/modules/marketplace/screens/marketplace_section.dart';
+import 'package:flutter_application_1/modules/marriage/screens/marriage_hub_screen.dart';
 import 'package:flutter_application_1/modules/notifications/controllers/notifications_controller.dart';
-import 'package:flutter_application_1/modules/proposal/screens/proposal_services_section.dart';
-import 'package:flutter_application_1/modules/sponsorship/screens/sponsorship_section.dart';
-import 'package:flutter_application_1/modules/support/screens/support_section.dart';
+import 'package:flutter_application_1/modules/notifications/screens/notifications_screen.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:flutter_application_1/widgets/dashboard.dart';
-import 'package:flutter_application_1/widgets/notification.dart';
+import 'package:flutter_application_1/widgets/profile_menu.dart';
 import 'package:get/get.dart';
 
+/// Note #41 — "Complete Restructuring and Distribution of the Application
+/// Interfaces". The bottom nav is now fixed at exactly 4 tabs, identical for
+/// every role (no scrolling, no per-role tab set): Home, Store, Marriage,
+/// City Guide. Everything that used to be a separate tab (Kafala, Contribute,
+/// Volunteer, Services) is now reached from Home's existing quick-action
+/// tiles/hero buttons (widgets/dashboard.dart), which now push those screens
+/// directly instead of switching to a tab index that no longer exists.
+/// Alerts and Messages moved to a persistent top bar shown on every tab;
+/// Profile moved into the same top bar's avatar menu
+/// (widgets/profile_menu.dart).
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
@@ -41,123 +49,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
       color: Colors.teal,
     ),
     NavDestination(
-      label: 'Kafala',
-      icon: Icons.favorite_outline_rounded,
-      activeIcon: Icons.favorite_rounded,
-      color: Colors.pinkAccent,
-    ),
-    NavDestination(
-      label: 'Market',
+      label: 'Store',
       icon: Icons.storefront_outlined,
       activeIcon: Icons.storefront_rounded,
       color: Colors.deepOrangeAccent,
     ),
     NavDestination(
-      label: 'Community',
-      icon: Icons.groups_outlined,
-      activeIcon: Icons.groups_rounded,
+      label: 'Marriage',
+      icon: Icons.favorite_outline_rounded,
+      activeIcon: Icons.favorite_rounded,
+      color: Colors.pinkAccent,
+    ),
+    NavDestination(
+      label: 'City Guide',
+      icon: Icons.map_outlined,
+      activeIcon: Icons.map_rounded,
       color: Colors.indigo,
     ),
-    NavDestination(
-      label: 'Contribute',
-      icon: Icons.volunteer_activism_outlined,
-      activeIcon: Icons.volunteer_activism_rounded,
-      color: Colors.green,
-    ),
-    NavDestination(
-      label: 'Alerts',
-      icon: Icons.notifications_none_rounded,
-      activeIcon: Icons.notifications_active_rounded,
-      color: Colors.amber,
-    ),
-    NavDestination(
-      label: 'Profile',
-      icon: Icons.person_outline_rounded,
-      activeIcon: Icons.person_rounded,
-      color: Colors.blueAccent,
-    ),
-    NavDestination(
-      label: 'Volunteer',
-      icon: Icons.front_hand_outlined,
-      activeIcon: Icons.front_hand_rounded,
-      color: Colors.cyan,
-    ),
-    NavDestination(
-      label: 'Services',
-      icon: Icons.apps_rounded,
-      activeIcon: Icons.apps,
-      color: Colors.deepPurple,
-    ),
-    NavDestination(
-      label: 'Messages',
-      icon: Icons.forum_outlined,
-      activeIcon: Icons.forum_rounded,
-      color: Colors.teal,
-    ),
   ];
 
-  // Section 27 — for a guest, swap the auth-gated Home + Profile tabs for
-  // guest-friendly browse/sign-in screens (instance getter so it can read the
-  // live guest flag).
+  static const int _cityGuideIndex = 3;
+
+  // Non-const on purpose: GuestHomeSection reads the guest config (which
+  // loads async), so it must rebuild when setState fires after the fetch.
   List<Widget> get _sections => [
-    // Non-const on purpose: GuestHomeSection reads the guest config (which
-    // loads async), so it must rebuild when setState fires after the fetch.
     isGuestMode() ? GuestHomeSection() : const DashboardHomeSection(),
-    const SponsorshipSection(),
     const MarketplaceSection(),
-    const CommunityServicesSection(),
-    const DonationsSection(),
-    const NotificationsSection(),
-    isGuestMode() ? GuestAccountSection() : const ProfileSection(),
-    const SupportSection(),
-    const ProposalServicesSection(),
-    const MessagesScreen(),
+    const MarriageHubScreen(),
+    const CityGuideScreen(),
   ];
-
-  /// Services (ProposalServicesSection) lives at this section index. Backlog #6:
-  /// it's reachable from the Profile "Services" entry + bot deep-links, but it is
-  /// intentionally NOT a bottom-nav tab. It stays in the allowed set below so
-  /// navigation to it isn't bounced; it's only excluded from the VISIBLE bar.
-  static const int _servicesTabIndex = 8;
-
-  /// Tabs each role may open from the bottom navigator (others are not their flow).
-  static List<int> _navigatorSourceIndices() {
-    // Note #40 — Guest Mode: a signed-out guest sees only the fixed
-    // three-category browse scope (Humanitarian work / Home is always the
-    // landing, Marketplace, Marriage — reached via a tile inside
-    // GuestHomeSection, not the bottom bar). City Directory is NEVER a
-    // reachable bottom-nav tab for a guest — it's a hard block, surfaced as
-    // an always-visible-but-locked tile on Home instead (see
-    // guest_sections.dart). All account tabs (Kafala, Contribute, Alerts,
-    // Volunteer, Messages) are hidden.
-    if (isGuestMode()) {
-      final tabs = <int>[0]; // Home
-      if (guestCanSee('marketplace')) tabs.add(2); // Market
-      tabs.add(6); // Profile — always available so a guest can sign in
-      return tabs;
-    }
-    switch (sharedPreferences.getString('role_id')) {
-      case '1': // Donor — giving, market, messages; not kafala/volunteer shells
-        return const [0, 2, 3, 4, 9, 5, 6, 8];
-      case '2': // Beneficiary — aid/kafala, community, messages, alerts, profile
-        return const [0, 1, 3, 9, 5, 6, 8];
-      case '3': // Volunteer — volunteer hub, community, alerts, profile
-        return const [0, 7, 3, 5, 6, 8];
-      default:
-        return List<int>.generate(_destinations.length, (i) => i);
-    }
-  }
-
-  /// #13 — indices kept in the allowed source set (so navigation to them isn't
-  /// bounced) but hidden from the VISIBLE bottom bar for a given role. For a
-  /// beneficiary, Community services (3) and Messages (9) move into the profile
-  /// menu, so they're dropped from the bar — same rationale as Services (8).
-  static Set<int> _hiddenNavIndices() {
-    if (!isGuestMode() && sharedPreferences.getString('role_id') == '2') {
-      return const {3, 9};
-    }
-    return const {};
-  }
 
   @override
   void initState() {
@@ -168,26 +88,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (!Get.isRegistered<RoleDashboardController>()) {
       Get.put(RoleDashboardController());
     }
-    // Guests have no token — skip the auth-gated summary (it would 401 and show
-    // "Please sign in again"); the GuestHomeSection replaces that tab anyway.
+    // Guests have no phone-based session to summarize — skip the auth-gated
+    // summary (it would 401 and show "Please sign in again"); the
+    // GuestHomeSection replaces that tab anyway.
     if (!isGuestMode()) {
       Get.find<RoleDashboardController>().fetchSummary();
     }
     if (!Get.isRegistered<NotificationsController>()) {
       Get.put(NotificationsController());
     }
-    _currentIndex = dashboardTabNotifier.value.clamp(0, _sections.length - 1);
-    _ensureCurrentTabVisibleForRole();
-    dashboardTabNotifier.addListener(_handleDashboardTabChange);
-
-    // Section 27 — refresh the guest whitelist on a fresh launch (the in-memory
-    // map is empty after a restart), then rebuild so the nav shows the right
-    // browse tabs.
-    if (isGuestMode() && guestScreenConfig.isEmpty) {
-      fetchGuestConfig().then((_) {
-        if (mounted) setState(_ensureCurrentTabVisibleForRole);
-      });
+    // Note #41 — Messages moved to the persistent top bar (shown on every
+    // tab, not just its own screen), so its unread badge needs the
+    // controller registered up-front here too, same as Notifications.
+    if (!Get.isRegistered<ChatController>()) {
+      Get.put(ChatController());
     }
+    _currentIndex = dashboardTabNotifier.value.clamp(0, _sections.length - 1);
+    dashboardTabNotifier.addListener(_handleDashboardTabChange);
   }
 
   @override
@@ -196,27 +113,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.dispose();
   }
 
-  void _ensureCurrentTabVisibleForRole() {
-    final allowed = _navigatorSourceIndices();
-    if (!allowed.contains(_currentIndex)) {
-      final fallback = allowed.first;
-      _currentIndex = fallback;
-      if (dashboardTabNotifier.value != fallback) {
-        dashboardTabNotifier.value = fallback;
-      }
-    }
-  }
-
   void _handleDashboardTabChange() {
-    var nextIndex = dashboardTabNotifier.value.clamp(0, _sections.length - 1);
-    final allowed = _navigatorSourceIndices();
-    if (!allowed.contains(nextIndex)) {
-      nextIndex = allowed.first;
-      if (dashboardTabNotifier.value != nextIndex) {
-        dashboardTabNotifier.value = nextIndex;
-        return;
-      }
-    }
+    final nextIndex = dashboardTabNotifier.value.clamp(0, _sections.length - 1);
     if (nextIndex == _currentIndex || !mounted) return;
     setState(() => _currentIndex = nextIndex);
   }
@@ -263,24 +161,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  void _onTabSelected(int index) {
+    // Note #40 — City Directory (this tab) is a hard block for guests: show
+    // the upgrade prompt instead of ever switching to it.
+    if (index == _cityGuideIndex && isGuestMode()) {
+      requireUpgrade(
+        context,
+        reason: 'Full registration is required to view the City Directory.',
+      );
+      return;
+    }
+    if (index == _currentIndex) return;
+    AppHaptics.selection();
+    dashboardTabNotifier.value = index;
+    setState(() => _currentIndex = index);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final sourceIndices = _navigatorSourceIndices();
-    // #6 — Services (index 8) stays reachable (Profile entry + bot deep-links) but
-    // is no longer a bottom-nav tab: keep it allowed above, exclude it here.
-    final hiddenIndices = _hiddenNavIndices();
-    final navIndices = [
-      for (final i in sourceIndices)
-        if (i != _servicesTabIndex && !hiddenIndices.contains(i)) i,
-    ];
-    final visibleDestinations = [
-      for (final i in navIndices) _destinations[i],
-    ];
-    final navigatorSelectedIndex = navIndices.indexOf(_currentIndex);
-    final safeNavIndex = navigatorSelectedIndex >= 0
-        ? navigatorSelectedIndex
-        : 0;
-
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
@@ -289,7 +187,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
       },
       child: Scaffold(
         extendBody: true,
-        body: IndexedStack(index: _currentIndex, children: _sections),
+        body: Column(
+          children: [
+            const _DashboardTopBar(),
+            Expanded(
+              // The top bar above already reserves the status-bar inset via
+              // its own SafeArea; each tab's screen also wraps itself in a
+              // SafeArea (since it's reused elsewhere as a standalone pushed
+              // route). Left alone, that's the status-bar gap applied
+              // twice. Stripping the top MediaQuery padding here makes the
+              // tab's own SafeArea compute zero top inset, so the gap only
+              // ever appears once, right under the top bar.
+              child: MediaQuery.removePadding(
+                context: context,
+                removeTop: true,
+                child: IndexedStack(
+                  index: _currentIndex,
+                  children: _sections,
+                ),
+              ),
+            ),
+          ],
+        ),
         bottomNavigationBar: SafeArea(
           minimum: const EdgeInsets.fromLTRB(14, 0, 14, 14),
           child: ClipRRect(
@@ -309,39 +228,133 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ],
                 ),
-                child: ValueListenableBuilder<bool>(
-                  valueListenable: profileIncompleteNotifier,
-                  builder: (context, profileIncomplete, _) {
-                    return Obx(() {
-                      final notifications = Get.find<NotificationsController>();
-                      // Always read the observable so this Obx has something to
-                      // watch even when the Alerts tab is hidden (e.g. a guest),
-                      // otherwise GetX throws "improper use of GetX".
-                      final unread = notifications.unreadCount;
-                      final alertsIndex = navIndices.indexOf(5);
-                      final profileIndex = navIndices.indexOf(6);
-                      return ModernBottomNavigator(
-                        currentIndex: safeNavIndex,
-                        destinations: visibleDestinations,
-                        badgeCounts: {
-                          if (alertsIndex >= 0) alertsIndex: unread,
-                        },
-                        dotIndicators: {
-                          if (profileIncomplete && profileIndex >= 0)
-                            profileIndex,
-                        },
-                        onSelected: (visibleIndex) {
-                          final actualIndex = navIndices[visibleIndex];
-                          if (actualIndex == _currentIndex) return;
-                          AppHaptics.selection();
-                          dashboardTabNotifier.value = actualIndex;
-                          setState(() => _currentIndex = actualIndex);
-                        },
-                      );
-                    });
-                  },
+                child: ModernBottomNavigator(
+                  currentIndex: _currentIndex,
+                  destinations: _destinations,
+                  onSelected: _onTabSelected,
                 ),
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Note #41 — persistent header shown above every tab: the profile avatar
+/// (with a dot when the profile is incomplete, previously shown on the
+/// now-removed Profile tab icon), an Alerts bell (unread badge), and a
+/// Messages icon (unread badge). Kept intentionally minimal — each tab's own
+/// SectionScaffold still carries its own title/subtitle underneath.
+class _DashboardTopBar extends StatelessWidget {
+  const _DashboardTopBar();
+
+  @override
+  Widget build(BuildContext context) {
+    final notifications = Get.find<NotificationsController>();
+    final chats = Get.find<ChatController>();
+    return SafeArea(
+      bottom: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            ValueListenableBuilder<bool>(
+              valueListenable: profileIncompleteNotifier,
+              builder: (context, incomplete, _) =>
+                  ProfileMenuButton(showIndicatorDot: incomplete),
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Obx(
+                  () => _TopBarIconButton(
+                    icon: Icons.notifications_none_rounded,
+                    badgeCount: notifications.unreadCount,
+                    tooltip: 'Notifications'.tr,
+                    onTap: () => Get.to(() => const NotificationsScreen()),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Obx(
+                  () => _TopBarIconButton(
+                    icon: Icons.forum_outlined,
+                    badgeCount: chats.totalUnread,
+                    tooltip: 'Messages'.tr,
+                    onTap: () => Get.to(() => const MessagesScreen()),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TopBarIconButton extends StatelessWidget {
+  const _TopBarIconButton({
+    required this.icon,
+    required this.badgeCount,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final int badgeCount;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: tooltip,
+      child: Material(
+        color: AppThemeConfig.surface(context),
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: () {
+            AppHaptics.selection();
+            onTap();
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(10),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(icon, size: 22, color: AppThemeConfig.text(context)),
+                if (badgeCount > 0)
+                  Positioned(
+                    top: -4,
+                    right: -4,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 1,
+                      ),
+                      constraints: const BoxConstraints(minWidth: 16),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFEF4444),
+                        borderRadius: BorderRadius.all(Radius.circular(999)),
+                      ),
+                      child: Text(
+                        badgeCount > 99 ? '99+' : '$badgeCount',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
         ),

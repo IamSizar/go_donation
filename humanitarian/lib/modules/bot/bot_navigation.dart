@@ -1,12 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/modules/auth/screens/edit_profile.dart';
+import 'package:flutter_application_1/modules/auth/screens/profile.dart';
+import 'package:flutter_application_1/modules/chat/screens/messages_screen.dart';
+import 'package:flutter_application_1/modules/community/screens/community_services_section.dart';
+import 'package:flutter_application_1/modules/dashboard/screens/guest_sections.dart';
+import 'package:flutter_application_1/modules/donations/screens/donations_section.dart';
 import 'package:flutter_application_1/modules/donations/screens/my_donations_page.dart';
 import 'package:flutter_application_1/modules/marriage/screens/marriage_form_screen.dart';
+import 'package:flutter_application_1/modules/notifications/screens/notifications_screen.dart';
 import 'package:flutter_application_1/modules/proposal/screens/proposal_services_section.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_campaign_donations_screen.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_pending_projects_screen.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_submit_project_screen.dart';
+import 'package:flutter_application_1/modules/sponsorship/screens/sponsorship_section.dart';
+import 'package:flutter_application_1/modules/support/screens/support_section.dart';
 import 'package:get/get.dart';
 
 /// Central resolver that turns an assistant route key into real navigation.
@@ -14,8 +23,7 @@ import 'package:get/get.dart';
 /// Route keys mirror the Go `Route` constants in
 /// backend/internal/assistant/knowledge.go. Each key maps to a base dashboard
 /// tab and, for "deep" routes, a specific screen that gets pushed on top — so
-/// "edit my profile" lands the user ON the Edit Profile form, not just the
-/// Profile tab. ("full route")
+/// "edit my profile" lands the user ON the Edit Profile form, not just a tab.
 class BotNavSpec {
   const BotNavSpec(this.tab, [this.screen]);
 
@@ -27,30 +35,44 @@ class BotNavSpec {
 }
 
 abstract final class BotNavigation {
-  // Dashboard._sections indices:
-  //   0 Home · 1 Kafala · 2 Market · 3 Community · 4 Donate · 5 Alerts
-  //   6 Profile · 7 Volunteer · 8 Services · 9 Messages
+  // Note #41 — the bottom nav is fixed at 4 tabs now:
+  //   0 Home · 1 Store · 2 Marriage · 3 City Guide
+  // Everything that used to be its own tab (Kafala, Contribute, Alerts,
+  // Profile, Volunteer, Services, Messages) is reached by pushing the same
+  // screen it always opened, over the Home tab as a base.
   static final Map<String, BotNavSpec> _routes = {
     // Tab-level routes
     'home': const BotNavSpec(0),
-    'kafala': const BotNavSpec(1),
-    'market': const BotNavSpec(2),
-    'community': const BotNavSpec(3),
-    'donate': const BotNavSpec(4),
-    'alerts': const BotNavSpec(5),
-    'profile': const BotNavSpec(6),
-    'volunteer': const BotNavSpec(7),
-    'services': const BotNavSpec(8),
-    'messages': const BotNavSpec(9),
+    'market': const BotNavSpec(1),
+    'city_guide': const BotNavSpec(3),
+
+    // "community" used to be its own tab (the services directory list); that
+    // list now lives one tap inside the City Guide tab.
+    'community': BotNavSpec(3, () => const CommunityServicesSection()),
+
+    // No longer their own tab — push the same screen over Home.
+    'kafala': BotNavSpec(0, () => const SponsorshipSection()),
+    'donate': BotNavSpec(0, () => const DonationsSection()),
+    'alerts': BotNavSpec(0, () => const NotificationsScreen()),
+    'profile': BotNavSpec(
+      0,
+      () => Scaffold(
+        body: isGuestMode() ? GuestAccountSection() : const ProfileSection(),
+      ),
+    ),
+    'volunteer': BotNavSpec(0, () => const SupportSection()),
+    'services': BotNavSpec(0, () => const ProposalServicesSection()),
+    'messages': BotNavSpec(0, () => const MessagesScreen()),
 
     // Deep routes → push a specific screen on top of its base tab.
-    'my_donations': BotNavSpec(4, () => const MyDonationsPage()),
-    'edit_profile': BotNavSpec(6, () => const EditProfilePage()),
-    'submit_project': BotNavSpec(1, () => const BeneficiarySubmitProjectScreen()),
-    'pending_projects': BotNavSpec(1, () => const BeneficiaryPendingProjectsScreen()),
-    'campaign_donations': BotNavSpec(1, () => const BeneficiaryCampaignDonationsScreen()),
-    'marriage': BotNavSpec(6, () => const MarriageFormScreen()),
-    'support': BotNavSpec(8, () => const SupportTicketFormScreen()),
+    'my_donations': BotNavSpec(0, () => const MyDonationsPage()),
+    'edit_profile': BotNavSpec(0, () => const EditProfilePage()),
+    'submit_project': BotNavSpec(0, () => const BeneficiarySubmitProjectScreen()),
+    'pending_projects': BotNavSpec(0, () => const BeneficiaryPendingProjectsScreen()),
+    'campaign_donations': BotNavSpec(0, () => const BeneficiaryCampaignDonationsScreen()),
+    // Marriage now has its own tab; land there, then open the profile form.
+    'marriage': BotNavSpec(2, () => const MarriageFormScreen()),
+    'support': BotNavSpec(0, () => const SupportTicketFormScreen()),
   };
 
   /// Localized CTA button labels per route per language (ar / ckb / kmr).

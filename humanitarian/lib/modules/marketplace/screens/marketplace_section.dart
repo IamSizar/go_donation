@@ -227,7 +227,9 @@ class _MarketplaceProductTileState extends State<_MarketplaceProductTile> {
                       category.tr,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: AppThemeConfig.mutedText(context)),
+                      style: TextStyle(
+                        color: AppThemeConfig.mutedText(context),
+                      ),
                     ),
                   ],
                   if (labels.isNotEmpty) ...[
@@ -452,7 +454,9 @@ List<MapEntry<String, String>> _productSpecs(dynamic raw) {
     if (t.isEmpty) continue;
     final idx = t.indexOf(':');
     if (idx > 0) {
-      out.add(MapEntry(t.substring(0, idx).trim(), t.substring(idx + 1).trim()));
+      out.add(
+        MapEntry(t.substring(0, idx).trim(), t.substring(idx + 1).trim()),
+      );
     } else {
       out.add(MapEntry(t, ''));
     }
@@ -718,59 +722,177 @@ class _CartSummary extends StatelessWidget {
             ),
             borderRadius: BorderRadius.circular(28),
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${controller.totalQuantity} ${'items'.tr}',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: AppThemeConfig.text(context),
-                      ),
+              // Note #42 — explicit Cash vs. App Wallet choice, matching
+              // the donation screen's payment-method cards instead of a
+              // single on/off checkbox.
+              _CartPaymentMethodPicker(controller: controller),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${controller.totalQuantity} ${'items'.tr}',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: AppThemeConfig.text(context),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _formatMoney(
+                            controller.totalAmount,
+                            controller.currency,
+                          ),
+                          style: TextStyle(
+                            color: AppThemeConfig.mutedText(context),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _formatMoney(controller.totalAmount, controller.currency),
-                      style: TextStyle(
-                        color: AppThemeConfig.mutedText(context),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              TextButton(
-                onPressed: controller.isCheckingOut.value
-                    ? null
-                    : controller.clearCart,
-                child: Text('Clear'.tr),
-              ),
-              const SizedBox(width: 8),
-              FilledButton.icon(
-                // Note #40 — a marketplace order is a "purchase", restricted
-                // for guests (also enforced server-side).
-                onPressed: controller.isCheckingOut.value
-                    ? null
-                    : () async {
-                        if (!await requireUpgrade(context)) return;
-                        controller.checkoutCart();
-                      },
-                icon: controller.isCheckingOut.value
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(
-                        Icons.shopping_cart_checkout_rounded,
-                        size: 18,
-                      ),
-                label: Text('Checkout'.tr),
+                  ),
+                  TextButton(
+                    onPressed: controller.isCheckingOut.value
+                        ? null
+                        : controller.clearCart,
+                    child: Text('Clear'.tr),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton.icon(
+                    // Note #40 — a marketplace order is a "purchase", restricted
+                    // for guests (also enforced server-side).
+                    onPressed: controller.isCheckingOut.value
+                        ? null
+                        : () async {
+                            if (!await requireUpgrade(context)) return;
+                            controller.checkoutCart();
+                          },
+                    icon: controller.isCheckingOut.value
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(
+                            Icons.shopping_cart_checkout_rounded,
+                            size: 18,
+                          ),
+                    label: Text('Checkout'.tr),
+                  ),
+                ],
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Note #42 — a compact Cash / App Wallet choice for the cart, so it reads
+/// as an explicit "which one do you want to pay with" pick rather than a
+/// single on/off checkbox. Mirrors the segmented-picker style already used
+/// for the OTP delivery-mode choice on the login screen.
+class _CartPaymentMethodPicker extends StatelessWidget {
+  const _CartPaymentMethodPicker({required this.controller});
+
+  final MarketplaceController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+      ),
+      padding: const EdgeInsets.all(4),
+      child: Row(
+        children: [
+          _CartPaymentSegment(
+            icon: Icons.payments_rounded,
+            label: 'Cash'.tr,
+            selected: !controller.payWithWallet.value,
+            onTap: () => controller.payWithWallet.value = false,
+          ),
+          _CartPaymentSegment(
+            icon: Icons.account_balance_wallet_rounded,
+            label: 'App Wallet'.tr,
+            sub: '${controller.walletBalanceIQD.value} IQD',
+            selected: controller.payWithWallet.value,
+            onTap: () => controller.payWithWallet.value = true,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CartPaymentSegment extends StatelessWidget {
+  const _CartPaymentSegment({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.sub,
+  });
+
+  final IconData icon;
+  final String label;
+  final String? sub;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = selected ? AppThemeConfig.primary : AppThemeConfig.text(context);
+    return Expanded(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(9),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 6),
+            decoration: BoxDecoration(
+              color: selected ? Colors.white : Colors.transparent,
+              borderRadius: BorderRadius.circular(9),
+              boxShadow: selected
+                  ? [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.15),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 14, color: fg),
+                const SizedBox(width: 5),
+                Flexible(
+                  child: Text(
+                    sub == null ? label : '$label · $sub',
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: fg,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

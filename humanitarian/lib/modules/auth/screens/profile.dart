@@ -15,10 +15,7 @@ import 'package:path_provider/path_provider.dart';
 
 import 'edit_profile.dart';
 import 'field_privacy_screen.dart';
-import '../../marriage/screens/marriage_chats_screen.dart';
-import '../../marriage/screens/marriage_form_screen.dart';
-import '../../marriage/screens/marriage_my_profile_screen.dart';
-import '../../marriage/screens/marriage_search_screen.dart';
+import '../../proposal/screens/proposal_services_section.dart';
 import '../../search/screens/global_search_screen.dart';
 import '../../receipts/screens/aid_receipts_screen.dart';
 import '../../../localization/locale_service.dart';
@@ -339,53 +336,18 @@ class _ProfileSectionState extends State<ProfileSection> {
                     color: Colors.green,
                     onTap: shareApp,
                   ),
-                  // #42 — marriage profile (eligible role only, matching backend).
-                  if (sharedPreferences.getString('role_id') == '2') ...[
-                    const SizedBox(height: 12),
-                    _ProfileOptionTile(
-                      icon: Icons.favorite_outline_rounded,
-                      title: 'marriage_title',
-                      subtitle: 'marriage_subtitle',
-                      color: Colors.pink,
-                      onTap: () => Get.to(() => const MarriageFormScreen()),
-                    ),
-                    const SizedBox(height: 12),
-                    // #46 — search/save/request-meeting on marriage profiles.
-                    _ProfileOptionTile(
-                      icon: Icons.search_rounded,
-                      title: 'marriage_search',
-                      subtitle: 'marriage_search_desc',
-                      color: Colors.pinkAccent,
-                      onTap: () => Get.to(() => const MarriageSearchScreen()),
-                    ),
-                    const SizedBox(height: 12),
-                    // Note #18 — the user's own submitted profile + status.
-                    _ProfileOptionTile(
-                      icon: Icons.fact_check_outlined,
-                      title: 'marriage_my_profile',
-                      subtitle: 'marriage_my_profile_desc',
-                      color: Colors.deepOrange,
-                      onTap: () => Get.to(() => const MarriageMyProfileScreen()),
-                    ),
-                    const SizedBox(height: 12),
-                    // Note #35 — staff-mediated chat for approved meeting requests.
-                    _ProfileOptionTile(
-                      icon: Icons.forum_outlined,
-                      title: 'marriage_chats_title',
-                      subtitle: 'marriage_chats_subtitle',
-                      color: Colors.purple,
-                      onTap: () => Get.to(() => const MarriageChatsScreen()),
-                    ),
-                  ],
+                  // Note #41 — Marriage moved to its own bottom-nav tab
+                  // (browse/my-profile/chats all live there now), so the 4
+                  // profile-menu tiles that used to duplicate it here were
+                  // removed to avoid a second, confusing entry point.
                   const SizedBox(height: 12),
                   _ProfileOptionTile(
                     icon: Icons.apps_rounded,
                     title: 'Services',
                     subtitle: 'Requests, forms, partners, support, and more.',
                     color: Colors.deepPurple,
-                    // #6 — Services moved off the bottom nav; open its section
-                    // (index 8) which stays reachable via dashboardTabNotifier.
-                    onTap: () => dashboardTabNotifier.value = 8,
+                    // Note #41 — Services isn't a bottom tab; push it directly.
+                    onTap: () => Get.to(() => const ProposalServicesSection()),
                   ),
 
                   const SizedBox(height: 22),

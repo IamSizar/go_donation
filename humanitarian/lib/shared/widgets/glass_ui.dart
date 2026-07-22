@@ -431,25 +431,44 @@ class ModernBottomNavigator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-      child: Row(
-        children: List.generate(destinations.length, (index) {
-          final destination = destinations[index];
-          final isSelected = index == currentIndex;
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: ModernNavItem(
-              destination: destination,
-              isSelected: isSelected,
-              badgeCount: badgeCounts[index] ?? 0,
-              showIndicatorDot: dotIndicators.contains(index),
-              onTap: () => onSelected(index),
+    const horizontalPadding = 10.0;
+    final items = List.generate(destinations.length, (index) {
+      final destination = destinations[index];
+      final isSelected = index == currentIndex;
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: ModernNavItem(
+          destination: destination,
+          isSelected: isSelected,
+          badgeCount: badgeCounts[index] ?? 0,
+          showIndicatorDot: dotIndicators.contains(index),
+          onTap: () => onSelected(index),
+        ),
+      );
+    });
+    // A few tabs (e.g. a guest's 3) would otherwise pack to the left inside
+    // the full-width bar; forcing the row to at least fill the available
+    // width lets `center` actually center them, while still scrolling
+    // left-to-right if there are enough tabs to overflow (a full user's ~9).
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(
+            horizontal: horizontalPadding,
+            vertical: 10,
+          ),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minWidth: constraints.maxWidth - horizontalPadding * 2,
             ),
-          );
-        }),
-      ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: items,
+            ),
+          ),
+        );
+      },
     );
   }
 }

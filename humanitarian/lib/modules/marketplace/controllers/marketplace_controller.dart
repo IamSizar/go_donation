@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_application_1/api/links.dart';
 import 'package:flutter_application_1/api/module_api.dart';
+import 'package:flutter_application_1/api/wallet_api.dart';
 import 'package:flutter_application_1/core/app_haptics.dart';
 import 'package:flutter_application_1/core/app_sound.dart';
 import 'package:flutter_application_1/core/app_state.dart';
@@ -26,6 +27,11 @@ class MarketplaceController extends GetxController
   final ordersErrorMessage = RxnString();
   var _productsPage = 1;
 
+  // Note #42 — pay the cart with the internal test-phase wallet instead of
+  // the default cash-on-delivery-style flow.
+  final payWithWallet = false.obs;
+  final walletBalanceIQD = 0.obs;
+
   // Status snapshot per order id, for diff detection between polls.
   Map<String, String> _lastOrderStatusSnapshot = {};
 
@@ -35,6 +41,7 @@ class MarketplaceController extends GetxController
     fetchProducts(reset: true);
     fetchCategories(); // #28
     fetchOrders();
+    loadWalletBalance();
     // Only orders need real-time updates; products refresh on manual
     // pull-to-refresh. Polling orders alone keeps the request volume low.
     startPolling();
@@ -248,6 +255,11 @@ class MarketplaceController extends GetxController
     return 'IQD';
   }
 
+  Future<void> loadWalletBalance() async {
+    final balance = await fetchWalletBalance();
+    walletBalanceIQD.value = balance.balanceIQD;
+  }
+
   Future<void> checkoutCart() async {
     if (cartQuantities.isEmpty) {
       Get.snackbar('Marketplace'.tr, 'Add products to the cart first.'.tr);
@@ -258,6 +270,7 @@ class MarketplaceController extends GetxController
     isCheckingOut.value = true;
     final entries = Map<int, int>.from(cartQuantities);
     final userId = sharedPreferences.getString('id_user') ?? '';
+    final wallet = payWithWallet.value;
 
     try {
       for (final entry in entries.entries) {
@@ -266,10 +279,12 @@ class MarketplaceController extends GetxController
           'product_id': entry.key,
           'user_id': userId,
           'quantity': entry.value,
+          if (wallet) 'payment_method': 'app_wallet',
         });
       }
       clearCart();
       await fetchOrders();
+      if (wallet) await loadWalletBalance();
       Get.snackbar('Submitted'.tr, 'Order request saved.'.tr);
     } catch (e) {
       Get.snackbar('Error'.tr, e.toString());

@@ -271,6 +271,15 @@ class _CityGuideScreenState extends State<CityGuideScreen> {
     return SectionScaffold(
       title: 'City Guide',
       subtitle: 'Find local services on the map · Mosul, Iraq',
+      // Note #41 — the City Guide bottom-nav tab merges the map (this screen)
+      // with the services directory list, which used to be its own separate
+      // "Community" tab. Rather than nest two SectionScaffolds, the directory
+      // is one tap away from here instead.
+      trailing: IconButton(
+        tooltip: 'Services Directory'.tr,
+        icon: const Icon(Icons.list_alt_rounded),
+        onPressed: () => Get.to(() => const CommunityServicesSection()),
+      ),
       child: Obx(() {
         final items = _controller.filteredEntries;
         final sectors = _controller.sectors.toList();

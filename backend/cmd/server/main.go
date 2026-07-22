@@ -53,6 +53,7 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/support"
 	"github.com/karam-flutter/humanitarian-backend/internal/users"
 	"github.com/karam-flutter/humanitarian-backend/internal/volunteers"
+	"github.com/karam-flutter/humanitarian-backend/internal/wallet"
 )
 
 func main() {
@@ -103,6 +104,7 @@ func main() {
 	caseVolChatStore := casevolchat.New(pool) // Note #36 — Staff↔Volunteer↔Beneficiary chat
 	eventsStore := events.New(pool)
 	notifier := notify.New(pool)
+	walletStore := wallet.New(pool) // Note #42 — test-phase internal app wallet
 	assistantSvc := assistant.New()
 
 	listingsStore := listings.New(pool)
@@ -175,9 +177,10 @@ func main() {
 	registrationH := handlers.NewRegistrationHandler(userStore)
 	registrationAdminH := handlers.NewRegistrationAdminHandler(userStore, notifier)
 	campaignsH := handlers.NewCampaignsHandler(campaignStore)
-	donationsH := handlers.NewDonationsHandler(donationStore, notifier)
+	donationsH := handlers.NewDonationsHandler(donationStore, notifier, walletStore)
 	beneficiaryH := handlers.NewBeneficiaryHandler(beneficiaryStore, userStore, notifier)
-	marketplaceH := handlers.NewMarketplaceHandler(marketplaceStore, notifier)
+	marketplaceH := handlers.NewMarketplaceHandler(marketplaceStore, notifier, walletStore)
+	walletH := handlers.NewWalletHandler(walletStore, notifier)
 	chatH := handlers.NewChatHandler(chatStore, notifier, pool)
 	staffChatH := handlers.NewStaffChatHandler(staffChatStore, notifier, pool)
 	caseVolChatH := handlers.NewCaseVolunteerChatHandler(caseVolChatStore, notifier)
@@ -421,6 +424,12 @@ func main() {
 			authed.GET("/donate/my_donations/", donationsH.My)
 			// Phase 23 — donor self-cancel for still-registered donations.
 			authed.POST("/donate/:id/cancel", donationsH.Cancel)
+
+			// Note #42 — test-phase internal app wallet. Read-only for the
+			// user themselves; crediting is admin-only (see the admin group
+			// below).
+			authed.GET("/wallet", walletH.GetBalance)
+			authed.GET("/wallet/transactions", walletH.ListTransactions)
 
 			// Beneficiary cases — submit (Bearer + role 2)
 			authed.POST("/beneficiary_cases", auth.RequireNotGuest(), beneficiaryH.PostCase)
@@ -697,6 +706,8 @@ func main() {
 			admin.POST("/admin/users/:id/admin", perm("users", "edit"), adminStatusH.UserAdmin)
 			admin.POST("/admin/users/:id/password", perm("users", "edit"), adminStatusH.UserPassword)
 			admin.POST("/admin/users/:id/staff_tier", perm("users", "edit"), adminStatusH.UserStaffTier) // Users #c
+			// Note #42 — test-phase wallet top-up (admin credits a user's balance).
+			admin.POST("/admin/users/:id/wallet/topup", perm("users", "edit"), walletH.AdminTopUp)
 			// Section 25 — immediate administrative actions (super-admin only).
 			admin.POST("/admin/users/:id/force_logout", auth.RequireSuperAdmin(), adminStatusH.UserForceLogout)
 			admin.POST("/admin/users/:id/account_status", auth.RequireSuperAdmin(), adminStatusH.UserAccountStatus)

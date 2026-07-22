@@ -216,6 +216,9 @@ const String marriageChatsUrl = '${baseUrl}marriage/chats';
 const String caseChatsUrl = '${baseUrl}case-chats';
 // Note #37 — generic authed photo upload + volunteer self check-in/out.
 const String uploadsUrl = '${baseUrl}uploads';
+// Note #42 — test-phase internal app wallet (IQD).
+const String walletUrl = '${baseUrl}wallet';
+const String walletTransactionsUrl = '${baseUrl}wallet/transactions';
 const String volunteerMissionSignupsUrl = '${baseUrl}volunteer_mission_signups';
 const String supportTicketsUrl = '${baseUrl}support/';
 const String reportsUrl = '${baseUrl}reports/';

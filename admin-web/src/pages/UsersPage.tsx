@@ -207,7 +207,14 @@ export default function UsersPage() {
       if (settingPassword && !confirmPasswordSet(u)) {
         throw new Error(t('page.users.password_cancelled'))
       }
-      await verifyPin() // Note #9 — PIN before saving any account edit.
+      // Note #9 — PIN before saving any account edit, EXCEPT when this save
+      // is setting a FIRST password on an account with none yet: there is no
+      // existing password_hash for verify-password to confirm against, so it
+      // would 403 forever (see the "Set Password" action below for the same
+      // bootstrap case).
+      if (!(settingPassword && !u.has_password)) {
+        await verifyPin()
+      }
       if (Object.keys(profilePatch).length > 0) {
         await api.patch(`/api/admin/users/${u.user_id}`, profilePatch)
       }
@@ -285,6 +292,19 @@ export default function UsersPage() {
         )),
     },
     { key: 'phone', header: t('col.phone'), cell: (u) => canViewSensitive ? formatPhone(u.phone) : maskContact(u.phone, false) },
+    {
+      // Note #42 — test-phase internal app wallet balance (IQD). Guests
+      // never have one (nothing credits/spends it for them).
+      key: 'wallet',
+      header: t('col.wallet'),
+      width: '110px',
+      cell: (u) =>
+        u.is_guest ? (
+          <span className="muted">—</span>
+        ) : (
+          <span>{(u.wallet_balance_iqd ?? 0).toLocaleString()} {t('common.iqd')}</span>
+        ),
+    },
     {
       // Note #10 — labeled "User Type" now (was "Role"), to stop it reading
       // as a duplicate of the "Access Permission" column below. This is the
@@ -384,7 +404,12 @@ export default function UsersPage() {
                   const pw = window.prompt(t('common.set_password_prompt'))
                   if (pw === null) return
                   try {
-                    await verifyPin() // Note #9 — PIN before setting a password.
+                    // Note #9 — PIN before setting a password, EXCEPT when the
+                    // account has no password yet: verify-password checks the
+                    // CALLER's own password_hash, which would 403 forever on
+                    // any account's very first password (a bootstrap deadlock
+                    // with no password to ever confirm against).
+                    if (u.has_password) await verifyPin()
                     await api.post(`/api/admin/users/${u.user_id}/password`, { password: pw })
                     toast.success(t('common.set_password_ok'))
                   } catch (e) {
@@ -392,6 +417,38 @@ export default function UsersPage() {
                   }
                 },
               },
+              // Note #42 — test-phase wallet top-up. Real users only (a
+              // guest account has no use for a balance it can never spend
+              // meaningfully — Note #40's browsing-only scope).
+              ...(!u.is_guest
+                ? [
+                    {
+                      key: 'wallet_topup',
+                      label: t('page.users.wallet_topup'),
+                      onClick: async () => {
+                        const raw = window.prompt(t('page.users.wallet_topup_prompt'))
+                        if (raw === null) return
+                        const amount = Math.round(Number(raw))
+                        if (!Number.isFinite(amount) || amount <= 0) {
+                          toast.error(t('page.users.wallet_topup_invalid'))
+                          return
+                        }
+                        try {
+                          await verifyPin() // Note #9 — PIN before crediting a wallet.
+                          const { data } = await api.post(`/api/admin/users/${u.user_id}/wallet/topup`, {
+                            amount_iqd: amount,
+                          })
+                          toast.success(
+                            t('page.users.wallet_topup_ok', { balance: String(data?.balance_iqd ?? amount) }),
+                          )
+                          setRefreshTick((t) => t + 1)
+                        } catch (e) {
+                          toast.error(describeError(e))
+                        }
+                      },
+                    },
+                  ]
+                : []),
               ...(canArchive
                 ? [
                     {
