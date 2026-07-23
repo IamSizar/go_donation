@@ -125,7 +125,7 @@ func (s *Store) ListOrdersForUser(ctx context.Context, userID int64, page, limit
 	rows, err := s.Pool.Query(ctx, `
 		SELECT o.id, o.product_id, o.buyer_user_id, o.quantity, o.total_amount::text,
 		       o.currency, o.status, o.buyer_note, o.created_at, o.updated_at,
-		       p.name, p.name_ar, NULL::text, NULL::text, p.category, p.image_path
+		       p.name, p.name_ar, p.name_sorani, p.name_badini, p.category, p.image_path
 		  FROM marketplace_orders o
 		  LEFT JOIN marketplace_products p ON p.id = o.product_id
 		 WHERE o.buyer_user_id = $1
@@ -281,7 +281,7 @@ func (s *Store) AdminListOrders(ctx context.Context, page, perPage int, status, 
 	rows, err := s.Pool.Query(ctx, `
 		SELECT o.id, o.product_id, o.buyer_user_id, o.quantity, o.total_amount::text,
 		       o.currency, o.status, o.buyer_note, o.created_at, o.updated_at,
-		       p.name, p.name_ar, NULL::text, NULL::text, p.category, p.image_path
+		       p.name, p.name_ar, p.name_sorani, p.name_badini, p.category, p.image_path
 		  FROM marketplace_orders o
 		  LEFT JOIN marketplace_products p ON p.id = o.product_id`+where+`
 		 ORDER BY o.created_at DESC, o.id DESC
