@@ -173,7 +173,10 @@ class _SponsorshipPlanCard extends StatelessWidget {
                   ],
                 ),
               ),
-              InfoChip(icon: Icons.info_rounded, label: status),
+              InfoChip(
+                icon: Icons.info_rounded,
+                label: 'sponsorship_status_$status',
+              ),
             ],
           ),
           if (dueLabel.trim().isNotEmpty) ...[
