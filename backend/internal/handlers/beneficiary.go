@@ -201,6 +201,8 @@ func (h *BeneficiaryHandler) PostRequest(c *gin.Context) {
 	mapKey(data, "peopleVolunteerDescription", "people_volunteers_extra_description")
 	mapKey(data, "contactName", "contact_person_name")
 	mapKey(data, "description", "description_long")
+	mapKey(data, "timeline", "timeline_target")
+	mapKey(data, "notes", "other_notes")
 
 	uid := int64(asInt(data["user_id"]))
 	if uid <= 0 || uid != tokenUser.UserID {
