@@ -1485,6 +1485,8 @@ class AppTranslations extends Translations {
     'WhatsApp · SMS': 'WhatsApp · SMS',
     'When you\'re available': 'When you\'re available',
     'Yes, start chat': 'Yes, start chat',
+    'You are about to start a conversation with @who. They will be notified and must accept before you can message. Support can also view this chat.':
+        'You are about to start a conversation with @who. They will be notified and must accept before you can message. Support can also view this chat.',
     'You are already approved for this mission.': 'You are already approved for this mission.',
     'Your case has been closed.': 'Your case has been closed.',
     'Your case is being reviewed.': 'Your case is being reviewed.',
@@ -2995,6 +2997,8 @@ class AppTranslations extends Translations {
     'WhatsApp · SMS': 'واتساب · رسالة نصية',
     'When you\'re available': 'متى تكون متاحاً',
     'Yes, start chat': 'نعم، ابدأ الدردشة',
+    'You are about to start a conversation with @who. They will be notified and must accept before you can message. Support can also view this chat.':
+        'أنت على وشك بدء محادثة مع @who. سيتم إشعارهم ويجب أن يقبلوا قبل أن تتمكن من المراسلة. يمكن للدعم أيضاً مشاهدة هذه المحادثة.',
     'You are already approved for this mission.': 'أنت موافق عليه بالفعل لهذه المهمة.',
     'Your case has been closed.': 'تم إغلاق حالتك.',
     'Your case is being reviewed.': 'تتم مراجعة حالتك.',
@@ -4295,6 +4299,8 @@ class AppTranslations extends Translations {
     'WhatsApp · SMS': 'واتساپ · SMS',
     'When you\'re available': 'کەی بەردەستیت',
     'Yes, start chat': 'بەڵێ، چات دەست پێبکە',
+    'You are about to start a conversation with @who. They will be notified and must accept before you can message. Support can also view this chat.':
+        'خەریکیت چاتێک لەگەڵ @who دەست پێبکەیت. ئاگادار دەکرێنەوە و پێویستە پەسەندی بکەن پێش ئەوەی بتوانیت پەیام بنێریت. پشتیوانیش دەتوانێت ئەم چاتە ببینێت.',
     'You are already approved for this mission.': 'تۆ پێشتر بۆ ئەم ئەرکە پەسەندکراویت.',
     'Your case has been closed.': 'کەیسەکەت داخرا.',
     'Your case is being reviewed.': 'کەیسەکەت لەژێر پێداچوونەوەدایە.',
@@ -6014,6 +6020,8 @@ class AppTranslations extends Translations {
     'WhatsApp · SMS': 'واتساپ · SMS',
     'When you\'re available': 'کەنگی بەردەست بی',
     'Yes, start chat': 'بەلێ، چاتێ دەست پێبکە',
+    'You are about to start a conversation with @who. They will be notified and must accept before you can message. Support can also view this chat.':
+        'تو نزیکی دەستپێکرنا چاتەکێ ل گەل @who یی. دێ هێتە ئاگەهدارکرن و پێدڤیە پەسەند کەن بەری تو بشێی پەیامان بنێری. پشتەڤانی ژی دشێت ڤێ چاتێ ببینیت.',
     'You are already approved for this mission.': 'تو بەری نوکە بۆ ڤێ ئەرکێ پەسەندکری.',
     'Your case has been closed.': 'کەیسا تە هاتە گرتن.',
     'Your case is being reviewed.': 'کەیسا تە تێتە ڤەکۆلین.',

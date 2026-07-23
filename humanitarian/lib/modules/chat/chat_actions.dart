@@ -30,8 +30,8 @@ abstract final class ChatActions {
       builder: (ctx) => AlertDialog(
         title: Text('Start a chat?'.tr),
         content: Text(
-          'You are about to start a conversation with $otherPartyLabel. They will be notified and must accept before you can message. Support can also view this chat.'
-              .tr,
+          'You are about to start a conversation with @who. They will be notified and must accept before you can message. Support can also view this chat.'
+              .trParams({'who': otherPartyLabel}),
         ),
         actions: [
           TextButton(
