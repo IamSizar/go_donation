@@ -233,6 +233,17 @@ class _SupportSectionState extends State<SupportSection>
           final latestApplication = applications.isEmpty
               ? null
               : applications.first;
+          // Missions already shown under "My missions" shouldn't repeat
+          // under "Available Missions".
+          final joinedMissionIds = joinedMissions
+              .map((item) => (item['id'] ?? '').toString())
+              .toSet();
+          final availableMissions = missions
+              .where(
+                (mission) =>
+                    !joinedMissionIds.contains((mission['id'] ?? '').toString()),
+              )
+              .toList();
 
           return ListView(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
@@ -299,14 +310,14 @@ class _SupportSectionState extends State<SupportSection>
                 ),
               if (loadError.isEmpty &&
                   snapshot.connectionState != ConnectionState.waiting &&
-                  missions.isEmpty)
+                  availableMissions.isEmpty)
                 const SectionTile(
                   icon: Icons.assignment_turned_in_rounded,
                   title: 'Available Missions',
                   subtitle: 'No open volunteer missions are available yet.',
                   color: Colors.cyan,
                 ),
-              for (final mission in missions) ...[
+              for (final mission in availableMissions) ...[
                 SectionTile(
                   icon: Icons.assignment_turned_in_rounded,
                   title: _localizedMissionTitle(mission),
