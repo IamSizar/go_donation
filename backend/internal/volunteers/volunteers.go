@@ -122,7 +122,7 @@ func (s *Store) listMissions(ctx context.Context, limit int, whereClause string)
 		  LEFT JOIN (
 		    SELECT mission_id,
 		           SUM(CASE WHEN status IN ('approved','joined','completed') THEN 1 ELSE 0 END) AS accepted_count,
-		           SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending_count
+		           SUM(CASE WHEN status IN ('pending','completion_requested') THEN 1 ELSE 0 END) AS pending_count
 		      FROM volunteer_mission_signups
 		     GROUP BY mission_id
 		  ) c ON c.mission_id = m.id
