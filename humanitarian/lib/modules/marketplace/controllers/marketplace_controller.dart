@@ -23,6 +23,11 @@ class MarketplaceController extends GetxController
   final categories = <Map<String, dynamic>>[].obs; // #28
   final orders = <Map<String, dynamic>>[].obs;
   final cartQuantities = <int, int>{}.obs;
+  // Snapshot of every product ever added to the cart, keyed by id. `products`
+  // only ever holds the currently-loaded page, so without this a cart item
+  // whose product page got reset out from under it (e.g. pull-to-refresh)
+  // would vanish from the cart and get silently excluded from the total.
+  final Map<int, Map<String, dynamic>> _cartProductCache = {};
   final errorMessage = RxnString();
   final ordersErrorMessage = RxnString();
   var _productsPage = 1;
@@ -205,6 +210,7 @@ class MarketplaceController extends GetxController
       return;
     }
 
+    _cartProductCache[id] = product;
     cartQuantities[id] = nextQuantity;
   }
 
@@ -229,22 +235,20 @@ class MarketplaceController extends GetxController
 
   double get totalAmount {
     var total = 0.0;
-    for (final product in products) {
-      final id = _productId(product['id']);
-      if (id == null) continue;
-      final quantity = cartQuantities[id] ?? 0;
+    for (final entry in cartQuantities.entries) {
+      final product = productById(entry.key);
+      if (product == null) continue;
       final price = double.tryParse((product['price'] ?? '0').toString()) ?? 0;
-      total += price * quantity;
+      total += price * entry.value;
     }
     return total;
   }
 
   String get currency {
-    for (final product in products) {
-      final id = _productId(product['id']);
-      if (id != null && (cartQuantities[id] ?? 0) > 0) {
-        return (product['currency'] ?? 'IQD').toString();
-      }
+    for (final entry in cartQuantities.entries) {
+      if (entry.value <= 0) continue;
+      final product = productById(entry.key);
+      if (product != null) return (product['currency'] ?? 'IQD').toString();
     }
     return 'IQD';
   }
@@ -324,13 +328,15 @@ class MarketplaceController extends GetxController
   }
 
   /// Looks up a cart line's full product record (for the cart screen's
-  /// thumbnail/name/price) by id. Null if it fell out of `products` (e.g. a
-  /// pull-to-refresh reset the loaded page past where it was added).
+  /// thumbnail/name/price) by id. Prefers the live `products` page for
+  /// up-to-date price/stock, falling back to the cart's own cached snapshot
+  /// if the product fell out of `products` (e.g. a pull-to-refresh reset the
+  /// loaded page past where it was added).
   Map<String, dynamic>? productById(int id) {
     for (final product in products) {
       if (_productId(product['id']) == id) return product;
     }
-    return null;
+    return _cartProductCache[id];
   }
 
   int? _productId(dynamic value) {
