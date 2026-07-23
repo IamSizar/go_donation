@@ -97,6 +97,7 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
   List<Map<String, dynamic>> _results = [];
   bool _loading = false;
   bool _searched = false;
+  String? _errorMessage;
 
   static const _typeMeta = <String, ({IconData icon, String labelKey, Color color})>{
     'campaign': (icon: Icons.volunteer_activism_rounded, labelKey: 'search_campaigns', color: Colors.pink),
@@ -120,6 +121,7 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
       setState(() {
         _results = [];
         _searched = false;
+        _errorMessage = null;
       });
       return;
     }
@@ -130,9 +132,19 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
     setState(() => _loading = true);
     try {
       final rows = await const ModuleApi().globalSearch(q);
-      if (mounted) setState(() => _results = rows);
+      if (mounted) {
+        setState(() {
+          _results = rows;
+          _errorMessage = null;
+        });
+      }
     } catch (_) {
-      if (mounted) setState(() => _results = []);
+      if (mounted) {
+        setState(() {
+          _results = [];
+          _errorMessage = 'search_error'.tr;
+        });
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -174,7 +186,24 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
             ),
           ),
           Expanded(
-            child: _searched && _results.isEmpty && !_loading
+            child: _errorMessage != null && !_loading
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(_errorMessage!, textAlign: TextAlign.center),
+                          const SizedBox(height: 12),
+                          ElevatedButton(
+                            onPressed: () => _run(_ctrl.text.trim()),
+                            child: Text('Retry'.tr),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : _searched && _results.isEmpty && !_loading
                 ? Center(child: Text('search_no_results'.tr))
                 : ListView.separated(
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
