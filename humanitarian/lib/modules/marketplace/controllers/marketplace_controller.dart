@@ -170,17 +170,13 @@ class MarketplaceController extends GetxController
 
   String? _messageForOrderTransition(String to) {
     switch (to) {
-      case 'confirmed':
       case 'approved':
         return 'Your order was confirmed.'.tr;
-      case 'shipped':
-      case 'dispatched':
+      case 'processing':
         return 'Your order is on its way.'.tr;
-      case 'delivered':
       case 'completed':
         return 'Your order was delivered.'.tr;
       case 'cancelled':
-      case 'refunded':
         return 'Your order was cancelled.'.tr;
       default:
         return null;
