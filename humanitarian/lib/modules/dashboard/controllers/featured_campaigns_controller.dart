@@ -228,4 +228,63 @@ class FeaturedCampaignsController extends GetxController
   }
 
   Future<void> refreshCampaigns() => fetchCampaigns();
+
+  /// #33 — resolve a campaign id to its full [FeaturedCampaignData], even
+  /// when it isn't within [campaigns] (that list caps at [fetchCampaigns]'s
+  /// first page). Used to open a search result's exact campaign instead of
+  /// just the generic, page-1-only campaigns section. Pages through the
+  /// same public list endpoint, bounded, and gives up (returns null) on any
+  /// error so the caller can fall back to the generic section.
+  Future<FeaturedCampaignData?> fetchCampaignById(int id) async {
+    for (final c in campaigns) {
+      if (c.id == id) return c;
+    }
+
+    var token = sharedPreferences.getString(kCampaignsCsrfPrefsKey);
+    if (token == null || token.isEmpty) {
+      if (!await fetchCampaignsCsrfToken()) return null;
+      token = sharedPreferences.getString(kCampaignsCsrfPrefsKey);
+    }
+    if (token == null || token.isEmpty) return null;
+
+    const perPage = 50;
+    const maxPages = 6; // up to 300 campaigns — enough headroom without unbounded fetching
+    try {
+      for (var page = 1; page <= maxPages; page++) {
+        final uri = Uri.parse(featuredCampaignsUrl).replace(
+          queryParameters: <String, String>{
+            'page': '$page',
+            'per_page': '$perPage',
+            'csrf_token': token,
+          },
+        );
+        final response = await _dio.get<dynamic>(uri.toString());
+        final body = _dioDataAsMap(response.data);
+        if (response.statusCode != 200 ||
+            body == null ||
+            body['status']?.toString() != 'success' ||
+            body['data'] is! List) {
+          return null;
+        }
+        _persistCampaignsCsrfFromBody(body);
+
+        final raw = body['data'] as List;
+        for (final e in raw) {
+          final map = e is Map<String, dynamic>
+              ? e
+              : (e is Map ? Map<String, dynamic>.from(e) : null);
+          if (map == null) continue;
+          final campaign = FeaturedCampaignData.fromJson(map);
+          if (campaign.id == id) return campaign;
+        }
+
+        final pag = body['pagination'];
+        final hasMore = pag is Map && pag['has_more'] == true;
+        if (!hasMore || raw.isEmpty) return null;
+      }
+    } catch (_) {
+      return null;
+    }
+    return null;
+  }
 }

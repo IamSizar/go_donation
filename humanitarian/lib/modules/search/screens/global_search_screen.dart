@@ -3,8 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
+import 'package:flutter_application_1/data/featured_campaigns.dart';
 import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/modules/community/screens/community_detail_screen.dart';
+import 'package:flutter_application_1/modules/dashboard/controllers/featured_campaigns_controller.dart';
+import 'package:flutter_application_1/modules/donations/screens/campaign_detail_screen.dart';
 import 'package:flutter_application_1/modules/donations/screens/donations_section.dart';
 import 'package:flutter_application_1/modules/marketplace/screens/marketplace_section.dart';
 import 'package:flutter_application_1/modules/proposal/screens/news_activities_screen.dart';
@@ -12,10 +15,11 @@ import 'package:flutter_application_1/modules/proposal/screens/partners_screen.d
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 
-/// #33 — route a tapped search result to the right place. A `place` opens its
-/// own detail, but the search payload only has id + name, so the full
-/// directory entry is fetched first; the other types open their section
-/// screen instead, since it only has id + name.
+/// #33 — route a tapped search result to the right place. `place` and
+/// `campaign` open their own detail screen (the search payload only has
+/// id + name, so the full entry is fetched first); `partner`, `media` and
+/// `product` still open their section screen instead, since it only has
+/// id + name.
 Future<void> _openSearchResult(Map<String, dynamic> result) async {
   switch ((result['type'] ?? '').toString()) {
     case 'place':
@@ -32,8 +36,32 @@ Future<void> _openSearchResult(Map<String, dynamic> result) async {
       Get.to(() => const MarketplaceSection());
       break;
     case 'campaign':
-      Get.to(() => const DonationsSection());
+      final campaign = await _fetchCampaignEntry(result);
+      if (campaign != null) {
+        Get.to(() => CampaignDetailScreen(campaign: campaign));
+      } else {
+        Get.to(() => const DonationsSection());
+      }
       break;
+  }
+}
+
+// #33 — the search `campaign` result only has id + name; the donor-facing
+// campaigns list caps at FeaturedCampaignsController's first page, so look
+// the id up via the same paginated endpoint (bounded) before falling back
+// to the generic, page-1-only campaigns section.
+Future<FeaturedCampaignData?> _fetchCampaignEntry(
+  Map<String, dynamic> result,
+) async {
+  final id = int.tryParse('${result['id']}');
+  if (id == null) return null;
+  final controller = Get.isRegistered<FeaturedCampaignsController>()
+      ? Get.find<FeaturedCampaignsController>()
+      : Get.put(FeaturedCampaignsController());
+  try {
+    return await controller.fetchCampaignById(id);
+  } catch (_) {
+    return null;
   }
 }
 
