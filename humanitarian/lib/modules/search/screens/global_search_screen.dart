@@ -13,12 +13,14 @@ import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 
 /// #33 — route a tapped search result to the right place. A `place` opens its
-/// own detail (it carries enough data); the other types open their section
-/// screen, since the search payload only has id + name.
-void _openSearchResult(Map<String, dynamic> result) {
+/// own detail, but the search payload only has id + name, so the full
+/// directory entry is fetched first; the other types open their section
+/// screen instead, since it only has id + name.
+Future<void> _openSearchResult(Map<String, dynamic> result) async {
   switch ((result['type'] ?? '').toString()) {
     case 'place':
-      Get.to(() => CommunityDetailScreen(entry: result));
+      final entry = await _fetchPlaceEntry(result);
+      Get.to(() => CommunityDetailScreen(entry: entry));
       break;
     case 'partner':
       Get.to(() => const PartnersScreen());
@@ -33,6 +35,21 @@ void _openSearchResult(Map<String, dynamic> result) {
       Get.to(() => const DonationsSection());
       break;
   }
+}
+
+// #33 — the search `place` result only has id + name; look up the full
+// directory entry so CommunityDetailScreen has category/address/phone/map/
+// etc. Falls back to the thin result if the fetch fails or finds no match.
+Future<Map<String, dynamic>> _fetchPlaceEntry(Map<String, dynamic> result) async {
+  try {
+    final entries = await const ModuleApi().communityDirectory();
+    for (final entry in entries) {
+      if (entry['id'] == result['id']) return entry;
+    }
+  } catch (_) {
+    // fall through to the thin search result
+  }
+  return result;
 }
 
 /// #33 — Global search: one box that queries the whole app (campaigns, news,
