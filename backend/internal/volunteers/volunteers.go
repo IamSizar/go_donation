@@ -261,7 +261,9 @@ func (s *Store) JoinMission(ctx context.Context, userID, missionID int64, notes 
 	switch {
 	case err == nil:
 		switch existingStatus {
-		case "pending", "approved", "joined", "completed":
+		// completion_requested is awaiting staff review and no_show is
+		// already adjudicated — a rejoin must not silently erase either.
+		case "pending", "approved", "joined", "completed", "completion_requested", "no_show":
 			return &JoinResult{Status: existingStatus, Existing: true, SignupID: existingID}, nil
 		}
 		// rejected / cancelled → reset to pending
