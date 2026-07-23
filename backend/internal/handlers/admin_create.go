@@ -317,7 +317,8 @@ func (h *AdminCreateHandler) Community(c *gin.Context) {
 
 type sponsorshipCreateReq struct {
 	sponsorshipEditReq
-	DonorUserID *int `json:"donor_user_id"`
+	DonorUserID       *int `json:"donor_user_id"`
+	BeneficiaryCaseID *int `json:"beneficiary_case_id"`
 }
 
 func (h *AdminCreateHandler) Sponsorship(c *gin.Context) {
@@ -386,13 +387,17 @@ func (h *AdminCreateHandler) Sponsorship(c *gin.Context) {
 	if req.DonorUserID != nil && *req.DonorUserID > 0 {
 		donorID = *req.DonorUserID
 	}
+	var caseID any
+	if req.BeneficiaryCaseID != nil && *req.BeneficiaryCaseID > 0 {
+		caseID = *req.BeneficiaryCaseID
+	}
 	var id int64
 	err := h.Pool.QueryRow(c.Request.Context(), `
 		INSERT INTO sponsorships
-		  (donor_user_id, sponsorship_type, amount, currency, schedule_interval, next_due_date, status, notes)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+		  (donor_user_id, beneficiary_case_id, sponsorship_type, amount, currency, schedule_interval, next_due_date, status, notes)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
 		RETURNING id`,
-		donorID, sponsorshipType, amount, currency, schedule, nextDueDate, status, optStringOrNil(req.Notes),
+		donorID, caseID, sponsorshipType, amount, currency, schedule, nextDueDate, status, optStringOrNil(req.Notes),
 	).Scan(&id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
