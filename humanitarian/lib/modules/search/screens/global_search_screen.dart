@@ -98,6 +98,7 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
   bool _loading = false;
   bool _searched = false;
   String? _errorMessage;
+  int _requestId = 0;
 
   static const _typeMeta = <String, ({IconData icon, String labelKey, Color color})>{
     'campaign': (icon: Icons.volunteer_activism_rounded, labelKey: 'search_campaigns', color: Colors.pink),
@@ -129,24 +130,25 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
   }
 
   Future<void> _run(String q) async {
+    final requestId = ++_requestId;
     setState(() => _loading = true);
     try {
       final rows = await const ModuleApi().globalSearch(q);
-      if (mounted) {
+      if (mounted && requestId == _requestId) {
         setState(() {
           _results = rows;
           _errorMessage = null;
         });
       }
     } catch (_) {
-      if (mounted) {
+      if (mounted && requestId == _requestId) {
         setState(() {
           _results = [];
           _errorMessage = 'search_error'.tr;
         });
       }
     } finally {
-      if (mounted) {
+      if (mounted && requestId == _requestId) {
         setState(() {
           _loading = false;
           _searched = true;
