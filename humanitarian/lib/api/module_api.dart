@@ -325,9 +325,14 @@ class ModuleApi {
   Future<void> setFieldPrivacy(List<String> hidden) =>
       postJson(fieldPrivacyUrl, {'hidden': hidden});
 
-  // #33 — global search across the app's content.
-  Future<List<Map<String, dynamic>>> globalSearch(String q) =>
-      getItems('$globalSearchUrl?q=${Uri.encodeQueryComponent(q)}');
+  // #33 — global search across the app's content. perType overrides the
+  // backend's default per-category cap (see search.go) so callers can fetch
+  // one extra row to detect truncation.
+  Future<List<Map<String, dynamic>>> globalSearch(String q, {int? perType}) {
+    var url = '$globalSearchUrl?q=${Uri.encodeQueryComponent(q)}';
+    if (perType != null) url += '&per_type=$perType';
+    return getItems(url);
+  }
 
   // #42 — create a marriage/engagement profile.
   Future<Map<String, dynamic>> submitMarriage(Map<String, dynamic> body) =>

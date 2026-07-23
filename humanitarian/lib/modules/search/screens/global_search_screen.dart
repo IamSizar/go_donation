@@ -6,6 +6,7 @@ import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/data/featured_campaigns.dart';
 import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/modules/community/screens/community_detail_screen.dart';
+import 'package:flutter_application_1/modules/community/screens/community_services_section.dart';
 import 'package:flutter_application_1/modules/dashboard/controllers/featured_campaigns_controller.dart';
 import 'package:flutter_application_1/modules/donations/screens/campaign_detail_screen.dart';
 import 'package:flutter_application_1/modules/donations/screens/donations_section.dart';
@@ -82,6 +83,29 @@ Future<Map<String, dynamic>> _fetchPlaceEntry(Map<String, dynamic> result) async
   return result;
 }
 
+// #33 — a type's results were truncated to _kPerTypeCap; tapping through
+// opens that type's full (unfiltered) section, same as _openSearchResult
+// does for the types that don't have their own detail screen.
+void _openSection(String type) {
+  switch (type) {
+    case 'campaign':
+      Get.to(() => const DonationsSection());
+      break;
+    case 'media':
+      Get.to(() => const NewsActivitiesScreen());
+      break;
+    case 'product':
+      Get.to(() => const MarketplaceSection());
+      break;
+    case 'partner':
+      Get.to(() => const PartnersScreen());
+      break;
+    case 'place':
+      Get.to(() => const CommunityServicesSection());
+      break;
+  }
+}
+
 /// #33 — Global search: one box that queries the whole app (campaigns, news,
 /// products, partners, city places) and lists typed, localized results.
 class GlobalSearchScreen extends StatefulWidget {
@@ -89,6 +113,17 @@ class GlobalSearchScreen extends StatefulWidget {
 
   @override
   State<GlobalSearchScreen> createState() => _GlobalSearchScreenState();
+}
+
+// #33 — display cap per type; kept in sync with the backend default (see
+// search.go) purely for what the UI shows per group, independent of it.
+const _kPerTypeCap = 8;
+
+// #33 — marks a truncated type's spot in the display list so the ListView
+// can render a "view more" tile without splitting results into sections.
+class _MoreSentinel {
+  const _MoreSentinel(this.type);
+  final String type;
 }
 
 class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
@@ -99,6 +134,20 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
   bool _searched = false;
   String? _errorMessage;
   int _requestId = 0;
+
+  // #33 — group by type (backend already returns rows in this order) and
+  // insert a truncation marker wherever a group hit the fetch cap, so a
+  // busy category surfaces "there's more" instead of just stopping.
+  List<dynamic> get _displayItems {
+    final items = <dynamic>[];
+    for (final type in _typeMeta.keys) {
+      final group = _results.where((r) => (r['type'] ?? '') == type).toList();
+      if (group.isEmpty) continue;
+      items.addAll(group.take(_kPerTypeCap));
+      if (group.length > _kPerTypeCap) items.add(_MoreSentinel(type));
+    }
+    return items;
+  }
 
   static const _typeMeta = <String, ({IconData icon, String labelKey, Color color})>{
     'campaign': (icon: Icons.volunteer_activism_rounded, labelKey: 'search_campaigns', color: Colors.pink),
@@ -133,7 +182,12 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
     final requestId = ++_requestId;
     setState(() => _loading = true);
     try {
-      final rows = await const ModuleApi().globalSearch(q);
+      // #33 — fetch one row past the display cap per type so a full group
+      // can be told apart from one that merely fills it exactly.
+      final rows = await const ModuleApi().globalSearch(
+        q,
+        perType: _kPerTypeCap + 1,
+      );
       if (mounted && requestId == _requestId) {
         setState(() {
           _results = rows;
@@ -159,6 +213,7 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final displayItems = _displayItems;
     return SectionScaffold(
       title: 'search_title'.tr,
       subtitle: 'search_subtitle'.tr,
@@ -209,9 +264,22 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
                 ? Center(child: Text('search_no_results'.tr))
                 : ListView.separated(
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
-                    itemCount: _results.length,
+                    itemCount: displayItems.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 10),
-                    itemBuilder: (_, i) => _ResultTile(result: _results[i], meta: _typeMeta),
+                    itemBuilder: (_, i) {
+                      final item = displayItems[i];
+                      if (item is _MoreSentinel) {
+                        return _MoreTile(
+                          type: item.type,
+                          meta: _typeMeta,
+                          onTap: () => _openSection(item.type),
+                        );
+                      }
+                      return _ResultTile(
+                        result: item as Map<String, dynamic>,
+                        meta: _typeMeta,
+                      );
+                    },
                   ),
           ),
         ],
@@ -253,6 +321,64 @@ class _ResultTile extends StatelessWidget {
                     name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14.5,
+                      color: AppThemeConfig.text(context),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    (m?.labelKey ?? type).tr,
+                    style: TextStyle(fontSize: 12, color: m?.color ?? Colors.grey),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: AppThemeConfig.mutedText(context),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// #33 — sits at the end of a truncated type's block; taps through to that
+// type's full section (see _openSection) since the search API only caps
+// per-type, it doesn't paginate.
+class _MoreTile extends StatelessWidget {
+  const _MoreTile({required this.type, required this.meta, required this.onTap});
+  final String type;
+  final Map<String, ({IconData icon, String labelKey, Color color})> meta;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final m = meta[type];
+    return GestureDetector(
+      onTap: onTap,
+      child: GlassPanel(
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: (m?.color ?? Colors.grey).withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(Icons.more_horiz_rounded, color: m?.color ?? Colors.grey),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'search_view_more'.tr,
                     style: TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 14.5,
