@@ -105,13 +105,13 @@ class MyBeneficiaryCasesController extends GetxController
     final transitions = detectStatusTransitions<Map<String, dynamic>>(
       items: cases,
       keyOf: (m) => (m['id'] ?? '').toString(),
-      statusOf: (m) => (m['status'] ?? '').toString().toLowerCase(),
+      statusOf: (m) => (m['verification_status'] ?? '').toString().toLowerCase(),
       previous: _lastStatusSnapshot,
     );
     _lastStatusSnapshot = {
       for (final m in cases)
         (m['id'] ?? '').toString():
-            (m['status'] ?? '').toString().toLowerCase(),
+            (m['verification_status'] ?? '').toString().toLowerCase(),
     };
     for (final t in transitions) {
       final msg = _messageForCaseTransition(t.toStatus);
