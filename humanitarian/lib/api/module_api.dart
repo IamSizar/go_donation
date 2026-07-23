@@ -287,8 +287,17 @@ class ModuleApi {
   Future<List<Map<String, dynamic>>> marketplaceCategories() =>
       getItems(marketplaceCategoriesUrl);
 
-  Future<List<Map<String, dynamic>>> communityDirectory() =>
-      getItems(communityDirectoryUrl);
+  Future<List<Map<String, dynamic>>> communityDirectory({String? q}) {
+    // #33 — optional q so a single-entry lookup isn't capped by the default
+    // page limit (see _fetchPlaceEntry in global_search_screen.dart).
+    if (q != null && q.isNotEmpty) {
+      final uri = Uri.parse(
+        communityDirectoryUrl,
+      ).replace(queryParameters: {'q': q});
+      return getItems(uri.toString());
+    }
+    return getItems(communityDirectoryUrl);
+  }
 
   Future<List<Map<String, dynamic>>> citySectors() => getItems(citySectorsUrl);
 

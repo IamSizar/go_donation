@@ -70,7 +70,9 @@ Future<FeaturedCampaignData?> _fetchCampaignEntry(
 // etc. Falls back to the thin result if the fetch fails or finds no match.
 Future<Map<String, dynamic>> _fetchPlaceEntry(Map<String, dynamic> result) async {
   try {
-    final entries = await const ModuleApi().communityDirectory();
+    final entries = await const ModuleApi().communityDirectory(
+      q: result['name']?.toString(),
+    );
     for (final entry in entries) {
       if (entry['id'] == result['id']) return entry;
     }
