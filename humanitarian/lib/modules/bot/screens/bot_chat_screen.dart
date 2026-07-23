@@ -802,7 +802,7 @@ class _ToolResultCard extends StatelessWidget {
     if (rows == null || rows.isEmpty) return const SizedBox.shrink();
 
     return Padding(
-      padding: const EdgeInsets.only(left: 40),
+      padding: const EdgeInsetsDirectional.only(start: 40),
       child: GlassPanel(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Column(
