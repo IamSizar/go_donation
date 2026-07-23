@@ -38,7 +38,7 @@ var sources = []source{
 	   WHERE status = 'active'
 	     AND (title ILIKE $1 OR title_ar ILIKE $1 OR title_sorani ILIKE $1 OR title_badini ILIKE $1)`},
 	{"media", `SELECT id, title, title_ar, title_sorani, title_badini FROM media_posts
-	   WHERE status = 'published'
+	   WHERE status = 'published' AND post_type <> 'marriage'
 	     AND (title ILIKE $1 OR title_ar ILIKE $1 OR title_sorani ILIKE $1 OR title_badini ILIKE $1)`},
 	{"product", `SELECT id, name, name_ar, name_sorani, name_badini FROM marketplace_products
 	   WHERE status = 'approved'
