@@ -51,17 +51,17 @@ func (s *Store) List(ctx context.Context, donorUserID int64, q string, limit int
 	if qTrim := strings.TrimSpace(q); qTrim != "" {
 		args = append(args, "%"+qTrim+"%")
 		idx := itoa(len(args))
-		where = append(where, "(s.sponsorship_type ILIKE $"+idx+" OR s.notes ILIKE $"+idx+" OR p.project_title ILIKE $"+idx+")")
+		where = append(where, "(s.sponsorship_type ILIKE $"+idx+" OR s.notes ILIKE $"+idx+" OR p.title ILIKE $"+idx+")")
 	}
 	sqlStr := `
 		SELECT s.id, s.donor_user_id, u.phone, up.full_name,
 		       s.beneficiary_case_id, s.project_request_id,
 		       s.sponsorship_type, s.amount::text, s.currency, s.schedule_interval,
 		       s.next_due_date, s.status, s.notes, s.created_at,
-		       COALESCE(p.project_title, 'General support') AS project_title,
-		       COALESCE(p.project_title_ar, 'الدعم العام')  AS project_title_ar
+		       COALESCE(p.title, 'General support') AS project_title,
+		       COALESCE(p.title_ar, 'الدعم العام')  AS project_title_ar
 		  FROM sponsorships s
-		  LEFT JOIN beneficiary_project_requests p ON p.id = s.project_request_id
+		  LEFT JOIN campaigns p ON p.id = s.project_request_id
 		  LEFT JOIN users u ON u.id = s.donor_user_id
 		  LEFT JOIN user_profiles up ON up.user_id = s.donor_user_id
 		 WHERE ` + strings.Join(where, " AND ") + `
@@ -108,11 +108,11 @@ func (s *Store) ListByBeneficiary(ctx context.Context, userID int64) ([]Sponsors
 		SELECT s.id, s.donor_user_id, s.beneficiary_case_id, s.project_request_id,
 		       s.sponsorship_type, s.amount::text, s.currency, s.schedule_interval,
 		       s.next_due_date, s.status, s.notes, s.created_at,
-		       COALESCE(p.project_title, 'General support') AS project_title,
-		       COALESCE(p.project_title_ar, 'الدعم العام')  AS project_title_ar
+		       COALESCE(p.title, 'General support') AS project_title,
+		       COALESCE(p.title_ar, 'الدعم العام')  AS project_title_ar
 		  FROM sponsorships s
 		  JOIN beneficiary_cases bc ON bc.id = s.beneficiary_case_id
-		  LEFT JOIN beneficiary_project_requests p ON p.id = s.project_request_id
+		  LEFT JOIN campaigns p ON p.id = s.project_request_id
 		 WHERE bc.user_id = $1
 		   AND s.status IN ('active','pending','delayed','paused')
 		 ORDER BY
@@ -146,16 +146,21 @@ type ProjectRow struct {
 	ProjectTitleAr string
 }
 
-// GetApprovedProject looks up an approved project for sponsorship targeting.
+// GetApprovedProject looks up a donor-visible campaign for sponsorship
+// targeting. The app's sponsorship campaign picker sources ids from
+// /api/campaigns (the `campaigns` table, see campaigns.go's Phase 15 note),
+// so validation here has to match against the same table — not the
+// unrelated beneficiary_project_requests table, whose ids come from a
+// different sequence.
 func (s *Store) GetApprovedProject(ctx context.Context, id int64) (*ProjectRow, error) {
 	if id <= 0 {
 		return nil, nil
 	}
 	var p ProjectRow
 	err := s.Pool.QueryRow(ctx,
-		`SELECT id, project_title, COALESCE(project_title_ar,'')
-		   FROM beneficiary_project_requests
-		  WHERE id = $1 AND status = 'approved'`,
+		`SELECT id, title, COALESCE(title_ar,'')
+		   FROM campaigns
+		  WHERE id = $1 AND status = 'active'`,
 		id,
 	).Scan(&p.ID, &p.ProjectTitle, &p.ProjectTitleAr)
 	if err != nil {
@@ -255,10 +260,10 @@ func (s *Store) DueForReminder(ctx context.Context, daysBefore, limit int) ([]Du
 	rows, err := s.Pool.Query(ctx, `
 		SELECT s.id, s.donor_user_id, s.amount::text, s.currency,
 		       s.next_due_date, s.schedule_interval,
-		       COALESCE(p.project_title, 'General support') AS project_title,
-		       COALESCE(p.project_title_ar, 'الدعم العام')  AS project_title_ar
+		       COALESCE(p.title, 'General support') AS project_title,
+		       COALESCE(p.title_ar, 'الدعم العام')  AS project_title_ar
 		  FROM sponsorships s
-		  LEFT JOIN beneficiary_project_requests p ON p.id = s.project_request_id
+		  LEFT JOIN campaigns p ON p.id = s.project_request_id
 		 WHERE s.status = 'active'
 		   AND s.donor_user_id IS NOT NULL
 		   AND s.next_due_date IS NOT NULL
