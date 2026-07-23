@@ -25,7 +25,7 @@ type Mission struct {
 	DescriptionSorani   *string    `json:"description_sorani"`
 	DescriptionBadini   *string    `json:"description_badini"`
 	City                *string    `json:"city"`
-	MissionDate         *time.Time `json:"mission_date"`
+	MissionDate         *string    `json:"mission_date"` // YYYY-MM-DD, matches admin_lists.go
 	NeededVolunteers    *int       `json:"needed_volunteers"`
 	Status              string     `json:"status"`
 	AcceptedVolunteers  int        `json:"accepted_volunteers"`
@@ -76,7 +76,7 @@ func (s *Store) GetMission(ctx context.Context, id int64) (*Mission, error) {
 	err := s.Pool.QueryRow(ctx, `
 		SELECT id, title, title_ar, title_sorani, title_badini,
 		       description, description_ar, description_sorani, description_badini,
-		       city, mission_date, needed_volunteers, status, 0, 0
+		       city, to_char(mission_date, 'YYYY-MM-DD'), needed_volunteers, status, 0, 0
 		  FROM volunteer_missions WHERE id = $1`,
 		id,
 	).Scan(
@@ -115,7 +115,7 @@ func (s *Store) listMissions(ctx context.Context, limit int, whereClause string)
 	rows, err := s.Pool.Query(ctx, `
 		SELECT m.id, m.title, m.title_ar, m.title_sorani, m.title_badini,
 		       m.description, m.description_ar, m.description_sorani, m.description_badini,
-		       m.city, m.mission_date, m.needed_volunteers, m.status,
+		       m.city, to_char(m.mission_date, 'YYYY-MM-DD'), m.needed_volunteers, m.status,
 		       COALESCE(c.accepted_count, 0),
 		       COALESCE(c.pending_count, 0)
 		  FROM volunteer_missions m
@@ -186,7 +186,7 @@ func (s *Store) JoinedMissionsForUser(ctx context.Context, userID int64) ([]Join
 		       s.checked_in_at, s.completed_at, s.hours_served::text,
 		       m.id, m.title, m.title_ar, NULL::text, NULL::text,
 		       m.description, m.description_ar, NULL::text, NULL::text,
-		       m.city, m.mission_date, m.needed_volunteers, m.status,
+		       m.city, to_char(m.mission_date, 'YYYY-MM-DD'), m.needed_volunteers, m.status,
 		       0, 0
 		  FROM volunteer_mission_signups s
 		  INNER JOIN volunteer_missions m ON m.id = s.mission_id
