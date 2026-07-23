@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
 
@@ -17,6 +19,7 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/events"
 	"github.com/karam-flutter/humanitarian-backend/internal/notify"
 	"github.com/karam-flutter/humanitarian-backend/internal/permissions"
+	"github.com/karam-flutter/humanitarian-backend/internal/sponsorships"
 )
 
 // blockIfProtectedTarget enforces A-14: a super_admin account can only be
@@ -519,9 +522,76 @@ func (h *AdminStatusHandler) VolunteerApplication(c *gin.Context) {
 	h.updateStringStatus(c, "volunteer_applications", "status",
 		volunteerAppStatuses, h.notifyVolunteerAppDecision)
 }
+// Sponsorship — unlike the other resources, a transition into 'active' needs
+// next_due_date recomputed, so it can't go through the fully generic
+// updateStringStatus. Insert() anchors next_due_date to submission time, so
+// a slow approval of a 'pending' row can leave it already due/overdue by the
+// time it goes active — the next scheduler tick would then fire an
+// immediate reminder. Cancel() clears next_due_date to NULL, so reactivating
+// a cancelled row would otherwise leave it with no due date, and
+// DueForReminder never reminds on a NULL date. Only recompute on a genuine
+// non-active -> active transition, and only when the existing date is
+// already stale or missing — an already-active row keeps its date.
 func (h *AdminStatusHandler) Sponsorship(c *gin.Context) {
-	h.updateStringStatus(c, "sponsorships", "status",
-		sponsorshipStatuses, h.notifySponsorshipDecision)
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	var req statusReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid JSON body."})
+		return
+	}
+	status := strings.TrimSpace(req.Status)
+	if status == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "status is required."})
+		return
+	}
+	if !inSet(status, sponsorshipStatuses) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "Invalid status. Allowed: " + strings.Join(sponsorshipStatuses, ", "),
+		})
+		return
+	}
+
+	ctx := c.Request.Context()
+	var nextDue *string
+	if status == "active" {
+		var interval, oldStatus string
+		var current *time.Time
+		err := h.Pool.QueryRow(ctx,
+			"SELECT schedule_interval, status, next_due_date FROM sponsorships WHERE id = $1",
+			id,
+		).Scan(&interval, &oldStatus, &current)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Not found."})
+				return
+			}
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
+			return
+		}
+		if oldStatus != "active" && (current == nil || !current.After(time.Now().UTC())) {
+			due := time.Now().UTC().Add(sponsorships.IntervalToDuration(interval)).Format("2006-01-02")
+			nextDue = &due
+		}
+	}
+
+	ct, err := h.Pool.Exec(ctx,
+		"UPDATE sponsorships SET status = $1, next_due_date = COALESCE($3, next_due_date) WHERE id = $2",
+		status, id, nextDue,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
+		return
+	}
+	if ct.RowsAffected() == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Not found."})
+		return
+	}
+	h.notifySponsorshipDecision(ctx, id, status)
+	c.JSON(http.StatusOK, gin.H{"success": true, "id": id, "status": status})
 }
 func (h *AdminStatusHandler) InKindDonation(c *gin.Context) {
 	h.updateStringStatus(c, "in_kind_donations", "status",
