@@ -219,6 +219,8 @@ const String uploadsUrl = '${baseUrl}uploads';
 // Note #42 — test-phase internal app wallet (IQD).
 const String walletUrl = '${baseUrl}wallet';
 const String walletTransactionsUrl = '${baseUrl}wallet/transactions';
+// Client note — "Task Verification".
+const String tasksUrl = '${baseUrl}tasks';
 const String volunteerMissionSignupsUrl = '${baseUrl}volunteer_mission_signups';
 const String supportTicketsUrl = '${baseUrl}support/';
 const String reportsUrl = '${baseUrl}reports/';

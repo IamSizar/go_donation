@@ -23,9 +23,10 @@ func NewContentHandler(s *content.Store) *ContentHandler {
 // allowedSlugs bounds which content pages can be read/written, so the endpoint
 // can't be used to stuff arbitrary rows.
 var allowedSlugs = map[string]bool{
-	"terms":   true,
-	"about":   true,
-	"contact": true,
+	"terms":             true,
+	"about":             true,
+	"contact":           true,
+	"humanitarian-work": true,
 }
 
 // PublicContent handles GET /api/content/:slug (no auth) so the app can render

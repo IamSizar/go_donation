@@ -20,6 +20,8 @@ import (
 	"os"
 	"sort"
 	"strings"
+
+	"github.com/karam-flutter/humanitarian-backend/internal/appsettings"
 )
 
 // Message is one turn of the conversation coming from the client.
@@ -28,41 +30,75 @@ type Message struct {
 	Content string `json:"content"` // the text
 }
 
+// ToolResult is one tool call's outcome, surfaced to the client so the UI
+// can render it as a structured card instead of relying purely on prose.
+type ToolResult struct {
+	Tool string          `json:"tool"`
+	Data json.RawMessage `json:"data"`
+}
+
 // Reply is the assistant's structured answer.
 type Reply struct {
-	Text   string  `json:"reply"`
-	Action *Action `json:"action,omitempty"`
-	Source string  `json:"source"` // "ai" | "local"
+	Text        string       `json:"reply"`
+	Action      *Action      `json:"action,omitempty"`
+	Source      string       `json:"source"` // "ai" | "local"
+	ToolResults []ToolResult `json:"tool_results,omitempty"`
 }
 
 // Service answers assistant turns. Construct with New.
 type Service struct {
-	llm *anthropicClient // nil when no API key configured
+	llm      *anthropicClient // nil when no API key configured
+	deps     Deps
+	settings *appsettings.Store // nil-safe; enabled/extra-instructions default when absent
 }
 
 // New builds the assistant service, reading provider config from the
-// environment. With no key present, llm stays nil and the engine runs locally.
-func New() *Service {
+// environment. With no key present, llm stays nil and the engine runs
+// locally. deps wires the tool-calling path's read-only data sources.
+func New(deps Deps, settings *appsettings.Store) *Service {
+	svc := &Service{deps: deps, settings: settings}
 	key := strings.TrimSpace(os.Getenv("ANTHROPIC_API_KEY"))
 	if key == "" {
-		return &Service{}
+		return svc
 	}
 	model := strings.TrimSpace(os.Getenv("ASSISTANT_MODEL"))
-	return &Service{llm: newAnthropicClient(key, model)}
+	svc.llm = newAnthropicClient(key, model)
+	return svc
 }
 
 // LLMEnabled reports whether a real model backs the assistant.
 func (s *Service) LLMEnabled() bool { return s.llm != nil }
 
-// Answer produces a reply for the given role + conversation history.
-// userName may be empty. lang is the app locale ("en", "ar", "ckb", "kmr");
-// intentID is the stable chip id for chip-tap turns (empty for free-typed
-// messages). Both are passed through to sub-paths; translation/id-matching
-// is wired in later tasks.
-func (s *Service) Answer(ctx context.Context, roleID int, userName string, history []Message, lang string, intentID string) Reply {
-	// Try the LLM first when available.
-	if s.llm != nil {
-		if r, ok := s.answerWithLLM(ctx, roleID, userName, history, lang); ok {
+// enabled reports the admin "Enable AI Assistant" toggle. Defaults to true
+// when unset so existing deployments keep working without a settings row.
+func (s *Service) enabled(ctx context.Context) bool {
+	if s.settings == nil {
+		return true
+	}
+	v, err := s.settings.Get(ctx, appsettings.KeyAssistantEnabled)
+	if err != nil {
+		return true
+	}
+	return v != "false"
+}
+
+func (s *Service) extraInstructions(ctx context.Context) string {
+	if s.settings == nil {
+		return ""
+	}
+	v, _ := s.settings.Get(ctx, appsettings.KeyAssistantExtraInstructions)
+	return v
+}
+
+// Answer produces a reply for the given role + conversation history. userID
+// scopes any tool calls to that user's own data — the model never supplies
+// it itself. userName may be empty. lang is the app locale ("en", "ar",
+// "ckb", "kmr"); intentID is the stable chip id for chip-tap turns (empty
+// for free-typed messages).
+func (s *Service) Answer(ctx context.Context, roleID int, userID int64, userName string, history []Message, lang string, intentID string) Reply {
+	// Try the LLM first when available and not disabled by admin.
+	if s.llm != nil && s.enabled(ctx) {
+		if r, ok := s.answerWithLLM(ctx, roleID, userID, userName, history, lang); ok {
 			return r
 		}
 		// fall through to local on any failure
@@ -74,10 +110,18 @@ func (s *Service) Answer(ctx context.Context, roleID int, userName string, histo
 // LLM path
 // ──────────────────────────────────────────────────────────────────────────
 
-// answerWithLLM calls the configured LLM. lang is injected into the system
-// prompt so the model replies in the user's app language (ar / ckb / kmr / en).
-func (s *Service) answerWithLLM(ctx context.Context, roleID int, userName string, history []Message, lang string) (Reply, bool) {
-	sys := systemPrompt(roleID, userName, lang)
+// maxToolRounds caps how many tool round-trips one turn can make, so a model
+// that keeps calling tools can never hang the request indefinitely.
+const maxToolRounds = 4
+
+// answerWithLLM calls the configured LLM, running an agentic tool-use loop:
+// the model may call one of the role's tools (each scoped to userID), see
+// the result, and call another — up to maxToolRounds — before giving its
+// final answer. lang is injected into the system prompt so the model replies
+// in the user's app language (ar / ckb / kmr / en).
+func (s *Service) answerWithLLM(ctx context.Context, roleID int, userID int64, userName string, history []Message, lang string) (Reply, bool) {
+	sys := systemPrompt(roleID, userName, lang, s.extraInstructions(ctx))
+	tools := toolsFor(roleID)
 
 	// Convert history to the client shape, keeping only the last ~12 turns to
 	// bound token use. Drop any empty messages.
@@ -91,7 +135,7 @@ func (s *Service) answerWithLLM(ctx context.Context, roleID int, userName string
 		if m.Role == "assistant" {
 			role = "assistant"
 		}
-		msgs = append(msgs, chatMessage{Role: role, Content: c})
+		msgs = append(msgs, chatMessage{Role: role, Content: []contentBlock{textBlock(c)}})
 	}
 	if len(msgs) == 0 {
 		return Reply{}, false
@@ -107,21 +151,59 @@ func (s *Service) answerWithLLM(ctx context.Context, roleID int, userName string
 		return Reply{}, false
 	}
 
-	out, err := s.llm.complete(ctx, sys, msgs)
-	if err != nil {
-		return Reply{}, false
-	}
-
-	reply, ok := parseLLMJSON(out, roleID, lang)
-	if !ok {
-		// Model didn't return clean JSON — still use its text as the answer.
-		text := strings.TrimSpace(out)
-		if text == "" {
+	var toolResults []ToolResult
+	for round := 0; round < maxToolRounds; round++ {
+		resp, err := s.llm.complete(ctx, sys, tools, msgs)
+		if err != nil {
 			return Reply{}, false
 		}
-		return Reply{Text: text, Source: "ai"}, true
+
+		var toolUses []contentBlock
+		var text strings.Builder
+		for _, block := range resp.Content {
+			switch block.Type {
+			case "text":
+				text.WriteString(block.Text)
+			case "tool_use":
+				toolUses = append(toolUses, block)
+			}
+		}
+
+		if len(toolUses) == 0 {
+			reply, ok := parseLLMJSON(text.String(), roleID, lang)
+			if !ok {
+				trimmed := strings.TrimSpace(text.String())
+				if trimmed == "" {
+					return Reply{}, false
+				}
+				reply = Reply{Text: trimmed, Source: "ai"}
+			}
+			reply.ToolResults = toolResults
+			return reply, true
+		}
+
+		// The model wants to call one or more tools. Execute them (scoped to
+		// userID) and feed the results back for the next round.
+		assistantBlocks := make([]contentBlock, 0, len(toolUses)+1)
+		if strings.TrimSpace(text.String()) != "" {
+			assistantBlocks = append(assistantBlocks, textBlock(text.String()))
+		}
+		assistantBlocks = append(assistantBlocks, toolUses...)
+		msgs = append(msgs, chatMessage{Role: "assistant", Content: assistantBlocks})
+
+		resultBlocks := make([]contentBlock, 0, len(toolUses))
+		for _, tu := range toolUses {
+			result := executeToolCall(ctx, s.deps, userID, tu.Name)
+			toolResults = append(toolResults, ToolResult{Tool: tu.Name, Data: json.RawMessage(result)})
+			resultBlocks = append(resultBlocks, contentBlock{
+				Type: "tool_result", ToolUseID: tu.ID, Content: result,
+			})
+		}
+		msgs = append(msgs, chatMessage{Role: "user", Content: resultBlocks})
 	}
-	return reply, true
+
+	// Hit the round cap without a final answer — fall back rather than hang.
+	return Reply{}, false
 }
 
 // llmJSON is the strict shape we ask the model to emit.

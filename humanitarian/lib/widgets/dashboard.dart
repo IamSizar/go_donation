@@ -5,6 +5,7 @@ import 'package:flutter_application_1/api/wallet_api.dart';
 import 'package:flutter_application_1/modules/dashboard/controllers/featured_campaigns_controller.dart';
 import 'package:flutter_application_1/modules/donations/screens/campaign_detail_screen.dart';
 import 'package:flutter_application_1/modules/donations/screens/donations_section.dart';
+import 'package:flutter_application_1/modules/donations/screens/my_donations_page.dart';
 import 'package:flutter_application_1/modules/proposal/controllers/partners_controller.dart';
 import 'package:flutter_application_1/modules/proposal/controllers/media_posts_controller.dart';
 import 'package:flutter_application_1/modules/proposal/screens/partners_screen.dart';
@@ -26,7 +27,6 @@ import 'package:intl/intl.dart';
 
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
-import 'package:flutter_application_1/routes/app_routes.dart';
 
 import '../data/featured_campaigns.dart';
 
@@ -233,7 +233,6 @@ class DashboardHomeSection extends StatelessWidget {
   ) {
     final stats = Map<String, dynamic>.from(summary['stats'] as Map? ?? {});
     final recentDonations = _listValue(summary, 'recent_donations');
-    final recentNotifications = _listValue(summary, 'recent_notifications');
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
       children: [
@@ -374,11 +373,14 @@ class DashboardHomeSection extends StatelessWidget {
           children: [
             const _SectionLabel(title: 'Recent donations'),
             const Spacer(),
-            Text(
-              'See all'.tr,
-              style: const TextStyle(
-                color: _primary,
-                fontWeight: FontWeight.w700,
+            InkWell(
+              onTap: () => Get.to(() => const MyDonationsPage()),
+              child: Text(
+                'See all'.tr,
+                style: const TextStyle(
+                  color: _primary,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ],
@@ -408,31 +410,6 @@ class DashboardHomeSection extends StatelessWidget {
               ],
             ),
           ),
-        const SizedBox(height: 20),
-        const _SectionLabel(title: 'Latest alerts'),
-        const SizedBox(height: 12),
-        if (recentNotifications.isEmpty)
-          const _GlassPanel(child: Text('No recent alerts.'))
-        else
-          _GlassPanel(
-            child: Column(
-              children: [
-                for (var i = 0; i < recentNotifications.length; i++) ...[
-                  _DashboardActivityTile(
-                    icon: Icons.notifications_active_rounded,
-                    color: Colors.amber,
-                    title: (recentNotifications[i]['title'] ?? 'Notification')
-                        .toString(),
-                    subtitle: (recentNotifications[i]['body'] ?? '').toString(),
-                    time: _dateLabel(recentNotifications[i]['created_at']),
-                    onTap: () => Get.toNamed(AppRoutes.notifications),
-                  ),
-                  if (i != recentNotifications.length - 1)
-                    const SizedBox(height: 14),
-                ],
-              ],
-            ),
-          ),
       ],
     );
   }
@@ -444,7 +421,6 @@ class DashboardHomeSection extends StatelessWidget {
     final stats = Map<String, dynamic>.from(summary['stats'] as Map? ?? {});
     final recentCases = _listValue(summary, 'recent_cases');
     final recentRequests = _listValue(summary, 'recent_requests');
-    final recentNotifications = _listValue(summary, 'recent_notifications');
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
       children: [
@@ -629,31 +605,6 @@ class DashboardHomeSection extends StatelessWidget {
         const SizedBox(height: 22),
         // Phase 27.11 — public "Latest news" strip on the beneficiary home.
         const _NewsStrip(),
-        const SizedBox(height: 22),
-        const _SectionLabel(title: 'Latest alerts'),
-        const SizedBox(height: 12),
-        if (recentNotifications.isEmpty)
-          const _GlassPanel(child: Text('No recent alerts.'))
-        else
-          _GlassPanel(
-            child: Column(
-              children: [
-                for (var i = 0; i < recentNotifications.length; i++) ...[
-                  _DashboardActivityTile(
-                    icon: Icons.notifications_active_rounded,
-                    color: Colors.amber,
-                    title: (recentNotifications[i]['title'] ?? 'Notification')
-                        .toString(),
-                    subtitle: (recentNotifications[i]['body'] ?? '').toString(),
-                    time: _dateLabel(recentNotifications[i]['created_at']),
-                    onTap: () => Get.toNamed(AppRoutes.notifications),
-                  ),
-                  if (i != recentNotifications.length - 1)
-                    const SizedBox(height: 14),
-                ],
-              ],
-            ),
-          ),
       ],
     );
   }
@@ -667,7 +618,6 @@ class DashboardHomeSection extends StatelessWidget {
       summary['application'] as Map? ?? {},
     );
     final upcomingMissions = _listValue(summary, 'upcoming_missions');
-    final recentNotifications = _listValue(summary, 'recent_notifications');
     final applicationStatus = (stats['application_status'] ?? '').toString();
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
@@ -825,31 +775,6 @@ class DashboardHomeSection extends StatelessWidget {
         const SizedBox(height: 22),
         // Phase 27.11 — public "Latest news" strip on the volunteer home.
         const _NewsStrip(),
-        const SizedBox(height: 22),
-        const _SectionLabel(title: 'Latest alerts'),
-        const SizedBox(height: 12),
-        if (recentNotifications.isEmpty)
-          const _GlassPanel(child: Text('No recent alerts.'))
-        else
-          _GlassPanel(
-            child: Column(
-              children: [
-                for (var i = 0; i < recentNotifications.length; i++) ...[
-                  _DashboardActivityTile(
-                    icon: Icons.notifications_active_rounded,
-                    color: Colors.amber,
-                    title: (recentNotifications[i]['title'] ?? 'Notification')
-                        .toString(),
-                    subtitle: (recentNotifications[i]['body'] ?? '').toString(),
-                    time: _dateLabel(recentNotifications[i]['created_at']),
-                    onTap: () => Get.toNamed(AppRoutes.notifications),
-                  ),
-                  if (i != recentNotifications.length - 1)
-                    const SizedBox(height: 14),
-                ],
-              ],
-            ),
-          ),
       ],
     );
   }
@@ -1055,11 +980,14 @@ class _FeaturedCampaignsSection extends StatelessWidget {
           children: [
             const _SectionLabel(title: 'Featured campaigns'),
             const Spacer(),
-            Text(
-              'See all'.tr,
-              style: const TextStyle(
-                color: Color(0xFF0F766E),
-                fontWeight: FontWeight.w700,
+            InkWell(
+              onTap: () => Get.to(() => const DonationsSection()),
+              child: Text(
+                'See all'.tr,
+                style: const TextStyle(
+                  color: Color(0xFF0F766E),
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ],

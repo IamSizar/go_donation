@@ -329,6 +329,16 @@ class MarketplaceController extends GetxController
     return (product['category'] ?? '').toString();
   }
 
+  /// Looks up a cart line's full product record (for the cart screen's
+  /// thumbnail/name/price) by id. Null if it fell out of `products` (e.g. a
+  /// pull-to-refresh reset the loaded page past where it was added).
+  Map<String, dynamic>? productById(int id) {
+    for (final product in products) {
+      if (_productId(product['id']) == id) return product;
+    }
+    return null;
+  }
+
   int? _productId(dynamic value) {
     final id = int.tryParse((value ?? '').toString());
     if (id == null || id <= 0) return null;

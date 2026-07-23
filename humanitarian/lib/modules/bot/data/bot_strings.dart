@@ -48,6 +48,12 @@ abstract final class BotStrings {
       'ckb': 'لەسەر پرسیارێک لە سەرەوە بپەڕە بۆ پرسیارکردن',
       'kmr': 'ل سەر پرسیارەکێ ل سەرێ بتکینە بۆ پرسینێ',
     },
+    'inputHint': {
+      'en': 'Type your question…',
+      'ar': 'اكتب سؤالك…',
+      'ckb': 'پرسیارەکەت بنووسە…',
+      'kmr': 'پرسیارا خۆ بنڤیسە…',
+    },
     'error': {
       'en': 'I\'m having trouble reaching the assistant right now. Please check '
           'your connection and try again, or contact our support team from the '

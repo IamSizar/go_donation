@@ -8,7 +8,14 @@ import { useI18n } from '../lib/i18n'
 import { useToast } from '../lib/toast'
 
 type FieldRuleState = 'required' | 'optional' | 'hidden'
-type Rule = { field_key: string; state: FieldRuleState; display_order: number }
+type Rule = {
+  field_key: string
+  state: FieldRuleState
+  display_order: number
+  // Client note — Marriage "Search": independent of required/optional/hidden
+  // on the form, a field can also be enabled as a search filter.
+  searchable: boolean
+}
 
 // Humanize a field_key for display (admin-facing).
 const humanize = (k: string) =>
@@ -50,6 +57,11 @@ const MARRIAGE_FIELD_LABEL_KEYS: Record<string, string> = {
   city: 'field.city',
   social_summary: 'field.social_summary',
   private_notes: 'field.private_notes',
+  marital_status: 'field.marital_status',
+  religion: 'field.religion',
+  employment_status: 'field.employment_status',
+  weight: 'field.weight',
+  height: 'field.height',
 }
 
 // Note #34 — the dashboard's "Add New User" window's applicant-data fields,
@@ -106,6 +118,21 @@ export default function FieldRulesPage() {
     }
   }
 
+  const setSearchable = async (r: Rule, searchable: boolean) => {
+    const prev = r.searchable
+    setItems((xs) => xs.map((x) => (x.field_key === r.field_key ? { ...x, searchable } : x)))
+    setSavingKey(r.field_key)
+    try {
+      await api.post(`/api/admin/registration/field-rules/${r.field_key}/searchable`, { searchable })
+      toast.success(t('fieldRules.saved'))
+    } catch (e) {
+      toast.error(describeError(e))
+      setItems((xs) => xs.map((x) => (x.field_key === r.field_key ? { ...x, searchable: prev } : x)))
+    } finally {
+      setSavingKey(null)
+    }
+  }
+
   const stateSelect = (r: Rule) => (
     <select
       value={r.state}
@@ -119,7 +146,11 @@ export default function FieldRulesPage() {
     </select>
   )
 
-  const renderPrefixedSection = (prefix: string, labelKeys: Record<string, string>) =>
+  const renderPrefixedSection = (
+    prefix: string,
+    labelKeys: Record<string, string>,
+    showSearchable = false,
+  ) =>
     items.filter((r) => r.field_key.startsWith(prefix)).map((r) => {
       const suffix = r.field_key.slice(prefix.length)
       const labelKey = labelKeys[suffix]
@@ -129,6 +160,20 @@ export default function FieldRulesPage() {
             <span style={{ flex: 1 }}><strong>{labelKey ? t(labelKey) : humanize(suffix)}</strong></span>
             {stateSelect(r)}
           </label>
+          {showSearchable && (
+            <label
+              className="field"
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}
+            >
+              <input
+                type="checkbox"
+                checked={r.searchable}
+                disabled={savingKey === r.field_key}
+                onChange={(e) => setSearchable(r, e.target.checked)}
+              />
+              <span className="muted">{t('fieldRules.searchable')}</span>
+            </label>
+          )}
         </div>
       )
     })
@@ -165,7 +210,7 @@ export default function FieldRulesPage() {
 
           <h3 style={{ margin: '16px 0 0' }}>{t('fieldRules.section_marriage')}</h3>
           <p className="muted" style={{ marginTop: 0 }}>{t('fieldRules.section_marriage_desc')}</p>
-          {renderPrefixedSection(MARRIAGE_PREFIX, MARRIAGE_FIELD_LABEL_KEYS)}
+          {renderPrefixedSection(MARRIAGE_PREFIX, MARRIAGE_FIELD_LABEL_KEYS, true)}
 
           <h3 style={{ margin: '16px 0 0' }}>{t('fieldRules.section_new_user')}</h3>
           <p className="muted" style={{ marginTop: 0 }}>{t('fieldRules.section_new_user_desc')}</p>

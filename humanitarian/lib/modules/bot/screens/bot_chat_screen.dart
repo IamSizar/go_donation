@@ -5,6 +5,7 @@ import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:flutter_application_1/localization/locale_service.dart';
@@ -28,6 +29,7 @@ class BotChatScreen extends StatefulWidget {
 class _BotChatScreenState extends State<BotChatScreen> {
   final AssistantController ctrl = Get.put(AssistantController());
   final ScrollController _scrollCtrl = ScrollController();
+  final TextEditingController _inputCtrl = TextEditingController();
 
   @override
   void initState() {
@@ -42,6 +44,7 @@ class _BotChatScreenState extends State<BotChatScreen> {
   @override
   void dispose() {
     _scrollCtrl.dispose();
+    _inputCtrl.dispose();
     super.dispose();
   }
 
@@ -72,6 +75,16 @@ class _BotChatScreenState extends State<BotChatScreen> {
   Future<void> _send(String text, {String? intentID}) async {
     if (!await requireUpgrade(context)) return;
     ctrl.send(text, intentID: intentID);
+  }
+
+  // Client note — AI Assistant "more developed": free-typed questions, not
+  // just the suggestion chips. The welcome bubble already promised this
+  // ("type your own question") — this wires it up.
+  Future<void> _sendTyped() async {
+    final text = _inputCtrl.text;
+    if (text.trim().isEmpty || ctrl.isTyping.value) return;
+    _inputCtrl.clear();
+    await _send(text);
   }
 
   // Full routing: hand the route key to the central resolver, which switches
@@ -111,13 +124,18 @@ class _BotChatScreenState extends State<BotChatScreen> {
                     const SizedBox(height: 14),
                     if (m.isUser)
                       _UserBubble(text: m.text)
-                    else
+                    else ...[
                       _BotBubble(
                         message: m,
                         onAction: m.hasAction
                             ? () => _navigate(m.actionRoute!)
                             : null,
                       ),
+                      for (final tr in m.toolResults) ...[
+                        const SizedBox(height: 8),
+                        _ToolResultCard(result: tr),
+                      ],
+                    ],
                   ],
                   if (ctrl.isTyping.value) ...[
                     const SizedBox(height: 14),
@@ -134,7 +152,7 @@ class _BotChatScreenState extends State<BotChatScreen> {
                 ? _WhatsappOffer(number: ctrl.whatsappNumber.value!)
                 : const SizedBox.shrink(),
           ),
-          _TapHint(lang: lang),
+          _Composer(controller: _inputCtrl, onSend: _sendTyped, isSending: ctrl.isTyping),
         ],
       ),
     );
@@ -684,46 +702,284 @@ class _WhatsappOffer extends StatelessWidget {
   }
 }
 
-class _TapHint extends StatelessWidget {
-  const _TapHint({required this.lang});
-  final String lang;
+// ─── Composer ─────────────────────────────────────────────────────────────
+
+/// Client note — AI Assistant "more developed": a real free-text input, not
+/// just suggestion chips (the welcome bubble already promised "type your own
+/// question" — this was the missing piece). Mirrors chat_conversation_screen's
+/// composer styling for consistency with the rest of the app's chat UIs.
+class _Composer extends StatelessWidget {
+  const _Composer({
+    required this.controller,
+    required this.onSend,
+    required this.isSending,
+  });
+
+  final TextEditingController controller;
+  final VoidCallback onSend;
+  final RxBool isSending;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: AppThemeConfig.surface(context),
-        border: Border(top: BorderSide(color: AppThemeConfig.border(context))),
-      ),
-      padding: EdgeInsets.fromLTRB(
-        16,
-        13,
-        16,
-        13 + MediaQuery.of(context).padding.bottom,
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.touch_app_rounded,
-            size: 17,
-            color: Colors.deepPurple.shade400,
-          ),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Text(
-              BotStrings.of('tapHint', lang),
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppThemeConfig.mutedText(context),
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+        decoration: BoxDecoration(
+          color: AppThemeConfig.surface(context),
+          border: Border(top: BorderSide(color: AppThemeConfig.border(context))),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(
+              child: TextField(
+                controller: controller,
+                minLines: 1,
+                maxLines: 5,
+                textInputAction: TextInputAction.send,
+                onSubmitted: (_) => onSend(),
+                decoration: InputDecoration(
+                  hintText: BotStrings.of(
+                    'inputHint',
+                    AppLocaleService.assistantLang(),
+                  ),
+                  filled: true,
+                  fillColor: AppThemeConfig.softSurface(context),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(22),
+                    borderSide: BorderSide(color: AppThemeConfig.border(context)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(22),
+                    borderSide: BorderSide(color: AppThemeConfig.border(context)),
+                  ),
+                ),
               ),
             ),
-          ),
-        ],
+            const SizedBox(width: 8),
+            Obx(
+              () => GestureDetector(
+                onTap: isSending.value ? null : onSend,
+                child: Container(
+                  width: 46,
+                  height: 46,
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.deepPurple, Colors.indigo],
+                    ),
+                    shape: BoxShape.circle,
+                  ),
+                  child: isSending.value
+                      ? const Padding(
+                          padding: EdgeInsets.all(13),
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
+  }
+}
+
+// ─── Tool result cards ────────────────────────────────────────────────────
+
+/// Renders one assistant tool lookup (the user's own wallet/donations/
+/// marriage/case/volunteer data) as a compact structured card instead of
+/// making the model describe numbers in prose.
+class _ToolResultCard extends StatelessWidget {
+  const _ToolResultCard({required this.result});
+  final AssistantToolResult result;
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = _rowsFor(result);
+    if (rows == null || rows.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 40),
+      child: GlassPanel(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(_iconFor(result.tool), size: 16, color: Colors.deepPurple.shade400),
+                const SizedBox(width: 6),
+                Text(
+                  _titleFor(result.tool).tr,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                    color: AppThemeConfig.text(context),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            for (final row in rows) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        row.$1,
+                        style: TextStyle(fontSize: 12.5, color: AppThemeConfig.mutedText(context)),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Flexible(
+                      child: Text(
+                        row.$2,
+                        textAlign: TextAlign.end,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: AppThemeConfig.text(context),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  IconData _iconFor(String tool) {
+    switch (tool) {
+      case 'get_wallet_balance':
+        return Icons.account_balance_wallet_rounded;
+      case 'get_my_donations':
+        return Icons.volunteer_activism_rounded;
+      case 'get_my_marriage_profile':
+        return Icons.favorite_rounded;
+      case 'get_my_beneficiary_status':
+        return Icons.fact_check_rounded;
+      case 'get_my_volunteer_status':
+        return Icons.handshake_rounded;
+      default:
+        return Icons.info_outline_rounded;
+    }
+  }
+
+  String _titleFor(String tool) {
+    switch (tool) {
+      case 'get_wallet_balance':
+        return 'Wallet balance';
+      case 'get_my_donations':
+        return 'Your donations';
+      case 'get_my_marriage_profile':
+        return 'Your marriage profile';
+      case 'get_my_beneficiary_status':
+        return 'Your case & project';
+      case 'get_my_volunteer_status':
+        return 'Your volunteer status';
+      default:
+        return tool;
+    }
+  }
+
+  /// Maps a tool's raw JSON into (label, value) rows. Returns null for an
+  /// error result (the reply text already explains it) or an unknown tool.
+  List<(String, String)>? _rowsFor(AssistantToolResult result) {
+    final data = result.data;
+    if (data['error'] != null) return null;
+
+    switch (result.tool) {
+      case 'get_wallet_balance':
+        final rows = <(String, String)>[
+          ('Balance'.tr, _money(data['balance_iqd'])),
+        ];
+        final recent = (data['recent_transactions'] as List?) ?? const [];
+        if (recent.isEmpty) {
+          rows.add(('Recent transactions'.tr, 'No recent transactions.'.tr));
+        } else {
+          for (final t in recent.take(3)) {
+            if (t is Map) {
+              rows.add(('${t['type'] ?? ''} · ${t['date'] ?? ''}', _money(t['amount_iqd'])));
+            }
+          }
+        }
+        return rows;
+
+      case 'get_my_donations':
+        final stats = data['stats'];
+        final rows = <(String, String)>[];
+        if (stats is Map) {
+          rows.add(('Total donated'.tr, '${stats['total_amount'] ?? 0} (${stats['total_count'] ?? 0})'));
+        }
+        final recent = (data['recent'] as List?) ?? const [];
+        if (recent.isEmpty) {
+          rows.add(('Your donations'.tr, 'No recent donations.'.tr));
+        } else {
+          for (final d in recent.take(3)) {
+            if (d is Map) {
+              rows.add(('${d['campaign'] ?? ''} · ${d['payment_status'] ?? ''}', '${d['amount'] ?? ''} ${d['currency'] ?? ''}'));
+            }
+          }
+        }
+        return rows;
+
+      case 'get_my_marriage_profile':
+        final profiles = (data['profiles'] as List?) ?? const [];
+        if (profiles.isEmpty) return [('Your marriage profile'.tr, 'No marriage profile yet.'.tr)];
+        final rows = <(String, String)>[];
+        for (final p in profiles.take(3)) {
+          if (p is Map) {
+            rows.add(('${p['profile_code'] ?? ''}', '${p['status'] ?? ''} · ${p['subscription_tier'] ?? ''}'));
+          }
+        }
+        return rows;
+
+      case 'get_my_beneficiary_status':
+        final cases = (data['cases'] as List?) ?? const [];
+        final requests = (data['project_requests'] as List?) ?? const [];
+        if (cases.isEmpty && requests.isEmpty) {
+          return [('Your case & project'.tr, 'No case or project found.'.tr)];
+        }
+        final rows = <(String, String)>[];
+        for (final c in cases.take(2)) {
+          if (c is Map) {
+            rows.add(('${c['case_code'] ?? ''}', '${c['verification_status'] ?? ''}'));
+          }
+        }
+        for (final r in requests.take(2)) {
+          if (r is Map) {
+            rows.add(('${r['title'] ?? ''}', '${r['status'] ?? ''} · ${r['raised_amount'] ?? 0}/${r['amount_needed'] ?? 0}'));
+          }
+        }
+        return rows;
+
+      case 'get_my_volunteer_status':
+        final missions = (data['joined_missions'] as List?) ?? const [];
+        if (missions.isEmpty) return [('Your volunteer status'.tr, 'No missions joined yet.'.tr)];
+        final rows = <(String, String)>[];
+        for (final m in missions.take(3)) {
+          if (m is Map) {
+            rows.add(('${m['title'] ?? ''}', '${m['signup_status'] ?? ''} · ${m['hours_served'] ?? 0}h'));
+          }
+        }
+        return rows;
+
+      default:
+        return null;
+    }
+  }
+
+  String _money(dynamic v) {
+    final n = num.tryParse('${v ?? 0}') ?? 0;
+    return '${NumberFormat.decimalPattern().format(n)} IQD';
   }
 }

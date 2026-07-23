@@ -49,6 +49,7 @@ function buildMarriageFields(state: Record<string, FieldRuleState>): FieldSpec[]
     { key: 'gender',              label: 'Gender', labelKey: 'field.gender',              type: 'text',     required: isRequired('gender') },
     { key: 'age',                 label: 'Age', labelKey: 'dbfield.age',        type: 'number',   required: isRequired('age') },
     { key: 'city',                label: 'City', labelKey: 'field.city',                type: 'text',     required: isRequired('city') },
+    { key: 'photo_url',           label: 'Photo', labelKey: 'field.photo',               type: 'file' },
     { key: 'visibility_level',    label: 'Visibility', labelKey: 'field.visibility',          type: 'select', options: VISIBILITY_LEVELS },
     { key: 'subscription_status', label: 'Subscription', labelKey: 'field.subscription',        type: 'select', options: SUBSCRIPTION_STATUSES },
     { key: 'status',              label: 'Status', labelKey: 'field.status',              type: 'select', options: EDITABLE_STATUSES },

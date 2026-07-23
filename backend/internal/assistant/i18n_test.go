@@ -32,7 +32,7 @@ func TestLocal_IntentIDResolvesLocalizedAnswer(t *testing.T) {
 
 	for _, c := range cases {
 		// Empty message body — resolution must come purely from the intent id.
-		got := svc.Answer(nil, roleDonor, "", userMsg(""), c.lang, "d_donate")
+		got := svc.Answer(nil, roleDonor, 0, "", userMsg(""), c.lang, "d_donate")
 		if !strings.Contains(got.Text, c.wantInReply) {
 			t.Errorf("[%s] reply %q does not contain %q", c.lang, got.Text, c.wantInReply)
 		}
@@ -67,7 +67,7 @@ func TestLocal_KeywordMatchPerLanguage(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		got := svc.Answer(nil, roleDonor, "", userMsg(c.query), c.lang, "")
+		got := svc.Answer(nil, roleDonor, 0, "", userMsg(c.query), c.lang, "")
 		if !strings.Contains(got.Text, c.want) {
 			t.Errorf("[%s] query %q → reply %q, want substring %q", c.lang, c.query, got.Text, c.want)
 		}
@@ -86,7 +86,7 @@ func TestLocal_FallbackReplyLocalized(t *testing.T) {
 		"kmr": "نە دڵنیام",
 	}
 	for lang, want := range checks {
-		got := svc.Answer(nil, roleDonor, "", userMsg(gibberish), lang, "")
+		got := svc.Answer(nil, roleDonor, 0, "", userMsg(gibberish), lang, "")
 		if !strings.Contains(got.Text, want) {
 			t.Errorf("[%s] fallback %q missing %q", lang, got.Text, want)
 		}
@@ -99,7 +99,7 @@ func TestLocal_FallbackReplyLocalized(t *testing.T) {
 // Task 15: the system prompt injects a hard language directive for non-English
 // locales (and none for English), so the LLM replies in the user's language.
 func TestSystemPrompt_LanguageDirective(t *testing.T) {
-	if got := systemPrompt(roleDonor, "", "en"); strings.Contains(got, "MUST be written entirely") {
+	if got := systemPrompt(roleDonor, "", "en", ""); strings.Contains(got, "MUST be written entirely") {
 		t.Error("English prompt should not contain a language directive")
 	}
 	cases := map[string]string{
@@ -108,7 +108,7 @@ func TestSystemPrompt_LanguageDirective(t *testing.T) {
 		"kmr": "Kurdish Behdini",
 	}
 	for lang, want := range cases {
-		got := systemPrompt(roleDonor, "", lang)
+		got := systemPrompt(roleDonor, "", lang, "")
 		// The directive must lead the prompt (so it isn't overridden) ...
 		if !strings.HasPrefix(strings.TrimSpace(got), "IMPORTANT: The \"reply\" text MUST be written entirely in "+want) {
 			t.Errorf("[%s] prompt should open with the %s directive; got prefix %q", lang, want, firstLine(got))

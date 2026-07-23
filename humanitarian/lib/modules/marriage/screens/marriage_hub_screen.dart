@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/guest_session.dart';
-import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
+import 'package:flutter_application_1/modules/chat/chat_actions.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 
@@ -10,22 +10,22 @@ import 'marriage_form_screen.dart';
 import 'marriage_my_profile_screen.dart';
 import 'marriage_posts_screen.dart';
 import 'marriage_search_screen.dart';
+import 'marriage_subscription_screen.dart';
 
 /// Note #41 — the unified "Marriage" bottom-nav tab. Everyone (including a
-/// guest, per Note #40's browsing scope) can browse profiles and read posts;
-/// only the Beneficiary role can submit/view "my profile" (matches the
-/// backend's existing role restriction on POST /marriage — this screen just
-/// mirrors that, it doesn't change it); Chats is available to any signed-in
-/// role (a Donor/Volunteer can request a meeting from Browse, so they need
-/// their own thread list too) but hidden for guests, whose messaging is
-/// blocked entirely (Note #40).
+/// guest, per Note #40's browsing scope) can browse profiles and read posts.
+/// Note #43 — submitting/viewing "my profile" and Subscription used to be
+/// restricted to the Beneficiary role only ("This action is not available
+/// for your role" on submit); the client asked for every account category to
+/// be able to use the Marriage section with no role-based restriction, so
+/// these are now gated only on not-guest (guests still can't submit — POST
+/// /marriage requires RequireNotGuest() same as Chats below).
 class MarriageHubScreen extends StatelessWidget {
   const MarriageHubScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     final guest = isGuestMode();
-    final isBeneficiary = sharedPreferences.getString('role_id') == '2';
 
     return SectionScaffold(
       title: 'Marriage',
@@ -48,7 +48,7 @@ class MarriageHubScreen extends StatelessWidget {
             subtitle: 'News and stories from the marriage section',
             onTap: () => Get.to(() => const MarriagePostsScreen()),
           ),
-          if (isBeneficiary) ...[
+          if (!guest) ...[
             const SizedBox(height: 12),
             _MarriageTile(
               icon: Icons.favorite_outline_rounded,
@@ -65,6 +65,14 @@ class MarriageHubScreen extends StatelessWidget {
               subtitle: 'View your submitted profile and its status',
               onTap: () => Get.to(() => const MarriageMyProfileScreen()),
             ),
+            const SizedBox(height: 12),
+            _MarriageTile(
+              icon: Icons.workspace_premium_rounded,
+              color: Colors.pinkAccent,
+              title: 'Subscription',
+              subtitle: 'Upgrade your profile with a subscription package',
+              onTap: () => Get.to(() => const MarriageSubscriptionScreen()),
+            ),
           ],
           if (!guest) ...[
             const SizedBox(height: 12),
@@ -74,6 +82,17 @@ class MarriageHubScreen extends StatelessWidget {
               title: 'Chats',
               subtitle: 'Staff-mediated conversations for accepted meetings',
               onTap: () => Get.to(() => const MarriageChatsScreen()),
+            ),
+            const SizedBox(height: 12),
+            _MarriageTile(
+              icon: Icons.support_agent_rounded,
+              color: Colors.teal,
+              title: 'Message the staff team',
+              subtitle: 'Questions or issues about the marriage section',
+              onTap: () => ChatActions.startSupportChat(
+                context,
+                conversationTitle: 'Staff support'.tr,
+              ),
             ),
           ],
         ],

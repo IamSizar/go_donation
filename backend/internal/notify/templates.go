@@ -78,6 +78,106 @@ func WalletToppedUpMsg(amountIQD, newBalanceIQD int64) LocalizedMessage {
 	}
 }
 
+// TaskAssignedMsg — client note "Task Verification": staff just assigned the
+// user a new task to complete.
+func TaskAssignedMsg(title string) LocalizedMessage {
+	return LocalizedMessage{
+		Type: "task_assigned",
+		Title: LocalText{
+			En:  "New task assigned",
+			Ar:  "تم تكليفك بمهمة جديدة",
+			Ckb: "ئەرکێکی نوێت پێ سپێردرا",
+			Kmr: "ئەرکەکێ نوو یێ تە هاتیە دان",
+		},
+		Body: LocalText{
+			En:  fmt.Sprintf("You've been assigned a new task: %s", title),
+			Ar:  fmt.Sprintf("تم تكليفك بمهمة جديدة: %s", title),
+			Ckb: fmt.Sprintf("ئەرکێکی نوێت پێ سپێردرا: %s", title),
+			Kmr: fmt.Sprintf("ئەرکەکێ نوو یێ تە هاتیە دان: %s", title),
+		},
+	}
+}
+
+// MarriageSubscriptionActivatedMsg — a subscription purchase (wallet =
+// instant, or cash/bank once staff confirmed it) is now active.
+func MarriageSubscriptionActivatedMsg(packageName string) LocalizedMessage {
+	return LocalizedMessage{
+		Type: "marriage_subscription_activated",
+		Title: LocalText{
+			En:  "Subscription activated",
+			Ar:  "تم تفعيل الاشتراك",
+			Ckb: "بەشداریی چالاک کرا",
+			Kmr: "بەشداری هاتە چالاککرن",
+		},
+		Body: LocalText{
+			En:  fmt.Sprintf("Your %s subscription is now active.", packageName),
+			Ar:  fmt.Sprintf("اشتراكك في %s أصبح مفعّلاً الآن.", packageName),
+			Ckb: fmt.Sprintf("بەشداریی %s ئێستا چالاکە.", packageName),
+			Kmr: fmt.Sprintf("بەشداریا تە یا %s نوکە چالاک ب.", packageName),
+		},
+	}
+}
+
+// MarriageSubscriptionPendingMsg — a cash/bank subscription purchase is
+// awaiting staff confirmation.
+func MarriageSubscriptionPendingMsg(packageName string) LocalizedMessage {
+	return LocalizedMessage{
+		Type: "marriage_subscription_pending",
+		Title: LocalText{
+			En:  "Subscription pending",
+			Ar:  "الاشتراك قيد الانتظار",
+			Ckb: "بەشداریی چاوەڕوانە",
+			Kmr: "بەشداری ل هیڤیێ یە",
+		},
+		Body: LocalText{
+			En:  fmt.Sprintf("Your %s subscription request was received and is pending payment confirmation.", packageName),
+			Ar:  fmt.Sprintf("تم استلام طلب اشتراكك في %s وهو بانتظار تأكيد الدفع.", packageName),
+			Ckb: fmt.Sprintf("داواکارییەکەت بۆ بەشداریی %s وەرگیرا و چاوەڕوانی پشتڕاستکردنەوەی دراوەکەیە.", packageName),
+			Kmr: fmt.Sprintf("داخوازییا تە یا بەشداریا %s هاتە وەرگرتن و ل هیڤیا پشتڕاستکرنا دانی یە.", packageName),
+		},
+	}
+}
+
+// MarriageSubscriptionRejectedMsg — staff rejected a pending cash/bank
+// purchase (e.g. payment never arrived).
+func MarriageSubscriptionRejectedMsg() LocalizedMessage {
+	return LocalizedMessage{
+		Type: "marriage_subscription_rejected",
+		Title: LocalText{
+			En:  "Subscription request declined",
+			Ar:  "تم رفض طلب الاشتراك",
+			Ckb: "داواکارییی بەشداریی ڕەتکرایەوە",
+			Kmr: "داخوازییا بەشداریێ هاتە ڕەتکرن",
+		},
+		Body: LocalText{
+			En:  "Your subscription payment could not be confirmed. Please contact staff.",
+			Ar:  "تعذّر تأكيد دفع اشتراكك. يرجى التواصل مع الموظفين.",
+			Ckb: "نەتوانرا دراوی بەشداریت پشتڕاست بکرێتەوە. تکایە پەیوەندی بە کارمەندەوە بکە.",
+			Kmr: "نەشیا دانا بەشداریا تە بهێتە پشتڕاستکرن. ژکەرەم کەرە پەیوەندی ب کارمەندان ڕا بکە.",
+		},
+	}
+}
+
+// NewMarriageSubscriptionPendingAdminMsg — alerts staff that a cash/bank
+// subscription payment needs manual confirmation.
+func NewMarriageSubscriptionPendingAdminMsg(packageName string, purchaseID int64) LocalizedMessage {
+	return LocalizedMessage{
+		Type: "marriage_subscription_pending_admin",
+		Title: LocalText{
+			En:  "Subscription payment needs confirmation",
+			Ar:  "دفع اشتراك بحاجة لتأكيد",
+			Ckb: "دراوی بەشداریی پێویستی بە پشتڕاستکردنەوەیە",
+			Kmr: "دانا بەشداریێ پێدڤی ب پشتڕاستکرنێ هەیە",
+		},
+		Body: LocalText{
+			En:  fmt.Sprintf("A %s subscription purchase (#%d) is awaiting payment confirmation.", packageName, purchaseID),
+			Ar:  fmt.Sprintf("عملية شراء اشتراك %s (#%d) بانتظار تأكيد الدفع.", packageName, purchaseID),
+			Ckb: fmt.Sprintf("کڕینی بەشداریی %s (#%d) چاوەڕوانی پشتڕاستکردنەوەی دراوەیە.", packageName, purchaseID),
+			Kmr: fmt.Sprintf("کڕینا بەشداریا %s (#%d) ل هیڤیا پشتڕاستکرنا دانی یە.", packageName, purchaseID),
+		},
+	}
+}
+
 // SponsorshipSubmittedMsg — grantor just created a sponsorship.
 func SponsorshipSubmittedMsg(amount, currency, projectName string, sponsorshipID int64) LocalizedMessage {
 	return LocalizedMessage{

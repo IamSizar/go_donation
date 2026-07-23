@@ -604,10 +604,16 @@ func (h *AdminCreateHandler) MarriageProfile(c *gin.Context) {
 	}
 	subscription := "bronze" // Note #17 — was "free"; bronze is the new entry tier.
 	if req.SubscriptionStatus != nil {
+		// Client note — Marriage "Subscription": tiers are a dynamic,
+		// admin-managed table now — validate against existing package slugs
+		// rather than a fixed list.
 		v := strings.TrimSpace(*req.SubscriptionStatus)
 		if v != "" {
-			if !inSet(v, marriageSubscription) {
-				c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid subscription_status. Allowed: " + strings.Join(marriageSubscription, ", ")})
+			var exists bool
+			if err := h.Pool.QueryRow(c.Request.Context(),
+				`SELECT EXISTS(SELECT 1 FROM marriage_subscription_packages WHERE slug = $1)`, v,
+			).Scan(&exists); err != nil || !exists {
+				c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid subscription_status: unknown package."})
 				return
 			}
 			subscription = v
@@ -633,13 +639,13 @@ func (h *AdminCreateHandler) MarriageProfile(c *gin.Context) {
 	err := h.Pool.QueryRow(c.Request.Context(), `
 		INSERT INTO marriage_profiles
 		  (user_id, profile_code, gender, age, city, social_summary, private_notes,
-		   visibility_level, subscription_status, status)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+		   visibility_level, subscription_status, status, photo_url)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
 		RETURNING id`,
 		*req.UserID, profileCode,
 		optStringOrNil(req.Gender), nullableIntPtr(req.Age), optStringOrNil(req.City),
 		optStringOrNil(req.SocialSummary), optStringOrNil(req.PrivateNotes),
-		visibility, subscription, status,
+		visibility, subscription, status, optStringOrNil(req.PhotoUrl),
 	).Scan(&id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})

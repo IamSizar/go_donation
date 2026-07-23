@@ -10,7 +10,27 @@ import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class PartnersScreen extends StatelessWidget {
-  const PartnersScreen({super.key});
+  const PartnersScreen({super.key, this.onlySupporting = false});
+
+  // Client note — "Supporting Organizations" as a distinct list from "Our
+  // Partners". There's no separate category field for this in the data (a
+  // partner is just a partner, with a free-text `partner_type`) — by
+  // request, this filters that existing field for anything an admin has
+  // labeled as a supporting organization, rather than adding a new column.
+  final bool onlySupporting;
+
+  static const List<String> _supportingKeywords = [
+    'support',
+    'داعم',
+    'پشتیوان',
+    'پشتگیر',
+  ];
+
+  bool _isSupporting(Map<String, dynamic> item) {
+    final type = (item['partner_type'] ?? '').toString().toLowerCase();
+    if (type.isEmpty) return false;
+    return _supportingKeywords.any((k) => type.contains(k));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -18,11 +38,20 @@ class PartnersScreen extends StatelessWidget {
         ? Get.find<PartnersController>()
         : Get.put(PartnersController());
 
+    final title = onlySupporting ? 'Supporting Organizations' : 'Partners';
+    final emptySubtitle = onlySupporting
+        ? 'No supporting organizations are listed yet.'
+        : 'No partner records are available yet.';
+
     return SectionScaffold(
-      title: 'Partners',
-      subtitle: 'Browse partner and supporting entities.',
+      title: title,
+      subtitle: onlySupporting
+          ? 'Organizations that support our work.'
+          : 'Browse partner and supporting entities.',
       child: Obx(() {
-        final items = controller.partners;
+        final items = onlySupporting
+            ? controller.partners.where(_isSupporting).toList()
+            : controller.partners;
         return RefreshIndicator(
           onRefresh: controller.fetchPartners,
           child: ListView(
@@ -33,7 +62,7 @@ class PartnersScreen extends StatelessWidget {
               if (controller.errorMessage.value != null)
                 SectionTile(
                   icon: Icons.apartment_rounded,
-                  title: 'Partners',
+                  title: title,
                   subtitle: controller.errorMessage.value!,
                   color: Colors.blueAccent,
                   onTap: controller.fetchPartners,
@@ -41,10 +70,10 @@ class PartnersScreen extends StatelessWidget {
               if (!controller.isLoading.value &&
                   controller.errorMessage.value == null &&
                   items.isEmpty)
-                const SectionTile(
+                SectionTile(
                   icon: Icons.apartment_rounded,
-                  title: 'Partners',
-                  subtitle: 'No partner records are available yet.',
+                  title: title,
+                  subtitle: emptySubtitle,
                   color: Colors.blueAccent,
                 ),
               for (final item in items) ...[

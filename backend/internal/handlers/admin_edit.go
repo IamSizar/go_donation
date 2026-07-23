@@ -401,18 +401,10 @@ type marriageEditReq struct {
 	VisibilityLevel    *string `json:"visibility_level"`
 	SubscriptionStatus *string `json:"subscription_status"`
 	Status             *string `json:"status"`
+	PhotoUrl           *string `json:"photo_url"`
 }
 
 var marriageVisibility = []string{"private", "employee_only", "matched_summary"}
-
-// Note #17 — was ["free","paid","waived"]. The "free" label was misleading
-// (only the search feature is actually free); replaced with 5 real package
-// tiers. "bronze" is the new entry-level/free-equivalent tier — see
-// migrations/051_marriage_subscription_tiers.sql for the data migration.
-// Also reused by SettingsHandler (admin_settings.go) as the key list for
-// the admin-configurable per-tier prices, so this is the single source of
-// truth for valid tier names.
-var marriageSubscription = []string{"bronze", "silver", "gold", "diamond", "vip"}
 
 func (h *AdminEditHandler) Marriage(c *gin.Context) {
 	id, ok := parseID(c)
@@ -436,6 +428,7 @@ func (h *AdminEditHandler) Marriage(c *gin.Context) {
 	addOptString(&b, "city", req.City)
 	addOptString(&b, "social_summary", req.SocialSummary)
 	addOptString(&b, "private_notes", req.PrivateNotes)
+	addOptString(&b, "photo_url", req.PhotoUrl)
 	if req.VisibilityLevel != nil {
 		v := strings.TrimSpace(*req.VisibilityLevel)
 		if !inSet(v, marriageVisibility) {
@@ -445,9 +438,16 @@ func (h *AdminEditHandler) Marriage(c *gin.Context) {
 		b.add("visibility_level", v)
 	}
 	if req.SubscriptionStatus != nil {
+		// Client note — Marriage "Subscription": tiers are now a dynamic,
+		// admin-managed table (marriage_subscription_packages) instead of a
+		// fixed 5-value enum, so validate against whatever package slugs
+		// currently exist rather than a hardcoded list.
 		v := strings.TrimSpace(*req.SubscriptionStatus)
-		if !inSet(v, marriageSubscription) {
-			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid subscription_status. Allowed: " + strings.Join(marriageSubscription, ", ")})
+		var exists bool
+		if err := h.Pool.QueryRow(c.Request.Context(),
+			`SELECT EXISTS(SELECT 1 FROM marriage_subscription_packages WHERE slug = $1)`, v,
+		).Scan(&exists); err != nil || !exists {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid subscription_status: unknown package."})
 			return
 		}
 		b.add("subscription_status", v)

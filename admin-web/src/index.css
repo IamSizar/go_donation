@@ -394,6 +394,53 @@ label {
 [dir="rtl"] .sidebar-collapsed .sidebar {
   border-left-color: transparent;
 }
+
+/* Responsive pass — below tablet width the sidebar stops being a layout
+   column and becomes a full-height overlay drawer instead, opened by the
+   hamburger button and closed by the scrim or navigating anywhere.
+   `!important` on the sidebar's opacity/pointer-events/transform is
+   deliberate: `.sidebar-collapsed .sidebar` (a higher-specificity compound
+   selector) sets those same properties for the DESKTOP collapse toggle, and
+   that choice can be sitting in localStorage from a previous desktop
+   session — the drawer must still open regardless of it. */
+@media (max-width: 768px) {
+  /* `!important` here too: both buttons' base rules (further down this
+     file, next to their other styling) set `display` with the same
+     specificity as a plain class selector, so which one wins would
+     otherwise depend on source order rather than this media query. */
+  .mobile-nav-toggle-btn { display: inline-flex !important; }
+  .sidebar-toggle-btn { display: none !important; }
+
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+  .sidebar {
+    position: fixed;
+    inset-block: 0;
+    inset-inline-start: 0;
+    width: min(280px, 82vw);
+    z-index: 210;
+    transform: translateX(-100%);
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    padding: var(--space-4) var(--space-3) !important;
+    border-right-color: var(--color-border) !important;
+    box-shadow: var(--shadow-lg);
+    transition: transform 220ms ease;
+  }
+  [dir="rtl"] .sidebar {
+    transform: translateX(100%);
+  }
+  .mobile-nav-open .sidebar {
+    transform: translateX(0);
+  }
+  .mobile-nav-scrim {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 205;
+  }
+}
 /* Note #2 follow-up — the icon-only version of this button tested too small
    and unclear for the client to notice it did anything. Now icon + a visible
    text label ("Hide sidebar" / "Show sidebar"), a proper button height to
@@ -428,6 +475,28 @@ label {
 @media (max-width: 860px) {
   .sidebar-toggle-btn span { display: none; }
   .sidebar-toggle-btn { padding: 0; width: 36px; justify-content: center; }
+}
+
+/* Responsive pass — hamburger for the phone/tablet drawer (see the
+   max-width:768px block below). Same visual treatment as the desktop
+   collapse toggle, but hidden above that breakpoint — the two buttons are
+   mutually exclusive, never both visible at once. */
+.mobile-nav-toggle-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 45%, var(--color-border));
+  background: var(--color-surface-2);
+  color: var(--text-h);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.mobile-nav-toggle-btn:hover {
+  background: var(--color-surface-3);
+  border-color: var(--color-primary);
 }
 .brand {
   display: flex;
@@ -772,6 +841,18 @@ nav .nav-group-header:hover { background: var(--panel-2); color: var(--text-h); 
   font-size: var(--text-sm);
 }
 .topbar select { height: 30px; font-size: var(--text-sm); padding: 0 28px 0 var(--space-3); }
+/* Responsive pass — the topbar's two `.row` groups (hamburger/toggle/user
+   chip on one side, sound menu/language on the other) had no wrap fallback
+   at all, so on a phone they simply overflowed off-screen edge to edge.
+   Letting the right group drop to its own line is enough — nothing is
+   hidden, it just stops fighting for one row's worth of width. */
+@media (max-width: 640px) {
+  .topbar {
+    flex-wrap: wrap;
+    row-gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+  }
+}
 
 /* User chip in the topbar — initials avatar + id + phone */
 .user-chip {
@@ -805,6 +886,9 @@ nav .nav-group-header:hover { background: var(--panel-2); color: var(--text-h); 
   padding: var(--space-5);
   overflow: auto;
   flex: 1;
+}
+@media (max-width: 640px) {
+  .content { padding: var(--space-3); }
 }
 
 /* ===== Cards / lists ===== */
@@ -856,6 +940,20 @@ nav .nav-group-header:hover { background: var(--panel-2); color: var(--text-h); 
 .page-head .row { gap: var(--space-2); }
 @media (max-width: 720px) {
   .page-head { flex-direction: column; align-items: stretch; }
+  /* The actions row (search/filter/export/"New") already stacked below the
+     title here, but its own children (search inputs especially set an
+     inline width per-page, e.g. `style={{width: 220}}`) kept their desktop
+     sizing and just wrapped loosely — full-width + one-per-line reads as a
+     deliberate mobile control group instead. `!important` is needed
+     specifically to outrank those inline per-page widths. */
+  .page-head .row {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .page-head .row > * {
+    width: 100% !important;
+  }
 }
 
 /* ===== Stat grid + cards ===== */
@@ -1016,6 +1114,65 @@ nav .nav-group-header:hover { background: var(--panel-2); color: var(--text-h); 
 .data-table tbody tr:hover td { background: rgba(16, 185, 129, 0.05); }
 .cell-muted { color: var(--muted); padding: var(--space-6); text-align: center; font-size: var(--text-sm); }
 .cell-stack { display: flex; flex-direction: column; gap: 2px; }
+
+/* Responsive pass — below tablet width a <table> stops reading as rows of
+   columns (the sideways scroll the client specifically complained about) and
+   becomes a stack of self-labelled cards instead: `thead` is hidden and each
+   `<td>` prints its own column header via `content: attr(data-label)` (see
+   Table.tsx's data-label prop). `!important` on text-align/white-space is
+   deliberate — both are set as inline styles per-cell in Table.tsx
+   (alignment, nowrap-for-tabular-numbers) which a plain class rule can't
+   outrank without it. */
+@media (max-width: 720px) {
+  .table-wrap {
+    max-height: none;
+    overflow: visible;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+  }
+  .data-table thead { display: none; }
+  .data-table, .data-table tbody, .data-table tr {
+    display: block;
+    width: 100%;
+  }
+  .data-table tbody tr {
+    margin-bottom: var(--space-3);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+  }
+  .data-table tbody tr:last-child { margin-bottom: 0; }
+  .data-table td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    width: auto;
+    white-space: normal !important;
+    text-align: end !important;
+  }
+  .data-table td::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    font-weight: 600;
+    color: var(--muted);
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    text-align: start;
+  }
+  /* The selection checkbox has no column header to print — show it as a
+     small leading control instead of a labelled row. */
+  .data-table td.select-cell {
+    justify-content: flex-start;
+    background: var(--color-surface-2);
+    border-bottom-color: var(--color-border);
+  }
+  .data-table td.select-cell::before { content: none; }
+}
 
 /* ===== Pagination ===== */
 .pagination {
@@ -1859,6 +2016,21 @@ code, pre { direction: ltr; unicode-bidi: bidi-override; }
   box-shadow: 0 18px 44px rgba(0, 0, 0, 0.7);
   z-index: 150;
 }
+/* Responsive pass — the pill had no width limit or wrap behavior, so on a
+   phone (a status <select>, an Apply button, an optional Delete button, and
+   Clear all in one unbroken row) it simply overflowed past both screen
+   edges while still nominally "centered". Centering itself (left:50% + the
+   entrance animation's translateX(-50%), set inline by framer-motion in
+   BulkBar.tsx) is untouched — only the size/wrap behavior changes here. */
+@media (max-width: 640px) {
+  .bulk-bar {
+    max-width: calc(100vw - 24px);
+    flex-wrap: wrap;
+    justify-content: center;
+    border-radius: var(--radius-lg);
+  }
+  .bulk-bar select { flex: 1 1 auto; }
+}
 .bulk-bar select,
 .bulk-bar button {
   padding: 4px 10px;
@@ -2416,6 +2588,15 @@ code, pre { direction: ltr; unicode-bidi: bidi-override; }
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+/* Responsive pass — 4 icon+label buttons plus a flex:1 spacer had no width
+   limit or wrap fallback, so on a phone "Save" (and often "Refresh") ran
+   off the right edge entirely. Icon-only below this width — same fallback
+   already used for the sidebar-toggle-btn — comfortably fits all four in
+   one row instead. */
+@media (max-width: 480px) {
+  .top-action-bar button span { display: none; }
+  .top-action-bar button { padding: 0 10px; }
 }
 
 /* ============================================================

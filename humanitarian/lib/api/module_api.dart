@@ -324,14 +324,59 @@ class ModuleApi {
   Future<Map<String, dynamic>> submitMarriage(Map<String, dynamic> body) =>
       postJson(marriageSubmitUrl, body);
 
-  // #46 — search marriage profiles (q + gender).
-  Future<List<Map<String, dynamic>>> searchMarriage({String q = '', String gender = ''}) {
+  // #46 — search marriage profiles (q + gender). Client note — Marriage
+  // "Search": extended with marital status/religion/employment status/
+  // weight/height, each only meaningful when staff enabled it as a filter
+  // (the caller is responsible for only passing values for enabled ones).
+  Future<List<Map<String, dynamic>>> searchMarriage({
+    String q = '',
+    String gender = '',
+    int minAge = 0,
+    int maxAge = 0,
+    String maritalStatus = '',
+    String religion = '',
+    String employmentStatus = '',
+    int minWeight = 0,
+    int maxWeight = 0,
+    int minHeight = 0,
+    int maxHeight = 0,
+    int beforeId = 0,
+  }) {
     final params = <String, String>{'status': 'active'};
     if (q.trim().isNotEmpty) params['q'] = q.trim();
     if (gender.trim().isNotEmpty) params['gender'] = gender.trim();
+    if (minAge > 0) params['min_age'] = '$minAge';
+    if (maxAge > 0) params['max_age'] = '$maxAge';
+    if (maritalStatus.trim().isNotEmpty) params['marital_status'] = maritalStatus.trim();
+    if (religion.trim().isNotEmpty) params['religion'] = religion.trim();
+    if (employmentStatus.trim().isNotEmpty) {
+      params['employment_status'] = employmentStatus.trim();
+    }
+    if (minWeight > 0) params['min_weight'] = '$minWeight';
+    if (maxWeight > 0) params['max_weight'] = '$maxWeight';
+    if (minHeight > 0) params['min_height'] = '$minHeight';
+    if (maxHeight > 0) params['max_height'] = '$maxHeight';
+    // Marriage Posts — cursor pagination for the continuous feed (older
+    // profiles than the last card seen); unused by the filtered Search screen.
+    if (beforeId > 0) params['before_id'] = '$beforeId';
     final uri = Uri.parse(marriageSubmitUrl).replace(queryParameters: params);
     return getItems(uri.toString());
   }
+
+  // Client note — Marriage "Subscription": active packages the user can buy.
+  Future<List<Map<String, dynamic>>> fetchMarriageSubscriptionPackages() =>
+      getItems('$marriageSubmitUrl/subscription-packages');
+
+  // Purchases a subscription package. paymentMethod is 'app_wallet' or a
+  // payment_methods.slug (cash/bank); wallet activates instantly, everything
+  // else stays pending until staff confirms it.
+  Future<Map<String, dynamic>> purchaseMarriageSubscription(
+    int packageId,
+    String paymentMethod,
+  ) =>
+      postJson('$marriageSubmitUrl/subscription-packages/$packageId/purchase', {
+        'payment_method': paymentMethod,
+      });
 
   // #46 — toggle-save a profile; returns the resulting saved state.
   Future<bool> toggleSaveMarriage(int profileId) async {
@@ -519,11 +564,6 @@ class ModuleApi {
   /// filter chips. Returns [] on error (the feed still works unfiltered).
   Future<List<Map<String, dynamic>>> mediaCategories() =>
       getItems(mediaCategoriesUrl);
-
-  /// Media posts filtered by post_type (e.g. "marriage" for the marriage
-  /// service's posts tab). The backend keeps these out of the general feed.
-  Future<List<Map<String, dynamic>>> mediaPostsByType(String type) =>
-      getItems('$mediaPostsUrl?type=$type');
 
   Future<List<Map<String, dynamic>>> beneficiaryCases() =>
       getItems(beneficiaryCasesUrl);

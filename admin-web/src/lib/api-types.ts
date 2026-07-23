@@ -342,6 +342,7 @@ export type MarriageProfile = {
   age: number | null
   city: string | null
   social_summary: string | null
+  photo_url: string | null
   visibility_level: string
   subscription_status: string
   status: string

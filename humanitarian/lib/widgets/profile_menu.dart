@@ -1,21 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/api/auth_session.dart';
-import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/core/app_haptics.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
-import 'package:flutter_application_1/modules/auth/screens/edit_profile.dart';
-import 'package:flutter_application_1/modules/auth/screens/profile.dart';
-import 'package:flutter_application_1/modules/dashboard/screens/guest_sections.dart';
-import 'package:flutter_application_1/modules/legal/screens/terms_screen.dart';
 import 'package:flutter_application_1/widgets/cached_profile_avatar.dart';
 import 'package:get/get.dart';
 
-// Note #41 — Profile/Community/Messages are no longer bottom-nav tabs, so
-// this menu pushes real screens now instead of switching a tab index.
-// (Community services folded into the City Guide tab; Messages moved to a
-// persistent top-bar icon — both dropped from here to avoid a duplicate
-// entry point.)
+// Client note — "Settings and Profile Interface" opens as a side drawer on
+// tap (see widgets/settings_drawer.dart, attached to the dashboard Scaffold
+// in dashboard_screen.dart). This button just opens it.
 
 const Color _brandTeal = Color(0xFF0F766E);
 const Color _brandTealLight = Color(0xFF14B8A6);
@@ -25,28 +17,8 @@ const Color _danger = Color(0xFFEF4444);
 String? _profileImagePath() => sharedPreferences.getString('profile_image_path');
 String? _profileImageUrl() => sharedPreferences.getString('profile_picture_url');
 
-String _displayName() {
-  final n = (sharedPreferences.getString('name_user') ?? '').trim();
-  return n.isEmpty ? 'No name'.tr : n;
-}
-
-String _roleLabel() {
-  if (isGuestMode()) return 'Guest'.tr;
-  switch (sharedPreferences.getString('role_id')) {
-    case '1':
-      return 'Donor'.tr;
-    case '2':
-      return 'Beneficiary'.tr;
-    case '3':
-      return 'Volunteer'.tr;
-    default:
-      return '';
-  }
-}
-
-/// Top-right profile avatar button that opens a quick profile menu (task #12).
-/// Shows the user's photo (or their initial / a person icon), and on tap opens
-/// a role/guest-aware bottom sheet of profile shortcuts.
+/// Top-right profile avatar button that opens the Settings/Profile drawer.
+/// Shows the user's photo (or their initial / a person icon).
 ///
 /// Note #41 — now shown in the persistent top bar on every tab (previously
 /// only on Home). [showIndicatorDot] surfaces the "profile incomplete" nudge
@@ -70,7 +42,7 @@ class ProfileMenuButton extends StatelessWidget {
           customBorder: const CircleBorder(),
           onTap: () {
             AppHaptics.selection();
-            _showProfileMenu(context);
+            Scaffold.of(context).openDrawer();
           },
           child: Stack(
             clipBehavior: Clip.none,
@@ -157,229 +129,3 @@ class _AvatarInitial extends StatelessWidget {
   }
 }
 
-void _showProfileMenu(BuildContext context) {
-  showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    builder: (_) => const _ProfileMenuSheet(),
-  );
-}
-
-class _ProfileMenuSheet extends StatelessWidget {
-  const _ProfileMenuSheet();
-
-  @override
-  Widget build(BuildContext context) {
-    final guest = isGuestMode();
-
-    return SafeArea(
-      top: false,
-      child: Container(
-        margin: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              AppThemeConfig.surface(context),
-              AppThemeConfig.elevatedSurface(context),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: AppThemeConfig.border(context)),
-          boxShadow: [
-            BoxShadow(
-              color: AppThemeConfig.shadow(context),
-              blurRadius: 30,
-              offset: const Offset(0, 18),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              margin: const EdgeInsets.only(top: 10),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppThemeConfig.mutedText(context).withValues(alpha: 0.4),
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
-              child: Row(
-                children: [
-                  CachedProfileAvatar(
-                    localPath: _profileImagePath(),
-                    imageUrl: _profileImageUrl(),
-                    radius: 26,
-                    backgroundColor: _avatarBg,
-                    placeholder: _AvatarInitial(size: 22),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _displayName(),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: AppThemeConfig.text(context),
-                          ),
-                        ),
-                        if (_roleLabel().isNotEmpty) ...[
-                          const SizedBox(height: 2),
-                          Text(
-                            _roleLabel(),
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: AppThemeConfig.mutedText(context),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Divider(height: 1, color: AppThemeConfig.border(context)),
-            _MenuTile(
-              icon: Icons.person_rounded,
-              label: 'Open profile',
-              onTap: () {
-                Navigator.of(context).pop();
-                Get.to(
-                  () => Scaffold(
-                    body: guest
-                        ? GuestAccountSection()
-                        : const ProfileSection(),
-                  ),
-                );
-              },
-            ),
-            if (!guest)
-              _MenuTile(
-                icon: Icons.edit_rounded,
-                label: 'Edit profile',
-                onTap: () {
-                  Navigator.of(context).pop();
-                  Get.to<bool>(() => const EditProfilePage());
-                },
-              ),
-            _MenuTile(
-              icon: Icons.description_rounded,
-              label: 'Terms & Conditions',
-              onTap: () {
-                Navigator.of(context).pop();
-                Get.to(() => const TermsScreen());
-              },
-            ),
-            Divider(height: 1, color: AppThemeConfig.border(context)),
-            guest
-                ? _MenuTile(
-                    icon: Icons.login_rounded,
-                    label: 'Sign in',
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      Get.offAllNamed('/login');
-                    },
-                  )
-                : _MenuTile(
-                    icon: Icons.logout_rounded,
-                    label: 'Log out',
-                    danger: true,
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      _confirmLogout();
-                    },
-                  ),
-            const SizedBox(height: 10),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-Future<void> _confirmLogout() async {
-  final confirmed =
-      await Get.dialog<bool>(
-        AlertDialog(
-          title: Text('Log out?'.tr),
-          content: Text('Are you sure you want to log out?'.tr),
-          actions: [
-            TextButton(
-              onPressed: () => Get.back(result: false),
-              child: Text('Cancel'.tr),
-            ),
-            TextButton(
-              onPressed: () => Get.back(result: true),
-              style: TextButton.styleFrom(foregroundColor: _danger),
-              child: Text('Log out'.tr),
-            ),
-          ],
-        ),
-      ) ??
-      false;
-  if (confirmed) {
-    // Navigate to login FIRST so the authenticated tree is torn down before the
-    // session is cleared (mirrors ProfileSection._handleLogout — avoids a black
-    // screen from sections rebuilding against wiped storage).
-    Get.offAllNamed('/login');
-    await logout();
-  }
-}
-
-class _MenuTile extends StatelessWidget {
-  const _MenuTile({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    this.danger = false,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  final bool danger;
-
-  @override
-  Widget build(BuildContext context) {
-    final textColor = danger ? _danger : AppThemeConfig.text(context);
-    final iconColor = danger ? _danger : _brandTeal;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-          child: Row(
-            children: [
-              Icon(icon, size: 22, color: iconColor),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Text(
-                  label.tr,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: textColor,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}

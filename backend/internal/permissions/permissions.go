@@ -134,7 +134,7 @@ func moduleDefaultAllowed(tier Tier, module, action string) bool {
 var Modules = []string{
 	"dashboard", "registrations", "users", "campaigns", "donations",
 	"sponsorships", "beneficiary", "marketplace", "in_kind", "partners",
-	"media", "community", "city", "marriage", "missions", "volunteers",
+	"media", "community", "city", "marriage", "missions", "volunteers", "tasks",
 	"messages", "notifications", "push", "reports", "audit", "support", "trash",
 	// §24 — cross-cutting "may view sensitive contact info (phone/email)" gate.
 	// Only the `view` action is meaningful here; defaults to admins only.

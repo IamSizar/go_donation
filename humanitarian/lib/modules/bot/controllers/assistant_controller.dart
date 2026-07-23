@@ -111,9 +111,32 @@ class AssistantController extends GetxController {
         }
       }
 
+      // The assistant may have looked up the user's own real data (wallet
+      // balance, donations, marriage profile, case/project, volunteer
+      // status) — surfaced as structured cards under the reply text rather
+      // than making the model describe numbers in prose.
+      final toolResults = <AssistantToolResult>[];
+      final rawResults = res['tool_results'];
+      if (rawResults is List) {
+        for (final item in rawResults) {
+          if (item is Map) {
+            final tool = item['tool']?.toString() ?? '';
+            final data = item['data'];
+            if (tool.isNotEmpty && data is Map) {
+              toolResults.add(AssistantToolResult(tool: tool, data: Map<String, dynamic>.from(data)));
+            }
+          }
+        }
+      }
+
       reply = replyText.isEmpty
           ? _localFallbackMessage(trimmed, lang, intentID: intentID)
-          : BotMessage.bot(replyText, actionLabel: label, actionRoute: route);
+          : BotMessage.bot(
+              replyText,
+              actionLabel: label,
+              actionRoute: route,
+              toolResults: toolResults,
+            );
     } catch (_) {
       reply = _localFallbackMessage(trimmed, lang, intentID: intentID);
     }

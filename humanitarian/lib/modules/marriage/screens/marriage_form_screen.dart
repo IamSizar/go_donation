@@ -1,10 +1,26 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/api/links.dart';
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/api/registration_api.dart';
 import 'package:flutter_application_1/core/app_state.dart';
+import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/modules/marriage/screens/marriage_my_profile_screen.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
+import 'package:image_picker/image_picker.dart';
+
+// Marriage Posts — resolve a stored photo path to a full URL for preview.
+// Uploads are saved as relative paths (e.g. images/uploads/x.png);
+// Image.network needs an absolute URL. Same pattern as aid_receipts_screen.
+String _resolvePhotoUrl(String path) {
+  final p = path.trim();
+  if (p.isEmpty) return p;
+  final uri = Uri.tryParse(p);
+  if (uri != null && uri.hasScheme) return p;
+  return Uri.parse(publicBaseUrl).resolve(p.replaceFirst(RegExp(r'^/+'), '')).toString();
+}
 
 /// #42 — Marriage/engagement profile form with a privacy (visibility) control.
 /// Submits to POST /api/marriage. The backend restricts this to the eligible
@@ -30,11 +46,20 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
   final _cityController = TextEditingController();
   final _summaryController = TextEditingController();
   final _notesController = TextEditingController();
+  final _religionController = TextEditingController();
+  final _weightController = TextEditingController();
+  final _heightController = TextEditingController();
   String? _gender; // Male | Female
+  String? _maritalStatus; // single | married | widowed | divorced
+  String? _employmentStatus; // employed | unemployed | self_employed | student
   String _visibility = 'employee_only'; // private | employee_only | matched_summary
   bool _busy = false;
   Set<String> _required = {};
   Set<String> _hidden = {};
+
+  // Marriage Posts — an optional photo shown on the profile's feed card.
+  String? _photoUrl;
+  bool _uploadingPhoto = false;
 
   @override
   void initState() {
@@ -56,7 +81,15 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
 
   @override
   void dispose() {
-    for (final c in [_ageController, _cityController, _summaryController, _notesController]) {
+    for (final c in [
+      _ageController,
+      _cityController,
+      _summaryController,
+      _notesController,
+      _religionController,
+      _weightController,
+      _heightController,
+    ]) {
       c.dispose();
     }
     super.dispose();
@@ -73,6 +106,11 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
       'city': !blank(_cityController.text),
       'social_summary': !blank(_summaryController.text),
       'private_notes': !blank(_notesController.text),
+      'marital_status': _maritalStatus != null,
+      'religion': !blank(_religionController.text),
+      'employment_status': _employmentStatus != null,
+      'weight': !blank(_weightController.text),
+      'height': !blank(_heightController.text),
     };
     const labelKeys = <String, String>{
       'gender': 'marriage_gender',
@@ -80,6 +118,11 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
       'city': 'marriage_city',
       'social_summary': 'marriage_summary',
       'private_notes': 'marriage_private_notes',
+      'marital_status': 'marriage_marital_status',
+      'religion': 'marriage_religion',
+      'employment_status': 'marriage_employment_status',
+      'weight': 'marriage_weight',
+      'height': 'marriage_height',
     };
     for (final key in _required) {
       if (_hidden.contains(key)) continue;
@@ -87,6 +130,23 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
       if (filled == false) return labelKeys[key];
     }
     return null;
+  }
+
+  Future<void> _pickPhoto() async {
+    final picked = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _uploadingPhoto = true);
+    try {
+      final path = await const ModuleApi().uploadPhoto(File(picked.path));
+      if (mounted) setState(() => _photoUrl = path);
+    } catch (e) {
+      if (mounted) Get.snackbar('Error'.tr, e.toString());
+    } finally {
+      if (mounted) setState(() => _uploadingPhoto = false);
+    }
   }
 
   Future<void> _submit() async {
@@ -105,7 +165,18 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
         'city': _hidden.contains('city') ? '' : _cityController.text.trim(),
         'social_summary': _hidden.contains('social_summary') ? '' : _summaryController.text.trim(),
         'private_notes': _hidden.contains('private_notes') ? '' : _notesController.text.trim(),
+        'marital_status': _hidden.contains('marital_status') ? '' : (_maritalStatus ?? ''),
+        'religion': _hidden.contains('religion') ? '' : _religionController.text.trim(),
+        'employment_status':
+            _hidden.contains('employment_status') ? '' : (_employmentStatus ?? ''),
+        'weight_kg': _hidden.contains('weight')
+            ? 0
+            : (int.tryParse(_weightController.text.trim()) ?? 0),
+        'height_cm': _hidden.contains('height')
+            ? 0
+            : (int.tryParse(_heightController.text.trim()) ?? 0),
         'visibility_level': _visibility,
+        'photo_url': _photoUrl ?? '',
       });
       if (!mounted) return;
       // Note #18 — was Get.back() (just returns to Profile with a toast, no
@@ -129,6 +200,31 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
         children: [
+          _label('marriage_photo'),
+          Center(
+            child: GestureDetector(
+              onTap: _uploadingPhoto ? null : _pickPhoto,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  CircleAvatar(
+                    radius: 48,
+                    backgroundColor: AppThemeConfig.softSurface(context),
+                    backgroundImage: (_photoUrl != null && _photoUrl!.isNotEmpty)
+                        ? NetworkImage(_resolvePhotoUrl(_photoUrl!))
+                        : null,
+                    child: (_photoUrl == null || _photoUrl!.isEmpty)
+                        ? Icon(Icons.add_a_photo_outlined,
+                            size: 28, color: AppThemeConfig.mutedText(context))
+                        : null,
+                  ),
+                  if (_uploadingPhoto)
+                    const CircularProgressIndicator(strokeWidth: 2),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
           if (!_hidden.contains('gender')) ...[
             _label('marriage_gender'),
             DropdownButtonFormField<String>(
@@ -152,6 +248,48 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
             _text(_summaryController, 'marriage_summary', Icons.notes_outlined, lines: 3),
           if (!_hidden.contains('private_notes'))
             _text(_notesController, 'marriage_private_notes', Icons.lock_outline, lines: 2),
+          if (!_hidden.contains('marital_status')) ...[
+            _label('marriage_marital_status'),
+            DropdownButtonFormField<String>(
+              initialValue: _maritalStatus,
+              decoration:
+                  const InputDecoration(prefixIcon: Icon(Icons.people_outline)),
+              hint: Text('marriage_marital_status_hint'.tr),
+              items: [
+                for (final v in const ['single', 'married', 'widowed', 'divorced'])
+                  DropdownMenuItem(value: v, child: Text('marital_status_$v'.tr)),
+              ],
+              onChanged: (v) => setState(() => _maritalStatus = v),
+            ),
+            const SizedBox(height: 14),
+          ],
+          if (!_hidden.contains('religion'))
+            _text(_religionController, 'marriage_religion', Icons.church_outlined),
+          if (!_hidden.contains('employment_status')) ...[
+            _label('marriage_employment_status'),
+            DropdownButtonFormField<String>(
+              initialValue: _employmentStatus,
+              decoration: const InputDecoration(prefixIcon: Icon(Icons.work_outline)),
+              hint: Text('marriage_employment_status_hint'.tr),
+              items: [
+                for (final v in const [
+                  'employed',
+                  'unemployed',
+                  'self_employed',
+                  'student',
+                ])
+                  DropdownMenuItem(value: v, child: Text('employment_status_$v'.tr)),
+              ],
+              onChanged: (v) => setState(() => _employmentStatus = v),
+            ),
+            const SizedBox(height: 14),
+          ],
+          if (!_hidden.contains('weight'))
+            _text(_weightController, 'marriage_weight', Icons.monitor_weight_outlined,
+                keyboard: TextInputType.number),
+          if (!_hidden.contains('height'))
+            _text(_heightController, 'marriage_height', Icons.height_rounded,
+                keyboard: TextInputType.number),
           _label('marriage_privacy'),
           DropdownButtonFormField<String>(
             initialValue: _visibility,

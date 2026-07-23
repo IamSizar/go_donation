@@ -51,7 +51,6 @@ class _DonationsSectionBodyState extends State<_DonationsSectionBody> {
   int _selectedAmount = DonationsSection._quickAmounts[1];
   int? _selectedCampaignId;
   String _selectedPaymentMethod = '';
-  final List<String> _paymentMethods = [];
   String? donorName;
 
   final ScrollController _listScrollController = ScrollController();
@@ -281,27 +280,6 @@ class _DonationsSectionBodyState extends State<_DonationsSectionBody> {
                     );
                   }).toList(),
                 ),
-              ),
-              const SizedBox(height: 22),
-              const SectionLabel(title: 'Payment method'),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 10,
-                children: _paymentMethods.map((method) {
-                  final isSelected = _selectedPaymentMethod == method;
-                  return ChoiceChip(
-                    label: Text(method),
-                    selected: isSelected,
-                    onSelected: (selected) {
-                      if (selected) {
-                        AppHaptics.selection();
-                        setState(() {
-                          _selectedPaymentMethod = method;
-                        });
-                      }
-                    },
-                  );
-                }).toList(),
               ),
               const SizedBox(height: 22),
               _SelectedDonationCard(

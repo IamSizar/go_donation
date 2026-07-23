@@ -88,6 +88,19 @@ class ChatController extends GetxController {
     );
   }
 
+  /// Opens (or reuses) a direct chat with the configured support/tech staff
+  /// account (#45) — powers "Message the staff team" entry points across
+  /// sections (Marriage and similar).
+  Future<({int threadId, String status, bool already})> requestSupportChat() async {
+    final res = await const ModuleApi().postJson(chatSupportUrl, {});
+    await fetchThreads(silent: true);
+    return (
+      threadId: int.tryParse('${res['thread_id']}') ?? 0,
+      status: (res['status'] ?? 'pending').toString(),
+      already: res['already'] == true,
+    );
+  }
+
   Future<void> accept(int threadId) async {
     await const ModuleApi().postJson(chatAcceptUrl(threadId), {});
     await fetchThreads(silent: true);

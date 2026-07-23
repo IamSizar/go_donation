@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/core/app_haptics.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
@@ -171,6 +172,10 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
 
   Future<void> _handleConfirmDonation() async {
     if (!_formKey.currentState!.validate()) return;
+    // Note #40 — a donation is a "purchase"; guests are prompted to upgrade
+    // before acting (also enforced server-side). Matches the guard already
+    // used one screen earlier on the campaign-select button.
+    if (!await requireUpgrade(context)) return;
 
     final paymentMethod = _displayMethods[_selectedPaymentIndex];
     final amount = int.parse(_moneyController.text.trim());
@@ -321,13 +326,10 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
                               hintText: 'Your name',
                               icon: Icons.person_rounded,
                               textInputAction: TextInputAction.next,
+                              // Read-only display of the signed-in account's
+                              // name — never editable and never sent to the
+                              // backend, so it must not gate submission.
                               enabled: false,
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return 'Please enter your name'.tr;
-                                }
-                                return null;
-                              },
                             ),
 
                             const SizedBox(height: 14),
@@ -341,13 +343,8 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
                               icon: Icons.phone_rounded,
                               keyboardType: TextInputType.phone,
                               textInputAction: TextInputAction.next,
+                              // Same as above — read-only, never submitted.
                               enabled: false,
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return 'Please enter your phone number'.tr;
-                                }
-                                return null;
-                              },
                             ),
 
                             const SizedBox(height: 14),

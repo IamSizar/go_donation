@@ -84,4 +84,44 @@ abstract final class ChatActions {
       );
     }
   }
+
+  /// "Message the staff team" — a direct chat with the admin-configured
+  /// support/tech staff account (#45), not tied to a donation or campaign.
+  static Future<void> startSupportChat(
+    BuildContext context, {
+    String? conversationTitle,
+  }) async {
+    if (!await requireUpgrade(context)) return;
+    if (!context.mounted) return;
+
+    final ctrl = _controller();
+    try {
+      final res = await ctrl.requestSupportChat();
+      if (!context.mounted) return;
+
+      if (res.status == 'active') {
+        Get.to(() => ChatConversationScreen(
+              threadId: res.threadId,
+              title: conversationTitle ?? 'Staff support'.tr,
+            ));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              res.already
+                  ? 'Your message request is still waiting to be accepted.'.tr
+                  : 'Message sent to the staff team! You can chat once they accept. Check the Messages tab.'
+                      .tr,
+            ),
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    }
+  }
 }

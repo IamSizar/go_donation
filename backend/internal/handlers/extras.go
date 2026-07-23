@@ -21,6 +21,7 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/support"
 	"github.com/karam-flutter/humanitarian-backend/internal/users"
 	"github.com/karam-flutter/humanitarian-backend/internal/volunteers"
+	"github.com/karam-flutter/humanitarian-backend/internal/wallet"
 )
 
 // ============================================================
@@ -179,10 +180,13 @@ func (h *InKindHandler) Post(c *gin.Context) {
 type MarriageHandler struct {
 	Store    *marriage.Store
 	Notifier *notify.Notifier
+	// Client note — Marriage "Subscription": wallet payments for a package
+	// purchase.
+	Wallet *wallet.Store
 }
 
-func NewMarriageHandler(s *marriage.Store, n *notify.Notifier) *MarriageHandler {
-	return &MarriageHandler{Store: s, Notifier: n}
+func NewMarriageHandler(s *marriage.Store, n *notify.Notifier, w *wallet.Store) *MarriageHandler {
+	return &MarriageHandler{Store: s, Notifier: n, Wallet: w}
 }
 
 // notifyStaffInBackground alerts staff (dashboard) about a new submission on a
@@ -206,13 +210,26 @@ func (h *MarriageHandler) Get(c *gin.Context) {
 	limit, _ := strconv.Atoi(strings.TrimSpace(c.Query("limit")))
 	minAge, _ := strconv.Atoi(strings.TrimSpace(c.Query("min_age")))
 	maxAge, _ := strconv.Atoi(strings.TrimSpace(c.Query("max_age")))
+	minWeight, _ := strconv.Atoi(strings.TrimSpace(c.Query("min_weight")))
+	maxWeight, _ := strconv.Atoi(strings.TrimSpace(c.Query("max_weight")))
+	minHeight, _ := strconv.Atoi(strings.TrimSpace(c.Query("min_height")))
+	maxHeight, _ := strconv.Atoi(strings.TrimSpace(c.Query("max_height")))
+	beforeID, _ := strconv.ParseInt(strings.TrimSpace(c.Query("before_id")), 10, 64)
 	items, err := h.Store.List(c.Request.Context(), marriage.SearchFilters{
-		Status: strings.TrimSpace(c.Query("status")),
-		Q:      c.Query("q"),
-		Gender: strings.TrimSpace(c.Query("gender")),
-		MinAge: minAge,
-		MaxAge: maxAge,
-		Limit:  limit,
+		Status:           strings.TrimSpace(c.Query("status")),
+		Q:                c.Query("q"),
+		Gender:           strings.TrimSpace(c.Query("gender")),
+		MinAge:           minAge,
+		MaxAge:           maxAge,
+		MaritalStatus:    strings.TrimSpace(c.Query("marital_status")),
+		Religion:         strings.TrimSpace(c.Query("religion")),
+		EmploymentStatus: strings.TrimSpace(c.Query("employment_status")),
+		MinWeight:        minWeight,
+		MaxWeight:        maxWeight,
+		MinHeight:        minHeight,
+		MaxHeight:        maxHeight,
+		Limit:            limit,
+		BeforeID:         beforeID,
 	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
@@ -308,10 +325,10 @@ func (h *MarriageHandler) Post(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Missing user_id."})
 		return
 	}
-	if tokenUser.RoleID != 2 {
-		c.JSON(http.StatusForbidden, gin.H{"success": false, "error": "This action is not available for your role."})
-		return
-	}
+	// Client note #43 — was restricted to role_id==2 (Beneficiary); the
+	// client wants every account category able to submit a marriage profile,
+	// with no role-based restriction (guests are still blocked, via
+	// RequireNotGuest() on the route).
 
 	var gender, city, social, private *string
 	if v := asStr(data["gender"]); v != "" {
@@ -330,10 +347,38 @@ func (h *MarriageHandler) Post(c *gin.Context) {
 	if n := asInt(data["age"]); n > 0 {
 		agePtr = &n
 	}
+	// Client note — Marriage "Search" filters: marital status/religion/
+	// employment status/weight/height, collected on the same registration
+	// form.
+	var maritalStatus, religion, employmentStatus *string
+	if v := asStr(data["marital_status"]); v != "" {
+		maritalStatus = &v
+	}
+	if v := asStr(data["religion"]); v != "" {
+		religion = &v
+	}
+	if v := asStr(data["employment_status"]); v != "" {
+		employmentStatus = &v
+	}
+	var weightPtr, heightPtr *int
+	if n := asInt(data["weight_kg"]); n > 0 {
+		weightPtr = &n
+	}
+	if n := asInt(data["height_cm"]); n > 0 {
+		heightPtr = &n
+	}
 	subStatus := strings.TrimSpace(asStr(data["subscription_status"]))
 	visibility := strings.TrimSpace(asStr(data["visibility_level"])) // #42 — privacy
+	// Marriage Posts — the owner's own photo, uploaded separately first via
+	// the generic POST /api/uploads endpoint (same convention as everywhere
+	// else); this just saves the returned path.
+	var photoUrl *string
+	if v := asStr(data["photo_url"]); v != "" {
+		photoUrl = &v
+	}
 
-	id, code, err := h.Store.Insert(c.Request.Context(), uid, gender, agePtr, city, social, private, subStatus, visibility)
+	id, code, err := h.Store.Insert(c.Request.Context(), uid, gender, agePtr, city, social, private,
+		maritalStatus, religion, employmentStatus, weightPtr, heightPtr, subStatus, visibility, photoUrl)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to create profile."})
 		return

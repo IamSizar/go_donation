@@ -43,7 +43,8 @@ type assistantChatRequest struct {
 //
 // Response:
 //
-//	{ "success": true, "reply": "...", "action": {"label":"...","route":"donate"}, "source": "ai" }
+//	{ "success": true, "reply": "...", "action": {"label":"...","route":"donate"},
+//	  "source": "ai", "tool_results": [{"tool":"get_wallet_balance","data":{...}}] }
 func (h *AssistantHandler) Chat(c *gin.Context) {
 	user, _ := auth.UserFromGin(c)
 
@@ -65,8 +66,10 @@ func (h *AssistantHandler) Chat(c *gin.Context) {
 
 	roleID := 1
 	userName := ""
+	var userID int64
 	if user != nil {
 		roleID = user.RoleID
+		userID = user.UserID
 		userName = h.fullName(user.UserID)
 	}
 
@@ -76,10 +79,12 @@ func (h *AssistantHandler) Chat(c *gin.Context) {
 	}
 	intentID := strings.TrimSpace(req.IntentID)
 
-	ctx, cancel := context.WithTimeout(c.Request.Context(), 35*time.Second)
+	// Longer than a plain completion: a tool-use turn can take several model
+	// round-trips (see assistant.maxToolRounds).
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 45*time.Second)
 	defer cancel()
 
-	reply := h.Svc.Answer(ctx, roleID, userName, history, lang, intentID)
+	reply := h.Svc.Answer(ctx, roleID, userID, userName, history, lang, intentID)
 
 	resp := gin.H{
 		"success": true,
@@ -92,7 +97,31 @@ func (h *AssistantHandler) Chat(c *gin.Context) {
 			"route": string(reply.Action.Route),
 		}
 	}
+	if len(reply.ToolResults) > 0 {
+		items := make([]gin.H, 0, len(reply.ToolResults))
+		for _, tr := range reply.ToolResults {
+			items = append(items, gin.H{"tool": tr.Tool, "data": tr.Data})
+		}
+		resp["tool_results"] = items
+	}
 	c.JSON(http.StatusOK, resp)
+
+	// Best-effort usage logging (message metadata only, never the text) —
+	// fired after the response so it never adds latency to the chat turn.
+	if userID > 0 {
+		go h.logUsage(userID, roleID, lang, reply.Source, len(reply.ToolResults) > 0)
+	}
+}
+
+func (h *AssistantHandler) logUsage(userID int64, roleID int, lang, source string, usedTool bool) {
+	if h.Pool == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_, _ = h.Pool.Exec(ctx,
+		`INSERT INTO assistant_chat_log (user_id, role_id, lang, source, used_tool) VALUES ($1,$2,$3,$4,$5)`,
+		userID, roleID, lang, source, usedTool)
 }
 
 func (h *AssistantHandler) fullName(userID int64) string {

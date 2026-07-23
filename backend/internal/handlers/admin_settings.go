@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -58,6 +57,51 @@ func (h *SettingsHandler) SetSupportWhatsApp(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "number": number})
 }
 
+// GetSupportUserID handles GET /api/admin/settings/support-user-id — the staff
+// account that "Message the staff team" chats (marriage, volunteer, ...) land
+// on. Returns 0 when unset.
+func (h *SettingsHandler) GetSupportUserID(c *gin.Context) {
+	v, err := h.Store.Get(c.Request.Context(), appsettings.KeySupportUserID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		return
+	}
+	userID, _ := strconv.ParseInt(strings.TrimSpace(v), 10, 64)
+	c.JSON(http.StatusOK, gin.H{"success": true, "user_id": userID})
+}
+
+// SetSupportUserID handles PUT /api/admin/settings/support-user-id.
+// Body: {"user_id": N}. N=0 clears it. Must reference an existing staff
+// account (staff_tier <> 'user') so a chat request never lands on a dead end.
+func (h *SettingsHandler) SetSupportUserID(c *gin.Context) {
+	var req struct {
+		UserID int64 `json:"user_id"`
+	}
+	_ = c.ShouldBindJSON(&req)
+	if req.UserID != 0 {
+		var staffTier string
+		err := h.Store.Pool.QueryRow(c.Request.Context(),
+			`SELECT staff_tier FROM users WHERE id = $1`, req.UserID).Scan(&staffTier)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "User not found."})
+			return
+		}
+		if staffTier == "" || staffTier == "user" {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Selected account is not a staff member."})
+			return
+		}
+	}
+	value := ""
+	if req.UserID != 0 {
+		value = strconv.FormatInt(req.UserID, 10)
+	}
+	if err := h.Store.Set(c.Request.Context(), appsettings.KeySupportUserID, value); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "user_id": req.UserID})
+}
+
 // defaultSessionTimeoutMinutes matches what AppShell.tsx used as a hardcoded
 // constant before this setting existed — the fallback when no admin has set
 // a value yet, so behavior doesn't change on first deploy.
@@ -111,72 +155,10 @@ func (h *SettingsHandler) SetSessionTimeout(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "minutes": req.Minutes})
 }
 
-// Note #17 — admin-configurable price per Marriage subscription package tier
-// (bronze/silver/gold/diamond/vip — see marriageSubscription in
-// admin_edit.go, the single source of truth for valid tier names). Reuses
-// the generic app_settings key/value store, one row per tier, keyed
-// "marriage_package_price_<tier>".
-func marriagePackagePriceKey(tier string) string {
-	return "marriage_package_price_" + tier
-}
-
-// GetMarriagePackagePrices handles GET /api/admin/settings/marriage-package-prices.
-// Returns {"prices": {"bronze": 0, "silver": 0, ...}} — every known tier is
-// always present (0 for a tier that's never been set), so the frontend never
-// has to handle a missing key.
-func (h *SettingsHandler) GetMarriagePackagePrices(c *gin.Context) {
-	prices := make(map[string]float64, len(marriageSubscription))
-	for _, tier := range marriageSubscription {
-		v, err := h.Store.Get(c.Request.Context(), marriagePackagePriceKey(tier))
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
-			return
-		}
-		n, _ := strconv.ParseFloat(v, 64)
-		prices[tier] = n
-	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "prices": prices})
-}
-
-// SetMarriagePackagePrices handles PUT /api/admin/settings/marriage-package-prices.
-// Body: {"prices": {"bronze": 10000, "silver": 25000, ...}}. Only recognized
-// tier keys are accepted; unknown keys are ignored rather than erroring, so
-// the frontend can always send the full map without coordinating on schema.
-// A tier OMITTED from the body keeps its current stored value rather than
-// being reset to 0 — this endpoint updates, it doesn't replace wholesale.
-func (h *SettingsHandler) SetMarriagePackagePrices(c *gin.Context) {
-	var req struct {
-		Prices map[string]float64 `json:"prices"`
-	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid JSON body."})
-		return
-	}
-	saved := make(map[string]float64, len(marriageSubscription))
-	for _, tier := range marriageSubscription {
-		price, ok := req.Prices[tier]
-		if !ok {
-			existing, err := h.Store.Get(c.Request.Context(), marriagePackagePriceKey(tier))
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
-				return
-			}
-			price, _ = strconv.ParseFloat(existing, 64)
-			saved[tier] = price
-			continue
-		}
-		if price < 0 {
-			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Price for " + tier + " must be >= 0."})
-			return
-		}
-		if err := h.Store.Set(c.Request.Context(), marriagePackagePriceKey(tier), fmt.Sprintf("%g", price)); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
-			return
-		}
-		saved[tier] = price
-	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "prices": saved})
-}
+// Client note — Marriage "Subscription": the old fixed-tier admin-settings
+// price mechanism (GetMarriagePackagePrices/SetMarriagePackagePrices) was
+// replaced by a real, dynamic packages table — see
+// internal/marriage/subscription.go and internal/handlers/marriage_subscription.go.
 
 // Note #29 follow-up — lets a Super-Admin reorganize the sidebar itself
 // (reorder groups/items, move an item into a different group) instead of the
@@ -292,4 +274,74 @@ func (h *SettingsHandler) SetFibNumber(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "number": number})
+}
+
+// GetAssistantSettings handles GET /api/admin/settings/assistant — the AI
+// Support Assistant's admin-configurable enable toggle and extra system-
+// prompt instructions.
+func (h *SettingsHandler) GetAssistantSettings(c *gin.Context) {
+	enabledStr, err := h.Store.Get(c.Request.Context(), appsettings.KeyAssistantEnabled)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		return
+	}
+	extra, err := h.Store.Get(c.Request.Context(), appsettings.KeyAssistantExtraInstructions)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success":            true,
+		"enabled":            enabledStr != "false", // default on when unset
+		"extra_instructions": extra,
+	})
+}
+
+// SetAssistantSettings handles PUT /api/admin/settings/assistant.
+// Body: {"enabled": bool, "extra_instructions": "..."}. Disabling routes
+// every chat through the deterministic keyword engine instead of the LLM —
+// the feature stays usable, just without free-form understanding.
+func (h *SettingsHandler) SetAssistantSettings(c *gin.Context) {
+	var req struct {
+		Enabled           bool   `json:"enabled"`
+		ExtraInstructions string `json:"extra_instructions"`
+	}
+	_ = c.ShouldBindJSON(&req)
+	enabledStr := "true"
+	if !req.Enabled {
+		enabledStr = "false"
+	}
+	if err := h.Store.Set(c.Request.Context(), appsettings.KeyAssistantEnabled, enabledStr); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		return
+	}
+	extra := strings.TrimSpace(req.ExtraInstructions)
+	if err := h.Store.Set(c.Request.Context(), appsettings.KeyAssistantExtraInstructions, extra); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "enabled": req.Enabled, "extra_instructions": extra})
+}
+
+// GetAssistantStats handles GET /api/admin/assistant/stats — lightweight
+// usage metadata (message counts, ai vs local, tool usage) so staff can see
+// the assistant is being used without storing full conversation transcripts.
+func (h *SettingsHandler) GetAssistantStats(c *gin.Context) {
+	ctx := c.Request.Context()
+	var total, today, last7, aiCount, localCount, toolCount int
+	_ = h.Store.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM assistant_chat_log`).Scan(&total)
+	_ = h.Store.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM assistant_chat_log WHERE created_at >= CURRENT_DATE`).Scan(&today)
+	_ = h.Store.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM assistant_chat_log WHERE created_at >= now() - interval '7 days'`).Scan(&last7)
+	_ = h.Store.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM assistant_chat_log WHERE source = 'ai'`).Scan(&aiCount)
+	_ = h.Store.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM assistant_chat_log WHERE source = 'local'`).Scan(&localCount)
+	_ = h.Store.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM assistant_chat_log WHERE used_tool = true`).Scan(&toolCount)
+	c.JSON(http.StatusOK, gin.H{
+		"success":         true,
+		"total_messages":  total,
+		"messages_today":  today,
+		"messages_7d":     last7,
+		"ai_answered":     aiCount,
+		"local_fallback":  localCount,
+		"tool_calls_used": toolCount,
+	})
 }

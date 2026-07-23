@@ -14,9 +14,15 @@ Future<Set<String>> fetchRequiredFields() async {
 /// Result of GET /api/registration/field-rules: which optional fields the
 /// admin marked required, and which the admin marked hidden entirely.
 class FieldRuleSets {
-  const FieldRuleSets({required this.required, required this.hidden});
+  const FieldRuleSets({
+    required this.required,
+    required this.hidden,
+    this.searchable = const {},
+  });
   final Set<String> required;
   final Set<String> hidden;
+  // Client note — Marriage "Search": which fields staff enabled as filters.
+  final Set<String> searchable;
   static const empty = FieldRuleSets(required: {}, hidden: {});
 }
 
@@ -38,7 +44,10 @@ Future<FieldRuleSets> fetchFieldRuleSets() async {
       final hidden = decoded['hidden'] is List
           ? (decoded['hidden'] as List).map((e) => e.toString()).toSet()
           : <String>{};
-      return FieldRuleSets(required: required, hidden: hidden);
+      final searchable = decoded['searchable'] is List
+          ? (decoded['searchable'] as List).map((e) => e.toString()).toSet()
+          : <String>{};
+      return FieldRuleSets(required: required, hidden: hidden, searchable: searchable);
     }
   } catch (_) {}
   return FieldRuleSets.empty;

@@ -183,8 +183,10 @@ func langReminder(lang string) string {
 // systemPrompt builds the instruction block sent to the LLM. It encodes the
 // app's capabilities for the user's role, the routing contract, the strict-JSON
 // output format, and — when lang is not English — a language directive that
-// instructs the model to reply in the user's app language.
-func systemPrompt(roleID int, userName string, lang string) string {
+// instructs the model to reply in the user's app language. extraInstructions
+// is optional admin-configured text (Settings → AI Assistant) appended near
+// the end, so staff can nudge tone/scope without a redeploy.
+func systemPrompt(roleID int, userName string, lang string, extraInstructions string) string {
 	var b strings.Builder
 
 	// Language override first — the model must see this before any other
@@ -214,6 +216,18 @@ func systemPrompt(roleID int, userName string, lang string) string {
 		b.WriteString("  - " + string(r) + ": " + routeDescription(r) + "\n")
 	}
 	b.WriteString("\n")
+
+	b.WriteString("You also have TOOLS to look up the user's own real data (wallet balance, ")
+	b.WriteString("donations, marriage profile, case/project status, or volunteer status — whichever ")
+	b.WriteString("apply to their role). ALWAYS call the relevant tool before answering a question about ")
+	b.WriteString("the user's own personal data — never guess, estimate, or invent a number or status. ")
+	b.WriteString("If a tool returns an error, tell the user you couldn't retrieve that information right ")
+	b.WriteString("now rather than making something up. Call tools first, THEN give your final answer in ")
+	b.WriteString("the JSON format below — don't emit the JSON in the same turn as a tool call.\n\n")
+
+	if extra := strings.TrimSpace(extraInstructions); extra != "" {
+		b.WriteString("ADDITIONAL STAFF INSTRUCTIONS (from the admin dashboard):\n" + extra + "\n\n")
+	}
 
 	b.WriteString("OUTPUT FORMAT — respond with ONLY a single JSON object, no markdown, no prose around it:\n")
 	b.WriteString(`{"reply": "<your helpful answer>", "route": "<one route key from the list, or none>"}` + "\n")

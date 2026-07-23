@@ -38,7 +38,7 @@ export const NAV: NavItem[] = [
   { to: '/marriage',      tKey: 'nav.marriage',      countKey: 'marriage', module: 'marriage' },
   { to: '/marriage-requests', tKey: 'nav.marriage_requests', module: 'marriage' },
   { to: '/marriage-chats', tKey: 'nav.marriage_chats', module: 'marriage' },
-  { to: '/marriage-posts', tKey: 'nav.marriage_posts', module: 'marriage' },
+  { to: '/marriage-subscriptions', tKey: 'nav.marriage_subscriptions', module: 'marriage' },
   { to: '/partners',      tKey: 'nav.partners',       module: 'partners' },
   { to: '/media',         tKey: 'nav.media',          module: 'media' },
   { to: '/media-categories', tKey: 'nav.media_categories', module: 'media' },
@@ -53,6 +53,7 @@ export const NAV: NavItem[] = [
   { to: '/staff-chat',    tKey: 'nav.staff_chat' },
   { to: '/volunteers',    tKey: 'nav.volunteers',    countKey: 'volunteers', module: 'volunteers' },
   { to: '/volunteer-board', tKey: 'nav.volunteer_board', module: 'volunteers' },
+  { to: '/tasks',          tKey: 'nav.tasks',            module: 'tasks' },
   { to: '/case-volunteer-chats', tKey: 'nav.case_volunteer_chats', module: 'volunteers' },
   { to: '/missions',      tKey: 'nav.missions',        module: 'missions' },
   { to: '/sponsorships',  tKey: 'nav.sponsorships',  countKey: 'sponsorships', module: 'sponsorships' },
@@ -67,6 +68,7 @@ export const NAV: NavItem[] = [
   { to: '/guest-access',  tKey: 'nav.guest_access', superAdminOnly: true },
   { to: '/terms',         tKey: 'nav.terms',        superAdminOnly: true },
   { to: '/about',         tKey: 'nav.about',        superAdminOnly: true },
+  { to: '/humanitarian-work', tKey: 'nav.humanitarian_work', superAdminOnly: true },
   { to: '/contact',       tKey: 'nav.contact',      superAdminOnly: true },
   { to: '/settings',      tKey: 'nav.settings',     superAdminOnly: true },
 ]
@@ -96,7 +98,7 @@ export const DEFAULT_NAV_SECTIONS: NavSection[] = [
   { kind: 'item', to: '/' },
   {
     kind: 'group', key: 'users_members', tKey: 'nav_group.users_members',
-    items: ['/users', '/beneficiary', '/volunteers', '/volunteer-board', '/case-volunteer-chats', '/guest-access'],
+    items: ['/users', '/beneficiary', '/volunteers', '/volunteer-board', '/tasks', '/case-volunteer-chats', '/guest-access'],
   },
   {
     kind: 'group', key: 'aid_campaigns', tKey: 'nav_group.aid_campaigns',
@@ -113,7 +115,7 @@ export const DEFAULT_NAV_SECTIONS: NavSection[] = [
   { kind: 'item', to: '/marriage' },
   { kind: 'item', to: '/marriage-requests' },
   { kind: 'item', to: '/marriage-chats' },
-  { kind: 'item', to: '/marriage-posts' },
+  { kind: 'item', to: '/marriage-subscriptions' },
   { kind: 'item', to: '/partners' },
   {
     kind: 'group', key: 'communication_support', tKey: 'nav_group.communication_support',
@@ -127,7 +129,7 @@ export const DEFAULT_NAV_SECTIONS: NavSection[] = [
     kind: 'group', key: 'system_settings', tKey: 'nav_group.system_settings',
     items: [
       '/payment-methods', '/donation-codes', '/field-rules', '/banned-words',
-      '/permissions', '/terms', '/about', '/media', '/media-categories',
+      '/permissions', '/terms', '/about', '/humanitarian-work', '/media', '/media-categories',
       '/trash', '/settings',
     ],
   },

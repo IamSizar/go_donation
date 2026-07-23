@@ -12,7 +12,7 @@ import { navByTo, DEFAULT_NAV_SECTIONS, reconcileNavSections, type NavItem, type
 import SoundMenu from './SoundMenu'
 import ConfirmDialog from './ConfirmDialog'
 import TopActionBar from './TopActionBar'
-import { ChevronDown, ChevronRight, LogOut, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { ChevronDown, ChevronRight, LogOut, Menu, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 
 // Show "99+" instead of overflowing the badge with huge digits. ~5 chars max.
 function formatBadge(n: number): string {
@@ -99,6 +99,16 @@ export default function AppShell() {
   useEffect(() => {
     localStorage.setItem('humanitarian.admin.sidebar_collapsed', sidebarCollapsed ? '1' : '0')
   }, [sidebarCollapsed])
+
+  // Responsive pass — on phone/tablet widths the sidebar becomes an overlay
+  // drawer instead of a grid column (see the max-width:768px block in
+  // index.css), opened via the hamburger button below and closed by tapping
+  // the scrim or navigating anywhere. Deliberately NOT persisted like
+  // sidebarCollapsed — a drawer should always start closed on a fresh load.
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
+  useEffect(() => {
+    setMobileNavOpen(false)
+  }, [location.pathname])
 
   // Note #29 — which nav groups the admin has manually opened, persisted the
   // same way sidebarCollapsed is. Whichever group contains the CURRENT page
@@ -269,8 +279,17 @@ export default function AppShell() {
     n.to === '/' ? location.pathname === '/' : sectionMatchPath.startsWith(n.to)
 
   return (
-    <div className={`app-shell${sidebarCollapsed ? ' sidebar-collapsed' : ''}`}>
-      <aside className="sidebar" aria-hidden={sidebarCollapsed}>
+    <div className={`app-shell${sidebarCollapsed ? ' sidebar-collapsed' : ''}${mobileNavOpen ? ' mobile-nav-open' : ''}`}>
+      {/* Mobile-only scrim behind the drawer; tapping it closes the same way
+          tapping outside any other overlay in this app does. */}
+      {mobileNavOpen && (
+        <div
+          className="mobile-nav-scrim"
+          onClick={() => setMobileNavOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+      <aside className="sidebar" aria-hidden={sidebarCollapsed && !mobileNavOpen}>
         <div className="brand" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <img
             src="/et-logo.png"
@@ -373,6 +392,21 @@ export default function AppShell() {
       <div className="main">
         <header className="topbar">
           <div className="row" style={{ alignItems: 'center', gap: 12 }}>
+            {/* Responsive pass — hamburger for the phone/tablet drawer.
+                CSS-only visible below the mobile breakpoint (index.css);
+                the desktop collapse toggle right after it is the mirror —
+                CSS-hidden below that same breakpoint, since a permanent
+                collapse choice doesn't make sense once the sidebar is an
+                overlay instead of a layout column. */}
+            <button
+              type="button"
+              className="mobile-nav-toggle-btn"
+              onClick={() => setMobileNavOpen((o) => !o)}
+              title={t('shell.sidebar_show')}
+              aria-label={t('shell.sidebar_show')}
+            >
+              <Menu size={19} strokeWidth={2.3} />
+            </button>
             {/* Note #2 — sidebar collapse toggle. Lives in the topbar (not
                 inside the sidebar) so it's reachable in BOTH states — a
                 button that only exists inside the thing it hides would trap

@@ -140,7 +140,11 @@ export default function Table<T>({ rows, columns, rowKey, empty, loading, select
                     </td>
                   )}
                   {columns.map((c) => (
-                    <td key={c.key} style={{ textAlign: logicalAlign(c.align) }}>
+                    // data-label powers the responsive stacked-card layout
+                    // (index.css, max-width:720px) — each cell shows its own
+                    // column header inline via `content: attr(data-label)`
+                    // once the table stops being a table on narrow screens.
+                    <td key={c.key} data-label={c.header} style={{ textAlign: logicalAlign(c.align) }}>
                       {c.cell(row)}
                     </td>
                   ))}

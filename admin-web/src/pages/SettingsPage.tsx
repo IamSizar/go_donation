@@ -12,19 +12,28 @@
 import { useEffect, useState } from 'react'
 import { api, describeError, isSuperAdmin } from '../lib/api'
 import { useAuth } from '../lib/auth'
-import { useI18n, useStatusLabel } from '../lib/i18n'
+import { useI18n } from '../lib/i18n'
 import { useToast } from '../lib/toast'
 import SidebarLayoutEditor from '../components/SidebarLayoutEditor'
 
-// Note #17 — Marriage subscription package tiers. Must match
-// marriageSubscription in backend/internal/handlers/admin_edit.go (the
-// single source of truth for valid tier names) and SUBSCRIPTION_STATUSES in
-// MarriagePage.tsx.
-const MARRIAGE_PACKAGE_TIERS = ['bronze', 'silver', 'gold', 'diamond', 'vip'] as const
+type StaffDirectoryEntry = {
+  user_id: number
+  full_name: string | null
+  phone: string
+  staff_tier: string
+}
+
+type AssistantStats = {
+  total_messages: number
+  messages_today: number
+  messages_7d: number
+  ai_answered: number
+  local_fallback: number
+  tool_calls_used: number
+}
 
 export default function SettingsPage() {
   const { t } = useI18n()
-  const statusLabel = useStatusLabel()
   const { user } = useAuth()
   const toast = useToast()
   const amSuper = isSuperAdmin(user)
@@ -41,10 +50,14 @@ export default function SettingsPage() {
   const [timeoutMinutes, setTimeoutMinutes] = useState('20')
   const [savingTimeout, setSavingTimeout] = useState(false)
 
-  // Note #17 — one price-string field per package tier, keyed the same as
-  // the backend's {tier: price} map.
-  const [prices, setPrices] = useState<Record<string, string>>({})
-  const [savingPrices, setSavingPrices] = useState(false)
+  const [staffDirectory, setStaffDirectory] = useState<StaffDirectoryEntry[]>([])
+  const [supportUserId, setSupportUserId] = useState('')
+  const [savingSupportUser, setSavingSupportUser] = useState(false)
+
+  const [assistantEnabled, setAssistantEnabled] = useState(true)
+  const [assistantExtra, setAssistantExtra] = useState('')
+  const [savingAssistant, setSavingAssistant] = useState(false)
+  const [assistantStats, setAssistantStats] = useState<AssistantStats | null>(null)
 
   useEffect(() => {
     if (!amSuper) { setLoading(false); return }
@@ -54,16 +67,21 @@ export default function SettingsPage() {
       api.get<{ number: string }>('/api/admin/settings/support-whatsapp'),
       api.get<{ number: string }>('/api/admin/settings/fib-number'),
       api.get<{ minutes: number }>('/api/admin/settings/session-timeout'),
-      api.get<{ prices: Record<string, number> }>('/api/admin/settings/marriage-package-prices'),
+      api.get<{ user_id: number }>('/api/admin/settings/support-user-id'),
+      api.get<{ items: StaffDirectoryEntry[] }>('/api/admin/staff-directory'),
+      api.get<{ enabled: boolean; extra_instructions: string }>('/api/admin/settings/assistant'),
+      api.get<AssistantStats>('/api/admin/assistant/stats'),
     ])
-      .then(([wa, fibRes, timeout, pricesRes]) => {
+      .then(([wa, fibRes, timeout, supportUser, directory, assistant, stats]) => {
         if (cancelled) return
         setWhatsapp(wa.data.number ?? '')
         setFib(fibRes.data.number ?? '')
         setTimeoutMinutes(String(timeout.data.minutes ?? 20))
-        const p: Record<string, string> = {}
-        for (const tier of MARRIAGE_PACKAGE_TIERS) p[tier] = String(pricesRes.data.prices?.[tier] ?? 0)
-        setPrices(p)
+        setSupportUserId(supportUser.data.user_id ? String(supportUser.data.user_id) : '')
+        setStaffDirectory(directory.data.items ?? [])
+        setAssistantEnabled(assistant.data.enabled ?? true)
+        setAssistantExtra(assistant.data.extra_instructions ?? '')
+        setAssistantStats(stats.data)
         setErr(null)
       })
       .catch((e) => { if (!cancelled) setErr(describeError(e)) })
@@ -95,6 +113,35 @@ export default function SettingsPage() {
     }
   }
 
+  async function saveSupportUser() {
+    setSavingSupportUser(true)
+    try {
+      await api.put('/api/admin/settings/support-user-id', {
+        user_id: supportUserId ? parseInt(supportUserId, 10) : 0,
+      })
+      toast.success(t('settings.saved'))
+    } catch (e) {
+      toast.error(describeError(e))
+    } finally {
+      setSavingSupportUser(false)
+    }
+  }
+
+  async function saveAssistant() {
+    setSavingAssistant(true)
+    try {
+      await api.put('/api/admin/settings/assistant', {
+        enabled: assistantEnabled,
+        extra_instructions: assistantExtra,
+      })
+      toast.success(t('settings.saved'))
+    } catch (e) {
+      toast.error(describeError(e))
+    } finally {
+      setSavingAssistant(false)
+    }
+  }
+
   async function saveTimeout() {
     const n = parseInt(timeoutMinutes, 10)
     if (!Number.isFinite(n) || n < 5 || n > 480) {
@@ -109,27 +156,6 @@ export default function SettingsPage() {
       toast.error(describeError(e))
     } finally {
       setSavingTimeout(false)
-    }
-  }
-
-  async function savePrices() {
-    const parsed: Record<string, number> = {}
-    for (const tier of MARRIAGE_PACKAGE_TIERS) {
-      const n = Number(prices[tier])
-      if (!Number.isFinite(n) || n < 0) {
-        toast.error(t('settings.marriage_prices_invalid', { tier: statusLabel(tier) }))
-        return
-      }
-      parsed[tier] = n
-    }
-    setSavingPrices(true)
-    try {
-      await api.put('/api/admin/settings/marriage-package-prices', { prices: parsed })
-      toast.success(t('settings.saved'))
-    } catch (e) {
-      toast.error(describeError(e))
-    } finally {
-      setSavingPrices(false)
     }
   }
 
@@ -227,36 +253,92 @@ export default function SettingsPage() {
             </div>
           </div>
 
+
           <div className="card stack" style={{ gap: 12 }}>
             <div>
-              <h3 style={{ margin: 0 }}>{t('settings.marriage_prices_title')}</h3>
-              <p className="muted" style={{ marginTop: 4 }}>{t('settings.marriage_prices_desc')}</p>
+              <h3 style={{ margin: 0 }}>{t('settings.support_user_title')}</h3>
+              <p className="muted" style={{ marginTop: 4 }}>{t('settings.support_user_desc')}</p>
             </div>
-            <div className="form-grid">
-              {MARRIAGE_PACKAGE_TIERS.map((tier) => (
-                <label key={tier} className="field" style={{ maxWidth: 220 }}>
-                  <span className="muted">{statusLabel(tier)}</span>
-                  <input
-                    type="number"
-                    min={0}
-                    dir="ltr"
-                    value={prices[tier] ?? ''}
-                    onChange={(e) => setPrices((m) => ({ ...m, [tier]: e.target.value }))}
-                    disabled={savingPrices}
-                  />
-                </label>
-              ))}
-            </div>
+            <label className="field" style={{ maxWidth: 320 }}>
+              <span className="muted">{t('settings.support_user_label')}</span>
+              <select
+                value={supportUserId}
+                onChange={(e) => setSupportUserId(e.target.value)}
+                disabled={savingSupportUser}
+              >
+                <option value="">{t('settings.support_user_none')}</option>
+                {staffDirectory.map((s) => (
+                  <option key={s.user_id} value={s.user_id}>
+                    {s.full_name || s.phone} ({s.staff_tier})
+                  </option>
+                ))}
+              </select>
+            </label>
             <div className="row">
-              <button onClick={savePrices} disabled={savingPrices}>
-                {savingPrices ? t('common.saving') : t('common.save')}
+              <button onClick={saveSupportUser} disabled={savingSupportUser}>
+                {savingSupportUser ? t('common.saving') : t('common.save')}
               </button>
             </div>
+          </div>
+
+          <div className="card stack" style={{ gap: 12 }}>
+            <div>
+              <h3 style={{ margin: 0 }}>{t('settings.assistant_title')}</h3>
+              <p className="muted" style={{ marginTop: 4 }}>{t('settings.assistant_desc')}</p>
+            </div>
+            <label className="field" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <input
+                type="checkbox"
+                checked={assistantEnabled}
+                onChange={(e) => setAssistantEnabled(e.target.checked)}
+                disabled={savingAssistant}
+              />
+              <span className="muted">{t('settings.assistant_enabled_label')}</span>
+            </label>
+            <label className="field">
+              <span className="muted">{t('settings.assistant_extra_label')}</span>
+              <textarea
+                rows={4}
+                value={assistantExtra}
+                onChange={(e) => setAssistantExtra(e.target.value)}
+                disabled={savingAssistant}
+                placeholder={t('settings.assistant_extra_placeholder')}
+              />
+            </label>
+            <div className="row">
+              <button onClick={saveAssistant} disabled={savingAssistant}>
+                {savingAssistant ? t('common.saving') : t('common.save')}
+              </button>
+            </div>
+            {assistantStats && (
+              <div className="stack" style={{ gap: 4, marginTop: 4 }}>
+                <span className="muted" style={{ fontSize: 13, fontWeight: 600 }}>
+                  {t('settings.assistant_stats_title')}
+                </span>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
+                  <StatItem label={t('settings.assistant_stats_total')} value={assistantStats.total_messages} />
+                  <StatItem label={t('settings.assistant_stats_today')} value={assistantStats.messages_today} />
+                  <StatItem label={t('settings.assistant_stats_7d')} value={assistantStats.messages_7d} />
+                  <StatItem label={t('settings.assistant_stats_ai')} value={assistantStats.ai_answered} />
+                  <StatItem label={t('settings.assistant_stats_local')} value={assistantStats.local_fallback} />
+                  <StatItem label={t('settings.assistant_stats_tools')} value={assistantStats.tool_calls_used} />
+                </div>
+              </div>
+            )}
           </div>
 
           <SidebarLayoutEditor />
         </>
       )}
+    </div>
+  )
+}
+
+function StatItem({ label, value }: { label: string; value: number }) {
+  return (
+    <div style={{ minWidth: 90 }}>
+      <div style={{ fontSize: 20, fontWeight: 800 }}>{value}</div>
+      <div className="muted" style={{ fontSize: 12 }}>{label}</div>
     </div>
   )
 }

@@ -28,11 +28,15 @@ type fieldRule struct {
 	FieldKey     string `json:"field_key"`
 	State        string `json:"state"`
 	DisplayOrder int    `json:"display_order"`
+	// Client note — Marriage "Search": a field can independently be usable
+	// as a search filter, regardless of its required/hidden state on the
+	// registration form.
+	Searchable bool `json:"searchable"`
 }
 
 func (h *FieldRulesHandler) list(c *gin.Context) ([]fieldRule, bool) {
 	rows, err := h.Pool.Query(c.Request.Context(),
-		`SELECT field_key, state, display_order
+		`SELECT field_key, state, display_order, searchable
 		   FROM registration_field_rules ORDER BY display_order, field_key`)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
@@ -42,7 +46,7 @@ func (h *FieldRulesHandler) list(c *gin.Context) ([]fieldRule, bool) {
 	out := []fieldRule{}
 	for rows.Next() {
 		var r fieldRule
-		if err := rows.Scan(&r.FieldKey, &r.State, &r.DisplayOrder); err != nil {
+		if err := rows.Scan(&r.FieldKey, &r.State, &r.DisplayOrder, &r.Searchable); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
 			return nil, false
 		}
@@ -64,6 +68,7 @@ func (h *FieldRulesHandler) PublicList(c *gin.Context) {
 	}
 	required := []string{}
 	hidden := []string{}
+	searchable := []string{}
 	for _, r := range rules {
 		switch r.State {
 		case "required":
@@ -71,8 +76,13 @@ func (h *FieldRulesHandler) PublicList(c *gin.Context) {
 		case "hidden":
 			hidden = append(hidden, r.FieldKey)
 		}
+		if r.Searchable {
+			searchable = append(searchable, r.FieldKey)
+		}
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "required": required, "hidden": hidden})
+	c.JSON(http.StatusOK, gin.H{
+		"success": true, "required": required, "hidden": hidden, "searchable": searchable,
+	})
 }
 
 // AdminList — GET /api/admin/registration/field-rules (full rows).
@@ -111,4 +121,30 @@ func (h *FieldRulesHandler) SetState(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "field_key": key, "state": state})
+}
+
+// SetSearchable — POST /api/admin/registration/field-rules/:key/searchable —
+// body {searchable: bool}. Client note — Marriage "Search": staff decide
+// which fields are usable as search filters, independent of the field's
+// required/hidden state on the registration form.
+func (h *FieldRulesHandler) SetSearchable(c *gin.Context) {
+	key := strings.TrimSpace(c.Param("key"))
+	var req struct {
+		Searchable bool `json:"searchable"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid JSON body."})
+		return
+	}
+	ct, err := h.Pool.Exec(c.Request.Context(),
+		`UPDATE registration_field_rules SET searchable = $2 WHERE field_key = $1`, key, req.Searchable)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
+		return
+	}
+	if ct.RowsAffected() == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Unknown field."})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "field_key": key, "searchable": req.Searchable})
 }

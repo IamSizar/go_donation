@@ -51,6 +51,7 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/sponsorships"
 	"github.com/karam-flutter/humanitarian-backend/internal/staffchat"
 	"github.com/karam-flutter/humanitarian-backend/internal/support"
+	"github.com/karam-flutter/humanitarian-backend/internal/tasks"
 	"github.com/karam-flutter/humanitarian-backend/internal/users"
 	"github.com/karam-flutter/humanitarian-backend/internal/volunteers"
 	"github.com/karam-flutter/humanitarian-backend/internal/wallet"
@@ -104,8 +105,9 @@ func main() {
 	caseVolChatStore := casevolchat.New(pool) // Note #36 — Staff↔Volunteer↔Beneficiary chat
 	eventsStore := events.New(pool)
 	notifier := notify.New(pool)
-	walletStore := wallet.New(pool) // Note #42 — test-phase internal app wallet
-	assistantSvc := assistant.New()
+	walletStore := wallet.New(pool)        // Note #42 — test-phase internal app wallet
+	tasksStore := tasks.New(pool)          // Client note — "Task Verification"
+	settingsStore := appsettings.New(pool) // #36 — admin-editable app settings.
 
 	listingsStore := listings.New(pool)
 	supportStore := support.New(pool)
@@ -115,6 +117,19 @@ func main() {
 	sponsorshipsStore := sponsorships.New(pool)
 	volunteersStore := volunteers.New(pool)
 	professionStore := volunteers.NewProfessionStore(pool)
+
+	// Client note — AI Assistant "more developed": tool-calling so the model
+	// can look up the CALLER'S OWN wallet/donations/marriage/case/volunteer
+	// data instead of only offering canned navigation help. Constructed here
+	// (after its dependency stores exist) rather than up with the other
+	// stores above.
+	assistantSvc := assistant.New(assistant.Deps{
+		Wallet:      walletStore,
+		Donations:   donationStore,
+		Marriage:    marriageStore,
+		Beneficiary: beneficiaryStore,
+		Volunteers:  volunteersStore,
+	}, settingsStore)
 	projectCatStore := projectcategories.New(pool)
 	citySectorStore := citysectors.New(pool)               // #29 — City Guide sectors
 	searchStore := search.New(pool)                        // #33 — global search
@@ -181,6 +196,7 @@ func main() {
 	beneficiaryH := handlers.NewBeneficiaryHandler(beneficiaryStore, userStore, notifier)
 	marketplaceH := handlers.NewMarketplaceHandler(marketplaceStore, notifier, walletStore)
 	walletH := handlers.NewWalletHandler(walletStore, notifier)
+	tasksH := handlers.NewTasksHandler(tasksStore, notifier)
 	chatH := handlers.NewChatHandler(chatStore, notifier, pool)
 	staffChatH := handlers.NewStaffChatHandler(staffChatStore, notifier, pool)
 	caseVolChatH := handlers.NewCaseVolunteerChatHandler(caseVolChatStore, notifier)
@@ -224,7 +240,6 @@ func main() {
 	guestStore := guest.New(pool)
 	guestH := handlers.NewGuestHandler(guestStore)
 	contentH := handlers.NewContentHandler(content.New(pool))
-	settingsStore := appsettings.New(pool) // #36 — admin-editable app settings.
 	settingsH := handlers.NewSettingsHandler(settingsStore)
 	statsH := handlers.NewStatsHandler(pool)
 	donationCodesH := handlers.NewDonationCodesHandler(codesStore)
@@ -232,7 +247,7 @@ func main() {
 	usersAdminH := handlers.NewUsersAdminHandler(userStore)
 	supportH := handlers.NewSupportHandler(supportStore, notifier)
 	inkindH := handlers.NewInKindHandler(inkindStore, notifier)
-	marriageH := handlers.NewMarriageHandler(marriageStore, notifier)
+	marriageH := handlers.NewMarriageHandler(marriageStore, notifier, walletStore)
 	marriageChatH := handlers.NewMarriageChatHandler(marriageChatStore, notifier, pool)
 	sponsorshipsH := handlers.NewSponsorshipsHandler(sponsorshipsStore, notifier)
 	volunteersH := handlers.NewVolunteersHandler(volunteersStore, notifier)
@@ -334,6 +349,8 @@ func main() {
 		api.GET("/community/", auth.OptionalBearer(tokenStore), auth.BlockGuestOptional(), listingsH.Community)
 		api.GET("/marriage", marriageH.Get)
 		api.GET("/marriage/", marriageH.Get)
+		// Client note — Marriage "Subscription": public package list.
+		api.GET("/marriage/subscription-packages", marriageH.GetSubscriptionPackages)
 		api.GET("/reports", reportsH.Get)
 		api.GET("/reports/", reportsH.Get)
 		// /users + /donations moved under admin group below (admin-only).
@@ -431,6 +448,11 @@ func main() {
 			authed.GET("/wallet", walletH.GetBalance)
 			authed.GET("/wallet/transactions", walletH.ListTransactions)
 
+			// Client note — "Task Verification". Read-only + self-complete for
+			// the user themselves; assigning/deleting is admin-only (below).
+			authed.GET("/tasks", tasksH.ListMine)
+			authed.POST("/tasks/:id/complete", tasksH.Complete)
+
 			// Beneficiary cases — submit (Bearer + role 2)
 			authed.POST("/beneficiary_cases", auth.RequireNotGuest(), beneficiaryH.PostCase)
 			authed.POST("/beneficiary_cases/", auth.RequireNotGuest(), beneficiaryH.PostCase)
@@ -498,6 +520,7 @@ func main() {
 			authed.GET("/marriage/mine", marriageH.MyProfiles)
 			authed.POST("/marriage/:id/save", marriageH.ToggleSave)
 			authed.POST("/marriage/:id/request-meeting", auth.RequireNotGuest(), marriageH.RequestMeeting)
+			authed.POST("/marriage/subscription-packages/:id/purchase", auth.RequireNotGuest(), marriageH.PurchaseSubscription)
 			authed.POST("/marriage/", auth.RequireNotGuest(), marriageH.Post)
 
 			// Note #35 — staff-mediated marriage chat (identity-masked).
@@ -682,6 +705,16 @@ func main() {
 			admin.GET("/admin/marriage/chats", perm("marriage", "view"), marriageChatH.AdminList)
 			admin.GET("/admin/marriage/chats/:id/messages", perm("marriage", "view"), marriageChatH.AdminMessages)
 			admin.POST("/admin/marriage/chats/:id/messages", perm("marriage", "add"), marriageChatH.AdminPostMessage)
+			// Client note — Marriage "Subscription": dynamic package CRUD +
+			// pending-purchase confirmation queue.
+			admin.GET("/admin/marriage/subscription-packages", perm("marriage", "view"), marriageH.AdminListSubscriptionPackages)
+			admin.POST("/admin/marriage/subscription-packages", perm("marriage", "add"), marriageH.AdminAddSubscriptionPackage)
+			admin.PATCH("/admin/marriage/subscription-packages/:id", perm("marriage", "edit"), marriageH.AdminUpdateSubscriptionPackage)
+			admin.POST("/admin/marriage/subscription-packages/reorder", perm("marriage", "edit"), marriageH.AdminReorderSubscriptionPackages)
+			admin.DELETE("/admin/marriage/subscription-packages/:id", perm("marriage", "delete"), marriageH.AdminDeleteSubscriptionPackage)
+			admin.GET("/admin/marriage/subscription-purchases", perm("marriage", "view"), marriageH.AdminListSubscriptionPurchases)
+			admin.POST("/admin/marriage/subscription-purchases/:id/confirm", perm("marriage", "edit"), marriageH.AdminConfirmSubscriptionPurchase)
+			admin.POST("/admin/marriage/subscription-purchases/:id/reject", perm("marriage", "edit"), marriageH.AdminRejectSubscriptionPurchase)
 			admin.GET("/admin/dashboard_kpis", perm("dashboard", "view"), kpisH.Get)
 			admin.GET("/admin/dashboard_kpis/", perm("dashboard", "view"), kpisH.Get)
 
@@ -708,6 +741,10 @@ func main() {
 			admin.POST("/admin/users/:id/staff_tier", perm("users", "edit"), adminStatusH.UserStaffTier) // Users #c
 			// Note #42 — test-phase wallet top-up (admin credits a user's balance).
 			admin.POST("/admin/users/:id/wallet/topup", perm("users", "edit"), walletH.AdminTopUp)
+			// Client note — "Task Verification": staff assign tasks to users.
+			admin.GET("/admin/tasks", perm("tasks", "view"), tasksH.AdminList)
+			admin.POST("/admin/tasks", perm("tasks", "add"), tasksH.AdminCreate)
+			admin.DELETE("/admin/tasks/:id", perm("tasks", "delete"), tasksH.AdminDelete)
 			// Section 25 — immediate administrative actions (super-admin only).
 			admin.POST("/admin/users/:id/force_logout", auth.RequireSuperAdmin(), adminStatusH.UserForceLogout)
 			admin.POST("/admin/users/:id/account_status", auth.RequireSuperAdmin(), adminStatusH.UserAccountStatus)
@@ -838,6 +875,7 @@ func main() {
 			// #43 — registration field rules (required vs optional).
 			admin.GET("/admin/registration/field-rules", fieldRulesH.AdminList)
 			admin.POST("/admin/registration/field-rules/:key", auth.RequireAdminTier(), fieldRulesH.SetState)
+			admin.POST("/admin/registration/field-rules/:key/searchable", auth.RequireAdminTier(), fieldRulesH.SetSearchable)
 			admin.GET("/admin/city-sectors", citySectorsH.AdminList)
 			admin.POST("/admin/city-sectors", auth.RequireAdminTier(), citySectorsH.Add)
 			admin.PATCH("/admin/city-sectors/:id", auth.RequireAdminTier(), citySectorsH.Update)
@@ -882,10 +920,17 @@ func main() {
 			// like the other CMS settings such as payment methods).
 			admin.GET("/admin/settings/support-whatsapp", settingsH.GetSupportWhatsApp)
 			admin.PUT("/admin/settings/support-whatsapp", auth.RequireAdminTier(), settingsH.SetSupportWhatsApp)
+
+			admin.GET("/admin/settings/support-user-id", settingsH.GetSupportUserID)
+			admin.PUT("/admin/settings/support-user-id", auth.RequireAdminTier(), settingsH.SetSupportUserID)
 			// FIB account number — a convenience alias over the FIB payment method
 			// (shown on the donate screen), editable from the same settings card.
 			admin.GET("/admin/settings/fib-number", settingsH.GetFibNumber)
 			admin.PUT("/admin/settings/fib-number", auth.RequireAdminTier(), settingsH.SetFibNumber)
+
+			admin.GET("/admin/settings/assistant", settingsH.GetAssistantSettings)
+			admin.PUT("/admin/settings/assistant", auth.RequireAdminTier(), settingsH.SetAssistantSettings)
+			admin.GET("/admin/assistant/stats", settingsH.GetAssistantStats)
 			// Note #5 — admin dashboard idle-lock duration. GET is open to any
 			// authed staff (everyone needs the value to enforce it client-side);
 			// only the Main Admin (Super Admin) can change it, per the client's
@@ -895,8 +940,8 @@ func main() {
 			// Note #17 — admin-configurable price per Marriage subscription
 			// package tier (bronze/silver/gold/diamond/vip). Same tier as the
 			// other CMS-style settings above (admin tier, not Super-Admin-only).
-			admin.GET("/admin/settings/marriage-package-prices", settingsH.GetMarriagePackagePrices)
-			admin.PUT("/admin/settings/marriage-package-prices", auth.RequireAdminTier(), settingsH.SetMarriagePackagePrices)
+			// Client note — Marriage "Subscription": replaced by the dynamic
+			// packages CRUD registered below (marriage_subscription.go).
 			// Note #29 follow-up — Super-Admin can reorder/regroup the sidebar
 			// itself. Open GET (everyone needs it to render their own sidebar);
 			// only the Main Admin can change it, same tier as session-timeout.

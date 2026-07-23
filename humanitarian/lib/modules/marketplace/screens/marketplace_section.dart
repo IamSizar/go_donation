@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/api/links.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/modules/marketplace/controllers/marketplace_controller.dart';
+import 'package:flutter_application_1/modules/marketplace/screens/cart_screen.dart';
 import 'package:flutter_application_1/modules/marketplace/screens/marketplace_orders_screen.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
@@ -94,7 +94,11 @@ class _MarketplaceList extends StatelessWidget {
           Positioned(
             left: 20,
             right: 20,
-            bottom: 24,
+            // The floating bottom nav bar (its own Positioned pill, ~118pt
+            // tall including its safe-area bottom padding) sits below the
+            // body when `extendBody: true` — this needs enough clearance to
+            // sit above it rather than being covered by it.
+            bottom: 130,
             child: Obx(
               () => AnimatedSwitcher(
                 duration: const Duration(milliseconds: 260),
@@ -114,7 +118,7 @@ class _MarketplaceList extends StatelessWidget {
                   );
                 },
                 child: controller.totalQuantity > 0
-                    ? _CartSummary(
+                    ? _CartTeaserBar(
                         key: const ValueKey('marketplace-cart'),
                         controller: controller,
                       )
@@ -699,197 +703,67 @@ class _LoadMoreProductsFooter extends StatelessWidget {
   }
 }
 
-class _CartSummary extends StatelessWidget {
-  const _CartSummary({super.key, required this.controller});
+/// Note — the cart used to render its full summary (payment method, totals,
+/// clear/checkout) as a floating panel right here, but everything having to
+/// fit in one small overlay bar kept it cramped no matter how it was laid
+/// out. Now it's just a tappable teaser showing item count + total; tapping
+/// it opens the dedicated `CartScreen` for everything else.
+class _CartTeaserBar extends StatelessWidget {
+  const _CartTeaserBar({super.key, required this.controller});
 
   final MarketplaceController controller;
 
   @override
   Widget build(BuildContext context) {
-    return GlassPanel(
-      padding: EdgeInsets.zero,
-      child: Obx(
-        () => AnimatedContainer(
-          duration: const Duration(milliseconds: 240),
-          curve: Curves.easeOutCubic,
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                AppThemeConfig.primary.withValues(alpha: 0.18),
-                Colors.deepOrange.withValues(alpha: 0.14),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(28),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Note #42 — explicit Cash vs. App Wallet choice, matching
-              // the donation screen's payment-method cards instead of a
-              // single on/off checkbox.
-              _CartPaymentMethodPicker(controller: controller),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${controller.totalQuantity} ${'items'.tr}',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                            color: AppThemeConfig.text(context),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          _formatMoney(
-                            controller.totalAmount,
-                            controller.currency,
-                          ),
-                          style: TextStyle(
-                            color: AppThemeConfig.mutedText(context),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: controller.isCheckingOut.value
-                        ? null
-                        : controller.clearCart,
-                    child: Text('Clear'.tr),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton.icon(
-                    // Note #40 — a marketplace order is a "purchase", restricted
-                    // for guests (also enforced server-side).
-                    onPressed: controller.isCheckingOut.value
-                        ? null
-                        : () async {
-                            if (!await requireUpgrade(context)) return;
-                            controller.checkoutCart();
-                          },
-                    icon: controller.isCheckingOut.value
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(
-                            Icons.shopping_cart_checkout_rounded,
-                            size: 18,
-                          ),
-                    label: Text('Checkout'.tr),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Note #42 — a compact Cash / App Wallet choice for the cart, so it reads
-/// as an explicit "which one do you want to pay with" pick rather than a
-/// single on/off checkbox. Mirrors the segmented-picker style already used
-/// for the OTP delivery-mode choice on the login screen.
-class _CartPaymentMethodPicker extends StatelessWidget {
-  const _CartPaymentMethodPicker({required this.controller});
-
-  final MarketplaceController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
-      ),
-      padding: const EdgeInsets.all(4),
-      child: Row(
-        children: [
-          _CartPaymentSegment(
-            icon: Icons.payments_rounded,
-            label: 'Cash'.tr,
-            selected: !controller.payWithWallet.value,
-            onTap: () => controller.payWithWallet.value = false,
-          ),
-          _CartPaymentSegment(
-            icon: Icons.account_balance_wallet_rounded,
-            label: 'App Wallet'.tr,
-            sub: '${controller.walletBalanceIQD.value} IQD',
-            selected: controller.payWithWallet.value,
-            onTap: () => controller.payWithWallet.value = true,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CartPaymentSegment extends StatelessWidget {
-  const _CartPaymentSegment({
-    required this.icon,
-    required this.label,
-    required this.selected,
-    required this.onTap,
-    this.sub,
-  });
-
-  final IconData icon;
-  final String label;
-  final String? sub;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final fg = selected ? AppThemeConfig.primary : AppThemeConfig.text(context);
-    return Expanded(
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(9),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 6),
-            decoration: BoxDecoration(
-              color: selected ? Colors.white : Colors.transparent,
-              borderRadius: BorderRadius.circular(9),
-              boxShadow: selected
-                  ? [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.15),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      ),
-                    ]
-                  : null,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(28),
+        onTap: () => Get.to(() => const CartScreen()),
+        child: GlassPanel(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Obx(
+            () => Row(
               children: [
-                Icon(icon, size: 14, color: fg),
-                const SizedBox(width: 5),
-                Flexible(
-                  child: Text(
-                    sub == null ? label : '$label · $sub',
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: fg,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 11,
-                    ),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.deepOrange.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(14),
                   ),
+                  child: const Icon(
+                    Icons.shopping_cart_rounded,
+                    color: Colors.deepOrange,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${controller.totalQuantity} ${'items'.tr}',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: AppThemeConfig.text(context),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _formatMoney(
+                          controller.totalAmount,
+                          controller.currency,
+                        ),
+                        style: TextStyle(
+                          color: AppThemeConfig.mutedText(context),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppThemeConfig.mutedText(context),
                 ),
               ],
             ),

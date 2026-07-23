@@ -15,6 +15,22 @@ import (
 // KeySupportWhatsApp is the settings key for the AI-chat WhatsApp handoff number.
 const KeySupportWhatsApp = "support_whatsapp"
 
+// KeySupportUserID is the settings key for the staff account that receives
+// "Message the staff team" chats (marriage↔tech-support and similar pairs).
+// Admin-configurable so it doesn't require redeploying with a new env var.
+const KeySupportUserID = "support_user_id"
+
+// KeyAssistantEnabled toggles the AI (tool-calling) path of the Support
+// Assistant on/off. "false" disables it; anything else (including unset)
+// leaves it on. When off, /assistant/chat silently uses the deterministic
+// keyword-fallback engine instead — the feature stays usable, just without
+// free-form understanding, letting staff kill the LLM cost path anytime.
+const KeyAssistantEnabled = "assistant_enabled"
+
+// KeyAssistantExtraInstructions is free text an admin can add to the
+// assistant's system prompt (tone, scope nudges) without a redeploy.
+const KeyAssistantExtraInstructions = "assistant_extra_instructions"
+
 type Store struct{ Pool *pgxpool.Pool }
 
 func New(pool *pgxpool.Pool) *Store { return &Store{Pool: pool} }

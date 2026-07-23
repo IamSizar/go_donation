@@ -181,7 +181,17 @@ func (h *ChatHandler) SupportThread(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
 		return
 	}
-	supportID, _ := strconv.ParseInt(strings.TrimSpace(os.Getenv("SUPPORT_USER_ID")), 10, 64)
+	// Admin-configurable (Settings page) takes priority over the env var, so
+	// staff can pick/change the support recipient without a redeploy.
+	var supportID int64
+	var configuredValue string
+	if err := h.Pool.QueryRow(c.Request.Context(),
+		`SELECT value FROM app_settings WHERE key = 'support_user_id'`).Scan(&configuredValue); err == nil {
+		supportID, _ = strconv.ParseInt(strings.TrimSpace(configuredValue), 10, 64)
+	}
+	if supportID <= 0 {
+		supportID, _ = strconv.ParseInt(strings.TrimSpace(os.Getenv("SUPPORT_USER_ID")), 10, 64)
+	}
 	if supportID <= 0 {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"success": false, "error": "Support chat is not configured."})
 		return

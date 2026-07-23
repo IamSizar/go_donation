@@ -16,9 +16,11 @@ import 'package:flutter_application_1/modules/marketplace/screens/marketplace_se
 import 'package:flutter_application_1/modules/marriage/screens/marriage_hub_screen.dart';
 import 'package:flutter_application_1/modules/notifications/controllers/notifications_controller.dart';
 import 'package:flutter_application_1/modules/notifications/screens/notifications_screen.dart';
+import 'package:flutter_application_1/modules/search/screens/global_search_screen.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:flutter_application_1/widgets/dashboard.dart';
 import 'package:flutter_application_1/widgets/profile_menu.dart';
+import 'package:flutter_application_1/widgets/settings_drawer.dart';
 import 'package:get/get.dart';
 
 /// Note #41 — "Complete Restructuring and Distribution of the Application
@@ -187,6 +189,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       },
       child: Scaffold(
         extendBody: true,
+        // Client note — "Settings and Profile Interface" opens as a side
+        // drawer on tapping the profile picture (see _DashboardTopBar's
+        // ProfileMenuButton, which now calls Scaffold.of(context).openDrawer()
+        // instead of pushing a full screen).
+        drawer: const SettingsDrawer(),
         body: Column(
           children: [
             const _DashboardTopBar(),
@@ -269,6 +276,16 @@ class _DashboardTopBar extends StatelessWidget {
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // Note #43 — grouped with Notifications/Messages at the top,
+                // matching the client's requested layout (was inside the
+                // side drawer only).
+                _TopBarIconButton(
+                  icon: Icons.search_rounded,
+                  badgeCount: 0,
+                  tooltip: 'search_title'.tr,
+                  onTap: () => Get.to(() => const GlobalSearchScreen()),
+                ),
+                const SizedBox(width: 8),
                 Obx(
                   () => _TopBarIconButton(
                     icon: Icons.notifications_none_rounded,
