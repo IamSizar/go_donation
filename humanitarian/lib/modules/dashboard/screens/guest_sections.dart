@@ -183,10 +183,10 @@ class GuestAccountSection extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(
-                  onPressed: () {
-                    exitGuestMode();
-                    Get.offAllNamed(AppRoutes.authRegister);
-                  },
+                  // The dedicated RegisterPage never actually registered
+                  // anyone; route through the phone/OTP login flow instead,
+                  // same as the Sign in button above.
+                  onPressed: _goSignIn,
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppThemeConfig.primary,
                     side: BorderSide(color: AppThemeConfig.border(context)),

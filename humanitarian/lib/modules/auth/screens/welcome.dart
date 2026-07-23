@@ -87,7 +87,10 @@ class WelcomeScreen extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
-                onPressed: () => Get.toNamed('/register'),
+                // The dedicated email/password RegisterPage never created an
+                // account (see #register bug); the phone/OTP flow on Login
+                // is the only path that actually registers a new user.
+                onPressed: () => Get.toNamed('/login'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.white,
                   side: BorderSide(color: Colors.white.withValues(alpha: 0.34)),
