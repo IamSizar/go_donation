@@ -23,50 +23,6 @@ class SponsorshipOverviewScreen extends StatelessWidget {
           children: [
             const _OverviewHeroCard(),
             const SizedBox(height: 18),
-            const Row(
-              children: [
-                Expanded(
-                  child: MetricCard(
-                    title: '12',
-                    subtitle: 'Supported families',
-                    icon: Icons.family_restroom_rounded,
-                    color: Colors.teal,
-                  ),
-                ),
-                SizedBox(width: 12),
-                Expanded(
-                  child: MetricCard(
-                    title: '96%',
-                    subtitle: 'On-time payments',
-                    icon: Icons.verified_rounded,
-                    color: Colors.green,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            const Row(
-              children: [
-                Expanded(
-                  child: MetricCard(
-                    title: '4',
-                    subtitle: 'Stories this month',
-                    icon: Icons.auto_stories_rounded,
-                    color: Colors.amber,
-                  ),
-                ),
-                SizedBox(width: 12),
-                Expanded(
-                  child: MetricCard(
-                    title: '3',
-                    subtitle: 'Renewals due soon',
-                    icon: Icons.event_repeat_rounded,
-                    color: Colors.blueAccent,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 22),
             const SectionLabel(title: 'My monthly sponsorships'),
             const SizedBox(height: 12),
             Obx(() {
@@ -123,10 +79,6 @@ class SponsorshipOverviewScreen extends StatelessWidget {
                 ],
               );
             }),
-            const SizedBox(height: 22),
-            const SectionLabel(title: 'This month'),
-            const SizedBox(height: 12),
-            const _OverviewTimelineCard(),
             const SizedBox(height: 22),
             const SectionLabel(title: 'Focus areas'),
             const SizedBox(height: 12),
@@ -308,44 +260,6 @@ class _OverviewHeroCard extends StatelessWidget {
               color: Colors.white.withValues(alpha: 0.90),
               height: 1.5,
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _OverviewTimelineCard extends StatelessWidget {
-  const _OverviewTimelineCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassPanel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
-          _OverviewLine(
-            icon: Icons.payments_rounded,
-            color: Colors.teal,
-            title: 'Payment batch completed',
-            subtitle:
-                '9 recurring sponsorships were processed successfully this week.',
-          ),
-          SizedBox(height: 16),
-          _OverviewLine(
-            icon: Icons.mark_chat_read_rounded,
-            color: Colors.amber,
-            title: 'New family stories available',
-            subtitle:
-                'Three sponsored families shared recent progress and gratitude notes.',
-          ),
-          SizedBox(height: 16),
-          _OverviewLine(
-            icon: Icons.notifications_active_rounded,
-            color: Colors.blueAccent,
-            title: 'Renewals approaching',
-            subtitle:
-                'Two sponsorship plans need confirmation before the next billing cycle.',
           ),
         ],
       ),
