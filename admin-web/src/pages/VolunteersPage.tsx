@@ -834,8 +834,10 @@ function MissionSignupsTab() {
   // state). Each row exposes the natural forward action(s) for its current
   // state PLUS a Revert that steps back to a sensible prior state. The
   // status dropdown still gives full arbitrary control; these buttons are
-  // the quick, always-available path. The backend validates every
-  // transition, so an out-of-order change is rejected server-side.
+  // the quick, always-available path. The backend does not validate
+  // transition order — any status in volunteerSignupStatuses is accepted
+  // unconditionally — so it clears completed_at whenever the status moves
+  // away from "completed" to keep the Progress column consistent.
   function actionsFor(s: AdminMissionSignup): { label: string; status: string; tone?: 'danger' }[] {
     switch (s.status) {
       case 'pending':

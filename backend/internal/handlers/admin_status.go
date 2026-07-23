@@ -698,6 +698,8 @@ func (h *AdminStatusHandler) Mission(c *gin.Context) {
 //	joined    → checked_in_at = NOW()  (admin recorded attendance)
 //	completed → completed_at  = NOW()  AND checked_in_at = NOW() if null
 //	            (so a direct "completed" from approved still has a timestamp)
+//	anything else → completed_at cleared, since it no longer applies once the
+//	            signup moves (or is undone) out of "completed"
 //
 // COALESCE keeps existing timestamps stable: if the admin already marked
 // the volunteer joined yesterday and is now marking them completed today,
@@ -737,7 +739,7 @@ func (h *AdminStatusHandler) MissionSignup(c *gin.Context) {
 	args := []interface{}{status, id}
 	switch status {
 	case "joined":
-		extraSet = ", checked_in_at = COALESCE(checked_in_at, CURRENT_TIMESTAMP)"
+		extraSet = ", checked_in_at = COALESCE(checked_in_at, CURRENT_TIMESTAMP), completed_at = NULL"
 	case "completed":
 		extraSet = `, checked_in_at = COALESCE(checked_in_at, CURRENT_TIMESTAMP),
 		             completed_at  = COALESCE(completed_at,  CURRENT_TIMESTAMP)`
@@ -747,6 +749,11 @@ func (h *AdminStatusHandler) MissionSignup(c *gin.Context) {
 			extraSet += fmt.Sprintf(", hours_served = $%d", len(args)+1)
 			args = append(args, *req.HoursServed)
 		}
+	default:
+		// Moving to any other status (including an Undo) means the signup is
+		// no longer "completed" — clear the stale timestamp so the Progress
+		// column doesn't keep showing a "done" date for it.
+		extraSet = ", completed_at = NULL"
 	}
 
 	ct, err := h.Pool.Exec(c.Request.Context(),
