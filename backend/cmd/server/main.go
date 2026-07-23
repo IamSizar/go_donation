@@ -727,7 +727,7 @@ func main() {
 			admin.POST("/admin/marriage/:id/status", perm("marriage", "edit"), adminStatusH.Marriage)
 			admin.POST("/admin/partners/:id/status", perm("partners", "edit"), adminStatusH.Partner)
 			admin.POST("/admin/media/:id/status", perm("media", "edit"), adminStatusH.Media)
-			admin.GET("/admin/community", listingsH.CommunityAdmin) // #30 — queue incl. pending
+			admin.GET("/admin/community", perm("community", "view"), listingsH.CommunityAdmin) // #30 — queue incl. pending
 			admin.POST("/admin/community/:id/status", perm("community", "edit"), adminStatusH.Community)
 			admin.POST("/admin/volunteer_applications/:id/status", perm("volunteers", "edit"), adminStatusH.VolunteerApplication)
 			admin.POST("/admin/sponsorships/:id/status", perm("sponsorships", "edit"), adminStatusH.Sponsorship)
