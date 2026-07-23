@@ -47,9 +47,11 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen> {
     super.dispose();
   }
 
+  // Prepend "+" so NormalizePhone treats this as already country-coded
+  // instead of falling into its Iraq-assuming bare-input branch.
   String _normalizeLocalPhone(String digits) {
     final national = digits.startsWith('0') ? digits.substring(1) : digits;
-    return '$_dialCode$national';
+    return '+$_dialCode$national';
   }
 
   Future<void> _sendOtp() async {

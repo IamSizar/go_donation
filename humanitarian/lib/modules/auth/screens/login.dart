@@ -128,22 +128,27 @@ class _LoginFormState extends State<_LoginForm> {
   void initState() {
     super.initState();
     // Phase 19c — pendingPhone is stored in the full international format
-    // ("9647508582031"). Strip the 964 prefix when re-populating so the
-    // input field stays local-only ("7508582031") and matches the locked
-    // +964 chip beside it.
+    // ("+9647508582031"). Strip the leading "+964" when re-populating so
+    // the input field stays local-only ("7508582031") and matches the
+    // locked +964 chip beside it.
     final pending = _loginController.pendingPhone.value;
-    _phoneController.text = pending.startsWith('964') && pending.length > 3
-        ? pending.substring(3)
+    final pendingDigits = pending.startsWith('+')
+        ? pending.substring(1)
+        : pending;
+    _phoneController.text =
+        pendingDigits.startsWith('964') && pendingDigits.length > 3
+        ? pendingDigits.substring(3)
         : pending;
   }
 
   Future<void> _handleSendOtp() async {
     if (!_formKey.currentState!.validate()) return;
 
-    // Phase 19c — auto-prepend the Iraq country code so the user only ever
-    // types their local 10-digit number. Backend's NormalizePhone would
-    // accept either format anyway, but normalizing here keeps the
-    // pendingPhone display + verify-screen header consistent.
+    // Phase 19c — auto-prepend the selected country's dial code so the
+    // user only ever types their local number. The leading "+" tells
+    // backend's NormalizePhone this is already country-coded (its
+    // bare-input branch otherwise assumes Iraq), and normalizing here also
+    // keeps the pendingPhone display + verify-screen header consistent.
     final localDigits = _phoneController.text.replaceAll(RegExp(r'\D'), '');
     final normalizedPhone = _normalizeLocalPhone(localDigits);
 
@@ -158,14 +163,15 @@ class _LoginFormState extends State<_LoginForm> {
   /// Convert a locally-typed phone (with the selected _dialCode) to the
   /// full international form: strip a leading national trunk "0" if present
   /// (standard when combining a local number with its country code), then
-  /// prepend the selected dial code.
+  /// prepend "+" and the selected dial code so NormalizePhone treats it as
+  /// already country-coded.
   ///
-  ///   964 + 7508582031    → 9647508582031
-  ///   964 + 07508582031   → 9647508582031  (leading trunk 0 stripped)
-  ///   44  + 07700900000   → 447700900000
+  ///   964 + 7508582031    → +9647508582031
+  ///   964 + 07508582031   → +9647508582031  (leading trunk 0 stripped)
+  ///   44  + 07700900000   → +447700900000
   String _normalizeLocalPhone(String digits) {
     final national = digits.startsWith('0') ? digits.substring(1) : digits;
-    return '$_dialCode$national';
+    return '+$_dialCode$national';
   }
 
   Future<void> _handleGoogleLogin() async {
