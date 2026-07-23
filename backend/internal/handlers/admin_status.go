@@ -414,6 +414,9 @@ var (
 
 type statusReq struct {
 	Status string `json:"status"`
+	// HoursServed is only read by MissionSignup, on a transition to
+	// "completed" — every other status endpoint ignores it.
+	HoursServed *float64 `json:"hours_served,omitempty"`
 }
 
 // ===== Generic helper: update one string column =====
@@ -721,23 +724,34 @@ func (h *AdminStatusHandler) MissionSignup(c *gin.Context) {
 		})
 		return
 	}
+	if req.HoursServed != nil && *req.HoursServed < 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "hours_served must be >= 0."})
+		return
+	}
 
 	// Build the timestamp side-effect tail per chosen status. Always uses
 	// COALESCE so re-running the same status doesn't reset an earlier
 	// timestamp. CURRENT_TIMESTAMP is server-side so the row's clock is
 	// always the DB's UTC.
 	extraSet := ""
+	args := []interface{}{status, id}
 	switch status {
 	case "joined":
 		extraSet = ", checked_in_at = COALESCE(checked_in_at, CURRENT_TIMESTAMP)"
 	case "completed":
 		extraSet = `, checked_in_at = COALESCE(checked_in_at, CURRENT_TIMESTAMP),
 		             completed_at  = COALESCE(completed_at,  CURRENT_TIMESTAMP)`
+		// hours_served is otherwise never written anywhere in the backend —
+		// this is the one place the admin can record it.
+		if req.HoursServed != nil {
+			extraSet += fmt.Sprintf(", hours_served = $%d", len(args)+1)
+			args = append(args, *req.HoursServed)
+		}
 	}
 
 	ct, err := h.Pool.Exec(c.Request.Context(),
 		"UPDATE volunteer_mission_signups SET status = $1"+extraSet+" WHERE id = $2",
-		status, id,
+		args...,
 	)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
