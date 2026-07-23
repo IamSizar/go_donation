@@ -201,9 +201,7 @@ class MarketplaceController extends GetxController
     final stockQuantity = int.tryParse(
       (product['stock_quantity'] ?? '').toString(),
     );
-    if (stockQuantity != null &&
-        stockQuantity > 0 &&
-        nextQuantity > stockQuantity) {
+    if (stockQuantity != null && nextQuantity > stockQuantity) {
       Get.snackbar(
         'Marketplace'.tr,
         'Only @count available.'.trParams({'count': '$stockQuantity'}),

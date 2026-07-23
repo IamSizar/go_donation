@@ -384,7 +384,7 @@ func (s *Store) CreateOrder(
 		}
 		return 0, OrderCreated, 0, err
 	}
-	if stock != nil && *stock > 0 && quantity > *stock {
+	if stock != nil && quantity > *stock {
 		return 0, OrderOutOfStock, *stock, nil
 	}
 

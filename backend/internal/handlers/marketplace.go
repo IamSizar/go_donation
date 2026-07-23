@@ -137,7 +137,7 @@ func (h *MarketplaceHandler) Post(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
 			return
 		}
-		if stock != nil && *stock > 0 && qty > *stock {
+		if stock != nil && qty > *stock {
 			c.JSON(http.StatusConflict, gin.H{
 				"success": false,
 				"error":   "Only " + strconv.Itoa(*stock) + " available.",
