@@ -606,7 +606,7 @@ class _LanguageRow extends StatelessWidget {
             margin: const EdgeInsets.all(12),
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: AppThemeConfig.surface(sheetContext),
+              color: AppThemeConfig.elevatedSurface(sheetContext),
               borderRadius: BorderRadius.circular(24),
               border: Border.all(color: AppThemeConfig.border(sheetContext)),
             ),

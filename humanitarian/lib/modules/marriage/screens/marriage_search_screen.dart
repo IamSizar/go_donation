@@ -160,7 +160,7 @@ class _MarriageSearchScreenState extends State<MarriageSearchScreen> {
                   maxHeight: MediaQuery.of(sheetContext).size.height * 0.8,
                 ),
                 decoration: BoxDecoration(
-                  color: AppThemeConfig.surface(sheetContext),
+                  color: AppThemeConfig.elevatedSurface(sheetContext),
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(color: AppThemeConfig.border(sheetContext)),
                 ),

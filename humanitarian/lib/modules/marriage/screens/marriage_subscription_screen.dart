@@ -80,7 +80,7 @@ class _MarriageSubscriptionScreenState
             margin: const EdgeInsets.all(12),
             padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
             decoration: BoxDecoration(
-              color: AppThemeConfig.surface(sheetContext),
+              color: AppThemeConfig.elevatedSurface(sheetContext),
               borderRadius: BorderRadius.circular(24),
               border: Border.all(color: AppThemeConfig.border(sheetContext)),
             ),
