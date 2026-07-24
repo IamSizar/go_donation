@@ -1,20 +1,27 @@
+import 'package:flutter/foundation.dart' show kReleaseMode;
+
 // API endpoints.
 //
 // Phase 6 cutover (2026-05-16): the backend was rewritten in Go and now lives
 // on port 8080 with paths under /api/* (no /percentage/ prefix). This file is
 // the single point of change — every other Dart file imports baseUrl/publicBaseUrl
-// from here, so updating `baseUrl` below is what swaps the backend.
+// from here, so updating the URLs below is what swaps the backend.
 //
-// Pick the right host for your run target:
+// Release builds (including the shipped APK) always hit production — a
+// device running the real app has no local backend of its own to reach.
+// Debug builds (`flutter run`) hit your local backend; pick the right host
+// for your run target below:
 //   - LAN device (real phone, same Wi-Fi): your Mac's LAN IP, e.g. 192.168.1.12
 //   - iOS simulator / Flutter web on this Mac: localhost
 //   - Android emulator: 10.0.2.2  (the magic loopback Android emulator uses)
-// Production (Railway): 'https://backend-production-59d2.up.railway.app/api/'
+const String _prodBaseUrl =
+    'https://backend-production-59d2.up.railway.app/api/';
 // Local dev — pick the host for your run target:
 //   iOS Simulator: 'http://localhost:8081/api/'
 //   Android emulator: 'http://10.0.2.2:8081/api/'
 //   Real device on same Wi-Fi: 'http://<your-Mac-LAN-IP>:8081/api/'
-const String baseUrl = 'http://localhost:8081/api/';
+const String _localBaseUrl = 'http://localhost:8081/api/';
+const String baseUrl = kReleaseMode ? _prodBaseUrl : _localBaseUrl;
 
 /// Google OAuth Web/Server client ID (Phase 9 · B-09). Supplied at build time:
 ///   flutter run --dart-define=GOOGLE_SERVER_CLIENT_ID=xxxx.apps.googleusercontent.com
