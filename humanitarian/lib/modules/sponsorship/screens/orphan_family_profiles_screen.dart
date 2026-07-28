@@ -4,11 +4,25 @@ import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/modules/proposal/controllers/beneficiary_cases_controller.dart';
 import 'package:flutter_application_1/modules/proposal/screens/beneficiary_case_detail_screen.dart';
 import 'package:flutter_application_1/modules/proposal/screens/proposal_services_section.dart';
+import 'package:flutter_application_1/shared/widgets/case_category_capsules.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 
-class OrphanFamilyProfilesScreen extends StatelessWidget {
-  const OrphanFamilyProfilesScreen({super.key});
+class OrphanFamilyProfilesScreen extends StatefulWidget {
+  const OrphanFamilyProfilesScreen({super.key, this.initialCategory});
+
+  /// Pre-applies a Quick Filter Capsule when opened from the Home shortcut
+  /// row (null = show every profile, same as opening this screen directly).
+  final String? initialCategory;
+
+  @override
+  State<OrphanFamilyProfilesScreen> createState() =>
+      _OrphanFamilyProfilesScreenState();
+}
+
+class _OrphanFamilyProfilesScreenState
+    extends State<OrphanFamilyProfilesScreen> {
+  late String? _selectedCategory = widget.initialCategory;
 
   @override
   Widget build(BuildContext context) {
@@ -22,13 +36,23 @@ class OrphanFamilyProfilesScreen extends StatelessWidget {
       title: 'Orphan & Family Profiles',
       subtitle: 'See updates, family needs, and sponsorship history.',
       child: Obx(() {
-        final items = controller.cases;
+        final items = _selectedCategory == null
+            ? controller.cases
+            : controller.cases
+                .where((c) => (c['category_slug'] ?? '') == _selectedCategory)
+                .toList();
         return RefreshIndicator(
           onRefresh: controller.fetchCases,
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
             children: [
               const _ProfilesIntroCard(),
+              const SizedBox(height: 18),
+              CaseCategoryCapsules(
+                selected: _selectedCategory,
+                onSelected: (slug) =>
+                    setState(() => _selectedCategory = slug),
+              ),
               const SizedBox(height: 22),
               if (controller.isLoading.value)
                 const Center(child: CircularProgressIndicator()),

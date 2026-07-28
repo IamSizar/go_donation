@@ -39,7 +39,15 @@ Future<void> _openSearchResult(Map<String, dynamic> result) async {
     case 'campaign':
       final campaign = await _fetchCampaignEntry(result);
       if (campaign != null) {
-        Get.to(() => CampaignDetailScreen(campaign: campaign));
+        Get.to(
+          () => CampaignDetailScreen(campaign: campaign),
+        )?.then((donate) {
+          if (donate == true) {
+            Get.to(
+              () => DonationsSection(initialCampaignId: campaign.id),
+            );
+          }
+        });
       } else {
         Get.to(() => const DonationsSection());
       }

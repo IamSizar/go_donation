@@ -16,10 +16,12 @@ import 'package:flutter_application_1/modules/history/screens/role_history_scree
 import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_my_projects_screen.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_pending_projects_screen.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_submit_project_screen.dart';
+import 'package:flutter_application_1/modules/sponsorship/screens/orphan_family_profiles_screen.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/sponsorship_overview_screen.dart';
 import 'package:flutter_application_1/modules/support/screens/support_section.dart';
 import 'package:flutter_application_1/modules/proposal/screens/proposal_services_section.dart';
 import 'package:flutter_application_1/modules/bot/screens/bot_chat_screen.dart';
+import 'package:flutter_application_1/shared/widgets/case_category_capsules.dart';
 import 'package:flutter_application_1/widgets/firebase_screen_add.dart';
 import 'package:flutter_application_1/widgets/impact_stats_slider.dart';
 import 'package:get/get.dart';
@@ -357,6 +359,18 @@ class DashboardHomeSection extends StatelessWidget {
         ),
         const SizedBox(height: 22),
         const _ExploreRow(),
+        const SizedBox(height: 22),
+        // Quick Filter Capsules (client spec, Home "Section Three") — tap a
+        // category to jump straight into Orphan & Family Profiles filtered
+        // to it.
+        const _SectionLabel(title: 'Browse by category'),
+        const SizedBox(height: 12),
+        CaseCategoryCapsules(
+          selected: null,
+          onSelected: (slug) => Get.to(
+            () => OrphanFamilyProfilesScreen(initialCategory: slug),
+          ),
+        ),
         const SizedBox(height: 22),
         const _FeaturedCampaignsSection(),
         const SizedBox(height: 22),
@@ -1653,7 +1667,15 @@ class _CampaignCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         child: InkWell(
           borderRadius: BorderRadius.circular(24),
-          onTap: () => Get.to(() => CampaignDetailScreen(campaign: campaign)),
+          onTap: () => Get.to(
+            () => CampaignDetailScreen(campaign: campaign),
+          )?.then((donate) {
+            if (donate == true) {
+              Get.to(
+                () => DonationsSection(initialCampaignId: campaign.id),
+              );
+            }
+          }),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(

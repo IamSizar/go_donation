@@ -120,6 +120,10 @@ const String paymentMethodsUrl = '${baseUrl}payment-methods';
 /// GET: admin-managed "Our Work" categories for the News & Activities filter (#22).
 const String mediaCategoriesUrl = '${baseUrl}media-categories';
 
+/// GET: admin-managed beneficiary-case categories for the Home Quick Filter
+/// Capsules (Orphan Sponsorship, Widow Support, Food Baskets, etc).
+const String caseCategoriesUrl = '${baseUrl}case-categories';
+
 /// GET: admin-managed City Guide sectors for the directory filter chips (#29).
 const String citySectorsUrl = '${baseUrl}city-sectors';
 

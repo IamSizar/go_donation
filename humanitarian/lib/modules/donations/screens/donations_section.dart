@@ -12,7 +12,13 @@ import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:intl/intl.dart'; // Added for number formatting
 
 class DonationsSection extends StatelessWidget {
-  const DonationsSection({super.key});
+  const DonationsSection({super.key, this.initialCampaignId});
+
+  /// Pre-selects a campaign and jumps straight to the amount picker — used
+  /// when arriving here via "Donate to this campaign" from a campaign card
+  /// elsewhere in the app (Home's Featured campaigns, global search), so the
+  /// donor doesn't have to re-find and re-tap the same campaign.
+  final int? initialCampaignId;
 
   static const List<_DonationOptionData> _options = [
     _DonationOptionData(
@@ -30,7 +36,7 @@ class DonationsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _DonationsSectionBody();
+    return _DonationsSectionBody(initialCampaignId: initialCampaignId);
   }
 }
 
@@ -41,7 +47,9 @@ String formatAmount(num amount) {
 }
 
 class _DonationsSectionBody extends StatefulWidget {
-  const _DonationsSectionBody();
+  const _DonationsSectionBody({this.initialCampaignId});
+
+  final int? initialCampaignId;
 
   @override
   State<_DonationsSectionBody> createState() => _DonationsSectionBodyState();
@@ -55,6 +63,15 @@ class _DonationsSectionBodyState extends State<_DonationsSectionBody> {
 
   final ScrollController _listScrollController = ScrollController();
   final GlobalKey _quickAmountKey = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialCampaignId != null) {
+      _selectedCampaignId = widget.initialCampaignId;
+      _scrollToQuickAmount();
+    }
+  }
 
   @override
   void dispose() {
