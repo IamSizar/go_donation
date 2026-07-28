@@ -31,7 +31,9 @@ class MarriageHubScreen extends StatelessWidget {
       title: 'Marriage',
       subtitle: 'Browse profiles, manage yours, and chat once a meeting is accepted.',
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+        // 120 bottom clearance (not 24) — matches Home's ListView, otherwise
+        // the last tile ends up hidden behind the floating bottom nav bar.
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 120),
         children: [
           _MarriageTile(
             icon: Icons.search_rounded,

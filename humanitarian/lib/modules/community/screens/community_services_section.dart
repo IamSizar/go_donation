@@ -285,7 +285,10 @@ class _CityGuideScreenState extends State<CityGuideScreen> {
         final sectors = _controller.sectors.toList();
         final selected = _controller.selectedSector.value;
         return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          // 120 bottom clearance (not 16) — matches Home's ListView, otherwise
+          // the place-card row below the map ends up hidden behind the
+          // floating bottom nav bar.
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
           child: Column(
             children: [
               _CityGuideHeader(count: items.length),
@@ -572,6 +575,16 @@ class _CityMapState extends State<_CityMap> {
                 initialZoom: zoom,
                 maxZoom: 18.0,
                 minZoom: 3.0,
+                // A single-finger drag used to pan the map — since the map
+                // fills nearly the whole screen, that meant any swipe over it
+                // got swallowed as a map pan instead of reaching the page
+                // (reported as a "scroll bug"). Panning now needs two
+                // fingers; pinch-zoom and double-tap-zoom still work with one.
+                interactionOptions: const InteractionOptions(
+                  flags: InteractiveFlag.pinchZoom |
+                      InteractiveFlag.doubleTapZoom |
+                      InteractiveFlag.pinchMove,
+                ),
                 onTap: (_, __) {
                   if (_selected != -1) setState(() => _selected = -1);
                 },
