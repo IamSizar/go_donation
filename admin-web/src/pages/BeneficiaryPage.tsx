@@ -8,6 +8,7 @@ import StatusCell from '../components/StatusCell'
 import type {
   AdminPageResp,
   BeneficiaryCase,
+  CaseCategory,
   ProjectRequest,
 } from '../lib/api-types'
 import Table, { type Column } from '../components/Table'
@@ -15,6 +16,7 @@ import Pagination from '../components/Pagination'
 import EditModal, { type FieldSpec } from '../components/EditModal'
 import BulkBar from '../components/BulkBar'
 import ConfirmDialog from '../components/ConfirmDialog'
+import CaseCategoriesManager from '../components/CaseCategoriesManager'
 import { useToast } from '../lib/toast'
 import { useI18n, useStatusLabel } from '../lib/i18n'
 import { useSelection } from '../lib/useSelection'
@@ -93,10 +95,16 @@ const CASE_MARITAL_STATUSES = ['single', 'married', 'widowed', 'divorced']
 // field-rules set and keep their existing behavior.
 // `city` is relabeled "Governorate" and switched to a dropdown (the client's
 // ask) — same underlying DB column/API field, just a structured input.
+function categoryName(c: CaseCategory, locale: string | undefined): string {
+  const byLocale: Record<string, string> = { en: c.name_en, ar: c.name_ar, ckb: c.name_ckb, kmr: c.name_kmr }
+  return (locale && byLocale[locale]?.trim()) || c.name_en
+}
+
 function buildCaseFields(
   state: Record<string, FieldRuleState>,
   locale: string | undefined,
   t: (key: string) => string,
+  categories: CaseCategory[],
 ): FieldSpec[] {
   const governorateLabels: Record<string, string> = {}
   for (const g of IRAQ_GOVERNORATES) {
@@ -127,6 +135,11 @@ function buildCaseFields(
     { key: 'family_members_count', label: 'Family members', labelKey: 'field.family_members',     type: 'number',   required: isRequired('family_members_count') },
     { key: 'income_amount',        label: 'Income amount', labelKey: 'field.income_amount',      type: 'number',   required: isRequired('income_amount') },
     { key: 'priority_level',       label: 'Priority', labelKey: 'field.priority',           type: 'select',   options: PRIORITY_LEVELS },
+    {
+      key: 'category_slug', label: 'Category', labelKey: 'field.category', type: 'select',
+      options: ['', ...categories.map((c) => c.slug)],
+      optionLabels: Object.fromEntries(categories.map((c) => [c.slug, categoryName(c, locale)])),
+    },
     { key: 'verification_status',  label: 'Verification status', labelKey: 'field.verification_status',type: 'select',   options: EDITABLE_CASE_STATUSES },
     { key: 'public_visibility',    label: 'Public visibility', labelKey: 'field.public_visibility',  type: 'select',   options: CASE_VISIBILITY },
     { key: 'housing_status',       label: 'Housing status', labelKey: 'field.housing_status',     type: 'text',     required: isRequired('housing_status') },
@@ -232,6 +245,8 @@ function CasesTab() {
   const [creating, setCreating] = useState(false)
   const [deleting, setDeleting] = useState<BeneficiaryCase | null>(null)
   const [refreshTick, setRefreshTick] = useState(0)
+  const [categories, setCategories] = useState<CaseCategory[]>([])
+  const [categoriesOpen, setCategoriesOpen] = useState(false)
   // Phase 27.9 — true while a background poll is refetching, so the loader
   // stays hidden and the list updates silently (no full reload flash).
   const pollSilent = useRef(false)
@@ -243,7 +258,17 @@ function CasesTab() {
   // Note #32 — Field Rules (Dashboard Settings) drives which of these
   // fields are Required vs Optional.
   const { state: caseFieldState } = useFieldRules('case_')
-  const caseFields = useMemo(() => buildCaseFields(caseFieldState, locale, t), [caseFieldState, locale, t])
+  const loadCategories = useCallback(() => {
+    api
+      .get<{ items: CaseCategory[] }>('/api/admin/case-categories')
+      .then((res) => setCategories(res.data.items ?? []))
+      .catch(() => setCategories([]))
+  }, [])
+  useEffect(loadCategories, [loadCategories])
+  const caseFields = useMemo(
+    () => buildCaseFields(caseFieldState, locale, t, categories),
+    [caseFieldState, locale, t, categories],
+  )
   const caseCreateFields = useMemo(
     () => [{ key: 'user_id', label: 'User ID (optional)', labelKey: 'field.user_id_optional', type: 'number' as const }, ...caseFields],
     [caseFields],
@@ -386,6 +411,14 @@ function CasesTab() {
       ),
     },
     {
+      key: 'category',
+      header: t('field.category'),
+      cell: (r) => {
+        const cat = categories.find((c) => c.slug === r.category_slug)
+        return cat ? categoryName(cat, locale) : <span className="muted">—</span>
+      },
+    },
+    {
       key: 'status',
       header: t('col.status'),
       cell: (r) => (
@@ -448,6 +481,9 @@ function CasesTab() {
             ))}
           </select>
           <ExportCsvButton onExport={exportCsv} />
+          <button className="secondary" onClick={() => setCategoriesOpen(true)}>
+            {t('caseCategories.manage_button')}
+          </button>
           <button onClick={() => setCreating(true)}>{t('page.beneficiary.new_case')}</button>
         </div>
       </div>
@@ -497,6 +533,11 @@ function CasesTab() {
         fields={creating ? caseCreateFields : caseFields}
         onSave={(data) => (creating ? handleCreate(data) : handleSave(editing!.id, data))}
         onClose={closeModal}
+      />
+      <CaseCategoriesManager
+        open={categoriesOpen}
+        onClose={() => setCategoriesOpen(false)}
+        onChanged={loadCategories}
       />
     </div>
   )

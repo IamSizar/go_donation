@@ -229,9 +229,22 @@ export type BeneficiaryCase = {
   // here (the backend used to crash the whole list on such a row instead).
   verification_status: string | null
   public_visibility: string
+  category_slug: string | null
   review_notes: string | null
   created_at: string
   updated_at: string
+}
+
+// Quick Filter Capsules — admin-managed beneficiary-case category taxonomy.
+export type CaseCategory = {
+  id: number
+  slug: string
+  name_en: string
+  name_ar: string
+  name_ckb: string
+  name_kmr: string
+  display_order: number
+  active: boolean
 }
 
 export type ProjectRequest = {

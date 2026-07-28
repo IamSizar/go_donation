@@ -247,6 +247,18 @@ const en = {
     need_en: 'English name is required.',
     active: 'Active (shown in the app)',
   },
+  caseCategories: {
+    title: 'Case categories',
+    subtitle: 'Manage the categories beneficiary cases can be tagged with (Orphan Sponsorship, Widow Support, Food Baskets, etc). Shown as quick-filter capsules on the app Home screen.',
+    manage_button: 'Manage categories',
+    add_new: 'Add category',
+    saved: 'Category saved.',
+    added: 'Category added.',
+    deleted: 'Category deleted.',
+    confirm_delete: 'Delete this category?',
+    need_en: 'English name is required.',
+    active: 'Active (shown in the app)',
+  },
   marketplaceCategories: {
     title: 'Product categories',
     subtitle: 'Manage the marketplace product categories. Shown as filter chips in the app, in all languages.',
