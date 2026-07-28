@@ -45,6 +45,7 @@ type Case struct {
 	// just itself, surfacing as a generic "Database error."
 	VerificationStatus *string   `json:"verification_status"`
 	PublicVisibility   string    `json:"public_visibility"`
+	CategorySlug       *string   `json:"category_slug"`
 	ReviewNotes        *string   `json:"review_notes"`
 	CreatedAt          time.Time `json:"created_at"`
 	UpdatedAt          time.Time `json:"updated_at"`
@@ -177,7 +178,7 @@ func (s *Store) ListCasesForUser(ctx context.Context, userID int64, status strin
 	             income_amount::text, housing_status, work_status,
 	             health_status, education_status, actual_needs,
 	             priority_level, verification_status, public_visibility,
-	             review_notes, created_at, updated_at
+	             category_slug, review_notes, created_at, updated_at
 	        FROM beneficiary_cases
 	       WHERE user_id = $1`
 	if status != "" {
@@ -205,7 +206,7 @@ func (s *Store) ListPublicCases(ctx context.Context, status string, limit int) (
 	             income_amount::text, housing_status, work_status,
 	             health_status, education_status, actual_needs,
 	             priority_level, verification_status, public_visibility,
-	             review_notes, created_at, updated_at
+	             category_slug, review_notes, created_at, updated_at
 	        FROM beneficiary_cases
 	       WHERE verification_status = $1
 	         AND public_visibility <> 'hidden'
@@ -230,7 +231,7 @@ func (s *Store) queryCases(ctx context.Context, q string, args ...any) ([]Case, 
 			&c.IncomeAmount, &c.HousingStatus, &c.WorkStatus,
 			&c.HealthStatus, &c.EducationStatus, &c.ActualNeeds,
 			&c.PriorityLevel, &c.VerificationStatus, &c.PublicVisibility,
-			&c.ReviewNotes, &c.CreatedAt, &c.UpdatedAt,
+			&c.CategorySlug, &c.ReviewNotes, &c.CreatedAt, &c.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
@@ -495,7 +496,7 @@ func (s *Store) AdminListCases(ctx context.Context, page, perPage int, status, q
 	             income_amount::text, housing_status, work_status,
 	             health_status, education_status, actual_needs,
 	             priority_level, verification_status, public_visibility,
-	             review_notes, created_at, updated_at
+	             category_slug, review_notes, created_at, updated_at
 	        FROM beneficiary_cases` + where + `
 	       ORDER BY` + priorityOrderClause + ` LIMIT $` + itoa(limitIdx) + ` OFFSET $` + itoa(offsetIdx)
 	args = append(args, perPage, offset)

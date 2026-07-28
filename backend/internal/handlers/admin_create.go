@@ -832,8 +832,8 @@ func (h *AdminCreateHandler) BeneficiaryCase(c *gin.Context) {
 		   full_name, national_id, phone, gender, date_of_birth, marital_status, city, district, address,
 		   family_members_count, income_amount,
 		   housing_status, work_status, health_status, education_status, actual_needs,
-		   priority_level, verification_status, public_visibility, review_notes)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)
+		   priority_level, verification_status, public_visibility, category_slug, review_notes)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27)
 		RETURNING id`,
 		userID, caseCode, publicTitle,
 		optStringOrNil(req.PublicTitleAr), optStringOrNil(req.PublicTitleSorani), optStringOrNil(req.PublicTitleBadini),
@@ -843,7 +843,7 @@ func (h *AdminCreateHandler) BeneficiaryCase(c *gin.Context) {
 		nullableIntPtr(req.FamilyMembersCount), nullableFloatPtr(req.IncomeAmount),
 		optStringOrNil(req.HousingStatus), optStringOrNil(req.WorkStatus), optStringOrNil(req.HealthStatus),
 		optStringOrNil(req.EducationStatus), optStringOrNil(req.ActualNeeds),
-		priority, verification, visibility, optStringOrNil(req.ReviewNotes),
+		priority, verification, visibility, optStringOrNil(req.CategorySlug), optStringOrNil(req.ReviewNotes),
 	).Scan(&id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})

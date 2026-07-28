@@ -18,6 +18,7 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
 	"github.com/karam-flutter/humanitarian-backend/internal/beneficiary"
 	"github.com/karam-flutter/humanitarian-backend/internal/campaigns"
+	"github.com/karam-flutter/humanitarian-backend/internal/casecategories"
 	"github.com/karam-flutter/humanitarian-backend/internal/casevolchat"
 	"github.com/karam-flutter/humanitarian-backend/internal/chat"
 	"github.com/karam-flutter/humanitarian-backend/internal/citysectors"
@@ -134,6 +135,7 @@ func main() {
 	citySectorStore := citysectors.New(pool)               // #29 — City Guide sectors
 	searchStore := search.New(pool)                        // #33 — global search
 	mediaCatStore := mediacategories.New(pool)             // #22 — "Our Work" categories
+	caseCatStore := casecategories.New(pool)               // Quick Filter Capsules — case categories
 	postEngageStore := postengagement.New(pool)            // #24 — likes/comments/share
 	bannedWordsStore := moderation.New(pool)               // #25 — banned-words blocklist
 	partnerRatingStore := partnerratings.New(pool)         // #27 — partner ratings
@@ -232,6 +234,7 @@ func main() {
 	fieldRulesH := handlers.NewFieldRulesHandler(pool)                                                           // #43
 	aidReceiptsH := handlers.NewAidReceiptsHandler(pool)                                                         // #50
 	mediaCategoriesH := handlers.NewMediaCategoriesHandler(mediaCatStore)                                        // #22
+	caseCategoriesH := handlers.NewCaseCategoriesHandler(caseCatStore)                                           // Quick Filter Capsules
 	mediaEngageH := handlers.NewMediaEngagementHandler(postEngageStore, bannedWordsStore, notifier, eventsStore) // #24/#25
 	bannedWordsH := handlers.NewBannedWordsHandler(bannedWordsStore)                                             // #25
 	partnerEngageH := handlers.NewPartnerEngagementHandler(partnerRatingStore)                                   // #27
@@ -329,6 +332,7 @@ func main() {
 			c.JSON(http.StatusOK, gin.H{"success": true, "number": number, "enabled": number != ""})
 		})
 		api.GET("/media-categories", mediaCategoriesH.PublicList)             // #22
+		api.GET("/case-categories", caseCategoriesH.PublicList)               // Quick Filter Capsules
 		api.GET("/marketplace/categories", marketplaceCategoriesH.PublicList) // #28
 		// #19 — public payment methods for the donate screen.
 		api.GET("/payment-methods", paymentMethodsH.PublicList)
@@ -888,6 +892,14 @@ func main() {
 			admin.PATCH("/admin/media-categories/:id", auth.RequireAdminTier(), mediaCategoriesH.Update)
 			admin.POST("/admin/media-categories/reorder", auth.RequireAdminTier(), mediaCategoriesH.Reorder)
 			admin.DELETE("/admin/media-categories/:id", auth.RequireAdminTier(), mediaCategoriesH.Delete)
+
+			// Quick Filter Capsules — beneficiary case categories (gated to the
+			// beneficiary module, same as /admin/beneficiary_cases).
+			admin.GET("/admin/case-categories", perm("beneficiary", "view"), caseCategoriesH.AdminList)
+			admin.POST("/admin/case-categories", perm("beneficiary", "edit"), caseCategoriesH.Add)
+			admin.PATCH("/admin/case-categories/:id", perm("beneficiary", "edit"), caseCategoriesH.Update)
+			admin.POST("/admin/case-categories/reorder", perm("beneficiary", "edit"), caseCategoriesH.Reorder)
+			admin.DELETE("/admin/case-categories/:id", perm("beneficiary", "edit"), caseCategoriesH.Delete)
 
 			// #28 — marketplace categories (gated to the marketplace module).
 			admin.GET("/admin/marketplace/categories", perm("marketplace", "view"), marketplaceCategoriesH.AdminList)

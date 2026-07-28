@@ -667,6 +667,7 @@ type caseEditReq struct {
 	PriorityLevel      *string  `json:"priority_level"`
 	VerificationStatus *string  `json:"verification_status"`
 	PublicVisibility   *string  `json:"public_visibility"`
+	CategorySlug       *string  `json:"category_slug"`
 	ReviewNotes        *string  `json:"review_notes"`
 }
 
@@ -757,6 +758,7 @@ func (h *AdminEditHandler) BeneficiaryCase(c *gin.Context) {
 		}
 		b.add("public_visibility", v)
 	}
+	addOptString(&b, "category_slug", req.CategorySlug)
 	addOptString(&b, "review_notes", req.ReviewNotes)
 	if !b.exec(c, h.Pool, "beneficiary_cases", id) {
 		return
