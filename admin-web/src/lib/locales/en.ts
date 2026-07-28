@@ -133,6 +133,9 @@ const en = {
     account_name: 'Account name (optional)',
     name: 'Name',
     instructions: 'Instructions',
+    type_cash: 'Cash',
+    type_bank: 'Bank',
+    type_wallet: 'Wallet',
   },
   projectCategories: {
     title: 'Project categories',
@@ -235,6 +238,8 @@ const en = {
     // government or is private/non-profit.
     sector_type_government: 'Government Sector (Public)',
     sector_type_private: 'Non-profit / Private Sector (Private)',
+    missing_coords_warning: "{n} place(s) are missing coordinates — they won't appear on the app map.",
+    confirm_delete_body: 'Remove "{name}" from the city guide?',
   },
   mediaCategories: {
     title: 'Our Work categories',
@@ -432,6 +437,7 @@ const en = {
     // --- Arabic i18n completeness pass: strings that were hardcoded in JSX ---
     user_ref: 'User #{id}',
     user_ref_lc: 'user #{id}',
+    role_ref: 'role {id}',
     topic_all: 'All',
     app_user: 'App user',
     open_user: 'Open user',
@@ -439,10 +445,22 @@ const en = {
     open_review: 'Open & review',
     open_page: 'Open page',
     no_data: 'No data.',
+    loading_chart: 'Loading chart…',
     bene_total_cases: '{n} total cases',
     bene_total_requests: '{n} total requests',
     case_ref: 'Case #{id}',
     request_ref: 'Request #{id}',
+    product_ref: 'Product #{id}',
+    order_ref: 'Order #{id}',
+    profile_ref: 'Profile #{id}',
+    media_ref: 'Media #{id}',
+    partner_ref: 'Partner #{id}',
+    support_ticket_ref: 'Ticket #{id}',
+    application_ref: 'Application #{id}',
+    donation_payment_ref: 'Contribution #{id} payment',
+    donation_delivery_ref: 'Contribution #{id} delivery',
+    user_role_ref: 'User #{id} role',
+    user_tier_ref: 'User #{id} tier',
     msg_search: 'Search by name or campaign…',
     msg_no_convos: 'No conversations yet.',
     msg_no_messages: 'No messages yet.',
@@ -635,7 +653,8 @@ const en = {
     marketplace:  { title: 'Marketplace',    tab_products: 'Products', tab_orders: 'Orders',
                     new_product: '+ New product',
                     products_search_placeholder: 'search name / category',
-                    orders_search_placeholder: 'search product / note' },
+                    orders_search_placeholder: 'search product / note',
+                    total_products: '{n} total products', total_orders: '{n} total orders' },
     marriage:     { title: 'Marriage',       search_placeholder: 'search code / city', new: '+ New profile' },
     marriage_requests: {
       subtitle: 'Every "request a meeting" tap from the app lands here. Approve to open a staff-mediated chat, or decline.',
@@ -809,6 +828,8 @@ const en = {
     raised: 'Raised',
     raised_goal: 'Raised / Goal',
     progress: 'Progress',
+    progress_in: 'in:',
+    progress_done: 'done:',
     mission: 'Mission',
     volunteer: 'Volunteer',
     volunteers: 'Volunteers',
@@ -901,6 +922,7 @@ const en = {
     language: 'Language',
     pending_aria: '{label} — {count} pending',
     pending_count: '{count} pending',
+    admin_word: 'admin',
   },
 
   // Table empty states, keyed by resource.
@@ -945,6 +967,7 @@ const en = {
     media_post: 'Media post',
     community_entry: 'Community entry',
     profile: 'Profile',
+    place: 'Place',
   },
 
   highlight: {
@@ -955,6 +978,7 @@ const en = {
   // Filter dropdown "all" sentinels + filter tooltips.
   filter: {
     all_statuses: 'All statuses',
+    all_types: 'All types',
     all_skills: 'All skills',
     any_day: 'Days',
     all_fields: 'all fields',

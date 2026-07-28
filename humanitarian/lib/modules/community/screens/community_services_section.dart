@@ -167,13 +167,13 @@ class _CityGuideHeader extends StatelessWidget {
           ),
           const SizedBox(width: 16),
           // Text
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'City Guide',
-                  style: TextStyle(
+                  'City Guide'.tr,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 22,
                     fontWeight: FontWeight.w900,
@@ -181,10 +181,10 @@ class _CityGuideHeader extends StatelessWidget {
                     height: 1.1,
                   ),
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text(
-                  'Mosul · Iraq',
-                  style: TextStyle(
+                  'Mosul · Iraq'.tr,
+                  style: const TextStyle(
                     color: Color(0xFF8ECAE6),
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
@@ -663,10 +663,11 @@ class _CityMapState extends State<_CityMap> {
                         ),
                       ],
                     ),
-                    child: const Text(
-                      'No locations yet.\nAdd coordinates from the admin panel.',
+                    child: Text(
+                      'No locations yet.\nAdd coordinates from the admin panel.'
+                          .tr,
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: Colors.black54,
                         fontSize: 13,
                         height: 1.55,
@@ -1213,9 +1214,9 @@ class _EntrySheet extends StatelessWidget {
                         ),
                       ],
                     ),
-                    child: const Text(
-                      'Maps ↗',
-                      style: TextStyle(
+                    child: Text(
+                      'Maps ↗'.tr,
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
@@ -1357,7 +1358,7 @@ class _EntrySheet extends StatelessWidget {
                   borderRadius: BorderRadius.circular(14),
                 ),
               ),
-              child: const Text('View Full Details'),
+              child: Text('View Full Details'.tr),
             ),
           ),
         ],

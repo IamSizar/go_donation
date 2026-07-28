@@ -217,9 +217,9 @@ export default function AppShell() {
   // so an admin who tab-switches away still sees the queue grow. Cleans up
   // back to the plain title when the count hits zero.
   useEffect(() => {
-    const base = 'BalanceNex admin'
+    const base = `BalanceNex ${t('shell.admin_word')}`
     document.title = counts.total > 0 ? `(${counts.total}) ${base}` : base
-  }, [counts.total])
+  }, [counts.total, t])
 
   async function handleLogout() {
     await logout()
@@ -300,7 +300,7 @@ export default function AppShell() {
           />
           <div>
             <strong>BalanceNex</strong>
-            <div className="muted">admin</div>
+            <div className="muted">{t('shell.admin_word')}</div>
           </div>
         </div>
         <nav>

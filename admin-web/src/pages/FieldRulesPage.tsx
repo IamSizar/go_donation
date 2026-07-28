@@ -85,6 +85,22 @@ const NEW_USER_FIELD_LABEL_KEYS: Record<string, string> = {
   profile_picture: 'field.profile_picture',
 }
 
+// Note — the base Registration section's fields (migration 045). Same
+// label-reuse pattern as the Case/Marriage/New-User sections above, instead
+// of humanize()-ing the raw column name.
+const REGISTRATION_FIELD_LABEL_KEYS: Record<string, string> = {
+  gender: 'field.gender',
+  date_of_birth: 'field.date_of_birth',
+  city: 'field.city',
+  occupation: 'field.occupation',
+  family_size: 'field.family_size',
+  housing_status: 'field.housing_status',
+  monthly_income: 'field.monthly_income',
+  skills: 'field.skills',
+  availability: 'field.availability',
+  experience: 'field.experience',
+}
+
 export default function FieldRulesPage() {
   const { t } = useI18n()
   const toast = useToast()
@@ -198,7 +214,7 @@ export default function FieldRulesPage() {
             .map((r) => (
               <div className="card" key={r.field_key}>
                 <label className="field" style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <span style={{ flex: 1 }}><strong>{humanize(r.field_key)}</strong></span>
+                  <span style={{ flex: 1 }}><strong>{REGISTRATION_FIELD_LABEL_KEYS[r.field_key] ? t(REGISTRATION_FIELD_LABEL_KEYS[r.field_key]) : humanize(r.field_key)}</strong></span>
                   {stateSelect(r)}
                 </label>
               </div>

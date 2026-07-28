@@ -202,7 +202,7 @@ export default function PartnersPage() {
           value={p.status}
           allowed={EDITABLE_STATUSES}
           onSave={(next) => api.post(`/api/admin/partners/${p.id}/status`, { status: next })}
-          label={`Partner #${p.id}`}
+          label={t('common.partner_ref', { id: p.id })}
         />
       ),
     },
@@ -263,7 +263,7 @@ export default function PartnersPage() {
         onApply={applyBulkStatus}
         onDelete={applyBulkDelete}
         onClear={sel.clear}
-        noun="partners"
+        noun={t('noun.partner')}
       />
       <ConfirmDialog
         open={deleting !== null}

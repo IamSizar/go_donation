@@ -191,7 +191,7 @@ export default function MarriagePage() {
           value={p.status}
           allowed={STATUSES.filter((s) => s !== 'all')}
           onSave={(next) => api.post(`/api/admin/marriage/${p.id}/status`, { status: next })}
-          label={`Profile #${p.id}`}
+          label={t('common.profile_ref', { id: p.id })}
         />
       ),
     },
@@ -255,7 +255,7 @@ export default function MarriagePage() {
         onApply={applyBulkStatus}
         onDelete={applyBulkDelete}
         onClear={sel.clear}
-        noun="profiles"
+        noun={t('noun.profile')}
       />
       <ConfirmDialog
         open={deleting !== null}

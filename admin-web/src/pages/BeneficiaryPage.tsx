@@ -516,7 +516,7 @@ function CasesTab() {
         onApply={applyBulkStatus}
         onDelete={applyBulkDelete}
         onClear={sel.clear}
-        noun="cases"
+        noun={t('noun.case')}
       />
       <ConfirmDialog
         open={deleting !== null}
@@ -815,7 +815,7 @@ function RequestsTab() {
         onApply={applyBulkStatus}
         onDelete={applyBulkDelete}
         onClear={sel.clear}
-        noun="requests"
+        noun={t('noun.project_request')}
       />
       <ConfirmDialog
         open={deleting !== null}

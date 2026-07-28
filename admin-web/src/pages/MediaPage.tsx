@@ -231,7 +231,7 @@ export default function MediaPage() {
       header: t('col.link'),
       cell: (m) =>
         m.link_url ? (
-          <a href={m.link_url} target="_blank" rel="noreferrer">open ↗</a>
+          <a href={m.link_url} target="_blank" rel="noreferrer">{t('cityGuide.open_link')} ↗</a>
         ) : (
           <span className="muted">—</span>
         ),
@@ -254,7 +254,7 @@ export default function MediaPage() {
           value={m.status}
           allowed={EDITABLE_STATUSES}
           onSave={(next) => api.post(`/api/admin/media/${m.id}/status`, { status: next })}
-          label={`Media #${m.id}`}
+          label={t('common.media_ref', { id: m.id })}
         />
       ),
     },
@@ -293,8 +293,8 @@ export default function MediaPage() {
             style={{ width: '200px' }}
           />
           <select value={postType} onChange={(e) => setPostType(e.target.value)} style={{ width: 'auto' }}>
-            {POST_TYPES.map((t) => (
-              <option key={t} value={t}>{t === '' ? 'all types' : t}</option>
+            {POST_TYPES.map((pt) => (
+              <option key={pt} value={pt}>{pt === '' ? t('filter.all_types') : statusLabel(pt)}</option>
             ))}
           </select>
           <select value={status} onChange={(e) => { setStatus(e.target.value); sel.clear() }} style={{ width: 'auto' }}>
@@ -325,7 +325,7 @@ export default function MediaPage() {
         onApply={applyBulkStatus}
         onDelete={applyBulkDelete}
         onClear={sel.clear}
-        noun="posts"
+        noun={t('noun.media_post')}
       />
       <ConfirmDialog
         open={deleting !== null}

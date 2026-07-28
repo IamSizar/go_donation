@@ -91,7 +91,7 @@ export default function CommentsPage() {
           <div className="card" key={c.id}>
             <div className="page-head">
               <div>
-                <strong>{c.user_name || `User #${c.user_id}`}</strong>{' '}
+                <strong>{c.user_name || t('common.user_ref', { id: c.user_id })}</strong>{' '}
                 <span className="muted">· {t('comments.on_post')} #{c.post_id}{c.post_title ? ` — ${c.post_title}` : ''}</span>
                 {c.flagged && <span className="badge danger" style={{ marginInlineStart: 8 }}>{t('comments.flagged')}</span>}
               </div>

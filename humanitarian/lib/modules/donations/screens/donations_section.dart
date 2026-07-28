@@ -1113,7 +1113,7 @@ class _StaticDonationFieldChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
-        label,
+        label.tr,
         style: TextStyle(
           color: AppThemeConfig.text(context),
           fontWeight: FontWeight.w800,

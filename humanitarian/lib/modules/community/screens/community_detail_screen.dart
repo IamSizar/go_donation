@@ -416,18 +416,18 @@ class CommunityDetailScreen extends StatelessWidget {
                                         ),
                                       ],
                                     ),
-                                    child: const Row(
+                                    child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Icon(
+                                        const Icon(
                                           Icons.map_rounded,
                                           color: Colors.white,
                                           size: 13,
                                         ),
-                                        SizedBox(width: 5),
+                                        const SizedBox(width: 5),
                                         Text(
-                                          'Open in Maps',
-                                          style: TextStyle(
+                                          'Open in Maps'.tr,
+                                          style: const TextStyle(
                                             color: Colors.white,
                                             fontSize: 11,
                                             fontWeight: FontWeight.w700,

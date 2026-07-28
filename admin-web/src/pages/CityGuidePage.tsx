@@ -331,7 +331,7 @@ export default function CityGuidePage() {
             color: '#e57373',
           }}
         >
-          ⚠ {items.length - withCoords.length} place(s) are missing coordinates — they won't appear on the app map.
+          ⚠ {t('cityGuide.missing_coords_warning', { n: items.length - withCoords.length })}
         </div>
       )}
 
@@ -348,7 +348,7 @@ export default function CityGuidePage() {
       <EditModal
         open={modalOpen}
         mode={creating ? 'create' : 'edit'}
-        title={creating ? 'Add new place' : editing ? `Edit place #${editing.id}` : ''}
+        title={creating ? t('common.modal_new', { noun: t('noun.place') }) : editing ? t('common.modal_edit', { noun: t('noun.place'), id: editing.id }) : ''}
         initial={
           creating
             ? {}
@@ -365,8 +365,8 @@ export default function CityGuidePage() {
 
       <ConfirmDialog
         open={deleting !== null}
-        title={deleting ? `Delete place #${deleting.id}?` : ''}
-        message={deleting ? `Remove "${deleting.name}" from the city guide?` : ''}
+        title={deleting ? t('common.confirm_delete_title', { noun: t('noun.place'), id: deleting.id }) : ''}
+        message={deleting ? t('cityGuide.confirm_delete_body', { name: deleting.name }) : ''}
         onConfirm={() => handleDelete(deleting!.id)}
         onCancel={() => setDeleting(null)}
       />

@@ -401,7 +401,7 @@ class DashboardHomeSection extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         if (recentDonations.isEmpty)
-          const _GlassPanel(child: Text('No donations yet.'))
+          _GlassPanel(child: Text('No donations yet.'.tr))
         else
           _GlassPanel(
             child: Column(
@@ -569,7 +569,7 @@ class DashboardHomeSection extends StatelessWidget {
         const _SectionLabel(title: 'Recent case updates'),
         const SizedBox(height: 12),
         if (recentCases.isEmpty)
-          const _GlassPanel(child: Text('No beneficiary cases yet.'))
+          _GlassPanel(child: Text('No beneficiary cases yet.'.tr))
         else
           _GlassPanel(
             child: Column(
@@ -594,7 +594,7 @@ class DashboardHomeSection extends StatelessWidget {
         const _SectionLabel(title: 'Project request progress'),
         const SizedBox(height: 12),
         if (recentRequests.isEmpty)
-          const _GlassPanel(child: Text('No submitted requests yet.'))
+          _GlassPanel(child: Text('No submitted requests yet.'.tr))
         else
           _GlassPanel(
             child: Column(
@@ -764,7 +764,7 @@ class DashboardHomeSection extends StatelessWidget {
         const _SectionLabel(title: 'My mission schedule'),
         const SizedBox(height: 12),
         if (upcomingMissions.isEmpty)
-          const _GlassPanel(child: Text('No missions joined yet.'))
+          _GlassPanel(child: Text('No missions joined yet.'.tr))
         else
           _GlassPanel(
             child: Column(
@@ -1026,7 +1026,7 @@ class _FeaturedCampaignsSection extends StatelessWidget {
             );
           }
           if (campaignsController.campaigns.isEmpty) {
-            return const _GlassPanel(child: Text('No campaigns available.'));
+            return _GlassPanel(child: Text('No campaigns available.'.tr));
           }
           return SizedBox(
             height: 340,

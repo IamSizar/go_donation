@@ -132,6 +132,9 @@ const kmr: DeepPartial<typeof en> = {
     account_name: 'ناڤێ هەژماری (ب دلخوازی)',
     name: 'ناڤ',
     instructions: 'رێنمایی',
+    type_cash: 'نەقد',
+    type_bank: 'بانک',
+    type_wallet: 'جزدان',
   },
   projectCategories: {
     title: 'جۆرێن پرۆژەیان',
@@ -226,6 +229,8 @@ const kmr: DeepPartial<typeof en> = {
     open_link: 'ڤەکرن',
     sector_type_government: 'کەرتێ حکومەتێ (گشتی)',
     sector_type_private: 'کەرتێ ناحکومی / تایبەت (تایبەت)',
+    missing_coords_warning: '{n} جه بێ کۆردینات — دێ ل سەر نەخشەیا ئەپی دیار نەبن.',
+    confirm_delete_body: 'جهێ "{name}" ژ ڕێنمایا باژێری بهێتە ژێبرن؟',
   },
   mediaCategories: {
     title: 'جۆرێن کارێن مە',
@@ -421,6 +426,7 @@ const kmr: DeepPartial<typeof en> = {
   common: {
     user_ref: 'بکارهێنەر #{id}',
     user_ref_lc: 'بکارهێنەر #{id}',
+    role_ref: 'ڕۆل {id}',
     topic_all: 'هەمی',
     app_user: 'بکارهێنەرێ ئەپی',
     open_user: 'ڤەکرنا بکارهێنەری',
@@ -428,10 +434,22 @@ const kmr: DeepPartial<typeof en> = {
     open_review: 'ڤەکرن و پێداچوون',
     open_page: 'ڤەکرنا پەڕێ',
     no_data: 'چ داتا نینن.',
+    loading_chart: 'بارکرنا چارتێ…',
     bene_total_cases: '{n} دۆسیا ب گشتی',
     bene_total_requests: '{n} داخواز ب گشتی',
     case_ref: 'دۆسیا #{id}',
     request_ref: 'داخواز #{id}',
+    product_ref: 'بەرهەم #{id}',
+    order_ref: 'داخواز #{id}',
+    profile_ref: 'پرۆفایل #{id}',
+    media_ref: 'میدیا #{id}',
+    partner_ref: 'هەڤپیشە #{id}',
+    support_ticket_ref: 'تیکێتا پشتگیری #{id}',
+    application_ref: 'داخوازا خۆبەخشی #{id}',
+    donation_payment_ref: 'هەڤکاری #{id} دراڤدان',
+    donation_delivery_ref: 'هەڤکاری #{id} گەهاندن',
+    user_role_ref: 'ڕۆلێ بکارهێنەری #{id}',
+    user_tier_ref: 'ئاستێ دەستگەهیا بکارهێنەری #{id}',
     msg_search: 'گەڕیان ب ناڤ یان کەمپینێ…',
     msg_no_convos: 'هێشتا چ گفتوگۆ نینن.',
     msg_no_messages: 'هێشتا چ پەیام نینن.',
@@ -632,6 +650,7 @@ const kmr: DeepPartial<typeof en> = {
       new_product: '+ بەرهەما نوو',
       products_search_placeholder: 'گەڕیان ب ناڤ / جۆر',
       orders_search_placeholder: 'گەڕیان ب بەرهەم / تێبینی',
+      total_products: '{n} بەرهەم ب گشتی', total_orders: '{n} داخواز ب گشتی',
     },
     marriage: { title: 'هاوسەرگیری', search_placeholder: 'گەڕیان ب کۆد / باژێر', new: '+ پرۆفایلا نوو' },
     marriage_requests: {
@@ -786,6 +805,7 @@ const kmr: DeepPartial<typeof en> = {
     message: 'پەیام', subject: 'بابەت', read: 'خواندی', body: 'ناڤەرۆک', link: 'بەستەر',
     visibility: 'دیاربوون', target: 'ئارمانج', goal: 'ئارمانج', raised: 'کۆمکری', raised_goal: 'کۆمکری / ئارمانج',
     progress: 'پێشکەفتن', mission: 'ئەرک', volunteer: 'خۆبەخش', volunteers: 'خۆبەخش', applicant: 'داخوازکار',
+    progress_in: 'ئامادەبوو:', progress_done: 'تەمامبوو:',
     skills: 'شارەزایی', availability: 'ئامادەیی', schedule: 'خشتە', age: 'تەمەن', gender: 'رەگەز',
     family: 'خێزان', people: 'کەس', beneficiaries: 'سوودمەند', case_code: 'کۆدا دۆسیا', profile_code: 'کۆدا پرۆفایلی',
     project: 'پرۆژە', campaign: 'کەمپین', community: 'کۆمەڵگە', product: 'بەرهەم', price: 'بها',
@@ -842,6 +862,7 @@ const kmr: DeepPartial<typeof en> = {
     language: 'زمان',
     pending_aria: '{label} — {count} چاڤەڕوان',
     pending_count: '{count} چاڤەڕوان',
+    admin_word: 'بەڕێڤەبەر',
   },
 
   empty: {
@@ -884,6 +905,7 @@ const kmr: DeepPartial<typeof en> = {
     media_post: 'بابەتا میدیا',
     community_entry: 'تۆمارا کۆمەڵگە',
     profile: 'پرۆفایل',
+    place: 'جه',
   },
 
   highlight: {
@@ -893,6 +915,7 @@ const kmr: DeepPartial<typeof en> = {
 
   filter: {
     all_statuses: 'هەمی دۆخ',
+    all_types: 'هەمی جۆر',
     all_skills: 'هەمی شارەزایی',
     any_day: 'رۆژ',
     all_fields: 'هەمی خانە',

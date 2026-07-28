@@ -319,7 +319,7 @@ function ProductsTab() {
           value={p.status}
           allowed={EDITABLE_PRODUCT_STATUSES}
           onSave={(next) => api.post(`/api/admin/marketplace/products/${p.id}/status`, { status: next })}
-          label={`Product #${p.id}`}
+          label={t('common.product_ref', { id: p.id })}
         />
       ),
     },
@@ -338,7 +338,7 @@ function ProductsTab() {
   return (
     <div className="stack">
       <div className="row" style={{ justifyContent: 'space-between' }}>
-        <p className="muted">{resp ? `${resp.total_items} total products` : 'Loading…'}</p>
+        <p className="muted">{resp ? t('page.marketplace.total_products', { n: resp.total_items }) : t('common.loading')}</p>
         <div className="row">
           <input
             type="search"
@@ -378,7 +378,7 @@ function ProductsTab() {
         onApply={applyBulkStatus}
         onDelete={applyBulkDelete}
         onClear={sel.clear}
-        noun="products"
+        noun={t('noun.product')}
       />
       <ConfirmDialog
         open={deleting !== null}
@@ -547,7 +547,7 @@ function OrdersTab() {
           value={o.status}
           allowed={EDITABLE_ORDER_STATUSES}
           onSave={(next) => api.post(`/api/admin/marketplace/orders/${o.id}/status`, { status: next })}
-          label={`Order #${o.id}`}
+          label={t('common.order_ref', { id: o.id })}
         />
       ),
     },
@@ -580,7 +580,7 @@ function OrdersTab() {
   return (
     <div className="stack">
       <div className="row" style={{ justifyContent: 'space-between' }}>
-        <p className="muted">{resp ? `${resp.total_items} total orders` : 'Loading…'}</p>
+        <p className="muted">{resp ? t('page.marketplace.total_orders', { n: resp.total_items }) : t('common.loading')}</p>
         <div className="row">
           <input
             type="search"
@@ -619,7 +619,7 @@ function OrdersTab() {
         onApply={applyBulkStatus}
         onDelete={applyBulkDelete}
         onClear={sel.clear}
-        noun="orders"
+        noun={t('noun.order')}
       />
       <ConfirmDialog
         open={deleting !== null}
@@ -630,7 +630,7 @@ function OrdersTab() {
       />
       <EditModal
         open={editing !== null}
-        title={editing ? `Edit order #${editing.id}` : ''}
+        title={editing ? t('common.modal_edit', { noun: t('noun.order'), id: editing.id }) : ''}
         initial={editing as unknown as Record<string, unknown> ?? {}}
         fields={ORDER_FIELDS}
         onSave={(patch) => handleSave(editing!.id, patch)}

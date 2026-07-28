@@ -6,12 +6,12 @@ import Table, { type Column } from '../components/Table'
 import Pagination from '../components/Pagination'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { type CsvColumn } from '../lib/csv'
-import { useI18n, useStatusLabel } from '../lib/i18n'
+import { useI18n, useStatusLabel, translate } from '../lib/i18n'
 
 // Flat CSV shape for a notification row (Phase 7 · M-53).
 const NOTIFICATION_CSV_COLUMNS: CsvColumn<AdminNotification>[] = [
   { header: 'id', get: (n) => n.id },
-  { header: 'target', get: (n) => n.user_id ? `user #${n.user_id}` : n.role_id ? `role ${n.role_id}` : 'broadcast' },
+  { header: 'target', get: (n) => n.user_id ? translate('common.user_ref_lc', { id: n.user_id }) : n.role_id ? translate('common.role_ref', { id: n.role_id }) : translate('page.notifications.broadcast') },
   { header: 'title', get: (n) => n.title },
   { header: 'title_ar', get: (n) => n.title_ar ?? '' },
   { header: 'body', get: (n) => n.body },
@@ -80,8 +80,8 @@ export default function NotificationsPage() {
     {
       key: 'target', header: t('col.target'),
       cell: (n) =>
-        n.user_id ? `user #${n.user_id}` :
-          n.role_id ? `role ${n.role_id}` :
+        n.user_id ? t('common.user_ref_lc', { id: n.user_id }) :
+          n.role_id ? t('common.role_ref', { id: n.role_id }) :
             <span className="badge">{t('page.notifications.broadcast')}</span>,
     },
     {

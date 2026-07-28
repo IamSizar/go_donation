@@ -82,7 +82,7 @@ export default function DashboardPage() {
     if (h < 18) return t('page.dashboard.good_afternoon')
     return t('page.dashboard.good_evening')
   }, [t])
-  const firstName = user?.phone ? `#${user.user_id}` : 'admin'
+  const firstName = user?.phone ? `#${user.user_id}` : t('shell.admin_word')
 
   return (
     <motion.div

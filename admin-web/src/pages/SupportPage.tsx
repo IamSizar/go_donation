@@ -171,7 +171,7 @@ export default function SupportPage() {
           value={t.status}
           allowed={STATUSES.filter((s) => s !== 'all')}
           onSave={(next) => api.post(`/api/admin/support_tickets/${t.id}/status`, { status: next })}
-          label={`Ticket #${t.id}`}
+          label={tr('common.support_ticket_ref', { id: t.id })}
         />
       ),
     },
@@ -241,7 +241,7 @@ export default function SupportPage() {
         onApply={applyBulkStatus}
         onDelete={applyBulkDelete}
         onClear={sel.clear}
-        noun="tickets"
+        noun={tr('noun.support_ticket')}
       />
       <ConfirmDialog
         open={deleting !== null}

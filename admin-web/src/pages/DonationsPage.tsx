@@ -252,7 +252,7 @@ export default function DonationsPage() {
           onSave={(next) =>
             api.post(`/api/admin/donations/${d.id}/status`, { payment_status: paymentLabelToCode(next) })
           }
-          label={`Donation #${d.id} payment`}
+          label={t('common.donation_payment_ref', { id: d.id })}
         />
       ),
     },
@@ -266,7 +266,7 @@ export default function DonationsPage() {
           onSave={(next) =>
             api.post(`/api/admin/donations/${d.id}/status`, { delivery_status: next })
           }
-          label={`Donation #${d.id} delivery`}
+          label={t('common.donation_delivery_ref', { id: d.id })}
           // Note #13 — 'paused' reads as a near-duplicate of 'suspended' in
           // this column's Arabic/Kurdish translations (both landed on some
           // variant of "temporarily halted"). Here specifically it means a

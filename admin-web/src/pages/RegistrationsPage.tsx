@@ -141,7 +141,7 @@ export default function RegistrationsPage() {
       header: t('registrations.col_applicant'),
       cell: (r) => (
         <div className="cell-stack">
-          <strong>{r.full_name || `user #${r.user_id}`}</strong>
+          <strong>{r.full_name || t('common.user_ref_lc', { id: r.user_id })}</strong>
           <span className="muted">{formatPhone(r.phone)}</span>
         </div>
       ),

@@ -413,7 +413,7 @@ function ApplicationsTab() {
           value={a.status}
           allowed={STATUSES.filter((s) => s !== 'all')}
           onSave={(next) => api.post(`/api/admin/volunteer_applications/${a.id}/status`, { status: next })}
-          label={`Application #${a.id}`}
+          label={t('common.application_ref', { id: a.id })}
         />
       ),
     },
@@ -542,7 +542,7 @@ function ApplicationsTab() {
         onApply={applyBulkStatus}
         onDelete={applyBulkDelete}
         onClear={sel.clear}
-        noun="applications"
+        noun={t('noun.volunteer_application')}
       />
       <ConfirmDialog
         open={deleting !== null}
@@ -933,8 +933,8 @@ function MissionSignupsTab() {
       header: t('col.progress'),
       cell: (s) => (
         <span className="muted" style={{ fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>
-          {s.checked_in_at && <>in: {s.checked_in_at.slice(0, 10)}<br /></>}
-          {s.completed_at && <>done: {s.completed_at.slice(0, 10)}<br /></>}
+          {s.checked_in_at && <>{t('col.progress_in')} {s.checked_in_at.slice(0, 10)}<br /></>}
+          {s.completed_at && <>{t('col.progress_done')} {s.completed_at.slice(0, 10)}<br /></>}
           {s.hours_served !== '0.00' && s.hours_served !== '0' && <>{s.hours_served} h</>}
           {!s.checked_in_at && !s.completed_at && (s.hours_served === '0.00' || s.hours_served === '0') && '—'}
         </span>

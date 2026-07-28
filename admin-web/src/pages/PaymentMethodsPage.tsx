@@ -28,6 +28,11 @@ type Method = {
 type Draft = Omit<Method, 'id' | 'slug' | 'display_order' | 'active'>
 
 const METHOD_TYPES = ['cash', 'bank', 'wallet']
+const METHOD_TYPE_LABEL_KEYS: Record<string, string> = {
+  cash: 'paymentMethods.type_cash',
+  bank: 'paymentMethods.type_bank',
+  wallet: 'paymentMethods.type_wallet',
+}
 const LANGS: Array<{ suf: 'en' | 'ar' | 'ckb' | 'kmr'; labelKey: string; rtl: boolean }> = [
   { suf: 'en', labelKey: 'common.lang_en', rtl: false },
   { suf: 'ar', labelKey: 'common.lang_ar', rtl: true },
@@ -60,7 +65,7 @@ function MethodFields({
         >
           {METHOD_TYPES.map((mt) => (
             <option key={mt} value={mt}>
-              {mt}
+              {t(METHOD_TYPE_LABEL_KEYS[mt] ?? mt)}
             </option>
           ))}
         </select>

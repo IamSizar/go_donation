@@ -94,8 +94,9 @@ class _RoleHistoryScreenState extends State<RoleHistoryScreen> {
                   child: Center(child: CircularProgressIndicator()),
                 )
               else if (filtered.isEmpty)
-                const GlassPanel(
-                  child: Text('No history records match the selected filters.'),
+                GlassPanel(
+                  child: Text(
+                      'No history records match the selected filters.'.tr),
                 )
               else
                 ...filtered.map(

@@ -322,7 +322,7 @@ export default function UsersPage() {
             await verifyPin() // Global notice #b — PIN before a role change.
             await api.post(`/api/admin/users/${u.user_id}/role`, { role_id: roleLabelToId(next) })
           }}
-          label={`User #${u.user_id} role`}
+          label={t('common.user_role_ref', { id: u.user_id })}
         />
       ),
     },
@@ -345,7 +345,7 @@ export default function UsersPage() {
             await verifyPin()
             await api.post(`/api/admin/users/${u.user_id}/staff_tier`, { staff_tier: next })
           }}
-          label={`User #${u.user_id} tier`}
+          label={t('common.user_tier_ref', { id: u.user_id })}
         />
       ),
     },

@@ -1022,10 +1022,21 @@ String _missionCapacityLabel(Map<String, dynamic> mission) {
   final pending =
       int.tryParse((mission['pending_volunteers'] ?? '').toString()) ?? 0;
   if (needed <= 0) {
-    return pending > 0 ? '$pending pending' : '';
+    return pending > 0
+        ? 'mission_pending_only'.trParams({'pending': '$pending'})
+        : '';
   }
-  final pendingText = pending > 0 ? ', $pending pending' : '';
-  return '$accepted / $needed volunteers$pendingText';
+  if (pending > 0) {
+    return 'mission_capacity_label_pending'.trParams({
+      'accepted': '$accepted',
+      'needed': '$needed',
+      'pending': '$pending',
+    });
+  }
+  return 'mission_capacity_label'.trParams({
+    'accepted': '$accepted',
+    'needed': '$needed',
+  });
 }
 
 String _missionJoinButtonLabel(String status, bool joined) {

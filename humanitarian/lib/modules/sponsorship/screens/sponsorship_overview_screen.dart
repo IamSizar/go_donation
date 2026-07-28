@@ -210,12 +210,16 @@ String _sponsorshipDueLabel(String rawDate) {
   final todayOnly = DateTime(today.year, today.month, today.day);
   final dueOnly = DateTime(due.year, due.month, due.day);
   final days = dueOnly.difference(todayOnly).inDays;
-  if (days == 0) return 'Next due today';
+  if (days == 0) return 'sponsorship_due_today'.tr;
   if (days > 0) {
-    return 'Next due in $days ${days == 1 ? 'day' : 'days'}';
+    return (days == 1 ? 'sponsorship_due_in_day' : 'sponsorship_due_in_days')
+        .trParams({'n': '$days'});
   }
   final overdue = days.abs();
-  return 'Overdue by $overdue ${overdue == 1 ? 'day' : 'days'}';
+  return (overdue == 1
+          ? 'sponsorship_overdue_by_day'
+          : 'sponsorship_overdue_by_days')
+      .trParams({'n': '$overdue'});
 }
 
 class _OverviewHeroCard extends StatelessWidget {

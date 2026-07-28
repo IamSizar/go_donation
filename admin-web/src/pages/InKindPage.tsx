@@ -232,7 +232,7 @@ export default function InKindPage() {
         onApply={applyBulkStatus}
         onDelete={applyBulkDelete}
         onClear={sel.clear}
-        noun="donations"
+        noun={t('noun.in_kind_donation')}
       />
       <ConfirmDialog
         open={deleting !== null}

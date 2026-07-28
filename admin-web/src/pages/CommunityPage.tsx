@@ -124,7 +124,7 @@ export default function CommunityPage() {
     { key: 'phone', header: t('col.phone'), cell: (e) => e.phone ?? <span className="muted">—</span> },
     {
       key: 'web', header: t('col.website'),
-      cell: (e) => e.website ? <a href={e.website} target="_blank" rel="noreferrer">open ↗</a> : <span className="muted">—</span>,
+      cell: (e) => e.website ? <a href={e.website} target="_blank" rel="noreferrer">{t('cityGuide.open_link')} ↗</a> : <span className="muted">—</span>,
     },
     {
       key: 'actions', header: t('common.actions'), width: '170px',

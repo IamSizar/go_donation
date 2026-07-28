@@ -39,10 +39,12 @@ type AdminUsersResp = {
   }>
 }
 
-const ROLE_LABEL: Record<number, string> = {
-  1: 'Grantor',
-  2: 'Eligible',
-  3: 'Volunteer',
+// Reuses the same role_id → i18n key mapping as DetailPage.tsx's ROLE_KEY,
+// so role names stay consistent across the dashboard.
+const ROLE_LABEL_KEY: Record<number, string> = {
+  1: 'registrations.role_donor',
+  2: 'registrations.role_beneficiary',
+  3: 'registrations.role_volunteer',
 }
 
 // Debounce wraps a callback so it only fires after the user has stopped
@@ -69,6 +71,10 @@ type Props = {
 
 export default function UserPicker({ value, onChange, disabled, placeholder }: Props) {
   const { t } = useI18n()
+  const roleLabel = (id: number) => {
+    const key = ROLE_LABEL_KEY[id]
+    return key ? t(key) : t('common.role_ref', { id })
+  }
   // Local "query" state used while picking — separate from `value` so an
   // active search doesn't immediately overwrite the picked user.
   const [query, setQuery] = useState('')
@@ -165,7 +171,7 @@ export default function UserPicker({ value, onChange, disabled, placeholder }: P
             <strong>{value.full_name?.trim() || t('picker.unnamed')}</strong>
             <span className="muted">
               {value.phone}
-              {value.role_id ? ` · ${ROLE_LABEL[value.role_id] ?? 'role ' + value.role_id}` : ''}
+              {value.role_id ? ` · ${roleLabel(value.role_id)}` : ''}
               {` · #${value.user_id}`}
             </span>
           </div>
@@ -229,7 +235,7 @@ export default function UserPicker({ value, onChange, disabled, placeholder }: P
                 <strong>{u.full_name?.trim() || t('picker.unnamed')}</strong>
                 <span className="muted">
                   {u.phone}
-                  {u.role_id ? ` · ${ROLE_LABEL[u.role_id] ?? 'role ' + u.role_id}` : ''}
+                  {u.role_id ? ` · ${roleLabel(u.role_id)}` : ''}
                   {` · #${u.user_id}`}
                 </span>
               </div>

@@ -6,7 +6,7 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import { api, describeError } from '../lib/api'
-import { useI18n } from '../lib/i18n'
+import { useI18n, useStatusLabel } from '../lib/i18n'
 import { useToast } from '../lib/toast'
 import Table, { type Column } from '../components/Table'
 
@@ -32,8 +32,9 @@ function name(n: string | null, id: number, t: (key: string, vars?: Record<strin
 }
 
 function StatusBadge({ status }: { status: string }) {
+  const statusLabel = useStatusLabel()
   const tone = status === 'approved' ? 'success' : status === 'declined' ? 'danger' : 'warning'
-  return <span className={`badge tone-${tone}`}>{status}</span>
+  return <span className={`badge tone-${tone}`}>{statusLabel(status)}</span>
 }
 
 export default function MarriageMeetingRequestsPage() {

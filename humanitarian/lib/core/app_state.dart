@@ -11,6 +11,7 @@ final ValueNotifier<bool> profileIncompleteNotifier = ValueNotifier(false);
 Future<void> initializeAppState() async {
   sharedPreferences = await SharedPreferences.getInstance();
   appLocale = await AppLocaleService.loadLocale();
+  await AppLocaleService.syncDateFormatLocale(appLocale);
   appThemeMode.value = (sharedPreferences.getBool('dark_mode') ?? false)
       ? ThemeMode.dark
       : ThemeMode.light;

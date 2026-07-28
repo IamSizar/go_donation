@@ -581,7 +581,7 @@ class _BotAssistantCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Support Assistant',
+                      'Support Assistant'.tr,
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
@@ -590,7 +590,7 @@ class _BotAssistantCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Ask me anything — I\'ll guide you through the app',
+                      'Ask me anything — I\'ll guide you through the app'.tr,
                       style: TextStyle(
                         fontSize: 12.5,
                         color: AppThemeConfig.mutedText(context),

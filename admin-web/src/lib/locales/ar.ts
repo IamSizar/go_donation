@@ -131,6 +131,9 @@ const ar: DeepPartial<typeof en> = {
     account_name: 'اسم الحساب (اختياري)',
     name: 'الاسم',
     instructions: 'التعليمات',
+    type_cash: 'نقد',
+    type_bank: 'بنك',
+    type_wallet: 'محفظة',
   },
   projectCategories: {
     title: 'فئات المشاريع',
@@ -225,6 +228,8 @@ const ar: DeepPartial<typeof en> = {
     open_link: 'فتح',
     sector_type_government: 'قطاع حكومي (عام)',
     sector_type_private: 'قطاع غير ربحي / خاص (خاص)',
+    missing_coords_warning: '{n} مكان بلا إحداثيات — لن تظهر على خريطة التطبيق.',
+    confirm_delete_body: 'إزالة «{name}» من دليل المدينة؟',
   },
   mediaCategories: {
     title: 'فئات أعمالنا',
@@ -420,6 +425,7 @@ const ar: DeepPartial<typeof en> = {
     // --- Arabic i18n completeness pass: strings that were hardcoded in JSX ---
     user_ref: 'المستخدم #{id}',
     user_ref_lc: 'مستخدم #{id}',
+    role_ref: 'دور {id}',
     topic_all: 'الكل',
     app_user: 'مستخدم التطبيق',
     open_user: 'فتح المستخدم',
@@ -427,10 +433,22 @@ const ar: DeepPartial<typeof en> = {
     open_review: 'فتح ومراجعة',
     open_page: 'فتح الصفحة',
     no_data: 'لا توجد بيانات.',
+    loading_chart: 'جارٍ تحميل الرسم البياني…',
     bene_total_cases: '{n} حالة',
     bene_total_requests: '{n} طلب',
     case_ref: 'الحالة #{id}',
     request_ref: 'الطلب #{id}',
+    product_ref: 'المنتج #{id}',
+    order_ref: 'طلب الشراء #{id}',
+    profile_ref: 'الملف #{id}',
+    media_ref: 'الإعلام #{id}',
+    partner_ref: 'الشريك #{id}',
+    support_ticket_ref: 'تذكرة الدعم #{id}',
+    application_ref: 'طلب التطوع #{id}',
+    donation_payment_ref: 'المساهمة #{id} الدفع',
+    donation_delivery_ref: 'المساهمة #{id} التسليم',
+    user_role_ref: 'دور المستخدم #{id}',
+    user_tier_ref: 'صلاحية المستخدم #{id}',
     msg_search: 'ابحث بالاسم أو الحملة…',
     msg_no_convos: 'لا توجد محادثات بعد.',
     msg_no_messages: 'لا توجد رسائل بعد.',
@@ -594,7 +612,8 @@ const ar: DeepPartial<typeof en> = {
     marketplace:  { title: 'السوق', tab_products: 'المنتجات', tab_orders: 'الطلبات',
                     new_product: '+ منتج جديد',
                     products_search_placeholder: 'بحث بالاسم / الفئة',
-                    orders_search_placeholder: 'بحث بالمنتج / الملاحظة' },
+                    orders_search_placeholder: 'بحث بالمنتج / الملاحظة',
+                    total_products: '{n} منتج', total_orders: '{n} طلب شراء' },
     marriage:     { title: 'الزواج', search_placeholder: 'بحث بالكود / المدينة', new: '+ ملف جديد' },
     marriage_requests: {
       subtitle: 'كل طلب "حجز لقاء" من التطبيق يصل إلى هنا. وافق لفتح محادثة بوساطة الموظفين، أو ارفض.',
@@ -767,6 +786,8 @@ const ar: DeepPartial<typeof en> = {
     raised: 'المُجمَّع',
     raised_goal: 'المُجمَّع / الهدف',
     progress: 'التقدّم',
+    progress_in: 'حضر:',
+    progress_done: 'تم:',
     mission: 'المهمة',
     volunteer: 'المتطوع',
     volunteers: 'المتطوعون',
@@ -856,6 +877,7 @@ const ar: DeepPartial<typeof en> = {
     language: 'اللغة',
     pending_aria: '{label} — {count} قيد الانتظار',
     pending_count: '{count} قيد الانتظار',
+    admin_word: 'مسؤول',
   },
 
   empty: {
@@ -898,6 +920,7 @@ const ar: DeepPartial<typeof en> = {
     media_post: 'منشور إعلامي',
     community_entry: 'إدخال مجتمع',
     profile: 'ملف',
+    place: 'مكان',
   },
 
   highlight: {
@@ -907,6 +930,7 @@ const ar: DeepPartial<typeof en> = {
 
   filter: {
     all_statuses: 'كل الحالات',
+    all_types: 'كل الأنواع',
     all_skills: 'كل المهارات',
     any_day: 'الأيام',
     all_fields: 'كل الحقول',

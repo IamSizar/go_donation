@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/core/push_registration.dart';
 import 'package:get/get.dart';
+import 'package:intl/date_symbol_data_local.dart';
+import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AppLocaleService {
@@ -82,6 +84,31 @@ class AppLocaleService {
         .toList(growable: false);
   }
 
+  /// The locale to pass to `intl`'s `DateFormat`/`NumberFormat` (month
+  /// names, digit grouping, etc). This is deliberately NOT the same as the
+  /// app's own [Locale] objects above — those exist only so GetX can tell
+  /// English/Arabic/Sorani/Badini apart for `.tr` lookups (all three
+  /// Kurdish variants are registered under the `ar` language code, which
+  /// `intl` has no month-name data for as "Sorani"/"Badini"). Kurdish falls
+  /// back to Arabic's calendar data here, which is the standard choice for
+  /// this region and far better than the English fallback that was
+  /// shipping before (dates showing "Jan"/"Feb" regardless of language).
+  static String dateFormatLocale(Locale? locale) {
+    return contentVariant(locale) == 'en' ? 'en' : 'ar';
+  }
+
+  /// Every `DateFormat`/`NumberFormat` call in the app that doesn't pass an
+  /// explicit locale (the majority of them) falls back to `Intl.defaultLocale`
+  /// — which was never being set, so those always rendered in whatever
+  /// locale `intl` happens to default to, ignoring the in-app language
+  /// picker entirely. Call this once at startup (after [loadLocale]) and
+  /// again from [changeLocale] whenever the user switches language.
+  static Future<void> syncDateFormatLocale(Locale locale) async {
+    final tag = dateFormatLocale(locale);
+    await initializeDateFormatting(tag);
+    Intl.defaultLocale = tag;
+  }
+
   static Future<Locale> loadLocale() async {
     final prefs = await SharedPreferences.getInstance();
     final code = (prefs.getString(_storageKey) ?? '').replaceAll('-', '_');
@@ -103,6 +130,7 @@ class AppLocaleService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_storageKey, localeTag(locale));
     await Get.updateLocale(locale);
+    await syncDateFormatLocale(locale);
     // Phase 27.3 — re-register the FCM device row so future pushes use
     // the newly-picked language. No-op when the user isn't signed in.
     unawaited(PushRegistration.registerNow());

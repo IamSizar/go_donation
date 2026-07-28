@@ -7,6 +7,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import { useI18n } from '../lib/i18n'
 
 type Point = {
   date: string
@@ -21,8 +22,9 @@ type Props = {
 }
 
 export default function DonationsChart({ data, loading }: Props) {
-  if (loading) return <div className="muted">Loading chart…</div>
-  if (data.length === 0) return <div className="muted">No data.</div>
+  const { t } = useI18n()
+  if (loading) return <div className="muted">{t('common.loading_chart')}</div>
+  if (data.length === 0) return <div className="muted">{t('common.no_data')}</div>
 
   const points = data.map((p) => ({
     date: p.date.slice(5), // MM-DD
@@ -62,7 +64,7 @@ export default function DonationsChart({ data, loading }: Props) {
             stroke="#10b981"
             fill="url(#gradCompleted)"
             strokeWidth={2}
-            name="Completed"
+            name={t('status.completed')}
           />
           <Area
             type="monotone"
@@ -70,7 +72,7 @@ export default function DonationsChart({ data, loading }: Props) {
             stroke="#6366f1"
             fill="url(#gradPending)"
             strokeWidth={2}
-            name="Pending"
+            name={t('status.pending')}
           />
         </AreaChart>
       </ResponsiveContainer>

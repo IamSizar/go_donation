@@ -96,9 +96,9 @@ export default function AuditLogsPage() {
       key: 'diff', header: t('col.change'),
       cell: (a) => (
         <div className="audit-diff">
-          <span className="audit-old">{a.old_value ?? <em className="muted">null</em>}</span>
+          <span className="audit-old">{a.old_value ?? <em className="muted">{t('status.none')}</em>}</span>
           <span className="audit-arrow">→</span>
-          <span className="audit-new">{a.new_value ?? <em className="muted">null</em>}</span>
+          <span className="audit-new">{a.new_value ?? <em className="muted">{t('status.none')}</em>}</span>
         </div>
       ),
     },
