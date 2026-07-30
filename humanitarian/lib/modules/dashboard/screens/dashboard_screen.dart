@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_application_1/api/guest_session.dart';
@@ -188,7 +186,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         await _handleBack();
       },
       child: Scaffold(
-        extendBody: true,
         // Client note — "Settings and Profile Interface" opens as a side
         // drawer on tapping the profile picture (see _DashboardTopBar's
         // ProfileMenuButton, which now calls Scaffold.of(context).openDrawer()
@@ -216,33 +213,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ],
         ),
-        bottomNavigationBar: SafeArea(
-          minimum: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(32),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: AppThemeConfig.navBarSurface(context),
-                  borderRadius: BorderRadius.circular(32),
-                  border: Border.all(color: AppThemeConfig.border(context)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppThemeConfig.shadow(context),
-                      blurRadius: 28,
-                      offset: const Offset(0, 14),
-                    ),
-                  ],
-                ),
-                child: ModernBottomNavigator(
-                  currentIndex: _currentIndex,
-                  destinations: _destinations,
-                  onSelected: _onTabSelected,
-                ),
+        bottomNavigationBar: BottomNavigationBar(
+          currentIndex: _currentIndex,
+          onTap: _onTabSelected,
+          type: BottomNavigationBarType.fixed,
+          items: [
+            for (final destination in _destinations)
+              BottomNavigationBarItem(
+                icon: Icon(destination.icon),
+                activeIcon: Icon(destination.activeIcon),
+                label: destination.label.tr,
               ),
-            ),
-          ),
+          ],
         ),
       ),
     );
