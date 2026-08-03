@@ -134,85 +134,133 @@ class DashboardHomeSection extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
         boxShadow: [
           BoxShadow(
-            color: _primary.withValues(alpha: 0.22),
-            blurRadius: 26,
-            offset: const Offset(0, 16),
+            color: _primary.withValues(alpha: 0.28),
+            blurRadius: 30,
+            offset: const Offset(0, 18),
           ),
         ],
       ),
-      child: Stack(
-        children: [
-          Positioned(
-            right: -8,
-            top: 8,
-            child: Icon(
-              Icons.volunteer_activism_rounded,
-              color: Colors.white.withValues(alpha: 0.08),
-              size: 156,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: Stack(
+          children: [
+            // Large faint watermark — kept subtle so it never competes with
+            // the text sitting on top of it.
+            Positioned(
+              right: -18,
+              top: -10,
+              child: Icon(
+                Icons.volunteer_activism_rounded,
+                color: Colors.white.withValues(alpha: 0.07),
+                size: 170,
+              ),
             ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 9,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.18),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 9,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.18),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.auto_awesome_rounded,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        badge.tr,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
+                const SizedBox(height: 20),
+                Text(
+                  'Welcome back,\n@name'.trParams({'name': firstName}),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    height: 1.15,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
                   children: [
-                    const Icon(
-                      Icons.auto_awesome_rounded,
-                      color: Colors.white,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      badge.tr,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
+                    Expanded(child: primaryAction),
+                    const SizedBox(width: 10),
+                    secondaryAction,
                   ],
                 ),
-              ),
-              const SizedBox(height: 22),
-              Text(
-                'Welcome back,\n@name'.trParams({'name': firstName}),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                  height: 1.1,
+                const SizedBox(height: 20),
+                Row(children: stats),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Shared white pill CTA for the hero card's primary action (task: reduce
+  /// per-role duplication of the same button chrome).
+  Widget _heroPrimaryButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    void Function()? onLongPress,
+  }) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: onTap,
+        onLongPress: onLongPress,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: _primary, size: 16),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  label.tr,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: _primary,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13.5,
+                  ),
                 ),
               ),
-              const SizedBox(height: 22),
-              Row(
-                children: [
-                  Expanded(child: primaryAction),
-                  const SizedBox(width: 12),
-                  secondaryAction,
-                ],
-              ),
-              const SizedBox(height: 22),
-              Row(children: stats),
             ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -234,24 +282,10 @@ class DashboardHomeSection extends StatelessWidget {
                   .split(RegExp(r'\s+'))
                   .first,
           badge: _heroBadge('donor'),
-          primaryAction: Material(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(8),
-              onTap: () => Get.to(() => const DonationsSection()),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                child: Text(
-                  'Make donation'.tr,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: _primary,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ),
+          primaryAction: _heroPrimaryButton(
+            icon: Icons.favorite_rounded,
+            label: 'Make donation',
+            onTap: () => Get.to(() => const DonationsSection()),
           ),
           secondaryAction: _WatchNowButton(
             label: 'My history',
@@ -434,27 +468,11 @@ class DashboardHomeSection extends StatelessWidget {
                   .split(RegExp(r'\s+'))
                   .first,
           badge: _heroBadge('beneficiary'),
-          primaryAction: Material(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            child: InkWell(
-              onLongPress: () {
-                Get.to(() => const FirebaseScreenAdd());
-              },
-              borderRadius: BorderRadius.circular(8),
-              onTap: () => Get.to(() => const BeneficiarySubmitProjectScreen()),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                child: Text(
-                  'Submit request'.tr,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: _primary,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ),
+          primaryAction: _heroPrimaryButton(
+            icon: Icons.add_circle_rounded,
+            label: 'Submit request',
+            onTap: () => Get.to(() => const BeneficiarySubmitProjectScreen()),
+            onLongPress: () => Get.to(() => const FirebaseScreenAdd()),
           ),
           secondaryAction: _WatchNowButton(
             label: 'My history',
@@ -632,24 +650,10 @@ class DashboardHomeSection extends StatelessWidget {
                   .split(RegExp(r'\s+'))
                   .first,
           badge: _heroBadge('volunteer'),
-          primaryAction: Material(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(8),
-              onTap: () => Get.to(() => const SupportSection()),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                child: Text(
-                  'Open missions'.tr,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: _primary,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ),
+          primaryAction: _heroPrimaryButton(
+            icon: Icons.front_hand_rounded,
+            label: 'Open missions',
+            onTap: () => Get.to(() => const SupportSection()),
           ),
           secondaryAction: _WatchNowButton(
             label: 'My history',
@@ -889,42 +893,50 @@ class _WalletCardState extends State<_WalletCard> {
   @override
   Widget build(BuildContext context) {
     final balance = _balanceIQD;
+    // Compact single-row layout: icon · label+balance · info button. No
+    // top-up/add-funds action — top-ups are staff-only for now (see the
+    // info dialog below), so the card must not imply otherwise.
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [Color(0xFF0F766E), Color(0xFF14B8A6)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.18),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.account_balance_wallet_rounded,
+              color: Colors.white,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.account_balance_wallet_rounded,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'My wallet'.tr,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
+                Text(
+                  'My wallet'.tr,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.85),
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12.5,
+                  ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 2),
                 Text(
                   balance == null
                       ? '···'
@@ -934,28 +946,39 @@ class _WalletCardState extends State<_WalletCard> {
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w800,
-                    fontSize: 22,
+                    fontSize: 20,
                   ),
                 ),
               ],
             ),
           ),
-          IconButton(
-            tooltip: 'How do I add funds?'.tr,
-            icon: const Icon(Icons.info_outline_rounded, color: Colors.white),
-            onPressed: () => Get.dialog(
-              AlertDialog(
-                title: Text('My wallet'.tr),
-                content: Text(
-                  'Wallet top-ups are added by our team for now. Contact support to add funds, then use "App Wallet" as a payment option when donating or buying.'
-                      .tr,
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Get.back(),
-                    child: Text('OK'.tr),
+          Semantics(
+            button: true,
+            label: 'How do I add funds?'.tr,
+            child: IconButton(
+              tooltip: 'How do I add funds?'.tr,
+              icon: const Icon(
+                Icons.info_outline_rounded,
+                color: Colors.white,
+              ),
+              onPressed: () => Get.dialog(
+                AlertDialog(
+                  title: Text('My wallet'.tr),
+                  // Kept the original, already-fully-translated (en/ar/ckb/
+                  // kmr) copy rather than the spec's suggested new sentence,
+                  // which has no non-English translation yet — swapping
+                  // would silently show English to Arabic/Kurdish users.
+                  content: Text(
+                    'Wallet top-ups are added by our team for now. Contact support to add funds, then use "App Wallet" as a payment option when donating or buying.'
+                        .tr,
                   ),
-                ],
+                  actions: [
+                    TextButton(
+                      onPressed: () => Get.back(),
+                      child: Text('OK'.tr),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -1114,7 +1137,7 @@ class _WatchNowButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(999),
         boxShadow: [
           BoxShadow(
             color: const Color(0xFF14B8A6).withValues(alpha: 0.28),
@@ -1128,19 +1151,20 @@ class _WatchNowButton extends StatelessWidget {
         style: TextButton.styleFrom(
           backgroundColor: const Color(0xFF0F766E),
           foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+          minimumSize: Size.zero,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(999),
           ),
           textStyle: const TextStyle(
             fontWeight: FontWeight.w700,
-            fontSize: 15,
-            letterSpacing: 0.2,
+            fontSize: 13,
+            letterSpacing: 0.1,
           ),
           elevation: 2,
         ),
-        icon: const Icon(Icons.play_arrow_rounded, size: 22),
-        label: Text(label.tr),
+        icon: const Icon(Icons.history_rounded, size: 16),
+        label: Text(label.tr, maxLines: 1, overflow: TextOverflow.ellipsis),
       ),
     );
   }
@@ -1240,7 +1264,7 @@ class _IconShell extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(size * 0.34),
+        shape: BoxShape.circle,
         border: Border.all(color: color.withValues(alpha: 0.16)),
         boxShadow: [
           BoxShadow(
@@ -1450,6 +1474,10 @@ class _DashboardHeroStat extends StatelessWidget {
 
 /// Home "Explore" panel — non-role-specific shortcuts that live on Home rather
 /// than inside the Community/Services tabs (e.g. the City Guide map).
+/// Home "Explore" panel — a single full-width assistant shortcut. Was a
+/// 3-column quick-action panel holding just one tile (once City Guide moved
+/// to its own bottom-nav tab); replaced with one compact banner-style card
+/// so the section doesn't read as mostly-empty.
 class _ExploreRow extends StatelessWidget {
   const _ExploreRow();
 
@@ -1460,21 +1488,61 @@ class _ExploreRow extends StatelessWidget {
       children: [
         const _SectionLabel(title: 'Explore'),
         const SizedBox(height: 12),
-        _GlassPanel(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-          child: Row(
-            children: [
-              // Note #41 — City Guide moved to its own bottom-nav tab, so
-              // this quick-action row is just the assistant now.
-              Expanded(
-                child: _QuickAction(
-                  icon: Icons.smart_toy_rounded,
-                  label: 'Assistant',
-                  color: Colors.deepPurple,
-                  onTap: () => Get.to(() => const BotChatScreen()),
-                ),
+        Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: () => Get.to(() => const BotChatScreen()),
+            child: _GlassPanel(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 14,
               ),
-            ],
+              child: Row(
+                children: [
+                  const _IconShell(
+                    icon: Icons.smart_toy_rounded,
+                    color: Colors.deepPurple,
+                    size: 48,
+                    iconSize: 22,
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Assistant'.tr,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 15,
+                            color: AppThemeConfig.text(context),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Ask questions and get guidance'.tr,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: AppThemeConfig.mutedText(context),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: AppThemeConfig.mutedText(context),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ],
@@ -2252,12 +2320,26 @@ class _DashboardActivityTile extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
-        Text(
-          time.tr,
-          style: TextStyle(
-            color: AppThemeConfig.mutedText(context),
-            fontWeight: FontWeight.w600,
-          ),
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              time.tr,
+              style: TextStyle(
+                color: AppThemeConfig.mutedText(context),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            if (onTap != null) ...[
+              const SizedBox(height: 2),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 18,
+                color: AppThemeConfig.mutedText(context),
+              ),
+            ],
+          ],
         ),
       ],
     );

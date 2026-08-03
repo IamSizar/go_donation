@@ -1374,6 +1374,7 @@ class AppTranslations extends Translations {
     'All donations received for your published campaigns.': 'All contributions received for your published campaigns.',
     'Anonymous Donor': 'Anonymous Grantor',
     'Approved': 'Approved',
+    'Ask questions and get guidance': 'Ask questions and get guidance',
     'Assistant': 'Assistant',
     'Support Assistant': 'Support Assistant',
     'Ask me anything — I\'ll guide you through the app':
@@ -2951,6 +2952,7 @@ class AppTranslations extends Translations {
     'All donations received for your published campaigns.': 'جميع المساهمات المستلمة لحملاتك المنشورة.',
     'Anonymous Donor': 'مانح مجهول',
     'Approved': 'تمت الموافقة',
+    'Ask questions and get guidance': 'اطرح الأسئلة واحصل على التوجيه',
     'Assistant': 'المساعد',
     'Support Assistant': 'مساعد الدعم',
     'Ask me anything — I\'ll guide you through the app':
@@ -4317,6 +4319,7 @@ class AppTranslations extends Translations {
     'All donations received for your published campaigns.': 'هەموو ئەو بەشداریانەی بۆ کەمپەینە بڵاوکراوەکانت گەیشتوون.',
     'Anonymous Donor': 'بەخشەری نەناسراو',
     'Approved': 'پەسەندکراو',
+    'Ask questions and get guidance': 'پرسیار بکە و ڕێنمایی وەربگرە',
     'Assistant': 'یاریدەدەر',
     'Support Assistant': 'یاریدەدەری پشتگیری',
     'Ask me anything — I\'ll guide you through the app':
@@ -5918,6 +5921,7 @@ class AppTranslations extends Translations {
     'All donations received for your published campaigns.': 'هەمی بەشداریێن بۆ کەمپینێن تە یێن بەلاڤکری هاتینە وەرگرتن.',
     'Anonymous Donor': 'بەخشەرێ نەناس',
     'Approved': 'پەسەندکری',
+    'Ask questions and get guidance': 'پرسیارا بکە و ڕێنمایی وەرگرە',
     'Assistant': 'هاریکار',
     'Support Assistant': 'یاریدەدەرێ پشتەڤانیێ',
     "Ask me anything — I'll guide you through the app":

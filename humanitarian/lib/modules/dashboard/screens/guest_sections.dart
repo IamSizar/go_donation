@@ -79,7 +79,7 @@ class GuestHomeSection extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Browse campaigns, the marketplace, and community services. Sign in to donate, volunteer, and more.'
+                    'Browse campaigns, stories, and updates from our community. Sign in to donate, volunteer, or create requests and make an impact.'
                         .tr,
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.9),
