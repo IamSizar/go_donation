@@ -132,9 +132,11 @@ class _WalletBalanceCard extends StatelessWidget {
           const SizedBox(height: 14),
           Text(
             _formatMoney(wallet.balanceIQD.toDouble(), wallet.currency),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 30,
+              fontSize: 24,
               fontWeight: FontWeight.w900,
             ),
           ),

@@ -252,9 +252,11 @@ class _OverviewHeroCard extends StatelessWidget {
           Text(
             'Your sponsorships are active and creating steady support for families who rely on consistent monthly care.'
                 .tr,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: Colors.white,
-              fontSize: 26,
+              fontSize: 18,
               fontWeight: FontWeight.w800,
               height: 1.15,
             ),

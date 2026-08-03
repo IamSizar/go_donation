@@ -59,6 +59,8 @@ class WelcomeScreen extends StatelessWidget {
             // #38 — approved verbal identity: short heading, no tagline.
             Text(
               'Balance and Stability for a Better Life!'.tr,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: titleStyle,
             ),
             const SizedBox(height: 28),

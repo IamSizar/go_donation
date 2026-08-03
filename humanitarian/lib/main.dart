@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/api/auth_session.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/push_registration.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
@@ -113,6 +114,10 @@ Future<void> main() async {
   });
 
   await initializeAppState();
+  // Loads the persisted access token into memory from the OS-encrypted
+  // secure store (migrating any leftover plaintext token from older app
+  // versions). Must happen before PushRegistration/UI can read the token.
+  await loadApiSessionFromSecureStorage();
   // After state is restored we know whether there's a signed-in user.
   // PushRegistration.registerNow() no-ops when there isn't, so this is
   // safe even on a fresh install / signed-out launch.
@@ -159,8 +164,18 @@ class HumanitarianApp extends StatelessWidget {
           // app unfocuses the active field and closes the keyboard.
           return Theme(
             data: themed,
-            child: DismissKeyboardOnTap(
-              child: child ?? const SizedBox.shrink(),
+            child: MediaQuery(
+              // Clamp the system font-scale setting so a large accessibility
+              // text size on the device can't blow up headings/cards past
+              // what the layouts were designed for.
+              data: MediaQuery.of(context).copyWith(
+                textScaler: MediaQuery.of(
+                  context,
+                ).textScaler.clamp(minScaleFactor: 0.9, maxScaleFactor: 1.15),
+              ),
+              child: DismissKeyboardOnTap(
+                child: child ?? const SizedBox.shrink(),
+              ),
             ),
           );
         },

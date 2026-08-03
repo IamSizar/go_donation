@@ -181,13 +181,15 @@ class _SplashScreenState extends State<SplashScreen>
                         child: Text(
                           'Humanitarian Platform'.tr,
                           textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                           style: Theme.of(context).textTheme.headlineLarge
                               ?.copyWith(
                                 fontWeight: FontWeight.w900,
                                 letterSpacing: 0,
                                 height: 1.05,
                                 color: Colors.white,
-                                fontSize: 32,
+                                fontSize: 24,
                               ),
                         ),
                       ),

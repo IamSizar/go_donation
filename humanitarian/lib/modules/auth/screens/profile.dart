@@ -214,8 +214,10 @@ class _ProfileSectionState extends State<ProfileSection> {
                 alignment: AlignmentDirectional.centerStart,
                 child: Text(
                   'Profile & Settings'.tr,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 26,
+                    fontSize: 22,
                     fontWeight: FontWeight.w800,
                     color: AppThemeConfig.text(context),
                   ),

@@ -169,9 +169,11 @@ class _NotificationSummary extends StatelessWidget {
                       hasUnread
                           ? '@n new'.trParams({'n': '$unread'})
                           : 'All caught up'.tr,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 24,
+                        fontSize: 20,
                         fontWeight: FontWeight.w800,
                         height: 1.1,
                       ),

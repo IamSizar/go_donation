@@ -262,8 +262,8 @@ func main() {
 
 	// CORS — the admin dashboard is served from a different origin in production
 	// (e.g. dashboard.up.railway.app calling backend.up.railway.app), so the
-	// browser needs CORS headers. Auth is via Bearer token (not cookies), so a
-	// permissive default is safe; tighten with CORS_ALLOWED_ORIGINS if desired.
+	// browser needs CORS headers. Deny-by-default: only origins listed in
+	// CORS_ALLOWED_ORIGINS are allowed. Set it before deploying the dashboard.
 	r.Use(corsMiddleware())
 
 	r.GET("/health", healthH.Get)
@@ -990,12 +990,16 @@ func main() {
 }
 
 // corsMiddleware returns a Gin middleware that adds CORS headers. The allowed
-// origins come from CORS_ALLOWED_ORIGINS (comma-separated); when unset or "*",
-// any origin is reflected. Auth uses Bearer tokens (no cookies), so credentials
-// are not required and "*" is safe.
+// origins come from CORS_ALLOWED_ORIGINS (comma-separated). Deny-by-default:
+// if it's unset, no cross-origin browser requests are allowed at all (the API
+// still works for the mobile app and for direct/same-origin calls, which
+// don't send an Origin CORS preflight). Setting it to "*" is still supported
+// for local development or a deliberate fully-public API, but is logged loudly
+// on boot since it allows any website's JS to call the API using a visitor's
+// browser.
 func corsMiddleware() gin.HandlerFunc {
 	raw := strings.TrimSpace(os.Getenv("CORS_ALLOWED_ORIGINS"))
-	allowAll := raw == "" || raw == "*"
+	allowAll := raw == "*"
 	allowed := map[string]bool{}
 	if !allowAll {
 		for _, o := range strings.Split(raw, ",") {
@@ -1003,6 +1007,14 @@ func corsMiddleware() gin.HandlerFunc {
 				allowed[o] = true
 			}
 		}
+	}
+	switch {
+	case allowAll:
+		log.Printf("cors: CORS_ALLOWED_ORIGINS=* — any website may call this API from a browser")
+	case len(allowed) == 0:
+		log.Printf("cors: CORS_ALLOWED_ORIGINS is not set — cross-origin browser requests (e.g. the admin dashboard) will be blocked until it's set")
+	default:
+		log.Printf("cors: allowing origins: %s", strings.Join(mapsKeys(allowed), ", "))
 	}
 	return func(c *gin.Context) {
 		origin := c.GetHeader("Origin")
@@ -1019,4 +1031,12 @@ func corsMiddleware() gin.HandlerFunc {
 		}
 		c.Next()
 	}
+}
+
+func mapsKeys(m map[string]bool) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
 }

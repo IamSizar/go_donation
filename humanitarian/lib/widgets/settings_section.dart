@@ -18,222 +18,161 @@ import 'package:flutter_application_1/modules/proposal/screens/proposal_services
 import 'package:flutter_application_1/modules/receipts/screens/aid_receipts_screen.dart';
 import 'package:flutter_application_1/modules/auth/screens/task_verification_screen.dart';
 import 'package:flutter_application_1/modules/support/screens/support_section.dart';
+import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:flutter_application_1/widgets/cached_profile_avatar.dart';
 import 'package:get/get.dart';
 import 'package:path_provider/path_provider.dart';
 
-/// Client note — "Settings and Profile Interface": opens as a side drawer
-/// when the user taps their profile picture (previously a bottom-sheet
-/// quick-menu leading to a separate full-page settings screen). Piece 1 of
-/// that note: the drawer shell itself, account info up top, Language and
-/// Dark Mode as direct rows, and everything already working (About/Contact/
-/// Terms, Clear Cache, Logout, plus Field privacy/Search/Receipts/Share/
-/// Services — kept here so nothing already reachable from the old profile
-/// page becomes a dead end).
-///
-/// Not in this piece yet — coming as their own pieces per the note: the
-/// nested "Control Settings and Preferences" sub-page (Payment Methods,
-/// Privacy & Security), and the still-missing items (Task Verification,
-/// Our Humanitarian Work, a distinct Supporting Organizations list).
+/// Client note — "Settings and Profile Interface": its own bottom-nav tab
+/// (previously a side drawer opened by tapping the profile avatar). Account
+/// info up top, Language and Dark Mode as direct rows, and everything
+/// already working (About/Contact/Terms, Clear Cache, Logout, plus Field
+/// privacy/Search/Receipts/Share/Services — kept here so nothing already
+/// reachable from the old drawer becomes a dead end).
 const Color _drawerPrimary = Color(0xFF0F766E);
 const Color _drawerPrimaryDark = Color(0xFF115E59);
 const Color _drawerDanger = Color(0xFFEF4444);
 
-class SettingsDrawer extends StatelessWidget {
-  const SettingsDrawer({super.key});
+class SettingsSection extends StatelessWidget {
+  const SettingsSection({super.key});
 
   @override
   Widget build(BuildContext context) {
     final guest = isGuestMode();
-    return Drawer(
-      backgroundColor: AppThemeConfig.backgroundTop(context),
-      child: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: _AccountHeader(guest: guest),
+    return SectionScaffold(
+      title: 'Settings',
+      subtitle: '',
+      child: ListView(
+        // 120 bottom clearance matches the other tabs' lists, so the last
+        // tile doesn't end up hidden behind the bottom nav bar.
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 120),
+        children: [
+          _AccountHeader(guest: guest),
+          const SizedBox(height: 12),
+          // Guests have no phone/wallet/field-privacy to manage — matches
+          // the old flow, which hid Edit profile for guests the same way.
+          if (!guest)
+            _DrawerTile(
+              icon: Icons.tune_rounded,
+              label: 'Control Settings and Preferences',
+              color: Colors.blueAccent,
+              onTap: () => Get.to(() => const ControlSettingsScreen()),
             ),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                children: [
-                  // Guests have no phone/wallet/field-privacy to manage —
-                  // matches the old flow, which hid Edit profile for guests
-                  // the same way.
-                  if (!guest)
-                    _DrawerTile(
-                      icon: Icons.tune_rounded,
-                      label: 'Control Settings and Preferences',
-                      color: Colors.blueAccent,
-                      onTap: () {
-                        Navigator.of(context).pop();
-                        Get.to(() => const ControlSettingsScreen());
-                      },
-                    ),
-                  const _LanguageRow(),
-                  const _DarkModeRow(),
-                  const _DrawerDivider(),
-                  // Both volunteer rows are kept role-segmented, matching how
-                  // the rest of the app keeps each role's own dashboard/tools
-                  // separate rather than surfacing them to every role.
-                  if (sharedPreferences.getString('role_id') == '3') ...[
-                    _DrawerTile(
-                      icon: Icons.volunteer_activism_rounded,
-                      label: 'Volunteer With Us',
-                      color: Colors.deepOrange,
-                      onTap: () {
-                        Navigator.of(context).pop();
-                        Get.to(() => const SupportSection());
-                      },
-                    ),
-                    _DrawerTile(
-                      icon: Icons.fact_check_rounded,
-                      label: 'Volunteer Attendance and Absence System',
-                      color: Colors.deepOrange,
-                      onTap: () {
-                        Navigator.of(context).pop();
-                        Get.to(() => const SupportSection());
-                      },
-                    ),
-                  ],
-                  _DrawerTile(
-                    icon: Icons.checklist_rounded,
-                    label: 'Task Verification',
-                    color: Colors.deepOrange,
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      Get.to(() => const TaskVerificationScreen());
-                    },
-                  ),
-                  _DrawerTile(
-                    icon: Icons.handshake_rounded,
-                    label: 'Our Partners',
-                    color: Colors.deepOrange,
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      Get.to(() => const PartnersScreen());
-                    },
-                  ),
-                  _DrawerTile(
-                    icon: Icons.diversity_3_rounded,
-                    label: 'Supporting Organizations',
-                    color: Colors.deepOrange,
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      Get.to(() => const PartnersScreen(onlySupporting: true));
-                    },
-                  ),
-                  _DrawerTile(
-                    icon: Icons.receipt_long_rounded,
-                    label: 'receipts_title',
-                    color: Colors.teal,
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      Get.to(() => const AidReceiptsScreen());
-                    },
-                  ),
-                  _DrawerTile(
-                    icon: Icons.apps_rounded,
-                    label: 'Services',
-                    color: Colors.deepPurple,
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      Get.to(() => const ProposalServicesSection());
-                    },
-                  ),
-                  _DrawerTile(
-                    icon: Icons.ios_share_rounded,
-                    label: 'share_app',
-                    color: Colors.green,
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      shareApp();
-                    },
-                  ),
-                  const _DrawerDivider(),
-                  _DrawerTile(
-                    icon: Icons.description_rounded,
-                    label: 'Terms & Conditions',
-                    color: Colors.blueGrey,
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      Get.to(() => const TermsScreen());
-                    },
-                  ),
-                  _DrawerTile(
-                    icon: Icons.info_outline_rounded,
-                    label: 'About Us',
-                    color: Colors.teal,
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      Get.to(
-                        () => const ContentPageScreen(
-                          slug: 'about',
-                          titleKey: 'About Us',
-                        ),
-                      );
-                    },
-                  ),
-                  _DrawerTile(
-                    icon: Icons.volunteer_activism_outlined,
-                    label: 'Our Humanitarian Work',
-                    color: Colors.teal,
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      Get.to(
-                        () => const ContentPageScreen(
-                          slug: 'humanitarian-work',
-                          titleKey: 'Our Humanitarian Work',
-                        ),
-                      );
-                    },
-                  ),
-                  _DrawerTile(
-                    icon: Icons.mail_outline_rounded,
-                    label: 'Contact Us',
-                    color: Colors.orange,
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      Get.to(
-                        () => const ContentPageScreen(
-                          slug: 'contact',
-                          titleKey: 'Contact Us',
-                        ),
-                      );
-                    },
-                  ),
-                  _DrawerTile(
-                    icon: Icons.cleaning_services_rounded,
-                    label: 'clear_cache',
-                    color: Colors.brown,
-                    onTap: () => _clearCache(context),
-                  ),
-                ],
-              ),
+          const _LanguageRow(),
+          const _DarkModeRow(),
+          const _DrawerDivider(),
+          // Both volunteer rows are kept role-segmented, matching how the
+          // rest of the app keeps each role's own dashboard/tools separate
+          // rather than surfacing them to every role.
+          if (sharedPreferences.getString('role_id') == '3') ...[
+            _DrawerTile(
+              icon: Icons.volunteer_activism_rounded,
+              label: 'Volunteer With Us',
+              color: Colors.deepOrange,
+              onTap: () => Get.to(() => const SupportSection()),
             ),
-            const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: guest
-                  ? _DrawerTile(
-                      icon: Icons.login_rounded,
-                      label: 'Sign in',
-                      color: _drawerPrimary,
-                      onTap: () {
-                        Navigator.of(context).pop();
-                        Get.offAllNamed('/login');
-                      },
-                    )
-                  : _DrawerTile(
-                      icon: Icons.logout_rounded,
-                      label: 'Log out',
-                      color: _drawerDanger,
-                      onTap: () => _confirmLogout(context),
-                    ),
+            _DrawerTile(
+              icon: Icons.fact_check_rounded,
+              label: 'Volunteer Attendance and Absence System',
+              color: Colors.deepOrange,
+              onTap: () => Get.to(() => const SupportSection()),
             ),
           ],
-        ),
+          _DrawerTile(
+            icon: Icons.checklist_rounded,
+            label: 'Task Verification',
+            color: Colors.deepOrange,
+            onTap: () => Get.to(() => const TaskVerificationScreen()),
+          ),
+          _DrawerTile(
+            icon: Icons.handshake_rounded,
+            label: 'Our Partners',
+            color: Colors.deepOrange,
+            onTap: () => Get.to(() => const PartnersScreen()),
+          ),
+          _DrawerTile(
+            icon: Icons.diversity_3_rounded,
+            label: 'Supporting Organizations',
+            color: Colors.deepOrange,
+            onTap: () =>
+                Get.to(() => const PartnersScreen(onlySupporting: true)),
+          ),
+          _DrawerTile(
+            icon: Icons.receipt_long_rounded,
+            label: 'receipts_title',
+            color: Colors.teal,
+            onTap: () => Get.to(() => const AidReceiptsScreen()),
+          ),
+          _DrawerTile(
+            icon: Icons.apps_rounded,
+            label: 'Services',
+            color: Colors.deepPurple,
+            onTap: () => Get.to(() => const ProposalServicesSection()),
+          ),
+          _DrawerTile(
+            icon: Icons.ios_share_rounded,
+            label: 'share_app',
+            color: Colors.green,
+            onTap: shareApp,
+          ),
+          const _DrawerDivider(),
+          _DrawerTile(
+            icon: Icons.description_rounded,
+            label: 'Terms & Conditions',
+            color: Colors.blueGrey,
+            onTap: () => Get.to(() => const TermsScreen()),
+          ),
+          _DrawerTile(
+            icon: Icons.info_outline_rounded,
+            label: 'About Us',
+            color: Colors.teal,
+            onTap: () => Get.to(
+              () => const ContentPageScreen(slug: 'about', titleKey: 'About Us'),
+            ),
+          ),
+          _DrawerTile(
+            icon: Icons.volunteer_activism_outlined,
+            label: 'Our Humanitarian Work',
+            color: Colors.teal,
+            onTap: () => Get.to(
+              () => const ContentPageScreen(
+                slug: 'humanitarian-work',
+                titleKey: 'Our Humanitarian Work',
+              ),
+            ),
+          ),
+          _DrawerTile(
+            icon: Icons.mail_outline_rounded,
+            label: 'Contact Us',
+            color: Colors.orange,
+            onTap: () => Get.to(
+              () => const ContentPageScreen(
+                slug: 'contact',
+                titleKey: 'Contact Us',
+              ),
+            ),
+          ),
+          _DrawerTile(
+            icon: Icons.cleaning_services_rounded,
+            label: 'clear_cache',
+            color: Colors.brown,
+            onTap: () => _clearCache(context),
+          ),
+          const _DrawerDivider(),
+          guest
+              ? _DrawerTile(
+                  icon: Icons.login_rounded,
+                  label: 'Sign in',
+                  color: _drawerPrimary,
+                  onTap: () => Get.offAllNamed('/login'),
+                )
+              : _DrawerTile(
+                  icon: Icons.logout_rounded,
+                  label: 'Log out',
+                  color: _drawerDanger,
+                  onTap: () => _confirmLogout(context),
+                ),
+        ],
       ),
     );
   }
@@ -261,7 +200,6 @@ Future<void> _confirmLogout(BuildContext context) async {
       ) ??
       false;
   if (!confirmed) return;
-  if (context.mounted) Navigator.of(context).pop();
   // Navigate to login FIRST so the authenticated tree is torn down before the
   // session is cleared (mirrors the old flow — avoids a black screen from
   // sections rebuilding against wiped storage).
@@ -433,7 +371,6 @@ class _AccountHeader extends StatelessWidget {
               child: InkWell(
                 customBorder: const CircleBorder(),
                 onTap: () async {
-                  Navigator.of(context).pop();
                   await Get.to<bool>(() => const EditProfilePage());
                 },
                 child: const Padding(

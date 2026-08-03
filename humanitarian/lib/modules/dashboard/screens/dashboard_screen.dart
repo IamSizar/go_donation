@@ -17,20 +17,20 @@ import 'package:flutter_application_1/modules/notifications/screens/notification
 import 'package:flutter_application_1/modules/search/screens/global_search_screen.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:flutter_application_1/widgets/dashboard.dart';
-import 'package:flutter_application_1/widgets/profile_menu.dart';
-import 'package:flutter_application_1/widgets/settings_drawer.dart';
+import 'package:flutter_application_1/widgets/settings_section.dart';
 import 'package:get/get.dart';
 
 /// Note #41 — "Complete Restructuring and Distribution of the Application
-/// Interfaces". The bottom nav is now fixed at exactly 4 tabs, identical for
-/// every role (no scrolling, no per-role tab set): Home, Store, Marriage,
-/// City Guide. Everything that used to be a separate tab (Kafala, Contribute,
-/// Volunteer, Services) is now reached from Home's existing quick-action
-/// tiles/hero buttons (widgets/dashboard.dart), which now push those screens
-/// directly instead of switching to a tab index that no longer exists.
-/// Alerts and Messages moved to a persistent top bar shown on every tab;
-/// Profile moved into the same top bar's avatar menu
-/// (widgets/profile_menu.dart).
+/// Interfaces". The bottom nav is now fixed at 5 tabs, identical for every
+/// role (no scrolling, no per-role tab set): Home, Store, Marriage, City
+/// Guide, Settings. Everything that used to be a separate tab (Kafala,
+/// Contribute, Volunteer, Services) is now reached from Home's existing
+/// quick-action tiles/hero buttons (widgets/dashboard.dart), which now push
+/// those screens directly instead of switching to a tab index that no
+/// longer exists. Alerts and Messages moved to a persistent top bar shown on
+/// every tab. Settings — previously a side drawer opened by tapping the
+/// profile avatar — is now its own tab (widgets/settings_section.dart); the
+/// avatar button still exists in the top bar and just switches to this tab.
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
@@ -66,6 +66,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       activeIcon: Icons.map_rounded,
       color: Colors.indigo,
     ),
+    NavDestination(
+      label: 'Settings',
+      icon: Icons.settings_outlined,
+      activeIcon: Icons.settings_rounded,
+      color: Colors.blueGrey,
+    ),
   ];
 
   static const int _cityGuideIndex = 3;
@@ -77,6 +83,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     const MarketplaceSection(),
     const MarriageHubScreen(),
     const CityGuideScreen(),
+    const SettingsSection(),
   ];
 
   @override
@@ -186,11 +193,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         await _handleBack();
       },
       child: Scaffold(
-        // Client note — "Settings and Profile Interface" opens as a side
-        // drawer on tapping the profile picture (see _DashboardTopBar's
-        // ProfileMenuButton, which now calls Scaffold.of(context).openDrawer()
-        // instead of pushing a full screen).
-        drawer: const SettingsDrawer(),
         body: Column(
           children: [
             const _DashboardTopBar(),
@@ -248,44 +250,35 @@ class _DashboardTopBar extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            ValueListenableBuilder<bool>(
-              valueListenable: profileIncompleteNotifier,
-              builder: (context, incomplete, _) =>
-                  ProfileMenuButton(showIndicatorDot: incomplete),
+            // Note #43 — grouped with Notifications/Messages at the top,
+            // matching the client's requested layout (was inside the side
+            // drawer only). The profile avatar shortcut was removed once
+            // Settings became its own bottom-nav tab.
+            _TopBarIconButton(
+              icon: Icons.search_rounded,
+              badgeCount: 0,
+              tooltip: 'search_title'.tr,
+              onTap: () => Get.to(() => const GlobalSearchScreen()),
             ),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Note #43 — grouped with Notifications/Messages at the top,
-                // matching the client's requested layout (was inside the
-                // side drawer only).
-                _TopBarIconButton(
-                  icon: Icons.search_rounded,
-                  badgeCount: 0,
-                  tooltip: 'search_title'.tr,
-                  onTap: () => Get.to(() => const GlobalSearchScreen()),
-                ),
-                const SizedBox(width: 8),
-                Obx(
-                  () => _TopBarIconButton(
-                    icon: Icons.notifications_none_rounded,
-                    badgeCount: notifications.unreadCount,
-                    tooltip: 'Notifications'.tr,
-                    onTap: () => Get.to(() => const NotificationsScreen()),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Obx(
-                  () => _TopBarIconButton(
-                    icon: Icons.forum_outlined,
-                    badgeCount: chats.totalUnread,
-                    tooltip: 'Messages'.tr,
-                    onTap: () => Get.to(() => const MessagesScreen()),
-                  ),
-                ),
-              ],
+            const SizedBox(width: 8),
+            Obx(
+              () => _TopBarIconButton(
+                icon: Icons.notifications_none_rounded,
+                badgeCount: notifications.unreadCount,
+                tooltip: 'Notifications'.tr,
+                onTap: () => Get.to(() => const NotificationsScreen()),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Obx(
+              () => _TopBarIconButton(
+                icon: Icons.forum_outlined,
+                badgeCount: chats.totalUnread,
+                tooltip: 'Messages'.tr,
+                onTap: () => Get.to(() => const MessagesScreen()),
+              ),
             ),
           ],
         ),

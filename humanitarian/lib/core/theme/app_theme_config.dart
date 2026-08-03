@@ -131,7 +131,15 @@ class AppThemeConfig {
         ),
       ),
       textTheme: TextTheme(
-        headlineSmall: TextStyle(fontWeight: FontWeight.bold, color: textColor),
+        // Material 3's defaults (headlineMedium 28, headlineSmall 24) read as
+        // oversized for this app's headers — sized down so headline text
+        // fits within ~2 lines instead of overflowing/wrapping further.
+        headlineMedium: const TextStyle(fontWeight: FontWeight.w800, fontSize: 22),
+        headlineSmall: TextStyle(
+          fontWeight: FontWeight.bold,
+          color: textColor,
+          fontSize: 20,
+        ),
         bodyMedium: TextStyle(color: textColor, fontSize: 16),
       ),
       dividerColor: mutedColor.withValues(alpha: 0.2),

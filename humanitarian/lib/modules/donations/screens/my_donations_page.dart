@@ -203,9 +203,11 @@ class _DonationHistoryHeroCard extends StatelessWidget {
           const SizedBox(height: 18),
           Text(
             '${_numFormat.format(totalAmount)} IQD',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 34,
+              fontSize: 26,
               fontWeight: FontWeight.w800,
             ),
           ),

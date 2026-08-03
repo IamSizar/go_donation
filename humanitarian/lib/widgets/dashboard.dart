@@ -19,7 +19,6 @@ import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_su
 import 'package:flutter_application_1/modules/sponsorship/screens/orphan_family_profiles_screen.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/sponsorship_overview_screen.dart';
 import 'package:flutter_application_1/modules/support/screens/support_section.dart';
-import 'package:flutter_application_1/modules/proposal/screens/proposal_services_section.dart';
 import 'package:flutter_application_1/modules/bot/screens/bot_chat_screen.dart';
 import 'package:flutter_application_1/shared/widgets/case_category_capsules.dart';
 import 'package:flutter_application_1/widgets/firebase_screen_add.dart';
@@ -120,18 +119,6 @@ class DashboardHomeSection extends StatelessWidget {
     };
   }
 
-  Widget _buildRefreshButton(RoleDashboardController controller) {
-    return Obx(
-      () => _HeaderIconButton(
-        tooltip: 'Refresh'.tr,
-        icon: controller.isLoading.value
-            ? Icons.hourglass_top_rounded
-            : Icons.refresh_rounded,
-        onPressed: controller.isLoading.value ? () {} : controller.fetchSummary,
-      ),
-    );
-  }
-
   Widget _buildHero({
     required String firstName,
     required String badge,
@@ -204,9 +191,11 @@ class DashboardHomeSection extends StatelessWidget {
               const SizedBox(height: 22),
               Text(
                 'Welcome back,\n@name'.trParams({'name': firstName}),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 31,
+                  fontSize: 24,
                   fontWeight: FontWeight.w800,
                   height: 1.1,
                 ),
@@ -815,19 +804,9 @@ class DashboardHomeSection extends StatelessWidget {
         subtitle: _roleSubtitle(roleKey),
         // Note #41 — the profile avatar moved to the persistent top bar
         // (shown above every tab now, not just Home), so it's no longer
-        // repeated here too.
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _HeaderIconButton(
-              tooltip: 'Technical support'.tr,
-              icon: Icons.support_agent_rounded,
-              onPressed: () => Get.to(() => const SupportTicketFormScreen()),
-            ),
-            const SizedBox(width: 8),
-            _buildRefreshButton(controller),
-          ],
-        ),
+        // repeated here too. The Technical support and Refresh header
+        // buttons were removed — support is reachable from Settings, and
+        // refreshing is now a plain pull-to-refresh on the list below.
         child: Builder(
           builder: (context) {
             if (controller.isLoading.value && controller.summary.isEmpty) {
@@ -860,11 +839,18 @@ class DashboardHomeSection extends StatelessWidget {
               );
             }
             final summary = Map<String, dynamic>.from(controller.summary);
-            return switch (roleKey) {
-              'beneficiary' => _buildBeneficiaryDashboard(context, summary),
-              'volunteer' => _buildVolunteerDashboard(context, summary),
-              _ => _buildDonorDashboard(context, summary, campaignsController),
-            };
+            return RefreshIndicator(
+              onRefresh: controller.fetchSummary,
+              child: switch (roleKey) {
+                'beneficiary' => _buildBeneficiaryDashboard(context, summary),
+                'volunteer' => _buildVolunteerDashboard(context, summary),
+                _ => _buildDonorDashboard(
+                    context,
+                    summary,
+                    campaignsController,
+                  ),
+              },
+            );
           },
         ),
       );
@@ -943,10 +929,12 @@ class _WalletCardState extends State<_WalletCard> {
                   balance == null
                       ? '···'
                       : '${NumberFormat('#,##0').format(balance)} IQD',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w800,
-                    fontSize: 26,
+                    fontSize: 22,
                   ),
                 ),
               ],
@@ -1048,13 +1036,11 @@ class _SectionScaffold extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.child,
-    this.trailing,
   });
 
   final String title;
   final String subtitle;
   final Widget child;
-  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -1084,8 +1070,10 @@ class _SectionScaffold extends StatelessWidget {
                         children: [
                           Text(
                             title.tr,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 28,
+                              fontSize: 22,
                               fontWeight: FontWeight.w800,
                               color: AppThemeConfig.text(context),
                             ),
@@ -1093,70 +1081,22 @@ class _SectionScaffold extends StatelessWidget {
                           const SizedBox(height: 6),
                           Text(
                             subtitle.tr,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: AppThemeConfig.mutedText(context),
-                              fontSize: 15,
+                              fontSize: 13,
                               height: 1.4,
                             ),
                           ),
                         ],
                       ),
                     ),
-                    if (trailing != null) trailing!,
                   ],
                 ),
               ),
               Expanded(child: child),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _HeaderIconButton extends StatelessWidget {
-  const _HeaderIconButton({
-    required this.tooltip,
-    required this.icon,
-    required this.onPressed,
-  });
-
-  final String tooltip;
-  final IconData icon;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppThemeConfig.surface(context),
-            AppThemeConfig.elevatedSurface(context),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppThemeConfig.border(context)),
-        boxShadow: [
-          BoxShadow(
-            color: AppThemeConfig.shadow(context),
-            blurRadius: 20,
-            offset: const Offset(0, 12),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(18),
-          onTap: onPressed,
-          child: SizedBox(
-            width: 48,
-            height: 48,
-            child: Icon(icon, color: AppThemeConfig.text(context), size: 22),
           ),
         ),
       ),
@@ -1404,7 +1344,7 @@ class _StatCell extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 24,
+              fontSize: 20,
               fontWeight: FontWeight.w800,
               color: AppThemeConfig.text(context),
             ),
@@ -1769,7 +1709,7 @@ class _CampaignCard extends StatelessWidget {
                     Text(
                       '$pct%',
                       style: TextStyle(
-                        fontSize: 26,
+                        fontSize: 22,
                         fontWeight: FontWeight.w900,
                         height: 1.0,
                         color: accent,

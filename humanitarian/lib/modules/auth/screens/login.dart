@@ -44,10 +44,17 @@ class LoginPage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 18),
-            Text('Welcome back'.tr, style: titleStyle),
+            Text(
+              'Welcome back'.tr,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: titleStyle,
+            ),
             const SizedBox(height: 6),
             Text(
               'Sign in to continue.'.tr,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: subtitleStyle,
             ),
             const SizedBox(height: 18),

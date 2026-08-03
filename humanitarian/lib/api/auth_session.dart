@@ -2,14 +2,59 @@ import 'package:dio/dio.dart';
 import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/api/links.dart';
 import 'package:flutter_application_1/core/app_state.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 const String kApiAccessTokenPrefsKey = 'api_access_token';
 const String kApiAccessTokenExpiryPrefsKey = 'api_access_token_expires_at';
 
+const _secureStorage = FlutterSecureStorage(
+  aOptions: AndroidOptions(encryptedSharedPreferences: true),
+);
+
+// The token is kept in the OS-encrypted keystore/keychain (see
+// `_secureStorage` above), not in plain SharedPreferences — a rooted/
+// jailbroken device or a backup extraction can no longer read it in plain
+// text. Reads elsewhere in the app must stay synchronous, so a copy is held
+// in memory and refreshed on every write; `loadApiSessionFromSecureStorage`
+// primes it once at startup (see `initializeAppState`).
+String? _cachedToken;
+
+/// Loads the persisted token into memory. Awaited once during app startup,
+/// before any screen can call the synchronous accessors below. Also
+/// migrates a token left over from the old plaintext-SharedPreferences
+/// storage (pre-fix app versions) into secure storage, then wipes the
+/// plaintext copy.
+Future<void> loadApiSessionFromSecureStorage() async {
+  var token = await _secureStorage.read(key: kApiAccessTokenPrefsKey);
+  if (token == null || token.trim().isEmpty) {
+    final legacyToken = sharedPreferences
+        .getString(kApiAccessTokenPrefsKey)
+        ?.trim();
+    if (legacyToken != null && legacyToken.isNotEmpty) {
+      token = legacyToken;
+      await _secureStorage.write(key: kApiAccessTokenPrefsKey, value: token);
+      final legacyExpiry = sharedPreferences.getString(
+        kApiAccessTokenExpiryPrefsKey,
+      );
+      if (legacyExpiry != null && legacyExpiry.isNotEmpty) {
+        await _secureStorage.write(
+          key: kApiAccessTokenExpiryPrefsKey,
+          value: legacyExpiry,
+        );
+      }
+    }
+  }
+  await sharedPreferences.remove(kApiAccessTokenPrefsKey);
+  await sharedPreferences.remove(kApiAccessTokenExpiryPrefsKey);
+  _cachedToken = (token != null && token.trim().isNotEmpty)
+      ? token.trim()
+      : null;
+}
+
 String? currentApiAccessToken() {
-  final token = sharedPreferences.getString(kApiAccessTokenPrefsKey)?.trim();
+  final token = _cachedToken?.trim();
   if (token == null || token.isEmpty) {
     return null;
   }
@@ -70,16 +115,21 @@ Future<void> persistApiSessionFromResponse(Map<String, dynamic> body) async {
       ? body['session']['expires_at']?.toString().trim()
       : null;
   if (token != null && token.isNotEmpty) {
-    await sharedPreferences.setString(kApiAccessTokenPrefsKey, token);
+    await _secureStorage.write(key: kApiAccessTokenPrefsKey, value: token);
+    _cachedToken = token;
   }
   if (expiresAt != null && expiresAt.isNotEmpty) {
-    await sharedPreferences.setString(kApiAccessTokenExpiryPrefsKey, expiresAt);
+    await _secureStorage.write(
+      key: kApiAccessTokenExpiryPrefsKey,
+      value: expiresAt,
+    );
   }
 }
 
 Future<void> clearApiSession() async {
-  await sharedPreferences.remove(kApiAccessTokenPrefsKey);
-  await sharedPreferences.remove(kApiAccessTokenExpiryPrefsKey);
+  await _secureStorage.delete(key: kApiAccessTokenPrefsKey);
+  await _secureStorage.delete(key: kApiAccessTokenExpiryPrefsKey);
+  _cachedToken = null;
 }
 
 /// Identity keys wiped on logout. Intentionally does NOT include preferences

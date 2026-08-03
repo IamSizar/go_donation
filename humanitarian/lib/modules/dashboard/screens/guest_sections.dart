@@ -34,8 +34,10 @@ class GuestHomeSection extends StatelessWidget {
           children: [
             Text(
               'Welcome'.tr,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 28,
+                fontSize: 22,
                 fontWeight: FontWeight.w800,
                 color: AppThemeConfig.text(context),
               ),

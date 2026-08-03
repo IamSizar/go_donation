@@ -32,13 +32,25 @@ Create a service from this GitHub repo, then in its **Settings**:
 ```
 DATABASE_URL          = ${{Postgres.DATABASE_URL}}   # reference the Postgres service
 RUN_MIGRATIONS        = 1                              # first deploy only-ish; safe to leave on
-CORS_ALLOWED_ORIGINS  = https://<your-dashboard-domain>   # or *
+CORS_ALLOWED_ORIGINS  = https://<your-dashboard-domain>   # required — see note below
 ANTHROPIC_API_KEY     =                                # optional, enables the AI assistant
 ```
 
 - `PORT` is injected by Railway; the server binds to it automatically.
 - `RUN_MIGRATIONS=1` auto-creates the whole schema on a fresh DB and is a no-op
   afterwards (each migration is recorded in `schema_migrations` and runs once).
+- `CORS_ALLOWED_ORIGINS` is **required** for the dashboard to work — the backend
+  is deny-by-default: if this is left unset, the browser blocks all cross-origin
+  calls from the dashboard (the mobile app is unaffected; it doesn't use CORS).
+  Since the dashboard's URL isn't known until step 3 deploys it, there's a
+  chicken-and-egg step here: deploy the backend first with a placeholder, then
+  **come back and set this to the dashboard's real URL once you have it, and
+  redeploy the backend** (Railway redeploys automatically on a variable
+  change). Comma-separate multiple origins if you have more than one dashboard
+  URL (e.g. a custom domain plus the `*.up.railway.app` one). Only use `*`
+  (allow any origin) for local development or if you deliberately want the API
+  callable from any website's browser JS — never as a "just get it working"
+  default in production.
 
 After it deploys, note the backend's public URL, e.g.
 `https://backend-production-xxxx.up.railway.app`.
@@ -57,8 +69,11 @@ Add another service from the **same** repo. In **Settings**:
 VITE_API_BASE_URL = https://backend-production-xxxx.up.railway.app
 ```
 
-(no trailing slash — the app appends `/api/...` itself). Make sure the backend's
-`CORS_ALLOWED_ORIGINS` includes this dashboard's URL.
+(no trailing slash — the app appends `/api/...` itself). **After this deploys,
+go back to the backend service's variables and set (or update)
+`CORS_ALLOWED_ORIGINS` to include this dashboard's URL, then let the backend
+redeploy** — otherwise the browser will block the dashboard from calling the
+API (see the note in step 2).
 
 ## 4. (Optional) repo-root service
 
@@ -87,6 +102,6 @@ Keep the trailing `/api/`.
 | Railway service | Root Directory | Builder        | Key vars                                   |
 | --------------- | -------------- | -------------- | ------------------------------------------ |
 | Postgres        | —              | Railway plugin | —                                          |
-| Backend (API)   | `backend`      | Dockerfile     | `DATABASE_URL`, `RUN_MIGRATIONS=1`, `CORS_ALLOWED_ORIGINS` |
+| Backend (API)   | `backend`      | Dockerfile     | `DATABASE_URL`, `RUN_MIGRATIONS=1`, `CORS_ALLOWED_ORIGINS` (required) |
 | Dashboard       | `admin-web`    | Nixpacks       | `VITE_API_BASE_URL`                        |
 | (root, optional)| `.` (root)     | Dockerfile     | same as Backend                            |

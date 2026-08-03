@@ -600,9 +600,11 @@ class _CheckoutHeroCard extends StatelessWidget {
           const SizedBox(height: 18),
           Text(
             'Review your donation'.tr,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 28,
+              fontSize: 22,
               fontWeight: FontWeight.w800,
               height: 1.05,
             ),
