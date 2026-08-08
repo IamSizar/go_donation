@@ -156,14 +156,20 @@ export default function DetailPage() {
       <PageHead>
         <div>
           {/* Note #11 — breadcrumb so the admin always knows where they are;
-              the sidebar highlight alone used to vanish on this page. */}
-          <nav className="breadcrumb" aria-label={t('common.breadcrumb')}>
-            <Link to={meta.list}>{t(meta.sectionKey)}</Link>
-            <span aria-hidden="true"> &gt; </span>
-            <span>{t(meta.labelKey)} #{id}</span>
-          </nav>
+              the sidebar highlight alone used to vanish on this page.
+              It shares one .page-head-meta line with the read-only note so
+              BOTH lift into the strip above the Back button together — that
+              leaves the <h1> alone in the block, so this page's title sits on
+              the same centre line as every other section's. */}
+          <div className="page-head-meta">
+            <nav className="breadcrumb" aria-label={t('common.breadcrumb')}>
+              <Link to={meta.list}>{t(meta.sectionKey)}</Link>
+              <span aria-hidden="true"> &gt; </span>
+              <span>{t(meta.labelKey)} #{id}</span>
+            </nav>
+            <span className="muted">{t('common.read_only_view')}</span>
+          </div>
           <h1>{t(meta.labelKey)} #{id}</h1>
-          <p className="muted">{t('common.read_only_view')}</p>
         </div>
         <div className="row">
           <button className="secondary" onClick={() => nav(meta.list)}>{t('common.back_to_list')}</button>

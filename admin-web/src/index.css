@@ -2652,12 +2652,24 @@ code, pre { direction: ltr; unicode-bidi: bidi-override; }
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.page-head-slot .page-head > div:first-child > .muted {
+.page-head-slot .page-head > div:first-child > .muted,
+.page-head-slot .page-head > div:first-child > .page-head-meta {
   position: absolute;
   top: 7px;
   inset-inline-start: 0;
   margin: 0;
   white-space: nowrap;
+}
+/* DetailPage carries two bits of meta (breadcrumb + read-only note). They
+   ride the same hoisted line so its <h1> is alone in the block and lands on
+   the same centre line as every other section's title. */
+.page-head-slot .page-head > div:first-child > .page-head-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.page-head-slot .page-head > div:first-child > .page-head-meta .breadcrumb {
+  margin-bottom: 0;
 }
 
 /* Below this width the single row runs out of space, so the header drops to
