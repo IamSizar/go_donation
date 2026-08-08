@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
-import RowDeleteButton from '../components/RowDeleteButton'
-import { Link } from 'react-router-dom'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError } from '../lib/api'
 import { useLivePoll } from '../lib/useLivePoll'
@@ -28,6 +26,7 @@ import { useFieldRules, type FieldRuleState } from '../lib/fieldRules'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
 import { formatDateTime } from '../lib/dates'
+import RowActionsMenu from '../components/RowActionsMenu'
 
 const CASE_CSV_COLUMNS: CsvColumn<BeneficiaryCase>[] = [
   { header: 'id', get: (r) => r.id },
@@ -447,11 +446,11 @@ function CasesTab() {
     {
       key: 'actions', header: t('common.actions'), width: '170px',
       cell: (r) => (
-        <>
-          <Link className="row-edit-btn" to={`/detail/beneficiary_cases/${r.id}`}>{t('common.view')}</Link>
-          <button className="row-edit-btn" onClick={() => setEditing(r)}>{t('common.edit')}</button>
-          <RowDeleteButton onClick={() => setDeleting(r)} />
-        </>
+        <RowActionsMenu
+          viewHref={`/detail/beneficiary_cases/${r.id}`}
+          onEdit={() => setEditing(r)}
+          onDelete={() => setDeleting(r)}
+        />
       ),
     },
   ]
@@ -737,23 +736,18 @@ function RequestsTab() {
     {
       key: 'actions', header: t('common.actions'), width: '260px',
       cell: (r) => (
-        <>
-          <Link className="row-edit-btn" to={`/detail/beneficiary_project_requests/${r.id}`}>{t('common.view')}</Link>
-          <button className="row-edit-btn" onClick={() => setEditing(r)}>{t('common.edit')}</button>
-          {/* Phase 23 — Publish to donors. Only available on approved
-              requests. Disabled state for non-approved gives admin a
-              hint without hiding the affordance entirely. */}
-          {r.status === 'approved' && (
-            <button
-              className="row-edit-btn"
-              onClick={() => handlePublish(r)}
-              title={t('page.beneficiary.publish_title')}
-            >
-              {t('page.beneficiary.publish')}
-            </button>
-          )}
-          <RowDeleteButton onClick={() => setDeleting(r)} />
-        </>
+        <RowActionsMenu
+          viewHref={`/detail/beneficiary_project_requests/${r.id}`}
+          onEdit={() => setEditing(r)}
+          onDelete={() => setDeleting(r)}
+          // Phase 23 — Publish to donors, only on approved requests. As a
+          // menu entry it simply isn't listed when it doesn't apply.
+          extra={
+            r.status === 'approved'
+              ? [{ key: 'publish', label: t('page.beneficiary.publish'), onClick: () => handlePublish(r) }]
+              : []
+          }
+        />
       ),
     },
   ]

@@ -22,3 +22,12 @@ export default function RowDeleteButton({
     </button>
   )
 }
+
+/** The label RowDeleteButton would render, for use inside a menu item where
+ *  the button itself isn't rendered. Same role rule: Super-Admin deletes,
+ *  everyone else archives — both routes the record to Trash. */
+export function useRowDeleteLabel(): string {
+  const { user } = useAuth()
+  const { t } = useI18n()
+  return isSuperAdmin(user) ? t('common.delete') : t('action.archive')
+}

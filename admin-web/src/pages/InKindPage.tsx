@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useState, useRef } from 'react'
-import RowDeleteButton from '../components/RowDeleteButton'
-import { Link } from 'react-router-dom'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError } from '../lib/api'
 import { useLivePoll } from '../lib/useLivePoll'
@@ -20,6 +18,7 @@ import { stripeForStatus } from '../lib/statusColors'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
 import { formatDateTime } from '../lib/dates'
+import RowActionsMenu from '../components/RowActionsMenu'
 
 const INKIND_CSV_COLUMNS: CsvColumn<AdminInKind>[] = [
   { header: 'id', get: (k) => k.id },
@@ -174,11 +173,11 @@ export default function InKindPage() {
     {
       key: 'actions', header: t('common.actions'), width: '170px',
       cell: (k) => (
-        <>
-          <Link className="row-edit-btn" to={`/detail/in_kind_donations/${k.id}`}>{t('common.view')}</Link>
-          <button className="row-edit-btn" onClick={() => setEditing(k)}>{t('common.edit')}</button>
-          <RowDeleteButton onClick={() => setDeleting(k)} />
-        </>
+        <RowActionsMenu
+          viewHref={`/detail/in_kind_donations/${k.id}`}
+          onEdit={() => setEditing(k)}
+          onDelete={() => setDeleting(k)}
+        />
       ),
     },
   ]

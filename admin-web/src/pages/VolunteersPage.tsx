@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState, useRef, type ChangeEvent } from 'react'
-import RowDeleteButton from '../components/RowDeleteButton'
 import { Link } from 'react-router-dom'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError } from '../lib/api'
@@ -35,6 +34,8 @@ import {
 import { SKILL_ICON, colorForSkill } from '../lib/skillIcons'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
+import RowActionsMenu from '../components/RowActionsMenu'
+import ActionsMenu from '../components/ActionsMenu'
 
 const VOLUNTEER_CSV_COLUMNS: CsvColumn<AdminVolunteerApp>[] = [
   { header: 'id', get: (a) => a.id },
@@ -436,11 +437,11 @@ function ApplicationsTab() {
     {
       key: 'actions', header: t('common.actions'), width: '170px',
       cell: (a) => (
-        <>
-          <Link className="row-edit-btn" to={`/detail/volunteer_applications/${a.id}`}>{t('common.view')}</Link>
-          <button className="row-edit-btn" onClick={() => setEditing(a)}>{t('common.edit')}</button>
-          <RowDeleteButton onClick={() => setDeleting(a)} />
-        </>
+        <RowActionsMenu
+          viewHref={`/detail/volunteer_applications/${a.id}`}
+          onEdit={() => setEditing(a)}
+          onDelete={() => setDeleting(a)}
+        />
       ),
     },
   ]
@@ -952,17 +953,14 @@ function MissionSignupsTab() {
           return <span className="muted" style={{ fontSize: 12 }}>—</span>
         }
         return (
-          <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
-            {acts.map((a) => (
-              <button
-                key={a.status}
-                className={a.tone === 'danger' ? 'row-delete-btn' : 'row-edit-btn'}
-                onClick={() => applyStatus(s.id, a.status)}
-              >
-                {a.label}
-              </button>
-            ))}
-          </div>
+          <ActionsMenu
+            items={acts.map((a) => ({
+              key: a.status,
+              label: a.label,
+              danger: a.tone === 'danger',
+              onClick: () => applyStatus(s.id, a.status),
+            }))}
+          />
         )
       },
     },

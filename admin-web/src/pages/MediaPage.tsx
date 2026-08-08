@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import RowDeleteButton from '../components/RowDeleteButton'
-import { Link } from 'react-router-dom'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError, assetUrl } from '../lib/api'
 import type { MediaPost } from '../lib/api-types'
@@ -16,6 +14,7 @@ import { type CsvColumn } from '../lib/csv'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
 import { formatDateOnly, formatDateTime } from '../lib/dates'
+import RowActionsMenu from '../components/RowActionsMenu'
 
 const MEDIA_CSV_COLUMNS: CsvColumn<MediaPost>[] = [
   { header: 'id', get: (m) => m.id },
@@ -273,11 +272,11 @@ export default function MediaPage() {
       header: t('common.actions'),
       width: '170px',
       cell: (m) => (
-        <>
-          <Link className="row-edit-btn" to={`/detail/media/${m.id}`}>{t('common.view')}</Link>
-          <button className="row-edit-btn" onClick={() => setEditing(m)}>{t('common.edit')}</button>
-          <RowDeleteButton onClick={() => setDeleting(m)} />
-        </>
+        <RowActionsMenu
+          viewHref={`/detail/media/${m.id}`}
+          onEdit={() => setEditing(m)}
+          onDelete={() => setDeleting(m)}
+        />
       ),
     },
   ]

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError } from '../lib/api'
 import type { AdminPageResp, AdminRegistration } from '../lib/api-types'
@@ -13,6 +12,7 @@ import { formatPhone } from '../lib/phone'
 import { type CsvColumn } from '../lib/csv'
 import PageHead from '../components/PageHead'
 import { formatDateTime } from '../lib/dates'
+import ActionsMenu from '../components/ActionsMenu'
 
 const PER_PAGE = 20
 const STATUSES = ['pending', 'rejected', 'all'] as const
@@ -208,26 +208,27 @@ export default function RegistrationsPage() {
       header: t('common.actions'),
       width: '280px',
       cell: (r) => (
-        <>
-          <Link className="row-edit-btn" to={`/detail/users/${r.user_id}`}>{t('common.view')}</Link>
-          <button
-            className="row-edit-btn"
-            disabled={busyId === r.user_id}
-            onClick={() => approve(r)}
-          >
-            {t('registrations.accept')}
-          </button>
-          <button
-            className="row-delete-btn"
-            disabled={busyId === r.user_id}
-            onClick={() => {
-              setRejecting(r)
-              setReason(r.reject_reason ?? '')
-            }}
-          >
-            {t('registrations.reject')}
-          </button>
-        </>
+        <ActionsMenu
+          items={[
+            { key: 'view', label: t('common.view'), href: `/detail/users/${r.user_id}`, onClick: () => {} },
+            {
+              key: 'accept',
+              label: t('registrations.accept'),
+              disabled: busyId === r.user_id,
+              onClick: () => approve(r),
+            },
+            {
+              key: 'reject',
+              label: t('registrations.reject'),
+              danger: true,
+              disabled: busyId === r.user_id,
+              onClick: () => {
+                setRejecting(r)
+                setReason(r.reject_reason ?? '')
+              },
+            },
+          ]}
+        />
       ),
     },
   ]

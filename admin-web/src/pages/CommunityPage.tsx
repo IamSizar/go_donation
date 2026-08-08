@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useState } from 'react'
-import RowDeleteButton from '../components/RowDeleteButton'
-import { Link } from 'react-router-dom'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError } from '../lib/api'
 import type { CommunityEntry } from '../lib/api-types'
@@ -12,6 +10,7 @@ import { useI18n } from '../lib/i18n'
 import { type CsvColumn } from '../lib/csv'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
+import RowActionsMenu from '../components/RowActionsMenu'
 
 const COMMUNITY_CSV_COLUMNS: CsvColumn<CommunityEntry>[] = [
   { header: 'id', get: (e) => e.id },
@@ -131,11 +130,11 @@ export default function CommunityPage() {
     {
       key: 'actions', header: t('common.actions'), width: '170px',
       cell: (e) => (
-        <>
-          <Link className="row-edit-btn" to={`/detail/community/${e.id}`}>{t('common.view')}</Link>
-          <button className="row-edit-btn" onClick={() => setEditing(e)}>{t('common.edit')}</button>
-          <RowDeleteButton onClick={() => setDeleting(e)} />
-        </>
+        <RowActionsMenu
+          viewHref={`/detail/community/${e.id}`}
+          onEdit={() => setEditing(e)}
+          onDelete={() => setDeleting(e)}
+        />
       ),
     },
   ]

@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useState, useRef } from 'react'
-import RowDeleteButton from '../components/RowDeleteButton'
-import { Link } from 'react-router-dom'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError } from '../lib/api'
 import { useLivePoll } from '../lib/useLivePoll'
@@ -22,6 +20,7 @@ import { stripeForDonation } from '../lib/statusColors'
 import { formatDateParts } from '../lib/dates'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
+import RowActionsMenu from '../components/RowActionsMenu'
 
 const DONATION_CSV_COLUMNS: CsvColumn<DonationAdminRow>[] = [
   { header: 'id', get: (d) => d.id },
@@ -297,11 +296,11 @@ export default function DonationsPage() {
     {
       key: 'actions', header: t('common.actions'), width: '170px',
       cell: (d) => (
-        <>
-          <Link className="row-edit-btn" to={`/detail/donations/${d.id}`}>{t('common.view')}</Link>
-          <button className="row-edit-btn" onClick={() => setEditing(d)}>{t('common.edit')}</button>
-          <RowDeleteButton onClick={() => setDeleting(d)} />
-        </>
+        <RowActionsMenu
+          viewHref={`/detail/donations/${d.id}`}
+          onEdit={() => setEditing(d)}
+          onDelete={() => setDeleting(d)}
+        />
       ),
     },
   ]

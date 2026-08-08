@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import RowDeleteButton from '../components/RowDeleteButton'
-import { Link } from 'react-router-dom'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError } from '../lib/api'
 import type { MarriageProfile } from '../lib/api-types'
@@ -17,6 +15,7 @@ import { useFieldRules, type FieldRuleState } from '../lib/fieldRules'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
 import { formatDateTime } from '../lib/dates'
+import RowActionsMenu from '../components/RowActionsMenu'
 
 const MARRIAGE_CSV_COLUMNS: CsvColumn<MarriageProfile>[] = [
   { header: 'id', get: (p) => p.id },
@@ -206,11 +205,11 @@ export default function MarriagePage() {
     {
       key: 'actions', header: t('common.actions'), width: '170px',
       cell: (p) => (
-        <>
-          <Link className="row-edit-btn" to={`/detail/marriage/${p.id}`}>{t('common.view')}</Link>
-          <button className="row-edit-btn" onClick={() => setEditing(p)}>{t('common.edit')}</button>
-          <RowDeleteButton onClick={() => setDeleting(p)} />
-        </>
+        <RowActionsMenu
+          viewHref={`/detail/marriage/${p.id}`}
+          onEdit={() => setEditing(p)}
+          onDelete={() => setDeleting(p)}
+        />
       ),
     },
   ]

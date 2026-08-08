@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useState } from 'react'
-import RowDeleteButton from '../components/RowDeleteButton'
-import { Link } from 'react-router-dom'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError, assetUrl } from '../lib/api'
 import type { Partner } from '../lib/api-types'
@@ -15,6 +13,7 @@ import { useSelection } from '../lib/useSelection'
 import { type CsvColumn } from '../lib/csv'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
+import RowActionsMenu from '../components/RowActionsMenu'
 
 type Resp = { success: true; items: Partner[] }
 
@@ -221,11 +220,11 @@ export default function PartnersPage() {
       header: t('common.actions'),
       width: '170px',
       cell: (p) => (
-        <>
-          <Link className="row-edit-btn" to={`/detail/partners/${p.id}`}>{t('common.view')}</Link>
-          <button className="row-edit-btn" onClick={() => setEditing(p)}>{t('common.edit')}</button>
-          <RowDeleteButton onClick={() => setDeleting(p)} />
-        </>
+        <RowActionsMenu
+          viewHref={`/detail/partners/${p.id}`}
+          onEdit={() => setEditing(p)}
+          onDelete={() => setDeleting(p)}
+        />
       ),
     },
   ]

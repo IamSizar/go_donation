@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
-import RowDeleteButton from '../components/RowDeleteButton'
-import { Link } from 'react-router-dom'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError, assetUrl } from '../lib/api'
 import { useLivePoll } from '../lib/useLivePoll'
@@ -24,6 +22,7 @@ import { stripeForStatus } from '../lib/statusColors'
 import { formatDateParts } from '../lib/dates'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
+import RowActionsMenu from '../components/RowActionsMenu'
 
 const PRODUCT_CSV_COLUMNS: CsvColumn<Product>[] = [
   { header: 'id', get: (p) => p.id },
@@ -328,11 +327,11 @@ function ProductsTab() {
     {
       key: 'actions', header: t('common.actions'), width: '170px',
       cell: (p) => (
-        <>
-          <Link className="row-edit-btn" to={`/detail/products/${p.id}`}>{t('common.view')}</Link>
-          <button className="row-edit-btn" onClick={() => setEditing(p)}>{t('common.edit')}</button>
-          <RowDeleteButton onClick={() => setDeleting(p)} />
-        </>
+        <RowActionsMenu
+          viewHref={`/detail/products/${p.id}`}
+          onEdit={() => setEditing(p)}
+          onDelete={() => setDeleting(p)}
+        />
       ),
     },
   ]
@@ -570,11 +569,11 @@ function OrdersTab() {
     {
       key: 'actions', header: t('common.actions'), width: '170px',
       cell: (o) => (
-        <>
-          <Link className="row-edit-btn" to={`/detail/orders/${o.id}`}>{t('common.view')}</Link>
-          <button className="row-edit-btn" onClick={() => setEditing(o)}>{t('common.edit')}</button>
-          <RowDeleteButton onClick={() => setDeleting(o)} />
-        </>
+        <RowActionsMenu
+          viewHref={`/detail/orders/${o.id}`}
+          onEdit={() => setEditing(o)}
+          onDelete={() => setDeleting(o)}
+        />
       ),
     },
   ]

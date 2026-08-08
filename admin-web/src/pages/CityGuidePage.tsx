@@ -10,7 +10,6 @@
  * the city_directory_entries table.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import RowDeleteButton from '../components/RowDeleteButton'
 import { Link } from 'react-router-dom'
 import { api, describeError } from '../lib/api'
 import type { CommunityEntry, CitySector } from '../lib/api-types'
@@ -21,6 +20,7 @@ import { useToast } from '../lib/toast'
 import { useI18n, type Locale } from '../lib/i18n'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
+import RowActionsMenu from '../components/RowActionsMenu'
 
 type Resp = { success: true; items: CommunityEntry[] }
 
@@ -261,17 +261,21 @@ export default function CityGuidePage() {
     {
       key: 'actions', header: t('common.actions'), width: '260px',
       cell: (e) => (
-        <>
-          {e.status === 'pending' && (
-            <>
-              <button className="row-edit-btn" style={{ color: '#4caf50' }} onClick={() => setStatus(e.id, 'approved')}>{t('cityGuide.approve')}</button>
-              <button className="row-edit-btn" style={{ color: '#e57373' }} onClick={() => setStatus(e.id, 'rejected')}>{t('cityGuide.reject')}</button>
-            </>
-          )}
-          <Link className="row-edit-btn" to={`/detail/community/${e.id}`}>{t('common.view')}</Link>
-          <button className="row-edit-btn" onClick={() => setEditing(e)}>{t('common.edit')}</button>
-          <RowDeleteButton onClick={() => setDeleting(e)} />
-        </>
+        <RowActionsMenu
+          viewHref={`/detail/community/${e.id}`}
+          onEdit={() => setEditing(e)}
+          onDelete={() => setDeleting(e)}
+          // Approve / Reject only apply while the entry is pending; as menu
+          // entries they're simply absent otherwise.
+          extra={
+            e.status === 'pending'
+              ? [
+                  { key: 'approve', label: t('cityGuide.approve'), onClick: () => setStatus(e.id, 'approved') },
+                  { key: 'reject', label: t('cityGuide.reject'), onClick: () => setStatus(e.id, 'rejected'), danger: true },
+                ]
+              : []
+          }
+        />
       ),
     },
   ]

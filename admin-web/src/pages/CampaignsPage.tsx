@@ -7,7 +7,6 @@
 // the underlying table.
 
 import { useCallback, useEffect, useState } from 'react'
-import RowDeleteButton from '../components/RowDeleteButton'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { Link } from 'react-router-dom'
 import { api, describeError } from '../lib/api'
@@ -22,6 +21,7 @@ import { useSelection } from '../lib/useSelection'
 import { type CsvColumn } from '../lib/csv'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
+import RowActionsMenu from '../components/RowActionsMenu'
 
 const PER_PAGE = 12
 
@@ -265,11 +265,11 @@ export default function CampaignsPage() {
       header: t('common.actions'),
       width: '170px',
       cell: (c) => (
-        <>
-          <Link className="row-edit-btn" to={`/detail/campaigns/${c.id}`}>{t('common.view')}</Link>
-          <button className="row-edit-btn" onClick={() => setEditing(c)}>{t('common.edit')}</button>
-          <RowDeleteButton onClick={() => setDeleting(c)} />
-        </>
+        <RowActionsMenu
+          viewHref={`/detail/campaigns/${c.id}`}
+          onEdit={() => setEditing(c)}
+          onDelete={() => setDeleting(c)}
+        />
       ),
     },
   ]

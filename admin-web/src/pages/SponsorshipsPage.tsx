@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useState, useRef } from 'react'
-import RowDeleteButton from '../components/RowDeleteButton'
-import { Link } from 'react-router-dom'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError } from '../lib/api'
 import { useLivePoll } from '../lib/useLivePoll'
@@ -18,6 +16,7 @@ import { HighlightBanner, useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForStatus } from '../lib/statusColors'
 import { formatDateParts } from '../lib/dates'
 import PageHead from '../components/PageHead'
+import RowActionsMenu from '../components/RowActionsMenu'
 
 const SPONSORSHIP_CSV_COLUMNS: CsvColumn<Sponsorship>[] = [
   { header: 'id', get: (s) => sponsorshipCode(s.id) },
@@ -260,11 +259,11 @@ export default function SponsorshipsPage() {
     {
       key: 'actions', header: t('common.actions'), width: '170px',
       cell: (s) => (
-        <>
-          <Link className="row-edit-btn" to={`/detail/sponsorships/${s.id}`}>{t('common.view')}</Link>
-          <button className="row-edit-btn" onClick={() => setEditing(s)}>{t('common.edit')}</button>
-          <RowDeleteButton onClick={() => setDeleting(s)} />
-        </>
+        <RowActionsMenu
+          viewHref={`/detail/sponsorships/${s.id}`}
+          onEdit={() => setEditing(s)}
+          onDelete={() => setDeleting(s)}
+        />
       ),
     },
   ]

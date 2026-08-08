@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useState, useRef } from 'react'
-import RowDeleteButton from '../components/RowDeleteButton'
-import { Link } from 'react-router-dom'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError } from '../lib/api'
 import SupportWhatsappCard from '../components/SupportWhatsappCard'
@@ -21,6 +19,7 @@ import { stripeForStatus } from '../lib/statusColors'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
 import { formatDateTime } from '../lib/dates'
+import RowActionsMenu from '../components/RowActionsMenu'
 
 const TICKET_CSV_COLUMNS: CsvColumn<AdminTicket>[] = [
   { header: 'id', get: (t) => t.id },
@@ -182,11 +181,11 @@ export default function SupportPage() {
     {
       key: 'actions', header: tr('common.actions'), width: '170px',
       cell: (t) => (
-        <>
-          <Link className="row-edit-btn" to={`/detail/support_tickets/${t.id}`}>{tr('common.view')}</Link>
-          <button className="row-edit-btn" onClick={() => setEditing(t)}>{tr('common.edit')}</button>
-          <RowDeleteButton onClick={() => setDeleting(t)} />
-        </>
+        <RowActionsMenu
+          viewHref={`/detail/support_tickets/${t.id}`}
+          onEdit={() => setEditing(t)}
+          onDelete={() => setDeleting(t)}
+        />
       ),
     },
   ]
