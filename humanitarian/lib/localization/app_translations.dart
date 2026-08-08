@@ -2229,6 +2229,7 @@ class AppTranslations extends Translations {
     'Account type unchanged.': 'Account type unchanged.',
     'Nothing saved yet.': 'Nothing saved yet.',
     'Remove': 'Remove',
+    'Select a project': 'Select a project',
   };
 
   static const Map<String, String> _ar = {
@@ -4383,6 +4384,7 @@ class AppTranslations extends Translations {
     'Account type unchanged.': 'لم يتغيّر نوع الحساب.',
     'Nothing saved yet.': 'لا توجد عناصر محفوظة بعد.',
     'Remove': 'إزالة',
+    'Select a project': 'اختر مشروعًا',
   };
 
   static final Map<String, String> _sorani = {
@@ -6618,6 +6620,7 @@ class AppTranslations extends Translations {
     'Account type unchanged.': 'جۆری هەژمار نەگۆڕا.',
     'Nothing saved yet.': 'هێشتا هیچ شتێک پاشەکەوت نەکراوە.',
     'Remove': 'لابردن',
+    'Select a project': 'پڕۆژەیەک هەڵبژێرە',
   };
 
   static final Map<String, String> _badini = {
@@ -8833,6 +8836,7 @@ class AppTranslations extends Translations {
     'Account type unchanged.': 'جۆرێ هەژماری نەهاتە گهۆڕین.',
     'Nothing saved yet.': 'هێشتا چ تشت نەهاتیە پاراستن.',
     'Remove': 'ژێبرن',
+    'Select a project': 'پرۆژەکێ هەلبژێرە',
   };
 
   @override

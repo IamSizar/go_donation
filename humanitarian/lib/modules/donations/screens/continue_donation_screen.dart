@@ -10,6 +10,8 @@ import 'package:flutter_application_1/api/payment_methods_api.dart';
 import 'package:flutter_application_1/api/wallet_api.dart';
 import 'package:flutter_application_1/modules/donations/controllers/continue_donation_controller.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
+import 'package:flutter_application_1/api/project_categories_api.dart';
+import 'package:flutter_application_1/api/module_api.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
@@ -54,6 +56,12 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
 
   int _selectedPaymentIndex = 0;
   String _donationType = 'general';
+  // #7 — "Donate to a specific project". The list and its visibility switch
+  // were both already served (GET /project-categories, GET /donation-options)
+  // but nothing rendered them, so the option was unreachable.
+  List<ProjectCategory> _projects = const [];
+  ProjectCategory? _selectedProject;
+  bool _projectsVisible = false;
 
   // #19 — payment methods are admin-managed (fetched from /api/payment-methods).
   // These two are the offline fallback so the donate form always works.
@@ -96,6 +104,20 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
 
   static String _formatIQD(int n) => NumberFormat('#,##0').format(n);
 
+  Future<void> _loadProjects() async {
+    // Only a campaign-less donation can target a project — a campaign
+    // donation already has its destination.
+    if (widget.campaignsId != null) return;
+    final opts = await const ModuleApi().getDonationOptions();
+    if (!opts.projectsVisible) return;
+    final cats = await fetchProjectCategories();
+    if (!mounted) return;
+    setState(() {
+      _projects = cats;
+      _projectsVisible = cats.isNotEmpty;
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -103,6 +125,7 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
       Get.delete<ContinueDonationController>();
     }
     _submitController = Get.put(ContinueDonationController());
+    _loadProjects();
     // +1: index 0 is always the wallet (see _displayMethods); never
     // default-select it unless the caller explicitly asked for it by name.
     _selectedPaymentIndex = 1;
@@ -196,6 +219,7 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
           ? paymentMethod.submitName
           : paymentMethod.title,
       donationType: _donationType,
+      projectSlug: _selectedProject?.slug,
     );
 
     if (!mounted) return;
@@ -392,6 +416,25 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
                           ],
                         ),
                       ),
+                      if (_projectsVisible) ...[
+                        const SizedBox(height: 22),
+                        const SectionLabel(title: 'Project'),
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<ProjectCategory>(
+                          initialValue: _selectedProject,
+                          isExpanded: true,
+                          hint: Text('Select a project'.tr),
+                          items: [
+                            for (final p in _projects)
+                              DropdownMenuItem(
+                                value: p,
+                                child: Text(p.localizedName),
+                              ),
+                          ],
+                          onChanged: (p) =>
+                              setState(() => _selectedProject = p),
+                        ),
+                      ],
                       const SizedBox(height: 22),
                       const SectionLabel(title: 'Donation type'),
                       const SizedBox(height: 12),

@@ -634,7 +634,7 @@ const kmr: DeepPartial<typeof en> = {
       open_missions: 'ئەرکێن ڤەکری', open_tickets: 'تیکێتێن ڤەکری',
       vs_last_month: 'بەرامبەری {n} مەها بۆری', donations_30d: 'هەڤکاری · ٣٠ رۆژێن بۆری',
     },
-    users: {
+    users: { view_active: 'هەژمارێن چالاک', view_archived: 'یێن ئەرشیفکری',
       title: 'بکارهێنەر', new_user: '+ بکارهێنەرێ نوو', search_placeholder: 'گەڕیان ب تەلەفۆن / ناڤێ تەمام',
       guest_badge: 'مێڤان',
       wallet_topup: 'پڕکرنا جزدانێ',

@@ -164,7 +164,13 @@ func (h *DonationsHandler) Create(c *gin.Context) {
 		walletDebitedIQD = amt
 	}
 
-	ins, err := h.Store.Insert(ctx, uid, campaignID, msgPtr, amountPtr, methodPtr, donationType)
+	// #7 — the project the donor picked (project_categories.slug), when the
+	// project list is shown. Absent for a general or campaign donation.
+	var projectSlugPtr *string
+	if v := strings.TrimSpace(c.PostForm("project_slug")); v != "" {
+		projectSlugPtr = &v
+	}
+	ins, err := h.Store.Insert(ctx, uid, campaignID, msgPtr, amountPtr, methodPtr, donationType, projectSlugPtr)
 	if err != nil {
 		if walletDebitedIQD > 0 {
 			_, _ = h.Wallet.Refund(ctx, uid, walletDebitedIQD, "donations", 0, "Refund: donation failed to save")
@@ -215,9 +221,9 @@ func (h *DonationsHandler) Create(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"success":             true,
-		"data":                []gin.H{{"id": uid}},
-		"inserted_donations":  []*donations.InsertedDonation{ins},
+		"success":            true,
+		"data":               []gin.H{{"id": uid}},
+		"inserted_donations": []*donations.InsertedDonation{ins},
 	})
 }
 
@@ -537,8 +543,8 @@ func (h *DonationsHandler) BeneficiaryCampaignDonations(c *gin.Context) {
 	defer dRows.Close()
 	for dRows.Next() {
 		var (
-			dr       donationRow
-			campID   int64
+			dr     donationRow
+			campID int64
 		)
 		if err := dRows.Scan(&dr.ID, &dr.DonorUserID, &campID, &dr.Amount, &dr.DeliveryStatus,
 			&dr.PaymentMethod, &dr.Message, &dr.TransactionDate,

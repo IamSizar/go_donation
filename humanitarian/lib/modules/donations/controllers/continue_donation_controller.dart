@@ -17,6 +17,9 @@ class ContinueDonationController extends GetxController {
     required int amount,
     required String paymentMethod,
     String donationType = 'general',
+    /// project_categories.slug when the donor picked a specific project
+    /// (#7). Null for a general or campaign donation.
+    String? projectSlug,
   }) async {
     if (isSubmitting.value) {
       return 'Please wait'.tr;
@@ -51,6 +54,10 @@ class ContinueDonationController extends GetxController {
       final trimmed = message?.trim();
       if (trimmed != null && trimmed.isNotEmpty) {
         body['message'] = trimmed;
+      }
+      final slug = projectSlug?.trim();
+      if (slug != null && slug.isNotEmpty) {
+        body['project_slug'] = slug;
       }
 
       final response = await http.post(

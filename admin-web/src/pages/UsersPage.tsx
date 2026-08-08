@@ -130,6 +130,9 @@ function flattenForEdit(u: UserAccount): Record<string, unknown> {
 
 export default function UsersPage() {
   const [page, setPage] = useState(1)
+  // #2 — archived accounts leave the main list; this switches to the
+  // Archived view rather than mixing them back in.
+  const [statusView, setStatusView] = useState('')
   const [q, setQ] = useState('')
   const [resp, setResp] = useState<UsersListResp | null>(null)
   const [loading, setLoading] = useState(false)
@@ -164,7 +167,7 @@ export default function UsersPage() {
     setLoading(true)
     setErr(null)
     api
-      .get<UsersListResp>('/api/admin/users', { params: { page, per_page: PER_PAGE, q: q || undefined } })
+      .get<UsersListResp>('/api/admin/users', { params: { page, per_page: PER_PAGE, q: q || undefined, status: statusView || undefined } })
       .then((res) => {
         if (!cancelled) setResp(res.data)
       })
@@ -177,7 +180,7 @@ export default function UsersPage() {
     return () => {
       cancelled = true
     }
-  }, [page, q, refreshTick])
+  }, [page, q, refreshTick, statusView])
 
   // Note #6 — the Edit form now includes a password field, but the backend
   // keeps password changes on its own endpoint (POST .../password) rather
@@ -536,6 +539,15 @@ export default function UsersPage() {
           </p>
         </div>
         <div className="row">
+          <select
+            value={statusView}
+            onChange={(e) => { setStatusView(e.target.value); setPage(1) }}
+            style={{ width: 'auto' }}
+          >
+            <option value="">{t('page.users.view_active')}</option>
+            <option value="archived">{t('page.users.view_archived')}</option>
+            <option value="all">{t('filter.all_statuses')}</option>
+          </select>
           <input
             type="search"
             value={q}

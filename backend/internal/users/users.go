@@ -612,7 +612,11 @@ type Pagination struct {
 // PaginatedList returns a sanitized, paginated users list (admin use).
 // Sensitive fields (password, otp, tokens) are not selected at all.
 // PaginatedList returns paginated users. q searches by phone or profile full_name.
-func (s *Store) PaginatedList(ctx context.Context, page, perPage int, q string) (*PageUsers, error) {
+// status filters by account_status: "" (the default) hides archived accounts
+// so they leave the main list once archived; "archived" shows only those (the
+// dashboard's Archived view); "all" shows everything. Suspended and banned
+// accounts stay in the default list — they still need attention.
+func (s *Store) PaginatedList(ctx context.Context, page, perPage int, q, status string) (*PageUsers, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -622,10 +626,22 @@ func (s *Store) PaginatedList(ctx context.Context, page, perPage int, q string) 
 	offset := (page - 1) * perPage
 
 	args := []any{}
-	where := ""
+	conds := []string{}
 	if qTrim := strings.TrimSpace(q); qTrim != "" {
 		args = append(args, "%"+qTrim+"%")
-		where = ` WHERE (u.phone ILIKE $1 OR up.full_name ILIKE $1)`
+		conds = append(conds, "(u.phone ILIKE $"+strconv.Itoa(len(args))+" OR up.full_name ILIKE $"+strconv.Itoa(len(args))+")")
+	}
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "all":
+		// no status predicate
+	case "archived":
+		conds = append(conds, "COALESCE(u.account_status, 'active') = 'archived'")
+	default:
+		conds = append(conds, "COALESCE(u.account_status, 'active') <> 'archived'")
+	}
+	where := ""
+	if len(conds) > 0 {
+		where = " WHERE " + strings.Join(conds, " AND ")
 	}
 
 	var total int

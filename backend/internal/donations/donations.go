@@ -43,20 +43,20 @@ var (
 
 // Donation is the row returned to clients (mirrors getDonationsByUserId shape).
 type Donation struct {
-	ID              int64   `json:"id"`
-	ReferenceNumber *string `json:"reference_number"`
-	UserID          int64   `json:"user_id"`
-	CampaignID      *int64  `json:"campaign_id"`
-	DonationKind    string  `json:"donation_kind"`
-	CampaignName    *string `json:"campaign_name"`
-	CampaignNameAr  *string `json:"campaign_name_ar"`
-	Currency        string  `json:"currency"`
-	Message         string  `json:"message"`
-	Amount          string  `json:"amount"`
-	PaymentStatus   int     `json:"payment_status"`
-	DeliveryStatus  string  `json:"delivery_status"`
-	PaymentMethod   string  `json:"payment_method"`
-	ImpactNote      *string `json:"impact_note"`
+	ID              int64     `json:"id"`
+	ReferenceNumber *string   `json:"reference_number"`
+	UserID          int64     `json:"user_id"`
+	CampaignID      *int64    `json:"campaign_id"`
+	DonationKind    string    `json:"donation_kind"`
+	CampaignName    *string   `json:"campaign_name"`
+	CampaignNameAr  *string   `json:"campaign_name_ar"`
+	Currency        string    `json:"currency"`
+	Message         string    `json:"message"`
+	Amount          string    `json:"amount"`
+	PaymentStatus   int       `json:"payment_status"`
+	DeliveryStatus  string    `json:"delivery_status"`
+	PaymentMethod   string    `json:"payment_method"`
+	ImpactNote      *string   `json:"impact_note"`
 	TransactionDate time.Time `json:"transaction_date"`
 }
 
@@ -108,6 +108,9 @@ func (s *Store) Insert(
 	amount *string,
 	paymentMethod *string,
 	donationType string,
+	// projectSlug is the project_categories.slug the donor picked, or nil for
+	// a general/campaign donation (migration 094).
+	projectSlug *string,
 ) (*InsertedDonation, error) {
 	if userID <= 0 {
 		return nil, errors.New("invalid userID")
@@ -197,10 +200,10 @@ func (s *Store) Insert(
 	var newID int64
 	if err := tx.QueryRow(ctx, `
 		INSERT INTO donations
-		   (reference_number, user_id, campaign_id, donation_kind, donation_type, message, amount, payment_method)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		   (reference_number, user_id, campaign_id, donation_kind, donation_type, message, amount, payment_method, project_slug)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		RETURNING id`,
-		refNumber, userID, campaignID, donationKind, dType, msg, amountStr, method,
+		refNumber, userID, campaignID, donationKind, dType, msg, amountStr, method, projectSlug,
 	).Scan(&newID); err != nil {
 		return nil, err
 	}
@@ -309,14 +312,14 @@ func (s *Store) nextReference(ctx context.Context, q sectioncodes.Querier, kind 
 // flow without admin involvement.
 //
 // Phase 23. Rules:
-//   • Donation must belong to userID (the bearer token's user)
-//   • Current delivery_status must be 'registered' (still pending review)
+//   - Donation must belong to userID (the bearer token's user)
+//   - Current delivery_status must be 'registered' (still pending review)
 //     — once admin has 'received' or 'delivered' it, the donor can no
 //     longer rescind; they have to contact support.
-//   • Side effects on success:
-//       - delivery_status = 'cancelled'
-//       - campaigns.raised_amount -= donation.amount
-//         (mirrors the +amount bump in Insert; net zero)
+//   - Side effects on success:
+//   - delivery_status = 'cancelled'
+//   - campaigns.raised_amount -= donation.amount
+//     (mirrors the +amount bump in Insert; net zero)
 //
 // All of the above runs in a single transaction so a partial state can't
 // land in the DB.
