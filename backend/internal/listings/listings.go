@@ -203,11 +203,16 @@ type MediaPost struct {
 	CommentCount int  `json:"comment_count"`
 	ShareCount   int  `json:"share_count"`
 	LikedByMe    bool `json:"liked_by_me"`
+	// "Save for later" (migration 092) — same shape as LikedByMe so the app
+	// renders the bookmark in the right state straight from the list.
+	SavedByMe bool `json:"saved_by_me"`
 }
 
 // ListMediaPosts returns media posts. status="" → no filter. Public default is
 // "published". q is an optional free-text search across title/title_ar/body.
-func (s *Store) ListMediaPosts(ctx context.Context, status, postType, q string, limit int, userID int64) ([]MediaPost, error) {
+// savedOnly narrows the list to posts this user saved — the query behind the
+// app's "Saved" screen. Ignored for an anonymous caller, who has none.
+func (s *Store) ListMediaPosts(ctx context.Context, status, postType, q string, limit int, userID int64, savedOnly bool) ([]MediaPost, error) {
 	limit = clampLimit(limit)
 	args := []any{}
 	where := []string{}
@@ -230,6 +235,10 @@ func (s *Store) ListMediaPosts(ctx context.Context, status, postType, q string, 
 		idx := itoa(len(args))
 		where = append(where, "(title ILIKE $"+idx+" OR title_ar ILIKE $"+idx+" OR body ILIKE $"+idx+")")
 	}
+	if savedOnly && userID > 0 {
+		args = append(args, userID)
+		where = append(where, "id IN (SELECT item_id FROM saved_items WHERE item_type = 'media_post' AND user_id = $"+itoa(len(args))+")")
+	}
 	whereSQL := ""
 	if len(where) > 0 {
 		whereSQL = " WHERE " + strings.Join(where, " AND ")
@@ -248,7 +257,9 @@ func (s *Store) ListMediaPosts(ctx context.Context, status, postType, q string, 
 	               (SELECT COUNT(*) FROM post_likes pl WHERE pl.post_id = m.id),
 	               (SELECT COUNT(*) FROM post_comments pc WHERE pc.post_id = m.id AND pc.status = 'approved'),
 	               m.share_count,
-	               EXISTS(SELECT 1 FROM post_likes plm WHERE plm.post_id = m.id AND plm.user_id = $` + uidIdx + `)
+	               EXISTS(SELECT 1 FROM post_likes plm WHERE plm.post_id = m.id AND plm.user_id = $` + uidIdx + `),
+	               EXISTS(SELECT 1 FROM saved_items sv WHERE sv.item_type = 'media_post'
+	                        AND sv.item_id = m.id AND sv.user_id = $` + uidIdx + `)
 	          FROM media_posts m` + whereSQL + `
 	         ORDER BY COALESCE(m.event_date, m.created_at::date) DESC, m.id DESC
 	         LIMIT ` + itoa(limit)
@@ -268,7 +279,7 @@ func (s *Store) ListMediaPosts(ctx context.Context, status, postType, q string, 
 			&m.CategorySlug, &m.ActivityCode,
 			&m.Location, &m.LocationAr, &m.LocationSorani, &m.LocationBadini,
 			&m.Gallery,
-			&m.LikeCount, &m.CommentCount, &m.ShareCount, &m.LikedByMe,
+			&m.LikeCount, &m.CommentCount, &m.ShareCount, &m.LikedByMe, &m.SavedByMe,
 		); err != nil {
 			return nil, err
 		}

@@ -208,6 +208,9 @@ String partnerActivitiesUrl(int partnerId) =>
 
 /// #24 — media post engagement endpoints (authed).
 String mediaLikeUrl(int postId) => '${baseUrl}media/$postId/like';
+
+/// POST: toggle "save for later" on a post. Returns {saved}.
+String mediaSaveUrl(int postId) => '${baseUrl}media/$postId/save';
 String mediaCommentsUrl(int postId) => '${baseUrl}media/$postId/comments';
 String mediaShareUrl(int postId) => '${baseUrl}media/$postId/share';
 

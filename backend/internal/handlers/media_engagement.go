@@ -41,6 +41,34 @@ func mediaPostID(c *gin.Context) (int64, bool) {
 }
 
 // Like — POST /api/media/:id/like — toggles the current user's like.
+// Save toggles "save for later" on a post for the signed-in user. Same shape
+// as Like, but writes the generic saved_items table (migration 092).
+func (h *MediaEngagementHandler) Save(c *gin.Context) {
+	user, _ := auth.UserFromGin(c)
+	if user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		return
+	}
+	postID, ok := mediaPostID(c)
+	if !ok {
+		return
+	}
+	if _, _, err := h.Store.PostMeta(c.Request.Context(), postID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Post not found."})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		return
+	}
+	savedNow, err := h.Store.ToggleSave(c.Request.Context(), user.UserID, postengagement.ItemTypeMediaPost, postID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "saved": savedNow})
+}
+
 func (h *MediaEngagementHandler) Like(c *gin.Context) {
 	user, _ := auth.UserFromGin(c)
 	if user == nil {

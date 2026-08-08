@@ -2227,6 +2227,8 @@ class AppTranslations extends Translations {
     'Account type': 'Account type',
     'Account type updated.': 'Account type updated.',
     'Account type unchanged.': 'Account type unchanged.',
+    'Nothing saved yet.': 'Nothing saved yet.',
+    'Remove': 'Remove',
   };
 
   static const Map<String, String> _ar = {
@@ -4379,6 +4381,8 @@ class AppTranslations extends Translations {
     'Account type': 'نوع الحساب',
     'Account type updated.': 'تم تحديث نوع الحساب.',
     'Account type unchanged.': 'لم يتغيّر نوع الحساب.',
+    'Nothing saved yet.': 'لا توجد عناصر محفوظة بعد.',
+    'Remove': 'إزالة',
   };
 
   static final Map<String, String> _sorani = {
@@ -6612,6 +6616,8 @@ class AppTranslations extends Translations {
     'Account type': 'جۆری هەژمار',
     'Account type updated.': 'جۆری هەژمار نوێکرایەوە.',
     'Account type unchanged.': 'جۆری هەژمار نەگۆڕا.',
+    'Nothing saved yet.': 'هێشتا هیچ شتێک پاشەکەوت نەکراوە.',
+    'Remove': 'لابردن',
   };
 
   static final Map<String, String> _badini = {
@@ -8825,6 +8831,8 @@ class AppTranslations extends Translations {
     'Account type': 'جۆرێ هەژماری',
     'Account type updated.': 'جۆرێ هەژماری هاتە نویکرن.',
     'Account type unchanged.': 'جۆرێ هەژماری نەهاتە گهۆڕین.',
+    'Nothing saved yet.': 'هێشتا چ تشت نەهاتیە پاراستن.',
+    'Remove': 'ژێبرن',
   };
 
   @override

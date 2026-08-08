@@ -60,6 +60,27 @@ class MediaPostsController extends GetxController {
     }
   }
 
+  /// Optimistic "save for later" toggle; reverts on failure, same as
+  /// [toggleLike]. There is no counter to keep in step — a save is private to
+  /// the user, so only their own flag changes.
+  Future<void> toggleSaved(Map<String, dynamic> post) async {
+    final id = int.tryParse('${post['id']}') ?? 0;
+    if (id == 0) return;
+    final wasSaved = post['saved_by_me'] == true;
+
+    post['saved_by_me'] = !wasSaved;
+    posts.refresh();
+
+    try {
+      final res = await const ModuleApi().saveMediaPost(id);
+      post['saved_by_me'] = res['saved'] == true;
+      posts.refresh();
+    } catch (_) {
+      post['saved_by_me'] = wasSaved;
+      posts.refresh();
+    }
+  }
+
   /// #24 — bump a post's comment count locally after a comment is accepted.
   void bumpCommentCount(int postId) {
     for (final p in posts) {

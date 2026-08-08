@@ -280,8 +280,10 @@ class _EngagementBar extends StatelessWidget {
     final likeCount = (item['like_count'] as num?)?.toInt() ?? 0;
     final commentCount = (item['comment_count'] as num?)?.toInt() ?? 0;
     final shareCount = (item['share_count'] as num?)?.toInt() ?? 0;
-    // Three evenly-weighted actions across the full width — clear, balanced,
-    // and each with a comfortable tap target.
+    final saved = item['saved_by_me'] == true;
+    // Four evenly-weighted actions across the full width — clear, balanced,
+    // and each with a comfortable tap target. Save carries no count: it is
+    // private to the user, unlike likes/comments/shares.
     return Row(
       children: [
         Expanded(
@@ -309,6 +311,16 @@ class _EngagementBar extends StatelessWidget {
             icon: Icons.share_outlined,
             label: shareCount > 0 ? '$shareCount' : 'Share'.tr,
             onTap: () => _sharePost(item, controller),
+          ),
+        ),
+        Expanded(
+          child: _EngageButton(
+            icon: saved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+            color: saved ? AppThemeConfig.primary : null,
+            label: 'Save'.tr,
+            onTap: () async {
+              if (await requireSignIn(context)) controller.toggleSaved(item);
+            },
           ),
         ),
       ],

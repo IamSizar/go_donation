@@ -476,6 +476,8 @@ func main() {
 
 			// #24 — media post engagement (like toggle / comment / share).
 			authed.POST("/media/:id/like", mediaEngageH.Like)
+			// "Save for later" — toggle; the saved list is GET /media?saved=1.
+			authed.POST("/media/:id/save", mediaEngageH.Save)
 			authed.GET("/media/:id/comments", mediaEngageH.Comments)
 			authed.POST("/media/:id/comments", mediaEngageH.Comment)
 			authed.POST("/media/:id/share", mediaEngageH.Share)

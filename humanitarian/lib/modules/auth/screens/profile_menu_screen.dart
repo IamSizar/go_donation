@@ -5,6 +5,7 @@ import 'package:flutter_application_1/modules/auth/screens/edit_profile.dart';
 import 'package:flutter_application_1/modules/community/screens/community_services_section.dart';
 import 'package:flutter_application_1/modules/legal/screens/content_page_screen.dart';
 import 'package:flutter_application_1/modules/proposal/screens/our_work_screen.dart';
+import 'package:flutter_application_1/modules/proposal/screens/saved_posts_screen.dart';
 import 'package:flutter_application_1/modules/proposal/screens/proposal_services_section.dart';
 import 'package:flutter_application_1/modules/legal/screens/terms_screen.dart';
 import 'package:flutter_application_1/modules/support/screens/support_section.dart';
@@ -109,6 +110,14 @@ class ProfileMenuScreen extends StatelessWidget {
             color: Colors.teal,
             onTap: () => Get.to(() => const OurWorkScreen()),
           ),
+          // Client backlog #23 — posts the user bookmarked for later.
+          if (!guest)
+            DrawerTile(
+              icon: Icons.bookmark_rounded,
+              label: 'Saved',
+              color: Colors.amber,
+              onTap: () => Get.to(() => const SavedPostsScreen()),
+            ),
           DrawerTile(
             icon: Icons.apps_rounded,
             label: 'Services',

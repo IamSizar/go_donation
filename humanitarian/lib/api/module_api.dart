@@ -692,6 +692,18 @@ class ModuleApi {
   Future<Map<String, dynamic>> likeMediaPost(int postId) =>
       postJsonNoTrack(mediaLikeUrl(postId), const {});
 
+  /// Toggle "save for later" on a post. Returns {saved}.
+  Future<Map<String, dynamic>> saveMediaPost(int postId) =>
+      postJsonNoTrack(mediaSaveUrl(postId), const {});
+
+  /// The signed-in user's saved posts, newest saved first.
+  Future<List<Map<String, dynamic>>> savedMediaPosts(int userId) {
+    final uri = Uri.parse(mediaPostsUrl).replace(
+      queryParameters: {'user_id': '$userId', 'saved': '1'},
+    );
+    return getItems(uri.toString());
+  }
+
   /// #24 — approved comments for a post.
   Future<List<Map<String, dynamic>>> mediaComments(int postId) =>
       getItems(mediaCommentsUrl(postId));

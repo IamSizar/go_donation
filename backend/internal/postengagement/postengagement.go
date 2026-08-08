@@ -74,6 +74,61 @@ func (s *Store) ToggleLike(ctx context.Context, postID, userID int64) (liked boo
 	return liked, count, nil
 }
 
+// ItemTypeMediaPost is the saved_items.item_type for a media post. The column
+// is free text so a new savable kind needs no migration — but every value the
+// backend writes should be a constant here, not a literal at the call site.
+const ItemTypeMediaPost = "media_post"
+
+// ToggleSave flips "save for later" for (user, item). Mirrors ToggleLike, but
+// against the generic saved_items table (migration 092) so the same two
+// endpoints can serve any savable record. Returns the resulting saved state.
+func (s *Store) ToggleSave(ctx context.Context, userID int64, itemType string, itemID int64) (bool, error) {
+	tag, err := s.Pool.Exec(ctx,
+		`INSERT INTO saved_items (user_id, item_type, item_id) VALUES ($1, $2, $3)
+		 ON CONFLICT (user_id, item_type, item_id) DO NOTHING`,
+		userID, itemType, itemID)
+	if err != nil {
+		return false, err
+	}
+	if tag.RowsAffected() > 0 {
+		return true, nil
+	}
+	// Already saved → this call means unsave.
+	if _, err = s.Pool.Exec(ctx,
+		`DELETE FROM saved_items WHERE user_id = $1 AND item_type = $2 AND item_id = $3`,
+		userID, itemType, itemID); err != nil {
+		return false, err
+	}
+	return false, nil
+}
+
+// SavedIDs returns the ids of a user's saved items of one type, newest first.
+// The caller joins these against whatever table item_type refers to, so this
+// package stays unaware of what a "media_post" actually is.
+func (s *Store) SavedIDs(ctx context.Context, userID int64, itemType string, limit int) ([]int64, error) {
+	if limit <= 0 || limit > 200 {
+		limit = 100
+	}
+	rows, err := s.Pool.Query(ctx,
+		`SELECT item_id FROM saved_items
+		  WHERE user_id = $1 AND item_type = $2
+		  ORDER BY created_at DESC
+		  LIMIT $3`, userID, itemType, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []int64{}
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
+}
+
 // AddComment inserts a comment with the given moderation status. Returns the
 // stored row (with UserName populated) for the app to render optimistically.
 func (s *Store) AddComment(ctx context.Context, postID, userID int64, body, status string, flagged bool) (*Comment, error) {
