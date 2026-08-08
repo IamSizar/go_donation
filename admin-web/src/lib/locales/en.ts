@@ -379,7 +379,11 @@ const en = {
     sidebar_layout_reset: 'Reset to default',
     sidebar_layout_reset_ok: 'Sidebar layout reset to default.',
   },
-
+  gate: {
+    title: 'Protected section',
+    body: 'Enter your password to open System Settings.',
+    unlock: 'Unlock',
+  },
   // Section 24 — Super-Admin Permissions Management.
   lock: {
     title: 'Section locked',

@@ -21,6 +21,7 @@ import { useI18n, type Locale } from '../lib/i18n'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
 import RowActionsMenu from '../components/RowActionsMenu'
+import { formatDateTime } from '../lib/dates'
 
 type Resp = { success: true; items: CommunityEntry[] }
 
@@ -251,6 +252,11 @@ export default function CityGuidePage() {
       cell: (e) => e.website
         ? <a href={e.website} target="_blank" rel="noreferrer">{t('cityGuide.open_link')} ↗</a>
         : <span className="muted">—</span>,
+    },
+    {
+      key: 'created',
+      header: t('col.created'),
+      cell: (e) => <span className="muted">{formatDateTime(e.created_at)}</span>,
     },
     {
       key: 'status', header: t('col.status'),

@@ -138,13 +138,13 @@ export const DEFAULT_NAV_SECTIONS: NavSection[] = [
   },
   {
     kind: 'group', key: 'monitoring_reports', tKey: 'nav_group.monitoring_reports',
-    items: ['/registrations', '/missions', '/reports', '/audit-logs'],
+    items: ['/registrations', '/missions', '/reports', '/audit-logs', '/media', '/media-categories'],
   },
   {
     kind: 'group', key: 'system_settings', tKey: 'nav_group.system_settings',
     items: [
       '/payment-methods', '/donation-codes', '/field-rules', '/banned-words',
-      '/permissions', '/terms', '/about', '/humanitarian-work', '/media', '/media-categories',
+      '/permissions', '/terms', '/about', '/humanitarian-work',
       '/trash', '/settings',
     ],
   },

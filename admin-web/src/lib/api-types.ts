@@ -444,6 +444,8 @@ export type CommunityEntry = {
   approx_location?: string // #48 — 'exact' | 'approx'
   // Note #19 — mandatory classification: 'government' | 'private'.
   sector_type: string
+  // Admin queue only — when the entry was submitted.
+  created_at?: string | null
 }
 
 export type CitySector = {

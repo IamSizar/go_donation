@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show PlatformDispatcher;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/core/push_registration.dart';
@@ -122,7 +123,34 @@ class AppLocaleService {
     if (code == localeTag(arabic) || code == arabic.languageCode) {
       return arabic;
     }
+    // A stored value always wins — the user picked it. Only when there is
+    // none (first launch, or after clearing data) do we follow the device.
+    if (code.isEmpty) {
+      return deviceLocale();
+    }
 
+    return english;
+  }
+
+  /// The app language matching the phone's own language, or English when the
+  /// device is set to something we don't ship.
+  ///
+  /// Read from PlatformDispatcher rather than the widget binding so it works
+  /// during startup, before runApp. Kurdish has two codes in the wild: `ckb`
+  /// is Sorani, `kmr` Kurmanji/Badini; bare `ku` is ambiguous and is treated
+  /// as Sorani, the more widely tagged of the two.
+  static Locale deviceLocale() {
+    for (final l in PlatformDispatcher.instance.locales) {
+      switch (l.languageCode.toLowerCase()) {
+        case 'ar':
+          return arabic;
+        case 'ckb':
+        case 'ku':
+          return kurdishSorani;
+        case 'kmr':
+          return kurdishBadini;
+      }
+    }
     return english;
   }
 

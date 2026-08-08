@@ -309,6 +309,10 @@ type Community struct {
 	ApproxLocation string `json:"approx_location"`
 	// Note #19 — mandatory classification: 'government' or 'private'.
 	SectorType string `json:"sector_type"`
+	// Admin queue only — when the entry was submitted, so the dashboard can
+	// show a date + time column. Null on the public listing, which doesn't
+	// select it.
+	CreatedAt *string `json:"created_at,omitempty"`
 }
 
 // ListCommunity returns approved community-directory entries. q searches
@@ -394,7 +398,8 @@ func (s *Store) ListCommunityAdmin(ctx context.Context, status string, limit int
 	               description, description_ar, description_sorani, description_badini,
 	               latitude::text, longitude::text,
 	               sectors, opening_hours, opening_hours_ar, opening_hours_sorani, opening_hours_badini,
-	               gallery, status, CASE WHEN approx_location = 1 THEN 'approx' ELSE 'exact' END, sector_type
+	               gallery, status, CASE WHEN approx_location = 1 THEN 'approx' ELSE 'exact' END, sector_type,
+	               to_char(created_at, 'YYYY-MM-DD"T"HH24:MI:SS')
 	          FROM city_directory_entries
 	         WHERE ` + strings.Join(where, " AND ") + `
 	         ORDER BY (status = 'pending') DESC, created_at DESC
@@ -414,6 +419,7 @@ func (s *Store) ListCommunityAdmin(ctx context.Context, status string, limit int
 			&c.Latitude, &c.Longitude,
 			&c.Sectors, &c.OpeningHours, &c.OpeningHoursAr, &c.OpeningHoursSorani, &c.OpeningHoursBadini,
 			&c.Gallery, &c.Status, &c.ApproxLocation, &c.SectorType,
+			&c.CreatedAt,
 		); err != nil {
 			return nil, err
 		}

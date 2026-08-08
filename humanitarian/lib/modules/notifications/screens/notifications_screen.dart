@@ -4,6 +4,7 @@ import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 
 import '../controllers/notifications_controller.dart';
+import '../widgets/notification_detail_dialog.dart';
 import '../widgets/notification_tile.dart';
 
 class NotificationsScreen extends GetView<NotificationsController> {
@@ -77,7 +78,19 @@ class NotificationsScreen extends GetView<NotificationsController> {
                         for (var i = 0; i < items.length; i++) ...[
                           NotificationTile(
                             notification: items[i],
-                            onTap: () => controller.openNotification(items[i]),
+                            // Show the whole record first; the type's
+                            // destination (when it has one) is an explicit
+                            // action inside the dialog.
+                            onTap: () async {
+                              final n = items[i];
+                              await controller.markAsRead(n);
+                              if (!context.mounted) return;
+                              await showNotificationDetail(
+                                context,
+                                n,
+                                onOpen: controller.destinationFor(n),
+                              );
+                            },
                             onDismissed: items[i].isRead
                                 ? null
                                 : () => controller.markAsRead(items[i]),

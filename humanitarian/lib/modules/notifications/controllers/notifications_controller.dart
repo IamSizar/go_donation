@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:flutter_application_1/api/links.dart';
 import 'package:flutter_application_1/api/module_api.dart';
@@ -305,27 +306,32 @@ class NotificationsController extends GetxController {
 
   Future<void> openNotification(AppNotificationModel notification) async {
     await markAsRead(notification);
+    destinationFor(notification)?.call();
+  }
+
+  /// Where this notification leads, or null when it has nowhere to go.
+  ///
+  /// Split out of [openNotification] so the detail dialog can offer it as an
+  /// explicit "Open" action instead of a tap silently navigating — most types
+  /// fall through to null, which is why tapping them used to do nothing.
+  VoidCallback? destinationFor(AppNotificationModel notification) {
     if (notification.hasActionUrl) {
       final uri = Uri.tryParse(notification.actionUrl.trim());
       if (uri != null) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-        return;
+        return () => launchUrl(uri, mode: LaunchMode.externalApplication);
       }
     }
     switch (notification.notificationType) {
       case 'media_post':
       case 'news':
       case 'activity':
-        Get.to(() => const NewsActivitiesScreen());
-        break;
+        return () => Get.to(() => const NewsActivitiesScreen());
       case 'partner':
-        Get.to(() => const PartnersScreen());
-        break;
+        return () => Get.to(() => const PartnersScreen());
       case 'support_ticket':
-        Get.to(() => const SupportTicketFormScreen());
-        break;
+        return () => Get.to(() => const SupportTicketFormScreen());
       default:
-        break;
+        return null;
     }
   }
 }

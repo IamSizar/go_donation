@@ -2218,6 +2218,9 @@ class AppTranslations extends Translations {
     'Submit case': 'Submit case',
     'Save sponsorship': 'Save sponsorship',
     'Submit donation': 'Submit donation',
+    'No details': 'No details',
+    'Open': 'Open',
+    'Close': 'Close',
   };
 
   static const Map<String, String> _ar = {
@@ -4361,6 +4364,9 @@ class AppTranslations extends Translations {
     'Submit case': 'إرسال الحالة',
     'Save sponsorship': 'حفظ الكفالة',
     'Submit donation': 'إرسال التبرع',
+    'No details': 'لا توجد تفاصيل',
+    'Open': 'فتح',
+    'Close': 'إغلاق',
   };
 
   static final Map<String, String> _sorani = {
@@ -6585,6 +6591,9 @@ class AppTranslations extends Translations {
     'Submit case': 'ناردنی کەیس',
     'Save sponsorship': 'پاشەکەوتکردنی کفالەت',
     'Submit donation': 'ناردنی بەخشین',
+    'No details': 'هیچ وردەکارییەک نییە',
+    'Open': 'کردنەوە',
+    'Close': 'داخستن',
   };
 
   static final Map<String, String> _badini = {
@@ -8789,6 +8798,9 @@ class AppTranslations extends Translations {
     'Submit case': 'هنارتنا کەیسی',
     'Save sponsorship': 'پاراستنا کەفالەتێ',
     'Submit donation': 'هنارتنا بەخشینێ',
+    'No details': 'چ کیتەکیت نینن',
+    'Open': 'ڤەکرن',
+    'Close': 'گرتن',
   };
 
   @override

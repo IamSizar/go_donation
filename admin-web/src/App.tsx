@@ -7,6 +7,7 @@ import { ToastProvider } from './lib/toast'
 import { I18nProvider, useI18n } from './lib/i18n'
 import LoginPage from './pages/LoginPage'
 import AppShell from './components/AppShell'
+import PasswordGate from './components/PasswordGate'
 
 // Route-level code-splitting (Phase 10 · 10d). Each page becomes its own chunk
 // so the initial bundle only ships the login screen + shell; pages load on
@@ -143,7 +144,18 @@ export default function App() {
             <Route path="trash" element={<TrashPage />} />
             <Route path="permissions" element={<PermissionsPage />} />
             <Route path="guest-access" element={<GuestAccessPage />} />
-            <Route path="settings" element={<SettingsPage />} />
+            {/* System Settings asks for the admin's own password before it
+                renders (per-mount, never persisted) — a second factor on an
+                unattended session, on top of the superAdminOnly nav gate and
+                the backend's RequireSuperAdmin on its write routes. */}
+            <Route
+              path="settings"
+              element={
+                <PasswordGate>
+                  <SettingsPage />
+                </PasswordGate>
+              }
+            />
             <Route path="terms" element={<TermsPage />} />
             <Route path="about" element={<AboutPage />} />
             <Route path="humanitarian-work" element={<HumanitarianWorkPage />} />
