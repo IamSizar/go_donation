@@ -7,6 +7,7 @@ import Pagination from '../components/Pagination'
 import { useI18n, useFieldLabel } from '../lib/i18n'
 import { type CsvColumn } from '../lib/csv'
 import PageHead from '../components/PageHead'
+import { fmtId } from '../lib/formatId'
 
 const PER_PAGE = 30
 
@@ -80,7 +81,7 @@ export default function AuditLogsPage() {
   // Highlight the changed_field as a code chip; render old → new with a
   // visual arrow so the diff is scannable. Empty values render as `null`.
   const columns: Column<AdminAuditLog>[] = [
-    { key: 'id', header: t('col.id'), width: '60px', cell: (a) => <strong>#{a.id}</strong> },
+    { key: 'id', header: t('col.id'), width: '60px', cell: (a) => <strong>{fmtId(a.id)}</strong> },
     {
       key: 'when', header: t('col.when'), width: '160px',
       cell: (a) => <span className="muted">{a.created_at?.slice(0, 19).replace('T', ' ')}</span>,
@@ -108,7 +109,7 @@ export default function AuditLogsPage() {
       cell: (a) => (
         <div className="cell-stack">
           <span className={`badge ${actorClass(a.actor_source)}`}>{actorLabel(a.actor_source)}</span>
-          {a.actor_user_id && <span className="muted">#{a.actor_user_id}</span>}
+          {a.actor_user_id && <span className="muted">{fmtId(a.actor_user_id)}</span>}
         </div>
       ),
     },

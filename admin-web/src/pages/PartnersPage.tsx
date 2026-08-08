@@ -14,6 +14,7 @@ import { useI18n, useStatusLabel } from '../lib/i18n'
 import { useSelection } from '../lib/useSelection'
 import { type CsvColumn } from '../lib/csv'
 import PageHead from '../components/PageHead'
+import { fmtId } from '../lib/formatId'
 
 type Resp = { success: true; items: Partner[] }
 
@@ -159,7 +160,7 @@ export default function PartnersPage() {
 
 
   const columns: Column<Partner>[] = [
-    { key: 'id', header: t('col.id'), width: '60px', cell: (p) => <strong>#{p.id}</strong> },
+    { key: 'id', header: t('col.id'), width: '60px', cell: (p) => <strong>{fmtId(p.id)}</strong> },
     {
       key: 'logo',
       header: '',

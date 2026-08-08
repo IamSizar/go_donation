@@ -11,6 +11,7 @@ import { useToast } from '../lib/toast'
 import { useI18n } from '../lib/i18n'
 import { type CsvColumn } from '../lib/csv'
 import PageHead from '../components/PageHead'
+import { fmtId } from '../lib/formatId'
 
 const COMMUNITY_CSV_COLUMNS: CsvColumn<CommunityEntry>[] = [
   { header: 'id', get: (e) => e.id },
@@ -110,7 +111,7 @@ export default function CommunityPage() {
   const categories = Array.from(new Set(items.map(i => i.category))).sort()
 
   const columns: Column<CommunityEntry>[] = [
-    { key: 'id', header: t('col.id'), width: '60px', cell: (e) => <strong>#{e.id}</strong> },
+    { key: 'id', header: t('col.id'), width: '60px', cell: (e) => <strong>{fmtId(e.id)}</strong> },
     {
       key: 'name', header: t('col.name'), cell: (e) => (
         <div className="cell-stack">

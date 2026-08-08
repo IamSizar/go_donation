@@ -18,6 +18,7 @@ import { type CsvColumn } from '../lib/csv'
 import { HighlightBanner, useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForStatus } from '../lib/statusColors'
 import PageHead from '../components/PageHead'
+import { fmtId } from '../lib/formatId'
 
 const INKIND_CSV_COLUMNS: CsvColumn<AdminInKind>[] = [
   { header: 'id', get: (k) => k.id },
@@ -143,7 +144,7 @@ export default function InKindPage() {
 
 
   const columns: Column<AdminInKind>[] = [
-    { key: 'id', header: t('col.id'), width: '60px', cell: (k) => <strong>#{k.id}</strong> },
+    { key: 'id', header: t('col.id'), width: '60px', cell: (k) => <strong>{fmtId(k.id)}</strong> },
     {
       key: 'donor', header: t('col.donor'),
       cell: (k) => (

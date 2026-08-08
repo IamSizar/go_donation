@@ -30,6 +30,7 @@ import { type CsvColumn } from '../lib/csv'
 import { HighlightBanner, useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForStatus } from '../lib/statusColors'
 import PageHead from '../components/PageHead'
+import { fmtId } from '../lib/formatId'
 
 const PER_PAGE = 20
 const STATUSES = ['all', 'draft', 'open', 'closed', 'completed', 'cancelled'] as const
@@ -177,7 +178,7 @@ export default function MissionsPage() {
   const closeModal = () => { setEditing(null); setCreating(false) }
 
   const columns: Column<AdminMission>[] = [
-    { key: 'id', header: t('col.id'), width: '60px', cell: (m) => <strong>#{m.id}</strong> },
+    { key: 'id', header: t('col.id'), width: '60px', cell: (m) => <strong>{fmtId(m.id)}</strong> },
     {
       key: 'title',
       header: t('col.mission'),

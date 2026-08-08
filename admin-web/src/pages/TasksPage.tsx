@@ -6,6 +6,7 @@ import { api, describeError } from '../lib/api'
 import { useI18n } from '../lib/i18n'
 import { useToast } from '../lib/toast'
 import PageHead from '../components/PageHead'
+import { fmtId } from '../lib/formatId'
 
 type Task = {
   id: number
@@ -128,7 +129,7 @@ export default function TasksPage() {
             </PageHead>
             {task.description && <p className="muted">{task.description}</p>}
             <p className="muted">
-              {t('tasks.assigned_to')}: #{task.user_id} · {new Date(task.created_at).toLocaleString()}
+              {t('tasks.assigned_to')}: {fmtId(task.user_id)} · {new Date(task.created_at).toLocaleString()}
             </p>
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn danger" onClick={() => remove(task.id)}>

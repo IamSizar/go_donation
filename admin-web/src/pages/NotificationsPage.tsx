@@ -8,6 +8,7 @@ import ExportCsvButton from '../components/ExportCsvButton'
 import { type CsvColumn } from '../lib/csv'
 import { useI18n, useStatusLabel, translate } from '../lib/i18n'
 import PageHead from '../components/PageHead'
+import { fmtId } from '../lib/formatId'
 
 // Flat CSV shape for a notification row (Phase 7 · M-53).
 const NOTIFICATION_CSV_COLUMNS: CsvColumn<AdminNotification>[] = [
@@ -77,7 +78,7 @@ export default function NotificationsPage() {
   useLivePoll(() => { pollSilent.current = true; setRefreshTick((t) => t + 1) }, 5_000)
 
   const columns: Column<AdminNotification>[] = [
-    { key: 'id', header: t('col.id'), width: '60px', cell: (n) => <strong>#{n.id}</strong> },
+    { key: 'id', header: t('col.id'), width: '60px', cell: (n) => <strong>{fmtId(n.id)}</strong> },
     {
       key: 'target', header: t('col.target'),
       cell: (n) =>

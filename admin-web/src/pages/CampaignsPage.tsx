@@ -21,6 +21,7 @@ import { useI18n, useStatusLabel } from '../lib/i18n'
 import { useSelection } from '../lib/useSelection'
 import { type CsvColumn } from '../lib/csv'
 import PageHead from '../components/PageHead'
+import { fmtId } from '../lib/formatId'
 
 const PER_PAGE = 12
 
@@ -198,7 +199,7 @@ export default function CampaignsPage() {
   const closeModal = () => { setEditing(null); setCreating(false) }
 
   const columns: Column<AdminCampaign>[] = [
-    { key: 'id', header: t('col.id'), width: '60px', cell: (c) => <strong>#{c.id}</strong> },
+    { key: 'id', header: t('col.id'), width: '60px', cell: (c) => <strong>{fmtId(c.id)}</strong> },
     {
       key: 'title',
       header: t('col.title'),

@@ -34,6 +34,7 @@ import {
 } from '../lib/skillCatalogue'
 import { SKILL_ICON, colorForSkill } from '../lib/skillIcons'
 import PageHead from '../components/PageHead'
+import { fmtId } from '../lib/formatId'
 
 const VOLUNTEER_CSV_COLUMNS: CsvColumn<AdminVolunteerApp>[] = [
   { header: 'id', get: (a) => a.id },
@@ -319,7 +320,7 @@ function ApplicationsTab() {
       // Note #20 — display-only change, same treatment as Donations (Note
       // #14): `#5` → `T5`. a.id itself is unchanged everywhere it's actually
       // used (API calls, links, row keys).
-      key: 'id', header: t('col.id'), width: '60px', cell: (a) => <strong>T{a.id}</strong>,
+      key: 'id', header: t('col.id'), width: '60px', cell: (a) => <strong>{fmtId(a.id)}</strong>,
     },
     {
       key: 'who', header: t('col.applicant'),
@@ -882,7 +883,7 @@ function MissionSignupsTab() {
   }
 
   const columns: Column<AdminMissionSignup>[] = [
-    { key: 'id', header: t('col.id'), width: '60px', cell: (s) => <strong>#{s.id}</strong> },
+    { key: 'id', header: t('col.id'), width: '60px', cell: (s) => <strong>{fmtId(s.id)}</strong> },
     {
       key: 'volunteer',
       header: t('col.volunteer'),

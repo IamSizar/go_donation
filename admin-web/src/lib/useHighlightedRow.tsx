@@ -19,6 +19,7 @@
 import { useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useI18n } from './i18n'
+import { fmtId } from './formatId'
 
 // useHighlightedRow — wraps the URL param + scroll plumbing into a single
 // hook with a focused API surface.
@@ -91,7 +92,7 @@ export function HighlightBanner({ kind = 'Item' }: { kind?: string }) {
     <div className="highlight-banner" role="status">
       <span className="hb-icon" aria-hidden="true">⚡</span>
       <span className="hb-text">
-        <strong>{kind} #{highlightedId}</strong>{' '}
+        <strong>{kind} {fmtId(highlightedId)}</strong>{' '}
         {t('highlight.opened_from_feed')}
       </span>
       <button type="button" onClick={clearHighlight}>{t('highlight.dismiss')}</button>

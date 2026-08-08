@@ -21,6 +21,7 @@ import { HighlightBanner, useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForDonation } from '../lib/statusColors'
 import { formatDateParts } from '../lib/dates'
 import PageHead from '../components/PageHead'
+import { fmtId } from '../lib/formatId'
 
 const DONATION_CSV_COLUMNS: CsvColumn<DonationAdminRow>[] = [
   { header: 'id', get: (d) => d.id },
@@ -183,7 +184,7 @@ export default function DonationsPage() {
       // is still the plain auto-increment int underneath (used unchanged in
       // every API call/link/search on this page), just prefixed with "T"
       // (Tawazzun) instead of "#" for the on-screen/export representation.
-      key: 'id', header: t('col.id'), width: '60px', cell: (d) => <strong>T{d.id}</strong>,
+      key: 'id', header: t('col.id'), width: '60px', cell: (d) => <strong>{fmtId(d.id)}</strong>,
     },
     {
       key: 'ref',
@@ -219,7 +220,7 @@ export default function DonationsPage() {
         // scannable and lets an admin cross-reference the Users table.
         <div className="cell-stack">
           <strong>{d.donor_full_name ?? <span className="muted">—</span>}</strong>
-          <span className="muted">#{d.user_id}</span>
+          <span className="muted">{fmtId(d.user_id)}</span>
         </div>
       ),
     },

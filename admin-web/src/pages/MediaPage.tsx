@@ -14,6 +14,7 @@ import { useI18n, useStatusLabel, type Locale } from '../lib/i18n'
 import { useSelection } from '../lib/useSelection'
 import { type CsvColumn } from '../lib/csv'
 import PageHead from '../components/PageHead'
+import { fmtId } from '../lib/formatId'
 
 const MEDIA_CSV_COLUMNS: CsvColumn<MediaPost>[] = [
   { header: 'id', get: (m) => m.id },
@@ -200,7 +201,7 @@ export default function MediaPage() {
 
 
   const columns: Column<MediaPost>[] = [
-    { key: 'id', header: t('col.id'), width: '60px', cell: (m) => <strong>#{m.id}</strong> },
+    { key: 'id', header: t('col.id'), width: '60px', cell: (m) => <strong>{fmtId(m.id)}</strong> },
     {
       key: 'media',
       header: '',

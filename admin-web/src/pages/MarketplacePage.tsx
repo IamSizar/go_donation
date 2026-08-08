@@ -23,6 +23,7 @@ import { HighlightBanner, useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForStatus } from '../lib/statusColors'
 import { formatDateParts } from '../lib/dates'
 import PageHead from '../components/PageHead'
+import { fmtId } from '../lib/formatId'
 
 const PRODUCT_CSV_COLUMNS: CsvColumn<Product>[] = [
   { header: 'id', get: (p) => p.id },
@@ -267,7 +268,7 @@ function ProductsTab() {
   }
 
   const columns: Column<Product>[] = [
-    { key: 'id', header: t('col.id'), width: '60px', cell: (p) => <strong>#{p.id}</strong> },
+    { key: 'id', header: t('col.id'), width: '60px', cell: (p) => <strong>{fmtId(p.id)}</strong> },
     {
       key: 'img',
       header: '',
@@ -508,7 +509,7 @@ function OrdersTab() {
   }
 
   const columns: Column<MarketOrder>[] = [
-    { key: 'id', header: t('col.id'), width: '60px', cell: (o) => <strong>T{o.id}</strong> },
+    { key: 'id', header: t('col.id'), width: '60px', cell: (o) => <strong>{fmtId(o.id)}</strong> },
     {
       key: 'product',
       header: t('col.product'),

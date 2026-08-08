@@ -20,6 +20,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../lib/toast'
 import { useI18n, type Locale } from '../lib/i18n'
 import PageHead from '../components/PageHead'
+import { fmtId } from '../lib/formatId'
 
 type Resp = { success: true; items: CommunityEntry[] }
 
@@ -208,7 +209,7 @@ export default function CityGuidePage() {
   )
 
   const columns: Column<CommunityEntry>[] = [
-    { key: 'id', header: t('col.id'), width: '60px', cell: (e) => <strong>#{e.id}</strong> },
+    { key: 'id', header: t('col.id'), width: '60px', cell: (e) => <strong>{fmtId(e.id)}</strong> },
     {
       key: 'name', header: t('cityGuide.col_place'), cell: (e) => (
         <div className="cell-stack">

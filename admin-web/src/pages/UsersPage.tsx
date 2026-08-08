@@ -16,6 +16,7 @@ import { formatPhone } from '../lib/phone'
 import { useCanViewSensitive, usePermission, maskContact } from '../lib/permissions'
 import { useFieldRules, type FieldRuleState } from '../lib/fieldRules'
 import PageHead from '../components/PageHead'
+import { fmtId } from '../lib/formatId'
 
 const PER_PAGE = 20
 
@@ -275,7 +276,7 @@ export default function UsersPage() {
 
 
   const columns: Column<UserAccount>[] = [
-    { key: 'id', header: t('col.id'), width: '60px', cell: (u) => <strong>#{u.user_id}</strong> },
+    { key: 'id', header: t('col.id'), width: '60px', cell: (u) => <strong>{fmtId(u.user_id)}</strong> },
     {
       key: 'name',
       header: t('col.name'),

@@ -11,6 +11,7 @@ import { useI18n } from '../lib/i18n'
 import { useToast } from '../lib/toast'
 import Table, { type Column } from '../components/Table'
 import PageHead from '../components/PageHead'
+import { fmtId } from '../lib/formatId'
 
 type TrashItem = {
   id: number
@@ -181,7 +182,7 @@ export default function TrashPage() {
     ) },
     { key: 'record', header: t('page.trash.col_record'), cell: (it) => (
       <div className="cell-stack">
-        <strong>#{it.row_id}</strong>
+        <strong>{fmtId(it.row_id)}</strong>
         {previewOf(it.payload) && <span className="muted">{previewOf(it.payload)}</span>}
       </div>
     ) },

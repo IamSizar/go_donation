@@ -19,6 +19,7 @@ import { api, describeError, assetUrl } from '../lib/api'
 import { useI18n, useFieldLabel, useStatusLabel } from '../lib/i18n'
 import { RESOURCE_LABELS } from '../lib/resourceLabels'
 import PageHead from '../components/PageHead'
+import { fmtId } from '../lib/formatId'
 
 type DetailResp = {
   success: true
@@ -165,11 +166,11 @@ export default function DetailPage() {
             <nav className="breadcrumb" aria-label={t('common.breadcrumb')}>
               <Link to={meta.list}>{t(meta.sectionKey)}</Link>
               <span aria-hidden="true"> &gt; </span>
-              <span>{t(meta.labelKey)} #{id}</span>
+              <span>{t(meta.labelKey)} {fmtId(id)}</span>
             </nav>
             <span className="muted">{t('common.read_only_view')}</span>
           </div>
-          <h1>{t(meta.labelKey)} #{id}</h1>
+          <h1>{t(meta.labelKey)} {fmtId(id)}</h1>
         </div>
         <div className="row">
           <button className="secondary" onClick={() => nav(meta.list)}>{t('common.back_to_list')}</button>

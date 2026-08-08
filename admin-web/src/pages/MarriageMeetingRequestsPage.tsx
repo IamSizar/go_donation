@@ -10,6 +10,7 @@ import { useI18n, useStatusLabel } from '../lib/i18n'
 import { useToast } from '../lib/toast'
 import Table, { type Column } from '../components/Table'
 import PageHead from '../components/PageHead'
+import { fmtId } from '../lib/formatId'
 
 type MeetingRequest = {
   id: number
@@ -83,7 +84,7 @@ export default function MarriageMeetingRequestsPage() {
   }
 
   const columns: Column<MeetingRequest>[] = [
-    { key: 'id', header: t('col.id'), width: '60px', cell: (r) => <strong>#{r.id}</strong> },
+    { key: 'id', header: t('col.id'), width: '60px', cell: (r) => <strong>{fmtId(r.id)}</strong> },
     { key: 'from', header: t('page.marriage_requests.from'), cell: (r) => name(r.from_name, r.from_user_id, t) },
     { key: 'profile', header: t('page.marriage_requests.about_profile'), cell: (r) => r.profile_code },
     { key: 'owner', header: t('page.marriage_requests.profile_owner'), cell: (r) => name(r.owner_name, r.owner_user_id, t) },

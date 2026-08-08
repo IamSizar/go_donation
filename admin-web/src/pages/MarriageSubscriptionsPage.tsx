@@ -7,6 +7,7 @@ import { api, describeError } from '../lib/api'
 import { useI18n } from '../lib/i18n'
 import { useToast } from '../lib/toast'
 import PageHead from '../components/PageHead'
+import { fmtId } from '../lib/formatId'
 
 type Package = {
   id: number
@@ -266,7 +267,7 @@ export default function MarriageSubscriptionsPage() {
               <span className="badge tone-warning">{p.payment_method}</span>
             </PageHead>
             <p className="muted">
-              {t('marriageSubscriptions.purchase_user')}: #{p.user_id} · {t('marriageSubscriptions.purchase_price')}:{' '}
+              {t('marriageSubscriptions.purchase_user')}: {fmtId(p.user_id)} · {t('marriageSubscriptions.purchase_price')}:{' '}
               {p.price_iqd.toLocaleString()} IQD · {new Date(p.created_at).toLocaleString()}
             </p>
             <div style={{ display: 'flex', gap: 8 }}>
