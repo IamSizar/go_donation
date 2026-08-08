@@ -2598,7 +2598,9 @@ code, pre { direction: ltr; unicode-bidi: bidi-override; }
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 0 14px;
+  /* Top padding leaves the strip that the page subtitle ("42 total") is
+     lifted into — see .page-head-slot rules below. */
+  padding: 28px 0 14px;
   margin-bottom: 6px;
   border-bottom: 1px solid var(--color-border, rgba(255, 255, 255, 0.08));
   position: sticky;
@@ -2632,6 +2634,30 @@ code, pre { direction: ltr; unicode-bidi: bidi-override; }
   padding-bottom: 0;
   margin-bottom: 0;
   border-bottom: none;
+}
+
+/* Lift the subtitle out of the title block and pin it to the top-left of the
+   bar — above the Back button. That leaves the <h1> alone in the title block,
+   so the bar's align-items:center vertically centres it against Back / Next /
+   Refresh instead of it riding high above a second line.
+   .top-action-bar is position:sticky, so it is the containing block here. */
+.page-head-slot .page-head > div:first-child {
+  display: block;
+  min-width: 0;
+}
+.page-head-slot .page-head > div:first-child > h1 {
+  margin: 0;                     /* h1's default bottom margin would offset
+                                    it from the buttons' centre line */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.page-head-slot .page-head > div:first-child > .muted {
+  position: absolute;
+  top: 7px;
+  inset-inline-start: 0;
+  margin: 0;
+  white-space: nowrap;
 }
 
 /* Below this width the single row runs out of space, so the header drops to
