@@ -1933,6 +1933,7 @@ class AppTranslations extends Translations {
     'Describe your initiative in your own language. Admin can add the other translations later.':
         'Describe your initiative in your own language. Admin can add the other translations later.',
     'Donation update': 'Contribution update',
+    'Crop photo': 'Crop photo',
     'Done': 'Done',
     'Enter 10 digits (or 11 starting with 0)':
         'Enter 10 digits (or 11 starting with 0)',
@@ -4104,6 +4105,7 @@ class AppTranslations extends Translations {
     'Describe your initiative in your own language. Admin can add the other translations later.':
         'صف مبادرتك بلغتك. يمكن للمشرف إضافة الترجمات الأخرى لاحقاً.',
     'Donation update': 'تحديث المساهمة',
+    'Crop photo': 'اقتصاص الصورة',
     'Done': 'تم',
     'Enter 10 digits (or 11 starting with 0)':
         'أدخل 10 أرقام (أو 11 تبدأ بـ 0)',
@@ -6066,6 +6068,7 @@ class AppTranslations extends Translations {
     'Describe your initiative in your own language. Admin can add the other translations later.':
         'پڕۆژەکەت بە زمانی خۆت باس بکە. بەڕێوەبەر دەتوانێت وەرگێڕانەکانی تر دواتر زیاد بکات.',
     'Donation update': 'نوێکردنەوەی بەشداری',
+    'Crop photo': 'بڕینی وێنە',
     'Done': 'تەواو',
     'Enter 10 digits (or 11 starting with 0)':
         '١٠ ژمارە بنووسە (یان ١١ کە بە ٠ دەست پێدەکات)',
@@ -8541,6 +8544,7 @@ class AppTranslations extends Translations {
     'Describe your initiative in your own language. Admin can add the other translations later.':
         'دەستپێکا خۆ ب زمانێ خۆ شرۆڤە بکە. بەڕێڤەبەر دشێت پاشی وەرگێڕانێن دی زێدە بکەت.',
     'Donation update': 'نویکرنا بەشداریێ',
+    'Crop photo': 'برینا وێنەی',
     'Done': 'تەمام',
     'Enter 10 digits (or 11 starting with 0)':
         '١٠ ژمارا بنڤیسە (یان ١١ کو ب ٠ دەست پێدکەت)',

@@ -2846,3 +2846,48 @@ html[dir='rtl'] .data-table th {
   box-shadow: 0 20px 60px rgba(0,0,0,.4);
 }
 .idle-lock-card h2 { margin: 0 0 4px; font-size: 18px; }
+
+/* === Crop dialog (#20) =====================================================
+   The stage sizes itself to the image and the crop box is positioned in
+   percentages of it, so the overlay tracks the <img> at any viewport width
+   without a resize listener. */
+.crop-card { max-width: 720px; width: min(720px, 94vw); }
+.crop-shapes { gap: 6px; flex-wrap: wrap; margin-bottom: var(--space-3); }
+.crop-shapes button { height: 30px; padding: 0 12px; font-size: var(--text-sm); }
+.crop-stage {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  line-height: 0;                 /* kill the inline-image descender gap */
+  background: var(--color-surface-2);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  touch-action: none;             /* pointer drags must not scroll the page */
+  user-select: none;
+}
+.crop-stage img { display: block; max-width: 100%; max-height: 52vh; }
+/* The dimmed surround is a huge spread shadow rather than four extra
+   elements — it always covers exactly "the stage minus the box". */
+.crop-box {
+  position: absolute;
+  cursor: move;
+  border: 1px solid #fff;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+  outline: 1px solid rgba(0, 0, 0, 0.45);   /* keeps the edge visible on white */
+}
+.crop-handle {
+  position: absolute;
+  /* Inside the box, not straddling its corner: when the crop reaches the
+     image edge — which it does by default — the stage's overflow:hidden
+     (needed to clip the dimming shadow) would slice a straddling handle in
+     half. */
+  right: 1px;
+  bottom: 1px;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  background: var(--color-primary);
+  border: 2px solid #fff;
+  cursor: nwse-resize;
+}
+.crop-size { margin-top: var(--space-2); font-size: var(--text-sm); }

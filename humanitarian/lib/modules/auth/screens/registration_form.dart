@@ -16,7 +16,7 @@ import 'package:flutter_application_1/routes/app_routes.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:flutter_application_1/shared/utils/image_pick.dart';
 
 /// New-user onboarding form. Replaces the old "Choose your role" screen:
 /// collects name, date of birth, address and role, then submits the whole
@@ -977,12 +977,9 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
   /// Picks one image and hands the local path to [assign], which stores it in
   /// the matching state field. Shared by every attachment picker on this form.
   Future<void> _pickPhotoInto(void Function(String path) assign) async {
-    final picked = await ImagePicker().pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 85,
-    );
-    if (picked != null && mounted) {
-      setState(() => assign(picked.path));
+    final path = await pickCroppedImage(context);
+    if (path != null && mounted) {
+      setState(() => assign(path));
     }
   }
 

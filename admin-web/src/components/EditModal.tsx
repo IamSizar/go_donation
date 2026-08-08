@@ -24,6 +24,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { describeError } from '../lib/api'
 import { useI18n, useStatusLabel } from '../lib/i18n'
 import FileInput from './FileInput'
+import type { ShapeKey } from './CropDialog'
 import GalleryInput from './GalleryInput'
 
 export type FieldType = 'text' | 'textarea' | 'number' | 'date' | 'select' | 'file' | 'gallery' | 'multiselect' | 'password'
@@ -43,6 +44,11 @@ export type FieldSpec = {
   accept?: string
   // For type='file': hide the preview thumbnail (e.g. for PDFs)
   hidePreview?: boolean
+  // For type='file' (#20): offer the crop step. Defaults to on — every file
+  // field in the dashboard today holds an image. Pass a ShapeKey to pin the
+  // crop to one shape (e.g. 'square' for an avatar), or false to skip it for
+  // a field that holds a document.
+  crop?: boolean | ShapeKey
   // Force a field to take the full grid width regardless of column layout
   full?: boolean
 }
@@ -242,6 +248,7 @@ export default function EditModal({ open, title, initial, fields, onSave, onClos
                       disabled={busy}
                       accept={f.accept}
                       hidePreview={f.hidePreview}
+                      crop={f.crop ?? true}
                     />
                   </div>
                 )

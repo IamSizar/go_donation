@@ -386,6 +386,14 @@ const kmr: DeepPartial<typeof en> = {
     unlock: 'ڤەکرن',
   },
   // بەشا 24 — بەڕێڤەبرنا دەستهەلاتێن سوپەر ئەدمینی.
+  crop: {
+    title: 'برینا وێنەی',
+    apply: 'جێبەجێکرنا برینێ',
+    free: 'ئازاد',
+    square: 'چوارگۆشە',
+    standard: '4:3',
+    wide: '16:9',
+  },
   theme: {
     to_light: 'گهۆڕین بۆ دۆخێ رۆنی',
     to_dark: 'گهۆڕین بۆ دۆخێ تاری',

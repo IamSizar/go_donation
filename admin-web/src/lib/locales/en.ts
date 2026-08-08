@@ -397,6 +397,14 @@ const en = {
     unlock: 'Unlock',
   },
   // Section 24 — Super-Admin Permissions Management.
+  crop: {
+    title: 'Crop photo',
+    apply: 'Apply crop',
+    free: 'Free',
+    square: 'Square',
+    standard: '4:3',
+    wide: '16:9',
+  },
   theme: {
     to_light: 'Switch to light mode',
     to_dark: 'Switch to dark mode',

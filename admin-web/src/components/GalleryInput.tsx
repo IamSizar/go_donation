@@ -42,7 +42,7 @@ export default function GalleryInput({ value, onChange, disabled }: Props) {
       {items.map((item, i) => (
         <div key={i} className="gallery-input-row" style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 8 }}>
           <div style={{ flex: 1 }}>
-            <FileInput value={item} onChange={(next) => setAt(i, next)} disabled={disabled} />
+            <FileInput value={item} onChange={(next) => setAt(i, next)} disabled={disabled} crop />
           </div>
           <button
             type="button"

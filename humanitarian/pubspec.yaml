@@ -63,6 +63,11 @@ dependencies:
   # #39 — international phone number entry on the login screen (country
   # picker with dial codes + flags), replacing the hardcoded +964-only chip.
   country_code_picker: ^3.0.0
+  # #20 — the client wants control over the shape of an uploaded photo rather
+  # than whatever the gallery hands back. Wraps uCrop on Android and
+  # TOCropViewController on iOS, both of which are the platform-native
+  # cropping UIs, so the screen looks like the rest of the OS.
+  image_cropper: ^12.2.1
 
 dependency_overrides:
   # 12.4.0+ calls NSProcessInfo.isiOSAppOnVision (Xcode 26.1+ only). Pin until Xcode is upgraded.

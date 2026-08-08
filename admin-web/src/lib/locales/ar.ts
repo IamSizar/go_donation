@@ -385,6 +385,14 @@ const ar: DeepPartial<typeof en> = {
     unlock: 'فتح',
   },
   // القسم 24 — إدارة صلاحيات المشرف الأعلى.
+  crop: {
+    title: 'اقتصاص الصورة',
+    apply: 'تطبيق الاقتصاص',
+    free: 'حر',
+    square: 'مربع',
+    standard: '4:3',
+    wide: '16:9',
+  },
   theme: {
     to_light: 'التبديل إلى الوضع الفاتح',
     to_dark: 'التبديل إلى الوضع الداكن',

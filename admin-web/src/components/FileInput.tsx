@@ -16,6 +16,7 @@
 import { useRef, useState } from 'react'
 import { api, describeError, assetUrl } from '../lib/api'
 import { useI18n } from '../lib/i18n'
+import CropDialog, { type ShapeKey } from './CropDialog'
 
 type Props = {
   value: string
@@ -26,6 +27,10 @@ type Props = {
   accept?: string
   // When true, the preview thumbnail is hidden (e.g. for PDFs).
   hidePreview?: boolean
+  // #20 — offer a crop step after picking. Off by default so the document
+  // pickers (case files, PDFs) are unaffected; pass a ShapeKey to pin the crop
+  // to one shape, or true to let the admin choose.
+  crop?: boolean | ShapeKey
 }
 
 // Server response shape from POST /api/admin/upload.
@@ -46,10 +51,13 @@ export default function FileInput({
   disabled,
   accept = 'image/*',
   hidePreview,
+  crop,
 }: Props) {
   const { t } = useI18n()
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  // The picked file waiting to be cropped. Non-null while the dialog is open.
+  const [pending, setPending] = useState<File | null>(null)
   const fileRef = useRef<HTMLInputElement | null>(null)
 
   async function pickAndUpload(f: File) {
@@ -98,7 +106,11 @@ export default function FileInput({
           style={{ display: 'none' }}
           onChange={(e) => {
             const f = e.target.files?.[0]
-            if (f) pickAndUpload(f)
+            if (!f) return
+            // Only raster images can be cropped — an SVG or a PDF goes
+            // straight up untouched.
+            if (crop && /^image\/(png|jpeg|gif|webp)$/.test(f.type)) setPending(f)
+            else pickAndUpload(f)
           }}
         />
         <button
@@ -122,6 +134,15 @@ export default function FileInput({
         )}
       </div>
       {err && <div className="file-input-err">{err}</div>}
+      <CropDialog
+        file={pending}
+        lockRatio={typeof crop === 'string' ? crop : undefined}
+        onCancel={() => setPending(null)}
+        onDone={(cropped) => {
+          setPending(null)
+          pickAndUpload(cropped)
+        }}
+      />
     </div>
   )
 }

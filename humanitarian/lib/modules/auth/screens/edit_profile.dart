@@ -7,7 +7,7 @@ import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/widgets/cached_profile_avatar.dart';
 import 'package:get/get.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:flutter_application_1/shared/utils/image_pick.dart';
 
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
@@ -25,7 +25,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _addressController = TextEditingController();
-  final ImagePicker _imagePicker = ImagePicker();
 
   String? _selectedGender;
   String? _profileImagePath;
@@ -98,15 +97,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
   }
 
   Future<void> _pickProfileImage() async {
-    final XFile? image = await _imagePicker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 85,
-    );
+    // Locked to a square: the avatar is drawn in a circle everywhere it
+    // appears, so any other shape would just be cropped again at display time.
+    final path = await pickCroppedImage(context, lockRatio: PhotoShape.square);
 
-    if (image == null || !mounted) return;
+    if (path == null || !mounted) return;
 
     setState(() {
-      _profileImagePath = image.path;
+      _profileImagePath = path;
       _removeProfilePicture = false;
     });
   }

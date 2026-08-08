@@ -12,7 +12,7 @@ import 'package:flutter_application_1/modules/marriage/screens/marriage_my_profi
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:flutter_application_1/shared/utils/image_pick.dart';
 
 // Marriage Posts — resolve a stored photo path to a full URL for preview.
 // Uploads are saved as relative paths (e.g. images/uploads/x.png);
@@ -426,14 +426,16 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
   }
 
   Future<void> _pickPhoto() async {
-    final picked = await ImagePicker().pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 85,
+    // Square — the profile photo is shown as a circular avatar in search
+    // results and on the profile card.
+    final picked = await pickCroppedImage(
+      context,
+      lockRatio: PhotoShape.square,
     );
     if (picked == null || !mounted) return;
     setState(() => _uploadingPhoto = true);
     try {
-      final path = await const ModuleApi().uploadPhoto(File(picked.path));
+      final path = await const ModuleApi().uploadPhoto(File(picked));
       if (mounted) setState(() => _photoUrl = path);
     } catch (e) {
       if (mounted) Get.snackbar('Error'.tr, e.toString());
@@ -449,14 +451,11 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
     String ruleKey,
     void Function(String url) assign,
   ) async {
-    final picked = await ImagePicker().pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 85,
-    );
+    final picked = await pickCroppedImage(context);
     if (picked == null || !mounted) return;
     setState(() => _uploadingAttachment = ruleKey);
     try {
-      final path = await const ModuleApi().uploadPhoto(File(picked.path));
+      final path = await const ModuleApi().uploadPhoto(File(picked));
       if (mounted) setState(() => assign(path));
     } catch (e) {
       if (mounted) Get.snackbar('Error'.tr, e.toString());
