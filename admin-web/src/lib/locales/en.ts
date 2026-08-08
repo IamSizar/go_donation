@@ -397,6 +397,10 @@ const en = {
     unlock: 'Unlock',
   },
   // Section 24 — Super-Admin Permissions Management.
+  theme: {
+    to_light: 'Switch to light mode',
+    to_dark: 'Switch to dark mode',
+  },
   lock: {
     title: 'Section locked',
     body: 'This sensitive section was locked after inactivity. Re-enter your password to continue.',

@@ -18,6 +18,14 @@
 
     <title>BalanceNex Admin</title>
   </head>
+  <script>
+      // Apply the saved theme before first paint — otherwise a light-theme
+      // user sees a dark flash on every load while React boots.
+      try {
+        if (localStorage.getItem('theme') === 'light')
+          document.documentElement.setAttribute('data-theme', 'light')
+      } catch (e) {}
+    </script>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>

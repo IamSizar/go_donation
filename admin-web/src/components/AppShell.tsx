@@ -11,6 +11,7 @@ import { useToast } from '../lib/toast'
 import { navByTo, DEFAULT_NAV_SECTIONS, reconcileNavSections, isNavPathActive, type NavItem, type NavSection } from '../lib/navLayout'
 import SoundMenu from './SoundMenu'
 import ConfirmDialog from './ConfirmDialog'
+import ThemeToggle from './ThemeToggle'
 import TopActionBar from './TopActionBar'
 import { PageHeadSlotContext } from './PageHead'
 import { ChevronDown, ChevronRight, LogOut, Menu, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
@@ -442,6 +443,7 @@ export default function AppShell() {
                 chime, and OS-notification opt-in. Always available so an
                 admin can mute/unmute from any page. */}
             <SoundMenu />
+            <ThemeToggle />
             <select
               value={locale}
               onChange={(e) => setLocale(e.target.value as typeof locale)}
