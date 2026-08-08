@@ -42,6 +42,19 @@ func (h *ProfileHandler) GetNotificationSetting(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "enabled": enabled})
 }
 
+// GET /api/profile/privacy-options — Privacy Settings spec ("Future
+// Development"): the admin-managed catalogue of fields a user may show or
+// hide. The app renders whatever this returns, so adding an option is a DB
+// insert rather than a code change.
+func (h *ProfileHandler) GetPrivacyOptions(c *gin.Context) {
+	opts, err := h.Users.PrivacyFieldOptions(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "items": opts})
+}
+
 // GET /api/profile/privacy (#32) — the current user's hidden profile fields.
 func (h *ProfileHandler) GetFieldPrivacy(c *gin.Context) {
 	user, ok := auth.UserFromGin(c)
@@ -77,6 +90,43 @@ func (h *ProfileHandler) SetFieldPrivacy(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "hidden": req.Hidden})
+}
+
+// GET /api/profile/privacy-extras — Privacy Settings spec: the current
+// display-name choice (real name vs. alias) and social media links.
+func (h *ProfileHandler) GetPrivacyExtras(c *gin.Context) {
+	user, ok := auth.UserFromGin(c)
+	if !ok || user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		return
+	}
+	extras, err := h.Users.GetPrivacyExtras(c.Request.Context(), user.UserID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "extras": extras})
+}
+
+// POST /api/profile/privacy-extras — body {display_name_mode, alias_name,
+// social_facebook, social_instagram, social_telegram}. Replaces the current
+// user's display-name choice and social links.
+func (h *ProfileHandler) SetPrivacyExtras(c *gin.Context) {
+	user, ok := auth.UserFromGin(c)
+	if !ok || user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		return
+	}
+	var req users.PrivacyExtras
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid JSON body."})
+		return
+	}
+	if err := h.Users.SetPrivacyExtras(c.Request.Context(), user.UserID, req); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "extras": req})
 }
 
 // POST /api/profile/notifications (#31) — body {enabled: bool}. Toggles the
@@ -150,7 +200,9 @@ func (h *ProfileHandler) Get(c *gin.Context) {
 
 // POST /api/profile/set
 // multipart/form-data fields: user_id, full_name, address, gender,
-//                              remove_profile_picture, [file: profile_picture]
+//
+//	remove_profile_picture, [file: profile_picture]
+//
 // Bearer required; user_id MUST match the resolved user.
 func (h *ProfileHandler) Set(c *gin.Context) {
 	user, ok := auth.UserFromGin(c)

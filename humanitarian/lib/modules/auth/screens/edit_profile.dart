@@ -46,6 +46,35 @@ class _EditProfilePageState extends State<EditProfilePage> {
       sharedPreferences.setString('profile_picture_url', fixedUrl);
     }
     _remoteProfilePictureUrl = fixedUrl;
+    // Self-heal a stale local cache: older app versions (and a bug in the
+    // registration flow, since fixed) could leave fields like gender saved
+    // on the server but never mirrored into local prefs, so this screen
+    // would wrongly nag the user to re-enter something they already set.
+    // Only refetch when the local copy actually looks incomplete, so this
+    // doesn't clobber an in-progress edit or add a network call for
+    // everyone on every open.
+    if (_selectedGender == null || _selectedGender!.trim().isEmpty) {
+      _refreshFromServer();
+    }
+  }
+
+  Future<void> _refreshFromServer() async {
+    final userId = int.tryParse(sharedPreferences.getString('id_user') ?? '');
+    if (userId == null || userId <= 0) return;
+    final account = await fetchUserAccount(userId);
+    if (account == null || !mounted) return;
+    await applyUserAccountToSharedPreferences(account, includeRoleId: false);
+    if (!mounted) return;
+    setState(() {
+      _selectedGender ??= sharedPreferences.getString('gender_user');
+      if (_nameController.text.isEmpty) {
+        _nameController.text = sharedPreferences.getString('name_user') ?? '';
+      }
+      if (_addressController.text.isEmpty) {
+        _addressController.text =
+            sharedPreferences.getString('address_user') ?? '';
+      }
+    });
   }
 
   @override
@@ -303,12 +332,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 14),
-                      _ProfileCompletionBanner(
-                        isComplete: _isDraftProfileComplete,
-                        missingFields: _draftMissingProfileFields,
-                      ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 10),
                       Text(
                         'Profile picture'.tr,
                         style: TextStyle(
@@ -317,45 +341,31 @@ class _EditProfilePageState extends State<EditProfilePage> {
                           color: AppThemeConfig.text(context),
                         ),
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Choose a photo from your gallery to personalize your account.'
-                            .tr,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: AppThemeConfig.mutedText(context),
-                          height: 1.4,
+                      if (!_isDraftProfileComplete) ...[
+                        const SizedBox(height: 14),
+                        _ProfileCompletionBanner(
+                          isComplete: _isDraftProfileComplete,
+                          missingFields: _draftMissingProfileFields,
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                      Wrap(
-                        spacing: 12,
-                        runSpacing: 12,
-                        alignment: WrapAlignment.center,
-                        children: [
-                          FilledButton.icon(
-                            onPressed: _pickProfileImage,
-                            style: FilledButton.styleFrom(
-                              backgroundColor: _primary,
-                              foregroundColor: Colors.white,
-                            ),
-                            icon: const Icon(Icons.photo_library_outlined),
-                            label: Text('Choose image'.tr),
-                          ),
-                          if (_hasProfileImage)
-                            OutlinedButton.icon(
-                              onPressed: () {
-                                setState(() {
-                                  _profileImagePath = null;
-                                  _remoteProfilePictureUrl = null;
-                                  _removeProfilePicture = true;
-                                });
-                              },
-                              icon: const Icon(Icons.delete_outline_rounded),
-                              label: Text('Remove image'.tr),
-                            ),
-                        ],
-                      ),
+                      ],
+                      // Note: the camera icon on the avatar above is the only
+                      // way to pick a photo now — it used to be duplicated by
+                      // a "Choose image" button here that did the exact same
+                      // thing.
+                      if (_hasProfileImage) ...[
+                        const SizedBox(height: 16),
+                        OutlinedButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              _profileImagePath = null;
+                              _remoteProfilePictureUrl = null;
+                              _removeProfilePicture = true;
+                            });
+                          },
+                          icon: const Icon(Icons.delete_outline_rounded),
+                          label: Text('Remove image'.tr),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -372,18 +382,19 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         child: TextFormField(
                           readOnly: true,
                           initialValue: _displayPhone(),
-                          decoration: _inputDecoration(
-                            context,
-                            label: 'Phone number',
-                            icon: Icons.phone_outlined,
-                          ).copyWith(
-                            suffixIcon: Icon(
-                              Icons.lock_outline_rounded,
-                              size: 18,
-                              color: AppThemeConfig.mutedText(context),
-                            ),
-                            helperText: 'Your verified number'.tr,
-                          ),
+                          decoration:
+                              _inputDecoration(
+                                context,
+                                label: 'Phone number'.tr,
+                                icon: Icons.phone_outlined,
+                              ).copyWith(
+                                suffixIcon: Icon(
+                                  Icons.lock_outline_rounded,
+                                  size: 18,
+                                  color: AppThemeConfig.mutedText(context),
+                                ),
+                                helperText: 'Your verified number'.tr,
+                              ),
                         ),
                       ),
                       const SizedBox(height: 14),
@@ -392,7 +403,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         textInputAction: TextInputAction.next,
                         decoration: _inputDecoration(
                           context,
-                          label: 'Full name',
+                          label: 'Full name'.tr,
                           icon: Icons.person_outline_rounded,
                         ),
                         validator: (value) {
@@ -409,7 +420,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         textInputAction: TextInputAction.done,
                         decoration: _inputDecoration(
                           context,
-                          label: 'Address',
+                          label: 'Address'.tr,
                           icon: Icons.home_outlined,
                         ),
                         validator: (value) {
@@ -626,16 +637,15 @@ class _ProfileCompletionBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final background = isComplete
-        ? const Color(0xFFD1FAE5)
-        : const Color(0xFFFFF4D8);
-    final foreground = isComplete
-        ? const Color(0xFF047857)
-        : const Color(0xFFB45309);
-    final title = isComplete ? 'Profile complete' : 'Complete your profile';
-    final subtitle = isComplete
-        ? 'Your account card is now fully set up.'
-        : 'Add the missing details so your account looks trusted and ready to use.';
+    // Once the profile is complete there's nothing left to prompt the user
+    // about — don't show a "you're done" banner at all, just show nothing.
+    if (isComplete) return const SizedBox.shrink();
+
+    const background = Color(0xFFFFF4D8);
+    const foreground = Color(0xFFB45309);
+    const title = 'Complete your profile';
+    const subtitle =
+        'Add the missing details so your account looks trusted and ready to use.';
 
     return Container(
       width: double.infinity,

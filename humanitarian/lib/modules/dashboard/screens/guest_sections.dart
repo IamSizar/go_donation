@@ -28,7 +28,7 @@ class GuestHomeSection extends StatelessWidget {
     return SafeArea(
       bottom: false,
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 120),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -67,7 +67,11 @@ class GuestHomeSection extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.explore_rounded, color: Colors.white, size: 30),
+                  const Icon(
+                    Icons.explore_rounded,
+                    color: Colors.white,
+                    size: 30,
+                  ),
                   const SizedBox(height: 12),
                   Text(
                     'Explore freely'.tr,
@@ -126,7 +130,7 @@ class GuestAccountSection extends StatelessWidget {
     return SafeArea(
       child: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(28, 24, 28, 120),
+          padding: const EdgeInsets.fromLTRB(28, 24, 28, 24),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -137,8 +141,11 @@ class GuestAccountSection extends StatelessWidget {
                   color: AppThemeConfig.primary.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(Icons.person_outline_rounded,
-                    size: 44, color: AppThemeConfig.primary),
+                child: Icon(
+                  Icons.person_outline_rounded,
+                  size: 44,
+                  color: AppThemeConfig.primary,
+                ),
               ),
               const SizedBox(height: 20),
               Text(
@@ -169,7 +176,9 @@ class GuestAccountSection extends StatelessWidget {
                   label: Text(
                     'Sign in'.tr,
                     style: const TextStyle(
-                        fontWeight: FontWeight.w700, fontSize: 16),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                    ),
                   ),
                   style: FilledButton.styleFrom(
                     backgroundColor: AppThemeConfig.primary,

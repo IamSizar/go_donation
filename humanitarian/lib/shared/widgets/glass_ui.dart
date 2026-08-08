@@ -4,6 +4,36 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:get/get.dart';
 
+/// Lets a horizontal scroller nested inside a horizontally-padded page (the
+/// usual "20px side margin" list) extend all the way to the true screen
+/// edges instead of clipping at the page's own padding boundary — without
+/// negative Padding, which trips RenderPadding's non-negative assertion.
+///
+/// Always give this a bounded height from an ancestor — e.g.
+/// `SizedBox(height: 40, child: FullBleedHorizontal(child: someListView))` —
+/// and never the other way around (`FullBleedHorizontal(child: SizedBox(...))`).
+/// The inner OverflowBox sizes *itself* from its own incoming constraints, so
+/// if this widget sits directly under an unbounded-height parent (a Column or
+/// ListView item), it tries to report an infinite height and corrupts the
+/// rest of that list's layout — symptoms are overlapping siblings and
+/// sections further down silently failing to render.
+class FullBleedHorizontal extends StatelessWidget {
+  const FullBleedHorizontal({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    return OverflowBox(
+      minWidth: 0,
+      maxWidth: screenWidth,
+      alignment: Alignment.center,
+      child: SizedBox(width: screenWidth, child: child),
+    );
+  }
+}
+
 class GradientScreen extends StatelessWidget {
   const GradientScreen({
     super.key,
@@ -16,41 +46,13 @@ class GradientScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Client note — plain white background, no gradient/decorative blur
+    // orbs: a solid Scaffold background already does this (backgroundTop
+    // and backgroundBottom are the same flat color), so no Stack/Container
+    // layering is needed here anymore.
     return Scaffold(
-      body: Stack(
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppThemeConfig.backgroundTop(context),
-                  AppThemeConfig.backgroundBottom(context),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-          ),
-          Positioned(
-            top: -80,
-            right: -40,
-            child: BlurOrb(
-              color: Colors.tealAccent.withValues(alpha: 0.22),
-              size: 220,
-            ),
-          ),
-          if (showBottomOrb)
-            Positioned(
-              bottom: -100,
-              left: -50,
-              child: BlurOrb(
-                color: Colors.blueAccent.withValues(alpha: 0.18),
-                size: 260,
-              ),
-            ),
-          child,
-        ],
-      ),
+      backgroundColor: AppThemeConfig.backgroundTop(context),
+      body: child,
     );
   }
 }
@@ -115,10 +117,20 @@ class GlassPanel extends StatelessWidget {
 }
 
 class PageTopBar extends StatelessWidget {
-  const PageTopBar({super.key, required this.title, this.hideBack = false});
+  const PageTopBar({
+    super.key,
+    required this.title,
+    this.hideBack = false,
+    this.onBack,
+  });
 
   final String title;
   final bool hideBack;
+
+  /// Overrides the default `Navigator.pop()` — for pages reached via
+  /// `Get.offAllNamed` (no route to pop back to), pass a custom action such
+  /// as logging out to the sign-in screen instead.
+  final VoidCallback? onBack;
 
   @override
   Widget build(BuildContext context) {
@@ -131,11 +143,13 @@ class PageTopBar extends StatelessWidget {
               borderRadius: BorderRadius.circular(18),
             ),
             child: IconButton(
-              onPressed: () {
-                if (Navigator.of(context).canPop()) {
-                  Navigator.of(context).pop();
-                }
-              },
+              onPressed:
+                  onBack ??
+                  () {
+                    if (Navigator.of(context).canPop()) {
+                      Navigator.of(context).pop();
+                    }
+                  },
               icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
             ),
           ),
@@ -204,6 +218,22 @@ class SectionScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final canPop = Navigator.of(context).canPop();
+    // If there's nothing to show in the header row (no title, no back
+    // button, no trailing action), collapse it to a small gap instead of
+    // reserving the full header padding for an empty row.
+    if (title.isEmpty && subtitle.isEmpty && !canPop && trailing == null) {
+      return GradientScreen(
+        showBottomOrb: false,
+        child: SafeArea(
+          child: Column(
+            children: [
+              const SizedBox(height: 8),
+              Expanded(child: child),
+            ],
+          ),
+        ),
+      );
+    }
     return GradientScreen(
       showBottomOrb: false,
       child: SafeArea(
@@ -240,16 +270,17 @@ class SectionScaffold extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          title.tr,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
-                            color: AppThemeConfig.text(context),
+                        if (title.isNotEmpty)
+                          Text(
+                            title.tr,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                              color: AppThemeConfig.text(context),
+                            ),
                           ),
-                        ),
                         if (subtitle.isNotEmpty) ...[
                           const SizedBox(height: 6),
                           Text(

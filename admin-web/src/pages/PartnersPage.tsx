@@ -41,6 +41,14 @@ const PARTNER_FIELDS: FieldSpec[] = [
   { key: 'description_ar',      label: 'Description (AR)', labelKey: 'field.description_ar',    type: 'textarea', rows: 3, dir: 'rtl' },
   { key: 'description_sorani',  label: 'Description (Sorani)', labelKey: 'field.description_sorani',type: 'textarea', rows: 3, dir: 'rtl' },
   { key: 'description_badini',  label: 'Description (Badini)', labelKey: 'field.description_badini',type: 'textarea', rows: 3, dir: 'rtl' },
+  // "Partner Rating" — the organization's own assessment, separate from the
+  // crowd star rating users give in the app. 1-5 each; enter 0 to clear one.
+  { key: 'admin_rating',        label: 'Assessed rating (1-5)', labelKey: 'field.admin_rating',        type: 'number', placeholder: '1-5, or 0 to clear' },
+  { key: 'score_activities',    label: 'Completed activities (1-5)', labelKey: 'field.score_activities',    type: 'number', placeholder: '1-5, or 0 to clear' },
+  { key: 'score_donations',     label: 'Value of donations (1-5)', labelKey: 'field.score_donations',     type: 'number', placeholder: '1-5, or 0 to clear' },
+  { key: 'score_cooperation',   label: 'Cooperation (1-5)', labelKey: 'field.score_cooperation',   type: 'number', placeholder: '1-5, or 0 to clear' },
+  { key: 'score_continuity',    label: 'Continuity of support (1-5)', labelKey: 'field.score_continuity',    type: 'number', placeholder: '1-5, or 0 to clear' },
+  { key: 'admin_rating_note',   label: 'Assessment note', labelKey: 'field.admin_rating_note',   type: 'textarea', rows: 2, full: true },
 ]
 
 const CSV_COLUMNS: CsvColumn<Partner>[] = [

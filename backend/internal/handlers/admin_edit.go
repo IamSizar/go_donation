@@ -100,6 +100,63 @@ func (b *setBuilder) exec(c *gin.Context, pool *pgxpool.Pool, table string, id i
 // Partners — PATCH /api/admin/partners/:id
 // ============================================================
 
+// partnerRatingCols is the organization-assessed rating block, in the order
+// the create INSERT lists it. Shared so create and edit can never drift.
+var partnerRatingCols = []string{
+	"admin_rating", "score_activities", "score_donations",
+	"score_cooperation", "score_continuity",
+}
+
+// partnerRatingPatch validates that block ("Partner Rating") for both the
+// create and the edit handler. Each value is 1–5; 0 clears it back to "not
+// assessed". Validated here rather than left to the DB CHECK constraint, so a
+// bad value is a 400 with a message instead of a 500.
+//
+// Returns only the columns the request actually supplied, so an edit patches
+// nothing it wasn't asked to.
+func partnerRatingPatch(c *gin.Context, req *partnerEditReq) (map[string]any, bool) {
+	out := map[string]any{}
+	reject := func(col string) bool {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   col + " must be between 1 and 5, or 0 to clear it.",
+		})
+		return false
+	}
+	if req.AdminRating != nil {
+		switch v := *req.AdminRating; {
+		case v == 0:
+			out["admin_rating"] = nil
+		case v < 1 || v > 5:
+			return nil, reject("admin_rating")
+		default:
+			out["admin_rating"] = v
+		}
+	}
+	for _, sc := range []struct {
+		col string
+		val *int
+	}{
+		{"score_activities", req.ScoreActivities},
+		{"score_donations", req.ScoreDonations},
+		{"score_cooperation", req.ScoreCooperation},
+		{"score_continuity", req.ScoreContinuity},
+	} {
+		if sc.val == nil {
+			continue
+		}
+		switch v := *sc.val; {
+		case v == 0:
+			out[sc.col] = nil
+		case v < 1 || v > 5:
+			return nil, reject(sc.col)
+		default:
+			out[sc.col] = v
+		}
+	}
+	return out, true
+}
+
 type partnerEditReq struct {
 	Name              *string `json:"name"`
 	NameAr            *string `json:"name_ar"`
@@ -121,6 +178,14 @@ type partnerEditReq struct {
 	LocationAr     *string `json:"location_ar"`
 	LocationSorani *string `json:"location_sorani"`
 	LocationBadini *string `json:"location_badini"`
+	// "Partner Rating" — the organization-assessed level and the criteria
+	// behind it. All 1–5; send 0 to clear a score back to "not assessed".
+	AdminRating      *float64 `json:"admin_rating"`
+	AdminRatingNote  *string  `json:"admin_rating_note"`
+	ScoreActivities  *int     `json:"score_activities"`
+	ScoreDonations   *int     `json:"score_donations"`
+	ScoreCooperation *int     `json:"score_cooperation"`
+	ScoreContinuity  *int     `json:"score_continuity"`
 }
 
 func (h *AdminEditHandler) Partner(c *gin.Context) {
@@ -160,7 +225,22 @@ func (h *AdminEditHandler) Partner(c *gin.Context) {
 	addOptString(&b, "location_ar", req.LocationAr)
 	addOptString(&b, "location_sorani", req.LocationSorani)
 	addOptString(&b, "location_badini", req.LocationBadini)
+	// admin_rating_note is NOT NULL DEFAULT '' (migration 090), so it takes
+	// the empty string directly — addOptString would store NULL and fail.
+	if req.AdminRatingNote != nil {
+		b.add("admin_rating_note", strings.TrimSpace(*req.AdminRatingNote))
+	}
 
+	ratings, ok := partnerRatingPatch(c, &req)
+	if !ok {
+		return
+	}
+	// Fixed order so the generated SQL is deterministic.
+	for _, col := range partnerRatingCols {
+		if v, present := ratings[col]; present {
+			b.add(col, v)
+		}
+	}
 	if req.Status != nil {
 		s := strings.TrimSpace(*req.Status)
 		if !inSet(s, partnerStatuses) {
@@ -1199,10 +1279,10 @@ func (h *AdminEditHandler) Donation(c *gin.Context) {
 // ============================================================
 
 type volunteerEditReq struct {
-	FullName *string `json:"full_name"`
-	Phone    *string `json:"phone"`
-	City     *string `json:"city"`
-	Skills   *string `json:"skills"`
+	FullName     *string `json:"full_name"`
+	Phone        *string `json:"phone"`
+	City         *string `json:"city"`
+	Skills       *string `json:"skills"`
 	SkillsAr     *string `json:"skills_ar"`
 	SkillsSorani *string `json:"skills_sorani"`
 	SkillsBadini *string `json:"skills_badini"`

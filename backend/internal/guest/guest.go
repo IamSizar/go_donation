@@ -36,6 +36,13 @@ var Screens = []Screen{
 	{Key: "marketplace", DefaultEnabled: true},
 	{Key: "marriage", DefaultEnabled: true},
 	{Key: "volunteer", DefaultEnabled: false},
+	// "Fifth: Continue as Guest" — the spec's browsing scope also names
+	// following statistics, viewing selected services, and reaching support
+	// options. Added here so each is togglable from the Admin Dashboard like
+	// every other guest screen.
+	{Key: "statistics", DefaultEnabled: true},
+	{Key: "services", DefaultEnabled: true},
+	{Key: "support", DefaultEnabled: true},
 }
 
 func isKnownScreen(key string) bool {

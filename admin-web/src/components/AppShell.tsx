@@ -8,7 +8,7 @@ import { usePendingCounts } from '../lib/pendingCounts'
 import { formatPhone } from '../lib/phone'
 import { RESOURCE_LABELS } from '../lib/resourceLabels'
 import { useToast } from '../lib/toast'
-import { navByTo, DEFAULT_NAV_SECTIONS, reconcileNavSections, type NavItem, type NavSection } from '../lib/navLayout'
+import { navByTo, DEFAULT_NAV_SECTIONS, reconcileNavSections, isNavPathActive, type NavItem, type NavSection } from '../lib/navLayout'
 import SoundMenu from './SoundMenu'
 import ConfirmDialog from './ConfirmDialog'
 import TopActionBar from './TopActionBar'
@@ -34,7 +34,7 @@ function NavItemLink({ n, nested }: { n: NavItem; nested?: boolean }) {
   const sectionMatchPath = location.pathname.startsWith('/detail/')
     ? RESOURCE_LABELS[location.pathname.split('/')[2]]?.list ?? location.pathname
     : location.pathname
-  const isActive = n.to === '/' ? location.pathname === '/' : sectionMatchPath.startsWith(n.to)
+  const isActive = isNavPathActive(sectionMatchPath, n.to)
   const rawCount = n.countKey ? counts[n.countKey] : 0
   const badge = formatBadge(rawCount)
   return (
@@ -275,8 +275,7 @@ export default function AppShell() {
     (!n.superAdminOnly || isSuperAdmin(user)) &&
     // Menu access control (Section 24): hide modules the tier can't view.
     (!n.module || viewable === null || viewable[n.module] !== false)
-  const isItemActive = (n: NavItem) =>
-    n.to === '/' ? location.pathname === '/' : sectionMatchPath.startsWith(n.to)
+  const isItemActive = (n: NavItem) => isNavPathActive(sectionMatchPath, n.to)
 
   return (
     <div className={`app-shell${sidebarCollapsed ? ' sidebar-collapsed' : ''}${mobileNavOpen ? ' mobile-nav-open' : ''}`}>

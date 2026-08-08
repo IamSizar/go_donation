@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
+	"github.com/karam-flutter/humanitarian-backend/internal/mediacategories"
 	"github.com/karam-flutter/humanitarian-backend/internal/notify"
 	"github.com/karam-flutter/humanitarian-backend/internal/sectioncodes"
 	"github.com/karam-flutter/humanitarian-backend/internal/volunteers"
@@ -34,6 +35,9 @@ type AdminCreateHandler struct {
 	// nil, admin-created donations keep the legacy behaviour (NULL reference when
 	// the admin doesn't supply one).
 	Codes *sectioncodes.Store
+	// MediaCategories issues Activity Codes for Our Work posts ("Post
+	// Information"). Optional: nil leaves activity_code empty.
+	MediaCategories *mediacategories.Store
 }
 
 func NewAdminCreateHandler(pool *pgxpool.Pool, n *notify.Notifier) *AdminCreateHandler {
@@ -74,6 +78,23 @@ func requireString(c *gin.Context, name string, val *string) (string, bool) {
 }
 
 // optStringOrNil returns the trimmed value or nil (for nullable columns).
+// categorySlugOf safely reads an optional category slug, trimmed.
+func categorySlugOf(val *string) string {
+	if val == nil {
+		return ""
+	}
+	return strings.TrimSpace(*val)
+}
+
+// derefString returns the trimmed value, or "" when the pointer is nil — for
+// NOT NULL columns, where optStringOrNil's NULL would violate the constraint.
+func derefString(val *string) string {
+	if val == nil {
+		return ""
+	}
+	return strings.TrimSpace(*val)
+}
+
 func optStringOrNil(val *string) any {
 	if val == nil {
 		return nil
@@ -119,13 +140,25 @@ func (h *AdminCreateHandler) Partner(c *gin.Context) {
 			status = s
 		}
 	}
+	// "Partner Rating" — same validation the edit handler uses, so a partner
+	// can be created with an assessment already in place instead of the
+	// values being silently dropped.
+	ratings, ok := partnerRatingPatch(c, &req)
+	if !ok {
+		return
+	}
+
 	var id int64
 	err := h.Pool.QueryRow(c.Request.Context(), `
 		INSERT INTO partners
 		  (name, name_ar, name_sorani, name_badini, partner_type, contact_phone, website,
 		   description, description_ar, description_sorani, description_badini, logo_path, status,
-		   email, social_links, location, location_ar, location_sorani, location_badini)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+		   email, social_links, location, location_ar, location_sorani, location_badini,
+		   admin_rating_note,
+		   admin_rating, score_activities, score_donations, score_cooperation, score_continuity)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,
+		        $20,
+		        $21,$22,$23,$24,$25)
 		RETURNING id`,
 		name,
 		optStringOrNil(req.NameAr), optStringOrNil(req.NameSorani), optStringOrNil(req.NameBadini),
@@ -135,6 +168,12 @@ func (h *AdminCreateHandler) Partner(c *gin.Context) {
 		optStringOrNil(req.Email), optStringOrNil(req.SocialLinks), // #26
 		optStringOrNil(req.Location), optStringOrNil(req.LocationAr),
 		optStringOrNil(req.LocationSorani), optStringOrNil(req.LocationBadini),
+		// NOT NULL DEFAULT '' in migration 090 — send the empty string, never
+		// NULL, or the insert violates the constraint.
+		derefString(req.AdminRatingNote),
+		// Order matches partnerRatingCols, which matches the column list above.
+		ratings["admin_rating"], ratings["score_activities"], ratings["score_donations"],
+		ratings["score_cooperation"], ratings["score_continuity"],
 	).Scan(&id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
@@ -202,13 +241,25 @@ func (h *AdminCreateHandler) Media(c *gin.Context) {
 	if req.Gallery != nil {
 		gallery = cleanStringSlice(*req.Gallery)
 	}
+	// "Post Information" — Activity Code, derived from the post's category so
+	// the code itself identifies which activity list it belongs to. A failure
+	// here leaves the post uncoded rather than blocking the create.
+	activityCode := ""
+	if h.MediaCategories != nil {
+		if code, err := h.MediaCategories.NextActivityCode(
+			c.Request.Context(), h.Pool, categorySlugOf(req.CategorySlug),
+		); err == nil {
+			activityCode = code
+		}
+	}
 	err := h.Pool.QueryRow(c.Request.Context(), `
 		INSERT INTO media_posts
 		  (title, title_ar, title_sorani, title_badini,
 		   body, body_ar, body_sorani, body_badini,
 		   post_type, media_url, link_url, event_date, status, created_by_user_id,
-		   category_slug, location, location_ar, location_sorani, location_badini, gallery)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+		   category_slug, location, location_ar, location_sorani, location_badini, gallery,
+		   activity_code)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
 		RETURNING id`,
 		title,
 		optStringOrNil(req.TitleAr), optStringOrNil(req.TitleSorani), optStringOrNil(req.TitleBadini),
@@ -217,6 +268,7 @@ func (h *AdminCreateHandler) Media(c *gin.Context) {
 		optStringOrNil(req.CategorySlug),                             // #22
 		optStringOrNil(req.Location), optStringOrNil(req.LocationAr), // #23
 		optStringOrNil(req.LocationSorani), optStringOrNil(req.LocationBadini), gallery,
+		activityCode,
 	).Scan(&id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})

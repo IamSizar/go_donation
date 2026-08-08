@@ -153,6 +153,11 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
         return Icons.payments_rounded;
       case 'wallet':
         return Icons.account_balance_wallet_rounded;
+      // Donations Page spec — electronic cards and mobile balance transfer.
+      case 'card':
+        return Icons.credit_card_rounded;
+      case 'mobile':
+        return Icons.smartphone_rounded;
       default:
         return Icons.account_balance_rounded;
     }

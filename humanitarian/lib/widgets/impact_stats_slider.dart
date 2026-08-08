@@ -46,49 +46,34 @@ class _ImpactStatsSliderState extends State<ImpactStatsSlider> {
     if (_slides.length > 1) _startAutoRotate();
   }
 
-  // Build the visible cards, dropping any zero-value metric so we never show a
-  // sad "0 Volunteers" card. Order = most impressive first.
+  // Client note — the home banner slider shows exactly 3 headline numbers:
+  // grantors, beneficiaries, completed activities. Dropping any zero-value
+  // metric so we never show a sad "0 Grantors" card.
   List<_ImpactSlide> _buildSlides(ImpactStats s) {
     final all = <_ImpactSlide>[
-      if (s.totalGiven > 0)
-        _ImpactSlide(
-          icon: Icons.payments_rounded,
-          value: s.totalGiven.toDouble(),
-          label: 'Total given',
-          format: _money,
-          gradient: const [Color(0xFF0F766E), Color(0xFF14B8A6)],
-        ),
-      if (s.completedWorks > 0)
-        _ImpactSlide(
-          icon: Icons.workspace_premium_rounded,
-          value: s.completedWorks.toDouble(),
-          label: 'Completed works',
-          format: _count,
-          gradient: const [Color(0xFF4F46E5), Color(0xFF3B82F6)],
-        ),
       if (s.grantors > 0)
         _ImpactSlide(
           icon: Icons.volunteer_activism_rounded,
           value: s.grantors.toDouble(),
-          label: 'Grantors',
+          label: 'Grantors'.tr,
           format: _count,
           gradient: const [Color(0xFFF59E0B), Color(0xFFEA580C)],
-        ),
-      if (s.volunteers > 0)
-        _ImpactSlide(
-          icon: Icons.handshake_rounded,
-          value: s.volunteers.toDouble(),
-          label: 'Volunteers',
-          format: _count,
-          gradient: const [Color(0xFF0891B2), Color(0xFF06B6D4)],
         ),
       if (s.eligibles > 0)
         _ImpactSlide(
           icon: Icons.diversity_1_rounded,
           value: s.eligibles.toDouble(),
-          label: 'Eligibles',
+          label: 'Beneficiaries'.tr,
           format: _count,
           gradient: const [Color(0xFFDB2777), Color(0xFFF43F5E)],
+        ),
+      if (s.completedWorks > 0)
+        _ImpactSlide(
+          icon: Icons.workspace_premium_rounded,
+          value: s.completedWorks.toDouble(),
+          label: 'Completed activities'.tr,
+          format: _count,
+          gradient: const [Color(0xFF4F46E5), Color(0xFF3B82F6)],
         ),
     ];
     return all;
@@ -96,19 +81,25 @@ class _ImpactStatsSliderState extends State<ImpactStatsSlider> {
 
   String _count(double v) => NumberFormat.decimalPattern().format(v.round());
 
-  String _money(double v) =>
-      '${NumberFormat.decimalPattern().format(v.round())} IQD';
-
   void _startAutoRotate() {
     _timer?.cancel();
     _timer = Timer.periodic(_rotateEvery, (_) {
       if (!mounted || !_pageController.hasClients || _slides.length < 2) return;
       final next = (_current + 1) % _slides.length;
-      _pageController.animateToPage(
-        next,
-        duration: const Duration(milliseconds: 550),
-        curve: Curves.easeInOutCubic,
-      );
+      // The Home tab can be kept alive off-screen (e.g. behind an
+      // IndexedStack) so `mounted` stays true even while this widget is
+      // briefly deactivated during tab/navigation transitions. Animating the
+      // PageController in that window throws (framework asserts the element
+      // is active), which otherwise goes uncaught and stalls the frame.
+      try {
+        _pageController.animateToPage(
+          next,
+          duration: const Duration(milliseconds: 550),
+          curve: Curves.easeInOutCubic,
+        );
+      } catch (_) {
+        // Skip this rotation tick; the next timer fire will retry.
+      }
     });
   }
 
@@ -128,8 +119,9 @@ class _ImpactStatsSliderState extends State<ImpactStatsSlider> {
     // never RenderFlex-overflow — including large accessibility text sizes and
     // taller Arabic/Kurdish glyphs. Fixed chrome (icon chip + paddings) ≈ 94px;
     // the number+label text block (≈ 59px at 1.0×) grows with the scale.
-    final textScale =
-        MediaQuery.textScalerOf(context).scale(1.0).clamp(1.0, 1.3);
+    final textScale = MediaQuery.textScalerOf(
+      context,
+    ).scale(1.0).clamp(1.0, 1.3);
     final cardHeight = 94 + 59 * textScale;
 
     return Column(
@@ -137,8 +129,11 @@ class _ImpactStatsSliderState extends State<ImpactStatsSlider> {
       children: [
         Row(
           children: [
-            const Icon(Icons.insights_rounded,
-                size: 18, color: Color(0xFF14B8A6)),
+            const Icon(
+              Icons.insights_rounded,
+              size: 18,
+              color: Color(0xFF14B8A6),
+            ),
             const SizedBox(width: 8),
             Text(
               'Our impact'.tr,

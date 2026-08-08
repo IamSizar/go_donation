@@ -4,6 +4,7 @@ import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/data/featured_campaigns.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
+import 'package:flutter_application_1/shared/widgets/operation_status_badge.dart';
 import 'package:get/get.dart';
 
 /// Full campaign details from the list API; opened when the user taps a featured card.
@@ -339,14 +340,23 @@ class _HeroSummaryCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      c.title,
-                      style: TextStyle(
-                        color: AppThemeConfig.text(context),
-                        fontWeight: FontWeight.w800,
-                        fontSize: 22,
-                        height: 1.25,
-                      ),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            c.title,
+                            style: TextStyle(
+                              color: AppThemeConfig.text(context),
+                              fontWeight: FontWeight.w800,
+                              fontSize: 22,
+                              height: 1.25,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        OperationStatusBadge(progress: c.fundedProgress),
+                      ],
                     ),
                     if (c.category.isNotEmpty) ...[
                       const SizedBox(height: 8),

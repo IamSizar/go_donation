@@ -1752,3 +1752,47 @@ func StaffChatNewMessageMsg(senderName, preview string, threadID int64) Localize
 		},
 	}
 }
+
+// SponsorshipDueGrantorMsg — "Eighth: Sponsorship Schedule and Calendar":
+// reminds the grantor that a recurring contribution is coming due.
+func SponsorshipDueGrantorMsg(amount, currency, dueDate string, occurrenceID int64) LocalizedMessage {
+	return LocalizedMessage{
+		Type:              "sponsorship_due_grantor",
+		RelatedEntityType: "sponsorship_schedule",
+		RelatedEntityID:   occurrenceID,
+		Title: LocalText{
+			En:  "Upcoming contribution",
+			Ar:  "مساهمة مستحقة قريباً",
+			Ckb: "بەشداری نزیک",
+			Kmr: "بەشداریا نێزیک",
+		},
+		Body: LocalText{
+			En:  fmt.Sprintf("Your %s %s contribution is due on %s.", amount, currency, dueDate),
+			Ar:  fmt.Sprintf("مساهمتك بمبلغ %s %s مستحقة بتاريخ %s.", amount, currency, dueDate),
+			Ckb: fmt.Sprintf("بەشداریەکەت بە بڕی %s %s لە %s کاتی هاتووە.", amount, currency, dueDate),
+			Kmr: fmt.Sprintf("بەشداریا تە یا %s %s د %s دا دەمێ وێ یە.", amount, currency, dueDate),
+		},
+	}
+}
+
+// SponsorshipDueRecipientMsg — reminds the eligible recipient that assistance
+// is available to collect.
+func SponsorshipDueRecipientMsg(amount, currency, dueDate string, occurrenceID int64) LocalizedMessage {
+	return LocalizedMessage{
+		Type:              "sponsorship_due_recipient",
+		RelatedEntityType: "sponsorship_schedule",
+		RelatedEntityID:   occurrenceID,
+		Title: LocalText{
+			En:  "Assistance due",
+			Ar:  "مساعدة مستحقة",
+			Ckb: "یارمەتی کاتی هاتووە",
+			Kmr: "هاریکاری دەمێ وێ یە",
+		},
+		Body: LocalText{
+			En:  fmt.Sprintf("Your %s %s assistance is scheduled for %s.", amount, currency, dueDate),
+			Ar:  fmt.Sprintf("مساعدتك بمبلغ %s %s مقررة بتاريخ %s.", amount, currency, dueDate),
+			Ckb: fmt.Sprintf("یارمەتییەکەت بە بڕی %s %s بۆ %s دیاریکراوە.", amount, currency, dueDate),
+			Kmr: fmt.Sprintf("هاریکاریا تە یا %s %s بۆ %s هاتیە دیارکرن.", amount, currency, dueDate),
+		},
+	}
+}

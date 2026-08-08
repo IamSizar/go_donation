@@ -3,32 +3,35 @@ package marketplace
 import (
 	"context"
 	"errors"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/karam-flutter/humanitarian-backend/internal/sectioncodes"
 )
 
 // Product is the row shape returned by GET /api/marketplace.
 type Product struct {
-	ID                 int64   `json:"id"`
-	SellerUserID       *int    `json:"seller_user_id"`
-	BeneficiaryCaseID  *int64  `json:"beneficiary_case_id"`
-	Name               string  `json:"name"`
-	NameAr             *string `json:"name_ar"`
-	NameSorani         *string `json:"name_sorani"`
-	NameBadini         *string `json:"name_badini"`
-	Description        *string `json:"description"`
-	DescriptionAr      *string `json:"description_ar"`
-	DescriptionSorani  *string `json:"description_sorani"`
-	DescriptionBadini  *string `json:"description_badini"`
-	Category           *string `json:"category"`
-	Price              string  `json:"price"`
-	Currency           string  `json:"currency"`
-	ImagePath          *string `json:"image_path"`
-	StockQuantity      *int    `json:"stock_quantity"`
-	Status             string  `json:"status"`
+	ID                int64   `json:"id"`
+	SellerUserID      *int    `json:"seller_user_id"`
+	BeneficiaryCaseID *int64  `json:"beneficiary_case_id"`
+	Name              string  `json:"name"`
+	NameAr            *string `json:"name_ar"`
+	NameSorani        *string `json:"name_sorani"`
+	NameBadini        *string `json:"name_badini"`
+	Description       *string `json:"description"`
+	DescriptionAr     *string `json:"description_ar"`
+	DescriptionSorani *string `json:"description_sorani"`
+	DescriptionBadini *string `json:"description_badini"`
+	Category          *string `json:"category"`
+	Price             string  `json:"price"`
+	Currency          string  `json:"currency"`
+	ImagePath         *string `json:"image_path"`
+	StockQuantity     *int    `json:"stock_quantity"`
+	Status            string  `json:"status"`
 	// #28 — CMS category + SKU + specs + labels.
 	CategorySlug *string  `json:"category_slug"`
 	SKU          *string  `json:"sku"`
@@ -38,27 +41,31 @@ type Product struct {
 
 // Order is the row shape returned by ?view=orders.
 type Order struct {
-	ID              int64     `json:"id"`
-	ProductID       int64     `json:"product_id"`
-	BuyerUserID     *int      `json:"buyer_user_id"`
-	Quantity        int       `json:"quantity"`
-	TotalAmount     string    `json:"total_amount"`
-	Currency        string    `json:"currency"`
-	Status          string    `json:"status"`
-	BuyerNote       *string   `json:"buyer_note"`
-	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
+	ID          int64     `json:"id"`
+	ProductID   int64     `json:"product_id"`
+	BuyerUserID *int      `json:"buyer_user_id"`
+	Quantity    int       `json:"quantity"`
+	TotalAmount string    `json:"total_amount"`
+	Currency    string    `json:"currency"`
+	Status      string    `json:"status"`
+	BuyerNote   *string   `json:"buyer_note"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 	// Joined product columns:
-	Name              *string `json:"name"`
-	NameAr            *string `json:"name_ar"`
-	NameSorani        *string `json:"name_sorani"`
-	NameBadini        *string `json:"name_badini"`
-	Category          *string `json:"category"`
-	ImagePath         *string `json:"image_path"`
+	Name       *string `json:"name"`
+	NameAr     *string `json:"name_ar"`
+	NameSorani *string `json:"name_sorani"`
+	NameBadini *string `json:"name_badini"`
+	Category   *string `json:"category"`
+	ImagePath  *string `json:"image_path"`
 }
 
 type Store struct {
 	Pool *pgxpool.Pool
+	// "Sixth/Seventh: Donations Page" — issues this section's Transaction
+	// Code and alerts its configured phone. Optional: when unset, orders are
+	// created exactly as before, just without a code.
+	Arrivals sectioncodes.ArrivalNotifier
 }
 
 func NewStore(pool *pgxpool.Pool) *Store {
@@ -394,15 +401,26 @@ func (s *Store) CreateOrder(
 		noteArg = buyerNote
 	}
 
+	// "Our Products" section Transaction Code, issued on the pool (a failure
+	// here must not fail the order — the code is stored as '' and the order
+	// still completes).
+	txnCode := s.Arrivals.Issue(ctx, s.Pool, "products")
+
 	err = s.Pool.QueryRow(ctx, `
 		INSERT INTO marketplace_orders
-		   (product_id, buyer_user_id, quantity, total_amount, currency, buyer_note)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		   (product_id, buyer_user_id, quantity, total_amount, currency, buyer_note, transaction_code)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING id`,
-		productID, buyerUserID, quantity, total, currency, noteArg,
+		productID, buyerUserID, quantity, total, currency, noteArg, txnCode,
 	).Scan(&newID)
 	if err != nil {
 		return 0, OrderCreated, 0, err
 	}
+	s.Arrivals.Notify("products", formatAmount(total), txnCode)
 	return newID, OrderCreated, 0, nil
+}
+
+// formatAmount renders a money value for the arrival SMS.
+func formatAmount(v float64) string {
+	return strconv.FormatFloat(v, 'f', -1, 64)
 }

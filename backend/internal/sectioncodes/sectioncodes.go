@@ -8,6 +8,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -128,4 +130,90 @@ func (s *Store) NextReference(ctx context.Context, q Querier, kind string) (code
 		return "", false, scanErr
 	}
 	return fmt.Sprintf("%s-%06d", prefix, seq), true, nil
+}
+
+// ArrivalNotifier issues a Transaction Code for a section and fires the
+// section's arrival SMS. It exists so every payment surface (donations,
+// marketplace orders, marriage subscriptions, …) gets the same behaviour
+// without each one re-implementing it — "Sixth/Seventh: Donations Page".
+//
+// SendSMS is optional; when nil the SMS step is skipped and only the code is
+// issued. Both steps are best-effort: a notification failure never fails the
+// payment.
+type ArrivalNotifier struct {
+	Codes   *Store
+	SendSMS func(ctx context.Context, phone, message string) error
+}
+
+// Issue returns a Transaction Code for the given section, or "" when the
+// section has no configured namespace. Pass a tx as q to make the number
+// consumption roll back with the payment.
+func (a ArrivalNotifier) Issue(ctx context.Context, q Querier, section string) string {
+	if a.Codes == nil {
+		return ""
+	}
+	code, ok, err := a.Codes.NextReference(ctx, q, section)
+	if err != nil || !ok {
+		return ""
+	}
+	return code
+}
+
+// Notify fires the section's arrival SMS on a detached goroutine so a slow
+// send never blocks the caller's response. No-op when SMS isn't wired, the
+// section has no phone, or alerts are switched off for it.
+func (a ArrivalNotifier) Notify(section, amount, code string) {
+	if a.SendSMS == nil || a.Codes == nil || code == "" {
+		return
+	}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		phone, enabled, ok, err := a.Codes.GetNotify(ctx, section)
+		if err != nil || !ok || !enabled {
+			return
+		}
+		phone = strings.TrimSpace(phone)
+		if phone == "" {
+			return
+		}
+		if err := a.SendSMS(ctx, phone, ArrivalSMS(section, amount, code)); err != nil {
+			log.Printf("[payment-sms] section=%s code=%s: %v", section, code, err)
+		}
+	}()
+}
+
+// ArrivalSMS builds the Arabic arrival alert: section, amount and Transaction
+// Code — the three things both specs require the message to carry.
+func ArrivalSMS(section, amount, code string) string {
+	amt := strings.TrimSpace(amount)
+	if amt == "" {
+		amt = "—"
+	}
+	return fmt.Sprintf("عملية جديدة (%s): %s د.ع — الرمز: %s", SectionLabelAr(section), amt, code)
+}
+
+// SectionLabelAr maps a section key to its Arabic label for the SMS.
+func SectionLabelAr(section string) string {
+	switch section {
+	case "general":
+		return "عام"
+	case "campaign":
+		return "حملة"
+	case "sponsorship":
+		return "كفالة"
+	case "in_kind":
+		return "عينية"
+	case "operational":
+		return "تشغيلية"
+	case "products":
+		return "منتجاتنا"
+	case "marriage":
+		return "الخطوبة والزواج"
+	case "projects":
+		return "المشاريع"
+	case "achievements":
+		return "إنجازاتنا"
+	}
+	return section
 }

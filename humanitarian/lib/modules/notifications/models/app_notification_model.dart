@@ -131,6 +131,13 @@ class AppNotificationModel {
         type.contains('case')) {
       return 'urgent';
     }
+    // Due-date reminders belong in the Reminder filter, not Payment. Must
+    // precede the payment/sponsorship check, which would otherwise claim
+    // anything named *_due_* first. Mirrors resolveCategory in
+    // internal/notify/notify.go — keep the two orderings in sync.
+    if (type.contains('reminder') || type.contains('due')) {
+      return 'reminder';
+    }
     if (type.contains('payment') ||
         type.contains('donation') ||
         type.contains('sponsorship')) {
@@ -142,9 +149,6 @@ class AppNotificationModel {
         type == 'news' ||
         type == 'activity') {
       return 'campaign';
-    }
-    if (type.contains('reminder') || type.contains('due')) {
-      return 'reminder';
     }
     if (type.contains('system') || type.contains('admin')) {
       return 'system';

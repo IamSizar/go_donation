@@ -81,8 +81,8 @@ class _RegisterPageState extends State<RegisterPage> {
                     style: const TextStyle(color: Colors.white),
                     cursorColor: Colors.white,
                     decoration: authInputDecoration(
-                      label: 'Email',
-                      hintText: 'name@example.com',
+                      label: 'Email'.tr,
+                      hintText: 'name@example.com'.tr,
                       icon: Icons.mail_outline_rounded,
                     ),
                     keyboardType: TextInputType.emailAddress,
@@ -102,8 +102,8 @@ class _RegisterPageState extends State<RegisterPage> {
                     style: const TextStyle(color: Colors.white),
                     cursorColor: Colors.white,
                     decoration: authInputDecoration(
-                      label: 'Password',
-                      hintText: 'At least 6 characters',
+                      label: 'Password'.tr,
+                      hintText: 'At least 6 characters'.tr,
                       icon: Icons.lock_outline_rounded,
                       suffixIcon: IconButton(
                         icon: Icon(
@@ -134,8 +134,8 @@ class _RegisterPageState extends State<RegisterPage> {
                     style: const TextStyle(color: Colors.white),
                     cursorColor: Colors.white,
                     decoration: authInputDecoration(
-                      label: 'Confirm Password',
-                      hintText: 'Repeat your password',
+                      label: 'Confirm Password'.tr,
+                      hintText: 'Repeat your password'.tr,
                       icon: Icons.verified_user_outlined,
                     ),
                     obscureText: !showPassword,

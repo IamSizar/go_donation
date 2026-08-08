@@ -2,16 +2,20 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/links.dart';
 import 'package:flutter_application_1/api/wallet_api.dart';
+import 'package:flutter_application_1/modules/community/screens/community_services_section.dart';
 import 'package:flutter_application_1/modules/dashboard/controllers/featured_campaigns_controller.dart';
 import 'package:flutter_application_1/modules/donations/screens/campaign_detail_screen.dart';
 import 'package:flutter_application_1/modules/donations/screens/donations_section.dart';
 import 'package:flutter_application_1/modules/donations/screens/my_donations_page.dart';
+import 'package:flutter_application_1/modules/marketplace/screens/marketplace_section.dart';
 import 'package:flutter_application_1/modules/proposal/controllers/partners_controller.dart';
 import 'package:flutter_application_1/modules/proposal/controllers/media_posts_controller.dart';
 import 'package:flutter_application_1/modules/proposal/screens/partners_screen.dart';
 import 'package:flutter_application_1/modules/proposal/screens/news_activities_screen.dart';
 import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/modules/dashboard/controllers/role_dashboard_controller.dart';
+import 'package:flutter_application_1/modules/dashboard/screens/lucky_coupon_screen.dart';
+import 'package:flutter_application_1/modules/dashboard/screens/wheel_of_fortune_screen.dart';
 import 'package:flutter_application_1/modules/history/screens/role_history_screen.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_my_projects_screen.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_pending_projects_screen.dart';
@@ -19,8 +23,10 @@ import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_su
 import 'package:flutter_application_1/modules/sponsorship/screens/orphan_family_profiles_screen.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/sponsorship_overview_screen.dart';
 import 'package:flutter_application_1/modules/support/screens/support_section.dart';
-import 'package:flutter_application_1/modules/bot/screens/bot_chat_screen.dart';
 import 'package:flutter_application_1/shared/widgets/case_category_capsules.dart';
+import 'package:flutter_application_1/shared/widgets/glass_ui.dart'
+    show FullBleedHorizontal;
+import 'package:flutter_application_1/shared/widgets/operation_status_badge.dart';
 import 'package:flutter_application_1/widgets/firebase_screen_add.dart';
 import 'package:flutter_application_1/widgets/impact_stats_slider.dart';
 import 'package:get/get.dart';
@@ -101,27 +107,8 @@ class DashboardHomeSection extends StatelessWidget {
     return DateFormat('dd MMM yyyy').format(parsed.toLocal());
   }
 
-  String _roleSubtitle(String roleKey) {
-    return switch (roleKey) {
-      'beneficiary' =>
-        'Follow your requests, approvals, and support progress from one place.',
-      'volunteer' =>
-        'Keep your missions, application status, and field updates in view.',
-      _ => 'Track your donations, campaigns, and trust signals from one place.',
-    };
-  }
-
-  String _heroBadge(String roleKey) {
-    return switch (roleKey) {
-      'beneficiary' => 'Support follow-up',
-      'volunteer' => 'Mission tracker',
-      _ => 'Giving analytics',
-    };
-  }
-
   Widget _buildHero({
     required String firstName,
-    required String badge,
     required Widget primaryAction,
     required Widget secondaryAction,
     required List<Widget> stats,
@@ -162,47 +149,17 @@ class DashboardHomeSection extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 9,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.16),
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.18),
+                Padding(
+                  padding: const EdgeInsets.only(top: 14),
+                  child: Text(
+                    'Welcome back, @name'.trParams({'name': firstName}),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
                     ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.auto_awesome_rounded,
-                        color: Colors.white,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        badge.tr,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  'Welcome back,\n@name'.trParams({'name': firstName}),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                    height: 1.15,
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -273,7 +230,7 @@ class DashboardHomeSection extends StatelessWidget {
     final stats = Map<String, dynamic>.from(summary['stats'] as Map? ?? {});
     final recentDonations = _listValue(summary, 'recent_donations');
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
       children: [
         _buildHero(
           firstName:
@@ -281,10 +238,9 @@ class DashboardHomeSection extends StatelessWidget {
                       .trim())
                   .split(RegExp(r'\s+'))
                   .first,
-          badge: _heroBadge('donor'),
           primaryAction: _heroPrimaryButton(
             icon: Icons.favorite_rounded,
-            label: 'Make donation',
+            label: 'Make donation'.tr,
             onTap: () => Get.to(() => const DonationsSection()),
           ),
           secondaryAction: _WatchNowButton(
@@ -311,6 +267,8 @@ class DashboardHomeSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 18),
+        const _TopShortcutsRow(),
+        const SizedBox(height: 18),
         // Note #42, Section One — Financial Wallet (test phase).
         const _WalletCard(),
         const SizedBox(height: 18),
@@ -320,25 +278,25 @@ class DashboardHomeSection extends StatelessWidget {
           items: [
             _StatItem(
               value: '${_intValue(stats, 'successful_count')}',
-              label: 'Confirmed donations',
+              label: 'Confirmed donations'.tr,
               icon: Icons.volunteer_activism_rounded,
               color: Colors.green,
             ),
             _StatItem(
               value: '${_intValue(stats, 'pending_count')}',
-              label: 'Pending payments',
+              label: 'Pending payments'.tr,
               icon: Icons.hourglass_top_rounded,
               color: Colors.orange,
             ),
             _StatItem(
               value: '${_intValue(stats, 'active_campaigns')}',
-              label: 'Open campaigns',
+              label: 'Open campaigns'.tr,
               icon: Icons.track_changes_rounded,
               color: Colors.indigo,
             ),
             _StatItem(
               value: '${_intValue(stats, 'pending_sponsorships')}',
-              label: 'Pending sponsorships',
+              label: 'Pending sponsorships'.tr,
               icon: Icons.schedule_rounded,
               color: Colors.pink,
             ),
@@ -380,8 +338,35 @@ class DashboardHomeSection extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 22),
-        const _ExploreRow(),
+        const SizedBox(height: 12),
+        _GlassPanel(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          child: Row(
+            children: [
+              Expanded(
+                child: _QuickAction(
+                  icon: Icons.casino_rounded,
+                  label: 'Wheel of Fortune',
+                  color: Colors.deepPurple,
+                  compact: true,
+                  badgeLabel: 'New',
+                  onTap: () => Get.to(() => const WheelOfFortuneScreen()),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _QuickAction(
+                  icon: Icons.card_giftcard_rounded,
+                  label: 'Lucky Coupon',
+                  color: Colors.pinkAccent,
+                  compact: true,
+                  badgeLabel: 'New',
+                  onTap: () => Get.to(() => const LuckyCouponScreen()),
+                ),
+              ),
+            ],
+          ),
+        ),
         const SizedBox(height: 22),
         // Quick Filter Capsules (client spec, Home "Section Three") — tap a
         // category to jump straight into Orphan & Family Profiles filtered
@@ -390,9 +375,8 @@ class DashboardHomeSection extends StatelessWidget {
         const SizedBox(height: 12),
         CaseCategoryCapsules(
           selected: null,
-          onSelected: (slug) => Get.to(
-            () => OrphanFamilyProfilesScreen(initialCategory: slug),
-          ),
+          onSelected: (slug) =>
+              Get.to(() => OrphanFamilyProfilesScreen(initialCategory: slug)),
         ),
         const SizedBox(height: 22),
         const _FeaturedCampaignsSection(),
@@ -459,7 +443,7 @@ class DashboardHomeSection extends StatelessWidget {
     final recentCases = _listValue(summary, 'recent_cases');
     final recentRequests = _listValue(summary, 'recent_requests');
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
       children: [
         _buildHero(
           firstName:
@@ -467,10 +451,9 @@ class DashboardHomeSection extends StatelessWidget {
                       .trim())
                   .split(RegExp(r'\s+'))
                   .first,
-          badge: _heroBadge('beneficiary'),
           primaryAction: _heroPrimaryButton(
             icon: Icons.add_circle_rounded,
-            label: 'Submit request',
+            label: 'Submit request'.tr,
             onTap: () => Get.to(() => const BeneficiarySubmitProjectScreen()),
             onLongPress: () => Get.to(() => const FirebaseScreenAdd()),
           ),
@@ -499,6 +482,8 @@ class DashboardHomeSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 18),
+        const _TopShortcutsRow(),
+        const SizedBox(height: 18),
         const ImpactStatsSlider(),
         const SizedBox(height: 20),
         const _FeaturedCampaignsSection(),
@@ -507,25 +492,25 @@ class DashboardHomeSection extends StatelessWidget {
           items: [
             _StatItem(
               value: '${_intValue(stats, 'approved_cases')}',
-              label: 'Approved cases',
+              label: 'Approved cases'.tr,
               icon: Icons.verified_rounded,
               color: Colors.green,
             ),
             _StatItem(
               value: '${_intValue(stats, 'needs_changes_cases')}',
-              label: 'Needs changes',
+              label: 'Needs changes'.tr,
               icon: Icons.edit_note_rounded,
               color: Colors.orange,
             ),
             _StatItem(
               value: '${_intValue(stats, 'approved_requests')}',
-              label: 'Approved requests',
+              label: 'Approved requests'.tr,
               icon: Icons.volunteer_activism_rounded,
               color: Colors.teal,
             ),
             _StatItem(
               value: '${_intValue(stats, 'open_support_tickets')}',
-              label: 'Open support tickets',
+              label: 'Open support tickets'.tr,
               icon: Icons.support_agent_rounded,
               color: Colors.indigo,
             ),
@@ -570,8 +555,6 @@ class DashboardHomeSection extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 22),
-        const _ExploreRow(),
         const SizedBox(height: 22),
         const _SectionLabel(title: 'Recent case updates'),
         const SizedBox(height: 12),
@@ -641,7 +624,7 @@ class DashboardHomeSection extends StatelessWidget {
     final upcomingMissions = _listValue(summary, 'upcoming_missions');
     final applicationStatus = (stats['application_status'] ?? '').toString();
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
       children: [
         _buildHero(
           firstName:
@@ -649,10 +632,9 @@ class DashboardHomeSection extends StatelessWidget {
                       .trim())
                   .split(RegExp(r'\s+'))
                   .first,
-          badge: _heroBadge('volunteer'),
           primaryAction: _heroPrimaryButton(
             icon: Icons.front_hand_rounded,
-            label: 'Open missions',
+            label: 'Open missions'.tr,
             onTap: () => Get.to(() => const SupportSection()),
           ),
           secondaryAction: _WatchNowButton(
@@ -680,6 +662,8 @@ class DashboardHomeSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 18),
+        const _TopShortcutsRow(),
+        const SizedBox(height: 18),
         const ImpactStatsSlider(),
         const SizedBox(height: 20),
         const _FeaturedCampaignsSection(),
@@ -688,13 +672,13 @@ class DashboardHomeSection extends StatelessWidget {
           items: [
             _StatItem(
               value: '${_intValue(stats, 'available_missions')}',
-              label: 'Available missions',
+              label: 'Available missions'.tr,
               icon: Icons.assignment_turned_in_rounded,
               color: Colors.cyan,
             ),
             _StatItem(
               value: '${_intValue(stats, 'completed_missions')}',
-              label: 'Completed missions',
+              label: 'Completed missions'.tr,
               icon: Icons.workspace_premium_rounded,
               color: Colors.green,
             ),
@@ -702,13 +686,13 @@ class DashboardHomeSection extends StatelessWidget {
               value: applicationStatus.isEmpty
                   ? 'None'
                   : applicationStatus.replaceAll('_', ' '),
-              label: 'Application status',
+              label: 'Application status'.tr,
               icon: Icons.person_add_alt_1_rounded,
               color: Colors.orange,
             ),
             _StatItem(
               value: (application['city'] ?? '—').toString(),
-              label: 'Application city',
+              label: 'Application city'.tr,
               icon: Icons.location_city_rounded,
               color: Colors.indigo,
             ),
@@ -751,8 +735,6 @@ class DashboardHomeSection extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 22),
-        const _ExploreRow(),
         const SizedBox(height: 22),
         const _SectionLabel(title: 'My mission schedule'),
         const SizedBox(height: 12),
@@ -798,19 +780,11 @@ class DashboardHomeSection extends StatelessWidget {
     return Obx(() {
       final roleKey = _roleKey(controller);
       return _SectionScaffold(
-        title: roleKey == 'donor'
-            ? 'Donor dashboard'
-            : roleKey == 'beneficiary'
-            ? 'Beneficiary dashboard'
-            : roleKey == 'volunteer'
-            ? 'Volunteer dashboard'
-            : 'Dashboard',
-        subtitle: _roleSubtitle(roleKey),
-        // Note #41 — the profile avatar moved to the persistent top bar
-        // (shown above every tab now, not just Home), so it's no longer
-        // repeated here too. The Technical support and Refresh header
-        // buttons were removed — support is reachable from Settings, and
-        // refreshing is now a plain pull-to-refresh on the list below.
+        // Note #41 — the title and profile avatar moved to the persistent
+        // top bar (shown above every tab now, not just Home), so neither is
+        // repeated here. The Technical support and Refresh header buttons
+        // were removed — support is reachable from Settings, and refreshing
+        // is now a plain pull-to-refresh on the list below.
         child: Builder(
           builder: (context) {
             if (controller.isLoading.value && controller.summary.isEmpty) {
@@ -849,10 +823,10 @@ class DashboardHomeSection extends StatelessWidget {
                 'beneficiary' => _buildBeneficiaryDashboard(context, summary),
                 'volunteer' => _buildVolunteerDashboard(context, summary),
                 _ => _buildDonorDashboard(
-                    context,
-                    summary,
-                    campaignsController,
-                  ),
+                  context,
+                  summary,
+                  campaignsController,
+                ),
               },
             );
           },
@@ -957,10 +931,7 @@ class _WalletCardState extends State<_WalletCard> {
             label: 'How do I add funds?'.tr,
             child: IconButton(
               tooltip: 'How do I add funds?'.tr,
-              icon: const Icon(
-                Icons.info_outline_rounded,
-                color: Colors.white,
-              ),
+              icon: const Icon(Icons.info_outline_rounded, color: Colors.white),
               onPressed: () => Get.dialog(
                 AlertDialog(
                   title: Text('My wallet'.tr),
@@ -1039,13 +1010,31 @@ class _FeaturedCampaignsSection extends StatelessWidget {
           if (campaignsController.campaigns.isEmpty) {
             return _GlassPanel(child: Text('No campaigns available.'.tr));
           }
+          // Client note — this horizontal carousel sits inside the page's
+          // 20px side padding, so its own scroll viewport was clipped ~20px
+          // short of the real screen edge on both sides: dragging a card
+          // toward the edge made it disappear early, well before actually
+          // reaching the edge. FullBleedHorizontal cancels that parent inset
+          // just for this row (letting the list bleed to the true screen
+          // edges), and the matching positive padding on the ListView itself
+          // restores the same resting-state look.
+          // OverflowBox (inside FullBleedHorizontal) sizes itself using its
+          // own incoming constraints, which are unbounded height here (a
+          // Column under a ListView) — so the fixed-height SizedBox must be
+          // the outer widget, not nested inside FullBleedHorizontal, or
+          // OverflowBox tries to report an infinite height and corrupts the
+          // rest of the list's layout.
           return SizedBox(
             height: 340,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: campaignsController.campaigns
-                  .map((campaign) => _CampaignCard(campaign: campaign))
-                  .toList(),
+            child: FullBleedHorizontal(
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                clipBehavior: Clip.none,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                children: campaignsController.campaigns
+                    .map((campaign) => _CampaignCard(campaign: campaign))
+                    .toList(),
+              ),
             ),
           );
         }),
@@ -1054,15 +1043,13 @@ class _FeaturedCampaignsSection extends StatelessWidget {
   }
 }
 
+/// The dashboard title now lives in the persistent top bar (same row as the
+/// Search/Notifications/Messages icons, top-left) instead of a separate
+/// header line here — see `_DashboardTopBar` in dashboard_screen.dart, which
+/// calls [dashboardTitleForRole] below.
 class _SectionScaffold extends StatelessWidget {
-  const _SectionScaffold({
-    required this.title,
-    required this.subtitle,
-    required this.child,
-  });
+  const _SectionScaffold({required this.child});
 
-  final String title;
-  final String subtitle;
   final Widget child;
 
   @override
@@ -1079,53 +1066,21 @@ class _SectionScaffold extends StatelessWidget {
             end: Alignment.bottomRight,
           ),
         ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 18),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            title.tr,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w800,
-                              color: AppThemeConfig.text(context),
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            subtitle.tr,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: AppThemeConfig.mutedText(context),
-                              fontSize: 13,
-                              height: 1.4,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(child: child),
-            ],
-          ),
-        ),
+        child: SafeArea(child: child),
       ),
     );
   }
 }
+
+/// Role-specific dashboard title, shared between the Home tab's own state
+/// (which picks the right role variant to build) and the persistent top bar
+/// (which now displays this title at the top-left, next to the icons).
+String dashboardTitleForRole(String roleKey) => switch (roleKey) {
+  'donor' => 'Donor dashboard',
+  'beneficiary' => 'Beneficiary dashboard',
+  'volunteer' => 'Volunteer dashboard',
+  _ => 'Dashboard',
+};
 
 class _WatchNowButton extends StatelessWidget {
   const _WatchNowButton({required this.onTap, required this.label});
@@ -1361,7 +1316,12 @@ class _StatCell extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _IconShell(icon: item.icon, color: item.color, size: 46, iconSize: 21),
+          _IconShell(
+            icon: item.icon,
+            color: item.color,
+            size: 46,
+            iconSize: 21,
+          ),
           const SizedBox(height: 12),
           Text(
             item.value.tr,
@@ -1406,17 +1366,17 @@ class _DashboardHeroStat extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final child = Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
       ),
       child: Row(
         children: [
           Container(
-            width: 44,
-            height: 44,
+            width: 34,
+            height: 34,
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
@@ -1426,30 +1386,35 @@ class _DashboardHeroStat extends StatelessWidget {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: Colors.white, size: 22),
+            child: Icon(icon, color: Colors.white, size: 17),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 9),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 20,
+                    fontSize: 15,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 1),
                 Text(
                   label.tr,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.9),
                     fontWeight: FontWeight.w600,
-                    fontSize: 12,
+                    fontSize: 10.5,
                   ),
                 ),
               ],
@@ -1472,80 +1437,49 @@ class _DashboardHeroStat extends StatelessWidget {
   }
 }
 
-/// Home "Explore" panel — non-role-specific shortcuts that live on Home rather
-/// than inside the Community/Services tabs (e.g. the City Guide map).
-/// Home "Explore" panel — a single full-width assistant shortcut. Was a
-/// 3-column quick-action panel holding just one tile (once City Guide moved
-/// to its own bottom-nav tab); replaced with one compact banner-style card
-/// so the section doesn't read as mostly-empty.
-class _ExploreRow extends StatelessWidget {
-  const _ExploreRow();
+/// Client note — "Our Products" / "My Engagement" / "City Guide" grouped
+/// together in one equally-divided rectangle near the top of Home, so all
+/// three destinations are reachable in a single glance without scrolling.
+class _TopShortcutsRow extends StatelessWidget {
+  const _TopShortcutsRow();
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const _SectionLabel(title: 'Explore'),
-        const SizedBox(height: 12),
-        Material(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(20),
-            onTap: () => Get.to(() => const BotChatScreen()),
-            child: _GlassPanel(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 14,
-              ),
-              child: Row(
-                children: [
-                  const _IconShell(
-                    icon: Icons.smart_toy_rounded,
-                    color: Colors.deepPurple,
-                    size: 48,
-                    iconSize: 22,
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Assistant'.tr,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 15,
-                            color: AppThemeConfig.text(context),
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Ask questions and get guidance'.tr,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            color: AppThemeConfig.mutedText(context),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    color: AppThemeConfig.mutedText(context),
-                  ),
-                ],
-              ),
+    return _GlassPanel(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      child: Row(
+        children: [
+          Expanded(
+            child: _QuickAction(
+              icon: Icons.storefront_rounded,
+              label: 'Our Products',
+              color: Colors.deepOrangeAccent,
+              compact: true,
+              onTap: () => Get.to(() => const MarketplaceSection()),
             ),
           ),
-        ),
-      ],
+          const SizedBox(width: 8),
+          Expanded(
+            child: _QuickAction(
+              icon: Icons.volunteer_activism_rounded,
+              label: 'My Engagement',
+              color: Colors.teal,
+              compact: true,
+              onTap: () => Get.to(() => const RoleHistoryScreen()),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _QuickAction(
+              icon: Icons.explore_rounded,
+              label: 'City Guide',
+              color: Colors.indigo,
+              compact: true,
+              onTap: () => Get.to(() => const CityGuideScreen()),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1556,15 +1490,24 @@ class _QuickAction extends StatelessWidget {
     required this.label,
     required this.color,
     required this.onTap,
+    this.compact = false,
+    this.badgeLabel,
   });
 
   final IconData icon;
   final String label;
   final Color color;
   final VoidCallback onTap;
+  // Smaller icon chip + font so two-word labels (e.g. "My Engagement") wrap
+  // cleanly at the word boundary instead of breaking mid-word.
+  final bool compact;
+  // Small corner pill (e.g. "New") for newly-added quick actions.
+  final String? badgeLabel;
 
   @override
   Widget build(BuildContext context) {
+    final boxSize = compact ? 50.0 : 62.0;
+    final iconSize = compact ? 22.0 : 28.0;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -1573,7 +1516,7 @@ class _QuickAction extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 4),
           child: Container(
-            padding: const EdgeInsets.fromLTRB(10, 12, 10, 12),
+            padding: const EdgeInsets.fromLTRB(6, 12, 6, 12),
             decoration: BoxDecoration(
               color: AppThemeConfig.softSurface(context),
               borderRadius: BorderRadius.circular(20),
@@ -1582,8 +1525,8 @@ class _QuickAction extends StatelessWidget {
             child: Column(
               children: [
                 Container(
-                  width: 62,
-                  height: 62,
+                  width: boxSize,
+                  height: boxSize,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
@@ -1598,20 +1541,49 @@ class _QuickAction extends StatelessWidget {
                   ),
                   child: Stack(
                     alignment: Alignment.center,
+                    clipBehavior: Clip.none,
                     children: [
-                      Positioned(
-                        top: 10,
-                        right: 10,
-                        child: Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: color.withValues(alpha: 0.9),
-                            shape: BoxShape.circle,
+                      if (badgeLabel == null)
+                        Positioned(
+                          top: 10,
+                          right: 10,
+                          child: Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: color.withValues(alpha: 0.9),
+                              shape: BoxShape.circle,
+                            ),
                           ),
                         ),
-                      ),
-                      Icon(icon, color: color, size: 28),
+                      Icon(icon, color: color, size: iconSize),
+                      if (badgeLabel != null)
+                        Positioned(
+                          top: -8,
+                          right: -8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: color,
+                              borderRadius: BorderRadius.circular(999),
+                              border: Border.all(
+                                color: Colors.white,
+                                width: 1.5,
+                              ),
+                            ),
+                            child: Text(
+                              badgeLabel!.tr,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 9,
+                              ),
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -1619,8 +1591,10 @@ class _QuickAction extends StatelessWidget {
                 Text(
                   label.tr,
                   textAlign: TextAlign.center,
+                  maxLines: 2,
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
+                    fontSize: compact ? 12.5 : null,
                     color: AppThemeConfig.text(context),
                   ),
                 ),
@@ -1675,21 +1649,20 @@ class _CampaignCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         child: InkWell(
           borderRadius: BorderRadius.circular(24),
-          onTap: () => Get.to(
-            () => CampaignDetailScreen(campaign: campaign),
-          )?.then((donate) {
-            if (donate == true) {
-              Get.to(
-                () => DonationsSection(initialCampaignId: campaign.id),
-              );
-            }
-          }),
+          onTap: () => Get.to(() => CampaignDetailScreen(campaign: campaign))
+              ?.then((donate) {
+                if (donate == true) {
+                  Get.to(
+                    () => DonationsSection(initialCampaignId: campaign.id),
+                  );
+                }
+              }),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ---- Header: icon + category chip ----
+                // ---- Header: icon + category chip + status badge ----
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -1723,6 +1696,11 @@ class _CampaignCard extends StatelessWidget {
                           ),
                         ),
                       ),
+                    ),
+                    const SizedBox(width: 8),
+                    OperationStatusBadge(
+                      progress: campaign.fundedProgress,
+                      size: 40,
                     ),
                   ],
                 ),
@@ -1910,13 +1888,21 @@ class _NewsStrip extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
+          // See the matching note on _FeaturedCampaignsSection re: why the
+          // fixed-height SizedBox must wrap FullBleedHorizontal, not nest
+          // inside it — bleeds this carousel to the true screen edges
+          // instead of clipping early at the page's side padding.
           SizedBox(
             height: 208,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: items.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
-              itemBuilder: (context, i) => _NewsCard(post: items[i]),
+            child: FullBleedHorizontal(
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                clipBehavior: Clip.none,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                itemCount: items.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 12),
+                itemBuilder: (context, i) => _NewsCard(post: items[i]),
+              ),
             ),
           ),
         ],
@@ -2140,14 +2126,22 @@ class _PartnersStrip extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
+          // See the matching note on _FeaturedCampaignsSection re: why the
+          // fixed-height SizedBox must wrap FullBleedHorizontal, not nest
+          // inside it — bleeds this carousel to the true screen edges
+          // instead of clipping early at the page's side padding.
           SizedBox(
             height: 132,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: controller.partners.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
-              itemBuilder: (context, i) =>
-                  _PartnerLogoCard(partner: controller.partners[i]),
+            child: FullBleedHorizontal(
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                clipBehavior: Clip.none,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                itemCount: controller.partners.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 12),
+                itemBuilder: (context, i) =>
+                    _PartnerLogoCard(partner: controller.partners[i]),
+              ),
             ),
           ),
         ],

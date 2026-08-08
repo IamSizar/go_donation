@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 
@@ -33,9 +34,9 @@ class _FirebaseScreenAddState extends State<FirebaseScreenAdd> {
       setState(() {
         _isLoading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Both fields are required')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Both fields are required'.tr)));
       return;
     }
 
@@ -54,7 +55,7 @@ class _FirebaseScreenAddState extends State<FirebaseScreenAdd> {
 
       debugPrint('Write success');
       messenger.showSnackBar(
-        const SnackBar(content: Text('Firestore write succeeded')),
+        SnackBar(content: Text('Firestore write succeeded'.tr)),
       );
 
       // Optionally clear fields after successful write
@@ -64,7 +65,7 @@ class _FirebaseScreenAddState extends State<FirebaseScreenAdd> {
       debugPrint('Firestore error: $e');
       debugPrint('$s');
       messenger.showSnackBar(
-        SnackBar(content: Text('Firestore write failed: $e')),
+        SnackBar(content: Text('${'Firestore write failed'.tr}: $e')),
       );
     } finally {
       setState(() {
@@ -76,7 +77,7 @@ class _FirebaseScreenAddState extends State<FirebaseScreenAdd> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Add to Firebase Firestore')),
+      appBar: AppBar(title: Text('Add to Firebase Firestore'.tr)),
       body: Padding(
         padding: const EdgeInsets.all(20.0),
         child: Column(
@@ -84,16 +85,16 @@ class _FirebaseScreenAddState extends State<FirebaseScreenAdd> {
           children: [
             TextField(
               controller: _field1Controller,
-              decoration: const InputDecoration(
-                labelText: 'Field 1',
+              decoration: InputDecoration(
+                labelText: 'Field 1'.tr,
                 border: OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 18),
             TextField(
               controller: _field2Controller,
-              decoration: const InputDecoration(
-                labelText: 'Field 2',
+              decoration: InputDecoration(
+                labelText: 'Field 2'.tr,
                 border: OutlineInputBorder(),
               ),
             ),
@@ -111,7 +112,7 @@ class _FirebaseScreenAddState extends State<FirebaseScreenAdd> {
                           color: Colors.white,
                         ),
                       )
-                    : const Text('Add Data'),
+                    : Text('Add Data'.tr),
               ),
             ),
           ],

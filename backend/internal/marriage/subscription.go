@@ -3,6 +3,7 @@ package marriage
 import (
 	"context"
 	"errors"
+	"strconv"
 	"strings"
 )
 
@@ -10,19 +11,19 @@ import (
 // Replaces the old fixed 5-tier enum — admin can add/edit/reorder/delete
 // these freely, same shape as payment methods.
 type SubscriptionPackage struct {
-	ID              int64  `json:"id"`
-	Slug            string `json:"slug"`
-	NameEn          string `json:"name_en"`
-	NameAr          string `json:"name_ar"`
-	NameCkb         string `json:"name_ckb"`
-	NameKmr         string `json:"name_kmr"`
-	DescriptionEn   string `json:"description_en"`
-	DescriptionAr   string `json:"description_ar"`
-	DescriptionCkb  string `json:"description_ckb"`
-	DescriptionKmr  string `json:"description_kmr"`
-	PriceIQD        int64  `json:"price_iqd"`
-	DisplayOrder    int    `json:"display_order"`
-	Active          bool   `json:"active"`
+	ID             int64  `json:"id"`
+	Slug           string `json:"slug"`
+	NameEn         string `json:"name_en"`
+	NameAr         string `json:"name_ar"`
+	NameCkb        string `json:"name_ckb"`
+	NameKmr        string `json:"name_kmr"`
+	DescriptionEn  string `json:"description_en"`
+	DescriptionAr  string `json:"description_ar"`
+	DescriptionCkb string `json:"description_ckb"`
+	DescriptionKmr string `json:"description_kmr"`
+	PriceIQD       int64  `json:"price_iqd"`
+	DisplayOrder   int    `json:"display_order"`
+	Active         bool   `json:"active"`
 }
 
 // ErrPackageNotFound / ErrPurchaseNotFound mirror the wallet/tasks packages'
@@ -167,16 +168,16 @@ func (s *Store) DeletePackage(ctx context.Context, id int64) error {
 
 // Purchase is one subscription purchase attempt.
 type Purchase struct {
-	ID            int64  `json:"id"`
-	ProfileID     int64  `json:"profile_id"`
-	UserID        int64  `json:"user_id"`
-	PackageID     int64  `json:"package_id"`
-	PackageSlug   string `json:"package_slug"`
-	PackageName   string `json:"package_name_en"`
-	PriceIQD      int64  `json:"price_iqd"`
-	PaymentMethod string `json:"payment_method"`
-	Status        string `json:"status"`
-	CreatedAt     string `json:"created_at"`
+	ID            int64   `json:"id"`
+	ProfileID     int64   `json:"profile_id"`
+	UserID        int64   `json:"user_id"`
+	PackageID     int64   `json:"package_id"`
+	PackageSlug   string  `json:"package_slug"`
+	PackageName   string  `json:"package_name_en"`
+	PriceIQD      int64   `json:"price_iqd"`
+	PaymentMethod string  `json:"payment_method"`
+	Status        string  `json:"status"`
+	CreatedAt     string  `json:"created_at"`
 	ConfirmedAt   *string `json:"confirmed_at,omitempty"`
 }
 
@@ -190,13 +191,16 @@ func (s *Store) CreatePaidPurchase(ctx context.Context, profileID, userID, packa
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
+	// "My Engagement / Marriage" section Transaction Code. Issued on the tx
+	// so the sequence number rolls back with the purchase if it fails.
+	txnCode := s.Arrivals.Issue(ctx, tx, "marriage")
 	var id int64
 	if err := tx.QueryRow(ctx, `
 		INSERT INTO marriage_subscription_purchases
-		   (profile_id, user_id, package_id, price_iqd, payment_method, status, confirmed_at)
-		VALUES ($1, $2, $3, $4, $5, 'paid', now())
+		   (profile_id, user_id, package_id, price_iqd, payment_method, status, confirmed_at, transaction_code)
+		VALUES ($1, $2, $3, $4, $5, 'paid', now(), $6)
 		RETURNING id`,
-		profileID, userID, packageID, priceIQD, paymentMethod,
+		profileID, userID, packageID, priceIQD, paymentMethod, txnCode,
 	).Scan(&id); err != nil {
 		return 0, err
 	}
@@ -209,6 +213,8 @@ func (s *Store) CreatePaidPurchase(ctx context.Context, profileID, userID, packa
 	if err := tx.Commit(ctx); err != nil {
 		return 0, err
 	}
+	// Alert the section contact only after the purchase is durable.
+	s.Arrivals.Notify("marriage", strconv.FormatInt(priceIQD, 10), txnCode)
 	return id, nil
 }
 
@@ -216,14 +222,18 @@ func (s *Store) CreatePaidPurchase(ctx context.Context, profileID, userID, packa
 // bank payment methods) — the profile's tier does NOT change until confirmed.
 func (s *Store) CreatePendingPurchase(ctx context.Context, profileID, userID, packageID, priceIQD int64,
 	paymentMethod string) (int64, error) {
+	txnCode := s.Arrivals.Issue(ctx, s.Pool, "marriage")
 	var id int64
 	err := s.Pool.QueryRow(ctx, `
 		INSERT INTO marriage_subscription_purchases
-		   (profile_id, user_id, package_id, price_iqd, payment_method, status)
-		VALUES ($1, $2, $3, $4, $5, 'pending')
+		   (profile_id, user_id, package_id, price_iqd, payment_method, status, transaction_code)
+		VALUES ($1, $2, $3, $4, $5, 'pending', $6)
 		RETURNING id`,
-		profileID, userID, packageID, priceIQD, paymentMethod,
+		profileID, userID, packageID, priceIQD, paymentMethod, txnCode,
 	).Scan(&id)
+	if err == nil {
+		s.Arrivals.Notify("marriage", strconv.FormatInt(priceIQD, 10), txnCode)
+	}
 	return id, err
 }
 

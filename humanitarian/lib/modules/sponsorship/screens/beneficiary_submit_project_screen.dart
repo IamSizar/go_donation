@@ -75,7 +75,7 @@ class _BeneficiarySubmitProjectScreenState
         style: TextStyle(color: AppThemeConfig.text(context)),
         decoration: _fieldDecoration(
           context,
-          hintText: 'e.g. Water, Health, Education, Shelter',
+          hintText: 'e.g. Water, Health, Education, Shelter'.tr,
           icon: Icons.category_rounded,
         ),
         validator: (v) {
@@ -92,7 +92,7 @@ class _BeneficiarySubmitProjectScreenState
       style: TextStyle(color: AppThemeConfig.text(context)),
       decoration: _fieldDecoration(
         context,
-        hintText: 'Select a category',
+        hintText: 'Select a category'.tr,
         icon: Icons.category_rounded,
       ),
       hint: Text(
@@ -299,7 +299,7 @@ class _BeneficiarySubmitProjectScreenState
                       style: TextStyle(color: AppThemeConfig.text(context)),
                       decoration: _fieldDecoration(
                         context,
-                        hintText: 'e.g. Water for all — community wells',
+                        hintText: 'e.g. Water for all — community wells'.tr,
                         icon: Icons.title_rounded,
                       ),
                       validator: (v) {
@@ -325,7 +325,7 @@ class _BeneficiarySubmitProjectScreenState
                       style: TextStyle(color: AppThemeConfig.text(context)),
                       decoration: _fieldDecoration(
                         context,
-                        hintText: 'What you want to achieve in brief',
+                        hintText: 'What you want to achieve in brief'.tr,
                         icon: Icons.short_text_rounded,
                       ),
                       validator: (v) {
@@ -348,7 +348,8 @@ class _BeneficiarySubmitProjectScreenState
                       decoration: _fieldDecoration(
                         context,
                         hintText:
-                            'Materials, labor, partners, timeline steps, transparency…',
+                            'Materials, labor, partners, timeline steps, transparency…'
+                                .tr,
                         icon: Icons.description_rounded,
                       ),
                       validator: (v) {
@@ -453,7 +454,7 @@ class _BeneficiarySubmitProjectScreenState
                       style: TextStyle(color: AppThemeConfig.text(context)),
                       decoration: _fieldDecoration(
                         context,
-                        hintText: 'Village, city, region',
+                        hintText: 'Village, city, region'.tr,
                         icon: Icons.place_rounded,
                       ),
                       validator: (v) {
@@ -473,7 +474,7 @@ class _BeneficiarySubmitProjectScreenState
                       style: TextStyle(color: AppThemeConfig.text(context)),
                       decoration: _fieldDecoration(
                         context,
-                        hintText: 'Who will benefit from this project',
+                        hintText: 'Who will benefit from this project'.tr,
                         icon: Icons.groups_rounded,
                       ),
                       validator: (v) {
@@ -572,7 +573,8 @@ class _BeneficiarySubmitProjectScreenState
                         decoration: _fieldDecoration(
                           context,
                           hintText:
-                              'Describe typical ages of people who can volunteer',
+                              'Describe typical ages of people who can volunteer'
+                                  .tr,
                           icon: Icons.cake_outlined,
                         ),
                       ),
@@ -590,7 +592,8 @@ class _BeneficiarySubmitProjectScreenState
                         decoration: _fieldDecoration(
                           context,
                           hintText:
-                              'List literacy, languages, tools, certifications…',
+                              'List literacy, languages, tools, certifications…'
+                                  .tr,
                           icon: Icons.psychology_outlined,
                         ),
                       ),
@@ -608,7 +611,8 @@ class _BeneficiarySubmitProjectScreenState
                         decoration: _fieldDecoration(
                           context,
                           hintText:
-                              'Anything else: roles needed, availability, special needs, education level…',
+                              'Anything else: roles needed, availability, special needs, education level…'
+                                  .tr,
                           icon: Icons.notes_rounded,
                         ),
                       ),
@@ -623,7 +627,7 @@ class _BeneficiarySubmitProjectScreenState
                       style: TextStyle(color: AppThemeConfig.text(context)),
                       decoration: _fieldDecoration(
                         context,
-                        hintText: 'e.g. Complete before winter 2026',
+                        hintText: 'e.g. Complete before winter 2026'.tr,
                         icon: Icons.event_note_rounded,
                       ),
                     ),
@@ -646,7 +650,7 @@ class _BeneficiarySubmitProjectScreenState
                       style: TextStyle(color: AppThemeConfig.text(context)),
                       decoration: _fieldDecoration(
                         context,
-                        hintText: 'Your name or organization representative',
+                        hintText: 'Your name or organization representative'.tr,
                         icon: Icons.person_outline_rounded,
                       ),
                     ),
@@ -684,7 +688,7 @@ class _BeneficiarySubmitProjectScreenState
                       style: TextStyle(color: AppThemeConfig.text(context)),
                       decoration: _fieldDecoration(
                         context,
-                        hintText: 'name@example.com',
+                        hintText: 'name@example.com'.tr,
                         icon: Icons.email_outlined,
                       ),
                       validator: (v) {
@@ -707,7 +711,7 @@ class _BeneficiarySubmitProjectScreenState
                       style: TextStyle(color: AppThemeConfig.text(context)),
                       decoration: _fieldDecoration(
                         context,
-                        hintText: 'Partners, documents, risks, links…',
+                        hintText: 'Partners, documents, risks, links…'.tr,
                         icon: Icons.note_alt_outlined,
                       ),
                     ),

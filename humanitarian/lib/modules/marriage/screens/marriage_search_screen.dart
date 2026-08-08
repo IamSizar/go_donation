@@ -162,7 +162,9 @@ class _MarriageSearchScreenState extends State<MarriageSearchScreen> {
                 decoration: BoxDecoration(
                   color: AppThemeConfig.elevatedSurface(sheetContext),
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: AppThemeConfig.border(sheetContext)),
+                  border: Border.all(
+                    color: AppThemeConfig.border(sheetContext),
+                  ),
                 ),
                 child: SingleChildScrollView(
                   child: Column(
@@ -178,8 +180,9 @@ class _MarriageSearchScreenState extends State<MarriageSearchScreen> {
                           width: 40,
                           height: 4,
                           decoration: BoxDecoration(
-                            color: AppThemeConfig.mutedText(sheetContext)
-                                .withValues(alpha: 0.4),
+                            color: AppThemeConfig.mutedText(
+                              sheetContext,
+                            ).withValues(alpha: 0.4),
                             borderRadius: BorderRadius.circular(4),
                           ),
                         ),
@@ -217,7 +220,18 @@ class _MarriageSearchScreenState extends State<MarriageSearchScreen> {
                         _sheetDropdown(
                           label: 'marriage_marital_status',
                           value: _maritalStatus,
-                          options: const ['single', 'married', 'widowed', 'divorced'],
+                          // Matches the 8 options the registration form
+                          // now offers, so every stored value is searchable.
+                          options: const [
+                            'single',
+                            'engaged',
+                            'married',
+                            'separated',
+                            'widowed',
+                            'divorced',
+                            'separated_never_married',
+                            'other',
+                          ],
                           optionLabel: (v) => 'marital_status_$v'.tr,
                           onChanged: (v) =>
                               setSheetState(() => _maritalStatus = v ?? ''),
@@ -365,7 +379,8 @@ class _MarriageSearchScreenState extends State<MarriageSearchScreen> {
         initialValue: value.isEmpty ? null : value,
         decoration: InputDecoration(labelText: label.tr),
         items: [
-          for (final v in options) DropdownMenuItem(value: v, child: Text(optionLabel(v))),
+          for (final v in options)
+            DropdownMenuItem(value: v, child: Text(optionLabel(v))),
         ],
         onChanged: onChanged,
       ),
@@ -466,8 +481,11 @@ class _ProfileCard extends StatelessWidget {
     final age = (profile['age'] ?? '').toString();
     final city = (profile['city'] ?? '').toString();
     final summary = localizedContentFromMap(profile, 'social_summary');
-    final sub = [if (gender.isNotEmpty) gender.tr, if (age.isNotEmpty && age != '0') age, if (city.isNotEmpty) city]
-        .join(' · ');
+    final sub = [
+      if (gender.isNotEmpty) gender.tr,
+      if (age.isNotEmpty && age != '0') age,
+      if (city.isNotEmpty) city,
+    ].join(' · ');
 
     return GlassPanel(
       child: Column(
@@ -476,16 +494,27 @@ class _ProfileCard extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Text(code, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                child: Text(
+                  code,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                  ),
+                ),
               ),
               IconButton(
-                icon: Icon(saved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
-                    color: saved ? Colors.pink : null),
+                icon: Icon(
+                  saved
+                      ? Icons.bookmark_rounded
+                      : Icons.bookmark_border_rounded,
+                  color: saved ? Colors.pink : null,
+                ),
                 onPressed: onSave,
               ),
             ],
           ),
-          if (sub.isNotEmpty) Text(sub, style: const TextStyle(color: Colors.grey)),
+          if (sub.isNotEmpty)
+            Text(sub, style: const TextStyle(color: Colors.grey)),
           if (summary.trim().isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(summary, maxLines: 3, overflow: TextOverflow.ellipsis),

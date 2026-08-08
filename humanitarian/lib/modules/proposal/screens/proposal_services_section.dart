@@ -641,8 +641,8 @@ class _BeneficiaryCaseFormScreenState extends State<BeneficiaryCaseFormScreen> {
   @override
   Widget build(BuildContext context) {
     return _SimpleFormScaffold(
-      title: 'Submit beneficiary case',
-      subtitle: 'Private information is sent to the institution for review.',
+      title: 'Submit beneficiary case'.tr,
+      subtitle: 'Private information is sent to the institution for review.'.tr,
       loading: _loading,
       submitLabel: 'Submit case',
       onSubmit: _submit,
@@ -687,7 +687,7 @@ class _BeneficiaryCaseFormScreenState extends State<BeneficiaryCaseFormScreen> {
 }
 
 class _SponsorshipFormScreenState extends State<SponsorshipFormScreen> {
-  final _type = TextEditingController(text: 'General support');
+  final _type = TextEditingController(text: 'General support'.tr);
   final _amount = TextEditingController();
   final _notes = TextEditingController();
   late final FeaturedCampaignsController _campaignsController;
@@ -756,8 +756,8 @@ class _SponsorshipFormScreenState extends State<SponsorshipFormScreen> {
   @override
   Widget build(BuildContext context) {
     return _SimpleFormScaffold(
-      title: 'Create sponsorship',
-      subtitle: 'Register a recurring community support commitment.',
+      title: 'Create sponsorship'.tr,
+      subtitle: 'Register a recurring community support commitment.'.tr,
       loading: _loading,
       submitLabel: 'Save sponsorship',
       onSubmit: _submit,
@@ -857,7 +857,7 @@ class InKindDonationFormScreen extends StatefulWidget {
 }
 
 class _InKindDonationFormScreenState extends State<InKindDonationFormScreen> {
-  final _category = TextEditingController(text: 'Food');
+  final _category = TextEditingController(text: 'Food'.tr);
   final _item = TextEditingController();
   final _quantity = TextEditingController();
   final _address = TextEditingController();
@@ -895,8 +895,8 @@ class _InKindDonationFormScreenState extends State<InKindDonationFormScreen> {
   @override
   Widget build(BuildContext context) {
     return _SimpleFormScaffold(
-      title: 'In-kind donation',
-      subtitle: 'Submit items for institution review and delivery.',
+      title: 'In-kind donation'.tr,
+      subtitle: 'Submit items for institution review and delivery.'.tr,
       loading: _loading,
       submitLabel: 'Submit donation',
       onSubmit: _submit,
@@ -951,8 +951,8 @@ class _SupportTicketFormScreenState extends State<SupportTicketFormScreen> {
   @override
   Widget build(BuildContext context) {
     return _SimpleFormScaffold(
-      title: 'Technical support',
-      subtitle: 'Send a message to the support team.',
+      title: 'Technical support'.tr,
+      subtitle: 'Send a message to the support team.'.tr,
       loading: _loading,
       submitLabel: 'Send request',
       onSubmit: _submit,

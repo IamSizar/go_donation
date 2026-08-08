@@ -5,6 +5,7 @@ import 'package:flutter_application_1/modules/chat/chat_actions.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 
+import 'event_service_request_screen.dart';
 import 'marriage_chats_screen.dart';
 import 'marriage_form_screen.dart';
 import 'marriage_my_profile_screen.dart';
@@ -27,27 +28,103 @@ class MarriageHubScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final guest = isGuestMode();
 
+    // Title moved to the persistent top bar (dashboard_screen.dart).
     return SectionScaffold(
-      title: 'Marriage',
-      subtitle: 'Browse profiles, manage yours, and chat once a meeting is accepted.',
+      title: '',
+      subtitle: '',
       child: ListView(
-        // 120 bottom clearance (not 24) — matches Home's ListView, otherwise
-        // the last tile ends up hidden behind the floating bottom nav bar.
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 120),
+        // Scaffold already reserves space above the bottom nav bar — this
+        // only needs a small resting margin, not extra clearance for it.
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
         children: [
+          const SectionLabel(title: 'Event services'),
+          const SizedBox(height: 8),
+          _MarriageTile(
+            icon: Icons.villa_outlined,
+            color: Colors.indigo,
+            title: 'Hall booking',
+            subtitle: 'Request a hall for your event',
+            onTap: () => Get.to(
+              () =>
+                  const EventServiceRequestScreen(serviceLabel: 'Hall booking'),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _MarriageTile(
+            icon: Icons.camera_alt_outlined,
+            color: Colors.brown,
+            title: 'Photographer booking',
+            subtitle: 'Request a photographer for your event',
+            onTap: () => Get.to(
+              () => const EventServiceRequestScreen(
+                serviceLabel: 'Photographer booking',
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _MarriageTile(
+            icon: Icons.theater_comedy_outlined,
+            color: Colors.indigoAccent,
+            title: 'Wedding stage setup',
+            subtitle: 'Request a stage setup for your event',
+            onTap: () => Get.to(
+              () => const EventServiceRequestScreen(
+                serviceLabel: 'Wedding stage setup',
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _MarriageTile(
+            icon: Icons.local_florist_outlined,
+            color: Colors.green,
+            title: 'Decorations',
+            subtitle: 'Request decorations for your event',
+            onTap: () => Get.to(
+              () =>
+                  const EventServiceRequestScreen(serviceLabel: 'Decorations'),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _MarriageTile(
+            icon: Icons.other_houses_outlined,
+            color: Colors.orange,
+            title: 'Event tents and equipment',
+            subtitle: 'Request tents and related equipment',
+            onTap: () => Get.to(
+              () => const EventServiceRequestScreen(
+                serviceLabel: 'Event tents and equipment',
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _MarriageTile(
+            icon: Icons.add_circle_outline_rounded,
+            color: Colors.blueGrey,
+            title: 'Add another service',
+            subtitle: 'Request a service not listed above',
+            onTap: () => Get.to(
+              () => const EventServiceRequestScreen(
+                serviceLabel: 'Other service',
+                customService: true,
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          const SectionLabel(title: 'Events section'),
+          const SizedBox(height: 8),
           _MarriageTile(
             icon: Icons.search_rounded,
             color: Colors.pinkAccent,
             title: 'Browse profiles',
-            subtitle: 'Search marriage profiles by name or gender',
+            subtitle: 'Search event profiles by name or gender',
             onTap: () => Get.to(() => const MarriageSearchScreen()),
           ),
           const SizedBox(height: 12),
           _MarriageTile(
             icon: Icons.article_outlined,
             color: Colors.deepPurple,
-            title: 'Marriage posts',
-            subtitle: 'News and stories from the marriage section',
+            title: 'Event posts',
+            subtitle: 'News and stories from the events section',
             onTap: () => Get.to(() => const MarriagePostsScreen()),
           ),
           if (!guest) ...[
@@ -56,7 +133,7 @@ class MarriageHubScreen extends StatelessWidget {
               icon: Icons.favorite_outline_rounded,
               color: Colors.pink,
               title: 'Create / edit my profile',
-              subtitle: 'Submit or update your marriage profile',
+              subtitle: 'Submit or update your event profile',
               onTap: () => Get.to(() => const MarriageFormScreen()),
             ),
             const SizedBox(height: 12),
@@ -90,7 +167,7 @@ class MarriageHubScreen extends StatelessWidget {
               icon: Icons.support_agent_rounded,
               color: Colors.teal,
               title: 'Message the staff team',
-              subtitle: 'Questions or issues about the marriage section',
+              subtitle: 'Questions or issues about the events section',
               onTap: () => ChatActions.startSupportChat(
                 context,
                 conversationTitle: 'Staff support'.tr,

@@ -315,6 +315,23 @@ class ModuleApi {
     return res['enabled'] == true;
   }
 
+  /// "Eleventh: Partners Section" — activities implemented with a partner.
+  /// Returns an empty list on failure so the Partner Page shows its empty
+  /// state rather than an error.
+  Future<List<Map<String, dynamic>>> partnerActivities(int partnerId) async {
+    try {
+      final res = await getObject(partnerActivitiesUrl(partnerId));
+      final raw = res['items'];
+      if (raw is! List) return const [];
+      return raw
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
   // #32 — profile field privacy (list of hidden field keys).
   Future<List<String>> getFieldPrivacy() async {
     final res = await getObject(fieldPrivacyUrl);
@@ -324,6 +341,91 @@ class ModuleApi {
 
   Future<void> setFieldPrivacy(List<String> hidden) =>
       postJson(fieldPrivacyUrl, {'hidden': hidden});
+
+  /// Privacy Settings spec ("Future Development") — the server-managed list
+  /// of toggleable fields. Returns an empty list on failure; the caller falls
+  /// back to its built-in defaults so the screen still works offline.
+  /// "Eighth: Sponsorship Schedule and Calendar" — the caller's schedule
+  /// occurrences, optionally filtered by status. Returns an empty list on
+  /// failure so the tracking screen can show its empty state rather than an
+  /// error dead end.
+  Future<List<ScheduleOccurrence>> getSponsorshipSchedule({
+    String status = '',
+  }) async {
+    try {
+      final url = status.isEmpty
+          ? sponsorshipScheduleUrl
+          : '$sponsorshipScheduleUrl?status=$status';
+      final res = await getObject(url);
+      final raw = res['items'];
+      if (raw is! List) return const [];
+      return raw
+          .whereType<Map>()
+          .map((e) => ScheduleOccurrence.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// Donations Page spec — whether the project list and the Comprehensive
+  /// Grant option are shown. Falls back to both enabled on failure.
+  Future<DonationOptions> getDonationOptions() async {
+    try {
+      final res = await getObject(donationOptionsUrl);
+      return DonationOptions(
+        projectsVisible: res['projects_visible'] != false,
+        comprehensiveEnabled: res['comprehensive_enabled'] != false,
+      );
+    } catch (_) {
+      return const DonationOptions();
+    }
+  }
+
+  Future<List<PrivacyFieldOption>> getPrivacyOptions() async {
+    try {
+      final res = await getObject(privacyOptionsUrl);
+      final raw = res['items'];
+      if (raw is! List) return const [];
+      return raw
+          .whereType<Map>()
+          .map(
+            (e) => PrivacyFieldOption(
+              fieldKey: (e['field_key'] ?? '').toString(),
+              labelKey: (e['label_key'] ?? '').toString(),
+              defaultHidden: e['default_hidden'] == true,
+            ),
+          )
+          .where((o) => o.fieldKey.isNotEmpty)
+          .toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  // Privacy Settings spec — display-name choice (real name vs. alias) and
+  // optional social media links.
+  Future<Map<String, dynamic>> getPrivacyExtras() async {
+    final res = await getObject(privacyExtrasUrl);
+    final extras = res['extras'];
+    return extras is Map
+        ? Map<String, dynamic>.from(extras)
+        : <String, dynamic>{};
+  }
+
+  Future<void> setPrivacyExtras({
+    required String displayNameMode,
+    required String aliasName,
+    required String facebook,
+    required String instagram,
+    required String telegram,
+  }) => postJson(privacyExtrasUrl, {
+    'display_name_mode': displayNameMode,
+    'alias_name': aliasName,
+    'social_facebook': facebook,
+    'social_instagram': instagram,
+    'social_telegram': telegram,
+  });
 
   // #33 — global search across the app's content. perType overrides the
   // backend's default per-category cap (see search.go) so callers can fetch
@@ -361,7 +463,9 @@ class ModuleApi {
     if (gender.trim().isNotEmpty) params['gender'] = gender.trim();
     if (minAge > 0) params['min_age'] = '$minAge';
     if (maxAge > 0) params['max_age'] = '$maxAge';
-    if (maritalStatus.trim().isNotEmpty) params['marital_status'] = maritalStatus.trim();
+    if (maritalStatus.trim().isNotEmpty) {
+      params['marital_status'] = maritalStatus.trim();
+    }
     if (religion.trim().isNotEmpty) params['religion'] = religion.trim();
     if (employmentStatus.trim().isNotEmpty) {
       params['employment_status'] = employmentStatus.trim();
@@ -387,10 +491,10 @@ class ModuleApi {
   Future<Map<String, dynamic>> purchaseMarriageSubscription(
     int packageId,
     String paymentMethod,
-  ) =>
-      postJson('$marriageSubmitUrl/subscription-packages/$packageId/purchase', {
-        'payment_method': paymentMethod,
-      });
+  ) => postJson(
+    '$marriageSubmitUrl/subscription-packages/$packageId/purchase',
+    {'payment_method': paymentMethod},
+  );
 
   // #46 — toggle-save a profile; returns the resulting saved state.
   Future<bool> toggleSaveMarriage(int profileId) async {
@@ -400,7 +504,9 @@ class ModuleApi {
 
   // #46 — request a meeting about a profile.
   Future<void> requestMarriageMeeting(int profileId, String message) =>
-      postJson('$marriageSubmitUrl/$profileId/request-meeting', {'message': message});
+      postJson('$marriageSubmitUrl/$profileId/request-meeting', {
+        'message': message,
+      });
 
   // Note #35 — staff-mediated marriage chat. My threads (identity-masked —
   // the other party is only ever a profile_code or a generic placeholder,
@@ -419,8 +525,10 @@ class ModuleApi {
   Future<Map<String, dynamic>> marriageChatMessages(int threadId) =>
       getObject('$marriageChatsUrl/$threadId/messages');
 
-  Future<Map<String, dynamic>> sendMarriageChatMessage(int threadId, String body) =>
-      postJson('$marriageChatsUrl/$threadId/messages', {'body': body});
+  Future<Map<String, dynamic>> sendMarriageChatMessage(
+    int threadId,
+    String body,
+  ) => postJson('$marriageChatsUrl/$threadId/messages', {'body': body});
 
   // Note #36 — Staff↔Volunteer↔Beneficiary chat. Opens automatically once a
   // volunteer's signup is linked to a case and approved (or further along);
@@ -451,7 +559,9 @@ class ModuleApi {
         decoded is! Map<String, dynamic> ||
         decoded['success'] != true) {
       throw Exception(
-        decoded is Map ? decoded['error']?.toString() ?? 'Upload failed' : 'Upload failed',
+        decoded is Map
+            ? decoded['error']?.toString() ?? 'Upload failed'
+            : 'Upload failed',
       );
     }
     return decoded['path'].toString();
@@ -464,12 +574,11 @@ class ModuleApi {
     required double lat,
     required double lng,
     required String photoPath,
-  }) =>
-      postJson('$volunteerMissionSignupsUrl/$signupId/check-in', {
-        'lat': lat,
-        'lng': lng,
-        'photo_path': photoPath,
-      });
+  }) => postJson('$volunteerMissionSignupsUrl/$signupId/check-in', {
+    'lat': lat,
+    'lng': lng,
+    'photo_path': photoPath,
+  });
 
   // Note #37 — volunteer self check-out: records departure/self-reported
   // completion with GPS + a live photo + notes. Only valid while the signup
@@ -481,16 +590,16 @@ class ModuleApi {
     required double lng,
     required String photoPath,
     String notes = '',
-  }) =>
-      postJson('$volunteerMissionSignupsUrl/$signupId/check-out', {
-        'lat': lat,
-        'lng': lng,
-        'photo_path': photoPath,
-        'notes': notes,
-      });
+  }) => postJson('$volunteerMissionSignupsUrl/$signupId/check-out', {
+    'lat': lat,
+    'lng': lng,
+    'photo_path': photoPath,
+    'notes': notes,
+  });
 
   // #50 — the current user's digital aid-delivery receipts.
-  Future<List<Map<String, dynamic>>> myAidReceipts() => getItems(aidReceiptsUrl);
+  Future<List<Map<String, dynamic>>> myAidReceipts() =>
+      getItems(aidReceiptsUrl);
 
   // #45 — open (or reuse) a direct chat with support/tech; returns thread_id.
   Future<int?> startSupportChat() async {
@@ -609,9 +718,9 @@ class ModuleApi {
   /// #21 — sponsorships that BENEFIT this user (their case is sponsored),
   /// for the beneficiary "My Entitlements" screen.
   Future<List<Map<String, dynamic>>> sponsorshipsAsBeneficiary(int userId) {
-    final uri = Uri.parse(sponsorshipsUrl).replace(
-      queryParameters: {'as': 'beneficiary', 'user_id': '$userId'},
-    );
+    final uri = Uri.parse(
+      sponsorshipsUrl,
+    ).replace(queryParameters: {'as': 'beneficiary', 'user_id': '$userId'});
     return getItems(uri.toString());
   }
 
@@ -630,4 +739,68 @@ class ModuleApi {
       getItems(marriageProfilesUrl);
 
   Future<Map<String, dynamic>> reports() => getObject(reportsUrl);
+}
+
+/// One toggleable entry in the Privacy Settings screen, served by
+/// GET /api/profile/privacy-options.
+class PrivacyFieldOption {
+  const PrivacyFieldOption({
+    required this.fieldKey,
+    required this.labelKey,
+    this.defaultHidden = false,
+  });
+
+  final String fieldKey;
+  final String labelKey;
+  final bool defaultHidden;
+}
+
+/// Donate-screen switches from GET /api/donation-options (Donations Page
+/// spec). Both default to true so a fetch failure keeps the screen fully
+/// functional.
+class DonationOptions {
+  const DonationOptions({
+    this.projectsVisible = true,
+    this.comprehensiveEnabled = true,
+  });
+
+  final bool projectsVisible;
+  final bool comprehensiveEnabled;
+}
+
+/// One scheduled due date on a sponsorship ("Eighth: Sponsorship Schedule and
+/// Calendar"). status is one of: upcoming, due, overdue, paid, skipped.
+class ScheduleOccurrence {
+  const ScheduleOccurrence({
+    required this.id,
+    required this.dueDate,
+    required this.amount,
+    required this.currency,
+    required this.status,
+    required this.sponsorshipType,
+    this.notes = '',
+  });
+
+  final int id;
+  final String dueDate; // YYYY-MM-DD
+  final double amount;
+  final String currency;
+  final String status;
+  final String sponsorshipType;
+  final String notes;
+
+  factory ScheduleOccurrence.fromJson(Map<String, dynamic> j) {
+    final rawAmount = j['amount'];
+    return ScheduleOccurrence(
+      id: (j['id'] is int) ? j['id'] as int : int.tryParse('${j['id']}') ?? 0,
+      dueDate: (j['due_date'] ?? '').toString(),
+      amount: rawAmount is num
+          ? rawAmount.toDouble()
+          : double.tryParse('$rawAmount') ?? 0,
+      currency: (j['currency'] ?? 'IQD').toString(),
+      status: (j['status'] ?? '').toString(),
+      sponsorshipType: (j['sponsorship_type'] ?? '').toString(),
+      notes: (j['notes'] ?? '').toString(),
+    );
+  }
 }

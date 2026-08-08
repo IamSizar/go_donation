@@ -155,7 +155,7 @@ func (n *Notifier) Send(ctx context.Context, userID int64, m LocalizedMessage) (
 		 RETURNING id`,
 		userID,
 		m.Title.En, nilIfEmpty(m.Title.Ar), nilIfEmpty(m.Title.Ckb), nilIfEmpty(m.Title.Kmr),
-		m.Body.En,  nilIfEmpty(m.Body.Ar),  nilIfEmpty(m.Body.Ckb),  nilIfEmpty(m.Body.Kmr),
+		m.Body.En, nilIfEmpty(m.Body.Ar), nilIfEmpty(m.Body.Ckb), nilIfEmpty(m.Body.Kmr),
 		m.Type, category, priority,
 		actionArg, retArg, reIDArg,
 	).Scan(&id)
@@ -289,13 +289,19 @@ func resolveCategory(notificationType string) string {
 	switch {
 	case strings.Contains(t, "urgent"), strings.Contains(t, "support"), strings.Contains(t, "case"):
 		return "urgent"
+	// "Eighth: Sponsorship Schedule and Calendar" — due-date reminders belong
+	// in the app's Reminder filter, not Payment. This must precede the
+	// "sponsorship"/"payment" branch below, which would otherwise claim
+	// anything named *_due_* first purely by substring order. Keep this in
+	// sync with _categoryFromType in app_notification_model.dart, which
+	// mirrors this ordering for the client-side fallback.
+	case strings.Contains(t, "reminder"), strings.Contains(t, "due"):
+		return "reminder"
 	case strings.Contains(t, "payment"), strings.Contains(t, "donation"), strings.Contains(t, "sponsorship"):
 		return "payment"
 	case strings.Contains(t, "campaign"), strings.Contains(t, "project"),
 		t == "media_post" || t == "news" || t == "activity":
 		return "campaign"
-	case strings.Contains(t, "reminder"), strings.Contains(t, "due"):
-		return "reminder"
 	case strings.Contains(t, "system"), strings.Contains(t, "admin"):
 		return "system"
 	default:

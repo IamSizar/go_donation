@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -20,6 +21,7 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/notify"
 	"github.com/karam-flutter/humanitarian-backend/internal/permissions"
 	"github.com/karam-flutter/humanitarian-backend/internal/sponsorships"
+	"github.com/karam-flutter/humanitarian-backend/internal/sponsorshipschedule"
 )
 
 // blockIfProtectedTarget enforces A-14: a super_admin account can only be
@@ -236,6 +238,11 @@ type AdminStatusHandler struct {
 	// check (defensive — lets this handler keep working even if the caller
 	// forgets to wire it, just without auto-opening chats).
 	CaseVolChat *casevolchat.Store
+	// "Eighth: Sponsorship Schedule and Calendar" — materialises a
+	// sponsorship's due dates the moment it goes active, so the tracking
+	// screen and the reminder sweep have something to work with without a
+	// separate manual step. Optional: nil skips generation.
+	Schedule *sponsorshipschedule.Store
 }
 
 func NewAdminStatusHandler(pool *pgxpool.Pool, n *notify.Notifier, ev *events.Store, cvc *casevolchat.Store) *AdminStatusHandler {
@@ -522,6 +529,7 @@ func (h *AdminStatusHandler) VolunteerApplication(c *gin.Context) {
 	h.updateStringStatus(c, "volunteer_applications", "status",
 		volunteerAppStatuses, h.notifyVolunteerAppDecision)
 }
+
 // Sponsorship — unlike the other resources, a transition into 'active' needs
 // next_due_date recomputed, so it can't go through the fully generic
 // updateStringStatus. Insert() anchors next_due_date to submission time, so
@@ -589,6 +597,16 @@ func (h *AdminStatusHandler) Sponsorship(c *gin.Context) {
 	if ct.RowsAffected() == 0 {
 		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Not found."})
 		return
+	}
+	// Activating a sponsorship builds (or tops up) its schedule. Generate is
+	// idempotent — existing due dates are left alone — so re-activating a
+	// paused sponsorship simply extends the schedule rather than duplicating
+	// it. Best-effort: a failure here must not fail the status change, which
+	// has already committed.
+	if status == "active" && h.Schedule != nil {
+		if _, err := h.Schedule.Generate(ctx, id, 12); err != nil {
+			log.Printf("[sponsorship-schedule] generate for %d: %v", id, err)
+		}
 	}
 	h.notifySponsorshipDecision(ctx, id, status)
 	c.JSON(http.StatusOK, gin.H{"success": true, "id": id, "status": status})

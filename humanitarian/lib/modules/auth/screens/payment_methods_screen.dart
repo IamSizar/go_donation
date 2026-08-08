@@ -155,15 +155,31 @@ class _TransactionRow extends StatelessWidget {
   ({IconData icon, Color color, bool isCredit}) _visual() {
     switch (tx.type) {
       case 'topup':
-        return (icon: Icons.add_circle_rounded, color: Colors.green, isCredit: true);
+        return (
+          icon: Icons.add_circle_rounded,
+          color: Colors.green,
+          isCredit: true,
+        );
       case 'refund':
         return (icon: Icons.undo_rounded, color: Colors.blue, isCredit: true);
       case 'donation':
-        return (icon: Icons.favorite_rounded, color: Colors.pinkAccent, isCredit: false);
+        return (
+          icon: Icons.favorite_rounded,
+          color: Colors.pinkAccent,
+          isCredit: false,
+        );
       case 'purchase':
-        return (icon: Icons.shopping_bag_rounded, color: Colors.deepOrange, isCredit: false);
+        return (
+          icon: Icons.shopping_bag_rounded,
+          color: Colors.deepOrange,
+          isCredit: false,
+        );
       default:
-        return (icon: Icons.receipt_long_rounded, color: Colors.blueGrey, isCredit: false);
+        return (
+          icon: Icons.receipt_long_rounded,
+          color: Colors.blueGrey,
+          isCredit: false,
+        );
     }
   }
 
@@ -186,7 +202,9 @@ class _TransactionRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final v = _visual();
     final locale = Get.locale?.toLanguageTag() ?? 'en';
-    final date = DateFormat.yMMMd(locale).add_jm().format(tx.createdAt.toLocal());
+    final date = DateFormat.yMMMd(
+      locale,
+    ).add_jm().format(tx.createdAt.toLocal());
     final sign = v.isCredit ? '+' : '-';
 
     return GlassPanel(
@@ -254,6 +272,11 @@ class _PaymentMethodInfoCard extends StatelessWidget {
         return Icons.account_balance_rounded;
       case 'wallet':
         return Icons.account_balance_wallet_rounded;
+      // Donations Page spec — electronic cards and mobile balance transfer.
+      case 'card':
+        return Icons.credit_card_rounded;
+      case 'mobile':
+        return Icons.smartphone_rounded;
       default:
         return Icons.payments_rounded;
     }

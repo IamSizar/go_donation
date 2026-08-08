@@ -159,9 +159,14 @@ class _LoginFormState extends State<_LoginForm> {
     final localDigits = _phoneController.text.replaceAll(RegExp(r'\D'), '');
     final normalizedPhone = _normalizeLocalPhone(localDigits);
 
-    debugPrint('Logging in with phone number: $normalizedPhone (mode=$_otpMode)');
+    debugPrint(
+      'Logging in with phone number: $normalizedPhone (mode=$_otpMode)',
+    );
 
-    final sent = await _loginController.sendOtp(normalizedPhone, mode: _otpMode);
+    final sent = await _loginController.sendOtp(
+      normalizedPhone,
+      mode: _otpMode,
+    );
     if (sent) {
       Get.toNamed('/verify');
     }
@@ -252,129 +257,135 @@ class _LoginFormState extends State<_LoginForm> {
           Directionality(
             textDirection: TextDirection.ltr,
             child: TextFormField(
-            controller: _phoneController,
-            style: const TextStyle(color: Colors.white, fontSize: 16),
-            cursorColor: Colors.white,
-            decoration: authInputDecoration(
-              label: 'Phone',
-              hintText: '750 858 2031',
-              icon: Icons.phone_outlined,
-            ).copyWith(
-              // Replace the generic phone-icon prefix with a picker that
-              // shows the selected country's flag + dial code. The picker
-              // dialog is restyled to match the app's dark glass look (the
-              // package default is a plain white Material dialog) and its
-              // header spells out that Iraq is just the default — the full
-              // list of 200+ countries is one tap away.
-              prefixIcon: CountryCodePicker(
-                onChanged: (code) => setState(
-                  () => _dialCode = (code.dialCode ?? '+964').replaceFirst(
-                    '+',
-                    '',
-                  ),
-                ),
-                initialSelection: 'IQ',
-                favorite: const ['+964', 'IQ'],
-                showCountryOnly: false,
-                showOnlyCountryWhenClosed: false,
-                alignLeft: false,
-                padding: const EdgeInsets.only(left: 14, right: 4),
-                flagWidth: 22,
-                // A visible chevron on the closed state itself hints that
-                // Iraq is just the current pick, not the only option.
-                showDropDownButton: true,
-                textStyle: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 15,
-                ),
-                flagDecoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(4),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.25),
-                      blurRadius: 3,
+              controller: _phoneController,
+              style: const TextStyle(color: Colors.white, fontSize: 16),
+              cursorColor: Colors.white,
+              decoration:
+                  authInputDecoration(
+                    label: 'Phone'.tr,
+                    hintText: '750 858 2031',
+                    icon: Icons.phone_outlined,
+                  ).copyWith(
+                    // Replace the generic phone-icon prefix with a picker that
+                    // shows the selected country's flag + dial code. The picker
+                    // dialog is restyled to match the app's dark glass look (the
+                    // package default is a plain white Material dialog) and its
+                    // header spells out that Iraq is just the default — the full
+                    // list of 200+ countries is one tap away.
+                    prefixIcon: CountryCodePicker(
+                      onChanged: (code) => setState(
+                        () => _dialCode = (code.dialCode ?? '+964')
+                            .replaceFirst('+', ''),
+                      ),
+                      initialSelection: 'IQ',
+                      favorite: const ['+964', 'IQ'],
+                      showCountryOnly: false,
+                      showOnlyCountryWhenClosed: false,
+                      alignLeft: false,
+                      padding: const EdgeInsets.only(left: 14, right: 4),
+                      flagWidth: 22,
+                      // A visible chevron on the closed state itself hints that
+                      // Iraq is just the current pick, not the only option.
+                      showDropDownButton: true,
+                      textStyle: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
+                      flagDecoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(4),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.25),
+                            blurRadius: 3,
+                          ),
+                        ],
+                      ),
+                      dialogSize: const Size(360, 520),
+                      boxDecoration: BoxDecoration(
+                        color: const Color(0xFF0E3B5C),
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.16),
+                        ),
+                      ),
+                      barrierColor: Colors.black.withValues(alpha: 0.55),
+                      closeIcon: const Icon(
+                        Icons.close_rounded,
+                        color: Colors.white70,
+                      ),
+                      headerText: 'Select your country · 200+ available'.tr,
+                      headerTextStyle: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
+                      topBarPadding: const EdgeInsets.fromLTRB(20, 18, 12, 8),
+                      searchPadding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+                      searchDecoration: InputDecoration(
+                        hintText: 'Search country'.tr,
+                        hintStyle: const TextStyle(color: Colors.white54),
+                        prefixIcon: const Icon(
+                          Icons.search_rounded,
+                          color: Colors.white70,
+                        ),
+                        filled: true,
+                        fillColor: Colors.white.withValues(alpha: 0.10),
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                      searchStyle: const TextStyle(color: Colors.white),
+                      dialogTextStyle: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      dialogItemPadding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
                     ),
-                  ],
-                ),
-                dialogSize: const Size(360, 520),
-                boxDecoration: BoxDecoration(
-                  color: const Color(0xFF0E3B5C),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
-                ),
-                barrierColor: Colors.black.withValues(alpha: 0.55),
-                closeIcon: const Icon(Icons.close_rounded, color: Colors.white70),
-                headerText: 'Select your country · 200+ available'.tr,
-                headerTextStyle: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 15,
-                ),
-                topBarPadding: const EdgeInsets.fromLTRB(20, 18, 12, 8),
-                searchPadding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
-                searchDecoration: InputDecoration(
-                  hintText: 'Search country'.tr,
-                  hintStyle: const TextStyle(color: Colors.white54),
-                  prefixIcon: const Icon(
-                    Icons.search_rounded,
-                    color: Colors.white70,
+                    prefixIconConstraints: const BoxConstraints(
+                      minWidth: 0,
+                      minHeight: 0,
+                    ),
+                    hintText: '750 858 2031',
                   ),
-                  filled: true,
-                  fillColor: Colors.white.withValues(alpha: 0.10),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-                searchStyle: const TextStyle(color: Colors.white),
-                dialogTextStyle: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w500,
-                ),
-                dialogItemPadding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-              ),
-              prefixIconConstraints: const BoxConstraints(
-                minWidth: 0,
-                minHeight: 0,
-              ),
-              hintText: '750 858 2031',
-            ),
-            keyboardType: TextInputType.number,
-            // Group digits with spaces as they type ("750 858 2031"). The
-            // value is digit-stripped before submit, so the spaces are
-            // purely cosmetic. 20 chars comfortably fits the longest
-            // international national numbers plus grouping spaces.
-            inputFormatters: [
-              PhoneSpaceInputFormatter(),
-              LengthLimitingTextInputFormatter(20),
-            ],
-            textInputAction: TextInputAction.done,
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'Please enter your phone number'.tr;
-              }
-              final digits = value.replaceAll(RegExp(r'\D'), '');
-              if (_dialCode == '964') {
-                // Iraq keeps its precise NSN-length check (10 digits, or 11
-                // with a leading trunk 0).
-                if (digits.length == 10) return null;
-                if (digits.length == 11 && digits.startsWith('0')) {
-                  return null;
+              keyboardType: TextInputType.number,
+              // Group digits with spaces as they type ("750 858 2031"). The
+              // value is digit-stripped before submit, so the spaces are
+              // purely cosmetic. 20 chars comfortably fits the longest
+              // international national numbers plus grouping spaces.
+              inputFormatters: [
+                PhoneSpaceInputFormatter(),
+                LengthLimitingTextInputFormatter(20),
+              ],
+              textInputAction: TextInputAction.done,
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Please enter your phone number'.tr;
                 }
-                return 'Enter 10 digits (or 11 starting with 0)'.tr;
-              }
-              // Other countries: no client-side per-country length table —
-              // a generic sanity range; the backend applies the
-              // authoritative E.164 check.
-              if (digits.length >= 4 && digits.length <= 14) return null;
-              return 'Enter a valid phone number'.tr;
-            },
-            onFieldSubmitted: (_) => _handleSendOtp(),
+                final digits = value.replaceAll(RegExp(r'\D'), '');
+                if (_dialCode == '964') {
+                  // Iraq keeps its precise NSN-length check (10 digits, or 11
+                  // with a leading trunk 0).
+                  if (digits.length == 10) return null;
+                  if (digits.length == 11 && digits.startsWith('0')) {
+                    return null;
+                  }
+                  return 'Enter 10 digits (or 11 starting with 0)'.tr;
+                }
+                // Other countries: no client-side per-country length table —
+                // a generic sanity range; the backend applies the
+                // authoritative E.164 check.
+                if (digits.length >= 4 && digits.length <= 14) return null;
+                return 'Enter a valid phone number'.tr;
+              },
+              onFieldSubmitted: (_) => _handleSendOtp(),
             ),
           ),
           const SizedBox(height: 14),
@@ -612,9 +623,7 @@ class _Segment extends StatelessWidget {
             duration: const Duration(milliseconds: 150),
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
             decoration: BoxDecoration(
-              color: selected
-                  ? Colors.white
-                  : Colors.transparent,
+              color: selected ? Colors.white : Colors.transparent,
               borderRadius: BorderRadius.circular(10),
               boxShadow: selected
                   ? [
@@ -640,9 +649,7 @@ class _Segment extends StatelessWidget {
                 Text(
                   label,
                   style: TextStyle(
-                    color: selected
-                        ? const Color(0xFF0B385D)
-                        : Colors.white,
+                    color: selected ? const Color(0xFF0B385D) : Colors.white,
                     fontWeight: FontWeight.w700,
                     fontSize: 13,
                   ),
@@ -767,9 +774,7 @@ class _GuestAccessSheetState extends State<_GuestAccessSheet> {
                 const SizedBox(height: 6),
                 Text(
                   'Just a username and password to quickly browse.'.tr,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.72),
-                  ),
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.72)),
                 ),
                 const SizedBox(height: 18),
                 if (_error.isNotEmpty)
@@ -788,7 +793,7 @@ class _GuestAccessSheetState extends State<_GuestAccessSheet> {
                   style: const TextStyle(color: Colors.white),
                   cursorColor: Colors.white,
                   decoration: authInputDecoration(
-                    label: 'Username',
+                    label: 'Username'.tr,
                     hintText: 'guest_name',
                     icon: Icons.person_outline_rounded,
                   ),
@@ -808,7 +813,7 @@ class _GuestAccessSheetState extends State<_GuestAccessSheet> {
                   obscureText: _obscure,
                   decoration:
                       authInputDecoration(
-                        label: 'Password',
+                        label: 'Password'.tr,
                         hintText: '••••••',
                         icon: Icons.lock_outline_rounded,
                       ).copyWith(
@@ -819,13 +824,11 @@ class _GuestAccessSheetState extends State<_GuestAccessSheet> {
                                 : Icons.visibility_off_outlined,
                             color: Colors.white70,
                           ),
-                          onPressed: () =>
-                              setState(() => _obscure = !_obscure),
+                          onPressed: () => setState(() => _obscure = !_obscure),
                         ),
                       ),
-                  validator: (v) => (v ?? '').length < 6
-                      ? 'At least 6 characters'.tr
-                      : null,
+                  validator: (v) =>
+                      (v ?? '').length < 6 ? 'At least 6 characters'.tr : null,
                   onFieldSubmitted: (_) => _submit(asLogin: false),
                 ),
                 const SizedBox(height: 18),

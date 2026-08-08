@@ -156,7 +156,7 @@ export default function DetailPage() {
         <div>
           {/* Note #11 — breadcrumb so the admin always knows where they are;
               the sidebar highlight alone used to vanish on this page. */}
-          <nav className="breadcrumb" aria-label="Breadcrumb">
+          <nav className="breadcrumb" aria-label={t('common.breadcrumb')}>
             <Link to={meta.list}>{t(meta.sectionKey)}</Link>
             <span aria-hidden="true"> &gt; </span>
             <span>{t(meta.labelKey)} #{id}</span>

@@ -14,7 +14,11 @@ import 'package:flutter_application_1/modules/marketplace/screens/marketplace_se
 import 'package:flutter_application_1/modules/marriage/screens/marriage_hub_screen.dart';
 import 'package:flutter_application_1/modules/notifications/controllers/notifications_controller.dart';
 import 'package:flutter_application_1/modules/notifications/screens/notifications_screen.dart';
+import 'package:flutter_application_1/modules/auth/screens/profile_menu_screen.dart';
 import 'package:flutter_application_1/modules/search/screens/global_search_screen.dart';
+import 'package:flutter_application_1/widgets/cached_profile_avatar.dart';
+import 'package:flutter_application_1/api/profile_api.dart';
+import 'dart:io';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:flutter_application_1/widgets/dashboard.dart';
 import 'package:flutter_application_1/widgets/settings_section.dart';
@@ -29,8 +33,14 @@ import 'package:get/get.dart';
 /// those screens directly instead of switching to a tab index that no
 /// longer exists. Alerts and Messages moved to a persistent top bar shown on
 /// every tab. Settings — previously a side drawer opened by tapping the
-/// profile avatar — is now its own tab (widgets/settings_section.dart); the
-/// avatar button still exists in the top bar and just switches to this tab.
+/// profile avatar — is its own tab (widgets/settings_section.dart).
+///
+/// "Ninth: Improve the Home Interface Design" then reinstated a profile
+/// photo in the top-right, but it now opens the account hub
+/// (ProfileMenuScreen) rather than switching to the Settings tab. The two
+/// don't overlap: the hub owns the account items (profile, notifications,
+/// community services, language, dark mode, support, legal/contact, log
+/// out) and the Settings tab keeps the organizational content.
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
@@ -55,7 +65,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       color: Colors.deepOrangeAccent,
     ),
     NavDestination(
-      label: 'Marriage',
+      label: 'Events',
       icon: Icons.favorite_outline_rounded,
       activeIcon: Icons.favorite_rounded,
       color: Colors.pinkAccent,
@@ -195,7 +205,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Scaffold(
         body: Column(
           children: [
-            const _DashboardTopBar(),
+            _DashboardTopBar(tabIndex: _currentIndex),
             Expanded(
               // The top bar above already reserves the status-bar inset via
               // its own SafeArea; each tab's screen also wraps itself in a
@@ -207,25 +217,123 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: MediaQuery.removePadding(
                 context: context,
                 removeTop: true,
-                child: IndexedStack(
-                  index: _currentIndex,
-                  children: _sections,
-                ),
+                child: IndexedStack(index: _currentIndex, children: _sections),
               ),
             ),
           ],
         ),
-        bottomNavigationBar: BottomNavigationBar(
+        // Stock BottomNavigationBar has no way to override its total
+        // height — its ~56pt base is hardcoded internally with no
+        // constructor param to shrink it, so a custom bar is used instead
+        // to get a smaller background block. The home-indicator safe area
+        // is still handled correctly (added below via SafeArea), same as
+        // the stock widget would.
+        bottomNavigationBar: _CompactBottomNavBar(
           currentIndex: _currentIndex,
-          onTap: _onTabSelected,
-          type: BottomNavigationBarType.fixed,
-          items: [
-            for (final destination in _destinations)
-              BottomNavigationBarItem(
-                icon: Icon(destination.icon),
-                activeIcon: Icon(destination.activeIcon),
-                label: destination.label.tr,
+          destinations: _destinations,
+          onSelected: _onTabSelected,
+        ),
+      ),
+    );
+  }
+}
+
+/// Replaces the stock BottomNavigationBar — that widget hardcodes a ~56pt
+/// base height internally with no constructor param to shrink it. This
+/// mirrors its plain icon+label look (no Material 3 selection pill) at a
+/// smaller, fully-controlled height.
+class _CompactBottomNavBar extends StatelessWidget {
+  const _CompactBottomNavBar({
+    required this.currentIndex,
+    required this.destinations,
+    required this.onSelected,
+  });
+
+  final int currentIndex;
+  final List<NavDestination> destinations;
+  final ValueChanged<int> onSelected;
+
+  // Sized to hug the icon+label content tightly (see _CompactNavItem) — the
+  // lever for "make the bar smaller" is this height, not the icon/font
+  // sizes below, which stay at their normal, comfortable size.
+  //
+  // Budget at 40: icon 24 + gap 2 + label line box 12 (fontSize 11 with an
+  // explicit height of 1.1) = 38, leaving 1pt of slack top and bottom. The
+  // label needs that explicit line height — the locale fonts default to
+  // roughly 1.45, which makes the content 42 and overflows this bar by 2.
+  static const double _barHeight = 40;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: AppThemeConfig.backgroundTop(context),
+      // Full SafeArea, i.e. the device's standard home-indicator gap below the
+      // labels — the same spacing other iOS apps use. The bar is kept short by
+      // _barHeight hugging the icon+label stack, not by trimming this gap.
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: _barHeight,
+          child: Row(
+            children: [
+              for (var i = 0; i < destinations.length; i++)
+                Expanded(
+                  child: _CompactNavItem(
+                    destination: destinations[i],
+                    selected: i == currentIndex,
+                    onTap: () => onSelected(i),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CompactNavItem extends StatelessWidget {
+  const _CompactNavItem({
+    required this.destination,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final NavDestination destination;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected
+        ? AppThemeConfig.primary
+        : AppThemeConfig.mutedText(context);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              selected ? destination.activeIcon : destination.icon,
+              color: color,
+              size: 24,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              destination.label.tr,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11,
+                // Explicit line height so the label box is 12pt rather than
+                // the locale font's default (~16pt) — see _barHeight.
+                height: 1.1,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                color: color,
               ),
+            ),
           ],
         ),
       ),
@@ -233,13 +341,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 }
 
-/// Note #41 — persistent header shown above every tab: the profile avatar
-/// (with a dot when the profile is incomplete, previously shown on the
-/// now-removed Profile tab icon), an Alerts bell (unread badge), and a
-/// Messages icon (unread badge). Kept intentionally minimal — each tab's own
-/// SectionScaffold still carries its own title/subtitle underneath.
+/// Note #41 — persistent header shown above every tab: the current tab's
+/// title (top-left, same row as the icons — role-based dashboard title on
+/// Home, a fixed title on every other tab), an Alerts bell (unread badge),
+/// and a Messages icon (unread badge). Each tab's own in-page header no
+/// longer repeats the title (see each tab's `title: ''` in its
+/// SectionScaffold call). Kept intentionally minimal.
 class _DashboardTopBar extends StatelessWidget {
-  const _DashboardTopBar();
+  const _DashboardTopBar({required this.tabIndex});
+
+  final int tabIndex;
+
+  static const int _homeIndex = 0;
+  static const int _storeIndex = 1;
+  static const int _marriageIndex = 2;
+  static const int _cityGuideIndex = 3;
+  static const int _settingsIndex = 4;
 
   @override
   Widget build(BuildContext context) {
@@ -250,38 +367,92 @@ class _DashboardTopBar extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.end,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            // Note #43 — grouped with Notifications/Messages at the top,
-            // matching the client's requested layout (was inside the side
-            // drawer only). The profile avatar shortcut was removed once
-            // Settings became its own bottom-nav tab.
-            _TopBarIconButton(
-              icon: Icons.search_rounded,
-              badgeCount: 0,
-              tooltip: 'search_title'.tr,
-              onTap: () => Get.to(() => const GlobalSearchScreen()),
-            ),
-            const SizedBox(width: 8),
-            Obx(
-              () => _TopBarIconButton(
-                icon: Icons.notifications_none_rounded,
-                badgeCount: notifications.unreadCount,
-                tooltip: 'Notifications'.tr,
-                onTap: () => Get.to(() => const NotificationsScreen()),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Obx(
-              () => _TopBarIconButton(
-                icon: Icons.forum_outlined,
-                badgeCount: chats.totalUnread,
-                tooltip: 'Messages'.tr,
-                onTap: () => Get.to(() => const MessagesScreen()),
-              ),
+            if (tabIndex == _homeIndex)
+              Expanded(
+                child: Obx(() {
+                  final controller = Get.find<RoleDashboardController>();
+                  final roleKey = controller.roleKey.value.trim().isNotEmpty
+                      ? controller.roleKey.value.trim()
+                      : switch (sharedPreferences.getString('role_id')) {
+                          '1' => 'donor',
+                          '2' => 'beneficiary',
+                          '3' => 'volunteer',
+                          _ => 'guest',
+                        };
+                  return _TopBarTitle(dashboardTitleForRole(roleKey));
+                }),
+              )
+            else if (tabIndex == _storeIndex)
+              const Expanded(child: _TopBarTitle('Marketplace'))
+            else if (tabIndex == _marriageIndex)
+              const Expanded(child: _TopBarTitle('Events'))
+            else if (tabIndex == _cityGuideIndex)
+              const Expanded(child: _TopBarTitle('City Guide'))
+            else if (tabIndex == _settingsIndex)
+              const Expanded(child: _TopBarTitle('Settings'))
+            else
+              const Spacer(),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Note #43 — grouped with Notifications/Messages at the top,
+                // matching the client's requested layout (was inside the side
+                // drawer only). The profile avatar sits at the end of this row
+                // and opens the account hub — see _TopBarProfileAvatar.
+                _TopBarIconButton(
+                  icon: Icons.search_rounded,
+                  badgeCount: 0,
+                  tooltip: 'search_title'.tr,
+                  onTap: () => Get.to(() => const GlobalSearchScreen()),
+                ),
+                const SizedBox(width: 8),
+                Obx(
+                  () => _TopBarIconButton(
+                    icon: Icons.notifications_none_rounded,
+                    badgeCount: notifications.unreadCount,
+                    tooltip: 'Notifications'.tr,
+                    onTap: () => Get.to(() => const NotificationsScreen()),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Obx(
+                  () => _TopBarIconButton(
+                    icon: Icons.forum_outlined,
+                    badgeCount: chats.totalUnread,
+                    tooltip: 'Messages'.tr,
+                    onTap: () => Get.to(() => const MessagesScreen()),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // "Ninth: Improve the Home Interface Design" — the profile photo
+                // sits top-right and opens the account hub.
+                const _TopBarProfileAvatar(),
+              ],
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _TopBarTitle extends StatelessWidget {
+  const _TopBarTitle(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text.tr,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w800,
+        color: AppThemeConfig.text(context),
       ),
     );
   }
@@ -347,6 +518,54 @@ class _TopBarIconButton extends StatelessWidget {
                     ),
                   ),
               ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// "Ninth: Improve the Home Interface Design" — the user's circular profile
+/// photo in the top-right corner. Tapping it opens the account hub
+/// (ProfileMenuScreen). Falls back to a person glyph when no photo is set.
+class _TopBarProfileAvatar extends StatelessWidget {
+  const _TopBarProfileAvatar();
+
+  String? _localImagePath() {
+    final path = sharedPreferences.getString('profile_image_path');
+    if (path == null || path.isEmpty) return null;
+    return File(path).existsSync() ? path : null;
+  }
+
+  String? _remoteImageUrl() => normalizeProfilePictureUrl(
+    sharedPreferences.getString('profile_picture_url'),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Profile'.tr,
+      child: Material(
+        color: Colors.transparent,
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: () {
+            AppHaptics.selection();
+            Get.to(() => const ProfileMenuScreen());
+          },
+          child: CachedProfileAvatar(
+            localPath: _localImagePath(),
+            imageUrl: _remoteImageUrl(),
+            radius: 19,
+            backgroundColor: AppThemeConfig.primary,
+            placeholder: const Icon(
+              Icons.person,
+              color: Colors.white,
+              size: 20,
             ),
           ),
         ),

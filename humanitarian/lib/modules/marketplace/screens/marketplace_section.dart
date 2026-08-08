@@ -15,9 +15,10 @@ class MarketplaceSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Title moved to the persistent top bar (dashboard_screen.dart).
     return const SectionScaffold(
-      title: 'Marketplace',
-      subtitle: 'Discover products from productive families and track orders.',
+      title: '',
+      subtitle: '',
       child: _MarketplaceList(),
     );
   }
@@ -49,7 +50,10 @@ class _MarketplaceList extends StatelessWidget {
             child: RefreshIndicator(
               onRefresh: controller.refreshMarketplace,
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 180),
+                // Scaffold already reserves space above the bottom nav bar —
+                // this only needs a small resting margin, not extra
+                // clearance for it.
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                 children: [
                   _OrdersShortcut(controller: controller),
                   const SizedBox(height: 12),

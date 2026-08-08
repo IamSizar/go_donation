@@ -36,10 +36,15 @@ export interface PushTemplate {
   id: string
   /** Lucide icon component rendered in the card's badge. */
   icon: LucideIcon
-  /** Short card label (English — the admin UI chrome stays English). */
+  /** Short card label. English fallback; labelKey is what the UI renders. */
   label: string
-  /** One-line occasion descriptor shown under the label. */
+  /** i18n key for [label] — the picker chrome is translated like the rest
+      of the dashboard, so these follow the admin's chosen language. */
+  labelKey: string
+  /** One-line occasion descriptor shown under the label (English fallback). */
   tagline: string
+  /** i18n key for [tagline]. */
+  taglineKey: string
   /** Accent hex — tints the icon badge, border, and active state. */
   accent: string
   title: { en: string; ar: string; ckb: string; kmr: string }
@@ -51,7 +56,9 @@ export const PUSH_TEMPLATES: PushTemplate[] = [
     id: 'jumuah',
     icon: MoonStar,
     label: "Jumu'ah Mubarak",
+    labelKey: 'push_tpl.jumuah_label',
     tagline: 'Weekly Friday blessing',
+    taglineKey: 'push_tpl.jumuah_tagline',
     accent: '#0F766E',
     title: { en: "Jumu'ah Mubarak 🕌", ar: 'جمعة مباركة 🕌', ckb: 'هەینی پیرۆز 🕌', kmr: 'جومعه‌ موباره‌ک 🕌' },
     body: {
@@ -65,7 +72,9 @@ export const PUSH_TEMPLATES: PushTemplate[] = [
     id: 'ramadan',
     icon: Moon,
     label: 'Ramadan Kareem',
+    labelKey: 'push_tpl.ramadan_label',
     tagline: 'Start of the holy month',
+    taglineKey: 'push_tpl.ramadan_tagline',
     accent: '#6366F1',
     title: { en: 'Ramadan Kareem 🌙', ar: 'رمضان كريم 🌙', ckb: 'ڕەمەزان پیرۆز 🌙', kmr: 'ره‌مه‌زان که‌ریم 🌙' },
     body: {
@@ -79,7 +88,9 @@ export const PUSH_TEMPLATES: PushTemplate[] = [
     id: 'iftar',
     icon: UtensilsCrossed,
     label: 'Iftar Sponsor',
+    labelKey: 'push_tpl.iftar_label',
     tagline: 'Sponsor a fasting family',
+    taglineKey: 'push_tpl.iftar_tagline',
     accent: '#F59E0B',
     title: { en: 'Sponsor an Iftar tonight 🍽️', ar: 'ارعَ إفطار صائم الليلة 🍽️', ckb: 'ژەمی بەربانگ دابین بکە 🍽️', kmr: 'ئفتاره‌کێ بکرین 🍽️' },
     body: {
@@ -93,7 +104,9 @@ export const PUSH_TEMPLATES: PushTemplate[] = [
     id: 'laylat_alqadr',
     icon: Sparkles,
     label: 'Laylat al-Qadr',
+    labelKey: 'push_tpl.laylat_alqadr_label',
     tagline: 'The night of a thousand months',
+    taglineKey: 'push_tpl.laylat_alqadr_tagline',
     accent: '#8B5CF6',
     title: { en: 'The best night for giving ✨', ar: 'أفضل ليلة للعطاء ✨', ckb: 'شەوی قەدر، باشترین شەوی بەخشین ✨', kmr: 'شه‌ڤا هه‌ری باش یا خێرخوازێ ✨' },
     body: {
@@ -107,7 +120,9 @@ export const PUSH_TEMPLATES: PushTemplate[] = [
     id: 'eid_fitr',
     icon: PartyPopper,
     label: 'Eid al-Fitr',
+    labelKey: 'push_tpl.eid_fitr_label',
     tagline: 'Celebrate the end of Ramadan',
+    taglineKey: 'push_tpl.eid_fitr_tagline',
     accent: '#10B981',
     title: { en: 'Eid Mubarak! 🌙', ar: 'عيد فطر مبارك! 🌙', ckb: 'جەژن پیرۆز 🌙', kmr: 'جه‌ژنا وه‌ پیروز! 🌙' },
     body: {
@@ -121,7 +136,9 @@ export const PUSH_TEMPLATES: PushTemplate[] = [
     id: 'eid_adha',
     icon: Gift,
     label: 'Eid al-Adha',
+    labelKey: 'push_tpl.eid_adha_label',
     tagline: 'Share your Qurbani',
+    taglineKey: 'push_tpl.eid_adha_tagline',
     accent: '#E11D48',
     title: { en: 'Eid al-Adha Mubarak 🐑', ar: 'عيد أضحى مبارك 🐑', ckb: 'جەژنی قوربان پیرۆز 🐑', kmr: 'جه‌ژنا قوربانێ پیروز بیت 🐑' },
     body: {
@@ -135,7 +152,9 @@ export const PUSH_TEMPLATES: PushTemplate[] = [
     id: 'zakat',
     icon: HandCoins,
     label: 'Zakat Reminder',
+    labelKey: 'push_tpl.zakat_label',
     tagline: 'Annual obligatory charity',
+    taglineKey: 'push_tpl.zakat_tagline',
     accent: '#0891B2',
     title: { en: 'Have you given your Zakat? 🤲', ar: 'هل أدّيت زكاتك؟ 🤲', ckb: 'زەکاتەکەت بەخشیوە؟ 🤲', kmr: 'ته‌ زه‌کاتا خو دایه‌؟ 🤲' },
     body: {
@@ -149,7 +168,9 @@ export const PUSH_TEMPLATES: PushTemplate[] = [
     id: 'winter',
     icon: Snowflake,
     label: 'Winter Relief',
+    labelKey: 'push_tpl.winter_label',
     tagline: 'Seasonal cold-weather appeal',
+    taglineKey: 'push_tpl.winter_tagline',
     accent: '#0EA5E9',
     title: { en: 'Keep a family warm this winter ❄️', ar: 'ادفئ عائلة هذا الشتاء ❄️', ckb: 'خێزانێک گەرم بکەرەوە ❄️', kmr: 'مالباته‌کا گه‌رم بکه‌ ❄️' },
     body: {
@@ -163,7 +184,9 @@ export const PUSH_TEMPLATES: PushTemplate[] = [
     id: 'orphan',
     icon: Baby,
     label: 'Orphan Sponsor',
+    labelKey: 'push_tpl.orphan_label',
     tagline: 'Monthly child sponsorship',
+    taglineKey: 'push_tpl.orphan_tagline',
     accent: '#EC4899',
     title: { en: 'Sponsor an orphan this month 👶', ar: 'اكفل يتيماً هذا الشهر 👶', ckb: 'سەرپەرشتی هەتیوێک بکە 👶', kmr: 'سه‌رپه‌رشتیا سێویه‌کی بکه‌ 👶' },
     body: {
@@ -177,7 +200,9 @@ export const PUSH_TEMPLATES: PushTemplate[] = [
     id: 'sadaqah',
     icon: HeartHandshake,
     label: 'Sadaqah',
+    labelKey: 'push_tpl.sadaqah_label',
     tagline: 'Everyday voluntary giving',
+    taglineKey: 'push_tpl.sadaqah_tagline',
     accent: '#D946EF',
     title: { en: 'A small Sadaqah, a big change 💝', ar: 'صدقة صغيرة، أثر كبير 💝', ckb: 'سەدەقەیەکی بچووک، گۆڕانکارییەکی گەورە 💝', kmr: 'سه‌ده‌قه‌یا بچووک، گوهرینه‌کا مه‌زن 💝' },
     body: {
@@ -191,7 +216,9 @@ export const PUSH_TEMPLATES: PushTemplate[] = [
     id: 'emergency',
     icon: Siren,
     label: 'Emergency Appeal',
+    labelKey: 'push_tpl.emergency_label',
     tagline: 'Urgent disaster response',
+    taglineKey: 'push_tpl.emergency_tagline',
     accent: '#DC2626',
     title: { en: 'Urgent appeal — families need you 🚨', ar: 'نداء عاجل — العائلات بحاجتك 🚨', ckb: 'داوای بەپەلە — خێزانەکان پێویستیان بە تۆیە 🚨', kmr: 'هاوار! مالبات هه‌وجه‌داری ته‌ نه‌ 🚨' },
     body: {
@@ -205,7 +232,9 @@ export const PUSH_TEMPLATES: PushTemplate[] = [
     id: 'thank_you',
     icon: Heart,
     label: 'Thank Grantors',
+    labelKey: 'push_tpl.thank_you_label',
     tagline: 'Donor appreciation',
+    taglineKey: 'push_tpl.thank_you_tagline',
     accent: '#16A34A',
     title: { en: 'Thank you for your generosity 🙏', ar: 'شكراً لكرمكم 🙏', ckb: 'سوپاس بۆ بەخشندەییت 🙏', kmr: 'سپاس بو دلوڤانیا ته‌ 🙏' },
     body: {

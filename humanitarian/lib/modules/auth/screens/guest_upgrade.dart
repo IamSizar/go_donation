@@ -153,8 +153,7 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen> {
             const SizedBox(height: 6),
             Text(
               _step == _Step.phone
-                  ? 'We\'ll text you a one-time code to confirm it\'s yours.'
-                        .tr
+                  ? 'We\'ll text you a one-time code to confirm it\'s yours.'.tr
                   // Isolate the embedded number as LTR (U+2066 LRI ...
                   // U+2069 PDI) so its digit grouping doesn't mirror under
                   // an RTL locale (matches Note #39's fix on the verify
@@ -196,34 +195,33 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen> {
               controller: _phoneController,
               style: const TextStyle(color: Colors.white, fontSize: 16),
               cursorColor: Colors.white,
-              decoration: authInputDecoration(
-                label: 'Phone',
-                hintText: '750 858 2031',
-                icon: Icons.phone_outlined,
-              ).copyWith(
-                prefixIcon: CountryCodePicker(
-                  onChanged: (code) => setState(
-                    () => _dialCode = (code.dialCode ?? '+964').replaceFirst(
-                      '+',
-                      '',
+              decoration:
+                  authInputDecoration(
+                    label: 'Phone'.tr,
+                    hintText: '750 858 2031',
+                    icon: Icons.phone_outlined,
+                  ).copyWith(
+                    prefixIcon: CountryCodePicker(
+                      onChanged: (code) => setState(
+                        () => _dialCode = (code.dialCode ?? '+964')
+                            .replaceFirst('+', ''),
+                      ),
+                      initialSelection: 'IQ',
+                      favorite: const ['+964', 'IQ'],
+                      padding: const EdgeInsets.only(left: 14, right: 4),
+                      flagWidth: 22,
+                      showDropDownButton: true,
+                      textStyle: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
+                    ),
+                    prefixIconConstraints: const BoxConstraints(
+                      minWidth: 0,
+                      minHeight: 0,
                     ),
                   ),
-                  initialSelection: 'IQ',
-                  favorite: const ['+964', 'IQ'],
-                  padding: const EdgeInsets.only(left: 14, right: 4),
-                  flagWidth: 22,
-                  showDropDownButton: true,
-                  textStyle: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 15,
-                  ),
-                ),
-                prefixIconConstraints: const BoxConstraints(
-                  minWidth: 0,
-                  minHeight: 0,
-                ),
-              ),
               keyboardType: TextInputType.number,
               inputFormatters: [
                 PhoneSpaceInputFormatter(),
@@ -290,7 +288,7 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen> {
             keyboardType: TextInputType.number,
             maxLength: 6,
             decoration: authInputDecoration(
-              label: 'Verification code',
+              label: 'Verification code'.tr,
               hintText: '••••••',
               icon: Icons.password_rounded,
             ).copyWith(counterText: ''),

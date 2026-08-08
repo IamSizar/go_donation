@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/auth_session.dart';
 import 'package:flutter_application_1/api/guest_session.dart';
+import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/api/profile_api.dart';
 import 'package:flutter_application_1/core/app_haptics.dart';
 import 'package:flutter_application_1/core/app_share.dart';
@@ -12,9 +13,7 @@ import 'package:flutter_application_1/localization/locale_service.dart';
 import 'package:flutter_application_1/modules/auth/screens/control_settings_screen.dart';
 import 'package:flutter_application_1/modules/auth/screens/edit_profile.dart';
 import 'package:flutter_application_1/modules/legal/screens/content_page_screen.dart';
-import 'package:flutter_application_1/modules/legal/screens/terms_screen.dart';
 import 'package:flutter_application_1/modules/proposal/screens/partners_screen.dart';
-import 'package:flutter_application_1/modules/proposal/screens/proposal_services_section.dart';
 import 'package:flutter_application_1/modules/receipts/screens/aid_receipts_screen.dart';
 import 'package:flutter_application_1/modules/auth/screens/task_verification_screen.dart';
 import 'package:flutter_application_1/modules/support/screens/support_section.dart';
@@ -24,14 +23,16 @@ import 'package:get/get.dart';
 import 'package:path_provider/path_provider.dart';
 
 /// Client note — "Settings and Profile Interface": its own bottom-nav tab
-/// (previously a side drawer opened by tapping the profile avatar). Account
-/// info up top, Language and Dark Mode as direct rows, and everything
-/// already working (About/Contact/Terms, Clear Cache, Logout, plus Field
-/// privacy/Search/Receipts/Share/Services — kept here so nothing already
-/// reachable from the old drawer becomes a dead end).
-const Color _drawerPrimary = Color(0xFF0F766E);
-const Color _drawerPrimaryDark = Color(0xFF115E59);
-const Color _drawerDanger = Color(0xFFEF4444);
+/// (previously a side drawer opened by tapping the profile avatar).
+///
+/// Per the client's later split, the account and public-facing items
+/// (profile header, Language, Dark Mode, Our Work, Services, About/Contact/
+/// Terms, Log out) now live in ProfileMenuScreen, reached from the top-right
+/// avatar. What remains here is the operational content: preferences,
+/// volunteer tools, Task Verification, partners, receipts, share and cache.
+const Color drawerPrimary = Color(0xFF0F766E);
+const Color drawerPrimaryDark = Color(0xFF115E59);
+const Color drawerDanger = Color(0xFFEF4444);
 
 class SettingsSection extends StatelessWidget {
   const SettingsSection({super.key});
@@ -40,97 +41,73 @@ class SettingsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final guest = isGuestMode();
     return SectionScaffold(
-      title: 'Settings',
+      title: '',
       subtitle: '',
       child: ListView(
-        // 120 bottom clearance matches the other tabs' lists, so the last
-        // tile doesn't end up hidden behind the bottom nav bar.
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 120),
+        // Scaffold already reserves space above the bottom nav bar — this
+        // only needs a small resting margin, not extra clearance for it.
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
         children: [
-          _AccountHeader(guest: guest),
-          const SizedBox(height: 12),
           // Guests have no phone/wallet/field-privacy to manage — matches
           // the old flow, which hid Edit profile for guests the same way.
           if (!guest)
-            _DrawerTile(
+            DrawerTile(
               icon: Icons.tune_rounded,
               label: 'Control Settings and Preferences',
               color: Colors.blueAccent,
               onTap: () => Get.to(() => const ControlSettingsScreen()),
             ),
-          const _LanguageRow(),
-          const _DarkModeRow(),
-          const _DrawerDivider(),
+          const DrawerDivider(),
           // Both volunteer rows are kept role-segmented, matching how the
           // rest of the app keeps each role's own dashboard/tools separate
           // rather than surfacing them to every role.
           if (sharedPreferences.getString('role_id') == '3') ...[
-            _DrawerTile(
+            DrawerTile(
               icon: Icons.volunteer_activism_rounded,
               label: 'Volunteer With Us',
               color: Colors.deepOrange,
               onTap: () => Get.to(() => const SupportSection()),
             ),
-            _DrawerTile(
+            DrawerTile(
               icon: Icons.fact_check_rounded,
               label: 'Volunteer Attendance and Absence System',
               color: Colors.deepOrange,
               onTap: () => Get.to(() => const SupportSection()),
             ),
           ],
-          _DrawerTile(
+          DrawerTile(
             icon: Icons.checklist_rounded,
             label: 'Task Verification',
             color: Colors.deepOrange,
             onTap: () => Get.to(() => const TaskVerificationScreen()),
           ),
-          _DrawerTile(
+          DrawerTile(
             icon: Icons.handshake_rounded,
             label: 'Our Partners',
             color: Colors.deepOrange,
             onTap: () => Get.to(() => const PartnersScreen()),
           ),
-          _DrawerTile(
+          DrawerTile(
             icon: Icons.diversity_3_rounded,
             label: 'Supporting Organizations',
             color: Colors.deepOrange,
             onTap: () =>
                 Get.to(() => const PartnersScreen(onlySupporting: true)),
           ),
-          _DrawerTile(
+          DrawerTile(
             icon: Icons.receipt_long_rounded,
             label: 'receipts_title',
             color: Colors.teal,
             onTap: () => Get.to(() => const AidReceiptsScreen()),
           ),
-          _DrawerTile(
-            icon: Icons.apps_rounded,
-            label: 'Services',
-            color: Colors.deepPurple,
-            onTap: () => Get.to(() => const ProposalServicesSection()),
-          ),
-          _DrawerTile(
+          DrawerTile(
             icon: Icons.ios_share_rounded,
             label: 'share_app',
             color: Colors.green,
             onTap: shareApp,
           ),
-          const _DrawerDivider(),
-          _DrawerTile(
-            icon: Icons.description_rounded,
-            label: 'Terms & Conditions',
-            color: Colors.blueGrey,
-            onTap: () => Get.to(() => const TermsScreen()),
-          ),
-          _DrawerTile(
-            icon: Icons.info_outline_rounded,
-            label: 'About Us',
-            color: Colors.teal,
-            onTap: () => Get.to(
-              () => const ContentPageScreen(slug: 'about', titleKey: 'About Us'),
-            ),
-          ),
-          _DrawerTile(
+          const DrawerDivider(),
+          DrawerTile(
             icon: Icons.volunteer_activism_outlined,
             label: 'Our Humanitarian Work',
             color: Colors.teal,
@@ -141,44 +118,19 @@ class SettingsSection extends StatelessWidget {
               ),
             ),
           ),
-          _DrawerTile(
-            icon: Icons.mail_outline_rounded,
-            label: 'Contact Us',
-            color: Colors.orange,
-            onTap: () => Get.to(
-              () => const ContentPageScreen(
-                slug: 'contact',
-                titleKey: 'Contact Us',
-              ),
-            ),
-          ),
-          _DrawerTile(
+          DrawerTile(
             icon: Icons.cleaning_services_rounded,
             label: 'clear_cache',
             color: Colors.brown,
             onTap: () => _clearCache(context),
           ),
-          const _DrawerDivider(),
-          guest
-              ? _DrawerTile(
-                  icon: Icons.login_rounded,
-                  label: 'Sign in',
-                  color: _drawerPrimary,
-                  onTap: () => Get.offAllNamed('/login'),
-                )
-              : _DrawerTile(
-                  icon: Icons.logout_rounded,
-                  label: 'Log out',
-                  color: _drawerDanger,
-                  onTap: () => _confirmLogout(context),
-                ),
         ],
       ),
     );
   }
 }
 
-Future<void> _confirmLogout(BuildContext context) async {
+Future<void> confirmLogout(BuildContext context) async {
   final confirmed =
       await showDialog<bool>(
         context: context,
@@ -192,7 +144,7 @@ Future<void> _confirmLogout(BuildContext context) async {
             ),
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(true),
-              style: TextButton.styleFrom(foregroundColor: _drawerDanger),
+              style: TextButton.styleFrom(foregroundColor: drawerDanger),
               child: Text('Log out'.tr),
             ),
           ],
@@ -252,8 +204,8 @@ Future<void> _clearCache(BuildContext context) async {
 /// (guests show their username instead, since they have no phone), plus an
 /// edit affordance. Shown directly, no arrow — per spec this is information,
 /// not a navigable option.
-class _AccountHeader extends StatelessWidget {
-  const _AccountHeader({required this.guest});
+class AccountHeader extends StatelessWidget {
+  const AccountHeader({super.key, required this.guest});
 
   final bool guest;
 
@@ -263,8 +215,9 @@ class _AccountHeader extends StatelessWidget {
     return File(path).existsSync() ? path : null;
   }
 
-  String? _remoteImageUrl() =>
-      normalizeProfilePictureUrl(sharedPreferences.getString('profile_picture_url'));
+  String? _remoteImageUrl() => normalizeProfilePictureUrl(
+    sharedPreferences.getString('profile_picture_url'),
+  );
 
   String _name() {
     final n = (sharedPreferences.getString('name_user') ?? '').trim();
@@ -293,7 +246,7 @@ class _AccountHeader extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [_drawerPrimary, _drawerPrimaryDark],
+          colors: [drawerPrimary, drawerPrimaryDark],
         ),
         borderRadius: BorderRadius.circular(24),
       ),
@@ -311,7 +264,7 @@ class _AccountHeader extends StatelessWidget {
               localPath: _localImagePath(),
               imageUrl: _remoteImageUrl(),
               radius: 26,
-              backgroundColor: _drawerPrimaryDark,
+              backgroundColor: drawerPrimaryDark,
               placeholder: const Icon(
                 Icons.person,
                 color: Colors.white,
@@ -339,7 +292,9 @@ class _AccountHeader extends StatelessWidget {
                 Row(
                   children: [
                     Icon(
-                      guest ? Icons.alternate_email_rounded : Icons.phone_rounded,
+                      guest
+                          ? Icons.alternate_email_rounded
+                          : Icons.phone_rounded,
                       size: 12,
                       color: Colors.white.withValues(alpha: 0.85),
                     ),
@@ -389,8 +344,8 @@ class _AccountHeader extends StatelessWidget {
   }
 }
 
-class _DrawerDivider extends StatelessWidget {
-  const _DrawerDivider();
+class DrawerDivider extends StatelessWidget {
+  const DrawerDivider({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -403,12 +358,13 @@ class _DrawerDivider extends StatelessWidget {
 
 /// One vertically-arranged option row: icon, label, trailing content (an
 /// arrow by default — tapping it opens the related page).
-class _DrawerTile extends StatelessWidget {
-  const _DrawerTile({
+class DrawerTile extends StatelessWidget {
+  const DrawerTile({
+    super.key,
     required this.icon,
     required this.label,
     required this.onTap,
-    this.color = _drawerPrimary,
+    this.color = drawerPrimary,
     this.trailing,
   });
 
@@ -471,8 +427,8 @@ class _DrawerTile extends StatelessWidget {
 
 /// Language — per spec: tapping the arrow opens a picker with exactly the
 /// 4 supported languages.
-class _LanguageRow extends StatelessWidget {
-  const _LanguageRow();
+class LanguageRow extends StatelessWidget {
+  const LanguageRow({super.key});
 
   static const List<_LanguageOption> _options = [
     _LanguageOption('EN', 'English', 'English', AppLocaleService.english),
@@ -492,7 +448,9 @@ class _LanguageRow extends StatelessWidget {
   ];
 
   _LanguageOption _current() {
-    final tag = AppLocaleService.localeTag(Get.locale ?? AppLocaleService.english);
+    final tag = AppLocaleService.localeTag(
+      Get.locale ?? AppLocaleService.english,
+    );
     return _options.firstWhere(
       (o) => AppLocaleService.localeTag(o.locale) == tag,
       orElse: () => _options.first,
@@ -502,7 +460,7 @@ class _LanguageRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final current = _current();
-    return _DrawerTile(
+    return DrawerTile(
       icon: Icons.translate_rounded,
       label: 'Language',
       onTap: () => _showLanguagePicker(context),
@@ -585,7 +543,12 @@ class _LanguageRow extends StatelessWidget {
 }
 
 class _LanguageOption {
-  const _LanguageOption(this.code, this.nativeName, this.englishName, this.locale);
+  const _LanguageOption(
+    this.code,
+    this.nativeName,
+    this.englishName,
+    this.locale,
+  );
 
   final String code;
   final String nativeName;
@@ -615,11 +578,11 @@ class _LanguageOptionRow extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
           decoration: BoxDecoration(
             color: selected
-                ? _drawerPrimary.withValues(alpha: 0.08)
+                ? drawerPrimary.withValues(alpha: 0.08)
                 : AppThemeConfig.softSurface(context),
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: selected ? _drawerPrimary : AppThemeConfig.border(context),
+              color: selected ? drawerPrimary : AppThemeConfig.border(context),
               width: selected ? 1.5 : 1,
             ),
           ),
@@ -631,14 +594,14 @@ class _LanguageOptionRow extends StatelessWidget {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: selected
-                      ? _drawerPrimary
-                      : _drawerPrimary.withValues(alpha: 0.12),
+                      ? drawerPrimary
+                      : drawerPrimary.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
                   option.code,
                   style: TextStyle(
-                    color: selected ? Colors.white : _drawerPrimary,
+                    color: selected ? Colors.white : drawerPrimary,
                     fontWeight: FontWeight.w800,
                     fontSize: 12,
                   ),
@@ -672,7 +635,7 @@ class _LanguageOptionRow extends StatelessWidget {
                     ? Icons.check_circle_rounded
                     : Icons.radio_button_unchecked_rounded,
                 color: selected
-                    ? _drawerPrimary
+                    ? drawerPrimary
                     : AppThemeConfig.mutedText(context).withValues(alpha: 0.5),
                 size: 20,
               ),
@@ -685,8 +648,8 @@ class _LanguageOptionRow extends StatelessWidget {
 }
 
 /// Dark Mode — per spec: a direct toggle, no sub-page.
-class _DarkModeRow extends StatelessWidget {
-  const _DarkModeRow();
+class DarkModeRow extends StatelessWidget {
+  const DarkModeRow({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -724,13 +687,111 @@ class _DarkModeRow extends StatelessWidget {
               ),
               Switch.adaptive(
                 value: isDark,
-                activeThumbColor: _drawerPrimary,
+                activeThumbColor: drawerPrimary,
                 onChanged: setAppDarkMode,
               ),
             ],
           ),
         );
       },
+    );
+  }
+}
+
+/// Client spec "Twelfth: General Settings" — enable/disable notifications.
+///
+/// The switch has always existed end-to-end (users.notifications_enabled,
+/// GET/POST /api/profile/notifications, and ModuleApi.get/setNotificationSetting)
+/// but its only UI lived on ProfilePage, which nothing navigates to any more —
+/// so in practice the setting was unreachable. This row restores it next to
+/// Dark mode.
+///
+/// Optimistic: the switch flips immediately and reverts if the write fails, so
+/// a slow network never makes the toggle feel stuck.
+class NotificationsRow extends StatefulWidget {
+  const NotificationsRow({super.key});
+
+  @override
+  State<NotificationsRow> createState() => _NotificationsRowState();
+}
+
+class _NotificationsRowState extends State<NotificationsRow> {
+  bool _enabled = true;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final v = await const ModuleApi().getNotificationSetting();
+      if (mounted) setState(() => _enabled = v);
+    } catch (_) {
+      // Leave the optimistic default (on) — a read failure must not look
+      // like the user has notifications switched off.
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _toggle(bool next) async {
+    final previous = _enabled;
+    setState(() => _enabled = next);
+    try {
+      final applied = await const ModuleApi().setNotificationSetting(next);
+      if (mounted) setState(() => _enabled = applied);
+    } catch (_) {
+      if (mounted) setState(() => _enabled = previous);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: Colors.amber.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: const Icon(
+              Icons.notifications_active_rounded,
+              color: Colors.amber,
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Notifications'.tr,
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 14.5,
+                color: AppThemeConfig.text(context),
+              ),
+            ),
+          ),
+          if (_loading)
+            const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          else
+            Switch.adaptive(
+              value: _enabled,
+              activeThumbColor: drawerPrimary,
+              onChanged: _toggle,
+            ),
+        ],
+      ),
     );
   }
 }

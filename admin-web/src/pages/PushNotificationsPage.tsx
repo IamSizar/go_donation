@@ -360,17 +360,14 @@ export default function PushNotificationsPage() {
                 <span className="tpl-icon" aria-hidden>
                   <Icon size={20} strokeWidth={2.2} />
                 </span>
-                {/* Label + tagline. Note #23 — these are always English (see
-                    the PushTemplate.label/tagline doc comment), so they must
-                    keep an explicit ltr direction + left alignment even when
-                    the dashboard itself is RTL (Arabic/Kurdish). Without this,
-                    text-overflow: ellipsis truncates from the visual start of
-                    the RTL block instead of the end, so "The night of a
-                    thousand months" rendered as "...ht of a thousand months"
-                    — confirmed live, this is what read as "overlapping". */}
+                {/* Label + tagline are localized like the rest of the
+                    dashboard, so they inherit the page direction rather than
+                    being pinned to ltr/left. Keeping the explicit ltr here
+                    would truncate RTL text from its visual start (the old
+                    "...ht of a thousand months" bug) now that the strings
+                    themselves are Arabic/Kurdish. */}
                 <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
                   <span
-                    dir="ltr"
                     style={{
                       fontSize: 13.5,
                       fontWeight: 700,
@@ -379,24 +376,23 @@ export default function PushNotificationsPage() {
                       whiteSpace: 'nowrap',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
-                      textAlign: 'left',
+                      textAlign: 'start',
                     }}
                   >
-                    {tpl.label}
+                    {t(tpl.labelKey)}
                   </span>
                   <span
                     className="muted"
-                    dir="ltr"
                     style={{
                       fontSize: 11.5,
                       lineHeight: 1.25,
                       whiteSpace: 'nowrap',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
-                      textAlign: 'left',
+                      textAlign: 'start',
                     }}
                   >
-                    {tpl.tagline}
+                    {t(tpl.taglineKey)}
                   </span>
                 </span>
                 {isActive && (

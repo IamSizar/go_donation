@@ -268,18 +268,10 @@ class _CityGuideScreenState extends State<CityGuideScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Title moved to the persistent top bar (dashboard_screen.dart).
     return SectionScaffold(
-      title: 'City Guide',
-      subtitle: 'Find local services on the map · Mosul, Iraq',
-      // Note #41 — the City Guide bottom-nav tab merges the map (this screen)
-      // with the services directory list, which used to be its own separate
-      // "Community" tab. Rather than nest two SectionScaffolds, the directory
-      // is one tap away from here instead.
-      trailing: IconButton(
-        tooltip: 'Services Directory'.tr,
-        icon: const Icon(Icons.list_alt_rounded),
-        onPressed: () => Get.to(() => const CommunityServicesSection()),
-      ),
+      title: '',
+      subtitle: '',
       child: Obx(() {
         final items = _controller.filteredEntries;
         final sectors = _controller.sectors.toList();
@@ -581,7 +573,8 @@ class _CityMapState extends State<_CityMap> {
                 // (reported as a "scroll bug"). Panning now needs two
                 // fingers; pinch-zoom and double-tap-zoom still work with one.
                 interactionOptions: const InteractionOptions(
-                  flags: InteractiveFlag.pinchZoom |
+                  flags:
+                      InteractiveFlag.pinchZoom |
                       InteractiveFlag.doubleTapZoom |
                       InteractiveFlag.pinchMove,
                 ),
@@ -977,8 +970,9 @@ class _CityServiceCard extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: 12.5,
                                 height: 1.3,
-                                color: AppThemeConfig.text(context)
-                                    .withValues(alpha: 0.8),
+                                color: AppThemeConfig.text(
+                                  context,
+                                ).withValues(alpha: 0.8),
                               ),
                             ),
                           ),
@@ -1242,9 +1236,7 @@ class _EntrySheet extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: _kPinA.withValues(alpha: 0.14),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: _kPinA.withValues(alpha: 0.35),
-                      ),
+                      border: Border.all(color: _kPinA.withValues(alpha: 0.35)),
                     ),
                     child: Text(
                       _sectorLabel(slug, allSectors),

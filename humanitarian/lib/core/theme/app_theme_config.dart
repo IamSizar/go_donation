@@ -2,10 +2,14 @@ import 'package:flutter/material.dart';
 
 class _AppPalette {
   static const Color primary = Color(0xFF0F766E);
-  static const Color backgroundTop = Color(0xFFF5FBFF);
-  static const Color backgroundBottom = Color(0xFFE8F3FF);
-  static const Color darkBackgroundTop = Color(0xFF08131F);
-  static const Color darkBackgroundBottom = Color(0xFF0F1B2D);
+  // Client note — plain white background app-wide (was a teal/blue
+  // gradient with decorative blur orbs, which stayed visible in the gaps
+  // around cards while scrolling). backgroundTop/backgroundBottom are now
+  // identical so GradientScreen's LinearGradient renders as a flat color.
+  static const Color backgroundTop = Color(0xFFFFFFFF);
+  static const Color backgroundBottom = Color(0xFFFFFFFF);
+  static const Color darkBackgroundTop = Color(0xFF0B1220);
+  static const Color darkBackgroundBottom = Color(0xFF0B1220);
   static const Color text = Color(0xFF0F172A);
   static const Color mutedText = Color(0xFF64748B);
   static const Color darkText = Color(0xFFF8FAFC);
@@ -134,7 +138,10 @@ class AppThemeConfig {
         // Material 3's defaults (headlineMedium 28, headlineSmall 24) read as
         // oversized for this app's headers — sized down so headline text
         // fits within ~2 lines instead of overflowing/wrapping further.
-        headlineMedium: const TextStyle(fontWeight: FontWeight.w800, fontSize: 22),
+        headlineMedium: const TextStyle(
+          fontWeight: FontWeight.w800,
+          fontSize: 22,
+        ),
         headlineSmall: TextStyle(
           fontWeight: FontWeight.bold,
           color: textColor,

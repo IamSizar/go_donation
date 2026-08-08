@@ -383,6 +383,93 @@ func (h *MarriageHandler) Post(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to create profile."})
 		return
 	}
+	// "My Engagement" spec — "Identification Information". Written after the
+	// row exists, so this section can't break the core create path.
+	if err := h.Store.SetIdentification(c.Request.Context(), id, marriage.MarriageIdentification{
+		NationalID:      strings.TrimSpace(asStr(data["national_id"])),
+		NameFirst:       strings.TrimSpace(asStr(data["name_first"])),
+		NameFather:      strings.TrimSpace(asStr(data["name_father"])),
+		NameGrandfather: strings.TrimSpace(asStr(data["name_grandfather"])),
+		NameFamily:      strings.TrimSpace(asStr(data["name_family"])),
+		TribeClan:       strings.TrimSpace(asStr(data["tribe_clan"])),
+		TitleSurname:    strings.TrimSpace(asStr(data["title_surname"])),
+		DateOfBirth:     strings.TrimSpace(asStr(data["date_of_birth"])),
+		Email:           strings.TrimSpace(asStr(data["email"])),
+		Phone1:          strings.TrimSpace(asStr(data["phone1"])),
+		Phone2:          strings.TrimSpace(asStr(data["phone2"])),
+		Nationality:     strings.TrimSpace(asStr(data["nationality"])),
+		ResidencyStatus: strings.TrimSpace(asStr(data["residency_status"])),
+	}); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to save identification details."})
+		return
+	}
+	// "My Engagement" spec — "Housing Information" / "Housing Type".
+	var mLat, mLng *float64
+	if v, ok := asFloat(data["gps_lat"]); ok && v != 0 {
+		mLat = &v
+	}
+	if v, ok := asFloat(data["gps_lng"]); ok && v != 0 {
+		mLng = &v
+	}
+	if err := h.Store.SetHousing(c.Request.Context(), id, marriage.MarriageHousing{
+		Governorate:            strings.TrimSpace(asStr(data["governorate"])),
+		HousingSide:            strings.TrimSpace(asStr(data["housing_side"])),
+		Neighborhood:           strings.TrimSpace(asStr(data["neighborhood"])),
+		NearestLandmark:        strings.TrimSpace(asStr(data["nearest_landmark"])),
+		GPSLat:                 mLat,
+		GPSLng:                 mLng,
+		YearsCurrentResidence:  strings.TrimSpace(asStr(data["years_current_residence"])),
+		PreviousResidence:      strings.TrimSpace(asStr(data["previous_residence"])),
+		YearsPreviousResidence: strings.TrimSpace(asStr(data["years_previous_residence"])),
+		HousingType:            strings.TrimSpace(asStr(data["housing_type"])),
+		RentalAmount:           strings.TrimSpace(asStr(data["rental_amount"])),
+		HousingArea:            strings.TrimSpace(asStr(data["housing_area"])),
+		FloorsCount:            strings.TrimSpace(asStr(data["floors_count"])),
+		RoomsCount:             strings.TrimSpace(asStr(data["rooms_count"])),
+		FamiliesCount:          strings.TrimSpace(asStr(data["families_count"])),
+	}); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to save housing details."})
+		return
+	}
+	// "My Engagement" spec — Educational/Employment, Personal and Health,
+	// Assets, Needs and Requirements, Attachments, Social Media Accounts.
+	if err := h.Store.SetProfileDetails(c.Request.Context(), id, marriage.MarriageProfileDetails{
+		EducationLevel:      strings.TrimSpace(asStr(data["education_level"])),
+		OtherCertificate:    strings.TrimSpace(asStr(data["other_certificate"])),
+		CertificatesCount:   strings.TrimSpace(asStr(data["certificates_count"])),
+		Occupation:          strings.TrimSpace(asStr(data["occupation"])),
+		PreviousOccupation:  strings.TrimSpace(asStr(data["previous_occupation"])),
+		JobDescription:      strings.TrimSpace(asStr(data["job_description"])),
+		WorkingHours:        strings.TrimSpace(asStr(data["working_hours"])),
+		MonthlyIncome:       strings.TrimSpace(asStr(data["monthly_income"])),
+		SkinTone:            strings.TrimSpace(asStr(data["skin_tone"])),
+		FamilyMembersCount:  strings.TrimSpace(asStr(data["family_members_count"])),
+		ChildrenCount:       strings.TrimSpace(asStr(data["children_count"])),
+		SmokingStatus:       strings.TrimSpace(asStr(data["smoking_status"])),
+		EyesightCondition:   strings.TrimSpace(asStr(data["eyesight_condition"])),
+		HasDisability:       strings.TrimSpace(asStr(data["has_disability"])),
+		DisabilityType:      strings.TrimSpace(asStr(data["disability_type"])),
+		ChronicIllnesses:    strings.TrimSpace(asStr(data["chronic_illnesses"])),
+		Ethnicity:           strings.TrimSpace(asStr(data["ethnicity"])),
+		Skills:              strings.TrimSpace(asStr(data["skills"])),
+		OwnsCar:             strings.TrimSpace(asStr(data["owns_car"])),
+		OwnsHouse:           strings.TrimSpace(asStr(data["owns_house"])),
+		OwnsShop:            strings.TrimSpace(asStr(data["owns_shop"])),
+		OwnsCompany:         strings.TrimSpace(asStr(data["owns_company"])),
+		OwnsLand:            strings.TrimSpace(asStr(data["owns_land"])),
+		OtherAssets:         strings.TrimSpace(asStr(data["other_assets"])),
+		PartnerRequirements: strings.TrimSpace(asStr(data["partner_requirements"])),
+		GoldenSquareURL:     strings.TrimSpace(asStr(data["golden_square_url"])),
+		GraduationCertURL:   strings.TrimSpace(asStr(data["graduation_cert_url"])),
+		CVURL:               strings.TrimSpace(asStr(data["cv_url"])),
+		SocialFacebook:      strings.TrimSpace(asStr(data["social_facebook"])),
+		SocialInstagram:     strings.TrimSpace(asStr(data["social_instagram"])),
+		SocialTelegram:      strings.TrimSpace(asStr(data["social_telegram"])),
+		SocialOther:         strings.TrimSpace(asStr(data["social_other"])),
+	}); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to save profile details."})
+		return
+	}
 	// Phase 18 — centralised 4-language template.
 	_, _ = h.Notifier.Send(c.Request.Context(), uid,
 		notify.MarriageSubmittedMsg(code, id))

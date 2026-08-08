@@ -4,6 +4,7 @@ import 'package:flutter_application_1/api/links.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/modules/proposal/controllers/partners_controller.dart';
+import 'package:flutter_application_1/modules/proposal/screens/partner_detail_screen.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:flutter_application_1/api/guest_session.dart';
@@ -102,129 +103,137 @@ class _PartnerCard extends StatelessWidget {
     final email = (item['email'] ?? '').toString(); // #26
     final website = (item['website'] ?? '').toString();
     final location = localizedContentFromMap(item, 'location'); // #26
-    final socials = _socialLinks(item['social_links']); // #26
-    final logoUrl = _partnerLogoUrl(item['logo_path']);
+    final socials = partnerSocialLinks(item['social_links']); // #26
+    final logoUrl = partnerLogoUrl(item['logo_path']);
 
+    // "Eleventh: Partners Section" — the whole card opens the dedicated
+    // Partner Page. The partner map goes straight across, so the page has
+    // every field the list already loaded and only fetches the activity
+    // history.
     return GlassPanel(
       padding: EdgeInsets.zero,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppThemeConfig.primary.withValues(alpha: 0.08),
-              border: Border(
-                bottom: BorderSide(color: AppThemeConfig.border(context)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () => Get.to(() => PartnerDetailScreen(partner: item)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppThemeConfig.primary.withValues(alpha: 0.08),
+                border: Border(
+                  bottom: BorderSide(color: AppThemeConfig.border(context)),
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  PartnerLogo(logoUrl: logoUrl),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: AppThemeConfig.text(context),
+                            fontSize: 19,
+                            fontWeight: FontWeight.w900,
+                            height: 1.15,
+                          ),
+                        ),
+                        if (type.trim().isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          PartnerMiniPill(
+                            icon: Icons.business_center_rounded,
+                            label: type,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                _PartnerLogo(logoUrl: logoUrl),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        name,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: AppThemeConfig.text(context),
-                          fontSize: 19,
-                          fontWeight: FontWeight.w900,
-                          height: 1.15,
-                        ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (description.trim().isNotEmpty)
+                    Text(
+                      description,
+                      maxLines: 4,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: AppThemeConfig.mutedText(context),
+                        height: 1.5,
+                        fontSize: 14.5,
                       ),
-                      if (type.trim().isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        _PartnerMiniPill(
-                          icon: Icons.business_center_rounded,
-                          label: type,
+                    )
+                  else
+                    Text(
+                      'Supporting partner'.tr,
+                      style: TextStyle(
+                        color: AppThemeConfig.mutedText(context),
+                        height: 1.5,
+                      ),
+                    ),
+                  const SizedBox(height: 14),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      if (phone.trim().isNotEmpty)
+                        PartnerActionChip(
+                          icon: Icons.phone_rounded,
+                          label: phone,
+                          onTap: () => launchPartnerExternal('tel:$phone'),
                         ),
-                      ],
+                      if (email.trim().isNotEmpty)
+                        PartnerActionChip(
+                          icon: Icons.email_rounded,
+                          label: email,
+                          onTap: () => launchPartnerExternal('mailto:$email'),
+                        ),
+                      if (website.trim().isNotEmpty)
+                        PartnerActionChip(
+                          icon: Icons.open_in_new_rounded,
+                          label: 'Visit website',
+                          onTap: () => openPartnerWebsite(website),
+                        ),
+                      if (location.trim().isNotEmpty)
+                        PartnerActionChip(
+                          icon: Icons.place_rounded,
+                          label: location,
+                          onTap: () => openPartnerMaps(location),
+                        ),
+                      for (final link in socials)
+                        PartnerActionChip(
+                          icon: Icons.public_rounded,
+                          label: partnerSocialLabel(link),
+                          onTap: () => openPartnerWebsite(link),
+                        ),
                     ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 14),
+                  PartnerRating(item: item), // #27
+                ],
+              ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (description.trim().isNotEmpty)
-                  Text(
-                    description,
-                    maxLines: 4,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: AppThemeConfig.mutedText(context),
-                      height: 1.5,
-                      fontSize: 14.5,
-                    ),
-                  )
-                else
-                  Text(
-                    'Supporting partner'.tr,
-                    style: TextStyle(
-                      color: AppThemeConfig.mutedText(context),
-                      height: 1.5,
-                    ),
-                  ),
-                const SizedBox(height: 14),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: [
-                    if (phone.trim().isNotEmpty)
-                      _PartnerActionChip(
-                        icon: Icons.phone_rounded,
-                        label: phone,
-                        onTap: () => _launchExternal('tel:$phone'),
-                      ),
-                    if (email.trim().isNotEmpty)
-                      _PartnerActionChip(
-                        icon: Icons.email_rounded,
-                        label: email,
-                        onTap: () => _launchExternal('mailto:$email'),
-                      ),
-                    if (website.trim().isNotEmpty)
-                      _PartnerActionChip(
-                        icon: Icons.open_in_new_rounded,
-                        label: 'Visit website',
-                        onTap: () => _openPartnerWebsite(website),
-                      ),
-                    if (location.trim().isNotEmpty)
-                      _PartnerActionChip(
-                        icon: Icons.place_rounded,
-                        label: location,
-                        onTap: () => _openMaps(location),
-                      ),
-                    for (final link in socials)
-                      _PartnerActionChip(
-                        icon: Icons.public_rounded,
-                        label: _socialLabel(link),
-                        onTap: () => _openPartnerWebsite(link),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                _PartnerRating(item: item), // #27
-              ],
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
-class _PartnerLogo extends StatelessWidget {
-  const _PartnerLogo({required this.logoUrl});
+class PartnerLogo extends StatelessWidget {
+  const PartnerLogo({super.key, required this.logoUrl});
 
   final String? logoUrl;
 
@@ -284,8 +293,8 @@ class _PartnerLogoFallback extends StatelessWidget {
   }
 }
 
-class _PartnerMiniPill extends StatelessWidget {
-  const _PartnerMiniPill({required this.icon, required this.label});
+class PartnerMiniPill extends StatelessWidget {
+  const PartnerMiniPill({super.key, required this.icon, required this.label});
 
   final IconData icon;
   final String label;
@@ -321,8 +330,9 @@ class _PartnerMiniPill extends StatelessWidget {
   }
 }
 
-class _PartnerActionChip extends StatelessWidget {
-  const _PartnerActionChip({
+class PartnerActionChip extends StatelessWidget {
+  const PartnerActionChip({
+    super.key,
     required this.icon,
     required this.label,
     this.onTap,
@@ -369,8 +379,8 @@ class _PartnerActionChip extends StatelessWidget {
 }
 
 // #27 — average-rating display + a "Rate" button opening a 1–5 star picker.
-class _PartnerRating extends StatelessWidget {
-  const _PartnerRating({required this.item});
+class PartnerRating extends StatelessWidget {
+  const PartnerRating({super.key, required this.item});
 
   final Map<String, dynamic> item;
 
@@ -381,10 +391,12 @@ class _PartnerRating extends StatelessWidget {
     final mine = (item['my_rating'] as num?)?.toInt() ?? 0;
     return Row(
       children: [
-        _StarsRow(value: avg),
+        PartnerStarsRow(value: avg),
         const SizedBox(width: 8),
         Text(
-          count > 0 ? '${avg.toStringAsFixed(1)} ($count)' : 'No ratings yet'.tr,
+          count > 0
+              ? '${avg.toStringAsFixed(1)} ($count)'
+              : 'No ratings yet'.tr,
           style: TextStyle(
             color: AppThemeConfig.mutedText(context),
             fontWeight: FontWeight.w700,
@@ -410,8 +422,8 @@ class _PartnerRating extends StatelessWidget {
   }
 }
 
-class _StarsRow extends StatelessWidget {
-  const _StarsRow({required this.value});
+class PartnerStarsRow extends StatelessWidget {
+  const PartnerStarsRow({super.key, required this.value});
 
   final double value;
 
@@ -480,8 +492,9 @@ class _RatePickerSheetState extends State<_RatePickerSheet> {
                 width: 44,
                 height: 5,
                 decoration: BoxDecoration(
-                  color:
-                      AppThemeConfig.mutedText(context).withValues(alpha: 0.35),
+                  color: AppThemeConfig.mutedText(
+                    context,
+                  ).withValues(alpha: 0.35),
                   borderRadius: BorderRadius.circular(3),
                 ),
               ),
@@ -517,8 +530,10 @@ class _RatePickerSheetState extends State<_RatePickerSheet> {
                 child: ElevatedButton(
                   onPressed: _selected > 0
                       ? () {
-                          widget.controller
-                              .submitRating(widget.item, _selected);
+                          widget.controller.submitRating(
+                            widget.item,
+                            _selected,
+                          );
                           Navigator.of(context).pop();
                         }
                       : null,
@@ -545,7 +560,7 @@ class _RatePickerSheetState extends State<_RatePickerSheet> {
   }
 }
 
-List<String> _socialLinks(dynamic raw) {
+List<String> partnerSocialLinks(dynamic raw) {
   final text = (raw ?? '').toString();
   if (text.trim().isEmpty) return const [];
   return text
@@ -555,7 +570,7 @@ List<String> _socialLinks(dynamic raw) {
       .toList();
 }
 
-String _socialLabel(String url) {
+String partnerSocialLabel(String url) {
   final u = url.toLowerCase();
   if (u.contains('facebook') || u.contains('fb.')) return 'Facebook';
   if (u.contains('instagram') || u.contains('instagr.am')) return 'Instagram';
@@ -568,7 +583,7 @@ String _socialLabel(String url) {
   return 'Social';
 }
 
-Future<void> _launchExternal(String url) async {
+Future<void> launchPartnerExternal(String url) async {
   final uri = Uri.tryParse(url);
   if (uri == null) return;
   try {
@@ -576,14 +591,14 @@ Future<void> _launchExternal(String url) async {
   } catch (_) {}
 }
 
-Future<void> _openMaps(String location) async {
+Future<void> openPartnerMaps(String location) async {
   final query = Uri.encodeComponent(location.trim());
-  await _launchExternal(
+  await launchPartnerExternal(
     'https://www.google.com/maps/search/?api=1&query=$query',
   );
 }
 
-String? _partnerLogoUrl(dynamic value) {
+String? partnerLogoUrl(dynamic value) {
   final path = (value ?? '').toString().trim();
   if (path.isEmpty) return null;
   final uri = Uri.tryParse(path);
@@ -593,7 +608,7 @@ String? _partnerLogoUrl(dynamic value) {
   ).resolve(path.replaceFirst(RegExp(r'^/+'), '')).toString();
 }
 
-Future<void> _openPartnerWebsite(String rawWebsite) async {
+Future<void> openPartnerWebsite(String rawWebsite) async {
   final trimmed = rawWebsite.trim();
   if (trimmed.isEmpty) return;
   final normalized = trimmed.startsWith(RegExp(r'https?://'))

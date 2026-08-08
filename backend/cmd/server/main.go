@@ -32,6 +32,7 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/handlers"
 	"github.com/karam-flutter/humanitarian-backend/internal/history"
 	"github.com/karam-flutter/humanitarian-backend/internal/inkind"
+	"github.com/karam-flutter/humanitarian-backend/internal/inkindcategories"
 	"github.com/karam-flutter/humanitarian-backend/internal/listings"
 	"github.com/karam-flutter/humanitarian-backend/internal/marketplace"
 	"github.com/karam-flutter/humanitarian-backend/internal/marketplacecategories"
@@ -50,6 +51,7 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/search"
 	"github.com/karam-flutter/humanitarian-backend/internal/sectioncodes"
 	"github.com/karam-flutter/humanitarian-backend/internal/sponsorships"
+	"github.com/karam-flutter/humanitarian-backend/internal/sponsorshipschedule"
 	"github.com/karam-flutter/humanitarian-backend/internal/staffchat"
 	"github.com/karam-flutter/humanitarian-backend/internal/support"
 	"github.com/karam-flutter/humanitarian-backend/internal/tasks"
@@ -183,6 +185,14 @@ func main() {
 		_, err := otpiqClient.SendMessage(ctx, phone, message)
 		return err
 	}
+	// "Sixth/Seventh: Donations Page" — the same Transaction-Code + section-SMS
+	// behaviour for the other payment surfaces (Our Products, Marriage).
+	sectionArrivals := sectioncodes.ArrivalNotifier{
+		Codes:   codesStore,
+		SendSMS: donationStore.SendSMS,
+	}
+	marketplaceStore.Arrivals = sectionArrivals
+	marriageStore.Arrivals = sectionArrivals
 	if assistantSvc.LLMEnabled() {
 		log.Printf("[assistant] AI mode enabled (LLM via ANTHROPIC_API_KEY)")
 	} else {
@@ -191,7 +201,7 @@ func main() {
 	authH := handlers.NewAuthHandler(tokenStore, otpStore, userStore, otpiqClient, loginLockStore, notifier)
 	profileH := handlers.NewProfileHandler(userStore, uploadDir)
 	chooseRoleH := handlers.NewChooseRoleHandler(userStore)
-	registrationH := handlers.NewRegistrationHandler(userStore)
+	registrationH := handlers.NewRegistrationHandler(userStore, uploadDir)
 	registrationAdminH := handlers.NewRegistrationAdminHandler(userStore, notifier)
 	campaignsH := handlers.NewCampaignsHandler(campaignStore)
 	donationsH := handlers.NewDonationsHandler(donationStore, notifier, walletStore)
@@ -214,6 +224,9 @@ func main() {
 	adminEditH := handlers.NewAdminEditHandler(pool)
 	adminCreateH := handlers.NewAdminCreateHandler(pool, notifier)
 	adminCreateH.Codes = codesStore // #14 — namespace admin-created donation refs too
+	// "Post Information" — Activity Codes for Our Work posts, prefixed by the
+	// post's category.
+	adminCreateH.MediaCategories = mediaCatStore
 	adminDeleteH := handlers.NewAdminDeleteHandler(pool)
 	adminTrashH := handlers.NewAdminTrashHandler(pool)
 	adminUploadH := handlers.NewAdminUploadHandler(uploadDir)
@@ -229,6 +242,20 @@ func main() {
 	adminPermsH := handlers.NewAdminPermissionsHandler(permStore, otpStore, otpiqClient)
 	adminProfessionsH := handlers.NewAdminProfessionsHandler(professionStore)
 	projectCategoriesH := handlers.NewProjectCategoriesHandler(projectCatStore)
+	// Donations Page spec — "4. In-Kind Donations": admin-managed category list.
+	// "Eighth: Sponsorship Schedule and Calendar".
+	sponsorshipScheduleStore := sponsorshipschedule.New(pool)
+	// Build a sponsorship's due dates automatically the moment staff
+	// activate it, so the tracking screen and reminders need no manual step.
+	adminStatusH.Schedule = sponsorshipScheduleStore
+	inkindCatStore := inkindcategories.New(pool)
+	inkindCategoriesH := handlers.NewInkindCategoriesHandler(inkindCatStore)
+	sponsorshipScheduleH := handlers.NewSponsorshipScheduleHandler(
+		sponsorshipScheduleStore, settingsStore, notifier)
+	// Sponsorship reminders reuse the same best-effort SMS sender as the
+	// donation-arrival alerts.
+	sponsorshipScheduleH.SendSMS = donationStore.SendSMS
+	sponsorshipScheduleH.StartReminderLoop(6 * time.Hour)
 	citySectorsH := handlers.NewCitySectorsHandler(citySectorStore)                                              // #29
 	searchH := handlers.NewSearchHandler(searchStore)                                                            // #33
 	fieldRulesH := handlers.NewFieldRulesHandler(pool)                                                           // #43
@@ -318,6 +345,7 @@ func main() {
 		api.GET("/stats/impact", statsH.ImpactStats)
 		// #17 — public project categories for the beneficiary submit-project dropdown.
 		api.GET("/project-categories", projectCategoriesH.PublicList)
+		api.GET("/inkind-categories", inkindCategoriesH.PublicList)
 		api.GET("/city-sectors", citySectorsH.PublicList)            // #29 — City Guide filter chips
 		api.GET("/search", searchH.Search)                           // #33 — global search
 		api.GET("/registration/field-rules", fieldRulesH.PublicList) // #43 — required-field rules
@@ -331,6 +359,22 @@ func main() {
 			}
 			c.JSON(http.StatusOK, gin.H{"success": true, "number": number, "enabled": number != ""})
 		})
+		// Donations Page spec — donate-screen switches. Both default ON when
+		// the row is missing, so a fresh install behaves as before.
+		api.GET("/donation-options", func(c *gin.Context) {
+			on := func(key string) bool {
+				v, err := settingsStore.Get(c.Request.Context(), key)
+				if err != nil || strings.TrimSpace(v) == "" {
+					return true
+				}
+				return strings.TrimSpace(v) != "0"
+			}
+			c.JSON(http.StatusOK, gin.H{
+				"success":               true,
+				"projects_visible":      on(appsettings.KeyDonationProjectsVisible),
+				"comprehensive_enabled": on(appsettings.KeyDonationComprehensiveEnabled),
+			})
+		})
 		api.GET("/media-categories", mediaCategoriesH.PublicList)             // #22
 		api.GET("/case-categories", caseCategoriesH.PublicList)               // Quick Filter Capsules
 		api.GET("/marketplace/categories", marketplaceCategoriesH.PublicList) // #28
@@ -342,6 +386,7 @@ func main() {
 
 		// Public read-only listings (Flutter + public web).
 		api.GET("/partners", listingsH.Partners)
+		api.GET("/partners/:id/activities", listingsH.PartnerActivities)
 		api.GET("/partners/", listingsH.Partners)
 		api.GET("/media", listingsH.Media)
 		api.GET("/media/", listingsH.Media)
@@ -397,6 +442,8 @@ func main() {
 			session.POST("/registration/submit/", registrationH.Submit)
 			session.GET("/registration/status", registrationH.Status)
 			session.GET("/registration/status/", registrationH.Status)
+			session.POST("/registration/photos", registrationH.UploadPhotos)
+			session.POST("/registration/photos/", registrationH.UploadPhotos)
 		}
 
 		// Protected — Bearer + approved registration. Non-approved users get
@@ -419,8 +466,11 @@ func main() {
 			authed.GET("/profile/notifications", profileH.GetNotificationSetting)
 			authed.POST("/profile/notifications", profileH.SetNotificationSetting)
 			// #32 — per-user profile field privacy (which fields are hidden).
+			authed.GET("/profile/privacy-options", profileH.GetPrivacyOptions)
 			authed.GET("/profile/privacy", profileH.GetFieldPrivacy)
 			authed.POST("/profile/privacy", profileH.SetFieldPrivacy)
+			authed.GET("/profile/privacy-extras", profileH.GetPrivacyExtras)
+			authed.POST("/profile/privacy-extras", profileH.SetPrivacyExtras)
 			authed.POST("/choose_role", chooseRoleH.Post)
 			authed.POST("/choose_role/", chooseRoleH.Post)
 
@@ -540,6 +590,9 @@ func main() {
 			authed.GET("/case-chats/:id/messages", caseVolChatH.Messages)
 			authed.POST("/case-chats/:id/messages", caseVolChatH.PostMessage)
 
+			// "Eighth: Sponsorship Schedule and Calendar" — the entitlement
+			// tracking screen (upcoming / due / overdue / history).
+			authed.GET("/sponsorships/schedule", sponsorshipScheduleH.List)
 			authed.GET("/sponsorships", sponsorshipsH.Get)
 			authed.GET("/sponsorships/", sponsorshipsH.Get)
 			authed.POST("/sponsorships", auth.RequireNotGuest(), sponsorshipsH.Post)
@@ -793,6 +846,8 @@ func main() {
 			admin.POST("/admin/beneficiary_cases", perm("beneficiary", "add"), adminCreateH.BeneficiaryCase)
 			admin.POST("/admin/beneficiary_project_requests", perm("beneficiary", "add"), adminCreateH.ProjectRequest)
 			admin.POST("/admin/sponsorships", perm("sponsorships", "add"), adminCreateH.Sponsorship)
+			admin.POST("/admin/sponsorships/:id/schedule/generate", perm("sponsorships", "edit"), sponsorshipScheduleH.Generate)
+			admin.POST("/admin/sponsorships/schedule/:occurrenceId/paid", perm("sponsorships", "edit"), sponsorshipScheduleH.MarkPaid)
 			admin.POST("/admin/in_kind_donations", perm("in_kind", "add"), adminCreateH.InKindDonation)
 			admin.POST("/admin/support_tickets", perm("support", "add"), adminCreateH.SupportTicket)
 			admin.POST("/admin/donations", perm("donations", "add"), adminCreateH.Donation)
@@ -872,6 +927,11 @@ func main() {
 			admin.PATCH("/admin/project-categories/:id", auth.RequireAdminTier(), projectCategoriesH.Update)
 			admin.POST("/admin/project-categories/reorder", auth.RequireAdminTier(), projectCategoriesH.Reorder)
 			admin.DELETE("/admin/project-categories/:id", auth.RequireAdminTier(), projectCategoriesH.Delete)
+			admin.GET("/admin/inkind-categories", inkindCategoriesH.AdminList)
+			admin.POST("/admin/inkind-categories", auth.RequireAdminTier(), inkindCategoriesH.Add)
+			admin.PATCH("/admin/inkind-categories/:id", auth.RequireAdminTier(), inkindCategoriesH.Update)
+			admin.POST("/admin/inkind-categories/reorder", auth.RequireAdminTier(), inkindCategoriesH.Reorder)
+			admin.DELETE("/admin/inkind-categories/:id", auth.RequireAdminTier(), inkindCategoriesH.Delete)
 			// #29 — City Guide sector CMS (admin-managed, 4-language, ordered).
 			// #50 — digital aid-delivery receipts.
 			admin.GET("/admin/aid-receipts", aidReceiptsH.AdminList)

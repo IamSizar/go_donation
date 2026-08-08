@@ -6,6 +6,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/case_categories_api.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
+import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 
 class CaseCategoryCapsules extends StatefulWidget {
@@ -43,27 +44,41 @@ class _CaseCategoryCapsulesState extends State<CaseCategoryCapsules> {
     // Best-effort feature: on failure/offline the capsule row just doesn't
     // render rather than showing an empty "All"-only row.
     if (_categories.isEmpty) return const SizedBox.shrink();
+    // Both call sites nest this in a page with 20px side padding — without
+    // canceling that here, dragging a capsule toward the edge made it
+    // disappear early, well before actually reaching the screen edge.
+    //
+    // The fixed-height SizedBox must wrap FullBleedHorizontal, not nest
+    // inside it: OverflowBox (inside FullBleedHorizontal) sizes itself using
+    // its own incoming constraints, which are unbounded height when this
+    // widget sits directly in a vertical ListView — nesting it the other way
+    // made OverflowBox try to report an infinite height and corrupted the
+    // rest of the list's layout (overlapping/missing sections below it).
     return SizedBox(
       height: 40,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: _categories.length + 1,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (context, i) {
-          if (i == 0) {
+      child: FullBleedHorizontal(
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          clipBehavior: Clip.none,
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          itemCount: _categories.length + 1,
+          separatorBuilder: (_, __) => const SizedBox(width: 8),
+          itemBuilder: (context, i) {
+            if (i == 0) {
+              return _CapsuleChip(
+                label: 'All'.tr,
+                active: widget.selected == null,
+                onTap: () => widget.onSelected(null),
+              );
+            }
+            final cat = _categories[i - 1];
             return _CapsuleChip(
-              label: 'All'.tr,
-              active: widget.selected == null,
-              onTap: () => widget.onSelected(null),
+              label: cat.localizedName,
+              active: widget.selected == cat.slug,
+              onTap: () => widget.onSelected(cat.slug),
             );
-          }
-          final cat = _categories[i - 1];
-          return _CapsuleChip(
-            label: cat.localizedName,
-            active: widget.selected == cat.slug,
-            onTap: () => widget.onSelected(cat.slug),
-          );
-        },
+          },
+        ),
       ),
     );
   }

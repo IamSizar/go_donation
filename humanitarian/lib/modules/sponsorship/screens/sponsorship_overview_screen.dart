@@ -3,6 +3,7 @@ import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/modules/sponsorship/controllers/sponsorships_controller.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/modules/sponsorship/screens/sponsorship_schedule_screen.dart';
 
 class SponsorshipOverviewScreen extends StatelessWidget {
   const SponsorshipOverviewScreen({super.key});
@@ -22,6 +23,26 @@ class SponsorshipOverviewScreen extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
           children: [
             const _OverviewHeroCard(),
+            const SizedBox(height: 12),
+            // "Eighth: Sponsorship Schedule and Calendar" — entitlement
+            // tracking: every due date, split into upcoming / due / overdue
+            // / history.
+            GlassPanel(
+              padding: EdgeInsets.zero,
+              child: ListTile(
+                leading: const Icon(
+                  Icons.calendar_month_rounded,
+                  color: Color(0xFF0F766E),
+                ),
+                title: Text(
+                  'sched_title'.tr,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                subtitle: Text('sched_subtitle'.tr),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => Get.to(() => const SponsorshipScheduleScreen()),
+              ),
+            ),
             const SizedBox(height: 18),
             const SectionLabel(title: 'My monthly sponsorships'),
             const SizedBox(height: 12),
@@ -163,8 +184,10 @@ class _SponsorshipPlanCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      '@amount @currency monthly'
-                          .trParams({'amount': amount, 'currency': currency}),
+                      '@amount @currency monthly'.trParams({
+                        'amount': amount,
+                        'currency': currency,
+                      }),
                       style: TextStyle(
                         color: AppThemeConfig.mutedText(context),
                         height: 1.4,

@@ -75,11 +75,25 @@ export const NAV: NavItem[] = [
 
 export const navByTo = new Map(NAV.map((n) => [n.to, n]))
 
+/** True when `path` is a nav item's own route, or a route nested under it.
+ *
+ * Deliberately NOT a bare `startsWith`. Sibling routes share prefixes —
+ * '/marriage' vs '/marriage-requests', '/marketplace' vs
+ * '/marketplace-categories', '/media' vs '/media-categories' — so a prefix
+ * test lights up the parent AND the child at the same time. That is both
+ * visibly wrong and the cause of the flickering highlight: the active pill is
+ * a framer-motion `layoutId`, and two elements claiming the same layoutId
+ * make it jump between them instead of sliding once. */
+export function isNavPathActive(path: string, to: string): boolean {
+  if (to === '/') return path === '/'
+  return path === to || path.startsWith(to + '/')
+}
+
 export type NavSection =
   | { kind: 'item'; to: string }
   | { kind: 'group'; key: string; tKey: string; items: string[] }
 
-// The 9 group titles a Super-Admin can regroup items under. `tKey` here is
+// The group titles a Super-Admin can regroup items under. `tKey` here is
 // only used for GROUPS a section actually references — a custom layout that
 // invents a brand new group key would have no label, so the settings editor
 // only ever assigns items to one of these known keys (never a free-typed one).
@@ -88,6 +102,7 @@ export const GROUP_DEFS: { key: string; tKey: string }[] = [
   { key: 'aid_campaigns', tKey: 'nav_group.aid_campaigns' },
   { key: 'city_guide', tKey: 'nav_group.city_guide' },
   { key: 'store_marketplace', tKey: 'nav_group.store_marketplace' },
+  { key: 'marriage', tKey: 'nav_group.marriage' },
   { key: 'communication_support', tKey: 'nav_group.communication_support' },
   { key: 'monitoring_reports', tKey: 'nav_group.monitoring_reports' },
   { key: 'system_settings', tKey: 'nav_group.system_settings' },
@@ -98,7 +113,8 @@ export const DEFAULT_NAV_SECTIONS: NavSection[] = [
   { kind: 'item', to: '/' },
   {
     kind: 'group', key: 'users_members', tKey: 'nav_group.users_members',
-    items: ['/users', '/beneficiary', '/volunteers', '/volunteer-board', '/tasks', '/case-volunteer-chats', '/guest-access'],
+    items: ['/users', '/beneficiary', '/volunteers', '/volunteer-board', '/tasks',
+            '/case-volunteer-chats', '/partners', '/guest-access'],
   },
   {
     kind: 'group', key: 'aid_campaigns', tKey: 'nav_group.aid_campaigns',
@@ -112,11 +128,10 @@ export const DEFAULT_NAV_SECTIONS: NavSection[] = [
     kind: 'group', key: 'store_marketplace', tKey: 'nav_group.store_marketplace',
     items: ['/marketplace', '/marketplace-categories', '/comments'],
   },
-  { kind: 'item', to: '/marriage' },
-  { kind: 'item', to: '/marriage-requests' },
-  { kind: 'item', to: '/marriage-chats' },
-  { kind: 'item', to: '/marriage-subscriptions' },
-  { kind: 'item', to: '/partners' },
+  {
+    kind: 'group', key: 'marriage', tKey: 'nav_group.marriage',
+    items: ['/marriage', '/marriage-requests', '/marriage-chats', '/marriage-subscriptions'],
+  },
   {
     kind: 'group', key: 'communication_support', tKey: 'nav_group.communication_support',
     items: ['/messages', '/staff-chat', '/notifications', '/push', '/support', '/contact'],

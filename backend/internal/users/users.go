@@ -104,6 +104,43 @@ func (s *Store) SetNotificationsEnabled(ctx context.Context, userID int64, enabl
 	return err
 }
 
+// PrivacyFieldOption is one toggleable entry in the Privacy Settings screen.
+// The catalogue is data-driven (privacy_field_options, migration 083) so new
+// options can be added without an app change — see that migration's note.
+type PrivacyFieldOption struct {
+	FieldKey      string `json:"field_key"`
+	LabelKey      string `json:"label_key"`
+	DefaultHidden bool   `json:"default_hidden"`
+	DisplayOrder  int    `json:"display_order"`
+}
+
+// PrivacyFieldOptions returns the enabled options in display order.
+func (s *Store) PrivacyFieldOptions(ctx context.Context) ([]PrivacyFieldOption, error) {
+	rows, err := s.Pool.Query(ctx,
+		`SELECT field_key, label_key, default_hidden, display_order
+		   FROM privacy_field_options
+		  WHERE enabled = true
+		  ORDER BY display_order, field_key`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []PrivacyFieldOption{}
+	for rows.Next() {
+		var o PrivacyFieldOption
+		if err := rows.Scan(&o.FieldKey, &o.LabelKey, &o.DefaultHidden, &o.DisplayOrder); err != nil {
+			return nil, err
+		}
+		// A brand-new row can be inserted with no label_key; the app falls
+		// back to the field key so it is still usable immediately.
+		if o.LabelKey == "" {
+			o.LabelKey = o.FieldKey
+		}
+		out = append(out, o)
+	}
+	return out, rows.Err()
+}
+
 // GetFieldPrivacy returns the profile field keys the user hides (#32).
 func (s *Store) GetFieldPrivacy(ctx context.Context, userID int64) ([]string, error) {
 	var hidden []string
@@ -128,6 +165,55 @@ func (s *Store) SetFieldPrivacy(ctx context.Context, userID int64, hidden []stri
 	}
 	_, err := s.Pool.Exec(ctx,
 		`UPDATE user_profiles SET field_privacy = $2 WHERE user_id = $1`, userID, hidden)
+	return err
+}
+
+// PrivacyExtras — Privacy Settings spec: real name vs. alias display choice
+// plus optional social media links.
+type PrivacyExtras struct {
+	DisplayNameMode string `json:"display_name_mode"` // "real" | "alias"
+	AliasName       string `json:"alias_name"`
+	Facebook        string `json:"social_facebook"`
+	Instagram       string `json:"social_instagram"`
+	Telegram        string `json:"social_telegram"`
+}
+
+// GetPrivacyExtras returns the current display-name choice and social links.
+func (s *Store) GetPrivacyExtras(ctx context.Context, userID int64) (PrivacyExtras, error) {
+	var p PrivacyExtras
+	err := s.Pool.QueryRow(ctx,
+		`SELECT display_name_mode, alias_name, social_facebook, social_instagram, social_telegram
+		   FROM user_profiles WHERE user_id = $1`, userID,
+	).Scan(&p.DisplayNameMode, &p.AliasName, &p.Facebook, &p.Instagram, &p.Telegram)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return PrivacyExtras{DisplayNameMode: "real"}, nil
+		}
+		return PrivacyExtras{}, err
+	}
+	if p.DisplayNameMode == "" {
+		p.DisplayNameMode = "real"
+	}
+	return p, nil
+}
+
+// SetPrivacyExtras stores the display-name choice and social links.
+func (s *Store) SetPrivacyExtras(ctx context.Context, userID int64, p PrivacyExtras) error {
+	if userID <= 0 {
+		return errors.New("invalid userID")
+	}
+	mode := strings.TrimSpace(p.DisplayNameMode)
+	if mode != "alias" {
+		mode = "real"
+	}
+	_, err := s.Pool.Exec(ctx,
+		`UPDATE user_profiles
+		    SET display_name_mode = $2, alias_name = $3,
+		        social_facebook = $4, social_instagram = $5, social_telegram = $6
+		  WHERE user_id = $1`,
+		userID, mode, strings.TrimSpace(p.AliasName),
+		strings.TrimSpace(p.Facebook), strings.TrimSpace(p.Instagram), strings.TrimSpace(p.Telegram),
+	)
 	return err
 }
 

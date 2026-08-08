@@ -1,0 +1,62 @@
+-- 075 — Eligible Recipient Registration spec: "Educational and Employment
+-- Information", "Employment Status", and "Social Information" sections.
+-- date_of_birth, education_level, occupation, monthly_income, and family_size
+-- already exist and are reused as-is (education_level was Grantor-only until
+-- now; the recipient_education_level rule below extends it to this role too).
+ALTER TABLE user_profiles
+  ADD COLUMN IF NOT EXISTS other_certificate TEXT NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS certificates_count TEXT NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS previous_occupation TEXT NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS job_description TEXT NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS working_hours TEXT NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS is_employed TEXT NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS workplace TEXT NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS wage_amount TEXT NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS registered_social_welfare TEXT NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS registered_unemployed TEXT NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS household_employees_count TEXT NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS working_members_count TEXT NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS men_count TEXT NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS women_count TEXT NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS male_children_count TEXT NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS female_children_count TEXT NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS age_0_5_count TEXT NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS age_5_10_count TEXT NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS age_10_15_count TEXT NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS age_15_25_count TEXT NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS age_25_40_count TEXT NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS age_40_plus_count TEXT NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS students_count TEXT NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS orphans_count TEXT NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS widows_count TEXT NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS divorced_count TEXT NOT NULL DEFAULT '';
+
+INSERT INTO registration_field_rules (field_key, state, display_order) VALUES
+  ('recipient_education_level',         'optional', 250),
+  ('recipient_other_certificate',       'optional', 251),
+  ('recipient_certificates_count',      'optional', 252),
+  ('recipient_previous_occupation',     'optional', 253),
+  ('recipient_job_description',         'optional', 254),
+  ('recipient_working_hours',           'optional', 255),
+  ('recipient_is_employed',             'optional', 256),
+  ('recipient_workplace',               'optional', 257),
+  ('recipient_wage_amount',             'optional', 258),
+  ('recipient_registered_social_welfare','optional', 259),
+  ('recipient_registered_unemployed',   'optional', 260),
+  ('recipient_household_employees',     'optional', 261),
+  ('recipient_working_members',         'optional', 262),
+  ('recipient_men_count',               'optional', 263),
+  ('recipient_women_count',             'optional', 264),
+  ('recipient_male_children_count',     'optional', 265),
+  ('recipient_female_children_count',   'optional', 266),
+  ('recipient_age_0_5_count',           'optional', 267),
+  ('recipient_age_5_10_count',          'optional', 268),
+  ('recipient_age_10_15_count',         'optional', 269),
+  ('recipient_age_15_25_count',         'optional', 270),
+  ('recipient_age_25_40_count',         'optional', 271),
+  ('recipient_age_40_plus_count',       'optional', 272),
+  ('recipient_students_count',          'optional', 273),
+  ('recipient_orphans_count',           'optional', 274),
+  ('recipient_widows_count',            'optional', 275),
+  ('recipient_divorced_count',          'optional', 276)
+ON CONFLICT (field_key) DO NOTHING;

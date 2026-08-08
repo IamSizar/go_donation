@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
 class DonationDetailsScreen extends StatelessWidget {
   const DonationDetailsScreen({super.key});
@@ -6,10 +7,8 @@ class DonationDetailsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Contribution Details')),
-      body: const Center(
-        child: Text('Contribution details screen'),
-      ),
+      appBar: AppBar(title: Text('Contribution Details'.tr)),
+      body: Center(child: Text('Contribution details screen'.tr)),
     );
   }
 }

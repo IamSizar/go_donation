@@ -26,7 +26,7 @@ class PaymentMethod {
 
   final int id;
   final String slug;
-  final String methodType; // cash | bank | wallet
+  final String methodType; // cash | bank | wallet | card | mobile
   final String nameEn;
   final String nameAr;
   final String nameCkb;
@@ -45,34 +45,37 @@ class PaymentMethod {
       'ckb' => ckb,
       'kmr' => kmr,
       _ => en,
-    }
-        .trim();
+    }.trim();
     return v.isNotEmpty ? v : en;
   }
 
   String get localizedName => _localized(nameEn, nameAr, nameCkb, nameKmr);
-  String get localizedInstructions =>
-      _localized(instructionsEn, instructionsAr, instructionsCkb, instructionsKmr);
+  String get localizedInstructions => _localized(
+    instructionsEn,
+    instructionsAr,
+    instructionsCkb,
+    instructionsKmr,
+  );
 
   static String _s(dynamic v) => (v ?? '').toString();
   static int _int(dynamic v) =>
       v is int ? v : int.tryParse(v?.toString() ?? '') ?? 0;
 
   factory PaymentMethod.fromJson(Map<String, dynamic> j) => PaymentMethod(
-        id: _int(j['id']),
-        slug: _s(j['slug']),
-        methodType: _s(j['method_type']),
-        nameEn: _s(j['name_en']),
-        nameAr: _s(j['name_ar']),
-        nameCkb: _s(j['name_ckb']),
-        nameKmr: _s(j['name_kmr']),
-        instructionsEn: _s(j['instructions_en']),
-        instructionsAr: _s(j['instructions_ar']),
-        instructionsCkb: _s(j['instructions_ckb']),
-        instructionsKmr: _s(j['instructions_kmr']),
-        accountNumber: _s(j['account_number']),
-        accountName: _s(j['account_name']),
-      );
+    id: _int(j['id']),
+    slug: _s(j['slug']),
+    methodType: _s(j['method_type']),
+    nameEn: _s(j['name_en']),
+    nameAr: _s(j['name_ar']),
+    nameCkb: _s(j['name_ckb']),
+    nameKmr: _s(j['name_kmr']),
+    instructionsEn: _s(j['instructions_en']),
+    instructionsAr: _s(j['instructions_ar']),
+    instructionsCkb: _s(j['instructions_ckb']),
+    instructionsKmr: _s(j['instructions_kmr']),
+    accountNumber: _s(j['account_number']),
+    accountName: _s(j['account_name']),
+  );
 }
 
 /// Fetches the active payment methods (ordered), or an empty list on

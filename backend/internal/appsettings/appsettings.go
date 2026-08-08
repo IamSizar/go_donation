@@ -12,6 +12,17 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// Donations Page spec — donate-screen switches, both editable from the
+// Dashboard.
+//
+// KeyDonationProjectsVisible: "the project list can also be hidden, leaving
+// only the General Donation option".
+const KeyDonationProjectsVisible = "donation_projects_visible"
+
+// KeyDonationComprehensiveEnabled toggles the "Fifth: Comprehensive Grantor
+// Option" (Grant Now / Comprehensive Grant) general-fund choice.
+const KeyDonationComprehensiveEnabled = "donation_comprehensive_enabled"
+
 // KeySupportWhatsApp is the settings key for the AI-chat WhatsApp handoff number.
 const KeySupportWhatsApp = "support_whatsapp"
 

@@ -20,6 +20,24 @@ func NewListingsHandler(s *listings.Store) *ListingsHandler {
 	return &ListingsHandler{Store: s}
 }
 
+// PartnerActivities — GET /api/partners/:id/activities.
+// "Eleventh: Partners Section" — the Partner Page's history of activities
+// carried out in cooperation with this partner.
+func (h *ListingsHandler) PartnerActivities(c *gin.Context) {
+	id, _ := strconv.ParseInt(strings.TrimSpace(c.Param("id")), 10, 64)
+	if id <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid partner id."})
+		return
+	}
+	limit, _ := strconv.Atoi(strings.TrimSpace(c.Query("limit")))
+	items, err := h.Store.PartnerActivities(c.Request.Context(), id, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "items": items})
+}
+
 func (h *ListingsHandler) Partners(c *gin.Context) {
 	limit, _ := strconv.Atoi(strings.TrimSpace(c.Query("limit")))
 	// Default to 'active' for the public contract; ?status=all disables the filter,

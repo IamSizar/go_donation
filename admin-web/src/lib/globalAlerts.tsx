@@ -44,6 +44,7 @@ import {
 import { useNavigate } from 'react-router-dom'
 import { api } from './api'
 import { useAuth } from './auth'
+import { translate, useI18n } from './i18n'
 
 // Mirrors the EventRow type in EventsFeed.tsx. Kept local (with the fields
 // this provider actually consumes) so the two files don't have to share
@@ -84,19 +85,27 @@ const ROUTE_TABLE: Record<string, RouteSpec> = {
   role_select:                  { list: '/users', useUserId: true },
 }
 
-const BADGE_LABEL: Record<string, string> = {
-  donation_submit:              'New donation',
-  sponsorship_submit:           'New sponsorship',
-  sponsorship_cancel:           'Sponsorship cancelled',
-  in_kind_donation_submit:      'New in-kind donation',
-  marketplace_order_submit:     'New marketplace order',
-  beneficiary_case_submit:      'New beneficiary case',
-  project_request_submit:       'New project request',
-  support_ticket_submit:        'New support ticket',
-  volunteer_application_submit: 'New volunteer application',
-  volunteer_mission_join:       'Volunteer joined mission',
-  marriage_profile_submit:      'New marriage profile',
-  comment_submit:               'New comment',
+// i18n keys for the alert badge, reusing the feed_event.* namespace the
+// events feed already translates — one set of strings, not two.
+const BADGE_LABEL_KEY: Record<string, string> = {
+  donation_submit:              'feed_event.donation_submit',
+  sponsorship_submit:           'feed_event.sponsorship_submit',
+  sponsorship_cancel:           'feed_event.sponsorship_cancel',
+  in_kind_donation_submit:      'feed_event.in_kind_donation_submit',
+  marketplace_order_submit:     'feed_event.marketplace_order_submit',
+  beneficiary_case_submit:      'feed_event.beneficiary_case_submit',
+  project_request_submit:       'feed_event.project_request_submit',
+  support_ticket_submit:        'feed_event.support_ticket_submit',
+  volunteer_application_submit: 'feed_event.volunteer_application_submit',
+  volunteer_mission_join:       'feed_event.volunteer_mission_join',
+  marriage_profile_submit:      'feed_event.marriage_profile_submit',
+  comment_submit:               'feed_event.comment_submit',
+}
+
+/** Localized badge text for an event type, falling back to the raw type. */
+function badgeLabel(eventType: string): string {
+  const k = BADGE_LABEL_KEY[eventType]
+  return k ? translate(k) : eventType
 }
 
 function toId(v: unknown): string {
@@ -193,6 +202,7 @@ function writeBoolLS(key: string, v: boolean) {
 export function GlobalAlertsProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { t } = useI18n()
 
   // Persisted user preferences.
   const [sound, setSoundState] = useState<boolean>(() => readBoolLS('alerts.sound', true))
@@ -308,7 +318,7 @@ export function GlobalAlertsProvider({ children }: { children: ReactNode }) {
                 [first.module, first.action].filter(Boolean).join(' · ') ||
                 ''
               new Notification(
-                BADGE_LABEL[first.event_type] ?? first.event_type,
+                badgeLabel(first.event_type),
                 {
                   body: [first.name, body].filter(Boolean).join(' — '),
                   tag: `alerts-${first.event_type}`,  // collapses duplicates
@@ -415,16 +425,16 @@ export function GlobalAlertsProvider({ children }: { children: ReactNode }) {
         >
           <span className="at-icon" aria-hidden="true">●</span>
           <div className="at-body">
-            <strong>{BADGE_LABEL[toast.event_type] ?? toast.event_type}</strong>
+            <strong>{badgeLabel(toast.event_type)}</strong>
             <div className="muted">
-              {toast.name ?? 'App user'}
+              {toast.name ?? t('common.app_user')}
               {toast.note ? ` — ${toast.note}` : ''}
             </div>
           </div>
           <button
             type="button"
             className="at-close"
-            aria-label="Dismiss"
+            aria-label={t('highlight.dismiss')}
             onClick={(e) => { e.stopPropagation(); setToast(null) }}
           >×</button>
         </div>

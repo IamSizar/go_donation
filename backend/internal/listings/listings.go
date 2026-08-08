@@ -45,7 +45,16 @@ type Partner struct {
 	// #27 — rating aggregate + the requesting user's own rating (0 if none).
 	AvgRating   *float64 `json:"avg_rating"`
 	RatingCount int      `json:"rating_count"`
-	MyRating    int      `json:"my_rating"`
+	// "Partner Rating" — the organization-assessed level (1–5), kept
+	// separate from the crowd-sourced avg_rating above.
+	AdminRating      *float64 `json:"admin_rating"`
+	ScoreActivities  *int     `json:"score_activities"`
+	ScoreDonations   *int     `json:"score_donations"`
+	ScoreCooperation *int     `json:"score_cooperation"`
+	ScoreContinuity  *int     `json:"score_continuity"`
+	// Free-text justification staff write alongside the assessed level.
+	AdminRatingNote string `json:"admin_rating_note"`
+	MyRating        int    `json:"my_rating"`
 }
 
 // ListPartners returns partners. status="" → no filter. Public default is
@@ -78,6 +87,8 @@ func (s *Store) ListPartners(ctx context.Context, status, q string, limit int, u
 	               p.email, p.social_links,
 	               p.location, p.location_ar, p.location_sorani, p.location_badini,
 	               p.avg_rating::float8, p.rating_count,
+	               p.admin_rating::float8, p.score_activities, p.score_donations,
+	               p.score_cooperation, p.score_continuity, p.admin_rating_note,
 	               COALESCE((SELECT stars FROM partner_ratings pr
 	                          WHERE pr.partner_id = p.id AND pr.user_id = $` + uidIdx + `), 0)
 	          FROM partners p` + whereSQL + ` ORDER BY p.name ASC LIMIT ` + itoa(limit)
@@ -97,13 +108,66 @@ func (s *Store) ListPartners(ctx context.Context, status, q string, limit int, u
 			&p.LogoPath, &p.Status,
 			&p.Email, &p.SocialLinks,
 			&p.Location, &p.LocationAr, &p.LocationSorani, &p.LocationBadini,
-			&p.AvgRating, &p.RatingCount, &p.MyRating,
+			// Order mirrors the SELECT: avg_rating, rating_count, then the
+			// admin-assessed block, then the my_rating subquery last.
+			&p.AvgRating, &p.RatingCount,
+			&p.AdminRating, &p.ScoreActivities, &p.ScoreDonations,
+			&p.ScoreCooperation, &p.ScoreContinuity, &p.AdminRatingNote,
+			&p.MyRating,
 		); err != nil {
 			return nil, err
 		}
 		items = append(items, p)
 	}
 	return items, rows.Err()
+}
+
+// PartnerActivity is one activity carried out with a partner, for the
+// Partner Page's "history of activities or initiatives implemented in
+// cooperation with the partner".
+type PartnerActivity struct {
+	ID           int64   `json:"id"`
+	Title        string  `json:"title"`
+	TitleAr      *string `json:"title_ar"`
+	TitleSorani  *string `json:"title_sorani"`
+	TitleBadini  *string `json:"title_badini"`
+	MediaURL     *string `json:"media_url"`
+	EventDate    *string `json:"event_date"`
+	ActivityCode string  `json:"activity_code"`
+	CategorySlug *string `json:"category_slug"`
+}
+
+// PartnerActivities returns published posts attributed to a partner, newest
+// first. Empty (not an error) when the partner has none.
+func (s *Store) PartnerActivities(ctx context.Context, partnerID int64, limit int) ([]PartnerActivity, error) {
+	if partnerID <= 0 {
+		return []PartnerActivity{}, nil
+	}
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+	rows, err := s.Pool.Query(ctx,
+		`SELECT id, title, title_ar, title_sorani, title_badini,
+		        media_url, to_char(event_date, 'YYYY-MM-DD'),
+		        activity_code, category_slug
+		   FROM media_posts
+		  WHERE partner_id = $1 AND status = 'published'
+		  ORDER BY COALESCE(event_date, created_at::date) DESC, id DESC
+		  LIMIT $2`, partnerID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []PartnerActivity{}
+	for rows.Next() {
+		var a PartnerActivity
+		if err := rows.Scan(&a.ID, &a.Title, &a.TitleAr, &a.TitleSorani, &a.TitleBadini,
+			&a.MediaURL, &a.EventDate, &a.ActivityCode, &a.CategorySlug); err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
 }
 
 // ----------------- media posts -----------------
@@ -126,6 +190,8 @@ type MediaPost struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	// #22 — "Our Work" category tag (nullable; matches a media_categories.slug).
 	CategorySlug *string `json:"category_slug"`
+	// "Post Information" — Activity Code identifying the post + its category.
+	ActivityCode string `json:"activity_code"`
 	// #23 — 4-language location + media gallery.
 	Location       *string  `json:"location"`
 	LocationAr     *string  `json:"location_ar"`
@@ -176,7 +242,8 @@ func (s *Store) ListMediaPosts(ctx context.Context, status, postType, q string, 
 	sql := `SELECT m.id, m.title, m.title_ar, m.title_sorani, m.title_badini,
 	               m.body, m.body_ar, m.body_sorani, m.body_badini,
 	               m.post_type, m.media_url, m.link_url, m.event_date, m.status, m.created_at,
-	               m.category_slug, m.location, m.location_ar, m.location_sorani, m.location_badini,
+	               m.category_slug, m.activity_code,
+	               m.location, m.location_ar, m.location_sorani, m.location_badini,
 	               COALESCE(m.gallery, '{}'),
 	               (SELECT COUNT(*) FROM post_likes pl WHERE pl.post_id = m.id),
 	               (SELECT COUNT(*) FROM post_comments pc WHERE pc.post_id = m.id AND pc.status = 'approved'),
@@ -198,7 +265,8 @@ func (s *Store) ListMediaPosts(ctx context.Context, status, postType, q string, 
 			&m.ID, &m.Title, &m.TitleAr, &m.TitleSorani, &m.TitleBadini,
 			&m.Body, &m.BodyAr, &m.BodySorani, &m.BodyBadini,
 			&m.PostType, &m.MediaURL, &m.LinkURL, &m.EventDate, &m.Status, &m.CreatedAt,
-			&m.CategorySlug, &m.Location, &m.LocationAr, &m.LocationSorani, &m.LocationBadini,
+			&m.CategorySlug, &m.ActivityCode,
+			&m.Location, &m.LocationAr, &m.LocationSorani, &m.LocationBadini,
 			&m.Gallery,
 			&m.LikeCount, &m.CommentCount, &m.ShareCount, &m.LikedByMe,
 		); err != nil {

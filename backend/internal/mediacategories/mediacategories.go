@@ -10,6 +10,8 @@ import (
 	"regexp"
 	"strings"
 
+	"fmt"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -22,7 +24,10 @@ type Category struct {
 	NameCKB      string `json:"name_ckb"`
 	NameKMR      string `json:"name_kmr"`
 	DisplayOrder int    `json:"display_order"`
-	Active       bool   `json:"active"`
+	// "Tenth: Details of the Our Work Section" — which list this category
+	// belongs to: humanitarian | programs.
+	GroupKey string `json:"group_key"`
+	Active   bool   `json:"active"`
 }
 
 type Store struct{ Pool *pgxpool.Pool }
@@ -47,7 +52,7 @@ func (s *Store) List(ctx context.Context, activeOnly bool) ([]Category, error) {
 		where = " WHERE active = 1"
 	}
 	rows, err := s.Pool.Query(ctx,
-		`SELECT id, slug, name_en, name_ar, name_ckb, name_kmr, display_order, (active = 1)
+		`SELECT id, slug, name_en, name_ar, name_ckb, name_kmr, display_order, group_key, (active = 1)
 		   FROM media_categories`+where+`
 		  ORDER BY display_order, id`)
 	if err != nil {
@@ -57,8 +62,10 @@ func (s *Store) List(ctx context.Context, activeOnly bool) ([]Category, error) {
 	out := []Category{}
 	for rows.Next() {
 		var c Category
+		// Scan order must mirror the SELECT above exactly:
+		// … name_kmr, display_order, group_key, active.
 		if err := rows.Scan(&c.ID, &c.Slug, &c.NameEN, &c.NameAR, &c.NameCKB, &c.NameKMR,
-			&c.DisplayOrder, &c.Active); err != nil {
+			&c.DisplayOrder, &c.GroupKey, &c.Active); err != nil {
 			return nil, err
 		}
 		out = append(out, c)
@@ -159,4 +166,44 @@ func (s *Store) Delete(ctx context.Context, id int64) error {
 		return errors.New("category not found")
 	}
 	return nil
+}
+
+// NextActivityCode issues the next Activity Code for a category ("Post
+// Information": a code identifying the post and its category, e.g.
+// HUM-000123). The prefix and sequence live on the category row, so a
+// category added from the Admin Panel gets its own namespace with no code
+// change.
+//
+// Returns "" when the post has no category or the category is unknown — the
+// caller stores that as-is, leaving the post simply uncoded rather than
+// failing the create.
+//
+// Pass a tx as q to make the number consumption roll back with the post.
+func (s *Store) NextActivityCode(ctx context.Context, q Querier, categorySlug string) (string, error) {
+	slug := strings.TrimSpace(categorySlug)
+	if slug == "" {
+		return "", nil
+	}
+	var prefix string
+	var seq int64
+	err := q.QueryRow(ctx,
+		`UPDATE media_categories
+		    SET next_seq = next_seq + 1
+		  WHERE slug = $1
+		  RETURNING COALESCE(NULLIF(code_prefix, ''), 'ACT'), next_seq - 1`,
+		slug,
+	).Scan(&prefix, &seq)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s-%06d", prefix, seq), nil
+}
+
+// Querier is the small subset of pgx satisfied by both *pgxpool.Pool and
+// pgx.Tx, so a caller can bind code generation to its own transaction.
+type Querier interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 }
