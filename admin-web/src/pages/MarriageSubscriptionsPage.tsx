@@ -262,10 +262,10 @@ export default function MarriageSubscriptionsPage() {
       {!purchasesLoading &&
         purchases.map((p) => (
           <div className="card" key={p.id}>
-            <PageHead>
+            <div className="page-head">
               <h3 style={{ margin: 0 }}>{p.package_name_en}</h3>
               <span className="badge tone-warning">{p.payment_method}</span>
-            </PageHead>
+            </div>
             <p className="muted">
               {t('marriageSubscriptions.purchase_user')}: {fmtId(p.user_id)} · {t('marriageSubscriptions.purchase_price')}:{' '}
               {p.price_iqd.toLocaleString()} IQD · {new Date(p.created_at).toLocaleString()}
@@ -306,7 +306,7 @@ export default function MarriageSubscriptionsPage() {
       {!loading &&
         items.map((p, i) => (
           <div className="card" key={p.id}>
-            <PageHead>
+            <div className="page-head">
               <h3>{p.name_en || p.slug}</h3>
               <div style={{ display: 'flex', gap: 6 }}>
                 <button className="btn" onClick={() => move(i, -1)} disabled={i === 0}>
@@ -316,7 +316,7 @@ export default function MarriageSubscriptionsPage() {
                   ↓
                 </button>
               </div>
-            </PageHead>
+            </div>
             <PackageFields
               value={p}
               onChange={(patch) => patchItem(p.id, patch)}

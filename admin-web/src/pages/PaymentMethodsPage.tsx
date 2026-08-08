@@ -241,7 +241,7 @@ export default function PaymentMethodsPage() {
       {!loading &&
         items.map((m, i) => (
           <div className="card" key={m.id}>
-            <PageHead>
+            <div className="page-head">
               <h3>{m.name_en || m.slug}</h3>
               <div style={{ display: 'flex', gap: 6 }}>
                 <button className="btn" onClick={() => move(i, -1)} disabled={i === 0}>
@@ -255,7 +255,7 @@ export default function PaymentMethodsPage() {
                   ↓
                 </button>
               </div>
-            </PageHead>
+            </div>
             <MethodFields value={m} onChange={(p) => patchItem(m.id, p)} />
             <label
               className="field"

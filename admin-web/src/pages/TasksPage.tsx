@@ -121,12 +121,12 @@ export default function TasksPage() {
       {!loading &&
         items.map((task) => (
           <div className="card" key={task.id}>
-            <PageHead>
+            <div className="page-head">
               <h3>{task.title}</h3>
               <span className={`badge tone-${task.status === 'completed' ? 'success' : 'warning'}`}>
                 {task.status === 'completed' ? t('tasks.status_completed') : t('tasks.status_pending')}
               </span>
-            </PageHead>
+            </div>
             {task.description && <p className="muted">{task.description}</p>}
             <p className="muted">
               {t('tasks.assigned_to')}: {fmtId(task.user_id)} · {new Date(task.created_at).toLocaleString()}

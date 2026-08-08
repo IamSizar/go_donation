@@ -14,7 +14,6 @@ import { api, describeError } from '../lib/api'
 import { useI18n } from '../lib/i18n'
 import { useToast } from '../lib/toast'
 import type { CaseCategory } from '../lib/api-types'
-import PageHead from './PageHead'
 
 type NameField = 'name_en' | 'name_ar' | 'name_ckb' | 'name_kmr'
 
@@ -172,7 +171,7 @@ export default function CaseCategoriesManager({ open, onClose, onChanged }: Prop
           {!loading &&
             items.map((c, i) => (
               <div className="card" key={c.id}>
-                <PageHead>
+                <div className="page-head">
                   <h3>{c.name_en || c.slug}</h3>
                   <div style={{ display: 'flex', gap: 6 }}>
                     <button className="btn" onClick={() => move(i, -1)} disabled={i === 0}>
@@ -186,7 +185,7 @@ export default function CaseCategoriesManager({ open, onClose, onChanged }: Prop
                       ↓
                     </button>
                   </div>
-                </PageHead>
+                </div>
                 {LANGS.map(({ field, labelKey, rtl }) => (
                   <label className="field" key={field}>
                     <span className="muted">{t(labelKey)}</span>

@@ -91,14 +91,14 @@ export default function CommentsPage() {
       {!loading &&
         items.map((c) => (
           <div className="card" key={c.id}>
-            <PageHead>
+            <div className="page-head">
               <div>
                 <strong>{c.user_name || t('common.user_ref', { id: c.user_id })}</strong>{' '}
                 <span className="muted">· {t('comments.on_post')} {fmtId(c.post_id)}{c.post_title ? ` — ${c.post_title}` : ''}</span>
                 {c.flagged && <span className="badge danger" style={{ marginInlineStart: 8 }}>{t('comments.flagged')}</span>}
               </div>
               <span className="muted">{c.created_at?.slice(0, 10)}</span>
-            </PageHead>
+            </div>
             <p style={{ whiteSpace: 'pre-wrap', margin: '8px 0' }}>{c.body}</p>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <span className="muted">{t('comments.status')}:</span>
