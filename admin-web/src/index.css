@@ -373,7 +373,13 @@ label {
     linear-gradient(180deg, rgba(16, 185, 129, 0.04), transparent 30%),
     var(--color-surface);
   border-right: 1px solid var(--color-border);
-  padding: var(--space-4) var(--space-3);
+  /* 8px sides, not 12: at a 256px sidebar the longest group name
+     ("Communication & Support") was 3px too wide for its row and wrapped to
+     two lines. The 8px reclaimed here gives every nav row that width back —
+     measured 6px of headroom on the longest label — without shrinking any
+     text. Rows keep their own 12px padding, so nothing shifts visually
+     except the row's available width. */
+  padding: var(--space-4) var(--space-2);
   overflow-y: auto;
   overflow-x: hidden;
   display: flex;
@@ -626,18 +632,34 @@ button.amber:disabled {
   height: auto;
   box-shadow: none;
   justify-content: flex-start;
+  /* A <button> is centred by the UA sheet. justify-content above only lays
+     out the flex children — the TEXT inside the label still centred, which
+     is what made a wrapped group name sit in the middle of the row. */
+  text-align: start;
   font-weight: 600;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   width: 100%;
   padding: 8px 12px;
   border-radius: 8px;
   background: transparent;
   color: var(--text);
-  font-size: 13px;
+  /* 12.5px + the 6px gap, together with the sidebar's narrower side padding
+     (see .sidebar), keep the longest group name on one line with 6px to
+     spare, so every header row is the same height. Row padding stays 12px so
+     the edge still lines up with .nav-item. */
+  font-size: var(--text-sm);
   cursor: pointer;
   transition: color 150ms ease, background 150ms ease;
+}
+/* Let the label own the space between chevron and badge, and wrap tidily
+   left-aligned if a future/localized name is still too long. */
+.nav-group-header .nav-item-label {
+  flex: 1;
+  min-width: 0;
+  text-align: start;
+  line-height: 1.3;
 }
 /* `nav ` prefix bumps specificity to match/beat the global
    `button:hover:not(:disabled)` rule (0,2,1) — without it that rule's loud
