@@ -21,7 +21,7 @@ import { formatDateTime } from '../lib/dates'
 
 const PER_PAGE = 20
 
-const ROLE_LABELS = ['donor', 'beneficiary', 'volunteer', 'employee', 'none']
+const ROLE_LABELS = ['donor', 'beneficiary', 'volunteer', 'employee', 'marriage', 'none']
 const GENDER_OPTIONS = ['', 'Male', 'Female', 'Other']
 
 // Phase 18: editable fields. role / active / is_admin live in their own
@@ -100,6 +100,7 @@ function roleLabelToId(label: string): number {
   if (label === 'beneficiary') return 2
   if (label === 'volunteer') return 3
   if (label === 'employee') return 4
+  if (label === 'marriage') return 5
   return 0
 }
 

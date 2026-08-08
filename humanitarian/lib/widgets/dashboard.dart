@@ -819,6 +819,10 @@ class DashboardHomeSection extends StatelessWidget {
             final summary = Map<String, dynamic>.from(controller.summary);
             return RefreshIndicator(
               onRefresh: controller.fetchSummary,
+              // 'marriage' (and 'employee') have no bespoke summary yet —
+              // the backend returns an empty Stats for them — so they fall
+              // through to the donor layout, which degrades to zeros rather
+              // than rendering nothing.
               child: switch (roleKey) {
                 'beneficiary' => _buildBeneficiaryDashboard(context, summary),
                 'volunteer' => _buildVolunteerDashboard(context, summary),
@@ -1079,6 +1083,7 @@ String dashboardTitleForRole(String roleKey) => switch (roleKey) {
   'donor' => 'Donor dashboard',
   'beneficiary' => 'Beneficiary dashboard',
   'volunteer' => 'Volunteer dashboard',
+  'marriage' => 'Marriage dashboard',
   _ => 'Dashboard',
 };
 

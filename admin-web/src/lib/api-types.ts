@@ -721,6 +721,9 @@ export function roleLabel(roleId: number): string {
       return 'volunteer'
     case 4:
       return 'employee'
+    case 5:
+      // Account type: the marriage / engagement service.
+      return 'marriage'
     case 0:
       return '—'
     default:

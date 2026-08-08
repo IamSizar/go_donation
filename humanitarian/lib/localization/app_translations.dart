@@ -2221,6 +2221,7 @@ class AppTranslations extends Translations {
     'No details': 'No details',
     'Open': 'Open',
     'Close': 'Close',
+    'Marriage dashboard': 'Marriage dashboard',
   };
 
   static const Map<String, String> _ar = {
@@ -4367,6 +4368,7 @@ class AppTranslations extends Translations {
     'No details': 'لا توجد تفاصيل',
     'Open': 'فتح',
     'Close': 'إغلاق',
+    'Marriage dashboard': 'لوحة الزواج',
   };
 
   static final Map<String, String> _sorani = {
@@ -6594,6 +6596,7 @@ class AppTranslations extends Translations {
     'No details': 'هیچ وردەکارییەک نییە',
     'Open': 'کردنەوە',
     'Close': 'داخستن',
+    'Marriage dashboard': 'داشبۆردی هاوسەرگیری',
   };
 
   static final Map<String, String> _badini = {
@@ -8801,6 +8804,7 @@ class AppTranslations extends Translations {
     'No details': 'چ کیتەکیت نینن',
     'Open': 'ڤەکرن',
     'Close': 'گرتن',
+    'Marriage dashboard': 'داشبۆردا زەواجێ',
   };
 
   @override

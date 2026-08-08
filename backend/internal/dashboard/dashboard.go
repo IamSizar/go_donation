@@ -101,6 +101,11 @@ func RoleKey(roleID int) string {
 		return "beneficiary"
 	case 3:
 		return "volunteer"
+	case 4:
+		return "employee"
+	case 5:
+		// A user whose account type is the marriage/engagement service.
+		return "marriage"
 	default:
 		return "guest"
 	}
