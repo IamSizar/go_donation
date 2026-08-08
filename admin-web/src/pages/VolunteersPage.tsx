@@ -18,7 +18,7 @@ import { downloadCsv, type CsvColumn } from '../lib/csv'
 import { HighlightBanner, useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForStatus } from '../lib/statusColors'
 import { usePendingCounts } from '../lib/pendingCounts'
-import { formatDateParts } from '../lib/dates'
+import { formatDateParts, formatDateTime } from '../lib/dates'
 import AvailabilityCell from '../components/AvailabilityCell'
 import {
   ALL_SKILL_KEYS,
@@ -935,8 +935,8 @@ function MissionSignupsTab() {
       header: t('col.progress'),
       cell: (s) => (
         <span className="muted" style={{ fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>
-          {s.checked_in_at && <>{t('col.progress_in')} {s.checked_in_at.slice(0, 10)}<br /></>}
-          {s.completed_at && <>{t('col.progress_done')} {s.completed_at.slice(0, 10)}<br /></>}
+          {s.checked_in_at && <>{t('col.progress_in')} {formatDateTime(s.checked_in_at)}<br /></>}
+          {s.completed_at && <>{t('col.progress_done')} {formatDateTime(s.completed_at)}<br /></>}
           {s.hours_served !== '0.00' && s.hours_served !== '0' && <>{s.hours_served} h</>}
           {!s.checked_in_at && !s.completed_at && (s.hours_served === '0.00' || s.hours_served === '0') && '—'}
         </span>

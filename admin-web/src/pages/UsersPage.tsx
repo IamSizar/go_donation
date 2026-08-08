@@ -17,6 +17,7 @@ import { useCanViewSensitive, usePermission, maskContact } from '../lib/permissi
 import { useFieldRules, type FieldRuleState } from '../lib/fieldRules'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
+import { formatDateTime } from '../lib/dates'
 
 const PER_PAGE = 20
 
@@ -380,7 +381,7 @@ export default function UsersPage() {
     {
       key: 'created',
       header: t('col.created'),
-      cell: (u) => <span className="muted">{u.created_at?.slice(0, 10)}</span>,
+      cell: (u) => <span className="muted">{formatDateTime(u.created_at)}</span>,
     },
     {
       // Note #4 — was 5 loose inline buttons (View/Edit/Password/Force

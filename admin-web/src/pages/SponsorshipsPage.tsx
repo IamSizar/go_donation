@@ -118,6 +118,8 @@ export default function SponsorshipsPage() {
   const trimDate = (p: Record<string, unknown>) => {
     const out = { ...p }
     if (typeof out.next_due_date === 'string' && out.next_due_date.length > 10) {
+      // Must stay YYYY-MM-DD: this value feeds the edit form's date input
+      // and is sent back to the API — a localized string would break both.
       out.next_due_date = out.next_due_date.slice(0, 10)
     }
     return out

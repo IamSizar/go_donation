@@ -11,6 +11,7 @@ import { useToast } from '../lib/toast'
 import Table, { type Column } from '../components/Table'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
+import { formatDateTime } from '../lib/dates'
 
 type MeetingRequest = {
   id: number
@@ -94,7 +95,7 @@ export default function MarriageMeetingRequestsPage() {
       cell: (r) => r.message ? <span>{r.message}</span> : <span className="muted">—</span>,
     },
     { key: 'status', header: t('col.status'), cell: (r) => <StatusBadge status={r.status} /> },
-    { key: 'created', header: t('col.created'), cell: (r) => <span className="muted">{r.created_at?.slice(0, 10)}</span> },
+    { key: 'created', header: t('col.created'), cell: (r) => <span className="muted">{formatDateTime(r.created_at)}</span> },
     {
       key: 'actions',
       header: t('common.actions'),
@@ -106,7 +107,7 @@ export default function MarriageMeetingRequestsPage() {
             <button className="secondary" onClick={() => decline(r)} disabled={busyId === r.id}>{t('page.marriage_requests.decline')}</button>
           </div>
         ) : (
-          <span className="muted">{r.decided_at?.slice(0, 10) ?? '—'}</span>
+          <span className="muted">{formatDateTime(r.decided_at) ?? '—'}</span>
         ),
     },
   ]

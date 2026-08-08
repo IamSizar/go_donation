@@ -19,6 +19,7 @@ import { HighlightBanner, useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForStatus } from '../lib/statusColors'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
+import { formatDateTime } from '../lib/dates'
 
 const INKIND_CSV_COLUMNS: CsvColumn<AdminInKind>[] = [
   { header: 'id', get: (k) => k.id },
@@ -169,7 +170,7 @@ export default function InKindPage() {
         />
       ),
     },
-    { key: 'created', header: t('col.created'), cell: (k) => <span className="muted">{k.created_at?.slice(0, 10)}</span> },
+    { key: 'created', header: t('col.created'), cell: (k) => <span className="muted">{formatDateTime(k.created_at)}</span> },
     {
       key: 'actions', header: t('common.actions'), width: '170px',
       cell: (k) => (

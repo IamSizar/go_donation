@@ -8,6 +8,7 @@ import { useI18n } from '../lib/i18n'
 import { useToast } from '../lib/toast'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
+import { formatDateTime } from '../lib/dates'
 
 type Comment = {
   id: number
@@ -97,7 +98,7 @@ export default function CommentsPage() {
                 <span className="muted">· {t('comments.on_post')} {fmtId(c.post_id)}{c.post_title ? ` — ${c.post_title}` : ''}</span>
                 {c.flagged && <span className="badge danger" style={{ marginInlineStart: 8 }}>{t('comments.flagged')}</span>}
               </div>
-              <span className="muted">{c.created_at?.slice(0, 10)}</span>
+              <span className="muted">{formatDateTime(c.created_at)}</span>
             </div>
             <p style={{ whiteSpace: 'pre-wrap', margin: '8px 0' }}>{c.body}</p>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>

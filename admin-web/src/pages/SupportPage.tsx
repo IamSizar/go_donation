@@ -20,6 +20,7 @@ import { HighlightBanner, useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForStatus } from '../lib/statusColors'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
+import { formatDateTime } from '../lib/dates'
 
 const TICKET_CSV_COLUMNS: CsvColumn<AdminTicket>[] = [
   { header: 'id', get: (t) => t.id },
@@ -177,7 +178,7 @@ export default function SupportPage() {
         />
       ),
     },
-    { key: 'created', header: tr('col.created'), cell: (t) => <span className="muted">{t.created_at?.slice(0, 10)}</span> },
+    { key: 'created', header: tr('col.created'), cell: (t) => <span className="muted">{formatDateTime(t.created_at)}</span> },
     {
       key: 'actions', header: tr('common.actions'), width: '170px',
       cell: (t) => (

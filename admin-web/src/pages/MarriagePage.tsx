@@ -16,6 +16,7 @@ import { type CsvColumn } from '../lib/csv'
 import { useFieldRules, type FieldRuleState } from '../lib/fieldRules'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
+import { formatDateTime } from '../lib/dates'
 
 const MARRIAGE_CSV_COLUMNS: CsvColumn<MarriageProfile>[] = [
   { header: 'id', get: (p) => p.id },
@@ -200,7 +201,7 @@ export default function MarriagePage() {
     {
       key: 'created',
       header: t('col.created'),
-      cell: (p) => <span className="muted">{p.created_at?.slice(0, 10)}</span>,
+      cell: (p) => <span className="muted">{formatDateTime(p.created_at)}</span>,
     },
     {
       key: 'actions', header: t('common.actions'), width: '170px',

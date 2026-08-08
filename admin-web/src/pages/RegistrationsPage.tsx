@@ -12,6 +12,7 @@ import { useLivePoll } from '../lib/useLivePoll'
 import { formatPhone } from '../lib/phone'
 import { type CsvColumn } from '../lib/csv'
 import PageHead from '../components/PageHead'
+import { formatDateTime } from '../lib/dates'
 
 const PER_PAGE = 20
 const STATUSES = ['pending', 'rejected', 'all'] as const
@@ -171,7 +172,7 @@ export default function RegistrationsPage() {
       key: 'submitted',
       header: t('registrations.col_submitted'),
       cell: (r) => (
-        <span className="muted">{r.submitted_at?.slice(0, 10) ?? '—'}</span>
+        <span className="muted">{formatDateTime(r.submitted_at) ?? '—'}</span>
       ),
     },
     {

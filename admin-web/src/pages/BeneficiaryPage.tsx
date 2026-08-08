@@ -27,6 +27,7 @@ import { IRAQ_GOVERNORATES } from '../lib/iraqGovernorates'
 import { useFieldRules, type FieldRuleState } from '../lib/fieldRules'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
+import { formatDateTime } from '../lib/dates'
 
 const CASE_CSV_COLUMNS: CsvColumn<BeneficiaryCase>[] = [
   { header: 'id', get: (r) => r.id },
@@ -441,7 +442,7 @@ function CasesTab() {
     {
       key: 'updated',
       header: t('col.updated'),
-      cell: (r) => <span className="muted">{r.updated_at?.slice(0, 10)}</span>,
+      cell: (r) => <span className="muted">{formatDateTime(r.updated_at)}</span>,
     },
     {
       key: 'actions', header: t('common.actions'), width: '170px',

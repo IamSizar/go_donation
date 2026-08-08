@@ -15,6 +15,7 @@ import { useSelection } from '../lib/useSelection'
 import { type CsvColumn } from '../lib/csv'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
+import { formatDateOnly, formatDateTime } from '../lib/dates'
 
 const MEDIA_CSV_COLUMNS: CsvColumn<MediaPost>[] = [
   { header: 'id', get: (m) => m.id },
@@ -140,6 +141,8 @@ export default function MediaPage() {
   const trimDate = (p: Record<string, unknown>): Record<string, unknown> => {
     const out = { ...p }
     if (typeof out.event_date === 'string' && out.event_date.length > 10) {
+      // Must stay YYYY-MM-DD: this value feeds the edit form's date input
+      // and is sent back to the API — a localized string would break both.
       out.event_date = out.event_date.slice(0, 10)
     }
     return out
@@ -243,7 +246,7 @@ export default function MediaPage() {
       header: t('col.event_date'),
       cell: (m) =>
         m.event_date ? (
-          <span className="muted">{m.event_date.slice(0, 10)}</span>
+          <span className="muted">{formatDateOnly(m.event_date)}</span>
         ) : (
           <span className="muted">—</span>
         ),
@@ -263,7 +266,7 @@ export default function MediaPage() {
     {
       key: 'created',
       header: t('col.created'),
-      cell: (m) => <span className="muted">{m.created_at?.slice(0, 10)}</span>,
+      cell: (m) => <span className="muted">{formatDateTime(m.created_at)}</span>,
     },
     {
       key: 'actions',
