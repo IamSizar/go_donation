@@ -10,6 +10,8 @@ import 'package:flutter_application_1/modules/legal/screens/terms_screen.dart';
 import 'package:flutter_application_1/modules/support/screens/support_section.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:flutter_application_1/widgets/settings_section.dart';
+import 'package:flutter_application_1/api/module_api.dart';
+import 'package:flutter_application_1/modules/dashboard/controllers/role_dashboard_controller.dart';
 import 'package:get/get.dart';
 
 /// Client spec, "Ninth: Improve the Home Interface Design" — the account hub
@@ -28,6 +30,42 @@ import 'package:get/get.dart';
 /// single entry point and the top-bar bell (with its unread badge) is the one
 /// that stays. The enable/disable *setting* does live here, as its own
 /// switch — a different thing from the list.
+/// Account types a user may move themselves into. Anything else is granted by
+/// staff — see selfSelectableRole in the backend's choose_role handler.
+const Map<String, int> _selfSelectableRoles = {'Marriage': 5, 'Guest': 0};
+
+Future<void> _chooseAccountType(BuildContext context) async {
+  final picked = await showDialog<int>(
+    context: context,
+    builder: (context) => SimpleDialog(
+      title: Text('Account type'.tr),
+      children: [
+        for (final entry in _selfSelectableRoles.entries)
+          SimpleDialogOption(
+            onPressed: () => Navigator.of(context).pop(entry.value),
+            child: Text(entry.key.tr),
+          ),
+      ],
+    ),
+  );
+  if (picked == null) return;
+  try {
+    final applied = await ModuleApi().chooseRole(picked);
+    if (applied != picked) {
+      Get.snackbar('Account type'.tr, 'Account type unchanged.'.tr);
+      return;
+    }
+    // The dashboard reads role_key from the summary, so refetch rather than
+    // patching local state — the backend is the source of truth for the role.
+    if (Get.isRegistered<RoleDashboardController>()) {
+      await Get.find<RoleDashboardController>().fetchSummary();
+    }
+    Get.snackbar('Account type'.tr, 'Account type updated.'.tr);
+  } catch (e) {
+    Get.snackbar('Error'.tr, e.toString().replaceFirst('Exception: ', ''));
+  }
+}
+
 class ProfileMenuScreen extends StatelessWidget {
   const ProfileMenuScreen({super.key});
 
@@ -77,6 +115,17 @@ class ProfileMenuScreen extends StatelessWidget {
             color: Colors.deepPurple,
             onTap: () => Get.to(() => const ProposalServicesSection()),
           ),
+          // Client backlog #4 — a user may switch their own account type, but
+          // only to the two that carry no granted privilege: the marriage
+          // service, or back to guest. Recipient/Volunteer stay staff-granted,
+          // and the backend enforces that regardless of what the app sends.
+          if (!guest)
+            DrawerTile(
+              icon: Icons.badge_outlined,
+              label: 'Account type',
+              color: Colors.brown,
+              onTap: () => _chooseAccountType(context),
+            ),
           DrawerTile(
             icon: Icons.diversity_3_rounded,
             label: 'Community Services',

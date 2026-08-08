@@ -218,6 +218,20 @@ func (s *Store) SetPrivacyExtras(ctx context.Context, userID int64, p PrivacyExt
 }
 
 // GetIDByPhone returns the user id for a phone, or 0 if not found.
+// CurrentGender returns the profile's stored gender, or "" when unset.
+// Used to enforce that gender is written once, at sign-up, and not changed
+// afterwards from the app.
+func (s *Store) CurrentGender(ctx context.Context, userID int64) (string, error) {
+	var g string
+	err := s.Pool.QueryRow(ctx,
+		`SELECT COALESCE(gender, '') FROM user_profiles WHERE user_id = $1`,
+		userID).Scan(&g)
+	if err != nil {
+		return "", err
+	}
+	return g, nil
+}
+
 func (s *Store) GetIDByPhone(ctx context.Context, phone string) (int64, error) {
 	phone = strings.TrimSpace(phone)
 	if phone == "" {

@@ -240,7 +240,15 @@ func (h *ProfileHandler) Set(c *gin.Context) {
 		upd.Address = &v
 	}
 	if v, exists := getOptionalForm(c, "gender"); exists {
-		upd.Gender = &v
+		// Gender is set once, at sign-up, and is not user-editable afterwards.
+		// Silently ignoring a change (rather than 400ing) keeps an older app
+		// build — which still sends the field on every profile save — working
+		// instead of failing every update. Staff can still correct a wrong
+		// value from the Admin Panel, which goes through admin_edit, not here.
+		current, _ := h.Users.CurrentGender(c.Request.Context(), uid)
+		if strings.TrimSpace(current) == "" {
+			upd.Gender = &v
+		}
 	}
 	removeRaw := strings.TrimSpace(c.PostForm("remove_profile_picture"))
 	upd.RemovePicture = removeRaw == "1" || strings.EqualFold(removeRaw, "true") || strings.EqualFold(removeRaw, "yes")

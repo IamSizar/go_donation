@@ -20,6 +20,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
   static const Color _primary = Color(0xFF0F766E);
   static const List<String> _genderOptions = ['Male', 'Female', 'Other'];
 
+  bool _genderLocked = false;
+
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _addressController = TextEditingController();
@@ -39,6 +41,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
     _nameController.addListener(_refreshDraftState);
     _addressController.addListener(_refreshDraftState);
     _selectedGender = sharedPreferences.getString('gender_user');
+    // Gender is chosen once, at sign-up. If one is already stored the chips
+    // render as a read-only summary — the backend ignores a change anyway
+    // (profile.Set only writes gender when the stored value is blank), so
+    // letting the UI offer it would be a control that silently does nothing.
+    _genderLocked = (_selectedGender ?? '').trim().isNotEmpty;
     _profileImagePath = sharedPreferences.getString('profile_image_path');
     final rawUrl = sharedPreferences.getString('profile_picture_url');
     final fixedUrl = normalizeProfilePictureUrl(rawUrl);
@@ -448,7 +455,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Select the option that best describes you.'.tr,
+                        _genderLocked
+                            ? 'Gender cannot be changed after sign-up.'.tr
+                            : 'Select the option that best describes you.'.tr,
                         style: TextStyle(
                           color: AppThemeConfig.mutedText(context),
                           height: 1.4,
@@ -463,9 +472,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
                           return ChoiceChip(
                             label: Text(option.tr),
                             selected: isSelected,
-                            onSelected: (_) {
-                              setState(() => _selectedGender = option);
-                            },
+                            onSelected: _genderLocked
+                                ? null
+                                : (_) {
+                                    setState(() => _selectedGender = option);
+                                  },
                             labelStyle: TextStyle(
                               color: isSelected
                                   ? Colors.white

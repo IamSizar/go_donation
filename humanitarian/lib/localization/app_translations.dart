@@ -2222,6 +2222,11 @@ class AppTranslations extends Translations {
     'Open': 'Open',
     'Close': 'Close',
     'Marriage dashboard': 'Marriage dashboard',
+    'Gender cannot be changed after sign-up.':
+        'Gender cannot be changed after sign-up.',
+    'Account type': 'Account type',
+    'Account type updated.': 'Account type updated.',
+    'Account type unchanged.': 'Account type unchanged.',
   };
 
   static const Map<String, String> _ar = {
@@ -4369,6 +4374,11 @@ class AppTranslations extends Translations {
     'Open': 'فتح',
     'Close': 'إغلاق',
     'Marriage dashboard': 'لوحة الزواج',
+    'Gender cannot be changed after sign-up.':
+        'لا يمكن تغيير الجنس بعد إنشاء الحساب.',
+    'Account type': 'نوع الحساب',
+    'Account type updated.': 'تم تحديث نوع الحساب.',
+    'Account type unchanged.': 'لم يتغيّر نوع الحساب.',
   };
 
   static final Map<String, String> _sorani = {
@@ -6597,6 +6607,11 @@ class AppTranslations extends Translations {
     'Open': 'کردنەوە',
     'Close': 'داخستن',
     'Marriage dashboard': 'داشبۆردی هاوسەرگیری',
+    'Gender cannot be changed after sign-up.':
+        'ڕەگەز ناتوانرێت بگۆڕدرێت دوای دروستکردنی هەژمار.',
+    'Account type': 'جۆری هەژمار',
+    'Account type updated.': 'جۆری هەژمار نوێکرایەوە.',
+    'Account type unchanged.': 'جۆری هەژمار نەگۆڕا.',
   };
 
   static final Map<String, String> _badini = {
@@ -8805,6 +8820,11 @@ class AppTranslations extends Translations {
     'Open': 'ڤەکرن',
     'Close': 'گرتن',
     'Marriage dashboard': 'داشبۆردا زەواجێ',
+    'Gender cannot be changed after sign-up.':
+        'زایەند پشتی چێکرنا هەژماری ناهێتە گهۆڕین.',
+    'Account type': 'جۆرێ هەژماری',
+    'Account type updated.': 'جۆرێ هەژماری هاتە نویکرن.',
+    'Account type unchanged.': 'جۆرێ هەژماری نەهاتە گهۆڕین.',
   };
 
   @override

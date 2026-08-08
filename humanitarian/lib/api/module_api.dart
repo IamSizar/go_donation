@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_application_1/api/auth_session.dart';
 import 'package:flutter_application_1/api/links.dart';
+import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/app_event_firestore.dart';
 import 'package:http/http.dart' as http;
 
@@ -330,6 +331,26 @@ class ModuleApi {
     } catch (_) {
       return const [];
     }
+  }
+
+  /// Switch the signed-in user's own account type.
+  ///
+  /// The backend only honours a switch INTO the marriage service (5) or back
+  /// to guest (0); Recipient/Volunteer are granted by staff after vetting, and
+  /// a request for those comes back with role_unchanged:true rather than an
+  /// error. Returns the role_id actually in effect afterwards.
+  Future<int> chooseRole(int roleId) async {
+    final userId = int.tryParse(sharedPreferences.getString('id_user') ?? '');
+    if (userId == null || userId <= 0) {
+      throw Exception('No user ID found. Please sign in again.');
+    }
+    final res = await postJson(chooseRoleUrl, {
+      'user_id': userId,
+      'role_id': roleId,
+    });
+    final applied = (res['role_id'] as num?)?.toInt() ?? roleId;
+    await sharedPreferences.setString('role_id', applied.toString());
+    return applied;
   }
 
   // #32 — profile field privacy (list of hidden field keys).
