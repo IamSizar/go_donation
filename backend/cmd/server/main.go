@@ -45,6 +45,7 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/paymentmethods"
 	"github.com/karam-flutter/humanitarian-backend/internal/permissions"
 	"github.com/karam-flutter/humanitarian-backend/internal/postengagement"
+	"github.com/karam-flutter/humanitarian-backend/internal/profilechanges"
 	"github.com/karam-flutter/humanitarian-backend/internal/projectcategories"
 	"github.com/karam-flutter/humanitarian-backend/internal/reports"
 	"github.com/karam-flutter/humanitarian-backend/internal/scheduler"
@@ -199,7 +200,10 @@ func main() {
 		log.Printf("[assistant] local mode (set ANTHROPIC_API_KEY for full AI; keyword engine active)")
 	}
 	authH := handlers.NewAuthHandler(tokenStore, otpStore, userStore, otpiqClient, loginLockStore, notifier)
-	profileH := handlers.NewProfileHandler(userStore, uploadDir)
+	// #22 — staff review of a user's own name / photo change (migration 093).
+	profileChangesStore := profilechanges.New(pool)
+	profileH := handlers.NewProfileHandler(userStore, uploadDir, profileChangesStore)
+	profileChangesH := handlers.NewProfileChangesHandler(profileChangesStore)
 	chooseRoleH := handlers.NewChooseRoleHandler(userStore)
 	registrationH := handlers.NewRegistrationHandler(userStore, uploadDir)
 	registrationAdminH := handlers.NewRegistrationAdminHandler(userStore, notifier)
@@ -1019,6 +1023,9 @@ func main() {
 			// Note #29 follow-up — Super-Admin can reorder/regroup the sidebar
 			// itself. Open GET (everyone needs it to render their own sidebar);
 			// only the Main Admin can change it, same tier as session-timeout.
+			// #22 — user name / photo change review queue.
+			admin.GET("/admin/profile-changes", profileChangesH.List)
+			admin.POST("/admin/profile-changes/:id/decide", profileChangesH.Decide)
 			admin.GET("/admin/settings/nav-layout", settingsH.GetNavLayout)
 			admin.PUT("/admin/settings/nav-layout", auth.RequireSuperAdmin(), settingsH.SetNavLayout)
 			// #9 — edit static content pages (Terms & Conditions, etc.).

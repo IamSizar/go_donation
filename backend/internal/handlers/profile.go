@@ -14,6 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
+	"github.com/karam-flutter/humanitarian-backend/internal/profilechanges"
 	"github.com/karam-flutter/humanitarian-backend/internal/users"
 )
 
@@ -21,10 +22,13 @@ import (
 type ProfileHandler struct {
 	Users     *users.Store
 	UploadDir string // absolute path on disk; files are served at /images/*
+	// Name and photo changes are reviewed by staff before they apply
+	// (migration 093); nil disables review and writes straight through.
+	Changes *profilechanges.Store
 }
 
-func NewProfileHandler(u *users.Store, uploadDir string) *ProfileHandler {
-	return &ProfileHandler{Users: u, UploadDir: uploadDir}
+func NewProfileHandler(u *users.Store, uploadDir string, ch *profilechanges.Store) *ProfileHandler {
+	return &ProfileHandler{Users: u, UploadDir: uploadDir, Changes: ch}
 }
 
 // GET /api/profile/notifications (#31) — the current user's notification switch.
@@ -233,8 +237,22 @@ func (h *ProfileHandler) Set(c *gin.Context) {
 
 	// Collect optional text fields; only set those the client actually sent.
 	upd := users.ProfileUpdate{}
+	// Name and photo are staff-reviewed (migration 093): the proposal is
+	// queued and the live profile is left alone, so a rejected change never
+	// shows anywhere. Everything else on this form still applies immediately.
+	var queuedName, queuedPicture bool
 	if v, exists := getOptionalForm(c, "full_name"); exists {
-		upd.FullName = &v
+		if h.Changes != nil {
+			cur, _ := h.Users.CurrentFullName(c.Request.Context(), uid)
+			if strings.TrimSpace(v) != "" && v != cur {
+				if err := h.Changes.Submit(c.Request.Context(),
+					uid, profilechanges.FieldFullName, cur, v); err == nil {
+					queuedName = true
+				}
+			}
+		} else {
+			upd.FullName = &v
+		}
 	}
 	if v, exists := getOptionalForm(c, "address"); exists {
 		upd.Address = &v
@@ -265,7 +283,15 @@ func (h *ProfileHandler) Set(c *gin.Context) {
 				})
 				return
 			}
-			upd.PicturePathSet = &path
+			if h.Changes != nil {
+				cur, _ := h.Users.CurrentPicture(c.Request.Context(), uid)
+				if err := h.Changes.Submit(c.Request.Context(),
+					uid, profilechanges.FieldPicture, cur, path); err == nil {
+					queuedPicture = true
+				}
+			} else {
+				upd.PicturePathSet = &path
+			}
 		}
 	}
 
@@ -294,6 +320,16 @@ func (h *ProfileHandler) Set(c *gin.Context) {
 	} else {
 		resp["profile_picture"] = row.ProfilePicture
 	}
+	// So the app can say "waiting for approval" instead of appearing to have
+	// silently ignored the edit.
+	pending := []string{}
+	if queuedName {
+		pending = append(pending, profilechanges.FieldFullName)
+	}
+	if queuedPicture {
+		pending = append(pending, profilechanges.FieldPicture)
+	}
+	resp["pending_review"] = pending
 	c.JSON(http.StatusOK, resp)
 }
 

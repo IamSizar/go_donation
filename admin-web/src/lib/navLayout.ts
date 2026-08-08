@@ -27,6 +27,7 @@ export const NAV: NavItem[] = [
   { to: '/',              tKey: 'nav.dashboard',      module: 'dashboard' },
   { to: '/users',         tKey: 'nav.users',          module: 'users' },
   { to: '/registrations', tKey: 'nav.registrations', countKey: 'registrations', module: 'registrations' },
+  { to: '/profile-changes', tKey: 'nav.profile_changes', module: 'users' },
   { to: '/campaigns',     tKey: 'nav.campaigns',      module: 'campaigns' },
   { to: '/donations',     tKey: 'nav.donations',     countKey: 'donations', module: 'donations' },
   { to: '/donation-codes', tKey: 'nav.donation_codes', module: 'donations' },
@@ -138,7 +139,7 @@ export const DEFAULT_NAV_SECTIONS: NavSection[] = [
   },
   {
     kind: 'group', key: 'monitoring_reports', tKey: 'nav_group.monitoring_reports',
-    items: ['/registrations', '/missions', '/reports', '/audit-logs', '/media', '/media-categories'],
+    items: ['/registrations', '/profile-changes', '/missions', '/reports', '/audit-logs', '/media', '/media-categories'],
   },
   {
     kind: 'group', key: 'system_settings', tKey: 'nav_group.system_settings',

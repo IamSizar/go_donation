@@ -218,6 +218,22 @@ func (s *Store) SetPrivacyExtras(ctx context.Context, userID int64, p PrivacyExt
 }
 
 // GetIDByPhone returns the user id for a phone, or 0 if not found.
+// CurrentFullName / CurrentPicture return what the live profile holds, so a
+// change request can record the before-value for the reviewer.
+func (s *Store) CurrentFullName(ctx context.Context, userID int64) (string, error) {
+	var v string
+	err := s.Pool.QueryRow(ctx,
+		`SELECT COALESCE(full_name, '') FROM user_profiles WHERE user_id = $1`, userID).Scan(&v)
+	return v, err
+}
+
+func (s *Store) CurrentPicture(ctx context.Context, userID int64) (string, error) {
+	var v string
+	err := s.Pool.QueryRow(ctx,
+		`SELECT COALESCE(profile_picture, '') FROM user_profiles WHERE user_id = $1`, userID).Scan(&v)
+	return v, err
+}
+
 // CurrentGender returns the profile's stored gender, or "" when unset.
 // Used to enforce that gender is written once, at sign-up, and not changed
 // afterwards from the app.
