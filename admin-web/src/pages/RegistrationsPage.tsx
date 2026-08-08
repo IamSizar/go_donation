@@ -11,6 +11,7 @@ import { usePendingCounts } from '../lib/pendingCounts'
 import { useLivePoll } from '../lib/useLivePoll'
 import { formatPhone } from '../lib/phone'
 import { type CsvColumn } from '../lib/csv'
+import PageHead from '../components/PageHead'
 
 const PER_PAGE = 20
 const STATUSES = ['pending', 'rejected', 'all'] as const
@@ -233,7 +234,7 @@ export default function RegistrationsPage() {
 
   return (
     <div className="stack">
-      <div className="page-head">
+      <PageHead>
         <div>
           <h1>{t('registrations.title')}</h1>
           <p className="muted">
@@ -273,7 +274,7 @@ export default function RegistrationsPage() {
             module="registrations"
           />
         </div>
-      </div>
+      </PageHead>
 
       {err && <div className="error-box">{err}</div>}
 

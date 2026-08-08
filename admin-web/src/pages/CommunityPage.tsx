@@ -10,6 +10,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../lib/toast'
 import { useI18n } from '../lib/i18n'
 import { type CsvColumn } from '../lib/csv'
+import PageHead from '../components/PageHead'
 
 const COMMUNITY_CSV_COLUMNS: CsvColumn<CommunityEntry>[] = [
   { header: 'id', get: (e) => e.id },
@@ -140,7 +141,7 @@ export default function CommunityPage() {
 
   return (
     <div className="stack">
-      <div className="page-head">
+      <PageHead>
         <div>
           <h1>{t('page.community.title')}</h1>
           <p className="muted">{resp ? `${items.length} ${t('common.shown')}` : t('common.loading')}</p>
@@ -170,7 +171,7 @@ export default function CommunityPage() {
           />
           <button onClick={() => setCreating(true)}>{t('page.community.new')}</button>
         </div>
-      </div>
+      </PageHead>
       {err && <div className="error-box">{err}</div>}
       <Table<CommunityEntry> rows={items} columns={columns} rowKey={(e) => e.id} loading={loading} empty={t('empty.community')} />
       <EditModal

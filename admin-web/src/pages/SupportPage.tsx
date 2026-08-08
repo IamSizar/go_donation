@@ -18,6 +18,7 @@ import { useSelection } from '../lib/useSelection'
 import { type CsvColumn } from '../lib/csv'
 import { HighlightBanner, useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForStatus } from '../lib/statusColors'
+import PageHead from '../components/PageHead'
 
 const TICKET_CSV_COLUMNS: CsvColumn<AdminTicket>[] = [
   { header: 'id', get: (t) => t.id },
@@ -190,7 +191,7 @@ export default function SupportPage() {
 
   return (
     <div className="stack">
-      <div className="page-head">
+      <PageHead>
         <div>
           <h1>{tr('page.support.title')}</h1>
           <p className="muted">{resp ? `${resp.total_items} ${tr('common.total')}` : tr('common.loading')}</p>
@@ -215,7 +216,7 @@ export default function SupportPage() {
           />
           <button onClick={() => setCreating(true)}>{tr('page.support.new')}</button>
         </div>
-      </div>
+      </PageHead>
       <SupportWhatsappCard />
       {err && <div className="error-box">{err}</div>}
       <HighlightBanner kind={tr('noun.support_ticket')} />

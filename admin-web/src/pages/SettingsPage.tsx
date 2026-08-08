@@ -15,6 +15,7 @@ import { useAuth } from '../lib/auth'
 import { useI18n } from '../lib/i18n'
 import { useToast } from '../lib/toast'
 import SidebarLayoutEditor from '../components/SidebarLayoutEditor'
+import PageHead from '../components/PageHead'
 
 type StaffDirectoryEntry = {
   user_id: number
@@ -170,12 +171,12 @@ export default function SettingsPage() {
 
   return (
     <div className="stack">
-      <div className="page-head">
+      <PageHead>
         <div>
           <h1>{t('settings.title')}</h1>
           <p className="muted">{t('settings.subtitle')}</p>
         </div>
-      </div>
+      </PageHead>
 
       {err && <div className="error-box">{err}</div>}
       {loading && <p className="muted">{t('common.loading')}</p>}

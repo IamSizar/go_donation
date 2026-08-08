@@ -23,6 +23,7 @@ import ExportCsvButton from '../components/ExportCsvButton'
 import { type CsvColumn } from '../lib/csv'
 import type { PushSendResultRow } from '../lib/api-types'
 import { Sparkles, Check, Bell, Smartphone } from 'lucide-react'
+import PageHead from '../components/PageHead'
 
 // The push page has no persistent history; the meaningful export is the
 // last broadcast's per-device delivery report (Phase 7 · M-56).
@@ -223,7 +224,7 @@ export default function PushNotificationsPage() {
 
   return (
     <div className="stack">
-      <div className="page-head">
+      <PageHead>
         <div>
           <h1>{t('page.push.compose')}</h1>
           <p className="muted">{t('page.push.subtitle')}</p>
@@ -255,7 +256,7 @@ export default function PushNotificationsPage() {
             />
           )}
         </div>
-      </div>
+      </PageHead>
 
       {fcmEnabled === false && (
         <div className="info-box">

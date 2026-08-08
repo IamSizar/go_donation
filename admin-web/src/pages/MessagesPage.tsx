@@ -12,6 +12,7 @@ import { api, describeError } from '../lib/api'
 import { useI18n, useStatusLabel } from '../lib/i18n'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { type CsvColumn } from '../lib/csv'
+import PageHead from '../components/PageHead'
 
 type AdminThread = {
   id: number
@@ -187,7 +188,7 @@ export default function MessagesPage() {
 
   return (
     <div className="stack">
-      <div className="page-head">
+      <PageHead>
         <div>
           <h1 style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontSize: '1.3rem' }}>💬</span>
@@ -213,7 +214,7 @@ export default function MessagesPage() {
             module="messages"
           />
         </div>
-      </div>
+      </PageHead>
 
       {err && <div className="error-box">{err}</div>}
 

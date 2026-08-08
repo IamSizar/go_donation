@@ -17,6 +17,7 @@ import { type CsvColumn } from '../lib/csv'
 import { HighlightBanner, useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForStatus } from '../lib/statusColors'
 import { formatDateParts } from '../lib/dates'
+import PageHead from '../components/PageHead'
 
 const SPONSORSHIP_CSV_COLUMNS: CsvColumn<Sponsorship>[] = [
   { header: 'id', get: (s) => sponsorshipCode(s.id) },
@@ -268,7 +269,7 @@ export default function SponsorshipsPage() {
 
   return (
     <div className="stack">
-      <div className="page-head">
+      <PageHead>
         <div>
           <h1>{t('page.sponsorships.title')}</h1>
           <p className="muted">
@@ -306,7 +307,7 @@ export default function SponsorshipsPage() {
           />
           <button onClick={() => setCreating(true)}>{t('page.sponsorships.new')}</button>
         </div>
-      </div>
+      </PageHead>
       {err && <div className="error-box">{err}</div>}
       <HighlightBanner kind={t('noun.sponsorship')} />
       <Table<Sponsorship>

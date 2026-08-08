@@ -20,6 +20,7 @@ import { useToast } from '../lib/toast'
 import { useI18n, useStatusLabel } from '../lib/i18n'
 import { useSelection } from '../lib/useSelection'
 import { type CsvColumn } from '../lib/csv'
+import PageHead from '../components/PageHead'
 
 const PER_PAGE = 12
 
@@ -274,7 +275,7 @@ export default function CampaignsPage() {
 
   return (
     <div className="stack">
-      <div className="page-head">
+      <PageHead>
         <div>
           <h1>{t('page.campaigns.title')}</h1>
           <p className="muted">
@@ -298,7 +299,7 @@ export default function CampaignsPage() {
           />
           <button onClick={() => setCreating(true)}>{t('page.campaigns.new')}</button>
         </div>
-      </div>
+      </PageHead>
       {err && <div className="error-box">{err}</div>}
       <Table<AdminCampaign>
         rows={resp?.items ?? []}

@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { api, describeError } from '../lib/api'
 import { useI18n } from '../lib/i18n'
 import { useToast } from '../lib/toast'
+import PageHead from '../components/PageHead'
 
 type Sector = {
   id: number
@@ -126,12 +127,12 @@ export default function CitySectorsPage() {
 
   return (
     <div className="stack">
-      <div className="page-head">
+      <PageHead>
         <div>
           <h1>{t('citySectors.title')}</h1>
           <p className="muted">{t('citySectors.subtitle')}</p>
         </div>
-      </div>
+      </PageHead>
 
       {err && <div className="error-box">{err}</div>}
 
@@ -158,7 +159,7 @@ export default function CitySectorsPage() {
       {!loading &&
         items.map((c, i) => (
           <div className="card" key={c.id}>
-            <div className="page-head">
+            <PageHead>
               <h3>{c.name_en || c.slug}</h3>
               <div style={{ display: 'flex', gap: 6 }}>
                 <button className="btn" onClick={() => move(i, -1)} disabled={i === 0}>
@@ -172,7 +173,7 @@ export default function CitySectorsPage() {
                   ↓
                 </button>
               </div>
-            </div>
+            </PageHead>
             {LANGS.map(({ field, labelKey, rtl }) => (
               <label className="field" key={field}>
                 <span className="muted">{t(labelKey)}</span>

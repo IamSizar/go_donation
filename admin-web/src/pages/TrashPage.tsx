@@ -10,6 +10,7 @@ import { useAuth } from '../lib/auth'
 import { useI18n } from '../lib/i18n'
 import { useToast } from '../lib/toast'
 import Table, { type Column } from '../components/Table'
+import PageHead from '../components/PageHead'
 
 type TrashItem = {
   id: number
@@ -208,7 +209,7 @@ export default function TrashPage() {
 
   return (
     <div className="stack">
-      <div className="page-head">
+      <PageHead>
         <div>
           <h1>{t('page.trash.title')}</h1>
           <p className="muted">
@@ -230,7 +231,7 @@ export default function TrashPage() {
             </button>
           </div>
         )}
-      </div>
+      </PageHead>
       {err && <div className="error-box">{err}</div>}
       <Table<TrashItem>
         rows={items}

@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { api, describeError } from '../lib/api'
 import { useI18n } from '../lib/i18n'
 import { useToast } from '../lib/toast'
+import PageHead from '../components/PageHead'
 
 type Comment = {
   id: number
@@ -68,7 +69,7 @@ export default function CommentsPage() {
 
   return (
     <div className="stack">
-      <div className="page-head">
+      <PageHead>
         <div>
           <h1>{t('comments.title')}</h1>
           <p className="muted">{t('comments.subtitle')}</p>
@@ -80,7 +81,7 @@ export default function CommentsPage() {
             ))}
           </select>
         </div>
-      </div>
+      </PageHead>
 
       {err && <div className="error-box">{err}</div>}
       {loading && <p className="muted">{t('common.loading')}</p>}
@@ -89,14 +90,14 @@ export default function CommentsPage() {
       {!loading &&
         items.map((c) => (
           <div className="card" key={c.id}>
-            <div className="page-head">
+            <PageHead>
               <div>
                 <strong>{c.user_name || t('common.user_ref', { id: c.user_id })}</strong>{' '}
                 <span className="muted">· {t('comments.on_post')} #{c.post_id}{c.post_title ? ` — ${c.post_title}` : ''}</span>
                 {c.flagged && <span className="badge danger" style={{ marginInlineStart: 8 }}>{t('comments.flagged')}</span>}
               </div>
               <span className="muted">{c.created_at?.slice(0, 10)}</span>
-            </div>
+            </PageHead>
             <p style={{ whiteSpace: 'pre-wrap', margin: '8px 0' }}>{c.body}</p>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <span className="muted">{t('comments.status')}:</span>

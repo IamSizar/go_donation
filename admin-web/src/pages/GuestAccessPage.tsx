@@ -9,6 +9,7 @@ import { api, describeError, isSuperAdmin } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useI18n } from '../lib/i18n'
 import { useToast } from '../lib/toast'
+import PageHead from '../components/PageHead'
 
 type Resp = { screens: string[]; config: Record<string, boolean> }
 
@@ -88,12 +89,12 @@ export default function GuestAccessPage() {
 
   return (
     <div className="stack">
-      <div className="page-head">
+      <PageHead>
         <div>
           <h1>{t('guest.title')}</h1>
           <p className="muted">{t('guest.subtitle')}</p>
         </div>
-      </div>
+      </PageHead>
 
       {err && <div className="error-box">{err}</div>}
       {loading && <p className="muted">{t('common.loading')}</p>}

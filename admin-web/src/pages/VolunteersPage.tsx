@@ -33,6 +33,7 @@ import {
   type CustomProfession,
 } from '../lib/skillCatalogue'
 import { SKILL_ICON, colorForSkill } from '../lib/skillIcons'
+import PageHead from '../components/PageHead'
 
 const VOLUNTEER_CSV_COLUMNS: CsvColumn<AdminVolunteerApp>[] = [
   { header: 'id', get: (a) => a.id },
@@ -121,7 +122,7 @@ export default function VolunteersPage() {
   }
   return (
     <div className="stack">
-      <div className="page-head">
+      <PageHead>
         <div>
           <h1>{t('page.volunteers.title')}</h1>
         </div>
@@ -139,7 +140,7 @@ export default function VolunteersPage() {
             {t('page.volunteers.tab_signups')} {badge(counts.mission_signups)}
           </button>
         </div>
-      </div>
+      </PageHead>
       {tab === 'applications' ? <ApplicationsTab /> : <MissionSignupsTab />}
     </div>
   )

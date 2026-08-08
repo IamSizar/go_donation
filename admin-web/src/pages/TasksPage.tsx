@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { api, describeError } from '../lib/api'
 import { useI18n } from '../lib/i18n'
 import { useToast } from '../lib/toast'
+import PageHead from '../components/PageHead'
 
 type Task = {
   id: number
@@ -78,12 +79,12 @@ export default function TasksPage() {
 
   return (
     <div className="stack">
-      <div className="page-head">
+      <PageHead>
         <div>
           <h1>{t('tasks.title')}</h1>
           <p className="muted">{t('tasks.subtitle')}</p>
         </div>
-      </div>
+      </PageHead>
 
       {err && <div className="error-box">{err}</div>}
 
@@ -119,12 +120,12 @@ export default function TasksPage() {
       {!loading &&
         items.map((task) => (
           <div className="card" key={task.id}>
-            <div className="page-head">
+            <PageHead>
               <h3>{task.title}</h3>
               <span className={`badge tone-${task.status === 'completed' ? 'success' : 'warning'}`}>
                 {task.status === 'completed' ? t('tasks.status_completed') : t('tasks.status_pending')}
               </span>
-            </div>
+            </PageHead>
             {task.description && <p className="muted">{task.description}</p>}
             <p className="muted">
               {t('tasks.assigned_to')}: #{task.user_id} · {new Date(task.created_at).toLocaleString()}

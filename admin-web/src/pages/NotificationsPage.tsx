@@ -7,6 +7,7 @@ import Pagination from '../components/Pagination'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { type CsvColumn } from '../lib/csv'
 import { useI18n, useStatusLabel, translate } from '../lib/i18n'
+import PageHead from '../components/PageHead'
 
 // Flat CSV shape for a notification row (Phase 7 · M-53).
 const NOTIFICATION_CSV_COLUMNS: CsvColumn<AdminNotification>[] = [
@@ -109,7 +110,7 @@ export default function NotificationsPage() {
 
   return (
     <div className="stack">
-      <div className="page-head">
+      <PageHead>
         <div>
           <h1>{t('page.notifications.title')}</h1>
           <p className="muted">{resp ? `${resp.total_items} ${t('common.total')}` : t('common.loading')}</p>
@@ -133,7 +134,7 @@ export default function NotificationsPage() {
             module="notifications"
           />
         </div>
-      </div>
+      </PageHead>
       {err && <div className="error-box">{err}</div>}
       <Table<AdminNotification> rows={resp?.items ?? []} columns={columns} rowKey={(n) => n.id} loading={loading} empty={t('empty.notifications')} />
       <Pagination page={page} totalPages={resp?.total_pages ?? 1} onPageChange={setPage} disabled={loading} />

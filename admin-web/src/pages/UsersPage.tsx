@@ -15,6 +15,7 @@ import { type CsvColumn } from '../lib/csv'
 import { formatPhone } from '../lib/phone'
 import { useCanViewSensitive, usePermission, maskContact } from '../lib/permissions'
 import { useFieldRules, type FieldRuleState } from '../lib/fieldRules'
+import PageHead from '../components/PageHead'
 
 const PER_PAGE = 20
 
@@ -524,7 +525,7 @@ export default function UsersPage() {
 
   return (
     <div className="stack">
-      <div className="page-head">
+      <PageHead>
         <div>
           <h1>{t('page.users.title')}</h1>
           <p className="muted">
@@ -550,7 +551,7 @@ export default function UsersPage() {
             module="users"
           />
         </div>
-      </div>
+      </PageHead>
       {err && <div className="error-box">{err}</div>}
       <Table<UserAccount>
         rows={resp?.data ?? []}

@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, describeError } from '../lib/api'
 import { useI18n } from '../lib/i18n'
+import PageHead from '../components/PageHead'
 
 type StaffThread = {
   id: number
@@ -130,7 +131,7 @@ export default function StaffChatPage() {
 
   return (
     <div className="stack">
-      <div className="page-head">
+      <PageHead>
         <div>
           <h1 style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontSize: '1.3rem' }}>🗨️</span>
@@ -141,7 +142,7 @@ export default function StaffChatPage() {
         <div className="row">
           <button onClick={openPicker}>{t('page.staff_chat.new')}</button>
         </div>
-      </div>
+      </PageHead>
 
       {err && <div className="error-box">{err}</div>}
 

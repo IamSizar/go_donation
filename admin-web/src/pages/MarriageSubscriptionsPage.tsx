@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { api, describeError } from '../lib/api'
 import { useI18n } from '../lib/i18n'
 import { useToast } from '../lib/toast'
+import PageHead from '../components/PageHead'
 
 type Package = {
   id: number
@@ -243,12 +244,12 @@ export default function MarriageSubscriptionsPage() {
 
   return (
     <div className="stack">
-      <div className="page-head">
+      <PageHead>
         <div>
           <h1>{t('marriageSubscriptions.title')}</h1>
           <p className="muted">{t('marriageSubscriptions.subtitle')}</p>
         </div>
-      </div>
+      </PageHead>
 
       <h3 style={{ margin: '8px 0 0' }}>{t('marriageSubscriptions.section_pending')}</h3>
       <p className="muted" style={{ marginTop: 0 }}>{t('marriageSubscriptions.section_pending_desc')}</p>
@@ -260,10 +261,10 @@ export default function MarriageSubscriptionsPage() {
       {!purchasesLoading &&
         purchases.map((p) => (
           <div className="card" key={p.id}>
-            <div className="page-head">
+            <PageHead>
               <h3 style={{ margin: 0 }}>{p.package_name_en}</h3>
               <span className="badge tone-warning">{p.payment_method}</span>
-            </div>
+            </PageHead>
             <p className="muted">
               {t('marriageSubscriptions.purchase_user')}: #{p.user_id} · {t('marriageSubscriptions.purchase_price')}:{' '}
               {p.price_iqd.toLocaleString()} IQD · {new Date(p.created_at).toLocaleString()}
@@ -304,7 +305,7 @@ export default function MarriageSubscriptionsPage() {
       {!loading &&
         items.map((p, i) => (
           <div className="card" key={p.id}>
-            <div className="page-head">
+            <PageHead>
               <h3>{p.name_en || p.slug}</h3>
               <div style={{ display: 'flex', gap: 6 }}>
                 <button className="btn" onClick={() => move(i, -1)} disabled={i === 0}>
@@ -314,7 +315,7 @@ export default function MarriageSubscriptionsPage() {
                   ↓
                 </button>
               </div>
-            </div>
+            </PageHead>
             <PackageFields
               value={p}
               onChange={(patch) => patchItem(p.id, patch)}

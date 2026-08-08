@@ -29,6 +29,7 @@ import { useSelection } from '../lib/useSelection'
 import { type CsvColumn } from '../lib/csv'
 import { HighlightBanner, useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForStatus } from '../lib/statusColors'
+import PageHead from '../components/PageHead'
 
 const PER_PAGE = 20
 const STATUSES = ['all', 'draft', 'open', 'closed', 'completed', 'cancelled'] as const
@@ -267,7 +268,7 @@ export default function MissionsPage() {
 
   return (
     <div className="stack">
-      <div className="page-head">
+      <PageHead>
         <div>
           <h1>{t('page.missions.title')}</h1>
           <p className="muted">
@@ -294,7 +295,7 @@ export default function MissionsPage() {
           />
           <button onClick={() => setCreating(true)}>{t('page.missions.new')}</button>
         </div>
-      </div>
+      </PageHead>
       {err && <div className="error-box">{err}</div>}
       <HighlightBanner kind={t('noun.mission')} />
       <Table<AdminMission>

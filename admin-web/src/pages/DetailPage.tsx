@@ -18,6 +18,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, describeError, assetUrl } from '../lib/api'
 import { useI18n, useFieldLabel, useStatusLabel } from '../lib/i18n'
 import { RESOURCE_LABELS } from '../lib/resourceLabels'
+import PageHead from '../components/PageHead'
 
 type DetailResp = {
   success: true
@@ -152,7 +153,7 @@ export default function DetailPage() {
 
   return (
     <div className="stack">
-      <div className="page-head">
+      <PageHead>
         <div>
           {/* Note #11 — breadcrumb so the admin always knows where they are;
               the sidebar highlight alone used to vanish on this page. */}
@@ -167,7 +168,7 @@ export default function DetailPage() {
         <div className="row">
           <button className="secondary" onClick={() => nav(meta.list)}>{t('common.back_to_list')}</button>
         </div>
-      </div>
+      </PageHead>
       {err && <div className="error-box">{err}</div>}
       {loading && <p className="muted">{t('common.loading')}</p>}
       {resp && (

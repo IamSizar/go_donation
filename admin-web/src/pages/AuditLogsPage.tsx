@@ -6,6 +6,7 @@ import Table, { type Column } from '../components/Table'
 import Pagination from '../components/Pagination'
 import { useI18n, useFieldLabel } from '../lib/i18n'
 import { type CsvColumn } from '../lib/csv'
+import PageHead from '../components/PageHead'
 
 const PER_PAGE = 30
 
@@ -124,7 +125,7 @@ export default function AuditLogsPage() {
 
   return (
     <div className="stack">
-      <div className="page-head">
+      <PageHead>
         <div>
           <h1>{t('page.audit.title')}</h1>
           <p className="muted">{t('page.audit.description')}</p>
@@ -154,7 +155,7 @@ export default function AuditLogsPage() {
             module="audit"
           />
         </div>
-      </div>
+      </PageHead>
       {err && <div className="error-box">{err}</div>}
       <Table<AdminAuditLog> rows={items} columns={columns} rowKey={(a) => a.id} loading={loading} empty={t('empty.audit')} />
       {expanded !== null && (() => {

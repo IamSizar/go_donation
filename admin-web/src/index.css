@@ -2611,6 +2611,36 @@ code, pre { direction: ltr; unicode-bidi: bidi-override; }
   align-items: center;
   gap: 6px;
 }
+
+/* The routed page's header portals in here (see PageHead.tsx), turning the
+   old two stacked header strips into one row:
+     [Back][Next][Refresh]  Title · subtitle … [search][New][Export]  [Save]
+   Empty on pages without a header, where its flex:1 just acts as the spacer
+   that keeps Save pinned to the right. */
+.page-head-slot {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+/* Inside the bar the head is part of the row, so it drops the divider and
+   spacing it needed as a standalone block, and centres against the buttons
+   instead of top-aligning. */
+.page-head-slot .page-head {
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  padding-bottom: 0;
+  margin-bottom: 0;
+  border-bottom: none;
+}
+
+/* Below this width the single row runs out of space, so the header drops to
+   its own line under the buttons — which is the layout it had before. */
+@media (max-width: 900px) {
+  .top-action-bar { flex-wrap: wrap; }
+  .page-head-slot { order: 3; flex-basis: 100%; }
+  .page-head-slot .page-head { align-items: flex-start; }
+}
 /* Responsive pass — 4 icon+label buttons plus a flex:1 spacer had no width
    limit or wrap fallback, so on a phone "Save" (and often "Refresh") ran
    off the right edge entirely. Icon-only below this width — same fallback

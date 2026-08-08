@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { api, describeError } from '../lib/api'
 import { useI18n } from '../lib/i18n'
 import { useToast } from '../lib/toast'
+import PageHead from '../components/PageHead'
 
 type SectionCode = {
   kind: string
@@ -100,12 +101,12 @@ export default function DonationCodesPage() {
 
   return (
     <div className="stack">
-      <div className="page-head">
+      <PageHead>
         <div>
           <h1>{t('donationCodes.title')}</h1>
           <p className="muted">{t('donationCodes.subtitle')}</p>
         </div>
-      </div>
+      </PageHead>
 
       {err && <div className="error-box">{err}</div>}
       {loading && <p className="muted">{t('common.loading')}</p>}

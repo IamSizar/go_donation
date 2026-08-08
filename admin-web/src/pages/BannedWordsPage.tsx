@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { api, describeError } from '../lib/api'
 import { useI18n } from '../lib/i18n'
 import { useToast } from '../lib/toast'
+import PageHead from '../components/PageHead'
 
 type Word = { id: number; word: string; created_at: string }
 
@@ -60,12 +61,12 @@ export default function BannedWordsPage() {
 
   return (
     <div className="stack">
-      <div className="page-head">
+      <PageHead>
         <div>
           <h1>{t('bannedWords.title')}</h1>
           <p className="muted">{t('bannedWords.subtitle')}</p>
         </div>
-      </div>
+      </PageHead>
 
       {err && <div className="error-box">{err}</div>}
 

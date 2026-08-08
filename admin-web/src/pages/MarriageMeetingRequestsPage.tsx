@@ -9,6 +9,7 @@ import { api, describeError } from '../lib/api'
 import { useI18n, useStatusLabel } from '../lib/i18n'
 import { useToast } from '../lib/toast'
 import Table, { type Column } from '../components/Table'
+import PageHead from '../components/PageHead'
 
 type MeetingRequest = {
   id: number
@@ -111,12 +112,12 @@ export default function MarriageMeetingRequestsPage() {
 
   return (
     <div className="stack">
-      <div className="page-head">
+      <PageHead>
         <div>
           <h1>{t('nav.marriage_requests')}</h1>
           <p className="muted">{t('page.marriage_requests.subtitle')}</p>
         </div>
-      </div>
+      </PageHead>
       {err && <div className="error-box">{err}</div>}
       <Table<MeetingRequest>
         rows={items}

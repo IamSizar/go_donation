@@ -6,6 +6,7 @@ import { api, describeError, isSuperAdmin } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useI18n } from '../lib/i18n'
 import { useToast } from '../lib/toast'
+import PageHead from '../components/PageHead'
 
 type Content = {
   slug: string
@@ -79,7 +80,7 @@ export default function TermsPage() {
 
   return (
     <div className="stack">
-      <div className="page-head">
+      <PageHead>
         <div>
           <h1>{t('terms.title')}</h1>
           <p className="muted">{t('terms.subtitle')}</p>
@@ -87,7 +88,7 @@ export default function TermsPage() {
         <button className="btn primary" onClick={save} disabled={loading || saving}>
           {saving ? t('common.saving') : t('common.save')}
         </button>
-      </div>
+      </PageHead>
 
       {err && <div className="error-box">{err}</div>}
       {loading && <p className="muted">{t('common.loading')}</p>}

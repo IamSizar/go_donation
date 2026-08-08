@@ -13,6 +13,7 @@ import { useToast } from '../lib/toast'
 import { useI18n, useStatusLabel, type Locale } from '../lib/i18n'
 import { useSelection } from '../lib/useSelection'
 import { type CsvColumn } from '../lib/csv'
+import PageHead from '../components/PageHead'
 
 const MEDIA_CSV_COLUMNS: CsvColumn<MediaPost>[] = [
   { header: 'id', get: (m) => m.id },
@@ -279,7 +280,7 @@ export default function MediaPage() {
 
   return (
     <div className="stack">
-      <div className="page-head">
+      <PageHead>
         <div>
           <h1>{t('page.media.title')}</h1>
           <p className="muted">{resp ? `${resp.items.length} ${t('common.shown')}` : t('common.loading')}</p>
@@ -309,7 +310,7 @@ export default function MediaPage() {
           />
           <button onClick={() => setCreating(true)}>{t('page.media.new')}</button>
         </div>
-      </div>
+      </PageHead>
       {err && <div className="error-box">{err}</div>}
       <Table<MediaPost>
         rows={resp?.items ?? []}

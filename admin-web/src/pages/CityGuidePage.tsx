@@ -19,6 +19,7 @@ import EditModal, { type FieldSpec } from '../components/EditModal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../lib/toast'
 import { useI18n, type Locale } from '../lib/i18n'
+import PageHead from '../components/PageHead'
 
 type Resp = { success: true; items: CommunityEntry[] }
 
@@ -277,7 +278,7 @@ export default function CityGuidePage() {
   return (
     <div className="stack">
       {/* ── header ─────────────────────────────────────────────────────── */}
-      <div className="page-head">
+      <PageHead>
         <div>
           <h1 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span style={{ fontSize: '1.4rem' }}>🗺️</span>
@@ -317,7 +318,7 @@ export default function CityGuidePage() {
           <Link className="row-edit-btn" to="/city-sectors">{t('citySectors.manage_link')}</Link>
           <button onClick={() => setCreating(true)}>{t('common.city_add_place')}</button>
         </div>
-      </div>
+      </PageHead>
 
       {/* ── coord warning ───────────────────────────────────────────────── */}
       {!loading && items.length > 0 && withCoords.length < items.length && (

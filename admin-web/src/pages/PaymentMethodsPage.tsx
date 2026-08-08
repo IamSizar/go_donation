@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { api, describeError } from '../lib/api'
 import { useI18n } from '../lib/i18n'
 import { useToast } from '../lib/toast'
+import PageHead from '../components/PageHead'
 
 type Method = {
   id: number
@@ -218,12 +219,12 @@ export default function PaymentMethodsPage() {
 
   return (
     <div className="stack">
-      <div className="page-head">
+      <PageHead>
         <div>
           <h1>{t('paymentMethods.title')}</h1>
           <p className="muted">{t('paymentMethods.subtitle')}</p>
         </div>
-      </div>
+      </PageHead>
 
       {err && <div className="error-box">{err}</div>}
 
@@ -240,7 +241,7 @@ export default function PaymentMethodsPage() {
       {!loading &&
         items.map((m, i) => (
           <div className="card" key={m.id}>
-            <div className="page-head">
+            <PageHead>
               <h3>{m.name_en || m.slug}</h3>
               <div style={{ display: 'flex', gap: 6 }}>
                 <button className="btn" onClick={() => move(i, -1)} disabled={i === 0}>
@@ -254,7 +255,7 @@ export default function PaymentMethodsPage() {
                   ↓
                 </button>
               </div>
-            </div>
+            </PageHead>
             <MethodFields value={m} onChange={(p) => patchItem(m.id, p)} />
             <label
               className="field"

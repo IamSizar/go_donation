@@ -24,6 +24,7 @@ import { usePendingCounts } from '../lib/pendingCounts'
 import { useI18n, useStatusLabel } from '../lib/i18n'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { type CsvColumn } from '../lib/csv'
+import PageHead from '../components/PageHead'
 
 const POLL_MS = 10_000
 
@@ -214,7 +215,7 @@ export default function VolunteerBoardPage() {
 
   return (
     <div className="stack">
-      <div className="page-head">
+      <PageHead>
         <div>
           <h1>{t('board.title')}</h1>
           <p className="muted">
@@ -235,7 +236,7 @@ export default function VolunteerBoardPage() {
             module="volunteers"
           />
         </div>
-      </div>
+      </PageHead>
 
       {data.missions.length === 0 ? (
         <div className="card" style={{ padding: 32, textAlign: 'center' }}>

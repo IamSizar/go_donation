@@ -20,6 +20,7 @@ import { type CsvColumn } from '../lib/csv'
 import { HighlightBanner, useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForDonation } from '../lib/statusColors'
 import { formatDateParts } from '../lib/dates'
+import PageHead from '../components/PageHead'
 
 const DONATION_CSV_COLUMNS: CsvColumn<DonationAdminRow>[] = [
   { header: 'id', get: (d) => d.id },
@@ -306,7 +307,7 @@ export default function DonationsPage() {
 
   return (
     <div className="stack">
-      <div className="page-head">
+      <PageHead>
         <div>
           <h1>{t('page.donations.title')}</h1>
           <p className="muted">{resp ? `${resp.total_items} ${t('common.total')}` : t('common.loading')}</p>
@@ -328,7 +329,7 @@ export default function DonationsPage() {
           />
           <button onClick={() => setCreating(true)}>{t('page.donations.new')}</button>
         </div>
-      </div>
+      </PageHead>
       {err && <div className="error-box">{err}</div>}
       {/* Banner appears only when the URL has `?highlight=<id>` (set by the
           dashboard live-feed click). Tells the admin which row they jumped

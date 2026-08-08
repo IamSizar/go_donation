@@ -7,6 +7,7 @@ import Table, { type Column } from '../components/Table'
 import EditModal, { type FieldSpec } from '../components/EditModal'
 import { useToast } from '../lib/toast'
 import { useI18n } from '../lib/i18n'
+import PageHead from '../components/PageHead'
 
 type Receipt = {
   id: number
@@ -101,13 +102,13 @@ export default function ReceiptsPage() {
 
   return (
     <div className="stack">
-      <div className="page-head">
+      <PageHead>
         <div>
           <h1>{t('receipts.title')}</h1>
           <p className="muted">{t('receipts.subtitle')}</p>
         </div>
         <button onClick={() => setCreating(true)}>{t('receipts.new')}</button>
-      </div>
+      </PageHead>
 
       {err && <div className="error-box">{err}</div>}
 

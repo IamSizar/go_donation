@@ -13,6 +13,7 @@ import { useToast } from '../lib/toast'
 import { useI18n, useStatusLabel } from '../lib/i18n'
 import { useSelection } from '../lib/useSelection'
 import { type CsvColumn } from '../lib/csv'
+import PageHead from '../components/PageHead'
 
 type Resp = { success: true; items: Partner[] }
 
@@ -230,7 +231,7 @@ export default function PartnersPage() {
 
   return (
     <div className="stack">
-      <div className="page-head">
+      <PageHead>
         <div>
           <h1>{t('page.partners.title')}</h1>
           <p className="muted">{resp ? `${resp.items.length} ${t('common.shown')}` : t('common.loading')}</p>
@@ -255,7 +256,7 @@ export default function PartnersPage() {
           />
           <button onClick={() => setCreating(true)}>{t('page.partners.new')}</button>
         </div>
-      </div>
+      </PageHead>
       {err && <div className="error-box">{err}</div>}
       <Table<Partner>
         rows={resp?.items ?? []}

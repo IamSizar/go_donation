@@ -12,6 +12,7 @@ import { useI18n } from '../lib/i18n'
 import { useToast } from '../lib/toast'
 import IdleLock from '../components/IdleLock'
 import type { UsersListResp } from '../lib/api-types'
+import PageHead from '../components/PageHead'
 
 type Matrix = {
   tiers: string[]
@@ -317,12 +318,12 @@ export default function PermissionsPage() {
   return (
     <IdleLock>
     <div className="stack">
-      <div className="page-head">
+      <PageHead>
         <div>
           <h1>{t('perm.title')}</h1>
           <p className="muted">{t('perm.subtitle')}</p>
         </div>
-      </div>
+      </PageHead>
 
       {err && <div className="error-box">{err}</div>}
       {loading && <p className="muted">{t('common.loading')}</p>}

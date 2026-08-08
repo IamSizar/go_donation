@@ -6,7 +6,8 @@ import { useI18n } from '../lib/i18n'
 // Back / Next use browser history; Refresh reloads the current view; Save fires
 // a global 'app:save' event that any open form can listen for (it's a no-op on
 // pages without a save action, so the button is always present and consistent).
-export default function TopActionBar() {
+// The page's own header renders into the slot between Refresh and Save.
+export default function TopActionBar({ slotRef }: { slotRef: (el: HTMLDivElement | null) => void }) {
   const navigate = useNavigate()
   const { t } = useI18n()
 
@@ -27,7 +28,11 @@ export default function TopActionBar() {
         <RotateCw size={15} strokeWidth={2.2} />
         <span>{t('toolbar.refresh')}</span>
       </button>
-      <div style={{ flex: 1 }} />
+      {/* The current page's header portals in here (see PageHead), so its
+          title sits next to Back/Next and its actions next to Save. When a
+          page has no header this stays empty and its flex:1 acts as the
+          spacer that keeps Save pinned right. */}
+      <div className="page-head-slot" ref={slotRef} />
       <button className="primary" onClick={save} title={t('toolbar.save')}>
         <Save size={15} strokeWidth={2.2} />
         <span>{t('toolbar.save')}</span>

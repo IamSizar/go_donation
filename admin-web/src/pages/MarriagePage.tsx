@@ -14,6 +14,7 @@ import { useI18n, useStatusLabel } from '../lib/i18n'
 import { useSelection } from '../lib/useSelection'
 import { type CsvColumn } from '../lib/csv'
 import { useFieldRules, type FieldRuleState } from '../lib/fieldRules'
+import PageHead from '../components/PageHead'
 
 const MARRIAGE_CSV_COLUMNS: CsvColumn<MarriageProfile>[] = [
   { header: 'id', get: (p) => p.id },
@@ -214,7 +215,7 @@ export default function MarriagePage() {
 
   return (
     <div className="stack">
-      <div className="page-head">
+      <PageHead>
         <div>
           <h1>{t('page.marriage.title')}</h1>
           <p className="muted">{resp ? `${resp.items.length} ${t('common.shown')}` : t('common.loading')}</p>
@@ -239,7 +240,7 @@ export default function MarriagePage() {
           />
           <button onClick={() => setCreating(true)}>{t('page.marriage.new')}</button>
         </div>
-      </div>
+      </PageHead>
       {err && <div className="error-box">{err}</div>}
       <Table<MarriageProfile>
         rows={resp?.items ?? []}

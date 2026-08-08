@@ -5,6 +5,7 @@ import StatCard from '../components/StatCard'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { type CsvColumn } from '../lib/csv'
 import { useI18n } from '../lib/i18n'
+import PageHead from '../components/PageHead'
 
 // A report is a set of headline figures, not a row list — so the export is a
 // flat (section, metric, value) sheet of every number on the page (Phase 7 · M-58).
@@ -61,7 +62,7 @@ export default function ReportsPage() {
 
   return (
     <div className="stack">
-      <div className="page-head">
+      <PageHead>
         <div>
           <h1>{t('page.reports.title')}</h1>
           <p className="muted">{t('page.reports.subtitle')}</p>
@@ -73,7 +74,7 @@ export default function ReportsPage() {
           title={t('nav.reports')}
           module="reports"
         />
-      </div>
+      </PageHead>
       {err && <div className="error-box">{err}</div>}
 
       <section>

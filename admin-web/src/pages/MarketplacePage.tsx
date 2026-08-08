@@ -22,6 +22,7 @@ import { downloadCsv, type CsvColumn } from '../lib/csv'
 import { HighlightBanner, useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForStatus } from '../lib/statusColors'
 import { formatDateParts } from '../lib/dates'
+import PageHead from '../components/PageHead'
 
 const PRODUCT_CSV_COLUMNS: CsvColumn<Product>[] = [
   { header: 'id', get: (p) => p.id },
@@ -114,7 +115,7 @@ export default function MarketplacePage() {
   const { t } = useI18n()
   return (
     <div className="stack">
-      <div className="page-head">
+      <PageHead>
         <div>
           <h1>{t('page.marketplace.title')}</h1>
         </div>
@@ -126,7 +127,7 @@ export default function MarketplacePage() {
             {t('page.marketplace.tab_orders')}
           </button>
         </div>
-      </div>
+      </PageHead>
       {tab === 'products' ? <ProductsTab /> : <OrdersTab />}
     </div>
   )

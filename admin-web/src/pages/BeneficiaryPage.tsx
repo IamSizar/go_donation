@@ -25,6 +25,7 @@ import { HighlightBanner, useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForStatus } from '../lib/statusColors'
 import { IRAQ_GOVERNORATES } from '../lib/iraqGovernorates'
 import { useFieldRules, type FieldRuleState } from '../lib/fieldRules'
+import PageHead from '../components/PageHead'
 
 const CASE_CSV_COLUMNS: CsvColumn<BeneficiaryCase>[] = [
   { header: 'id', get: (r) => r.id },
@@ -208,7 +209,7 @@ export default function BeneficiaryPage() {
   const { t } = useI18n()
   return (
     <div className="stack">
-      <div className="page-head">
+      <PageHead>
         <div>
           <h1>{t('page.beneficiary.title')}</h1>
         </div>
@@ -226,7 +227,7 @@ export default function BeneficiaryPage() {
             {t('page.beneficiary.tab_requests')}
           </button>
         </div>
-      </div>
+      </PageHead>
 
       {tab === 'cases' ? <CasesTab /> : <RequestsTab />}
     </div>

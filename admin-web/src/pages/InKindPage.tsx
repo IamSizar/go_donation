@@ -17,6 +17,7 @@ import { useSelection } from '../lib/useSelection'
 import { type CsvColumn } from '../lib/csv'
 import { HighlightBanner, useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForStatus } from '../lib/statusColors'
+import PageHead from '../components/PageHead'
 
 const INKIND_CSV_COLUMNS: CsvColumn<AdminInKind>[] = [
   { header: 'id', get: (k) => k.id },
@@ -182,7 +183,7 @@ export default function InKindPage() {
 
   return (
     <div className="stack">
-      <div className="page-head">
+      <PageHead>
         <div>
           <h1>{t('page.in_kind.title')}</h1>
           <p className="muted">{resp ? `${resp.total_items} ${t('common.total')}` : t('common.loading')}</p>
@@ -207,7 +208,7 @@ export default function InKindPage() {
           />
           <button onClick={() => setCreating(true)}>{t('page.in_kind.new')}</button>
         </div>
-      </div>
+      </PageHead>
       {err && <div className="error-box">{err}</div>}
       <HighlightBanner kind={t('noun.in_kind_donation')} />
       <Table<AdminInKind>

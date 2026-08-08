@@ -12,6 +12,7 @@ import { navByTo, DEFAULT_NAV_SECTIONS, reconcileNavSections, isNavPathActive, t
 import SoundMenu from './SoundMenu'
 import ConfirmDialog from './ConfirmDialog'
 import TopActionBar from './TopActionBar'
+import { PageHeadSlotContext } from './PageHead'
 import { ChevronDown, ChevronRight, LogOut, Menu, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 
 // Show "99+" instead of overflowing the badge with huge digits. ~5 chars max.
@@ -161,6 +162,10 @@ export default function AppShell() {
   // added after the layout was last customized), so a stale/corrupt saved
   // layout can only ever reorder pages, never hide one.
   const [navSections, setNavSections] = useState<NavSection[]>(DEFAULT_NAV_SECTIONS)
+  // The DOM node inside TopActionBar that the routed page's header portals
+  // into (see PageHead). Held as state, not a ref, so the provider re-renders
+  // once the node exists.
+  const [pageHeadSlot, setPageHeadSlot] = useState<HTMLDivElement | null>(null)
   useEffect(() => {
     let cancelled = false
     api
@@ -450,22 +455,26 @@ export default function AppShell() {
           </div>
         </header>
         <div className="content">
-          {/* Unified top action bar (global notice #7) — shown on every page. */}
-          <TopActionBar />
+          {/* Unified top action bar (global notice #7) — shown on every page.
+              It also hosts the slot the routed page's header portals into,
+              so section title + page actions share this one row. */}
+          <TopActionBar slotRef={setPageHeadSlot} />
           {/* Route transitions: each pathname becomes a new key, so
               AnimatePresence treats it as a fresh element with its own
               enter/exit lifecycle. */}
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={location.pathname}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.18, ease: 'easeOut' }}
-            >
-              <Outlet />
-            </motion.div>
-          </AnimatePresence>
+          <PageHeadSlotContext.Provider value={pageHeadSlot}>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={location.pathname}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.18, ease: 'easeOut' }}
+              >
+                <Outlet />
+              </motion.div>
+            </AnimatePresence>
+          </PageHeadSlotContext.Provider>
         </div>
       </div>
 
