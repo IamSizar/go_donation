@@ -41,7 +41,7 @@ type Channel = 'inapp' | 'push'
 
 // Phase 27.10 — the raw "Direct token" target was removed; sending now
 // always goes through a registered audience (one user / all / one role).
-type TargetKind = 'user' | 'all' | 'role'
+type TargetKind = 'user' | 'all' | 'role' | 'package'
 
 // One descriptor per target. The `code` field is the 2–3 letter badge
 // rendered inside the tile. Title / description / hint are resolved at
@@ -55,6 +55,10 @@ const TARGETS: Target[] = [
   { kind: 'user', code: 'U1' },
   { kind: 'all',  code: 'ALL' },
   { kind: 'role', code: 'ROL' },
+  // #13 — the client asked for "VIP notifications". The tiers are
+  // admin-managed rows, so the target is any subscription package and the
+  // picker below just defaults to VIP.
+  { kind: 'package', code: 'PKG' },
 ]
 
 // Role ids → labels resolved via t('page.push.role_<id>').
@@ -75,6 +79,11 @@ export default function PushNotificationsPage() {
   // exactly is about to get the notification before send.
   const [pickedUser, setPickedUser] = useState<PickedUser | null>(null)
   const [roleId, setRoleId] = useState<number>(1)
+  // Subscription packages for the PKG target (#13). Read from the public
+  // endpoint rather than the admin one so this page doesn't require the
+  // 'marriage' permission just to render its target picker.
+  const [packages, setPackages] = useState<Array<{ slug: string; name: string }>>([])
+  const [packageSlug, setPackageSlug] = useState<string>('vip')
   // Auto-language sending — a message now carries all 4 languages at once
   // (en/ar/ckb/kmr) instead of just one flat string. The in-app channel
   // sends all 4 to the backend, which already resolves each recipient's own
@@ -126,6 +135,28 @@ export default function PushNotificationsPage() {
     return () => { cancelled = true }
   }, [statusTick])
 
+  useEffect(() => {
+    let cancelled = false
+    api
+      .get<{ items?: Array<{ slug: string; name_en?: string; name?: string }> }>(
+        '/api/marriage/subscription-packages',
+      )
+      .then((r) => {
+        if (cancelled) return
+        const items = (r.data.items ?? []).map((p) => ({
+          slug: p.slug,
+          name: p.name || p.name_en || p.slug,
+        }))
+        setPackages(items)
+        // Keep VIP selected when it exists; otherwise fall back to whatever
+        // the first package is, so the dropdown is never showing a slug that
+        // no longer exists.
+        if (items.length && !items.some((p) => p.slug === 'vip')) setPackageSlug(items[0].slug)
+      })
+      .catch(() => { /* target stays selectable; send will surface the error */ })
+    return () => { cancelled = true }
+  }, [])
+
   async function submit(e: FormEvent) {
     e.preventDefault()
     setError(null)
@@ -153,6 +184,10 @@ export default function PushNotificationsPage() {
       if (target === 'role') {
         if (!roleId || roleId <= 0) { setError(t('page.push.err_pick_role')); return }
         payload.role_id = roleId
+      }
+      if (target === 'package') {
+        if (!packageSlug) { setError(t('page.push.err_pick_package')); return }
+        payload.package = packageSlug
       }
       // 'all' → role_id omitted (every active user).
       setBusy(true)
@@ -193,6 +228,10 @@ export default function PushNotificationsPage() {
       case 'role':
         if (!roleId || roleId <= 0) { setError(t('page.push.err_pick_role')); return }
         payload.role_id = roleId
+        break
+      case 'package':
+        if (!packageSlug) { setError(t('page.push.err_pick_package')); return }
+        payload.package = packageSlug
         break
     }
 
@@ -530,6 +569,27 @@ export default function PushNotificationsPage() {
         {target === 'all' && (
           <div className="warn-box">
             <strong>{t('page.push.broadcast_mode')}</strong> {t('page.push.target_all_hint')}
+          </div>
+        )}
+
+        {target === 'package' && (
+          <div>
+            <span className="form-label" style={{ display: 'block', marginBottom: 6 }}>
+              {t('page.push.package_label')}
+            </span>
+            <select
+              value={packageSlug}
+              onChange={(e) => setPackageSlug(e.target.value)}
+              disabled={busy}
+              style={{ width: 'auto' }}
+              aria-label={t('page.push.package_label')}
+            >
+              {packages.length === 0 && <option value="vip">VIP</option>}
+              {packages.map((p) => (
+                <option key={p.slug} value={p.slug}>{p.name}</option>
+              ))}
+            </select>
+            <span className="hint">{t('page.push.target_package_hint')}</span>
           </div>
         )}
 

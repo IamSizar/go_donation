@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"strings"
 )
 
 // deviceTarget is one active device + the language preference its owner
@@ -78,15 +79,17 @@ func pickLocalizedText(m LocalizedMessage, locale string) (title, body string) {
 
 // SendPushDirect is exposed for the admin compose endpoint. It expands to a
 // list of device tokens using the first set target in this order:
-//   • deviceToken    → single token
-//   • userID         → all active tokens of that user
-//   • roleID         → all active tokens of every user with that role
-//   • allUsers=true  → every active token in the system (broadcast)
+//   - deviceToken    → single token
+//   - userID         → all active tokens of that user
+//   - roleID         → all active tokens of every user with that role
+//   - packageSlug    → every user on that marriage subscription package (#13)
+//   - allUsers=true  → every active token in the system (broadcast)
+//
 // Returns one SendResult per delivery attempt.
 //
 // Returns errFCMDisabled if no Firebase credentials are configured.
 func (n *Notifier) SendPushDirect(ctx context.Context, deviceToken string, userID int64,
-	roleID int, allUsers bool, title, body, imageURL string) ([]SendResult, error) {
+	roleID int, packageSlug string, allUsers bool, title, body, imageURL string) ([]SendResult, error) {
 	if n.fcm == nil {
 		return nil, errFCMDisabled
 	}
@@ -113,6 +116,15 @@ func (n *Notifier) SendPushDirect(ctx context.Context, deviceToken string, userI
 			return []SendResult{}, errors.New("no active device tokens for that role")
 		}
 		tokens = t
+	case strings.TrimSpace(packageSlug) != "":
+		t, err := n.activeTokensForPackage(ctx, packageSlug)
+		if err != nil {
+			return nil, err
+		}
+		if len(t) == 0 {
+			return []SendResult{}, errors.New("no active device tokens on that package")
+		}
+		tokens = t
 	case allUsers:
 		t, err := n.activeTokensAll(ctx)
 		if err != nil {
@@ -123,7 +135,7 @@ func (n *Notifier) SendPushDirect(ctx context.Context, deviceToken string, userI
 		}
 		tokens = t
 	default:
-		return nil, errors.New("supply device_token, user_id, role_id, or all_users")
+		return nil, errors.New("supply device_token, user_id, role_id, package, or all_users")
 	}
 
 	results := make([]SendResult, 0, len(tokens))
@@ -153,6 +165,40 @@ func (n *Notifier) activeTokensAll(ctx context.Context) ([]string, error) {
 		   JOIN users u ON u.id = udt.user_id
 		  WHERE udt.is_active = 1
 		    AND u.active     = 1`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []string{}
+	for rows.Next() {
+		var t string
+		if err := rows.Scan(&t); err == nil && t != "" {
+			out = append(out, t)
+		}
+	}
+	return out, rows.Err()
+}
+
+// activeTokensForPackage returns every active device token belonging to a user
+// whose marriage profile sits on the given subscription package (#13).
+//
+// Mirrors BroadcastToPackage's audience exactly — active user, active
+// profile, DISTINCT so a second profile row can't double-send — so the push
+// and in-app channels always reach the same people.
+func (n *Notifier) activeTokensForPackage(ctx context.Context, packageSlug string) ([]string, error) {
+	packageSlug = strings.TrimSpace(packageSlug)
+	if packageSlug == "" {
+		return nil, nil
+	}
+	rows, err := n.Pool.Query(ctx,
+		`SELECT DISTINCT udt.device_token
+		   FROM user_device_tokens udt
+		   JOIN users u ON u.id = udt.user_id
+		   JOIN marriage_profiles mp ON mp.user_id = u.id
+		  WHERE u.active = 1
+		    AND udt.is_active = 1
+		    AND mp.status = 'active'
+		    AND mp.subscription_status = $1`, packageSlug)
 	if err != nil {
 		return nil, err
 	}

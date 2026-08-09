@@ -207,6 +207,18 @@ func (h *MediaEngagementHandler) AdminComments(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "items": items})
 }
 
+// AdminActivity — GET /api/admin/post-activity?kind=&limit= — the engagement
+// feed behind the dashboard's Comments & Activities section (#10).
+func (h *MediaEngagementHandler) AdminActivity(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.Query("limit"))
+	items, err := h.Store.ActivityFeed(c.Request.Context(), c.Query("kind"), limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "items": items})
+}
+
 // AdminDeleteComment — DELETE /api/admin/media-comments/:id.
 func (h *MediaEngagementHandler) AdminDeleteComment(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)

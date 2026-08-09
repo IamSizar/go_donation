@@ -55,6 +55,7 @@ const DonationCodesPage = lazy(() => import('./pages/DonationCodesPage'))
 const ProjectCategoriesPage = lazy(() => import('./pages/ProjectCategoriesPage'))
 const MediaCategoriesPage = lazy(() => import('./pages/MediaCategoriesPage'))
 const CommentsPage = lazy(() => import('./pages/CommentsPage'))
+const PostActivityPage = lazy(() => import('./pages/PostActivityPage'))
 const BannedWordsPage = lazy(() => import('./pages/BannedWordsPage'))
 const MarketplaceCategoriesPage = lazy(() => import('./pages/MarketplaceCategoriesPage'))
 const PaymentMethodsPage = lazy(() => import('./pages/PaymentMethodsPage'))
@@ -114,6 +115,7 @@ export default function App() {
             <Route path="project-categories" element={<ProjectCategoriesPage />} />
             <Route path="media-categories" element={<MediaCategoriesPage />} />
             <Route path="comments" element={<CommentsPage />} />
+            <Route path="post-activity" element={<PostActivityPage />} />
             <Route path="banned-words" element={<BannedWordsPage />} />
             <Route path="marketplace-categories" element={<MarketplaceCategoriesPage />} />
             <Route path="payment-methods" element={<PaymentMethodsPage />} />

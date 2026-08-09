@@ -978,6 +978,8 @@ func main() {
 			admin.GET("/admin/media-comments", perm("media", "view"), mediaEngageH.AdminComments)
 			admin.POST("/admin/media-comments/:id/status", perm("media", "edit"), adminStatusH.MediaComment)
 			admin.DELETE("/admin/media-comments/:id", perm("media", "delete"), mediaEngageH.AdminDeleteComment)
+			// #10 — Comments & Activities: the engagement feed (comments + likes).
+			admin.GET("/admin/post-activity", perm("media", "view"), mediaEngageH.AdminActivity)
 
 			// #25 — banned-words blocklist (writes gated to admin tier).
 			admin.GET("/admin/banned-words", perm("media", "view"), bannedWordsH.List)

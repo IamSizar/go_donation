@@ -27,6 +27,22 @@ type Comment struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+// Activity is one engagement event on a post — a comment or a like — for the
+// dashboard's Comments & Activities section (#10).
+type Activity struct {
+	Kind      string    `json:"kind"` // comment | like
+	ID        int64     `json:"id"`   // comment id; 0 for a like (no id of its own)
+	PostID    int64     `json:"post_id"`
+	PostTitle string    `json:"post_title"`
+	PostType  string    `json:"post_type"`
+	UserID    int64     `json:"user_id"`
+	UserName  string    `json:"user_name"`
+	Body      string    `json:"body,omitempty"`   // comment text; empty for a like
+	Status    string    `json:"status,omitempty"` // comment moderation status
+	Flagged   bool      `json:"flagged"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 type Store struct{ Pool *pgxpool.Pool }
 
 func New(pool *pgxpool.Pool) *Store { return &Store{Pool: pool} }
@@ -219,6 +235,67 @@ func (s *Store) AdminListComments(ctx context.Context, statusFilter string, limi
 			return nil, err
 		}
 		out = append(out, x)
+	}
+	return out, rows.Err()
+}
+
+// ActivityFeed returns recent engagement across all posts, newest first (#10).
+//
+// Comments and likes are two different tables with no shared key, so this is a
+// UNION ALL rather than a join: each side is projected onto the same column
+// list and the whole thing is ordered once. A like carries no id, body or
+// status of its own — those columns are filled with neutral values so the
+// projections line up, and the `kind` column is what the UI switches on.
+//
+// kindFilter narrows to one kind ("comment" / "like"); anything else, "" or
+// "all" returns both.
+func (s *Store) ActivityFeed(ctx context.Context, kindFilter string, limit int) ([]Activity, error) {
+	if limit <= 0 || limit > 500 {
+		limit = 200
+	}
+	kindFilter = strings.TrimSpace(kindFilter)
+	if kindFilter != "comment" && kindFilter != "like" {
+		kindFilter = ""
+	}
+
+	rows, err := s.Pool.Query(ctx,
+		`SELECT kind, id, post_id, post_title, post_type, user_id, user_name,
+		        body, status, flagged, created_at
+		   FROM (
+		     SELECT 'comment' AS kind, c.id, c.post_id,
+		            COALESCE(p.title, '') AS post_title,
+		            COALESCE(p.post_type, '') AS post_type,
+		            c.user_id, COALESCE(u.full_name, 'User') AS user_name,
+		            c.body, c.status, (c.flagged = 1) AS flagged, c.created_at
+		       FROM post_comments c
+		       LEFT JOIN user_profiles u ON u.user_id = c.user_id
+		       LEFT JOIN media_posts p ON p.id = c.post_id
+		     UNION ALL
+		     SELECT 'like', 0, l.post_id,
+		            COALESCE(p.title, ''),
+		            COALESCE(p.post_type, ''),
+		            l.user_id, COALESCE(u.full_name, 'User'),
+		            '', '', false, l.created_at
+		       FROM post_likes l
+		       LEFT JOIN user_profiles u ON u.user_id = l.user_id
+		       LEFT JOIN media_posts p ON p.id = l.post_id
+		   ) a
+		  WHERE ($1 = '' OR a.kind = $1)
+		  ORDER BY a.created_at DESC
+		  LIMIT `+itoa(limit),
+		kindFilter)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []Activity{}
+	for rows.Next() {
+		var a Activity
+		if err := rows.Scan(&a.Kind, &a.ID, &a.PostID, &a.PostTitle, &a.PostType,
+			&a.UserID, &a.UserName, &a.Body, &a.Status, &a.Flagged, &a.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, a)
 	}
 	return out, rows.Err()
 }

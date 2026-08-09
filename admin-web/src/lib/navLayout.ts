@@ -44,6 +44,7 @@ export const NAV: NavItem[] = [
   { to: '/media',         tKey: 'nav.media',          module: 'media' },
   { to: '/media-categories', tKey: 'nav.media_categories', module: 'media' },
   { to: '/comments',      tKey: 'nav.comments',        module: 'media' },
+  { to: '/post-activity', tKey: 'nav.post_activity',   module: 'media' },
   { to: '/banned-words',  tKey: 'nav.banned_words',    module: 'media' },
   { to: '/community',     tKey: 'nav.community',       module: 'community' },
   { to: '/city-guide',    tKey: 'nav.city_guide',     module: 'city' },
@@ -104,6 +105,7 @@ export const GROUP_DEFS: { key: string; tKey: string }[] = [
   { key: 'city_guide', tKey: 'nav_group.city_guide' },
   { key: 'store_marketplace', tKey: 'nav_group.store_marketplace' },
   { key: 'marriage', tKey: 'nav_group.marriage' },
+  { key: 'comments_activities', tKey: 'nav_group.comments_activities' },
   { key: 'communication_support', tKey: 'nav_group.communication_support' },
   { key: 'monitoring_reports', tKey: 'nav_group.monitoring_reports' },
   { key: 'system_settings', tKey: 'nav_group.system_settings' },
@@ -127,11 +129,15 @@ export const DEFAULT_NAV_SECTIONS: NavSection[] = [
   },
   {
     kind: 'group', key: 'store_marketplace', tKey: 'nav_group.store_marketplace',
-    items: ['/marketplace', '/marketplace-categories', '/comments'],
+    items: ['/marketplace', '/marketplace-categories'],
   },
   {
     kind: 'group', key: 'marriage', tKey: 'nav_group.marriage',
     items: ['/marriage', '/marriage-requests', '/marriage-chats', '/marriage-subscriptions'],
+  },
+  {
+    kind: 'group', key: 'comments_activities', tKey: 'nav_group.comments_activities',
+    items: ['/comments', '/post-activity', '/banned-words'],
   },
   {
     kind: 'group', key: 'communication_support', tKey: 'nav_group.communication_support',
@@ -144,7 +150,7 @@ export const DEFAULT_NAV_SECTIONS: NavSection[] = [
   {
     kind: 'group', key: 'system_settings', tKey: 'nav_group.system_settings',
     items: [
-      '/payment-methods', '/donation-codes', '/field-rules', '/banned-words',
+      '/payment-methods', '/donation-codes', '/field-rules',
       '/permissions', '/terms', '/about', '/humanitarian-work',
       '/trash', '/settings',
     ],

@@ -2921,3 +2921,36 @@ html[dir='rtl'] .data-table th {
 }
 /* Push the per-person unassign to the end of its row, in both directions. */
 .task-member-remove { margin-inline-start: auto; height: 26px; padding: 0 10px; }
+
+/* === Post activity feed (#10) ============================================== */
+.activity-feed { gap: 0; }
+.activity-row {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+.activity-row:last-child { border-bottom: none; }
+.activity-icon {
+  flex: 0 0 26px;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-full);
+  margin-top: 2px;
+}
+.activity-icon.tone-info    { background: var(--color-info-bg);   color: var(--tone-info-fg); }
+.activity-icon.tone-danger  { background: var(--color-danger-bg); color: var(--tone-danger-fg); }
+.activity-main { min-width: 0; flex: 1; }
+.activity-line { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.activity-body {
+  margin: 4px 0 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-2);
+  /* A comment is user-authored text of any length — wrap it rather than
+     letting one long word push the row into a horizontal scroll. */
+  overflow-wrap: anywhere;
+}
+.activity-meta { margin: 4px 0 0; font-size: var(--text-sm); }

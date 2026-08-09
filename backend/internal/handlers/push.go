@@ -23,8 +23,9 @@ func NewPushHandler(n *notify.Notifier) *PushHandler {
 type pushReq struct {
 	DeviceToken string `json:"device_token"`
 	UserID      int64  `json:"user_id"`
-	RoleID      int    `json:"role_id"`     // 1=donor, 2=beneficiary, 3=volunteer
-	AllUsers    bool   `json:"all_users"`   // broadcast — every active device
+	RoleID      int    `json:"role_id"`   // 1=donor, 2=beneficiary, 3=volunteer
+	Package     string `json:"package"`   // #13 — marriage subscription package slug (e.g. "vip")
+	AllUsers    bool   `json:"all_users"` // broadcast — every active device
 	Title       string `json:"title"`
 	Body        string `json:"body"`
 	ImageURL    string `json:"image_url"`
@@ -67,21 +68,22 @@ func (h *PushHandler) Send(c *gin.Context) {
 	req.Title = strings.TrimSpace(req.Title)
 	req.Body = strings.TrimSpace(req.Body)
 	req.ImageURL = strings.TrimSpace(req.ImageURL)
+	req.Package = strings.TrimSpace(req.Package)
 
 	if req.Title == "" || req.Body == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "title and body are required."})
 		return
 	}
-	if req.DeviceToken == "" && req.UserID <= 0 && req.RoleID <= 0 && !req.AllUsers {
+	if req.DeviceToken == "" && req.UserID <= 0 && req.RoleID <= 0 && req.Package == "" && !req.AllUsers {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
-			"error":   "Provide one of: device_token, user_id, role_id, or all_users.",
+			"error":   "Provide one of: device_token, user_id, role_id, package, or all_users.",
 		})
 		return
 	}
 
 	results, err := h.Notifier.SendPushDirect(
-		c.Request.Context(), req.DeviceToken, req.UserID, req.RoleID, req.AllUsers,
+		c.Request.Context(), req.DeviceToken, req.UserID, req.RoleID, req.Package, req.AllUsers,
 		req.Title, req.Body, req.ImageURL,
 	)
 	if err != nil {
@@ -114,6 +116,7 @@ func (h *PushHandler) Send(c *gin.Context) {
 // device when omitted.
 type broadcastReq struct {
 	RoleID      int    `json:"role_id"` // 0 = every active user; 1=donor 2=beneficiary 3=volunteer
+	Package     string `json:"package"` // #13 — marriage subscription package slug; wins over role_id
 	Title       string `json:"title"`
 	TitleAr     string `json:"title_ar"`
 	TitleSorani string `json:"title_sorani"`
@@ -167,7 +170,15 @@ func (h *PushHandler) BroadcastInApp(c *gin.Context) {
 		ActionURL: strings.TrimSpace(req.ActionURL),
 	}
 
-	sent, err := h.Notifier.Broadcast(c.Request.Context(), req.RoleID, msg)
+	// A package audience is narrower than a role one and can't be expressed
+	// as a role, so it takes precedence when both arrive.
+	var sent int
+	var err error
+	if slug := strings.TrimSpace(req.Package); slug != "" {
+		sent, err = h.Notifier.BroadcastToPackage(c.Request.Context(), slug, msg)
+	} else {
+		sent, err = h.Notifier.Broadcast(c.Request.Context(), req.RoleID, msg)
+	}
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
 		return

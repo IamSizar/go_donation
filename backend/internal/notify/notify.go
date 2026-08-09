@@ -221,6 +221,60 @@ func (n *Notifier) Broadcast(ctx context.Context, roleID int, m LocalizedMessage
 	return sent, nil
 }
 
+// BroadcastToPackage sends an in-app notification to every active user whose
+// marriage profile sits on the given subscription package (#13).
+//
+// The client asked for this as "VIP notifications", but the packages are
+// admin-managed rows (migration 068) — hardcoding 'vip' would mean a code
+// change the first time they rename a tier or add one. So the audience is
+// any package slug, and the dashboard simply defaults its picker to VIP.
+//
+// Only 'active' profiles count: a submitted-but-unapproved or rejected
+// profile has not been granted the tier yet, and someone whose profile was
+// rejected should not be receiving the perks of a package.
+//
+// DISTINCT because nothing stops a user from holding more than one profile
+// row; without it they would get the same announcement twice.
+func (n *Notifier) BroadcastToPackage(ctx context.Context, packageSlug string, m LocalizedMessage) (int, error) {
+	packageSlug = strings.TrimSpace(packageSlug)
+	if packageSlug == "" {
+		return 0, errors.New("package slug is required")
+	}
+	rows, err := n.Pool.Query(ctx,
+		`SELECT DISTINCT u.id
+		   FROM users u
+		   JOIN marriage_profiles mp ON mp.user_id = u.id
+		  WHERE u.active = 1
+		    AND mp.status = 'active'
+		    AND mp.subscription_status = $1`, packageSlug)
+	if err != nil {
+		return 0, err
+	}
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			rows.Close()
+			return 0, err
+		}
+		ids = append(ids, id)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+
+	sent := 0
+	for _, uid := range ids {
+		if newID, err := n.Send(ctx, uid, m); err != nil {
+			log.Printf("[notify] package broadcast send user=%d failed: %v", uid, err)
+		} else if newID > 0 {
+			sent++
+		}
+	}
+	return sent, nil
+}
+
 // BroadcastToStaff sends a notification to every active STAFF member — the
 // dashboard operators who review submissions. Staff are identified by is_admin=1
 // or a staff staff_tier (super_admin/admin/supervisor/employee), NOT by role_id
