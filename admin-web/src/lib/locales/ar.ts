@@ -406,6 +406,10 @@ const ar: DeepPartial<typeof en> = {
     flagged: 'مُبلَّغ عنه',
     empty: 'لا يوجد نشاط بعد.',
   },
+  content: {
+    not_created_title: 'لم تُنشر بعد.',
+    not_created_hint: 'لا يوجد محتوى لهذه الصفحة بعد — املأ الحقول أدناه ثم اضغط حفظ لإنشائها.',
+  },
   crop: {
     title: 'اقتصاص الصورة',
     apply: 'تطبيق الاقتصاص',

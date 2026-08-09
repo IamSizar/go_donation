@@ -407,6 +407,10 @@ const kmr: DeepPartial<typeof en> = {
     flagged: 'نیشانکری',
     empty: 'هێشتا چالاکی نینە.',
   },
+  content: {
+    not_created_title: 'هێشتا نەهاتیە بەلاڤکرن.',
+    not_created_hint: 'ڤێ پەرێ هێشتا ناڤەرۆک نینە — خانێن خوارێ تژی بکە و پاشەکەفتنێ بکە دا بێتە دروستکرن.',
+  },
   crop: {
     title: 'برینا وێنەی',
     apply: 'جێبەجێکرنا برینێ',

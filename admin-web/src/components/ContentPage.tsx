@@ -2,6 +2,7 @@
 // GET /api/content/:slug and saves via PUT /api/admin/content/:slug. Super-Admin
 // only (backend enforces RequireSuperAdmin). Reused by Terms, About, Contact.
 import { useEffect, useState } from 'react'
+import { isAxiosError } from 'axios'
 import { api, describeError, isSuperAdmin } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useI18n } from '../lib/i18n'
@@ -34,6 +35,8 @@ export default function ContentPage({ slug, titleKey, subtitleKey }: { slug: str
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  // True when the slug is valid but has no row yet — a hint, not an error.
+  const [notYetCreated, setNotYetCreated] = useState(false)
 
   const amSuper = isSuperAdmin(user)
 
@@ -47,8 +50,23 @@ export default function ContentPage({ slug, titleKey, subtitleKey }: { slug: str
         if (cancelled) return
         setForm({ ...empty, ...res.data.content })
         setErr(null)
+        setNotYetCreated(false)
       })
-      .catch((e) => { if (!cancelled) setErr(describeError(e)) })
+      .catch((e) => {
+        if (cancelled) return
+        // A 404 means this page has no row yet, not that anything is broken —
+        // the admin PUT upserts, so saving the empty form below creates it.
+        // Showing the red error box here made a brand-new page look like a
+        // failure (which is exactly how humanitarian-work presented before it
+        // was seeded in migration 096).
+        if (isAxiosError(e) && e.response?.status === 404) {
+          setForm(empty)
+          setErr(null)
+          setNotYetCreated(true)
+          return
+        }
+        setErr(describeError(e))
+      })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -60,6 +78,7 @@ export default function ContentPage({ slug, titleKey, subtitleKey }: { slug: str
     setSaving(true)
     try {
       await api.put(`/api/admin/content/${slug}`, form)
+      setNotYetCreated(false)
       toast.success(t('terms.saved'))
     } catch (e) {
       toast.error(describeError(e))
@@ -90,6 +109,11 @@ export default function ContentPage({ slug, titleKey, subtitleKey }: { slug: str
       </PageHead>
 
       {err && <div className="error-box">{err}</div>}
+      {!err && notYetCreated && !loading && (
+        <div className="warn-box">
+          <strong>{t('content.not_created_title')}</strong> {t('content.not_created_hint')}
+        </div>
+      )}
       {loading && <p className="muted">{t('common.loading')}</p>}
 
       {!loading && LANGS.map(({ suf, labelKey, rtl }) => (

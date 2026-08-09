@@ -418,6 +418,10 @@ const en = {
     flagged: 'Flagged',
     empty: 'No activity yet.',
   },
+  content: {
+    not_created_title: 'Not published yet.',
+    not_created_hint: 'This page has no content yet — fill it in below and press Save to create it.',
+  },
   crop: {
     title: 'Crop photo',
     apply: 'Apply crop',
