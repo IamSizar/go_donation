@@ -1063,6 +1063,19 @@ nav .nav-group-header:hover { background: var(--panel-2); color: var(--text-h); 
 .breadcrumb a { color: var(--muted); text-decoration: none; }
 .breadcrumb a:hover { color: var(--text); text-decoration: underline; }
 .page-head .row { gap: var(--space-2); }
+/* Form controls default to `width: 100%` (see the base input/select rule),
+   which is right inside a form but wrong in the header's action row: a select
+   with no explicit width claims the whole row and shoves every sibling onto
+   its own line. That is what turned the City Guide header into a vertical
+   stack of full-width dropdowns.
+   Sizing to content here fixes it for good — pages that DO want a specific
+   width set it inline (`style={{ width: 220 }}`), and an inline style
+   outranks this rule, so none of them change. The mobile block below still
+   wins too: it uses !important precisely to force the stacked layout. */
+.page-head .row > select,
+.page-head .row > input:not([type='checkbox']):not([type='radio']) {
+  width: auto;
+}
 @media (max-width: 720px) {
   .page-head { flex-direction: column; align-items: stretch; }
   /* The actions row (search/filter/export/"New") already stacked below the
