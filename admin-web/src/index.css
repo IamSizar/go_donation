@@ -2891,3 +2891,33 @@ html[dir='rtl'] .data-table th {
   cursor: nwse-resize;
 }
 .crop-size { margin-top: var(--space-2); font-size: var(--text-sm); }
+
+/* === Group tasks (#5) ======================================================
+   The assign form collects people as chips; each task card then lists its
+   assignees with their own status, since completion is per-person. */
+.assignee-chips { gap: 6px; flex-wrap: wrap; margin-bottom: var(--space-2); }
+.assignee-chip { display: inline-flex; align-items: center; gap: 6px; }
+.assignee-chip .icon {
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 11px;
+  line-height: 1;
+  opacity: 0.7;
+}
+.assignee-chip .icon:hover:not(:disabled) { opacity: 1; background: transparent; }
+.task-members { gap: 4px; margin: var(--space-3) 0; }
+.task-member {
+  align-items: center;
+  gap: var(--space-3);
+  padding: 6px var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-2);
+  font-size: var(--text-sm);
+}
+/* Push the per-person unassign to the end of its row, in both directions. */
+.task-member-remove { margin-inline-start: auto; height: 26px; padding: 0 10px; }
