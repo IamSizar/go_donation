@@ -18,7 +18,7 @@ import EditModal, { type FieldSpec } from '../components/EditModal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../lib/toast'
 import { useI18n, type Locale } from '../lib/i18n'
-import PageHead from '../components/PageHead'
+import PageHead, { PageActions, BarSecondary } from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
 import RowActionsMenu from '../components/RowActionsMenu'
 import { formatDateTime } from '../lib/dates'
@@ -309,27 +309,42 @@ export default function CityGuidePage() {
             placeholder={t('common.city_search')}
             style={{ width: '200px' }}
           />
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ minWidth: 130 }}>
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ width: 130 }}>
             <option value="">{t('cityGuide.filter_all')}</option>
             <option value="pending">{t('cityGuide.filter_pending')}{pendingCount ? ` (${pendingCount})` : ''}</option>
             <option value="approved">{t('cityGuide.filter_approved')}</option>
           </select>
           {/* Note #19 — filter by the 5-sector taxonomy and Sector Type. */}
-          <select value={sectorFilter} onChange={(e) => setSectorFilter(e.target.value)} style={{ minWidth: 160 }}>
+          <select value={sectorFilter} onChange={(e) => setSectorFilter(e.target.value)} style={{ width: 190 }}>
             <option value="">{t('field.sector')}: {t('cityGuide.filter_all')}</option>
             {sectors.map((s) => (
               <option key={s.slug} value={s.slug}>{sectorName(s, locale)}</option>
             ))}
           </select>
-          <select value={sectorTypeFilter} onChange={(e) => setSectorTypeFilter(e.target.value)} style={{ minWidth: 170 }}>
-            <option value="">{t('field.sector_type')}: {t('cityGuide.filter_all')}</option>
-            <option value="government">{t('cityGuide.sector_type_government')}</option>
-            <option value="private">{t('cityGuide.sector_type_private')}</option>
-          </select>
-          <Link className="row-edit-btn" to="/city-sectors">{t('citySectors.manage_link')}</Link>
-          <button onClick={() => setCreating(true)}>{t('common.city_add_place')}</button>
         </div>
       </PageHead>
+
+      {/* Primary action sits next to Save rather than at the end of the
+          filter run, so the two buttons that change something are together. */}
+      <PageActions>
+        <button onClick={() => setCreating(true)}>{t('common.city_add_place')}</button>
+      </PageActions>
+
+      {/* City Guide has more filters than any other page. The last one and the
+          sectors link drop to the bar's own second line, which starts under
+          Back — that keeps the first line from squeezing the search box. */}
+      <BarSecondary>
+        <select
+          value={sectorTypeFilter}
+          onChange={(e) => setSectorTypeFilter(e.target.value)}
+          style={{ width: 190 }}
+        >
+          <option value="">{t('field.sector_type')}: {t('cityGuide.filter_all')}</option>
+          <option value="government">{t('cityGuide.sector_type_government')}</option>
+          <option value="private">{t('cityGuide.sector_type_private')}</option>
+        </select>
+        <Link className="row-edit-btn" to="/city-sectors">{t('citySectors.manage_link')}</Link>
+      </BarSecondary>
 
       {/* ── coord warning ───────────────────────────────────────────────── */}
       {!loading && items.length > 0 && withCoords.length < items.length && (

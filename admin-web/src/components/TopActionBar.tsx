@@ -7,7 +7,15 @@ import { useI18n } from '../lib/i18n'
 // a global 'app:save' event that any open form can listen for (it's a no-op on
 // pages without a save action, so the button is always present and consistent).
 // The page's own header renders into the slot between Refresh and Save.
-export default function TopActionBar({ slotRef }: { slotRef: (el: HTMLDivElement | null) => void }) {
+export default function TopActionBar({
+  slotRef,
+  actionsRef,
+  secondaryRef,
+}: {
+  slotRef: (el: HTMLDivElement | null) => void
+  actionsRef: (el: HTMLDivElement | null) => void
+  secondaryRef: (el: HTMLDivElement | null) => void
+}) {
   const navigate = useNavigate()
   const { t } = useI18n()
 
@@ -33,10 +41,16 @@ export default function TopActionBar({ slotRef }: { slotRef: (el: HTMLDivElement
           page has no header this stays empty and its flex:1 acts as the
           spacer that keeps Save pinned right. */}
       <div className="page-head-slot" ref={slotRef} />
+      {/* The page's primary action lands here, right next to Save. */}
+      <div className="page-actions-slot" ref={actionsRef} />
       <button className="primary" onClick={save} title={t('toolbar.save')}>
         <Save size={15} strokeWidth={2.2} />
         <span>{t('toolbar.save')}</span>
       </button>
+      {/* Full-width second line, so whatever a page puts here starts under
+          Back rather than indented under the middle strip. Collapses to
+          nothing when the page uses none of it. */}
+      <div className="bar-secondary-slot" ref={secondaryRef} />
     </div>
   )
 }

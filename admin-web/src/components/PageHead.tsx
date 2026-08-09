@@ -16,6 +16,17 @@ import { createPortal } from 'react-dom'
 // <PageHead>.
 export const PageHeadSlotContext = createContext<HTMLElement | null>(null)
 
+// Two more slots in the same bar, for pages whose header needs more than the
+// middle strip can hold:
+//   PageActions   — sits immediately LEFT of Save, for the page's primary
+//                   action ("+ Add place"), so the two main buttons are
+//                   together instead of the action being buried among filters.
+//   BarSecondary  — a full-width line that wraps BELOW the buttons, starting
+//                   under Back. For overflow filters that would otherwise
+//                   squeeze the first line.
+export const PageActionsSlotContext = createContext<HTMLElement | null>(null)
+export const BarSecondarySlotContext = createContext<HTMLElement | null>(null)
+
 export default function PageHead({ children }: { children: ReactNode }) {
   const slot = useContext(PageHeadSlotContext)
   const head = <div className="page-head">{children}</div>
@@ -24,4 +35,17 @@ export default function PageHead({ children }: { children: ReactNode }) {
   // the header present rather than blank; every later route change already
   // has the slot and portals straight away.
   return slot ? createPortal(head, slot) : head
+}
+
+export function PageActions({ children }: { children: ReactNode }) {
+  const slot = useContext(PageActionsSlotContext)
+  // No fallback render here: unlike the head, these are loose buttons with no
+  // wrapper of their own, so dropping them in place for one frame would put
+  // them in the middle of the page body. Waiting one render is invisible.
+  return slot ? createPortal(<>{children}</>, slot) : null
+}
+
+export function BarSecondary({ children }: { children: ReactNode }) {
+  const slot = useContext(BarSecondarySlotContext)
+  return slot ? createPortal(<div className="row">{children}</div>, slot) : null
 }

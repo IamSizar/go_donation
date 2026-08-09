@@ -13,7 +13,7 @@ import SoundMenu from './SoundMenu'
 import ConfirmDialog from './ConfirmDialog'
 import ThemeToggle from './ThemeToggle'
 import TopActionBar from './TopActionBar'
-import { PageHeadSlotContext } from './PageHead'
+import { PageHeadSlotContext, PageActionsSlotContext, BarSecondarySlotContext } from './PageHead'
 import { ChevronDown, ChevronRight, LogOut, Menu, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 
 // Show "99+" instead of overflowing the badge with huge digits. ~5 chars max.
@@ -167,6 +167,8 @@ export default function AppShell() {
   // into (see PageHead). Held as state, not a ref, so the provider re-renders
   // once the node exists.
   const [pageHeadSlot, setPageHeadSlot] = useState<HTMLDivElement | null>(null)
+  const [pageActionsSlot, setPageActionsSlot] = useState<HTMLDivElement | null>(null)
+  const [barSecondarySlot, setBarSecondarySlot] = useState<HTMLDivElement | null>(null)
   useEffect(() => {
     let cancelled = false
     api
@@ -460,11 +462,17 @@ export default function AppShell() {
           {/* Unified top action bar (global notice #7) — shown on every page.
               It also hosts the slot the routed page's header portals into,
               so section title + page actions share this one row. */}
-          <TopActionBar slotRef={setPageHeadSlot} />
+          <TopActionBar
+            slotRef={setPageHeadSlot}
+            actionsRef={setPageActionsSlot}
+            secondaryRef={setBarSecondarySlot}
+          />
           {/* Route transitions: each pathname becomes a new key, so
               AnimatePresence treats it as a fresh element with its own
               enter/exit lifecycle. */}
           <PageHeadSlotContext.Provider value={pageHeadSlot}>
+          <PageActionsSlotContext.Provider value={pageActionsSlot}>
+          <BarSecondarySlotContext.Provider value={barSecondarySlot}>
             <AnimatePresence mode="wait">
               <motion.div
                 key={location.pathname}
@@ -476,6 +484,8 @@ export default function AppShell() {
                 <Outlet />
               </motion.div>
             </AnimatePresence>
+          </BarSecondarySlotContext.Provider>
+          </PageActionsSlotContext.Provider>
           </PageHeadSlotContext.Provider>
         </div>
       </div>

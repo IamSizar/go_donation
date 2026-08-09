@@ -2740,6 +2740,31 @@ code, pre { direction: ltr; unicode-bidi: bidi-override; }
   flex: 1;
   min-width: 0;
 }
+
+/* The page's primary action, pinned next to Save. Empty on most pages, where
+   it must take no space at all — hence the :empty collapse rather than a gap
+   that would show up as a phantom notch beside Save on every other section. */
+.page-actions-slot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+.page-actions-slot:empty { display: none; }
+
+/* A full-width line inside the bar. flex-basis:100% forces it onto its own
+   row, and because it is a direct child of the bar that row starts at the
+   bar's left edge — under Back — instead of being indented under the middle
+   strip the way a wrapped .page-head .row would be.
+   The bar has to allow wrapping for this to land, and margin-top only applies
+   when the slot actually has content. */
+.top-action-bar { flex-wrap: wrap; }
+.bar-secondary-slot {
+  flex: 0 0 100%;
+  min-width: 0;
+}
+.bar-secondary-slot:empty { display: none; }
+.bar-secondary-slot > .row { margin-top: 8px; }
 /* Inside the bar the head is part of the row, so it drops the divider and
    spacing it needed as a standalone block, and centres against the buttons
    instead of top-aligning. */
