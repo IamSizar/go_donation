@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:get/get.dart';
 
 import '../../../widgets/auth_ui.dart';
@@ -38,13 +39,13 @@ class _RegisterPageState extends State<RegisterPage> {
   @override
   Widget build(BuildContext context) {
     final titleStyle = Theme.of(context).textTheme.headlineMedium?.copyWith(
-      color: Colors.white,
+      color: AppThemeConfig.text(context),
       fontWeight: FontWeight.w800,
       height: 1.1,
     );
 
     final subtitleStyle = Theme.of(context).textTheme.bodyLarge?.copyWith(
-      color: Colors.white.withValues(alpha: 0.78),
+      color: AppThemeConfig.mutedText(context),
       height: 1.5,
     );
 
@@ -78,9 +79,9 @@ class _RegisterPageState extends State<RegisterPage> {
                   const SizedBox(height: 10),
                   TextFormField(
                     enabled: !loading,
-                    style: const TextStyle(color: Colors.white),
-                    cursorColor: Colors.white,
-                    decoration: authInputDecoration(
+                    style: TextStyle(color: AppThemeConfig.text(context)),
+                    cursorColor: AppThemeConfig.primary,
+                    decoration: authInputDecoration(context, 
                       label: 'Email'.tr,
                       hintText: 'name@example.com'.tr,
                       icon: Icons.mail_outline_rounded,
@@ -99,9 +100,9 @@ class _RegisterPageState extends State<RegisterPage> {
                   const SizedBox(height: 10),
                   TextFormField(
                     enabled: !loading,
-                    style: const TextStyle(color: Colors.white),
-                    cursorColor: Colors.white,
-                    decoration: authInputDecoration(
+                    style: TextStyle(color: AppThemeConfig.text(context)),
+                    cursorColor: AppThemeConfig.primary,
+                    decoration: authInputDecoration(context, 
                       label: 'Password'.tr,
                       hintText: 'At least 6 characters'.tr,
                       icon: Icons.lock_outline_rounded,
@@ -110,7 +111,7 @@ class _RegisterPageState extends State<RegisterPage> {
                           showPassword
                               ? Icons.visibility_off
                               : Icons.visibility,
-                          color: Colors.white70,
+                          color: AppThemeConfig.mutedText(context),
                         ),
                         onPressed: () => setState(() {
                           showPassword = !showPassword;
@@ -131,9 +132,9 @@ class _RegisterPageState extends State<RegisterPage> {
                   const SizedBox(height: 10),
                   TextFormField(
                     enabled: !loading,
-                    style: const TextStyle(color: Colors.white),
-                    cursorColor: Colors.white,
-                    decoration: authInputDecoration(
+                    style: TextStyle(color: AppThemeConfig.text(context)),
+                    cursorColor: AppThemeConfig.primary,
+                    decoration: authInputDecoration(context, 
                       label: 'Confirm Password'.tr,
                       hintText: 'Repeat your password'.tr,
                       icon: Icons.verified_user_outlined,
@@ -152,7 +153,7 @@ class _RegisterPageState extends State<RegisterPage> {
                     width: double.infinity,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
+                        backgroundColor: AppThemeConfig.text(context),
                         foregroundColor: const Color(0xFF0B385D),
                         padding: const EdgeInsets.symmetric(vertical: 18),
                         shape: RoundedRectangleBorder(
@@ -188,7 +189,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 // opened with nothing to pop to.
                 onPressed: loading ? null : _goToLogin,
                 style: TextButton.styleFrom(
-                  foregroundColor: Colors.white,
+                  foregroundColor: AppThemeConfig.primary,
                   textStyle: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
@@ -214,7 +215,7 @@ class _FormLabel extends StatelessWidget {
     return Text(
       text.tr,
       style: TextStyle(
-        color: Colors.white.withValues(alpha: 0.92),
+        color: AppThemeConfig.mutedText(context),
         fontWeight: FontWeight.w600,
       ),
     );

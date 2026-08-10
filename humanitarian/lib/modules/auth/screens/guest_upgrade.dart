@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:country_code_picker/country_code_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
@@ -121,12 +122,12 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen> {
   @override
   Widget build(BuildContext context) {
     final titleStyle = Theme.of(context).textTheme.headlineMedium?.copyWith(
-      color: Colors.white,
+      color: AppThemeConfig.text(context),
       fontWeight: FontWeight.w800,
       height: 1.1,
     );
     final subtitleStyle = Theme.of(context).textTheme.bodyLarge?.copyWith(
-      color: Colors.white.withValues(alpha: 0.78),
+      color: AppThemeConfig.mutedText(context),
       height: 1.5,
     );
 
@@ -193,10 +194,10 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen> {
             textDirection: TextDirection.ltr,
             child: TextFormField(
               controller: _phoneController,
-              style: const TextStyle(color: Colors.white, fontSize: 16),
-              cursorColor: Colors.white,
+              style: TextStyle(color: AppThemeConfig.text(context), fontSize: 16),
+              cursorColor: AppThemeConfig.primary,
               decoration:
-                  authInputDecoration(
+                  authInputDecoration(context, 
                     label: 'Phone'.tr,
                     hintText: '750 858 2031',
                     icon: Icons.phone_outlined,
@@ -211,8 +212,8 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen> {
                       padding: const EdgeInsets.only(left: 14, right: 4),
                       flagWidth: 22,
                       showDropDownButton: true,
-                      textStyle: const TextStyle(
-                        color: Colors.white,
+                      textStyle: TextStyle(
+                        color: AppThemeConfig.text(context),
                         fontWeight: FontWeight.w700,
                         fontSize: 15,
                       ),
@@ -246,7 +247,7 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen> {
             child: ElevatedButton(
               onPressed: _loading ? null : _sendOtp,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
+                backgroundColor: AppThemeConfig.text(context),
                 foregroundColor: const Color(0xFF0B385D),
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
@@ -282,12 +283,12 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen> {
         children: [
           TextFormField(
             controller: _otpController,
-            style: const TextStyle(color: Colors.white, fontSize: 20),
-            cursorColor: Colors.white,
+            style: TextStyle(color: AppThemeConfig.text(context), fontSize: 20),
+            cursorColor: AppThemeConfig.primary,
             textAlign: TextAlign.center,
             keyboardType: TextInputType.number,
             maxLength: 6,
-            decoration: authInputDecoration(
+            decoration: authInputDecoration(context, 
               label: 'Verification code'.tr,
               hintText: '••••••',
               icon: Icons.password_rounded,
@@ -310,7 +311,7 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen> {
             child: ElevatedButton(
               onPressed: _loading ? null : _verifyAndUpgrade,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
+                backgroundColor: AppThemeConfig.text(context),
                 foregroundColor: const Color(0xFF0B385D),
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
@@ -344,7 +345,7 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen> {
                     }),
               child: Text(
                 'Use a different number'.tr,
-                style: const TextStyle(color: Colors.white70),
+                style: TextStyle(color: AppThemeConfig.mutedText(context)),
               ),
             ),
           ),

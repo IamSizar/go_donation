@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:get/get.dart';
 
 import '../../../localization/locale_service.dart';
@@ -10,7 +11,7 @@ class WelcomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final titleStyle = Theme.of(context).textTheme.headlineMedium?.copyWith(
-      color: Colors.white,
+      color: AppThemeConfig.text(context),
       fontWeight: FontWeight.w800,
       height: 1.1,
     );
@@ -40,9 +41,9 @@ class WelcomeScreen extends StatelessWidget {
                 height: 88,
                 width: 88,
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.12),
+                  color: AppThemeConfig.border(context),
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+                  border: Border.all(color: AppThemeConfig.border(context)),
                 ),
                 // BalanceNex brand mark, clipped to the circular badge.
                 child: ClipOval(
@@ -70,8 +71,8 @@ class WelcomeScreen extends StatelessWidget {
                 // #39 — push, not offAllNamed, so Login keeps a back target.
                 onPressed: () => Get.toNamed('/login'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: const Color(0xFF0B385D),
+                  backgroundColor: AppThemeConfig.primary,
+                  foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(18),
                   ),
@@ -94,9 +95,9 @@ class WelcomeScreen extends StatelessWidget {
                 // is the only path that actually registers a new user.
                 onPressed: () => Get.toNamed('/login'),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: BorderSide(color: Colors.white.withValues(alpha: 0.34)),
-                  backgroundColor: Colors.white.withValues(alpha: 0.08),
+                  foregroundColor: AppThemeConfig.primary,
+                  side: BorderSide(color: AppThemeConfig.primary, width: 1.4),
+                  backgroundColor: Colors.transparent,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(18),
                   ),
@@ -154,7 +155,7 @@ class _LanguageSelector extends StatelessWidget {
       elevation: 12,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
-        side: BorderSide(color: Colors.white.withValues(alpha: 0.16)),
+        side: BorderSide(color: AppThemeConfig.border(context)),
       ),
       onSelected: (o) => AppLocaleService.changeLocale(o.locale),
       itemBuilder: (context) => [
@@ -169,7 +170,7 @@ class _LanguageSelector extends StatelessWidget {
                   child: Text(
                     o.name.tr,
                     style: TextStyle(
-                      color: Colors.white,
+                      color: AppThemeConfig.text(context),
                       fontWeight: o == current
                           ? FontWeight.w700
                           : FontWeight.w500,
@@ -177,7 +178,7 @@ class _LanguageSelector extends StatelessWidget {
                   ),
                 ),
                 if (o == current)
-                  const Icon(Icons.check_rounded, color: Colors.white, size: 18),
+                  Icon(Icons.check_rounded, color: AppThemeConfig.text(context), size: 18),
               ],
             ),
           ),
@@ -185,28 +186,28 @@ class _LanguageSelector extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.12),
+          color: AppThemeConfig.surface(context),
           borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.20)),
+          border: Border.all(color: AppThemeConfig.border(context)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.language_rounded, size: 18, color: Colors.white),
+            Icon(Icons.language_rounded, size: 18, color: AppThemeConfig.text(context)),
             const SizedBox(width: 8),
             Text(
               current.code,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: AppThemeConfig.text(context),
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.3,
               ),
             ),
             const SizedBox(width: 4),
-            const Icon(
+            Icon(
               Icons.expand_more_rounded,
               size: 18,
-              color: Colors.white70,
+              color: AppThemeConfig.mutedText(context),
             ),
           ],
         ),
@@ -230,15 +231,15 @@ class _LangCodeBadge extends StatelessWidget {
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: selected
-            ? Colors.white.withValues(alpha: 0.22)
-            : Colors.white.withValues(alpha: 0.10),
+            ? AppThemeConfig.border(context)
+            : AppThemeConfig.border(context),
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+        border: Border.all(color: AppThemeConfig.border(context)),
       ),
       child: Text(
         code,
-        style: const TextStyle(
-          color: Colors.white,
+        style: TextStyle(
+          color: AppThemeConfig.text(context),
           fontWeight: FontWeight.w700,
           fontSize: 10,
         ),

@@ -1,94 +1,64 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import 'package:flutter_application_1/core/theme/app_theme_config.dart';
+import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
+
+/// Shared chrome for the sign-in / sign-up screens.
+///
+/// These four screens (login, register, welcome, guest upgrade) were the last
+/// place still painting the old navy→teal gradient with decorative blur orbs
+/// and white-on-glass text. The rest of the app moved to the flat themed
+/// background some time ago — see the client note in AppThemeConfig — so the
+/// auth flow was the odd one out, and it read as dated next to every screen
+/// that follows it.
+///
+/// Everything here now delegates to the app's own components (GradientScreen,
+/// GlassPanel, the themed InputDecoration) rather than styling itself, so the
+/// sign-in screen looks like the app the user is about to enter, and it
+/// follows light/dark automatically instead of assuming a dark ground.
 class AuthScaffold extends StatelessWidget {
-  const AuthScaffold({
-    super.key,
-    required this.child,
-    this.maxWidth = 460,
-  });
+  const AuthScaffold({super.key, required this.child, this.maxWidth = 460});
 
   final Widget child;
   final double maxWidth;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
-        children: [
-          const Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFF081C3A), Color(0xFF114C72), Color(0xFF1EB8A6)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
-            ),
-          ),
-          const Positioned(
-            top: -40,
-            right: -10,
-            child: _BlurOrb(
-              size: 190,
-              colors: [Color(0x55B6FFF5), Color(0x2267E8F9)],
-            ),
-          ),
-          const Positioned(
-            top: 110,
-            left: -70,
-            child: _BlurOrb(
-              size: 210,
-              colors: [Color(0x44FFFFFF), Color(0x1199FFF7)],
-            ),
-          ),
-          const Positioned(
-            bottom: -30,
-            right: 30,
-            child: _BlurOrb(
-              size: 170,
-              colors: [Color(0x33FFFFFF), Color(0x2200D1B2)],
-            ),
-          ),
-          SafeArea(
-            child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: maxWidth),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // #39 — free navigation: only shown when there's
-                      // actually somewhere to go back to.
-                      Builder(
-                        builder: (context) => Navigator.of(context).canPop()
-                            ? const Padding(
-                                padding: EdgeInsets.only(bottom: 16),
-                                child: _AuthBackButton(),
-                              )
-                            : const SizedBox.shrink(),
-                      ),
-                      child,
-                    ],
+    return GradientScreen(
+      child: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: maxWidth),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // #39 — free navigation: only shown when there's actually
+                  // somewhere to go back to.
+                  Builder(
+                    builder: (context) => Navigator.of(context).canPop()
+                        ? const Padding(
+                            padding: EdgeInsets.only(bottom: 12),
+                            child: _AuthBackButton(),
+                          )
+                        : const SizedBox.shrink(),
                   ),
-                ),
+                  child,
+                ],
               ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }
 }
 
-/// #39 — circular translucent back arrow shown at the top of auth screens
-/// whenever the nav stack has something to pop to. Mirrors direction for RTL
-/// locales instead of relying on the (non-directional) arrow_back glyph.
+/// Plain themed back arrow. Mirrors direction for RTL locales rather than
+/// relying on the (non-directional) arrow_back glyph.
 class _AuthBackButton extends StatelessWidget {
   const _AuthBackButton();
 
@@ -101,17 +71,17 @@ class _AuthBackButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
         onTap: () => Navigator.of(context).maybePop(),
         child: Container(
-          width: 42,
-          height: 42,
+          width: 40,
+          height: 40,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.14),
+            color: AppThemeConfig.surface(context),
             shape: BoxShape.circle,
-            border: Border.all(color: Colors.white.withValues(alpha: 0.20)),
+            border: Border.all(color: AppThemeConfig.border(context)),
           ),
           child: Icon(
             isRtl ? Icons.arrow_forward_rounded : Icons.arrow_back_rounded,
-            color: Colors.white,
+            color: AppThemeConfig.text(context),
             size: 20,
           ),
         ),
@@ -120,81 +90,54 @@ class _AuthBackButton extends StatelessWidget {
   }
 }
 
+/// The card the auth forms sit in. Kept under its old name because four
+/// screens reference it; it is the app's standard panel now, not a
+/// translucent glass sheet floating over a gradient.
 class AuthGlassCard extends StatelessWidget {
   const AuthGlassCard({
     super.key,
     required this.child,
-    this.padding = const EdgeInsets.all(28),
+    this.padding = const EdgeInsets.all(24),
   });
 
   final Widget child;
   final EdgeInsetsGeometry padding;
 
   @override
+  Widget build(BuildContext context) =>
+      GlassPanel(padding: padding, child: child);
+}
+
+/// Small pill above the form title ("Secure sign in"). Tinted with the brand
+/// colour instead of translucent white, so it reads on a light ground.
+class AuthBadge extends StatelessWidget {
+  const AuthBadge({super.key, required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(32),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-        child: Container(
-          padding: padding,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.14),
-            borderRadius: BorderRadius.circular(32),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.16),
-                blurRadius: 40,
-                offset: const Offset(0, 20),
-              ),
-            ],
-            gradient: LinearGradient(
-              colors: [
-                Colors.white.withValues(alpha: 0.30),
-                Colors.white.withValues(alpha: 0.12),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-          child: child,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+        color: AppThemeConfig.primary.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: AppThemeConfig.primary.withValues(alpha: 0.22),
         ),
       ),
-    );
-  }
-}
-
-class AuthBadge extends StatelessWidget {
-  const AuthBadge({
-    super.key,
-    required this.icon,
-    required this.label,
-  });
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
-      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 18, color: Colors.white),
-          const SizedBox(width: 8),
+          Icon(icon, size: 15, color: AppThemeConfig.primary),
+          const SizedBox(width: 7),
           Text(
             label.tr,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.2,
+            style: TextStyle(
+              color: AppThemeConfig.primary,
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
             ),
           ),
         ],
@@ -203,12 +146,9 @@ class AuthBadge extends StatelessWidget {
   }
 }
 
+/// Neutral pill used on the welcome screen to list what the app offers.
 class AuthFeatureChip extends StatelessWidget {
-  const AuthFeatureChip({
-    super.key,
-    required this.icon,
-    required this.label,
-  });
+  const AuthFeatureChip({super.key, required this.icon, required this.label});
 
   final IconData icon;
   final String label;
@@ -216,22 +156,23 @@ class AuthFeatureChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.08),
+        color: AppThemeConfig.surface(context),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        border: Border.all(color: AppThemeConfig.border(context)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: Colors.white),
-          const SizedBox(width: 8),
+          Icon(icon, size: 15, color: AppThemeConfig.primary),
+          const SizedBox(width: 7),
           Text(
             label.tr,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: AppThemeConfig.text(context),
               fontWeight: FontWeight.w600,
+              fontSize: 13,
             ),
           ),
         ],
@@ -240,61 +181,40 @@ class AuthFeatureChip extends StatelessWidget {
   }
 }
 
-InputDecoration authInputDecoration({
+/// Field styling for the auth forms.
+///
+/// Takes [context] so it can follow the theme; the old version hardcoded
+/// white-on-transparent, which is invisible on the app's light background.
+InputDecoration authInputDecoration(
+  BuildContext context, {
   required String label,
   required String hintText,
   required IconData icon,
   Widget? suffixIcon,
 }) {
-  final border = OutlineInputBorder(
-    borderRadius: BorderRadius.circular(18),
-    borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.20)),
+  OutlineInputBorder border(Color c, [double w = 1]) => OutlineInputBorder(
+    borderRadius: BorderRadius.circular(14),
+    borderSide: BorderSide(color: c, width: w),
   );
+
+  final muted = AppThemeConfig.mutedText(context);
+  const danger = Color(0xFFDC2626);
 
   return InputDecoration(
     labelText: label.tr,
     hintText: hintText.tr,
-    labelStyle: const TextStyle(color: Colors.white70),
-    hintStyle: const TextStyle(color: Colors.white54),
-    prefixIcon: Icon(icon, color: Colors.white70),
+    labelStyle: TextStyle(color: muted),
+    floatingLabelStyle: TextStyle(color: AppThemeConfig.primary),
+    hintStyle: TextStyle(color: muted.withValues(alpha: 0.7)),
+    prefixIcon: Icon(icon, color: muted, size: 20),
     suffixIcon: suffixIcon,
     filled: true,
-    fillColor: Colors.white.withValues(alpha: 0.10),
-    enabledBorder: border,
-    focusedBorder: border.copyWith(
-      borderSide: const BorderSide(color: Colors.white70, width: 1.2),
-    ),
-    errorBorder: border.copyWith(
-      borderSide: const BorderSide(color: Color(0xFFFFB3B3)),
-    ),
-    focusedErrorBorder: border.copyWith(
-      borderSide: const BorderSide(color: Color(0xFFFFD2D2), width: 1.2),
-    ),
-    contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+    fillColor: AppThemeConfig.surface(context),
+    enabledBorder: border(AppThemeConfig.border(context)),
+    focusedBorder: border(AppThemeConfig.primary, 1.6),
+    errorBorder: border(danger),
+    focusedErrorBorder: border(danger, 1.6),
+    errorStyle: const TextStyle(color: danger, fontWeight: FontWeight.w600),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
   );
-}
-
-class _BlurOrb extends StatelessWidget {
-  const _BlurOrb({
-    required this.size,
-    required this.colors,
-  });
-
-  final double size;
-  final List<Color> colors;
-
-  @override
-  Widget build(BuildContext context) {
-    return ImageFiltered(
-      imageFilter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: RadialGradient(colors: colors),
-        ),
-      ),
-    );
-  }
 }
