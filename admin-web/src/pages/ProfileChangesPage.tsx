@@ -22,6 +22,10 @@ type ChangeRequest = {
   status: string
   created_at: string
   decided_at: string | null
+  // Who decided it and why. Both were written from the start but never read
+  // back, so a decision showed no reviewer and a rejection showed no reason.
+  decided_by_name?: string
+  decide_note?: string
 }
 
 export default function ProfileChangesPage() {
@@ -85,6 +89,30 @@ export default function ProfileChangesPage() {
     { key: 'new', header: t('profileChanges.new'), cell: (r) => renderValue(r.field, r.new_value) },
     { key: 'created', header: t('col.created'), cell: (r) => <span className="muted">{formatDateTime(r.created_at)}</span> },
     { key: 'status', header: t('col.status'), cell: (r) => <span className="muted">{t(`status.${r.status}`)}</span> },
+    {
+      key: 'review',
+      header: t('profileChanges.reviewed_by'),
+      // A rejection reason is only meaningful once a decision exists, so this
+      // stays empty while the request is pending — that is the answer to
+      // "clarify the cases in which rejection reasons are displayed": on any
+      // decided request that carries a note, and only then.
+      cell: (r) =>
+        r.status === 'pending' ? (
+          <span className="muted">—</span>
+        ) : (
+          <div className="cell-stack">
+            <span>{r.decided_by_name?.trim() || t('profileChanges.reviewer_unknown')}</span>
+            {r.decided_at && (
+              <span className="muted">{formatDateTime(r.decided_at)}</span>
+            )}
+            {r.decide_note?.trim() && (
+              <span className="muted">
+                {t('profileChanges.reason')}: {r.decide_note}
+              </span>
+            )}
+          </div>
+        ),
+    },
     {
       key: 'actions',
       header: t('common.actions'),

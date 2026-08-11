@@ -11,7 +11,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Heart, MessageSquare } from 'lucide-react'
 import { api, describeError } from '../lib/api'
-import { useI18n } from '../lib/i18n'
+import { useI18n, useStatusLabel } from '../lib/i18n'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
 import { formatDateTime } from '../lib/dates'
@@ -34,6 +34,10 @@ const KINDS = ['all', 'comment', 'like'] as const
 
 export default function PostActivityPage() {
   const { t } = useI18n()
+  // post_type and the comment status arrive as machine values; render them
+  // through the shared resolver so they are not the one English word left on
+  // an otherwise translated page.
+  const label = useStatusLabel()
   const [items, setItems] = useState<Activity[]>([])
   const [kind, setKind] = useState<(typeof KINDS)[number]>('all')
   const [loading, setLoading] = useState(true)
@@ -96,7 +100,7 @@ export default function PostActivityPage() {
                     {a.kind === 'comment' ? t('activity.commented_on') : t('activity.liked')}
                   </span>{' '}
                   <Link to={`/detail/media/${a.post_id}`}>{a.post_title || fmtId(a.post_id)}</Link>
-                  {a.post_type && <span className="badge tone-primary">{a.post_type}</span>}
+                  {a.post_type && <span className="badge tone-primary">{label(a.post_type)}</span>}
                 </p>
                 {a.kind === 'comment' && a.body && <p className="activity-body">{a.body}</p>}
                 <p className="muted activity-meta">
@@ -104,7 +108,7 @@ export default function PostActivityPage() {
                   {a.kind === 'comment' && a.status && a.status !== 'approved' && (
                     <>
                       {' '}
-                      <span className="badge tone-warning">{a.status}</span>
+                      <span className="badge tone-warning">{label(a.status)}</span>
                     </>
                   )}
                   {a.flagged && (

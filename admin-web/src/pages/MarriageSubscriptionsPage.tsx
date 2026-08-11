@@ -4,7 +4,7 @@
 // purchases. Same CRUD shape as Payment Methods.
 import { useEffect, useState } from 'react'
 import { api, describeError } from '../lib/api'
-import { useI18n } from '../lib/i18n'
+import { useI18n, useStatusLabel } from '../lib/i18n'
 import { useToast } from '../lib/toast'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
@@ -114,6 +114,10 @@ function PackageFields({
 
 export default function MarriageSubscriptionsPage() {
   const { t } = useI18n()
+  // payment_method arrives as a machine value ('fib', 'zaincash'); render it
+  // through the shared resolver rather than leaving one English token on an
+  // otherwise translated page.
+  const payLabel = useStatusLabel()
   const toast = useToast()
 
   const [items, setItems] = useState<Package[]>([])
@@ -264,7 +268,7 @@ export default function MarriageSubscriptionsPage() {
           <div className="card" key={p.id}>
             <div className="page-head">
               <h3 style={{ margin: 0 }}>{p.package_name_en}</h3>
-              <span className="badge tone-warning">{p.payment_method}</span>
+              <span className="badge tone-warning">{payLabel(p.payment_method)}</span>
             </div>
             <p className="muted">
               {t('marriageSubscriptions.purchase_user')}: {fmtId(p.user_id)} · {t('marriageSubscriptions.purchase_price')}:{' '}

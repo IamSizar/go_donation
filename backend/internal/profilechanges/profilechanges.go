@@ -36,6 +36,11 @@ type Request struct {
 	Status    string  `json:"status"`
 	CreatedAt string  `json:"created_at"`
 	DecidedAt *string `json:"decided_at"`
+	// Who reviewed it and why. Both were already written by Decide but never
+	// selected back, so the dashboard could not show who approved a change or
+	// the reason a rejection was given.
+	DecidedByName string `json:"decided_by_name"`
+	DecideNote    string `json:"decide_note"`
 }
 
 // Submit records a proposed change, replacing any pending one for the same
@@ -93,10 +98,16 @@ func (s *Store) List(ctx context.Context, status string, limit int) ([]Request, 
 		        COALESCE(p.full_name, ''), COALESCE(u.phone, ''),
 		        r.field, r.old_value, r.new_value, r.status,
 		        to_char(r.created_at, 'YYYY-MM-DD"T"HH24:MI:SS'),
-		        to_char(r.decided_at, 'YYYY-MM-DD"T"HH24:MI:SS')
+		        to_char(r.decided_at, 'YYYY-MM-DD"T"HH24:MI:SS'),
+		        -- Staff frequently have no user_profiles row, so fall back to
+		        -- their phone rather than showing an unattributed decision.
+		        COALESCE(NULLIF(dp.full_name, ''), du.phone, ''),
+		        COALESCE(r.decide_note, '')
 		   FROM profile_change_requests r
 		   JOIN users u ON u.id = r.user_id
 		   LEFT JOIN user_profiles p ON p.user_id = r.user_id
+		   LEFT JOIN user_profiles dp ON dp.user_id = r.decided_by
+		   LEFT JOIN users du ON du.id = r.decided_by
 		  WHERE `+where+`
 		  ORDER BY (r.status = 'pending') DESC, r.created_at ASC
 		  LIMIT $1`, args...)
@@ -109,7 +120,8 @@ func (s *Store) List(ctx context.Context, status string, limit int) ([]Request, 
 		var r Request
 		if err := rows.Scan(&r.ID, &r.UserID, &r.UserName, &r.UserPhone,
 			&r.Field, &r.OldValue, &r.NewValue, &r.Status,
-			&r.CreatedAt, &r.DecidedAt); err != nil {
+			&r.CreatedAt, &r.DecidedAt,
+			&r.DecidedByName, &r.DecideNote); err != nil {
 			return nil, err
 		}
 		out = append(out, r)
