@@ -33,63 +33,36 @@ class LoginPage extends StatelessWidget {
     );
 
     return AuthScaffold(
-      child: AuthGlassCard(
-        padding: const EdgeInsets.fromLTRB(24, 22, 24, 18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Center(
-              child: AuthBadge(
-                icon: Icons.lock_rounded,
-                label: 'Secure sign in',
+      // No card. A panel drawn on a background of the same colour is just a
+      // floating box with padding — it added a border and a shadow around the
+      // form without separating it from anything. The form sits on the page
+      // now, which is what every sign-in screen worth copying does.
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 8),
+          // Brand mark. The screen had no logo at all — the only branding was
+          // a decorative "Secure sign in" pill that told the user nothing.
+          Center(
+            child: ClipOval(
+              child: Image.asset(
+                'assets/branding/balancenex_icon.png',
+                width: 72,
+                height: 72,
+                fit: BoxFit.cover,
               ),
             ),
-            const SizedBox(height: 18),
-            Text(
-              'Welcome back'.tr,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: titleStyle,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Sign in to continue.'.tr,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: subtitleStyle,
-            ),
-            const SizedBox(height: 18),
-            const _LoginForm(),
-            const SizedBox(height: 8),
-            Center(
-              child: Wrap(
-                crossAxisAlignment: WrapCrossAlignment.center,
-                alignment: WrapAlignment.center,
-                spacing: 4,
-                children: [
-                  Text(
-                    "Don't have an account?".tr,
-                    style: TextStyle(
-                      color: AppThemeConfig.mutedText(context),
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () => Get.toNamed('/register'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: AppThemeConfig.primary,
-                      textStyle: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 15,
-                      ),
-                    ),
-                    child: Text('Create one'.tr),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 28),
+          Text('Welcome back'.tr, style: titleStyle),
+          const SizedBox(height: 8),
+          // Says what pressing the button will actually do. The old subtitle
+          // ("Sign in to continue.") restated the title.
+          Text('Enter your phone number and we will send you a verification code.'.tr,
+              style: subtitleStyle),
+          const SizedBox(height: 26),
+          const _LoginForm(),
+        ],
       ),
     );
   }
@@ -113,6 +86,39 @@ class _LoginFormState extends State<_LoginForm> {
   // #39 — international phone support: the selected country's dial code
   // (no "+"), defaulting to Iraq. Changed via the CountryCodePicker.
   String _dialCode = '964';
+
+  // Validation message for the phone control. Held here rather than left to
+  // the TextFormField's own errorText because the visible field is the
+  // surrounding container, not the inner borderless input.
+  String? _phoneError;
+
+  String? _validatePhone(String? value) {
+    final msg = _phoneMessage(value);
+    // Surface it under the whole control on the next frame; returning a
+    // non-null string is still what makes Form.validate() fail.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _phoneError != msg) setState(() => _phoneError = msg);
+    });
+    return msg;
+  }
+
+  String? _phoneMessage(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Please enter your phone number'.tr;
+    }
+    final digits = value.replaceAll(RegExp(r'\D'), '');
+    if (_dialCode == '964') {
+      // Iraq keeps its precise NSN-length check (10 digits, or 11 with a
+      // leading trunk 0).
+      if (digits.length == 10) return null;
+      if (digits.length == 11 && digits.startsWith('0')) return null;
+      return 'Enter 10 digits (or 11 starting with 0)'.tr;
+    }
+    // Other countries: a generic sanity range; the backend applies the
+    // authoritative E.164 check.
+    if (digits.length >= 4 && digits.length <= 14) return null;
+    return 'Enter a valid phone number'.tr;
+  }
 
   // Phase 19b — OTP delivery mode toggle. 'real' (default) sends via OTPIQ
   // → WhatsApp first, SMS fallback. 'demo' skips OTPIQ and the backend
@@ -236,14 +242,6 @@ class _LoginFormState extends State<_LoginForm> {
                   )
                 : const SizedBox.shrink(),
           ),
-          Text(
-            'Phone number'.tr,
-            style: TextStyle(
-              color: AppThemeConfig.mutedText(context),
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 10),
           // #39 — phone field with an interactive country-code picker
           // (defaults to Iraq). The user types ONLY the local number;
           // _normalizeLocalPhone() prepends the selected dial code before
@@ -255,179 +253,196 @@ class _LoginFormState extends State<_LoginForm> {
           // grouping ("2031 858 0750"), which reads as a different number.
           // Locking this whole field to LTR keeps the digits — and the
           // hint text — in the same order in every locale.
+          // Phone entry, built as one explicit bordered row rather than a
+          // TextField whose prefixIcon happens to be a country picker.
+          //
+          // The old shape put CountryCodePicker into prefixIcon and relied on
+          // InputDecoration to draw the box around both. That box silently
+          // stopped painting: a deliberately loud 4px red enabledBorder did
+          // not render a single pixel, while the label still did. Rather than
+          // keep fighting the decorator, the container owns the border and
+          // the field inside is borderless — which is also the conventional
+          // way to build a composite phone input, and gives the picker and
+          // the number a real divider between them.
+          //
+          // Forced LTR: a phone number is a fixed left-to-right digit group
+          // ("0750 858 2031"); under the ambient RTL Directionality of an
+          // Arabic/Kurdish locale the bidi algorithm mirrors that grouping
+          // ("2031 858 0750"), which reads as a different number.
           Directionality(
             textDirection: TextDirection.ltr,
-            child: TextFormField(
-              controller: _phoneController,
-              style: TextStyle(color: AppThemeConfig.text(context), fontSize: 16),
-              cursorColor: AppThemeConfig.primary,
-              decoration:
-                  authInputDecoration(context, 
-                    label: 'Phone'.tr,
-                    hintText: '750 858 2031',
-                    icon: Icons.phone_outlined,
-                  ).copyWith(
-                    // Replace the generic phone-icon prefix with a picker that
-                    // shows the selected country's flag + dial code. The picker
-                    // dialog is restyled to match the app's dark glass look (the
-                    // package default is a plain white Material dialog) and its
-                    // header spells out that Iraq is just the default — the full
-                    // list of 200+ countries is one tap away.
-                    prefixIcon: CountryCodePicker(
-                      onChanged: (code) => setState(
-                        () => _dialCode = (code.dialCode ?? '+964')
-                            .replaceFirst('+', ''),
-                      ),
-                      initialSelection: 'IQ',
-                      favorite: const ['+964', 'IQ'],
-                      showCountryOnly: false,
-                      showOnlyCountryWhenClosed: false,
-                      alignLeft: false,
-                      padding: const EdgeInsets.only(left: 14, right: 4),
-                      flagWidth: 22,
-                      // A visible chevron on the closed state itself hints that
-                      // Iraq is just the current pick, not the only option.
-                      showDropDownButton: true,
-                      textStyle: TextStyle(
-                        color: AppThemeConfig.text(context),
-                        fontWeight: FontWeight.w700,
-                        fontSize: 15,
-                      ),
-                      flagDecoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(4),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.25),
-                            blurRadius: 3,
-                          ),
-                        ],
-                      ),
-                      dialogSize: const Size(360, 520),
-                      boxDecoration: BoxDecoration(
-                        color: const Color(0xFF0E3B5C),
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(
-                          color: AppThemeConfig.border(context),
-                        ),
-                      ),
-                      barrierColor: Colors.black.withValues(alpha: 0.55),
-                      closeIcon: Icon(
-                        Icons.close_rounded,
-                        color: AppThemeConfig.mutedText(context),
-                      ),
-                      headerText: 'Select your country · 200+ available'.tr,
-                      headerTextStyle: TextStyle(
-                        color: AppThemeConfig.text(context),
-                        fontWeight: FontWeight.w700,
-                        fontSize: 15,
-                      ),
-                      topBarPadding: const EdgeInsets.fromLTRB(20, 18, 12, 8),
-                      searchPadding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
-                      searchDecoration: InputDecoration(
-                        hintText: 'Search country'.tr,
-                        hintStyle: TextStyle(color: AppThemeConfig.mutedText(context)),
-                        prefixIcon: Icon(
-                          Icons.search_rounded,
-                          color: AppThemeConfig.mutedText(context),
-                        ),
-                        filled: true,
-                        fillColor: AppThemeConfig.border(context),
-                        contentPadding: const EdgeInsets.symmetric(
-                          vertical: 12,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                      searchStyle: TextStyle(color: AppThemeConfig.text(context)),
-                      dialogTextStyle: TextStyle(
-                        color: AppThemeConfig.text(context),
-                        fontWeight: FontWeight.w500,
-                      ),
-                      dialogItemPadding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 12,
-                      ),
+            child: Container(
+              decoration: BoxDecoration(
+                color: authFieldFill(context),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: authFieldBorder(context), width: 1.2),
+              ),
+              child: Row(
+                children: [
+                  CountryCodePicker(
+                    onChanged: (code) => setState(
+                      () => _dialCode = (code.dialCode ?? '+964')
+                          .replaceFirst('+', ''),
                     ),
-                    prefixIconConstraints: const BoxConstraints(
-                      minWidth: 0,
-                      minHeight: 0,
+                    initialSelection: 'IQ',
+                    favorite: const ['+964', 'IQ'],
+                    showCountryOnly: false,
+                    showOnlyCountryWhenClosed: false,
+                    alignLeft: false,
+                    padding: const EdgeInsets.only(left: 12, right: 2),
+                    flagWidth: 24,
+                    showDropDownButton: true,
+                    textStyle: TextStyle(
+                      color: AppThemeConfig.text(context),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
                     ),
-                    hintText: '750 858 2031',
+                    flagDecoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    dialogSize: const Size(360, 520),
+                    boxDecoration: BoxDecoration(
+                      color: AppThemeConfig.elevatedSurface(context),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: authFieldBorder(context)),
+                    ),
+                    barrierColor: Colors.black.withValues(alpha: 0.45),
+                    closeIcon: Icon(
+                      Icons.close_rounded,
+                      color: AppThemeConfig.mutedText(context),
+                    ),
+                    headerText: 'Select your country · 200+ available'.tr,
+                    headerTextStyle: TextStyle(
+                      color: AppThemeConfig.text(context),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                    ),
+                    dialogTextStyle: TextStyle(
+                      color: AppThemeConfig.text(context),
+                      fontWeight: FontWeight.w500,
+                    ),
+                    searchStyle: TextStyle(color: AppThemeConfig.text(context)),
+                    dialogItemPadding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
                   ),
-              keyboardType: TextInputType.number,
-              // Group digits with spaces as they type ("750 858 2031"). The
-              // value is digit-stripped before submit, so the spaces are
-              // purely cosmetic. 20 chars comfortably fits the longest
-              // international national numbers plus grouping spaces.
-              inputFormatters: [
-                PhoneSpaceInputFormatter(),
-                LengthLimitingTextInputFormatter(20),
-              ],
-              textInputAction: TextInputAction.done,
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Please enter your phone number'.tr;
-                }
-                final digits = value.replaceAll(RegExp(r'\D'), '');
-                if (_dialCode == '964') {
-                  // Iraq keeps its precise NSN-length check (10 digits, or 11
-                  // with a leading trunk 0).
-                  if (digits.length == 10) return null;
-                  if (digits.length == 11 && digits.startsWith('0')) {
-                    return null;
-                  }
-                  return 'Enter 10 digits (or 11 starting with 0)'.tr;
-                }
-                // Other countries: no client-side per-country length table —
-                // a generic sanity range; the backend applies the
-                // authoritative E.164 check.
-                if (digits.length >= 4 && digits.length <= 14) return null;
-                return 'Enter a valid phone number'.tr;
-              },
-              onFieldSubmitted: (_) => _handleSendOtp(),
+                  // Divider between the dial code and the number, so the two
+                  // read as separate inputs inside one control.
+                  Container(
+                    width: 1,
+                    height: 26,
+                    color: authFieldBorder(context),
+                  ),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _phoneController,
+                      style: TextStyle(
+                        color: AppThemeConfig.text(context),
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.4,
+                      ),
+                      cursorColor: AppThemeConfig.primary,
+                      decoration: InputDecoration(
+                        hintText: '750 858 2031',
+                        hintStyle: TextStyle(
+                          color: AppThemeConfig.mutedText(context)
+                              .withValues(alpha: 0.6),
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: 0.4,
+                        ),
+                        filled: false,
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        errorBorder: InputBorder.none,
+                        focusedErrorBorder: InputBorder.none,
+                        // The container is the visual field, so the error
+                        // text is rendered below it by the Form instead.
+                        errorStyle: const TextStyle(height: 0, fontSize: 0),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 18,
+                        ),
+                      ),
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        PhoneSpaceInputFormatter(),
+                        LengthLimitingTextInputFormatter(20),
+                      ],
+                      textInputAction: TextInputAction.done,
+                      onChanged: (_) {
+                        if (_phoneError != null) {
+                          setState(() => _phoneError = null);
+                        }
+                      },
+                      validator: _validatePhone,
+                      onFieldSubmitted: (_) => _handleSendOtp(),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-          const SizedBox(height: 14),
-          // Phase 19b — OTP delivery mode picker. Two visual segments
-          // (Real / Demo) so the user can swap between OTPIQ-backed
-          // verification and the local-dev "always 123456" flow.
-          _OtpModePicker(
-            value: _otpMode,
-            onChanged: (next) => setState(() => _otpMode = next),
-          ),
-          const SizedBox(height: 16),
+          // Inline validation message, owned by this screen so it sits under
+          // the whole control rather than under just the number half.
+          if (_phoneError != null) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.error_outline_rounded,
+                    size: 16, color: Color(0xFFDC2626)),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    _phoneError!,
+                    style: const TextStyle(
+                      color: Color(0xFFDC2626),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 20),
           Obx(
             () => SizedBox(
               width: double.infinity,
-              child: ElevatedButton.icon(
+              child: ElevatedButton(
                 onPressed: _loginController.isLoading.value
                     ? null
                     : _handleSendOtp,
-                icon: _loginController.isLoading.value
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          color: Color(0xFF0B385D),
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : const Icon(Icons.sms_rounded),
-                label: Text(
-                  'Send OTP'.tr,
-                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 17),
-                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppThemeConfig.primary,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  disabledBackgroundColor: AppThemeConfig.primary
+                      .withValues(alpha: 0.5),
+                  disabledForegroundColor: Colors.white,
+                  minimumSize: const Size.fromHeight(54),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   elevation: 0,
                 ),
+                child: _loginController.isLoading.value
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2.4,
+                        ),
+                      )
+                    : Text(
+                        'Continue'.tr,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 17,
+                        ),
+                      ),
               ),
             ),
           ),
@@ -443,7 +458,7 @@ class _LoginFormState extends State<_LoginForm> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Text(
-                  'or continue with'.tr,
+                  'or'.tr,
                   style: TextStyle(
                     color: AppThemeConfig.mutedText(context),
                     fontWeight: FontWeight.w500,
@@ -468,14 +483,11 @@ class _LoginFormState extends State<_LoginForm> {
                     : _handleGoogleLogin,
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppThemeConfig.text(context),
-                  side: BorderSide(color: AppThemeConfig.border(context)),
-                  backgroundColor: AppThemeConfig.surface(context),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 16,
-                  ),
+                  side: BorderSide(color: authFieldBorder(context), width: 1.2),
+                  backgroundColor: Colors.transparent,
+                  minimumSize: const Size.fromHeight(52),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                 ),
                 child: _loginController.isLoading.value
@@ -501,7 +513,7 @@ class _LoginFormState extends State<_LoginForm> {
                             child: const Text(
                               'G',
                               style: TextStyle(
-                                color: Color(0xFF0B385D),
+                                color: Colors.white,
                                 fontWeight: FontWeight.w800,
                               ),
                             ),
@@ -519,7 +531,7 @@ class _LoginFormState extends State<_LoginForm> {
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           // Section 27 — Guest Mode: browse without an account.
           SizedBox(
             width: double.infinity,
@@ -542,50 +554,86 @@ class _LoginFormState extends State<_LoginForm> {
               ),
             ),
           ),
+          const SizedBox(height: 18),
+          // This screen IS the sign-up: the phone/OTP flow creates the account
+          // if the number is new. The old footer sent people to /register,
+          // whose submit handler waits 650ms and routes to /verify without
+          // ever calling the backend — a dead end that looks like it worked.
+          Center(
+            child: Text(
+              'New here? Entering your number creates your account.'.tr,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppThemeConfig.mutedText(context),
+                fontSize: 13,
+                height: 1.5,
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Center(
+            child: Text(
+              'By continuing you agree to our Terms and Privacy Policy.'.tr,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppThemeConfig.mutedText(context).withValues(alpha: 0.8),
+                fontSize: 11.5,
+                height: 1.5,
+              ),
+            ),
+          ),
+          // Delivery mode. Demoted from a pair of full-size cards sitting
+          // directly above the primary button — a developer control competing
+          // with the main action — to one quiet row at the very bottom.
+          const SizedBox(height: 20),
+          _OtpModeRow(
+            value: _otpMode,
+            onChanged: (next) => setState(() => _otpMode = next),
+          ),
         ],
       ),
     );
   }
 }
 
-/// _OtpModePicker — small segmented control letting the user choose how
-/// the next OTP is delivered.
+/// _OtpModeRow — how the next code is delivered.
 ///
-///   Real — call OTPIQ; user receives the code via WhatsApp (SMS fallback).
-///   Demo — backend skips OTPIQ and returns the static demo code "123456"
-///          in the response (only allowed when OTP_DEMO_ENABLED=1 on the
-///          server). Use this for development without spending credit.
+///   Real — OTPIQ sends it over WhatsApp, falling back to SMS.
+///   Demo — the backend skips OTPIQ and returns the fixed code 123456
+///          (honoured only while OTP_DEMO_ENABLED=1 on the server).
 ///
-/// Visuals: glass-card style to match the rest of the login screen.
-/// Stateless — parent owns the selected mode and re-renders on change.
-class _OtpModePicker extends StatelessWidget {
-  const _OtpModePicker({required this.value, required this.onChanged});
+/// This used to be two full-size cards stacked directly above the primary
+/// button, which gave a development affordance the same weight as "Continue"
+/// and put "Code: 123456" in the middle of the sign-in screen. It is one
+/// muted row at the foot of the page now: still reachable while demo mode is
+/// the only working delivery path, but no longer part of the main flow.
+class _OtpModeRow extends StatelessWidget {
+  const _OtpModeRow({required this.value, required this.onChanged});
 
   final String value; // 'real' | 'demo'
   final ValueChanged<String> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppThemeConfig.surface(context),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppThemeConfig.border(context)),
-      ),
-      padding: const EdgeInsets.all(4),
-      child: Row(
+    final muted = AppThemeConfig.mutedText(context);
+    return Center(
+      child: Wrap(
+        alignment: WrapAlignment.center,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          _Segment(
-            label: 'Real OTP'.tr,
-            sub: 'WhatsApp · SMS'.tr,
-            icon: Icons.verified_rounded,
+          Text(
+            'Delivery'.tr,
+            style: TextStyle(color: muted, fontSize: 12),
+          ),
+          const SizedBox(width: 8),
+          _ModeLink(
+            label: 'WhatsApp / SMS'.tr,
             selected: value == 'real',
             onTap: () => onChanged('real'),
           ),
-          _Segment(
-            label: 'Demo OTP'.tr,
-            sub: 'Code: 123456'.tr,
-            icon: Icons.bug_report_rounded,
+          Text('  ·  ', style: TextStyle(color: muted, fontSize: 12)),
+          _ModeLink(
+            label: 'Demo code'.tr,
             selected: value == 'demo',
             onTap: () => onChanged('demo'),
           ),
@@ -595,81 +643,34 @@ class _OtpModePicker extends StatelessWidget {
   }
 }
 
-/// _Segment — one of the two pills inside _OtpModePicker. Selected state
-/// is the white fill that mirrors the primary CTA button below.
-class _Segment extends StatelessWidget {
-  const _Segment({
+class _ModeLink extends StatelessWidget {
+  const _ModeLink({
     required this.label,
-    required this.sub,
-    required this.icon,
     required this.selected,
     required this.onTap,
   });
 
   final String label;
-  final String sub;
-  final IconData icon;
   final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(10),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-            decoration: BoxDecoration(
-              color: selected ? AppThemeConfig.primary : Colors.transparent,
-              borderRadius: BorderRadius.circular(10),
-              boxShadow: selected
-                  ? [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.18),
-                        blurRadius: 14,
-                        offset: const Offset(0, 6),
-                      ),
-                    ]
-                  : null,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  icon,
-                  size: 22,
-                  color: selected
-                      ? Colors.white
-                      : AppThemeConfig.mutedText(context),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: selected
-                        ? Colors.white
-                        : AppThemeConfig.text(context),
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  sub,
-                  style: TextStyle(
-                    color: selected
-                        ? Colors.white.withValues(alpha: 0.85)
-                        : AppThemeConfig.mutedText(context),
-                    fontWeight: FontWeight.w500,
-                    fontSize: 11,
-                  ),
-                ),
-              ],
-            ),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            color: selected
+                ? AppThemeConfig.primary
+                : AppThemeConfig.mutedText(context),
+            decoration: selected ? TextDecoration.underline : null,
+            decorationColor: AppThemeConfig.primary,
           ),
         ),
       ),
@@ -677,7 +678,6 @@ class _Segment extends StatelessWidget {
   }
 }
 
-/// #40 — the guest access sheet. One username + one password field, "quickly
 /// access" the app: the primary action always tries to REGISTER a new guest
 /// account first; if that username is already taken, a secondary "Log in
 /// instead" action appears using the same two fields. Pops `true` on success

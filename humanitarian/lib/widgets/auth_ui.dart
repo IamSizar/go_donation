@@ -75,9 +75,9 @@ class _AuthBackButton extends StatelessWidget {
           height: 40,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: AppThemeConfig.surface(context),
+            color: authFieldFill(context),
             shape: BoxShape.circle,
-            border: Border.all(color: AppThemeConfig.border(context)),
+            border: Border.all(color: authFieldBorder(context)),
           ),
           child: Icon(
             isRtl ? Icons.arrow_forward_rounded : Icons.arrow_back_rounded,
@@ -158,9 +158,9 @@ class AuthFeatureChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: AppThemeConfig.surface(context),
+        color: authFieldFill(context),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: AppThemeConfig.border(context)),
+        border: Border.all(color: authFieldBorder(context)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -180,6 +180,24 @@ class AuthFeatureChip extends StatelessWidget {
     );
   }
 }
+
+
+/// Field colours for the auth forms.
+///
+/// AppThemeConfig.border() is `white @ 80%` in light mode and surface() is
+/// `white @ 78%` — both inherited from the old gradient background, where a
+/// translucent white edge read as glass. On the flat white page they are
+/// invisible, which left the phone field and the Google button looking like
+/// plain text rather than controls. These are the real edges those inputs
+/// need; the app-wide tokens are left alone because other screens still draw
+/// on tinted surfaces where the translucent versions are correct.
+Color authFieldFill(BuildContext context) => AppThemeConfig.isDark(context)
+    ? const Color(0xFF16263A)
+    : const Color(0xFFF3F5F9);
+
+Color authFieldBorder(BuildContext context) => AppThemeConfig.isDark(context)
+    ? Colors.white.withValues(alpha: 0.14)
+    : const Color(0xFFD3DBE6);
 
 /// Field styling for the auth forms.
 ///
@@ -209,8 +227,8 @@ InputDecoration authInputDecoration(
     prefixIcon: Icon(icon, color: muted, size: 20),
     suffixIcon: suffixIcon,
     filled: true,
-    fillColor: AppThemeConfig.surface(context),
-    enabledBorder: border(AppThemeConfig.border(context)),
+    fillColor: authFieldFill(context),
+    enabledBorder: border(authFieldBorder(context)),
     focusedBorder: border(AppThemeConfig.primary, 1.6),
     errorBorder: border(danger),
     focusedErrorBorder: border(danger, 1.6),

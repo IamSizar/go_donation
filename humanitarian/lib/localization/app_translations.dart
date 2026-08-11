@@ -2,6 +2,13 @@ import 'package:get/get.dart';
 
 class AppTranslations extends Translations {
   static const Map<String, String> _en = {
+    'Demo code': 'Demo code',
+    'WhatsApp / SMS': 'WhatsApp / SMS',
+    'Delivery': 'Delivery',
+    'By continuing you agree to our Terms and Privacy Policy.': 'By continuing you agree to our Terms and Privacy Policy.',
+    'New here? Entering your number creates your account.': 'New here? Entering your number creates your account.',
+    'or': 'or',
+    'Enter your phone number and we will send you a verification code.': 'Enter your phone number and we will send you a verification code.',
     // Quick Actions #4 — Wheel of Fortune / Lucky Coupon.
     'Wheel of Fortune': 'Wheel of Fortune',
     'Lucky Coupon': 'Lucky Coupon',
@@ -2234,6 +2241,13 @@ class AppTranslations extends Translations {
   };
 
   static const Map<String, String> _ar = {
+    'Demo code': 'رمز تجريبي',
+    'WhatsApp / SMS': 'واتساب / رسالة نصية',
+    'Delivery': 'طريقة الإرسال',
+    'By continuing you agree to our Terms and Privacy Policy.': 'بالمتابعة فإنك توافق على الشروط وسياسة الخصوصية.',
+    'New here? Entering your number creates your account.': 'جديد هنا؟ إدخال رقمك يُنشئ حسابك.',
+    'or': 'أو',
+    'Enter your phone number and we will send you a verification code.': 'أدخل رقم هاتفك وسنرسل لك رمز تحقق.',
     // Quick Actions #4 — Wheel of Fortune / Lucky Coupon.
     'Wheel of Fortune': 'عجلة الحظ',
     'Lucky Coupon': 'كوبون الحظ',
@@ -4390,6 +4404,13 @@ class AppTranslations extends Translations {
   };
 
   static final Map<String, String> _sorani = {
+    'Demo code': 'کۆدی تاقیکردنەوە',
+    'WhatsApp / SMS': 'واتساپ / کورتەنامە',
+    'Delivery': 'شێوازی ناردن',
+    'By continuing you agree to our Terms and Privacy Policy.': 'بە بەردەوامبوون ڕازی دەبیت بە مەرجەکان و سیاسەتی تایبەتمەندێتی.',
+    'New here? Entering your number creates your account.': 'نوێیت لێرە؟ نووسینی ژمارەکەت هەژمارەکەت دروست دەکات.',
+    'or': 'یان',
+    'Enter your phone number and we will send you a verification code.': 'ژمارەی مۆبایلەکەت بنووسە و کۆدی پشتڕاستکردنەوەت بۆ دەنێرین.',
     // Quick Actions #4 — Wheel of Fortune / Lucky Coupon.
     'Wheel of Fortune': 'چەرخی بەخت',
     'Lucky Coupon': 'کۆپۆنی بەخت',
@@ -6627,6 +6648,13 @@ class AppTranslations extends Translations {
   };
 
   static final Map<String, String> _badini = {
+    'Demo code': 'کۆدێ تاقیکرنێ',
+    'WhatsApp / SMS': 'واتساپ / کورتەنامە',
+    'Delivery': 'رێکا هنارتنێ',
+    'By continuing you agree to our Terms and Privacy Policy.': 'ب بەردەوامبوونێ تو ب مەرجان و سیاسەتا تایبەتمەندیێ رازی دبی.',
+    'New here? Entering your number creates your account.': 'نوی یی ل ڤێرێ؟ نڤیسینا ژمارا تە هەژمارا تە دروست دکەت.',
+    'or': 'یان',
+    'Enter your phone number and we will send you a verification code.': 'ژمارا موبایلا خۆ بنڤیسە و ئەم دێ کۆدێ پشتراستکرنێ بۆ تە بشینین.',
     // Quick Actions #4 — Wheel of Fortune / Lucky Coupon.
     'Wheel of Fortune': 'چەرخا بەختێ',
     'Lucky Coupon': 'کۆپۆنا بەختێ',
