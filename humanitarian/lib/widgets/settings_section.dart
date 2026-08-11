@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/core/design/directional_icons.dart';
 import 'package:flutter_application_1/api/auth_session.dart';
 import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/api/module_api.dart';
@@ -30,7 +31,6 @@ import 'package:path_provider/path_provider.dart';
 /// Terms, Log out) now live in ProfileMenuScreen, reached from the top-right
 /// avatar. What remains here is the operational content: preferences,
 /// volunteer tools, Task Verification, partners, receipts, share and cache.
-const Color drawerPrimary = Color(0xFF0F766E);
 const Color drawerPrimaryDark = Color(0xFF115E59);
 const Color drawerDanger = Color(0xFFEF4444);
 
@@ -54,7 +54,7 @@ class SettingsSection extends StatelessWidget {
             DrawerTile(
               icon: Icons.tune_rounded,
               label: 'Control Settings and Preferences',
-              color: Colors.blueAccent,
+              color: AppThemeConfig.accent(context),
               onTap: () => Get.to(() => const ControlSettingsScreen()),
             ),
           const DrawerDivider(),
@@ -65,52 +65,52 @@ class SettingsSection extends StatelessWidget {
             DrawerTile(
               icon: Icons.volunteer_activism_rounded,
               label: 'Volunteer With Us',
-              color: Colors.deepOrange,
+              color: AppThemeConfig.pending(context),
               onTap: () => Get.to(() => const SupportSection()),
             ),
             DrawerTile(
               icon: Icons.fact_check_rounded,
               label: 'Volunteer Attendance and Absence System',
-              color: Colors.deepOrange,
+              color: AppThemeConfig.pending(context),
               onTap: () => Get.to(() => const SupportSection()),
             ),
           ],
           DrawerTile(
             icon: Icons.checklist_rounded,
             label: 'Task Verification',
-            color: Colors.deepOrange,
+            color: AppThemeConfig.pending(context),
             onTap: () => Get.to(() => const TaskVerificationScreen()),
           ),
           DrawerTile(
             icon: Icons.handshake_rounded,
             label: 'Our Partners',
-            color: Colors.deepOrange,
+            color: AppThemeConfig.pending(context),
             onTap: () => Get.to(() => const PartnersScreen()),
           ),
           DrawerTile(
             icon: Icons.diversity_3_rounded,
             label: 'Supporting Organizations',
-            color: Colors.deepOrange,
+            color: AppThemeConfig.pending(context),
             onTap: () =>
                 Get.to(() => const PartnersScreen(onlySupporting: true)),
           ),
           DrawerTile(
             icon: Icons.receipt_long_rounded,
             label: 'receipts_title',
-            color: Colors.teal,
+            color: AppThemeConfig.accent(context),
             onTap: () => Get.to(() => const AidReceiptsScreen()),
           ),
           DrawerTile(
             icon: Icons.ios_share_rounded,
             label: 'share_app',
-            color: Colors.green,
+            color: AppThemeConfig.accent(context),
             onTap: shareApp,
           ),
           const DrawerDivider(),
           DrawerTile(
             icon: Icons.volunteer_activism_outlined,
             label: 'Our Humanitarian Work',
-            color: Colors.teal,
+            color: AppThemeConfig.accent(context),
             onTap: () => Get.to(
               () => const ContentPageScreen(
                 slug: 'humanitarian-work',
@@ -243,21 +243,17 @@ class AccountHeader extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [drawerPrimary, drawerPrimaryDark],
-        ),
+        color: AppThemeConfig.accent(context),
         borderRadius: BorderRadius.circular(24),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(2),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.fromBorderSide(
-                BorderSide(color: Colors.white, width: 2),
+                BorderSide(color: AppThemeConfig.onAccent(context), width: 2),
               ),
             ),
             child: CachedProfileAvatar(
@@ -265,9 +261,9 @@ class AccountHeader extends StatelessWidget {
               imageUrl: _remoteImageUrl(),
               radius: 26,
               backgroundColor: drawerPrimaryDark,
-              placeholder: const Icon(
+              placeholder: Icon(
                 Icons.person,
-                color: Colors.white,
+                color: AppThemeConfig.onAccent(context),
                 size: 26,
               ),
             ),
@@ -282,8 +278,8 @@ class AccountHeader extends StatelessWidget {
                   guest ? 'Guest'.tr : _name(),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: AppThemeConfig.onAccent(context),
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
                   ),
@@ -296,7 +292,9 @@ class AccountHeader extends StatelessWidget {
                           ? Icons.alternate_email_rounded
                           : Icons.phone_rounded,
                       size: 12,
-                      color: Colors.white.withValues(alpha: 0.85),
+                      color: AppThemeConfig.onAccent(
+                        context,
+                      ).withValues(alpha: 0.85),
                     ),
                     const SizedBox(width: 4),
                     Flexible(
@@ -307,7 +305,9 @@ class AccountHeader extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.85),
+                            color: AppThemeConfig.onAccent(
+                              context,
+                            ).withValues(alpha: 0.85),
                             fontSize: 12.5,
                             fontWeight: FontWeight.w600,
                           ),
@@ -321,18 +321,18 @@ class AccountHeader extends StatelessWidget {
           ),
           if (!guest)
             Material(
-              color: Colors.white.withValues(alpha: 0.16),
+              color: AppThemeConfig.onAccent(context).withValues(alpha: 0.16),
               shape: const CircleBorder(),
               child: InkWell(
                 customBorder: const CircleBorder(),
                 onTap: () async {
                   await Get.to<bool>(() => const EditProfilePage());
                 },
-                child: const Padding(
+                child: Padding(
                   padding: EdgeInsets.all(8),
                   child: Icon(
                     Icons.edit_rounded,
-                    color: Colors.white,
+                    color: AppThemeConfig.onAccent(context),
                     size: 16,
                   ),
                 ),
@@ -364,13 +364,16 @@ class DrawerTile extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onTap,
-    this.color = drawerPrimary,
+    this.color,
     this.trailing,
   });
 
   final IconData icon;
   final String label;
-  final Color color;
+
+  /// Null resolves to the theme accent at build time — a token call
+  /// cannot be a const default.
+  final Color? color;
   final VoidCallback onTap;
   final Widget? trailing;
 
@@ -392,7 +395,9 @@ class DrawerTile extends StatelessWidget {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
+                  color: (color ?? AppThemeConfig.accent(context)).withValues(
+                    alpha: 0.12,
+                  ),
                   borderRadius: BorderRadius.circular(11),
                 ),
                 child: Icon(icon, color: color, size: 18),
@@ -413,7 +418,7 @@ class DrawerTile extends StatelessWidget {
               const SizedBox(width: 6),
               trailing ??
                   Icon(
-                    Icons.arrow_forward_ios_rounded,
+                    AppIcons.forward(context),
                     size: 14,
                     color: AppThemeConfig.mutedText(context),
                   ),
@@ -477,7 +482,7 @@ class LanguageRow extends StatelessWidget {
           ),
           const SizedBox(width: 6),
           Icon(
-            Icons.arrow_forward_ios_rounded,
+            AppIcons.forward(context),
             size: 14,
             color: AppThemeConfig.mutedText(context),
           ),
@@ -578,11 +583,13 @@ class _LanguageOptionRow extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
           decoration: BoxDecoration(
             color: selected
-                ? drawerPrimary.withValues(alpha: 0.08)
+                ? AppThemeConfig.accent(context).withValues(alpha: 0.08)
                 : AppThemeConfig.softSurface(context),
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: selected ? drawerPrimary : AppThemeConfig.border(context),
+              color: selected
+                  ? AppThemeConfig.accent(context)
+                  : AppThemeConfig.border(context),
               width: selected ? 1.5 : 1,
             ),
           ),
@@ -594,14 +601,16 @@ class _LanguageOptionRow extends StatelessWidget {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: selected
-                      ? drawerPrimary
-                      : drawerPrimary.withValues(alpha: 0.12),
+                      ? AppThemeConfig.accent(context)
+                      : AppThemeConfig.accent(context).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
                   option.code,
                   style: TextStyle(
-                    color: selected ? Colors.white : drawerPrimary,
+                    color: selected
+                        ? AppThemeConfig.onAccent(context)
+                        : AppThemeConfig.accent(context),
                     fontWeight: FontWeight.w800,
                     fontSize: 12,
                   ),
@@ -635,7 +644,7 @@ class _LanguageOptionRow extends StatelessWidget {
                     ? Icons.check_circle_rounded
                     : Icons.radio_button_unchecked_rounded,
                 color: selected
-                    ? drawerPrimary
+                    ? AppThemeConfig.accent(context)
                     : AppThemeConfig.mutedText(context).withValues(alpha: 0.5),
                 size: 20,
               ),
@@ -668,9 +677,9 @@ class DarkModeRow extends StatelessWidget {
                   color: Colors.indigo.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(11),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.dark_mode_rounded,
-                  color: Colors.indigo,
+                  color: AppThemeConfig.accent(context),
                   size: 18,
                 ),
               ),
@@ -687,7 +696,7 @@ class DarkModeRow extends StatelessWidget {
               ),
               Switch.adaptive(
                 value: isDark,
-                activeThumbColor: drawerPrimary,
+                activeThumbColor: AppThemeConfig.accent(context),
                 onChanged: setAppDarkMode,
               ),
             ],
@@ -761,9 +770,9 @@ class _NotificationsRowState extends State<NotificationsRow> {
               color: Colors.amber.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(11),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.notifications_active_rounded,
-              color: Colors.amber,
+              color: AppThemeConfig.pending(context),
               size: 18,
             ),
           ),
@@ -787,7 +796,7 @@ class _NotificationsRowState extends State<NotificationsRow> {
           else
             Switch.adaptive(
               value: _enabled,
-              activeThumbColor: drawerPrimary,
+              activeThumbColor: AppThemeConfig.accent(context),
               onChanged: _toggle,
             ),
         ],

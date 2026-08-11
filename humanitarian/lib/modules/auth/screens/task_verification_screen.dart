@@ -12,8 +12,7 @@ class TaskVerificationScreen extends StatefulWidget {
   const TaskVerificationScreen({super.key});
 
   @override
-  State<TaskVerificationScreen> createState() =>
-      _TaskVerificationScreenState();
+  State<TaskVerificationScreen> createState() => _TaskVerificationScreenState();
 }
 
 class _TaskVerificationScreenState extends State<TaskVerificationScreen> {
@@ -100,7 +99,11 @@ class _TaskVerificationScreenState extends State<TaskVerificationScreen> {
 }
 
 class _TaskCard extends StatelessWidget {
-  const _TaskCard({required this.task, this.completing = false, this.onMarkDone});
+  const _TaskCard({
+    required this.task,
+    this.completing = false,
+    this.onMarkDone,
+  });
 
   final AppTask task;
   final bool completing;

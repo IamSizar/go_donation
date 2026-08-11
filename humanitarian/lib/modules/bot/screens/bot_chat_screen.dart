@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/core/design/directional_icons.dart';
 import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
@@ -15,6 +16,8 @@ import '../controllers/assistant_controller.dart';
 import '../data/bot_strings.dart';
 import '../models/bot_message.dart';
 import '../models/bot_qa.dart';
+import 'package:flutter_application_1/core/widgets/app_pressable.dart';
+import 'package:flutter_application_1/core/design/motion.dart';
 
 /// A role-aware AI Support Assistant. Typed questions and chip taps are sent to
 /// the backend `/assistant/chat` endpoint (Claude-backed when configured, a
@@ -115,10 +118,7 @@ class _BotChatScreenState extends State<BotChatScreen> {
                   _SuggestionsSection(
                     qas: ctrl.suggestions,
                     lang: lang,
-                    onTap: (qa) => _send(
-                      qa.questionFor(lang),
-                      intentID: qa.id,
-                    ),
+                    onTap: (qa) => _send(qa.questionFor(lang), intentID: qa.id),
                   ),
                   for (final m in msgs) ...[
                     const SizedBox(height: 14),
@@ -152,7 +152,11 @@ class _BotChatScreenState extends State<BotChatScreen> {
                 ? _WhatsappOffer(number: ctrl.whatsappNumber.value!)
                 : const SizedBox.shrink(),
           ),
-          _Composer(controller: _inputCtrl, onSend: _sendTyped, isSending: ctrl.isTyping),
+          _Composer(
+            controller: _inputCtrl,
+            onSend: _sendTyped,
+            isSending: ctrl.isTyping,
+          ),
         ],
       ),
     );
@@ -164,7 +168,7 @@ class _BotChatScreenState extends State<BotChatScreen> {
       elevation: 0,
       leading: IconButton(
         icon: Icon(
-          Icons.arrow_back_ios_rounded,
+          AppIcons.back(context),
           size: 20,
           color: AppThemeConfig.text(context),
         ),
@@ -261,14 +265,7 @@ class _SuggestionsSection extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Colors.deepPurple.shade400.withValues(alpha: 0.06),
-            Colors.indigo.shade400.withValues(alpha: 0.03),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: AppThemeConfig.accent(context).withValues(alpha: 0.06),
         border: Border.all(color: Colors.deepPurple.withValues(alpha: 0.15)),
         borderRadius: BorderRadius.circular(20),
       ),
@@ -282,7 +279,7 @@ class _SuggestionsSection extends StatelessWidget {
                 Icon(
                   Icons.auto_awesome_rounded,
                   size: 15,
-                  color: Colors.deepPurple.shade500,
+                  color: AppThemeConfig.accent(context),
                 ),
                 const SizedBox(width: 7),
                 Text(
@@ -290,7 +287,7 @@ class _SuggestionsSection extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 13.5,
                     fontWeight: FontWeight.w900,
-                    color: Colors.deepPurple.shade700,
+                    color: AppThemeConfig.accent(context),
                     letterSpacing: 0.2,
                   ),
                 ),
@@ -351,7 +348,7 @@ class _SuggestionCard extends StatelessWidget {
                   child: Icon(
                     qa.icon,
                     size: 18,
-                    color: Colors.deepPurple.shade500,
+                    color: AppThemeConfig.accent(context),
                   ),
                 ),
                 const SizedBox(width: 11),
@@ -368,7 +365,7 @@ class _SuggestionCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 6),
                 Icon(
-                  Icons.arrow_forward_ios_rounded,
+                  AppIcons.forward(context),
                   size: 13,
                   color: AppThemeConfig.mutedText(context),
                 ),
@@ -390,7 +387,7 @@ class _UserBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Align(
-      alignment: Alignment.centerRight,
+      alignment: AlignmentDirectional.centerEnd,
       child: Container(
         constraints: BoxConstraints(
           maxWidth: MediaQuery.of(context).size.width * 0.75,
@@ -483,10 +480,10 @@ class _BotBubble extends StatelessWidget {
                     width: double.infinity,
                     child: FilledButton.icon(
                       onPressed: onAction,
-                      icon: const Icon(Icons.arrow_forward_rounded, size: 15),
+                      icon: Icon(AppIcons.forwardSolid(context), size: 15),
                       label: Text(message.actionLabel!),
                       style: FilledButton.styleFrom(
-                        backgroundColor: Colors.deepPurple.shade600,
+                        backgroundColor: AppThemeConfig.accent(context),
                         padding: const EdgeInsets.symmetric(
                           horizontal: 14,
                           vertical: 10,
@@ -545,14 +542,14 @@ class _TypingBubbleState extends State<_TypingBubble>
     // popping into place.
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),
-      duration: const Duration(milliseconds: 260),
-      curve: Curves.easeOutBack,
+      duration: AppMotion.resolve(context, AppMotion.settleDuration),
+      curve: AppMotion.resolveCurve(context, Curves.easeOutBack),
       builder: (context, t, child) {
         return Opacity(
           opacity: t.clamp(0.0, 1.0),
           child: Transform.scale(
             scale: 0.7 + 0.3 * t,
-            alignment: Alignment.bottomLeft,
+            alignment: AlignmentDirectional.bottomStart,
             child: child,
           ),
         );
@@ -589,7 +586,7 @@ class _TypingBubbleState extends State<_TypingBubble>
                     final scale = 0.85 + 0.30 * wave.clamp(0, 1);
                     final opacity = 0.45 + 0.55 * wave.clamp(0, 1);
                     return Padding(
-                      padding: EdgeInsets.only(right: i < 2 ? 6 : 0),
+                      padding: EdgeInsetsDirectional.only(end: i < 2 ? 6 : 0),
                       child: Transform.translate(
                         offset: Offset(0, -lift),
                         child: Transform.scale(
@@ -598,16 +595,9 @@ class _TypingBubbleState extends State<_TypingBubble>
                             width: 8,
                             height: 8,
                             decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  Colors.deepPurple.shade400.withValues(
-                                    alpha: opacity,
-                                  ),
-                                  Colors.indigo.shade400.withValues(
-                                    alpha: opacity,
-                                  ),
-                                ],
-                              ),
+                              color: AppThemeConfig.accent(
+                                context,
+                              ).withValues(alpha: opacity),
                               shape: BoxShape.circle,
                             ),
                           ),
@@ -644,11 +634,7 @@ class _BotAvatar extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.deepPurple.shade600, Colors.indigo.shade400],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: AppThemeConfig.accent(context),
         borderRadius: BorderRadius.circular(radius),
       ),
       child: Icon(Icons.smart_toy_rounded, color: Colors.white, size: iconSize),
@@ -727,7 +713,9 @@ class _Composer extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
         decoration: BoxDecoration(
           color: AppThemeConfig.surface(context),
-          border: Border(top: BorderSide(color: AppThemeConfig.border(context))),
+          border: Border(
+            top: BorderSide(color: AppThemeConfig.border(context)),
+          ),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
@@ -746,37 +734,49 @@ class _Composer extends StatelessWidget {
                   ),
                   filled: true,
                   fillColor: AppThemeConfig.softSurface(context),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(22),
-                    borderSide: BorderSide(color: AppThemeConfig.border(context)),
+                    borderSide: BorderSide(
+                      color: AppThemeConfig.border(context),
+                    ),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(22),
-                    borderSide: BorderSide(color: AppThemeConfig.border(context)),
+                    borderSide: BorderSide(
+                      color: AppThemeConfig.border(context),
+                    ),
                   ),
                 ),
               ),
             ),
             const SizedBox(width: 8),
             Obx(
-              () => GestureDetector(
+              () => AppPressable(
                 onTap: isSending.value ? null : onSend,
                 child: Container(
                   width: 46,
                   height: 46,
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Colors.deepPurple, Colors.indigo],
-                    ),
+                  decoration: BoxDecoration(
+                    color: AppThemeConfig.accent(context),
                     shape: BoxShape.circle,
                   ),
                   child: isSending.value
                       ? const Padding(
                           padding: EdgeInsets.all(13),
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
                         )
-                      : const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                      : const Icon(
+                          Icons.send_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
                 ),
               ),
             ),
@@ -810,7 +810,11 @@ class _ToolResultCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(_iconFor(result.tool), size: 16, color: Colors.deepPurple.shade400),
+                Icon(
+                  _iconFor(result.tool),
+                  size: 16,
+                  color: AppThemeConfig.accent(context),
+                ),
                 const SizedBox(width: 6),
                 Text(
                   _titleFor(result.tool).tr,
@@ -832,7 +836,10 @@ class _ToolResultCard extends StatelessWidget {
                     Flexible(
                       child: Text(
                         row.$1,
-                        style: TextStyle(fontSize: 12.5, color: AppThemeConfig.mutedText(context)),
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: AppThemeConfig.mutedText(context),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -908,7 +915,10 @@ class _ToolResultCard extends StatelessWidget {
         } else {
           for (final t in recent.take(3)) {
             if (t is Map) {
-              rows.add(('${t['type'] ?? ''} · ${t['date'] ?? ''}', _money(t['amount_iqd'])));
+              rows.add((
+                '${t['type'] ?? ''} · ${t['date'] ?? ''}',
+                _money(t['amount_iqd']),
+              ));
             }
           }
         }
@@ -918,7 +928,10 @@ class _ToolResultCard extends StatelessWidget {
         final stats = data['stats'];
         final rows = <(String, String)>[];
         if (stats is Map) {
-          rows.add(('Total donated'.tr, '${stats['total_amount'] ?? 0} (${stats['total_count'] ?? 0})'));
+          rows.add((
+            'Total donated'.tr,
+            '${stats['total_amount'] ?? 0} (${stats['total_count'] ?? 0})',
+          ));
         }
         final recent = (data['recent'] as List?) ?? const [];
         if (recent.isEmpty) {
@@ -926,7 +939,10 @@ class _ToolResultCard extends StatelessWidget {
         } else {
           for (final d in recent.take(3)) {
             if (d is Map) {
-              rows.add(('${d['campaign'] ?? ''} · ${d['payment_status'] ?? ''}', '${d['amount'] ?? ''} ${d['currency'] ?? ''}'));
+              rows.add((
+                '${d['campaign'] ?? ''} · ${d['payment_status'] ?? ''}',
+                '${d['amount'] ?? ''} ${d['currency'] ?? ''}',
+              ));
             }
           }
         }
@@ -934,11 +950,16 @@ class _ToolResultCard extends StatelessWidget {
 
       case 'get_my_marriage_profile':
         final profiles = (data['profiles'] as List?) ?? const [];
-        if (profiles.isEmpty) return [('Your marriage profile'.tr, 'No marriage profile yet.'.tr)];
+        if (profiles.isEmpty) {
+          return [('Your marriage profile'.tr, 'No marriage profile yet.'.tr)];
+        }
         final rows = <(String, String)>[];
         for (final p in profiles.take(3)) {
           if (p is Map) {
-            rows.add(('${p['profile_code'] ?? ''}', '${p['status'] ?? ''} · ${p['subscription_tier'] ?? ''}'));
+            rows.add((
+              '${p['profile_code'] ?? ''}',
+              '${p['status'] ?? ''} · ${p['subscription_tier'] ?? ''}',
+            ));
           }
         }
         return rows;
@@ -952,23 +973,34 @@ class _ToolResultCard extends StatelessWidget {
         final rows = <(String, String)>[];
         for (final c in cases.take(2)) {
           if (c is Map) {
-            rows.add(('${c['case_code'] ?? ''}', '${c['verification_status'] ?? ''}'));
+            rows.add((
+              '${c['case_code'] ?? ''}',
+              '${c['verification_status'] ?? ''}',
+            ));
           }
         }
         for (final r in requests.take(2)) {
           if (r is Map) {
-            rows.add(('${r['title'] ?? ''}', '${r['status'] ?? ''} · ${r['raised_amount'] ?? 0}/${r['amount_needed'] ?? 0}'));
+            rows.add((
+              '${r['title'] ?? ''}',
+              '${r['status'] ?? ''} · ${r['raised_amount'] ?? 0}/${r['amount_needed'] ?? 0}',
+            ));
           }
         }
         return rows;
 
       case 'get_my_volunteer_status':
         final missions = (data['joined_missions'] as List?) ?? const [];
-        if (missions.isEmpty) return [('Your volunteer status'.tr, 'No missions joined yet.'.tr)];
+        if (missions.isEmpty) {
+          return [('Your volunteer status'.tr, 'No missions joined yet.'.tr)];
+        }
         final rows = <(String, String)>[];
         for (final m in missions.take(3)) {
           if (m is Map) {
-            rows.add(('${m['title'] ?? ''}', '${m['signup_status'] ?? ''} · ${m['hours_served'] ?? 0}h'));
+            rows.add((
+              '${m['title'] ?? ''}',
+              '${m['signup_status'] ?? ''} · ${m['hours_served'] ?? 0}h',
+            ));
           }
         }
         return rows;

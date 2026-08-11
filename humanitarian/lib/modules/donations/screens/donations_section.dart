@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/core/design/directional_icons.dart';
 import 'package:flutter_application_1/core/app_haptics.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/data/featured_campaigns.dart';
@@ -10,6 +11,8 @@ import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:intl/intl.dart'; // Added for number formatting
+import 'package:flutter_application_1/core/widgets/app_pressable.dart';
+import 'package:flutter_application_1/core/design/motion.dart';
 
 class DonationsSection extends StatelessWidget {
   const DonationsSection({super.key, this.initialCampaignId});
@@ -28,7 +31,6 @@ class DonationsSection extends StatelessWidget {
       typeLabel: 'One-time',
       supportNote: 'A flexible way to help the most urgent needs right away.',
       icon: Icons.all_inclusive,
-      color: Colors.teal,
     ),
   ];
 
@@ -143,15 +145,11 @@ class _DonationsSectionBodyState extends State<_DonationsSectionBody> {
       title: 'Contribute',
       subtitle:
           'Choose an amount, pick general support or a featured campaign, and make your support count.',
-      trailing: GestureDetector(
+      trailing: AppPressable(
         onTap: () => Get.to(() => const MyDonationsPage()),
         child: Container(
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Colors.teal[600]!, Colors.teal[300]!],
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-            ),
+            color: AppThemeConfig.accent(context),
             borderRadius: BorderRadius.circular(18),
             boxShadow: [
               BoxShadow(
@@ -165,12 +163,16 @@ class _DonationsSectionBodyState extends State<_DonationsSectionBody> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.receipt_long_rounded, color: Colors.white, size: 18),
+              Icon(
+                Icons.receipt_long_rounded,
+                color: AppThemeConfig.onAccent(context),
+                size: 18,
+              ),
               const SizedBox(width: 7),
               Text(
                 'See all'.tr,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: AppThemeConfig.onAccent(context),
                   fontWeight: FontWeight.w700,
                   fontSize: 15.5,
                   letterSpacing: 0.1,
@@ -178,8 +180,8 @@ class _DonationsSectionBodyState extends State<_DonationsSectionBody> {
               ),
               const SizedBox(width: 2),
               Icon(
-                Icons.arrow_forward_ios_rounded,
-                color: Colors.white60,
+                AppIcons.forward(context),
+                color: AppThemeConfig.onAccent(context).withValues(alpha: 0.6),
                 size: 16,
               ),
             ],
@@ -314,7 +316,9 @@ class _DonationsSectionBodyState extends State<_DonationsSectionBody> {
                       optionTypeLabel: selectedOption.typeLabel,
                       optionSupportNote: selectedOption.supportNote,
                       optionIcon: selectedOption.icon,
-                      optionColor: selectedOption.color,
+                      optionColor:
+                          selectedOption.color ??
+                          AppThemeConfig.accent(context),
                       paymentMethod: _selectedPaymentMethod,
                     ),
                   )?.then((submitted) {
@@ -362,11 +366,7 @@ class _GiveNowCard extends StatelessWidget {
         onTap: onTap,
         child: Ink(
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF0F766E), Color(0xFF14B8A6)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+            color: AppThemeConfig.accent(context),
             borderRadius: BorderRadius.circular(22),
             boxShadow: [
               BoxShadow(
@@ -382,12 +382,14 @@ class _GiveNowCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
+                  color: AppThemeConfig.onAccent(
+                    context,
+                  ).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.all_inclusive,
-                  color: Colors.white,
+                  color: AppThemeConfig.onAccent(context),
                   size: 26,
                 ),
               ),
@@ -398,8 +400,8 @@ class _GiveNowCard extends StatelessWidget {
                   children: [
                     Text(
                       'Give Now'.tr,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: AppThemeConfig.onAccent(context),
                         fontSize: 19,
                         fontWeight: FontWeight.w900,
                       ),
@@ -410,7 +412,9 @@ class _GiveNowCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.9),
+                        color: AppThemeConfig.onAccent(
+                          context,
+                        ).withValues(alpha: 0.9),
                         fontSize: 13,
                         height: 1.35,
                       ),
@@ -419,7 +423,10 @@ class _GiveNowCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              const Icon(Icons.arrow_forward_rounded, color: Colors.white),
+              Icon(
+                AppIcons.forwardSolid(context),
+                color: AppThemeConfig.onAccent(context),
+              ),
             ],
           ),
         ),
@@ -435,7 +442,7 @@ class _DonationOptionData {
     required this.typeLabel,
     required this.supportNote,
     required this.icon,
-    required this.color,
+    this.color,
   });
 
   factory _DonationOptionData.fromCampaign(FeaturedCampaignData campaign) {
@@ -452,7 +459,7 @@ class _DonationOptionData {
           : 'Campaign'.tr,
       supportNote: details.isNotEmpty ? details : campaign.fundedLabel,
       icon: campaign.icon,
-      color: campaign.color,
+      color: null,
     );
   }
 
@@ -461,14 +468,17 @@ class _DonationOptionData {
   final String typeLabel;
   final String supportNote;
   final IconData icon;
-  final Color color;
+
+  /// Null resolves to the theme accent where it is rendered.
+  final Color? color;
 }
 
 /// Soft, low-contrast chrome for featured cards (not bold / not saturated).
+///
+/// Resolves through the token layer rather than the two hardcoded blue-greys
+/// this used to carry, so it tracks the palette instead of drifting from it.
 Color _featuredCardSoftMist(BuildContext context) =>
-    AppThemeConfig.isDark(context)
-    ? const Color(0xFF8B95A8)
-    : const Color(0xFFB4BDC8);
+    AppThemeConfig.borderStrong(context);
 
 class _DonationFeaturedCampaignCard extends StatelessWidget {
   const _DonationFeaturedCampaignCard({
@@ -492,19 +502,11 @@ class _DonationFeaturedCampaignCard extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(32),
-          gradient: LinearGradient(
-            colors: [
-              surface,
-              Color.alphaBlend(
-                mist.withValues(
-                  alpha: AppThemeConfig.isDark(context) ? 0.05 : 0.04,
-                ),
-                surface,
-              ),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          // Flat. This ramped from `surface` to `surface` tinted 4% — a step
+          // far below the perceptual threshold, so it cost a gradient to
+          // render something indistinguishable from a solid fill. The card's
+          // selected state is carried by its border, which is visible.
+          color: surface,
           border: Border.all(
             color: isSelected
                 ? mist.withValues(alpha: 0.55)
@@ -522,7 +524,7 @@ class _DonationFeaturedCampaignCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            GestureDetector(
+            AppPressable(
               behavior: HitTestBehavior.opaque,
               onTap: onCardTap,
               child: Padding(
@@ -533,7 +535,10 @@ class _DonationFeaturedCampaignCard extends StatelessWidget {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        TileIcon(icon: campaign.icon, color: campaign.color),
+                        TileIcon(
+                          icon: campaign.icon,
+                          color: AppThemeConfig.accent(context),
+                        ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
@@ -591,7 +596,7 @@ class _DonationFeaturedCampaignCard extends StatelessWidget {
                         height: 8,
                         color: mist.withValues(alpha: 0.12),
                         child: Align(
-                          alignment: Alignment.centerLeft,
+                          alignment: AlignmentDirectional.centerStart,
                           child: FractionallySizedBox(
                             widthFactor: campaign.fundedProgress,
                             child: Container(
@@ -637,10 +642,10 @@ class _DonationFeaturedCampaignCard extends StatelessWidget {
                   onPressed: onDonatePressed,
                   style: FilledButton.styleFrom(
                     backgroundColor: isSelected
-                        ? campaign.color
+                        ? AppThemeConfig.accent(context)
                         : AppThemeConfig.surface(context),
                     foregroundColor: isSelected
-                        ? Colors.white
+                        ? AppThemeConfig.onAccent(context)
                         : AppThemeConfig.text(context),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
@@ -709,25 +714,27 @@ class _DonationAmountChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return AppPressable(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
+        duration: AppMotion.resolve(context, AppMotion.settleDuration),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFF0F766E)
+              ? AppThemeConfig.accent(context)
               : AppThemeConfig.surface(context),
           borderRadius: BorderRadius.circular(999),
           border: Border.all(
             color: isSelected
-                ? const Color(0xFF0F766E)
+                ? AppThemeConfig.accent(context)
                 : AppThemeConfig.border(context),
           ),
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: const Color(0xFF0F766E).withValues(alpha: 0.14),
+                    color: AppThemeConfig.accent(
+                      context,
+                    ).withValues(alpha: 0.14),
                     blurRadius: 16,
                     offset: const Offset(0, 8),
                   ),
@@ -737,7 +744,9 @@ class _DonationAmountChip extends StatelessWidget {
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected ? Colors.white : AppThemeConfig.text(context),
+            color: isSelected
+                ? AppThemeConfig.onAccent(context)
+                : AppThemeConfig.text(context),
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -768,19 +777,13 @@ class _SelectedDonationCard extends StatelessWidget {
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(32),
-        gradient: LinearGradient(
-          colors: [
-            AppThemeConfig.elevatedSurface(context),
-            option.color.withValues(alpha: 0.20),
-            option.color.withValues(alpha: 0.08),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: AppThemeConfig.elevatedSurface(context),
         border: Border.all(color: AppThemeConfig.border(context)),
         boxShadow: [
           BoxShadow(
-            color: option.color.withValues(alpha: 0.14),
+            color: (option.color ?? AppThemeConfig.accent(context)).withValues(
+              alpha: 0.14,
+            ),
             blurRadius: 24,
             offset: const Offset(0, 16),
           ),
@@ -791,7 +794,10 @@ class _SelectedDonationCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              TileIcon(icon: option.icon, color: option.color),
+              TileIcon(
+                icon: option.icon,
+                color: (option.color ?? AppThemeConfig.accent(context)),
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -816,7 +822,10 @@ class _SelectedDonationCard extends StatelessWidget {
                   ],
                 ),
               ),
-              _DonationTypeBadge(label: option.typeLabel, color: option.color),
+              _DonationTypeBadge(
+                label: option.typeLabel,
+                color: (option.color ?? AppThemeConfig.accent(context)),
+              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -869,11 +878,11 @@ class _SelectedDonationCard extends StatelessWidget {
               width: double.infinity,
               child: FilledButton.icon(
                 onPressed: onContinue,
-                icon: const Icon(Icons.favorite_rounded),
+                icon: Icon(Icons.favorite_rounded),
                 label: Text('Continue donation'.tr),
                 style: FilledButton.styleFrom(
                   backgroundColor: option.color,
-                  foregroundColor: Colors.white,
+                  foregroundColor: AppThemeConfig.onAccent(context),
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(18),
@@ -907,8 +916,11 @@ class _DonationOptionCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              TileIcon(icon: option.icon, color: option.color),
-              const SizedBox(width: 12),
+              TileIcon(
+                icon: option.icon,
+                color: (option.color ?? AppThemeConfig.accent(context)),
+              ),
+              SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -926,9 +938,9 @@ class _DonationOptionCard extends StatelessWidget {
                           ),
                         ),
                         if (isSelected)
-                          const _DonationTypeBadge(
+                          _DonationTypeBadge(
                             label: 'Selected',
-                            color: Color(0xFF0F766E),
+                            color: AppThemeConfig.accent(context),
                           ),
                       ],
                     ),
@@ -978,7 +990,7 @@ class _DonationOptionCard extends StatelessWidget {
                     ? option.color
                     : AppThemeConfig.surface(context),
                 foregroundColor: isSelected
-                    ? Colors.white
+                    ? AppThemeConfig.onAccent(context)
                     : AppThemeConfig.text(context),
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(

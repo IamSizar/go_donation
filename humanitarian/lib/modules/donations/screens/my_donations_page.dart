@@ -3,11 +3,14 @@ import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/modules/chat/chat_actions.dart';
 import 'package:flutter_application_1/modules/donations/controllers/my_donations_controller.dart';
 import 'package:flutter_application_1/modules/donations/models/donation_history_models.dart';
+import 'package:flutter_application_1/core/design/tokens.dart';
+import 'package:flutter_application_1/core/widgets/app_figure.dart';
+import 'package:flutter_application_1/core/widgets/app_row.dart';
+import 'package:flutter_application_1/core/widgets/app_screen.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-
-const Color _donationHistoryPrimary = Color(0xFF0F766E);
 
 final NumberFormat _numFormat = NumberFormat.decimalPattern();
 
@@ -40,256 +43,109 @@ class _MyDonationsPageState extends State<MyDonationsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return GradientScreen(
-      child: SafeArea(
-        child: Column(
-          children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 12, 20, 18),
-              child: PageTopBar(title: 'My Contributions'),
-            ),
-            Expanded(
-              child: Obx(() {
-                final loading = _controller.isLoading.value;
-                final err = _controller.errorMessage.value;
-                final s = _controller.summary.value;
-                final list = _controller.items;
+    return Obx(() {
+      final loading = _controller.isLoading.value;
+      final err = _controller.errorMessage.value;
+      final s = _controller.summary.value;
+      final list = _controller.items;
 
-                if (loading && list.isEmpty) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                return RefreshIndicator(
-                  onRefresh: _controller.fetchHistory,
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
-                    children: [
-                      if (err != null)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 16),
-                          child: GlassPanel(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Text(
-                                  err,
-                                  style: TextStyle(
-                                    color: AppThemeConfig.text(context),
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                FilledButton(
-                                  onPressed: _controller.fetchHistory,
-                                  child: Text('Retry'.tr),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      _DonationHistoryHeroCard(
-                        totalAmount: s.totalAmount.round(),
-                        campaignCount: s.totalCount,
-                        successCount: s.successCount,
-                        pendingCount: s.pendingCount,
-                      ),
-                      const SizedBox(height: 22),
-                      const SectionLabel(title: 'Contribution status'),
-                      const SizedBox(height: 12),
-                      Center(
-                        child: Wrap(
-                          alignment: WrapAlignment.center,
-                          spacing: 18,
-                          runSpacing: 10,
-                          children: [
-                            _StatusLegendChip(
-                              status: DonationRecordStatus.success,
-                              count: s.successCount,
-                            ),
-                            _StatusLegendChip(
-                              status: DonationRecordStatus.pending,
-                              count: s.pendingCount,
-                            ),
-                            _StatusLegendChip(
-                              status: DonationRecordStatus.failed,
-                              count: s.failedCount,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 22),
-                      const SectionLabel(title: 'Recent donations'),
-                      const SizedBox(height: 12),
-                      if (list.isEmpty && err == null)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 24),
-                          child: Text(
-                            'No donations yet.'.tr,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: AppThemeConfig.mutedText(context),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        )
-                      else
-                        ...list.map(
-                          (item) => Padding(
-                            padding: const EdgeInsets.only(bottom: 14),
-                            child: _DonationHistoryCard(item: item),
-                          ),
-                        ),
-                    ],
-                  ),
-                );
-              }),
+      return AppScreen(
+        eyebrow: '${s.totalCount} ${'gifts'.tr}',
+        title: 'My Contributions',
+        // padded: false so the RefreshIndicator's scrollable owns the full
+        // width; the gutter is applied inside instead.
+        padded: false,
+        child: RefreshIndicator(
+          onRefresh: _controller.fetchHistory,
+          child: ListView(
+            padding: const EdgeInsetsDirectional.fromSTEB(
+              AppSpace.lg,
+              0,
+              AppSpace.lg,
+              AppSpace.xxl,
             ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DonationHistoryHeroCard extends StatelessWidget {
-  const _DonationHistoryHeroCard({
-    required this.totalAmount,
-    required this.campaignCount,
-    required this.successCount,
-    required this.pendingCount,
-  });
-
-  final int totalAmount;
-  final int campaignCount;
-  final int successCount;
-  final int pendingCount;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF0F766E), Color(0xFF0EA5A4), Color(0xFF2563EB)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(34),
-        boxShadow: [
-          BoxShadow(
-            color: _donationHistoryPrimary.withValues(alpha: 0.20),
-            blurRadius: 28,
-            offset: const Offset(0, 18),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Text(
-              'Donation history'.tr,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          const SizedBox(height: 18),
-          Text(
-            '${_numFormat.format(totalAmount)} IQD',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 26,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'A simple record of every campaign donation with a clear status for pending, success, or failed payments.'
-                .tr,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.90),
-              height: 1.5,
-              fontSize: 15,
-            ),
-          ),
-          const SizedBox(height: 22),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
+            // Scrolling dismisses the keyboard. The audit found this wired
+            // nowhere in the app.
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             children: [
-              _HeroMetric(
-                label: 'Campaigns',
-                value: _numFormat.format(campaignCount),
+              // The headline figure and its counterweight. Delivered money
+              // and money still in flight are shown separately rather than
+              // folded into one flattering total — a donation stays
+              // 'registered' until staff confirm it, and the pending count
+              // is the number the donor can actually act on.
+              AppFigure(
+                label: 'Given so far',
+                value: _numFormat.format(s.totalAmount.round()),
+                unit: 'IQD',
+                caption: '${s.totalCount} ${'contributions'.tr}',
               ),
-              _HeroMetric(
-                label: 'Success',
-                value: _numFormat.format(successCount),
+              AppStatPair(
+                startValue: '${s.successCount}',
+                startLabel: 'Delivered',
+                endValue: '${s.pendingCount}',
+                endLabel: 'Awaiting confirmation',
+                endTone: AppColors.of(context).pending,
               ),
-              _HeroMetric(
-                label: 'Pending',
-                value: _numFormat.format(pendingCount),
+
+              const AppSectionHeader(label: 'Recent donations'),
+
+              // One switcher owns all four states, so none can be forgotten.
+              AppAsync<List<DonationHistoryEntry>>(
+                loading: loading,
+                error: err,
+                onRetry: _controller.fetchHistory,
+                data: list,
+                isEmpty: (items) => items.isEmpty,
+                skeleton: AppSkeleton.rows(count: 4, withProgress: false),
+                empty: const AppEmpty(
+                  icon: Icons.volunteer_activism_rounded,
+                  title: 'No gifts yet',
+                  message:
+                      'Every gift you make appears here with its reference '
+                      'code and delivery status, so you always know where it '
+                      'went.',
+                ),
+                builder: (items) => Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var i = 0; i < items.length; i++)
+                      _DonationRow(
+                        item: items[i],
+                        isLast: i == items.length - 1,
+                      ),
+                  ],
+                ),
               ),
             ],
           ),
-        ],
-      ),
-    );
+        ),
+      );
+    });
   }
 }
 
-class _HeroMetric extends StatelessWidget {
-  const _HeroMetric({required this.label, required this.value});
+/// Maps the donation's status to the design system's semantic tone.
+///
+/// Kept as a function rather than an extension on the model so the model
+/// layer stays free of any dependency on the design system.
+AppStatusTone _toneFor(DonationRecordStatus status) => switch (status) {
+  DonationRecordStatus.success => AppStatusTone.settled,
+  DonationRecordStatus.pending => AppStatusTone.pending,
+  DonationRecordStatus.failed => AppStatusTone.attention,
+};
 
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 112,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(22),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w800,
-              fontSize: 20,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label.tr,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.82),
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DonationHistoryCard extends StatelessWidget {
-  const _DonationHistoryCard({required this.item});
+/// One donation, as a hairline-separated row.
+///
+/// Replaces the previous card, which carried its own 52pt tinted icon tile,
+/// three info chips, a note and a full-width "View details" button — roughly
+/// 120pt of height per donation. The row shows what a donor scans for
+/// (campaign, amount, status, reference) and moves the rest into the detail
+/// sheet that was already there.
+class _DonationRow extends StatelessWidget {
+  const _DonationRow({required this.item, required this.isLast});
 
   final DonationHistoryEntry item;
+  final bool isLast;
 
   void _openDetails(BuildContext context) {
     showModalBottomSheet<void>(
@@ -302,111 +158,15 @@ class _DonationHistoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final statusColor = item.status.color;
-
-    return GlassPanel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: Icon(
-                  Icons.volunteer_activism_rounded,
-                  color: statusColor,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.campaignName,
-                      style: TextStyle(
-                        color: AppThemeConfig.text(context),
-                        fontWeight: FontWeight.w800,
-                        fontSize: 18,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      '${_numFormat.format(item.amount)} IQD',
-                      style: TextStyle(
-                        color: statusColor,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 20,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              _StatusBadge(status: item.status),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              _InfoChip(
-                icon: Icons.calendar_today_rounded,
-                label: item.dateLabel,
-              ),
-              _InfoChip(
-                icon: Icons.credit_card_rounded,
-                label: item.paymentMethod.isEmpty ? '—' : item.paymentMethod,
-              ),
-              _InfoChip(
-                icon: Icons.receipt_long_rounded,
-                label: item.reference,
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            item.note,
-            style: TextStyle(
-              color: AppThemeConfig.mutedText(context),
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: 12),
-          // Tap for full details (and to chat with the campaign owner).
-          InkWell(
-            onTap: () => _openDetails(context),
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: _donationHistoryPrimary.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.info_outline_rounded, size: 17, color: _donationHistoryPrimary),
-                  const SizedBox(width: 8),
-                  Text(
-                    'View details'.tr,
-                    style: const TextStyle(
-                      color: _donationHistoryPrimary,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
+    return AppRow(
+      title: item.campaignName,
+      meta: '${item.reference} · ${item.dateLabel}',
+      showDivider: !isLast,
+      onTap: () => _openDetails(context),
+      trailing: AppRowAmount(
+        amount: _numFormat.format(item.amount),
+        status: item.status.label,
+        tone: _toneFor(item.status),
       ),
     );
   }
@@ -447,7 +207,9 @@ class _DonationDetailSheet extends StatelessWidget {
                   width: 42,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: AppThemeConfig.mutedText(context).withValues(alpha: 0.3),
+                    color: AppThemeConfig.mutedText(
+                      context,
+                    ).withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
@@ -464,12 +226,19 @@ class _DonationDetailSheet extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 '${_numFormat.format(item.amount)} IQD',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: statusColor),
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: statusColor,
+                ),
               ),
               const SizedBox(height: 16),
               _DetailLine(label: 'Status', value: item.status.label),
               _DetailLine(label: 'Date', value: item.dateLabel),
-              _DetailLine(label: 'Payment method', value: item.paymentMethod.isEmpty ? '—' : item.paymentMethod),
+              _DetailLine(
+                label: 'Payment method',
+                value: item.paymentMethod.isEmpty ? '—' : item.paymentMethod,
+              ),
               _DetailLine(label: 'Reference', value: item.reference),
               if (item.note.trim().isNotEmpty && item.note != '—')
                 _DetailLine(label: 'Message', value: item.note),
@@ -481,13 +250,20 @@ class _DonationDetailSheet extends StatelessWidget {
                   label: Text('Chat with campaign owner'.tr),
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    backgroundColor: _donationHistoryPrimary,
+                    // Resolves per theme. Was a hardcoded copy of the old
+                    // teal (#0F766E) that bypassed the theme entirely and so
+                    // never adapted to dark mode.
+                    backgroundColor: AppThemeConfig.accent(context),
+                    foregroundColor: AppThemeConfig.onAccent(context),
                   ),
                 )
               else
                 Text(
                   'Chat is only available for campaign donations.'.tr,
-                  style: TextStyle(color: AppThemeConfig.mutedText(context), fontSize: 13),
+                  style: TextStyle(
+                    color: AppThemeConfig.mutedText(context),
+                    fontSize: 13,
+                  ),
                   textAlign: TextAlign.center,
                 ),
             ],
@@ -514,111 +290,22 @@ class _DetailLine extends StatelessWidget {
             width: 120,
             child: Text(
               label.tr,
-              style: TextStyle(color: AppThemeConfig.mutedText(context), fontWeight: FontWeight.w600),
+              style: TextStyle(
+                color: AppThemeConfig.mutedText(context),
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: TextStyle(color: AppThemeConfig.text(context), fontWeight: FontWeight.w700),
+              style: TextStyle(
+                color: AppThemeConfig.text(context),
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _InfoChip extends StatelessWidget {
-  const _InfoChip({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppThemeConfig.softSurface(context),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: AppThemeConfig.mutedText(context)),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: TextStyle(
-              color: AppThemeConfig.text(context),
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatusLegendChip extends StatelessWidget {
-  const _StatusLegendChip({required this.status, required this.count});
-
-  final DonationRecordStatus status;
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: status.color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(status.icon, size: 16, color: status.color),
-          const SizedBox(width: 8),
-          Text(
-            status.label.tr,
-            style: TextStyle(color: status.color, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            '(${_numFormat.format(count)})',
-            style: TextStyle(
-              color: status.color.withValues(alpha: 0.85),
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({required this.status});
-
-  final DonationRecordStatus status;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: status.color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        status.label.tr,
-        style: TextStyle(
-          color: status.color,
-          fontWeight: FontWeight.w800,
-          fontSize: 12,
-        ),
       ),
     );
   }

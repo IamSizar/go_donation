@@ -12,10 +12,9 @@ import 'package:get/get.dart';
 /// Pass [status] explicitly when you already have it (e.g. straight from the
 /// login response); otherwise it's read from the persisted pref.
 void routeByRegistrationStatus([String? status]) {
-  final s =
-      (status ?? sharedPreferences.getString('registration_status') ?? '')
-          .trim()
-          .toLowerCase();
+  final s = (status ?? sharedPreferences.getString('registration_status') ?? '')
+      .trim()
+      .toLowerCase();
 
   if (s == 'incomplete') {
     Get.offAllNamed(AppRoutes.registration);

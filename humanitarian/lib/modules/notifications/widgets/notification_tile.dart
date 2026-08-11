@@ -32,7 +32,7 @@ class NotificationTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = _NotificationVisuals.of(notification);
+    final style = _NotificationVisuals.of(context, notification);
     final unread = !notification.isRead;
 
     final surface = AppThemeConfig.surface(context);
@@ -143,7 +143,7 @@ class NotificationTile extends StatelessWidget {
                                     _MiniChip(
                                       icon: Icons.flag_rounded,
                                       label: notification.priority.toString(),
-                                      color: Colors.teal.shade600,
+                                      color: AppThemeConfig.accent(context),
                                     ),
                                   ],
                                   if (notification.hasActionUrl) ...[
@@ -151,7 +151,7 @@ class NotificationTile extends StatelessWidget {
                                     _MiniChip(
                                       icon: Icons.open_in_new_rounded,
                                       label: 'Link'.tr,
-                                      color: Colors.blue.shade600,
+                                      color: AppThemeConfig.accent(context),
                                     ),
                                   ],
                                   const Spacer(),
@@ -212,8 +212,10 @@ class NotificationTile extends StatelessWidget {
     return Dismissible(
       key: ValueKey('notification-${notification.id}'),
       direction: DismissDirection.horizontal,
-      background: _ReadBackground(alignment: Alignment.centerLeft),
-      secondaryBackground: _ReadBackground(alignment: Alignment.centerRight),
+      background: _ReadBackground(alignment: AlignmentDirectional.centerStart),
+      secondaryBackground: _ReadBackground(
+        alignment: AlignmentDirectional.centerEnd,
+      ),
       onDismissed: (_) => onDismissed?.call(),
       child: child,
     );
@@ -244,16 +246,11 @@ class _IconBadge extends StatelessWidget {
       width: 46,
       height: 46,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: dimmed
-              ? [
-                  style.gradient.first.withValues(alpha: 0.55),
-                  style.gradient.last.withValues(alpha: 0.55),
-                ]
-              : style.gradient,
-        ),
+        // A flat fill. This was a two-stop LinearGradient, but four of the six
+        // category styles set both stops to the same colour, so the gradient
+        // was only ever real for 'urgent' — where it blended two semantic
+        // tokens (consequence into pending) and muddied both.
+        color: dimmed ? style.color.withValues(alpha: 0.55) : style.color,
         borderRadius: BorderRadius.circular(13),
         boxShadow: dimmed
             ? null
@@ -280,7 +277,7 @@ class _CategoryChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(7, 4, 9, 4),
+      padding: const EdgeInsetsDirectional.fromSTEB(7, 4, 9, 4),
       decoration: BoxDecoration(
         color: style.color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(8),
@@ -320,7 +317,7 @@ class _MiniChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(6, 4, 8, 4),
+      padding: const EdgeInsetsDirectional.fromSTEB(6, 4, 8, 4),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(8),
@@ -347,7 +344,10 @@ class _MiniChip extends StatelessWidget {
 class _ReadBackground extends StatelessWidget {
   const _ReadBackground({required this.alignment});
 
-  final Alignment alignment;
+  /// AlignmentGeometry, not Alignment, so callers can pass a directional
+  /// value — the swipe-to-read background must sit on the leading edge, which
+  /// is the right-hand side in Arabic and Kurdish.
+  final AlignmentGeometry alignment;
 
   @override
   Widget build(BuildContext context) {
@@ -355,10 +355,13 @@ class _ReadBackground extends StatelessWidget {
       alignment: alignment,
       padding: const EdgeInsets.symmetric(horizontal: 22),
       decoration: BoxDecoration(
-        color: Colors.green.withValues(alpha: 0.16),
+        color: AppThemeConfig.accent(context).withValues(alpha: 0.16),
         borderRadius: BorderRadius.circular(18),
       ),
-      child: Icon(Icons.mark_email_read_rounded, color: Colors.green.shade700),
+      child: Icon(
+        Icons.mark_email_read_rounded,
+        color: AppThemeConfig.accent(context),
+      ),
     );
   }
 }
@@ -438,7 +441,9 @@ class _ChatRequestActionsState extends State<_ChatRequestActions> {
               ? Icons.check_circle_rounded
               : Icons.cancel_rounded,
           size: 16,
-          color: result == 'Accepted' ? Colors.green : Colors.redAccent,
+          color: result == 'Accepted'
+              ? AppThemeConfig.accent(context)
+              : AppThemeConfig.consequence(context),
         ),
         const SizedBox(width: 6),
         Text(
@@ -514,78 +519,72 @@ class _ChatRequestActionsState extends State<_ChatRequestActions> {
   }
 }
 
-/// Per-type/category visual styling: a colour, a 2-stop gradient for the icon
-/// badge, and an icon. Colour comes from the category (urgent/payment/…) while
+/// Per-type/category visual styling: a colour and an icon. Colour comes from
+/// the category (urgent/payment/…) while
 /// the icon is refined by the concrete notification *type* so a chat request,
 /// a donation and a campaign update each look distinct even within a category.
 class _NotificationVisuals {
   const _NotificationVisuals({
     required this.color,
-    required this.gradient,
     required this.icon,
     required this.isPinned,
   });
 
   final Color color;
-  final List<Color> gradient;
   final IconData icon;
   final bool isPinned;
 
-  factory _NotificationVisuals.of(AppNotificationModel n) {
-    final base = _byCategory(n.normalizedCategory);
+  factory _NotificationVisuals.of(
+    BuildContext context,
+    AppNotificationModel n,
+  ) {
+    final base = _byCategory(context, n.normalizedCategory);
     final icon = _iconForType(n.notificationType) ?? base.icon;
     return _NotificationVisuals(
       color: base.color,
-      gradient: base.gradient,
       icon: icon,
       isPinned: base.isPinned,
     );
   }
 
-  static _NotificationVisuals _byCategory(String category) {
+  static _NotificationVisuals _byCategory(
+    BuildContext context,
+    String category,
+  ) {
     switch (category) {
       case 'urgent':
         return _NotificationVisuals(
-          color: Colors.red.shade600,
-          gradient: [Colors.red.shade600, Colors.deepOrange.shade400],
+          color: AppThemeConfig.consequence(context),
           icon: Icons.priority_high_rounded,
           isPinned: true,
         );
       case 'payment':
         return _NotificationVisuals(
-          color: Colors.green.shade600,
-          gradient: [Colors.green.shade600, Colors.teal.shade400],
+          color: AppThemeConfig.accent(context),
           icon: Icons.payments_rounded,
           isPinned: true,
         );
       case 'campaign':
         return _NotificationVisuals(
-          color: Colors.indigo.shade500,
-          gradient: [Colors.indigo.shade500, Colors.blue.shade400],
+          color: AppThemeConfig.accent(context),
           icon: Icons.campaign_rounded,
           isPinned: false,
         );
       case 'system':
         return _NotificationVisuals(
-          color: Colors.blueGrey.shade600,
-          gradient: [Colors.blueGrey.shade600, Colors.blueGrey.shade400],
+          color: AppThemeConfig.subtleText(context),
           icon: Icons.settings_suggest_rounded,
           isPinned: false,
         );
       case 'reminder':
         return _NotificationVisuals(
-          color: Colors.amber.shade800,
-          gradient: [Colors.amber.shade700, Colors.orange.shade400],
+          color: AppThemeConfig.pending(context),
           icon: Icons.event_available_rounded,
           isPinned: false,
         );
       default:
         return _NotificationVisuals(
-          color: AppThemeConfig.primary,
-          gradient: [
-            AppThemeConfig.primary,
-            AppThemeConfig.primary.withValues(alpha: 0.65),
-          ],
+          color: AppThemeConfig.accent(context),
           icon: Icons.notifications_active_rounded,
           isPinned: false,
         );

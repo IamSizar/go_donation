@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/core/design/directional_icons.dart';
 import 'package:flutter_application_1/api/links.dart';
 import 'package:flutter_application_1/api/wallet_api.dart';
 import 'package:flutter_application_1/modules/community/screens/community_services_section.dart';
@@ -39,10 +40,6 @@ import '../data/featured_campaigns.dart';
 
 class DashboardHomeSection extends StatelessWidget {
   const DashboardHomeSection({super.key});
-
-  static const Color _primary = Color(0xFF0F766E);
-  static const Color _accent = Color(0xFF14B8A6);
-  static const Color _ink = Color(0xFF0F172A);
 
   String _roleKey(RoleDashboardController controller) {
     final backendRole = controller.roleKey.value.trim();
@@ -108,6 +105,7 @@ class DashboardHomeSection extends StatelessWidget {
   }
 
   Widget _buildHero({
+    required BuildContext context,
     required String firstName,
     required Widget primaryAction,
     required Widget secondaryAction,
@@ -116,16 +114,24 @@ class DashboardHomeSection extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [_ink, _primary, _accent],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        // Flat, not a three-stop ramp. Contrast on a gradient is positional:
+        // the previous ink→teal→mint version put white text over a stop that
+        // measured 2.49:1, below even the 3.0 large-text floor, on the most
+        // prominent element in the product.
+        //
+        // The foreground here is `onAccent`, NOT Colors.white. White is only
+        // right in light mode: the dark accent is a light mint (#6FBF9C) and
+        // white on it measures 2.19:1 — worse than the gradient this replaced.
+        // onAccent measures 7.54:1 light / 7.72:1 dark, because it flips with
+        // the palette.
+        color: AppThemeConfig.accent(context),
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+        border: Border.all(
+          color: AppThemeConfig.onAccent(context).withValues(alpha: 0.10),
+        ),
         boxShadow: [
           BoxShadow(
-            color: _primary.withValues(alpha: 0.28),
+            color: AppThemeConfig.accent(context).withValues(alpha: 0.28),
             blurRadius: 30,
             offset: const Offset(0, 18),
           ),
@@ -142,7 +148,7 @@ class DashboardHomeSection extends StatelessWidget {
               top: -10,
               child: Icon(
                 Icons.volunteer_activism_rounded,
-                color: Colors.white.withValues(alpha: 0.07),
+                color: AppThemeConfig.onAccent(context).withValues(alpha: 0.07),
                 size: 170,
               ),
             ),
@@ -155,8 +161,8 @@ class DashboardHomeSection extends StatelessWidget {
                     'Welcome back, @name'.trParams({'name': firstName}),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: AppThemeConfig.onAccent(context),
                       fontSize: 22,
                       fontWeight: FontWeight.w800,
                     ),
@@ -183,13 +189,14 @@ class DashboardHomeSection extends StatelessWidget {
   /// Shared white pill CTA for the hero card's primary action (task: reduce
   /// per-role duplication of the same button chrome).
   Widget _heroPrimaryButton({
+    required BuildContext context,
     required IconData icon,
     required String label,
     required VoidCallback onTap,
     void Function()? onLongPress,
   }) {
     return Material(
-      color: Colors.white,
+      color: AppThemeConfig.onAccent(context),
       borderRadius: BorderRadius.circular(999),
       child: InkWell(
         borderRadius: BorderRadius.circular(999),
@@ -200,7 +207,7 @@ class DashboardHomeSection extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: _primary, size: 16),
+              Icon(icon, color: AppThemeConfig.accent(context), size: 16),
               const SizedBox(width: 6),
               Flexible(
                 child: Text(
@@ -208,8 +215,8 @@ class DashboardHomeSection extends StatelessWidget {
                   textAlign: TextAlign.center,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: _primary,
+                  style: TextStyle(
+                    color: AppThemeConfig.accent(context),
                     fontWeight: FontWeight.w800,
                     fontSize: 13.5,
                   ),
@@ -233,12 +240,14 @@ class DashboardHomeSection extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
       children: [
         _buildHero(
+          context: context,
           firstName:
               ((sharedPreferences.getString('name_user') ?? 'No name'.tr)
                       .trim())
                   .split(RegExp(r'\s+'))
                   .first,
           primaryAction: _heroPrimaryButton(
+            context: context,
             icon: Icons.favorite_rounded,
             label: 'Make donation'.tr,
             onTap: () => Get.to(() => const DonationsSection()),
@@ -280,25 +289,25 @@ class DashboardHomeSection extends StatelessWidget {
               value: '${_intValue(stats, 'successful_count')}',
               label: 'Confirmed donations'.tr,
               icon: Icons.volunteer_activism_rounded,
-              color: Colors.green,
+              color: AppThemeConfig.accent(context),
             ),
             _StatItem(
               value: '${_intValue(stats, 'pending_count')}',
               label: 'Pending payments'.tr,
               icon: Icons.hourglass_top_rounded,
-              color: Colors.orange,
+              color: AppThemeConfig.pending(context),
             ),
             _StatItem(
               value: '${_intValue(stats, 'active_campaigns')}',
               label: 'Open campaigns'.tr,
               icon: Icons.track_changes_rounded,
-              color: Colors.indigo,
+              color: AppThemeConfig.accent(context),
             ),
             _StatItem(
               value: '${_intValue(stats, 'pending_sponsorships')}',
               label: 'Pending sponsorships'.tr,
               icon: Icons.schedule_rounded,
-              color: Colors.pink,
+              color: AppThemeConfig.pending(context),
             ),
           ],
         ),
@@ -313,7 +322,7 @@ class DashboardHomeSection extends StatelessWidget {
                 child: _QuickAction(
                   icon: Icons.send_rounded,
                   label: 'Contribute',
-                  color: Colors.orange,
+                  color: AppThemeConfig.accent(context),
                   onTap: () => Get.to(() => const DonationsSection()),
                 ),
               ),
@@ -322,7 +331,7 @@ class DashboardHomeSection extends StatelessWidget {
                 child: _QuickAction(
                   icon: Icons.receipt_long_rounded,
                   label: 'History',
-                  color: Colors.blueAccent,
+                  color: AppThemeConfig.accent(context),
                   onTap: () => Get.to(() => const RoleHistoryScreen()),
                 ),
               ),
@@ -331,7 +340,7 @@ class DashboardHomeSection extends StatelessWidget {
                 child: _QuickAction(
                   icon: Icons.favorite_rounded,
                   label: 'Support',
-                  color: Colors.teal,
+                  color: AppThemeConfig.accent(context),
                   onTap: () => Get.to(() => const SponsorshipOverviewScreen()),
                 ),
               ),
@@ -347,7 +356,7 @@ class DashboardHomeSection extends StatelessWidget {
                 child: _QuickAction(
                   icon: Icons.casino_rounded,
                   label: 'Wheel of Fortune',
-                  color: Colors.deepPurple,
+                  color: AppThemeConfig.accent(context),
                   compact: true,
                   badgeLabel: 'New',
                   onTap: () => Get.to(() => const WheelOfFortuneScreen()),
@@ -358,7 +367,7 @@ class DashboardHomeSection extends StatelessWidget {
                 child: _QuickAction(
                   icon: Icons.card_giftcard_rounded,
                   label: 'Lucky Coupon',
-                  color: Colors.pinkAccent,
+                  color: AppThemeConfig.accent(context),
                   compact: true,
                   badgeLabel: 'New',
                   onTap: () => Get.to(() => const LuckyCouponScreen()),
@@ -398,8 +407,8 @@ class DashboardHomeSection extends StatelessWidget {
               onTap: () => Get.to(() => const MyDonationsPage()),
               child: Text(
                 'See all'.tr,
-                style: const TextStyle(
-                  color: _primary,
+                style: TextStyle(
+                  color: AppThemeConfig.accent(context),
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -416,7 +425,7 @@ class DashboardHomeSection extends StatelessWidget {
                 for (var i = 0; i < recentDonations.length; i++) ...[
                   _DashboardActivityTile(
                     icon: Icons.receipt_long_rounded,
-                    color: Colors.teal,
+                    color: AppThemeConfig.accent(context),
                     title: _moneyLabel(
                       _doubleValue(recentDonations[i], 'amount'),
                     ),
@@ -446,12 +455,14 @@ class DashboardHomeSection extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
       children: [
         _buildHero(
+          context: context,
           firstName:
               ((sharedPreferences.getString('name_user') ?? 'No name'.tr)
                       .trim())
                   .split(RegExp(r'\s+'))
                   .first,
           primaryAction: _heroPrimaryButton(
+            context: context,
             icon: Icons.add_circle_rounded,
             label: 'Submit request'.tr,
             onTap: () => Get.to(() => const BeneficiarySubmitProjectScreen()),
@@ -494,25 +505,25 @@ class DashboardHomeSection extends StatelessWidget {
               value: '${_intValue(stats, 'approved_cases')}',
               label: 'Approved cases'.tr,
               icon: Icons.verified_rounded,
-              color: Colors.green,
+              color: AppThemeConfig.accent(context),
             ),
             _StatItem(
               value: '${_intValue(stats, 'needs_changes_cases')}',
               label: 'Needs changes'.tr,
               icon: Icons.edit_note_rounded,
-              color: Colors.orange,
+              color: AppThemeConfig.accent(context),
             ),
             _StatItem(
               value: '${_intValue(stats, 'approved_requests')}',
               label: 'Approved requests'.tr,
               icon: Icons.volunteer_activism_rounded,
-              color: Colors.teal,
+              color: AppThemeConfig.accent(context),
             ),
             _StatItem(
               value: '${_intValue(stats, 'open_support_tickets')}',
               label: 'Open support tickets'.tr,
               icon: Icons.support_agent_rounded,
-              color: Colors.indigo,
+              color: AppThemeConfig.accent(context),
             ),
           ],
         ),
@@ -527,7 +538,7 @@ class DashboardHomeSection extends StatelessWidget {
                 child: _QuickAction(
                   icon: Icons.add_circle_outline_rounded,
                   label: 'Submit',
-                  color: Colors.orange,
+                  color: AppThemeConfig.accent(context),
                   onTap: () =>
                       Get.to(() => const BeneficiarySubmitProjectScreen()),
                 ),
@@ -537,7 +548,7 @@ class DashboardHomeSection extends StatelessWidget {
                 child: _QuickAction(
                   icon: Icons.folder_open_rounded,
                   label: 'My requests',
-                  color: Colors.blueAccent,
+                  color: AppThemeConfig.accent(context),
                   onTap: () =>
                       Get.to(() => const BeneficiaryMyProjectsScreen()),
                 ),
@@ -547,7 +558,7 @@ class DashboardHomeSection extends StatelessWidget {
                 child: _QuickAction(
                   icon: Icons.hourglass_bottom_rounded,
                   label: 'Pending',
-                  color: Colors.teal,
+                  color: AppThemeConfig.pending(context),
                   onTap: () =>
                       Get.to(() => const BeneficiaryPendingProjectsScreen()),
                 ),
@@ -567,7 +578,7 @@ class DashboardHomeSection extends StatelessWidget {
                 for (var i = 0; i < recentCases.length; i++) ...[
                   _DashboardActivityTile(
                     icon: Icons.assignment_rounded,
-                    color: Colors.indigo,
+                    color: AppThemeConfig.accent(context),
                     title: (recentCases[i]['public_title'] ?? 'Case')
                         .toString(),
                     subtitle:
@@ -592,7 +603,7 @@ class DashboardHomeSection extends StatelessWidget {
                 for (var i = 0; i < recentRequests.length; i++) ...[
                   _DashboardActivityTile(
                     icon: Icons.flag_rounded,
-                    color: Colors.teal,
+                    color: AppThemeConfig.accent(context),
                     title: (recentRequests[i]['project_title'] ?? 'Request')
                         .toString(),
                     subtitle:
@@ -627,12 +638,14 @@ class DashboardHomeSection extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
       children: [
         _buildHero(
+          context: context,
           firstName:
               ((sharedPreferences.getString('name_user') ?? 'No name'.tr)
                       .trim())
                   .split(RegExp(r'\s+'))
                   .first,
           primaryAction: _heroPrimaryButton(
+            context: context,
             icon: Icons.front_hand_rounded,
             label: 'Open missions'.tr,
             onTap: () => Get.to(() => const SupportSection()),
@@ -674,13 +687,13 @@ class DashboardHomeSection extends StatelessWidget {
               value: '${_intValue(stats, 'available_missions')}',
               label: 'Available missions'.tr,
               icon: Icons.assignment_turned_in_rounded,
-              color: Colors.cyan,
+              color: AppThemeConfig.accent(context),
             ),
             _StatItem(
               value: '${_intValue(stats, 'completed_missions')}',
               label: 'Completed missions'.tr,
               icon: Icons.workspace_premium_rounded,
-              color: Colors.green,
+              color: AppThemeConfig.accent(context),
             ),
             _StatItem(
               value: applicationStatus.isEmpty
@@ -688,13 +701,13 @@ class DashboardHomeSection extends StatelessWidget {
                   : applicationStatus.replaceAll('_', ' '),
               label: 'Application status'.tr,
               icon: Icons.person_add_alt_1_rounded,
-              color: Colors.orange,
+              color: AppThemeConfig.accent(context),
             ),
             _StatItem(
               value: (application['city'] ?? '—').toString(),
               label: 'Application city'.tr,
               icon: Icons.location_city_rounded,
-              color: Colors.indigo,
+              color: AppThemeConfig.accent(context),
             ),
           ],
         ),
@@ -709,7 +722,7 @@ class DashboardHomeSection extends StatelessWidget {
                 child: _QuickAction(
                   icon: Icons.front_hand_rounded,
                   label: 'Missions',
-                  color: Colors.orange,
+                  color: AppThemeConfig.accent(context),
                   onTap: () => Get.to(() => const SupportSection()),
                 ),
               ),
@@ -718,7 +731,7 @@ class DashboardHomeSection extends StatelessWidget {
                 child: _QuickAction(
                   icon: Icons.badge_rounded,
                   label: 'Apply',
-                  color: Colors.blueAccent,
+                  color: AppThemeConfig.accent(context),
                   onTap: () =>
                       Get.to(() => const VolunteerApplicationFormScreen()),
                 ),
@@ -728,7 +741,7 @@ class DashboardHomeSection extends StatelessWidget {
                 child: _QuickAction(
                   icon: Icons.notifications_active_rounded,
                   label: 'History',
-                  color: Colors.teal,
+                  color: AppThemeConfig.accent(context),
                   onTap: () => Get.to(() => const RoleHistoryScreen()),
                 ),
               ),
@@ -747,7 +760,7 @@ class DashboardHomeSection extends StatelessWidget {
                 for (var i = 0; i < upcomingMissions.length; i++) ...[
                   _DashboardActivityTile(
                     icon: Icons.task_alt_rounded,
-                    color: Colors.cyan,
+                    color: AppThemeConfig.accent(context),
                     title: (upcomingMissions[i]['title'] ?? 'Mission')
                         .toString(),
                     subtitle:
@@ -878,11 +891,7 @@ class _WalletCardState extends State<_WalletCard> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF0F766E), Color(0xFF14B8A6)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: AppThemeConfig.accent(context),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
@@ -891,12 +900,12 @@ class _WalletCardState extends State<_WalletCard> {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.18),
+              color: AppThemeConfig.onAccent(context).withValues(alpha: 0.18),
               shape: BoxShape.circle,
             ),
-            child: const Icon(
+            child: Icon(
               Icons.account_balance_wallet_rounded,
-              color: Colors.white,
+              color: AppThemeConfig.onAccent(context),
               size: 20,
             ),
           ),
@@ -909,7 +918,9 @@ class _WalletCardState extends State<_WalletCard> {
                 Text(
                   'My wallet'.tr,
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.85),
+                    color: AppThemeConfig.onAccent(
+                      context,
+                    ).withValues(alpha: 0.85),
                     fontWeight: FontWeight.w600,
                     fontSize: 12.5,
                   ),
@@ -921,8 +932,8 @@ class _WalletCardState extends State<_WalletCard> {
                       : '${NumberFormat('#,##0').format(balance)} IQD',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: AppThemeConfig.onAccent(context),
                     fontWeight: FontWeight.w800,
                     fontSize: 20,
                   ),
@@ -935,7 +946,10 @@ class _WalletCardState extends State<_WalletCard> {
             label: 'How do I add funds?'.tr,
             child: IconButton(
               tooltip: 'How do I add funds?'.tr,
-              icon: const Icon(Icons.info_outline_rounded, color: Colors.white),
+              icon: Icon(
+                Icons.info_outline_rounded,
+                color: AppThemeConfig.onAccent(context),
+              ),
               onPressed: () => Get.dialog(
                 AlertDialog(
                   title: Text('My wallet'.tr),
@@ -984,8 +998,8 @@ class _FeaturedCampaignsSection extends StatelessWidget {
               onTap: () => Get.to(() => const DonationsSection()),
               child: Text(
                 'See all'.tr,
-                style: const TextStyle(
-                  color: Color(0xFF0F766E),
+                style: TextStyle(
+                  color: AppThemeConfig.accent(context),
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -1061,14 +1075,9 @@ class _SectionScaffold extends StatelessWidget {
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              AppThemeConfig.backgroundTop(context),
-              AppThemeConfig.backgroundBottom(context),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          // Both stops resolved to the same token, so this was already
+          // painting flat. Stated plainly instead.
+          color: AppThemeConfig.backgroundTop(context),
         ),
         child: SafeArea(child: child),
       ),
@@ -1100,7 +1109,7 @@ class _WatchNowButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF14B8A6).withValues(alpha: 0.28),
+            color: AppThemeConfig.accent(context).withValues(alpha: 0.28),
             blurRadius: 22,
             offset: const Offset(0, 14),
           ),
@@ -1109,8 +1118,8 @@ class _WatchNowButton extends StatelessWidget {
       child: TextButton.icon(
         onPressed: onTap,
         style: TextButton.styleFrom(
-          backgroundColor: const Color(0xFF0F766E),
-          foregroundColor: Colors.white,
+          backgroundColor: AppThemeConfig.accent(context),
+          foregroundColor: AppThemeConfig.onAccent(context),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
           minimumSize: Size.zero,
           shape: RoundedRectangleBorder(
@@ -1144,14 +1153,7 @@ class _GlassPanel extends StatelessWidget {
     return Container(
       padding: padding,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppThemeConfig.surface(context),
-            AppThemeConfig.elevatedSurface(context),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: AppThemeConfig.surface(context),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: AppThemeConfig.border(context)),
         boxShadow: [
@@ -1179,11 +1181,9 @@ class _SectionLabel extends StatelessWidget {
         Container(
           width: 10,
           height: 10,
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             shape: BoxShape.circle,
-            gradient: LinearGradient(
-              colors: [Color(0xFF0F766E), Color(0xFF14B8A6)],
-            ),
+            color: AppThemeConfig.accent(context),
           ),
         ),
         const SizedBox(width: 10),
@@ -1219,11 +1219,7 @@ class _IconShell extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [color.withValues(alpha: 0.24), color.withValues(alpha: 0.1)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: color.withValues(alpha: 0.14),
         shape: BoxShape.circle,
         border: Border.all(color: color.withValues(alpha: 0.16)),
         boxShadow: [
@@ -1373,9 +1369,11 @@ class _DashboardHeroStat extends StatelessWidget {
     final child = Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.14),
+        color: AppThemeConfig.onAccent(context).withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+        border: Border.all(
+          color: AppThemeConfig.onAccent(context).withValues(alpha: 0.16),
+        ),
       ),
       child: Row(
         children: [
@@ -1383,17 +1381,14 @@ class _DashboardHeroStat extends StatelessWidget {
             width: 34,
             height: 34,
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Colors.white.withValues(alpha: 0.24),
-                  Colors.white.withValues(alpha: 0.12),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              color: AppThemeConfig.onAccent(context).withValues(alpha: 0.18),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: Colors.white, size: 17),
+            child: Icon(
+              icon,
+              color: AppThemeConfig.onAccent(context),
+              size: 17,
+            ),
           ),
           const SizedBox(width: 9),
           Expanded(
@@ -1405,8 +1400,8 @@ class _DashboardHeroStat extends StatelessWidget {
                   value,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: AppThemeConfig.onAccent(context),
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
                   ),
@@ -1417,7 +1412,9 @@ class _DashboardHeroStat extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.9),
+                    color: AppThemeConfig.onAccent(
+                      context,
+                    ).withValues(alpha: 0.9),
                     fontWeight: FontWeight.w600,
                     fontSize: 10.5,
                   ),
@@ -1458,7 +1455,7 @@ class _TopShortcutsRow extends StatelessWidget {
             child: _QuickAction(
               icon: Icons.storefront_rounded,
               label: 'Our Products',
-              color: Colors.deepOrangeAccent,
+              color: AppThemeConfig.accent(context),
               compact: true,
               onTap: () => Get.to(() => const MarketplaceSection()),
             ),
@@ -1468,7 +1465,7 @@ class _TopShortcutsRow extends StatelessWidget {
             child: _QuickAction(
               icon: Icons.volunteer_activism_rounded,
               label: 'My Engagement',
-              color: Colors.teal,
+              color: AppThemeConfig.accent(context),
               compact: true,
               onTap: () => Get.to(() => const RoleHistoryScreen()),
             ),
@@ -1478,7 +1475,7 @@ class _TopShortcutsRow extends StatelessWidget {
             child: _QuickAction(
               icon: Icons.explore_rounded,
               label: 'City Guide',
-              color: Colors.indigo,
+              color: AppThemeConfig.accent(context),
               compact: true,
               onTap: () => Get.to(() => const CityGuideScreen()),
             ),
@@ -1511,8 +1508,11 @@ class _QuickAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final boxSize = compact ? 50.0 : 62.0;
-    final iconSize = compact ? 22.0 : 28.0;
+    // Quick actions are navigation shortcuts, not the point of the screen.
+    // They were reading as the loudest thing on Home; scaled down so the
+    // headline figure and the campaigns keep the emphasis.
+    final boxSize = compact ? 38.0 : 44.0;
+    final iconSize = compact ? 17.0 : 20.0;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -1521,7 +1521,7 @@ class _QuickAction extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 4),
           child: Container(
-            padding: const EdgeInsets.fromLTRB(6, 12, 6, 12),
+            padding: const EdgeInsets.fromLTRB(6, 9, 6, 9),
             decoration: BoxDecoration(
               color: AppThemeConfig.softSurface(context),
               borderRadius: BorderRadius.circular(20),
@@ -1533,15 +1533,8 @@ class _QuickAction extends StatelessWidget {
                   width: boxSize,
                   height: boxSize,
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        color.withValues(alpha: 0.24),
-                        color.withValues(alpha: 0.08),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(20),
+                    color: color.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(13),
                     border: Border.all(color: color.withValues(alpha: 0.14)),
                   ),
                   child: Stack(
@@ -1550,11 +1543,11 @@ class _QuickAction extends StatelessWidget {
                     children: [
                       if (badgeLabel == null)
                         Positioned(
-                          top: 10,
-                          right: 10,
+                          top: 7,
+                          right: 7,
                           child: Container(
-                            width: 8,
-                            height: 8,
+                            width: 6,
+                            height: 6,
                             decoration: BoxDecoration(
                               color: color.withValues(alpha: 0.9),
                               shape: BoxShape.circle,
@@ -1575,14 +1568,14 @@ class _QuickAction extends StatelessWidget {
                               color: color,
                               borderRadius: BorderRadius.circular(999),
                               border: Border.all(
-                                color: Colors.white,
+                                color: AppThemeConfig.onAccent(context),
                                 width: 1.5,
                               ),
                             ),
                             child: Text(
                               badgeLabel!.tr,
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: AppThemeConfig.onAccent(context),
                                 fontWeight: FontWeight.w800,
                                 fontSize: 9,
                               ),
@@ -1592,14 +1585,14 @@ class _QuickAction extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 7),
                 Text(
                   label.tr,
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
-                    fontSize: compact ? 12.5 : null,
+                    fontSize: compact ? 11.5 : 12.5,
                     color: AppThemeConfig.text(context),
                   ),
                 ),
@@ -1624,21 +1617,15 @@ class _CampaignCard extends StatelessWidget {
     // thicker gradient progress bar. Cleaner hierarchy than the old
     // info-line stack.
     final pct = (campaign.fundedProgress.clamp(0.0, 1.0) * 100).round();
-    final accent = campaign.color;
+    final accent = AppThemeConfig.accent(context);
 
     return Container(
       width: 244,
-      margin: const EdgeInsets.only(right: 14),
+      margin: const EdgeInsetsDirectional.only(end: 14),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppThemeConfig.elevatedSurface(context),
-            accent.withValues(alpha: 0.16),
-            accent.withValues(alpha: 0.06),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        // A single tint over the card surface, replacing a three-stop ramp
+        // from surface through two accent alphas.
+        color: accent.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: AppThemeConfig.border(context)),
         boxShadow: [
@@ -1803,14 +1790,12 @@ class _CampaignCard extends StatelessWidget {
                     height: 10,
                     color: accent.withValues(alpha: 0.14),
                     child: Align(
-                      alignment: Alignment.centerLeft,
+                      alignment: AlignmentDirectional.centerStart,
                       child: FractionallySizedBox(
                         widthFactor: campaign.fundedProgress.clamp(0.0, 1.0),
                         child: Container(
                           decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [accent.withValues(alpha: 0.7), accent],
-                            ),
+                            color: accent,
                             borderRadius: BorderRadius.circular(999),
                           ),
                         ),
@@ -1831,7 +1816,11 @@ class _CampaignCard extends StatelessWidget {
                         color: accent,
                       ),
                     ),
-                    Icon(Icons.arrow_forward_rounded, size: 16, color: accent),
+                    Icon(
+                      AppIcons.forwardSolid(context),
+                      size: 16,
+                      color: accent,
+                    ),
                   ],
                 ),
               ],
@@ -1883,8 +1872,8 @@ class _NewsStrip extends StatelessWidget {
                   ),
                   child: Text(
                     'See all'.tr,
-                    style: const TextStyle(
-                      color: Color(0xFF0F766E),
+                    style: TextStyle(
+                      color: AppThemeConfig.accent(context),
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -1946,17 +1935,13 @@ class _NewsCard extends StatelessWidget {
                 width: double.infinity,
                 child: imageUrl == null
                     ? Container(
-                        decoration: const BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [Color(0xFF0F766E), Color(0xFF14B8A6)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
+                        decoration: BoxDecoration(
+                          color: AppThemeConfig.accent(context),
                         ),
-                        child: const Center(
+                        child: Center(
                           child: Icon(
                             Icons.article_rounded,
-                            color: Colors.white,
+                            color: AppThemeConfig.onAccent(context),
                             size: 34,
                           ),
                         ),
@@ -1975,17 +1960,13 @@ class _NewsCard extends StatelessWidget {
                           ),
                         ),
                         errorWidget: (_, __, ___) => Container(
-                          decoration: const BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [Color(0xFF0F766E), Color(0xFF14B8A6)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
+                          decoration: BoxDecoration(
+                            color: AppThemeConfig.accent(context),
                           ),
-                          child: const Center(
+                          child: Center(
                             child: Icon(
                               Icons.article_rounded,
-                              color: Colors.white,
+                              color: AppThemeConfig.onAccent(context),
                               size: 34,
                             ),
                           ),
@@ -2006,15 +1987,15 @@ class _NewsCard extends StatelessWidget {
                             vertical: 3,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(
-                              0xFF0F766E,
+                            color: AppThemeConfig.accent(
+                              context,
                             ).withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(999),
                           ),
                           child: Text(
                             type.tr,
-                            style: const TextStyle(
-                              color: Color(0xFF0F766E),
+                            style: TextStyle(
+                              color: AppThemeConfig.accent(context),
                               fontSize: 10.5,
                               fontWeight: FontWeight.w700,
                             ),
@@ -2121,8 +2102,8 @@ class _PartnersStrip extends StatelessWidget {
                   ),
                   child: Text(
                     'See all'.tr,
-                    style: const TextStyle(
-                      color: Color(0xFF0F766E),
+                    style: TextStyle(
+                      color: AppThemeConfig.accent(context),
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -2199,10 +2180,10 @@ class _PartnerLogoCard extends StatelessWidget {
                     ? Center(
                         child: Text(
                           name.isNotEmpty ? name.characters.first : '?',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 30,
                             fontWeight: FontWeight.w800,
-                            color: Color(0xFF0F766E),
+                            color: AppThemeConfig.accent(context),
                           ),
                         ),
                       )
@@ -2219,10 +2200,10 @@ class _PartnerLogoCard extends StatelessWidget {
                         errorWidget: (_, __, ___) => Center(
                           child: Text(
                             name.isNotEmpty ? name.characters.first : '?',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 30,
                               fontWeight: FontWeight.w800,
-                              color: Color(0xFF0F766E),
+                              color: AppThemeConfig.accent(context),
                             ),
                           ),
                         ),
@@ -2333,7 +2314,7 @@ class _DashboardActivityTile extends StatelessWidget {
             if (onTap != null) ...[
               const SizedBox(height: 2),
               Icon(
-                Icons.chevron_right_rounded,
+                AppIcons.chevronForward(context),
                 size: 18,
                 color: AppThemeConfig.mutedText(context),
               ),

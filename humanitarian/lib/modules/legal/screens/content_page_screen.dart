@@ -9,7 +9,11 @@ import 'package:get/get.dart';
 /// admin-editable content from /api/content/:slug and renders it in the current
 /// locale (falling back to English). Works pre-login (no auth needed).
 class ContentPageScreen extends StatefulWidget {
-  const ContentPageScreen({super.key, required this.slug, required this.titleKey});
+  const ContentPageScreen({
+    super.key,
+    required this.slug,
+    required this.titleKey,
+  });
   final String slug;
   final String titleKey;
 
@@ -55,9 +59,15 @@ class _ContentPageScreenState extends State<ContentPageScreen> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text('content_load_failed'.tr, textAlign: TextAlign.center),
+                          Text(
+                            'content_load_failed'.tr,
+                            textAlign: TextAlign.center,
+                          ),
                           const SizedBox(height: 12),
-                          TextButton(onPressed: _retry, child: Text('Retry'.tr)),
+                          TextButton(
+                            onPressed: _retry,
+                            child: Text('Retry'.tr),
+                          ),
                         ],
                       ),
                     );

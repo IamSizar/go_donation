@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/core/design/directional_icons.dart';
 import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/modules/chat/chat_actions.dart';
@@ -42,7 +43,7 @@ class MarriageHubScreen extends StatelessWidget {
           const SizedBox(height: 8),
           _MarriageTile(
             icon: Icons.villa_outlined,
-            color: Colors.indigo,
+            color: AppThemeConfig.accent(context),
             title: 'Hall booking',
             subtitle: 'Request a hall for your event',
             onTap: () => Get.to(
@@ -77,7 +78,7 @@ class MarriageHubScreen extends StatelessWidget {
           const SizedBox(height: 12),
           _MarriageTile(
             icon: Icons.local_florist_outlined,
-            color: Colors.green,
+            color: AppThemeConfig.accent(context),
             title: 'Decorations',
             subtitle: 'Request decorations for your event',
             onTap: () => Get.to(
@@ -88,7 +89,7 @@ class MarriageHubScreen extends StatelessWidget {
           const SizedBox(height: 12),
           _MarriageTile(
             icon: Icons.other_houses_outlined,
-            color: Colors.orange,
+            color: AppThemeConfig.pending(context),
             title: 'Event tents and equipment',
             subtitle: 'Request tents and related equipment',
             onTap: () => Get.to(
@@ -100,7 +101,7 @@ class MarriageHubScreen extends StatelessWidget {
           const SizedBox(height: 12),
           _MarriageTile(
             icon: Icons.add_circle_outline_rounded,
-            color: Colors.blueGrey,
+            color: AppThemeConfig.subtleText(context),
             title: 'Add another service',
             subtitle: 'Request a service not listed above',
             onTap: () => Get.to(
@@ -115,7 +116,7 @@ class MarriageHubScreen extends StatelessWidget {
           const SizedBox(height: 8),
           _MarriageTile(
             icon: Icons.search_rounded,
-            color: Colors.pinkAccent,
+            color: AppThemeConfig.accent(context),
             title: 'Browse profiles',
             subtitle: 'Search event profiles by name or gender',
             onTap: () => Get.to(() => const MarriageSearchScreen()),
@@ -123,7 +124,7 @@ class MarriageHubScreen extends StatelessWidget {
           const SizedBox(height: 12),
           _MarriageTile(
             icon: Icons.article_outlined,
-            color: Colors.deepPurple,
+            color: AppThemeConfig.accent(context),
             title: 'Event posts',
             subtitle: 'News and stories from the events section',
             onTap: () => Get.to(() => const MarriagePostsScreen()),
@@ -132,7 +133,7 @@ class MarriageHubScreen extends StatelessWidget {
             const SizedBox(height: 12),
             _MarriageTile(
               icon: Icons.favorite_outline_rounded,
-              color: Colors.pink,
+              color: AppThemeConfig.accent(context),
               title: 'Create / edit my profile',
               subtitle: 'Submit or update your event profile',
               onTap: () => Get.to(() => const MarriageFormScreen()),
@@ -140,7 +141,7 @@ class MarriageHubScreen extends StatelessWidget {
             const SizedBox(height: 12),
             _MarriageTile(
               icon: Icons.fact_check_outlined,
-              color: Colors.deepOrange,
+              color: AppThemeConfig.pending(context),
               title: 'My profile',
               subtitle: 'View your submitted profile and its status',
               onTap: () => Get.to(() => const MarriageMyProfileScreen()),
@@ -148,7 +149,7 @@ class MarriageHubScreen extends StatelessWidget {
             const SizedBox(height: 12),
             _MarriageTile(
               icon: Icons.workspace_premium_rounded,
-              color: Colors.pinkAccent,
+              color: AppThemeConfig.accent(context),
               title: 'Subscription',
               subtitle: 'Upgrade your profile with a subscription package',
               onTap: () => Get.to(() => const MarriageSubscriptionScreen()),
@@ -158,7 +159,7 @@ class MarriageHubScreen extends StatelessWidget {
             const SizedBox(height: 12),
             _MarriageTile(
               icon: Icons.forum_outlined,
-              color: Colors.purple,
+              color: AppThemeConfig.accent(context),
               title: 'Chats',
               subtitle: 'Staff-mediated conversations for accepted meetings',
               onTap: () => Get.to(() => const MarriageChatsScreen()),
@@ -166,7 +167,7 @@ class MarriageHubScreen extends StatelessWidget {
             const SizedBox(height: 12),
             _MarriageTile(
               icon: Icons.support_agent_rounded,
-              color: Colors.teal,
+              color: AppThemeConfig.accent(context),
               title: 'Message the staff team',
               subtitle: 'Questions or issues about the events section',
               onTap: () => ChatActions.startSupportChat(
@@ -183,7 +184,7 @@ class MarriageHubScreen extends StatelessWidget {
           const SizedBox(height: 8),
           _MarriageTile(
             icon: Icons.info_outline_rounded,
-            color: Colors.teal,
+            color: AppThemeConfig.accent(context),
             title: 'About My Engagement',
             subtitle: 'What this service is and how it works',
             onTap: () => Get.to(
@@ -196,7 +197,7 @@ class MarriageHubScreen extends StatelessWidget {
           const SizedBox(height: 12),
           _MarriageTile(
             icon: Icons.support_agent_rounded,
-            color: Colors.indigo,
+            color: AppThemeConfig.accent(context),
             title: 'Contact My Engagement',
             subtitle: 'Reach the engagement service team',
             onTap: () => Get.to(
@@ -206,7 +207,6 @@ class MarriageHubScreen extends StatelessWidget {
               ),
             ),
           ),
-
         ],
       ),
     );
@@ -278,7 +278,7 @@ class _MarriageTile extends StatelessWidget {
                 ),
               ),
               Icon(
-                Icons.arrow_forward_ios_rounded,
+                AppIcons.forward(context),
                 size: 15,
                 color: AppThemeConfig.mutedText(context),
               ),

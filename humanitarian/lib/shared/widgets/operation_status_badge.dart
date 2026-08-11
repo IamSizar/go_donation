@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:get/get.dart';
 
 /// Client note — "Status of Operations and Donations": a clear, colored
@@ -18,16 +19,20 @@ class OperationStatusBadge extends StatelessWidget {
   final double progress;
   final double size;
 
-  static const Color _green = Color(0xFF16A34A);
-  static const Color _red = Color(0xFFDC2626);
-  static const Color _orange = Color(0xFFF59E0B);
-
   double get _clamped => progress.clamp(0.0, 1.0);
 
-  Color get _color {
-    if (_clamped >= 1.0) return _green;
-    if (_clamped <= 0.0) return _red;
-    return _orange;
+  /// The delivery state, as a semantic token.
+  ///
+  /// These were hardcoded as #16A34A / #DC2626 / #F59E0B — a green, a red and
+  /// an amber picked by eye, which is why a bright signal-green disc sat on a
+  /// card whose palette is olive. The three states map exactly onto tokens the
+  /// design system already defines, so they use those and adapt to dark mode
+  /// for free.
+  static Color statusColor(BuildContext context, double progress) {
+    final c = progress.clamp(0.0, 1.0);
+    if (c >= 1.0) return AppThemeConfig.accent(context); // settled
+    if (c <= 0.0) return AppThemeConfig.consequence(context); // nothing yet
+    return AppThemeConfig.pending(context); // in flight
   }
 
   String get _statusLabel {
@@ -46,14 +51,14 @@ class OperationStatusBadge extends StatelessWidget {
         height: size,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: _color,
+          color: statusColor(context, progress),
           border: Border.all(
-            color: Colors.white.withValues(alpha: 0.35),
+            color: AppThemeConfig.onAccent(context).withValues(alpha: 0.35),
             width: 2,
           ),
           boxShadow: [
             BoxShadow(
-              color: _color.withValues(alpha: 0.4),
+              color: statusColor(context, progress).withValues(alpha: 0.4),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -61,12 +66,16 @@ class OperationStatusBadge extends StatelessWidget {
         ),
         alignment: Alignment.center,
         child: _clamped >= 1.0
-            ? Icon(Icons.check_rounded, color: Colors.white, size: size * 0.52)
+            ? Icon(
+                Icons.check_rounded,
+                color: AppThemeConfig.onAccent(context),
+                size: size * 0.52,
+              )
             : Text(
                 '$pct%',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppThemeConfig.onAccent(context),
                   fontWeight: FontWeight.w900,
                   fontSize: size * 0.30,
                   height: 1,
@@ -87,11 +96,7 @@ class OperationStatusPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final clamped = progress.clamp(0.0, 1.0);
-    final color = clamped >= 1.0
-        ? OperationStatusBadge._green
-        : clamped <= 0.0
-        ? OperationStatusBadge._red
-        : OperationStatusBadge._orange;
+    final color = OperationStatusBadge.statusColor(context, progress);
     final pct = (clamped * 100).round();
     final label = clamped >= 1.0
         ? 'Complete'.tr
@@ -109,8 +114,8 @@ class OperationStatusPill extends StatelessWidget {
         children: [
           Text(
             '$pct%',
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: AppThemeConfig.onAccent(context),
               fontWeight: FontWeight.w900,
               fontSize: 12.5,
             ),
@@ -118,8 +123,8 @@ class OperationStatusPill extends StatelessWidget {
           const SizedBox(width: 5),
           Text(
             label,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: AppThemeConfig.onAccent(context),
               fontWeight: FontWeight.w700,
               fontSize: 11,
             ),

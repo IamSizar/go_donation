@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/api/links.dart';
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/core/app_state.dart';
@@ -68,7 +69,7 @@ class _BeneficiaryServices extends StatelessWidget {
           icon: Icons.diversity_1_rounded,
           title: 'marriage_posts_title',
           subtitle: 'marriage_posts_services_subtitle',
-          color: Colors.deepPurple,
+          color: AppThemeConfig.accent(context),
           onTap: () => Get.to(() => const MarriagePostsScreen()),
         ),
         const SizedBox(height: 12),
@@ -76,7 +77,7 @@ class _BeneficiaryServices extends StatelessWidget {
           icon: Icons.apartment_rounded,
           title: 'Partners',
           subtitle: 'Browse partner and supporting entities.',
-          color: Colors.blueAccent,
+          color: AppThemeConfig.accent(context),
           onTap: () => Get.to(() => const PartnersScreen()),
         ),
         const SizedBox(height: 12),
@@ -84,7 +85,7 @@ class _BeneficiaryServices extends StatelessWidget {
           icon: Icons.article_rounded,
           title: 'News and activities',
           subtitle: 'See activities, news, articles, and events.',
-          color: Colors.orange,
+          color: AppThemeConfig.pending(context),
           onTap: () => Get.to(() => const NewsActivitiesScreen()),
         ),
         const SizedBox(height: 12),
@@ -92,7 +93,7 @@ class _BeneficiaryServices extends StatelessWidget {
           icon: Icons.support_agent_rounded,
           title: 'Technical support',
           subtitle: 'Send a support request to the institution.',
-          color: Colors.indigo,
+          color: AppThemeConfig.accent(context),
           onTap: () => Get.to(() => const SupportTicketFormScreen()),
         ),
       ],
@@ -111,7 +112,7 @@ class _DonorServices extends StatelessWidget {
           icon: Icons.verified_user_rounded,
           title: 'Beneficiary cases'.tr,
           subtitle: 'Review verified cases by code, need, and priority.',
-          color: Colors.teal,
+          color: AppThemeConfig.accent(context),
           onTap: () => Get.to(() => const BeneficiaryCasesScreen()),
         ),
         const SizedBox(height: 12),
@@ -119,7 +120,7 @@ class _DonorServices extends StatelessWidget {
           icon: Icons.handshake_rounded,
           title: 'Create sponsorship',
           subtitle: 'Register a scheduled sponsorship commitment.',
-          color: Colors.pinkAccent,
+          color: AppThemeConfig.accent(context),
           onTap: () => Get.to(() => const SponsorshipFormScreen()),
         ),
         const SizedBox(height: 12),
@@ -127,7 +128,7 @@ class _DonorServices extends StatelessWidget {
           icon: Icons.inventory_2_rounded,
           title: 'In-kind donation',
           subtitle: 'Submit food, clothing, supplies, or other items.',
-          color: Colors.green,
+          color: AppThemeConfig.accent(context),
           onTap: () => Get.to(() => const InKindDonationFormScreen()),
         ),
         const SizedBox(height: 12),
@@ -135,7 +136,7 @@ class _DonorServices extends StatelessWidget {
           icon: Icons.apartment_rounded,
           title: 'Partners',
           subtitle: 'Browse partner and supporting entities.',
-          color: Colors.blueAccent,
+          color: AppThemeConfig.accent(context),
           onTap: () => Get.to(() => const PartnersScreen()),
         ),
         const SizedBox(height: 12),
@@ -143,7 +144,7 @@ class _DonorServices extends StatelessWidget {
           icon: Icons.article_rounded,
           title: 'News and activities',
           subtitle: 'See activities, news, articles, and events.',
-          color: Colors.orange,
+          color: AppThemeConfig.pending(context),
           onTap: () => Get.to(() => const NewsActivitiesScreen()),
         ),
         const SizedBox(height: 12),
@@ -151,7 +152,7 @@ class _DonorServices extends StatelessWidget {
           icon: Icons.support_agent_rounded,
           title: 'Technical support',
           subtitle: 'Send a support request to the institution.',
-          color: Colors.indigo,
+          color: AppThemeConfig.accent(context),
           onTap: () => Get.to(() => const SupportTicketFormScreen()),
         ),
         const SizedBox(height: 12),
@@ -159,7 +160,7 @@ class _DonorServices extends StatelessWidget {
           icon: Icons.query_stats_rounded,
           title: 'Reports',
           subtitle: 'View donation, case, project, and expense totals.',
-          color: Colors.cyan,
+          color: AppThemeConfig.accent(context),
           onTap: () => Get.to(() => const ReportsScreen()),
         ),
         const SizedBox(height: 12),
@@ -169,7 +170,7 @@ class _DonorServices extends StatelessWidget {
           icon: Icons.diversity_1_rounded,
           title: 'marriage_posts_title',
           subtitle: 'marriage_posts_services_subtitle',
-          color: Colors.deepPurple,
+          color: AppThemeConfig.accent(context),
           onTap: () => Get.to(() => const MarriagePostsScreen()),
         ),
       ],
@@ -189,7 +190,7 @@ class _VolunteerServices extends StatelessWidget {
           title: 'Reports',
           subtitle:
               'View volunteer attendance, mission, and completion totals.',
-          color: Colors.cyan,
+          color: AppThemeConfig.accent(context),
           onTap: () => Get.to(() => const ReportsScreen()),
         ),
         const SizedBox(height: 12),
@@ -197,7 +198,7 @@ class _VolunteerServices extends StatelessWidget {
           icon: Icons.apartment_rounded,
           title: 'Partners',
           subtitle: 'Browse partner and supporting entities.',
-          color: Colors.blueAccent,
+          color: AppThemeConfig.accent(context),
           onTap: () => Get.to(() => const PartnersScreen()),
         ),
         const SizedBox(height: 12),
@@ -205,7 +206,7 @@ class _VolunteerServices extends StatelessWidget {
           icon: Icons.article_rounded,
           title: 'News and activities',
           subtitle: 'See activities, news, articles, and events.',
-          color: Colors.orange,
+          color: AppThemeConfig.pending(context),
           onTap: () => Get.to(() => const NewsActivitiesScreen()),
         ),
         const SizedBox(height: 12),
@@ -213,7 +214,7 @@ class _VolunteerServices extends StatelessWidget {
           icon: Icons.support_agent_rounded,
           title: 'Technical support',
           subtitle: 'Send a support request to the institution.',
-          color: Colors.indigo,
+          color: AppThemeConfig.accent(context),
           onTap: () => Get.to(() => const SupportTicketFormScreen()),
         ),
         const SizedBox(height: 12),
@@ -223,7 +224,7 @@ class _VolunteerServices extends StatelessWidget {
           icon: Icons.diversity_1_rounded,
           title: 'marriage_posts_title',
           subtitle: 'marriage_posts_services_subtitle',
-          color: Colors.deepPurple,
+          color: AppThemeConfig.accent(context),
           onTap: () => Get.to(() => const MarriagePostsScreen()),
         ),
       ],
@@ -257,7 +258,7 @@ class BeneficiaryCasesScreen extends StatelessWidget {
                   icon: Icons.verified_user_rounded,
                   title: 'Beneficiary cases'.tr,
                   subtitle: controller.errorMessage.value!,
-                  color: Colors.teal,
+                  color: AppThemeConfig.accent(context),
                   onTap: controller.fetchCases,
                 ),
               if (!controller.isLoading.value &&
@@ -267,14 +268,14 @@ class BeneficiaryCasesScreen extends StatelessWidget {
                   icon: Icons.verified_user_rounded,
                   title: 'Beneficiary cases'.tr,
                   subtitle: 'No approved cases are available yet.',
-                  color: Colors.teal,
+                  color: AppThemeConfig.accent(context),
                 ),
               for (final item in items) ...[
                 SectionTile(
                   icon: Icons.verified_user_rounded,
                   title: _localizedCaseTitle(item),
                   subtitle: _caseSubtitle(item),
-                  color: Colors.teal,
+                  color: AppThemeConfig.accent(context),
                   onTap: () =>
                       Get.to(() => BeneficiaryCaseDetailScreen(caseItem: item)),
                 ),
@@ -316,17 +317,17 @@ class MyBeneficiaryCasesScreen extends StatelessWidget {
                   icon: Icons.refresh_rounded,
                   title: 'My beneficiary cases',
                   subtitle: controller.errorMessage.value!,
-                  color: Colors.teal,
+                  color: AppThemeConfig.accent(context),
                   onTap: controller.fetchCases,
                 ),
               if (!controller.isLoading.value &&
                   controller.errorMessage.value == null &&
                   items.isEmpty)
-                const SectionTile(
+                SectionTile(
                   icon: Icons.assignment_ind_rounded,
                   title: 'No cases yet',
                   subtitle: 'Submitted beneficiary cases will appear here.',
-                  color: Colors.teal,
+                  color: AppThemeConfig.accent(context),
                 ),
               for (final item in items) ...[
                 SectionTile(
@@ -334,6 +335,7 @@ class MyBeneficiaryCasesScreen extends StatelessWidget {
                   title: _localizedCaseTitle(item),
                   subtitle: _myCaseSubtitle(item),
                   color: _caseStatusColor(
+                    context,
                     (item['verification_status'] ?? '').toString(),
                   ),
                   onTap: () =>
@@ -414,13 +416,13 @@ String _myCaseSubtitle(Map<String, dynamic> item) {
   ].join(' - ');
 }
 
-Color _caseStatusColor(String status) {
+Color _caseStatusColor(BuildContext context, String status) {
   return switch (status) {
-    'approved' => Colors.green,
-    'rejected' => Colors.redAccent,
-    'under_review' || 'needs_changes' => Colors.orange,
-    'submitted' || 'draft' => Colors.amber,
-    _ => Colors.teal,
+    'approved' => AppThemeConfig.accent(context),
+    'rejected' => AppThemeConfig.consequence(context),
+    'under_review' || 'needs_changes' => AppThemeConfig.pending(context),
+    'submitted' || 'draft' => AppThemeConfig.pending(context),
+    _ => AppThemeConfig.accent(context),
   };
 }
 
@@ -763,7 +765,7 @@ class _SponsorshipFormScreenState extends State<SponsorshipFormScreen> {
       onSubmit: _submit,
       fields: [
         Align(
-          alignment: Alignment.centerRight,
+          alignment: AlignmentDirectional.centerEnd,
           child: OutlinedButton.icon(
             onPressed: () => Get.to(() => const SponsorshipOverviewScreen()),
             icon: const Icon(Icons.list_alt_rounded),
@@ -989,11 +991,11 @@ class ReportsScreen extends StatelessWidget {
               if (snapshot.connectionState == ConnectionState.waiting)
                 const Center(child: CircularProgressIndicator()),
               if (snapshot.hasError)
-                const SectionTile(
+                SectionTile(
                   icon: Icons.query_stats_rounded,
                   title: 'Reports',
                   subtitle: 'Unable to load reports from the server.',
-                  color: Colors.cyan,
+                  color: AppThemeConfig.accent(context),
                 ),
               if (!snapshot.hasError &&
                   snapshot.connectionState != ConnectionState.waiting) ...[
@@ -1004,7 +1006,7 @@ class ReportsScreen extends StatelessWidget {
                     subtitle: '@count available now'.trParams({
                       'count': '${volunteers['missions_open'] ?? '0'}',
                     }),
-                    color: Colors.green,
+                    color: AppThemeConfig.accent(context),
                   ),
                   const SizedBox(height: 12),
                   SectionTile(
@@ -1013,7 +1015,7 @@ class ReportsScreen extends StatelessWidget {
                     subtitle: '@count waiting for admin review'.trParams({
                       'count': '${volunteers['signups_pending'] ?? '0'}',
                     }),
-                    color: Colors.orange,
+                    color: AppThemeConfig.pending(context),
                   ),
                   const SizedBox(height: 12),
                   SectionTile(
@@ -1022,7 +1024,7 @@ class ReportsScreen extends StatelessWidget {
                     subtitle: '@count attended signups'.trParams({
                       'count': '${volunteers['attended_total'] ?? '0'}',
                     }),
-                    color: Colors.indigo,
+                    color: AppThemeConfig.accent(context),
                   ),
                   const SizedBox(height: 12),
                   SectionTile(
@@ -1033,7 +1035,7 @@ class ReportsScreen extends StatelessWidget {
                           'count': '${volunteers['signups_completed'] ?? '0'}',
                           'hours': '${volunteers['hours_served'] ?? '0'}',
                         }),
-                    color: Colors.pinkAccent,
+                    color: AppThemeConfig.accent(context),
                   ),
                   const SizedBox(height: 12),
                 ] else ...[
@@ -1041,14 +1043,14 @@ class ReportsScreen extends StatelessWidget {
                     icon: Icons.payments_rounded,
                     title: 'Completed donations',
                     subtitle: '${donations['completed_amount'] ?? '0'} IQD',
-                    color: Colors.green,
+                    color: AppThemeConfig.accent(context),
                   ),
                   const SizedBox(height: 12),
                   SectionTile(
                     icon: Icons.hourglass_bottom_rounded,
                     title: 'Pending donations',
                     subtitle: '${donations['pending_amount'] ?? '0'} IQD',
-                    color: Colors.orange,
+                    color: AppThemeConfig.pending(context),
                   ),
                   const SizedBox(height: 12),
                 ],
@@ -1057,7 +1059,7 @@ class ReportsScreen extends StatelessWidget {
                   title: 'Project request groups',
                   subtitle:
                       '${(data['project_requests'] as List?)?.length ?? 0} status groups',
-                  color: Colors.indigo,
+                  color: AppThemeConfig.accent(context),
                 ),
                 const SizedBox(height: 12),
                 SectionTile(
@@ -1065,7 +1067,7 @@ class ReportsScreen extends StatelessWidget {
                   title: 'Expense groups',
                   subtitle:
                       '${(data['expenses'] as List?)?.length ?? 0} expense groups',
-                  color: Colors.pinkAccent,
+                  color: AppThemeConfig.accent(context),
                 ),
               ],
             ],

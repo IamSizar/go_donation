@@ -532,9 +532,9 @@ class ModuleApi {
     String message, {
     String requestType = 'meeting',
   }) => postJson('$marriageSubmitUrl/$profileId/request-meeting', {
-        'request_type': requestType,
-        'message': message,
-      });
+    'request_type': requestType,
+    'message': message,
+  });
 
   // Note #35 — staff-mediated marriage chat. My threads (identity-masked —
   // the other party is only ever a profile_code or a generic placeholder,
@@ -705,9 +705,9 @@ class ModuleApi {
 
   /// The signed-in user's saved posts, newest saved first.
   Future<List<Map<String, dynamic>>> savedMediaPosts(int userId) {
-    final uri = Uri.parse(mediaPostsUrl).replace(
-      queryParameters: {'user_id': '$userId', 'saved': '1'},
-    );
+    final uri = Uri.parse(
+      mediaPostsUrl,
+    ).replace(queryParameters: {'user_id': '$userId', 'saved': '1'});
     return getItems(uri.toString());
   }
 

@@ -45,12 +45,16 @@ abstract final class AppVoice {
   /// Speak [text] aloud, cancelling any in-progress speech first. langCode
   /// overrides the app locale when given. Safe no-op on failure.
   static Future<void> speak(String text, {String? langCode}) async {
-    if (_disabled || AppMute.isMuted || text.trim().isEmpty) return; // #37 — global mute
+    if (_disabled || AppMute.isMuted || text.trim().isEmpty) {
+      return; // #37 — global mute
+    }
     try {
       final t = await _ensure();
       await t.stop();
       try {
-        await t.setLanguage(_ttsLang(langCode ?? AppLocaleService.assistantLang()));
+        await t.setLanguage(
+          _ttsLang(langCode ?? AppLocaleService.assistantLang()),
+        );
       } catch (_) {
         // Language not available — speak with whatever the engine defaults to.
       }

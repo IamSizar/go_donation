@@ -12,6 +12,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:flutter_application_1/core/app_share.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
+import 'package:flutter_application_1/core/widgets/app_pressable.dart';
 
 class NewsActivitiesScreen extends StatelessWidget {
   const NewsActivitiesScreen({super.key});
@@ -130,9 +131,7 @@ class _FilterChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: active
-          ? AppThemeConfig.primary
-          : AppThemeConfig.surface(context),
+      color: active ? AppThemeConfig.primary : AppThemeConfig.surface(context),
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
@@ -321,7 +320,9 @@ class _EngagementBar extends StatelessWidget {
         ),
         Expanded(
           child: _EngageButton(
-            icon: saved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+            icon: saved
+                ? Icons.bookmark_rounded
+                : Icons.bookmark_border_rounded,
             color: saved ? AppThemeConfig.primary : null,
             label: 'Save'.tr,
             onTap: () async {
@@ -485,7 +486,9 @@ class _CommentsSheetState extends State<_CommentsSheet> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: DraggableScrollableSheet(
         expand: false,
         initialChildSize: 0.7,
@@ -500,8 +503,9 @@ class _CommentsSheetState extends State<_CommentsSheet> {
               // solid dark in dark mode). surface() is translucent by design
               // (glassmorphism), which is what made this sheet see-through.
               color: AppThemeConfig.elevatedSurface(context),
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(22)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(22),
+              ),
               border: Border.all(color: AppThemeConfig.border(context)),
             ),
             clipBehavior: Clip.antiAlias,
@@ -513,8 +517,9 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                   width: 44,
                   height: 5,
                   decoration: BoxDecoration(
-                    color: AppThemeConfig.mutedText(context)
-                        .withValues(alpha: 0.35),
+                    color: AppThemeConfig.mutedText(
+                      context,
+                    ).withValues(alpha: 0.35),
                     borderRadius: BorderRadius.circular(3),
                   ),
                 ),
@@ -539,8 +544,9 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                             vertical: 3,
                           ),
                           decoration: BoxDecoration(
-                            color:
-                                AppThemeConfig.primary.withValues(alpha: 0.12),
+                            color: AppThemeConfig.primary.withValues(
+                              alpha: 0.12,
+                            ),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
@@ -576,8 +582,9 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                               Icon(
                                 Icons.mode_comment_outlined,
                                 size: 40,
-                                color: AppThemeConfig.mutedText(context)
-                                    .withValues(alpha: 0.5),
+                                color: AppThemeConfig.mutedText(
+                                  context,
+                                ).withValues(alpha: 0.5),
                               ),
                               const SizedBox(height: 12),
                               Text(
@@ -616,8 +623,9 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                             maxLines: 4,
                             textInputAction: TextInputAction.send,
                             onSubmitted: (_) => _submit(),
-                            style:
-                                TextStyle(color: AppThemeConfig.text(context)),
+                            style: TextStyle(
+                              color: AppThemeConfig.text(context),
+                            ),
                             decoration: InputDecoration(
                               hintText: 'Write a comment…'.tr,
                               filled: true,
@@ -633,8 +641,9 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(24),
                                 borderSide: BorderSide(
-                                  color: AppThemeConfig.primary
-                                      .withValues(alpha: 0.5),
+                                  color: AppThemeConfig.primary.withValues(
+                                    alpha: 0.5,
+                                  ),
                                 ),
                               ),
                               contentPadding: const EdgeInsets.symmetric(
@@ -738,10 +747,7 @@ class _CommentTile extends StatelessWidget {
         const SizedBox(height: 6),
         Text(
           body,
-          style: TextStyle(
-            color: AppThemeConfig.text(context),
-            height: 1.4,
-          ),
+          style: TextStyle(color: AppThemeConfig.text(context), height: 1.4),
         ),
       ],
     );
@@ -813,7 +819,7 @@ class _MediaGallery extends StatelessWidget {
           separatorBuilder: (_, __) => const SizedBox(width: 8),
           itemBuilder: (context, i) {
             final url = urls[i];
-            return GestureDetector(
+            return AppPressable(
               onTap: () => _openGalleryImage(context, url),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
@@ -857,7 +863,11 @@ void _openGalleryImage(BuildContext context, String url) {
             top: 40,
             right: 16,
             child: IconButton(
-              icon: const Icon(Icons.close_rounded, color: Colors.white, size: 30),
+              icon: const Icon(
+                Icons.close_rounded,
+                color: Colors.white,
+                size: 30,
+              ),
               onPressed: () => Navigator.of(context).pop(),
             ),
           ),

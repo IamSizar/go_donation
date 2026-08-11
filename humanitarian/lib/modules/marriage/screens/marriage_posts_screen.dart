@@ -103,11 +103,7 @@ class _MarriagePostsScreenState extends State<MarriagePostsScreen> {
     try {
       final type = await pickMarriageRequestType(context);
       if (type == null || !mounted) return;
-      await const ModuleApi().requestMarriageMeeting(
-        id,
-        '',
-        requestType: type,
-      );
+      await const ModuleApi().requestMarriageMeeting(id, '', requestType: type);
       Get.snackbar('marriage_posts_title'.tr, 'meeting_requested'.tr);
     } catch (_) {
       Get.snackbar('marriage_posts_title'.tr, 'meeting_request_failed'.tr);
@@ -148,7 +144,8 @@ class _MarriagePostsScreenState extends State<MarriagePostsScreen> {
                         profile: item,
                         saved: _saved.contains((item['id'] as num).toInt()),
                         onSave: () => _toggleSave((item['id'] as num).toInt()),
-                        onMeet: () => _requestMeeting((item['id'] as num).toInt()),
+                        onMeet: () =>
+                            _requestMeeting((item['id'] as num).toInt()),
                       ),
                       const SizedBox(height: 14),
                     ],

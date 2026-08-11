@@ -57,26 +57,22 @@ class GuestHomeSection extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(22),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: AppThemeConfig.heroGradient,
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                color: AppThemeConfig.accent(context),
                 borderRadius: BorderRadius.circular(24),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.explore_rounded,
-                    color: Colors.white,
+                    color: AppThemeConfig.onAccent(context),
                     size: 30,
                   ),
                   const SizedBox(height: 12),
                   Text(
                     'Explore freely'.tr,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: AppThemeConfig.onAccent(context),
                       fontSize: 20,
                       fontWeight: FontWeight.w800,
                     ),
@@ -86,7 +82,9 @@ class GuestHomeSection extends StatelessWidget {
                     'Browse campaigns, stories, and updates from our community. Sign in to donate, volunteer, or create requests and make an impact.'
                         .tr,
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.9),
+                      color: AppThemeConfig.onAccent(
+                        context,
+                      ).withValues(alpha: 0.9),
                       fontSize: 13.5,
                       height: 1.4,
                     ),

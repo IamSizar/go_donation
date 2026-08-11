@@ -292,7 +292,9 @@ class _TicketCard extends StatelessWidget {
                 child: Text(
                   'status_$status'.tr,
                   style: TextStyle(
-                    color: done ? Colors.green.shade700 : Colors.orange.shade800,
+                    color: done
+                        ? Colors.green.shade700
+                        : Colors.orange.shade800,
                     fontWeight: FontWeight.w700,
                     fontSize: 11.5,
                   ),

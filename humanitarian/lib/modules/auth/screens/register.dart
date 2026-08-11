@@ -81,7 +81,8 @@ class _RegisterPageState extends State<RegisterPage> {
                     enabled: !loading,
                     style: TextStyle(color: AppThemeConfig.text(context)),
                     cursorColor: AppThemeConfig.primary,
-                    decoration: authInputDecoration(context, 
+                    decoration: authInputDecoration(
+                      context,
                       label: 'Email'.tr,
                       hintText: 'name@example.com'.tr,
                       icon: Icons.mail_outline_rounded,
@@ -102,7 +103,8 @@ class _RegisterPageState extends State<RegisterPage> {
                     enabled: !loading,
                     style: TextStyle(color: AppThemeConfig.text(context)),
                     cursorColor: AppThemeConfig.primary,
-                    decoration: authInputDecoration(context, 
+                    decoration: authInputDecoration(
+                      context,
                       label: 'Password'.tr,
                       hintText: 'At least 6 characters'.tr,
                       icon: Icons.lock_outline_rounded,
@@ -134,7 +136,8 @@ class _RegisterPageState extends State<RegisterPage> {
                     enabled: !loading,
                     style: TextStyle(color: AppThemeConfig.text(context)),
                     cursorColor: AppThemeConfig.primary,
-                    decoration: authInputDecoration(context, 
+                    decoration: authInputDecoration(
+                      context,
                       label: 'Confirm Password'.tr,
                       hintText: 'Repeat your password'.tr,
                       icon: Icons.verified_user_outlined,

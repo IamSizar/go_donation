@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/core/design/directional_icons.dart';
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/modules/bot/screens/bot_chat_screen.dart';
@@ -16,12 +17,14 @@ Future<void> openSupportChat(BuildContext context) async {
   try {
     final id = await const ModuleApi().startSupportChat();
     if (id == null || !context.mounted) return;
-    Get.to(() => ChatConversationScreen(threadId: id, title: 'chat_support'.tr));
+    Get.to(
+      () => ChatConversationScreen(threadId: id, title: 'chat_support'.tr),
+    );
   } catch (_) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('chat_support_failed'.tr)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('chat_support_failed'.tr)));
     }
   }
 }
@@ -50,7 +53,7 @@ class MessagesScreen extends StatelessWidget {
                 icon: Icons.refresh_rounded,
                 title: 'Messages',
                 subtitle: ctrl.errorMessage.value!,
-                color: Colors.orange,
+                color: AppThemeConfig.pending(context),
                 onTap: ctrl.fetchThreads,
               ),
             ],
@@ -67,18 +70,18 @@ class MessagesScreen extends StatelessWidget {
                 icon: Icons.support_agent_rounded,
                 title: 'chat_support'.tr,
                 subtitle: 'chat_support_desc'.tr,
-                color: Colors.teal,
+                color: AppThemeConfig.accent(context),
                 onTap: () => openSupportChat(context),
               ),
               const SizedBox(height: 10),
               const _CaseChatsSection(),
               const SizedBox(height: 10),
-              const SectionTile(
+              SectionTile(
                 icon: Icons.forum_outlined,
                 title: 'No conversations yet',
                 subtitle:
                     'Start a chat from a donation (donor) or from your campaign donations (owner).',
-                color: Colors.indigo,
+                color: AppThemeConfig.accent(context),
               ),
             ],
           );
@@ -102,14 +105,15 @@ class MessagesScreen extends StatelessWidget {
                 icon: Icons.support_agent_rounded,
                 title: 'chat_support'.tr,
                 subtitle: 'chat_support_desc'.tr,
-                color: Colors.teal,
+                color: AppThemeConfig.accent(context),
                 onTap: () => openSupportChat(context),
               ),
               const SizedBox(height: 10),
               const _CaseChatsSection(),
               if (incoming.isNotEmpty) ...[
                 _SectionLabel(label: 'Chat requests', count: incoming.length),
-                for (final t in incoming) _IncomingRequestCard(thread: t, ctrl: ctrl),
+                for (final t in incoming)
+                  _IncomingRequestCard(thread: t, ctrl: ctrl),
                 const SizedBox(height: 8),
               ],
               if (active.isNotEmpty) ...[
@@ -118,7 +122,10 @@ class MessagesScreen extends StatelessWidget {
               ],
               if (outgoing.isNotEmpty) ...[
                 const SizedBox(height: 8),
-                _SectionLabel(label: 'Waiting for accept', count: outgoing.length),
+                _SectionLabel(
+                  label: 'Waiting for accept',
+                  count: outgoing.length,
+                ),
                 for (final t in outgoing) _OutgoingPendingTile(thread: t),
               ],
             ],
@@ -190,16 +197,18 @@ class _CaseChatTile extends StatelessWidget {
         padding: EdgeInsets.zero,
         child: InkWell(
           borderRadius: BorderRadius.circular(24),
-          onTap: () => Get.to(() => CaseChatConversationScreen(
-                threadId: id,
-                title: title,
-                subtitle: caseCode,
-              )),
+          onTap: () => Get.to(
+            () => CaseChatConversationScreen(
+              threadId: id,
+              title: title,
+              subtitle: caseCode,
+            ),
+          ),
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: Row(
               children: [
-                _Avatar(name: title, color: Colors.deepPurple),
+                _Avatar(name: title, color: AppThemeConfig.accent(context)),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -209,14 +218,21 @@ class _CaseChatTile extends StatelessWidget {
                         title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppThemeConfig.text(context)),
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: AppThemeConfig.text(context),
+                        ),
                       ),
                       const SizedBox(height: 3),
                       Text(
                         lastMessage.isNotEmpty ? lastMessage : caseCode,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 13, color: AppThemeConfig.mutedText(context)),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppThemeConfig.mutedText(context),
+                        ),
                       ),
                     ],
                   ),
@@ -225,12 +241,22 @@ class _CaseChatTile extends StatelessWidget {
                   const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.all(7),
-                    decoration: BoxDecoration(color: AppThemeConfig.primary, shape: BoxShape.circle),
-                    constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                    decoration: BoxDecoration(
+                      color: AppThemeConfig.primary,
+                      shape: BoxShape.circle,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 24,
+                      minHeight: 24,
+                    ),
                     child: Center(
                       child: Text(
                         '$unread',
-                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                     ),
                   ),
@@ -265,7 +291,13 @@ class _SectionLabel extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 6),
-          Text('($count)', style: TextStyle(fontSize: 12, color: AppThemeConfig.mutedText(context))),
+          Text(
+            '($count)',
+            style: TextStyle(
+              fontSize: 12,
+              color: AppThemeConfig.mutedText(context),
+            ),
+          ),
         ],
       ),
     );
@@ -283,7 +315,10 @@ class _Avatar extends StatelessWidget {
     return Container(
       width: 48,
       height: 48,
-      decoration: BoxDecoration(color: c.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(15)),
+      decoration: BoxDecoration(
+        color: c.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(15),
+      ),
       child: Center(
         child: Text(
           name.isNotEmpty ? name[0].toUpperCase() : '?',
@@ -307,11 +342,13 @@ class _ThreadTile extends StatelessWidget {
         padding: EdgeInsets.zero,
         child: InkWell(
           borderRadius: BorderRadius.circular(24),
-          onTap: () => Get.to(() => ChatConversationScreen(
-                threadId: thread.id,
-                title: thread.otherName,
-                subtitle: thread.campaignTitle ?? roleLabel.tr,
-              )),
+          onTap: () => Get.to(
+            () => ChatConversationScreen(
+              threadId: thread.id,
+              title: thread.otherName,
+              subtitle: thread.campaignTitle ?? roleLabel.tr,
+            ),
+          ),
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: Row(
@@ -339,13 +376,17 @@ class _ThreadTile extends StatelessWidget {
                           if (thread.lastMessageAt != null)
                             Text(
                               DateFormat('MMM d').format(thread.lastMessageAt!),
-                              style: TextStyle(fontSize: 11, color: AppThemeConfig.mutedText(context)),
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: AppThemeConfig.mutedText(context),
+                              ),
                             ),
                         ],
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        thread.lastMessage ?? '${roleLabel.tr} · ${thread.campaignTitle ?? ''}',
+                        thread.lastMessage ??
+                            '${roleLabel.tr} · ${thread.campaignTitle ?? ''}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -353,7 +394,9 @@ class _ThreadTile extends StatelessWidget {
                           color: thread.unreadCount > 0
                               ? AppThemeConfig.text(context)
                               : AppThemeConfig.mutedText(context),
-                          fontWeight: thread.unreadCount > 0 ? FontWeight.w700 : FontWeight.w400,
+                          fontWeight: thread.unreadCount > 0
+                              ? FontWeight.w700
+                              : FontWeight.w400,
                         ),
                       ),
                       // Note #36 — the "Responsible Staff Member," if claimed.
@@ -361,11 +404,21 @@ class _ThreadTile extends StatelessWidget {
                         const SizedBox(height: 2),
                         Row(
                           children: [
-                            Icon(Icons.shield_rounded, size: 11, color: Colors.blueGrey),
+                            Icon(
+                              Icons.shield_rounded,
+                              size: 11,
+                              color: AppThemeConfig.subtleText(context),
+                            ),
                             const SizedBox(width: 3),
                             Text(
-                              'helped_by'.trParams({'name': thread.assignedStaffName!}),
-                              style: const TextStyle(fontSize: 11, color: Colors.blueGrey, fontWeight: FontWeight.w600),
+                              'helped_by'.trParams({
+                                'name': thread.assignedStaffName!,
+                              }),
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: AppThemeConfig.subtleText(context),
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ],
                         ),
@@ -377,12 +430,22 @@ class _ThreadTile extends StatelessWidget {
                   const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.all(7),
-                    decoration: BoxDecoration(color: AppThemeConfig.primary, shape: BoxShape.circle),
-                    constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                    decoration: BoxDecoration(
+                      color: AppThemeConfig.primary,
+                      shape: BoxShape.circle,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 24,
+                      minHeight: 24,
+                    ),
                     child: Center(
                       child: Text(
                         '${thread.unreadCount}',
-                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                     ),
                   ),
@@ -408,7 +471,10 @@ class _OutgoingPendingTile extends StatelessWidget {
         padding: const EdgeInsets.all(12),
         child: Row(
           children: [
-            _Avatar(name: thread.otherName, color: Colors.amber.shade700),
+            _Avatar(
+              name: thread.otherName,
+              color: AppThemeConfig.pending(context),
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -416,17 +482,28 @@ class _OutgoingPendingTile extends StatelessWidget {
                 children: [
                   Text(
                     thread.otherName,
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppThemeConfig.text(context)),
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: AppThemeConfig.text(context),
+                    ),
                   ),
                   const SizedBox(height: 3),
                   Text(
                     'Waiting for them to accept your chat request…'.tr,
-                    style: TextStyle(fontSize: 12.5, color: AppThemeConfig.mutedText(context)),
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: AppThemeConfig.mutedText(context),
+                    ),
                   ),
                 ],
               ),
             ),
-            Icon(Icons.hourglass_top_rounded, color: Colors.amber.shade700, size: 20),
+            Icon(
+              Icons.hourglass_top_rounded,
+              color: AppThemeConfig.pending(context),
+              size: 20,
+            ),
           ],
         ),
       ),
@@ -443,15 +520,19 @@ class _IncomingRequestCard extends StatelessWidget {
     try {
       await ctrl.accept(thread.id);
       if (context.mounted) {
-        Get.to(() => ChatConversationScreen(
-              threadId: thread.id,
-              title: thread.otherName,
-              subtitle: thread.campaignTitle,
-            ));
+        Get.to(
+          () => ChatConversationScreen(
+            threadId: thread.id,
+            title: thread.otherName,
+            subtitle: thread.campaignTitle,
+          ),
+        );
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$e')));
       }
     }
   }
@@ -464,7 +545,8 @@ class _IncomingRequestCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final roleLabel = (thread.myRole == 'donor' ? 'campaign owner' : 'donor').tr;
+    final roleLabel =
+        (thread.myRole == 'donor' ? 'campaign owner' : 'donor').tr;
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: GlassPanel(
@@ -482,12 +564,21 @@ class _IncomingRequestCard extends StatelessWidget {
                     children: [
                       Text(
                         thread.otherName,
-                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: AppThemeConfig.text(context)),
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                          color: AppThemeConfig.text(context),
+                        ),
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'wants to chat with you (@role)'.trParams({'role': roleLabel}),
-                        style: TextStyle(fontSize: 12.5, color: AppThemeConfig.mutedText(context)),
+                        'wants to chat with you (@role)'.trParams({
+                          'role': roleLabel,
+                        }),
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: AppThemeConfig.mutedText(context),
+                        ),
                       ),
                       if (thread.campaignTitle != null) ...[
                         const SizedBox(height: 4),
@@ -495,7 +586,11 @@ class _IncomingRequestCard extends StatelessWidget {
                           '“${thread.campaignTitle}”',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: AppThemeConfig.mutedText(context)),
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontStyle: FontStyle.italic,
+                            color: AppThemeConfig.mutedText(context),
+                          ),
                         ),
                       ],
                     ],
@@ -544,16 +639,10 @@ class _BotAssistantCard extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                Colors.deepPurple.shade600.withValues(alpha: 0.10),
-                Colors.indigo.shade400.withValues(alpha: 0.05),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+            color: AppThemeConfig.accent(context).withValues(alpha: 0.10),
             border: Border.all(
-                color: Colors.deepPurple.withValues(alpha: 0.22)),
+              color: Colors.deepPurple.withValues(alpha: 0.22),
+            ),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Row(
@@ -562,18 +651,14 @@ class _BotAssistantCard extends StatelessWidget {
                 width: 46,
                 height: 46,
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.deepPurple.shade600,
-                      Colors.indigo.shade400,
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  color: AppThemeConfig.accent(context),
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: const Icon(Icons.smart_toy_rounded,
-                    color: Colors.white, size: 24),
+                child: const Icon(
+                  Icons.smart_toy_rounded,
+                  color: Colors.white,
+                  size: 24,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -585,7 +670,7 @@ class _BotAssistantCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
-                        color: Colors.deepPurple.shade700,
+                        color: AppThemeConfig.accent(context),
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -599,8 +684,10 @@ class _BotAssistantCard extends StatelessWidget {
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right_rounded,
-                  color: Colors.deepPurple.shade400),
+              Icon(
+                AppIcons.chevronForward(context),
+                color: AppThemeConfig.accent(context),
+              ),
             ],
           ),
         ),

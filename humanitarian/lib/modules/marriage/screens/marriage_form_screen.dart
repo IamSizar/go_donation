@@ -13,6 +13,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:flutter_application_1/shared/utils/image_pick.dart';
+import 'package:flutter_application_1/core/widgets/app_pressable.dart';
 
 // Marriage Posts — resolve a stored photo path to a full URL for preview.
 // Uploads are saved as relative paths (e.g. images/uploads/x.png);
@@ -745,7 +746,7 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
           if (!_hidden.contains('personal_photo')) ...[
             _label('marriage_photo'),
             Center(
-              child: GestureDetector(
+              child: AppPressable(
                 onTap: _uploadingPhoto ? null : _pickPhoto,
                 child: Stack(
                   alignment: Alignment.center,

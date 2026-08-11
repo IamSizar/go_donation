@@ -57,7 +57,8 @@ class ChatThread {
       lastMessage: m['last_message']?.toString(),
       lastMessageAt: DateTime.tryParse((m['last_message_at'] ?? '').toString()),
       unreadCount: int.tryParse('${m['unread_count'] ?? 0}') ?? 0,
-      assignedStaffName: (m['assigned_staff_name'] as String?)?.trim().isEmpty == true
+      assignedStaffName:
+          (m['assigned_staff_name'] as String?)?.trim().isEmpty == true
           ? null
           : m['assigned_staff_name'] as String?,
     );

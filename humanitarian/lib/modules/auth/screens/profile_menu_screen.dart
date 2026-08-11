@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/modules/auth/screens/edit_profile.dart';
@@ -94,7 +95,7 @@ class ProfileMenuScreen extends StatelessWidget {
           DrawerTile(
             icon: Icons.settings_outlined,
             label: 'Settings',
-            color: Colors.blueGrey,
+            color: AppThemeConfig.subtleText(context),
             onTap: () {
               // Hand off to the Settings tab instead of repeating it here.
               dashboardTabNotifier.value = _settingsTabIndex;
@@ -107,7 +108,7 @@ class ProfileMenuScreen extends StatelessWidget {
           DrawerTile(
             icon: Icons.emoji_events_outlined,
             label: 'Our Work',
-            color: Colors.teal,
+            color: AppThemeConfig.accent(context),
             onTap: () => Get.to(() => const OurWorkScreen()),
           ),
           // Client backlog #23 — posts the user bookmarked for later.
@@ -115,13 +116,13 @@ class ProfileMenuScreen extends StatelessWidget {
             DrawerTile(
               icon: Icons.bookmark_rounded,
               label: 'Saved',
-              color: Colors.amber,
+              color: AppThemeConfig.pending(context),
               onTap: () => Get.to(() => const SavedPostsScreen()),
             ),
           DrawerTile(
             icon: Icons.apps_rounded,
             label: 'Services',
-            color: Colors.deepPurple,
+            color: AppThemeConfig.accent(context),
             onTap: () => Get.to(() => const ProposalServicesSection()),
           ),
           // Client backlog #4 — a user may switch their own account type, but
@@ -138,7 +139,7 @@ class ProfileMenuScreen extends StatelessWidget {
           DrawerTile(
             icon: Icons.diversity_3_rounded,
             label: 'Community Services',
-            color: Colors.indigo,
+            color: AppThemeConfig.accent(context),
             onTap: () => Get.to(() => const CommunityServicesSection()),
           ),
           const DrawerDivider(),
@@ -154,7 +155,7 @@ class ProfileMenuScreen extends StatelessWidget {
           DrawerTile(
             icon: Icons.support_agent_rounded,
             label: 'Technical Support',
-            color: Colors.deepOrange,
+            color: AppThemeConfig.pending(context),
             // Was opening SupportSection — the volunteer-missions screen — so
             // "Technical Support" led to a list of volunteering opportunities.
             onTap: () => Get.to(() => const TechnicalSupportScreen()),
@@ -162,7 +163,7 @@ class ProfileMenuScreen extends StatelessWidget {
           DrawerTile(
             icon: Icons.info_outline_rounded,
             label: 'About Us',
-            color: Colors.teal,
+            color: AppThemeConfig.accent(context),
             onTap: () => Get.to(
               () =>
                   const ContentPageScreen(slug: 'about', titleKey: 'About Us'),
@@ -171,7 +172,7 @@ class ProfileMenuScreen extends StatelessWidget {
           DrawerTile(
             icon: Icons.mail_outline_rounded,
             label: 'Contact Us',
-            color: Colors.orange,
+            color: AppThemeConfig.pending(context),
             onTap: () => Get.to(
               () => const ContentPageScreen(
                 slug: 'contact',
@@ -182,7 +183,7 @@ class ProfileMenuScreen extends StatelessWidget {
           DrawerTile(
             icon: Icons.description_rounded,
             label: 'Terms & Conditions',
-            color: Colors.blueGrey,
+            color: AppThemeConfig.subtleText(context),
             onTap: () => Get.to(() => const TermsScreen()),
           ),
           const DrawerDivider(),
@@ -190,7 +191,7 @@ class ProfileMenuScreen extends StatelessWidget {
               ? DrawerTile(
                   icon: Icons.login_rounded,
                   label: 'Sign in',
-                  color: drawerPrimary,
+                  color: AppThemeConfig.accent(context),
                   onTap: () => Get.offAllNamed('/login'),
                 )
               : DrawerTile(

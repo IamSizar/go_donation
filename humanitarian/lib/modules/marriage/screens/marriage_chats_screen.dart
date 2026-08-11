@@ -87,20 +87,27 @@ class _ThreadTile extends StatelessWidget {
 
     return GlassPanel(
       child: InkWell(
-        onTap: () => Get.to(() => MarriageChatConversationScreen(
-              threadId: id,
-              otherLabel: otherLabel,
-              myRole: myRole,
-              initialStatus: status,
-            )),
+        onTap: () => Get.to(
+          () => MarriageChatConversationScreen(
+            threadId: id,
+            otherLabel: otherLabel,
+            myRole: myRole,
+            initialStatus: status,
+          ),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 Expanded(
-                  child: Text(otherLabel,
-                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                  child: Text(
+                    otherLabel,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 15,
+                    ),
+                  ),
                 ),
                 _StatusChip(status: status),
               ],
@@ -125,8 +132,8 @@ class _StatusChip extends StatelessWidget {
     final color = status == 'active'
         ? Colors.green
         : status == 'pending'
-            ? Colors.orange
-            : Colors.grey;
+        ? Colors.orange
+        : Colors.grey;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
@@ -135,7 +142,11 @@ class _StatusChip extends StatelessWidget {
       ),
       child: Text(
         'marriage_chat_status_$status'.tr,
-        style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w700),
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }

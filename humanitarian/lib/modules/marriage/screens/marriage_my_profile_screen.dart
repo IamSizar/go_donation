@@ -36,7 +36,7 @@ class MarriageMyProfileScreen extends StatelessWidget {
                   icon: Icons.refresh_rounded,
                   title: 'marriage_my_profile'.tr,
                   subtitle: controller.errorMessage.value!,
-                  color: Colors.orange,
+                  color: AppThemeConfig.pending(context),
                   onTap: controller.fetchProfiles,
                 ),
               if (!controller.isLoading.value &&
@@ -46,7 +46,7 @@ class MarriageMyProfileScreen extends StatelessWidget {
                   icon: Icons.favorite_outline_rounded,
                   title: 'marriage_my_profile_empty'.tr,
                   subtitle: 'marriage_my_profile_empty_desc'.tr,
-                  color: Colors.pink,
+                  color: AppThemeConfig.accent(context),
                 ),
               for (final item in items) ...[
                 _ProfileStatusCard(item: item),
@@ -72,7 +72,7 @@ class _ProfileStatusCard extends StatelessWidget {
     final city = (item['city'] ?? '').toString();
     final summary = (item['social_summary'] ?? '').toString();
     final createdAt = _dateLabel(item['created_at']);
-    final color = _statusColor(status);
+    final color = _statusColor(context, status);
 
     return GlassPanel(
       padding: const EdgeInsets.all(16),
@@ -212,14 +212,14 @@ String _statusLabel(String status) {
   return label == key ? status.replaceAll('_', ' ') : label;
 }
 
-Color _statusColor(String status) {
+Color _statusColor(BuildContext context, String status) {
   return switch (status) {
-    'active' => Colors.green,
-    'matched' => Colors.teal,
-    'rejected' => Colors.redAccent,
-    'closed' => Colors.grey,
-    'under_review' => Colors.orange,
-    'paused' => Colors.amber,
-    _ => Colors.indigo, // submitted
+    'active' => AppThemeConfig.accent(context),
+    'matched' => AppThemeConfig.accent(context),
+    'rejected' => AppThemeConfig.consequence(context),
+    'closed' => AppThemeConfig.subtleText(context),
+    'under_review' => AppThemeConfig.pending(context),
+    'paused' => AppThemeConfig.pending(context),
+    _ => AppThemeConfig.accent(context), // submitted
   };
 }

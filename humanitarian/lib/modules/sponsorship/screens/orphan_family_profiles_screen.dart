@@ -39,8 +39,8 @@ class _OrphanFamilyProfilesScreenState
         final items = _selectedCategory == null
             ? controller.cases
             : controller.cases
-                .where((c) => (c['category_slug'] ?? '') == _selectedCategory)
-                .toList();
+                  .where((c) => (c['category_slug'] ?? '') == _selectedCategory)
+                  .toList();
         return RefreshIndicator(
           onRefresh: controller.fetchCases,
           child: ListView(
@@ -50,8 +50,7 @@ class _OrphanFamilyProfilesScreenState
               const SizedBox(height: 18),
               CaseCategoryCapsules(
                 selected: _selectedCategory,
-                onSelected: (slug) =>
-                    setState(() => _selectedCategory = slug),
+                onSelected: (slug) => setState(() => _selectedCategory = slug),
               ),
               const SizedBox(height: 22),
               if (controller.isLoading.value)
@@ -204,7 +203,7 @@ class _ProfileCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 14),
                 Align(
-                  alignment: Alignment.centerRight,
+                  alignment: AlignmentDirectional.centerEnd,
                   child: OutlinedButton.icon(
                     onPressed: () =>
                         Get.to(() => const SponsorshipFormScreen()),

@@ -18,17 +18,16 @@ class AuthController extends GetxController {
     isLoading.value = true;
     authError.value = null;
     try {
-      final uri = Uri.parse('YOUR_LOGIN_API_URL_HERE'); // Replace with your actual endpoint
+      final uri = Uri.parse(
+        'YOUR_LOGIN_API_URL_HERE',
+      ); // Replace with your actual endpoint
       final response = await http.post(
         uri,
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: jsonEncode({
-          'phone': phone.trim(),
-          'password': password,
-        }),
+        body: jsonEncode({'phone': phone.trim(), 'password': password}),
       );
 
       if (response.statusCode == 200) {
@@ -53,13 +52,15 @@ class AuthController extends GetxController {
       } else if (response.statusCode == 400 || response.statusCode == 401) {
         final data = jsonDecode(response.body);
         authError.value =
-            data['error']?.toString() ?? 'Invalid credentials or missing fields.';
+            data['error']?.toString() ??
+            'Invalid credentials or missing fields.';
       } else {
         authError.value =
             'Unexpected error (${response.statusCode}). Please try again.';
       }
     } catch (e) {
-      authError.value = 'Login failed. Please check your internet or try again.';
+      authError.value =
+          'Login failed. Please check your internet or try again.';
     }
 
     currentUser.value = null;

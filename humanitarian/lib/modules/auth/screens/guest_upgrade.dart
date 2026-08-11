@@ -171,8 +171,8 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen> {
                 padding: const EdgeInsets.only(bottom: 12),
                 child: Text(
                   _error,
-                  style: const TextStyle(
-                    color: Colors.redAccent,
+                  style: TextStyle(
+                    color: AppThemeConfig.consequence(context),
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -194,10 +194,14 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen> {
             textDirection: TextDirection.ltr,
             child: TextFormField(
               controller: _phoneController,
-              style: TextStyle(color: AppThemeConfig.text(context), fontSize: 16),
+              style: TextStyle(
+                color: AppThemeConfig.text(context),
+                fontSize: 16,
+              ),
               cursorColor: AppThemeConfig.primary,
               decoration:
-                  authInputDecoration(context, 
+                  authInputDecoration(
+                    context,
                     label: 'Phone'.tr,
                     hintText: '750 858 2031',
                     icon: Icons.phone_outlined,
@@ -209,7 +213,10 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen> {
                       ),
                       initialSelection: 'IQ',
                       favorite: const ['+964', 'IQ'],
-                      padding: const EdgeInsets.only(left: 14, right: 4),
+                      padding: const EdgeInsetsDirectional.only(
+                        start: 14,
+                        end: 4,
+                      ),
                       flagWidth: 22,
                       showDropDownButton: true,
                       textStyle: TextStyle(
@@ -288,7 +295,8 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen> {
             textAlign: TextAlign.center,
             keyboardType: TextInputType.number,
             maxLength: 6,
-            decoration: authInputDecoration(context, 
+            decoration: authInputDecoration(
+              context,
               label: 'Verification code'.tr,
               hintText: '••••••',
               icon: Icons.password_rounded,

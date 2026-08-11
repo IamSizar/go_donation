@@ -105,12 +105,16 @@ Future<void> main() async {
   // Foreground messages: log so devs can confirm delivery via console
   // even before the UI work above kicks in.
   FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-    debugPrint('[push] foreground: ${message.notification?.title} — ${message.notification?.body}');
+    debugPrint(
+      '[push] foreground: ${message.notification?.title} — ${message.notification?.body}',
+    );
   });
 
   // Tapping a notification when the app is in the background or terminated.
   FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-    debugPrint('[push] opened from notification: ${message.notification?.title}');
+    debugPrint(
+      '[push] opened from notification: ${message.notification?.title}',
+    );
   });
 
   await initializeAppState();

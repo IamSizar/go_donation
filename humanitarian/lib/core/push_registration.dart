@@ -78,16 +78,15 @@ abstract final class PushRegistration {
     final platform = _platformString();
 
     try {
-      await const ModuleApi().postJson(
-        '${baseUrl}notifications/device',
-        {
-          'device_token': token,
-          'platform': platform,
-          'app_version': _appVersionGuess,
-          'locale_code': localeCode,
-        },
+      await const ModuleApi().postJson('${baseUrl}notifications/device', {
+        'device_token': token,
+        'platform': platform,
+        'app_version': _appVersionGuess,
+        'locale_code': localeCode,
+      });
+      debugPrint(
+        '[push] registered token (locale=$localeCode, platform=$platform)',
       );
-      debugPrint('[push] registered token (locale=$localeCode, platform=$platform)');
     } catch (e) {
       // Don't surface to the user — silently retry on next trigger.
       debugPrint('[push] register failed (will retry): $e');
@@ -107,10 +106,10 @@ abstract final class PushRegistration {
     }
     if (token == null || token.isEmpty) return;
     try {
-      await const ModuleApi().postJson(
-        '${baseUrl}notifications/device',
-        {'device_token': token, 'unregister': true},
-      );
+      await const ModuleApi().postJson('${baseUrl}notifications/device', {
+        'device_token': token,
+        'unregister': true,
+      });
     } catch (_) {
       // ignore
     }

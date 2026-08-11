@@ -11,8 +11,7 @@ import 'package:flutter_application_1/modules/donations/models/donation_history_
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 
-class MyDonationsController extends GetxController
-    with RealtimePollingMixin {
+class MyDonationsController extends GetxController with RealtimePollingMixin {
   final isLoading = false.obs;
   final errorMessage = RxnString();
   final summary = DonationHistorySummary.empty.obs;
@@ -159,12 +158,14 @@ class MyDonationsController extends GetxController
       statusOf: (d) => d.status.name, // success | pending | failed
       previous: _lastStatusSnapshot,
     );
-    _lastStatusSnapshot = {
-      for (final d in items) d.reference: d.status.name,
-    };
+    _lastStatusSnapshot = {for (final d in items) d.reference: d.status.name};
 
     for (final t in transitions) {
-      final msg = _messageForDonationTransition(t.fromStatus, t.toStatus, t.key);
+      final msg = _messageForDonationTransition(
+        t.fromStatus,
+        t.toStatus,
+        t.key,
+      );
       if (msg == null) continue;
       AppSound.notification();
       AppHaptics.gentle();

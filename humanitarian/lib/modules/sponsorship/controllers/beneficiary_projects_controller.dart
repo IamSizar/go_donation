@@ -66,8 +66,9 @@ class BeneficiaryProjectsController extends GetxController
     );
     _lastStatusSnapshot = {
       for (final m in projects)
-        (m['id'] ?? '').toString():
-            (m['status'] ?? '').toString().toLowerCase(),
+        (m['id'] ?? '').toString(): (m['status'] ?? '')
+            .toString()
+            .toLowerCase(),
     };
     for (final t in transitions) {
       final msg = _messageForProjectTransition(t.toStatus);

@@ -32,8 +32,7 @@ class ProjectCategory {
       'ckb' => nameCkb,
       'kmr' => nameKmr,
       _ => nameEn,
-    }
-        .trim();
+    }.trim();
     return v.isNotEmpty ? v : nameEn;
   }
 
@@ -41,13 +40,13 @@ class ProjectCategory {
       v is int ? v : int.tryParse(v?.toString() ?? '') ?? 0;
 
   factory ProjectCategory.fromJson(Map<String, dynamic> j) => ProjectCategory(
-        id: _int(j['id']),
-        slug: (j['slug'] ?? '').toString(),
-        nameEn: (j['name_en'] ?? '').toString(),
-        nameAr: (j['name_ar'] ?? '').toString(),
-        nameCkb: (j['name_ckb'] ?? '').toString(),
-        nameKmr: (j['name_kmr'] ?? '').toString(),
-      );
+    id: _int(j['id']),
+    slug: (j['slug'] ?? '').toString(),
+    nameEn: (j['name_en'] ?? '').toString(),
+    nameAr: (j['name_ar'] ?? '').toString(),
+    nameCkb: (j['name_ckb'] ?? '').toString(),
+    nameKmr: (j['name_kmr'] ?? '').toString(),
+  );
 }
 
 /// Fetches the active project categories (ordered), or an empty list on

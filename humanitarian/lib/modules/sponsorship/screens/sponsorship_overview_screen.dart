@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/core/design/directional_icons.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/modules/sponsorship/controllers/sponsorships_controller.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
@@ -23,32 +24,32 @@ class SponsorshipOverviewScreen extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
           children: [
             const _OverviewHeroCard(),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             // "Eighth: Sponsorship Schedule and Calendar" — entitlement
             // tracking: every due date, split into upcoming / due / overdue
             // / history.
             GlassPanel(
               padding: EdgeInsets.zero,
               child: ListTile(
-                leading: const Icon(
+                leading: Icon(
                   Icons.calendar_month_rounded,
-                  color: Color(0xFF0F766E),
+                  color: AppThemeConfig.accent(context),
                 ),
                 title: Text(
                   'sched_title'.tr,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
+                  style: TextStyle(fontWeight: FontWeight.w700),
                 ),
                 subtitle: Text('sched_subtitle'.tr),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () => Get.to(() => const SponsorshipScheduleScreen()),
+                trailing: Icon(AppIcons.chevronForward(context)),
+                onTap: () => Get.to(() => SponsorshipScheduleScreen()),
               ),
             ),
-            const SizedBox(height: 18),
-            const SectionLabel(title: 'My monthly sponsorships'),
-            const SizedBox(height: 12),
+            SizedBox(height: 18),
+            SectionLabel(title: 'My monthly sponsorships'),
+            SizedBox(height: 12),
             Obx(() {
               if (controller.isLoading.value && controller.items.isEmpty) {
-                return const Center(child: CircularProgressIndicator());
+                return Center(child: CircularProgressIndicator());
               }
               if (controller.errorMessage.value != null &&
                   controller.items.isEmpty) {
@@ -56,15 +57,15 @@ class SponsorshipOverviewScreen extends StatelessWidget {
                   icon: Icons.error_outline_rounded,
                   title: 'Unable to load sponsorships',
                   subtitle: controller.errorMessage.value!,
-                  color: Colors.redAccent,
+                  color: AppThemeConfig.consequence(context),
                 );
               }
               if (controller.items.isEmpty) {
-                return const _OverviewNoticeCard(
+                return _OverviewNoticeCard(
                   icon: Icons.handshake_rounded,
                   title: 'No sponsorships yet',
                   subtitle: 'Create one from the Support page.',
-                  color: Colors.pinkAccent,
+                  color: AppThemeConfig.accent(context),
                 );
               }
               return Column(
@@ -165,9 +166,9 @@ class _SponsorshipPlanCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const TileIcon(
+              TileIcon(
                 icon: Icons.handshake_rounded,
-                color: Colors.pinkAccent,
+                color: AppThemeConfig.accent(context),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -212,7 +213,7 @@ class _SponsorshipPlanCard extends StatelessWidget {
           if (canCancel) ...[
             const SizedBox(height: 14),
             Align(
-              alignment: Alignment.centerRight,
+              alignment: AlignmentDirectional.centerEnd,
               child: OutlinedButton.icon(
                 onPressed: onCancel,
                 icon: const Icon(Icons.cancel_outlined),
@@ -253,15 +254,11 @@ class _OverviewHeroCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF0F766E), Color(0xFF14B8A6), Color(0xFF2563EB)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: AppThemeConfig.accent(context),
         borderRadius: BorderRadius.circular(32),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0F766E).withValues(alpha: 0.22),
+            color: AppThemeConfig.accent(context).withValues(alpha: 0.22),
             blurRadius: 28,
             offset: const Offset(0, 18),
           ),

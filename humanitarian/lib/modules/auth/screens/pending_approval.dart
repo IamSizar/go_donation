@@ -110,7 +110,9 @@ class _PendingApprovalPageState extends State<PendingApprovalPage> {
               ),
               const SizedBox(height: 20),
               Text(
-                (rejected ? 'Registration needs changes' : 'Awaiting admin review')
+                (rejected
+                        ? 'Registration needs changes'
+                        : 'Awaiting admin review')
                     .tr,
                 textAlign: TextAlign.center,
                 style: TextStyle(
@@ -176,10 +178,16 @@ class _PendingApprovalPageState extends State<PendingApprovalPage> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    _row(context, 'Your full name',
-                        sharedPreferences.getString('name_user')),
-                    _row(context, 'Your address',
-                        sharedPreferences.getString('address_user')),
+                    _row(
+                      context,
+                      'Your full name',
+                      sharedPreferences.getString('name_user'),
+                    ),
+                    _row(
+                      context,
+                      'Your address',
+                      sharedPreferences.getString('address_user'),
+                    ),
                     _row(context, 'Select your role', _roleLabel()),
                   ],
                 ),

@@ -17,6 +17,7 @@ import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 import 'package:flutter_application_1/shared/utils/image_pick.dart';
+import 'package:flutter_application_1/core/widgets/app_pressable.dart';
 
 /// New-user onboarding form. Replaces the old "Choose your role" screen:
 /// collects name, date of birth, address and role, then submits the whole
@@ -4446,7 +4447,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                           ),
                           const SizedBox(width: 8),
                           Expanded(
-                            child: GestureDetector(
+                            child: AppPressable(
                               onTap: () => Get.to(() => const TermsScreen()),
                               child: Padding(
                                 padding: const EdgeInsets.only(top: 4),

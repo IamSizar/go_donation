@@ -9,7 +9,9 @@
 // The parent owns the canonical state as Map<dayKey, DayAvailability>.
 
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/core/design/directional_icons.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/core/design/motion.dart';
 
 /// One day's availability slice. The day key must be one of mon..sun.
 class DayAvailability {
@@ -28,10 +30,10 @@ class DayAvailability {
 
   /// Backend wire format: { day, from: "HH:MM", to: "HH:MM" }.
   Map<String, String> toJson() => {
-        'day': day,
-        'from': fmt(from),
-        'to': fmt(to),
-      };
+    'day': day,
+    'from': fmt(from),
+    'to': fmt(to),
+  };
 
   /// HH:MM (24h) — used by toJson + the picker UI.
   static String fmt(TimeOfDay t) =>
@@ -55,8 +57,18 @@ const Map<String, Map<String, String>> _dayShort = {
 const Map<String, Map<String, String>> _dayLong = {
   'mon': {'en': 'Monday', 'ar': 'الإثنين', 'ckb': 'دووشەممە', 'kmr': 'دووشەم'},
   'tue': {'en': 'Tuesday', 'ar': 'الثلاثاء', 'ckb': 'سێشەممە', 'kmr': 'سێشەم'},
-  'wed': {'en': 'Wednesday', 'ar': 'الأربعاء', 'ckb': 'چوارشەممە', 'kmr': 'چوارشەم'},
-  'thu': {'en': 'Thursday', 'ar': 'الخميس', 'ckb': 'پێنجشەممە', 'kmr': 'پێنجشەم'},
+  'wed': {
+    'en': 'Wednesday',
+    'ar': 'الأربعاء',
+    'ckb': 'چوارشەممە',
+    'kmr': 'چوارشەم',
+  },
+  'thu': {
+    'en': 'Thursday',
+    'ar': 'الخميس',
+    'ckb': 'پێنجشەممە',
+    'kmr': 'پێنجشەم',
+  },
   'fri': {'en': 'Friday', 'ar': 'الجمعة', 'ckb': 'هەینی', 'kmr': 'هەینی'},
   'sat': {'en': 'Saturday', 'ar': 'السبت', 'ckb': 'شەممە', 'kmr': 'شەممی'},
   'sun': {'en': 'Sunday', 'ar': 'الأحد', 'ckb': 'یەکشەممە', 'kmr': 'یەکشەم'},
@@ -90,7 +102,8 @@ class AvailabilitySchedulePicker extends StatelessWidget {
     if (active) {
       // Use the existing times if the volunteer is re-enabling a day they
       // previously turned off in this session — otherwise default 9-5.
-      next[day] = schedule[day] ??
+      next[day] =
+          schedule[day] ??
           DayAvailability(day: day, from: _defaultFrom, to: _defaultTo);
     } else {
       next.remove(day);
@@ -98,18 +111,15 @@ class AvailabilitySchedulePicker extends StatelessWidget {
     onChanged(next);
   }
 
-  Future<void> _pickTime(
-    BuildContext context,
-    String day,
-    bool isFrom,
-  ) async {
+  Future<void> _pickTime(BuildContext context, String day, bool isFrom) async {
     final current = schedule[day];
     final initial = isFrom
         ? (current?.from ?? _defaultFrom)
         : (current?.to ?? _defaultTo);
     final picked = await showTimePicker(context: context, initialTime: initial);
     if (picked == null) return;
-    final existing = schedule[day] ??
+    final existing =
+        schedule[day] ??
         DayAvailability(day: day, from: _defaultFrom, to: _defaultTo);
     final next = Map<String, DayAvailability>.from(schedule);
     next[day] = isFrom
@@ -144,7 +154,8 @@ class AvailabilitySchedulePicker extends StatelessWidget {
               icon: Icons.work_outline_rounded,
               label: 'Weekdays 9–5'.tr,
               accent: primary,
-              onTap: () => _applyPreset(const ['mon', 'tue', 'wed', 'thu', 'fri']),
+              onTap: () =>
+                  _applyPreset(const ['mon', 'tue', 'wed', 'thu', 'fri']),
             ),
             _PresetChip(
               icon: Icons.beach_access_rounded,
@@ -172,16 +183,18 @@ class AvailabilitySchedulePicker extends StatelessWidget {
         // ---- Day pills ----
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: _dayKeys.map((d) {
-            final active = schedule.containsKey(d);
-            final short = _dayShort[d]?[locale] ?? _dayShort[d]!['en']!;
-            return _DayPill(
-              short: short,
-              selected: active,
-              accent: primary,
-              onTap: () => _toggleDay(d, !active),
-            );
-          }).toList(growable: false),
+          children: _dayKeys
+              .map((d) {
+                final active = schedule.containsKey(d);
+                final short = _dayShort[d]?[locale] ?? _dayShort[d]!['en']!;
+                return _DayPill(
+                  short: short,
+                  selected: active,
+                  accent: primary,
+                  onTap: () => _toggleDay(d, !active),
+                );
+              })
+              .toList(growable: false),
         ),
         const SizedBox(height: 14),
 
@@ -192,12 +205,17 @@ class AvailabilitySchedulePicker extends StatelessWidget {
             decoration: BoxDecoration(
               color: theme.colorScheme.surface.withValues(alpha: 0.4),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: theme.dividerColor.withValues(alpha: 0.4)),
+              border: Border.all(
+                color: theme.dividerColor.withValues(alpha: 0.4),
+              ),
             ),
             child: Row(
               children: [
-                Icon(Icons.info_outline_rounded,
-                    size: 18, color: theme.disabledColor),
+                Icon(
+                  Icons.info_outline_rounded,
+                  size: 18,
+                  color: theme.disabledColor,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -304,7 +322,7 @@ class _DayPill extends StatelessWidget {
             onTap: onTap,
             borderRadius: BorderRadius.circular(99),
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 160),
+              duration: AppMotion.resolve(context, AppMotion.snapDuration),
               padding: const EdgeInsets.symmetric(vertical: 10),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(99),
@@ -376,8 +394,11 @@ class _TimeRow extends StatelessWidget {
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 6),
-            child: Icon(Icons.arrow_forward_rounded,
-                size: 16, color: theme.disabledColor),
+            child: Icon(
+              AppIcons.forwardSolid(context),
+              size: 16,
+              color: theme.disabledColor,
+            ),
           ),
           Expanded(
             child: _TimeButton(

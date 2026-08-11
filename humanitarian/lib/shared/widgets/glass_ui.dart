@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/core/design/directional_icons.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:get/get.dart';
 
@@ -412,7 +413,7 @@ class SectionTile extends StatelessWidget {
           ),
         ),
         trailing: Icon(
-          Icons.arrow_forward_ios_rounded,
+          AppIcons.forward(context),
           size: 18,
           color: AppThemeConfig.mutedText(context),
         ),
@@ -517,14 +518,7 @@ class ModernNavItem extends StatelessWidget {
     final accent = destination.color;
     return Container(
       decoration: BoxDecoration(
-        gradient: isSelected
-            ? LinearGradient(
-                colors: [
-                  accent.withValues(alpha: 0.20),
-                  accent.withValues(alpha: 0.08),
-                ],
-              )
-            : null,
+        color: isSelected ? accent.withValues(alpha: 0.12) : null,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
           color: isSelected
@@ -599,7 +593,7 @@ class ModernNavItem extends StatelessWidget {
                           width: 12,
                           height: 12,
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF59E0B),
+                            color: AppThemeConfig.pending(context),
                             shape: BoxShape.circle,
                             border: Border.all(
                               color: AppThemeConfig.navBarSurface(context),
@@ -607,8 +601,8 @@ class ModernNavItem extends StatelessWidget {
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(
-                                  0xFFF59E0B,
+                                color: AppThemeConfig.pending(
+                                  context,
                                 ).withValues(alpha: 0.3),
                                 blurRadius: 10,
                                 offset: const Offset(0, 4),
@@ -621,7 +615,10 @@ class ModernNavItem extends StatelessWidget {
                 ),
                 if (isSelected)
                   Padding(
-                    padding: const EdgeInsets.only(left: 10, right: 2),
+                    padding: const EdgeInsetsDirectional.only(
+                      start: 10,
+                      end: 2,
+                    ),
                     child: Text(
                       destination.label.tr,
                       style: TextStyle(

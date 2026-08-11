@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/core/design/directional_icons.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/modules/auth/screens/edit_profile.dart';
 import 'package:flutter_application_1/modules/auth/screens/payment_methods_screen.dart';
@@ -103,7 +104,7 @@ class _ControlOptionTile extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Icon(
-                Icons.arrow_forward_ios_rounded,
+                AppIcons.forward(context),
                 color: AppThemeConfig.mutedText(context),
                 size: 16,
               ),

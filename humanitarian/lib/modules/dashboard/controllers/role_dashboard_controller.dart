@@ -3,8 +3,7 @@ import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/realtime_polling.dart';
 import 'package:get/get.dart';
 
-class RoleDashboardController extends GetxController
-    with RealtimePollingMixin {
+class RoleDashboardController extends GetxController with RealtimePollingMixin {
   RoleDashboardController({ModuleApi? api}) : _api = api ?? const ModuleApi();
 
   final ModuleApi _api;

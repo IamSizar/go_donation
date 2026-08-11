@@ -207,31 +207,47 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             _DashboardTopBar(tabIndex: _currentIndex),
             Expanded(
-              // The top bar above already reserves the status-bar inset via
-              // its own SafeArea; each tab's screen also wraps itself in a
-              // SafeArea (since it's reused elsewhere as a standalone pushed
-              // route). Left alone, that's the status-bar gap applied
-              // twice. Stripping the top MediaQuery padding here makes the
-              // tab's own SafeArea compute zero top inset, so the gap only
-              // ever appears once, right under the top bar.
+              // Each tab's screen wraps itself in a SafeArea, because each is
+              // also reachable as a standalone pushed route. Inside this
+              // Column both of its insets are already accounted for, so both
+              // must be stripped or they get applied twice:
+              //
+              //   TOP — the _DashboardTopBar above reserves the status bar.
+              //   Without removeTop the gap appears twice, once under the
+              //   status bar and again under the top bar.
+              //
+              //   BOTTOM — the nav bar below reserves the home indicator.
+              //   Without removeBottom the section pads itself by the full
+              //   ~34pt inset, which paints as a band of page background
+              //   sitting on top of the nav bar and reads as a second, empty
+              //   bar. This only started mattering when the nav moved out of
+              //   Scaffold's bottomNavigationBar slot and into this Column —
+              //   the slot used to consume that inset on the body's behalf.
               child: MediaQuery.removePadding(
                 context: context,
                 removeTop: true,
+                removeBottom: true,
                 child: IndexedStack(index: _currentIndex, children: _sections),
               ),
             ),
+            // The nav bar lives in the BODY, not in Scaffold's
+            // bottomNavigationBar slot.
+            //
+            // The slot reserves the bottom safe-area inset OUTSIDE whatever
+            // widget you give it and fills that strip with the Scaffold's own
+            // background. The result was two stacked bars: our surface on top,
+            // and a strip of scaffold background beneath it that no amount of
+            // padding inside our widget could reach or colour.
+            //
+            // As the last child of the body Column it sits flush against the
+            // physical bottom edge, so its own decoration paints all the way
+            // down and there is nothing behind it.
+            _CompactBottomNavBar(
+              currentIndex: _currentIndex,
+              destinations: _destinations,
+              onSelected: _onTabSelected,
+            ),
           ],
-        ),
-        // Stock BottomNavigationBar has no way to override its total
-        // height — its ~56pt base is hardcoded internally with no
-        // constructor param to shrink it, so a custom bar is used instead
-        // to get a smaller background block. The home-indicator safe area
-        // is still handled correctly (added below via SafeArea), same as
-        // the stock widget would.
-        bottomNavigationBar: _CompactBottomNavBar(
-          currentIndex: _currentIndex,
-          destinations: _destinations,
-          onSelected: _onTabSelected,
         ),
       ),
     );
@@ -253,25 +269,89 @@ class _CompactBottomNavBar extends StatelessWidget {
   final List<NavDestination> destinations;
   final ValueChanged<int> onSelected;
 
-  // Sized to hug the icon+label content tightly (see _CompactNavItem) — the
-  // lever for "make the bar smaller" is this height, not the icon/font
-  // sizes below, which stay at their normal, comfortable size.
+  // Content budget: icon 21 + gap 1 + label line box 11 (fontSize 10 with an
+  // explicit height of 1.1) = 33pt.
   //
-  // Budget at 40: icon 24 + gap 2 + label line box 12 (fontSize 11 with an
-  // explicit height of 1.1) = 38, leaving 1pt of slack top and bottom. The
-  // label needs that explicit line height — the locale fonts default to
-  // roughly 1.45, which makes the content 42 and overflows this bar by 2.
-  static const double _barHeight = 40;
+  // The bar is 52, not 33, on purpose. Sizing it to hug the content exactly
+  // left the icons pressed against the top hairline with a single point of
+  // slack, so the row read as crammed into the edge of the bar rather than
+  // sitting in it. The extra 19pt distributes as ~9pt above and below, which
+  // is what makes the content look seated in the bar.
+  //
+  // The label needs its explicit line height — the locale fonts default to
+  // roughly 1.45, which would grow the content past even this and overflow.
+  static const double _barHeight = 52;
+
+  /// Clearance below the labels, clamped between [_minClearance] and
+  /// [_maxClearance].
+  ///
+  /// Two different things constrain this, and getting it wrong in either
+  /// direction is visible:
+  ///
+  ///   * Using the device's FULL bottom inset (~34pt here) leaves the labels
+  ///     floating well above the screen edge. The bar reads as too tall and
+  ///     too high up, because most of its height is empty colour.
+  ///
+  ///   * Using a small flat value (10pt was tried) pushes the labels into the
+  ///     region the display's ROUNDED CORNERS mask. The centre tabs survive,
+  ///     but the outermost ones — leftmost under RTL — get their descenders
+  ///     clipped by the corner radius. The home indicator is not the binding
+  ///     constraint; the corner is, and it only bites at the ends of the row,
+  ///     which is why the clipping looks asymmetric.
+  ///
+  /// 20pt clears both the indicator and the corner mask while still sitting
+  /// 14pt lower than the full inset.
+  static const double _minClearance = 6;
+  static const double _maxClearance = 20;
+
+  /// The device's real bottom inset, clamped.
+  ///
+  /// Read from [View], not from MediaQuery: an ancestor can legitimately
+  /// consume the padding (Scaffold does), after which MediaQuery reports 0
+  /// and any calculation based on it silently produces a bar that looks fine
+  /// in code and wrong on screen. The view is the ground truth.
+  static double _clearanceFor(BuildContext context) {
+    final view = View.of(context);
+    final inset = view.viewPadding.bottom / view.devicePixelRatio;
+    return inset <= 0
+        ? _minClearance
+        : inset.clamp(_minClearance, _maxClearance);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
-      color: AppThemeConfig.backgroundTop(context),
-      // Full SafeArea, i.e. the device's standard home-indicator gap below the
-      // labels — the same spacing other iOS apps use. The bar is kept short by
-      // _barHeight hugging the icon+label stack, not by trimming this gap.
-      child: SafeArea(
-        top: false,
+    // The decoration sits OUTSIDE the padding on purpose: the bar's surface
+    // must reach the physical bottom edge so it reads as anchored chrome,
+    // while its content stops short of the unsafe region.
+    //
+    // The surface is `card`, NOT `ground`. Painting the bar in the page's own
+    // background colour gives it no edge, so every neutral pixel above it —
+    // the body's bottom gutter, the gap under the last card — merges into it
+    // and the bar appears to extend far up the screen. It was never taller
+    // than its 54pt; there was simply no boundary to see. A distinct surface
+    // plus a hairline is what makes chrome read as chrome.
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppThemeConfig.navBarSurface(context),
+        // The SEPARATOR carries the separation, not the fill.
+        //
+        // Measured from a device screenshot: the bar's white (#FFFFFF) against
+        // the sand page (#F7F4EE) is a ~3% luminance step — technically a
+        // different colour, visually no edge at all. The `line` hairline
+        // (#E4DFD4) on white was equally faint. So the bar rendered correctly
+        // and still could not be found on screen.
+        //
+        // lineStrong (#CFC8B9) is the quietest value that actually reads as an
+        // edge here. Anything subtler and the chrome dissolves into the page.
+        border: Border(
+          top: BorderSide(
+            color: AppThemeConfig.borderStrong(context),
+            width: 1,
+          ),
+        ),
+      ),
+      child: Padding(
+        padding: EdgeInsets.only(bottom: _clearanceFor(context)),
         child: SizedBox(
           height: _barHeight,
           child: Row(
@@ -306,7 +386,7 @@ class _CompactNavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = selected
-        ? AppThemeConfig.primary
+        ? AppThemeConfig.accent(context)
         : AppThemeConfig.mutedText(context);
     return Material(
       color: Colors.transparent,
@@ -318,17 +398,17 @@ class _CompactNavItem extends StatelessWidget {
             Icon(
               selected ? destination.activeIcon : destination.icon,
               color: color,
-              size: 24,
+              size: 21,
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 1),
             Text(
               destination.label.tr,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 11,
-                // Explicit line height so the label box is 12pt rather than
-                // the locale font's default (~16pt) — see _barHeight.
+                fontSize: 10,
+                // Explicit line height so the label box is 11pt rather than
+                // the locale font's default (~15pt) — see _barHeight.
                 height: 1.1,
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                 color: color,

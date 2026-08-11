@@ -9,8 +9,7 @@ import 'package:flutter_application_1/core/realtime_polling.dart';
 import 'package:flutter_application_1/localization/locale_service.dart';
 import 'package:get/get.dart';
 
-class MarketplaceController extends GetxController
-    with RealtimePollingMixin {
+class MarketplaceController extends GetxController with RealtimePollingMixin {
   static const int _productsPerPage = 10;
   static const int _ordersPerPage = 100;
 
@@ -154,8 +153,9 @@ class MarketplaceController extends GetxController
     );
     _lastOrderStatusSnapshot = {
       for (final m in orders)
-        (m['id'] ?? '').toString():
-            (m['status'] ?? '').toString().toLowerCase(),
+        (m['id'] ?? '').toString(): (m['status'] ?? '')
+            .toString()
+            .toLowerCase(),
     };
     for (final t in transitions) {
       final msg = _messageForOrderTransition(t.toStatus);

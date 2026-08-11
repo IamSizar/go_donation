@@ -17,7 +17,6 @@ class EditProfilePage extends StatefulWidget {
 }
 
 class _EditProfilePageState extends State<EditProfilePage> {
-  static const Color _primary = Color(0xFF0F766E);
   static const List<String> _genderOptions = ['Male', 'Female', 'Other'];
 
   bool _genderLocked = false;
@@ -275,9 +274,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
         borderRadius: BorderRadius.circular(18),
         borderSide: BorderSide(color: AppThemeConfig.border(context)),
       ),
-      focusedBorder: const OutlineInputBorder(
+      focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.all(Radius.circular(18)),
-        borderSide: BorderSide(color: _primary, width: 1.4),
+        borderSide: BorderSide(
+          color: AppThemeConfig.accent(context),
+          width: 1.4,
+        ),
       ),
     );
   }
@@ -287,16 +289,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     return Scaffold(
       appBar: AppBar(title: Text('Edit profile'.tr)),
       body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              AppThemeConfig.backgroundTop(context),
-              AppThemeConfig.backgroundBottom(context),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
+        decoration: BoxDecoration(color: AppThemeConfig.backgroundTop(context)),
         child: SafeArea(
           top: false,
           child: Form(
@@ -309,7 +302,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     children: [
                       Stack(
                         clipBehavior: Clip.none,
-                        alignment: Alignment.bottomRight,
+                        alignment: AlignmentDirectional.bottomEnd,
                         children: [
                           _ProfileCompletionAvatar(
                             isComplete: _isDraftProfileComplete,
@@ -318,7 +311,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                               localPath: _effectiveLocalImagePath,
                               imageUrl: _remoteProfilePictureUrl,
                               radius: 48,
-                              backgroundColor: _primary,
+                              backgroundColor: AppThemeConfig.accent(context),
                               placeholder: const Icon(
                                 Icons.person,
                                 size: 48,
@@ -332,7 +325,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                             child: IconButton(
                               onPressed: _pickProfileImage,
                               icon: const Icon(Icons.photo_camera_outlined),
-                              color: _primary,
+                              color: AppThemeConfig.accent(context),
                             ),
                           ),
                         ],
@@ -481,13 +474,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
                                   : AppThemeConfig.text(context),
                               fontWeight: FontWeight.w700,
                             ),
-                            selectedColor: _primary,
+                            selectedColor: AppThemeConfig.accent(context),
                             backgroundColor: AppThemeConfig.softSurface(
                               context,
                             ),
                             side: BorderSide(
                               color: isSelected
-                                  ? _primary
+                                  ? AppThemeConfig.accent(context)
                                   : AppThemeConfig.border(context),
                             ),
                             showCheckmark: false,
@@ -505,7 +498,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 FilledButton(
                   onPressed: _isSaving ? null : _saveProfile,
                   style: FilledButton.styleFrom(
-                    backgroundColor: _primary,
+                    backgroundColor: AppThemeConfig.accent(context),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
@@ -583,18 +576,16 @@ class _ProfileCompletionAvatar extends StatelessWidget {
                 width: width,
                 height: shoulderHeight,
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFFFD166), Color(0xFFF59E0B)],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                  ),
+                  color: AppThemeConfig.pending(context),
                   borderRadius: BorderRadius.vertical(
                     top: Radius.circular(shoulderHeight),
                     bottom: const Radius.circular(28),
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFFF59E0B).withValues(alpha: 0.24),
+                      color: AppThemeConfig.pending(
+                        context,
+                      ).withValues(alpha: 0.24),
                       blurRadius: 18,
                       offset: const Offset(0, 10),
                     ),
@@ -611,12 +602,14 @@ class _ProfileCompletionAvatar extends StatelessWidget {
                 width: 28,
                 height: 28,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF97316),
+                  color: AppThemeConfig.pending(context),
                   shape: BoxShape.circle,
                   border: Border.all(color: Colors.white, width: 2),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFFF97316).withValues(alpha: 0.25),
+                      color: AppThemeConfig.pending(
+                        context,
+                      ).withValues(alpha: 0.25),
                       blurRadius: 14,
                       offset: const Offset(0, 8),
                     ),
@@ -650,8 +643,9 @@ class _ProfileCompletionBanner extends StatelessWidget {
     // about — don't show a "you're done" banner at all, just show nothing.
     if (isComplete) return const SizedBox.shrink();
 
-    const background = Color(0xFFFFF4D8);
-    const foreground = Color(0xFFB45309);
+    // The same incomplete-profile prompt as profile.dart, on the same token.
+    final background = AppThemeConfig.pending(context).withValues(alpha: 0.10);
+    final foreground = AppThemeConfig.pending(context);
     const title = 'Complete your profile';
     const subtitle =
         'Add the missing details so your account looks trusted and ready to use.';

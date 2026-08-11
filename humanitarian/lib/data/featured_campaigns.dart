@@ -340,12 +340,22 @@ class FeaturedCampaignData {
     return icons[idx % icons.length];
   }
 
-  Color get color {
-    final seed = (categoryEn.isEmpty ? titleEn : categoryEn).hashCode.abs();
-    const hues = <double>[175, 265, 32, 200, 330, 145, 25];
-    final hue = hues[seed % hues.length];
-    return HSVColor.fromAHSV(1, hue, 0.5, 0.88).toColor();
-  }
+  /// The brand colour.
+  ///
+  /// This used to derive a hue by hashing the category name into a table of
+  /// seven arbitrary values (175, 265, 32, 200, 330, 145, 25) at 50%
+  /// saturation. It was stable per category, which made it look like a
+  /// legend, but the hues were not chosen for anything — they were whatever
+  /// the hash landed on — and they rendered as large pastel card fills that
+  /// dominated a screen whose palette contains none of them.
+  ///
+  /// A campaign is identified by its title, its icon and its category chip.
+  /// Colour is reserved for state.
+  @Deprecated(
+    'Use AppThemeConfig.accent(context). This returns a constant now; the '
+    'per-category hue was removed.',
+  )
+  Color get color => const Color(0xFF2F5D4A);
 
   factory FeaturedCampaignData.fromJson(Map<String, dynamic> json) {
     int? toInt(dynamic v) => int.tryParse(v?.toString() ?? '');

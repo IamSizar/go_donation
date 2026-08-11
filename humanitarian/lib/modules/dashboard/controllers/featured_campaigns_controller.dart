@@ -248,7 +248,8 @@ class FeaturedCampaignsController extends GetxController
     if (token == null || token.isEmpty) return null;
 
     const perPage = 50;
-    const maxPages = 6; // up to 300 campaigns — enough headroom without unbounded fetching
+    const maxPages =
+        6; // up to 300 campaigns — enough headroom without unbounded fetching
     try {
       for (var page = 1; page <= maxPages; page++) {
         final uri = Uri.parse(featuredCampaignsUrl).replace(

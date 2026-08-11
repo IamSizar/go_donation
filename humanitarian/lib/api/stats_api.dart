@@ -37,12 +37,12 @@ class ImpactStats {
   }
 
   factory ImpactStats.fromJson(Map<String, dynamic> json) => ImpactStats(
-        grantors: _int(json['grantors']),
-        eligibles: _int(json['eligibles']),
-        volunteers: _int(json['volunteers']),
-        completedWorks: _int(json['completed_works']),
-        totalGiven: _num(json['total_given']),
-      );
+    grantors: _int(json['grantors']),
+    eligibles: _int(json['eligibles']),
+    volunteers: _int(json['volunteers']),
+    completedWorks: _int(json['completed_works']),
+    totalGiven: _num(json['total_given']),
+  );
 
   /// True when every number is zero — nothing meaningful to show yet.
   bool get isEmpty =>

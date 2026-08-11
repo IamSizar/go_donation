@@ -8,7 +8,8 @@ class AppTranslations extends Translations {
     'Add or correct a place': 'Add or correct a place',
     'What this guide covers': 'What this guide covers',
     'Reach the engagement service team': 'Reach the engagement service team',
-    'What this service is and how it works': 'What this service is and how it works',
+    'What this service is and how it works':
+        'What this service is and how it works',
     'About & contact': 'About & contact',
     'Contact the Mosul Guide': 'Contact the Mosul Guide',
     'About the Mosul Guide': 'About the Mosul Guide',
@@ -16,13 +17,15 @@ class AppTranslations extends Translations {
     'About My Engagement': 'About My Engagement',
     'marriage_request_visit_sub': 'Ask to visit the family at home',
     'marriage_request_visit': 'Visit request',
-    'marriage_request_intermediary_sub': 'A team member passes messages between you',
+    'marriage_request_intermediary_sub':
+        'A team member passes messages between you',
     'marriage_request_intermediary': 'Through a staff member',
     'marriage_request_meeting_sub': 'Meet face to face, arranged by the team',
     'marriage_request_meeting': 'In-person meeting',
     'marriage_request_how': 'How would you like to be put in touch?',
     'support_escalate_cta': 'Contact us on WhatsApp',
-    'support_escalate_body': 'You have written to us on more than three separate days without a resolution. Reach the team directly on WhatsApp to speed this up.',
+    'support_escalate_body':
+        'You have written to us on more than three separate days without a resolution. Reach the team directly on WhatsApp to speed this up.',
     'support_escalate_title': 'Still waiting?',
     'support_reply': 'Support reply',
     'support_no_requests': 'You have not contacted support yet.',
@@ -34,18 +37,23 @@ class AppTranslations extends Translations {
     'support_message': 'Message',
     'support_subject': 'Subject',
     'support_new_message': 'Send a message to support',
-    'Covers running costs: servers, subscriptions and administration.': 'Covers running costs: servers, subscriptions and administration.',
+    'Covers running costs: servers, subscriptions and administration.':
+        'Covers running costs: servers, subscriptions and administration.',
     'Support the organization': 'Support the organization',
-    'Goes to the general fund or a project you choose.': 'Goes to the general fund or a project you choose.',
+    'Goes to the general fund or a project you choose.':
+        'Goes to the general fund or a project you choose.',
     'Help people in need': 'Help people in need',
     'Where should this go?': 'Where should this go?',
     'Demo code': 'Demo code',
     'WhatsApp / SMS': 'WhatsApp / SMS',
     'Delivery': 'Delivery',
-    'By continuing you agree to our Terms and Privacy Policy.': 'By continuing you agree to our Terms and Privacy Policy.',
-    'New here? Entering your number creates your account.': 'New here? Entering your number creates your account.',
+    'By continuing you agree to our Terms and Privacy Policy.':
+        'By continuing you agree to our Terms and Privacy Policy.',
+    'New here? Entering your number creates your account.':
+        'New here? Entering your number creates your account.',
     'or': 'or',
-    'Enter your phone number and we will send you a verification code.': 'Enter your phone number and we will send you a verification code.',
+    'Enter your phone number and we will send you a verification code.':
+        'Enter your phone number and we will send you a verification code.',
     // Quick Actions #4 — Wheel of Fortune / Lucky Coupon.
     'Wheel of Fortune': 'Wheel of Fortune',
     'Lucky Coupon': 'Lucky Coupon',
@@ -2292,13 +2300,15 @@ class AppTranslations extends Translations {
     'About My Engagement': 'عن خدمة الارتباط',
     'marriage_request_visit_sub': 'طلب زيارة العائلة في المنزل',
     'marriage_request_visit': 'طلب زيارة',
-    'marriage_request_intermediary_sub': 'يقوم أحد الموظفين بنقل الرسائل بينكما',
+    'marriage_request_intermediary_sub':
+        'يقوم أحد الموظفين بنقل الرسائل بينكما',
     'marriage_request_intermediary': 'عبر موظف وسيط',
     'marriage_request_meeting_sub': 'لقاء وجهاً لوجه ينظّمه الفريق',
     'marriage_request_meeting': 'لقاء مباشر',
     'marriage_request_how': 'كيف تودّ أن يتم التواصل؟',
     'support_escalate_cta': 'تواصل عبر واتساب',
-    'support_escalate_body': 'لقد راسلتنا في أكثر من ثلاثة أيام مختلفة دون حل. تواصل مع الفريق مباشرة عبر واتساب لتسريع المعالجة.',
+    'support_escalate_body':
+        'لقد راسلتنا في أكثر من ثلاثة أيام مختلفة دون حل. تواصل مع الفريق مباشرة عبر واتساب لتسريع المعالجة.',
     'support_escalate_title': 'ما زلت تنتظر؟',
     'support_reply': 'رد الدعم',
     'support_no_requests': 'لم تتواصل مع الدعم بعد.',
@@ -2310,18 +2320,23 @@ class AppTranslations extends Translations {
     'support_message': 'الرسالة',
     'support_subject': 'الموضوع',
     'support_new_message': 'أرسل رسالة إلى الدعم',
-    'Covers running costs: servers, subscriptions and administration.': 'يغطي تكاليف التشغيل: الخوادم والاشتراكات والإدارة.',
+    'Covers running costs: servers, subscriptions and administration.':
+        'يغطي تكاليف التشغيل: الخوادم والاشتراكات والإدارة.',
     'Support the organization': 'دعم المنظمة',
-    'Goes to the general fund or a project you choose.': 'يذهب إلى الصندوق العام أو إلى مشروع تختاره.',
+    'Goes to the general fund or a project you choose.':
+        'يذهب إلى الصندوق العام أو إلى مشروع تختاره.',
     'Help people in need': 'مساعدة المحتاجين',
     'Where should this go?': 'أين تريد توجيه تبرعك؟',
     'Demo code': 'رمز تجريبي',
     'WhatsApp / SMS': 'واتساب / رسالة نصية',
     'Delivery': 'طريقة الإرسال',
-    'By continuing you agree to our Terms and Privacy Policy.': 'بالمتابعة فإنك توافق على الشروط وسياسة الخصوصية.',
-    'New here? Entering your number creates your account.': 'جديد هنا؟ إدخال رقمك يُنشئ حسابك.',
+    'By continuing you agree to our Terms and Privacy Policy.':
+        'بالمتابعة فإنك توافق على الشروط وسياسة الخصوصية.',
+    'New here? Entering your number creates your account.':
+        'جديد هنا؟ إدخال رقمك يُنشئ حسابك.',
     'or': 'أو',
-    'Enter your phone number and we will send you a verification code.': 'أدخل رقم هاتفك وسنرسل لك رمز تحقق.',
+    'Enter your phone number and we will send you a verification code.':
+        'أدخل رقم هاتفك وسنرسل لك رمز تحقق.',
     // Quick Actions #4 — Wheel of Fortune / Lucky Coupon.
     'Wheel of Fortune': 'عجلة الحظ',
     'Lucky Coupon': 'كوبون الحظ',
@@ -4483,8 +4498,10 @@ class AppTranslations extends Translations {
     'city_open_now': 'ئێستا کراوەیە',
     'Add or correct a place': 'شوێنێک زیاد بکە یان ڕاستی بکەرەوە',
     'What this guide covers': 'ئەم ڕێنمایە چی دەگرێتەوە',
-    'Reach the engagement service team': 'پەیوەندی بە تیمی خزمەتگوزارییەکەوە بکە',
-    'What this service is and how it works': 'ئەم خزمەتگوزارییە چییە و چۆن کار دەکات',
+    'Reach the engagement service team':
+        'پەیوەندی بە تیمی خزمەتگوزارییەکەوە بکە',
+    'What this service is and how it works':
+        'ئەم خزمەتگوزارییە چییە و چۆن کار دەکات',
     'About & contact': 'دەربارە و پەیوەندی',
     'Contact the Mosul Guide': 'پەیوەندی — ڕێنمای مووسڵ',
     'About the Mosul Guide': 'دەربارەی ڕێنمای مووسڵ',
@@ -4498,7 +4515,8 @@ class AppTranslations extends Translations {
     'marriage_request_meeting': 'دیداری ڕووبەڕوو',
     'marriage_request_how': 'چۆن دەتەوێت پەیوەندی بکرێت؟',
     'support_escalate_cta': 'لە ڕێگەی واتساپ پەیوەندی بکە',
-    'support_escalate_body': 'لە زیاتر لە سێ ڕۆژی جیاوازدا نامەت بۆ ناردووین بەبێ چارەسەر. ڕاستەوخۆ لە ڕێگەی واتساپ پەیوەندی بە تیمەکەوە بکە بۆ خێراکردنی.',
+    'support_escalate_body':
+        'لە زیاتر لە سێ ڕۆژی جیاوازدا نامەت بۆ ناردووین بەبێ چارەسەر. ڕاستەوخۆ لە ڕێگەی واتساپ پەیوەندی بە تیمەکەوە بکە بۆ خێراکردنی.',
     'support_escalate_title': 'هێشتا چاوەڕوانیت؟',
     'support_reply': 'وەڵامی پشتیوانی',
     'support_no_requests': 'هێشتا پەیوەندیت بە پشتیوانییەوە نەکردووە.',
@@ -4510,18 +4528,23 @@ class AppTranslations extends Translations {
     'support_message': 'نامە',
     'support_subject': 'بابەت',
     'support_new_message': 'نامەیەک بۆ پشتیوانی بنێرە',
-    'Covers running costs: servers, subscriptions and administration.': 'تێچووی کارکردن دادەپۆشێت: سێرڤەر و بەشداریەکان و بەڕێوەبردن.',
+    'Covers running costs: servers, subscriptions and administration.':
+        'تێچووی کارکردن دادەپۆشێت: سێرڤەر و بەشداریەکان و بەڕێوەبردن.',
     'Support the organization': 'پشتگیری ڕێکخراوەکە',
-    'Goes to the general fund or a project you choose.': 'بۆ سندوقی گشتی یان ئەو پڕۆژەیە دەچێت کە هەڵیدەبژێریت.',
+    'Goes to the general fund or a project you choose.':
+        'بۆ سندوقی گشتی یان ئەو پڕۆژەیە دەچێت کە هەڵیدەبژێریت.',
     'Help people in need': 'یارمەتیدانی پێویستداران',
     'Where should this go?': 'دەتەوێت بەخشینەکەت بۆ کوێ بچێت؟',
     'Demo code': 'کۆدی تاقیکردنەوە',
     'WhatsApp / SMS': 'واتساپ / کورتەنامە',
     'Delivery': 'شێوازی ناردن',
-    'By continuing you agree to our Terms and Privacy Policy.': 'بە بەردەوامبوون ڕازی دەبیت بە مەرجەکان و سیاسەتی تایبەتمەندێتی.',
-    'New here? Entering your number creates your account.': 'نوێیت لێرە؟ نووسینی ژمارەکەت هەژمارەکەت دروست دەکات.',
+    'By continuing you agree to our Terms and Privacy Policy.':
+        'بە بەردەوامبوون ڕازی دەبیت بە مەرجەکان و سیاسەتی تایبەتمەندێتی.',
+    'New here? Entering your number creates your account.':
+        'نوێیت لێرە؟ نووسینی ژمارەکەت هەژمارەکەت دروست دەکات.',
     'or': 'یان',
-    'Enter your phone number and we will send you a verification code.': 'ژمارەی مۆبایلەکەت بنووسە و کۆدی پشتڕاستکردنەوەت بۆ دەنێرین.',
+    'Enter your phone number and we will send you a verification code.':
+        'ژمارەی مۆبایلەکەت بنووسە و کۆدی پشتڕاستکردنەوەت بۆ دەنێرین.',
     // Quick Actions #4 — Wheel of Fortune / Lucky Coupon.
     'Wheel of Fortune': 'چەرخی بەخت',
     'Lucky Coupon': 'کۆپۆنی بەخت',
@@ -6779,7 +6802,8 @@ class AppTranslations extends Translations {
     'marriage_request_meeting': 'دیدارا رووبەروو',
     'marriage_request_how': 'چاوا دخوازی پەیوەندی بێتە کرن؟',
     'support_escalate_cta': 'ب رێکا واتساپێ پەیوەندی بکە',
-    'support_escalate_body': 'تە ژ زێدەتری سێ رۆژێن جودا نامە بۆ مە هنارتینە بێی چارەسەری. راستەوخۆ ب رێکا واتساپێ پەیوەندی ب تیمێ بکە دا زوتر بێتە چارەسەرکرن.',
+    'support_escalate_body':
+        'تە ژ زێدەتری سێ رۆژێن جودا نامە بۆ مە هنارتینە بێی چارەسەری. راستەوخۆ ب رێکا واتساپێ پەیوەندی ب تیمێ بکە دا زوتر بێتە چارەسەرکرن.',
     'support_escalate_title': 'تو هێشتا چاڤەڕێیی؟',
     'support_reply': 'بەرسڤا پشتەڤانیێ',
     'support_no_requests': 'تە هێشتا پەیوەندی ب پشتەڤانیێ نەکریە.',
@@ -6791,18 +6815,23 @@ class AppTranslations extends Translations {
     'support_message': 'نامە',
     'support_subject': 'بابەت',
     'support_new_message': 'نامەیەکێ بۆ پشتەڤانیێ بشینە',
-    'Covers running costs: servers, subscriptions and administration.': 'مەسرەفێن کارکرنێ ددەت: سێرڤەر و بەشداری و بەرێڤەبرن.',
+    'Covers running costs: servers, subscriptions and administration.':
+        'مەسرەفێن کارکرنێ ددەت: سێرڤەر و بەشداری و بەرێڤەبرن.',
     'Support the organization': 'پشتەڤانیا رێکخراوێ',
-    'Goes to the general fund or a project you choose.': 'دچیتە سندوقێ گشتی یان وی پرۆژەیێ تو هەلدبژێری.',
+    'Goes to the general fund or a project you choose.':
+        'دچیتە سندوقێ گشتی یان وی پرۆژەیێ تو هەلدبژێری.',
     'Help people in need': 'هاریکاریا پێدڤیداران',
     'Where should this go?': 'تو دخوازی بەخشینا تە بۆ کیڤە بچیت؟',
     'Demo code': 'کۆدێ تاقیکرنێ',
     'WhatsApp / SMS': 'واتساپ / کورتەنامە',
     'Delivery': 'رێکا هنارتنێ',
-    'By continuing you agree to our Terms and Privacy Policy.': 'ب بەردەوامبوونێ تو ب مەرجان و سیاسەتا تایبەتمەندیێ رازی دبی.',
-    'New here? Entering your number creates your account.': 'نوی یی ل ڤێرێ؟ نڤیسینا ژمارا تە هەژمارا تە دروست دکەت.',
+    'By continuing you agree to our Terms and Privacy Policy.':
+        'ب بەردەوامبوونێ تو ب مەرجان و سیاسەتا تایبەتمەندیێ رازی دبی.',
+    'New here? Entering your number creates your account.':
+        'نوی یی ل ڤێرێ؟ نڤیسینا ژمارا تە هەژمارا تە دروست دکەت.',
     'or': 'یان',
-    'Enter your phone number and we will send you a verification code.': 'ژمارا موبایلا خۆ بنڤیسە و ئەم دێ کۆدێ پشتراستکرنێ بۆ تە بشینین.',
+    'Enter your phone number and we will send you a verification code.':
+        'ژمارا موبایلا خۆ بنڤیسە و ئەم دێ کۆدێ پشتراستکرنێ بۆ تە بشینین.',
     // Quick Actions #4 — Wheel of Fortune / Lucky Coupon.
     'Wheel of Fortune': 'چەرخا بەختێ',
     'Lucky Coupon': 'کۆپۆنا بەختێ',

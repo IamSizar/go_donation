@@ -102,11 +102,7 @@ class _WalletBalanceCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF0F766E), Color(0xFF115E59)],
-        ),
+        color: AppThemeConfig.accent(context),
         borderRadius: BorderRadius.circular(28),
       ),
       child: Column(
@@ -152,32 +148,36 @@ class _TransactionRow extends StatelessWidget {
   final WalletTransaction tx;
   final String currency;
 
-  ({IconData icon, Color color, bool isCredit}) _visual() {
+  ({IconData icon, Color color, bool isCredit}) _visual(BuildContext context) {
     switch (tx.type) {
       case 'topup':
         return (
           icon: Icons.add_circle_rounded,
-          color: Colors.green,
+          color: AppThemeConfig.accent(context),
           isCredit: true,
         );
       case 'refund':
-        return (icon: Icons.undo_rounded, color: Colors.blue, isCredit: true);
+        return (
+          icon: Icons.undo_rounded,
+          color: AppThemeConfig.accent(context),
+          isCredit: true,
+        );
       case 'donation':
         return (
           icon: Icons.favorite_rounded,
-          color: Colors.pinkAccent,
+          color: AppThemeConfig.accent(context),
           isCredit: false,
         );
       case 'purchase':
         return (
           icon: Icons.shopping_bag_rounded,
-          color: Colors.deepOrange,
+          color: AppThemeConfig.pending(context),
           isCredit: false,
         );
       default:
         return (
           icon: Icons.receipt_long_rounded,
-          color: Colors.blueGrey,
+          color: AppThemeConfig.subtleText(context),
           isCredit: false,
         );
     }
@@ -200,7 +200,7 @@ class _TransactionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final v = _visual();
+    final v = _visual(context);
     final locale = Get.locale?.toLanguageTag() ?? 'en';
     final date = DateFormat.yMMMd(
       locale,
@@ -252,7 +252,9 @@ class _TransactionRow extends StatelessWidget {
             '$sign${_formatMoney(tx.amountIQD.toDouble(), currency)}',
             style: TextStyle(
               fontWeight: FontWeight.w800,
-              color: v.isCredit ? Colors.green : AppThemeConfig.text(context),
+              color: v.isCredit
+                  ? AppThemeConfig.accent(context)
+                  : AppThemeConfig.text(context),
             ),
           ),
         ],
@@ -289,7 +291,7 @@ class _PaymentMethodInfoCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          TileIcon(icon: _icon(), color: Colors.green),
+          TileIcon(icon: _icon(), color: AppThemeConfig.accent(context)),
           const SizedBox(width: 12),
           Expanded(
             child: Column(

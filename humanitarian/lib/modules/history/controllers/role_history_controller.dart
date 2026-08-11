@@ -3,8 +3,7 @@ import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/realtime_polling.dart';
 import 'package:get/get.dart';
 
-class RoleHistoryController extends GetxController
-    with RealtimePollingMixin {
+class RoleHistoryController extends GetxController with RealtimePollingMixin {
   final isLoading = false.obs;
   final errorMessage = RxnString();
   final role = ''.obs;
@@ -49,11 +48,13 @@ class RoleHistoryController extends GetxController
     try {
       final data = await const ModuleApi().roleHistory(userId: _userId);
       role.value = (data['role'] ?? '').toString();
-      summary.assignAll(Map<String, dynamic>.from(data['summary'] as Map? ?? {}));
+      summary.assignAll(
+        Map<String, dynamic>.from(data['summary'] as Map? ?? {}),
+      );
       items.assignAll(
-        ((data['items'] as List?) ?? const [])
-            .whereType<Map>()
-            .map((item) => Map<String, dynamic>.from(item)),
+        ((data['items'] as List?) ?? const []).whereType<Map>().map(
+          (item) => Map<String, dynamic>.from(item),
+        ),
       );
       kindOptions.assignAll(
         ((data['kind_options'] as List?) ?? const ['all'])
@@ -87,53 +88,63 @@ class RoleHistoryController extends GetxController
 
   List<Map<String, dynamic>> get filteredItems {
     final now = DateTime.now();
-    return items.where((item) {
-      final kind = (item['kind'] ?? '').toString();
-      if (selectedKind.value != 'all' && selectedKind.value != kind) {
-        return false;
-      }
+    return items
+        .where((item) {
+          final kind = (item['kind'] ?? '').toString();
+          if (selectedKind.value != 'all' && selectedKind.value != kind) {
+            return false;
+          }
 
-      final status = (item['status'] ?? '').toString();
-      if (selectedStatus.value != 'all' && selectedStatus.value != status) {
-        return false;
-      }
+          final status = (item['status'] ?? '').toString();
+          if (selectedStatus.value != 'all' && selectedStatus.value != status) {
+            return false;
+          }
 
-      if (selectedDateRange.value == 'all') {
-        return true;
-      }
+          if (selectedDateRange.value == 'all') {
+            return true;
+          }
 
-      final rawDate = (item['occurred_at'] ?? '').toString().trim();
-      final parsed = DateTime.tryParse(rawDate.replaceFirst(' ', 'T')) ??
-          DateTime.tryParse(rawDate);
-      if (parsed == null) {
-        return false;
-      }
+          final rawDate = (item['occurred_at'] ?? '').toString().trim();
+          final parsed =
+              DateTime.tryParse(rawDate.replaceFirst(' ', 'T')) ??
+              DateTime.tryParse(rawDate);
+          if (parsed == null) {
+            return false;
+          }
 
-      final difference = now.difference(parsed).inDays;
-      return switch (selectedDateRange.value) {
-        '30d' => difference <= 30,
-        '90d' => difference <= 90,
-        _ => true,
-      };
-    }).toList(growable: false);
+          final difference = now.difference(parsed).inDays;
+          return switch (selectedDateRange.value) {
+            '30d' => difference <= 30,
+            '90d' => difference <= 90,
+            _ => true,
+          };
+        })
+        .toList(growable: false);
   }
 
+  /// The screen title, as a TRANSLATION KEY — callers apply `.tr`.
+  ///
+  /// These must be the canonical English keys, not the en_US *output*. The
+  /// donor case previously returned 'Contribution history', which is what the
+  /// en_US map renames 'Donation history' TO — so `.tr` looked up a key that
+  /// exists in no map and GetX fell back to the raw string, leaving the title
+  /// in English on every Arabic and Kurdish build.
   String get title => switch (role.value) {
-        'donor' => 'Contribution history',
-        'volunteer' => 'Volunteer history',
-        'beneficiary' => 'Beneficiary history'.tr,
-        _ => 'My history',
-      };
+    'donor' => 'Donation history',
+    'volunteer' => 'Volunteer history',
+    'beneficiary' => 'Beneficiary history',
+    _ => 'My history',
+  };
 
   String get subtitle => switch (role.value) {
-        'donor' =>
-          'Review donations, sponsorships, payment status, and references in one place.',
-        'volunteer' =>
-          'Review mission signups, application status, attendance, and completed work.',
-        'beneficiary' =>
-          'Review your cases, help requests, support tickets, and status changes.',
-        _ => 'Review your recent platform activity in one place.',
-      };
+    'donor' =>
+      'Review donations, sponsorships, payment status, and references in one place.',
+    'volunteer' =>
+      'Review mission signups, application status, attendance, and completed work.',
+    'beneficiary' =>
+      'Review your cases, help requests, support tickets, and status changes.',
+    _ => 'Review your recent platform activity in one place.',
+  };
 
   void setKind(String value) => selectedKind.value = value;
 

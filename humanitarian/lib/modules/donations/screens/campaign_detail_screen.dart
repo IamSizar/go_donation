@@ -16,7 +16,7 @@ class CampaignDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = campaign;
-    final accent = c.color;
+    final accent = AppThemeConfig.accent(context);
     final summaryShort = c.summary.trim();
     final heroSummary = summaryShort.isNotEmpty
         ? summaryShort
@@ -310,14 +310,12 @@ class _HeroSummaryCard extends StatelessWidget {
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(32),
-        gradient: LinearGradient(
-          colors: [
-            AppThemeConfig.elevatedSurface(context),
-            accent.withValues(alpha: 0.18),
-            accent.withValues(alpha: 0.06),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+        // A flat, faintly accented surface. The 3-stop version washed an 18%
+        // accent across the middle of the card, which fought the text sitting
+        // on top of it for contrast.
+        color: Color.alphaBlend(
+          accent.withValues(alpha: 0.06),
+          AppThemeConfig.elevatedSurface(context),
         ),
         border: Border.all(color: AppThemeConfig.border(context)),
         boxShadow: [

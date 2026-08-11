@@ -53,9 +53,11 @@ Future<void> fetchGuestConfig() async {
       if (screens is Map) {
         guestScreenConfig
           ..clear()
-          ..addEntries(screens.entries.map(
-            (e) => MapEntry(e.key.toString(), e.value == true),
-          ));
+          ..addEntries(
+            screens.entries.map(
+              (e) => MapEntry(e.key.toString(), e.value == true),
+            ),
+          );
       }
     }
   } catch (_) {
@@ -135,7 +137,9 @@ Future<GuestAuthResult> _guestAuthCall(
       action: isLogin ? 'guest_login' : 'guest_register',
       userId: uid is int ? uid : int.tryParse(uid?.toString() ?? ''),
       name: username,
-      note: isLogin ? 'Guest sign-in succeeded' : 'Guest registration succeeded',
+      note: isLogin
+          ? 'Guest sign-in succeeded'
+          : 'Guest registration succeeded',
     );
     return const GuestAuthResult(ok: true);
   } catch (_) {
@@ -196,7 +200,9 @@ Future<bool> requireUpgrade(BuildContext context, {String? reason}) async {
     context: context,
     builder: (ctx) => AlertDialog(
       title: Text('Upgrade Account'.tr),
-      content: Text((reason ?? 'Create a full account to use this feature.').tr),
+      content: Text(
+        (reason ?? 'Create a full account to use this feature.').tr,
+      ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(ctx).pop(false),

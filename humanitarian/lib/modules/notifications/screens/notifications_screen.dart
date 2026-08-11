@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import '../controllers/notifications_controller.dart';
 import '../widgets/notification_detail_dialog.dart';
 import '../widgets/notification_tile.dart';
+import 'package:flutter_application_1/core/design/motion.dart';
 
 class NotificationsScreen extends GetView<NotificationsController> {
   const NotificationsScreen({super.key});
@@ -132,24 +133,13 @@ class _NotificationSummary extends StatelessWidget {
     final read = total - unread;
     final hasUnread = unread > 0;
 
-    final theme = Theme.of(context);
-    final primary = theme.colorScheme.primary;
-    // Gradient anchors: vivid when there's something unread, calm when
-    // empty. Both keep enough contrast for the white text on top.
-    final gradient = hasUnread
-        ? LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [primary, primary.withValues(alpha: 0.72)],
-          )
-        : LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              const Color(0xFF16A34A), // green-600
-              const Color(0xFF22C55E).withValues(alpha: 0.78),
-            ],
-          );
+    // A single accent surface in both states. This was two hardcoded
+    // gradients — brand-primary when unread, a raw 0xFF16A34A/0xFF22C55E green
+    // pair when caught up — neither of which resolved through the token layer,
+    // so neither adapted to dark mode. The unread/caught-up distinction is
+    // already carried by the headline text and the bell-vs-check mark; it did
+    // not need a second, redundant colour encoding.
+    final surface = AppThemeConfig.accent(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -158,16 +148,8 @@ class _NotificationSummary extends StatelessWidget {
         Container(
           padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
           decoration: BoxDecoration(
-            gradient: gradient,
+            color: surface,
             borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: (hasUnread ? primary : const Color(0xFF16A34A))
-                    .withValues(alpha: 0.22),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
-              ),
-            ],
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -184,8 +166,8 @@ class _NotificationSummary extends StatelessWidget {
                           : 'All caught up'.tr,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: AppThemeConfig.onAccent(context),
                         fontSize: 20,
                         fontWeight: FontWeight.w800,
                         height: 1.1,
@@ -197,7 +179,9 @@ class _NotificationSummary extends StatelessWidget {
                           ? 'Tap any alert to open it.'.tr
                           : 'No unread notifications.'.tr,
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.88),
+                        color: AppThemeConfig.onAccent(
+                          context,
+                        ).withValues(alpha: 0.88),
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
                       ),
@@ -207,7 +191,9 @@ class _NotificationSummary extends StatelessWidget {
               ),
               if (hasUnread)
                 Material(
-                  color: Colors.white.withValues(alpha: 0.18),
+                  color: AppThemeConfig.onAccent(
+                    context,
+                  ).withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(99),
                   child: InkWell(
                     onTap: controller.markAllAsRead,
@@ -220,16 +206,16 @@ class _NotificationSummary extends StatelessWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.done_all_rounded,
                             size: 16,
-                            color: Colors.white,
+                            color: AppThemeConfig.onAccent(context),
                           ),
                           const SizedBox(width: 4),
                           Text(
                             'Mark all'.tr,
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: AppThemeConfig.onAccent(context),
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
                             ),
@@ -251,7 +237,7 @@ class _NotificationSummary extends StatelessWidget {
                 icon: Icons.inbox_rounded,
                 label: 'All'.tr,
                 value: total,
-                accent: theme.colorScheme.primary,
+                accent: AppThemeConfig.accent(context),
               ),
             ),
             const SizedBox(width: 8),
@@ -261,8 +247,8 @@ class _NotificationSummary extends StatelessWidget {
                 label: 'Unread'.tr,
                 value: unread,
                 accent: hasUnread
-                    ? const Color(0xFFEF4444) // red-500
-                    : theme.disabledColor,
+                    ? AppThemeConfig.accent(context)
+                    : AppThemeConfig.subtleText(context),
               ),
             ),
             const SizedBox(width: 8),
@@ -271,7 +257,7 @@ class _NotificationSummary extends StatelessWidget {
                 icon: Icons.mark_email_read_rounded,
                 label: 'Read'.tr,
                 value: read,
-                accent: const Color(0xFF16A34A),
+                accent: AppThemeConfig.subtleText(context),
               ),
             ),
           ],
@@ -308,18 +294,39 @@ class _BellOrCheckState extends State<_BellOrCheck>
     // Sine-ish wobble between -0.18 and +0.18 radians (~10°) so the bell
     // looks like it's gently ringing. Curve.easeInOut keeps the motion
     // smooth at the extremes; loop while unread > 0.
-    _swing = Tween<double>(begin: -0.18, end: 0.18).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
-    );
-    if (widget.hasUnread) _ctrl.repeat(reverse: true);
+    _swing = Tween<double>(
+      begin: -0.18,
+      end: 0.18,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
+    // The swing is started from didChangeDependencies rather than here,
+    // because deciding whether to swing at all requires MediaQuery, which is
+    // not safe to read during initState.
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncSwing();
   }
 
   @override
   void didUpdateWidget(covariant _BellOrCheck old) {
     super.didUpdateWidget(old);
-    if (widget.hasUnread && !_ctrl.isAnimating) {
+    _syncSwing();
+  }
+
+  /// Starts or stops the bell swing to match the unread state.
+  ///
+  /// Reduce Motion parks the bell instead of swinging it. A ±10° rotation
+  /// repeating with reverse:true is a 3.2s cycle — a slow looping oscillation
+  /// with no end condition, which is the specific shape the setting exists to
+  /// suppress. The unread state is still conveyed: the badge count next to the
+  /// bell carries it, so nothing is lost by holding still.
+  void _syncSwing() {
+    final shouldSwing = widget.hasUnread && !AppMotion.reduced(context);
+    if (shouldSwing && !_ctrl.isAnimating) {
       _ctrl.repeat(reverse: true);
-    } else if (!widget.hasUnread && _ctrl.isAnimating) {
+    } else if (!shouldSwing && _ctrl.isAnimating) {
       _ctrl.stop();
       _ctrl.value = 0.5; // park at neutral
     }
@@ -337,7 +344,7 @@ class _BellOrCheckState extends State<_BellOrCheck>
       width: 60,
       height: 60,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.18),
+        color: AppThemeConfig.onAccent(context).withValues(alpha: 0.18),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Stack(
@@ -347,20 +354,18 @@ class _BellOrCheckState extends State<_BellOrCheck>
           if (widget.hasUnread)
             AnimatedBuilder(
               animation: _swing,
-              builder: (context, child) => Transform.rotate(
-                angle: _swing.value,
-                child: child,
-              ),
-              child: const Icon(
+              builder: (context, child) =>
+                  Transform.rotate(angle: _swing.value, child: child),
+              child: Icon(
                 Icons.notifications_active_rounded,
-                color: Colors.white,
+                color: AppThemeConfig.onAccent(context),
                 size: 30,
               ),
             )
           else
-            const Icon(
+            Icon(
               Icons.check_circle_rounded,
-              color: Colors.white,
+              color: AppThemeConfig.onAccent(context),
               size: 30,
             ),
           // Red badge with count when unread > 0, capped at "99+".
@@ -370,20 +375,20 @@ class _BellOrCheckState extends State<_BellOrCheck>
               right: -4,
               child: Container(
                 constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 6,
-                  vertical: 2,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEF4444),
+                  color: AppThemeConfig.consequence(context),
                   borderRadius: BorderRadius.circular(99),
-                  border: Border.all(color: Colors.white, width: 2),
+                  border: Border.all(
+                    color: AppThemeConfig.onAccent(context),
+                    width: 2,
+                  ),
                 ),
                 child: Text(
                   widget.unreadCount > 99 ? '99+' : '${widget.unreadCount}',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: AppThemeConfig.onAccent(context),
                     fontWeight: FontWeight.w800,
                     fontSize: 11,
                     height: 1.0,

@@ -67,9 +67,18 @@ abstract final class BotNavigation {
     // Deep routes → push a specific screen on top of its base tab.
     'my_donations': BotNavSpec(0, () => const MyDonationsPage()),
     'edit_profile': BotNavSpec(0, () => const EditProfilePage()),
-    'submit_project': BotNavSpec(0, () => const BeneficiarySubmitProjectScreen()),
-    'pending_projects': BotNavSpec(0, () => const BeneficiaryPendingProjectsScreen()),
-    'campaign_donations': BotNavSpec(0, () => const BeneficiaryCampaignDonationsScreen()),
+    'submit_project': BotNavSpec(
+      0,
+      () => const BeneficiarySubmitProjectScreen(),
+    ),
+    'pending_projects': BotNavSpec(
+      0,
+      () => const BeneficiaryPendingProjectsScreen(),
+    ),
+    'campaign_donations': BotNavSpec(
+      0,
+      () => const BeneficiaryCampaignDonationsScreen(),
+    ),
     // Marriage now has its own tab; land there, then open the profile form.
     'marriage': BotNavSpec(2, () => const MarriageFormScreen()),
     'support': BotNavSpec(0, () => const SupportTicketFormScreen()),
@@ -79,30 +88,98 @@ abstract final class BotNavigation {
   /// Mirrors the backend `localizedLabels` map so an offline answer's button
   /// reads the same as an online (AI / keyword-engine) answer's button.
   static const Map<String, Map<String, String>> _labels = {
-    'donate': {'ar': 'اذهب إلى الحملات', 'ckb': 'بڕۆ بۆ کامپەینەکان', 'kmr': 'هەرە بۆ کامپینان'},
-    'my_donations': {'ar': 'عرض تبرعاتي', 'ckb': 'بینینی بەخشینەکانم', 'kmr': 'بەخشینێن من ببینە'},
+    'donate': {
+      'ar': 'اذهب إلى الحملات',
+      'ckb': 'بڕۆ بۆ کامپەینەکان',
+      'kmr': 'هەرە بۆ کامپینان',
+    },
+    'my_donations': {
+      'ar': 'عرض تبرعاتي',
+      'ckb': 'بینینی بەخشینەکانم',
+      'kmr': 'بەخشینێن من ببینە',
+    },
     'market': {'ar': 'افتح السوق', 'ckb': 'بازاڕ بکەوە', 'kmr': 'بازارێ ڤەکە'},
-    'kafala': {'ar': 'افتح الكفالة', 'ckb': 'کەفالە بکەوە', 'kmr': 'کەفالە ڤەکە'},
-    'submit_project': {'ar': 'قدّم مشروعاً', 'ckb': 'پڕۆژەیەک تەقدیم بکە', 'kmr': 'پرۆژەیەکێ بنێرە'},
-    'pending_projects': {'ar': 'المشاريع المعلقة', 'ckb': 'پڕۆژە هەڵواسراوەکان', 'kmr': 'پرۆژەیێن چاڤەڕوانیێ'},
-    'campaign_donations': {'ar': 'تبرعات حملتي', 'ckb': 'بەخشینی کامپەینەکانم', 'kmr': 'بەخشینێن کامپینێن من'},
-    'community': {'ar': 'افتح المجتمع', 'ckb': 'کۆمەڵگا بکەوە', 'kmr': 'جڤاکێ ڤەکە'},
-    'alerts': {'ar': 'اذهب إلى التنبيهات', 'ckb': 'بڕۆ بۆ ئاگادارکردنەوەکان', 'kmr': 'هەرە بۆ ئاگەهداریان'},
-    'profile': {'ar': 'افتح الملف الشخصي', 'ckb': 'پرۆفایل بکەوە', 'kmr': 'پرۆفایلێ ڤەکە'},
-    'edit_profile': {'ar': 'تعديل الملف الشخصي', 'ckb': 'دەستکاری پرۆفایل', 'kmr': 'دەستکاریا پرۆفایلێ'},
-    'volunteer': {'ar': 'افتح التطوع', 'ckb': 'ڕاهێنان بکەوە', 'kmr': 'خۆبەخشیێ ڤەکە'},
-    'services': {'ar': 'افتح الخدمات', 'ckb': 'خزمەتگوزارییەکان بکەوە', 'kmr': 'خزمەتگوزاریان ڤەکە'},
-    'marriage': {'ar': 'افتح نموذج الزواج', 'ckb': 'فۆرمی زەواج بکەوە', 'kmr': 'فۆرما هاوسەرگیریێ ڤەکە'},
-    'messages': {'ar': 'افتح الرسائل', 'ckb': 'پەیامەکان بکەوە', 'kmr': 'پەیاما ڤەکە'},
-    'support': {'ar': 'اتصل بالدعم', 'ckb': 'پەیوەندی بە پشتگیری', 'kmr': 'پەیوەندی ب پشتگیریێ'},
-    'home': {'ar': 'اذهب إلى الرئيسية', 'ckb': 'بڕۆ بۆ سەرەتا', 'kmr': 'هەرە بۆ سەرەکی'},
+    'kafala': {
+      'ar': 'افتح الكفالة',
+      'ckb': 'کەفالە بکەوە',
+      'kmr': 'کەفالە ڤەکە',
+    },
+    'submit_project': {
+      'ar': 'قدّم مشروعاً',
+      'ckb': 'پڕۆژەیەک تەقدیم بکە',
+      'kmr': 'پرۆژەیەکێ بنێرە',
+    },
+    'pending_projects': {
+      'ar': 'المشاريع المعلقة',
+      'ckb': 'پڕۆژە هەڵواسراوەکان',
+      'kmr': 'پرۆژەیێن چاڤەڕوانیێ',
+    },
+    'campaign_donations': {
+      'ar': 'تبرعات حملتي',
+      'ckb': 'بەخشینی کامپەینەکانم',
+      'kmr': 'بەخشینێن کامپینێن من',
+    },
+    'community': {
+      'ar': 'افتح المجتمع',
+      'ckb': 'کۆمەڵگا بکەوە',
+      'kmr': 'جڤاکێ ڤەکە',
+    },
+    'alerts': {
+      'ar': 'اذهب إلى التنبيهات',
+      'ckb': 'بڕۆ بۆ ئاگادارکردنەوەکان',
+      'kmr': 'هەرە بۆ ئاگەهداریان',
+    },
+    'profile': {
+      'ar': 'افتح الملف الشخصي',
+      'ckb': 'پرۆفایل بکەوە',
+      'kmr': 'پرۆفایلێ ڤەکە',
+    },
+    'edit_profile': {
+      'ar': 'تعديل الملف الشخصي',
+      'ckb': 'دەستکاری پرۆفایل',
+      'kmr': 'دەستکاریا پرۆفایلێ',
+    },
+    'volunteer': {
+      'ar': 'افتح التطوع',
+      'ckb': 'ڕاهێنان بکەوە',
+      'kmr': 'خۆبەخشیێ ڤەکە',
+    },
+    'services': {
+      'ar': 'افتح الخدمات',
+      'ckb': 'خزمەتگوزارییەکان بکەوە',
+      'kmr': 'خزمەتگوزاریان ڤەکە',
+    },
+    'marriage': {
+      'ar': 'افتح نموذج الزواج',
+      'ckb': 'فۆرمی زەواج بکەوە',
+      'kmr': 'فۆرما هاوسەرگیریێ ڤەکە',
+    },
+    'messages': {
+      'ar': 'افتح الرسائل',
+      'ckb': 'پەیامەکان بکەوە',
+      'kmr': 'پەیاما ڤەکە',
+    },
+    'support': {
+      'ar': 'اتصل بالدعم',
+      'ckb': 'پەیوەندی بە پشتگیری',
+      'kmr': 'پەیوەندی ب پشتگیریێ',
+    },
+    'home': {
+      'ar': 'اذهب إلى الرئيسية',
+      'ckb': 'بڕۆ بۆ سەرەتا',
+      'kmr': 'هەرە بۆ سەرەکی',
+    },
   };
 
   /// The CTA label for [route] in [lang]. For English (or any gap) returns
   /// [englishFallback] so the exact English wording is preserved. Used by the
   /// offline fallback; the online path already gets a localized label from the
   /// backend.
-  static String? localizedLabel(String? route, String lang, String? englishFallback) {
+  static String? localizedLabel(
+    String? route,
+    String lang,
+    String? englishFallback,
+  ) {
     if (route == null || lang == 'en') return englishFallback;
     final l = _labels[route]?[lang];
     return (l != null && l.isNotEmpty) ? l : englishFallback;

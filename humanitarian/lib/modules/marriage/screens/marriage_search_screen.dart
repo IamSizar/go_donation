@@ -141,11 +141,7 @@ class _MarriageSearchScreenState extends State<MarriageSearchScreen> {
     try {
       final type = await pickMarriageRequestType(context);
       if (type == null || !mounted) return;
-      await const ModuleApi().requestMarriageMeeting(
-        id,
-        '',
-        requestType: type,
-      );
+      await const ModuleApi().requestMarriageMeeting(id, '', requestType: type);
       Get.snackbar('marriage_search'.tr, 'meeting_requested'.tr);
     } catch (_) {
       Get.snackbar('marriage_search'.tr, 'meeting_request_failed'.tr);

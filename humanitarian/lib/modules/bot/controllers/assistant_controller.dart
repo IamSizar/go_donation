@@ -79,24 +79,17 @@ class AssistantController extends GetxController {
     BotMessage reply;
     try {
       final history = messages
-          .map((m) => {
-                'role': m.isUser ? 'user' : 'assistant',
-                'content': m.text,
-              })
+          .map(
+            (m) => {'role': m.isUser ? 'user' : 'assistant', 'content': m.text},
+          )
           .toList();
 
-      final payload = <String, dynamic>{
-        'messages': history,
-        'lang': lang,
-      };
+      final payload = <String, dynamic>{'messages': history, 'lang': lang};
       if (intentID != null && intentID.isNotEmpty) {
         payload['intent_id'] = intentID;
       }
 
-      final res = await const ModuleApi().postJson(
-        assistantChatUrl,
-        payload,
-      );
+      final res = await const ModuleApi().postJson(assistantChatUrl, payload);
 
       final replyText = (res['reply'] ?? '').toString().trim();
       String? label;
@@ -123,7 +116,12 @@ class AssistantController extends GetxController {
             final tool = item['tool']?.toString() ?? '';
             final data = item['data'];
             if (tool.isNotEmpty && data is Map) {
-              toolResults.add(AssistantToolResult(tool: tool, data: Map<String, dynamic>.from(data)));
+              toolResults.add(
+                AssistantToolResult(
+                  tool: tool,
+                  data: Map<String, dynamic>.from(data),
+                ),
+              );
             }
           }
         }
@@ -156,7 +154,11 @@ class AssistantController extends GetxController {
   ///   1. If [intentID] is set (chip tap), resolve the QA by stable id directly.
   ///   2. Otherwise keyword-match using the language-appropriate keyword list.
   /// The answer + CTA label are returned localized, falling back to English.
-  BotMessage _localFallbackMessage(String query, String lang, {String? intentID}) {
+  BotMessage _localFallbackMessage(
+    String query,
+    String lang, {
+    String? intentID,
+  }) {
     BotQA? match;
 
     // 1. Chip tap → resolve by id (language-independent, always exact).

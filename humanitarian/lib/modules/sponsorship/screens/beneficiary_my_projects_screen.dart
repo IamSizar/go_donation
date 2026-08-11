@@ -34,17 +34,17 @@ class BeneficiaryMyProjectsScreen extends StatelessWidget {
                   icon: Icons.refresh_rounded,
                   title: 'My help requests',
                   subtitle: controller.errorMessage.value!,
-                  color: Colors.orange,
+                  color: AppThemeConfig.pending(context),
                   onTap: controller.fetchProjects,
                 ),
               if (!controller.isLoading.value &&
                   controller.errorMessage.value == null &&
                   items.isEmpty)
-                const SectionTile(
+                SectionTile(
                   icon: Icons.assignment_outlined,
                   title: 'No requests yet',
                   subtitle: 'Submitted project requests will appear here.',
-                  color: Colors.indigo,
+                  color: AppThemeConfig.accent(context),
                 ),
               for (final item in items) ...[
                 _ProjectRequestCard(item: item),
@@ -114,7 +114,7 @@ class _ProjectRequestCard extends StatelessWidget {
     final amount = _money(item['amount_needed'], item['currency']);
     final raised = _money(item['raised_amount'], item['currency']);
     final updatedAt = _dateLabel(item['updated_at'] ?? item['created_at']);
-    final color = _statusColor(status);
+    final color = _statusColor(context, status);
 
     return GlassPanel(
       padding: const EdgeInsets.all(16),
@@ -268,13 +268,13 @@ String _dateLabel(dynamic raw) {
   return DateFormat.yMMMd().format(parsed);
 }
 
-Color _statusColor(String status) {
+Color _statusColor(BuildContext context, String status) {
   return switch (status) {
-    'approved' => Colors.green,
-    'rejected' => Colors.redAccent,
-    'under_review' => Colors.orange,
-    'pending' || 'submitted' => Colors.amber,
-    _ => Colors.indigo,
+    'approved' => AppThemeConfig.accent(context),
+    'rejected' => AppThemeConfig.consequence(context),
+    'under_review' => AppThemeConfig.pending(context),
+    'pending' || 'submitted' => AppThemeConfig.pending(context),
+    _ => AppThemeConfig.accent(context),
   };
 }
 

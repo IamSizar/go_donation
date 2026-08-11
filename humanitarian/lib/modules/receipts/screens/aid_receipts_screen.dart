@@ -4,6 +4,7 @@ import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/core/id_privacy.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/core/widgets/app_pressable.dart';
 
 // #50 — resolve a stored photo path to a full URL. Uploads are saved as
 // relative paths (e.g. images/uploads/x.png); Image.network needs an absolute
@@ -14,9 +15,9 @@ String _receiptPhotoUrl(String path) {
   if (p.isEmpty) return p;
   final uri = Uri.tryParse(p);
   if (uri != null && uri.hasScheme) return p;
-  return Uri.parse(publicBaseUrl)
-      .resolve(p.replaceFirst(RegExp(r'^/+'), ''))
-      .toString();
+  return Uri.parse(
+    publicBaseUrl,
+  ).resolve(p.replaceFirst(RegExp(r'^/+'), '')).toString();
 }
 
 /// #50 — the current user's digital aid-delivery receipts (items + proof
@@ -82,10 +83,10 @@ class _ReceiptCard extends StatelessWidget {
     final notes = (receipt['notes'] ?? '').toString();
     final photos = (receipt['photos'] is List)
         ? (receipt['photos'] as List)
-            .map((e) => e.toString())
-            .where((s) => s.isNotEmpty)
-            .map(_receiptPhotoUrl)
-            .toList()
+              .map((e) => e.toString())
+              .where((s) => s.isNotEmpty)
+              .map(_receiptPhotoUrl)
+              .toList()
         : <String>[];
 
     return GlassPanel(
@@ -96,19 +97,26 @@ class _ReceiptCard extends StatelessWidget {
             children: [
               const Icon(Icons.receipt_long_rounded, color: Colors.teal),
               const SizedBox(width: 8),
-              Expanded(child: Text(code, style: const TextStyle(fontWeight: FontWeight.w800))),
+              Expanded(
+                child: Text(
+                  code,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
               if (deliveredAt.isNotEmpty)
-                Text(deliveredAt, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                Text(
+                  deliveredAt,
+                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                ),
             ],
           ),
-          if (items.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text(items),
-          ],
+          if (items.isNotEmpty) ...[const SizedBox(height: 8), Text(items)],
           if (deliveredBy.isNotEmpty) ...[
             const SizedBox(height: 4),
-            Text('${'receipts_delivered_by'.tr}: $deliveredBy',
-                style: const TextStyle(color: Colors.grey, fontSize: 12)),
+            Text(
+              '${'receipts_delivered_by'.tr}: $deliveredBy',
+              style: const TextStyle(color: Colors.grey, fontSize: 12),
+            ),
           ],
           if (notes.isNotEmpty) ...[
             const SizedBox(height: 4),
@@ -122,7 +130,7 @@ class _ReceiptCard extends StatelessWidget {
                 scrollDirection: Axis.horizontal,
                 itemCount: photos.length,
                 separatorBuilder: (_, __) => const SizedBox(width: 10),
-                itemBuilder: (_, i) => GestureDetector(
+                itemBuilder: (_, i) => AppPressable(
                   onTap: () => _openImage(context, photos, i),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
@@ -135,7 +143,10 @@ class _ReceiptCard extends StatelessWidget {
                         width: 120,
                         height: 90,
                         color: Colors.white.withValues(alpha: 0.08),
-                        child: const Icon(Icons.broken_image_rounded, color: Colors.white30),
+                        child: const Icon(
+                          Icons.broken_image_rounded,
+                          color: Colors.white30,
+                        ),
                       ),
                     ),
                   ),
@@ -149,25 +160,34 @@ class _ReceiptCard extends StatelessWidget {
   }
 
   void _openImage(BuildContext context, List<String> images, int initialIndex) {
-    Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => Scaffold(
-        backgroundColor: Colors.black,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          iconTheme: const IconThemeData(color: Colors.white),
-        ),
-        body: PageView.builder(
-          controller: PageController(initialPage: initialIndex),
-          itemCount: images.length,
-          itemBuilder: (_, i) => InteractiveViewer(
-            child: Center(
-              child: Image.network(images[i], fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_rounded, color: Colors.white30, size: 64)),
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            iconTheme: const IconThemeData(color: Colors.white),
+          ),
+          body: PageView.builder(
+            controller: PageController(initialPage: initialIndex),
+            itemCount: images.length,
+            itemBuilder: (_, i) => InteractiveViewer(
+              child: Center(
+                child: Image.network(
+                  images[i],
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => const Icon(
+                    Icons.broken_image_rounded,
+                    color: Colors.white30,
+                    size: 64,
+                  ),
+                ),
+              ),
             ),
           ),
         ),
       ),
-    ));
+    );
   }
 }

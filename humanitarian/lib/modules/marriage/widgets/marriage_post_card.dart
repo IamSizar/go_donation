@@ -14,7 +14,9 @@ String resolveMarriagePhotoUrl(String path) {
   if (p.isEmpty) return p;
   final uri = Uri.tryParse(p);
   if (uri != null && uri.hasScheme) return p;
-  return Uri.parse(publicBaseUrl).resolve(p.replaceFirst(RegExp(r'^/+'), '')).toString();
+  return Uri.parse(
+    publicBaseUrl,
+  ).resolve(p.replaceFirst(RegExp(r'^/+'), '')).toString();
 }
 
 /// Marriage Posts — the feed IS the approved profiles themselves (photo +
@@ -62,7 +64,8 @@ class MarriagePostCard extends StatelessWidget {
                   ? Image.network(
                       resolveMarriagePhotoUrl(photoUrl),
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _placeholder(context, gender),
+                      errorBuilder: (_, __, ___) =>
+                          _placeholder(context, gender),
                     )
                   : _placeholder(context, gender),
             ),
@@ -75,18 +78,30 @@ class MarriagePostCard extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: Text(code,
-                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                      child: Text(
+                        code,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 15,
+                        ),
+                      ),
                     ),
                     IconButton(
-                      icon: Icon(saved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
-                          color: saved ? Colors.pink : null),
+                      icon: Icon(
+                        saved
+                            ? Icons.bookmark_rounded
+                            : Icons.bookmark_border_rounded,
+                        color: saved ? Colors.pink : null,
+                      ),
                       onPressed: onSave,
                     ),
                   ],
                 ),
                 if (sub.isNotEmpty)
-                  Text(sub, style: TextStyle(color: AppThemeConfig.mutedText(context))),
+                  Text(
+                    sub,
+                    style: TextStyle(color: AppThemeConfig.mutedText(context)),
+                  ),
                 if (summary.trim().isNotEmpty) ...[
                   const SizedBox(height: 8),
                   Text(summary, maxLines: 3, overflow: TextOverflow.ellipsis),
@@ -109,7 +124,9 @@ class MarriagePostCard extends StatelessWidget {
   }
 
   Widget _placeholder(BuildContext context, String gender) {
-    final icon = gender.toLowerCase() == 'female' ? Icons.face_3_rounded : Icons.face_6_rounded;
+    final icon = gender.toLowerCase() == 'female'
+        ? Icons.face_3_rounded
+        : Icons.face_6_rounded;
     return Container(
       color: AppThemeConfig.softSurface(context),
       alignment: Alignment.center,

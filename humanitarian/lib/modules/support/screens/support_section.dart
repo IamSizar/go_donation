@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/api/links.dart';
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/core/app_haptics.dart';
@@ -91,9 +92,9 @@ class _SupportSectionState extends State<SupportSection>
   Future<void> _silentRefresh() async {
     if (!mounted || _isRefreshing || _userId <= 0) return;
     try {
-      final result = await ModuleApi().volunteerDashboard(_userId).timeout(
-            const Duration(seconds: 8),
-          );
+      final result = await ModuleApi()
+          .volunteerDashboard(_userId)
+          .timeout(const Duration(seconds: 8));
       if (!mounted) return;
       _detectStatusChanges(result);
       setState(() => _future = Future.value(result));
@@ -240,8 +241,9 @@ class _SupportSectionState extends State<SupportSection>
               .toSet();
           final availableMissions = missions
               .where(
-                (mission) =>
-                    !joinedMissionIds.contains((mission['id'] ?? '').toString()),
+                (mission) => !joinedMissionIds.contains(
+                  (mission['id'] ?? '').toString(),
+                ),
               )
               .toList();
 
@@ -257,6 +259,7 @@ class _SupportSectionState extends State<SupportSection>
                     ? 'Submit your skills and availability to the institution.'
                     : _applicationSubtitle(latestApplication),
                 color: _applicationColor(
+                  context,
                   (latestApplication?['status'] ?? '').toString(),
                 ),
                 onTap: () async {
@@ -277,19 +280,19 @@ class _SupportSectionState extends State<SupportSection>
                     icon: Icons.task_alt_rounded,
                     title: _localizedMissionTitle(mission),
                     subtitle: _missionSubtitle(mission),
-                    color: Colors.green,
+                    color: AppThemeConfig.accent(context),
                     onTap: () async {
                       final changed = await Get.to<bool>(
-                      () => VolunteerMissionDetailScreen(
-                        mission: mission,
-                        alreadyJoined: true,
-                        signupStatus: (mission['signup_status'] ?? '')
-                            .toString(),
-                        signupId: int.tryParse(
-                          (mission['signup_id'] ?? '').toString(),
+                        () => VolunteerMissionDetailScreen(
+                          mission: mission,
+                          alreadyJoined: true,
+                          signupStatus: (mission['signup_status'] ?? '')
+                              .toString(),
+                          signupId: int.tryParse(
+                            (mission['signup_id'] ?? '').toString(),
+                          ),
                         ),
-                      ),
-                    );
+                      );
                       if (changed == true && mounted) await _refresh();
                     },
                   ),
@@ -305,24 +308,24 @@ class _SupportSectionState extends State<SupportSection>
                   icon: Icons.assignment_turned_in_rounded,
                   title: 'Available Missions',
                   subtitle: loadError,
-                  color: Colors.cyan,
+                  color: AppThemeConfig.accent(context),
                   onTap: _refresh,
                 ),
               if (loadError.isEmpty &&
                   snapshot.connectionState != ConnectionState.waiting &&
                   availableMissions.isEmpty)
-                const SectionTile(
+                SectionTile(
                   icon: Icons.assignment_turned_in_rounded,
                   title: 'Available Missions',
                   subtitle: 'No open volunteer missions are available yet.',
-                  color: Colors.cyan,
+                  color: AppThemeConfig.accent(context),
                 ),
               for (final mission in availableMissions) ...[
                 SectionTile(
                   icon: Icons.assignment_turned_in_rounded,
                   title: _localizedMissionTitle(mission),
                   subtitle: _missionSubtitle(mission),
-                  color: Colors.cyan,
+                  color: AppThemeConfig.accent(context),
                   onTap: () async {
                     final signupStatus = _signupStatusFor(
                       mission,
@@ -387,7 +390,8 @@ class _VolunteerMissionDetailScreenState
   // Note #37 — captures device GPS + a camera-only ("live") photo, uploads
   // the photo, and returns both — or null if the volunteer cancelled or a
   // permission was denied (an error/snackbar has already been shown).
-  Future<({double lat, double lng, String photoPath})?> _captureEvidence() async {
+  Future<({double lat, double lng, String photoPath})?>
+  _captureEvidence() async {
     try {
       var permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
@@ -403,7 +407,9 @@ class _VolunteerMissionDetailScreenState
         return null;
       }
       final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
       );
 
       final picked = await ImagePicker().pickImage(
@@ -484,7 +490,8 @@ class _VolunteerMissionDetailScreenState
             child: Text('Cancel'.tr),
           ),
           FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(controller.text.trim()),
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(controller.text.trim()),
             child: Text('Confirm'.tr),
           ),
         ],
@@ -882,14 +889,14 @@ class _SectionLabel extends StatelessWidget {
                 Text(
                   title,
                   style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
                 Text(
                   subtitle,
                   style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.disabledColor,
-                      ),
+                    color: theme.disabledColor,
+                  ),
                 ),
               ],
             ),
@@ -976,12 +983,12 @@ String _applicationSubtitle(Map<String, dynamic> application) {
   ].where((value) => value.trim().isNotEmpty).join(' - ');
 }
 
-Color _applicationColor(String status) {
+Color _applicationColor(BuildContext context, String status) {
   return switch (status) {
-    'approved' => Colors.green,
-    'rejected' => Colors.redAccent,
-    'inactive' => Colors.orange,
-    _ => Colors.indigo,
+    'approved' => AppThemeConfig.accent(context),
+    'rejected' => AppThemeConfig.consequence(context),
+    'inactive' => AppThemeConfig.pending(context),
+    _ => AppThemeConfig.accent(context),
   };
 }
 

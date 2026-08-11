@@ -63,7 +63,8 @@ class _MarriageSubscriptionScreenState
         : 'description_${AppLocaleService.assistantLang() == 'en' ? 'en' : AppLocaleService.assistantLang()}';
     final v = (pkg[key] ?? '').toString().trim();
     if (v.isNotEmpty) return v;
-    return (pkg[field == 'name' ? 'name_en' : 'description_en'] ?? '').toString();
+    return (pkg[field == 'name' ? 'name_en' : 'description_en'] ?? '')
+        .toString();
   }
 
   Future<void> _choosePayment(Map<String, dynamic> pkg) async {
@@ -128,8 +129,10 @@ class _MarriageSubscriptionScreenState
   Future<void> _purchase(int packageId, String paymentMethod) async {
     setState(() => _busyPackageIds.add(packageId));
     try {
-      final res = await const ModuleApi()
-          .purchaseMarriageSubscription(packageId, paymentMethod);
+      final res = await const ModuleApi().purchaseMarriageSubscription(
+        packageId,
+        paymentMethod,
+      );
       if (!mounted) return;
       final paid = res['status'] == 'paid';
       await showDialog<void>(
@@ -185,7 +188,8 @@ class _MarriageSubscriptionScreenState
                     SectionTile(
                       icon: Icons.workspace_premium_rounded,
                       title: 'Subscription',
-                      subtitle: 'No subscription packages are available yet.'.tr,
+                      subtitle:
+                          'No subscription packages are available yet.'.tr,
                       color: Colors.pinkAccent,
                     ),
                   for (var i = 0; i < _packages.length; i++) ...[
@@ -194,8 +198,9 @@ class _MarriageSubscriptionScreenState
                       package: _packages[i],
                       name: _localized(_packages[i], 'name'),
                       description: _localized(_packages[i], 'description'),
-                      busy: _busyPackageIds
-                          .contains((_packages[i]['id'] as num).toInt()),
+                      busy: _busyPackageIds.contains(
+                        (_packages[i]['id'] as num).toInt(),
+                      ),
                       onTap: () => _choosePayment(_packages[i]),
                     ),
                   ],
@@ -233,7 +238,10 @@ class _PackageCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              TileIcon(icon: Icons.workspace_premium_rounded, color: Colors.pinkAccent),
+              TileIcon(
+                icon: Icons.workspace_premium_rounded,
+                color: Colors.pinkAccent,
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(

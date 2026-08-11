@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/modules/marketplace/controllers/marketplace_controller.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
@@ -39,7 +40,7 @@ class MarketplaceOrdersScreen extends StatelessWidget {
                           icon: Icons.receipt_long_rounded,
                           title: 'Your orders',
                           subtitle: error,
-                          color: Colors.deepOrange,
+                          color: AppThemeConfig.pending(context),
                           onTap: controller.fetchOrders,
                         ),
                       if (error == null &&
@@ -49,7 +50,7 @@ class MarketplaceOrdersScreen extends StatelessWidget {
                           icon: Icons.receipt_long_rounded,
                           title: 'Your orders',
                           subtitle: 'Your marketplace orders will appear here.',
-                          color: Colors.deepOrange,
+                          color: AppThemeConfig.pending(context),
                           onTap: controller.fetchOrders,
                         ),
                       for (final order in orders) ...[
@@ -87,7 +88,10 @@ class _MarketplaceOrderCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          TileIcon(icon: _statusIcon(status), color: _statusColor(status)),
+          TileIcon(
+            icon: _statusIcon(status),
+            color: _statusColor(context, status),
+          ),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
@@ -131,7 +135,7 @@ class _StatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = _statusColor(status);
+    final color = _statusColor(context, status);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
@@ -146,13 +150,13 @@ class _StatusPill extends StatelessWidget {
   }
 }
 
-Color _statusColor(String status) {
+Color _statusColor(BuildContext context, String status) {
   return switch (status) {
-    'approved' => Colors.green,
-    'processing' => Colors.blueAccent,
-    'completed' => Colors.teal,
-    'cancelled' => Colors.redAccent,
-    _ => Colors.orange,
+    'approved' => AppThemeConfig.accent(context),
+    'processing' => AppThemeConfig.accent(context),
+    'completed' => AppThemeConfig.accent(context),
+    'cancelled' => AppThemeConfig.consequence(context),
+    _ => AppThemeConfig.pending(context),
   };
 }
 

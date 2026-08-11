@@ -14,6 +14,7 @@ import 'package:flutter_application_1/api/project_categories_api.dart';
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_application_1/core/design/motion.dart';
 
 class ContinueDonationScreen extends StatefulWidget {
   const ContinueDonationScreen({
@@ -626,15 +627,10 @@ class _CheckoutHeroCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            optionColor,
-            optionColor.withValues(alpha: 0.84),
-            const Color(0xFF2563EB),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        // Flat. The third stop here was a raw 0xFF2563EB blue that had no
+        // relationship to optionColor, so the card faded from the option's own
+        // colour into an unrelated blue regardless of which option it was.
+        color: optionColor,
         borderRadius: BorderRadius.circular(32),
         boxShadow: [
           BoxShadow(
@@ -966,7 +962,7 @@ class _DonationTypeChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         onTap: onTap,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
+          duration: AppMotion.resolve(context, AppMotion.snapDuration),
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
           decoration: BoxDecoration(
             color: selected
@@ -1077,7 +1073,10 @@ class _PaymentMethodCard extends StatelessWidget {
                   ),
                 ),
                 AnimatedContainer(
-                  duration: const Duration(milliseconds: 220),
+                  duration: AppMotion.resolve(
+                    context,
+                    AppMotion.settleDuration,
+                  ),
                   width: 24,
                   height: 24,
                   decoration: BoxDecoration(
@@ -1238,7 +1237,7 @@ class _DestinationTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         onTap: onTap,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
+          duration: AppMotion.resolve(context, AppMotion.snapDuration),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
           decoration: BoxDecoration(
             color: selected
@@ -1252,7 +1251,12 @@ class _DestinationTile extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(icon, color: selected ? accentColor : AppThemeConfig.mutedText(context)),
+              Icon(
+                icon,
+                color: selected
+                    ? accentColor
+                    : AppThemeConfig.mutedText(context),
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(

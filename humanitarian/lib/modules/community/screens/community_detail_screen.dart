@@ -7,6 +7,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:get/get.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_application_1/core/widgets/app_pressable.dart';
 
 double? _parseCoord(dynamic v) {
   if (v == null) return null;
@@ -314,7 +315,7 @@ class CommunityDetailScreen extends StatelessWidget {
                               itemCount: gallery.length,
                               separatorBuilder: (_, __) =>
                                   const SizedBox(width: 10),
-                              itemBuilder: (_, i) => GestureDetector(
+                              itemBuilder: (_, i) => AppPressable(
                                 onTap: () => _openImage(context, gallery, i),
                                 child: ClipRRect(
                                   borderRadius: BorderRadius.circular(14),
@@ -359,8 +360,7 @@ class CommunityDetailScreen extends StatelessWidget {
                                 options: MapOptions(
                                   initialCenter: LatLng(lat, lng),
                                   initialZoom: 15.0,
-                                  interactionOptions:
-                                      const InteractionOptions(
+                                  interactionOptions: const InteractionOptions(
                                     flags: InteractiveFlag.none,
                                   ),
                                 ),
@@ -381,12 +381,7 @@ class CommunityDetailScreen extends StatelessWidget {
                                         child: const DecoratedBox(
                                           decoration: BoxDecoration(
                                             shape: BoxShape.circle,
-                                            gradient: LinearGradient(
-                                              colors: [
-                                                Color(0xFF667EEA),
-                                                Color(0xFF64D8CB),
-                                              ],
-                                            ),
+                                            color: Color(0xFF667EEA),
                                             boxShadow: [
                                               BoxShadow(
                                                 color: Color(0x88667EEA),
@@ -410,7 +405,7 @@ class CommunityDetailScreen extends StatelessWidget {
                               Positioned(
                                 bottom: 10,
                                 right: 10,
-                                child: GestureDetector(
+                                child: AppPressable(
                                   onTap: () => _launch(
                                     'https://maps.google.com/?q=$lat,$lng',
                                   ),
@@ -420,12 +415,7 @@ class CommunityDetailScreen extends StatelessWidget {
                                       vertical: 7,
                                     ),
                                     decoration: BoxDecoration(
-                                      gradient: const LinearGradient(
-                                        colors: [
-                                          Color(0xFF667EEA),
-                                          Color(0xFF64D8CB),
-                                        ],
-                                      ),
+                                      color: Color(0xFF667EEA),
                                       borderRadius: BorderRadius.circular(20),
                                       boxShadow: const [
                                         BoxShadow(
@@ -539,7 +529,7 @@ class _TappableDetailLine extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.only(top: 12),
-      child: GestureDetector(
+      child: AppPressable(
         onTap: onTap,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,

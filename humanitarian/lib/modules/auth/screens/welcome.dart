@@ -25,7 +25,7 @@ class WelcomeScreen extends StatelessWidget {
             // #38 — language switcher pinned to the physical right, regardless
             // of RTL locale (Alignment.centerRight, not centerEnd).
             const Align(
-              alignment: Alignment.centerRight,
+              alignment: AlignmentDirectional.centerEnd,
               child: _LanguageSelector(),
             ),
             const SizedBox(height: 20),
@@ -178,7 +178,11 @@ class _LanguageSelector extends StatelessWidget {
                   ),
                 ),
                 if (o == current)
-                  Icon(Icons.check_rounded, color: AppThemeConfig.text(context), size: 18),
+                  Icon(
+                    Icons.check_rounded,
+                    color: AppThemeConfig.text(context),
+                    size: 18,
+                  ),
               ],
             ),
           ),
@@ -193,7 +197,11 @@ class _LanguageSelector extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.language_rounded, size: 18, color: AppThemeConfig.text(context)),
+            Icon(
+              Icons.language_rounded,
+              size: 18,
+              color: AppThemeConfig.text(context),
+            ),
             const SizedBox(width: 8),
             Text(
               current.code,
