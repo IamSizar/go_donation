@@ -170,7 +170,17 @@ func (h *DonationsHandler) Create(c *gin.Context) {
 	if v := strings.TrimSpace(c.PostForm("project_slug")); v != "" {
 		projectSlugPtr = &v
 	}
-	ins, err := h.Store.Insert(ctx, uid, campaignID, msgPtr, amountPtr, methodPtr, donationType, projectSlugPtr)
+
+	// The section this gift belongs to. Only "operational" (Donation to
+	// Support the Organization) and "general" are honoured; anything else
+	// falls back to the derived kind. Read through get() so it works for both
+	// form-encoded and JSON bodies.
+	donorKind := ""
+	if v, ok := get("donation_kind"); ok {
+		donorKind = v
+	}
+
+	ins, err := h.Store.Insert(ctx, uid, campaignID, msgPtr, amountPtr, methodPtr, donationType, projectSlugPtr, donorKind)
 	if err != nil {
 		if walletDebitedIQD > 0 {
 			_, _ = h.Wallet.Refund(ctx, uid, walletDebitedIQD, "donations", 0, "Refund: donation failed to save")

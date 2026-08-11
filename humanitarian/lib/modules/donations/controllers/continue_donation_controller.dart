@@ -20,6 +20,7 @@ class ContinueDonationController extends GetxController {
     /// project_categories.slug when the donor picked a specific project
     /// (#7). Null for a general or campaign donation.
     String? projectSlug,
+    String? donationKind,
   }) async {
     if (isSubmitting.value) {
       return 'Please wait'.tr;
@@ -58,6 +59,12 @@ class ContinueDonationController extends GetxController {
       final slug = projectSlug?.trim();
       if (slug != null && slug.isNotEmpty) {
         body['project_slug'] = slug;
+      }
+      // Section of the app this gift belongs to. Only sent when the donor
+      // picked "Support the organization"; otherwise the backend derives it.
+      final kind = donationKind?.trim();
+      if (kind != null && kind.isNotEmpty) {
+        body['donation_kind'] = kind;
       }
 
       final response = await http.post(

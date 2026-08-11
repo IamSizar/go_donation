@@ -111,6 +111,10 @@ func (s *Store) Insert(
 	// projectSlug is the project_categories.slug the donor picked, or nil for
 	// a general/campaign donation (migration 094).
 	projectSlug *string,
+	// donorKind lets the donor pick the section this gift belongs to. Only the
+	// kinds a donor can legitimately choose are honoured — see
+	// donorSelectableKind. Empty means "derive it", which is the old behaviour.
+	donorKind string,
 ) (*InsertedDonation, error) {
 	if userID <= 0 {
 		return nil, errors.New("invalid userID")
@@ -147,6 +151,15 @@ func (s *Store) Insert(
 	donationKind := "campaign"
 	if campaignID == nil {
 		donationKind = "general"
+	}
+	// "Donation to Support the Organization" is a section of its own — it has
+	// no campaign and is not a general-fund gift, so it can only be reached by
+	// the donor naming it. Its section already existed everywhere else (OPS
+	// code prefix in migration 026, its own notify phone in 027, the Arabic
+	// SMS label below, the admin create form); the donate endpoint was simply
+	// never able to produce one.
+	if k := donorSelectableKind(donorKind); k != "" {
+		donationKind = k
 	}
 
 	// #16 — the donor-facing giving type (general/zakat/sadaqah), orthogonal to
@@ -266,6 +279,25 @@ func arrivalSMS(kind, amount, reference string) string {
 		amt = "—"
 	}
 	return fmt.Sprintf("مساهمة جديدة (%s): %s د.ع — الرمز: %s", sectionLabelAr(kind), amt, reference)
+}
+
+// donorSelectableKind filters a donor-supplied donation_kind down to the ones
+// a donor may actually choose, and returns "" for anything else.
+//
+// Deliberately NOT a pass-through of the full donationKinds list: campaign,
+// sponsorship and in_kind are assigned by their own flows (a campaign id, a
+// sponsorship record, the in-kind form). Letting the donate endpoint accept
+// them would allow a client to file a gift under a section it never went
+// through, which would then carry that section's transaction-code prefix and
+// alert that section's phone.
+func donorSelectableKind(kind string) string {
+	switch strings.ToLower(strings.TrimSpace(kind)) {
+	case "operational":
+		return "operational"
+	case "general":
+		return "general"
+	}
+	return ""
 }
 
 // sectionLabelAr maps a donation_kind to its Arabic section label for SMS.

@@ -63,6 +63,14 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
   ProjectCategory? _selectedProject;
   bool _projectsVisible = false;
 
+  // Where the gift goes. 'cause' = the normal flow (general fund, or the
+  // project/campaign chosen below); 'operational' = "Donation to Support the
+  // Organization", which funds running costs — servers, subscriptions,
+  // administration — rather than a beneficiary. It is its own reporting
+  // section with its own transaction-code prefix, so it is a choice here
+  // rather than another entry in the project list.
+  String _destination = 'cause';
+
   // #19 — payment methods are admin-managed (fetched from /api/payment-methods).
   // These two are the offline fallback so the donate form always works.
   static const List<_PaymentMethodData> _fallbackMethods = [
@@ -220,6 +228,7 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
           : paymentMethod.title,
       donationType: _donationType,
       projectSlug: _selectedProject?.slug,
+      donationKind: _destination == 'operational' ? 'operational' : null,
     );
 
     if (!mounted) return;
@@ -416,7 +425,21 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
                           ],
                         ),
                       ),
-                      if (_projectsVisible) ...[
+                      const SizedBox(height: 22),
+                      const SectionLabel(title: 'Where should this go?'),
+                      const SizedBox(height: 12),
+                      _DestinationSelector(
+                        selected: _destination,
+                        accentColor: widget.optionColor,
+                        onSelected: (d) => setState(() {
+                          _destination = d;
+                          // Supporting the organization is not a project gift,
+                          // so a previously picked project would otherwise be
+                          // sent alongside it and mis-file the donation.
+                          if (d == 'operational') _selectedProject = null;
+                        }),
+                      ),
+                      if (_projectsVisible && _destination == 'cause') ...[
                         const SizedBox(height: 22),
                         const SectionLabel(title: 'Project'),
                         const SizedBox(height: 12),
@@ -1137,4 +1160,130 @@ class _PaymentMethodData {
   final String accountNumber; // '' → no transfer details for this method
   final String accountName;
   final String submitName; // canonical name (name_en) sent to the backend
+}
+
+/// Where the donation goes: toward a cause (general fund / a project / the
+/// campaign already chosen) or toward keeping the organization running.
+///
+/// "Donation to Support the Organization" existed everywhere except here: it
+/// has its own transaction-code prefix (OPS), its own notify phone and its own
+/// Arabic SMS label, and the Admin Panel could file one by hand — but the
+/// donate endpoint derived the section from whether a campaign was attached,
+/// so a donor had no way to make one.
+class _DestinationSelector extends StatelessWidget {
+  const _DestinationSelector({
+    required this.selected,
+    required this.accentColor,
+    required this.onSelected,
+  });
+
+  final String selected;
+  final Color accentColor;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        _DestinationTile(
+          value: 'cause',
+          title: 'Help people in need'.tr,
+          subtitle: 'Goes to the general fund or a project you choose.'.tr,
+          icon: Icons.volunteer_activism_rounded,
+          selected: selected == 'cause',
+          accentColor: accentColor,
+          onTap: () => onSelected('cause'),
+        ),
+        const SizedBox(height: 10),
+        _DestinationTile(
+          value: 'operational',
+          title: 'Support the organization'.tr,
+          subtitle:
+              'Covers running costs: servers, subscriptions and administration.'
+                  .tr,
+          icon: Icons.settings_suggest_rounded,
+          selected: selected == 'operational',
+          accentColor: accentColor,
+          onTap: () => onSelected('operational'),
+        ),
+      ],
+    );
+  }
+}
+
+class _DestinationTile extends StatelessWidget {
+  const _DestinationTile({
+    required this.value,
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.selected,
+    required this.accentColor,
+    required this.onTap,
+  });
+
+  final String value;
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final bool selected;
+  final Color accentColor;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          decoration: BoxDecoration(
+            color: selected
+                ? accentColor.withValues(alpha: 0.12)
+                : AppThemeConfig.surface(context),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: selected ? accentColor : AppThemeConfig.border(context),
+              width: selected ? 2 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, color: selected ? accentColor : AppThemeConfig.mutedText(context)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        color: AppThemeConfig.text(context),
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        color: AppThemeConfig.mutedText(context),
+                        fontSize: 12.5,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (selected)
+                Icon(Icons.check_circle_rounded, color: accentColor, size: 22),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

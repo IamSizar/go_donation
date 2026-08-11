@@ -2,6 +2,11 @@ import 'package:get/get.dart';
 
 class AppTranslations extends Translations {
   static const Map<String, String> _en = {
+    'Covers running costs: servers, subscriptions and administration.': 'Covers running costs: servers, subscriptions and administration.',
+    'Support the organization': 'Support the organization',
+    'Goes to the general fund or a project you choose.': 'Goes to the general fund or a project you choose.',
+    'Help people in need': 'Help people in need',
+    'Where should this go?': 'Where should this go?',
     'Demo code': 'Demo code',
     'WhatsApp / SMS': 'WhatsApp / SMS',
     'Delivery': 'Delivery',
@@ -2241,6 +2246,11 @@ class AppTranslations extends Translations {
   };
 
   static const Map<String, String> _ar = {
+    'Covers running costs: servers, subscriptions and administration.': 'يغطي تكاليف التشغيل: الخوادم والاشتراكات والإدارة.',
+    'Support the organization': 'دعم المنظمة',
+    'Goes to the general fund or a project you choose.': 'يذهب إلى الصندوق العام أو إلى مشروع تختاره.',
+    'Help people in need': 'مساعدة المحتاجين',
+    'Where should this go?': 'أين تريد توجيه تبرعك؟',
     'Demo code': 'رمز تجريبي',
     'WhatsApp / SMS': 'واتساب / رسالة نصية',
     'Delivery': 'طريقة الإرسال',
@@ -4404,6 +4414,11 @@ class AppTranslations extends Translations {
   };
 
   static final Map<String, String> _sorani = {
+    'Covers running costs: servers, subscriptions and administration.': 'تێچووی کارکردن دادەپۆشێت: سێرڤەر و بەشداریەکان و بەڕێوەبردن.',
+    'Support the organization': 'پشتگیری ڕێکخراوەکە',
+    'Goes to the general fund or a project you choose.': 'بۆ سندوقی گشتی یان ئەو پڕۆژەیە دەچێت کە هەڵیدەبژێریت.',
+    'Help people in need': 'یارمەتیدانی پێویستداران',
+    'Where should this go?': 'دەتەوێت بەخشینەکەت بۆ کوێ بچێت؟',
     'Demo code': 'کۆدی تاقیکردنەوە',
     'WhatsApp / SMS': 'واتساپ / کورتەنامە',
     'Delivery': 'شێوازی ناردن',
@@ -6648,6 +6663,11 @@ class AppTranslations extends Translations {
   };
 
   static final Map<String, String> _badini = {
+    'Covers running costs: servers, subscriptions and administration.': 'مەسرەفێن کارکرنێ ددەت: سێرڤەر و بەشداری و بەرێڤەبرن.',
+    'Support the organization': 'پشتەڤانیا رێکخراوێ',
+    'Goes to the general fund or a project you choose.': 'دچیتە سندوقێ گشتی یان وی پرۆژەیێ تو هەلدبژێری.',
+    'Help people in need': 'هاریکاریا پێدڤیداران',
+    'Where should this go?': 'تو دخوازی بەخشینا تە بۆ کیڤە بچیت؟',
     'Demo code': 'کۆدێ تاقیکرنێ',
     'WhatsApp / SMS': 'واتساپ / کورتەنامە',
     'Delivery': 'رێکا هنارتنێ',
