@@ -34,6 +34,7 @@ export const NAV: NavItem[] = [
   { to: '/payment-methods', tKey: 'nav.payment_methods', module: 'donations' },
   { to: '/beneficiary',   tKey: 'nav.beneficiary',   countKey: 'beneficiary', module: 'beneficiary' },
   { to: '/project-categories', tKey: 'nav.project_categories', module: 'beneficiary' },
+  { to: '/sponsorship-types', tKey: 'nav.sponsorship_types', module: 'sponsorships' },
   { to: '/marketplace',   tKey: 'nav.marketplace',   countKey: 'marketplace', module: 'marketplace' },
   { to: '/marketplace-categories', tKey: 'nav.marketplace_categories', module: 'marketplace' },
   { to: '/marriage',      tKey: 'nav.marriage',      countKey: 'marriage', module: 'marriage' },
@@ -121,7 +122,7 @@ export const DEFAULT_NAV_SECTIONS: NavSection[] = [
   },
   {
     kind: 'group', key: 'aid_campaigns', tKey: 'nav_group.aid_campaigns',
-    items: ['/campaigns', '/donations', '/in-kind', '/receipts', '/project-categories', '/sponsorships'],
+    items: ['/campaigns', '/donations', '/in-kind', '/receipts', '/project-categories', '/sponsorships', '/sponsorship-types'],
   },
   {
     kind: 'group', key: 'city_guide', tKey: 'nav_group.city_guide',

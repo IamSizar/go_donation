@@ -53,6 +53,7 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/sectioncodes"
 	"github.com/karam-flutter/humanitarian-backend/internal/sponsorships"
 	"github.com/karam-flutter/humanitarian-backend/internal/sponsorshipschedule"
+	"github.com/karam-flutter/humanitarian-backend/internal/sponsorshiptypes"
 	"github.com/karam-flutter/humanitarian-backend/internal/staffchat"
 	"github.com/karam-flutter/humanitarian-backend/internal/support"
 	"github.com/karam-flutter/humanitarian-backend/internal/tasks"
@@ -246,6 +247,7 @@ func main() {
 	adminPermsH := handlers.NewAdminPermissionsHandler(permStore, otpStore, otpiqClient)
 	adminProfessionsH := handlers.NewAdminProfessionsHandler(professionStore)
 	projectCategoriesH := handlers.NewProjectCategoriesHandler(projectCatStore)
+	sponsorshipTypesH := handlers.NewSponsorshipTypesHandler(sponsorshiptypes.New(pool)) // "Eighth: 4. Scalability"
 	// Donations Page spec — "4. In-Kind Donations": admin-managed category list.
 	// "Eighth: Sponsorship Schedule and Calendar".
 	sponsorshipScheduleStore := sponsorshipschedule.New(pool)
@@ -349,6 +351,7 @@ func main() {
 		api.GET("/stats/impact", statsH.ImpactStats)
 		// #17 — public project categories for the beneficiary submit-project dropdown.
 		api.GET("/project-categories", projectCategoriesH.PublicList)
+		api.GET("/sponsorship-types", sponsorshipTypesH.PublicList)
 		api.GET("/inkind-categories", inkindCategoriesH.PublicList)
 		api.GET("/city-sectors", citySectorsH.PublicList)            // #29 — City Guide filter chips
 		api.GET("/search", searchH.Search)                           // #33 — global search
@@ -933,6 +936,12 @@ func main() {
 			admin.PATCH("/admin/project-categories/:id", auth.RequireAdminTier(), projectCategoriesH.Update)
 			admin.POST("/admin/project-categories/reorder", auth.RequireAdminTier(), projectCategoriesH.Reorder)
 			admin.DELETE("/admin/project-categories/:id", auth.RequireAdminTier(), projectCategoriesH.Delete)
+			// Recurring-assistance types behind the sponsorship schedule.
+			admin.GET("/admin/sponsorship-types", sponsorshipTypesH.AdminList)
+			admin.POST("/admin/sponsorship-types", auth.RequireAdminTier(), sponsorshipTypesH.Add)
+			admin.PATCH("/admin/sponsorship-types/:id", auth.RequireAdminTier(), sponsorshipTypesH.Update)
+			admin.POST("/admin/sponsorship-types/reorder", auth.RequireAdminTier(), sponsorshipTypesH.Reorder)
+			admin.DELETE("/admin/sponsorship-types/:id", auth.RequireAdminTier(), sponsorshipTypesH.Delete)
 			admin.GET("/admin/inkind-categories", inkindCategoriesH.AdminList)
 			admin.POST("/admin/inkind-categories", auth.RequireAdminTier(), inkindCategoriesH.Add)
 			admin.PATCH("/admin/inkind-categories/:id", auth.RequireAdminTier(), inkindCategoriesH.Update)
