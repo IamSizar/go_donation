@@ -120,12 +120,17 @@ class _LoginFormState extends State<_LoginForm> {
     return 'Enter a valid phone number'.tr;
   }
 
-  // Phase 19b — OTP delivery mode toggle. 'real' (default) sends via OTPIQ
-  // → WhatsApp first, SMS fallback. 'demo' skips OTPIQ and the backend
-  // returns the static demo code (123456) for development without burning
-  // OTPIQ credit. Demo is only honored when the backend has
-  // OTP_DEMO_ENABLED=1; otherwise it falls back to "demo disabled" error.
-  String _otpMode = 'real';
+  // Phase 19b — OTP delivery mode toggle. 'real' sends via OTPIQ (WhatsApp
+  // first, SMS fallback); 'demo' skips OTPIQ and the backend returns the
+  // static demo code, honoured only while OTP_DEMO_ENABLED=1 on the server.
+  //
+  // Defaulted to 'demo' at the client's request while OTPIQ_API_KEY is unset
+  // on the backend: real delivery returns 502 "Failed to send verification
+  // code." for every number, so 'real' as the default made Continue fail on
+  // the first tap for everyone. Switch this back to 'real' the moment the
+  // key is configured — the Delivery row below still offers both, so no code
+  // change is needed to test real delivery once it works.
+  String _otpMode = 'demo';
 
   void _completeLogin(Map<String, dynamic> user) {
     sharedPreferences.setString('id_user', user['id'].toString());
