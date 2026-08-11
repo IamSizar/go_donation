@@ -629,7 +629,16 @@ func (s *Store) PaginatedList(ctx context.Context, page, perPage int, q, status 
 	conds := []string{}
 	if qTrim := strings.TrimSpace(q); qTrim != "" {
 		args = append(args, "%"+qTrim+"%")
-		conds = append(conds, "(u.phone ILIKE $"+strconv.Itoa(len(args))+" OR up.full_name ILIKE $"+strconv.Itoa(len(args))+")")
+		i := strconv.Itoa(len(args))
+		// "Allow searches by identification code." recipient_code and
+		// volunteer_code exist precisely so a person can be referred to
+		// without their name — but the staff lookup matched only phone and
+		// full_name, so the one identifier that is safe to quote in a
+		// conversation was the one thing you could not search by.
+		conds = append(conds, "(u.phone ILIKE $"+i+
+			" OR up.full_name ILIKE $"+i+
+			" OR up.recipient_code ILIKE $"+i+
+			" OR up.volunteer_code ILIKE $"+i+")")
 	}
 	switch strings.ToLower(strings.TrimSpace(status)) {
 	case "all":
