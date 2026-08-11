@@ -320,6 +320,13 @@ type Community struct {
 	ApproxLocation string `json:"approx_location"`
 	// Note #19 — mandatory classification: 'government' or 'private'.
 	SectorType string `json:"sector_type"`
+	// "Social media links, including Facebook, Instagram, and website" — the
+	// website already had its own column; this holds the rest (migration 100).
+	SocialLinks *string `json:"social_links"`
+	// Machine-readable companion to the free-text opening_hours, so the app can
+	// show Open Now / Closed. Null when nobody has filled it in, which is the
+	// signal to show no badge rather than guess.
+	Hours *string `json:"hours"`
 	// Admin queue only — when the entry was submitted, so the dashboard can
 	// show a date + time column. Null on the public listing, which doesn't
 	// select it.
@@ -358,7 +365,8 @@ func (s *Store) ListCommunity(ctx context.Context, category, city, q, sector str
 	               CASE WHEN approx_location = 1 THEN (ROUND(latitude  / 0.005) * 0.005)::text ELSE latitude::text  END,
 	               CASE WHEN approx_location = 1 THEN (ROUND(longitude / 0.005) * 0.005)::text ELSE longitude::text END,
 	               sectors, opening_hours, opening_hours_ar, opening_hours_sorani, opening_hours_badini,
-	               gallery, CASE WHEN approx_location = 1 THEN 'approx' ELSE 'exact' END, sector_type
+	               gallery, CASE WHEN approx_location = 1 THEN 'approx' ELSE 'exact' END, sector_type,
+	               social_links, hours::text
 	          FROM city_directory_entries
 	         WHERE ` + strings.Join(where, " AND ") + `
 	         ORDER BY category ASC, name ASC
@@ -379,6 +387,7 @@ func (s *Store) ListCommunity(ctx context.Context, category, city, q, sector str
 			&c.Latitude, &c.Longitude,
 			&c.Sectors, &c.OpeningHours, &c.OpeningHoursAr, &c.OpeningHoursSorani, &c.OpeningHoursBadini,
 			&c.Gallery, &c.ApproxLocation, &c.SectorType,
+			&c.SocialLinks, &c.Hours,
 		); err != nil {
 			return nil, err
 		}
@@ -410,6 +419,7 @@ func (s *Store) ListCommunityAdmin(ctx context.Context, status string, limit int
 	               latitude::text, longitude::text,
 	               sectors, opening_hours, opening_hours_ar, opening_hours_sorani, opening_hours_badini,
 	               gallery, status, CASE WHEN approx_location = 1 THEN 'approx' ELSE 'exact' END, sector_type,
+	               social_links, hours::text,
 	               to_char(created_at, 'YYYY-MM-DD"T"HH24:MI:SS')
 	          FROM city_directory_entries
 	         WHERE ` + strings.Join(where, " AND ") + `
@@ -430,6 +440,7 @@ func (s *Store) ListCommunityAdmin(ctx context.Context, status string, limit int
 			&c.Latitude, &c.Longitude,
 			&c.Sectors, &c.OpeningHours, &c.OpeningHoursAr, &c.OpeningHoursSorani, &c.OpeningHoursBadini,
 			&c.Gallery, &c.Status, &c.ApproxLocation, &c.SectorType,
+			&c.SocialLinks, &c.Hours,
 			&c.CreatedAt,
 		); err != nil {
 			return nil, err

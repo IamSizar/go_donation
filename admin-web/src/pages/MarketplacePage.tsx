@@ -76,6 +76,7 @@ const PRODUCT_FIELDS: FieldSpec[] = [
   { key: 'name_badini',         label: 'Name (Badini)', labelKey: 'field.name_badini',      type: 'text',     dir: 'rtl' },
   { key: 'category',            label: 'Category', labelKey: 'field.category',           type: 'text' },
   { key: 'sku',                 label: 'SKU', labelKey: 'field.sku',                 type: 'text' },
+  { key: 'brand',        label: 'Brand', labelKey: 'field.brand', type: 'text' },
   { key: 'status',              label: 'Status', labelKey: 'field.status',             type: 'select',   options: EDITABLE_PRODUCT_STATUSES },
   { key: 'price',               label: 'Price', labelKey: 'field.price',              type: 'number' },
   { key: 'currency',            label: 'Currency', labelKey: 'field.currency',           type: 'text',     placeholder: 'IQD' },

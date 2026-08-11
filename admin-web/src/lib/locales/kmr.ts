@@ -1247,6 +1247,8 @@ const kmr: DeepPartial<typeof en> = {
     active: 'چالاک',
     title_en: 'سەرنڤیس (EN)', title_ar: 'سەرنڤیس (AR)', title_sorani: 'سەرنڤیس (سۆرانی)', title_badini: 'سەرنڤیس (بادینی)',
     name_en: 'ناڤ (EN)', name_ar: 'ناڤ (AR)', name_sorani: 'ناڤ (سۆرانی)', name_badini: 'ناڤ (بادینی)',
+    hours_json: 'دەمژمێر (JSON)',
+    brand: 'براند',
     description_en: 'ڤەسف (EN)', description_ar: 'ڤەسف (AR)', description_sorani: 'ڤەسف (سۆرانی)', description_badini: 'ڤەسف (بادینی)',
     sectors: 'کەرت',
     sector: 'کەرت',

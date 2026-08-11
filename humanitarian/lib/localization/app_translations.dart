@@ -2,6 +2,9 @@ import 'package:get/get.dart';
 
 class AppTranslations extends Translations {
   static const Map<String, String> _en = {
+    'city_social_links': 'Social links',
+    'city_closed_now': 'Closed now',
+    'city_open_now': 'Open now',
     'Add or correct a place': 'Add or correct a place',
     'What this guide covers': 'What this guide covers',
     'Reach the engagement service team': 'Reach the engagement service team',
@@ -2275,6 +2278,9 @@ class AppTranslations extends Translations {
   };
 
   static const Map<String, String> _ar = {
+    'city_social_links': 'روابط التواصل',
+    'city_closed_now': 'مغلق الآن',
+    'city_open_now': 'مفتوح الآن',
     'Add or correct a place': 'أضف مكاناً أو صحّحه',
     'What this guide covers': 'ما الذي يغطيه هذا الدليل',
     'Reach the engagement service team': 'تواصل مع فريق خدمة الارتباط',
@@ -4472,6 +4478,9 @@ class AppTranslations extends Translations {
   };
 
   static final Map<String, String> _sorani = {
+    'city_social_links': 'بەستەرەکانی سۆشیال',
+    'city_closed_now': 'ئێستا داخراوە',
+    'city_open_now': 'ئێستا کراوەیە',
     'Add or correct a place': 'شوێنێک زیاد بکە یان ڕاستی بکەرەوە',
     'What this guide covers': 'ئەم ڕێنمایە چی دەگرێتەوە',
     'Reach the engagement service team': 'پەیوەندی بە تیمی خزمەتگوزارییەکەوە بکە',
@@ -6750,6 +6759,9 @@ class AppTranslations extends Translations {
   };
 
   static final Map<String, String> _badini = {
+    'city_social_links': 'گرێدانێن سۆشیال',
+    'city_closed_now': 'نوکە گرتیە',
+    'city_open_now': 'نوکە ڤەکریە',
     'Add or correct a place': 'جهـەکی زێدە بکە یان راست بکە',
     'What this guide covers': 'ئەڤ رێنیشاندەر چی دگریت',
     'Reach the engagement service team': 'پەیوەندی ب تیما خزمەتێ بکە',

@@ -385,6 +385,10 @@ type communityEditReq struct {
 	ApproxLocation *string `json:"approx_location"`
 	// Note #19 — mandatory classification: 'government' or 'private'.
 	SectorType *string `json:"sector_type"`
+	// Migration 100 — the rest of the social links (website has its own
+	// column), and the machine-readable hours behind the Open Now badge.
+	SocialLinks *string `json:"social_links"`
+	Hours       *string `json:"hours"`
 }
 
 func (h *AdminEditHandler) Community(c *gin.Context) {
@@ -461,6 +465,23 @@ func (h *AdminEditHandler) Community(c *gin.Context) {
 			return
 		}
 		b.add("sector_type", s)
+	}
+	if req.SocialLinks != nil {
+		b.add("social_links", strings.TrimSpace(*req.SocialLinks))
+	}
+	if req.Hours != nil {
+		// Stored as jsonb. An empty box clears it, which is what "unknown
+		// hours, show no badge" means; anything else must parse or the row
+		// would carry text the app cannot read.
+		h := strings.TrimSpace(*req.Hours)
+		if h == "" {
+			b.add("hours", nil)
+		} else if !json.Valid([]byte(h)) {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "hours must be valid JSON."})
+			return
+		} else {
+			b.add("hours", h)
+		}
 	}
 	if !b.exec(c, h.Pool, "city_directory_entries", id) {
 		return

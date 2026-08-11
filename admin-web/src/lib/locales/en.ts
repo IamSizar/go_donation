@@ -1326,6 +1326,8 @@ const en = {
     active: 'Active',
     title_en: 'Title (EN)', title_ar: 'Title (AR)', title_sorani: 'Title (Sorani)', title_badini: 'Title (Badini)',
     name_en: 'Name (EN)', name_ar: 'Name (AR)', name_sorani: 'Name (Sorani)', name_badini: 'Name (Badini)',
+    hours_json: 'Hours (JSON)',
+    brand: 'Brand',
     description_en: 'Description (EN)', description_ar: 'Description (AR)', description_sorani: 'Description (Sorani)', description_badini: 'Description (Badini)',
     sectors: 'Sectors',
     sector: 'Sector',

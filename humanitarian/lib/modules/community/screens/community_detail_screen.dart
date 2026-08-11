@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/modules/community/controllers/community_controller.dart';
@@ -85,6 +86,13 @@ class CommunityDetailScreen extends StatelessWidget {
     final lng = _parseCoord(entry['longitude']);
     // #29 — opening hours (4-language), sector tags, and photo gallery.
     final hours = localizedContentFromMap(entry, 'opening_hours');
+    // "Working hours, including Open Now/Closed status." The free-text hours
+    // above stay the human-readable value; this is the machine-readable
+    // companion (migration 100) that the badge is computed from. Null when
+    // nobody has filled it in — in which case no badge is shown rather than a
+    // guess, because free text like "9 صباحاً حتى 5 مساءً" cannot be parsed.
+    final openNow = _openNow(entry['hours']);
+    final socials = (entry['social_links'] ?? '').toString().trim();
     final sectorSlugs = (entry['sectors'] is List)
         ? (entry['sectors'] as List)
               .map((s) => s.toString())
@@ -213,6 +221,16 @@ class CommunityDetailScreen extends StatelessWidget {
                             icon: Icons.schedule_rounded,
                             label: 'city_opening_hours',
                             value: hours,
+                          ),
+                        if (openNow != null) ...[
+                          const SizedBox(height: 8),
+                          _OpenNowBadge(open: openNow),
+                        ],
+                        if (socials.isNotEmpty)
+                          _DetailLine(
+                            icon: Icons.public_rounded,
+                            label: 'city_social_links',
+                            value: socials,
                           ),
                         // #29 — sector tags.
                         if (sectorSlugs.isNotEmpty) ...[
@@ -555,6 +573,100 @@ class _TappableDetailLine extends StatelessWidget {
                 shape: BoxShape.circle,
               ),
               child: Icon(trailingIcon, size: 14, color: trailingColor),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Computes Open Now from the structured `hours` map:
+///
+///   {"mon":[["09:00","17:00"]], "sat":[]}
+///
+/// A day mapped to an empty list is closed. A day that is absent means the
+/// hours for it are unknown, so this returns null and the caller shows no
+/// badge — claiming "Closed" for missing data would be worse than saying
+/// nothing, since it turns people away from a place that may well be open.
+bool? _openNow(dynamic raw) {
+  if (raw == null) return null;
+  Map<String, dynamic> map;
+  if (raw is Map) {
+    map = Map<String, dynamic>.from(raw);
+  } else {
+    try {
+      final decoded = jsonDecode(raw.toString());
+      if (decoded is! Map) return null;
+      map = Map<String, dynamic>.from(decoded);
+    } catch (_) {
+      return null;
+    }
+  }
+  const keys = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+  final now = DateTime.now();
+  // DateTime.weekday is 1=Mon..7=Sun, matching the order above.
+  final today = map[keys[now.weekday - 1]];
+  if (today == null || today is! List) return null;
+  if (today.isEmpty) return false; // explicitly closed today
+  final minutes = now.hour * 60 + now.minute;
+  for (final span in today) {
+    if (span is! List || span.length < 2) continue;
+    final from = _minutes(span[0].toString());
+    final to = _minutes(span[1].toString());
+    if (from == null || to == null) continue;
+    // A span that ends before it starts runs past midnight (e.g. 20:00-02:00).
+    if (to < from) {
+      if (minutes >= from || minutes < to) return true;
+    } else if (minutes >= from && minutes < to) {
+      return true;
+    }
+  }
+  return false;
+}
+
+int? _minutes(String hhmm) {
+  final parts = hhmm.split(':');
+  if (parts.length < 2) return null;
+  final h = int.tryParse(parts[0]);
+  final m = int.tryParse(parts[1]);
+  if (h == null || m == null) return null;
+  return h * 60 + m;
+}
+
+class _OpenNowBadge extends StatelessWidget {
+  const _OpenNowBadge({required this.open});
+
+  final bool open;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = open ? const Color(0xFF16A34A) : const Color(0xFFDC2626);
+    return Align(
+      alignment: AlignmentDirectional.centerStart,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: color.withValues(alpha: 0.35)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              open ? Icons.check_circle_rounded : Icons.cancel_rounded,
+              size: 15,
+              color: color,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              (open ? 'city_open_now' : 'city_closed_now').tr,
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.w700,
+                fontSize: 12.5,
+              ),
             ),
           ],
         ),

@@ -58,6 +58,13 @@ const CITY_GUIDE_FIELDS: FieldSpec[] = [
   { key: 'opening_hours_badini', label: 'Opening Hours (Badini)', labelKey: 'field.opening_hours_badini', type: 'textarea', rows: 2, dir: 'rtl', full: true },
   { key: 'description',   label: 'Description (EN)',   labelKey: 'field.description_en', type: 'textarea', rows: 3 },
   { key: 'description_ar',label: 'Description (AR)',   labelKey: 'field.description_ar', type: 'textarea', rows: 3, dir: 'rtl' },
+  { key: 'social_links',  label: 'Social links',       labelKey: 'field.social_links',  type: 'textarea', rows: 2, full: true,
+    placeholder: 'facebook.com/... · instagram.com/...' },
+  // Machine-readable hours behind the Open Now badge. The four opening_hours
+  // fields above stay as the human-readable text; this only drives the badge,
+  // so leaving it empty keeps today's behaviour.
+  { key: 'hours',         label: 'Hours (JSON)',       labelKey: 'field.hours_json',    type: 'textarea', rows: 3, full: true,
+    placeholder: '{"mon":[["09:00","17:00"]],"fri":[]}' },
   { key: 'gallery',       label: 'Photo Gallery',      labelKey: 'field.gallery',       type: 'gallery',  full: true },
 ]
 

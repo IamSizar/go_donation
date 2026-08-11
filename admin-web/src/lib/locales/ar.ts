@@ -1265,6 +1265,8 @@ const ar: DeepPartial<typeof en> = {
     active: 'نشط',
     title_en: 'العنوان (إنجليزي)', title_ar: 'العنوان (عربي)', title_sorani: 'العنوان (سۆرانی)', title_badini: 'العنوان (بادینی)',
     name_en: 'الاسم (إنجليزي)', name_ar: 'الاسم (عربي)', name_sorani: 'الاسم (سۆرانی)', name_badini: 'الاسم (بادینی)',
+    hours_json: 'ساعات العمل (JSON)',
+    brand: 'العلامة التجارية',
     description_en: 'الوصف (إنجليزي)', description_ar: 'الوصف (عربي)', description_sorani: 'الوصف (سۆرانی)', description_badini: 'الوصف (بادینی)',
     sectors: 'القطاعات',
     sector: 'القطاع',

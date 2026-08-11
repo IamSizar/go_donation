@@ -1246,6 +1246,8 @@ const ckb: DeepPartial<typeof en> = {
     active: 'چالاک',
     title_en: 'سەردێر (EN)', title_ar: 'سەردێر (AR)', title_sorani: 'سەردێر (سۆرانی)', title_badini: 'سەردێر (بادینی)',
     name_en: 'ناو (EN)', name_ar: 'ناو (AR)', name_sorani: 'ناو (سۆرانی)', name_badini: 'ناو (بادینی)',
+    hours_json: 'کاتژمێرەکان (JSON)',
+    brand: 'براند',
     description_en: 'وەسف (EN)', description_ar: 'وەسف (AR)', description_sorani: 'وەسف (سۆرانی)', description_badini: 'وەسف (بادینی)',
     sectors: 'کەرتەکان',
     sector: 'کەرت',
