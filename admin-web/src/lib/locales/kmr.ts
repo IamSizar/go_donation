@@ -49,6 +49,7 @@ const kmr: DeepPartial<typeof en> = {
     community: 'کۆمەڵگە',
     city_guide: 'ڕێنمایا باژێری',
     city_sectors: 'کەرتێن باژێری',
+    city_categories: 'جۆرێن لاوەکی',
     field_rules: 'یاسایێن خانان',
     receipts: 'پسوولێن هاریکاریێ',
     messages: 'پەیام',
@@ -447,6 +448,18 @@ const kmr: DeepPartial<typeof en> = {
   cityGuideContact: {
     title: 'پەیوەندی — رێنیشاندەر',
     subtitle: 'د ئەپێ دا دیار دبیت. ڤان زانیاریان ژ بەشێ مرۆڤی جودا بهێلە.',
+  },
+  cityCategories: {
+    title: 'جۆرێن لاوەکی',
+    subtitle: 'جۆرێن لاوەکی یێن هەر بەشەکێ رێنیشاندەرێ باژێری. ل ڤێرێ زێدە بکە یان بگوهۆرە بێی گوهۆرینا کۆدی.',
+    add_new: 'زێدەکرنا جۆرێ لاوەکی',
+    added: 'هاتە زێدەکرن.',
+    saved: 'هاتە پاشەکەفتن.',
+    deleted: 'هاتە ژێبرن.',
+    confirm_delete: 'ئەڤ جۆرێ لاوەکی بێتە ژێبرن؟ جهێن هەیی دەقێ خۆ دپارێزن.',
+    need_en: 'ناڤێ ئینگلیزی بنڤیسە.',
+    active: 'چالاک',
+    sector: 'بەش',
   },
   crop: {
     title: 'برینا وێنەی',

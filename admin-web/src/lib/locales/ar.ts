@@ -48,6 +48,7 @@ const ar: DeepPartial<typeof en> = {
     community: 'دليل المجتمع',
     city_guide: 'دليل المدينة',
     city_sectors: 'قطاعات المدينة',
+    city_categories: 'التصنيفات الفرعية',
     field_rules: 'قواعد الحقول',
     receipts: 'إيصالات المساعدات',
     messages: 'الرسائل',
@@ -446,6 +447,18 @@ const ar: DeepPartial<typeof en> = {
   cityGuideContact: {
     title: 'تواصل — دليل الموصل',
     subtitle: 'تظهر في التطبيق. أبقِ هذه التفاصيل منفصلة عن تفاصيل القسم الإنساني.',
+  },
+  cityCategories: {
+    title: 'التصنيفات الفرعية',
+    subtitle: 'التصنيفات الفرعية ضمن كل قطاع في دليل المدينة. أضفها أو عدّلها هنا دون تعديل برمجي.',
+    add_new: 'إضافة تصنيف فرعي',
+    added: 'تمت الإضافة.',
+    saved: 'تم الحفظ.',
+    deleted: 'تم الحذف.',
+    confirm_delete: 'حذف هذا التصنيف الفرعي؟ تحتفظ الأماكن الحالية بنصها.',
+    need_en: 'أدخل الاسم بالإنجليزية.',
+    active: 'مفعّل',
+    sector: 'القطاع',
   },
   crop: {
     title: 'اقتصاص الصورة',

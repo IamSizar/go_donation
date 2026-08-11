@@ -50,6 +50,7 @@ export const NAV: NavItem[] = [
   { to: '/community',     tKey: 'nav.community',       module: 'community' },
   { to: '/city-guide',    tKey: 'nav.city_guide',     module: 'city' },
   { to: '/city-sectors',  tKey: 'nav.city_sectors',   module: 'city' },
+  { to: '/city-categories', tKey: 'nav.city_categories', module: 'community' },
   { to: '/field-rules',   tKey: 'nav.field_rules',    module: 'users' },
   { to: '/receipts',      tKey: 'nav.receipts',       module: 'beneficiary' },
   { to: '/messages',      tKey: 'nav.messages',        module: 'messages' },
@@ -130,7 +131,7 @@ export const DEFAULT_NAV_SECTIONS: NavSection[] = [
   },
   {
     kind: 'group', key: 'city_guide', tKey: 'nav_group.city_guide',
-    items: ['/city-guide', '/city-sectors', '/community'],
+    items: ['/city-guide', '/city-sectors', '/city-categories', '/community'],
   },
   {
     kind: 'group', key: 'store_marketplace', tKey: 'nav_group.store_marketplace',

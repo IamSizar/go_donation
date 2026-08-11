@@ -21,6 +21,7 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/casecategories"
 	"github.com/karam-flutter/humanitarian-backend/internal/casevolchat"
 	"github.com/karam-flutter/humanitarian-backend/internal/chat"
+	"github.com/karam-flutter/humanitarian-backend/internal/citycategories"
 	"github.com/karam-flutter/humanitarian-backend/internal/citysectors"
 	"github.com/karam-flutter/humanitarian-backend/internal/config"
 	"github.com/karam-flutter/humanitarian-backend/internal/content"
@@ -263,6 +264,7 @@ func main() {
 	sponsorshipScheduleH.SendSMS = donationStore.SendSMS
 	sponsorshipScheduleH.StartReminderLoop(6 * time.Hour)
 	citySectorsH := handlers.NewCitySectorsHandler(citySectorStore)                                              // #29
+	cityCategoriesH := handlers.NewCityCategoriesHandler(citycategories.New(pool))                               // sub-categories
 	searchH := handlers.NewSearchHandler(searchStore)                                                            // #33
 	fieldRulesH := handlers.NewFieldRulesHandler(pool)                                                           // #43
 	aidReceiptsH := handlers.NewAidReceiptsHandler(pool)                                                         // #50
@@ -354,6 +356,7 @@ func main() {
 		api.GET("/sponsorship-types", sponsorshipTypesH.PublicList)
 		api.GET("/inkind-categories", inkindCategoriesH.PublicList)
 		api.GET("/city-sectors", citySectorsH.PublicList)            // #29 — City Guide filter chips
+		api.GET("/city-categories", cityCategoriesH.PublicList)      // sub-categories per sector
 		api.GET("/search", searchH.Search)                           // #33 — global search
 		api.GET("/registration/field-rules", fieldRulesH.PublicList) // #43 — required-field rules
 		// #36 — support WhatsApp handoff number. The admin-editable DB value
@@ -962,6 +965,11 @@ func main() {
 			admin.PATCH("/admin/city-sectors/:id", auth.RequireAdminTier(), citySectorsH.Update)
 			admin.POST("/admin/city-sectors/reorder", auth.RequireAdminTier(), citySectorsH.Reorder)
 			admin.DELETE("/admin/city-sectors/:id", auth.RequireAdminTier(), citySectorsH.Delete)
+			admin.GET("/admin/city-categories", cityCategoriesH.AdminList)
+			admin.POST("/admin/city-categories", auth.RequireAdminTier(), cityCategoriesH.Add)
+			admin.PATCH("/admin/city-categories/:id", auth.RequireAdminTier(), cityCategoriesH.Update)
+			admin.POST("/admin/city-categories/reorder", auth.RequireAdminTier(), cityCategoriesH.Reorder)
+			admin.DELETE("/admin/city-categories/:id", auth.RequireAdminTier(), cityCategoriesH.Delete)
 			// #19 — payment-method CMS (admin-managed, 4-language, ordered).
 			// #22 — "Our Work" media categories (writes gated to admin tier).
 			admin.GET("/admin/media-categories", mediaCategoriesH.AdminList)

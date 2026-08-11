@@ -48,6 +48,7 @@ const ckb: DeepPartial<typeof en> = {
     community: 'کۆمەڵگا',
     city_guide: 'ڕێنمای شار',
     city_sectors: 'کەرتەکانی شار',
+    city_categories: 'جۆرە لاوەکییەکان',
     field_rules: 'یاساکانی خانە',
     receipts: 'وەسڵی یارمەتی',
     messages: 'نامەکان',
@@ -446,6 +447,18 @@ const ckb: DeepPartial<typeof en> = {
   cityGuideContact: {
     title: 'پەیوەندی — ڕێنمای مووسڵ',
     subtitle: 'لە ئەپەکەدا دەردەکەوێت. ئەم زانیارییانە جیا بهێڵەوە لە بەشی مرۆیی.',
+  },
+  cityCategories: {
+    title: 'جۆرە لاوەکییەکان',
+    subtitle: 'جۆرە لاوەکییەکانی هەر کەرتێکی ڕێنمای شار. لێرە زیاد بکە یان دەستکاری بکە بەبێ گۆڕانی کۆد.',
+    add_new: 'زیادکردنی جۆری لاوەکی',
+    added: 'زیادکرا.',
+    saved: 'پاشەکەوتکرا.',
+    deleted: 'سڕدرایەوە.',
+    confirm_delete: 'ئەم جۆرە لاوەکییە بسڕدرێتەوە؟ شوێنە هەبووەکان دەقی خۆیان دەپارێزن.',
+    need_en: 'ناوی ئینگلیزی بنووسە.',
+    active: 'چالاک',
+    sector: 'کەرت',
   },
   crop: {
     title: 'بڕینی وێنە',

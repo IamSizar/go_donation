@@ -48,6 +48,7 @@ const en = {
     community: 'Community',
     city_guide: 'City Guide',
     city_sectors: 'City sectors',
+    city_categories: 'Guide sub-categories',
     field_rules: 'Field rules',
     receipts: 'Aid receipts',
     messages: 'Messages',
@@ -458,6 +459,18 @@ const en = {
   cityGuideContact: {
     title: 'Contact — Mosul Guide',
     subtitle: 'Shown in the app. Keep these details separate from the humanitarian ones.',
+  },
+  cityCategories: {
+    title: 'Guide sub-categories',
+    subtitle: 'The sub-categories under each City Guide sector. Add or edit them here — no code change needed.',
+    add_new: 'Add sub-category',
+    added: 'Sub-category added.',
+    saved: 'Saved.',
+    deleted: 'Deleted.',
+    confirm_delete: 'Delete this sub-category? Existing places keep their current category text.',
+    need_en: 'Enter the English name.',
+    active: 'Active',
+    sector: 'Sector',
   },
   crop: {
     title: 'Crop photo',

@@ -57,6 +57,7 @@ const MediaCategoriesPage = lazy(() => import('./pages/MediaCategoriesPage'))
 const CommentsPage = lazy(() => import('./pages/CommentsPage'))
 const PostActivityPage = lazy(() => import('./pages/PostActivityPage'))
 const SponsorshipTypesPage = lazy(() => import('./pages/SponsorshipTypesPage'))
+const CityCategoriesPage = lazy(() => import('./pages/CityCategoriesPage'))
 const MarriageAboutPage = lazy(() => import('./pages/MarriageAboutPage'))
 const MarriageContactPage = lazy(() => import('./pages/MarriageContactPage'))
 const CityGuideAboutPage = lazy(() => import('./pages/CityGuideAboutPage'))
@@ -122,6 +123,7 @@ export default function App() {
             <Route path="comments" element={<CommentsPage />} />
             <Route path="post-activity" element={<PostActivityPage />} />
             <Route path="sponsorship-types" element={<SponsorshipTypesPage />} />
+            <Route path="city-categories" element={<CityCategoriesPage />} />
             <Route path="marriage-about" element={<MarriageAboutPage />} />
             <Route path="marriage-contact" element={<MarriageContactPage />} />
             <Route path="city-guide-about" element={<CityGuideAboutPage />} />
