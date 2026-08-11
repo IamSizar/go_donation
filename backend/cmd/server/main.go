@@ -281,7 +281,7 @@ func main() {
 	settingsH := handlers.NewSettingsHandler(settingsStore)
 	statsH := handlers.NewStatsHandler(pool)
 	donationCodesH := handlers.NewDonationCodesHandler(codesStore)
-	listingsH := handlers.NewListingsHandler(listingsStore)
+	listingsH := handlers.NewListingsHandler(listingsStore).WithSettings(settingsStore)
 	usersAdminH := handlers.NewUsersAdminHandler(userStore)
 	supportH := handlers.NewSupportHandler(supportStore, notifier)
 	inkindH := handlers.NewInKindHandler(inkindStore, notifier)
@@ -1029,6 +1029,8 @@ func main() {
 
 			admin.GET("/admin/settings/assistant", settingsH.GetAssistantSettings)
 			admin.PUT("/admin/settings/assistant", auth.RequireAdminTier(), settingsH.SetAssistantSettings)
+			admin.GET("/admin/settings/partner-ratings", settingsH.GetPartnerRatings)
+			admin.PUT("/admin/settings/partner-ratings", auth.RequireAdminTier(), settingsH.SetPartnerRatings)
 			admin.GET("/admin/assistant/stats", settingsH.GetAssistantStats)
 			// Note #5 — admin dashboard idle-lock duration. GET is open to any
 			// authed staff (everyone needs the value to enforce it client-side);

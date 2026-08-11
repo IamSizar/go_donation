@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/karam-flutter/humanitarian-backend/internal/appsettings"
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
 	"github.com/karam-flutter/humanitarian-backend/internal/listings"
 )
@@ -14,10 +15,19 @@ import (
 // ListingsHandler covers GET /api/partners, /api/media, /api/community.
 type ListingsHandler struct {
 	Store *listings.Store
+	// Settings is optional; nil means "no settings store wired", in which case
+	// ratings stay visible — the pre-existing behaviour.
+	Settings *appsettings.Store
 }
 
 func NewListingsHandler(s *listings.Store) *ListingsHandler {
 	return &ListingsHandler{Store: s}
+}
+
+// WithSettings attaches the settings store used by the partner-ratings toggle.
+func (h *ListingsHandler) WithSettings(s *appsettings.Store) *ListingsHandler {
+	h.Settings = s
+	return h
 }
 
 // PartnerActivities — GET /api/partners/:id/activities.
@@ -56,7 +66,35 @@ func (h *ListingsHandler) Partners(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "items": items})
+	// "Interactive 1-5 star rating with an option to hide it." When hidden the
+	// scores are stripped here rather than left to the client to ignore, so no
+	// consumer of this endpoint can surface a rating the admin turned off.
+	// The rows themselves are untouched — turning it back on restores
+	// everything staff have already scored.
+	ratingsVisible := true
+	if h.Settings != nil {
+		if v, err := h.Settings.Get(c.Request.Context(), appsettings.KeyPartnerRatingsVisible); err == nil {
+			ratingsVisible = !strings.EqualFold(strings.TrimSpace(v), "false")
+		}
+	}
+	if !ratingsVisible {
+		for i := range items {
+			items[i].AvgRating = nil
+			items[i].RatingCount = 0
+			items[i].AdminRating = nil
+			items[i].ScoreActivities = nil
+			items[i].ScoreDonations = nil
+			items[i].ScoreCooperation = nil
+			items[i].ScoreContinuity = nil
+			items[i].AdminRatingNote = ""
+			items[i].MyRating = 0
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success":         true,
+		"items":           items,
+		"ratings_visible": ratingsVisible,
+	})
 }
 
 func (h *ListingsHandler) Media(c *gin.Context) {

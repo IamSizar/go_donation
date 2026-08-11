@@ -326,6 +326,43 @@ func (h *SettingsHandler) SetAssistantSettings(c *gin.Context) {
 // GetAssistantStats handles GET /api/admin/assistant/stats — lightweight
 // usage metadata (message counts, ai vs local, tool usage) so staff can see
 // the assistant is being used without storing full conversation transcripts.
+// GetPartnerRatings — GET /api/admin/settings/partner-ratings.
+// "Interactive 1-5 star rating with an option to hide it."
+func (h *SettingsHandler) GetPartnerRatings(c *gin.Context) {
+	v, err := h.Store.Get(c.Request.Context(), appsettings.KeyPartnerRatingsVisible)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		return
+	}
+	// Unset means visible, which is how it behaved before the toggle existed.
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"visible": !strings.EqualFold(strings.TrimSpace(v), "false"),
+	})
+}
+
+// SetPartnerRatings — PUT /api/admin/settings/partner-ratings {visible:bool}.
+// Hiding never clears the stored scores; it only stops the public API from
+// carrying them, so turning it back on restores what staff already scored.
+func (h *SettingsHandler) SetPartnerRatings(c *gin.Context) {
+	var body struct {
+		Visible *bool `json:"visible"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil || body.Visible == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "visible is required."})
+		return
+	}
+	val := "true"
+	if !*body.Visible {
+		val = "false"
+	}
+	if err := h.Store.Set(c.Request.Context(), appsettings.KeyPartnerRatingsVisible, val); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "visible": *body.Visible})
+}
+
 func (h *SettingsHandler) GetAssistantStats(c *gin.Context) {
 	ctx := c.Request.Context()
 	var total, today, last7, aiCount, localCount, toolCount int

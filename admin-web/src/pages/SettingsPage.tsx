@@ -56,6 +56,10 @@ export default function SettingsPage() {
   const [savingSupportUser, setSavingSupportUser] = useState(false)
 
   const [assistantEnabled, setAssistantEnabled] = useState(true)
+  // "Interactive 1-5 star rating with an option to hide it." Unset means
+  // visible, which is how partner ratings behaved before this toggle existed.
+  const [ratingsVisible, setRatingsVisible] = useState(true)
+  const [savingRatings, setSavingRatings] = useState(false)
   const [assistantExtra, setAssistantExtra] = useState('')
   const [savingAssistant, setSavingAssistant] = useState(false)
   const [assistantStats, setAssistantStats] = useState<AssistantStats | null>(null)
@@ -72,8 +76,9 @@ export default function SettingsPage() {
       api.get<{ items: StaffDirectoryEntry[] }>('/api/admin/staff-directory'),
       api.get<{ enabled: boolean; extra_instructions: string }>('/api/admin/settings/assistant'),
       api.get<AssistantStats>('/api/admin/assistant/stats'),
+      api.get<{ visible: boolean }>('/api/admin/settings/partner-ratings'),
     ])
-      .then(([wa, fibRes, timeout, supportUser, directory, assistant, stats]) => {
+      .then(([wa, fibRes, timeout, supportUser, directory, assistant, stats, ratings]) => {
         if (cancelled) return
         setWhatsapp(wa.data.number ?? '')
         setFib(fibRes.data.number ?? '')
@@ -83,6 +88,7 @@ export default function SettingsPage() {
         setAssistantEnabled(assistant.data.enabled ?? true)
         setAssistantExtra(assistant.data.extra_instructions ?? '')
         setAssistantStats(stats.data)
+        setRatingsVisible(ratings.data.visible !== false)
         setErr(null)
       })
       .catch((e) => { if (!cancelled) setErr(describeError(e)) })
@@ -125,6 +131,20 @@ export default function SettingsPage() {
       toast.error(describeError(e))
     } finally {
       setSavingSupportUser(false)
+    }
+  }
+
+  async function saveRatings() {
+    setSavingRatings(true)
+    try {
+      // Hiding does not clear the stored scores — it only stops the public API
+      // carrying them, so turning it back on restores what staff scored.
+      await api.put('/api/admin/settings/partner-ratings', { visible: ratingsVisible })
+      toast.success(t('settings.saved'))
+    } catch (e) {
+      toast.error(describeError(e))
+    } finally {
+      setSavingRatings(false)
     }
   }
 
@@ -278,6 +298,27 @@ export default function SettingsPage() {
             <div className="row">
               <button onClick={saveSupportUser} disabled={savingSupportUser}>
                 {savingSupportUser ? t('common.saving') : t('common.save')}
+              </button>
+            </div>
+          </div>
+
+          <div className="card stack" style={{ gap: 12 }}>
+            <div>
+              <h3 style={{ margin: 0 }}>{t('settings.ratings_title')}</h3>
+              <p className="muted" style={{ marginTop: 4 }}>{t('settings.ratings_desc')}</p>
+            </div>
+            <label className="field" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <input
+                type="checkbox"
+                checked={ratingsVisible}
+                onChange={(e) => setRatingsVisible(e.target.checked)}
+                disabled={savingRatings}
+              />
+              <span className="muted">{t('settings.ratings_visible_label')}</span>
+            </label>
+            <div>
+              <button className="btn primary" onClick={saveRatings} disabled={savingRatings}>
+                {savingRatings ? t('common.saving') : t('common.save')}
               </button>
             </div>
           </div>

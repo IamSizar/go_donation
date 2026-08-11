@@ -42,6 +42,17 @@ const KeyAssistantEnabled = "assistant_enabled"
 // assistant's system prompt (tone, scope nudges) without a redeploy.
 const KeyAssistantExtraInstructions = "assistant_extra_instructions"
 
+// KeyPartnerRatingsVisible hides the 1-5 partner rating from the app.
+// "false" hides it; anything else (including unset) leaves it visible, so the
+// existing behaviour is what you get until an admin turns it off.
+//
+// Enforced server-side rather than by asking the app not to draw it: when it
+// is off the public partners list carries no rating at all, so nothing that
+// reads the API can display one. Staff keep seeing and editing ratings in the
+// Admin Panel — hiding is about what the public sees, not about losing the
+// scores.
+const KeyPartnerRatingsVisible = "partner_ratings_visible"
+
 type Store struct{ Pool *pgxpool.Pool }
 
 func New(pool *pgxpool.Pool) *Store { return &Store{Pool: pool} }
