@@ -872,6 +872,7 @@ const en = {
     tier: 'Access permission',
     account_status: 'Account status',
     id: 'ID',
+    activity_code: 'Activity code',
     status: 'Status',
     created: 'Created',
     updated: 'Updated',

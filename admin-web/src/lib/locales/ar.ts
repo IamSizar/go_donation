@@ -830,6 +830,7 @@ const ar: DeepPartial<typeof en> = {
     tier: 'صلاحية الوصول',
     account_status: 'حالة الحساب',
     id: 'المعرّف',
+    activity_code: 'رمز النشاط',
     status: 'الحالة',
     created: 'الإنشاء',
     updated: 'آخر تحديث',

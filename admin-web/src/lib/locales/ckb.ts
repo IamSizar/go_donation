@@ -876,6 +876,7 @@ const ckb: DeepPartial<typeof en> = {
     tier: 'مۆڵەتی دەستگەیشتن',
     account_status: 'دۆخی هەژمار',
     id: 'ID', status: 'دۆخ', created: 'دروستکراو', updated: 'نوێکراوە',
+    activity_code: 'کۆدی چالاکی',
     name: 'ناو', title: 'سەردێر', type: 'جۆر', category: 'پۆل', phone: 'مۆبایل', wallet: 'جزدان',
     city: 'شار', address: 'ناونیشان', location: 'شوێن', donor: 'بەخشەر', amount: 'بڕ',
     method: 'شێواز', payment: 'پارەدان', delivery: 'گەیاندن', reference: 'ئاماژە', date: 'بەروار',

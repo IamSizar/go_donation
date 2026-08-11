@@ -168,6 +168,10 @@ class MediaPostCard extends StatelessWidget {
     final type = (item['post_type'] ?? 'news').toString();
     final date = (item['event_date'] ?? item['created_at'] ?? '').toString();
     final location = localizedContentFromMap(item, 'location'); // #23
+    // "Post Information" — the Activity Code identifying the post and the
+    // category it belongs to (HUM-000123). It was being generated and served
+    // by the API but never shown, so nobody could quote it.
+    final activityCode = (item['activity_code'] ?? '').toString().trim();
     final gallery = _galleryUrls(item['gallery']); // #23
     final mediaUrl = _mediaUrl(item['media_url']);
     final linkUrl = _mediaUrl(item['link_url']);
@@ -202,6 +206,8 @@ class MediaPostCard extends StatelessWidget {
                       _PostPill(icon: Icons.event_rounded, label: date),
                     if (location.trim().isNotEmpty)
                       _PostPill(icon: Icons.place_rounded, label: location),
+                    if (activityCode.isNotEmpty)
+                      _PostPill(icon: Icons.tag_rounded, label: activityCode),
                   ],
                 ),
                 const SizedBox(height: 12),

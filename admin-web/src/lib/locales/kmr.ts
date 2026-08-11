@@ -877,6 +877,7 @@ const kmr: DeepPartial<typeof en> = {
     tier: 'مۆڵەتێ دەستگەهیێ',
     account_status: 'دۆخێ هەژماری',
     id: 'ID', status: 'دۆخ', created: 'دروستکری', updated: 'نویکری',
+    activity_code: 'کۆدێ چالاکیێ',
     name: 'ناڤ', title: 'سەرنڤیس', type: 'جۆر', category: 'پۆل', phone: 'تەلەفۆن', wallet: 'جزدان',
     city: 'باژێر', address: 'ناڤونیشان', location: 'جه', donor: 'بەخشەر', amount: 'بڕ',
     method: 'رێباز', payment: 'دراڤدان', delivery: 'گەهاندن', reference: 'ئاماژە', date: 'دیرۆک',

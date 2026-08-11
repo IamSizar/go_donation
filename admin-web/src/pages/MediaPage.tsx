@@ -27,6 +27,7 @@ const MEDIA_CSV_COLUMNS: CsvColumn<MediaPost>[] = [
   { header: 'event_date', get: (m) => m.event_date },
   { header: 'media_url', get: (m) => m.media_url },
   { header: 'link_url', get: (m) => m.link_url },
+  { header: 'activity_code', get: (m) => m.activity_code ?? '' },
   { header: 'created_at', get: (m) => m.created_at },
 ]
 
@@ -214,6 +215,15 @@ export default function MediaPage() {
         ) : (
           <div className="thumb thumb-empty" />
         ),
+    },
+    {
+      key: 'activity_code',
+      header: t('col.activity_code'),
+      width: '120px',
+      // Generated per category since migration 089 and backfilled by 097, but
+      // it was never surfaced anywhere — so staff had no way to quote it.
+      cell: (m) =>
+        m.activity_code ? <code>{m.activity_code}</code> : <span className="muted">—</span>,
     },
     {
       key: 'title',

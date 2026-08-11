@@ -390,6 +390,8 @@ export type Partner = {
 }
 
 export type MediaPost = {
+  /** "Post Information" — Activity Code identifying the post and its category. */
+  activity_code?: string
   id: number
   title: string
   title_ar: string | null
