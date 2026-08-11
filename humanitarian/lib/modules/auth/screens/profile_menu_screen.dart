@@ -8,12 +8,12 @@ import 'package:flutter_application_1/modules/proposal/screens/our_work_screen.d
 import 'package:flutter_application_1/modules/proposal/screens/saved_posts_screen.dart';
 import 'package:flutter_application_1/modules/proposal/screens/proposal_services_section.dart';
 import 'package:flutter_application_1/modules/legal/screens/terms_screen.dart';
-import 'package:flutter_application_1/modules/support/screens/support_section.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:flutter_application_1/widgets/settings_section.dart';
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/modules/dashboard/controllers/role_dashboard_controller.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/modules/support/screens/technical_support_screen.dart';
 
 /// Client spec, "Ninth: Improve the Home Interface Design" — the account hub
 /// opened by the circular profile photo in the top-right of every tab.
@@ -155,7 +155,9 @@ class ProfileMenuScreen extends StatelessWidget {
             icon: Icons.support_agent_rounded,
             label: 'Technical Support',
             color: Colors.deepOrange,
-            onTap: () => Get.to(() => const SupportSection()),
+            // Was opening SupportSection — the volunteer-missions screen — so
+            // "Technical Support" led to a list of volunteering opportunities.
+            onTap: () => Get.to(() => const TechnicalSupportScreen()),
           ),
           DrawerTile(
             icon: Icons.info_outline_rounded,

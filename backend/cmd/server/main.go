@@ -567,6 +567,7 @@ func main() {
 			// Phase 3g endpoints
 			authed.POST("/support", supportH.Post)
 			authed.POST("/support/", supportH.Post)
+			authed.GET("/support/mine", supportH.Mine)
 
 			authed.GET("/in_kind_donations", inkindH.Get)
 			authed.GET("/in_kind_donations/", inkindH.Get)
@@ -799,6 +800,7 @@ func main() {
 			admin.POST("/admin/sponsorships/:id/status", perm("sponsorships", "edit"), adminStatusH.Sponsorship)
 			admin.POST("/admin/in_kind_donations/:id/status", perm("in_kind", "edit"), adminStatusH.InKindDonation)
 			admin.POST("/admin/support_tickets/:id/status", perm("support", "edit"), adminStatusH.SupportTicket)
+			admin.POST("/admin/support_tickets/:id/reply", perm("support", "edit"), supportH.AdminReply)
 			admin.POST("/admin/donations/:id/status", perm("donations", "edit"), adminStatusH.Donation)
 			admin.POST("/admin/users/:id/role", perm("users", "edit"), adminStatusH.UserRole)
 			admin.POST("/admin/users/:id/active", perm("users", "edit"), adminStatusH.UserActive)

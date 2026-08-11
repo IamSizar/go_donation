@@ -95,6 +95,57 @@ func (h *SupportHandler) Post(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "id": id, "status": "open"})
 }
 
+// Mine — GET /api/support/mine — the caller's own tickets with their status
+// and any staff reply, plus whether the WhatsApp escalation should be offered.
+//
+// Without this the app could only ever fire a message into the void: POST
+// existed, nothing read back, so "track the request status and responses" had
+// no data behind it.
+func (h *SupportHandler) Mine(c *gin.Context) {
+	tokenUser, _ := auth.UserFromGin(c)
+	if tokenUser == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		return
+	}
+	items, escalate, err := h.Store.ListForUser(c.Request.Context(), tokenUser.UserID, 50)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"items":   items,
+		// True once the user has raised tickets on more than three distinct
+		// days that are still unresolved.
+		"escalate": escalate,
+	})
+}
+
+// AdminReply — POST /api/admin/support_tickets/:id/reply — staff answer.
+func (h *SupportHandler) AdminReply(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid ticket id."})
+		return
+	}
+	var body struct {
+		Reply string `json:"reply"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid JSON body."})
+		return
+	}
+	var actorID int64
+	if actor, ok := auth.UserFromGin(c); ok && actor != nil {
+		actorID = actor.UserID
+	}
+	if err := h.Store.Reply(c.Request.Context(), id, body.Reply, actorID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true})
+}
+
 // ============================================================
 // /api/in_kind_donations  (GET list, POST submit)
 // ============================================================

@@ -2,6 +2,19 @@ import 'package:get/get.dart';
 
 class AppTranslations extends Translations {
   static const Map<String, String> _en = {
+    'support_escalate_cta': 'Contact us on WhatsApp',
+    'support_escalate_body': 'You have written to us on more than three separate days without a resolution. Reach the team directly on WhatsApp to speed this up.',
+    'support_escalate_title': 'Still waiting?',
+    'support_reply': 'Support reply',
+    'support_no_requests': 'You have not contacted support yet.',
+    'support_my_requests': 'My requests',
+    'support_fill_both': 'Enter a subject and a message.',
+    'support_send_failed': 'Could not send your message.',
+    'support_sent': 'Your message was sent.',
+    'support_send': 'Send',
+    'support_message': 'Message',
+    'support_subject': 'Subject',
+    'support_new_message': 'Send a message to support',
     'Covers running costs: servers, subscriptions and administration.': 'Covers running costs: servers, subscriptions and administration.',
     'Support the organization': 'Support the organization',
     'Goes to the general fund or a project you choose.': 'Goes to the general fund or a project you choose.',
@@ -2246,6 +2259,19 @@ class AppTranslations extends Translations {
   };
 
   static const Map<String, String> _ar = {
+    'support_escalate_cta': 'تواصل عبر واتساب',
+    'support_escalate_body': 'لقد راسلتنا في أكثر من ثلاثة أيام مختلفة دون حل. تواصل مع الفريق مباشرة عبر واتساب لتسريع المعالجة.',
+    'support_escalate_title': 'ما زلت تنتظر؟',
+    'support_reply': 'رد الدعم',
+    'support_no_requests': 'لم تتواصل مع الدعم بعد.',
+    'support_my_requests': 'طلباتي',
+    'support_fill_both': 'أدخل الموضوع والرسالة.',
+    'support_send_failed': 'تعذّر إرسال رسالتك.',
+    'support_sent': 'تم إرسال رسالتك.',
+    'support_send': 'إرسال',
+    'support_message': 'الرسالة',
+    'support_subject': 'الموضوع',
+    'support_new_message': 'أرسل رسالة إلى الدعم',
     'Covers running costs: servers, subscriptions and administration.': 'يغطي تكاليف التشغيل: الخوادم والاشتراكات والإدارة.',
     'Support the organization': 'دعم المنظمة',
     'Goes to the general fund or a project you choose.': 'يذهب إلى الصندوق العام أو إلى مشروع تختاره.',
@@ -4414,6 +4440,19 @@ class AppTranslations extends Translations {
   };
 
   static final Map<String, String> _sorani = {
+    'support_escalate_cta': 'لە ڕێگەی واتساپ پەیوەندی بکە',
+    'support_escalate_body': 'لە زیاتر لە سێ ڕۆژی جیاوازدا نامەت بۆ ناردووین بەبێ چارەسەر. ڕاستەوخۆ لە ڕێگەی واتساپ پەیوەندی بە تیمەکەوە بکە بۆ خێراکردنی.',
+    'support_escalate_title': 'هێشتا چاوەڕوانیت؟',
+    'support_reply': 'وەڵامی پشتیوانی',
+    'support_no_requests': 'هێشتا پەیوەندیت بە پشتیوانییەوە نەکردووە.',
+    'support_my_requests': 'داواکارییەکانم',
+    'support_fill_both': 'بابەت و نامە بنووسە.',
+    'support_send_failed': 'نەتوانرا نامەکەت بنێردرێت.',
+    'support_sent': 'نامەکەت نێردرا.',
+    'support_send': 'ناردن',
+    'support_message': 'نامە',
+    'support_subject': 'بابەت',
+    'support_new_message': 'نامەیەک بۆ پشتیوانی بنێرە',
     'Covers running costs: servers, subscriptions and administration.': 'تێچووی کارکردن دادەپۆشێت: سێرڤەر و بەشداریەکان و بەڕێوەبردن.',
     'Support the organization': 'پشتگیری ڕێکخراوەکە',
     'Goes to the general fund or a project you choose.': 'بۆ سندوقی گشتی یان ئەو پڕۆژەیە دەچێت کە هەڵیدەبژێریت.',
@@ -6663,6 +6702,19 @@ class AppTranslations extends Translations {
   };
 
   static final Map<String, String> _badini = {
+    'support_escalate_cta': 'ب رێکا واتساپێ پەیوەندی بکە',
+    'support_escalate_body': 'تە ژ زێدەتری سێ رۆژێن جودا نامە بۆ مە هنارتینە بێی چارەسەری. راستەوخۆ ب رێکا واتساپێ پەیوەندی ب تیمێ بکە دا زوتر بێتە چارەسەرکرن.',
+    'support_escalate_title': 'تو هێشتا چاڤەڕێیی؟',
+    'support_reply': 'بەرسڤا پشتەڤانیێ',
+    'support_no_requests': 'تە هێشتا پەیوەندی ب پشتەڤانیێ نەکریە.',
+    'support_my_requests': 'داخوازیێن من',
+    'support_fill_both': 'بابەت و نامەیێ بنڤیسە.',
+    'support_send_failed': 'نەشیا نامەیا تە بێتە هنارتن.',
+    'support_sent': 'نامەیا تە هاتە هنارتن.',
+    'support_send': 'هنارتن',
+    'support_message': 'نامە',
+    'support_subject': 'بابەت',
+    'support_new_message': 'نامەیەکێ بۆ پشتەڤانیێ بشینە',
     'Covers running costs: servers, subscriptions and administration.': 'مەسرەفێن کارکرنێ ددەت: سێرڤەر و بەشداری و بەرێڤەبرن.',
     'Support the organization': 'پشتەڤانیا رێکخراوێ',
     'Goes to the general fund or a project you choose.': 'دچیتە سندوقێ گشتی یان وی پرۆژەیێ تو هەلدبژێری.',
