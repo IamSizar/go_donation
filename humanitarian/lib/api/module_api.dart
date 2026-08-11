@@ -524,8 +524,15 @@ class ModuleApi {
   }
 
   // #46 — request a meeting about a profile.
-  Future<void> requestMarriageMeeting(int profileId, String message) =>
-      postJson('$marriageSubmitUrl/$profileId/request-meeting', {
+  /// [requestType] is one of 'meeting' (in person), 'intermediary' (handled by
+  /// a staff member) or 'visit'. The backend normalises anything else back to
+  /// 'meeting', which is what the single old button meant.
+  Future<void> requestMarriageMeeting(
+    int profileId,
+    String message, {
+    String requestType = 'meeting',
+  }) => postJson('$marriageSubmitUrl/$profileId/request-meeting', {
+        'request_type': requestType,
         'message': message,
       });
 

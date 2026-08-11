@@ -70,6 +70,10 @@ const kmr: DeepPartial<typeof en> = {
     terms: 'مەرج و رێسا',
     about: 'دەربارەی مە',
     humanitarian_work: 'کارێ مە یێ مرۆڤایەتی',
+    marriageAbout: 'دەربارەی هەڤژینیێ',
+    marriageContact: 'پەیوەندی — هەڤژینی',
+    cityGuideAbout: 'دەربارەی رێنیشاندەری',
+    cityGuideContact: 'پەیوەندی — رێنیشاندەر',
     contact: 'پەیوەندی ب مە بکە',
     donation_codes: 'کۆدێن مامەڵەیان',
     project_categories: 'جۆرێن پرۆژەیان',
@@ -427,6 +431,22 @@ const kmr: DeepPartial<typeof en> = {
     interval_monthly: 'مەهانە',
     interval_quarterly: 'هەر سێ مەهان',
     interval_yearly: 'سالانە',
+  },
+  marriageAbout: {
+    title: 'دەربارەی هەڤژینیێ',
+    subtitle: 'د ئەپێ دا دیار دبیت. ڤان زانیاریان ژ بەشێ مرۆڤی جودا بهێلە.',
+  },
+  marriageContact: {
+    title: 'پەیوەندی — هەڤژینی',
+    subtitle: 'د ئەپێ دا دیار دبیت. ڤان زانیاریان ژ بەشێ مرۆڤی جودا بهێلە.',
+  },
+  cityGuideAbout: {
+    title: 'دەربارەی رێنیشاندەری',
+    subtitle: 'د ئەپێ دا دیار دبیت. ڤان زانیاریان ژ بەشێ مرۆڤی جودا بهێلە.',
+  },
+  cityGuideContact: {
+    title: 'پەیوەندی — رێنیشاندەر',
+    subtitle: 'د ئەپێ دا دیار دبیت. ڤان زانیاریان ژ بەشێ مرۆڤی جودا بهێلە.',
   },
   crop: {
     title: 'برینا وێنەی',

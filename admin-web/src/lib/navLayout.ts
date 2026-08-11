@@ -71,6 +71,10 @@ export const NAV: NavItem[] = [
   { to: '/guest-access',  tKey: 'nav.guest_access', superAdminOnly: true },
   { to: '/terms',         tKey: 'nav.terms',        superAdminOnly: true },
   { to: '/about',         tKey: 'nav.about',        superAdminOnly: true },
+  { to: '/marriage-about', tKey: 'nav.marriageAbout', module: 'settings' },
+  { to: '/marriage-contact', tKey: 'nav.marriageContact', module: 'settings' },
+  { to: '/city-guide-about', tKey: 'nav.cityGuideAbout', module: 'settings' },
+  { to: '/city-guide-contact', tKey: 'nav.cityGuideContact', module: 'settings' },
   { to: '/humanitarian-work', tKey: 'nav.humanitarian_work', superAdminOnly: true },
   { to: '/contact',       tKey: 'nav.contact',      superAdminOnly: true },
   { to: '/settings',      tKey: 'nav.settings',     superAdminOnly: true },
@@ -153,6 +157,7 @@ export const DEFAULT_NAV_SECTIONS: NavSection[] = [
     items: [
       '/payment-methods', '/donation-codes', '/field-rules',
       '/permissions', '/terms', '/about', '/humanitarian-work',
+      '/marriage-about', '/marriage-contact', '/city-guide-about', '/city-guide-contact',
       '/trash', '/settings',
     ],
   },

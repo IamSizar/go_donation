@@ -210,15 +210,35 @@ func (s *Store) ToggleSaved(ctx context.Context, userID, profileID int64) (bool,
 }
 
 // RequestMeeting records a meeting request about a profile (#46). Staff mediate.
-func (s *Store) RequestMeeting(ctx context.Context, fromUserID, profileID int64, message string) (int64, error) {
+// RequestType filters the contact method down to the three the spec offers, so
+// a bad value from a client is a 'meeting' rather than a constraint violation:
+//
+//	meeting      — an in-person meeting
+//	intermediary — contact handled by a staff member
+//	visit        — a visit request
+//
+// Anything else, including the empty string an older client sends, means the
+// single generic button that existed before, which was an in-person meeting.
+func RequestType(v string) string {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "intermediary":
+		return "intermediary"
+	case "visit":
+		return "visit"
+	}
+	return "meeting"
+}
+
+func (s *Store) RequestMeeting(ctx context.Context, fromUserID, profileID int64, message, requestType string) (int64, error) {
 	var msg any
 	if strings.TrimSpace(message) != "" {
 		msg = message
 	}
 	var id int64
 	err := s.Pool.QueryRow(ctx,
-		`INSERT INTO marriage_meeting_requests (from_user_id, profile_id, message)
-		 VALUES ($1, $2, $3) RETURNING id`, fromUserID, profileID, msg).Scan(&id)
+		`INSERT INTO marriage_meeting_requests (from_user_id, profile_id, message, request_type)
+		 VALUES ($1, $2, $3, $4) RETURNING id`,
+		fromUserID, profileID, msg, RequestType(requestType)).Scan(&id)
 	return id, err
 }
 

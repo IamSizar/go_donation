@@ -358,7 +358,8 @@ func (h *MarriageHandler) RequestMeeting(c *gin.Context) {
 		return
 	}
 	data := collectBody(c)
-	id, err := h.Store.RequestMeeting(c.Request.Context(), user.UserID, pid, asStr(data["message"]))
+	id, err := h.Store.RequestMeeting(c.Request.Context(), user.UserID, pid,
+		asStr(data["message"]), asStr(data["request_type"]))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
 		return

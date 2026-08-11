@@ -8,6 +8,7 @@ import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/modules/legal/screens/content_page_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 double? _parseCoord(dynamic v) {
@@ -104,6 +105,35 @@ class _CommunityServicesList extends StatelessWidget {
               const SizedBox(height: 12),
             ],
             // The City Guide map now lives on its own screen, opened from Home.
+            const SizedBox(height: 8),
+            // "A separate About Us and Contact Us option in the My Engagement
+            // and Comprehensive Mosul Guide interfaces" — the guide carries
+            // its own contact details, distinct from the humanitarian ones.
+            SectionTile(
+              icon: Icons.info_outline_rounded,
+              title: 'About the Mosul Guide',
+              subtitle: 'What this guide covers',
+              color: Colors.teal,
+              onTap: () => Get.to(
+                () => const ContentPageScreen(
+                  slug: 'city-guide-about',
+                  titleKey: 'About the Mosul Guide',
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SectionTile(
+              icon: Icons.support_agent_rounded,
+              title: 'Contact the Mosul Guide',
+              subtitle: 'Add or correct a place',
+              color: Colors.indigo,
+              onTap: () => Get.to(
+                () => const ContentPageScreen(
+                  slug: 'city-guide-contact',
+                  titleKey: 'Contact the Mosul Guide',
+                ),
+              ),
+            ),
           ],
         ),
       );

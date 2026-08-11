@@ -69,6 +69,10 @@ const ckb: DeepPartial<typeof en> = {
     terms: 'مەرج و ڕێساکان',
     about: 'دەربارەی ئێمە',
     humanitarian_work: 'کارە مرۆییەکانمان',
+    marriageAbout: 'دەربارەی هاوسەرگیری',
+    marriageContact: 'پەیوەندی — هاوسەرگیری',
+    cityGuideAbout: 'دەربارەی ڕێنمای مووسڵ',
+    cityGuideContact: 'پەیوەندی — ڕێنمای مووسڵ',
     contact: 'پەیوەندیمان پێوە بکە',
     donation_codes: 'کۆدەکانی مامەڵە',
     project_categories: 'جۆرەکانی پرۆژە',
@@ -426,6 +430,22 @@ const ckb: DeepPartial<typeof en> = {
     interval_monthly: 'مانگانە',
     interval_quarterly: 'هەر سێ مانگ',
     interval_yearly: 'ساڵانە',
+  },
+  marriageAbout: {
+    title: 'دەربارەی هاوسەرگیری',
+    subtitle: 'لە ئەپەکەدا دەردەکەوێت. ئەم زانیارییانە جیا بهێڵەوە لە بەشی مرۆیی.',
+  },
+  marriageContact: {
+    title: 'پەیوەندی — هاوسەرگیری',
+    subtitle: 'لە ئەپەکەدا دەردەکەوێت. ئەم زانیارییانە جیا بهێڵەوە لە بەشی مرۆیی.',
+  },
+  cityGuideAbout: {
+    title: 'دەربارەی ڕێنمای مووسڵ',
+    subtitle: 'لە ئەپەکەدا دەردەکەوێت. ئەم زانیارییانە جیا بهێڵەوە لە بەشی مرۆیی.',
+  },
+  cityGuideContact: {
+    title: 'پەیوەندی — ڕێنمای مووسڵ',
+    subtitle: 'لە ئەپەکەدا دەردەکەوێت. ئەم زانیارییانە جیا بهێڵەوە لە بەشی مرۆیی.',
   },
   crop: {
     title: 'بڕینی وێنە',

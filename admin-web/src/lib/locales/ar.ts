@@ -69,6 +69,10 @@ const ar: DeepPartial<typeof en> = {
     terms: 'الشروط والأحكام',
     about: 'من نحن',
     humanitarian_work: 'عملنا الإنساني',
+    marriageAbout: 'عن خدمة الارتباط',
+    marriageContact: 'تواصل — الارتباط',
+    cityGuideAbout: 'عن دليل الموصل',
+    cityGuideContact: 'تواصل — دليل الموصل',
     contact: 'اتصل بنا',
     donation_codes: 'رموز المعاملات',
     project_categories: 'فئات المشاريع',
@@ -426,6 +430,22 @@ const ar: DeepPartial<typeof en> = {
     interval_monthly: 'شهري',
     interval_quarterly: 'ربع سنوي',
     interval_yearly: 'سنوي',
+  },
+  marriageAbout: {
+    title: 'عن خدمة الارتباط',
+    subtitle: 'تظهر في التطبيق. أبقِ هذه التفاصيل منفصلة عن تفاصيل القسم الإنساني.',
+  },
+  marriageContact: {
+    title: 'تواصل — الارتباط',
+    subtitle: 'تظهر في التطبيق. أبقِ هذه التفاصيل منفصلة عن تفاصيل القسم الإنساني.',
+  },
+  cityGuideAbout: {
+    title: 'عن دليل الموصل',
+    subtitle: 'تظهر في التطبيق. أبقِ هذه التفاصيل منفصلة عن تفاصيل القسم الإنساني.',
+  },
+  cityGuideContact: {
+    title: 'تواصل — دليل الموصل',
+    subtitle: 'تظهر في التطبيق. أبقِ هذه التفاصيل منفصلة عن تفاصيل القسم الإنساني.',
   },
   crop: {
     title: 'اقتصاص الصورة',

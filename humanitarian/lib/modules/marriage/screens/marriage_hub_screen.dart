@@ -4,6 +4,7 @@ import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/modules/chat/chat_actions.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/modules/legal/screens/content_page_screen.dart';
 
 import 'event_service_request_screen.dart';
 import 'marriage_chats_screen.dart';
@@ -174,6 +175,38 @@ class MarriageHubScreen extends StatelessWidget {
               ),
             ),
           ],
+          const SizedBox(height: 20),
+          // "A separate About Us and Contact Us option in the My Engagement and
+          // Comprehensive Mosul Guide interfaces" — these carry their own phone
+          // numbers and social links, distinct from the humanitarian pages.
+          const SectionLabel(title: 'About & contact'),
+          const SizedBox(height: 8),
+          _MarriageTile(
+            icon: Icons.info_outline_rounded,
+            color: Colors.teal,
+            title: 'About My Engagement',
+            subtitle: 'What this service is and how it works',
+            onTap: () => Get.to(
+              () => const ContentPageScreen(
+                slug: 'marriage-about',
+                titleKey: 'About My Engagement',
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _MarriageTile(
+            icon: Icons.support_agent_rounded,
+            color: Colors.indigo,
+            title: 'Contact My Engagement',
+            subtitle: 'Reach the engagement service team',
+            onTap: () => Get.to(
+              () => const ContentPageScreen(
+                slug: 'marriage-contact',
+                titleKey: 'Contact My Engagement',
+              ),
+            ),
+          ),
+
         ],
       ),
     );

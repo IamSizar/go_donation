@@ -4,6 +4,7 @@ import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/modules/marriage/widgets/marriage_post_card.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/modules/marriage/widgets/marriage_request_sheet.dart';
 
 /// Marriage Posts — the continuous feed of approved marriage profiles
 /// themselves (photo + age/city/gender + bio cards), newest first, infinite
@@ -97,8 +98,16 @@ class _MarriagePostsScreenState extends State<MarriagePostsScreen> {
 
   Future<void> _requestMeeting(int id) async {
     if (!await requireUpgrade(context)) return;
+    // requireUpgrade awaits, so the widget may be gone before the sheet opens.
+    if (!mounted) return;
     try {
-      await const ModuleApi().requestMarriageMeeting(id, '');
+      final type = await pickMarriageRequestType(context);
+      if (type == null || !mounted) return;
+      await const ModuleApi().requestMarriageMeeting(
+        id,
+        '',
+        requestType: type,
+      );
       Get.snackbar('marriage_posts_title'.tr, 'meeting_requested'.tr);
     } catch (_) {
       Get.snackbar('marriage_posts_title'.tr, 'meeting_request_failed'.tr);

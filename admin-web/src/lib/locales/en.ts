@@ -68,6 +68,10 @@ const en = {
     terms: 'Terms & Conditions',
     about: 'About Us',
     humanitarian_work: 'Our Humanitarian Work',
+    marriageAbout: 'About — My Engagement',
+    marriageContact: 'Contact — My Engagement',
+    cityGuideAbout: 'About — Mosul Guide',
+    cityGuideContact: 'Contact — Mosul Guide',
     contact: 'Contact Us',
     settings: 'Dashboard Settings',
     donation_codes: 'Transaction codes',
@@ -438,6 +442,22 @@ const en = {
     interval_monthly: 'Monthly',
     interval_quarterly: 'Quarterly',
     interval_yearly: 'Yearly',
+  },
+  marriageAbout: {
+    title: 'About — My Engagement',
+    subtitle: 'Shown in the app. Keep these details separate from the humanitarian ones.',
+  },
+  marriageContact: {
+    title: 'Contact — My Engagement',
+    subtitle: 'Shown in the app. Keep these details separate from the humanitarian ones.',
+  },
+  cityGuideAbout: {
+    title: 'About — Mosul Guide',
+    subtitle: 'Shown in the app. Keep these details separate from the humanitarian ones.',
+  },
+  cityGuideContact: {
+    title: 'Contact — Mosul Guide',
+    subtitle: 'Shown in the app. Keep these details separate from the humanitarian ones.',
   },
   crop: {
     title: 'Crop photo',

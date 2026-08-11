@@ -57,6 +57,10 @@ const MediaCategoriesPage = lazy(() => import('./pages/MediaCategoriesPage'))
 const CommentsPage = lazy(() => import('./pages/CommentsPage'))
 const PostActivityPage = lazy(() => import('./pages/PostActivityPage'))
 const SponsorshipTypesPage = lazy(() => import('./pages/SponsorshipTypesPage'))
+const MarriageAboutPage = lazy(() => import('./pages/MarriageAboutPage'))
+const MarriageContactPage = lazy(() => import('./pages/MarriageContactPage'))
+const CityGuideAboutPage = lazy(() => import('./pages/CityGuideAboutPage'))
+const CityGuideContactPage = lazy(() => import('./pages/CityGuideContactPage'))
 const BannedWordsPage = lazy(() => import('./pages/BannedWordsPage'))
 const MarketplaceCategoriesPage = lazy(() => import('./pages/MarketplaceCategoriesPage'))
 const PaymentMethodsPage = lazy(() => import('./pages/PaymentMethodsPage'))
@@ -118,6 +122,10 @@ export default function App() {
             <Route path="comments" element={<CommentsPage />} />
             <Route path="post-activity" element={<PostActivityPage />} />
             <Route path="sponsorship-types" element={<SponsorshipTypesPage />} />
+            <Route path="marriage-about" element={<MarriageAboutPage />} />
+            <Route path="marriage-contact" element={<MarriageContactPage />} />
+            <Route path="city-guide-about" element={<CityGuideAboutPage />} />
+            <Route path="city-guide-contact" element={<CityGuideContactPage />} />
             <Route path="banned-words" element={<BannedWordsPage />} />
             <Route path="marketplace-categories" element={<MarketplaceCategoriesPage />} />
             <Route path="payment-methods" element={<PaymentMethodsPage />} />

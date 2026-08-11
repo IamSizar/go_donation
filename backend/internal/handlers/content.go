@@ -27,6 +27,14 @@ var allowedSlugs = map[string]bool{
 	"about":             true,
 	"contact":           true,
 	"humanitarian-work": true,
+	// Section-specific About / Contact. The spec is explicit that the marriage
+	// service and the city guide carry DIFFERENT phone numbers and social
+	// links from the humanitarian side, so they get their own pages rather
+	// than sharing 'about' and 'contact' (migration 099).
+	"marriage-about":     true,
+	"marriage-contact":   true,
+	"city-guide-about":   true,
+	"city-guide-contact": true,
 }
 
 // PublicContent handles GET /api/content/:slug (no auth) so the app can render
