@@ -5,6 +5,7 @@ import 'package:flutter_application_1/modules/sponsorship/controllers/beneficiar
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 class BeneficiaryMyProjectsScreen extends StatelessWidget {
   const BeneficiaryMyProjectsScreen({super.key});
@@ -20,37 +21,35 @@ class BeneficiaryMyProjectsScreen extends StatelessWidget {
       subtitle: 'Track project requests you submitted for admin review.',
       child: Obx(() {
         final items = controller.projects;
-        return RefreshIndicator(
-          onRefresh: controller.fetchProjects,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
-            children: [
-              _SummaryBand(items: items),
-              const SizedBox(height: 14),
-              if (controller.isLoading.value)
-                const Center(child: CircularProgressIndicator()),
-              if (controller.errorMessage.value != null)
-                SectionTile(
-                  icon: Icons.refresh_rounded,
-                  title: 'My help requests',
-                  subtitle: controller.errorMessage.value!,
-                  color: AppThemeConfig.pending(context),
-                  onTap: controller.fetchProjects,
-                ),
-              if (!controller.isLoading.value &&
-                  controller.errorMessage.value == null &&
-                  items.isEmpty)
-                SectionTile(
-                  icon: Icons.assignment_outlined,
-                  title: 'No requests yet',
-                  subtitle: 'Submitted project requests will appear here.',
-                  color: AppThemeConfig.accent(context),
-                ),
-              for (final item in items) ...[
-                _ProjectRequestCard(item: item),
+        // AppAsync renders exactly ONE of loading / content / error / empty.
+        // The three `if` blocks this replaces lived inside the ListView, so a
+        // failed load still built the summary band and the list chrome around
+        // an error tile whose retry was an unlabelled onTap. The summary now
+        // sits inside the builder, where it is only drawn once there is data
+        // to summarise.
+        return AppAsync<List<Map<String, dynamic>>>(
+          loading: controller.isLoading.value,
+          error: controller.errorMessage.value,
+          onRetry: controller.fetchProjects,
+          data: items,
+          isEmpty: (list) => list.isEmpty,
+          empty: const AppEmpty(
+            title: 'No requests yet',
+            message: 'Submitted project requests will appear here.',
+          ),
+          builder: (list) => RefreshIndicator(
+            onRefresh: controller.fetchProjects,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+              children: [
+                _SummaryBand(items: list),
                 const SizedBox(height: 14),
+                for (final item in list) ...[
+                  _ProjectRequestCard(item: item),
+                  const SizedBox(height: 14),
+                ],
               ],
-            ],
+            ),
           ),
         );
       }),

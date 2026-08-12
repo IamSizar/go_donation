@@ -6,6 +6,7 @@ import 'package:flutter_application_1/modules/sponsorship/controllers/beneficiar
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 class BeneficiaryCampaignDonationsScreen extends StatelessWidget {
   const BeneficiaryCampaignDonationsScreen({super.key});
@@ -20,60 +21,36 @@ class BeneficiaryCampaignDonationsScreen extends StatelessWidget {
       title: 'Campaign Contributions',
       subtitle: 'All donations received for your published campaigns.',
       child: Obx(() {
-        if (ctrl.isLoading.value) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(40),
-              child: CircularProgressIndicator(),
-            ),
-          );
-        }
-
-        if (ctrl.errorMessage.value != null) {
-          return ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              SectionTile(
-                icon: Icons.refresh_rounded,
-                title: 'Campaign Contributions',
-                subtitle: ctrl.errorMessage.value!,
-                color: AppThemeConfig.pending(context),
-                onTap: ctrl.fetch,
-              ),
-            ],
-          );
-        }
-
-        if (ctrl.campaigns.isEmpty) {
-          return ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              SectionTile(
-                icon: Icons.campaign_rounded,
-                title: 'No campaigns yet',
-                subtitle:
-                    'Once your project request is approved and published, donations will appear here.',
-                color: AppThemeConfig.accent(context),
-              ),
-            ],
-          );
-        }
-
-        return RefreshIndicator(
-          onRefresh: ctrl.fetch,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-            children: [
-              // ── Summary band ───────────────────────────────────────
-              _SummaryBand(ctrl: ctrl),
-              const SizedBox(height: 16),
-
-              // ── One card per campaign ───────────────────────────────
-              for (final camp in ctrl.campaigns) ...[
-                _CampaignDonationsCard(campaign: camp),
+        // AppAsync renders exactly ONE of loading / content / error / empty.
+        // This screen already branched correctly - it was the only one that
+        // did - but each branch hand-built its own ListView shell, and both
+        // the error and empty states were SectionTiles: the same card shape
+        // used for navigation elsewhere, with an unlabelled onTap standing in
+        // for a retry button.
+        return AppAsync<List<dynamic>>(
+          loading: ctrl.isLoading.value,
+          error: ctrl.errorMessage.value,
+          onRetry: ctrl.fetch,
+          data: ctrl.campaigns,
+          isEmpty: (list) => list.isEmpty,
+          empty: const AppEmpty(
+            title: 'No campaigns yet',
+            message:
+                'Once your project request is approved and published, donations will appear here.',
+          ),
+          builder: (list) => RefreshIndicator(
+            onRefresh: ctrl.fetch,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
+              children: [
+                _SummaryBand(ctrl: ctrl),
                 const SizedBox(height: 16),
+                for (final camp in list) ...[
+                  _CampaignDonationsCard(campaign: camp),
+                  const SizedBox(height: 16),
+                ],
               ],
-            ],
+            ),
           ),
         );
       }),

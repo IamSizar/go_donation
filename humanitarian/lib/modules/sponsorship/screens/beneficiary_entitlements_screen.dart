@@ -5,6 +5,7 @@ import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/modules/sponsorship/controllers/beneficiary_entitlements_controller.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 /// #21 — beneficiary "My Entitlements": the sponsorships supporting this user,
 /// with next-support dates and a spoken (voice) summary for accessibility.
@@ -73,49 +74,44 @@ class _BeneficiaryEntitlementsScreenState
       title: 'My entitlements',
       subtitle: 'Sponsorships supporting you and your next support date.',
       child: Obx(() {
-        if (controller.isLoading.value) {
-          return const Center(child: CircularProgressIndicator());
-        }
         final items = controller.entitlements;
-        return RefreshIndicator(
-          onRefresh: () async {
-            _spoke = false;
-            await controller.fetch();
-            _spoke = true;
-            _announce();
-          },
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
-            children: [
-              if (controller.errorMessage.value != null)
-                SectionTile(
-                  icon: Icons.info_outline_rounded,
-                  title: 'My entitlements',
-                  subtitle: controller.errorMessage.value!,
-                  color: Colors.orange,
-                  onTap: controller.fetch,
-                )
-              else if (items.isEmpty)
-                const SectionTile(
-                  icon: Icons.card_giftcard_rounded,
-                  title: 'No active entitlements yet.',
-                  subtitle:
-                      'When a sponsor supports your case, it will appear here.',
-                  color: Colors.teal,
-                )
-              else ...[
+        // AppAsync renders exactly ONE of loading / content / error / empty.
+        // Previously the error and empty states were SectionTiles nested
+        // inside the ListView, so the RefreshIndicator and the list chrome
+        // were built even when there was nothing to show - and the error
+        // tile's retry was an unlabelled onTap.
+        return AppAsync<List<dynamic>>(
+          loading: controller.isLoading.value,
+          error: controller.errorMessage.value,
+          onRetry: controller.fetch,
+          data: items,
+          isEmpty: (list) => list.isEmpty,
+          empty: const AppEmpty(
+            title: 'No active entitlements yet.',
+            message: 'When a sponsor supports your case, it will appear here.',
+          ),
+          builder: (list) => RefreshIndicator(
+            onRefresh: () async {
+              _spoke = false;
+              await controller.fetch();
+              _spoke = true;
+              _announce();
+            },
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+              children: [
                 _VoiceHeader(
                   summary: _summaryText(),
                   onListen: _announce,
                   onStop: AppVoice.stop,
                 ),
                 const SizedBox(height: 14),
-                for (final e in items) ...[
+                for (final e in list) ...[
                   _EntitlementCard(item: e),
                   const SizedBox(height: 12),
                 ],
               ],
-            ],
+            ),
           ),
         );
       }),

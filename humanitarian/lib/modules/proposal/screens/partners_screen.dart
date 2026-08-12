@@ -9,6 +9,7 @@ import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 class PartnersScreen extends StatelessWidget {
   const PartnersScreen({super.key, this.onlySupporting = false});
@@ -53,35 +54,29 @@ class PartnersScreen extends StatelessWidget {
         final items = onlySupporting
             ? controller.partners.where(_isSupporting).toList()
             : controller.partners;
-        return RefreshIndicator(
-          onRefresh: controller.fetchPartners,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
-            children: [
-              if (controller.isLoading.value)
-                const Center(child: CircularProgressIndicator()),
-              if (controller.errorMessage.value != null)
-                SectionTile(
-                  icon: Icons.apartment_rounded,
-                  title: title,
-                  subtitle: controller.errorMessage.value!,
-                  color: Colors.blueAccent,
-                  onTap: controller.fetchPartners,
-                ),
-              if (!controller.isLoading.value &&
-                  controller.errorMessage.value == null &&
-                  items.isEmpty)
-                SectionTile(
-                  icon: Icons.apartment_rounded,
-                  title: title,
-                  subtitle: emptySubtitle,
-                  color: Colors.blueAccent,
-                ),
-              for (final item in items) ...[
-                _PartnerCard(item: item),
-                const SizedBox(height: 12),
+        // AppAsync renders exactly ONE of loading / content / error / empty.
+        // This screen previously stacked three `if` blocks inside the same
+        // ListView, so a failed load could show the error tile AND the empty
+        // tile at once, and the "error" was a SectionTile whose retry was an
+        // unlabelled onTap - nothing told the user it could be tapped.
+        return AppAsync<List<Map<String, dynamic>>>(
+          loading: controller.isLoading.value,
+          error: controller.errorMessage.value,
+          onRetry: controller.fetchPartners,
+          data: items,
+          isEmpty: (list) => list.isEmpty,
+          empty: AppEmpty(title: title, message: emptySubtitle),
+          builder: (list) => RefreshIndicator(
+            onRefresh: controller.fetchPartners,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+              children: [
+                for (final item in list) ...[
+                  _PartnerCard(item: item),
+                  const SizedBox(height: 12),
+                ],
               ],
-            ],
+            ),
           ),
         );
       }),

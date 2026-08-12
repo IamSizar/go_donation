@@ -5,6 +5,7 @@ import 'package:flutter_application_1/modules/sponsorship/controllers/beneficiar
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 class BeneficiaryPendingProjectsScreen extends StatelessWidget {
   const BeneficiaryPendingProjectsScreen({super.key});
@@ -20,38 +21,35 @@ class BeneficiaryPendingProjectsScreen extends StatelessWidget {
       subtitle: 'Requests awaiting review, changes, or sponsor matching.',
       child: Obx(() {
         final pendingItems = controller.projects.where(_isPending).toList();
-        return RefreshIndicator(
-          onRefresh: controller.fetchProjects,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
-            children: [
-              _PendingIntroCard(total: pendingItems.length),
-              const SizedBox(height: 22),
-              if (controller.isLoading.value)
-                const Center(child: CircularProgressIndicator()),
-              if (controller.errorMessage.value != null)
-                SectionTile(
-                  icon: Icons.refresh_rounded,
-                  title: 'Pending projects for help',
-                  subtitle: controller.errorMessage.value!,
-                  color: AppThemeConfig.pending(context),
-                  onTap: controller.fetchProjects,
-                ),
-              if (!controller.isLoading.value &&
-                  controller.errorMessage.value == null &&
-                  pendingItems.isEmpty)
-                SectionTile(
-                  icon: Icons.hourglass_empty_rounded,
-                  title: 'No pending projects',
-                  subtitle:
-                      'Submitted project requests that need review or matching will appear here.',
-                  color: AppThemeConfig.accent(context),
-                ),
-              for (final item in pendingItems) ...[
-                _PendingProjectCard(item: item),
-                const SizedBox(height: 14),
+        // AppAsync renders exactly ONE of loading / content / error / empty,
+        // replacing three stacked `if` blocks inside the ListView. The intro
+        // card moves into the builder: it reports a COUNT, and showing
+        // "0 pending" while the fetch is still in flight stated something
+        // that was not yet known.
+        return AppAsync<List<Map<String, dynamic>>>(
+          loading: controller.isLoading.value,
+          error: controller.errorMessage.value,
+          onRetry: controller.fetchProjects,
+          data: pendingItems,
+          isEmpty: (list) => list.isEmpty,
+          empty: const AppEmpty(
+            title: 'No pending projects',
+            message:
+                'Submitted project requests that need review or matching will appear here.',
+          ),
+          builder: (list) => RefreshIndicator(
+            onRefresh: controller.fetchProjects,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+              children: [
+                _PendingIntroCard(total: list.length),
+                const SizedBox(height: 22),
+                for (final item in list) ...[
+                  _PendingProjectCard(item: item),
+                  const SizedBox(height: 14),
+                ],
               ],
-            ],
+            ),
           ),
         );
       }),
