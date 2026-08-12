@@ -4,6 +4,7 @@ import 'package:flutter_application_1/modules/history/controllers/role_history_c
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 final NumberFormat _historyNumberFormat = NumberFormat.decimalPattern();
 
@@ -54,17 +55,10 @@ class _RoleHistoryScreenState extends State<RoleHistoryScreen> {
             children: [
               _HistoryHero(controller: _controller),
               const SizedBox(height: 18),
-              if (_controller.errorMessage.value != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 14),
-                  child: SectionTile(
-                    icon: Icons.error_outline_rounded,
-                    title: _controller.title.tr,
-                    subtitle: _controller.errorMessage.value!,
-                    color: AppThemeConfig.pending(context),
-                    onTap: _controller.fetchHistory,
-                  ),
-                ),
+              // The filters and the count row stay OUTSIDE AppAsync. The
+              // empty state here is almost always "nothing matches the
+              // filters you chose", so hiding the filters with the results
+              // would remove the only way out of it.
               _FilterSection(controller: _controller),
               const SizedBox(height: 18),
               Row(
@@ -88,27 +82,34 @@ class _RoleHistoryScreenState extends State<RoleHistoryScreen> {
                 ],
               ),
               const SizedBox(height: 12),
-              if (_controller.isLoading.value && _controller.items.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 28),
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              else if (filtered.isEmpty)
-                GlassPanel(
-                  child: Text(
-                    'No history records match the selected filters.'.tr,
-                  ),
-                )
-              else
-                ...filtered.map(
-                  (item) => Padding(
-                    padding: const EdgeInsets.only(bottom: 14),
-                    child: _HistoryCard(
-                      item: item,
-                      onTap: () => _showDetails(context, item),
-                    ),
-                  ),
+              // The error used to render as a SectionTile ABOVE the filters
+              // while the list below carried on showing its own empty state,
+              // so a failed load produced two competing messages. It is one
+              // state now, and AppAsync keeps already-loaded records visible
+              // behind it rather than wiping the screen for an offline user.
+              AppAsync<List<Map<String, dynamic>>>(
+                loading: _controller.isLoading.value,
+                error: _controller.errorMessage.value,
+                onRetry: _controller.fetchHistory,
+                data: filtered,
+                isEmpty: (list) => list.isEmpty,
+                empty: AppEmpty(
+                  title: _controller.title.tr,
+                  message: 'No history records match the selected filters.'.tr,
                 ),
+                builder: (list) => Column(
+                  children: [
+                    for (final item in list)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 14),
+                        child: _HistoryCard(
+                          item: item,
+                          onTap: () => _showDetails(context, item),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             ],
           ),
         );

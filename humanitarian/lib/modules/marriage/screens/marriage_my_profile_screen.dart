@@ -4,6 +4,7 @@ import 'package:flutter_application_1/modules/marriage/controllers/marriage_my_p
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 // Note #18 — shows the user their OWN submitted marriage profile and its
 // review status (submitted/under_review/active/paused/matched/rejected/
@@ -24,35 +25,31 @@ class MarriageMyProfileScreen extends StatelessWidget {
       subtitle: 'marriage_my_profile_desc'.tr,
       child: Obx(() {
         final items = controller.profiles;
-        return RefreshIndicator(
-          onRefresh: controller.fetchProfiles,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
-            children: [
-              if (controller.isLoading.value)
-                const Center(child: CircularProgressIndicator()),
-              if (controller.errorMessage.value != null)
-                SectionTile(
-                  icon: Icons.refresh_rounded,
-                  title: 'marriage_my_profile'.tr,
-                  subtitle: controller.errorMessage.value!,
-                  color: AppThemeConfig.pending(context),
-                  onTap: controller.fetchProfiles,
-                ),
-              if (!controller.isLoading.value &&
-                  controller.errorMessage.value == null &&
-                  items.isEmpty)
-                SectionTile(
-                  icon: Icons.favorite_outline_rounded,
-                  title: 'marriage_my_profile_empty'.tr,
-                  subtitle: 'marriage_my_profile_empty_desc'.tr,
-                  color: AppThemeConfig.accent(context),
-                ),
-              for (final item in items) ...[
-                _ProfileStatusCard(item: item),
-                const SizedBox(height: 14),
+        // Three stacked `if` blocks replaced by AppAsync, which renders
+        // exactly ONE state. The empty and error tiles here were SectionTiles
+        // - the same card the app uses for navigation - so the error's retry
+        // was an unlabelled onTap with nothing marking it as recoverable.
+        return AppAsync<List<Map<String, dynamic>>>(
+          loading: controller.isLoading.value,
+          error: controller.errorMessage.value,
+          onRetry: controller.fetchProfiles,
+          data: items,
+          isEmpty: (list) => list.isEmpty,
+          empty: AppEmpty(
+            title: 'marriage_my_profile_empty'.tr,
+            message: 'marriage_my_profile_empty_desc'.tr,
+          ),
+          builder: (list) => RefreshIndicator(
+            onRefresh: controller.fetchProfiles,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+              children: [
+                for (final item in list) ...[
+                  _ProfileStatusCard(item: item),
+                  const SizedBox(height: 14),
+                ],
               ],
-            ],
+            ),
           ),
         );
       }),

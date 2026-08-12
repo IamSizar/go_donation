@@ -7,6 +7,7 @@ import 'package:flutter_application_1/modules/proposal/controllers/media_posts_c
 import 'package:flutter_application_1/modules/proposal/screens/news_activities_screen.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 /// Portfolio-style presentation of the organization's work and achievements —
 /// a two-column card grid (image, title, category) rather than the social
@@ -36,49 +37,48 @@ class OurWorkScreen extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
             children: [
+              // The category chips stay OUTSIDE AppAsync: the empty state is
+              // usually "nothing in THIS category", so hiding the filter with
+              // the results would leave no way out of it.
               if (cats.isNotEmpty) ...[
                 _CategoryChips(controller: controller),
                 const SizedBox(height: 14),
               ],
-              if (controller.isLoading.value)
-                const Center(child: CircularProgressIndicator()),
-              if (controller.errorMessage.value != null)
-                SectionTile(
-                  icon: Icons.emoji_events_outlined,
+              // Previously three stacked `if` blocks plus an unconditional
+              // GridView, so a failed load rendered an error tile AND an
+              // empty grid beneath it, and the error's retry was an
+              // unlabelled onTap on a card shaped like a nav row.
+              AppAsync<List<Map<String, dynamic>>>(
+                loading: controller.isLoading.value,
+                error: controller.errorMessage.value,
+                onRetry: controller.fetchPosts,
+                data: items,
+                isEmpty: (list) => list.isEmpty,
+                empty: const AppEmpty(
                   title: 'Our Work',
-                  subtitle: controller.errorMessage.value!,
-                  color: Colors.orange,
-                  onTap: controller.fetchPosts,
+                  message: 'No published work is available yet.',
                 ),
-              if (!controller.isLoading.value &&
-                  controller.errorMessage.value == null &&
-                  items.isEmpty)
-                const SectionTile(
-                  icon: Icons.emoji_events_outlined,
-                  title: 'Our Work',
-                  subtitle: 'No published work is available yet.',
-                  color: Colors.orange,
+                builder: (list) => GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: list.length,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 0.78,
+                  ),
+                  itemBuilder: (context, i) {
+                    final item = list[i];
+                    final categoryLabel = controller.categoryLabelForSlug(
+                      (item['category_slug'] ?? '').toString(),
+                    );
+                    return _PortfolioCard(
+                      item: item,
+                      categoryLabel: categoryLabel,
+                    );
+                  },
                 ),
-              GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: items.length,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 0.78,
-                ),
-                itemBuilder: (context, i) {
-                  final item = items[i];
-                  final categoryLabel = controller.categoryLabelForSlug(
-                    (item['category_slug'] ?? '').toString(),
-                  );
-                  return _PortfolioCard(
-                    item: item,
-                    categoryLabel: categoryLabel,
-                  );
-                },
               ),
             ],
           ),
