@@ -5,6 +5,7 @@ import 'package:flutter_application_1/core/id_privacy.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:flutter_application_1/core/widgets/app_pressable.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 // #50 — resolve a stored photo path to a full URL. Uploads are saved as
 // relative paths (e.g. images/uploads/x.png); Image.network needs an absolute
@@ -48,20 +49,30 @@ class _AidReceiptsScreenState extends State<AidReceiptsScreen> {
       child: FutureBuilder<List<Map<String, dynamic>>>(
         future: _future,
         builder: (context, snap) {
-          if (snap.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final items = snap.data ?? [];
-          if (items.isEmpty) {
-            return Center(child: Text('receipts_empty'.tr));
-          }
-          return RefreshIndicator(
-            onRefresh: () async => _reload(),
-            child: ListView.separated(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
-              itemCount: items.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (_, i) => _ReceiptCard(receipt: items[i]),
+          // snap.hasError is now read. It was not before: the builder went
+          // straight to `snap.data ?? []`, so a future that THREW produced an
+          // empty list and rendered the "no receipts yet" copy. That told a
+          // user their aid receipts did not exist when the request had simply
+          // failed — on a screen whose whole purpose is proving they do.
+          return AppAsync<List<Map<String, dynamic>>>(
+            loading: snap.connectionState != ConnectionState.done,
+            error: snap.hasError ? 'receipts_load_failed'.tr : null,
+            onRetry: _reload,
+            data: snap.data ?? const [],
+            isEmpty: (list) => list.isEmpty,
+            empty: AppEmpty(
+              icon: Icons.receipt_long_rounded,
+              title: 'receipts_title'.tr,
+              message: 'receipts_empty'.tr,
+            ),
+            builder: (list) => RefreshIndicator(
+              onRefresh: () async => _reload(),
+              child: ListView.separated(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+                itemCount: list.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                itemBuilder: (_, i) => _ReceiptCard(receipt: list[i]),
+              ),
             ),
           );
         },
