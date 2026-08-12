@@ -5,8 +5,10 @@ import 'package:get/get.dart';
 
 import '../controllers/notifications_controller.dart';
 import '../widgets/notification_detail_dialog.dart';
+import '../models/app_notification_model.dart';
 import '../widgets/notification_tile.dart';
 import 'package:flutter_application_1/core/design/motion.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 class NotificationsScreen extends GetView<NotificationsController> {
   const NotificationsScreen({super.key});
@@ -25,80 +27,68 @@ class NotificationsScreen extends GetView<NotificationsController> {
             Expanded(
               child: Obx(() {
                 final items = controller.filteredNotifications;
-                // Only show the full-screen spinner on the very first load,
-                // when there's nothing to display yet. Once the list exists,
-                // background polls update it in place without ever swapping it
-                // out for a spinner (which read as an ugly reload every ~5s).
-                if (controller.isLoading.value &&
-                    controller.notifications.isEmpty) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                final error = controller.errorMessage.value;
-                if (error != null) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 32),
-                      child: Text(
-                        error,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: AppThemeConfig.mutedText(context),
-                          fontSize: 16,
-                          height: 1.4,
-                        ),
-                      ),
-                    ),
-                  );
-                }
                 return RefreshIndicator(
                   onRefresh: controller.refreshNotifications,
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
                     children: [
+                      // The summary and filters stay OUTSIDE AppAsync: the
+                      // empty state is normally "nothing matches the filters
+                      // you chose", and hiding them with the results would
+                      // leave no way to undo the selection that emptied the
+                      // screen.
                       _NotificationSummary(controller: controller),
                       const SizedBox(height: 16),
                       _FilterSection(controller: controller),
                       const SizedBox(height: 16),
-                      if (items.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 32,
-                            vertical: 40,
-                          ),
-                          child: Text(
-                            'No notifications match the selected filters.'.tr,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: AppThemeConfig.mutedText(context),
-                              fontSize: 16,
-                              height: 1.4,
-                            ),
-                          ),
-                        )
-                      else ...[
-                        for (var i = 0; i < items.length; i++) ...[
-                          NotificationTile(
-                            notification: items[i],
-                            // Show the whole record first; the type's
-                            // destination (when it has one) is an explicit
-                            // action inside the dialog.
-                            onTap: () async {
-                              final n = items[i];
-                              await controller.markAsRead(n);
-                              if (!context.mounted) return;
-                              await showNotificationDetail(
-                                context,
-                                n,
-                                onOpen: controller.destinationFor(n),
-                              );
-                            },
-                            onDismissed: items[i].isRead
-                                ? null
-                                : () => controller.markAsRead(items[i]),
-                          ),
-                          if (i < items.length - 1) const SizedBox(height: 12),
-                        ],
-                      ],
+                      AppAsync<List<AppNotificationModel>>(
+                        // `loading` is passed straight through: AppAsync only
+                        // shows the skeleton when there is no data yet, so a
+                        // background poll updates the list in place instead of
+                        // swapping it for a spinner every few seconds - the
+                        // behaviour the old `isLoading && notifications.isEmpty`
+                        // guard was hand-rolling.
+                        loading: controller.isLoading.value,
+                        error: controller.errorMessage.value,
+                        onRetry: controller.refreshNotifications,
+                        data: items,
+                        isEmpty: (list) => list.isEmpty,
+                        empty: AppEmpty(
+                          title: 'Notifications'.tr,
+                          message:
+                              'No notifications match the selected filters.'.tr,
+                        ),
+                        // The error used to be a bare centred sentence with no
+                        // way to recover - a dead end for anyone who lost
+                        // connection.
+                        builder: (list) => Column(
+                          children: [
+                            for (var i = 0; i < list.length; i++) ...[
+                              NotificationTile(
+                                notification: list[i],
+                                // Show the whole record first; the type's
+                                // destination (when it has one) is an explicit
+                                // action inside the dialog.
+                                onTap: () async {
+                                  final n = list[i];
+                                  await controller.markAsRead(n);
+                                  if (!context.mounted) return;
+                                  await showNotificationDetail(
+                                    context,
+                                    n,
+                                    onOpen: controller.destinationFor(n),
+                                  );
+                                },
+                                onDismissed: list[i].isRead
+                                    ? null
+                                    : () => controller.markAsRead(list[i]),
+                              ),
+                              if (i < list.length - 1)
+                                const SizedBox(height: 12),
+                            ],
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 );

@@ -5,6 +5,7 @@ import 'package:flutter_application_1/modules/sponsorship/controllers/sponsorshi
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/sponsorship_schedule_screen.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 class SponsorshipOverviewScreen extends StatelessWidget {
   const SponsorshipOverviewScreen({super.key});
@@ -48,57 +49,55 @@ class SponsorshipOverviewScreen extends StatelessWidget {
             SectionLabel(title: 'My monthly sponsorships'),
             SizedBox(height: 12),
             Obx(() {
-              if (controller.isLoading.value && controller.items.isEmpty) {
-                return Center(child: CircularProgressIndicator());
-              }
-              if (controller.errorMessage.value != null &&
-                  controller.items.isEmpty) {
-                return _OverviewNoticeCard(
-                  icon: Icons.error_outline_rounded,
-                  title: 'Unable to load sponsorships',
-                  subtitle: controller.errorMessage.value!,
-                  color: AppThemeConfig.consequence(context),
-                );
-              }
-              if (controller.items.isEmpty) {
-                return _OverviewNoticeCard(
-                  icon: Icons.handshake_rounded,
+              // AppAsync renders exactly ONE of loading / content / error /
+              // empty. The error branch here used a _OverviewNoticeCard with
+              // no retry at all, so a failed load was a dead end - the only
+              // way to try again was to leave the screen and come back.
+              return AppAsync<List<dynamic>>(
+                loading: controller.isLoading.value,
+                error: controller.errorMessage.value,
+                onRetry: controller.fetchSponsorships,
+                data: controller.items,
+                isEmpty: (list) => list.isEmpty,
+                empty: const AppEmpty(
                   title: 'No sponsorships yet',
-                  subtitle: 'Create one from the Support page.',
-                  color: AppThemeConfig.accent(context),
-                );
-              }
-              return Column(
-                children: [
-                  if (controller.isCancelling.value)
-                    const Padding(
-                      padding: EdgeInsets.only(bottom: 12),
-                      child: LinearProgressIndicator(),
-                    ),
-                  ...controller.items.map(
-                    (item) => Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _SponsorshipPlanCard(
-                        item: item,
-                        onCancel: () async {
-                          final id = int.tryParse('${item['id']}') ?? 0;
-                          final ok = await controller.cancelSponsorship(id);
-                          if (ok) {
-                            Get.snackbar(
-                              'Cancelled'.tr,
-                              'Sponsorship cancelled.'.tr,
-                            );
-                          } else if (controller.errorMessage.value != null) {
-                            Get.snackbar(
-                              'Error'.tr,
-                              controller.errorMessage.value!,
-                            );
-                          }
-                        },
+                  message: 'Create one from the Support page.',
+                ),
+                builder: (list) => Column(
+                  children: [
+                    // A cancel in flight is genuine determinate-ish progress
+                    // on EXISTING content, not a load - so it stays inside the
+                    // content state rather than replacing it.
+                    if (controller.isCancelling.value)
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 12),
+                        child: LinearProgressIndicator(),
+                      ),
+                    ...list.map(
+                      (item) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _SponsorshipPlanCard(
+                          item: item,
+                          onCancel: () async {
+                            final id = int.tryParse('${item['id']}') ?? 0;
+                            final ok = await controller.cancelSponsorship(id);
+                            if (ok) {
+                              Get.snackbar(
+                                'Cancelled'.tr,
+                                'Sponsorship cancelled.'.tr,
+                              );
+                            } else if (controller.errorMessage.value != null) {
+                              Get.snackbar(
+                                'Error'.tr,
+                                controller.errorMessage.value!,
+                              );
+                            }
+                          },
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               );
             }),
             const SizedBox(height: 22),
@@ -107,32 +106,6 @@ class SponsorshipOverviewScreen extends StatelessWidget {
             const _OverviewFocusCard(),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _OverviewNoticeCard extends StatelessWidget {
-  const _OverviewNoticeCard({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassPanel(
-      child: _OverviewLine(
-        icon: icon,
-        color: color,
-        title: title,
-        subtitle: subtitle,
       ),
     );
   }
@@ -292,53 +265,6 @@ class _OverviewHeroCard extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _OverviewLine extends StatelessWidget {
-  const _OverviewLine({
-    required this.icon,
-    required this.color,
-    required this.title,
-    required this.subtitle,
-  });
-
-  final IconData icon;
-  final Color color;
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        TileIcon(icon: icon, color: color),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title.tr,
-                style: TextStyle(
-                  color: AppThemeConfig.text(context),
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                subtitle.tr,
-                style: TextStyle(
-                  color: AppThemeConfig.mutedText(context),
-                  height: 1.45,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }
