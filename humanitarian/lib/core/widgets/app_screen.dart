@@ -26,6 +26,7 @@ import 'package:get/get.dart';
 
 import 'package:flutter_application_1/core/design/tokens.dart';
 import 'package:flutter_application_1/core/widgets/app_pressable.dart';
+import 'package:flutter_application_1/core/design/directional_icons.dart';
 
 class AppScreen extends StatelessWidget {
   const AppScreen({
@@ -167,12 +168,11 @@ class _Header extends StatelessWidget {
                 context,
               ).backButtonTooltip,
               child: Icon(
-                // Mirrors under RTL. Three of the app's four languages are
-                // right-to-left, so a hardcoded left-pointing chevron would
-                // point the wrong way for most users.
-                Directionality.of(context) == TextDirection.rtl
-                    ? Icons.arrow_forward_ios_rounded
-                    : Icons.arrow_back_ios_new_rounded,
+                // arrow_back_ios_new_rounded carries matchTextDirection, so
+                // Flutter mirrors it under RTL on its own. This used to swap
+                // it by hand as well, which double-mirrored it and pointed it
+                // the wrong way for the majority of this app's users.
+                AppIcons.back(context),
                 size: 18,
                 color: c.ink,
               ),

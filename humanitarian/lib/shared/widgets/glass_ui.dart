@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/core/design/directional_icons.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/core/widgets/app_screen.dart';
+import 'package:flutter_application_1/core/design/tokens.dart';
+import 'package:flutter_application_1/core/widgets/app_pressable.dart';
 
 /// Lets a horizontal scroller nested inside a horizontally-padded page (the
 /// usual "20px side margin" list) extend all the way to the true screen
@@ -135,32 +138,42 @@ class PageTopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Matches AppScreen's header rather than defining a fourth style: same
+    // 18pt chevron, same AppPressable affordance, same title size. This is a
+    // Row embedded inside screens, so it cannot delegate to AppScreen the way
+    // SectionScaffold does — but it can stop looking different.
     return Row(
       children: [
-        if (!hideBack)
-          Container(
-            decoration: BoxDecoration(
-              color: AppThemeConfig.surface(context),
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: IconButton(
-              onPressed:
-                  onBack ??
-                  () {
-                    if (Navigator.of(context).canPop()) {
-                      Navigator.of(context).pop();
-                    }
-                  },
-              icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+        if (!hideBack) ...[
+          AppPressable(
+            onTap:
+                onBack ??
+                () {
+                  if (Navigator.of(context).canPop()) {
+                    Navigator.of(context).pop();
+                  }
+                },
+            semanticLabel: MaterialLocalizations.of(context).backButtonTooltip,
+            child: Icon(
+              // Was a hardcoded arrow_back_ios_new_rounded, which does not
+              // mirror — so it pointed the wrong way in Arabic, Sorani and
+              // Badini, i.e. for the majority of this app's users, on all 11
+              // screens that use this bar.
+              AppIcons.back(context),
+              size: 18,
+              color: AppThemeConfig.text(context),
             ),
           ),
-        if (!hideBack) const SizedBox(width: 14),
+          const SizedBox(width: AppSpace.sm),
+        ],
         Expanded(
           child: Text(
             title.tr,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
+              fontSize: AppType.title,
+              fontWeight: AppType.wLabel,
               color: AppThemeConfig.text(context),
             ),
           ),
@@ -218,97 +231,28 @@ class SectionScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final canPop = Navigator.of(context).canPop();
-    // If there's nothing to show in the header row (no title, no back
-    // button, no trailing action), collapse it to a small gap instead of
-    // reserving the full header padding for an empty row.
-    if (title.isEmpty && subtitle.isEmpty && !canPop && trailing == null) {
-      return GradientScreen(
-        showBottomOrb: false,
-        child: SafeArea(
-          child: Column(
-            children: [
-              const SizedBox(height: 8),
-              Expanded(child: child),
-            ],
-          ),
-        ),
-      );
-    }
-    return GradientScreen(
-      showBottomOrb: false,
-      child: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 18),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (canPop) ...[
-                    Container(
-                      decoration: BoxDecoration(
-                        color: AppThemeConfig.surface(context),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: AppThemeConfig.border(context),
-                        ),
-                      ),
-                      child: IconButton(
-                        onPressed: () => Navigator.of(context).maybePop(),
-                        icon: Icon(
-                          Directionality.of(context) == TextDirection.rtl
-                              ? Icons.arrow_forward_ios_rounded
-                              : Icons.arrow_back_ios_new_rounded,
-                          size: 18,
-                          color: AppThemeConfig.text(context),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                  ],
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (title.isNotEmpty)
-                          Text(
-                            title.tr,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w800,
-                              color: AppThemeConfig.text(context),
-                            ),
-                          ),
-                        if (subtitle.isNotEmpty) ...[
-                          const SizedBox(height: 6),
-                          Text(
-                            subtitle.tr,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: AppThemeConfig.mutedText(context),
-                              fontSize: 13,
-                              height: 1.4,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  if (trailing != null) ...[
-                    const SizedBox(width: 8),
-                    trailing!,
-                  ],
-                ],
-              ),
-            ),
-            Expanded(child: child),
-          ],
-        ),
-      ),
+    // DELEGATES to AppScreen rather than building its own header.
+    //
+    // The app had four parallel page-chrome systems — this one (46 screens),
+    // PageTopBar, a stock AppBar, and a bare Scaffold — so header height,
+    // back affordance and title placement changed depending on which screen
+    // you were on. AppScreen is the single chrome; this shell stays as a
+    // compatibility layer so those 46 screens pick it up without 46 rewrites.
+    //
+    // Its own build was equivalent to AppScreen's: GradientScreen resolves to
+    // Scaffold(backgroundColor: ground), which is exactly what AppScreen
+    // paints, and both collapse the header when there is nothing to put in
+    // it. AppScreen additionally offers eyebrow, bottomBar and scrollable.
+    //
+    // padded: false is load-bearing. AppScreen applies a 20pt horizontal
+    // gutter by default; SectionScaffold never did, so all 46 callers supply
+    // their own. Padding here would double it on every one of them.
+    return AppScreen(
+      title: title,
+      subtitle: subtitle,
+      trailing: trailing,
+      padded: false,
+      child: child,
     );
   }
 }
