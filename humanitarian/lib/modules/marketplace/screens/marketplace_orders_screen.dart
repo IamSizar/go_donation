@@ -5,6 +5,7 @@ import 'package:flutter_application_1/modules/marketplace/controllers/marketplac
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 class MarketplaceOrdersScreen extends StatelessWidget {
   const MarketplaceOrdersScreen({super.key});
@@ -25,39 +26,33 @@ class MarketplaceOrdersScreen extends StatelessWidget {
             ),
             Expanded(
               child: Obx(() {
-                final error = controller.ordersErrorMessage.value;
-                final orders = controller.orders;
-
-                return RefreshIndicator(
-                  onRefresh: controller.fetchOrders,
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
-                    children: [
-                      if (controller.isLoadingOrders.value)
-                        const Center(child: CircularProgressIndicator()),
-                      if (error != null)
-                        SectionTile(
-                          icon: Icons.receipt_long_rounded,
-                          title: 'Your orders',
-                          subtitle: error,
-                          color: AppThemeConfig.pending(context),
-                          onTap: controller.fetchOrders,
-                        ),
-                      if (error == null &&
-                          !controller.isLoadingOrders.value &&
-                          orders.isEmpty)
-                        SectionTile(
-                          icon: Icons.receipt_long_rounded,
-                          title: 'Your orders',
-                          subtitle: 'Your marketplace orders will appear here.',
-                          color: AppThemeConfig.pending(context),
-                          onTap: controller.fetchOrders,
-                        ),
-                      for (final order in orders) ...[
-                        _MarketplaceOrderCard(order: order),
-                        const SizedBox(height: 12),
+                // Three stacked `if` blocks replaced by one state. Before, a
+                // failed load drew the error tile AND any cached orders under
+                // it, and both the error and the empty tile were SectionTiles
+                // whose onTap was the retry - unlabelled, and identical in
+                // shape to the order cards below them.
+                return AppAsync<List<dynamic>>(
+                  loading: controller.isLoadingOrders.value,
+                  error: controller.ordersErrorMessage.value,
+                  onRetry: controller.fetchOrders,
+                  data: controller.orders,
+                  isEmpty: (list) => list.isEmpty,
+                  empty: const AppEmpty(
+                    icon: Icons.receipt_long_rounded,
+                    title: 'Your orders',
+                    message: 'Your marketplace orders will appear here.',
+                  ),
+                  builder: (list) => RefreshIndicator(
+                    onRefresh: controller.fetchOrders,
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
+                      children: [
+                        for (final order in list) ...[
+                          _MarketplaceOrderCard(order: order),
+                          const SizedBox(height: 12),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 );
               }),
