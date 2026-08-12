@@ -22,6 +22,7 @@ import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:flutter_application_1/widgets/cached_profile_avatar.dart';
 import 'package:get/get.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:flutter_application_1/core/widgets/app_theme_mode_picker.dart';
 
 /// Client note — "Settings and Profile Interface": its own bottom-nav tab
 /// (previously a side drawer opened by tapping the profile avatar).
@@ -657,52 +658,43 @@ class _LanguageOptionRow extends StatelessWidget {
 }
 
 /// Dark Mode — per spec: a direct toggle, no sub-page.
+/// The appearance row in Settings.
+///
+/// Was a two-state Switch bound to setAppDarkMode; it is now the shared
+/// tri-state picker, so System is reachable. The heading stays because the
+/// segments alone do not say what they control.
 class DarkModeRow extends StatelessWidget {
   const DarkModeRow({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: appThemeMode,
-      builder: (context, mode, _) {
-        final isDark = mode == ThemeMode.dark;
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: Row(
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: Colors.indigo.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(11),
-                ),
-                child: Icon(
-                  Icons.dark_mode_rounded,
-                  color: AppThemeConfig.accent(context),
-                  size: 18,
-                ),
+              Icon(
+                Icons.contrast_rounded,
+                color: AppThemeConfig.accent(context),
+                size: 18,
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Dark mode'.tr,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14.5,
-                    color: AppThemeConfig.text(context),
-                  ),
+              const SizedBox(width: 10),
+              Text(
+                'Dark mode'.tr,
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14.5,
+                  color: AppThemeConfig.text(context),
                 ),
-              ),
-              Switch.adaptive(
-                value: isDark,
-                activeThumbColor: AppThemeConfig.accent(context),
-                onChanged: setAppDarkMode,
               ),
             ],
           ),
-        );
-      },
+          const SizedBox(height: 10),
+          const AppThemeModePicker(),
+        ],
+      ),
     );
   }
 }

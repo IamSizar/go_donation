@@ -24,6 +24,7 @@ import 'package:flutter_application_1/modules/legal/screens/content_page_screen.
 import 'package:flutter_application_1/modules/legal/screens/terms_screen.dart';
 import 'package:flutter_application_1/core/widgets/app_pressable.dart';
 import 'package:flutter_application_1/core/design/motion.dart';
+import 'package:flutter_application_1/core/widgets/app_theme_mode_picker.dart';
 
 class ProfileSection extends StatefulWidget {
   const ProfileSection({super.key});
@@ -1224,45 +1225,53 @@ class _ThemePreferenceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _ProfileCard(
-      child: ValueListenableBuilder<ThemeMode>(
-        valueListenable: appThemeMode,
-        builder: (context, mode, _) {
-          final isDark = mode == ThemeMode.dark;
-          return SwitchListTile.adaptive(
-            contentPadding: EdgeInsets.zero,
-            value: isDark,
-            activeThumbColor: AppThemeConfig.accent(context),
-            title: Text(
-              'Dark mode'.tr,
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 15,
-                color: AppThemeConfig.text(context),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: AppThemeConfig.accent(context).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(
+                  Icons.contrast_rounded,
+                  color: AppThemeConfig.accent(context),
+                ),
               ),
-            ),
-            subtitle: Text(
-              'Use a darker appearance across the app.'.tr,
-              style: TextStyle(
-                color: AppThemeConfig.mutedText(context),
-                height: 1.35,
-                fontSize: 13,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Dark mode'.tr,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                        color: AppThemeConfig.text(context),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Use a darker appearance across the app.'.tr,
+                      style: TextStyle(
+                        color: AppThemeConfig.mutedText(context),
+                        height: 1.35,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            secondary: Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                color: Colors.indigo.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(
-                Icons.dark_mode_rounded,
-                color: AppThemeConfig.accent(context),
-              ),
-            ),
-            onChanged: setAppDarkMode,
-          );
-        },
+            ],
+          ),
+          const SizedBox(height: 14),
+          const AppThemeModePicker(),
+        ],
       ),
     );
   }

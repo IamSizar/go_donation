@@ -69,9 +69,19 @@ class AppPressable extends StatefulWidget {
     this.semanticLabel,
     this.excludeFromSemantics = false,
     this.behavior = HitTestBehavior.opaque,
+    this.expand = false,
   });
 
   final Widget child;
+
+  /// Fill the width offered by the parent instead of shrink-wrapping.
+  ///
+  /// Off by default. The touch target normally sizes to its child, so a 16pt
+  /// icon gets a 44pt tap area rather than a full-width one — which is right
+  /// almost everywhere. It is wrong inside an [Expanded] or a stretched
+  /// [Column], where the caller has already decided the width and expects the
+  /// pressable to honour it; set this there.
+  final bool expand;
 
   /// Fires on release, inside the bounds — standard tap semantics. A null
   /// [onTap] with a null [onLongPress] renders the child inert (no press
@@ -262,7 +272,15 @@ class _AppPressableState extends State<AppPressable>
         minWidth: widget.minTouchTarget,
         minHeight: widget.minTouchTarget,
       ),
-      child: Center(widthFactor: 1, heightFactor: 1, child: child),
+      // widthFactor/heightFactor make Center shrink-wrap its child. That is
+      // what keeps a small icon's tap area at 44pt instead of full-width, but
+      // it also makes the pressable ignore an Expanded parent — hence the
+      // opt-out.
+      child: Center(
+        widthFactor: widget.expand ? null : 1,
+        heightFactor: 1,
+        child: child,
+      ),
     );
   }
 }
