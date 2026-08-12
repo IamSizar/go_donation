@@ -13,6 +13,7 @@ import 'package:flutter_application_1/core/app_share.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
 import 'package:flutter_application_1/core/widgets/app_pressable.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 class NewsActivitiesScreen extends StatelessWidget {
   const NewsActivitiesScreen({super.key});
@@ -37,39 +38,42 @@ class NewsActivitiesScreen extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
             children: [
-              // #22 — "Our Work" category filter chips.
+              // #22 — "Our Work" category filter chips. Kept OUTSIDE AppAsync:
+              // the empty state is usually "nothing in THIS category", so
+              // hiding the chips with the results would leave no way to undo
+              // the selection that emptied the screen.
               if (cats.isNotEmpty) ...[
                 _CategoryChips(controller: controller),
                 const SizedBox(height: 14),
               ],
-              if (controller.isLoading.value)
-                const Center(child: CircularProgressIndicator()),
-              if (controller.errorMessage.value != null)
-                SectionTile(
-                  icon: Icons.article_rounded,
+              // Three stacked `if` blocks replaced by one state. Previously a
+              // failed load drew the error tile AND the post list beneath it,
+              // and the error was a SectionTile whose retry was an unlabelled
+              // onTap on a card shaped like every nav row in the app.
+              AppAsync<List<Map<String, dynamic>>>(
+                loading: controller.isLoading.value,
+                error: controller.errorMessage.value,
+                onRetry: controller.fetchPosts,
+                data: items,
+                isEmpty: (list) => list.isEmpty,
+                empty: const AppEmpty(
                   title: 'News and activities',
-                  subtitle: controller.errorMessage.value!,
-                  color: Colors.orange,
-                  onTap: controller.fetchPosts,
+                  message: 'No published posts are available yet.',
                 ),
-              if (!controller.isLoading.value &&
-                  controller.errorMessage.value == null &&
-                  items.isEmpty)
-                const SectionTile(
-                  icon: Icons.article_rounded,
-                  title: 'News and activities',
-                  subtitle: 'No published posts are available yet.',
-                  color: Colors.orange,
+                builder: (list) => Column(
+                  children: [
+                    for (final item in list) ...[
+                      MediaPostCard(
+                        item: item,
+                        categoryLabel: controller.categoryLabelForSlug(
+                          (item['category_slug'] ?? '').toString(),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                    ],
+                  ],
                 ),
-              for (final item in items) ...[
-                MediaPostCard(
-                  item: item,
-                  categoryLabel: controller.categoryLabelForSlug(
-                    (item['category_slug'] ?? '').toString(),
-                  ),
-                ),
-                const SizedBox(height: 14),
-              ],
+              ),
             ],
           ),
         );

@@ -16,6 +16,7 @@ import 'package:flutter_application_1/modules/sponsorship/controllers/sponsorshi
 import 'package:flutter_application_1/modules/sponsorship/screens/sponsorship_overview_screen.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 class ProposalServicesSection extends StatelessWidget {
   const ProposalServicesSection({super.key});
@@ -246,42 +247,40 @@ class BeneficiaryCasesScreen extends StatelessWidget {
       subtitle: 'Verified public case records.',
       child: Obx(() {
         final items = controller.cases;
-        return RefreshIndicator(
-          onRefresh: controller.fetchCases,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
-            children: [
-              if (controller.isLoading.value)
-                const Center(child: CircularProgressIndicator()),
-              if (controller.errorMessage.value != null)
-                SectionTile(
-                  icon: Icons.verified_user_rounded,
-                  title: 'Beneficiary cases'.tr,
-                  subtitle: controller.errorMessage.value!,
-                  color: AppThemeConfig.accent(context),
-                  onTap: controller.fetchCases,
-                ),
-              if (!controller.isLoading.value &&
-                  controller.errorMessage.value == null &&
-                  items.isEmpty)
-                SectionTile(
-                  icon: Icons.verified_user_rounded,
-                  title: 'Beneficiary cases'.tr,
-                  subtitle: 'No approved cases are available yet.',
-                  color: AppThemeConfig.accent(context),
-                ),
-              for (final item in items) ...[
-                SectionTile(
-                  icon: Icons.verified_user_rounded,
-                  title: _localizedCaseTitle(item),
-                  subtitle: _caseSubtitle(item),
-                  color: AppThemeConfig.accent(context),
-                  onTap: () =>
-                      Get.to(() => BeneficiaryCaseDetailScreen(caseItem: item)),
-                ),
-                const SizedBox(height: 12),
+        // Three stacked `if` blocks replaced by AppAsync, which renders
+        // exactly ONE state. Before, a failed load drew the error tile and
+        // then the case list beneath it, and the error was a SectionTile -
+        // the same card used for the cases themselves - so an error looked
+        // like just another tappable row.
+        return AppAsync<List<Map<String, dynamic>>>(
+          loading: controller.isLoading.value,
+          error: controller.errorMessage.value,
+          onRetry: controller.fetchCases,
+          data: items,
+          isEmpty: (list) => list.isEmpty,
+          empty: AppEmpty(
+            title: 'Beneficiary cases'.tr,
+            message: 'No approved cases are available yet.',
+          ),
+          builder: (list) => RefreshIndicator(
+            onRefresh: controller.fetchCases,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+              children: [
+                for (final item in list) ...[
+                  SectionTile(
+                    icon: Icons.verified_user_rounded,
+                    title: _localizedCaseTitle(item),
+                    subtitle: _caseSubtitle(item),
+                    color: AppThemeConfig.accent(context),
+                    onTap: () => Get.to(
+                      () => BeneficiaryCaseDetailScreen(caseItem: item),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
               ],
-            ],
+            ),
           ),
         );
       }),
@@ -303,47 +302,43 @@ class MyBeneficiaryCasesScreen extends StatelessWidget {
       subtitle: 'Track private case submissions and admin review status.',
       child: Obx(() {
         final items = controller.cases;
-        return RefreshIndicator(
-          onRefresh: controller.fetchCases,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
-            children: [
-              _CaseSummaryBand(items: items),
-              const SizedBox(height: 14),
-              if (controller.isLoading.value)
-                const Center(child: CircularProgressIndicator()),
-              if (controller.errorMessage.value != null)
-                SectionTile(
-                  icon: Icons.refresh_rounded,
-                  title: 'My beneficiary cases',
-                  subtitle: controller.errorMessage.value!,
-                  color: AppThemeConfig.accent(context),
-                  onTap: controller.fetchCases,
-                ),
-              if (!controller.isLoading.value &&
-                  controller.errorMessage.value == null &&
-                  items.isEmpty)
-                SectionTile(
-                  icon: Icons.assignment_ind_rounded,
-                  title: 'No cases yet',
-                  subtitle: 'Submitted beneficiary cases will appear here.',
-                  color: AppThemeConfig.accent(context),
-                ),
-              for (final item in items) ...[
-                SectionTile(
-                  icon: Icons.assignment_ind_rounded,
-                  title: _localizedCaseTitle(item),
-                  subtitle: _myCaseSubtitle(item),
-                  color: _caseStatusColor(
-                    context,
-                    (item['verification_status'] ?? '').toString(),
+        // The summary band moves INSIDE the builder: it reports counts, and
+        // rendering a zeroed summary while the fetch is still in flight
+        // states something not yet known.
+        return AppAsync<List<Map<String, dynamic>>>(
+          loading: controller.isLoading.value,
+          error: controller.errorMessage.value,
+          onRetry: controller.fetchCases,
+          data: items,
+          isEmpty: (list) => list.isEmpty,
+          empty: const AppEmpty(
+            title: 'No cases yet',
+            message: 'Submitted beneficiary cases will appear here.',
+          ),
+          builder: (list) => RefreshIndicator(
+            onRefresh: controller.fetchCases,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+              children: [
+                _CaseSummaryBand(items: list),
+                const SizedBox(height: 14),
+                for (final item in list) ...[
+                  SectionTile(
+                    icon: Icons.assignment_ind_rounded,
+                    title: _localizedCaseTitle(item),
+                    subtitle: _myCaseSubtitle(item),
+                    color: _caseStatusColor(
+                      context,
+                      (item['verification_status'] ?? '').toString(),
+                    ),
+                    onTap: () => Get.to(
+                      () => BeneficiaryCaseDetailScreen(caseItem: item),
+                    ),
                   ),
-                  onTap: () =>
-                      Get.to(() => BeneficiaryCaseDetailScreen(caseItem: item)),
-                ),
-                const SizedBox(height: 12),
+                  const SizedBox(height: 12),
+                ],
               ],
-            ],
+            ),
           ),
         );
       }),

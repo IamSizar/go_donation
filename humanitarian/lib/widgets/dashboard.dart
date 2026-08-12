@@ -37,6 +37,7 @@ import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 
 import '../data/featured_campaigns.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 class DashboardHomeSection extends StatelessWidget {
   const DashboardHomeSection({super.key});
@@ -801,7 +802,15 @@ class DashboardHomeSection extends StatelessWidget {
         child: Builder(
           builder: (context) {
             if (controller.isLoading.value && controller.summary.isEmpty) {
-              return const Center(child: CircularProgressIndicator());
+              // A skeleton, not a spinner, so the first paint has roughly the
+              // shape of the dashboard that replaces it. Deliberately NOT
+              // AppAsync: the summary is a Map, and it has no empty state
+              // distinct from "not loaded", so AppAsync's required `empty`
+              // would be a state that can never occur.
+              return Padding(
+                padding: const EdgeInsets.all(20),
+                child: AppSkeleton.rows(),
+              );
             }
             if (controller.errorMessage.value != null &&
                 controller.summary.isEmpty) {
@@ -1008,50 +1017,45 @@ class _FeaturedCampaignsSection extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         Obx(() {
-          if (campaignsController.isLoading.value) {
-            return const SizedBox(
-              height: 340,
-              child: Center(child: CircularProgressIndicator()),
-            );
-          }
-          if (campaignsController.errorMessage.value != null) {
-            return SizedBox(
-              height: 200,
-              child: Center(
-                child: Text(
-                  campaignsController.errorMessage.value!,
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            );
-          }
-          if (campaignsController.campaigns.isEmpty) {
-            return _GlassPanel(child: Text('No campaigns available.'.tr));
-          }
-          // Client note — this horizontal carousel sits inside the page's
-          // 20px side padding, so its own scroll viewport was clipped ~20px
-          // short of the real screen edge on both sides: dragging a card
-          // toward the edge made it disappear early, well before actually
-          // reaching the edge. FullBleedHorizontal cancels that parent inset
-          // just for this row (letting the list bleed to the true screen
-          // edges), and the matching positive padding on the ListView itself
-          // restores the same resting-state look.
-          // OverflowBox (inside FullBleedHorizontal) sizes itself using its
-          // own incoming constraints, which are unbounded height here (a
-          // Column under a ListView) — so the fixed-height SizedBox must be
-          // the outer widget, not nested inside FullBleedHorizontal, or
-          // OverflowBox tries to report an infinite height and corrupts the
+          // One fixed height around all four states. Each branch used to size
+          // itself - 340 for loading, 200 for the error, an intrinsic panel
+          // for empty - so the page visibly jumped as the fetch settled. The
+          // error state also had NO retry: a failed carousel was a dead end
+          // until the user left the screen and came back.
+          //
+          // The SizedBox must stay OUTSIDE FullBleedHorizontal: OverflowBox
+          // sizes from its own incoming constraints, which are unbounded in
+          // height here (a Column under a ListView), so nesting it inside
+          // would make OverflowBox report an infinite height and corrupt the
           // rest of the list's layout.
           return SizedBox(
             height: 340,
-            child: FullBleedHorizontal(
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                clipBehavior: Clip.none,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                children: campaignsController.campaigns
-                    .map((campaign) => _CampaignCard(campaign: campaign))
-                    .toList(),
+            child: AppAsync<List<dynamic>>(
+              loading: campaignsController.isLoading.value,
+              error: campaignsController.errorMessage.value,
+              onRetry: campaignsController.refreshCampaigns,
+              data: campaignsController.campaigns,
+              isEmpty: (list) => list.isEmpty,
+              empty: AppEmpty(
+                title: 'No campaigns available.'.tr,
+                message:
+                    'Featured campaigns will appear here once published.'.tr,
+              ),
+              // Client note — this horizontal carousel sits inside the page's
+              // 20px side padding, so its own scroll viewport was clipped
+              // ~20px short of the real screen edge on both sides: dragging a
+              // card toward the edge made it disappear early. FullBleedHorizontal
+              // cancels that parent inset just for this row, and the matching
+              // positive padding on the ListView restores the resting look.
+              builder: (list) => FullBleedHorizontal(
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  clipBehavior: Clip.none,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  children: list
+                      .map((campaign) => _CampaignCard(campaign: campaign))
+                      .toList(),
+                ),
               ),
             ),
           );

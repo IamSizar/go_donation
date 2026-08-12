@@ -11,6 +11,7 @@ import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_application_1/core/design/motion.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 class MarketplaceSection extends StatelessWidget {
   const MarketplaceSection({super.key});
@@ -57,42 +58,48 @@ class _MarketplaceList extends StatelessWidget {
                 // clearance for it.
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                 children: [
+                  // The orders shortcut is a standing entry point, not
+                  // content: a shopper must still be able to reach their
+                  // existing orders when the product fetch fails.
                   _OrdersShortcut(controller: controller),
                   const SizedBox(height: 12),
-                  if (controller.isLoading.value)
-                    const Center(child: CircularProgressIndicator()),
-                  if (error != null)
-                    SectionTile(
-                      icon: Icons.storefront_rounded,
+                  // Three stacked `if` blocks replaced by one state. Before,
+                  // a failed load rendered the error tile AND whatever
+                  // products were already cached beneath it, and the error
+                  // was a SectionTile whose retry was an unlabelled onTap.
+                  AppAsync<List<Map<String, dynamic>>>(
+                    loading: controller.isLoading.value,
+                    error: error,
+                    onRetry: () => controller.fetchProducts(reset: true),
+                    data: items,
+                    isEmpty: (list) => list.isEmpty,
+                    empty: const AppEmpty(
                       title: 'Product Listings',
-                      subtitle: error,
-                      color: AppThemeConfig.pending(context),
-                      onTap: () => controller.fetchProducts(reset: true),
+                      message: 'No approved products are available yet.',
                     ),
-                  if (error == null &&
-                      !controller.isLoading.value &&
-                      items.isEmpty)
-                    SectionTile(
-                      icon: Icons.storefront_rounded,
-                      title: 'Product Listings',
-                      subtitle: 'No approved products are available yet.',
-                      color: AppThemeConfig.pending(context),
+                    builder: (list) => Column(
+                      children: [
+                        for (var i = 0; i < list.length; i++) ...[
+                          _AnimatedProductEntry(
+                            index: i,
+                            child: _MarketplaceProductTile(
+                              item: list[i],
+                              controller: controller,
+                              quantity: controller.quantityFor(list[i]['id']),
+                              onAdd: () => controller.addProduct(list[i]),
+                              onRemove: () =>
+                                  controller.removeProduct(list[i]['id']),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                        ],
+                        // Pagination footer stays with the content: it is
+                        // "load MORE", which only means anything once there
+                        // is a first page.
+                        _LoadMoreProductsFooter(controller: controller),
+                      ],
                     ),
-                  for (var i = 0; i < items.length; i++) ...[
-                    _AnimatedProductEntry(
-                      index: i,
-                      child: _MarketplaceProductTile(
-                        item: items[i],
-                        controller: controller,
-                        quantity: controller.quantityFor(items[i]['id']),
-                        onAdd: () => controller.addProduct(items[i]),
-                        onRemove: () =>
-                            controller.removeProduct(items[i]['id']),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                  ],
-                  _LoadMoreProductsFooter(controller: controller),
+                  ),
                 ],
               ),
             ),

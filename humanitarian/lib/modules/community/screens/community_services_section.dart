@@ -12,6 +12,7 @@ import 'package:flutter_application_1/modules/legal/screens/content_page_screen.
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_application_1/core/widgets/app_pressable.dart';
 import 'package:flutter_application_1/core/design/motion.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 double? _parseCoord(dynamic v) {
   if (v == null) return null;
@@ -82,29 +83,38 @@ class _CommunityServicesList extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
           children: [
-            if (loading) const Center(child: CircularProgressIndicator()),
-            if (error != null)
-              SectionTile(
-                icon: Icons.local_library_rounded,
+            // Three stacked `if` blocks replaced by one state. Before, a
+            // failed load drew the error tile AND the service cards under it,
+            // and the error was a SectionTile - the same card shape as the
+            // About and Contact rows below - so it read as another nav row
+            // rather than as a failure with a retry.
+            //
+            // The About and Contact tiles below stay OUTSIDE this: they are
+            // standing entry points, and someone whose directory failed to
+            // load is exactly who needs the "add or correct a place" contact.
+            AppAsync<List<dynamic>>(
+              loading: loading,
+              error: error,
+              onRetry: controller.fetchEntries,
+              data: items,
+              isEmpty: (list) => list.isEmpty,
+              empty: const AppEmpty(
                 title: 'Services Directory',
-                subtitle: error,
-                color: AppThemeConfig.accent(context),
-                onTap: controller.fetchEntries,
+                message: 'No approved city services are available yet.',
               ),
-            if (error == null && !loading && items.isEmpty)
-              SectionTile(
-                icon: Icons.local_library_rounded,
-                title: 'Services Directory',
-                subtitle: 'No approved city services are available yet.',
-                color: AppThemeConfig.accent(context),
+              builder: (list) => Column(
+                children: [
+                  for (final item in list) ...[
+                    _CityServiceCard(
+                      entry: item,
+                      onTap: () =>
+                          Get.to(() => CommunityDetailScreen(entry: item)),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                ],
               ),
-            for (final item in items) ...[
-              _CityServiceCard(
-                entry: item,
-                onTap: () => Get.to(() => CommunityDetailScreen(entry: item)),
-              ),
-              const SizedBox(height: 12),
-            ],
+            ),
             // The City Guide map now lives on its own screen, opened from Home.
             const SizedBox(height: 8),
             // "A separate About Us and Contact Us option in the My Engagement

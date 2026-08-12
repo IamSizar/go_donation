@@ -10,6 +10,7 @@ import 'package:flutter_application_1/modules/chat/screens/chat_conversation_scr
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 /// The "Messages" tab — lists all of a user's chat threads.
 // #45 — open (or reuse) a direct chat with support/tech and jump into it.
@@ -42,51 +43,6 @@ class MessagesScreen extends StatelessWidget {
       title: 'Messages',
       subtitle: 'Chat with campaign owners and donors. Support is included.',
       child: Obx(() {
-        if (ctrl.isLoading.value && ctrl.threads.isEmpty) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (ctrl.errorMessage.value != null && ctrl.threads.isEmpty) {
-          return ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              SectionTile(
-                icon: Icons.refresh_rounded,
-                title: 'Messages',
-                subtitle: ctrl.errorMessage.value!,
-                color: AppThemeConfig.pending(context),
-                onTap: ctrl.fetchThreads,
-              ),
-            ],
-          );
-        }
-        if (ctrl.threads.isEmpty) {
-          return ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              const _BotAssistantCard(),
-              const SizedBox(height: 10),
-              // #45 — direct chat with support/tech staff.
-              SectionTile(
-                icon: Icons.support_agent_rounded,
-                title: 'chat_support'.tr,
-                subtitle: 'chat_support_desc'.tr,
-                color: AppThemeConfig.accent(context),
-                onTap: () => openSupportChat(context),
-              ),
-              const SizedBox(height: 10),
-              const _CaseChatsSection(),
-              const SizedBox(height: 10),
-              SectionTile(
-                icon: Icons.forum_outlined,
-                title: 'No conversations yet',
-                subtitle:
-                    'Start a chat from a donation (donor) or from your campaign donations (owner).',
-                color: AppThemeConfig.accent(context),
-              ),
-            ],
-          );
-        }
-
         final incoming = ctrl.threads.where((t) => t.incomingPending).toList();
         final active = ctrl.threads.where((t) => t.isActive).toList();
         final outgoing = ctrl.threads
@@ -98,6 +54,12 @@ class MessagesScreen extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
             children: [
+              // These three are standing entry points, not content: the bot,
+              // support chat and case chats are reachable whether or not the
+              // user has any threads. They were previously duplicated across
+              // the empty branch and the content branch, which is why the
+              // empty state had to re-list them. They now live outside the
+              // async region and are written once.
               const _BotAssistantCard(),
               const SizedBox(height: 10),
               // #45 — direct chat with support/tech staff.
@@ -110,24 +72,50 @@ class MessagesScreen extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               const _CaseChatsSection(),
-              if (incoming.isNotEmpty) ...[
-                _SectionLabel(label: 'Chat requests', count: incoming.length),
-                for (final t in incoming)
-                  _IncomingRequestCard(thread: t, ctrl: ctrl),
-                const SizedBox(height: 8),
-              ],
-              if (active.isNotEmpty) ...[
-                _SectionLabel(label: 'Conversations', count: active.length),
-                for (final t in active) _ThreadTile(thread: t),
-              ],
-              if (outgoing.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                _SectionLabel(
-                  label: 'Waiting for accept',
-                  count: outgoing.length,
+              // Only the THREAD list has four states. Its error branch used to
+              // replace the whole screen, taking the support and bot entry
+              // points down with it - so a failed thread fetch also removed
+              // the user's way to contact support about it.
+              AppAsync<List<dynamic>>(
+                loading: ctrl.isLoading.value,
+                error: ctrl.errorMessage.value,
+                onRetry: ctrl.fetchThreads,
+                data: ctrl.threads,
+                isEmpty: (list) => list.isEmpty,
+                empty: const AppEmpty(
+                  title: 'No conversations yet',
+                  message:
+                      'Start a chat from a donation (donor) or from your campaign donations (owner).',
                 ),
-                for (final t in outgoing) _OutgoingPendingTile(thread: t),
-              ],
+                builder: (_) => Column(
+                  children: [
+                    if (incoming.isNotEmpty) ...[
+                      _SectionLabel(
+                        label: 'Chat requests',
+                        count: incoming.length,
+                      ),
+                      for (final t in incoming)
+                        _IncomingRequestCard(thread: t, ctrl: ctrl),
+                      const SizedBox(height: 8),
+                    ],
+                    if (active.isNotEmpty) ...[
+                      _SectionLabel(
+                        label: 'Conversations',
+                        count: active.length,
+                      ),
+                      for (final t in active) _ThreadTile(thread: t),
+                    ],
+                    if (outgoing.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      _SectionLabel(
+                        label: 'Waiting for accept',
+                        count: outgoing.length,
+                      ),
+                      for (final t in outgoing) _OutgoingPendingTile(thread: t),
+                    ],
+                  ],
+                ),
+              ),
             ],
           ),
         );

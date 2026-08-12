@@ -6,6 +6,7 @@ import 'package:flutter_application_1/modules/chat/models/chat_models.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_application_1/core/widgets/app_pressable.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 class ChatConversationScreen extends StatefulWidget {
   const ChatConversationScreen({
@@ -124,31 +125,29 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
           ),
           Expanded(
             child: Obx(() {
+              // Deliberately NOT AppAsync, despite the shape looking like it.
+              //
+              // ctrl.errorMessage here is a SEND failure - it is surfaced as a
+              // SnackBar when a message fails to post - not a load failure.
+              // Wiring it into AppAsync's error state would replace the entire
+              // conversation with an error screen because one outgoing message
+              // did not send, losing the history the user is reading.
+              //
+              // So this takes the skeleton and the empty state for consistency
+              // with the rest of the app, and leaves error handling where it
+              // belongs.
               if (ctrl.isLoading.value && ctrl.messages.isEmpty) {
-                return const Center(child: CircularProgressIndicator());
+                return Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: AppSkeleton.rows(),
+                );
               }
               if (ctrl.messages.isEmpty) {
-                return Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(32),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.forum_outlined,
-                          size: 48,
-                          color: AppThemeConfig.mutedText(context),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'No messages yet. Say hello! 👋'.tr,
-                          style: TextStyle(
-                            color: AppThemeConfig.mutedText(context),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                return AppEmpty(
+                  icon: Icons.forum_outlined,
+                  title: 'No messages yet. Say hello! 👋'.tr,
+                  message:
+                      'Send the first message to start the conversation.'.tr,
                 );
               }
               return ListView.builder(
