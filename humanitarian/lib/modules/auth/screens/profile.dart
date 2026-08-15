@@ -260,14 +260,26 @@ class _ProfileSectionState extends State<ProfileSection> {
                   const SizedBox(height: 22),
                   _SectionLabel('Account'.tr),
                   const SizedBox(height: 10),
-                  _ProfileOptionTile(
-                    icon: Icons.security_rounded,
-                    title: "Privacy & Security",
-                    subtitle:
-                        'Control account access, passwords, and verification.',
-                    color: AppThemeConfig.accent(context),
-                  ),
-                  const SizedBox(height: 12),
+                  // Redesign de-duplication — three tiles used to sit in this
+                  // section with no `onTap` at all ("Privacy & Security",
+                  // "Payment Methods", "App Settings"). They looked tappable,
+                  // did nothing, and each duplicated something that already
+                  // works elsewhere, so the app effectively advertised two
+                  // settings hubs. They were removed rather than wired up,
+                  // because every destination they promised already has a
+                  // live route in:
+                  //  - Privacy & Security → the "Field privacy" tile directly
+                  //    below is the only privacy capability that actually
+                  //    exists (see PrivacySecurityScreen's own note), and the
+                  //    full screen is reachable from the Settings tab via
+                  //    Control Settings and Preferences.
+                  //  - Payment Methods → PaymentMethodsScreen is reached from
+                  //    the same Control Settings screen; adding a second door
+                  //    here is exactly the duplication being removed.
+                  //  - App Settings → the "Preferences" section further down
+                  //    THIS screen already owns language, theme, notifications
+                  //    and mute, so the tile promised a screen that is really
+                  //    just a scroll away.
                   // #32 — choose which profile fields are public/hidden.
                   _ProfileOptionTile(
                     icon: Icons.visibility_off_rounded,
@@ -275,22 +287,6 @@ class _ProfileSectionState extends State<ProfileSection> {
                     subtitle: 'privacy_desc',
                     color: AppThemeConfig.accent(context),
                     onTap: () => Get.to(() => const FieldPrivacyScreen()),
-                  ),
-                  const SizedBox(height: 12),
-                  _ProfileOptionTile(
-                    icon: Icons.payment_rounded,
-                    title: "Payment Methods",
-                    subtitle:
-                        'View cards, recurring donations, and billing details.',
-                    color: AppThemeConfig.accent(context),
-                  ),
-                  const SizedBox(height: 12),
-                  _ProfileOptionTile(
-                    icon: Icons.tune_rounded,
-                    title: "App Settings",
-                    subtitle:
-                        'Customize notifications, language, and preferences.',
-                    color: AppThemeConfig.accent(context),
                   ),
                   const SizedBox(height: 12),
                   // #34 — clear cached data (images / temp files).

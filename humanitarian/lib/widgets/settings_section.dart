@@ -59,41 +59,42 @@ class SettingsSection extends StatelessWidget {
               onTap: () => Get.to(() => const ControlSettingsScreen()),
             ),
           const DrawerDivider(),
-          // Both volunteer rows are kept role-segmented, matching how the
-          // rest of the app keeps each role's own dashboard/tools separate
-          // rather than surfacing them to every role.
-          if (sharedPreferences.getString('role_id') == '3') ...[
+          // Volunteer entry, kept role-segmented, matching how the rest of the
+          // app keeps each role's own dashboard/tools separate rather than
+          // surfacing them to every role.
+          //
+          // Redesign de-duplication — this used to be TWO rows ("Volunteer
+          // With Us" and "Volunteer Attendance and Absence System") pushing
+          // the identical `SupportSection()` with no argument to tell them
+          // apart, so the second row was a pure duplicate. Attendance is not
+          // a separate destination: SupportSection's mission cards are where
+          // check-in / check-out is recorded, so one row reaches all of it.
+          if (sharedPreferences.getString('role_id') == '3')
             DrawerTile(
               icon: Icons.volunteer_activism_rounded,
               label: 'Volunteer With Us',
               color: AppThemeConfig.pending(context),
               onTap: () => Get.to(() => const SupportSection()),
             ),
-            DrawerTile(
-              icon: Icons.fact_check_rounded,
-              label: 'Volunteer Attendance and Absence System',
-              color: AppThemeConfig.pending(context),
-              onTap: () => Get.to(() => const SupportSection()),
-            ),
-          ],
           DrawerTile(
             icon: Icons.checklist_rounded,
             label: 'Task Verification',
             color: AppThemeConfig.pending(context),
             onTap: () => Get.to(() => const TaskVerificationScreen()),
           ),
+          // Redesign de-duplication — "Supporting Organizations" was a second
+          // row onto the same PartnersScreen, differing only by
+          // `onlySupporting: true`, which client-side-filters the very same
+          // list by keywords in the free-text `partner_type` field. That is a
+          // *view* of one list, not a second destination, so it belongs as a
+          // control inside the screen rather than as its own menu entry.
+          // Nothing is hidden by collapsing the pair: the unfiltered list is a
+          // superset that already contains every supporting organization.
           DrawerTile(
             icon: Icons.handshake_rounded,
             label: 'Our Partners',
             color: AppThemeConfig.pending(context),
             onTap: () => Get.to(() => const PartnersScreen()),
-          ),
-          DrawerTile(
-            icon: Icons.diversity_3_rounded,
-            label: 'Supporting Organizations',
-            color: AppThemeConfig.pending(context),
-            onTap: () =>
-                Get.to(() => const PartnersScreen(onlySupporting: true)),
           ),
           DrawerTile(
             icon: Icons.receipt_long_rounded,

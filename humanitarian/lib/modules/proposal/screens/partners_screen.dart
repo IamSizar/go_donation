@@ -11,16 +11,33 @@ import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
 
-class PartnersScreen extends StatelessWidget {
-  const PartnersScreen({super.key, this.onlySupporting = false});
+class PartnersScreen extends StatefulWidget {
+  const PartnersScreen({super.key});
 
-  // Client note — "Supporting Organizations" as a distinct list from "Our
-  // Partners". There's no separate category field for this in the data (a
-  // partner is just a partner, with a free-text `partner_type`) — by
-  // request, this filters that existing field for anything an admin has
-  // labeled as a supporting organization, rather than adding a new column.
-  final bool onlySupporting;
+  @override
+  State<PartnersScreen> createState() => _PartnersScreenState();
+}
 
+class _PartnersScreenState extends State<PartnersScreen> {
+  // WAS an `onlySupporting` constructor flag, set by a second drawer row
+  // ("Supporting Organizations") that opened this same screen over the same
+  // fetched list. Two menu entries for one list is the duplication the
+  // redesign is removing — but the CAPABILITY is a client request and had to
+  // survive, so the flag became a filter here instead of being deleted with
+  // the menu row. One destination, the choice made inside it.
+  static const _filters = <({String key, String label})>[
+    (key: 'all', label: 'All partners'),
+    // Capitalised to match the existing translated key rather than adding a
+    // second one that differs only in case.
+    (key: 'supporting', label: 'Supporting Organizations'),
+  ];
+
+  String _selected = 'all';
+
+  // Client note — there is no separate category field for this in the data (a
+  // partner is just a partner, with a free-text `partner_type`), so by request
+  // this filters that existing field for anything an admin has labeled as a
+  // supporting organization rather than adding a new column.
   static const List<String> _supportingKeywords = [
     'support',
     'داعم',
@@ -40,46 +57,100 @@ class PartnersScreen extends StatelessWidget {
         ? Get.find<PartnersController>()
         : Get.put(PartnersController());
 
-    final title = onlySupporting ? 'Supporting Organizations' : 'Partners';
-    final emptySubtitle = onlySupporting
-        ? 'No supporting organizations are listed yet.'
-        : 'No partner records are available yet.';
-
     return SectionScaffold(
-      title: title,
-      subtitle: onlySupporting
-          ? 'Organizations that support our work.'
-          : 'Browse partner and supporting entities.',
-      child: Obx(() {
-        final items = onlySupporting
-            ? controller.partners.where(_isSupporting).toList()
-            : controller.partners;
-        // AppAsync renders exactly ONE of loading / content / error / empty.
-        // This screen previously stacked three `if` blocks inside the same
-        // ListView, so a failed load could show the error tile AND the empty
-        // tile at once, and the "error" was a SectionTile whose retry was an
-        // unlabelled onTap - nothing told the user it could be tapped.
-        return AppAsync<List<Map<String, dynamic>>>(
-          loading: controller.isLoading.value,
-          error: controller.errorMessage.value,
-          onRetry: controller.fetchPartners,
-          data: items,
-          isEmpty: (list) => list.isEmpty,
-          empty: AppEmpty(title: title, message: emptySubtitle),
-          builder: (list) => RefreshIndicator(
-            onRefresh: controller.fetchPartners,
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
-              children: [
-                for (final item in list) ...[
-                  _PartnerCard(item: item),
-                  const SizedBox(height: 12),
-                ],
-              ],
+      title: 'Partners',
+      subtitle: 'Browse partner and supporting entities.',
+      child: Column(
+        children: [
+          // Same chip row as the sponsorship schedule's filter, deliberately:
+          // one convention for "narrow this list", not a second one.
+          SizedBox(
+            height: 44,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              itemCount: _filters.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
+              itemBuilder: (context, i) {
+                final f = _filters[i];
+                final active = f.key == _selected;
+                return Material(
+                  color: active
+                      ? AppThemeConfig.primary
+                      : AppThemeConfig.surface(context),
+                  borderRadius: BorderRadius.circular(20),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(20),
+                    onTap: () {
+                      if (f.key == _selected) return;
+                      setState(() => _selected = f.key);
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      child: Text(
+                        f.label.tr,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                          color: active
+                              ? Colors.white
+                              : AppThemeConfig.text(context),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
           ),
-        );
-      }),
+          const SizedBox(height: 12),
+          Expanded(
+            child: Obx(() {
+              final supporting = _selected == 'supporting';
+              final items = supporting
+                  ? controller.partners.where(_isSupporting).toList()
+                  : controller.partners.toList();
+              // AppAsync renders exactly ONE of loading / content / error /
+              // empty. This screen previously stacked three `if` blocks inside
+              // the same ListView, so a failed load could show the error tile
+              // AND the empty tile at once, and the "error" was a SectionTile
+              // whose retry was an unlabelled onTap - nothing told the user it
+              // could be tapped.
+              return AppAsync<List<Map<String, dynamic>>>(
+                loading: controller.isLoading.value,
+                error: controller.errorMessage.value,
+                onRetry: controller.fetchPartners,
+                data: items,
+                isEmpty: (list) => list.isEmpty,
+                // Per-filter empty copy: "no supporting organizations" is a
+                // different fact from "no partners at all", and the filtered
+                // view being empty says nothing about the full list.
+                empty: AppEmpty(
+                  title: supporting ? 'Supporting Organizations' : 'Partners',
+                  message: supporting
+                      ? 'No supporting organizations are listed yet.'
+                      : 'No partner records are available yet.',
+                ),
+                builder: (list) => RefreshIndicator(
+                  onRefresh: controller.fetchPartners,
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+                    children: [
+                      for (final item in list) ...[
+                        _PartnerCard(item: item),
+                        const SizedBox(height: 12),
+                      ],
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ),
+        ],
+      ),
     );
   }
 }
