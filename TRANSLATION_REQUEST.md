@@ -8,6 +8,7 @@ Updated 2026-08-15 with the 25 strings the A16 password sign-in flow added.
 Updated 2026-08-15 again with the 100 keys the group-B English-leak sweep added
 (81 notification types, shared by both clients, plus 19 widget literals).
 Updated 2026-08-16 with the 2 keys the J1 guest sign-up name box added.
+Updated 2026-08-16 again with the 8 keys the K7 alert-categories screen added.
 
 ## Why these are empty rather than wrong
 
@@ -20,7 +21,7 @@ made on this project once and had to be reverted.
 Every key below currently renders its **English** string to a Kurdish user.
 That is deliberate and safe. It is not a crash, and it is not Arabic text.
 
-## Count: 238 keys need Kurdish
+## Count: 246 keys need Kurdish
 
 | Client | Sorani (ckb) | Badini (kmr) | Distinct keys |
 |---|---|---|---|
@@ -28,9 +29,10 @@ That is deliberate and safe. It is not a crash, and it is not Arabic text.
 | Flutter app — B1 notification types (new) | 81 | 81 | 81 |
 | Flutter app — B21 widget literals (new) | 19 | 19 | 19 |
 | Flutter app — J1 guest sign-up name (new) | 2 | 2 | 2 |
+| Flutter app — K7 alert categories (new) | 8 | 8 | 8 |
 | Admin dashboard — audited `status.*` | 20 | 20 | 20 |
 | Admin dashboard — B1 notification types (new) | 81 | 81 | *same 81 words as above* |
-| **Total distinct words to translate** | | | **238** |
+| **Total distinct words to translate** | | | **246** |
 
 > **The dashboard figure above is a floor, not a ceiling — and it is the one
 > number in this file that was never fully measured.** Counting key paths in
@@ -84,6 +86,29 @@ The `٢٠٠` in the second row is the database column limit and must stay 200.
 |---|---|---|---|
 | `guest_full_name_hint` | e.g. Zaid Ahmed | مثال: زيد أحمد | ckb + kmr |
 | `guest_full_name_too_long` | That name is too long. Use 200 characters or fewer. | الاسم طويل جدًا. استخدم ٢٠٠ حرف أو أقل. | ckb + kmr |
+
+## notifications · K7 alert categories  (8 keys)
+
+Added 2026-08-16. The Settings menu gained a screen with one switch per
+CATEGORY of alert, replacing an all-or-nothing switch. The six category NAMES
+are **not** in this list: they are `Urgent`, `Payment`, `Campaign`, `System`,
+`Reminder` and `Normal` — the same keys the Alerts tab's filter chips already
+use, already present in Sorani. Only the screen's own furniture is new.
+
+`notif_cat_on` / `notif_cat_off` are the line under each switch saying what its
+position means, so they must read as a consequence ("you receive these"), not
+as a state word ("on"/"off") — the switch itself already shows the state.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `Alert categories` | Alert categories | فئات التنبيهات | ckb + kmr |
+| `Could not load your notification settings.` | Could not load your notification settings. | تعذّر تحميل إعدادات الإشعارات. | ckb + kmr |
+| `notif_cat_desc` | Choose which kinds of alert you receive. Switching one off stops it being sent to you, not just hidden after it arrives. | اختر أنواع التنبيهات التي تصلك. إيقاف أي نوع يمنع إرساله إليك، وليس مجرد إخفائه بعد وصوله. | ckb + kmr |
+| `notif_cat_empty` | No alert categories yet | لا توجد فئات تنبيهات بعد | ckb + kmr |
+| `notif_cat_empty_desc` | There is nothing to switch on or off right now. Your notifications still arrive as usual. | لا يوجد شيء لتشغيله أو إيقافه الآن. لا تزال إشعاراتك تصلك كالمعتاد. | ckb + kmr |
+| `notif_cat_master_off` | All notifications are switched off, so none of these will reach you until you turn the switch above back on. | جميع الإشعارات متوقّفة، لذا لن يصلك أي منها حتى تعيد تشغيل المفتاح أعلاه. | ckb + kmr |
+| `notif_cat_off` | You will not receive these | لن تصلك هذه التنبيهات | ckb + kmr |
+| `notif_cat_on` | You receive these | تصلك هذه التنبيهات | ckb + kmr |
 
 ## community, widgets · C2 filter-row error states  (2 keys)
 

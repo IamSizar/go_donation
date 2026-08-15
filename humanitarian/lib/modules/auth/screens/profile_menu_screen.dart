@@ -5,6 +5,7 @@ import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/modules/auth/screens/edit_profile.dart';
 import 'package:flutter_application_1/modules/community/screens/community_services_section.dart';
 import 'package:flutter_application_1/modules/dashboard/screens/games_screen.dart';
+import 'package:flutter_application_1/modules/notifications/screens/notification_categories_screen.dart';
 import 'package:flutter_application_1/modules/notifications/screens/notifications_screen.dart';
 import 'package:flutter_application_1/modules/legal/screens/content_page_screen.dart';
 import 'package:flutter_application_1/modules/proposal/screens/our_work_screen.dart';
@@ -174,6 +175,17 @@ class ProfileMenuScreen extends StatelessWidget {
           // route — this is a second door to one screen, not a second screen.
           NotificationsRow(
             onOpenList: () => Get.to(() => const NotificationsScreen()),
+          ),
+          // K7 — the switch above is still all-or-nothing; this is the row
+          // that refines it. It is a separate entry rather than more controls
+          // stacked into NotificationsRow because six switches inside a menu
+          // row would bury the master switch they depend on, and because the
+          // categories screen has its own four states to render.
+          DrawerTile(
+            icon: Icons.tune_rounded,
+            label: 'Alert categories',
+            color: AppThemeConfig.pending(context),
+            onTap: () => Get.to(() => const NotificationCategoriesScreen()),
           ),
           // K26 — "full user control over sounds and vibration from an
           // app-settings menu". AppMute has always worked; its only UI was a

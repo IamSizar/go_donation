@@ -722,10 +722,22 @@ class DarkModeRow extends StatelessWidget {
 /// It stays optional because the switch is still legitimate on its own in any
 /// settings surface that has no list to open.
 class NotificationsRow extends StatefulWidget {
-  const NotificationsRow({super.key, this.onOpenList});
+  const NotificationsRow({super.key, this.onOpenList, this.onEnabledChanged});
 
   /// Where tapping the label goes. Null leaves the row switch-only.
   final VoidCallback? onOpenList;
+
+  /// K7 — reports the master switch's value to a host that has to react to
+  /// it, called once the setting is known and after every change (including a
+  /// failed write's rollback, so the listener never keeps a value the row
+  /// itself has abandoned).
+  ///
+  /// It exists so NotificationCategoriesScreen can say that its per-category
+  /// switches are moot while this one is off — the server lets the master
+  /// override every category, and six switches that quietly govern nothing is
+  /// exactly what that screen must not become. The row stays the single owner
+  /// of the value; this reports it, it does not share it.
+  final ValueChanged<bool>? onEnabledChanged;
 
   @override
   State<NotificationsRow> createState() => _NotificationsRowState();
@@ -750,15 +762,20 @@ class _NotificationsRowState extends State<NotificationsRow> {
       // like the user has notifications switched off.
     } finally {
       if (mounted) setState(() => _loading = false);
+      widget.onEnabledChanged?.call(_enabled);
     }
   }
 
   Future<void> _toggle(bool next) async {
+    // One event, one haptic: the switch is a selection, like every other
+    // preference control in this file.
+    AppHaptics.selection();
     final previous = _enabled;
     setState(() => _enabled = next);
     try {
       final applied = await const ModuleApi().setNotificationSetting(next);
       if (mounted) setState(() => _enabled = applied);
+      widget.onEnabledChanged?.call(applied);
     } catch (e) {
       // The rollback keeps the switch TRUTHFUL — it reads as unchanged, which
       // it is. But truthful is not the same as understood: a switch that flips
@@ -767,6 +784,9 @@ class _NotificationsRowState extends State<NotificationsRow> {
       // noise because it changes what the user does next (try again later
       // versus assume the app is broken).
       if (mounted) setState(() => _enabled = previous);
+      // Told AFTER the rollback, so a listener can never be left holding a
+      // value this row has already abandoned.
+      widget.onEnabledChanged?.call(previous);
       debugPrint('setNotificationSetting failed: $e');
       Get.snackbar(
         'Settings'.tr,

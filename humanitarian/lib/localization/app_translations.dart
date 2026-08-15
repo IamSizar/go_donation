@@ -745,6 +745,25 @@ class AppTranslations extends Translations {
     'Notifications': 'Notifications',
     'Receive updates and alerts from the app.':
         'Receive updates and alerts from the app.',
+    // K7 — the per-category notification switches. The six category NAMES are
+    // not here: they are `Urgent`/`Payment`/`Campaign`/`System`/`Reminder`/
+    // `Normal`, the literal keys the Alerts tab's own filter chips already
+    // use, and they already exist in this map.
+    'Alert categories': 'Alert categories',
+    'notif_cat_desc':
+        'Choose which kinds of alert you receive. Switching one off stops it '
+            'being sent to you, not just hidden after it arrives.',
+    'notif_cat_on': 'You receive these',
+    'notif_cat_off': 'You will not receive these',
+    'notif_cat_master_off':
+        'All notifications are switched off, so none of these will reach you '
+            'until you turn the switch above back on.',
+    'notif_cat_empty': 'No alert categories yet',
+    'notif_cat_empty_desc':
+        'There is nothing to switch on or off right now. Your notifications '
+            'still arrive as usual.',
+    'Could not load your notification settings.':
+        'Could not load your notification settings.',
     'Field privacy': 'Field privacy',
     'privacy_desc': 'Choose which profile details other people can see.',
     'privacy_visible': 'Visible to others',
@@ -3404,6 +3423,21 @@ class AppTranslations extends Translations {
     'Notifications': 'الإشعارات',
     'Receive updates and alerts from the app.':
         'استقبل التحديثات والتنبيهات من التطبيق.',
+    // K7 — انظر التعليق نفسه في الخريطة الإنجليزية.
+    'Alert categories': 'فئات التنبيهات',
+    'notif_cat_desc':
+        'اختر أنواع التنبيهات التي تصلك. إيقاف أي نوع يمنع إرساله إليك، وليس '
+            'مجرد إخفائه بعد وصوله.',
+    'notif_cat_on': 'تصلك هذه التنبيهات',
+    'notif_cat_off': 'لن تصلك هذه التنبيهات',
+    'notif_cat_master_off':
+        'جميع الإشعارات متوقّفة، لذا لن يصلك أي منها حتى تعيد تشغيل المفتاح '
+            'أعلاه.',
+    'notif_cat_empty': 'لا توجد فئات تنبيهات بعد',
+    'notif_cat_empty_desc':
+        'لا يوجد شيء لتشغيله أو إيقافه الآن. لا تزال إشعاراتك تصلك كالمعتاد.',
+    'Could not load your notification settings.':
+        'تعذّر تحميل إعدادات الإشعارات.',
     'Field privacy': 'خصوصية الحقول',
     'privacy_desc': 'اختر تفاصيل ملفك التي يمكن للآخرين رؤيتها.',
     'privacy_visible': 'ظاهر للآخرين',

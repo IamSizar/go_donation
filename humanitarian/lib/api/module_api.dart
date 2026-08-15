@@ -347,6 +347,49 @@ class ModuleApi {
     return res['enabled'] == true;
   }
 
+  /// K7 — the categories of alert the user can switch off individually, each
+  /// carrying THIS user's current answer.
+  ///
+  /// THROWS on failure, like [getPrivacyOptions] and for the same reason: an
+  /// empty list would render a settings screen with nothing on it, which
+  /// reads as "there is nothing here you can control". Worse here than there,
+  /// because every switch draws from `enabled` — a swallowed failure would
+  /// show a user categories they had switched off as still switched on.
+  Future<List<NotificationCategoryPref>> getNotificationCategories() async {
+    final res = await getObject(notificationCategoriesUrl);
+    final raw = res['items'];
+    if (raw is! List) return const [];
+    return raw
+        .whereType<Map>()
+        .map(
+          (e) => NotificationCategoryPref(
+            category: (e['category'] ?? '').toString(),
+            labelKey: (e['label_key'] ?? '').toString(),
+            // Absence of a stored row means ENABLED server-side, and the
+            // handler has already applied that, so anything but an explicit
+            // false is on.
+            enabled: e['enabled'] != false,
+          ),
+        )
+        .where((c) => c.category.isNotEmpty)
+        .toList();
+  }
+
+  /// K7 — replaces the user's whole set of per-category choices.
+  ///
+  /// [disabled] must be EVERY category that should end up off, not just the
+  /// one just tapped: `SetNotificationCategories` rewrites every catalogue row
+  /// from this list, so a delta would switch the others back on. Returns what
+  /// the server actually stored (unknown categories are dropped there), so the
+  /// caller can show real state rather than assume its request landed.
+  Future<List<String>> setNotificationCategories(List<String> disabled) async {
+    final res = await postJson(notificationCategoriesUrl, {
+      'disabled': disabled,
+    });
+    final raw = res['disabled'];
+    return raw is List ? raw.map((e) => e.toString()).toList() : <String>[];
+  }
+
   /// "Eleventh: Partners Section" — activities implemented with a partner.
   ///
   /// THROWS on failure. The old doc said it returned an empty list "so the
@@ -824,6 +867,30 @@ class ModuleApi {
       getItems(marriageProfilesUrl);
 
   Future<Map<String, dynamic>> reports() => getObject(reportsUrl);
+}
+
+/// One switch on the notification settings screen (K7), served by
+/// GET /api/profile/notification-categories.
+///
+/// [labelKey] is server data, not a compile-time key, so render it through
+/// `localizedTag` rather than `.tr` — GetX returns the key itself when there
+/// is no entry, which is how a raw token reaches the screen.
+class NotificationCategoryPref {
+  const NotificationCategoryPref({
+    required this.category,
+    required this.labelKey,
+    required this.enabled,
+  });
+
+  /// The value stored in `notification_preferences.category` and matched
+  /// against `notify.resolveCategory`.
+  final String category;
+
+  final String labelKey;
+
+  /// This user's effective answer, master switch NOT applied — that lives on
+  /// `users.notifications_enabled` and wins over all of these.
+  final bool enabled;
 }
 
 /// One toggleable entry in the Privacy Settings screen, served by

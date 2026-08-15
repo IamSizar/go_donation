@@ -179,6 +179,16 @@ const String communitySubmitUrl = '${baseUrl}community/submit';
 /// GET/POST: the current user's notification on/off switch (#31).
 const String notificationSettingUrl = '${baseUrl}profile/notifications';
 
+/// GET/POST: the switch above, refined — one per CATEGORY of alert (K7,
+/// migration 108). GET answers `items[]` with this user's state already
+/// applied; POST takes `{"disabled": [...]}` and replaces the whole set.
+///
+/// Category rather than raw notification type on purpose: there are 81 types
+/// and the server derives a category from every one of them, so this is the
+/// unit the Alerts tab's own filter chips already group by.
+const String notificationCategoriesUrl =
+    '${baseUrl}profile/notification-categories';
+
 /// GET/POST: the current user's hidden profile fields (#32).
 const String fieldPrivacyUrl = '${baseUrl}profile/privacy';
 
