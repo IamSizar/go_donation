@@ -32,6 +32,11 @@ class AppTranslations extends Translations {
     'support_no_requests': 'You have not contacted support yet.',
     'support_my_requests': 'My requests',
     'support_fill_both': 'Enter a subject and a message.',
+    // Per-field, so the message names the ONE thing that is missing and can
+    // sit under the field it belongs to. support_fill_both stayed because it
+    // still reads correctly if a caller ever needs the combined form.
+    'support_subject_required': 'Enter a subject.',
+    'support_message_required': 'Enter your message.',
     'support_send_failed': 'Could not send your message.',
     'support_sent': 'Your message was sent.',
     'support_send': 'Send',
@@ -2463,6 +2468,8 @@ class AppTranslations extends Translations {
     'support_no_requests': 'لم تتواصل مع الدعم بعد.',
     'support_my_requests': 'طلباتي',
     'support_fill_both': 'أدخل الموضوع والرسالة.',
+    'support_subject_required': 'أدخل الموضوع.',
+    'support_message_required': 'أدخل رسالتك.',
     'support_send_failed': 'تعذّر إرسال رسالتك.',
     'support_sent': 'تم إرسال رسالتك.',
     'support_send': 'إرسال',

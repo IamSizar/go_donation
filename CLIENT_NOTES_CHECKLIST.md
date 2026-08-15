@@ -22,7 +22,7 @@ PDF repeats the same complaint). Groups G–N are new material extracted from th
 |---|---|---|---|
 | A1 | **`Database error.` on the contributions page**, and in-kind contributions sent to a user never arrive. Screenshot shows the red error banner with an empty table beneath. | Dashboard → المساعدات والحملات → المساهمات | 🔎 **fixed, not deployed** — see A1 notes below |
 | A2 | **Force logout (تسجيل خروج قسري) does not work** | Dashboard → المستخدمون → row actions | ⬜ |
-| A3 | **Contact-support chat does not work** (التواصل مع الدعم لا يعمل). PDFs additionally spec the support section it should be: direct message to the support team + follow request status/replies, and after >3 messages on different dates about the same unresolved issue, offer direct WhatsApp escalation. `[A p27, p34]` | App → الرسائل | 🔎 **reply half fixed, not deployed** — see A3 notes below |
+| A3 | **Contact-support chat does not work** (التواصل مع الدعم لا يعمل). PDFs additionally spec the support section it should be: direct message to the support team + follow request status/replies, and after >3 messages on different dates about the same unresolved issue, offer direct WhatsApp escalation. `[A p27, p34]` | App → الرسائل | 🔎 **confirmed, fixed, not deployed** — see A3 notes below |
 | A4 | **City Guide: the last slide cannot be displayed** — technical fault | App → دليل المدينة | ⬜ |
 | A5 | Dashboard shows a **wrong phone number for a real user**: `07701111111` appears on the accounts page for user **نور كاظم** although he is registered successfully through the phone app — "ظهور رقم الهاتف ٠٧٧٠١١١١١١١ في صفحة الحسابات داخل لوحة التحكم ... رغم كونه مسجلاً بنجاح عبر تطبيق الهاتف" `[D p9]` | Dashboard → المستخدمون | ⬜ |
 | A6 | **Some app screens stop working when signed in with that same account** — "توقف بعض واجهات تطبيق الهاتف عن العمل بصورة صحيحة عند الدخول بهذا الحساب". Reproduce by logging in as نور كاظم. `[D p9]` | App | ⬜ |
@@ -85,8 +85,61 @@ it fails without the fix (`undefined: SupportRepliedMsg`).
 **Gates:** `go build ./...`, `go vet ./...`, `go test ./...`, `npx tsc -b`,
 `npm run build` all pass.
 
-**Not deployed.** The routing half of A3 — users landing on the wrong support
-screen — is tracked in the same row and fixed separately.
+**Not deployed.**
+
+---
+
+**The other half of A3 — users were being sent to the WRONG support screen.**
+
+Two support screens existed. `TechnicalSupportScreen` is the real one: compose
+box, ticket history, staff reply, WhatsApp escalation, four states with the
+error branch checked before the empty branch. It was reachable from **one**
+place, the profile drawer.
+
+`SupportTicketFormScreen` (inside `proposal_services_section.dart`) was a bare
+compose form and it owned the other **three** entry points:
+
+| Entry point | Was | Now |
+|---|---|---|
+| Services hub → الدعم الفني | bare form | TechnicalSupportScreen |
+| Bot `support` route | bare form | TechnicalSupportScreen |
+| Tapped support notification | bare form, and unreachable (below) | TechnicalSupportScreen |
+
+The bare form had no ticket history, no staff reply, no validation, no submit
+gating — an empty submit was a silent no-op — and
+`catch (e) { Get.snackbar('Error', e.toString()) }`, i.e. a **raw exception in
+front of the user**.
+
+**Deleted, not kept as the compose step.** It was checked for a state the good
+screen does not serve, because "duplicate" screens on this project have more
+than once turned out to serve different ones. This one served none: it POSTs
+the same two fields to the same endpoint, and the good screen's compose panel
+*is* that form. Keeping it would have preserved the worse copy of a box that
+already exists inside the good screen.
+
+**A second, separate defect found on the notification path.** `destinationFor`
+matched the exact string `'support_ticket'`, which the backend **never emits**
+— it emits `support_request_submitted`, `support_ticket_<status>` and (new
+above) `support_ticket_replied`. So every support notification fell through to
+`null` and tapping it did nothing. Matching the support family by prefix makes
+the reply notification actionable, which is the whole point of it.
+
+**Also brought up to rule 5.6** on the screen that is now the only support
+surface: inline per-field errors that name what is missing and sit at the field
+(not a snackbar covering the form), a send button disabled while the form is
+incomplete or in flight, keyboard dismissal on scroll and before submit.
+
+**Changed:** `proposal_services_section.dart` (route + delete) ·
+`bot_navigation.dart` · `notifications_controller.dart` ·
+`technical_support_screen.dart` · `app_translations.dart`
+(`support_subject_required` / `support_message_required`, en + ar).
+
+**Test:** `humanitarian/test/notifications/support_destination_test.dart`.
+Verified it fails before the fix — **7 of 9 failing**, every real support type
+returning `null` — and passes after.
+
+**Gates:** `flutter analyze` 6 issues (the 6 pre-existing deprecation infos,
+none new), `flutter test` 158 passing.
 
 ### A1 — diagnosis and fix (2026-08-15)
 

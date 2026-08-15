@@ -14,6 +14,7 @@ import 'package:flutter_application_1/modules/proposal/screens/news_activities_s
 import 'package:flutter_application_1/modules/proposal/screens/partners_screen.dart';
 import 'package:flutter_application_1/modules/sponsorship/controllers/sponsorships_controller.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/sponsorship_overview_screen.dart';
+import 'package:flutter_application_1/modules/support/screens/technical_support_screen.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
@@ -197,9 +198,14 @@ List<Widget> _communityAndSupportTiles(BuildContext context) {
     SectionTile(
       icon: Icons.support_agent_rounded,
       title: 'Technical support',
-      subtitle: 'Send a support request to the institution.',
+      // Was a bare compose form (SupportTicketFormScreen, deleted): no ticket
+      // history, no staff reply, no validation, and a raw exception string in
+      // a snackbar on failure. TechnicalSupportScreen is the real one — same
+      // compose box, plus the request history, the staff reply and the
+      // WhatsApp escalation the support spec asks for.
+      subtitle: 'Send a support request and track the reply.',
       color: AppThemeConfig.accent(context),
-      onTap: () => Get.to(() => const SupportTicketFormScreen()),
+      onTap: () => Get.to(() => const TechnicalSupportScreen()),
     ),
     SectionTile(
       icon: Icons.diversity_1_rounded,
@@ -885,59 +891,23 @@ class _InKindDonationFormScreenState extends State<InKindDonationFormScreen> {
   }
 }
 
-class SupportTicketFormScreen extends StatefulWidget {
-  const SupportTicketFormScreen({super.key});
-
-  @override
-  State<SupportTicketFormScreen> createState() =>
-      _SupportTicketFormScreenState();
-}
-
-class _SupportTicketFormScreenState extends State<SupportTicketFormScreen> {
-  final _subject = TextEditingController();
-  final _message = TextEditingController();
-  bool _loading = false;
-
-  @override
-  void dispose() {
-    _subject.dispose();
-    _message.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submit() async {
-    setState(() => _loading = true);
-    try {
-      await const ModuleApi().postJson(supportTicketsUrl, {
-        'user_id': sharedPreferences.getString('id_user') ?? '',
-        'subject': _subject.text,
-        'message': _message.text,
-      });
-      if (!mounted) return;
-      Get.back<void>();
-      Get.snackbar('Submitted'.tr, 'Support ticket saved.'.tr);
-    } catch (e) {
-      if (mounted) Get.snackbar('Error'.tr, e.toString());
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return _SimpleFormScaffold(
-      title: 'Technical support'.tr,
-      subtitle: 'Send a message to the support team.'.tr,
-      loading: _loading,
-      submitLabel: 'Send request',
-      onSubmit: _submit,
-      fields: [
-        _ProposalTextField(controller: _subject, label: 'Subject'),
-        _ProposalTextField(controller: _message, label: 'Message', maxLines: 5),
-      ],
-    );
-  }
-}
+// SupportTicketFormScreen was DELETED here.
+//
+// It was a second, worse support screen: the same POST to the same endpoint
+// with the same two fields, but no ticket history, no staff reply, no
+// escalation, no validation and no submit gating — plus
+// `catch (e) => Get.snackbar('Error', e.toString())`, i.e. a raw exception in
+// front of the user. Submitting it empty was a silent no-op.
+//
+// It was checked for a state TechnicalSupportScreen does not serve, because
+// "duplicate" screens on this project have more than once turned out to serve
+// different ones. It served none: TechnicalSupportScreen's compose panel IS
+// this form, so keeping this as "the compose step" would only have preserved
+// the worse copy of a box the good screen already contains.
+//
+// All three entry points now open TechnicalSupportScreen — the Services hub
+// (above), the bot's `support` route (bot_navigation.dart) and a tapped
+// support notification (notifications_controller.dart).
 
 class ReportsScreen extends StatelessWidget {
   const ReportsScreen({super.key});

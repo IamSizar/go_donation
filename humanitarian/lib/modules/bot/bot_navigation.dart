@@ -16,6 +16,7 @@ import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_my
 import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_submit_project_screen.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/sponsorship_section.dart';
 import 'package:flutter_application_1/modules/support/screens/support_section.dart';
+import 'package:flutter_application_1/modules/support/screens/technical_support_screen.dart';
 import 'package:get/get.dart';
 
 /// Central resolver that turns an assistant route key into real navigation.
@@ -85,7 +86,10 @@ abstract final class BotNavigation {
     ),
     // Marriage now has its own tab; land there, then open the profile form.
     'marriage': BotNavSpec(2, () => const MarriageFormScreen()),
-    'support': BotNavSpec(0, () => const SupportTicketFormScreen()),
+    // The real support screen, not the bare compose form that used to sit
+    // here: a user the bot sends to support needs their existing tickets and
+    // any staff reply, not just another empty box.
+    'support': BotNavSpec(0, () => const TechnicalSupportScreen()),
   };
 
   /// Localized CTA button labels per route per language (ar / ckb / kmr).

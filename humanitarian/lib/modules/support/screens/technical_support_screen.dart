@@ -40,14 +40,33 @@ class _TechnicalSupportScreenState extends State<TechnicalSupportScreen> {
   String? _whatsapp;
   String? _error;
 
+  /// True once the user has tried to send, so the inline field errors appear
+  /// on the first failed attempt rather than scolding an untouched form.
+  bool _submitAttempted = false;
+
+  /// True while both fields hold something. Drives the send button, so a
+  /// doomed request can never fire (rule 5.6).
+  bool get _canSend =>
+      _subject.text.trim().isNotEmpty && _message.text.trim().isNotEmpty;
+
   @override
   void initState() {
     super.initState();
+    // Rebuild on every keystroke so the button ungates and the inline error
+    // clears as soon as the field is valid, rather than only on submit.
+    _subject.addListener(_onFieldChanged);
+    _message.addListener(_onFieldChanged);
     _load();
+  }
+
+  void _onFieldChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
+    _subject.removeListener(_onFieldChanged);
+    _message.removeListener(_onFieldChanged);
     _subject.dispose();
     _message.dispose();
     super.dispose();
@@ -99,11 +118,20 @@ class _TechnicalSupportScreenState extends State<TechnicalSupportScreen> {
   Future<void> _send() async {
     final subject = _subject.text.trim();
     final message = _message.text.trim();
+    // The button is already gated on _canSend, so this only catches a send
+    // racing the last keystroke. The inline messages under the fields, not a
+    // snackbar, are what tell the user WHICH field is missing.
     if (subject.isEmpty || message.isEmpty) {
-      Get.snackbar('Technical Support'.tr, 'support_fill_both'.tr);
+      setState(() => _submitAttempted = true);
       return;
     }
-    setState(() => _sending = true);
+    // Dismiss the keyboard before the request: it must not hang over the
+    // ticket list the send is about to refresh.
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _submitAttempted = false;
+      _sending = true;
+    });
     try {
       await const ModuleApi().postJson(supportTicketsUrl, {
         'subject': subject,
@@ -146,6 +174,9 @@ class _TechnicalSupportScreenState extends State<TechnicalSupportScreen> {
       child: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
+          // Scrolling the page puts the keyboard away, so it can never end up
+          // covering the ticket list the user scrolled down to read.
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
           children: [
             if (_escalate && (_whatsapp ?? '').isNotEmpty) ...[
@@ -165,10 +196,20 @@ class _TechnicalSupportScreenState extends State<TechnicalSupportScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
+                  // Inline, per-field validation. The error names the rule
+                  // being broken and sits at the field it belongs to, rather
+                  // than a snackbar that covers the form it is complaining
+                  // about (rule 5.6). It appears only after a send attempt and
+                  // clears the moment the field holds text.
                   TextField(
                     controller: _subject,
+                    textInputAction: TextInputAction.next,
                     decoration: InputDecoration(
                       labelText: 'support_subject'.tr,
+                      errorText:
+                          _submitAttempted && _subject.text.trim().isEmpty
+                          ? 'support_subject_required'.tr
+                          : null,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -177,13 +218,19 @@ class _TechnicalSupportScreenState extends State<TechnicalSupportScreen> {
                     maxLines: 4,
                     decoration: InputDecoration(
                       labelText: 'support_message'.tr,
+                      errorText:
+                          _submitAttempted && _message.text.trim().isEmpty
+                          ? 'support_message_required'.tr
+                          : null,
                     ),
                   ),
                   const SizedBox(height: 14),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: _sending ? null : _send,
+                      // Disabled while incomplete or in flight: no doomed
+                      // request, and no double submit.
+                      onPressed: (_sending || !_canSend) ? null : _send,
                       child: Text(
                         _sending ? 'Sending...'.tr : 'support_send'.tr,
                       ),

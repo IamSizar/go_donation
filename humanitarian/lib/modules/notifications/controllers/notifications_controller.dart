@@ -9,7 +9,7 @@ import 'package:flutter_application_1/core/app_sound.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/modules/proposal/screens/news_activities_screen.dart';
 import 'package:flutter_application_1/modules/proposal/screens/partners_screen.dart';
-import 'package:flutter_application_1/modules/proposal/screens/proposal_services_section.dart';
+import 'package:flutter_application_1/modules/support/screens/technical_support_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/app_notification_model.dart';
@@ -327,15 +327,23 @@ class NotificationsController extends GetxController {
         return () => launchUrl(uri, mode: LaunchMode.externalApplication);
       }
     }
-    switch (notification.notificationType) {
+    // Support alerts are a FAMILY of types, not one: the backend emits
+    // `support_request_submitted`, `support_ticket_<status>` and
+    // `support_ticket_replied`. The old exact match on 'support_ticket'
+    // matched none of them, so every support notification was a dead tap —
+    // and when it did fire it opened a blank compose form rather than the
+    // ticket whose reply the user was being told about.
+    final type = notification.notificationType;
+    if (type.startsWith('support_ticket') || type.startsWith('support_request')) {
+      return () => Get.to(() => const TechnicalSupportScreen());
+    }
+    switch (type) {
       case 'media_post':
       case 'news':
       case 'activity':
         return () => Get.to(() => const NewsActivitiesScreen());
       case 'partner':
         return () => Get.to(() => const PartnersScreen());
-      case 'support_ticket':
-        return () => Get.to(() => const SupportTicketFormScreen());
       default:
         return null;
     }
