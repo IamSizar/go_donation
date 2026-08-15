@@ -205,9 +205,27 @@ func (s *Store) Insert(
 	// #14 — issue this section's next namespaced reference inside the tx, so a
 	// rolled-back donation doesn't leave a gap in the sequence. Falls back to the
 	// legacy DON-YYYYMMDD-HEX code when no namespace is configured for the kind.
-	refNumber, err := s.nextReference(ctx, tx, donationKind)
+	//
+	// M1 — the namespace is codeSection(), not donationKind: a project donation
+	// is stored as a general gift (the CHECK constraint allows nothing else) but
+	// must carry a PRJ- reference. See codeSection for why the two differ.
+	section := codeSection(donationKind, projectSlug)
+	refNumber, err := s.nextReference(ctx, tx, section)
 	if err != nil {
 		return nil, err
+	}
+	// If the `projects` namespace is absent — migration 084 not yet applied on
+	// this database — nextReference falls back to the legacy DON-YYYYMMDD-HEX
+	// format. That would be a REGRESSION rather than a fix: these donations
+	// currently get a clean GEN- code. So retry against the original kind and
+	// only accept the legacy format if that has no namespace either, which is
+	// the state this code already tolerated before M1.
+	if section != donationKind && strings.HasPrefix(refNumber, "DON-") {
+		section = donationKind
+		refNumber, err = s.nextReference(ctx, tx, donationKind)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	var newID int64
@@ -236,7 +254,11 @@ func (s *Store) Insert(
 	// #15 — best-effort: SMS the section's contact that a donation arrived. Runs
 	// detached with its own timeout so a slow/absent SMS provider never affects
 	// the donor response, and a send failure never fails the donation.
-	s.notifySectionArrival(donationKind, amountStr, refNumber)
+	// Paged with the SAME section that issued the code. A PRJ- reference that
+	// alerted the general-fund contact would send whoever answers looking for a
+	// donation in the wrong list — and the projects section has its own
+	// notify_phone precisely so it can be routed separately (migration 084).
+	s.notifySectionArrival(section, amountStr, refNumber)
 
 	return &InsertedDonation{
 		ID:              newID,
@@ -300,7 +322,53 @@ func donorSelectableKind(kind string) string {
 	return ""
 }
 
-// sectionLabelAr maps a donation_kind to its Arabic section label for SMS.
+// codeSection picks which Transaction-Code namespace a donation draws its
+// reference from — and, with it, which section's arrival SMS contact is paged.
+//
+// M1 — this is deliberately NOT the same value as donation_kind. Migration 084
+// seeded a `projects` namespace with the prefix PRJ, but nothing ever asked for
+// it: a donation to a named project has no campaign, so donation_kind resolves
+// to "general" and the donor got GEN-000042. Two of the four sections the owner
+// listed produced no distinct code.
+//
+// The obvious fix — set donation_kind = "projects" — does not work and must not
+// be attempted: donations.donation_kind carries a CHECK constraint limited to
+// ('general','campaign','sponsorship','in_kind','operational')
+// (001_full_v2.sql:390), so the INSERT would fail and every project donation
+// would be rejected. Widening that constraint would also change what the
+// campaign roll-up, the admin section filters and the existing reports see.
+//
+// So the CODE namespace is separated from the STORED kind. The row still says
+// general — true, it is a general-fund gift — while the reference says which
+// project it was given for, which is what the reference is for.
+//
+// Precedence is most-specific-first, and only the last rule is new:
+//   - a campaign donation stays CAM: the campaign is the thing being funded;
+//   - "Donation to Support the Organization" stays OPS: the donor named it;
+//   - a donation carrying a project slug becomes PRJ;
+//   - everything else stays GEN.
+//
+// projectSlug is the pointer the caller already holds, so "" and nil are the
+// same thing here — neither means a project was chosen.
+func codeSection(donationKind string, projectSlug *string) string {
+	if donationKind != "general" {
+		return donationKind
+	}
+	if projectSlug == nil || strings.TrimSpace(*projectSlug) == "" {
+		return donationKind
+	}
+	return "projects"
+}
+
+// sectionLabelAr maps a section key to its Arabic label for the arrival SMS.
+//
+// The five donation_kinds keep their wording here because it is what the SMS
+// has always said and changing live message text is not this fix's business.
+// Anything else — the sections migration 084 added, including the `projects`
+// namespace M1 now issues from — falls through to the shared table in
+// sectioncodes, which already carries all nine. Without that delegation a PRJ
+// donation would have texted the literal word "projects" into an Arabic SMS:
+// the same English-leak shape as group B, one layer down.
 func sectionLabelAr(kind string) string {
 	switch kind {
 	case "general":
@@ -314,7 +382,7 @@ func sectionLabelAr(kind string) string {
 	case "operational":
 		return "تشغيلي"
 	default:
-		return kind
+		return sectioncodes.SectionLabelAr(kind)
 	}
 }
 
