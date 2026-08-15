@@ -25,6 +25,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import 'package:flutter_application_1/core/design/tokens.dart';
+import 'package:flutter_application_1/core/widgets/app_main_menu_button.dart';
 import 'package:flutter_application_1/core/widgets/app_pressable.dart';
 import 'package:flutter_application_1/core/design/directional_icons.dart';
 import 'package:flutter_application_1/modules/bot/widgets/assistant_hint_button.dart';
@@ -192,6 +193,15 @@ class _Header extends StatelessWidget {
                 color: c.ink,
               ),
             ),
+            const SizedBox(width: AppSpace.xs),
+            // J7 — "a Menu button on every app page and a Back button on every
+            // page and section". The two are a pair and sit together: Back
+            // steps one route up, Menu returns to the main menu outright.
+            //
+            // Gated on `canPop` for the same reason Back is. On a root route
+            // the user IS on the main menu, and a button offering to take them
+            // where they already stand is noise.
+            const AppMainMenuButton(),
             const SizedBox(width: AppSpace.xs),
           ],
           Expanded(

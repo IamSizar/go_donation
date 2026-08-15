@@ -484,6 +484,17 @@ snackbar is new.
 |---|---|---|---|
 | `Your registration was saved, but your social links did not. You can add them from Privacy settings.` | Your registration was saved, but your social links did not. You can add them from Privacy settings. | تم حفظ تسجيلك، لكن لم يتم حفظ روابط التواصل. يمكنك إضافتها من إعدادات الخصوصية. | ckb + kmr |
 
+## core · J7 the main-menu button  (1 key)
+
+Added 2026-08-15 by the J7 fix. The ☰ control that now sits beside Back on every
+pushed page needs one word — its tooltip and screen-reader label. It names the
+destination rather than the glyph, because this app's main menu is a screen (the
+five-tab dashboard), not a drawer that slides out.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `Main menu` | Main menu | القائمة الرئيسية | ckb + kmr |
+
 ## dashboard · J6 the اللعبة menu entry  (1 key)
 
 Added 2026-08-15 by the J6 fix. The wheel and the coupon already read correctly

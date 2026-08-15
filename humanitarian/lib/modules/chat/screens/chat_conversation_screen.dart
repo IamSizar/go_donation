@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/core/widgets/app_main_menu_button.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/modules/chat/controllers/chat_controller.dart';
@@ -96,6 +97,10 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
               ),
           ],
         ),
+        // J7 — the shared frame puts this next to Back; a stock AppBar owns
+        // its `leading` slot, so it goes in `actions`, which is where a
+        // secondary control belongs in Material chrome.
+        actions: const [AppMainMenuButton()],
       ),
       body: Column(
         children: [

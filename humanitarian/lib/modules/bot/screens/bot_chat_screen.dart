@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'package:flutter_application_1/core/widgets/app_main_menu_button.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/core/design/directional_icons.dart';
@@ -225,6 +226,9 @@ class _BotChatScreenState extends State<BotChatScreen> {
           ),
         ],
       ),
+      // J7 — see chat_conversation_screen: `actions` rather than beside the
+      // back arrow, because this AppBar already fills its `leading` slot.
+      actions: const [AppMainMenuButton()],
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),
         child: Divider(height: 1, color: AppThemeConfig.border(context)),

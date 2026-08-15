@@ -210,6 +210,10 @@ class AppTranslations extends Translations {
     'or': 'or',
     'Enter your phone number and we will send you a verification code.':
         'Enter your phone number and we will send you a verification code.',
+    // J7 — the ☰ control's tooltip and screen-reader label. It names the
+    // destination, not the glyph: this app's main menu is the dashboard, and
+    // the button returns you to it.
+    'Main menu': 'Main menu',
     // Quick Actions #4 — Wheel of Fortune / Lucky Coupon.
     // J6 — 'Game' names the profile-menu entry (اللعبة) and the hub it opens,
     // which offers both of the games below.
@@ -2881,6 +2885,8 @@ class AppTranslations extends Translations {
     'or': 'أو',
     'Enter your phone number and we will send you a verification code.':
         'أدخل رقم هاتفك وسنرسل لك رمز تحقق.',
+    // J7 — the client's own words for the destination: القائمة الرئيسية.
+    'Main menu': 'القائمة الرئيسية',
     // Quick Actions #4 — Wheel of Fortune / Lucky Coupon.
     'Game': 'اللعبة',
     'Wheel of Fortune': 'عجلة الحظ',
