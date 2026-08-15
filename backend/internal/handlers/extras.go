@@ -17,6 +17,7 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/inkind"
 	"github.com/karam-flutter/humanitarian-backend/internal/marriage"
 	"github.com/karam-flutter/humanitarian-backend/internal/notify"
+	"github.com/karam-flutter/humanitarian-backend/internal/permissions"
 	"github.com/karam-flutter/humanitarian-backend/internal/reports"
 	"github.com/karam-flutter/humanitarian-backend/internal/sponsorships"
 	"github.com/karam-flutter/humanitarian-backend/internal/support"
@@ -1102,26 +1103,50 @@ func (h *DashboardHandler) Get(c *gin.Context) {
 type HistoryHandler struct {
 	Store *history.Store
 	Users *users.Store
+	// Perms answers whether a STAFF caller may read somebody else's history by
+	// identity code (K21). Nil is treated as "no staff may", so a wiring
+	// mistake fails closed.
+	Perms *permissions.Store
 }
 
-func NewHistoryHandler(s *history.Store, u *users.Store) *HistoryHandler {
-	return &HistoryHandler{Store: s, Users: u}
+func NewHistoryHandler(s *history.Store, u *users.Store, p *permissions.Store) *HistoryHandler {
+	return &HistoryHandler{Store: s, Users: u, Perms: p}
 }
 
+// Get serves GET /api/history.
+//
+// Two ways to name whose timeline is wanted:
+//
+//	?user_id=N  — must be the caller's own id (unchanged behaviour)
+//	?code=XX-…  — K21: an identity code, subject to the rule in history_code.go
+//
+// `code` wins when both are supplied: it is the more specific request, and
+// silently preferring the other one would answer a question nobody asked.
 func (h *HistoryHandler) Get(c *gin.Context) {
 	tokenUser, _ := auth.UserFromGin(c)
 	if tokenUser == nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
 		return
 	}
-	uid, _ := strconv.ParseInt(strings.TrimSpace(c.Query("user_id")), 10, 64)
-	if uid <= 0 {
-		uid = tokenUser.UserID
+
+	uid := tokenUser.UserID
+	if code := strings.TrimSpace(c.Query("code")); code != "" {
+		resolved, ok := h.resolveHistoryCode(c, tokenUser, code)
+		if !ok {
+			return // resolveHistoryCode has already written the refusal
+		}
+		uid = resolved
+	} else {
+		requested, _ := strconv.ParseInt(strings.TrimSpace(c.Query("user_id")), 10, 64)
+		if requested > 0 {
+			uid = requested
+		}
+		if uid != tokenUser.UserID {
+			c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+			return
+		}
 	}
-	if uid != tokenUser.UserID {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
-		return
-	}
+
 	role, _ := h.Users.GetRoleID(c.Request.Context(), uid)
 	limit, _ := strconv.Atoi(strings.TrimSpace(c.Query("limit")))
 	res, err := h.Store.Build(c.Request.Context(), uid, role, limit)
@@ -1137,4 +1162,68 @@ func (h *HistoryHandler) Get(c *gin.Context) {
 		"status_options": res.StatusOptions,
 		"items":          res.Items,
 	})
+}
+
+// resolveHistoryCode turns an identity code into the user whose timeline may be
+// returned, or writes the refusal and reports false (K21).
+//
+// The policy itself is decideHistoryCodeAccess in history_code.go — read the
+// header comment there before changing anything here, especially the two
+// refusals, which are deliberately indistinguishable from each other.
+func (h *HistoryHandler) resolveHistoryCode(c *gin.Context, caller *auth.ResolvedUser, code string) (int64, bool) {
+	ctx := c.Request.Context()
+	isStaff := auth.IsDashboardStaff(caller)
+
+	// Only asked for a staff caller: a normal user's answer does not depend on
+	// it, and this saves a query on the common path.
+	staffPermitted := false
+	if isStaff && h.Perms != nil {
+		allowed, err := h.Perms.Allowed(ctx,
+			permissions.TierFrom(caller.StaffTier), historyCodeModule, historyCodeAction)
+		if err != nil {
+			log.Printf("[history] permission lookup failed for user_id=%d %s/%s: %v",
+				caller.UserID, historyCodeModule, historyCodeAction, err)
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"success": false, "error": "Permission check failed.", "code": "server_error",
+			})
+			return 0, false
+		}
+		staffPermitted = allowed
+	}
+
+	// A failed resolution is NOT reported here. It becomes targetUserID = 0 and
+	// is answered by the same rule as everything else, so the response cannot
+	// be used to tell a real code from an invented one.
+	targetUserID, err := h.Users.UserIDByIdentityCode(ctx, code)
+	if err != nil && !errors.Is(err, users.ErrCodeNotFound) {
+		log.Printf("[history] identity-code lookup failed for user_id=%d: %v", caller.UserID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		return 0, false
+	}
+
+	switch decideHistoryCodeAccess(caller.UserID, targetUserID, isStaff, staffPermitted) {
+	case historyCodeOwner, historyCodeStaff:
+		return targetUserID, true
+
+	case historyCodePermissionDenied:
+		log.Printf("[authz] denied history-by-code — user_id=%d staff_tier=%q ip=%s",
+			caller.UserID, caller.StaffTier, c.ClientIP())
+		c.JSON(http.StatusForbidden, gin.H{
+			"success": false,
+			"error":   "You don't have permission for this action.",
+			"code":    "permission_denied",
+		})
+		return 0, false
+
+	default:
+		// ONE answer for "no such code" and "that is someone else's". See
+		// history_code.go: separating them would confirm which codes are real,
+		// and the codes are sequential.
+		c.JSON(http.StatusNotFound, gin.H{
+			"success": false,
+			"error":   "No history is available for that code.",
+			"code":    "history_code_not_found",
+		})
+		return 0, false
+	}
 }

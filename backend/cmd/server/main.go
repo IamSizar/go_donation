@@ -313,7 +313,10 @@ func main() {
 	volunteersH := handlers.NewVolunteersHandler(volunteersStore, notifier)
 	reportsH := handlers.NewReportsHandler(reportsStore)
 	dashboardH := handlers.NewDashboardHandler(dashboardStore, userStore)
-	historyH := handlers.NewHistoryHandler(historyStore, userStore)
+	// K21 — the history handler now also answers ?code=<identity code>, so it
+	// needs the permission store to decide whether a STAFF caller may read
+	// somebody else's timeline. See internal/handlers/history_code.go.
+	historyH := handlers.NewHistoryHandler(historyStore, userStore, permStore)
 
 	r := gin.Default()
 

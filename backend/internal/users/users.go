@@ -72,6 +72,13 @@ type Account struct {
 	// from a "setting the very first password" bootstrap action (which has
 	// nothing to confirm against yet, so it must skip the PIN step).
 	HasPassword bool `json:"has_password"`
+	// IdentityCode (K21) — this account's own auto-generated identity code
+	// (GR-/ER-/VL-), chosen from the profile's three columns by pickIdentityCode.
+	// The registration form promises the code is generated automatically; until
+	// this field existed, nothing ever showed it to the person it belongs to,
+	// so they could not quote it and could not search by it. Empty for accounts
+	// that have none (staff, guests).
+	IdentityCode string `json:"identity_code"`
 }
 
 type Store struct {
@@ -732,18 +739,24 @@ func (s *Store) GetAccountForClient(ctx context.Context, userID int64) (*Account
 		privacy    []string
 	)
 	var username *string
+	// K21 — the three identity-code columns, COALESCEd because the LEFT JOIN
+	// yields NULL for an account with no profile row at all.
+	var recipientCode, volunteerCode, grantorCode string
 	err := s.Pool.QueryRow(ctx,
 		`SELECT u.id, COALESCE(u.phone, '') AS phone, u.role_id, u.active, u.is_admin, u.created_at, u.registration_status, u.staff_tier, u.account_status, u.is_guest, u.username, u.wallet_balance_iqd,
 		        (u.password_hash IS NOT NULL AND u.password_hash <> ''),
 		        up.id, up.full_name, up.gender, up.address, up.profile_picture,
-		        to_char(up.date_of_birth, 'YYYY-MM-DD'), COALESCE(up.field_privacy, '{}')
+		        to_char(up.date_of_birth, 'YYYY-MM-DD'), COALESCE(up.field_privacy, '{}'),
+		        COALESCE(up.recipient_code, ''), COALESCE(up.volunteer_code, ''),
+		        COALESCE(up.grantor_code, '')
 		   FROM users u
 		   LEFT JOIN user_profiles up ON up.user_id = u.id
 		  WHERE u.id = $1
 		  LIMIT 1`,
 		userID,
 	).Scan(&acc.UserID, &acc.Phone, &roleID, &active, &isAdmin, &acc.CreatedAt, &regStatus, &staffTier, &acctStatus, &acc.IsGuest, &username, &acc.WalletBalanceIQD, &acc.HasPassword,
-		&profileID, &fullName, &gender, &address, &picture, &dob, &privacy)
+		&profileID, &fullName, &gender, &address, &picture, &dob, &privacy,
+		&recipientCode, &volunteerCode, &grantorCode)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
@@ -775,6 +788,7 @@ func (s *Store) GetAccountForClient(ctx context.Context, userID int64) (*Account
 		privacy = []string{}
 	}
 	acc.FieldPrivacy = privacy
+	acc.IdentityCode = pickIdentityCode(acc.RoleID, recipientCode, volunteerCode, grantorCode)
 	if profileID != nil && *profileID > 0 {
 		acc.Profile = &Profile{
 			ProfileID:      *profileID,
@@ -876,7 +890,13 @@ func (s *Store) PaginatedList(ctx context.Context, page, perPage int, q, status 
 		       up.id, up.full_name, up.gender, up.address, up.profile_picture,
 		       to_char(up.date_of_birth, 'YYYY-MM-DD'),
 		       up.city, up.occupation, up.family_size, up.housing_status,
-		       up.monthly_income, up.skills, up.availability, up.experience
+		       up.monthly_income, up.skills, up.availability, up.experience,
+		       -- K21 — the same identity code the account itself reports, so a
+		       -- staff member who searched by a code can also SEE it on the row
+		       -- rather than only matching it. An always-empty field here would
+		       -- read as "this person has no code", which is not true.
+		       COALESCE(up.recipient_code, ''), COALESCE(up.volunteer_code, ''),
+		       COALESCE(up.grantor_code, '')
 		  FROM users u
 		  LEFT JOIN user_profiles up ON up.user_id = u.id`+where+`
 		 ORDER BY u.id DESC
@@ -913,10 +933,14 @@ func (s *Store) PaginatedList(ctx context.Context, page, perPage int, q, status 
 			availability  *string
 			experience    *string
 			username      *string
+			recipientCode string
+			volunteerCode string
+			grantorCode   string
 		)
 		err := rows.Scan(&acc.UserID, &acc.Phone, &roleID, &active, &isAdmin, &acc.CreatedAt, &regStatus, &staffTier, &acctStatus, &acc.IsGuest, &username, &acc.WalletBalanceIQD, &acc.HasPassword,
 			&profileID, &fullName, &gender, &address, &picture, &dob,
-			&city, &occupation, &familySize, &housingStatus, &monthlyIncome, &skills, &availability, &experience)
+			&city, &occupation, &familySize, &housingStatus, &monthlyIncome, &skills, &availability, &experience,
+			&recipientCode, &volunteerCode, &grantorCode)
 		if err != nil {
 			return nil, err
 		}
@@ -941,6 +965,7 @@ func (s *Store) PaginatedList(ctx context.Context, page, perPage int, q, status 
 		if username != nil {
 			acc.Username = *username
 		}
+		acc.IdentityCode = pickIdentityCode(acc.RoleID, recipientCode, volunteerCode, grantorCode)
 		if profileID != nil && *profileID > 0 {
 			acc.Profile = &Profile{
 				ProfileID:      *profileID,
