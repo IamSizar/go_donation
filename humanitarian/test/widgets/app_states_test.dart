@@ -8,8 +8,10 @@
 // physical layout values.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:get/get.dart';
 
 import 'package:flutter_application_1/core/design/tokens.dart';
+import 'package:flutter_application_1/localization/app_translations.dart';
 import 'package:flutter_application_1/core/widgets/app_row.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
 
@@ -84,6 +86,36 @@ void main() {
       expect(find.text('Nothing here yet'), findsNothing);
     });
 
+    testWidgets('AppErrorState\'s default title and retry label are real copy', (
+      tester,
+    ) async {
+      // Pins a bug found by running the app against a backend returning 500:
+      // AppErrorState defaults to title 'error_title' and retryLabel 'retry',
+      // and NEITHER key existed in the translations map — so `.tr` returned
+      // the key and every error banner in the app showed the literal string
+      // "error_title" with a lowercase "retry" beneath it.
+      //
+      // The existing tests all pass an explicit `message`, so none of them
+      // ever rendered the defaults. A missing key is a silent fallback, not an
+      // error, so nothing failed. This asserts the defaults resolve to
+      // sentences rather than to their own key names.
+      await tester.pumpWidget(
+        GetMaterialApp(
+          translations: AppTranslations(),
+          locale: const Locale('en', 'US'),
+          fallbackLocale: const Locale('en', 'US'),
+          theme: ThemeData(extensions: const [AppColors.light]),
+          home: Scaffold(
+            body: AppErrorState(message: 'Could not load.', onRetry: () {}),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('error_title'), findsNothing);
+      expect(find.text('retry'), findsNothing);
+    });
+
     testWidgets('the shaped skeletons render and stay decorative', (
       tester,
     ) async {
@@ -151,7 +183,12 @@ void main() {
 
       // The recovery path must actually work — an error with a retry that
       // does nothing is still a dead end.
-      await tester.tap(find.text('retry'));
+      //
+      // Found by its ICON, not its text. The label goes through `.tr`, and
+      // GetX translations are global state that another test in this file
+      // installs — so matching the literal string made this test depend on
+      // execution order. The icon is what the user aims at anyway.
+      await tester.tap(find.byIcon(Icons.refresh_rounded));
       await tester.pumpAndSettle();
       expect(retried, 1);
     });

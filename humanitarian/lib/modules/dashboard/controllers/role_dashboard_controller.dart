@@ -1,6 +1,7 @@
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/realtime_polling.dart';
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 
 class RoleDashboardController extends GetxController with RealtimePollingMixin {
@@ -57,7 +58,12 @@ class RoleDashboardController extends GetxController with RealtimePollingMixin {
       );
     } catch (e) {
       if (!silent) {
-        errorMessage.value = e.toString();
+        // A sentence, not `e.toString()`. That put "Exception: Request failed
+        // (500)" on the home screen of a humanitarian app — a stack-trace
+        // fragment where a human explanation belongs (rule 5.7). The cause is
+        // logged instead, so support can still trace it.
+        errorMessage.value = 'Could not load your dashboard.';
+        debugPrint('dashboardSummary failed: $e');
       }
       // Silent polls keep the previous summary cards visible on errors.
     } finally {

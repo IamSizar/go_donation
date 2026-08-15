@@ -10,6 +10,20 @@ import 'package:http/http.dart' as http;
 class ModuleApi {
   const ModuleApi();
 
+  /// How long any single request may hang before it is treated as a failure.
+  ///
+  /// This file had NO timeout at all, unlike wallet_api and task_api which
+  /// both use 12s. That is not a tidiness point: a request that never returns
+  /// also never runs its caller's `finally`, so a screen's `isLoading` stays
+  /// true forever. The home dashboard was caught in exactly that state against
+  /// a hanging backend — a skeleton with no error and no retry, permanently,
+  /// because its only non-silent load was the one that hung and the 10s poll
+  /// that follows is silent by design.
+  ///
+  /// A timeout converts "hangs forever" into "fails", and this app already
+  /// knows how to show a failure.
+  static const Duration _requestTimeout = Duration(seconds: 12);
+
   String _normalizedUrl(String url) {
     final parsed = Uri.parse(url);
     final path = parsed.path.endsWith('/') && parsed.path.length > 1
@@ -189,11 +203,15 @@ class ModuleApi {
         Uri.parse(url).queryParameters,
       ),
     );
-    var response = await http.get(buildUri(), headers: withApiAuthHeaders());
+    var response = await http
+        .get(buildUri(), headers: withApiAuthHeaders())
+        .timeout(_requestTimeout);
     if (response.statusCode == 401 || response.statusCode == 403) {
       final refreshed = await ensureApiSession(forceRefresh: true);
       if (refreshed) {
-        response = await http.get(buildUri(), headers: withApiAuthHeaders());
+        response = await http
+            .get(buildUri(), headers: withApiAuthHeaders())
+            .timeout(_requestTimeout);
       }
     }
     return response;
@@ -241,11 +259,15 @@ class ModuleApi {
     Map<String, dynamic> body,
   ) async {
     final enrichedBody = withApiAuthJsonBody(body);
-    final response = await http.post(
-      Uri.parse(url),
-      headers: withApiAuthHeaders(const {'Content-Type': 'application/json'}),
-      body: jsonEncode(enrichedBody),
-    );
+    final response = await http
+        .post(
+          Uri.parse(url),
+          headers: withApiAuthHeaders(const {
+            'Content-Type': 'application/json',
+          }),
+          body: jsonEncode(enrichedBody),
+        )
+        .timeout(_requestTimeout);
     final decoded = _decodeJson(response);
     if (decoded is! Map<String, dynamic>) {
       throw Exception('Request failed');
@@ -267,11 +289,15 @@ class ModuleApi {
     Map<String, dynamic> body,
   ) async {
     final enrichedBody = withApiAuthJsonBody(body);
-    final response = await http.post(
-      Uri.parse(url),
-      headers: withApiAuthHeaders(const {'Content-Type': 'application/json'}),
-      body: jsonEncode(enrichedBody),
-    );
+    final response = await http
+        .post(
+          Uri.parse(url),
+          headers: withApiAuthHeaders(const {
+            'Content-Type': 'application/json',
+          }),
+          body: jsonEncode(enrichedBody),
+        )
+        .timeout(_requestTimeout);
     final decoded = _decodeJson(response);
     if (decoded is! Map<String, dynamic>) {
       throw Exception('Request failed');

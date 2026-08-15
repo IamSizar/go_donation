@@ -395,6 +395,12 @@ class AppErrorState extends StatelessWidget {
         borderRadius: AppRadius.smAll,
       ),
       child: Column(
+        // Without this the Column takes MainAxisSize.max and the banner grows
+        // to whatever height it is given — inside an Expanded, which is how
+        // most callers place AppAsync, that turned a two-line message into a
+        // full-screen slab of error colour. Wrapping the banner in an Align
+        // does NOT fix it; the Column has to be told to hug its children.
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
@@ -438,7 +444,17 @@ class AppErrorState extends StatelessWidget {
       ),
     );
 
-    if (staleContent == null) return banner;
+    // Pinned to the TOP rather than returned bare. The banner is a Container
+    // with no height of its own, so inside an Expanded — which is how most
+    // callers place AppAsync — it stretched to fill the whole region, turning
+    // a two-line message into a full-screen slab of error colour. Seen on the
+    // City Guide, where it filled the entire map area.
+    //
+    // Align gives it its natural height and leaves the space below empty,
+    // which also reads correctly: the region genuinely has no content.
+    if (staleContent == null) {
+      return Align(alignment: AlignmentDirectional.topCenter, child: banner);
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

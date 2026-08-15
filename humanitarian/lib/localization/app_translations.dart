@@ -181,6 +181,18 @@ class AppTranslations extends Translations {
         'Could not refresh the list of fields you can hide.',
     'Could not load your display-name choice.':
         'Could not load your display-name choice.',
+    // AppErrorState's two DEFAULTS. Every error banner in the app uses them
+    // unless a caller overrides, and neither key existed — so `.tr` returned
+    // the key and users were shown the literal string "error_title" above
+    // every failure, with a lowercase "retry" under it.
+    //
+    // Found by running the app against a backend returning 500. No test caught
+    // it because the widget tests assert on the message the caller passes, not
+    // on the defaults, and a missing key is a silent fallback rather than an
+    // error.
+    'error_title': 'Something went wrong',
+    'retry': 'Try again',
+    'Could not load your dashboard.': 'Could not load your dashboard.',
     // ─── Structural de-duplication (redesign phase 2) ───
     // Copy introduced when several duplicate entry points were collapsed into
     // one. "Continue with phone" names the MECHANISM rather than the outcome:
@@ -2561,6 +2573,10 @@ class AppTranslations extends Translations {
         'تعذّر تحديث قائمة الحقول التي يمكنك إخفاؤها.',
     'Could not load your display-name choice.':
         'تعذّر تحميل اختيارك لاسم العرض.',
+    // AppErrorState defaults — see the note in the _en block.
+    'error_title': 'حدث خطأ ما',
+    'retry': 'إعادة المحاولة',
+    'Could not load your dashboard.': 'تعذّر تحميل لوحتك.',
     // ─── إعادة هيكلة الواجهة (المرحلة الثانية) ───
     // en + ar only; Sorani and Badini await a native speaker (#21431).
     'Continue with phone': 'المتابعة برقم الهاتف',

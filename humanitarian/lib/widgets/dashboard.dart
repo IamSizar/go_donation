@@ -755,6 +755,22 @@ class DashboardHomeSection extends StatelessWidget {
 
     return Obx(() {
       final roleKey = _roleKey(controller);
+      // READ INSIDE THE Obx BUILDER, deliberately.
+      //
+      // Obx only subscribes to observables read during its OWN synchronous
+      // build. These three used to be read inside the nested Builder below,
+      // which Flutter invokes later — so Obx never subscribed to them and the
+      // only tracked value was roleKey.
+      //
+      // The consequence was severe and invisible in tests: roleKey stays
+      // 'guest' whenever the summary request fails, so nothing ever triggered
+      // a rebuild, so the FIRST paint — isLoading true — was frozen on screen
+      // permanently. The Home dashboard's error branch and its retry button
+      // could never render at all. Caught by running the app against a backend
+      // returning 500: a skeleton that never resolved, with no way out.
+      final isLoading = controller.isLoading.value;
+      final error = controller.errorMessage.value;
+      final summary = Map<String, dynamic>.from(controller.summary);
       return _SectionScaffold(
         // Note #41 — the title and profile avatar moved to the persistent
         // top bar (shown above every tab now, not just Home), so neither is
@@ -763,7 +779,7 @@ class DashboardHomeSection extends StatelessWidget {
         // is now a plain pull-to-refresh on the list below.
         child: Builder(
           builder: (context) {
-            if (controller.isLoading.value && controller.summary.isEmpty) {
+            if (isLoading && summary.isEmpty) {
               // A skeleton, not a spinner, so the first paint has roughly the
               // shape of the dashboard that replaces it. Deliberately NOT
               // AppAsync: the summary is a Map, and it has no empty state
@@ -774,33 +790,22 @@ class DashboardHomeSection extends StatelessWidget {
                 child: AppSkeleton.rows(),
               );
             }
-            if (controller.errorMessage.value != null &&
-                controller.summary.isEmpty) {
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        controller.errorMessage.value!,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: AppThemeConfig.mutedText(context),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      FilledButton(
-                        onPressed: controller.fetchSummary,
-                        child: Text('Retry'.tr),
-                      ),
-                    ],
-                  ),
+            if (error != null && summary.isEmpty) {
+              // AppErrorState, not a bespoke Center/Column. This was the
+              // app's fourth hand-rolled error presentation, and being
+              // hand-rolled it rendered `Text(error)` WITHOUT `.tr` — so the
+              // message stayed English for every Arabic and Kurdish user,
+              // beside a "Retry" button that WAS translated. Using the shared
+              // widget gets translation, the design-system styling and the
+              // retry affordance from one place.
+              return Padding(
+                padding: const EdgeInsets.all(20),
+                child: AppErrorState(
+                  message: error,
+                  onRetry: controller.fetchSummary,
                 ),
               );
             }
-            final summary = Map<String, dynamic>.from(controller.summary);
             return RefreshIndicator(
               onRefresh: controller.fetchSummary,
               // 'marriage' (and 'employee') have no bespoke summary yet —
