@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net/http"
 	"strconv"
@@ -122,26 +123,50 @@ func (h *SupportHandler) Mine(c *gin.Context) {
 }
 
 // AdminReply — POST /api/admin/support_tickets/:id/reply — staff answer.
+//
+// Notifies the ticket owner. Without it a reply was written to the row and
+// nothing announced it: the app renders a reply once it exists, but a user has
+// no reason to reopen a ticket they already sent, so answers went unread. The
+// submit path has always notified (SupportHandler.Post); this is the same
+// pattern on the other end of the conversation.
 func (h *SupportHandler) AdminReply(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil || id <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid ticket id."})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid ticket id.", "code": "invalid_ticket_id"})
 		return
 	}
 	var body struct {
 		Reply string `json:"reply"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid JSON body."})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid JSON body.", "code": "invalid_body"})
 		return
 	}
 	var actorID int64
 	if actor, ok := auth.UserFromGin(c); ok && actor != nil {
 		actorID = actor.UserID
 	}
-	if err := h.Store.Reply(c.Request.Context(), id, body.Reply, actorID); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+	replied, err := h.Store.Reply(c.Request.Context(), id, body.Reply, actorID)
+	if err != nil {
+		// A stable `code` per failure, so the dashboard shows the operator a
+		// translated line instead of the store's raw English (rule 5.7).
+		switch {
+		case errors.Is(err, support.ErrEmptyReply):
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Reply cannot be empty.", "code": "reply_empty"})
+		case errors.Is(err, support.ErrTicketNotFound):
+			c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Ticket not found.", "code": "ticket_not_found"})
+		default:
+			log.Printf("[support] reply to ticket %d failed: %v", id, err)
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error.", "code": "reply_failed"})
+		}
 		return
+	}
+	// A dashboard-raised ticket can have no user attached, and then there is
+	// nobody to tell. Best-effort like every other Send call here: the reply is
+	// already saved, and a notification failure must not fail the request.
+	if replied.OwnerID != nil && *replied.OwnerID > 0 {
+		_, _ = h.Notifier.Send(c.Request.Context(), *replied.OwnerID,
+			notify.SupportRepliedMsg(strings.TrimSpace(replied.Subject), id))
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true})
 }

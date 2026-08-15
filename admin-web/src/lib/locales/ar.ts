@@ -791,7 +791,10 @@ const ar: DeepPartial<typeof en> = {
                     broadcast_sent: ' (تم إرسال البث للمتطوعين)',
                     pending_badge: '+{n} قيد الانتظار' },
     in_kind:      { title: 'المساهمات العينية', search_placeholder: 'بحث بالعنصر / الفئة', new: '+ مساهمة عينية جديدة' },
-    support:      { title: 'تذاكر الدعم', search_placeholder: 'بحث بالموضوع / الرسالة', new: '+ تذكرة جديدة' },
+    support:      { title: 'تذاكر الدعم', search_placeholder: 'بحث بالموضوع / الرسالة', new: '+ تذكرة جديدة',
+                    reply: 'الرد', reply_edit: 'تعديل الرد',
+                    reply_modal: 'الرد على التذكرة رقم {id}', reply_send: 'إرسال الرد',
+                    reply_sent: 'تم إرسال الرد على التذكرة رقم {id}', replied_prefix: 'الرد:' },
     notifications:{ title: 'الإشعارات', broadcast: 'بث',
                     read_all: 'الكل', read_unread: 'غير مقروء', read_read: 'مقروء' },
     reports:      { title: 'التقارير', subtitle: 'لقطة إحصائية على مستوى النظام.',
@@ -1032,6 +1035,12 @@ const ar: DeepPartial<typeof en> = {
     admin_level_required: 'هذا الإجراء متاح للمشرف أو المشرف الرئيسي فقط.',
     super_admin_required: 'هذا الإجراء متاح للمشرف الرئيسي فقط.',
     permission_denied: 'مستوى صلاحيتك لا يسمح بهذا الإجراء. راجع المشرف الرئيسي إذا كنت بحاجة إليه.',
+    // ردود الدعم — يرسلها الخادم عبر رمز ثابت ليقرأها المستخدم بلغته.
+    reply_empty: 'اكتب نص الرد قبل إرساله.',
+    ticket_not_found: 'لم تعد هذه التذكرة موجودة. حدّث القائمة ثم أعد المحاولة.',
+    reply_failed: 'تعذّر حفظ الرد. يرجى المحاولة مرة أخرى بعد قليل.',
+    invalid_ticket_id: 'مُعرّف التذكرة غير صالح. حدّث القائمة ثم أعد المحاولة.',
+    invalid_body: 'تعذّر إرسال النموذج. أعد تحميل الصفحة ثم حاول مجدداً.',
   },
 
   noun: {
@@ -1372,6 +1381,7 @@ const ar: DeepPartial<typeof en> = {
     beneficiary_case_id: 'حالة المستفيد', donor_user_id: 'المانح', next_due_date: 'تاريخ الاستحقاق التالي', notes: 'ملاحظات',
     project_request_id: 'طلب المشروع', schedule_interval: 'فترة الجدولة', sponsorship_type: 'نوع الدعم',
     condition_note: 'الحالة', item_name: 'العنصر', pickup_address: 'عنوان الاستلام', quantity: 'الكمية', subject: 'الموضوع',
+    reply: 'الرد على المستخدم',
     age: 'العمر', gender: 'الجنس', private_notes: 'ملاحظات خاصة', profile_code: 'رمز الملف', social_summary: 'الملخص العام',
     subscription_status: 'حالة الاشتراك', visibility_level: 'مستوى الظهور', logo_path: 'الشعار', name: 'الاسم',
     partner_type: 'نوع الشريك', website: 'الموقع الإلكتروني', body: 'المحتوى', created_by_user_id: 'أنشئ بواسطة', event_date: 'تاريخ الفعالية',

@@ -22,7 +22,7 @@ PDF repeats the same complaint). Groups G–N are new material extracted from th
 |---|---|---|---|
 | A1 | **`Database error.` on the contributions page**, and in-kind contributions sent to a user never arrive. Screenshot shows the red error banner with an empty table beneath. | Dashboard → المساعدات والحملات → المساهمات | 🔎 **fixed, not deployed** — see A1 notes below |
 | A2 | **Force logout (تسجيل خروج قسري) does not work** | Dashboard → المستخدمون → row actions | ⬜ |
-| A3 | **Contact-support chat does not work** (التواصل مع الدعم لا يعمل). PDFs additionally spec the support section it should be: direct message to the support team + follow request status/replies, and after >3 messages on different dates about the same unresolved issue, offer direct WhatsApp escalation. `[A p27, p34]` | App → الرسائل | ⬜ |
+| A3 | **Contact-support chat does not work** (التواصل مع الدعم لا يعمل). PDFs additionally spec the support section it should be: direct message to the support team + follow request status/replies, and after >3 messages on different dates about the same unresolved issue, offer direct WhatsApp escalation. `[A p27, p34]` | App → الرسائل | 🔎 **reply half fixed, not deployed** — see A3 notes below |
 | A4 | **City Guide: the last slide cannot be displayed** — technical fault | App → دليل المدينة | ⬜ |
 | A5 | Dashboard shows a **wrong phone number for a real user**: `07701111111` appears on the accounts page for user **نور كاظم** although he is registered successfully through the phone app — "ظهور رقم الهاتف ٠٧٧٠١١١١١١١ في صفحة الحسابات داخل لوحة التحكم ... رغم كونه مسجلاً بنجاح عبر تطبيق الهاتف" `[D p9]` | Dashboard → المستخدمون | ⬜ |
 | A6 | **Some app screens stop working when signed in with that same account** — "توقف بعض واجهات تطبيق الهاتف عن العمل بصورة صحيحة عند الدخول بهذا الحساب". Reproduce by logging in as نور كاظم. `[D p9]` | App | ⬜ |
@@ -35,6 +35,58 @@ PDF repeats the same complaint). Groups G–N are new material extracted from th
 | A13 | **The `mark completed` button disappears when clicked** — "عند اختيار هذا الزر المجاور للعرض والتعديل يختفي عند الضغط عليه" `[D p6]` | Dashboard → المهام | ⬜ |
 | A14 | **المهام → عرض has no detail page at all** — shows "مورد غير معروف" (unknown resource); no details page exists for `volunteer_missions`. And **there is no back button or route out** — "لايوجد زر او طريقة رجوع عند الدخول لصفحة العرض" `[D p6]` | Dashboard → المهام → عرض | ⬜ |
 | A15 | **SECURITY: ordinary app users can reach the dashboard.** Client asks to close "الثغرة الحالية التي تسمح لهم باستعراض وتعديل الأقسام كالأخبار والحملات والدليل" — block any app user from logging into and browsing/editing dashboard pages; restrict to admin and approved employees only. `[D p9]` | Dashboard auth | 🔎 **confirmed, fixed, not deployed** — see A15 notes below |
+
+### A3 — diagnosis and fix (2026-08-15)
+
+**The support round trip was open at the far end: staff could not reply.**
+
+The pieces all existed and none of them met. `POST /api/admin/support_tickets/:id/reply`
+was routed (`main.go:808`) and wrote `admin_reply` (`extras.go`), and the app's
+support screen already renders a reply inside the ticket card
+(`technical_support_screen.dart:427-461`). But **no dashboard control ever
+called that endpoint** — `SupportPage.tsx` offered view / edit / delete only,
+and its edit modal carried subject, status and message, no reply field. So the
+user-visible reply panel could never be populated by anyone using the product.
+
+Two further gaps behind it:
+
+- `support.Store.Reply` fired **no notification**, so even a reply sent
+  straight to the API was silent. A user has no reason to reopen a ticket they
+  already sent, so an answer would have sat unread. Every other support event
+  (submit, status change) already notifies.
+- The admin list query never selected `admin_reply` / `replied_at`, so the
+  dashboard could not tell an answered ticket from an unanswered one — and a
+  reply box would have overwritten an existing answer blind.
+
+**Changed:** `backend/internal/support/support.go` (`Reply` now returns the
+ticket owner + subject via `RETURNING`, one round trip, and exports
+`ErrEmptyReply` / `ErrTicketNotFound`) · `backend/internal/notify/templates.go`
+(new `SupportRepliedMsg`) · `backend/internal/handlers/extras.go` (`AdminReply`
+notifies the owner and maps each failure to a stable `code` instead of
+forwarding the store's raw English) · `backend/internal/handlers/admin_lists.go`
+(`admin_reply` + `replied_at` on the admin list) · admin-web `SupportPage.tsx`
+(Reply row action + reply modal + "Replied:" preview in the row),
+`api-types.ts`, and `en`/`ar` locale keys.
+
+**A dashboard-raised ticket can have no user attached** (`user_id` is nullable —
+the create form's "User ID (optional)"). Those get no notification, by design;
+`Replied.OwnerID` is a pointer so that case is distinguishable from user 0.
+
+**Kurdish left to a translator, deliberately.** `SupportRepliedMsg` supplies
+En + Ar and leaves Ckb/Kmr empty, which `Send` stores as NULL and every client
+falls back to English for. Both Kurdish locales use Arabic script, so pasted
+Arabic would look plausible and be wrong. Listed in `TRANSLATION_REQUEST.md`.
+
+**Test:** `backend/internal/notify/templates_support_test.go` — pins the
+related-entity link (so tapping the alert can open the ticket) and pins the
+empty-Kurdish decision so a later silent paste has to be deliberate. Verified
+it fails without the fix (`undefined: SupportRepliedMsg`).
+
+**Gates:** `go build ./...`, `go vet ./...`, `go test ./...`, `npx tsc -b`,
+`npm run build` all pass.
+
+**Not deployed.** The routing half of A3 — users landing on the wrong support
+screen — is tracked in the same row and fixed separately.
 
 ### A1 — diagnosis and fix (2026-08-15)
 

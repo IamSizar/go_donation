@@ -502,6 +502,10 @@ export type AdminTicket = {
   status: string
   created_at: string
   updated_at: string
+  // The staff answer written by POST /api/admin/support_tickets/{id}/reply.
+  // Null until somebody replies — the app renders it inside the ticket card.
+  admin_reply: string | null
+  replied_at: string | null
 }
 
 // Phase 24 — volunteer board (Kanban view). Returned by GET /api/admin/volunteer_board.

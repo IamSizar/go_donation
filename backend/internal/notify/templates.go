@@ -283,6 +283,39 @@ func SupportSubmittedMsg(subject string, ticketID int64) LocalizedMessage {
 	}
 }
 
+// SupportRepliedMsg — staff answered a support ticket.
+//
+// The reply is the only half of the support round trip the user cannot poll
+// for: the app shows a staff reply once it exists, but nothing tells the user
+// to go and look, so an answered ticket sat unread. Every other support event
+// (submit, status change) already notifies; this closes the loop.
+//
+// The reply BODY is deliberately not quoted here. It is free text a member of
+// staff typed, of any length and any language, and a push notification is not
+// a place to dump it — the user is told an answer arrived and taps through to
+// read it in the ticket, where it renders in full.
+//
+// Ckb/Kmr are intentionally EMPTY. Both Kurdish locales use Arabic script, so
+// pasting the Arabic here would look plausible and be wrong; the project's
+// standing decision (TRANSLATION_REQUEST.md) is that a visible English
+// fallback beats invented Kurdish. Empty slots are stored NULL and every
+// client falls back to En. Listed for a translator in TRANSLATION_REQUEST.md.
+func SupportRepliedMsg(subject string, ticketID int64) LocalizedMessage {
+	return LocalizedMessage{
+		Type:              "support_ticket_replied",
+		RelatedEntityType: "support_tickets",
+		RelatedEntityID:   ticketID,
+		Title: LocalText{
+			En: "Support replied",
+			Ar: "رد فريق الدعم",
+		},
+		Body: LocalText{
+			En: fmt.Sprintf("The support team answered your request \"%s\". Open it to read the reply.", subject),
+			Ar: fmt.Sprintf("أجاب فريق الدعم على طلبك \"%s\". افتحه لقراءة الرد.", subject),
+		},
+	}
+}
+
 // MarriageSubmittedMsg — user submitted a marriage service profile.
 func MarriageSubmittedMsg(profileCode string, profileID int64) LocalizedMessage {
 	return LocalizedMessage{

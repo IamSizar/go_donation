@@ -274,6 +274,27 @@ database columns). Missing keys are type-legal and fall back to English.
 
 ---
 
+# Part 2b — Backend push / in-app notification templates
+
+Source: `backend/internal/notify/templates.go`. Each builder returns a
+`LocalText{En, Ar, Ckb, Kmr}` per title and body. An empty slot is stored NULL
+and every client renders the English one, so these are safe as they stand.
+
+Most builders in that file already carry Kurdish — first-pass drafts flagged in
+the file header as needing a native-speaker review. The rows below are the ones
+deliberately left EMPTY rather than guessed, and they are the ones to fill first.
+
+| Builder | Slot | English | Arabic | Needs |
+|---|---|---|---|---|
+| `SupportRepliedMsg` | title | Support replied | رد فريق الدعم | ckb + kmr |
+| `SupportRepliedMsg` | body | The support team answered your request "%s". Open it to read the reply. | أجاب فريق الدعم على طلبك "%s". افتحه لقراءة الرد. | ckb + kmr |
+
+`%s` is the ticket subject and must survive in the translation, in that
+position — it is the only thing telling a user with several open tickets which
+one was answered.
+
+---
+
 # Part 3 — Housekeeping for whoever applies the translations
 
 **Stale Kurdish keys that no longer exist in English.** They are dead

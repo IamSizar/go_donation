@@ -48,6 +48,14 @@ const TICKET_CREATE_FIELDS: FieldSpec[] = [
   ...TICKET_FIELDS,
 ]
 
+// The staff answer. One field, on its own modal, because replying is not the
+// same operation as editing the ticket: it POSTs to /reply (which stamps
+// replied_at / replied_by and notifies the user), while the edit modal PATCHes
+// the ticket's own columns.
+const REPLY_FIELDS: FieldSpec[] = [
+  { key: 'reply', label: 'Reply', labelKey: 'field.reply', type: 'textarea', rows: 6, required: true },
+]
+
 export default function SupportPage() {
   const [page, setPage] = useState(1)
   const [status, setStatus] = useState('all')
@@ -57,6 +65,9 @@ export default function SupportPage() {
   const [err, setErr] = useState<string | null>(null)
   const [open, setOpen] = useState<number | null>(null)
   const [editing, setEditing] = useState<AdminTicket | null>(null)
+  // The ticket whose reply box is open. Separate from `editing` so the two
+  // modals can never fight over one slot.
+  const [replying, setReplying] = useState<AdminTicket | null>(null)
   const [creating, setCreating] = useState(false)
   const [deleting, setDeleting] = useState<AdminTicket | null>(null)
   const [refreshTick, setRefreshTick] = useState(0)
@@ -104,6 +115,20 @@ export default function SupportPage() {
       setRefreshTick((t) => t + 1)
     },
     [toast],
+  )
+
+  // Send the staff answer. The backend stamps replied_at / replied_by and
+  // notifies the ticket's owner, so this is the whole round trip: the app's
+  // support screen already renders `admin_reply` inside the ticket card, it
+  // just never had anything to render because no dashboard control called
+  // this endpoint.
+  const handleReply = useCallback(
+    async (id: number, data: Record<string, unknown>) => {
+      await api.post(`/api/admin/support_tickets/${id}/reply`, { reply: data.reply })
+      toast.success(tr('page.support.reply_sent', { id }))
+      setRefreshTick((t) => t + 1)
+    },
+    [toast, tr],
   )
 
   const modalOpen = editing !== null || creating
@@ -159,14 +184,26 @@ export default function SupportPage() {
     { key: 'subject', header: tr('col.subject'), cell: (t) => <strong>{t.subject}</strong> },
     {
       key: 'message', header: tr('col.message'),
-      cell: (t) =>
-        open === t.id ? (
-          <span>{t.message}</span>
-        ) : (
-          <a href="#" onClick={(e) => { e.preventDefault(); setOpen(t.id) }}>
-            {t.message.slice(0, 80)}{t.message.length > 80 ? '…' : ''}
-          </a>
-        ),
+      cell: (t) => (
+        <div className="cell-stack">
+          {open === t.id ? (
+            <span>{t.message}</span>
+          ) : (
+            <a href="#" onClick={(e) => { e.preventDefault(); setOpen(t.id) }}>
+              {t.message.slice(0, 80)}{t.message.length > 80 ? '…' : ''}
+            </a>
+          )}
+          {/* Whether this ticket has been answered, and with what. Without it
+              the operator could not tell an answered ticket from an unanswered
+              one, and the Reply box would overwrite an existing answer blind. */}
+          {t.admin_reply && t.admin_reply.trim() !== '' && (
+            <span className="muted">
+              {tr('page.support.replied_prefix')} {t.admin_reply.slice(0, 60)}
+              {t.admin_reply.length > 60 ? '…' : ''}
+            </span>
+          )}
+        </div>
+      ),
     },
     {
       key: 'status', header: tr('col.status'),
@@ -187,6 +224,19 @@ export default function SupportPage() {
           viewHref={`/detail/support_tickets/${t.id}`}
           onEdit={() => setEditing(t)}
           onDelete={() => setDeleting(t)}
+          // Reply sits above Edit because answering is the job this page
+          // exists for. It is the ONLY caller of the reply endpoint — before
+          // this the endpoint and the app's reply panel both existed and
+          // nothing in between ever wrote a reply.
+          extra={[
+            {
+              key: 'reply',
+              label: t.admin_reply && t.admin_reply.trim() !== ''
+                ? tr('page.support.reply_edit')
+                : tr('page.support.reply'),
+              onClick: () => setReplying(t),
+            },
+          ]}
         />
       ),
     },
@@ -253,6 +303,20 @@ export default function SupportPage() {
         message={deleting ? tr('common.confirm_delete_body', { name: deleting.subject }) : ''}
         onConfirm={() => handleDelete(deleting!.id)}
         onCancel={() => setDeleting(null)}
+      />
+      {/* The reply box. Its own modal rather than a field on the edit form:
+          replying POSTs to /reply, which stamps replied_at / replied_by and
+          notifies the person waiting — the edit form only PATCHes columns and
+          announces nothing. Prefilled with any existing reply so an operator
+          amends rather than silently replaces it. */}
+      <EditModal
+        open={replying !== null}
+        title={replying ? tr('page.support.reply_modal', { id: replying.id }) : ''}
+        initial={{ reply: replying?.admin_reply ?? '' }}
+        fields={REPLY_FIELDS}
+        saveLabel={tr('page.support.reply_send')}
+        onSave={(data) => handleReply(replying!.id, data)}
+        onClose={() => setReplying(null)}
       />
       <EditModal
         open={modalOpen}

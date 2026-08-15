@@ -832,7 +832,12 @@ const en = {
                     broadcast_sent: ' (broadcast sent to volunteers)',
                     pending_badge: '+{n} pending' },
     in_kind:      { title: 'In-kind contributions', search_placeholder: 'search item / category',   new: '+ New contribution' },
-    support:      { title: 'Support tickets',   search_placeholder: 'search subject / message', new: '+ New ticket' },
+    support:      { title: 'Support tickets',   search_placeholder: 'search subject / message', new: '+ New ticket',
+                    // The staff answer. Nothing on this page called the reply
+                    // endpoint before, so the app's reply panel had nothing to show.
+                    reply: 'Reply', reply_edit: 'Edit reply',
+                    reply_modal: 'Reply to ticket #{id}', reply_send: 'Send reply',
+                    reply_sent: 'Reply sent for ticket #{id}', replied_prefix: 'Replied:' },
     notifications:{ title: 'Notifications', broadcast: 'broadcast',
                     read_all: 'All', read_unread: 'Unread', read_read: 'Read' },
     reports:      { title: 'Reports', subtitle: 'System-wide stats snapshot.',
@@ -1083,6 +1088,13 @@ const en = {
     admin_level_required: 'Only an Administrator or the Primary Administrator can do this.',
     super_admin_required: 'Only the Primary Administrator can do this.',
     permission_denied: 'Your access level does not allow this action. Ask the Primary Administrator if you need it.',
+    // Support reply — the handler sends these as a stable `code` so the
+    // operator never sees the store's raw English.
+    reply_empty: 'Write a reply before sending it.',
+    ticket_not_found: 'That ticket no longer exists. Refresh the list and try again.',
+    reply_failed: 'The reply could not be saved. Please try again in a moment.',
+    invalid_ticket_id: 'That ticket reference is not valid. Refresh the list and try again.',
+    invalid_body: 'The form could not be sent. Refresh the page and try again.',
   },
 
   // Singular entity nouns — used by the live-feed highlight banner.
@@ -1418,6 +1430,7 @@ const en = {
     beneficiary_case_id: 'Recipient case', donor_user_id: 'Grantor', next_due_date: 'Next due date', notes: 'Notes',
     project_request_id: 'Project request', schedule_interval: 'Schedule interval', sponsorship_type: 'Assistance type',
     condition_note: 'Condition', item_name: 'Item', pickup_address: 'Pickup address', quantity: 'Quantity', subject: 'Subject',
+    reply: 'Reply to the user',
     age: 'Age', gender: 'Gender', private_notes: 'Private notes', profile_code: 'Profile code', social_summary: 'Public summary',
     subscription_status: 'Subscription status', visibility_level: 'Visibility', logo_path: 'Logo', name: 'Name',
     partner_type: 'Partner type', website: 'Website', body: 'Body', created_by_user_id: 'Created by', event_date: 'Event date',

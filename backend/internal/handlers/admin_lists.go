@@ -266,6 +266,12 @@ type adminTicket struct {
 	Status       string    `json:"status"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
+	// The staff answer, so the dashboard can show whether a ticket has already
+	// been replied to and prefill the reply box. Without these the operator
+	// could not tell an answered ticket from an unanswered one, and would have
+	// overwritten an existing reply blind.
+	AdminReply *string    `json:"admin_reply"`
+	RepliedAt  *time.Time `json:"replied_at"`
 }
 
 func (h *AdminListsHandler) SupportTickets(c *gin.Context) {
@@ -302,7 +308,8 @@ func (h *AdminListsHandler) SupportTickets(c *gin.Context) {
 	args = append(args, pp, off)
 	rows, err := h.Pool.Query(c.Request.Context(), `
 		SELECT t.id, t.user_id, u.phone, up.full_name,
-		       t.subject, t.message, t.status, t.created_at, t.updated_at
+		       t.subject, t.message, t.status, t.created_at, t.updated_at,
+		       t.admin_reply, t.replied_at
 		  FROM support_tickets t
 		  LEFT JOIN users u ON u.id = t.user_id
 		  LEFT JOIN user_profiles up ON up.user_id = t.user_id
@@ -320,7 +327,8 @@ func (h *AdminListsHandler) SupportTickets(c *gin.Context) {
 	for rows.Next() {
 		var t adminTicket
 		if err := rows.Scan(&t.ID, &t.UserID, &t.UserPhone, &t.UserFullName,
-			&t.Subject, &t.Message, &t.Status, &t.CreatedAt, &t.UpdatedAt); err != nil {
+			&t.Subject, &t.Message, &t.Status, &t.CreatedAt, &t.UpdatedAt,
+			&t.AdminReply, &t.RepliedAt); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
 			return
 		}

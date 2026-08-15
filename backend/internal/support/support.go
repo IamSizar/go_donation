@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -119,23 +120,52 @@ func (s *Store) ListForUser(ctx context.Context, userID int64, limit int) ([]Tic
 	return out, days > 3, nil
 }
 
-// Reply records a staff answer and marks the ticket answered.
-func (s *Store) Reply(ctx context.Context, id int64, body string, byUserID int64) error {
+// ErrEmptyReply / ErrTicketNotFound let the handler map a failure to a stable
+// `code` for the dashboard instead of forwarding raw English prose to the
+// operator (rule 1.5 / 5.7).
+var (
+	ErrEmptyReply     = errors.New("reply cannot be empty")
+	ErrTicketNotFound = errors.New("ticket not found")
+)
+
+// Replied identifies the ticket a staff answer just landed on, so the caller
+// can notify the person waiting for it.
+//
+// OwnerID is a pointer because `support_tickets.user_id` is nullable: the
+// dashboard can raise a ticket with no user attached ("User ID (optional)" on
+// its create form). Such a ticket has nobody to notify, and the caller must be
+// able to tell that apart from user 0.
+type Replied struct {
+	OwnerID *int64
+	Subject string
+}
+
+// Reply records a staff answer, marks the ticket answered, and returns who was
+// waiting for it.
+//
+// It returns the owner rather than writing silently because the reply is the
+// only half of the support round trip the user cannot poll for: the app's
+// ticket list shows a reply once it exists, but nothing tells the user to go
+// and look. RETURNING keeps that one round trip instead of a second SELECT.
+func (s *Store) Reply(ctx context.Context, id int64, body string, byUserID int64) (Replied, error) {
 	body = trimMax(body, 5000)
 	if body == "" {
-		return errors.New("reply cannot be empty")
+		return Replied{}, ErrEmptyReply
 	}
-	ct, err := s.Pool.Exec(ctx,
+	var out Replied
+	err := s.Pool.QueryRow(ctx,
 		`UPDATE support_tickets
 		    SET admin_reply = $2, replied_at = CURRENT_TIMESTAMP, replied_by = $3
-		  WHERE id = $1`, id, body, byUserID)
+		  WHERE id = $1
+		  RETURNING user_id, subject`, id, body, byUserID,
+	).Scan(&out.OwnerID, &out.Subject)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Replied{}, ErrTicketNotFound
+	}
 	if err != nil {
-		return err
+		return Replied{}, err
 	}
-	if ct.RowsAffected() == 0 {
-		return errors.New("ticket not found")
-	}
-	return nil
+	return out, nil
 }
 
 // Unresolved is exported for callers that need the same rule.
