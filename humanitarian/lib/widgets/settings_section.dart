@@ -749,12 +749,19 @@ class _NotificationsRowState extends State<NotificationsRow> {
     try {
       final applied = await const ModuleApi().setNotificationSetting(next);
       if (mounted) setState(() => _enabled = applied);
-    } catch (_) {
-      // Deliberate: this is the optimistic-update rollback. The switch snapping
-      // back IS the feedback — the setting truthfully reads as unchanged — and
-      // the user can simply tap again, so a snackbar would add noise, not
-      // information.
+    } catch (e) {
+      // The rollback keeps the switch TRUTHFUL — it reads as unchanged, which
+      // it is. But truthful is not the same as understood: a switch that flips
+      // back on its own reads as a broken control, not as a save that failed.
+      // One line distinguishes the two, and it is information rather than
+      // noise because it changes what the user does next (try again later
+      // versus assume the app is broken).
       if (mounted) setState(() => _enabled = previous);
+      debugPrint('setNotificationSetting failed: $e');
+      Get.snackbar(
+        'Settings'.tr,
+        'Could not save that preference. Please try again.'.tr,
+      );
     }
   }
 

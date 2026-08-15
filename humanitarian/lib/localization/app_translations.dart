@@ -193,6 +193,14 @@ class AppTranslations extends Translations {
     'error_title': 'Something went wrong',
     'retry': 'Try again',
     'Could not load your dashboard.': 'Could not load your dashboard.',
+    'Registration': 'Registration',
+    // Says the registration IS safe before saying what failed, because that is
+    // the order the user needs it in — the alarming half first would read as
+    // "your whole submission was lost".
+    'Your registration was saved, but your documents did not upload. You can add them from your profile.':
+        'Your registration was saved, but your documents did not upload. You can add them from your profile.',
+    'Could not save that preference. Please try again.':
+        'Could not save that preference. Please try again.',
     // ─── Structural de-duplication (redesign phase 2) ───
     // Copy introduced when several duplicate entry points were collapsed into
     // one. "Continue with phone" names the MECHANISM rather than the outcome:
@@ -2577,6 +2585,11 @@ class AppTranslations extends Translations {
     'error_title': 'حدث خطأ ما',
     'retry': 'إعادة المحاولة',
     'Could not load your dashboard.': 'تعذّر تحميل لوحتك.',
+    'Registration': 'التسجيل',
+    'Your registration was saved, but your documents did not upload. You can add them from your profile.':
+        'تم حفظ تسجيلك، لكن لم يتم رفع مستنداتك. يمكنك إضافتها من ملفك الشخصي.',
+    'Could not save that preference. Please try again.':
+        'تعذّر حفظ هذا الإعداد. يرجى المحاولة مرة أخرى.',
     // ─── إعادة هيكلة الواجهة (المرحلة الثانية) ───
     // en + ar only; Sorani and Badini await a native speaker (#21431).
     'Continue with phone': 'المتابعة برقم الهاتف',

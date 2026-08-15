@@ -1370,7 +1370,26 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
             passportPhotoPath: _passportPhotoPath,
             graduationCertPhotoPath: _graduationCertPhotoPath,
             cvPhotoPath: _cvPhotoPath,
-          ),
+          ).then((uploaded) {
+            // The result used to be DISCARDED. Registration succeeded and the
+            // user was routed onward, so a failed document upload was silent
+            // and permanent — they believed their ID and proof documents were
+            // filed when nothing had arrived, which for an eligible applicant
+            // is the difference between a case that can be reviewed and one
+            // that cannot.
+            //
+            // Still unawaited, deliberately: attachments are optional and must
+            // not hold up the flow. Get.snackbar is an overlay rather than
+            // part of this route, so it survives the navigation below and
+            // lands over whatever screen the user reaches.
+            if (uploaded) return;
+            Get.snackbar(
+              'Registration'.tr,
+              'Your registration was saved, but your documents did not upload. You can add them from your profile.'
+                  .tr,
+              duration: const Duration(seconds: 6),
+            );
+          }),
         );
       }
       // pending -> waiting screen; approved (grandfathered) -> home.
