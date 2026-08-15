@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -36,8 +37,13 @@ type Profile struct {
 	// Marriage Posts — the feed is these profiles themselves; PhotoUrl is the
 	// owner-uploaded picture shown on its card (nil → the app shows a
 	// placeholder, same as any other optional profile field).
-	PhotoUrl           *string   `json:"photo_url"`
-	VisibilityLevel    string    `json:"visibility_level"`
+	PhotoUrl        *string `json:"photo_url"`
+	VisibilityLevel string  `json:"visibility_level"`
+	// L19 — the field keys this profile's OWNER hides from other users
+	// (migration 107; catalogue in marriage_privacy_field_options). Served
+	// only to the owner: for anybody else it is emptied along with the
+	// fields it names, since the nulls already say which ones were hidden.
+	FieldPrivacy       []string  `json:"field_privacy"`
 	SubscriptionStatus string    `json:"subscription_status"`
 	Status             string    `json:"status"`
 	CreatedAt          time.Time `json:"created_at"`
@@ -80,7 +86,11 @@ type SearchFilters struct {
 	MaxHeight        int
 	SavedByUser      int64 // when >0, only profiles this user saved
 	OwnedByUser      int64 // Note #18 — when >0, only profiles this user submitted
-	Limit            int
+	// ViewerUserID is the user this list is being served to (L19). Their own
+	// profiles come back complete; everybody else's pass through that
+	// owner's per-field privacy choices. 0 = unauthenticated.
+	ViewerUserID int64
+	Limit        int
 	// Marriage Posts — cursor pagination for the continuous feed. Rows are
 	// always ORDER BY id DESC, so "older than the last card I saw" is simply
 	// id < BeforeID; 0 means "from the start" (first page).
@@ -160,6 +170,16 @@ func (s *Store) List(ctx context.Context, f SearchFilters) ([]Profile, error) {
 		args = append(args, f.BeforeID)
 		conds = append(conds, "id < $"+itoa(len(args)))
 	}
+	// L19 — visibility_level was stored and never used as a query condition,
+	// so a profile explicitly set to "private" was browsable like any other.
+	// Only 'private' is excluded here, and only from OTHER people's view: it
+	// is the one value that unambiguously means "not for browsing", and it is
+	// opt-in, so no existing profile silently disappears. 'employee_only' is
+	// the column DEFAULT and therefore covers essentially every profile in the
+	// system — filtering that out would empty the browse feed, which is a
+	// product decision and is recorded as open in the L19 row.
+	args = append(args, f.ViewerUserID)
+	conds = append(conds, "(visibility_level <> 'private' OR user_id = $"+itoa(len(args))+")")
 	where := ""
 	if len(conds) > 0 {
 		where = "WHERE " + strings.Join(conds, " AND ")
@@ -168,7 +188,8 @@ func (s *Store) List(ctx context.Context, f SearchFilters) ([]Profile, error) {
 	limitIdx := len(args)
 	sqlStr := `SELECT id, user_id, profile_code, gender, age, city, social_summary,
 	             marital_status, religion, employment_status, weight_kg, height_cm,
-	             photo_url, visibility_level, subscription_status, status, created_at
+	             photo_url, visibility_level, subscription_status, status, created_at,
+	             COALESCE(field_privacy, '{}')
 	        FROM marriage_profiles ` + where + `
 	       ORDER BY id DESC
 	       LIMIT $` + itoa(limitIdx)
@@ -182,12 +203,155 @@ func (s *Store) List(ctx context.Context, f SearchFilters) ([]Profile, error) {
 		var p Profile
 		if err := rows.Scan(&p.ID, &p.UserID, &p.ProfileCode, &p.Gender, &p.Age, &p.City, &p.SocialSummary,
 			&p.MaritalStatus, &p.Religion, &p.EmploymentStatus, &p.WeightKg, &p.HeightCm,
-			&p.PhotoUrl, &p.VisibilityLevel, &p.SubscriptionStatus, &p.Status, &p.CreatedAt); err != nil {
+			&p.PhotoUrl, &p.VisibilityLevel, &p.SubscriptionStatus, &p.Status, &p.CreatedAt,
+			&p.FieldPrivacy); err != nil {
 			return nil, err
 		}
+		if p.FieldPrivacy == nil {
+			p.FieldPrivacy = []string{}
+		}
+		// L19 — apply the owner's per-field choices. Before this the query
+		// selected every field and masked none, so the picker on the form
+		// would have been a control that changed nothing.
+		maskForViewer(&p, f.ViewerUserID)
 		items = append(items, p)
 	}
 	return items, rows.Err()
+}
+
+// maskForViewer blanks the fields this profile's owner switched off, unless
+// the person reading is the owner. Blanking to nil (rather than to a
+// placeholder) matches how every one of these fields already behaves when it
+// was simply never filled in, so the app needs no new empty-state handling.
+//
+// The keys are the marriage_profiles column names, seeded in
+// marriage_privacy_field_options by migration 107. A key the catalogue does
+// not know about is ignored rather than erroring: the catalogue is
+// staff-editable, so an unknown key means "an option that was retired", not
+// "corrupt data".
+func maskForViewer(p *Profile, viewerID int64) {
+	if viewerID != 0 && p.UserID == viewerID {
+		return // a user is never hidden from themselves
+	}
+	if len(p.FieldPrivacy) == 0 {
+		return
+	}
+	for _, key := range p.FieldPrivacy {
+		switch strings.TrimSpace(key) {
+		case "photo_url":
+			p.PhotoUrl = nil
+		case "age":
+			p.Age = nil
+		case "gender":
+			p.Gender = nil
+		case "city":
+			p.City = nil
+		case "marital_status":
+			p.MaritalStatus = nil
+		case "religion":
+			p.Religion = nil
+		case "employment_status":
+			p.EmploymentStatus = nil
+		case "weight_kg":
+			p.WeightKg = nil
+		case "height_cm":
+			p.HeightCm = nil
+		case "social_summary":
+			p.SocialSummary = nil
+		}
+	}
+	// The list itself is the owner's setting, not a browsable detail; the
+	// nils above already tell the reader which fields were withheld.
+	p.FieldPrivacy = []string{}
+}
+
+// ─── Per-field privacy (L19) ────────────────────────────────────────────
+
+// PrivacyFieldOption is one toggleable entry in the engagement profile's
+// privacy picker. The catalogue is data-driven (marriage_privacy_field_options,
+// migration 107), so a new switch is an INSERT rather than an app release —
+// the same arrangement privacy_field_options gives the user profile.
+type PrivacyFieldOption struct {
+	FieldKey      string `json:"field_key"`
+	LabelKey      string `json:"label_key"`
+	DefaultHidden bool   `json:"default_hidden"`
+	DisplayOrder  int    `json:"display_order"`
+}
+
+// PrivacyFieldOptions returns the enabled options in display order.
+func (s *Store) PrivacyFieldOptions(ctx context.Context) ([]PrivacyFieldOption, error) {
+	rows, err := s.Pool.Query(ctx,
+		`SELECT field_key, label_key, default_hidden, display_order
+		   FROM marriage_privacy_field_options
+		  WHERE enabled = true
+		  ORDER BY display_order, field_key`)
+	if err != nil {
+		return nil, fmt.Errorf("list marriage privacy options: %w", err)
+	}
+	defer rows.Close()
+	out := []PrivacyFieldOption{}
+	for rows.Next() {
+		var o PrivacyFieldOption
+		if err := rows.Scan(&o.FieldKey, &o.LabelKey, &o.DefaultHidden, &o.DisplayOrder); err != nil {
+			return nil, fmt.Errorf("scan marriage privacy option: %w", err)
+		}
+		// A row can be inserted with no label_key; the app falls back to the
+		// field key so it is usable immediately.
+		if o.LabelKey == "" {
+			o.LabelKey = o.FieldKey
+		}
+		out = append(out, o)
+	}
+	return out, rows.Err()
+}
+
+// ErrNotOwner is returned by SetFieldPrivacy when the profile exists but
+// belongs to somebody else.
+var ErrNotOwner = errors.New("this engagement profile belongs to another user")
+
+// SetFieldPrivacy stores which fields this profile hides from other users.
+//
+// ownerUserID is checked IN the UPDATE rather than by a separate read, so
+// there is no window between the check and the write. Unknown keys are
+// dropped rather than stored: the catalogue is the contract, and silently
+// keeping a key nothing will ever read is how a switch ends up lying about
+// what it does.
+func (s *Store) SetFieldPrivacy(ctx context.Context, profileID, ownerUserID int64, keys []string) ([]string, error) {
+	if profileID <= 0 || ownerUserID <= 0 {
+		return nil, errors.New("profileID and ownerUserID are required")
+	}
+	allowed, err := s.PrivacyFieldOptions(ctx)
+	if err != nil {
+		return nil, err
+	}
+	valid := make(map[string]bool, len(allowed))
+	for _, o := range allowed {
+		valid[o.FieldKey] = true
+	}
+	clean := []string{}
+	seen := map[string]bool{}
+	for _, k := range keys {
+		k = strings.TrimSpace(k)
+		if k == "" || seen[k] || !valid[k] {
+			continue
+		}
+		seen[k] = true
+		clean = append(clean, k)
+	}
+
+	tag, err := s.Pool.Exec(ctx,
+		`UPDATE marriage_profiles SET field_privacy = $3, updated_at = CURRENT_TIMESTAMP
+		  WHERE id = $1 AND user_id = $2`,
+		profileID, ownerUserID, clean)
+	if err != nil {
+		return nil, fmt.Errorf("save marriage field privacy for profile %d: %w", profileID, err)
+	}
+	if tag.RowsAffected() == 0 {
+		// Either the profile does not exist or it is somebody else's. Both
+		// answer the same way, so this cannot be used to probe for ids.
+		return nil, ErrNotOwner
+	}
+	return clean, nil
 }
 
 // ToggleSaved bookmarks/un-bookmarks a profile for a user (#46). Returns the

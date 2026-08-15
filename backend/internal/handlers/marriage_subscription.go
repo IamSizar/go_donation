@@ -70,7 +70,7 @@ func (h *MarriageHandler) PurchaseSubscription(c *gin.Context) {
 		return
 	}
 
-	profiles, err := h.Store.List(ctx, marriage.SearchFilters{Status: "all", OwnedByUser: user.UserID, Limit: 1})
+	profiles, err := h.Store.List(ctx, marriage.SearchFilters{Status: "all", OwnedByUser: user.UserID, ViewerUserID: user.UserID, Limit: 1})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
 		return

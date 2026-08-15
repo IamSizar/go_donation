@@ -616,6 +616,10 @@ func main() {
 			// so the app can show "pending review" instead of nothing.
 			authed.GET("/marriage/mine", marriageH.MyProfiles)
 			authed.POST("/marriage/:id/save", marriageH.ToggleSave)
+			// L19 — per-field privacy on the engagement profile: the catalogue
+			// the picker renders, and the owner-only setter it posts to.
+			authed.GET("/marriage/privacy-options", marriageH.GetPrivacyOptions)
+			authed.POST("/marriage/:id/privacy", auth.RequireNotGuest(), marriageH.SetPrivacy)
 			authed.POST("/marriage/:id/request-meeting", auth.RequireNotGuest(), marriageH.RequestMeeting)
 			authed.POST("/marriage/subscription-packages/:id/purchase", auth.RequireNotGuest(), marriageH.PurchaseSubscription)
 			authed.POST("/marriage/", auth.RequireNotGuest(), marriageH.Post)

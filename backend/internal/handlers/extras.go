@@ -285,6 +285,13 @@ func (h *MarriageHandler) notifyStaffInBackground(m notify.LocalizedMessage) {
 }
 
 func (h *MarriageHandler) Get(c *gin.Context) {
+	// L19 — the browse feed serves other people's profiles, so each row is
+	// masked by its OWN owner's per-field choices. This route takes no bearer,
+	// so the viewer is 0 (nobody) unless one was supplied anyway.
+	var viewerID int64
+	if u, _ := auth.UserFromGin(c); u != nil {
+		viewerID = u.UserID
+	}
 	limit, _ := strconv.Atoi(strings.TrimSpace(c.Query("limit")))
 	minAge, _ := strconv.Atoi(strings.TrimSpace(c.Query("min_age")))
 	maxAge, _ := strconv.Atoi(strings.TrimSpace(c.Query("max_age")))
@@ -308,6 +315,7 @@ func (h *MarriageHandler) Get(c *gin.Context) {
 		MaxHeight:        maxHeight,
 		Limit:            limit,
 		BeforeID:         beforeID,
+		ViewerUserID:     viewerID,
 	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
@@ -327,7 +335,7 @@ func (h *MarriageHandler) MyProfiles(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
 		return
 	}
-	items, err := h.Store.List(c.Request.Context(), marriage.SearchFilters{Status: "all", OwnedByUser: user.UserID})
+	items, err := h.Store.List(c.Request.Context(), marriage.SearchFilters{Status: "all", OwnedByUser: user.UserID, ViewerUserID: user.UserID})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
 		return
@@ -342,12 +350,64 @@ func (h *MarriageHandler) SavedList(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
 		return
 	}
-	items, err := h.Store.List(c.Request.Context(), marriage.SearchFilters{Status: "all", SavedByUser: user.UserID})
+	items, err := h.Store.List(c.Request.Context(), marriage.SearchFilters{Status: "all", SavedByUser: user.UserID, ViewerUserID: user.UserID})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "items": items})
+}
+
+// GetPrivacyOptions — GET /api/marriage/privacy-options (L19). The catalogue
+// the engagement profile's privacy picker renders. Data-driven
+// (marriage_privacy_field_options, migration 107), so staff can add or retire
+// a switch without an app release — the same arrangement the user profile's
+// privacy screen already has.
+func (h *MarriageHandler) GetPrivacyOptions(c *gin.Context) {
+	opts, err := h.Store.PrivacyFieldOptions(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "items": opts})
+}
+
+// SetPrivacy — POST /api/marriage/:id/privacy (L19). Body: {hidden: [...]},
+// the same shape as the user profile's /api/profile/privacy, so the app has
+// one pattern to follow rather than two.
+//
+// Only the profile's owner may write it, checked inside the UPDATE. Keys the
+// catalogue does not list are dropped rather than stored, and the response
+// echoes what was actually saved — so the picker can show the user the real
+// state instead of assuming its request landed.
+func (h *MarriageHandler) SetPrivacy(c *gin.Context) {
+	user, _ := auth.UserFromGin(c)
+	if user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		return
+	}
+	pid, _ := strconv.ParseInt(strings.TrimSpace(c.Param("id")), 10, 64)
+	if pid <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid profile id."})
+		return
+	}
+	var req struct {
+		Hidden []string `json:"hidden"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid JSON body."})
+		return
+	}
+	saved, err := h.Store.SetFieldPrivacy(c.Request.Context(), pid, user.UserID, req.Hidden)
+	if err != nil {
+		if errors.Is(err, marriage.ErrNotOwner) {
+			c.JSON(http.StatusForbidden, gin.H{"success": false, "error": "This engagement profile is not yours."})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "hidden": saved})
 }
 
 // ToggleSave — POST /api/marriage/:id/save (#46).
