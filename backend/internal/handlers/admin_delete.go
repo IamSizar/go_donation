@@ -157,3 +157,24 @@ func (h *AdminDeleteHandler) User(c *gin.Context)     { h.deleteRow(c, "users") 
 // joined won't get a notification on cascade; if you need that, use a status
 // transition to 'cancelled' instead (fires notifications via the signup path).
 func (h *AdminDeleteHandler) VolunteerMission(c *gin.Context) { h.deleteRow(c, "volunteer_missions") }
+
+// VolunteerMissionSignup deletes ONE signup — a single volunteer's request to
+// join one mission — as opposed to VolunteerMission above, which removes the
+// mission and cascades every signup on it.
+//
+// E15 — the client asked تسجيلات المهام for a fixed five-action list
+// (موافق/قبول/رفض/تراجع/حذف). The first four are status transitions that
+// already existed on adminStatusH.MissionSignup; حذف had no route of any kind,
+// so the dashboard's action menu had nothing it could call. This is that route,
+// and it goes through trashRow like the other recoverable deletes rather than
+// running a DELETE of its own: a signup is not a catalogue row — it carries the
+// volunteer's own completion note and the hours they served — so pressing حذف on
+// the wrong row has to be undoable from المهملات (H15's rule).
+//
+// Cascade note, same shape as VolunteerMission above: deleting a signup cascades
+// its case_volunteer_chat_threads (signup_id ... ON DELETE CASCADE). Those child
+// rows are not trashed individually, so restoring the signup brings back the
+// signup only — trashRow documents this, and it is unchanged here.
+func (h *AdminDeleteHandler) VolunteerMissionSignup(c *gin.Context) {
+	h.deleteRow(c, "volunteer_mission_signups")
+}

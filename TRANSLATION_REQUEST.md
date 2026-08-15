@@ -512,6 +512,26 @@ database columns). Missing keys are type-legal and fall back to English.
 | `status.wallet` | Wallet | محفظة | ckb + kmr |
 | `status.widowed` | Widowed | أرمل | ckb + kmr |
 
+## `common.*` · E15 recoverable-delete wording  (1 key)
+
+Added by the E15 fix (حذف on المتطوعين → تسجيلات المهام). English and Arabic
+are written; `ckb.ts` / `kmr.ts` deliberately have no entry, so both Kurdish
+locales fall back to English until a native speaker fills this in.
+
+**Why it is a new string rather than a reuse.** The three `confirm_delete_body*`
+keys that already exist all promise the record will be removed *permanently*.
+That is no longer true of the deletes H15 made recoverable, and it is not true
+of this one — the row goes to المهملات and can be restored. Reusing one of them
+would have made the dialog lie about what the button does.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `common.confirm_delete_body_recoverable` | "{name}" will be moved to the Trash. You can restore it from there. | سيُنقل «{name}» إلى المهملات، ويمكنك استرجاعه من هناك. | ckb + kmr |
+
+> `{name}` is a placeholder — keep it exactly as written, braces included. It is
+> substituted at runtime with the record's own label (for a mission signup: the
+> volunteer's name and the mission title).
+
 ## `status.*` · notification types  (81 keys — same words as Part 1)
 
 Do **not** translate these twice. They are the identical 81 values listed under

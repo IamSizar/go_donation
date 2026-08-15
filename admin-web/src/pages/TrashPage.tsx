@@ -60,6 +60,12 @@ const MODULE_TKEY: Record<string, string> = {
   marriage_subscription_packages: 'nav.marriage_subscriptions',
   tasks: 'nav.tasks',
   post_comments: 'nav.comments',
+
+  // E15 — the new recoverable delete on تسجيلات المهام. Without this entry the
+  // Trash would print the raw `volunteer_mission_signups` — an English database
+  // token on an Arabic screen — which is the exact defect the block above
+  // exists to prevent.
+  volunteer_mission_signups: 'nav.volunteers',
 }
 
 // Pull a human-readable label out of the snapshot to help identify the record.
@@ -77,6 +83,10 @@ function previewOf(payload: Record<string, unknown>, locale: string): string {
     'full_name', ...localized, 'title', 'name', 'product_name',
     'reference', 'ref', 'username', 'phone', 'email',
     'body', 'word', // a moderated comment; a blocked word
+    // E15 — a mission signup carries no name/title of its own; `notes` is the
+    // only free text on the row. Last in the list on purpose: it exists on
+    // several other tables too, and must never win over a real name there.
+    'notes',
   ]
   for (const k of cand) {
     const v = payload?.[k]

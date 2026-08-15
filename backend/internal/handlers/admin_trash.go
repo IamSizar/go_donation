@@ -67,6 +67,12 @@ var restorableTables = map[string]bool{
 	"marriage_subscription_packages": true,
 	"tasks":                          true,
 	"post_comments":                  true,
+
+	// E15 — the signup delete added for تسجيلات المهام. Same reason as the
+	// block above: without this entry the row would reach the Trash and then be
+	// refused on the way out, which is worse than never trashing it because the
+	// operator has been told it is recoverable.
+	"volunteer_mission_signups": true,
 }
 
 // List returns everything currently in the trash (not yet restored), newest

@@ -36,6 +36,11 @@ import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
 import RowActionsMenu from '../components/RowActionsMenu'
 import ActionsMenu from '../components/ActionsMenu'
+// E15 — the signups tab builds its own ActionsMenu (its entries are status
+// transitions, not view/edit/delete), so it cannot get the role-aware delete
+// label from RowActionsMenu the way every other table does. Pulling the same
+// hook keeps one convention: Super-Admin reads حذف, everyone else أرشفة.
+import { useRowDeleteLabel } from '../components/RowDeleteButton'
 
 const VOLUNTEER_CSV_COLUMNS: CsvColumn<AdminVolunteerApp>[] = [
   { header: 'id', get: (a) => a.id },
@@ -792,6 +797,9 @@ function MissionSignupsTab() {
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [refreshTick, setRefreshTick] = useState(0)
+  // E15 — the signup the حذف action is currently asking about. null = the
+  // confirm dialog is closed. Same shape as every other delete on the dashboard.
+  const [deleting, setDeleting] = useState<AdminMissionSignup | null>(null)
   // Phase 27.9 — true while a background poll is refetching, so the loader
   // stays hidden and the list updates silently (no full reload flash).
   const pollSilent = useRef(false)
@@ -800,6 +808,7 @@ function MissionSignupsTab() {
   const statusLabel = useStatusLabel()
   const highlight = useHighlightedRow()
   const { refresh: refreshPendingCounts } = usePendingCounts()
+  const deleteLabel = useRowDeleteLabel()
 
   // Polling-like reload: 1) on tab mount, 2) when filters change, 3) after
   // any status action via setRefreshTick.
@@ -837,6 +846,31 @@ function MissionSignupsTab() {
         // Decrement sidebar pending count immediately if we just resolved one.
         refreshPendingCounts()
       } catch (e) {
+        toast.error(describeError(e))
+      }
+    },
+    [toast, refreshPendingCounts],
+  )
+
+  // E15 — حذف, the fifth action the client asked this list to always carry.
+  // It is a RECOVERABLE delete: DELETE /api/admin/volunteer_mission_signups/:id
+  // is gated on volunteers/delete and routes the row through trashRow, so the
+  // signup lands in المهملات and a Super-Admin can restore it. That is why the
+  // dialog below uses confirm_delete_body_recoverable rather than the
+  // "permanently removed" body the older pages still use.
+  const handleDelete = useCallback(
+    async (id: number) => {
+      try {
+        await api.delete(`/api/admin/volunteer_mission_signups/${id}`)
+        toast.success(t('toast.deleted', { noun: `${t('noun.mission_signup')} #${id}` }))
+        setDeleting(null)
+        setRefreshTick((n) => n + 1)
+        // A pending signup that is deleted is one fewer item in the sidebar
+        // badge — the same refresh applyStatus does after resolving one.
+        refreshPendingCounts()
+      } catch (e) {
+        // Never close the dialog on failure: the row is still there, and the
+        // admin needs to see why (403 from the permission gate, 409 from an FK).
         toast.error(describeError(e))
       }
     },
@@ -965,22 +999,33 @@ function MissionSignupsTab() {
       key: 'actions',
       header: t('common.actions'),
       width: '270px',
-      cell: (s) => {
-        const acts = actionsFor(s)
-        if (acts.length === 0) {
-          return <span className="muted" style={{ fontSize: 12 }}>—</span>
-        }
-        return (
-          <ActionsMenu
-            items={acts.map((a) => ({
+      // E15 — the client asked for a FIXED list: موافق/قبول/رفض/تراجع/حذف,
+      // always present. actionsFor() already guarantees the status half is
+      // never empty (its `default` branch always returns a Revert), and حذف is
+      // appended unconditionally here rather than inside actionsFor because it
+      // is not a status transition — it calls DELETE, not /status.
+      //
+      // The early return for an empty list is gone with it: the menu now always
+      // has at least حذف, so a row can no longer render a bare "—" where the
+      // client expects five actions.
+      cell: (s) => (
+        <ActionsMenu
+          items={[
+            ...actionsFor(s).map((a) => ({
               key: a.status,
               label: a.label,
               danger: a.tone === 'danger',
               onClick: () => applyStatus(s.id, a.status),
-            }))}
-          />
-        )
-      },
+            })),
+            {
+              key: 'delete',
+              label: deleteLabel,
+              danger: true,
+              onClick: () => setDeleting(s),
+            },
+          ]}
+        />
+      ),
     },
   ]
 
@@ -1035,6 +1080,25 @@ function MissionSignupsTab() {
         totalPages={resp?.total_pages ?? 1}
         onPageChange={setPage}
         disabled={loading}
+      />
+      {/* E15 — the confirm step for حذف. The body names the volunteer and the
+          mission, because a signup has no name of its own and "#T12" alone is
+          not enough to be sure you picked the right row. It says the record
+          goes to المهملات rather than repeating the older pages' "permanently
+          removed", which would be untrue of this delete. */}
+      <ConfirmDialog
+        open={deleting !== null}
+        title={deleting ? t('common.confirm_delete_title', { noun: t('noun.mission_signup'), id: deleting.id }) : ''}
+        message={deleting
+          ? t('common.confirm_delete_body_recoverable', {
+              name: [
+                deleting.user_full_name ?? t('common.user_ref_lc', { id: deleting.user_id }),
+                deleting.mission_title,
+              ].filter(Boolean).join(' · '),
+            })
+          : ''}
+        onConfirm={() => handleDelete(deleting!.id)}
+        onCancel={() => setDeleting(null)}
       />
     </div>
   )

@@ -162,6 +162,32 @@ func TestDeleteGoesToTrash(t *testing.T) {
 				return NewTasksHandler(tasks.New(pool), nil).AdminDelete
 			},
 		},
+		{
+			// E15 — the fifth entry the client asked for on تسجيلات المهام.
+			// Four of the five actions (موافق/قبول/رفض/تراجع) are status
+			// transitions that already exist; حذف had no route at all, so the
+			// dashboard had nothing to call. It is added under the SAME rule as
+			// the thirteen above rather than as a hard delete: a signup carries a
+			// volunteer's completion note and hours served, and staff pressing
+			// حذف on the wrong row must be able to undo it.
+			name:  "volunteer mission signup",
+			table: "volunteer_mission_signups",
+			insert: func(t *testing.T) int64 {
+				volunteer := insertAccount(t, pool, "user", "")
+				missionID := insertReturningID(t, `INSERT INTO volunteer_missions (title, status)
+					VALUES ('E15 fixture', 'open') RETURNING id`)
+				t.Cleanup(func() {
+					_, _ = pool.Exec(context.Background(),
+						`DELETE FROM volunteer_missions WHERE id = $1`, missionID)
+				})
+				return insertReturningID(t, `INSERT INTO volunteer_mission_signups
+					(user_id, mission_id, status, notes)
+					VALUES ($1, $2, 'pending', 'E15 fixture') RETURNING id`, volunteer.id, missionID)
+			},
+			handler: func() gin.HandlerFunc {
+				return NewAdminDeleteHandler(pool).VolunteerMissionSignup
+			},
+		},
 	}
 
 	for _, tc := range cases {
@@ -201,6 +227,10 @@ func TestTrashedTablesAreRestorable(t *testing.T) {
 		"inkind_categories", "city_sectors", "city_categories", "media_categories",
 		"case_categories", "marketplace_categories", "payment_methods",
 		"marriage_subscription_packages", "tasks", "post_comments",
+
+		// E15 — same trap, same guard: the new signup delete is only a
+		// recoverable delete if Restore will take the row back out.
+		"volunteer_mission_signups",
 	} {
 		if !restorableTables[table] {
 			t.Errorf("%s can be trashed but not restored — Restore would refuse it", table)

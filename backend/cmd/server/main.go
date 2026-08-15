@@ -733,6 +733,12 @@ func main() {
 			admin.GET("/admin/volunteer_mission_signups/", perm("volunteers", "view"), adminListsH.VolunteerMissionSignups)
 			admin.POST("/admin/volunteer_mission_signups/:id/status", perm("volunteers", "edit"), adminStatusH.MissionSignup)
 			admin.POST("/admin/volunteer_mission_signups/:id/assign-case", perm("volunteers", "edit"), adminStatusH.AssignSignupCase)
+			// E15 — the fifth action the client asked for on تسجيلات المهام. The
+			// four above are status transitions and were already there; حذف had
+			// no route, so the dashboard could not offer it. Gated on
+			// volunteers/delete (its own checkbox — `edit` must not imply
+			// removal), and recoverable from المهملات like the rest.
+			admin.DELETE("/admin/volunteer_mission_signups/:id", perm("volunteers", "delete"), adminDeleteH.VolunteerMissionSignup)
 
 			// Phase 24 — per-mission Kanban "Volunteer board" view.
 			// Groups signups into 4 lanes (pending/approved/on_mission/
