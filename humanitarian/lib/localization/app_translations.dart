@@ -211,6 +211,34 @@ class AppTranslations extends Translations {
     'Submit a new profile': 'Submit a new profile',
     'Ask the staff team to update an existing profile, or submit a new one for review.':
         'Ask the staff team to update an existing profile, or submit a new one for review.',
+    // ─── Structural de-duplication, wave 2 ───
+    // Services-hub section headings: the shared tiles now render once under
+    // one heading instead of being repeated in all three role variants.
+    'Community and support': 'Community and support',
+    'Giving tools': 'Giving tools',
+    'Volunteer tools': 'Volunteer tools',
+    // City Guide: the map had no error or empty state at all, and its old
+    // overlay showed ADMIN instructions ("add coordinates from the admin
+    // panel") to end users. These replace it, and separate "the guide is
+    // empty" from "this sector is empty" — different facts, different exits.
+    'No places on the map yet': 'No places on the map yet',
+    'Approved places in the city guide will appear here. You can suggest one with Add an Activity.':
+        'Approved places in the city guide will appear here. You can suggest one with Add an Activity.',
+    'No places in this sector': 'No places in this sector',
+    'Nothing in the guide matches this sector yet. Clear the filter to see every place.':
+        'Nothing in the guide matches this sector yet. Clear the filter to see every place.',
+    'Show all places': 'Show all places',
+    'These places have no map location yet.\nBrowse them in the row below.':
+        'These places have no map location yet.\nBrowse them in the row below.',
+    // Locked fields: each says WHY it is locked and, where useful, where the
+    // value can actually be changed — so the user learns the rule instead of
+    // tapping a control that will never respond.
+    'Name and phone come from your verified account. Change them in Profile > Edit profile.':
+        'Name and phone come from your verified account. Change them in Profile > Edit profile.',
+    'This is the verified number you sign in with, so it cannot be edited here.':
+        'This is the verified number you sign in with, so it cannot be edited here.',
+    'Projects are funded in Iraqi dinar (IQD), so the currency is fixed.':
+        'Projects are funded in Iraqi dinar (IQD), so the currency is fixed.',
     'Legal': 'Legal',
     'Read the terms that apply to using the app.':
         'Read the terms that apply to using the app.',
@@ -2556,6 +2584,25 @@ class AppTranslations extends Translations {
     'Submit a new profile': 'إرسال ملف جديد',
     'Ask the staff team to update an existing profile, or submit a new one for review.':
         'اطلب من فريق العمل تحديث ملف قائم، أو أرسل ملفاً جديداً للمراجعة.',
+    // ─── إعادة الهيكلة، الموجة الثانية ───
+    'Community and support': 'المجتمع والدعم',
+    'Giving tools': 'أدوات العطاء',
+    'Volunteer tools': 'أدوات التطوع',
+    'No places on the map yet': 'لا توجد أماكن على الخريطة بعد',
+    'Approved places in the city guide will appear here. You can suggest one with Add an Activity.':
+        'ستظهر هنا الأماكن المعتمدة في دليل المدينة. يمكنك اقتراح مكان عبر «إضافة نشاط».',
+    'No places in this sector': 'لا توجد أماكن في هذا القطاع',
+    'Nothing in the guide matches this sector yet. Clear the filter to see every place.':
+        'لا يوجد في الدليل ما يطابق هذا القطاع بعد. امسح المرشّح لعرض كل الأماكن.',
+    'Show all places': 'عرض كل الأماكن',
+    'These places have no map location yet.\nBrowse them in the row below.':
+        'هذه الأماكن ليس لها موقع على الخريطة بعد.\nتصفّحها في الصف أدناه.',
+    'Name and phone come from your verified account. Change them in Profile > Edit profile.':
+        'الاسم ورقم الهاتف يأتيان من حسابك المُوثّق. يمكنك تغييرهما من «الملف الشخصي > تعديل الملف».',
+    'This is the verified number you sign in with, so it cannot be edited here.':
+        'هذا هو الرقم المُوثّق الذي تسجّل الدخول به، لذا لا يمكن تعديله هنا.',
+    'Projects are funded in Iraqi dinar (IQD), so the currency is fixed.':
+        'تموّل المشاريع بالدينار العراقي (IQD)، لذا فإن العملة ثابتة.',
     'Legal': 'قانوني',
     'Read the terms that apply to using the app.':
         'اقرأ الشروط التي تنطبق على استخدام التطبيق.',

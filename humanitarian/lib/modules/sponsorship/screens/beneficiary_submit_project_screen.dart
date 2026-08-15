@@ -412,29 +412,25 @@ class _BeneficiarySubmitProjectScreenState
                         flex: 2,
                         child: _LabeledField(
                           label: 'Currency',
-                          child: TextFormField(
-                            controller: _currencyController,
-                            textInputAction: TextInputAction.next,
-                            textCapitalization: TextCapitalization.characters,
-                            style: TextStyle(
-                              color: AppThemeConfig.text(context),
-                            ),
-                            decoration: _fieldDecoration(
-                              context,
-                              hintText: 'IQD',
-                              icon: Icons.currency_exchange_rounded,
-                            ),
-                            readOnly: true,
-                            validator: (v) {
-                              if (v == null || v.trim().isEmpty) {
-                                return 'Enter currency'.tr;
-                              }
-                              return null;
-                            },
+                          // The currency is not a choice: `_currencyController`
+                          // is created with 'IQD' and reset to 'IQD' on clear,
+                          // and nothing anywhere writes another value into it.
+                          // It was a `readOnly` text field, which read as an
+                          // input the user could correct — so it is now a
+                          // locked value chip, with the reason spelled out
+                          // under the row.
+                          child: _LockedCurrencyBox(
+                            currency: _currencyController.text,
                           ),
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 10),
+                  const _FieldNote(
+                    text:
+                        'Projects are funded in Iraqi dinar (IQD), so the '
+                        'currency is fixed.',
                   ),
                 ],
               ),
@@ -754,6 +750,89 @@ class _BeneficiarySubmitProjectScreenState
           ],
         ),
       ),
+    );
+  }
+}
+
+/// The fixed project currency, shown as a locked value instead of an input.
+///
+/// Matches `_fieldDecoration`'s fill, border and radius so it sits level with
+/// the amount field beside it, but has no caret, no keyboard and no focus
+/// ring — nothing that invites a tap that cannot do anything.
+class _LockedCurrencyBox extends StatelessWidget {
+  const _LockedCurrencyBox({required this.currency});
+
+  /// The ISO code the request will carry — always 'IQD' today.
+  final String currency;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 17),
+      decoration: BoxDecoration(
+        color: AppThemeConfig.softSurface(context),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppThemeConfig.border(context)),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.currency_exchange_rounded,
+            color: AppThemeConfig.mutedText(context),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              currency,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: AppThemeConfig.text(context),
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          Icon(
+            Icons.lock_outline_rounded,
+            size: 18,
+            color: AppThemeConfig.mutedText(context),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A quiet explanatory line under a group of fields — used to say why a value
+/// above it is locked, so the rule is learned instead of guessed at.
+class _FieldNote extends StatelessWidget {
+  const _FieldNote({required this.text});
+
+  /// Translated via `.tr`.
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          Icons.info_outline_rounded,
+          size: 15,
+          color: AppThemeConfig.mutedText(context),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text.tr,
+            style: TextStyle(
+              color: AppThemeConfig.mutedText(context),
+              fontSize: 12.5,
+              height: 1.35,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
