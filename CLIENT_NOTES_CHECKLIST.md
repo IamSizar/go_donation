@@ -609,7 +609,7 @@ SELECT-only queries.**
 
 | # | Item | Where | Status |
 |---|---|---|---|
-| B1 | Notification **type filter options are raw English enums** — `beneficiary_case_submitted`, `marriage_approved`, `new_campaign`, `support_ticket_resolved`, `system_test`, `volunteer_application_*` … | App → الإشعارات → التصفية حسب النوع | ⬜ |
+| B1 | Notification **type filter options are raw English enums** — `beneficiary_case_submitted`, `marriage_approved`, `new_campaign`, `support_ticket_resolved`, `system_test`, `volunteer_application_*` … | App → الإشعارات → التصفية حسب النوع | 🛠️ **fixed** — all 81 notification types now have Arabic words, in the app **and** on the dashboard's النوع column, which had the same defect and was not in your note. Checked against the backend's own list so a type added later cannot quietly reappear in English |
 | B2 | **"Support Assistant / Ask me anything — I'll guide you through the app"** is in English | App → الرسائل, top card | ⬜ |
 | B3 | Place detail shows a **raw JSON array** `["commercial","government","education","health"]` instead of readable sector names | Dashboard → دليل المدينة → عرض | ⬜ |
 | B4 | Login screen is in English (`Secure sign in`, `Phone number`, `Send OTP`, `Continue as guest`, `Don't have an account?`) | App → login | ⬜ |

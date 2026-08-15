@@ -5,6 +5,8 @@ nothing in the codebase was guessed.**
 
 Generated 2026-08-15 by measuring the committed tree, not by estimating.
 Updated 2026-08-15 with the 25 strings the A16 password sign-in flow added.
+Updated 2026-08-15 again with the 100 keys the group-B English-leak sweep added
+(81 notification types, shared by both clients, plus 19 widget literals).
 
 ## Why these are empty rather than wrong
 
@@ -17,13 +19,25 @@ made on this project once and had to be reverted.
 Every key below currently renders its **English** string to a Kurdish user.
 That is deliberate and safe. It is not a crash, and it is not Arabic text.
 
-## Count: 136 keys need Kurdish
+## Count: 236 keys need Kurdish
 
 | Client | Sorani (ckb) | Badini (kmr) | Distinct keys |
 |---|---|---|---|
 | Flutter app | 112 | 116 | 116 |
-| Admin dashboard | 20 | 20 | 20 |
-| **Total** | | | **136** |
+| Flutter app — B1 notification types (new) | 81 | 81 | 81 |
+| Flutter app — B21 widget literals (new) | 19 | 19 | 19 |
+| Admin dashboard — audited `status.*` | 20 | 20 | 20 |
+| Admin dashboard — B1 notification types (new) | 81 | 81 | *same 81 words as above* |
+| **Total distinct words to translate** | | | **236** |
+
+> **The dashboard figure above is a floor, not a ceiling — and it is the one
+> number in this file that was never fully measured.** Counting key paths in
+> `en.ts` against `ckb.ts`/`kmr.ts` today gives **297** missing on each, of
+> which 177 are `page.*` and 105 are `status.*`. The "20" row was an audit of
+> part of `status.*`, not of the whole file. Nothing here is wrong — every one
+> of those 297 falls back to English, which is the intended behaviour — but a
+> translator should know the dashboard job is larger than the table suggests.
+> Measuring the rest properly is outstanding work, not a defect.
 
 Each row below gives the English and the Arabic. Supply **ckb** and **kmr**.
 Where a row is marked `REMOVED (was Arabic)`, a value existed but was
@@ -254,6 +268,135 @@ both must survive the translation, in place.
 | `No beneficiary cases yet.` | No eligible cases yet. | لا توجد حالات مستحق بعد. | ckb *REMOVED (was Arabic)* + kmr *REMOVED (was Arabic)* |
 | `Your contributions will appear here once you give.` | Your contributions will appear here once you give. | ستظهر مساهماتك هنا بعد أول تبرع. | ckb + kmr |
 
+## notifications · B1 notification_type vocabulary  (81 keys)
+
+Added 2026-08-15 by `d498453` (app) and by the dashboard commit that followed
+(`status.*` in `en.ts`/`ar.ts`). **These 81 rows serve BOTH clients** — the
+Flutter map keys the raw token directly (`'marketplace_order_approved'`) and the
+dashboard keys the same token under `status.` — so one Kurdish word per row
+fills four files.
+
+These are the values the notification `type` filter and the dashboard's النوع
+column display. Before this vocabulary existed an Arabic reader picked between
+`marketplace_order_approved` and `system_test`; a Kurdish reader still sees the
+English column below, which is the intended fallback, not a bug.
+
+Source of truth for the list: the `Type:` field of every `LocalizedMessage` in
+`backend/internal/notify/templates.go`.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `admin_announcement` | Admin announcement | إعلان إداري | ckb + kmr |
+| `admin_new_beneficiary_case` | New beneficiary case | حالة مستفيد جديدة | ckb + kmr |
+| `admin_new_guest_account` | New guest account | حساب زائر جديد | ckb + kmr |
+| `admin_new_marriage_profile` | New marriage profile | ملف زواج جديد | ckb + kmr |
+| `admin_new_project_request` | New project request | طلب مشروع جديد | ckb + kmr |
+| `beneficiary_case_approved` | Beneficiary case approved | قبول حالة مستفيد | ckb + kmr |
+| `beneficiary_case_rejected` | Beneficiary case rejected | رفض حالة مستفيد | ckb + kmr |
+| `beneficiary_case_submitted` | Beneficiary case submitted | تقديم حالة مستفيد | ckb + kmr |
+| `case_volunteer_chat_message` | Case chat message | رسالة محادثة الحالة | ckb + kmr |
+| `case_volunteer_chat_opened` | Case chat opened | فتح محادثة الحالة | ckb + kmr |
+| `chat_accepted` | Chat accepted | قبول المحادثة | ckb + kmr |
+| `chat_message` | Chat message | رسالة محادثة | ckb + kmr |
+| `chat_request` | Chat request | طلب محادثة | ckb + kmr |
+| `donation_approved` | Donation approved | قبول التبرع | ckb + kmr |
+| `donation_cancelled_by_donor` | Donation cancelled | إلغاء التبرع | ckb + kmr |
+| `donation_payment_confirmed` | Donation payment confirmed | تأكيد دفع التبرع | ckb + kmr |
+| `donation_payment_failed` | Donation payment failed | فشل دفع التبرع | ckb + kmr |
+| `donation_received_on_project` | Donation received on project | تبرع وارد على مشروع | ckb + kmr |
+| `donation_rejected` | Donation rejected | رفض التبرع | ckb + kmr |
+| `donation_submitted` | Donation submitted | تقديم تبرع | ckb + kmr |
+| `in_kind_donation_cancelled` | In-kind donation cancelled | إلغاء مساهمة عينية | ckb + kmr |
+| `in_kind_donation_delivered` | In-kind donation delivered | تسليم مساهمة عينية | ckb + kmr |
+| `in_kind_donation_received` | In-kind donation received | استلام مساهمة عينية | ckb + kmr |
+| `in_kind_donation_scheduled` | In-kind donation scheduled | جدولة مساهمة عينية | ckb + kmr |
+| `in_kind_donation_submitted` | In-kind donation submitted | تقديم مساهمة عينية | ckb + kmr |
+| `marketplace_order_approved` | Order approved | قبول طلب من المتجر | ckb + kmr |
+| `marketplace_order_cancelled` | Order cancelled | إلغاء طلب من المتجر | ckb + kmr |
+| `marketplace_order_completed` | Order completed | إكمال طلب من المتجر | ckb + kmr |
+| `marketplace_order_submitted` | Order submitted | تقديم طلب من المتجر | ckb + kmr |
+| `marriage_approved` | Marriage profile approved | قبول ملف الزواج | ckb + kmr |
+| `marriage_chat_accepted` | Marriage chat accepted | قبول محادثة الزواج | ckb + kmr |
+| `marriage_chat_message` | Marriage chat message | رسالة محادثة الزواج | ckb + kmr |
+| `marriage_chat_request` | Marriage chat request | طلب محادثة الزواج | ckb + kmr |
+| `marriage_meeting_declined` | Meeting request declined | رفض طلب اللقاء | ckb + kmr |
+| `marriage_profile_submitted` | Marriage profile submitted | تقديم ملف زواج | ckb + kmr |
+| `marriage_rejected` | Marriage profile rejected | رفض ملف الزواج | ckb + kmr |
+| `marriage_status_changed` | Marriage status changed | تغيير حالة ملف الزواج | ckb + kmr |
+| `marriage_subscription_activated` | Subscription activated | تفعيل الاشتراك | ckb + kmr |
+| `marriage_subscription_pending` | Subscription pending | اشتراك قيد المراجعة | ckb + kmr |
+| `marriage_subscription_pending_admin` | Subscription awaiting review | اشتراك بانتظار الإدارة | ckb + kmr |
+| `marriage_subscription_rejected` | Subscription rejected | رفض الاشتراك | ckb + kmr |
+| `new_campaign` | New campaign | حملة جديدة | ckb + kmr |
+| `new_media_post` | New post | منشور جديد | ckb + kmr |
+| `new_partner` | New partner | شريك جديد | ckb + kmr |
+| `new_volunteer_mission` | New volunteer mission | مهمة تطوع جديدة | ckb + kmr |
+| `post_comment_received` | New comment | تعليق جديد | ckb + kmr |
+| `project_request_approved` | Project request approved | قبول طلب مشروع | ckb + kmr |
+| `project_request_rejected` | Project request rejected | رفض طلب مشروع | ckb + kmr |
+| `project_request_status_changed` | Project request updated | تغيير حالة طلب المشروع | ckb + kmr |
+| `project_request_submitted` | Project request submitted | تقديم طلب مشروع | ckb + kmr |
+| `registration_approved` | Registration approved | قبول التسجيل | ckb + kmr |
+| `registration_rejected` | Registration rejected | رفض التسجيل | ckb + kmr |
+| `sponsorship_accepted` | Sponsorship accepted | قبول الكفالة | ckb + kmr |
+| `sponsorship_cancelled` | Sponsorship cancelled | إلغاء الكفالة | ckb + kmr |
+| `sponsorship_due_grantor` | Sponsorship payment due | استحقاق دفعة الكفالة | ckb + kmr |
+| `sponsorship_due_recipient` | Sponsorship payment on the way | دفعة كفالة في الطريق | ckb + kmr |
+| `sponsorship_payment_due_reminder` | Sponsorship payment reminder | تذكير بدفعة الكفالة | ckb + kmr |
+| `sponsorship_status_changed` | Sponsorship status changed | تغيير حالة الكفالة | ckb + kmr |
+| `sponsorship_submitted` | Sponsorship submitted | تقديم كفالة | ckb + kmr |
+| `staff_chat_message` | Staff chat message | رسالة محادثة الموظفين | ckb + kmr |
+| `support_request_submitted` | Support request submitted | تقديم طلب دعم | ckb + kmr |
+| `support_ticket_closed` | Support request closed | إغلاق طلب الدعم | ckb + kmr |
+| `support_ticket_in_progress` | Support request in progress | طلب دعم قيد المعالجة | ckb + kmr |
+| `support_ticket_replied` | Support request replied | رد على طلب الدعم | ckb + kmr |
+| `support_ticket_resolved` | Support request resolved | حل طلب الدعم | ckb + kmr |
+| `system_test` | System test | اختبار النظام | ckb + kmr |
+| `task_assigned` | Task assigned | إسناد مهمة | ckb + kmr |
+| `volunteer_application_approved` | Volunteer application approved | قبول طلب التطوع | ckb + kmr |
+| `volunteer_application_inactive` | Volunteer application deactivated | تعطيل طلب التطوع | ckb + kmr |
+| `volunteer_application_rejected` | Volunteer application rejected | رفض طلب التطوع | ckb + kmr |
+| `volunteer_application_submitted` | Volunteer application submitted | تقديم طلب تطوع | ckb + kmr |
+| `volunteer_mission_absent` | Marked absent | تسجيل غياب في مهمة | ckb + kmr |
+| `volunteer_mission_approved` | Mission join approved | قبول الانضمام لمهمة | ckb + kmr |
+| `volunteer_mission_cancelled` | Mission join cancelled | إلغاء الانضمام لمهمة | ckb + kmr |
+| `volunteer_mission_completed` | Mission completed | إكمال مهمة | ckb + kmr |
+| `volunteer_mission_completion_requested` | Mission completion under review | إكمال مهمة قيد المراجعة | ckb + kmr |
+| `volunteer_mission_join_submitted` | Mission join submitted | تقديم طلب انضمام لمهمة | ckb + kmr |
+| `volunteer_mission_joined` | Attendance recorded | تسجيل حضور في مهمة | ckb + kmr |
+| `volunteer_mission_no_show` | Marked absent | تسجيل غياب في مهمة | ckb + kmr |
+| `volunteer_mission_rejected` | Mission join rejected | رفض الانضمام لمهمة | ckb + kmr |
+| `wallet_topup` | Wallet top-up | شحن المحفظة | ckb + kmr |
+
+## widgets · B21 literals that widgets translate internally  (19 keys)
+
+Added 2026-08-15 by `d498453`. `AppEmpty`, `AppScreen`, `SectionScaffold`,
+`SectionTile`, `AppFigure` and `InfoChip` apply `.tr` to a String FIELD, so a
+call site passing a bare English literal looks correct and compiles. These 19
+had no map entry and rendered verbatim in Arabic; they now have `_en` and `_ar`.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `Eligible support` | Eligible support | الدعم المتاح | ckb + kmr |
+| `Kafala Support` | Kafala Support | دعم الكفالة | ckb + kmr |
+| `Submit help requests and track admin review in one place.` | Submit help requests and track admin review in one place. | قدّم طلبات المساعدة وتابع مراجعة الإدارة في مكان واحد. | ckb + kmr |
+| `Monitor sponsorship plans, your submitted projects, and stories.` | Monitor sponsorship plans, your submitted projects, and stories. | تابع خطط الكفالة ومشاريعك المقدَّمة والقصص. | ckb + kmr |
+| `gifts` | gifts | مساهمة | ckb + kmr |
+| `contributions` | contributions | مساهمة | ckb + kmr |
+| `Delivered` | Delivered | تم التسليم | ckb + kmr |
+| `Awaiting confirmation` | Awaiting confirmation | بانتظار التأكيد | ckb + kmr |
+| `No gifts yet` | No gifts yet | لا توجد مساهمات بعد | ckb + kmr |
+| `Every gift you make appears here with its reference code and delivery status, so you always know where it went.` | Every gift you make appears here with its reference code and delivery status, so you always know where it went. | كل مساهمة تقدّمها تظهر هنا مع رمزها المرجعي وحالة تسليمها، لتعرف دائمًا أين وصلت. | ckb + kmr |
+| `Send the first message to start the conversation.` | Send the first message to start the conversation. | أرسل أول رسالة لبدء المحادثة. | ckb + kmr |
+| `Send a support request and track the reply.` | Send a support request and track the reply. | أرسل طلب دعم وتابع الرد عليه. | ckb + kmr |
+| `Flexible` | Flexible | مرن | ckb + kmr |
+| `My volunteer application` | My volunteer application | طلب التطوع الخاص بي | ckb + kmr |
+| `Submit your skills and availability to the institution.` | Submit your skills and availability to the institution. | قدّم مهاراتك وأوقات توفّرك إلى المؤسسة. | ckb + kmr |
+| `Sending...` | Sending... | جارٍ الإرسال... | ckb + kmr |
+| `Featured campaigns will appear here once published.` | Featured campaigns will appear here once published. | ستظهر الحملات المميزة هنا بمجرد نشرها. | ckb + kmr |
+| `new one for review.` | new one for review. | نسخة جديدة للمراجعة. | ckb + kmr |
+| `edited here.` | edited here. | تُعدَّل هنا. | ckb + kmr |
+
 ## (shared / not directly referenced)  (16 keys)
 
 | Key | English | Arabic | Needs |
@@ -308,6 +451,18 @@ database columns). Missing keys are type-legal and fall back to English.
 | `status.unemployed` | Unemployed | عاطل عن العمل | ckb + kmr |
 | `status.wallet` | Wallet | محفظة | ckb + kmr |
 | `status.widowed` | Widowed | أرمل | ckb + kmr |
+
+## `status.*` · notification types  (81 keys — same words as Part 1)
+
+Do **not** translate these twice. They are the identical 81 values listed under
+*Part 1 → notifications · B1 notification_type vocabulary*, keyed here as
+`status.<token>` instead of `<token>`. Fill them once and copy the same word
+into `ckb.ts` / `kmr.ts` under `status:`.
+
+Deliberate: the dashboard reads one vocabulary and the app another, so a type
+that reads "قبول حالة مستفيد" on the phone must read the same in the النوع
+column. Splitting the Kurdish wording between the two files is the failure mode
+to avoid.
 
 ---
 

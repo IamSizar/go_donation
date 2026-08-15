@@ -1229,6 +1229,103 @@ const ar: DeepPartial<typeof en> = {
     // 'admin' must differ from 'supervisor' (مشرف) — the tier dropdown shows
     // both, so identical labels would make the two tiers indistinguishable.
     admin: 'مسؤول',
+
+    // ─── B1 · notification_type vocabulary ───
+    // The النوع column and the CSV export hand `notification_type` straight to
+    // statusLabel, which returns the raw value when it finds no key — so the
+    // Arabic dashboard printed `marketplace_order_approved` in a table whose
+    // every other cell was Arabic. 98629a7 routed the value through
+    // statusLabel but added no words for it to find.
+    //
+    // Same 81 values, same wording as the app's own map
+    // (humanitarian/lib/localization/app_translations.dart, d498453) — one
+    // vocabulary read off the `Type:` field of every LocalizedMessage in
+    // backend/internal/notify/templates.go, so a type never reads one way on
+    // the phone and another on the dashboard.
+    //
+    // ckb/kmr deliberately absent: they fall back to en, which is honest.
+    // Listed for a translator in TRANSLATION_REQUEST.md.
+    admin_announcement: 'إعلان إداري',
+    admin_new_beneficiary_case: 'حالة مستفيد جديدة',
+    admin_new_guest_account: 'حساب زائر جديد',
+    admin_new_marriage_profile: 'ملف زواج جديد',
+    admin_new_project_request: 'طلب مشروع جديد',
+    beneficiary_case_approved: 'قبول حالة مستفيد',
+    beneficiary_case_rejected: 'رفض حالة مستفيد',
+    beneficiary_case_submitted: 'تقديم حالة مستفيد',
+    case_volunteer_chat_message: 'رسالة محادثة الحالة',
+    case_volunteer_chat_opened: 'فتح محادثة الحالة',
+    chat_accepted: 'قبول المحادثة',
+    chat_message: 'رسالة محادثة',
+    chat_request: 'طلب محادثة',
+    donation_approved: 'قبول التبرع',
+    donation_cancelled_by_donor: 'إلغاء التبرع',
+    donation_payment_confirmed: 'تأكيد دفع التبرع',
+    donation_payment_failed: 'فشل دفع التبرع',
+    donation_received_on_project: 'تبرع وارد على مشروع',
+    donation_rejected: 'رفض التبرع',
+    donation_submitted: 'تقديم تبرع',
+    in_kind_donation_cancelled: 'إلغاء مساهمة عينية',
+    in_kind_donation_delivered: 'تسليم مساهمة عينية',
+    in_kind_donation_received: 'استلام مساهمة عينية',
+    in_kind_donation_scheduled: 'جدولة مساهمة عينية',
+    in_kind_donation_submitted: 'تقديم مساهمة عينية',
+    marketplace_order_approved: 'قبول طلب من المتجر',
+    marketplace_order_cancelled: 'إلغاء طلب من المتجر',
+    marketplace_order_completed: 'إكمال طلب من المتجر',
+    marketplace_order_submitted: 'تقديم طلب من المتجر',
+    marriage_approved: 'قبول ملف الزواج',
+    marriage_chat_accepted: 'قبول محادثة الزواج',
+    marriage_chat_message: 'رسالة محادثة الزواج',
+    marriage_chat_request: 'طلب محادثة الزواج',
+    marriage_meeting_declined: 'رفض طلب اللقاء',
+    marriage_profile_submitted: 'تقديم ملف زواج',
+    marriage_rejected: 'رفض ملف الزواج',
+    marriage_status_changed: 'تغيير حالة ملف الزواج',
+    marriage_subscription_activated: 'تفعيل الاشتراك',
+    marriage_subscription_pending: 'اشتراك قيد المراجعة',
+    marriage_subscription_pending_admin: 'اشتراك بانتظار الإدارة',
+    marriage_subscription_rejected: 'رفض الاشتراك',
+    new_campaign: 'حملة جديدة',
+    new_media_post: 'منشور جديد',
+    new_partner: 'شريك جديد',
+    new_volunteer_mission: 'مهمة تطوع جديدة',
+    post_comment_received: 'تعليق جديد',
+    project_request_approved: 'قبول طلب مشروع',
+    project_request_rejected: 'رفض طلب مشروع',
+    project_request_status_changed: 'تغيير حالة طلب المشروع',
+    project_request_submitted: 'تقديم طلب مشروع',
+    registration_approved: 'قبول التسجيل',
+    registration_rejected: 'رفض التسجيل',
+    sponsorship_accepted: 'قبول الكفالة',
+    sponsorship_cancelled: 'إلغاء الكفالة',
+    sponsorship_due_grantor: 'استحقاق دفعة الكفالة',
+    sponsorship_due_recipient: 'دفعة كفالة في الطريق',
+    sponsorship_payment_due_reminder: 'تذكير بدفعة الكفالة',
+    sponsorship_status_changed: 'تغيير حالة الكفالة',
+    sponsorship_submitted: 'تقديم كفالة',
+    staff_chat_message: 'رسالة محادثة الموظفين',
+    support_request_submitted: 'تقديم طلب دعم',
+    support_ticket_closed: 'إغلاق طلب الدعم',
+    support_ticket_in_progress: 'طلب دعم قيد المعالجة',
+    support_ticket_replied: 'رد على طلب الدعم',
+    support_ticket_resolved: 'حل طلب الدعم',
+    system_test: 'اختبار النظام',
+    task_assigned: 'إسناد مهمة',
+    volunteer_application_approved: 'قبول طلب التطوع',
+    volunteer_application_inactive: 'تعطيل طلب التطوع',
+    volunteer_application_rejected: 'رفض طلب التطوع',
+    volunteer_application_submitted: 'تقديم طلب تطوع',
+    volunteer_mission_absent: 'تسجيل غياب في مهمة',
+    volunteer_mission_approved: 'قبول الانضمام لمهمة',
+    volunteer_mission_cancelled: 'إلغاء الانضمام لمهمة',
+    volunteer_mission_completed: 'إكمال مهمة',
+    volunteer_mission_completion_requested: 'إكمال مهمة قيد المراجعة',
+    volunteer_mission_join_submitted: 'تقديم طلب انضمام لمهمة',
+    volunteer_mission_joined: 'تسجيل حضور في مهمة',
+    volunteer_mission_no_show: 'تسجيل غياب في مهمة',
+    volunteer_mission_rejected: 'رفض الانضمام لمهمة',
+    wallet_topup: 'شحن المحفظة',
     user: 'مستخدم',
   },
 
