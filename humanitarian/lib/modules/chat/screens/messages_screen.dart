@@ -22,6 +22,9 @@ Future<void> openSupportChat(BuildContext context) async {
       () => ChatConversationScreen(threadId: id, title: 'chat_support'.tr),
     );
   } catch (_) {
+    // Deliberate: this is a one-shot ACTION, not a data load, and the failure
+    // is already surfaced to the user by the snackbar below — nothing is being
+    // hidden behind a false "you have nothing" state.
     if (context.mounted) {
       ScaffoldMessenger.of(
         context,
@@ -144,12 +147,37 @@ class _CaseChatsSectionState extends State<_CaseChatsSection> {
     _future = const ModuleApi().caseChats();
   }
 
+  /// Re-runs the fetch. The new future replaces the old one, which also clears
+  /// the previous error — the FutureBuilder rebuilds from a clean snapshot.
+  void _reload() {
+    setState(() => _future = const ModuleApi().caseChats());
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: _future,
       builder: (context, snapshot) {
+        // snapshot.hasError is now read. It was not before: the builder went
+        // straight to `snapshot.data ?? const []`, so a future that THREW
+        // produced an empty list and the section erased itself — a volunteer
+        // or beneficiary with live case chats saw no trace of them, and had
+        // no way to retry. Rendering nothing is only correct when the fetch
+        // SUCCEEDED and returned nothing.
+        if (snapshot.hasError) {
+          debugPrint('caseChats failed: ${snapshot.error}');
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: AppErrorState(
+              message: 'Could not load your case chats.',
+              onRetry: _reload,
+            ),
+          );
+        }
         final items = snapshot.data ?? const <Map<String, dynamic>>[];
+        // Genuinely empty (or still loading): most users never have a case
+        // chat, so this section stays invisible rather than showing a
+        // skeleton or an empty state for something they will never use.
         if (items.isEmpty) return const SizedBox.shrink();
         return Padding(
           padding: const EdgeInsets.only(bottom: 8),
@@ -528,7 +556,18 @@ class _IncomingRequestCard extends StatelessWidget {
   Future<void> _decline(BuildContext context) async {
     try {
       await ctrl.decline(thread.id);
-    } catch (_) {}
+    } catch (e) {
+      // Was `catch (_) {}` — a failed decline did nothing at all: the request
+      // card stayed on screen with no explanation, so the tap read as a dead
+      // button. Declining is a real mutation, not best-effort, so the failure
+      // is told to the user and the technical cause goes to the log.
+      debugPrint('decline thread ${thread.id} failed: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not decline this chat request.'.tr)),
+        );
+      }
+    }
   }
 
   @override

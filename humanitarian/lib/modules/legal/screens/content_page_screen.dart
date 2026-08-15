@@ -4,6 +4,7 @@ import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/localization/locale_service.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 /// #35 — Read-only app_content page (About / Contact / …). Fetches the
 /// admin-editable content from /api/content/:slug and renders it in the current
@@ -54,21 +55,24 @@ class _ContentPageScreenState extends State<ContentPageScreen> {
                     return const Center(child: CircularProgressIndicator());
                   }
                   final data = snap.data;
+                  // fetchContent() returns null for EVERY failure — non-200, an
+                  // unexpected body shape, or a thrown request — so null here is
+                  // always an error and never a "successfully empty" page.
+                  // AppAsync is deliberately not used: its required `empty`
+                  // branch would be a state this screen cannot reach.
+                  //
+                  // Behaviour is unchanged (same trigger, same _retry, same
+                  // 'content_load_failed' string, which AppErrorState still
+                  // resolves with .tr). Only the presentation moves to the
+                  // shared error state. Scroll view rather than a bare Padding
+                  // because the FutureBuilder sits inside an Expanded, whose
+                  // tight height would stretch the banner's border down the page.
                   if (data == null) {
-                    return Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'content_load_failed'.tr,
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 12),
-                          TextButton(
-                            onPressed: _retry,
-                            child: Text('Retry'.tr),
-                          ),
-                        ],
+                    return SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
+                      child: AppErrorState(
+                        message: 'content_load_failed',
+                        onRetry: _retry,
                       ),
                     );
                   }

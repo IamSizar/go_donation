@@ -141,6 +141,29 @@ class AppTranslations extends Translations {
         'Please accept the Terms & Conditions to continue',
     'Could not load the Terms & Conditions.':
         'Could not load the Terms & Conditions.',
+    // ─── Load-failure messages ───
+    // Shown by AppErrorState when a fetch fails, so that a failed load is
+    // never mistaken for an empty one. Each names what failed in plain words;
+    // the retry affordance is the widget's, so the copy does not repeat it.
+    // Deliberately NOT added to Sorani or Badini — see the note in the _ar
+    // block below.
+    'Could not load your saved items.': 'Could not load your saved items.',
+    'Could not load subscription packages.':
+        'Could not load subscription packages.',
+    'Could not load this conversation.': 'Could not load this conversation.',
+    'Could not load your case chats.': 'Could not load your case chats.',
+    'Could not decline this chat request.':
+        'Could not decline this chat request.',
+    'Could not load volunteer missions.': 'Could not load volunteer missions.',
+    'Could not load your support requests.':
+        'Could not load your support requests.',
+    'Could not load your wallet and payment methods.':
+        'Could not load your wallet and payment methods.',
+    'Could not load your tasks.': 'Could not load your tasks.',
+    'Could not load your sponsorship schedule.':
+        'Could not load your sponsorship schedule.',
+    'Could not load the comments.': 'Could not load the comments.',
+    'Could not play this video.': 'Could not play this video.',
     'Legal': 'Legal',
     'Read the terms that apply to using the app.':
         'Read the terms that apply to using the app.',
@@ -2425,6 +2448,29 @@ class AppTranslations extends Translations {
     'Please accept the Terms & Conditions to continue':
         'يرجى الموافقة على الشروط والأحكام للمتابعة',
     'Could not load the Terms & Conditions.': 'تعذر تحميل الشروط والأحكام.',
+    // ─── رسائل تعذّر التحميل ───
+    // Counterparts to the English block above.
+    //
+    // These are added to English and Arabic ONLY. Sorani and Badini fall back
+    // to English until a native speaker supplies them, which is the standing
+    // decision on #21431: writing invented Kurdish is worse than a visible
+    // English fallback. Note the trap that decision came from — Sorani and
+    // Badini are written in ARABIC SCRIPT, so "looks Arabic" is not a usable
+    // test for which map a string belongs in.
+    'Could not load your saved items.': 'تعذّر تحميل العناصر المحفوظة.',
+    'Could not load subscription packages.': 'تعذّر تحميل باقات الاشتراك.',
+    'Could not load this conversation.': 'تعذّر تحميل هذه المحادثة.',
+    'Could not load your case chats.': 'تعذّر تحميل محادثات حالتك.',
+    'Could not decline this chat request.': 'تعذّر رفض طلب المحادثة.',
+    'Could not load volunteer missions.': 'تعذّر تحميل المهام التطوعية.',
+    'Could not load your support requests.':
+        'تعذّر تحميل طلبات الدعم الخاصة بك.',
+    'Could not load your wallet and payment methods.':
+        'تعذّر تحميل محفظتك وطرق الدفع.',
+    'Could not load your tasks.': 'تعذّر تحميل مهامك.',
+    'Could not load your sponsorship schedule.': 'تعذّر تحميل جدول الكفالة.',
+    'Could not load the comments.': 'تعذّر تحميل التعليقات.',
+    'Could not play this video.': 'تعذّر تشغيل هذا الفيديو.',
     'Legal': 'قانوني',
     'Read the terms that apply to using the app.':
         'اقرأ الشروط التي تنطبق على استخدام التطبيق.',

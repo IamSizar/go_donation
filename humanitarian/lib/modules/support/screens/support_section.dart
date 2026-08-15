@@ -11,6 +11,7 @@ import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/modules/notifications/controllers/notifications_controller.dart';
 import 'package:flutter_application_1/modules/support/widgets/availability_schedule_picker.dart';
 import 'package:flutter_application_1/modules/support/widgets/skill_chip_picker.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
@@ -178,6 +179,10 @@ class _SupportSectionState extends State<SupportSection>
           .volunteerDashboard(_userId)
           .timeout(const Duration(seconds: 15));
     } catch (e) {
+      // The cause goes to the log, not to the user — `error` is kept in the
+      // map only as a failure FLAG for the builder, which renders its own
+      // plain-language sentence instead of this exception string.
+      debugPrint('volunteerDashboard($_userId) failed: $e');
       return {
         'success': false,
         'error': e.toString(),
@@ -224,9 +229,18 @@ class _SupportSectionState extends State<SupportSection>
         future: _future,
         builder: (context, snapshot) {
           final data = snapshot.data ?? const <String, dynamic>{};
-          final loadError = data['success'] == false
-              ? (data['error'] ?? 'Unable to load volunteer missions.')
-                    .toString()
+          // snapshot.hasError is now read alongside the `success: false` flag.
+          // It was not before, so a future that THREW (rather than returning
+          // the failure map) fell through to `snapshot.data ?? {}` and the
+          // screen showed "No open volunteer missions are available yet." —
+          // telling the volunteer there is no work when the request had simply
+          // failed. The raw exception string is no longer shown either.
+          final hasLoadError = snapshot.hasError || data['success'] == false;
+          if (snapshot.hasError) {
+            debugPrint('volunteer dashboard future failed: ${snapshot.error}');
+          }
+          final loadError = hasLoadError
+              ? 'Could not load volunteer missions.'
               : '';
           final missions = _listFrom(data['items']);
           final applications = _listFrom(data['applications']);
@@ -301,16 +315,18 @@ class _SupportSectionState extends State<SupportSection>
               ],
               const SectionLabel(title: 'Available Missions'),
               const SizedBox(height: 12),
-              if (snapshot.connectionState == ConnectionState.waiting)
-                const Center(child: CircularProgressIndicator()),
+              // Loading is shown for the FIRST load only. A manual refresh
+              // swaps in a new future (so the snapshot goes back to waiting),
+              // but the toolbar button already spins — showing a skeleton here
+              // too would blank the list the volunteer is reading.
+              if (snapshot.connectionState == ConnectionState.waiting &&
+                  !_isRefreshing)
+                AppSkeleton.rows(count: 3),
+              // A failure used to render as a tappable SectionTile carrying the
+              // raw exception as its subtitle — it looked like a mission, and
+              // nothing said the tap would retry.
               if (loadError.isNotEmpty)
-                SectionTile(
-                  icon: Icons.assignment_turned_in_rounded,
-                  title: 'Available Missions',
-                  subtitle: loadError,
-                  color: AppThemeConfig.accent(context),
-                  onTap: _refresh,
-                ),
+                AppErrorState(message: loadError, onRetry: _refresh),
               if (loadError.isEmpty &&
                   snapshot.connectionState != ConnectionState.waiting &&
                   availableMissions.isEmpty)

@@ -3,7 +3,10 @@ import 'package:flutter_application_1/api/content_api.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/localization/locale_service.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
-import 'package:get/get.dart';
+// get is no longer imported here: the only `.tr` calls left on this screen
+// were the error message and its Retry label, and AppErrorState translates
+// both internally.
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 /// Read-only Terms & Conditions page. Fetches the admin-editable content from
 /// the public /api/content/terms endpoint and renders it in the current locale
@@ -49,21 +52,25 @@ class _TermsScreenState extends State<TermsScreen> {
                     return const Center(child: CircularProgressIndicator());
                   }
                   final data = snap.data;
+                  // fetchTermsContent() returns null for EVERY failure — non-200,
+                  // an unexpected body shape, or a thrown request. There is no
+                  // "successfully empty" terms page, so null is always an error,
+                  // never an empty state; AppAsync is not used here because its
+                  // required `empty` branch would be unreachable.
+                  //
+                  // Behaviour is unchanged — same trigger, same _retry. Only the
+                  // presentation moves to AppErrorState so a failed terms load
+                  // looks like every other failure in the app instead of bare
+                  // centred text with an unstyled TextButton.
                   if (data == null) {
-                    return Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'Could not load the Terms & Conditions.'.tr,
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 12),
-                          TextButton(
-                            onPressed: _retry,
-                            child: Text('Retry'.tr),
-                          ),
-                        ],
+                    // Scroll view, not a bare Padding: the FutureBuilder sits
+                    // inside an Expanded, whose tight height would otherwise
+                    // stretch the banner's border down the whole page.
+                    return SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
+                      child: AppErrorState(
+                        message: 'Could not load the Terms & Conditions.',
+                        onRetry: _retry,
                       ),
                     );
                   }

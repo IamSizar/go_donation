@@ -6,6 +6,7 @@ import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_application_1/core/widgets/app_pressable.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 /// Note #35 — one staff-mediated marriage chat thread. Every bubble is
 /// labeled only by role ("You" / the counterpart's masked label / "Staff")
@@ -36,9 +37,13 @@ class _MarriageChatConversationScreenState
   Timer? _poll;
   List<Map<String, dynamic>> _messages = [];
   late String _status;
+  /// True only for the FIRST load. The 3-second poll and the accept/decline
+  /// reload must never flash a skeleton over messages already on screen.
   bool _loading = true;
   bool _sending = false;
   bool _deciding = false;
+
+  /// A user-facing failure message, or null when the last load succeeded.
   String? _error;
 
   @override
@@ -61,7 +66,15 @@ class _MarriageChatConversationScreenState
   }
 
   Future<void> _load({bool silent = false}) async {
-    if (!silent) setState(() => _loading = true);
+    // Only the first load shows the loading state; once we hold messages a
+    // reload refreshes them in place. Clearing the error here is what makes
+    // the retry button work — a recovered fetch drops the banner.
+    if (!silent) {
+      setState(() {
+        _loading = _messages.isEmpty;
+        _error = null;
+      });
+    }
     try {
       final res = await const ModuleApi().marriageChatMessages(widget.threadId);
       final items = (res['items'] as List? ?? const [])
@@ -76,8 +89,15 @@ class _MarriageChatConversationScreenState
       });
       _scrollToBottom();
     } catch (e) {
+      // `_error = e.toString()` used to put the raw exception in front of the
+      // user. The message is now plain language; the cause goes to the log.
+      // A silent poll failure stays silent — the messages already on screen
+      // are still the best thing we can show, and the next tick may recover.
+      debugPrint('marriageChatMessages(${widget.threadId}) failed: $e');
       if (!mounted) return;
-      if (!silent) setState(() => _error = e.toString());
+      if (!silent) {
+        setState(() => _error = 'Could not load this conversation.');
+      }
     } finally {
       if (!silent && mounted) setState(() => _loading = false);
     }
@@ -206,18 +226,30 @@ class _MarriageChatConversationScreenState
               ),
             ),
           Expanded(
-            child: _loading && _messages.isEmpty
-                ? const Center(child: CircularProgressIndicator())
-                : _error != null && _messages.isEmpty
-                ? Center(child: Text(_error!))
-                : _messages.isEmpty
-                ? Center(child: Text('marriage_chat_no_messages'.tr))
-                : ListView.builder(
-                    controller: _scroll,
-                    padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-                    itemCount: _messages.length,
-                    itemBuilder: (context, i) => _Bubble(message: _messages[i]),
-                  ),
+            // The failure branch used to be `Center(child: Text(_error!))` —
+            // a dead end with no way back. AppAsync gives the same four
+            // states with a retry that re-runs the fetch.
+            child: AppAsync<List<Map<String, dynamic>>>(
+              loading: _loading,
+              error: _error,
+              onRetry: _load,
+              // Null while the first load runs: AppAsync only shows its
+              // skeleton for `loading && data == null`, so handing it an
+              // empty list here would render the empty state instead.
+              data: _loading ? null : _messages,
+              isEmpty: (messages) => messages.isEmpty,
+              empty: AppEmpty(
+                icon: Icons.chat_bubble_outline_rounded,
+                title: widget.otherLabel,
+                message: 'marriage_chat_no_messages'.tr,
+              ),
+              builder: (messages) => ListView.builder(
+                controller: _scroll,
+                padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+                itemCount: messages.length,
+                itemBuilder: (context, i) => _Bubble(message: messages[i]),
+              ),
+            ),
           ),
           if (_status == 'active')
             _Composer(input: _input, sending: _sending, onSend: _send)

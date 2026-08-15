@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/payment_methods_api.dart';
 import 'package:flutter_application_1/api/wallet_api.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart' hide TextDirection;
@@ -23,7 +24,13 @@ class PaymentMethodsScreen extends StatefulWidget {
 }
 
 class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
+  /// True for the FIRST load only. A pull-to-refresh leaves it false so the
+  /// wallet card and ledger update in place instead of flashing a spinner.
   bool _loading = true;
+
+  /// User-facing failure message, or null when the last load succeeded.
+  String? _error;
+
   WalletBalance _wallet = const WalletBalance(balanceIQD: 0, currency: 'IQD');
   List<WalletTransaction> _transactions = const [];
   List<PaymentMethod> _methods = const [];
@@ -35,18 +42,36 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
   }
 
   Future<void> _load() async {
-    final results = await Future.wait([
-      fetchWalletBalance(),
-      fetchWalletTransactions(),
-      fetchPaymentMethods(),
-    ]);
-    if (!mounted) return;
-    setState(() {
-      _wallet = results[0] as WalletBalance;
-      _transactions = results[1] as List<WalletTransaction>;
-      _methods = results[2] as List<PaymentMethod>;
-      _loading = false;
-    });
+    // Cleared up front so a successful retry does not leave the previous
+    // failure's banner on screen.
+    if (_error != null) setState(() => _error = null);
+    try {
+      final results = await Future.wait([
+        fetchWalletBalance(),
+        fetchWalletTransactions(),
+        fetchPaymentMethods(),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _wallet = results[0] as WalletBalance;
+        _transactions = results[1] as List<WalletTransaction>;
+        _methods = results[2] as List<PaymentMethod>;
+        _loading = false;
+      });
+    } catch (e) {
+      // There was no catch here at all, and no error field: a failure left
+      // the screen showing a zero balance with "No wallet activity yet." and
+      // "No payment methods configured yet." — telling the user their wallet
+      // was empty and that there was no way to pay, when in fact the request
+      // had failed. On a money screen that is the worst possible lie, and
+      // there was no retry either.
+      if (!mounted) return;
+      setState(() {
+        _error = 'Could not load your wallet and payment methods.';
+        _loading = false;
+      });
+      debugPrint('payment methods load failed: $e');
+    }
   }
 
   @override
@@ -54,8 +79,18 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
     return SectionScaffold(
       title: 'Payment Methods',
       subtitle: 'Your wallet balance and the ways you can pay.',
+      // AppAsync is deliberately not used here: this screen is a composite of
+      // a balance card and two independently-empty sections, so there is no
+      // single `empty` widget for it to require. It gets AppErrorState
+      // directly instead — checked BEFORE the content branch so the two
+      // states are mutually exclusive rather than stacked.
       child: _loading
           ? const Center(child: CircularProgressIndicator())
+          : _error != null
+          ? Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+              child: AppErrorState(message: _error!, onRetry: _load),
+            )
           : RefreshIndicator(
               onRefresh: _load,
               child: ListView(

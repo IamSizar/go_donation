@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/links.dart';
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -35,6 +36,7 @@ class _TechnicalSupportScreenState extends State<TechnicalSupportScreen> {
   bool _sending = false;
   bool _escalate = false;
   String? _whatsapp;
+  String? _error;
 
   @override
   void initState() {
@@ -50,6 +52,11 @@ class _TechnicalSupportScreenState extends State<TechnicalSupportScreen> {
   }
 
   Future<void> _load() async {
+    // Clear the previous failure as the (re)load starts, so a retry is not
+    // shown under the error it is trying to clear. `_loading` is NOT set back
+    // to true here: it is a first-load flag, and a pull-to-refresh must not
+    // tear the ticket list down to a spinner.
+    if (mounted && _error != null) setState(() => _error = null);
     try {
       final res = await const ModuleApi().getObject('${baseUrl}support/mine');
       final items = (res['items'] as List?) ?? const [];
@@ -62,11 +69,28 @@ class _TechnicalSupportScreenState extends State<TechnicalSupportScreen> {
         _loading = false;
       });
       if (_escalate && _whatsapp == null) {
-        final n = await const ModuleApi().supportWhatsapp();
-        if (mounted) setState(() => _whatsapp = n);
+        // Best-effort on purpose, and deliberately OUTSIDE the ticket load's
+        // failure path: the WhatsApp number only decorates the escalation
+        // card. Losing it must not claim the tickets failed to load.
+        try {
+          final n = await const ModuleApi().supportWhatsapp();
+          if (mounted) setState(() => _whatsapp = n);
+        } catch (e) {
+          debugPrint('supportWhatsapp failed: $e');
+        }
       }
-    } catch (_) {
-      if (mounted) setState(() => _loading = false);
+    } catch (e) {
+      // Was `catch (_) { _loading = false; }` — the failure was swallowed
+      // whole, so an errored fetch fell through to the "no requests yet" copy.
+      // That told a user their support tickets did not exist when the request
+      // had failed, on the one screen they open BECAUSE something is wrong —
+      // and offered no way to retry.
+      if (!mounted) return;
+      setState(() {
+        _error = 'Could not load your support requests.';
+        _loading = false;
+      });
+      debugPrint('support/mine failed: $e');
     }
   }
 
@@ -88,6 +112,9 @@ class _TechnicalSupportScreenState extends State<TechnicalSupportScreen> {
       Get.snackbar('Technical Support'.tr, 'support_sent'.tr);
       await _load();
     } catch (_) {
+      // Deliberate: sending is an action, not a data load, and the failure is
+      // already told to the user by this snackbar — no false empty state can
+      // come out of it.
       Get.snackbar('Technical Support'.tr, 'support_send_failed'.tr);
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -169,7 +196,13 @@ class _TechnicalSupportScreenState extends State<TechnicalSupportScreen> {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  if (_tickets.isEmpty)
+                  // Only the ticket LIST has the four states. The compose form
+                  // above stays reachable through a failed load — the user
+                  // came here to reach support, and a read failure must not
+                  // take away their way of doing it.
+                  if (_error != null)
+                    AppErrorState(message: _error!, onRetry: _load)
+                  else if (_tickets.isEmpty)
                     Text(
                       'support_no_requests'.tr,
                       style: TextStyle(

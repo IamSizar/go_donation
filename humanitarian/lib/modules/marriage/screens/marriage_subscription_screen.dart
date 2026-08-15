@@ -3,6 +3,7 @@ import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/api/payment_methods_api.dart';
 import 'package:flutter_application_1/api/wallet_api.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/localization/locale_service.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
@@ -22,7 +23,14 @@ class MarriageSubscriptionScreen extends StatefulWidget {
 
 class _MarriageSubscriptionScreenState
     extends State<MarriageSubscriptionScreen> {
+  // True only for the FIRST load. `_load()` also runs on pull-to-refresh and
+  // after a successful purchase; those must update the list in place rather
+  // than flash a skeleton over packages the user is already reading.
   bool _loading = true;
+
+  /// A user-facing failure message, or null when the last load succeeded.
+  /// Cleared on every retry so a recovered fetch stops showing the banner.
+  String? _error;
   List<Map<String, dynamic>> _packages = [];
   int _walletBalanceIQD = 0;
   List<PaymentMethod> _paymentMethods = [];
@@ -35,20 +43,37 @@ class _MarriageSubscriptionScreenState
   }
 
   Future<void> _load() async {
-    final results = await Future.wait([
-      const ModuleApi().fetchMarriageSubscriptionPackages(),
-      fetchWalletBalance(),
-      fetchPaymentMethods(),
-    ]);
-    if (!mounted) return;
-    setState(() {
-      _packages = results[0] as List<Map<String, dynamic>>;
-      _walletBalanceIQD = (results[1] as WalletBalance).balanceIQD;
-      _paymentMethods = (results[2] as List<PaymentMethod>)
-          .where((m) => m.methodType != 'wallet')
-          .toList();
-      _loading = false;
-    });
+    // The three calls had NO error handling at all: any one of them throwing
+    // left `_loading` true forever behind a spinner that never resolved, and
+    // once the four-state pass landed it would have fallen through to the
+    // "No subscription packages are available yet." copy — telling the user
+    // there is nothing to buy when in fact the request simply failed, with no
+    // way to retry.
+    try {
+      final results = await Future.wait([
+        const ModuleApi().fetchMarriageSubscriptionPackages(),
+        fetchWalletBalance(),
+        fetchPaymentMethods(),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _packages = results[0] as List<Map<String, dynamic>>;
+        _walletBalanceIQD = (results[1] as WalletBalance).balanceIQD;
+        _paymentMethods = (results[2] as List<PaymentMethod>)
+            .where((m) => m.methodType != 'wallet')
+            .toList();
+        // A successful load is the retry succeeding — drop the banner.
+        _error = null;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'Could not load subscription packages.';
+        _loading = false;
+      });
+      debugPrint('marriage subscription load failed: $e');
+    }
   }
 
   String _localized(Map<String, dynamic> pkg, String field) {
@@ -177,36 +202,38 @@ class _MarriageSubscriptionScreenState
     return SectionScaffold(
       title: 'Subscription',
       subtitle: 'Choose a subscription package.',
-      child: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _load,
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                children: [
-                  if (_packages.isEmpty)
-                    SectionTile(
-                      icon: Icons.workspace_premium_rounded,
-                      title: 'Subscription',
-                      subtitle:
-                          'No subscription packages are available yet.'.tr,
-                      color: Colors.pinkAccent,
-                    ),
-                  for (var i = 0; i < _packages.length; i++) ...[
-                    if (i > 0) const SizedBox(height: 12),
-                    _PackageCard(
-                      package: _packages[i],
-                      name: _localized(_packages[i], 'name'),
-                      description: _localized(_packages[i], 'description'),
-                      busy: _busyPackageIds.contains(
-                        (_packages[i]['id'] as num).toInt(),
-                      ),
-                      onTap: () => _choosePayment(_packages[i]),
-                    ),
-                  ],
-                ],
-              ),
-            ),
+      child: AppAsync<List<Map<String, dynamic>>>(
+        loading: _loading,
+        error: _error,
+        onRetry: _load,
+        data: _packages,
+        isEmpty: (packages) => packages.isEmpty,
+        empty: AppEmpty(
+          icon: Icons.workspace_premium_rounded,
+          title: 'Subscription'.tr,
+          message: 'No subscription packages are available yet.'.tr,
+        ),
+        builder: (packages) => RefreshIndicator(
+          onRefresh: _load,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+            children: [
+              for (var i = 0; i < packages.length; i++) ...[
+                if (i > 0) const SizedBox(height: 12),
+                _PackageCard(
+                  package: packages[i],
+                  name: _localized(packages[i], 'name'),
+                  description: _localized(packages[i], 'description'),
+                  busy: _busyPackageIds.contains(
+                    (packages[i]['id'] as num).toInt(),
+                  ),
+                  onTap: () => _choosePayment(packages[i]),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

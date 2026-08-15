@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/task_api.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart' hide TextDirection;
@@ -16,8 +17,17 @@ class TaskVerificationScreen extends StatefulWidget {
 }
 
 class _TaskVerificationScreenState extends State<TaskVerificationScreen> {
+  /// True for the FIRST load only. Pull-to-refresh and the reload after a
+  /// "mark as done" leave it false, so the list updates in place instead of
+  /// flashing a skeleton over tasks the user is already reading.
   bool _loading = true;
-  List<AppTask> _tasks = const [];
+
+  /// User-facing failure message, or null when the last load succeeded.
+  String? _error;
+
+  /// Null until the first load settles — AppAsync shows its skeleton only
+  /// while the data is still null.
+  List<AppTask>? _tasks;
   final _completing = <int>{};
 
   @override
@@ -27,12 +37,28 @@ class _TaskVerificationScreenState extends State<TaskVerificationScreen> {
   }
 
   Future<void> _load() async {
-    final tasks = await fetchMyTasks();
-    if (!mounted) return;
-    setState(() {
-      _tasks = tasks;
-      _loading = false;
-    });
+    // Cleared up front so a successful retry does not leave the previous
+    // failure's banner on screen.
+    if (_error != null) setState(() => _error = null);
+    try {
+      final tasks = await fetchMyTasks();
+      if (!mounted) return;
+      setState(() {
+        _tasks = tasks;
+        _loading = false;
+      });
+    } catch (e) {
+      // There was no catch here and no error field, so a failed fetch left
+      // `_tasks` empty and rendered "No tasks have been assigned to you yet."
+      // — telling the user staff had assigned them nothing when the request
+      // had simply failed, and giving them no way to retry.
+      if (!mounted) return;
+      setState(() {
+        _error = 'Could not load your tasks.';
+        _loading = false;
+      });
+      debugPrint('fetchMyTasks failed: $e');
+    }
   }
 
   Future<void> _markDone(AppTask task) async {
@@ -50,50 +76,63 @@ class _TaskVerificationScreenState extends State<TaskVerificationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final pending = _tasks.where((t) => !t.isCompleted).toList();
-    final completed = _tasks.where((t) => t.isCompleted).toList();
-
     return SectionScaffold(
       title: 'Task Verification',
       subtitle: 'Tasks assigned to you — mark them done when finished.',
-      child: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _load,
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                children: [
-                  if (_tasks.isEmpty)
-                    SectionTile(
-                      icon: Icons.fact_check_rounded,
-                      title: 'Task Verification',
-                      subtitle: 'No tasks have been assigned to you yet.'.tr,
-                      color: Colors.deepOrange,
+      child: AppAsync<List<AppTask>>(
+        loading: _loading,
+        error: _error,
+        onRetry: _load,
+        data: _tasks,
+        isEmpty: (tasks) => tasks.isEmpty,
+        // Padded to match the task list's own gutters so the bones sit where
+        // the cards will.
+        skeleton: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+          child: AppSkeleton.rows(count: 3, withProgress: false),
+        ),
+        empty: AppEmpty(
+          icon: Icons.fact_check_rounded,
+          title: 'Task Verification',
+          message: 'No tasks have been assigned to you yet.'.tr,
+        ),
+        builder: (tasks) {
+          // Split here rather than in build() so the two sections only exist
+          // on the content branch — the states stay mutually exclusive.
+          final pending = tasks.where((t) => !t.isCompleted).toList();
+          final completed = tasks.where((t) => t.isCompleted).toList();
+
+          return RefreshIndicator(
+            onRefresh: _load,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+              children: [
+                if (pending.isNotEmpty) ...[
+                  SectionLabel(title: 'Pending'.tr),
+                  const SizedBox(height: 10),
+                  for (var i = 0; i < pending.length; i++) ...[
+                    if (i > 0) const SizedBox(height: 10),
+                    _TaskCard(
+                      task: pending[i],
+                      completing: _completing.contains(pending[i].id),
+                      onMarkDone: () => _markDone(pending[i]),
                     ),
-                  if (pending.isNotEmpty) ...[
-                    SectionLabel(title: 'Pending'.tr),
-                    const SizedBox(height: 10),
-                    for (var i = 0; i < pending.length; i++) ...[
-                      if (i > 0) const SizedBox(height: 10),
-                      _TaskCard(
-                        task: pending[i],
-                        completing: _completing.contains(pending[i].id),
-                        onMarkDone: () => _markDone(pending[i]),
-                      ),
-                    ],
-                    const SizedBox(height: 22),
                   ],
-                  if (completed.isNotEmpty) ...[
-                    SectionLabel(title: 'Completed'.tr),
-                    const SizedBox(height: 10),
-                    for (var i = 0; i < completed.length; i++) ...[
-                      if (i > 0) const SizedBox(height: 10),
-                      _TaskCard(task: completed[i]),
-                    ],
+                  const SizedBox(height: 22),
+                ],
+                if (completed.isNotEmpty) ...[
+                  SectionLabel(title: 'Completed'.tr),
+                  const SizedBox(height: 10),
+                  for (var i = 0; i < completed.length; i++) ...[
+                    if (i > 0) const SizedBox(height: 10),
+                    _TaskCard(task: completed[i]),
                   ],
                 ],
-              ),
+              ],
             ),
+          );
+        },
+      ),
     );
   }
 }

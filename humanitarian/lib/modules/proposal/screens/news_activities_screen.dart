@@ -398,7 +398,11 @@ Future<void> _sharePost(
     try {
       await const ModuleApi().shareMediaPost(id);
       controller.bumpShareCount(id);
-    } catch (_) {}
+    } catch (_) {
+      // Deliberately silent: the share itself already happened in the system
+      // sheet above. This call only records the share count, so a failure has
+      // nothing the user can act on and no surface to report it in.
+    }
   }
 }
 
@@ -435,6 +439,10 @@ class _CommentsSheetState extends State<_CommentsSheet> {
   final _comments = <Map<String, dynamic>>[];
   bool _loading = true;
   bool _sending = false;
+  // Set when the comment FETCH fails. Without it the sheet rendered "No
+  // comments yet." after a failed load — telling the user the post had no
+  // discussion when the request had simply errored, with no way to retry.
+  String? _error;
 
   @override
   void initState() {
@@ -449,6 +457,14 @@ class _CommentsSheetState extends State<_CommentsSheet> {
   }
 
   Future<void> _load() async {
+    // Clear any previous failure so a retry starts from the loading state
+    // rather than leaving the error banner up while the refetch runs.
+    if (mounted && _error != null) {
+      setState(() {
+        _error = null;
+        _loading = true;
+      });
+    }
     try {
       final rows = await const ModuleApi().mediaComments(widget.postId);
       if (!mounted) return;
@@ -458,9 +474,15 @@ class _CommentsSheetState extends State<_CommentsSheet> {
           ..addAll(rows);
         _loading = false;
       });
-    } catch (_) {
+    } catch (e) {
+      // Was `catch (_) { _loading = false; }` — the failure was swallowed and
+      // the sheet fell through to its "No comments yet." copy.
       if (!mounted) return;
-      setState(() => _loading = false);
+      setState(() {
+        _error = 'Could not load the comments.';
+        _loading = false;
+      });
+      debugPrint('mediaComments(${widget.postId}) failed: $e');
     }
   }
 
@@ -481,6 +503,9 @@ class _CommentsSheetState extends State<_CommentsSheet> {
         widget.controller.bumpCommentCount(widget.postId);
       }
     } catch (_) {
+      // Not swallowed: a failed SEND is reported here as a snackbar. It stays
+      // a snackbar rather than an error state because the comment list behind
+      // it loaded fine and must keep rendering.
       Get.snackbar('Error'.tr, 'Could not post your comment.'.tr);
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -576,7 +601,18 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                 ),
                 Divider(height: 1, color: AppThemeConfig.border(context)),
                 Expanded(
-                  child: _loading
+                  // Error is checked BEFORE empty: a failed fetch leaves
+                  // _comments empty, so without this the empty state would win
+                  // and claim the post has no comments.
+                  child: _error != null
+                      ? SingleChildScrollView(
+                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                          child: AppErrorState(
+                            message: _error!,
+                            onRetry: _load,
+                          ),
+                        )
+                      : _loading
                       ? const Center(child: CircularProgressIndicator())
                       : _comments.isEmpty
                       ? Center(
@@ -960,12 +996,20 @@ class MediaVideoScreen extends StatefulWidget {
 }
 
 class _MediaVideoScreenState extends State<MediaVideoScreen> {
-  late final VideoPlayerController _controller;
-  late final Future<void> _ready;
+  // Not `late final`: a retry has to throw the failed controller away and
+  // build a fresh one, because a VideoPlayerController that failed to
+  // initialize cannot be re-initialized.
+  late VideoPlayerController _controller;
+  late Future<void> _ready;
 
   @override
   void initState() {
     super.initState();
+    _start();
+  }
+
+  /// Create the player and begin loading. Also the retry path.
+  void _start() {
     _controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl));
     _ready = _controller.initialize().then((_) {
       _controller
@@ -973,6 +1017,14 @@ class _MediaVideoScreenState extends State<MediaVideoScreen> {
         ..play();
       if (mounted) setState(() {});
     });
+  }
+
+  /// Discard the dead controller and start over, so the FutureBuilder is
+  /// handed a genuinely new future rather than the already-failed one.
+  void _retry() {
+    final dead = _controller;
+    setState(_start);
+    dead.dispose();
   }
 
   @override
@@ -989,6 +1041,21 @@ class _MediaVideoScreenState extends State<MediaVideoScreen> {
       child: FutureBuilder<void>(
         future: _ready,
         builder: (context, snapshot) {
+          // snapshot.hasError was never read. A video that failed to
+          // initialize (dead link, unsupported codec, no connection) still
+          // fell through to the player, which rendered a blank box with a
+          // Pause button and no explanation or way to try again.
+          if (snapshot.hasError) {
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+              children: [
+                AppErrorState(
+                  message: 'Could not play this video.',
+                  onRetry: _retry,
+                ),
+              ],
+            );
+          }
           if (snapshot.connectionState != ConnectionState.done) {
             return const Center(child: CircularProgressIndicator());
           }

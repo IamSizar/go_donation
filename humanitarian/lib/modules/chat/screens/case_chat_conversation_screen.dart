@@ -7,6 +7,7 @@ import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_application_1/core/widgets/app_pressable.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 /// Note #36 — one Staff↔Volunteer↔Beneficiary chat thread. Unlike the
 /// marriage chat, identities are NOT masked — this is operational
@@ -61,7 +62,15 @@ class _CaseChatConversationScreenState
   }
 
   Future<void> _load({bool silent = false}) async {
-    if (!silent) setState(() => _loading = true);
+    // The error is cleared as the (re)load starts, so a retry does not sit
+    // under the previous failure's banner while it is in flight. Silent polls
+    // leave both flags alone: a background tick must not flash the spinner.
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final res = await const ModuleApi().caseChatMessages(widget.threadId);
       final items = (res['items'] as List? ?? const [])
@@ -76,7 +85,14 @@ class _CaseChatConversationScreenState
       _scrollToBottom();
     } catch (e) {
       if (!mounted) return;
-      if (!silent) setState(() => _error = e.toString());
+      // Was `_error = e.toString()` — the raw exception was put on screen as
+      // the user-facing message, and rendered as bare text with no retry. The
+      // user now gets a plain sentence and a way out; the cause goes to the
+      // log where support can find it.
+      debugPrint('caseChatMessages(${widget.threadId}) failed: $e');
+      if (!silent) {
+        setState(() => _error = 'Could not load this conversation.');
+      }
     } finally {
       if (!silent && mounted) setState(() => _loading = false);
     }
@@ -165,9 +181,19 @@ class _CaseChatConversationScreenState
             child: _loading && _messages.isEmpty
                 ? const Center(child: CircularProgressIndicator())
                 : _error != null && _messages.isEmpty
-                ? Center(child: Text(_error!))
+                // A failed load used to render the exception text and stop
+                // there — indistinguishable from a quiet thread, and a dead
+                // end. AppErrorState names the problem and offers the retry.
+                ? Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: AppErrorState(message: _error!, onRetry: _load),
+                  )
                 : _messages.isEmpty
-                ? Center(child: Text('No messages yet. Say hello! 👋'.tr))
+                ? AppEmpty(
+                    icon: Icons.forum_rounded,
+                    title: 'Messages',
+                    message: 'No messages yet. Say hello! 👋',
+                  )
                 : ListView.builder(
                     controller: _scroll,
                     padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
