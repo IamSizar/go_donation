@@ -1081,6 +1081,9 @@ const en = {
   // Each line says what happened and what to do next — never a status code.
   error: {
     list_load_failed: 'Could not load this list. Nothing was lost — try again, and contact support if it keeps happening.',
+    // B7 — the detail view refuses rather than guessing which columns of an
+    // unlisted resource are safe to show.
+    detail_unavailable: 'This record cannot be displayed yet. Nothing is wrong with the record itself — please report it to support.',
     server: 'A server error occurred. Please try again in a moment.',
     network: 'No connection to the server. Check your internet connection and try again.',
     unknown: 'Something went wrong. Please try again.',

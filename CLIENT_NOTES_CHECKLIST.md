@@ -763,7 +763,7 @@ The client flags this as one repeated global defect and asks for one global fix:
 | H7 | **Grant or block viewing financial reports, statistics, and Audit Logs.** `[D p8]` | Dashboard → الصلاحيات | ⬜ |
 | H8 | **Control activating/deactivating accounts, products or stores** and temporarily disabling them from the dashboard. `[D p8]` | Dashboard → الصلاحيات | ⬜ |
 | H9 | **Control who may change product status** (مقبول، مسودة، مرفوض) based on the products table. `[D p8]` | Dashboard → الصلاحيات | ⬜ |
-| H10 | **Control who may see sensitive contact data** (رقم الهاتف والإيميل) — otherwise hidden/encrypted "لحماية البيانات وتشفيرها". `[D p8]` | Dashboard → الصلاحيات | ⬜ |
+| H10 | **Control who may see sensitive contact data** (رقم الهاتف والإيميل) — otherwise hidden/encrypted "لحماية البيانات وتشفيرها". `[D p8]` | Dashboard → الصلاحيات | 🔎 partly — see the H10/B7 note below |
 | H11 | **Force logout the instant an account is disabled or its permissions are reduced** — "يتم إنهاء جلسة ذلك اليوزر فوراً وعمل تسجيل خروج تلقائي له (Force Logout) لتطبيق التعديل في نفس اللحظة". `[D p8]` | Dashboard → الصلاحيات | ⬜ |
 | H12 | **Audit Log**: a dedicated DB record of the time, date and IP of every change the admin makes in this section (example given: "المدير قام بتعديل صلاحية الموظف أحمد"); read-only, cannot be finally deleted. `[D p8]` | Dashboard → الصلاحيات | ⬜ |
 | H13 | **Super Admin protection**: no other user — even "ادمن" or "مشرف" — may edit, disable, or change the permissions of the "المدير الأساسي / Super Admin" account from inside the dashboard. `[D p8]` | Dashboard → الصلاحيات | 🔎 **confirmed, fixed, not deployed** — see H13 notes below |
@@ -825,6 +825,44 @@ to wave the write through (it now refuses), and refusals now carry a translatabl
 Super-Admin's *permissions*. That half was already correct — the permissions
 matrix is `RequireSuperAdmin`-gated, and `super_admin` is never stored as
 overridable (`internal/permissions/permissions.go`).
+
+### H10 / B7 — the detail page was sending password hashes (2026-08-15)
+
+Found while working on H10's "who may see sensitive data" question, and worse
+than H10 itself. `GET /api/admin/detail/:resource/:id` ran `SELECT *` and then
+hid the columns whose **name** looked like contact information. Everything else
+went to the browser as-is, including **`users.password_hash`** — the bcrypt hash
+the account signs in with. Ten of the 46 production accounts carry one, two of
+them `super_admin`.
+
+Two things made it worse than it reads:
+
+- The route has **no per-module permission at all** (it is one of the few
+  main.go leaves "ungated beyond RequireAdmin"), so the hash reached *any* staff
+  account — an `employee` who was never granted `sensitive_data` included.
+  Reproduced at all four tiers.
+- The mechanism could never have caught it. A redaction list has to be told
+  about each new secret, and this one only ever knew about phone/email-shaped
+  names, so a credential column was outside its scope by construction.
+
+**Fixed by inverting it:** each resource now declares the columns it may return
+(`detailColumns` in `backend/internal/handlers/admin_detail.go`) and the query
+asks for exactly those. Nothing visible today was lost — the lists were
+generated from the migrated schema and verified column-for-column against
+production — but `password_hash` and `google_sub` are withheld, and any column a
+future migration adds is invisible until someone lists it deliberately.
+
+**Checked and clean:** the users **list** endpoint never had this shape (it
+selects explicit columns and returns only a `has_password` boolean); a test now
+keeps it that way. The dashboard's CSV export builds its file in the browser
+from data the API already returned, so it inherits the fix.
+
+**Still open, reported not changed:** the JSON database export
+(`POST /api/admin/export/all`) does `SELECT *` over 40-odd tables including
+`users`, so it *does* contain the hashes. That one is Super-Admin-only, requires
+the caller to re-enter their own password, and is a **backup** — an export with
+the auth columns stripped could not be restored. Left as designed; flagged here
+so the owner knows the backup file is as sensitive as the database.
 
 ## I. Global terminology & naming changes
 

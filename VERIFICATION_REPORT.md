@@ -85,9 +85,11 @@ client had not reported. Three are security-relevant.
 3. **H15 — 15 of 31 delete buttons bypass the trash.** Deleting a project category,
    payment method, task, event, comment or banned word is **permanent**, with no
    recovery. The owner should know which buttons are irreversible before staff use them.
-4. **B7 (new finding) — the user detail page sends the bcrypt `password_hash` to the
-   browser.** `admin_detail.go:87` does `SELECT *` and redacts only phone/email-shaped
-   columns.
+4. ~~**B7 (new finding) — the user detail page sends the bcrypt `password_hash` to the
+   browser.**~~ **FIXED 2026-08-15.** Confirmed at every staff tier, including
+   `employee` — the generic detail route has no per-module permission, so the
+   `sensitive_data` gate never applied to it. Ten production rows carry a hash, two of
+   them `super_admin`. See NEW FINDING 1 below.
 5. **E17 — profile edits say "saved" when they are not.** Only the name and photo go to
    review; the address saves instantly, and photo *removal* skips review entirely. The
    app shows "saved" either way, so the user is misled.
@@ -456,7 +458,7 @@ Found while verifying. **Nothing was fixed;** these are reported only.
 
 | # | Finding | Severity | Evidence |
 |---|---|---|---|
-| 1 | **The user detail endpoint sends the bcrypt `password_hash` to the browser.** `admin_detail.go:87` does `SELECT *` and redacts only phone/email-shaped columns (`contactKeyRe`, `:18`), so every hash reaches any staff member who can open a user's عرض page. | **High** | `backend/internal/handlers/admin_detail.go:18,87` |
+| 1 | ~~**The user detail endpoint sends the bcrypt `password_hash` to the browser.**~~ **CONFIRMED AND FIXED (2026-08-15).** Reproduced at every tier — the hash was printed in the test output for `employee` as readily as for `super_admin`, because the route carries **no per-module permission at all** (main.go leaves the generic detail endpoint "ungated beyond RequireAdmin"), so `sensitive_data` never applied. **10 of 46 production rows carry a hash, two of them `super_admin`.** `google_sub` was leaking beside it. The redaction list is now inverted into a per-resource column allow-list (`detailColumns`), so a future migration that adds a secret is safe by default. **The LIST endpoint was already clean** — it selects explicit columns and exposes only a `has_password` boolean; a test now pins that. | **High** | Fix: `backend/internal/handlers/admin_detail.go`; test: `admin_detail_columns_test.go` |
 | 2 | ~~**Any rank with "edit users" can change the Super-Admin's phone number.**~~ **CONFIRMED AND FIXED (2026-08-15).** Reproduced as a working takeover against the real request chain — an `admin`, an `employee` and a `supervisor` each rewrote a higher-ranked account's phone and the row changed. Now guarded by a shared tier floor + a Super-Admin-only rule on staff phone changes; see H13 above. | **High** | Fix: `backend/internal/handlers/admin_user_guard.go`; test: `admin_user_edit_guard_test.go` |
 | 3 | **15 of 31 admin delete routes bypass the trash entirely.** Deleting a project category, payment method, task, event, comment or banned word is permanent and unrecoverable. | **High** | `backend/cmd/server/main.go:690,786,828,947,953,959,964,977,982,989,997,1004,1009,1016,1022` |
 | 4 | **Editing a payment method silently rewrites its type.** `normalizeType` coerces anything outside cash/bank/wallet to `"bank"`, so the Visa / MasterCard / mobile-transfer rows are corrupted the moment someone edits them in the dashboard — changing their type and their icon. | **Medium** | `backend/internal/paymentmethods/paymentmethods.go:50-56` |
