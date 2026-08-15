@@ -826,6 +826,12 @@ class AppTranslations extends Translations {
     'about_desc': 'Learn more about who we are.',
     'contact_desc': 'Get in touch with our team.',
     'content_load_failed': 'Could not load this page.',
+    // K12 — the load succeeded and the page carries no text at all. Kept
+    // separate from content_load_failed on purpose: one is our failure, the
+    // other is a page nobody has written yet, and telling them apart is what
+    // stops a blank sheet reading as a broken app.
+    'content_page_empty':
+        'There is nothing on this page yet. Please check back soon.',
     'whatsapp_offer': 'Need more help? Chat with us on WhatsApp.',
     'whatsapp_open': 'WhatsApp',
     'mute_all': 'Mute sounds & vibration',
@@ -3503,6 +3509,7 @@ class AppTranslations extends Translations {
     'about_desc': 'تعرّف أكثر على من نحن.',
     'contact_desc': 'تواصل مع فريقنا.',
     'content_load_failed': 'تعذّر تحميل هذه الصفحة.',
+    'content_page_empty': 'لا يوجد محتوى في هذه الصفحة بعد. يرجى العودة قريباً.',
     'whatsapp_offer': 'تحتاج مزيدًا من المساعدة؟ راسلنا على واتساب.',
     'whatsapp_open': 'واتساب',
     'mute_all': 'كتم الأصوات والاهتزاز',

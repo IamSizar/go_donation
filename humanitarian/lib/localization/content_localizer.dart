@@ -45,6 +45,29 @@ String localizedContentFromValues({
   return fallback;
 }
 
+/// Picks one locale's value out of an `app_content`-shaped row.
+///
+/// WHY THIS IS NOT [localizedContentFromMap]
+/// Two different column-naming conventions exist in this database and they must
+/// not be confused. `partners`, `city_directory_entries` and the marriage
+/// tables use `name` / `name_ar` / `name_sorani` / `name_badini`, which is what
+/// [localizedContentFromMap] reads. `app_content` and `app_content_sections`
+/// (migrations 025, 041, 099, 111, 112) use `_en` / `_ar` / `_ckb` / `_kmr`.
+/// Pointing the wrong reader at either one silently returns the fallback for
+/// every field.
+///
+/// [base] is the column stem — `title`, `body`, `address`. Falls back to
+/// English when the current locale's value is blank, which is the same chain
+/// the server's own `composeBody` applies, and returns an empty string when
+/// there is nothing in either — so a caller can hide the block rather than
+/// render an empty heading.
+String localizedAppContent(Map<String, dynamic> row, String base) {
+  final lang = AppLocaleService.assistantLang(); // en | ar | ckb | kmr
+  final value = (row['${base}_$lang'] ?? '').toString().trim();
+  if (value.isNotEmpty) return value;
+  return (row['${base}_en'] ?? '').toString().trim();
+}
+
 /// Renders a backend TAG — an enum value or a legacy slug — as something a
 /// human should read.
 ///

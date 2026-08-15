@@ -1,21 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/content_api.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
-import 'package:flutter_application_1/localization/locale_service.dart';
+import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
 
-/// First-load placeholder for a long article of prose.
-///
-/// The default [AppSkeleton.rows] draws card-like title/meta/progress groups,
-/// which is the wrong shape for this screen: what arrives is one heading
-/// followed by unbroken paragraphs. These bones are paragraph LINES — full
-/// width except for a short last line per paragraph, which is what makes a
-/// block of ragged bars read as text rather than as a stack of cards.
 /// #35 — Read-only app_content page (About / Contact / …). Fetches the
 /// admin-editable content from /api/content/:slug and renders it in the current
 /// locale (falling back to English). Works pre-login (no auth needed).
+///
+/// K12 — the page is drawn from its NAMED SUB-SECTIONS when it has any. The
+/// client asked "من نحن" to carry three named parts (about the app, about the
+/// organization, about its goals); migration 111 stores them, and this screen
+/// renders each as its own titled block. `content.body_*` is the server's
+/// composition of those same sub-sections, so exactly one of the two is drawn —
+/// never both, which would print every word twice.
 class ContentPageScreen extends StatefulWidget {
   const ContentPageScreen({
     super.key,
@@ -29,21 +29,41 @@ class ContentPageScreen extends StatefulWidget {
   State<ContentPageScreen> createState() => _ContentPageScreenState();
 }
 
+/// One rendered part of a content page: a heading and the prose under it.
+///
+/// An EMPTY [title] is legal and expected — migration 111's backfill turned
+/// every pre-K12 page into a single untitled sub-section, because the page
+/// heading is `title_*` and repeating it here would double it.
+typedef _Block = ({String title, String body});
+
 class _ContentPageScreenState extends State<ContentPageScreen> {
-  late Future<Map<String, dynamic>?> _future;
+  late Future<ContentPage?> _future;
 
   @override
   void initState() {
     super.initState();
-    _future = fetchContent(widget.slug);
+    _future = fetchContentPage(widget.slug);
   }
 
-  void _retry() => setState(() => _future = fetchContent(widget.slug));
+  void _retry() => setState(() => _future = fetchContentPage(widget.slug));
 
-  String _pick(Map<String, dynamic> c, String base) {
-    final lang = AppLocaleService.assistantLang(); // en | ar | ckb | kmr
-    final v = (c['${base}_$lang'] ?? '').toString().trim();
-    return v.isNotEmpty ? v : (c['${base}_en'] ?? '').toString().trim();
+  // ─── What to draw ─────────────────────────────────────────────────────────
+
+  /// The page's sub-sections, in order, as renderable blocks.
+  ///
+  /// A sub-section with nothing in this locale AND nothing in English is
+  /// dropped rather than drawn as an empty box — the same rule the server's
+  /// `composeBody` applies when it flattens them, so a half-translated page
+  /// reads as the parts that exist instead of a run of gaps.
+  List<_Block> _blocks(ContentPage page) {
+    final out = <_Block>[];
+    for (final section in page.sections) {
+      final title = localizedAppContent(section, 'title');
+      final body = localizedAppContent(section, 'body');
+      if (title.isEmpty && body.isEmpty) continue;
+      out.add((title: title, body: body));
+    }
+    return out;
   }
 
   @override
@@ -55,7 +75,7 @@ class _ContentPageScreenState extends State<ContentPageScreen> {
           children: [
             PageTopBar(title: widget.titleKey.tr),
             Expanded(
-              child: FutureBuilder<Map<String, dynamic>?>(
+              child: FutureBuilder<ContentPage?>(
                 future: _future,
                 builder: (context, snap) {
                   // First (and only) load: this screen fetches once in
@@ -65,20 +85,20 @@ class _ContentPageScreenState extends State<ContentPageScreen> {
                   if (snap.connectionState != ConnectionState.done) {
                     return AppSkeleton.paragraphs();
                   }
-                  final data = snap.data;
-                  // fetchContent() returns null for EVERY failure — non-200, an
-                  // unexpected body shape, or a thrown request — so null here is
-                  // always an error and never a "successfully empty" page.
-                  // AppAsync is deliberately not used: its required `empty`
-                  // branch would be a state this screen cannot reach.
+                  final page = snap.data;
+                  // fetchContentPage() returns null for EVERY failure — non-200,
+                  // an unexpected body shape, or a thrown request — so null here
+                  // is always an error and never a "successfully empty" page.
                   //
-                  // Behaviour is unchanged (same trigger, same _retry, same
-                  // 'content_load_failed' string, which AppErrorState still
-                  // resolves with .tr). Only the presentation moves to the
-                  // shared error state. Scroll view rather than a bare Padding
-                  // because the FutureBuilder sits inside an Expanded, whose
-                  // tight height would stretch the banner's border down the page.
-                  if (data == null) {
+                  // Error is tested BEFORE empty, because a failed load also
+                  // leaves nothing to render, and reporting that as "this page
+                  // has not been filled in yet" would be a false claim about
+                  // the organization's own content.
+                  //
+                  // Scroll view rather than a bare Padding because the
+                  // FutureBuilder sits inside an Expanded, whose tight height
+                  // would stretch the banner's border down the page.
+                  if (page == null) {
                     return SingleChildScrollView(
                       padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
                       child: AppErrorState(
@@ -87,40 +107,134 @@ class _ContentPageScreenState extends State<ContentPageScreen> {
                       ),
                     );
                   }
-                  final title = _pick(data, 'title');
-                  final body = _pick(data, 'body');
-                  return SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (title.isNotEmpty) ...[
-                          Text(
-                            title,
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w800,
-                              color: AppThemeConfig.text(context),
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                        ],
-                        Text(
-                          body,
-                          style: TextStyle(
-                            fontSize: 15,
-                            height: 1.6,
-                            color: AppThemeConfig.text(context),
-                          ),
-                        ),
-                      ],
-                    ),
+                  return _ContentBody(
+                    page: page,
+                    blocks: _blocks(page),
+                    emptyTitleKey: widget.titleKey,
                   );
                 },
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// The loaded page: heading, then either its sub-sections or its plain body.
+///
+/// Split out of the screen so the state machine above stays readable and this
+/// stays a pure function of what arrived.
+class _ContentBody extends StatelessWidget {
+  const _ContentBody({
+    required this.page,
+    required this.blocks,
+    required this.emptyTitleKey,
+  });
+
+  final ContentPage page;
+  final List<_Block> blocks;
+
+  /// The page's own name, used as the empty state's heading so it says WHICH
+  /// page has nothing on it.
+  final String emptyTitleKey;
+
+  @override
+  Widget build(BuildContext context) {
+    final heading = localizedAppContent(page.content, 'title');
+
+    // `body_*` is drawn only when the sub-sections produced nothing. For a page
+    // that has been split it IS the composition of them (see sections.go), so
+    // drawing it alongside would repeat the whole page; for a page that has
+    // not, it is the only content there is.
+    final fallbackBody = blocks.isEmpty
+        ? localizedAppContent(page.content, 'body')
+        : '';
+
+    // The heading alone is NOT content: the top bar already names the page, so
+    // a lone repeat of it is a blank sheet with a title on it. Prose decides.
+    if (blocks.isEmpty && fallbackBody.isEmpty) {
+      return AppEmpty(
+        icon: Icons.article_outlined,
+        title: emptyTitleKey,
+        message: 'content_page_empty',
+      );
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (heading.isNotEmpty) ...[
+            Text(
+              heading,
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                color: AppThemeConfig.text(context),
+              ),
+            ),
+            const SizedBox(height: 14),
+          ],
+          if (fallbackBody.isNotEmpty)
+            Text(
+              fallbackBody,
+              style: TextStyle(
+                fontSize: 15,
+                height: 1.6,
+                color: AppThemeConfig.text(context),
+              ),
+            ),
+          for (var i = 0; i < blocks.length; i++) ...[
+            if (i > 0) const SizedBox(height: 12),
+            _SectionBlock(key: Key('content_section_$i'), block: blocks[i]),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// One named sub-section, as its own card.
+///
+/// A card rather than a run of headings inside one column: the client's ask is
+/// that these read as SEPARATE parts of the page, and grouping related content
+/// in a container is how the rest of this app says "this is one thing".
+class _SectionBlock extends StatelessWidget {
+  const _SectionBlock({super.key, required this.block});
+
+  final _Block block;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (block.title.isNotEmpty) ...[
+            Text(
+              block.title,
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w900,
+                height: 1.3,
+                color: AppThemeConfig.text(context),
+              ),
+            ),
+            if (block.body.isNotEmpty) const SizedBox(height: 10),
+          ],
+          if (block.body.isNotEmpty)
+            Text(
+              block.body,
+              style: TextStyle(
+                fontSize: 15,
+                height: 1.6,
+                color: AppThemeConfig.text(context),
+              ),
+            ),
+        ],
       ),
     );
   }

@@ -147,8 +147,21 @@ class _FakeResponseImpl extends Stream<List<int>> implements HttpClientResponse 
   @override
   int get contentLength => utf8.encode(overrides.body).length;
 
+  /// Advertises the content type the real server sends.
+  ///
+  /// This is not decoration. `package:http` picks the response encoding from
+  /// the `content-type` charset and falls back to LATIN-1 when there is none,
+  /// so a fake with bare headers handed every caller mojibake for any
+  /// non-ASCII body — every Arabic and Kurdish string this app renders. It
+  /// went unnoticed because no suite had asserted on one until K12's
+  /// locale-fallback test, which failed for this and not for the code it was
+  /// testing.
   @override
-  HttpHeaders get headers => _FakeHeadersImpl();
+  HttpHeaders get headers => _FakeHeadersImpl(
+    initial: {
+      'content-type': ['application/json; charset=utf-8'],
+    },
+  );
 
   @override
   bool get isRedirect => false;
@@ -185,6 +198,14 @@ class _FakeResponseImpl extends Stream<List<int>> implements HttpClientResponse 
 }
 
 class _FakeHeadersImpl implements HttpHeaders {
+  /// [initial] seeds headers the fake should report without anyone setting
+  /// them — used for the response's content type. Request headers are created
+  /// bare, exactly as before, so nothing a test asserts about what was SENT
+  /// changes.
+  _FakeHeadersImpl({Map<String, List<String>>? initial}) {
+    if (initial != null) _values.addAll(initial);
+  }
+
   final _values = <String, List<String>>{};
 
   @override

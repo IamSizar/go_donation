@@ -25,7 +25,7 @@ made on this project once and had to be reverted.
 Every key below currently renders its **English** string to a Kurdish user.
 That is deliberate and safe. It is not a crash, and it is not Arabic text.
 
-## Count: 263 keys need Kurdish
+## Count: 264 keys need Kurdish
 
 | Client | Sorani (ckb) | Badini (kmr) | Distinct keys |
 |---|---|---|---|
@@ -35,11 +35,12 @@ That is deliberate and safe. It is not a crash, and it is not Arabic text.
 | Flutter app — J1 guest sign-up name (new) | 2 | 2 | 2 |
 | Flutter app — K7 alert categories (new) | 8 | 8 | 8 |
 | Flutter app — L19 engagement field privacy (new) | 2 | 2 | 2 |
+| Flutter app — K12 content page states (new) | 1 | 1 | 1 |
 | Admin dashboard — audited `status.*` | 20 | 20 | 20 |
 | Admin dashboard — B1 notification types (new) | 81 | 81 | *same 81 words as above* |
 | Admin dashboard — K12 content sub-sections (new) | 6 | 6 | 6 |
 | Admin dashboard — K13 contact details (new) | 9 | 9 | 9 |
-| **Total distinct words to translate** | | | **263** |
+| **Total distinct words to translate** | | | **264** |
 
 > **The dashboard figure above is a floor, not a ceiling — and it is the one
 > number in this file that was never fully measured.** Counting key paths in
@@ -130,6 +131,23 @@ Only the empty state, shown when staff have retired every option, is new.
 |---|---|---|---|
 | `marriage_privacy_empty` | Nothing to hide yet | لا يوجد ما يمكن إخفاؤه بعد | ckb + kmr |
 | `marriage_privacy_empty_desc` | There are no details you can hide on this profile right now. It shows what it shows today. | لا توجد تفاصيل يمكنك إخفاؤها في هذا الملف حالياً. سيظهر كما هو الآن. | ckb + kmr |
+
+## legal · K12 content page states  (1 key)
+
+Added 2026-08-16. `من نحن` and `اتصل بنا` now draw their NAMED sub-sections as
+separate titled blocks rather than one blob, and a page carrying no text at all
+shows a designed empty state instead of a blank sheet — which is what every one
+of these pages will be until the owner writes them. The rest of the screen
+reuses keys that already carry Sorani and Badini (`About Us`, `Contact Us`,
+`content_load_failed`); only the empty state is new.
+
+It must not read as a failure — `content_load_failed` already covers that, and
+the whole point of the pair is that a page nobody has written yet is not a
+broken app.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `content_page_empty` | There is nothing on this page yet. Please check back soon. | لا يوجد محتوى في هذه الصفحة بعد. يرجى العودة قريباً. | ckb + kmr |
 
 ## community, widgets · C2 filter-row error states  (2 keys)
 
