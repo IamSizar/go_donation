@@ -47,7 +47,7 @@ const CITY_GUIDE_FIELDS: FieldSpec[] = [
   { key: 'category',      label: 'Category',           labelKey: 'field.category',       type: 'text',     required: true },
   { key: 'city',          label: 'City',               labelKey: 'field.city',           type: 'text' },
   { key: 'address',       label: 'Address',            labelKey: 'field.address',        type: 'text' },
-  { key: 'phone',         label: 'Phone Number',       labelKey: 'field.phone',          type: 'text' },
+  { key: 'phone',         label: 'Phone Number',       labelKey: 'field.phone',          type: 'text',     phone: 'contact' },
   { key: 'website',       label: 'Link / Website',     labelKey: 'field.website',        type: 'text' },
   { key: 'latitude',      label: 'Latitude',           labelKey: 'field.latitude',       type: 'text',     required: true },
   { key: 'longitude',     label: 'Longitude',          labelKey: 'field.longitude',      type: 'text',     required: true },

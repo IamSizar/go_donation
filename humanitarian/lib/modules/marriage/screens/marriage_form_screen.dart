@@ -463,7 +463,13 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
     String ruleKey,
     void Function(String url) assign,
   ) async {
-    final picked = await pickCroppedImage(context);
+    // E3 — every tile this serves is a document (golden square, graduation
+    // certificate, CV), so the fidelity is fixed rather than looked up: the
+    // personal photo has its own picker above and never arrives here.
+    final picked = await pickCroppedImage(
+      context,
+      fidelity: PhotoFidelity.document,
+    );
     if (picked == null || !mounted) return;
     setState(() => _uploadingAttachment = ruleKey);
     try {

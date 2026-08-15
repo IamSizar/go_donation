@@ -29,7 +29,7 @@ const PARTNER_FIELDS: FieldSpec[] = [
   { key: 'name_badini',         label: 'Name (Badini)', labelKey: 'field.name_badini',       type: 'text',     dir: 'rtl' },
   { key: 'partner_type',        label: 'Type', labelKey: 'field.type',                type: 'text' },
   { key: 'status',              label: 'Status', labelKey: 'field.status',              type: 'select',   options: EDITABLE_STATUSES },
-  { key: 'contact_phone',       label: 'Contact phone', labelKey: 'field.contact_phone',       type: 'text' },
+  { key: 'contact_phone',       label: 'Contact phone', labelKey: 'field.contact_phone',       type: 'text', phone: 'contact' },
   { key: 'email',               label: 'Email', labelKey: 'field.email',               type: 'text' },
   { key: 'website',             label: 'Website', labelKey: 'field.website',             type: 'text' },
   { key: 'social_links',        label: 'Social links', labelKey: 'field.social_links',        type: 'textarea', rows: 3, full: true, placeholder: 'One link per line', placeholderKey: 'hint.one_link_per_line' },

@@ -26,6 +26,7 @@ import { useI18n, useStatusLabel } from '../lib/i18n'
 import FileInput from './FileInput'
 import type { ShapeKey } from './CropDialog'
 import GalleryInput from './GalleryInput'
+import { canonicalPhone, stripPhoneFormatting } from '../lib/phone'
 
 export type FieldType = 'text' | 'textarea' | 'number' | 'date' | 'select' | 'file' | 'gallery' | 'multiselect' | 'password'
 
@@ -60,6 +61,20 @@ export type FieldSpec = {
   crop?: boolean | ShapeKey
   // Force a field to take the full grid width regardless of column layout
   full?: boolean
+  // E7 — mark a field as holding a phone number so the modal cleans it before
+  // it is sent, instead of every page remembering to. Two strengths:
+  //
+  //   'contact' — a number that is only ever read by a human (a partner's
+  //               office line, a City Guide place). Spaces, bidi marks and
+  //               human separators are stripped; nothing else is touched.
+  //   'login'   — the number the account SIGNS IN with (users.phone). Also
+  //               reduced to the canonical "<dial code><national>" the DB
+  //               stores everywhere else, because sign-in looks the row up by
+  //               that exact string — a number saved in any other shape locks
+  //               the person out. Falls back to the stripped value when the
+  //               input can't be read as a phone number at all, so the
+  //               server's own validation still gets to answer.
+  phone?: 'contact' | 'login'
 }
 
 type Props = {
@@ -79,6 +94,15 @@ type Props = {
 function toInputValue(v: unknown): string {
   if (v === null || v === undefined) return ''
   return typeof v === 'string' ? v : String(v)
+}
+
+// E7 — the cleaned form of what the admin typed into a phone field, per the
+// field's declared strength. Non-phone fields pass through untouched.
+function cleanFieldValue(f: FieldSpec, raw: string): string {
+  if (!f.phone) return raw
+  const stripped = stripPhoneFormatting(raw)
+  if (f.phone === 'contact') return stripped
+  return canonicalPhone(raw) || stripped
 }
 
 export default function EditModal({ open, title, initial, fields, onSave, onClose, mode = 'edit', saveLabel }: Props) {
@@ -146,8 +170,11 @@ export default function EditModal({ open, title, initial, fields, onSave, onClos
   function buildPatch(): Record<string, unknown> {
     const patch: Record<string, unknown> = {}
     for (const f of fields) {
-      const next = values[f.key] ?? ''
-      const before = initialStrings[f.key] ?? ''
+      // E7 — clean BOTH sides before comparing, so re-typing the same number
+      // with different spacing counts as "unchanged" and no pointless write is
+      // sent, while a genuine edit is sent in the cleaned form.
+      const next = cleanFieldValue(f, values[f.key] ?? '')
+      const before = cleanFieldValue(f, initialStrings[f.key] ?? '')
       if (mode === 'edit') {
         if (next === before) continue
       } else {
@@ -332,11 +359,24 @@ export default function EditModal({ open, title, initial, fields, onSave, onClos
                     ref={ref as React.RefObject<HTMLInputElement>}
                     type={f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : f.type === 'password' ? 'password' : 'text'}
                     autoComplete={f.type === 'password' ? 'new-password' : undefined}
+                    // E7 — a phone gets the number pad on a touch device and,
+                    // in a browser that has autofill, the right suggestion.
+                    inputMode={f.phone ? 'tel' : undefined}
                     value={v}
                     placeholder={placeholder}
                     disabled={busy}
-                    dir={dir}
+                    // A phone number always reads left-to-right, whatever the
+                    // dashboard's direction — the same reason formatPhone
+                    // isolates it on the display side (E1).
+                    dir={f.phone ? 'ltr' : dir}
                     onChange={(e) => setV(e.target.value)}
+                    // E7 — strip the spaces the moment the admin leaves the
+                    // box, so what they see is what will be stored rather than
+                    // a silent rewrite at save time. Deliberately only the
+                    // spacing: leaving the field is not the moment to rewrite
+                    // "0750…" into "964750…" under their cursor — buildPatch
+                    // does the canonical step when they actually save.
+                    onBlur={f.phone ? (e) => setV(stripPhoneFormatting(e.target.value)) : undefined}
                   />
                 </label>
               )

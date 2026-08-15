@@ -56,7 +56,7 @@ const EDITABLE_STATUSES = STATUSES.filter((s) => s !== 'all')
 
 const VOLUNTEER_FIELDS: FieldSpec[] = [
   { key: 'full_name',    label: 'Full name', labelKey: 'field.full_name',    type: 'text', required: true },
-  { key: 'phone',        label: 'Phone', labelKey: 'field.phone',        type: 'text' },
+  { key: 'phone',        label: 'Phone', labelKey: 'field.phone',        type: 'text', phone: 'contact' },
   { key: 'city',         label: 'City', labelKey: 'field.city',         type: 'text' },
   { key: 'status',       label: 'Status', labelKey: 'field.status',       type: 'select', options: EDITABLE_STATUSES },
   { key: 'cv_link',      label: 'CV link', labelKey: 'field.cv_link',      type: 'text' },

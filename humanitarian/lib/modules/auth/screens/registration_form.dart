@@ -978,17 +978,33 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
 
   /// Picks one image and hands the local path to [assign], which stores it in
   /// the matching state field. Shared by every attachment picker on this form.
-  Future<void> _pickPhotoInto(void Function(String path) assign) async {
-    final path = await pickCroppedImage(context);
+  ///
+  /// [rule] is the attachment's rule id — the same string the form already
+  /// uses to decide whether a field is required or hidden. E3 reuses it to
+  /// decide fidelity: an account photo is resized and compressed, a document
+  /// is uploaded exactly as taken so its small print survives review. Passing
+  /// the rule rather than a flag means the two decisions can never drift
+  /// apart, because they read the same identifier.
+  Future<void> _pickPhotoInto(
+    String rule,
+    void Function(String path) assign,
+  ) async {
+    final path = await pickCroppedImage(
+      context,
+      fidelity: fidelityForAttachment(rule),
+    );
     if (path != null && mounted) {
       setState(() => assign(path));
     }
   }
 
-  Future<void> _pickPersonalPhoto() =>
-      _pickPhotoInto((p) => _personalPhotoPath = p);
+  Future<void> _pickPersonalPhoto() => _pickPhotoInto(
+    'recipient_personal_photo',
+    (p) => _personalPhotoPath = p,
+  );
 
-  Future<void> _pickIdPhoto() => _pickPhotoInto((p) => _idPhotoPath = p);
+  Future<void> _pickIdPhoto() =>
+      _pickPhotoInto('recipient_id_photo', (p) => _idPhotoPath = p);
 
   /// Recomposes [_dob] from the three dropdowns, clamping the day to the
   /// chosen month's length (so e.g. 31 February can't be submitted).
@@ -3257,7 +3273,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                 _PhotoPickerTile(
                                   imagePath: a.path,
                                   placeholderIcon: a.icon,
-                                  onTap: () => _pickPhotoInto(a.assign),
+                                  onTap: () => _pickPhotoInto(a.rule, a.assign),
                                 ),
                               ],
                             ],
@@ -4295,7 +4311,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                 _PhotoPickerTile(
                                   imagePath: a.path,
                                   placeholderIcon: a.icon,
-                                  onTap: () => _pickPhotoInto(a.assign),
+                                  onTap: () => _pickPhotoInto(a.rule, a.assign),
                                 ),
                               ],
                             ],

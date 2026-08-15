@@ -36,7 +36,7 @@ const GENDER_OPTIONS = ['', 'Male', 'Female', 'Other']
 // endpoint, this just gives it a home in the same form instead of a
 // separate popup prompt).
 const USER_FIELDS: FieldSpec[] = [
-  { key: 'phone',           label: 'Phone', labelKey: 'field.phone',           type: 'text', required: true },
+  { key: 'phone',           label: 'Phone', labelKey: 'field.phone',           type: 'text', required: true, phone: 'login' },
   { key: 'full_name',       label: 'Full name', labelKey: 'field.full_name',       type: 'text' },
   { key: 'gender',          label: 'Gender', labelKey: 'field.gender',          type: 'select', options: GENDER_OPTIONS },
   { key: 'date_of_birth',   label: 'Date of birth', labelKey: 'field.date_of_birth', type: 'date' },
@@ -65,7 +65,7 @@ function buildNewUserFields(state: Record<string, FieldRuleState>): FieldSpec[] 
   const isRequired = (key: string) => state[key] === 'required'
   const isHidden = (key: string) => state[key] === 'hidden'
   const fields: FieldSpec[] = [
-    { key: 'phone',           label: 'Phone', labelKey: 'field.phone',           type: 'text', required: true },
+    { key: 'phone',           label: 'Phone', labelKey: 'field.phone',           type: 'text', required: true, phone: 'login' },
     { key: 'role',            label: 'Role', labelKey: 'col.role',              type: 'select', options: ['donor', 'beneficiary', 'volunteer', 'employee'] },
     { key: 'full_name',       label: 'Full name', labelKey: 'field.full_name',       type: 'text', required: isRequired('full_name') },
     { key: 'gender',          label: 'Gender', labelKey: 'field.gender',          type: 'select', options: GENDER_OPTIONS, required: isRequired('gender') },
