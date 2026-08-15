@@ -99,7 +99,7 @@ export default function TrendCard({ label, value, pctChange, sublabel, loading }
       <div className={`trend-pill trend-${cls}`}>
         <span>{trendArrow(pctChange)}</span>
         <span>{trendText(pctChange)}</span>
-        {sublabel && <span className="muted" style={{ marginLeft: 6 }}>{sublabel}</span>}
+        {sublabel && <span className="muted" style={{ marginInlineStart: 6 }}>{sublabel}</span>}
       </div>
     </motion.div>
   )

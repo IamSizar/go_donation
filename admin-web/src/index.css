@@ -2164,8 +2164,13 @@ button.danger:disabled { background: var(--danger-disabled-bg); border-color: va
   align-self: start;
   text-align: end;
   /* An over-long label wraps inside the cap rather than widening the column
-     for every other row on the page. */
-  max-width: 240px;
+     for every other row on the page. In `ch` so the cap tracks the font size,
+     and low enough that the widest label on a 63-column resource still leaves
+     the value column usable on a 375px screen — measured there: a 240px cap
+     squeezed the value track to 25px, this leaves it 128px. Nothing on
+     المستخدمون → عرض reaches the cap (its longest label is ~73px), so the
+     pages the client named are unaffected by it. */
+  max-width: 22ch;
 }
 .detail-value {
   padding: 6px 0;

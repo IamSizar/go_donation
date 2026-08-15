@@ -529,7 +529,7 @@ function CaseLinkControl({
         <button
           key={rc.id}
           onClick={() => { onAssignCase(signup.id, rc.id); setOpen(false); setQ('') }}
-          style={{ textAlign: 'left', border: 'none', cursor: 'pointer', padding: '4px 6px', borderRadius: 6, fontSize: 12 }}
+          style={{ textAlign: 'start', border: 'none', cursor: 'pointer', padding: '4px 6px', borderRadius: 6, fontSize: 12 }}
         >
           <strong>{rc.case_code}</strong> — {rc.public_title}
         </button>

@@ -160,7 +160,7 @@ export default function StaffChatPage() {
                 <button
                   key={d.user_id}
                   onClick={() => startChat(d.user_id)}
-                  style={{ textAlign: 'left', border: 'none', cursor: 'pointer', padding: '8px 10px', borderRadius: 8 }}
+                  style={{ textAlign: 'start', border: 'none', cursor: 'pointer', padding: '8px 10px', borderRadius: 8 }}
                 >
                   <strong>{name(d.full_name, d.user_id)}</strong>{' '}
                   <span className="muted" style={{ fontSize: 12 }}>· {d.staff_tier} · {d.phone}</span>
@@ -184,7 +184,7 @@ export default function StaffChatPage() {
                 key={th.id}
                 onClick={() => { setSelectedId(th.id); setMessages([]) }}
                 style={{
-                  width: '100%', textAlign: 'left', border: 'none', cursor: 'pointer',
+                  width: '100%', textAlign: 'start', border: 'none', cursor: 'pointer',
                   padding: '11px 12px', borderRadius: 12, marginBottom: 4,
                   background: active ? 'color-mix(in srgb, var(--color-primary, #1B37C9) 12%, transparent)' : 'transparent',
                   display: 'flex', flexDirection: 'column', gap: 4,
@@ -214,7 +214,7 @@ export default function StaffChatPage() {
                 <span className="muted" style={{ fontSize: 12.5 }}>· {selected.other_staff_tier}</span>
               </div>
 
-              <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10, paddingRight: 4 }}>
+              <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10, paddingInlineEnd: 4 }}>
                 {messages.length === 0 && <p className="muted" style={{ margin: 'auto' }}>{t('common.msg_no_messages')}</p>}
                 {messages.map((m) => {
                   const mine = m.sender_user_id !== selected.other_user_id
@@ -224,13 +224,13 @@ export default function StaffChatPage() {
                     : 'var(--color-surface-2, rgba(127,127,127,0.10))'
                   return (
                     <div key={m.id} style={{ alignSelf: align, maxWidth: '72%' }}>
-                      <div className="muted" style={{ fontSize: 11, marginBottom: 2, textAlign: mine ? 'right' : 'left' }}>
+                      <div className="muted" style={{ fontSize: 11, marginBottom: 2, textAlign: mine ? 'end' : 'start' }}>
                         {m.sender_name ?? `#${m.sender_user_id}`}
                       </div>
                       <div style={{ background: bg, padding: '8px 12px', borderRadius: 12, fontSize: 14, lineHeight: 1.4 }}>
                         {m.body}
                       </div>
-                      <div className="muted" style={{ fontSize: 10, marginTop: 2, textAlign: mine ? 'right' : 'left' }}>
+                      <div className="muted" style={{ fontSize: 10, marginTop: 2, textAlign: mine ? 'end' : 'start' }}>
                         {new Date(m.created_at).toLocaleString()}
                       </div>
                     </div>

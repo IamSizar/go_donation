@@ -180,7 +180,7 @@ export default function MarriageChatsPage() {
                 key={th.id}
                 onClick={() => { setSelected(th); setMessages([]) }}
                 style={{
-                  width: '100%', textAlign: 'left', border: 'none', cursor: 'pointer',
+                  width: '100%', textAlign: 'start', border: 'none', cursor: 'pointer',
                   padding: '11px 12px', borderRadius: 12, marginBottom: 4,
                   background: active ? 'color-mix(in srgb, var(--color-primary, #1B37C9) 12%, transparent)' : 'transparent',
                   display: 'flex', flexDirection: 'column', gap: 4,
@@ -217,7 +217,7 @@ export default function MarriageChatsPage() {
                 <span className="muted" style={{ fontSize: 12.5 }}>{t('col.profile_code')}: {selected.profile_code}</span>
               </div>
 
-              <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10, paddingRight: 4 }}>
+              <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10, paddingInlineEnd: 4 }}>
                 {messages.length === 0 && <p className="muted" style={{ margin: 'auto' }}>{t('common.msg_no_messages')}</p>}
                 {messages.map((m) => {
                   const isStaff = m.sender_role === 'staff'
@@ -235,13 +235,13 @@ export default function MarriageChatsPage() {
                     : (m.sender_name ?? t('common.msg_requester_paren'))
                   return (
                     <div key={m.id} style={{ alignSelf: align, maxWidth: '72%' }}>
-                      <div className="muted" style={{ fontSize: 11, marginBottom: 2, textAlign: isOwner ? 'right' : 'left' }}>
+                      <div className="muted" style={{ fontSize: 11, marginBottom: 2, textAlign: isOwner ? 'end' : 'start' }}>
                         {roleLabel}
                       </div>
                       <div style={{ background: bg, padding: '8px 12px', borderRadius: 12, fontSize: 14, lineHeight: 1.4 }}>
                         {m.body}
                       </div>
-                      <div className="muted" style={{ fontSize: 10, marginTop: 2, textAlign: isOwner ? 'right' : 'left' }}>
+                      <div className="muted" style={{ fontSize: 10, marginTop: 2, textAlign: isOwner ? 'end' : 'start' }}>
                         {new Date(m.created_at).toLocaleString()}
                       </div>
                     </div>
