@@ -1697,8 +1697,13 @@ class _CampaignCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
+                    // K5 — this disc read "تم التسليم بالكامل" at 100% while
+                    // showing money raised ÷ goal, so a fully funded campaign
+                    // that had distributed nothing claimed the aid had
+                    // arrived. Same number, honest words.
                     OperationStatusBadge(
                       progress: campaign.fundedProgress,
+                      kind: OperationStatusKind.funding,
                       size: 40,
                     ),
                   ],

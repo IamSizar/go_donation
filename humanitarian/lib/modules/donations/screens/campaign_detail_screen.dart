@@ -355,7 +355,14 @@ class _HeroSummaryCard extends StatelessWidget {
                         // carried by the colour alone. The pill variant of the
                         // same shared badge shows the percentage AND the word,
                         // which survives greyscale and colour-blindness.
-                        OperationStatusPill(progress: c.fundedProgress),
+                        // K5 — `fundedProgress` is money raised ÷ goal, so the
+                        // pill must say funding. It previously read
+                        // "Complete" / "Not received", which is a claim about
+                        // delivery that this number cannot support.
+                        OperationStatusPill(
+                          progress: c.fundedProgress,
+                          kind: OperationStatusKind.funding,
+                        ),
                       ],
                     ),
                     if (c.category.isNotEmpty) ...[

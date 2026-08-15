@@ -411,6 +411,27 @@ class AppTranslations extends Translations {
     'processing': 'Processing',
     'completed': 'Completed',
     'cancelled': 'Cancelled',
+    // donations.delivery_status, per the CHECK constraint in migration 050
+    // (K5). 'under_review', 'archived' and 'cancelled' are already above and
+    // shared. The app used to read only payment_status and label it "Status",
+    // so none of these ever reached a screen.
+    'registered': 'Registered',
+    'received': 'Received',
+    'delivered': 'Delivered',
+    'paused': 'Paused',
+    'suspended': 'Suspended',
+    'Delivery status': 'Delivery status',
+    'Payment status': 'Payment status',
+    // The My Contributions counter beside "Awaiting confirmation" counted
+    // payment_status = success and called itself "Delivered" — two different
+    // questions under one word (K5).
+    'Confirmed': 'Confirmed',
+    // K5 — funding wording for OperationStatusKind.funding. The delivery
+    // wording above it ("Delivered in full" and friends) stays, and is now
+    // only ever shown for a number that really measures delivery.
+    'Fully funded': 'Fully funded',
+    'Partially funded': 'Partially funded',
+    'Not funded yet': 'Not funded yet',
     // Fallback product name when a listing has no title in any language.
     'Product': 'Product',
     'Registration': 'Registration',
@@ -3014,6 +3035,19 @@ class AppTranslations extends Translations {
     'processing': 'قيد التنفيذ',
     'completed': 'مكتمل',
     'cancelled': 'ملغى',
+    // حالة التسليم للتبرع (K5) — نفس المصطلحات المستخدمة في لوحة التحكم.
+    'registered': 'مُسجّل',
+    'received': 'تم الاستلام',
+    'delivered': 'تم التسليم',
+    'paused': 'موقوف مؤقتاً',
+    'suspended': 'معلّق',
+    'Delivery status': 'حالة التسليم',
+    'Payment status': 'حالة الدفع',
+    'Confirmed': 'مؤكَّد',
+    // K5 — صياغة التمويل، مقابل صياغة التسليم أعلاه.
+    'Fully funded': 'تم التمويل بالكامل',
+    'Partially funded': 'مموّل جزئياً',
+    'Not funded yet': 'لم يبدأ التمويل بعد',
     'Product': 'منتج',
     'Registration': 'التسجيل',
     'Your registration was saved, but your documents did not upload. You can add them from your profile.':

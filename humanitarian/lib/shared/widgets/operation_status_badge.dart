@@ -2,21 +2,52 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:get/get.dart';
 
+/// What the number in an operation-status indicator actually measures.
+///
+/// WHY THIS EXISTS (K5)
+/// The badge below has always said "Delivered in full" / "Partially received"
+/// / "Not received yet". Both of its call sites fed it
+/// `campaign.fundedProgress` — money raised ÷ goal — so a campaign that had
+/// collected its whole target while distributing nothing showed a green disc
+/// reading "تم التسليم بالكامل". The words were right about a quantity nobody
+/// was passing in.
+///
+/// Making this REQUIRED is the fix, not a convenience: an implicit default is
+/// precisely what allowed a funding number to inherit delivery words silently.
+/// A call site now has to say what its ratio means, and the wording follows.
+enum OperationStatusKind {
+  /// How much of the aid has reached the family. Green at 100% means the
+  /// operation is complete.
+  delivery,
+
+  /// How much of the money has been raised against the goal. Green at 100%
+  /// means the campaign is funded — it says nothing about distribution.
+  funding,
+}
+
 /// Client note — "Status of Operations and Donations": a clear, colored
-/// indicator for how much of a donation-funded operation has been delivered,
-/// with the number shown inside the badge itself.
-///   • Green  — fully delivered / complete (100%)
-///   • Red    — nothing received yet (0%)
-///   • Orange — partially received / still in progress (1-99%)
+/// indicator for how far an operation has progressed, with the number shown
+/// inside the badge itself.
+///   • Green  — complete (100%)
+///   • Red    — not started (0%)
+///   • Orange — partial / still in progress (1-99%)
+///
+/// The colour ramp is shared by both [OperationStatusKind]s; only the words
+/// differ, because only the words make a claim.
 class OperationStatusBadge extends StatelessWidget {
   const OperationStatusBadge({
     super.key,
     required this.progress,
+    required this.kind,
     this.size = 46,
   });
 
-  /// 0.0 (nothing received) .. 1.0 (fully delivered).
+  /// 0.0 (none) .. 1.0 (complete), interpreted per [kind].
   final double progress;
+
+  /// What [progress] measures. Required — see [OperationStatusKind].
+  final OperationStatusKind kind;
+
   final double size;
 
   double get _clamped => progress.clamp(0.0, 1.0);
@@ -35,11 +66,7 @@ class OperationStatusBadge extends StatelessWidget {
     return AppThemeConfig.pending(context); // in flight
   }
 
-  String get _statusLabel {
-    if (_clamped >= 1.0) return 'Delivered in full'.tr;
-    if (_clamped <= 0.0) return 'Not received yet'.tr;
-    return 'Partially received'.tr;
-  }
+  String get _statusLabel => operationStatusLabel(_clamped, kind);
 
   @override
   Widget build(BuildContext context) {
@@ -101,23 +128,47 @@ class OperationStatusBadge extends StatelessWidget {
   }
 }
 
+/// The three-state wording for a [progress] of a given [kind].
+///
+/// One function, shared by the badge and the pill, so the disc on a card and
+/// the pill on that card's detail page can never disagree about what the same
+/// number means — they did not before, but only because two separate `switch`
+/// blocks happened to be written the same day.
+String operationStatusLabel(double progress, OperationStatusKind kind) {
+  final c = progress.clamp(0.0, 1.0);
+  return switch (kind) {
+    OperationStatusKind.delivery when c >= 1.0 => 'Delivered in full'.tr,
+    OperationStatusKind.delivery when c <= 0.0 => 'Not received yet'.tr,
+    OperationStatusKind.delivery => 'Partially received'.tr,
+    OperationStatusKind.funding when c >= 1.0 => 'Fully funded'.tr,
+    OperationStatusKind.funding when c <= 0.0 => 'Not funded yet'.tr,
+    OperationStatusKind.funding => 'Partially funded'.tr,
+  };
+}
+
 /// A pill variant (colored background + text) for contexts where a full
 /// circular badge doesn't fit — e.g. next to a title on a narrow row.
 class OperationStatusPill extends StatelessWidget {
-  const OperationStatusPill({super.key, required this.progress});
+  const OperationStatusPill({
+    super.key,
+    required this.progress,
+    required this.kind,
+  });
 
   final double progress;
+
+  /// What [progress] measures. Required — see [OperationStatusKind].
+  final OperationStatusKind kind;
 
   @override
   Widget build(BuildContext context) {
     final clamped = progress.clamp(0.0, 1.0);
     final color = OperationStatusBadge.statusColor(context, progress);
     final pct = (clamped * 100).round();
-    final label = clamped >= 1.0
-        ? 'Complete'.tr
-        : clamped <= 0.0
-        ? 'Not received'.tr
-        : 'In progress'.tr;
+    // Was a second, shorter vocabulary ("Complete" / "In progress" / "Not
+    // received") that made a different claim from the disc beside it. One
+    // source of wording now, so the pill cannot drift from the badge.
+    final label = operationStatusLabel(clamped, kind);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(

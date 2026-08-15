@@ -114,6 +114,93 @@ DonationRecordStatus donationRecordStatusFromApi(dynamic value) {
   return DonationRecordStatus.pending;
 }
 
+/// `donations.delivery_status` — where the aid itself has got to.
+///
+/// WHY THIS EXISTS (K5)
+/// A donation carries TWO statuses and they answer different questions.
+/// `payment_status` says whether the money cleared; `delivery_status` says
+/// whether anything reached the family. The app parsed only the first, showed
+/// it under the heading "Status", and told the donor in its own empty state
+/// that every gift appears "with its reference code and delivery status" — so
+/// the one thing the client asked to see was the one thing never read off the
+/// wire, even though /api/donate/my_donations has always returned it.
+///
+/// The eight values are the CHECK constraint from migration 050, not a guess:
+///   registered · received · under_review · delivered ·
+///   paused · suspended · archived · cancelled
+enum DonationDeliveryStatus {
+  registered,
+  received,
+  underReview,
+  delivered,
+  paused,
+  suspended,
+  archived,
+  cancelled,
+}
+
+/// Parses `delivery_status`, or returns null when the server sent nothing we
+/// recognise.
+///
+/// NULL RATHER THAN A DEFAULT, DELIBERATELY. Falling back to `registered`
+/// would paint a red "nothing has been delivered" indicator on a donation
+/// whose state we do not actually know — a claim invented out of a missing
+/// field, which is the same class of bug this whole row exists to remove. The
+/// caller hides the indicator instead.
+DonationDeliveryStatus? donationDeliveryStatusFromApi(dynamic value) {
+  final raw = value?.toString().trim().toLowerCase() ?? '';
+  if (raw.isEmpty) return null;
+  return switch (raw) {
+    'registered' => DonationDeliveryStatus.registered,
+    'received' => DonationDeliveryStatus.received,
+    'under_review' => DonationDeliveryStatus.underReview,
+    'delivered' => DonationDeliveryStatus.delivered,
+    'paused' => DonationDeliveryStatus.paused,
+    'suspended' => DonationDeliveryStatus.suspended,
+    'archived' => DonationDeliveryStatus.archived,
+    'cancelled' => DonationDeliveryStatus.cancelled,
+    _ => null,
+  };
+}
+
+extension DonationDeliveryStatusUi on DonationDeliveryStatus {
+  /// The translation key. These are the BARE backend tokens, matching how the
+  /// rest of the app keys server enums (see the `under_review` / `archived`
+  /// block in app_translations.dart) so `localizedTag` resolves them too.
+  String get labelKey => switch (this) {
+    DonationDeliveryStatus.registered => 'registered',
+    DonationDeliveryStatus.received => 'received',
+    DonationDeliveryStatus.underReview => 'under_review',
+    DonationDeliveryStatus.delivered => 'delivered',
+    DonationDeliveryStatus.paused => 'paused',
+    DonationDeliveryStatus.suspended => 'suspended',
+    DonationDeliveryStatus.archived => 'archived',
+    DonationDeliveryStatus.cancelled => 'cancelled',
+  };
+
+  /// Position on the delivery ladder, 0.0 .. 1.0 — or null when the donation
+  /// is not on the ladder at all.
+  ///
+  /// The ladder is the order the backend itself moves a donation through:
+  /// registered → received → under_review → delivered. The fractions are that
+  /// POSITION, and the label beside them always names the step, so the number
+  /// is never left to stand for "how much aid arrived" on its own.
+  ///
+  /// Paused, suspended, archived and cancelled are not steps toward delivery —
+  /// they are exits from it. Giving them a percentage would be inventing one,
+  /// so they get a word and no rule.
+  double? get progress => switch (this) {
+    DonationDeliveryStatus.registered => 0.0,
+    DonationDeliveryStatus.received => 1 / 3,
+    DonationDeliveryStatus.underReview => 2 / 3,
+    DonationDeliveryStatus.delivered => 1.0,
+    DonationDeliveryStatus.paused ||
+    DonationDeliveryStatus.suspended ||
+    DonationDeliveryStatus.archived ||
+    DonationDeliveryStatus.cancelled => null,
+  };
+}
+
 dynamic _statusFieldFromDonationRow(Map json) {
   return json['status'] ??
       json['donation_status'] ??
@@ -177,6 +264,7 @@ class DonationHistoryEntry {
     required this.dateLabel,
     required this.paymentMethod,
     required this.status,
+    required this.deliveryStatus,
     required this.reference,
     required this.note,
     required this.id,
@@ -187,7 +275,14 @@ class DonationHistoryEntry {
   final int amount;
   final String dateLabel;
   final String paymentMethod;
+
+  /// Whether the MONEY cleared. Not the same question as [deliveryStatus].
   final DonationRecordStatus status;
+
+  /// Whether the AID reached the family. Null when the server sent no
+  /// recognised `delivery_status` — see [donationDeliveryStatusFromApi].
+  final DonationDeliveryStatus? deliveryStatus;
+
   final String reference;
   final String note;
 
@@ -243,6 +338,7 @@ class DonationHistoryEntry {
       paymentMethod: (json['payment_method'] ?? json['paymentMethod'] ?? '')
           .toString(),
       status: donationRecordStatusFromApi(_statusFieldFromDonationRow(json)),
+      deliveryStatus: donationDeliveryStatusFromApi(json['delivery_status']),
       reference: ref,
       note: note.isEmpty ? '—' : note,
       id: idRaw == null ? null : int.tryParse('$idRaw'),

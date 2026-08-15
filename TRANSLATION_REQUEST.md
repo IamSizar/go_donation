@@ -420,6 +420,43 @@ had no map entry and rendered verbatim in Arabic; they now have `_en` and `_ar`.
 | `new one for review.` | new one for review. | نسخة جديدة للمراجعة. | ckb + kmr |
 | `edited here.` | edited here. | تُعدَّل هنا. | ckb + kmr |
 
+## donations · K5 operation-status vocabulary  (13 keys)
+
+Added 2026-08-15 by the K5 fix. Two separate additions, both in
+`app_translations.dart`:
+
+1. **`donations.delivery_status`**, the eight values of the CHECK constraint in
+   migration 050. The app had never rendered any of them — it parsed
+   `payment_status` and labelled it "Status" — so a donor could not tell a
+   cleared payment from delivered aid. `under_review`, `archived` and
+   `cancelled` already had entries and are NOT repeated here.
+2. **Funding wording.** The coloured status badge said "Delivered in full"
+   while being fed money raised ÷ goal. The delivery wording stays for delivery
+   data; these three are what a funding number now says instead.
+
+All 13 currently fall back to English for a Kurdish reader.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `registered` | Registered | مُسجّل | ckb + kmr |
+| `received` | Received | تم الاستلام | ckb + kmr |
+| `delivered` | Delivered | تم التسليم | ckb + kmr |
+| `paused` | Paused | موقوف مؤقتاً | ckb + kmr |
+| `suspended` | Suspended | معلّق | ckb + kmr |
+| `Delivery status` | Delivery status | حالة التسليم | ckb + kmr |
+| `Payment status` | Payment status | حالة الدفع | ckb + kmr |
+| `Confirmed` | Confirmed | مؤكَّد | ckb + kmr |
+| `Fully funded` | Fully funded | تم التمويل بالكامل | ckb + kmr |
+| `Partially funded` | Partially funded | مموّل جزئياً | ckb + kmr |
+| `Not funded yet` | Not funded yet | لم يبدأ التمويل بعد | ckb + kmr |
+| `mute_all` | Mute sounds & vibration | كتم الأصوات والاهتزاز | **already translated — listed for completeness (K26 reused it)** |
+| `mute_all_desc` | Silence chimes, vibrations, and spoken summaries. | أوقف النغمات والاهتزاز والملخصات المنطوقة. | **already translated — K26 needed no new words** |
+
+> The Arabic for the five delivery tokens is taken from the admin dashboard's
+> own `ar.ts`, where staff have been reading these exact statuses since the
+> Donations page shipped — so the app and the dashboard now say the same word
+> for the same state rather than two translators' versions of it.
+
 ## (shared / not directly referenced)  (16 keys)
 
 | Key | English | Arabic | Needs |

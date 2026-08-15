@@ -11,6 +11,12 @@
 //
 // The percentage is not a substitute. It says how far along, not what state
 // that counts as; "40%" does not tell you whether that is on track or overdue.
+//
+// K5 added the explicit `kind` these calls now pass. Every assertion below is
+// unchanged: this file pins that the DELIVERY wording is announced rather than
+// only coloured, and delivery is what it was always testing. Which numbers are
+// allowed to wear that wording is pinned separately, in
+// operation_status_truthfulness_test.dart.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -35,7 +41,14 @@ void main() {
     testWidgets('a fully delivered badge is announced, not just coloured', (
       tester,
     ) async {
-      await tester.pumpWidget(_wrap(const OperationStatusBadge(progress: 1)));
+      await tester.pumpWidget(
+        _wrap(
+          const OperationStatusBadge(
+            progress: 1,
+            kind: OperationStatusKind.delivery,
+          ),
+        ),
+      );
       await tester.pump();
 
       expect(
@@ -46,7 +59,14 @@ void main() {
     });
 
     testWidgets('a nothing-received badge is announced', (tester) async {
-      await tester.pumpWidget(_wrap(const OperationStatusBadge(progress: 0)));
+      await tester.pumpWidget(
+        _wrap(
+          const OperationStatusBadge(
+            progress: 0,
+            kind: OperationStatusKind.delivery,
+          ),
+        ),
+      );
       await tester.pump();
 
       expect(_announcing('Not received yet'), findsOneWidget);
@@ -55,7 +75,14 @@ void main() {
     testWidgets('a partial badge is announced, and is not the same as 0 or 1', (
       tester,
     ) async {
-      await tester.pumpWidget(_wrap(const OperationStatusBadge(progress: 0.4)));
+      await tester.pumpWidget(
+        _wrap(
+          const OperationStatusBadge(
+            progress: 0.4,
+            kind: OperationStatusKind.delivery,
+          ),
+        ),
+      );
       await tester.pump();
 
       // The distinction that matters: 40% must not read as either extreme.
@@ -68,7 +95,14 @@ void main() {
       tester,
     ) async {
       // Adding semantics must not cost the number that was already there.
-      await tester.pumpWidget(_wrap(const OperationStatusBadge(progress: 0.4)));
+      await tester.pumpWidget(
+        _wrap(
+          const OperationStatusBadge(
+            progress: 0.4,
+            kind: OperationStatusKind.delivery,
+          ),
+        ),
+      );
       await tester.pump();
 
       expect(find.text('40%'), findsOneWidget);

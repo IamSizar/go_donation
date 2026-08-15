@@ -8,6 +8,7 @@ import 'package:flutter_application_1/core/widgets/app_figure.dart';
 import 'package:flutter_application_1/core/widgets/app_row.dart';
 import 'package:flutter_application_1/core/widgets/app_screen.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
+import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -79,9 +80,15 @@ class _MyDonationsPageState extends State<MyDonationsPage> {
                 unit: 'IQD',
                 caption: '${s.totalCount} ${'contributions'.tr}',
               ),
+              // K5 — this counter reads summary.success_count, which the
+              // backend computes from payment_status. It was labelled
+              // "Delivered", so a donor whose money had cleared but whose aid
+              // had not moved was told it was delivered. The delivery answer
+              // is per row, on the rule under each donation, because
+              // /my_donations returns no delivery roll-up to count.
               AppStatPair(
                 startValue: '${s.successCount}',
-                startLabel: 'Delivered',
+                startLabel: 'Confirmed',
                 endValue: '${s.pendingCount}',
                 endLabel: 'Awaiting confirmation',
                 endTone: AppColors.of(context).pending,
@@ -134,6 +141,25 @@ AppStatusTone _toneFor(DonationRecordStatus status) => switch (status) {
   DonationRecordStatus.failed => AppStatusTone.attention,
 };
 
+/// The client's colour scheme for operation status, mapped onto the design
+/// system's tones (K5): green when the aid has been delivered, red when the
+/// family has received nothing, orange while it is in flight.
+///
+/// The four exits from the ladder — paused, suspended, archived, cancelled —
+/// are `attention` rather than a ramp position: something stopped, and that is
+/// worth a look regardless of how far it had got.
+AppStatusTone _deliveryToneFor(DonationDeliveryStatus status) =>
+    switch (status) {
+      DonationDeliveryStatus.delivered => AppStatusTone.settled,
+      DonationDeliveryStatus.received ||
+      DonationDeliveryStatus.underReview => AppStatusTone.pending,
+      DonationDeliveryStatus.registered ||
+      DonationDeliveryStatus.paused ||
+      DonationDeliveryStatus.suspended ||
+      DonationDeliveryStatus.archived ||
+      DonationDeliveryStatus.cancelled => AppStatusTone.attention,
+    };
+
 /// One donation, as a hairline-separated row.
 ///
 /// Replaces the previous card, which carried its own 52pt tinted icon tile,
@@ -158,11 +184,32 @@ class _DonationRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // K5 — the coloured operation status the client asked for, on the one
+    // number that actually measures it. The rule is drawn only when the server
+    // sent a delivery_status we recognise AND that status is a step on the
+    // ladder; a stopped donation still gets its word in the detail sheet, but
+    // no invented position.
+    final delivery = item.deliveryStatus;
+    final deliveryProgress = delivery?.progress;
+
     return AppRow(
       title: item.campaignName,
       meta: '${item.reference} · ${item.dateLabel}',
       showDivider: !isLast,
       onTap: () => _openDetails(context),
+      progress: deliveryProgress,
+      progressTone: delivery == null
+          ? AppStatusTone.neutral
+          : _deliveryToneFor(delivery),
+      // The word on one side, the number on the other, so the percentage can
+      // never be read as "how much aid arrived" on its own.
+      progressStart: delivery?.labelKey,
+      progressEnd: deliveryProgress == null
+          ? null
+          : '${(deliveryProgress * 100).round()}%',
+      // The trailing slot keeps PAYMENT status. Swapping it for delivery would
+      // have hidden a failed payment behind a delivery word, which is the same
+      // conflation in the other direction.
       trailing: AppRowAmount(
         amount: _numFormat.format(item.amount),
         status: item.status.label,
@@ -233,7 +280,19 @@ class _DonationDetailSheet extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              _DetailLine(label: 'Status', value: item.status.label),
+              // Two statuses, two questions, named apart. "Status" alone was
+              // the payment one wearing a heading broad enough to be read as
+              // either (K5).
+              _DetailLine(label: 'Payment status', value: item.status.label),
+              _DetailLine(
+                label: 'Delivery status',
+                // localizedTag rather than `.tr`: a value added server-side
+                // before anyone translates it degrades to "Under review"
+                // rather than printing `under_review` at the donor.
+                value: item.deliveryStatus == null
+                    ? '—'
+                    : localizedTag(item.deliveryStatus!.labelKey),
+              ),
               _DetailLine(label: 'Date', value: item.dateLabel),
               _DetailLine(
                 label: 'Payment method',
