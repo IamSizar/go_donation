@@ -438,6 +438,20 @@ const ckb: DeepPartial<typeof en> = {
     interval_quarterly: 'هەر سێ مانگ',
     interval_yearly: 'ساڵانە',
   },
+  // M7 — donation types. Only the keys whose Sorani text already exists
+  // VERBATIM elsewhere in this file are set here (they are generic "type"
+  // strings from sponsorshipTypes above, with no sponsorship wording in them).
+  // title / subtitle / confirm_delete / slug_hint / empty are deliberately
+  // absent so they fall back to English rather than be invented — they are
+  // listed in TRANSLATION_REQUEST.md for a native speaker.
+  donationTypes: {
+    add_new: 'زیادکردنی جۆر',
+    added: 'جۆرەکە زیادکرا.',
+    saved: 'جۆرەکە پاشەکەوتکرا.',
+    deleted: 'جۆرەکە سڕدرایەوە.',
+    need_en: 'ناوی ئینگلیزی بنووسە.',
+    active: 'چالاک',
+  },
   marriageAbout: {
     title: 'دەربارەی هاوسەرگیری',
     subtitle: 'لە ئەپەکەدا دەردەکەوێت. ئەم زانیارییانە جیا بهێڵەوە لە بەشی مرۆیی.',

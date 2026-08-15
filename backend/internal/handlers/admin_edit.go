@@ -1279,8 +1279,12 @@ func (h *AdminEditHandler) Donation(c *gin.Context) {
 	}
 	if req.DonationType != nil {
 		v := strings.ToLower(strings.TrimSpace(*req.DonationType))
-		if !inSet(v, donationTypes) {
-			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid donation_type. Allowed: " + strings.Join(donationTypes, ", ")})
+		// M7 — same allowlist as the create path: the active rows of
+		// donation_types, so editing a donation onto a dashboard-added type
+		// works without a redeploy. Falls back to the built-in three.
+		allowed := allowedDonationTypes(c.Request.Context(), h.Pool)
+		if !inSet(v, allowed) {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid donation_type. Allowed: " + strings.Join(allowed, ", ")})
 			return
 		}
 		b.add("donation_type", v)

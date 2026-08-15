@@ -439,6 +439,20 @@ const kmr: DeepPartial<typeof en> = {
     interval_quarterly: 'هەر سێ مەهان',
     interval_yearly: 'سالانە',
   },
+  // M7 — donation types. Only the keys whose Badini text already exists
+  // VERBATIM elsewhere in this file are set here (generic "type" strings from
+  // sponsorshipTypes above, with no sponsorship wording in them). title /
+  // subtitle / confirm_delete / slug_hint / empty are deliberately absent so
+  // they fall back to English rather than be invented — they are listed in
+  // TRANSLATION_REQUEST.md for a native speaker.
+  donationTypes: {
+    add_new: 'زێدەکرنا جۆری',
+    added: 'جۆر هاتە زێدەکرن.',
+    saved: 'جۆر هاتە پاشەکەفتن.',
+    deleted: 'جۆر هاتە ژێبرن.',
+    need_en: 'ناڤێ ئینگلیزی بنڤیسە.',
+    active: 'چالاک',
+  },
   marriageAbout: {
     title: 'دەربارەی هەڤژینیێ',
     subtitle: 'د ئەپێ دا دیار دبیت. ڤان زانیاریان ژ بەشێ مرۆڤی جودا بهێلە.',

@@ -32,6 +32,8 @@ export const NAV: NavItem[] = [
   { to: '/donations',     tKey: 'nav.donations',     countKey: 'donations', module: 'donations' },
   { to: '/donation-codes', tKey: 'nav.donation_codes', module: 'donations' },
   { to: '/payment-methods', tKey: 'nav.payment_methods', module: 'donations' },
+  // M7 — the donor-facing giving types, managed like payment methods.
+  { to: '/donation-types', tKey: 'nav.donation_types', module: 'donations' },
   { to: '/beneficiary',   tKey: 'nav.beneficiary',   countKey: 'beneficiary', module: 'beneficiary' },
   { to: '/project-categories', tKey: 'nav.project_categories', module: 'beneficiary' },
   { to: '/sponsorship-types', tKey: 'nav.sponsorship_types', module: 'sponsorships' },
@@ -156,7 +158,7 @@ export const DEFAULT_NAV_SECTIONS: NavSection[] = [
   {
     kind: 'group', key: 'system_settings', tKey: 'nav_group.system_settings',
     items: [
-      '/payment-methods', '/donation-codes', '/field-rules',
+      '/payment-methods', '/donation-types', '/donation-codes', '/field-rules',
       '/permissions', '/terms', '/about', '/humanitarian-work',
       '/marriage-about', '/marriage-contact', '/city-guide-about', '/city-guide-contact',
       '/trash', '/settings',

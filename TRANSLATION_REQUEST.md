@@ -579,9 +579,40 @@ Do **not** translate these twice. They are the identical 81 values listed under
 into `ckb.ts` / `kmr.ts` under `status:`.
 
 Deliberate: the dashboard reads one vocabulary and the app another, so a type
-that reads "قبول حالة مستفيد" on the phone must read the same in the النوع
+that reads "قبول حالة مستحق" on the phone must read the same in the النوع
 column. Splitting the Kurdish wording between the two files is the failure mode
 to avoid.
+
+## `donationTypes.*` · M7 donation-type CMS  (6 keys)
+
+New screen (`admin-web/src/pages/DonationTypesPage.tsx`, nav **أنواع المساهمة**)
+added for M7, where the donor-facing giving types became dashboard-managed rows.
+
+Six of the block's eleven keys were filled in `ckb.ts`/`kmr.ts` **without
+inventing anything**: `add_new`, `added`, `saved`, `deleted`, `need_en` and
+`active` were copied verbatim from the existing `sponsorshipTypes.*` block,
+whose Kurdish text is already generic ("Add type", "Type saved", …) with no
+sponsorship wording in it. The rows below are the remaining ones, left absent so
+they fall back to English rather than be guessed.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `donationTypes.title` | Donation types | أنواع المساهمة | ckb + kmr |
+| `donationTypes.subtitle` | The giving types a donor picks from on the donate screen. Add or edit them here — no code change needed. | الأنواع التي يختار منها المانح في شاشة المساهمة. أضفها أو عدّلها هنا دون الحاجة إلى تعديل برمجي. | ckb + kmr |
+| `donationTypes.confirm_delete` | Delete this type? Past donations keep the type they were recorded with. | حذف هذا النوع؟ تحتفظ المساهمات السابقة بالنوع المسجّل معها. | ckb + kmr |
+| `donationTypes.slug_hint` | The internal key is derived from the English name and cannot be changed afterwards, because past donations are already stored under it. You can rename the displayed labels at any time. | يُشتق المفتاح الداخلي من الاسم الإنجليزي ولا يمكن تغييره لاحقًا، لأن المساهمات السابقة مسجّلة به. أما الأسماء المعروضة فيمكن تعديلها في أي وقت. | ckb + kmr |
+| `donationTypes.empty` | No donation types yet. Add the first one above. | لا توجد أنواع مساهمة بعد. أضف أول نوع من الأعلى. | ckb + kmr |
+| `nav.donation_types` | Donation types | أنواع المساهمة | ckb + kmr |
+
+> `donationTypes.title` and `nav.donation_types` are the same words and must get
+> the same Kurdish. Note the noun follows `nav.donations` (**المساهمات**, per
+> `TERMINOLOGY.md` T1), not "التبرعات".
+
+> The three seeded types themselves — General / Zakat / Sadaqah — needed **no**
+> new translation: migration 103 seeds their Kurdish from strings already
+> shipped in `app_translations.dart` and the dashboard `status.*` block. Types
+> staff add later are typed in by staff in all four languages on the screen
+> itself, which is the point of the row.
 
 ---
 

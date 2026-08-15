@@ -82,6 +82,7 @@ const en = {
     project_categories: 'Project categories',
     sponsorship_types: 'Assistance types',
     payment_methods: 'Payment methods',
+    donation_types: 'Donation types',
     media_categories: 'Our Work categories',
     comments: 'Comments',
     post_activity: 'Post activity',
@@ -449,6 +450,21 @@ const en = {
     interval_monthly: 'Monthly',
     interval_quarterly: 'Quarterly',
     interval_yearly: 'Yearly',
+  },
+  // M7 — the donor-facing giving type, now a dashboard-managed list instead of
+  // three values hardcoded in the backend.
+  donationTypes: {
+    title: 'Donation types',
+    subtitle: 'The giving types a donor picks from on the donate screen. Add or edit them here — no code change needed.',
+    add_new: 'Add type',
+    added: 'Type added.',
+    saved: 'Type saved.',
+    deleted: 'Type deleted.',
+    confirm_delete: 'Delete this type? Past donations keep the type they were recorded with.',
+    need_en: 'Enter the English name.',
+    active: 'Active (shown in the app)',
+    slug_hint: 'The internal key is derived from the English name and cannot be changed afterwards, because past donations are already stored under it. You can rename the displayed labels at any time.',
+    empty: 'No donation types yet. Add the first one above.',
   },
   marriageAbout: {
     title: 'About — My Engagement',

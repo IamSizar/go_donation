@@ -73,6 +73,10 @@ var restorableTables = map[string]bool{
 	// refused on the way out, which is worse than never trashing it because the
 	// operator has been told it is recoverable.
 	"volunteer_mission_signups": true,
+
+	// M7 — donation types (migration 103). Same reason again: the admin route
+	// deletes through trashRow, so Restore has to accept it back.
+	"donation_types": true,
 }
 
 // List returns everything currently in the trash (not yet restored), newest

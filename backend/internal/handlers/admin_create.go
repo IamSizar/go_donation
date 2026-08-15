@@ -1016,9 +1016,52 @@ type donationCreateReq struct {
 
 var donationKinds = []string{"general", "campaign", "sponsorship", "in_kind", "operational"}
 
-// donationTypes are the donor-facing giving types (#16/#16b), distinct from the
-// internal donation_kind routing above.
+// donationTypes are the donor-facing giving types that shipped hardcoded
+// (#16/#16b), distinct from the internal donation_kind routing above.
+//
+// M7 — no longer the authority. Staff add donation types from the dashboard
+// (migration 103, table donation_types), so this list is only the fallback used
+// when that table cannot be read. See allowedDonationTypes.
 var donationTypes = []string{"general", "zakat", "sadaqah"}
+
+// allowedDonationTypes returns the donation-type slugs an admin may file a
+// donation under: every active row in donation_types.
+//
+// Falls back to the built-in list when the table is unreadable, for the same
+// reason internal/donations does — a lookup table being down must not block
+// recording a donation that really happened. The returned slice is also used
+// verbatim in the error message, so the operator is told the current set
+// rather than a stale one.
+func allowedDonationTypes(ctx context.Context, pool *pgxpool.Pool) []string {
+	if pool == nil {
+		return donationTypes
+	}
+	rows, err := pool.Query(ctx,
+		`SELECT slug FROM donation_types WHERE active = 1 ORDER BY display_order, id`)
+	if err != nil {
+		log.Printf("[donation-type] admin allowlist query: %v — falling back to the built-in set", err)
+		return donationTypes
+	}
+	defer rows.Close()
+	out := []string{}
+	for rows.Next() {
+		var slug string
+		if err := rows.Scan(&slug); err != nil {
+			log.Printf("[donation-type] admin allowlist scan: %v — falling back to the built-in set", err)
+			return donationTypes
+		}
+		out = append(out, slug)
+	}
+	if err := rows.Err(); err != nil {
+		log.Printf("[donation-type] admin allowlist rows: %v — falling back to the built-in set", err)
+		return donationTypes
+	}
+	if len(out) == 0 {
+		// An empty table would otherwise reject every donation.
+		return donationTypes
+	}
+	return out
+}
 
 func (h *AdminCreateHandler) Donation(c *gin.Context) {
 	var req donationCreateReq
@@ -1077,12 +1120,14 @@ func (h *AdminCreateHandler) Donation(c *gin.Context) {
 		campaignID = *req.CampaignID
 	}
 	// #16b — donor-facing donation type; default general, validated against the
-	// known set.
+	// known set. M7 — "known" is now the active rows of donation_types, so a
+	// type staff added in the dashboard is accepted here without a code change.
 	dtype := "general"
 	if req.DonationType != nil && strings.TrimSpace(*req.DonationType) != "" {
 		v := strings.ToLower(strings.TrimSpace(*req.DonationType))
-		if !inSet(v, donationTypes) {
-			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid donation_type. Allowed: " + strings.Join(donationTypes, ", ")})
+		allowed := allowedDonationTypes(c.Request.Context(), h.Pool)
+		if !inSet(v, allowed) {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid donation_type. Allowed: " + strings.Join(allowed, ", ")})
 			return
 		}
 		dtype = v

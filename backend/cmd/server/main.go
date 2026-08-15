@@ -28,6 +28,7 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/dashboard"
 	"github.com/karam-flutter/humanitarian-backend/internal/db"
 	"github.com/karam-flutter/humanitarian-backend/internal/donations"
+	"github.com/karam-flutter/humanitarian-backend/internal/donationtypes"
 	"github.com/karam-flutter/humanitarian-backend/internal/events"
 	"github.com/karam-flutter/humanitarian-backend/internal/guest"
 	"github.com/karam-flutter/humanitarian-backend/internal/handlers"
@@ -271,6 +272,13 @@ func main() {
 	adminStatusH.Schedule = sponsorshipScheduleStore
 	inkindCatStore := inkindcategories.New(pool)
 	inkindCategoriesH := handlers.NewInkindCategoriesHandler(inkindCatStore)
+	// M7 — donor-facing donation types become dashboard-managed rows
+	// (migration 103) instead of a hardcoded switch. Wiring the store into the
+	// donation store is what makes an admin-added type actually stick to a
+	// donation; without it Insert would keep collapsing it to "general".
+	donationTypeStore := donationtypes.New(pool)
+	donationTypesH := handlers.NewDonationTypesHandler(donationTypeStore)
+	donationStore.Types = donationTypeStore
 	sponsorshipScheduleH := handlers.NewSponsorshipScheduleHandler(
 		sponsorshipScheduleStore, settingsStore, notifier)
 	// Sponsorship reminders reuse the same best-effort SMS sender as the
@@ -374,6 +382,9 @@ func main() {
 		api.GET("/project-categories", projectCategoriesH.PublicList)
 		api.GET("/sponsorship-types", sponsorshipTypesH.PublicList)
 		api.GET("/inkind-categories", inkindCategoriesH.PublicList)
+		// M7 — the donate screen's type picker, served as data so staff can
+		// change it from the dashboard without an app release.
+		api.GET("/donation-types", donationTypesH.PublicList)
 		api.GET("/city-sectors", citySectorsH.PublicList)            // #29 — City Guide filter chips
 		api.GET("/city-categories", cityCategoriesH.PublicList)      // sub-categories per sector
 		api.GET("/search", searchH.Search)                           // #33 — global search
@@ -1006,6 +1017,14 @@ func main() {
 			admin.PATCH("/admin/inkind-categories/:id", auth.RequireAdminTier(), inkindCategoriesH.Update)
 			admin.POST("/admin/inkind-categories/reorder", auth.RequireAdminTier(), inkindCategoriesH.Reorder)
 			admin.DELETE("/admin/inkind-categories/:id", auth.RequireAdminTier(), inkindCategoriesH.Delete)
+			// M7 — donation-type CMS (admin-managed, 4-language, ordered).
+			// Same tier gate as every sibling list: any staff may read it (the
+			// donations screens need the labels), admin tier writes.
+			admin.GET("/admin/donation-types", donationTypesH.AdminList)
+			admin.POST("/admin/donation-types", auth.RequireAdminTier(), donationTypesH.Add)
+			admin.PATCH("/admin/donation-types/:id", auth.RequireAdminTier(), donationTypesH.Update)
+			admin.POST("/admin/donation-types/reorder", auth.RequireAdminTier(), donationTypesH.Reorder)
+			admin.DELETE("/admin/donation-types/:id", auth.RequireAdminTier(), donationTypesH.Delete)
 			// #29 — City Guide sector CMS (admin-managed, 4-language, ordered).
 			// #50 — digital aid-delivery receipts.
 			admin.GET("/admin/aid-receipts", aidReceiptsH.AdminList)

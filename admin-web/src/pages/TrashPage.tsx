@@ -57,6 +57,9 @@ const MODULE_TKEY: Record<string, string> = {
   case_categories: 'nav.beneficiary',
   marketplace_categories: 'nav.marketplace_categories',
   payment_methods: 'nav.payment_methods',
+  // M7 — donation types are deleted through trashRow like every sibling list,
+  // so without this entry the Trash would print the raw table name.
+  donation_types: 'nav.donation_types',
   marriage_subscription_packages: 'nav.marriage_subscriptions',
   tasks: 'nav.tasks',
   post_comments: 'nav.comments',

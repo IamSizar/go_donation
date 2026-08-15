@@ -15,14 +15,21 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/karam-flutter/humanitarian-backend/internal/donationtypes"
 	"github.com/karam-flutter/humanitarian-backend/internal/sectioncodes"
 )
 
 func itoa(n int) string { return strconv.Itoa(n) }
 
-// normalizeDonationType maps a donor-supplied donation type to a known value
-// (general / zakat / sadaqah), defaulting to general (#16).
-func normalizeDonationType(t string) string {
+// fallbackDonationType maps a donor-supplied donation type to one of the three
+// types that shipped hardcoded (#16), defaulting to general.
+//
+// M7 — this used to BE the whole rule. It is now only the degraded path, used
+// when the admin-managed donation_types table cannot be consulted (store not
+// wired, or the lookup errored). Keeping it means an unreachable lookup table
+// downgrades the donor's choice at worst; it can never fail the donation.
+// "sadaqa" is honoured alongside "sadaqah" because older app builds send it.
+func fallbackDonationType(t string) string {
 	switch strings.ToLower(strings.TrimSpace(t)) {
 	case "zakat":
 		return "zakat"
@@ -31,6 +38,37 @@ func normalizeDonationType(t string) string {
 	default:
 		return "general"
 	}
+}
+
+// normalizeDonationType resolves a donor-supplied donation type against the
+// admin-managed donation_types table (M7, migration 103), falling back to the
+// three shipped types when that table cannot be consulted.
+//
+// Unknown values still collapse to "general" rather than erroring — that is the
+// pre-existing contract and the donate endpoint depends on it. What changes is
+// WHICH values are known: staff add a type in the dashboard and it is honoured
+// here with no code change, which is the whole point of M7.
+func (s *Store) normalizeDonationType(ctx context.Context, t string) string {
+	slug := strings.ToLower(strings.TrimSpace(t))
+	if slug == "" {
+		return "general"
+	}
+	if s == nil || s.Types == nil {
+		return fallbackDonationType(t)
+	}
+	ok, err := s.Types.IsActiveSlug(ctx, slug)
+	if err != nil {
+		// Never fail a donation over a lookup table. Log with context so the
+		// degradation is visible, then apply the shipped set.
+		log.Printf("[donation-type] lookup %q: %v — falling back to the built-in set", slug, err)
+		return fallbackDonationType(t)
+	}
+	if ok {
+		return slug
+	}
+	// Not an active type. Try the built-in spellings (e.g. the legacy
+	// "sadaqa") before giving up, then default to general as before.
+	return fallbackDonationType(t)
 }
 
 // Lifecycle-gate errors returned from Insert. Handlers should translate these
@@ -92,6 +130,11 @@ type Store struct {
 	// Optional: when nil, no SMS is sent. Kept as a func so this package doesn't
 	// depend on the SMS-provider package.
 	SendSMS func(ctx context.Context, phone, message string) error
+	// Types resolves the donor-facing donation type against the admin-managed
+	// donation_types table (M7, migration 103). Optional: when nil, Insert
+	// falls back to the three types that shipped hardcoded, so a donation is
+	// never lost to an unwired or unreachable lookup table.
+	Types *donationtypes.Store
 }
 
 func NewStore(pool *pgxpool.Pool) *Store {
@@ -162,9 +205,11 @@ func (s *Store) Insert(
 		donationKind = k
 	}
 
-	// #16 — the donor-facing giving type (general/zakat/sadaqah), orthogonal to
-	// the internal donation_kind routing. Normalized to a known value.
-	dType := normalizeDonationType(donationType)
+	// #16 — the donor-facing giving type, orthogonal to the internal
+	// donation_kind routing. M7 — "known" now means "an active row in
+	// donation_types", so staff can add a type from the dashboard without a
+	// code change; unknown values still collapse to general.
+	dType := s.normalizeDonationType(ctx, donationType)
 
 	// Phase 15 — the INSERT and the campaign roll-up have to land atomically
 	// so the donor never sees a donation row without the matching bump in

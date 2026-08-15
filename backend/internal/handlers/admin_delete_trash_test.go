@@ -231,6 +231,12 @@ func TestTrashedTablesAreRestorable(t *testing.T) {
 		// E15 — same trap, same guard: the new signup delete is only a
 		// recoverable delete if Restore will take the row back out.
 		"volunteer_mission_signups",
+
+		// M7 — donation types are deleted through trashRow like every sibling
+		// list, so they need the same guarantee. A type is authored in four
+		// languages and past donations still reference its slug, which makes
+		// an unrecoverable delete here especially expensive.
+		"donation_types",
 	} {
 		if !restorableTables[table] {
 			t.Errorf("%s can be trashed but not restored — Restore would refuse it", table)
