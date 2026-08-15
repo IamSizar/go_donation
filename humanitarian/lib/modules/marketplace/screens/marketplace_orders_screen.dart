@@ -6,6 +6,7 @@ import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
+import 'package:flutter_application_1/core/widgets/app_row.dart';
 
 class MarketplaceOrdersScreen extends StatelessWidget {
   const MarketplaceOrdersScreen({super.key});
@@ -83,9 +84,14 @@ class _MarketplaceOrderCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Spec item 13 — the order status used to be drawn three times on
+          // this one card: as the leading glyph, as that glyph's colour, and
+          // as the pill next to the title. The leading mark is now a plain
+          // "this is an order" icon in the accent colour, so the status is
+          // stated exactly once, in words, by the tag.
           TileIcon(
-            icon: _statusIcon(status),
-            color: _statusColor(context, status),
+            icon: Icons.receipt_long_rounded,
+            color: AppThemeConfig.accent(context),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -103,7 +109,7 @@ class _MarketplaceOrderCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 10),
-                    _StatusPill(status: status),
+                    AppStatusTag(label: status, tone: _statusTone(status)),
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -123,45 +129,18 @@ class _MarketplaceOrderCard extends StatelessWidget {
   }
 }
 
-class _StatusPill extends StatelessWidget {
-  const _StatusPill({required this.status});
-
-  final String status;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = _statusColor(context, status);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Text(
-        status.tr,
-        style: TextStyle(color: color, fontWeight: FontWeight.w800),
-      ),
-    );
-  }
-}
-
-Color _statusColor(BuildContext context, String status) {
+/// Maps an order status onto the design system's semantic tones.
+///
+/// The local pill and its bespoke colour switch are gone: [AppStatusTag] is
+/// the app-wide status word, so orders now look like every other status in
+/// the app and the word — not the colour — carries the meaning.
+AppStatusTone _statusTone(String status) {
   return switch (status) {
-    'approved' => AppThemeConfig.accent(context),
-    'processing' => AppThemeConfig.accent(context),
-    'completed' => AppThemeConfig.accent(context),
-    'cancelled' => AppThemeConfig.consequence(context),
-    _ => AppThemeConfig.pending(context),
-  };
-}
-
-IconData _statusIcon(String status) {
-  return switch (status) {
-    'approved' => Icons.verified_rounded,
-    'processing' => Icons.local_shipping_rounded,
-    'completed' => Icons.check_circle_rounded,
-    'cancelled' => Icons.cancel_rounded,
-    _ => Icons.hourglass_bottom_rounded,
+    // Approved, shipped and delivered are all "settled" as far as the donor
+    // is concerned: nothing is outstanding on their side.
+    'approved' || 'processing' || 'completed' => AppStatusTone.settled,
+    'cancelled' => AppStatusTone.attention,
+    _ => AppStatusTone.pending,
   };
 }
 

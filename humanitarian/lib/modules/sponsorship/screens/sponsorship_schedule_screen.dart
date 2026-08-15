@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
+import 'package:flutter_application_1/core/widgets/app_row.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -211,19 +212,20 @@ class _OccurrenceCard extends StatelessWidget {
 
   final ScheduleOccurrence item;
 
-  /// Status colour: overdue reads as a problem, due as action-needed, paid as
+  /// Status tone: overdue reads as a problem, due as action-needed, paid as
   /// settled, upcoming as neutral.
-  Color _statusColor() {
-    switch (item.status) {
-      case 'overdue':
-        return const Color(0xFFEF4444);
-      case 'due':
-        return const Color(0xFFF59E0B);
-      case 'paid':
-        return const Color(0xFF16A34A);
-      default:
-        return AppThemeConfig.primary;
-    }
+  ///
+  /// This replaces three hand-picked hex colours (#EF4444/#F59E0B/#16A34A)
+  /// that tinted both the calendar mark and the pill — the same status drawn
+  /// twice on one row. [AppStatusTag] now states it once, in words, using the
+  /// design system's tokens so it adapts to dark mode for free.
+  AppStatusTone _statusTone() {
+    return switch (item.status) {
+      'overdue' => AppStatusTone.attention,
+      'due' => AppStatusTone.pending,
+      'paid' => AppStatusTone.settled,
+      _ => AppStatusTone.neutral, // upcoming
+    };
   }
 
   String _money() =>
@@ -239,7 +241,9 @@ class _OccurrenceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = _statusColor();
+    // The mark says "this is a dated occurrence" and nothing more; the status
+    // belongs to the tag below the date.
+    final markColor = AppThemeConfig.primary;
     return GlassPanel(
       padding: const EdgeInsets.all(16),
       child: Row(
@@ -248,10 +252,14 @@ class _OccurrenceCard extends StatelessWidget {
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.14),
+              color: markColor.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(14),
             ),
-            child: Icon(Icons.calendar_month_rounded, color: color, size: 22),
+            child: Icon(
+              Icons.calendar_month_rounded,
+              color: markColor,
+              size: 22,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -308,20 +316,11 @@ class _OccurrenceCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  'sched_status_${item.status}'.tr,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 11,
-                    color: color,
-                  ),
-                ),
+              // The existing sched_status_* keys are reused as-is — they are
+              // already translated in all four languages.
+              AppStatusTag(
+                label: 'sched_status_${item.status}',
+                tone: _statusTone(),
               ),
             ],
           ),

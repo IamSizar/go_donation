@@ -5,6 +5,7 @@ import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
+import 'package:flutter_application_1/core/widgets/app_row.dart';
 
 import 'marriage_form_screen.dart';
 
@@ -154,7 +155,6 @@ class _ProfileStatusCard extends StatelessWidget {
     final city = (item['city'] ?? '').toString();
     final summary = (item['social_summary'] ?? '').toString();
     final createdAt = _dateLabel(item['created_at']);
-    final color = _statusColor(context, status);
 
     return GlassPanel(
       padding: const EdgeInsets.all(16),
@@ -164,7 +164,15 @@ class _ProfileStatusCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              TileIcon(icon: Icons.favorite_rounded, color: color),
+              // Spec item 13 — the review status used to tint this mark as
+              // well as fill the pill on the right of the same row: one
+              // status, two renderings, side by side. The mark is now simply
+              // the marriage section's icon in the accent colour, and the tag
+              // is the single place the status is stated.
+              TileIcon(
+                icon: Icons.favorite_rounded,
+                color: AppThemeConfig.accent(context),
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -192,7 +200,10 @@ class _ProfileStatusCard extends StatelessWidget {
                   ],
                 ),
               ),
-              _StatusPill(status: status, color: color),
+              AppStatusTag(
+                label: _statusLabel(status),
+                tone: _statusTone(status),
+              ),
             ],
           ),
           if (summary.trim().isNotEmpty) ...[
@@ -212,33 +223,6 @@ class _ProfileStatusCard extends StatelessWidget {
             _MetricPill(icon: Icons.schedule_rounded, label: createdAt),
           ],
         ],
-      ),
-    );
-  }
-}
-
-class _StatusPill extends StatelessWidget {
-  const _StatusPill({required this.status, required this.color});
-
-  final String status;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.13),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.28)),
-      ),
-      child: Text(
-        _statusLabel(status),
-        style: TextStyle(
-          color: color,
-          fontWeight: FontWeight.w900,
-          fontSize: 12,
-        ),
       ),
     );
   }
@@ -294,14 +278,18 @@ String _statusLabel(String status) {
   return label == key ? status.replaceAll('_', ' ') : label;
 }
 
-Color _statusColor(BuildContext context, String status) {
+/// Maps a review status onto the design system's semantic tones.
+///
+/// Same three-way reading the bespoke colour switch had — settled / in flight
+/// / needs attention — but expressed in tokens, so the tag matches every
+/// other status word in the app. `closed` is neutral: it is an ended profile,
+/// not a problem and not an achievement.
+AppStatusTone _statusTone(String status) {
   return switch (status) {
-    'active' => AppThemeConfig.accent(context),
-    'matched' => AppThemeConfig.accent(context),
-    'rejected' => AppThemeConfig.consequence(context),
-    'closed' => AppThemeConfig.subtleText(context),
-    'under_review' => AppThemeConfig.pending(context),
-    'paused' => AppThemeConfig.pending(context),
-    _ => AppThemeConfig.accent(context), // submitted
+    'active' || 'matched' => AppStatusTone.settled,
+    'rejected' => AppStatusTone.attention,
+    'closed' => AppStatusTone.neutral,
+    'under_review' || 'paused' => AppStatusTone.pending,
+    _ => AppStatusTone.settled, // submitted
   };
 }

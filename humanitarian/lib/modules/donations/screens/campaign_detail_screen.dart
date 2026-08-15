@@ -91,18 +91,13 @@ class CampaignDetailScreen extends StatelessWidget {
                               ),
                             ),
                           ),
-                        if (c.amountNeeded > 0) ...[
-                          const SizedBox(height: 10),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(99),
-                            child: LinearProgressIndicator(
-                              value: c.fundedProgress.clamp(0, 1),
-                              minHeight: 8,
-                              backgroundColor: accent.withValues(alpha: 0.12),
-                              color: accent.withValues(alpha: 0.55),
-                            ),
-                          ),
-                        ],
+                        // Spec item 13 — a LinearProgressIndicator of
+                        // c.fundedProgress used to sit here, drawing the exact
+                        // same fraction the hero pill states as a percentage
+                        // and a word, on the same scroll. The Goal and Raised
+                        // rows above already give the amounts behind it, so
+                        // the bar was the third rendering of one status and is
+                        // gone; the pill is the one that says it in words.
                       ],
                     ),
                   ),
@@ -353,7 +348,14 @@ class _HeroSummaryCard extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 10),
-                        OperationStatusBadge(progress: c.fundedProgress),
+                        // Spec item 13 — this was OperationStatusBadge, a
+                        // coloured disc whose state ("delivered in full" /
+                        // "partially received" / "not received yet") lived
+                        // only in a tooltip, so on screen the meaning was
+                        // carried by the colour alone. The pill variant of the
+                        // same shared badge shows the percentage AND the word,
+                        // which survives greyscale and colour-blindness.
+                        OperationStatusPill(progress: c.fundedProgress),
                       ],
                     ),
                     if (c.category.isNotEmpty) ...[

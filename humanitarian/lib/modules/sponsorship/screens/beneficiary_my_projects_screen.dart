@@ -23,6 +23,7 @@ import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
+import 'package:flutter_application_1/core/widgets/app_row.dart';
 
 /// The status buckets the filter strip offers.
 ///
@@ -313,7 +314,6 @@ class _ProjectRequestCard extends StatelessWidget {
     final raised = _money(item['raised_amount'], item['currency']);
     final submittedAt = _dateLabel(item['created_at']);
     final updatedAt = _dateLabel(item['updated_at'] ?? item['created_at']);
-    final color = _statusColor(context, status);
 
     return GlassPanel(
       padding: const EdgeInsets.all(16),
@@ -323,7 +323,15 @@ class _ProjectRequestCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              TileIcon(icon: _categoryIcon(category), color: color),
+              // Spec item 13 — the leading mark showed the CATEGORY as a
+              // glyph but the STATUS as its colour, so the review state was
+              // rendered twice on one row: here and in the tag opposite. The
+              // glyph keeps the category, the colour is now the neutral
+              // accent, and the status is stated once, in words.
+              TileIcon(
+                icon: _categoryIcon(category),
+                color: AppThemeConfig.accent(context),
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -351,7 +359,10 @@ class _ProjectRequestCard extends StatelessWidget {
                   ],
                 ),
               ),
-              _StatusPill(status: status, color: color),
+              AppStatusTag(
+                label: status.replaceAll('_', ' '),
+                tone: _statusTone(status),
+              ),
             ],
           ),
           if (summary.trim().isNotEmpty) ...[
@@ -392,33 +403,6 @@ class _ProjectRequestCard extends StatelessWidget {
             ],
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _StatusPill extends StatelessWidget {
-  const _StatusPill({required this.status, required this.color});
-
-  final String status;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.13),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.28)),
-      ),
-      child: Text(
-        status.replaceAll('_', ' ').tr,
-        style: TextStyle(
-          color: color,
-          fontWeight: FontWeight.w900,
-          fontSize: 12,
-        ),
       ),
     );
   }
@@ -473,13 +457,16 @@ String _dateLabel(dynamic raw) {
   return DateFormat.yMMMd().format(parsed);
 }
 
-Color _statusColor(BuildContext context, String status) {
+/// Maps a request status onto the design system's semantic tones.
+///
+/// Deliberately the same three-way split the filter strip uses, so the tag on
+/// a row agrees with the bucket the row was filtered into.
+AppStatusTone _statusTone(String status) {
   return switch (status) {
-    'approved' => AppThemeConfig.accent(context),
-    'rejected' => AppThemeConfig.consequence(context),
-    'under_review' => AppThemeConfig.pending(context),
-    'pending' || 'submitted' => AppThemeConfig.pending(context),
-    _ => AppThemeConfig.accent(context),
+    'approved' => AppStatusTone.settled,
+    'rejected' => AppStatusTone.attention,
+    'pending' || 'submitted' || 'under_review' => AppStatusTone.pending,
+    _ => AppStatusTone.neutral,
   };
 }
 
