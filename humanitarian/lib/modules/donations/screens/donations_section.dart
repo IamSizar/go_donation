@@ -104,6 +104,15 @@ class _DonationsSectionBodyState extends State<_DonationsSectionBody> {
   // #18 — "Give Now": jump straight into comprehensive (unrestricted) giving.
   // Select it (campaign = null) and scroll the donor to the amount picker so
   // they can complete a general donation fast.
+  //
+  // This is now the *only* affordance for choosing comprehensive giving. It
+  // used to be duplicated by a "Comprehensive Giving" section further down the
+  // page whose card ran the identical mutation (haptic + clear the campaign
+  // selection) minus the scroll — two different-looking controls with one
+  // meaning, which made "which one did I press?" a real question on a money
+  // screen. The hero survives because it is reachable before the donor has
+  // scrolled anywhere and because it also moves them to the amount picker,
+  // i.e. it is the strictly more useful of the two.
   void _giveNow() {
     AppHaptics.selection();
     setState(() => _selectedCampaignId = null);
@@ -197,7 +206,13 @@ class _DonationsSectionBodyState extends State<_DonationsSectionBody> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _GiveNowCard(onTap: _giveNow),
+              // Absorbing the removed section means the hero must also *show*
+              // whether comprehensive giving is currently active — that state
+              // used to be readable from the deleted card's "Selected" badge.
+              _GiveNowCard(
+                isSelected: _selectedCampaignId == null,
+                onTap: _giveNow,
+              ),
               const SizedBox(height: 20),
               const SectionLabel(title: 'Featured campaigns'),
               const SizedBox(height: 12),
@@ -331,16 +346,12 @@ class _DonationsSectionBodyState extends State<_DonationsSectionBody> {
                 donorName: donorName,
               ),
               const SizedBox(height: 22),
-              const SectionLabel(title: 'Comprehensive Giving'),
-              const SizedBox(height: 12),
-              _DonationOptionCard(
-                option: DonationsSection._options.first,
-                isSelected: _selectedCampaignId == null,
-                onTap: () {
-                  AppHaptics.selection();
-                  setState(() => _selectedCampaignId = null);
-                },
-              ),
+              // The "Comprehensive Giving" section that sat here was removed:
+              // its card duplicated the Give Now hero above (same handler, no
+              // scroll). Everything it described — the option's title, summary,
+              // type label and support note — is already rendered by
+              // `_SelectedDonationCard` whenever comprehensive giving is the
+              // active selection, so no information was lost with it.
               const _SimpleDonationInfoCard(),
             ],
           ),
@@ -351,9 +362,16 @@ class _DonationsSectionBodyState extends State<_DonationsSectionBody> {
 }
 
 // #18 — prominent "Give Now" hero CTA at the top of the Contribute tab: a fast
-// entry into comprehensive (unrestricted) giving.
+// entry into comprehensive (unrestricted) giving, and since the duplicate
+// "Comprehensive Giving" section was removed, the single control for it.
 class _GiveNowCard extends StatelessWidget {
-  const _GiveNowCard({required this.onTap});
+  const _GiveNowCard({required this.isSelected, required this.onTap});
+
+  /// True when comprehensive giving (campaign = null) is the active selection.
+  /// The hero is filled either way — it is the page's primary CTA — so the
+  /// state is carried by a badge rather than by the fill, which cannot change
+  /// without demoting the CTA.
+  final bool isSelected;
 
   final VoidCallback onTap;
 
@@ -398,13 +416,30 @@ class _GiveNowCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Give Now'.tr,
-                      style: TextStyle(
-                        color: AppThemeConfig.onAccent(context),
-                        fontSize: 19,
-                        fontWeight: FontWeight.w900,
-                      ),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            'Give Now'.tr,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: AppThemeConfig.onAccent(context),
+                              fontSize: 19,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                        // Inherited from the deleted duplicate section: the
+                        // donor needs to see that a general donation — not a
+                        // campaign — is what the Continue button will submit.
+                        if (isSelected) ...[
+                          const SizedBox(width: 8),
+                          _DonationTypeBadge(
+                            label: 'Selected',
+                            color: AppThemeConfig.onAccent(context),
+                          ),
+                        ],
+                      ],
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -890,118 +925,6 @@ class _SelectedDonationCard extends StatelessWidget {
                 ),
               ),
             ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DonationOptionCard extends StatelessWidget {
-  const _DonationOptionCard({
-    required this.option,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final _DonationOptionData option;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassPanel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TileIcon(
-                icon: option.icon,
-                color: (option.color ?? AppThemeConfig.accent(context)),
-              ),
-              SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            option.title.tr,
-                            style: TextStyle(
-                              color: AppThemeConfig.text(context),
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                        if (isSelected)
-                          _DonationTypeBadge(
-                            label: 'Selected',
-                            color: AppThemeConfig.accent(context),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      option.summary.tr,
-                      style: TextStyle(
-                        color: AppThemeConfig.mutedText(context),
-                        height: 1.45,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              _DonationInfoPill(
-                icon: Icons.label_rounded,
-                label: option.typeLabel,
-              ),
-              const _DonationInfoPill(
-                icon: Icons.volunteer_activism_rounded,
-                label: 'Made to help',
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          Text(
-            option.supportNote.tr,
-            style: TextStyle(
-              color: AppThemeConfig.mutedText(context),
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: onTap,
-              style: FilledButton.styleFrom(
-                backgroundColor: isSelected
-                    ? option.color
-                    : AppThemeConfig.surface(context),
-                foregroundColor: isSelected
-                    ? AppThemeConfig.onAccent(context)
-                    : AppThemeConfig.text(context),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-              child: Text(
-                isSelected ? 'Selected option'.tr : 'Choose option'.tr,
-              ),
-            ),
-          ),
         ],
       ),
     );
