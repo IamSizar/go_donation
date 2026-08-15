@@ -405,7 +405,18 @@ class AppAsync<T> extends StatelessWidget {
       );
     }
 
-    if (loading && value == null) {
+    // An empty-but-non-null value counts as "nothing to show yet" here, not as
+    // a finished empty result.
+    //
+    // This used to read `loading && value == null`, which quietly failed for
+    // the common case of a screen whose list field starts as `const []` rather
+    // than null: non-null defeated the skeleton branch, and empty then matched
+    // the empty branch below, so the FIRST load rendered "nothing here yet"
+    // instead of a skeleton. The screen looked answered before it had asked.
+    //
+    // Safe against the silent-refresh case: `loading` is true only for a first
+    // load, and a refresh holding real rows keeps them via the branch below.
+    if (loading && (value == null || isEmpty(value))) {
       return skeleton ?? AppSkeleton.rows();
     }
 

@@ -67,6 +67,23 @@ void main() {
       expect(find.byType(AppEmpty), findsNothing);
     });
 
+    testWidgets('a first load holding an empty list still shows the skeleton', (
+      tester,
+    ) async {
+      // Pins a flaw found while wiring the marriage screens. Most screens here
+      // declare their list as `const []` rather than null, so during the first
+      // load AppAsync saw a non-null-but-empty value and rendered the EMPTY
+      // state — telling the user there was nothing before the request had even
+      // answered. Empty is a claim about finished data; it must not be made
+      // while loading is still true.
+      await tester.pumpWidget(_async(loading: true, data: const <String>[]));
+      await tester.pump();
+
+      expect(find.byType(AppSkeleton), findsOneWidget);
+      expect(find.byType(AppEmpty), findsNothing);
+      expect(find.text('Nothing here yet'), findsNothing);
+    });
+
     testWidgets('empty data shows the designed empty state', (tester) async {
       await tester.pumpWidget(_async(loading: false, data: const <String>[]));
       await tester.pump();
