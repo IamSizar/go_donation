@@ -84,6 +84,33 @@ void main() {
       expect(find.text('Nothing here yet'), findsNothing);
     });
 
+    testWidgets('the shaped skeletons render and stay decorative', (
+      tester,
+    ) async {
+      // AppSkeleton.rows() is the wrong shape for a chat transcript or a prose
+      // article — uniform text rows jump into a conversation rather than
+      // filling into one. These two variants exist for that reason and are
+      // shared by two screens each.
+      //
+      // The assertion that matters is the ExcludeSemantics: a placeholder must
+      // not be announced to a screen reader as though it were content.
+      for (final skeleton in [
+        AppSkeleton.bubbles(),
+        AppSkeleton.paragraphs(),
+      ]) {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData(extensions: const [AppColors.light]),
+            home: Scaffold(body: skeleton),
+          ),
+        );
+        await tester.pump();
+
+        expect(find.byType(AppSkeleton), findsOneWidget);
+        expect(find.byType(ExcludeSemantics), findsWidgets);
+      }
+    });
+
     testWidgets('empty data shows the designed empty state', (tester) async {
       await tester.pumpWidget(_async(loading: false, data: const <String>[]));
       await tester.pump();

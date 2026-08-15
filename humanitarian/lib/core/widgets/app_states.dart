@@ -86,6 +86,104 @@ class AppSkeleton extends StatefulWidget {
     );
   }
 
+  /// Placeholder for a CHAT TRANSCRIPT: bubbles alternating side, of varying
+  /// width and height.
+  ///
+  /// [rows] is the wrong shape here — uniform full-width text rows jump into a
+  /// conversation rather than filling into one. The layout is hardcoded rather
+  /// than randomised so the shape does not change on every rebuild, which
+  /// would read as content arriving and then moving.
+  static Widget bubbles() {
+    const plan = <({bool mine, double width, int lines})>[
+      (mine: false, width: 0.62, lines: 2),
+      (mine: true, width: 0.44, lines: 1),
+      (mine: false, width: 0.50, lines: 1),
+      (mine: true, width: 0.70, lines: 2),
+      (mine: false, width: 0.38, lines: 1),
+    ];
+    return AppSkeleton(
+      child: Builder(
+        builder: (context) => ListView(
+          // Matches the real transcript's padding so the first real bubble
+          // lands where its placeholder sat.
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+          physics: const NeverScrollableScrollPhysics(),
+          children: [
+            for (final b in plan)
+              Align(
+                alignment: b.mine
+                    ? AlignmentDirectional.centerEnd
+                    : AlignmentDirectional.centerStart,
+                child: FractionallySizedBox(
+                  alignment: b.mine
+                      ? AlignmentDirectional.centerEnd
+                      : AlignmentDirectional.centerStart,
+                  widthFactor: b.width,
+                  child: Container(
+                    // 20px per line of body text, plus the bubble's 10px
+                    // vertical padding top and bottom; the 22 of margin is the
+                    // sender label and timestamp sitting outside the bubble.
+                    height: 20.0 * b.lines + 20,
+                    margin: const EdgeInsetsDirectional.only(bottom: 22),
+                    decoration: BoxDecoration(
+                      color: AppColors.of(context).groundSunken,
+                      // The asymmetric corner is what makes a rounded rectangle
+                      // read as a speech bubble, and which corner is clipped is
+                      // what says who sent it.
+                      borderRadius: BorderRadiusDirectional.only(
+                        topStart: const Radius.circular(16),
+                        topEnd: const Radius.circular(16),
+                        bottomStart: Radius.circular(b.mine ? 16 : 4),
+                        bottomEnd: Radius.circular(b.mine ? 4 : 16),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Placeholder for a PROSE ARTICLE: a heading, then paragraphs of full-width
+  /// lines each ending in a short ragged one.
+  ///
+  /// The ragged last line is the whole point — a block of equal-length bars
+  /// reads as a table, not as text.
+  static Widget paragraphs() {
+    const plan = <({int lines, double lastWidth})>[
+      (lines: 4, lastWidth: 0.45),
+      (lines: 5, lastWidth: 0.70),
+      (lines: 3, lastWidth: 0.34),
+      (lines: 4, lastWidth: 0.58),
+    ];
+    return AppSkeleton(
+      child: SingleChildScrollView(
+        padding: const EdgeInsetsDirectional.fromSTEB(20, 8, 20, 40),
+        physics: const NeverScrollableScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            bone(height: 20, widthFactor: 0.55),
+            const SizedBox(height: 18),
+            for (final p in plan) ...[
+              for (var i = 0; i < p.lines; i++)
+                // 12 of bone under a 12 gap gives the same 24px rhythm as the
+                // real body text (15px at a 1.6 line height).
+                bone(
+                  height: 12,
+                  widthFactor: i == p.lines - 1 ? p.lastWidth : 1,
+                  margin: const EdgeInsetsDirectional.only(bottom: 12),
+                ),
+              const SizedBox(height: 14),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   State<AppSkeleton> createState() => _AppSkeletonState();
 }

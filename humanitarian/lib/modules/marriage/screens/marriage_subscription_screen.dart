@@ -222,6 +222,12 @@ class _MarriageSubscriptionScreenState
         onRetry: _load,
         data: _packages,
         isEmpty: (packages) => packages.isEmpty,
+        // AppAsync would otherwise fall back to AppSkeleton.rows, which draws
+        // bare text rows — the real content here is a column of panelled
+        // cards, so the rows would jump into cards rather than fill into
+        // them. Reached only on the first load: `_loading` stays false for
+        // pull-to-refresh and for the reload after a purchase.
+        skeleton: const _PackageSkeleton(),
         empty: AppEmpty(
           icon: Icons.workspace_premium_rounded,
           title: 'Subscription'.tr,
@@ -247,6 +253,77 @@ class _MarriageSubscriptionScreenState
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// First-load placeholder for the package list, shaped like [_PackageCard].
+///
+/// It reuses the real [GlassPanel] frame and the same 12px gap between cards,
+/// so the panels are already drawn in their final position and only their
+/// contents fill in — rather than a spinner vanishing and three cards
+/// appearing at once.
+class _PackageSkeleton extends StatelessWidget {
+  const _PackageSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final bone = AppThemeConfig.border(context);
+
+    /// One bar of the card interior. Rounded to the bar's own height so the
+    /// short ones read as pills rather than as cropped blocks.
+    Widget bar(double height, {double? width, double radius = 0}) => Container(
+      height: height,
+      width: width,
+      decoration: BoxDecoration(
+        color: bone,
+        borderRadius: BorderRadius.circular(radius > 0 ? radius : height / 2),
+      ),
+    );
+
+    return AppSkeleton(
+      child: ListView(
+        // Same padding as the real list, so the first card lands where its
+        // placeholder sat.
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+        physics: const NeverScrollableScrollPhysics(),
+        children: [
+          // Three cards: enough to fill a phone screen without implying a
+          // specific catalogue size.
+          for (var i = 0; i < 3; i++) ...[
+            if (i > 0) const SizedBox(height: 12),
+            GlassPanel(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Icon tile, package name, price — the card's header row.
+                  Row(
+                    children: [
+                      bar(44, width: 44, radius: 14),
+                      const SizedBox(width: 12),
+                      Expanded(child: bar(15)),
+                      const SizedBox(width: 12),
+                      bar(13, width: 76),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  // Two lines of description, the second one short.
+                  bar(11),
+                  const SizedBox(height: 8),
+                  FractionallySizedBox(
+                    alignment: AlignmentDirectional.centerStart,
+                    widthFactor: 0.55,
+                    child: bar(11),
+                  ),
+                  const SizedBox(height: 14),
+                  // The full-width Subscribe button.
+                  bar(44, radius: 20),
+                ],
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

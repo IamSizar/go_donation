@@ -239,6 +239,12 @@ class _MarriageChatConversationScreenState
               // empty list here would render the empty state instead.
               data: _loading ? null : _messages,
               isEmpty: (messages) => messages.isEmpty,
+              // AppAsync would otherwise fall back to AppSkeleton.rows, whose
+              // uniform full-width rows are the wrong shape for a transcript.
+              // Only reachable on the first load: `_loading` stays false for
+              // the 3-second poll and the accept/decline reload, so neither
+              // draws this over messages already on screen.
+              skeleton: AppSkeleton.bubbles(),
               empty: AppEmpty(
                 icon: Icons.chat_bubble_outline_rounded,
                 title: widget.otherLabel,
@@ -268,6 +274,13 @@ class _MarriageChatConversationScreenState
   }
 }
 
+/// First-load placeholder for the transcript, shaped like the transcript.
+///
+/// The default [AppSkeleton.rows] is the wrong shape here: this screen's
+/// content is a stack of bubbles of uneven width alternating between the two
+/// edges, so uniform full-width rows would jump into a conversation rather
+/// than fill into one. The bones mirror [_Bubble] — same corner radii, same
+/// 10px gap, a mix of one- and two-line heights so it reads as talking.
 class _Bubble extends StatelessWidget {
   const _Bubble({required this.message});
   final Map<String, dynamic> message;

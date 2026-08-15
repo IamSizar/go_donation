@@ -8,6 +8,13 @@ import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 // both internally.
 import 'package:flutter_application_1/core/widgets/app_states.dart';
 
+/// First-load placeholder for a long article of prose.
+///
+/// The default [AppSkeleton.rows] draws card-like title/meta/progress groups,
+/// which is the wrong shape for this screen: what arrives is one heading
+/// followed by unbroken paragraphs. These bones are paragraph LINES — full
+/// width except for a short last line per paragraph, which is what makes a
+/// block of ragged bars read as text rather than as a stack of cards.
 /// Read-only Terms & Conditions page. Fetches the admin-editable content from
 /// the public /api/content/terms endpoint and renders it in the current locale
 /// (falling back to English). Works pre-login (no auth needed).
@@ -48,8 +55,12 @@ class _TermsScreenState extends State<TermsScreen> {
               child: FutureBuilder<Map<String, dynamic>?>(
                 future: _future,
                 builder: (context, snap) {
+                  // First (and only) load: this screen fetches once in
+                  // initState and re-fetches only via _retry, so there is no
+                  // background refresh that could flash this over an article
+                  // the user is already reading.
                   if (snap.connectionState != ConnectionState.done) {
-                    return const Center(child: CircularProgressIndicator());
+                    return AppSkeleton.paragraphs();
                   }
                   final data = snap.data;
                   // fetchTermsContent() returns null for EVERY failure — non-200,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/links.dart';
 import 'package:flutter_application_1/api/module_api.dart';
+import 'package:flutter_application_1/core/design/tokens.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
@@ -135,89 +136,142 @@ class _TechnicalSupportScreenState extends State<TechnicalSupportScreen> {
     return SectionScaffold(
       title: 'Technical Support'.tr,
       subtitle: '',
-      child: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _load,
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
+      // The whole screen used to be replaced by a centred spinner on first
+      // load, which took the compose form away for exactly as long as the
+      // ticket fetch ran — on the screen a user opens BECAUSE something is
+      // wrong. The page is now built immediately and only the ticket list
+      // carries the loading state, which is the same region the error state
+      // already occupies.
+      child: RefreshIndicator(
+        onRefresh: _load,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
+          children: [
+            if (_escalate && (_whatsapp ?? '').isNotEmpty) ...[
+              _EscalationCard(onTap: _openWhatsApp),
+              const SizedBox(height: 16),
+            ],
+            GlassPanel(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (_escalate && (_whatsapp ?? '').isNotEmpty) ...[
-                    _EscalationCard(onTap: _openWhatsApp),
-                    const SizedBox(height: 16),
-                  ],
-                  GlassPanel(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'support_new_message'.tr,
-                          style: TextStyle(
-                            color: AppThemeConfig.text(context),
-                            fontWeight: FontWeight.w800,
-                            fontSize: 16,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: _subject,
-                          decoration: InputDecoration(
-                            labelText: 'support_subject'.tr,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: _message,
-                          maxLines: 4,
-                          decoration: InputDecoration(
-                            labelText: 'support_message'.tr,
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: _sending ? null : _send,
-                            child: Text(
-                              _sending ? 'Sending...'.tr : 'support_send'.tr,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
                   Text(
-                    'support_my_requests'.tr,
+                    'support_new_message'.tr,
                     style: TextStyle(
                       color: AppThemeConfig.text(context),
                       fontWeight: FontWeight.w800,
                       fontSize: 16,
                     ),
                   ),
-                  const SizedBox(height: 10),
-                  // Only the ticket LIST has the four states. The compose form
-                  // above stays reachable through a failed load — the user
-                  // came here to reach support, and a read failure must not
-                  // take away their way of doing it.
-                  if (_error != null)
-                    AppErrorState(message: _error!, onRetry: _load)
-                  else if (_tickets.isEmpty)
-                    Text(
-                      'support_no_requests'.tr,
-                      style: TextStyle(
-                        color: AppThemeConfig.mutedText(context),
-                        height: 1.5,
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _subject,
+                    decoration: InputDecoration(
+                      labelText: 'support_subject'.tr,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _message,
+                    maxLines: 4,
+                    decoration: InputDecoration(
+                      labelText: 'support_message'.tr,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _sending ? null : _send,
+                      child: Text(
+                        _sending ? 'Sending...'.tr : 'support_send'.tr,
                       ),
-                    )
-                  else
-                    for (final t in _tickets) ...[
-                      _TicketCard(ticket: t),
-                      const SizedBox(height: 12),
-                    ],
+                    ),
+                  ),
                 ],
               ),
             ),
+            const SizedBox(height: 20),
+            Text(
+              'support_my_requests'.tr,
+              style: TextStyle(
+                color: AppThemeConfig.text(context),
+                fontWeight: FontWeight.w800,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 10),
+            // Only the ticket LIST has the four states. The compose form
+            // above stays reachable through a failed load — the user
+            // came here to reach support, and a read failure must not
+            // take away their way of doing it.
+            //
+            // Error stays first: a failure that happened while `_loading` was
+            // still true must show the banner, not a skeleton that will never
+            // resolve.
+            if (_error != null)
+              AppErrorState(message: _error!, onRetry: _load)
+            else if (_loading)
+              const _TicketListSkeleton()
+            else if (_tickets.isEmpty)
+              Text(
+                'support_no_requests'.tr,
+                style: TextStyle(
+                  color: AppThemeConfig.mutedText(context),
+                  height: 1.5,
+                ),
+              )
+            else
+              for (final t in _tickets) ...[
+                _TicketCard(ticket: t),
+                const SizedBox(height: 12),
+              ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// First-load placeholder for the ticket list only.
+///
+/// A ticket is a [GlassPanel] carrying a subject, a status pill, a date and a
+/// message paragraph, so the bones are card-shaped blocks at roughly that
+/// height rather than [AppSkeleton.rows]' loose text bones — the cards then
+/// fill the same footprint instead of shifting the page as they arrive.
+/// Two blocks, not more: most users have raised one or two tickets, and a tall
+/// placeholder would over-promise.
+class _TicketListSkeleton extends StatelessWidget {
+  const _TicketListSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return AppSkeleton(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const _TicketBone(),
+          const SizedBox(height: 12),
+          const _TicketBone(),
+        ],
+      ),
+    );
+  }
+}
+
+/// One card-shaped bone at a ticket card's height, using GlassPanel's own
+/// 28pt radius so it reads as a card rather than a bar.
+class _TicketBone extends StatelessWidget {
+  const _TicketBone();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 128,
+      decoration: BoxDecoration(
+        color: AppColors.of(context).groundSunken,
+        borderRadius: BorderRadius.circular(28),
+      ),
     );
   }
 }

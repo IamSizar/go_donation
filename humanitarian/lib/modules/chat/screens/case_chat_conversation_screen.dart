@@ -178,8 +178,11 @@ class _CaseChatConversationScreenState
             ),
           ),
           Expanded(
+            // First load only. `_loading` is left alone by the silent 3-second
+            // poll (see _load), so a background tick refreshes the transcript
+            // in place and never draws this over messages already on screen.
             child: _loading && _messages.isEmpty
-                ? const Center(child: CircularProgressIndicator())
+                ? AppSkeleton.bubbles()
                 : _error != null && _messages.isEmpty
                 // A failed load used to render the exception text and stop
                 // there — indistinguishable from a quiet thread, and a dead
@@ -209,6 +212,15 @@ class _CaseChatConversationScreenState
   }
 }
 
+/// First-load placeholder for the transcript, shaped like the transcript.
+///
+/// [AppSkeleton.rows] — the default elsewhere in the app — is the wrong shape
+/// here for the same reason a map needed its own skeleton: this screen's
+/// content is a stack of bubbles of uneven width alternating between the two
+/// edges, so uniform full-width title/meta rows would jump into a
+/// conversation rather than fill into one. The bones below mirror [_Bubble]:
+/// same 0.76-of-width ceiling, same corner radii, same 10px gap, and a mix of
+/// one- and two-line heights so the placeholder reads as talking.
 class _Bubble extends StatelessWidget {
   const _Bubble({required this.message, required this.myUserId});
   final Map<String, dynamic> message;

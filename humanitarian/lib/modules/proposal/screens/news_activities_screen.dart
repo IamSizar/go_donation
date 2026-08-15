@@ -12,6 +12,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:flutter_application_1/core/app_share.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
+import 'package:flutter_application_1/core/design/tokens.dart';
 import 'package:flutter_application_1/core/widgets/app_pressable.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
 
@@ -56,6 +57,11 @@ class NewsActivitiesScreen extends StatelessWidget {
                 onRetry: controller.fetchPosts,
                 data: items,
                 isEmpty: (list) => list.isEmpty,
+                // The default AppSkeleton.rows() was wrong for this screen: a
+                // MediaPostCard leads with a 16:9 image, so title/meta/progress
+                // text bones would have jumped into a big picture rather than
+                // filled into one.
+                skeleton: const _PostFeedSkeleton(),
                 empty: const AppEmpty(
                   title: 'News and activities',
                   message: 'No published posts are available yet.',
@@ -78,6 +84,133 @@ class NewsActivitiesScreen extends StatelessWidget {
           ),
         );
       }),
+    );
+  }
+}
+
+/// First-load placeholder for the post feed, shaped like the [MediaPostCard]s
+/// it is replaced by rather than like generic text rows.
+///
+/// It is built inside a real [GlassPanel] with the same `EdgeInsets.zero`
+/// padding the card uses, so the panel radius, border, blur and shadow are the
+/// card's own geometry rather than a second guess at it — only the contents are
+/// bones. Two cards is enough to read as a feed without filling the screen with
+/// grey before there is anything to show.
+class _PostFeedSkeleton extends StatelessWidget {
+  const _PostFeedSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return AppSkeleton(
+      child: Column(
+        children: [
+          for (var i = 0; i < 2; i++) ...[
+            if (i > 0) const SizedBox(height: 14),
+            const _PostCardBones(),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// The bones of a single post card: hero, pill row, headline, body, action.
+class _PostCardBones extends StatelessWidget {
+  const _PostCardBones();
+
+  @override
+  Widget build(BuildContext context) {
+    // One neutral bone colour from the theme so it holds in both modes.
+    final bone = AppThemeConfig.border(context);
+    return GlassPanel(
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // The hero. A solid block, like _MediaLoading and for the same
+          // reason: an image's honest placeholder is a block of pixels, not
+          // lines of text. No radius of its own — GlassPanel already clips the
+          // top corners, and rounding twice would notch them.
+          AspectRatio(
+            aspectRatio: 16 / 9,
+            child: Container(color: bone),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // The Wrap of _PostPills: small rounded tablets of varying
+                // width, drawn as containers rather than AppSkeleton.bone
+                // because bone() rounds to height/2 and a 30px tablet would
+                // come out as a stadium pill instead of a chip.
+                Row(
+                  children: [
+                    for (final width in const <double>[86, 64, 104]) ...[
+                      Container(
+                        width: width,
+                        height: 30,
+                        margin: const EdgeInsetsDirectional.only(end: 8),
+                        decoration: BoxDecoration(
+                          color: bone,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 12),
+                // The headline — fontSize 20, so a taller, wider bar than the
+                // body lines beneath it.
+                AppSkeleton.bone(height: 14, widthFactor: 0.82),
+                const SizedBox(height: 6),
+                // Body copy, ragged so it reads as prose rather than a slab.
+                AppSkeleton.bone(height: 9, widthFactor: 0.95),
+                AppSkeleton.bone(height: 9, widthFactor: 0.88),
+                AppSkeleton.bone(height: 9, widthFactor: 0.55),
+                const SizedBox(height: 14),
+                // The full-width "Watch video" / "Open media" button. Height
+                // and radius come from the theme's ElevatedButton
+                // (minimumSize 48, AppRadius.sm), not from a guess.
+                Container(
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: bone,
+                    borderRadius: AppRadius.smAll,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                // The rule above the engagement bar is a real Divider in the
+                // card, so it is a real Divider here too — it is already a
+                // hairline and needs no bone of its own.
+                const Divider(height: 1),
+                const SizedBox(height: 4),
+                // Like / Comment / Share / Save: four evenly-weighted actions
+                // across the full width. Included so the card does not GROW
+                // when the real bar arrives underneath the loaded content.
+                Row(
+                  children: [
+                    for (var i = 0; i < 4; i++)
+                      Expanded(
+                        child: Container(
+                          height: 20,
+                          margin: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: bone,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -613,7 +746,11 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                           ),
                         )
                       : _loading
-                      ? const Center(child: CircularProgressIndicator())
+                      // A spinner here made the sheet jump: it sat centred in
+                      // an empty pane and the comment list then appeared from
+                      // the top. The skeleton stands in the list's own place
+                      // so the comments fill in rather than pop in.
+                      ? const _CommentsSkeleton()
                       : _comments.isEmpty
                       ? Center(
                           child: Column(
@@ -729,6 +866,82 @@ class _CommentsSheetState extends State<_CommentsSheet> {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// First-load placeholder for the comments sheet, shaped like the
+/// [_CommentTile] rows it is replaced by: a round avatar with a name bar and a
+/// short date beside it, then two body lines underneath.
+///
+/// [AppSkeleton.rows] would be the wrong shape here — it draws a title, a meta
+/// line and a progress rule, and has no avatar, so the round mark would appear
+/// out of nowhere when the comments landed. Same padding and separator spacing
+/// as the real ListView.separated, so nothing shifts on arrival.
+class _CommentsSkeleton extends StatelessWidget {
+  const _CommentsSkeleton();
+
+  // Body lines are ragged rather than uniform so the block reads as text.
+  static const _bodyWidths = <double>[0.92, 0.64, 0.86, 0.5];
+
+  @override
+  Widget build(BuildContext context) {
+    // One neutral bone colour taken from the theme, so it holds up in both
+    // light and dark mode.
+    final bone = AppThemeConfig.border(context);
+    return AppSkeleton(
+      child: ListView.separated(
+        // Never scrolled: the sheet's real list owns the scroll controller, and
+        // handing a placeholder its own scroll position would fight it.
+        physics: const NeverScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        itemCount: 4,
+        separatorBuilder: (_, __) => const Divider(height: 20),
+        itemBuilder: (_, i) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                // Matches the CircleAvatar(radius: 14) in _CommentTile.
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: bone,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // The author name — a short bar, not a full-width one.
+                Expanded(
+                  child: AppSkeleton.bone(
+                    height: 11,
+                    widthFactor: i.isEven ? 0.42 : 0.34,
+                    margin: EdgeInsets.zero,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // The trailing yyyy-mm-dd stamp.
+                Container(
+                  width: 54,
+                  height: 9,
+                  decoration: BoxDecoration(
+                    color: bone,
+                    borderRadius: BorderRadius.circular(4.5),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            AppSkeleton.bone(height: 9, widthFactor: _bodyWidths[i % 4]),
+            AppSkeleton.bone(
+              height: 9,
+              widthFactor: _bodyWidths[(i + 1) % 4],
+              margin: EdgeInsets.zero,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -917,15 +1130,24 @@ void _openGalleryImage(BuildContext context, String url) {
   );
 }
 
+/// Placeholder while a post image is fetched — used for both the 16:9 hero and
+/// the 78px gallery thumbnails.
+///
+/// It fills its slot rather than centring a spinner in it. An image is a solid
+/// block of pixels, so the honest placeholder is a solid block: the photo fades
+/// into the same rectangle the bone occupied, instead of replacing a small
+/// spinning ring floating in the middle of an empty panel. Text bones would be
+/// wrong for the same reason the City Guide needed a map-shaped one.
 class _MediaLoading extends StatelessWidget {
   const _MediaLoading();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: AppThemeConfig.surface(context),
-      alignment: Alignment.center,
-      child: const CircularProgressIndicator(),
+    return AppSkeleton(
+      // No radius of its own: the hero is already clipped by the GlassPanel and
+      // the thumbnails by their own ClipRRect, so a corner here would round
+      // twice and leave a visible notch.
+      child: Container(color: AppThemeConfig.border(context)),
     );
   }
 }
@@ -1057,7 +1279,12 @@ class _MediaVideoScreenState extends State<MediaVideoScreen> {
             );
           }
           if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
+            // Shaped like the player that replaces it — a 16:9 rounded frame
+            // with the play/pause button below — rather than a spinner floating
+            // in the middle of the page. The real aspect ratio isn't known
+            // until the video initializes, so this uses the same 16/9 the
+            // player itself falls back to; content fills the frame in place.
+            return const _VideoSkeleton();
           }
           final aspectRatio = _controller.value.aspectRatio <= 0
               ? 16 / 9
@@ -1093,6 +1320,47 @@ class _MediaVideoScreenState extends State<MediaVideoScreen> {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+/// First-load placeholder for [MediaVideoScreen]: the video frame and the
+/// control beneath it, in the same list padding the loaded screen uses.
+class _VideoSkeleton extends StatelessWidget {
+  const _VideoSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final bone = AppThemeConfig.border(context);
+    return AppSkeleton(
+      child: ListView(
+        // Static placeholder — nothing to scroll to yet.
+        physics: const NeverScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+        children: [
+          // The video frame, matching the ClipRRect(8) + AspectRatio below it.
+          AspectRatio(
+            aspectRatio: 16 / 9,
+            child: Container(
+              decoration: BoxDecoration(
+                color: bone,
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          // The Play/Pause button. Height and radius are taken from the theme's
+          // ElevatedButton (minimumSize 48, AppRadius.sm) rather than guessed,
+          // so the real control lands on exactly this footprint.
+          Container(
+            height: 48,
+            decoration: BoxDecoration(
+              color: bone,
+              borderRadius: AppRadius.smAll,
+            ),
+          ),
+        ],
       ),
     );
   }
