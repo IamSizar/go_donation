@@ -491,6 +491,37 @@ func (s *Store) EnsureVolunteerCode(ctx context.Context, userID int64) error {
 	return err
 }
 
+// pad6 renders a user id the way the identity codes do — six digits,
+// zero-padded — so Go-assigned and SQL-backfilled codes are identical.
+// Shared by EnsureGrantorCode and its tests so the two cannot drift.
+func pad6(userID int64) string { return fmt.Sprintf("%06d", userID) }
+
+// EnsureGrantorCode assigns the donor's auto-generated identification code
+// (H23), once, on first registration for role 1.
+//
+// The donor was the only role without one: recipients get ER-%06d inline in
+// SubmitRegistration and volunteers get VL-%06d just above, but a donor could
+// be referred to only by their real name — which is the opposite of what H23
+// asks for. Prefix GR- for Grantor, this project's English noun for role 1
+// (HANDOFF §3.5); see migration 105 for the collision check.
+//
+// `AND grantor_code = ”` is what makes it assign-once: an identity code is
+// quoted in conversation and written on paperwork, so regenerating it on a
+// later profile save would stop it identifying anybody. That also protects a
+// code an operator set by hand.
+func (s *Store) EnsureGrantorCode(ctx context.Context, userID int64) error {
+	if userID <= 0 {
+		return errors.New("invalid userID")
+	}
+	_, err := s.Pool.Exec(ctx,
+		`UPDATE user_profiles
+		    SET grantor_code = $2
+		  WHERE user_id = $1 AND grantor_code = ''`,
+		userID, "GR-"+pad6(userID),
+	)
+	return err
+}
+
 // VolunteerProfileExtras carries the Volunteer/Employee spec's Personal,
 // Housing, and Social Media sections. Everything else that section asks for
 // (gender, nationality, governorate, marital status, education level, skills,

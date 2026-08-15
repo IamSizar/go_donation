@@ -697,10 +697,15 @@ func (s *Store) PaginatedList(ctx context.Context, page, perPage int, q, status 
 		// without their name — but the staff lookup matched only phone and
 		// full_name, so the one identifier that is safe to quote in a
 		// conversation was the one thing you could not search by.
+		//
+		// H23 — grantor_code joins them. Adding the column without adding it
+		// here would have shipped a donor code that no one could look a donor
+		// up by, which is most of the point of having one.
 		conds = append(conds, "(u.phone ILIKE $"+i+
 			" OR up.full_name ILIKE $"+i+
 			" OR up.recipient_code ILIKE $"+i+
-			" OR up.volunteer_code ILIKE $"+i+")")
+			" OR up.volunteer_code ILIKE $"+i+
+			" OR up.grantor_code ILIKE $"+i+")")
 	}
 	switch strings.ToLower(strings.TrimSpace(status)) {
 	case "all":

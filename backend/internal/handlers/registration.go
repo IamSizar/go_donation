@@ -284,6 +284,17 @@ func (h *RegistrationHandler) Submit(c *gin.Context) {
 		}
 	}
 
+	// H23 — the donor's auto-generated identification code, assigned once on
+	// first registration for role 1. Recipients (ER-) and volunteers (VL-,
+	// just below) already had one; the donor did not, so a donor could only be
+	// referred to by their real name. Same shape as the volunteer branch.
+	if req.RoleID == 1 {
+		if err := h.Users.EnsureGrantorCode(c.Request.Context(), tokenUser.UserID); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "error": "Failed to assign grantor code."})
+			return
+		}
+	}
+
 	// Volunteer/Employee spec — auto-generated identification code (assigned
 	// once on first registration for that role) plus the volunteer-only
 	// Personal/Housing/Social Media columns.
