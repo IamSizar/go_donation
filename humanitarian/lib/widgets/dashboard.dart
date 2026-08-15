@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/core/design/directional_icons.dart';
 import 'package:flutter_application_1/api/links.dart';
 import 'package:flutter_application_1/api/wallet_api.dart';
-import 'package:flutter_application_1/modules/community/screens/community_services_section.dart';
 import 'package:flutter_application_1/modules/dashboard/controllers/featured_campaigns_controller.dart';
 import 'package:flutter_application_1/modules/donations/screens/campaign_detail_screen.dart';
 import 'package:flutter_application_1/modules/donations/screens/donations_section.dart';
@@ -314,40 +313,17 @@ class DashboardHomeSection extends StatelessWidget {
         const SizedBox(height: 22),
         const _SectionLabel(title: 'Quick actions'),
         const SizedBox(height: 12),
-        _GlassPanel(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-          child: Row(
-            children: [
-              Expanded(
-                child: _QuickAction(
-                  icon: Icons.send_rounded,
-                  label: 'Contribute',
-                  color: AppThemeConfig.accent(context),
-                  onTap: () => Get.to(() => const DonationsSection()),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _QuickAction(
-                  icon: Icons.receipt_long_rounded,
-                  label: 'History',
-                  color: AppThemeConfig.accent(context),
-                  onTap: () => Get.to(() => const RoleHistoryScreen()),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _QuickAction(
-                  icon: Icons.favorite_rounded,
-                  label: 'Support',
-                  color: AppThemeConfig.accent(context),
-                  onTap: () => Get.to(() => const SponsorshipOverviewScreen()),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
+        // Removed: a three-up quick-action row (Contribute / History /
+        // Support). Every one of its three destinations was already reachable
+        // from the hero card a few hundred pixels above, on this same screen,
+        // with no scrolling in between — Contribute repeated the hero's
+        // "Make donation" primary button, History repeated the hero's
+        // "My history" secondary button, and Support repeated the tappable
+        // "Active sponsorships" hero stat. It was the hero rendered a second
+        // time as small chips, not a set of additional shortcuts, so it cost
+        // vertical space and split attention without adding a single new way
+        // in. The panel below survives because Wheel of Fortune and Lucky
+        // Coupon have no other entry point on Home.
         _GlassPanel(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
           child: Row(
@@ -742,15 +718,14 @@ class DashboardHomeSection extends StatelessWidget {
                       Get.to(() => const VolunteerApplicationFormScreen()),
                 ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _QuickAction(
-                  icon: Icons.notifications_active_rounded,
-                  label: 'History',
-                  color: AppThemeConfig.accent(context),
-                  onTap: () => Get.to(() => const RoleHistoryScreen()),
-                ),
-              ),
+              // Removed: a third "History" chip pointing at RoleHistoryScreen.
+              // The volunteer already reaches that exact screen twice higher
+              // up the same page — the hero's "My history" button and the
+              // "My Engagement" shortcut directly beneath it — and this chip
+              // was additionally mislabelled with a notifications bell, so it
+              // advertised a destination it did not go to. "Missions" and
+              // "Apply" stay: Apply is the only route to the application form,
+              // and Missions is the row's anchor action.
             ],
           ),
         ),
@@ -1492,6 +1467,11 @@ class _DashboardHeroStat extends StatelessWidget {
 class _TopShortcutsRow extends StatelessWidget {
   const _TopShortcutsRow();
 
+  /// Bottom-nav index of the City Guide tab, per the `_sections` list in
+  /// dashboard_screen.dart. Named rather than inlined, matching the
+  /// `_settingsTabIndex` precedent in profile_menu_screen.dart.
+  static const int _cityGuideTabIndex = 3;
+
   @override
   Widget build(BuildContext context) {
     return _GlassPanel(
@@ -1524,7 +1504,16 @@ class _TopShortcutsRow extends StatelessWidget {
               label: 'City Guide',
               color: AppThemeConfig.accent(context),
               compact: true,
-              onTap: () => Get.to(() => const CityGuideScreen()),
+              // Selects the City Guide TAB rather than pushing a second copy
+              // of the same screen on top of it. CityGuideScreen is already
+              // tab 3 (dashboard_screen.dart), so `Get.to` here stacked a
+              // duplicate the user then had to back out of, landing them on
+              // the identical screen they had just left.
+              //
+              // The shortcut itself stays: this row is a client-specified
+              // grouping, and the duplication was in HOW it navigated, not in
+              // the entry point existing.
+              onTap: () => dashboardTabNotifier.value = _cityGuideTabIndex,
             ),
           ),
         ],
