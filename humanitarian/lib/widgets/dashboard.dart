@@ -92,7 +92,12 @@ class DashboardHomeSection extends StatelessWidget {
   String _statusLabel(dynamic value, {String fallback = 'Pending'}) {
     final raw = value?.toString().trim() ?? '';
     if (raw.isEmpty) return fallback.tr;
-    return raw.replaceAll('_', ' ').tr;
+    // Was `raw.replaceAll('_', ' ').tr`, which humanised BEFORE looking the
+    // value up — so a translated token like `needs_changes` could never match
+    // its entry and always rendered the English "needs changes", even in
+    // Arabic. localizedTag tries the raw token first and only humanises when
+    // nothing is translated, and is the single shared mechanism for this.
+    return localizedTag(raw);
   }
 
   String _dateLabel(dynamic value) {

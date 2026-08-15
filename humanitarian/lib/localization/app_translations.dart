@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:get/get.dart';
 
 class AppTranslations extends Translations {
@@ -213,6 +214,7 @@ class AppTranslations extends Translations {
     // Support-ticket statuses. Rendered via a 'status_<value>' key with a
     // localizedTag fallback, so a new status added server-side degrades to a
     // humanised word rather than showing the key.
+    
     'status_open': 'Open',
     'status_pending': 'Pending',
     'status_in_progress': 'In progress',
@@ -2191,7 +2193,7 @@ class AppTranslations extends Translations {
     'See every donation made to your campaigns and who donated.':
         'See every contribution made to your campaigns and who contributed.',
     'Sponsorship update': 'Support update',
-    'Sponsorships': 'Support',
+    'Sponsorships': 'Assistance',
     'Start a chat from a donation (donor) or from your campaign donations (owner).':
         'Start a chat from a contribution (grantor) or from your campaign contributions (owner).',
     'Start a chat?': 'Start a chat?',
@@ -2369,9 +2371,9 @@ class AppTranslations extends Translations {
     'Create one from the Support page.': 'Create one from the Support page.',
     'No approved profiles are available yet.':
         'No approved profiles are available yet.',
-    'sponsorship_status_stopped': 'sponsorship_status_stopped',
-    'sponsorship_status_completed': 'sponsorship_status_completed',
-    'sponsorship_status_cancelled': 'sponsorship_status_cancelled',
+    'sponsorship_status_stopped': 'Stopped',
+    'sponsorship_status_completed': 'Completed',
+    'sponsorship_status_cancelled': 'Cancelled',
     'Requests, forms, partners, support, and more.':
         'Requests, forms, partners, support, and more.',
     'Support type': 'Support type',
@@ -2533,7 +2535,7 @@ class AppTranslations extends Translations {
         'الكفالات التي تدعمك وموعد دعمك القادم.',
     'No active entitlements yet.': 'لا توجد استحقاقات فعّالة بعد.',
     'When a sponsor supports your case, it will appear here.':
-        'عندما يكفلك أحد المتبرعين ستظهر هنا.',
+        'عندما يكفلك أحد المانحين ستظهر هنا.',
     'Listen': 'استماع',
     'Stop': 'إيقاف',
     'Next support due': 'موعد الدعم القادم',
@@ -2786,7 +2788,7 @@ class AppTranslations extends Translations {
         'توفير مياه نظيفة للمجتمعات المحتاجة',
     'Orphan Kafala': 'دعم الأيتام',
     'Support children through monthly sponsorship':
-        'دعم الأطفال من خلال دعم شهرية',
+        'دعم الأطفال من خلال دعم شهري',
     'Family Aid': 'دعم الأسر',
     'Empower productive families with tools and funding':
         'تمكين الأسر المنتجة بالأدوات والتمويل',
@@ -2817,7 +2819,7 @@ class AppTranslations extends Translations {
     'Impact Hero': 'بطل الأثر',
     'Trending': 'رائج',
     '68% funded': '68% ممول',
-    'Kafala Sponsorship': 'دعم ودعم',
+    'Kafala Sponsorship': 'الكفالة',
     'Monitor sponsorship plans, stories, and payment continuity.':
         'تابع خطط الدعم والقصص واستمرارية المدفوعات.',
     'Overview': 'نظرة عامة',
@@ -3619,12 +3621,12 @@ class AppTranslations extends Translations {
     'Focus areas': 'مجالات التركيز',
     'Kafala impact': 'أثر الدعم',
     'Your sponsorships are active and creating steady support for families who rely on consistent monthly care.':
-        'دعمك نشطة وتوفر دعما مستقرا للأسر التي تعتمد على الدعم الشهرية المستمرة.',
+        'دعمك نشط ويوفر دعماً مستقراً للأسر التي تعتمد على الدعم الشهري المستمر.',
     'Track progress, payment continuity, and story updates in one place so you always know how support is being delivered.':
         'تابع التقدم واستمرارية الدفع وتحديثات القصص في مكان واحد حتى تعرف دائما كيف يتم تقديم الدعم.',
     'Payment batch completed': 'اكتملت دفعة المدفوعات',
     '9 recurring sponsorships were processed successfully this week.':
-        'تمت معالجة 9 دعم متكررة بنجاح هذا الأسبوع.',
+        'تمت معالجة 9 عمليات دعم متكررة بنجاح هذا الأسبوع.',
     'New family stories available': 'تتوفر قصص جديدة للأسر',
     'Three sponsored families shared recent progress and gratitude notes.':
         'شاركت ثلاث أسر مكفولة آخر المستجدات ورسائل الامتنان.',
@@ -3647,7 +3649,7 @@ class AppTranslations extends Translations {
     'Yousef Family': 'أسرة يوسف',
     'Family of 5 • Zarqa': 'أسرة من 5 أفراد • الزرقاء',
     'Monthly sponsorship is helping with food packages and rent continuity.':
-        'تساعد الدعم الشهرية في توفير السلال الغذائية واستمرار الإيجار.',
+        'يساعد الدعم الشهري في توفير السلال الغذائية واستمرار الإيجار.',
     'Stable support': 'دعم مستقر',
     'Mariam': 'مريم',
     'Age 12 • Irbid': 'العمر 12 • إربد',
@@ -3663,7 +3665,7 @@ class AppTranslations extends Translations {
     'Billing preferences': 'تفضيلات الفوترة',
     'Recurring sponsorship billing': 'فوترة الدعم المتكررة',
     'Keep monthly sponsorships active, review backup payment methods, and make receipts easy to track.':
-        'حافظ على نشاط الدعم الشهرية وراجع طرق الدفع الاحتياطية واجعل الإيصالات سهلة المتابعة.',
+        'حافظ على نشاط الدعم الشهري وراجع طرق الدفع الاحتياطية واجعل الإيصالات سهلة المتابعة.',
     'Auto renew': 'تجديد تلقائي',
     'Receipts saved': 'إيصالات محفوظة',
     'Secure billing': 'فوترة آمنة',
@@ -3675,7 +3677,7 @@ class AppTranslations extends Translations {
     '3 days before charge': 'قبل الخصم بثلاثة أيام',
     'General Support': 'الدعم العام',
     'One simple donation that can be used wherever support is needed most.':
-        'مساهمة بسيط يمكن استخدامه حيث تكون الحاجة إلى الدعم أكبر.',
+        'مساهمة بسيطة يمكن استخدامها حيث تكون الحاجة إلى الدعم أكبر.',
     'One-time': 'مرة واحدة',
     'A flexible way to help the most urgent needs right away.':
         'طريقة مرنة للمساعدة في الاحتياجات الأكثر إلحاحا على الفور.',
@@ -3704,7 +3706,7 @@ class AppTranslations extends Translations {
     'Campaign': 'حملة',
     'Selected for donation': 'تم اختيارها للمساهمة',
     'Donate to this campaign': 'مساهمة لهذه الحملة',
-    'Simple Donation': 'مساهمة بسيط',
+    'Simple Donation': 'مساهمة بسيطة',
     'Choose general support or a featured campaign, select an amount, and continue in just a few taps.':
         'اختر الدعم العام أو حملة مميزة، وحدد المبلغ، ثم تابع خلال بضع نقرات فقط.',
     'Selected': 'المحدد',
@@ -3713,7 +3715,7 @@ class AppTranslations extends Translations {
     'Quick': 'سريع',
     'Current selection': 'الاختيار الحالي',
     'Amount: @amount IQD': 'المبلغ: @amount د.ع',
-    'Easy giving': 'مساهمة سهل',
+    'Easy giving': 'مساهمة سهلة',
     'Simple checkout': 'دفع بسيط',
     'Continue donation': 'متابعة المساهمة',
     'Made to help': 'مصمم للمساعدة',
@@ -3725,15 +3727,15 @@ class AppTranslations extends Translations {
     'Fast to choose': 'سهل وسريع الاختيار',
     'Clear options': 'خيارات واضحة',
     'Trusted feeling': 'إحساس بالثقة',
-    'Donation ready': 'المساهمة جاهز',
+    'Donation ready': 'المساهمة جاهزة',
     'You are donating @amount IQD via @method.':
-        'أنت تمساهمة بمبلغ @amount د.ع عبر @method.',
+        'أنت تساهم بمبلغ @amount د.ع عبر @method.',
     'Donor details': 'بيانات المانح',
     'Full name': 'الاسم الكامل',
     'Your name': 'اسمك',
     'Please enter your name': 'يرجى إدخال اسمك',
     'Message (optional)': 'رسالة (اختيارية)',
-    'Add a note for this donation': 'أضف ملاحظة لهذا المساهمة',
+    'Add a note for this donation': 'أضف ملاحظة لهذه المساهمة',
     'Payment method': 'طريقة الدفع',
     'Card': 'بطاقة',
     'Visa, Mastercard, and local cards': 'فيزا وماستركارد وبطاقات محلية',
@@ -3752,7 +3754,7 @@ class AppTranslations extends Translations {
     'Fees': 'الرسوم',
     'Total': 'الإجمالي',
     'Confirm @amount IQD donation': 'تأكيد مساهمة @amount د.ع',
-    'Review your donation': 'راجع مساهمةك',
+    'Review your donation': 'راجع مساهمتك',
     '@amount IQD ready': '@amount د.ع جاهز',
     'Secure step': 'خطوة آمنة',
     '@percent% funded': 'تم تمويل @percent%',
@@ -3810,8 +3812,8 @@ class AppTranslations extends Translations {
     'Review verified cases by code, need, and priority.':
         'راجع الحالات الموثقة حسب الرمز والحاجة والأولوية.',
     'Create sponsorship': 'إنشاء دعم',
-    'Register a scheduled sponsorship commitment.': 'سجل التزام دعم مجدولة.',
-    'In-kind donation': 'مساهمة عيني',
+    'Register a scheduled sponsorship commitment.': 'سجل التزام دعم مجدول.',
+    'In-kind donation': 'مساهمة عينية',
     'Submit food, clothing, supplies, or other items.':
         'أرسل طعاما أو ملابس أو مستلزمات أو عناصر أخرى.',
     'Reports': 'التقارير',
@@ -3844,7 +3846,7 @@ class AppTranslations extends Translations {
     'Sponsorship target': 'هدف الدعم',
     'Campaigns could not load. Tap to retry.':
         'تعذر تحميل الحملات. اضغط لإعادة المحاولة.',
-    'In-kind donation saved.': 'تم حفظ المساهمة العيني.',
+    'In-kind donation saved.': 'تم حفظ المساهمة العينية.',
     'Marriage service profile saved.': 'تم حفظ ملف خدمة الزواج.',
     'Support ticket saved.': 'تم حفظ تذكرة الدعم.',
     'Actual needs': 'الاحتياجات الفعلية',
@@ -3861,8 +3863,8 @@ class AppTranslations extends Translations {
     'Account number copied to clipboard.': 'تم نسخ رقم الحساب إلى الحافظة.',
     'Pending successfully': 'تم الإرسال بنجاح وهو قيد الانتظار',
     'Your donation was submitted and is pending. Thank you.':
-        'تم إرسال مساهمةك وهو قيد الانتظار. شكرا لك.',
-    'Donation failed': 'فشل المساهمة',
+        'تم إرسال مساهمتك وهي قيد الانتظار. شكرا لك.',
+    'Donation failed': 'فشلت المساهمة',
     'Please enter an amount': 'يرجى إدخال المبلغ',
     'Enter a valid amount': 'أدخل مبلغا صالحا',
     'FIB account': 'حساب FIB',
@@ -3896,7 +3898,7 @@ class AppTranslations extends Translations {
     'Choose a photo from your gallery to personalize your account.':
         'اختر صورة من المعرض لتخصيص حسابك.',
     'Choose general support or connect this monthly sponsorship to a campaign.':
-        'اختر الدعم العام أو اربط هذه الدعم الشهرية بحملة.',
+        'اختر الدعم العام أو اربط هذا الدعم الشهري بحملة.',
     'Choose image': 'اختر صورة',
     'Could not cancel sponsorship.': 'تعذر إلغاء الدعم.',
     'Could not load campaigns security token. Try again.':
@@ -4117,7 +4119,7 @@ class AppTranslations extends Translations {
     'Contact person name (Arabic, optional)':
         'اسم الشخص المسؤول للتواصل (بالعربية، اختياري)',
     'Contact person name (optional)': 'اسم الشخص المسؤول للتواصل (اختياري)',
-    'Create monthly sponsorship': 'إنشاء دعم شهرية',
+    'Create monthly sponsorship': 'إنشاء دعم شهري',
     'Create one from the Sponsorship page.': 'أنشئ واحدة من صفحة الدعم.',
     'Currency': 'العملة',
     'Describe typical ages of people who can volunteer':
@@ -4170,7 +4172,7 @@ class AppTranslations extends Translations {
     'My beneficiary cases': 'حالات المستحق الخاصة بي',
     'My help requests': 'طلبات المساعدة الخاصة بي',
     'My missions': 'مهامي',
-    'My monthly sponsorships': 'دعمي الشهرية',
+    'My monthly sponsorships': 'دعمي الشهري',
     'My projects': 'مشاريعي',
     'National ID': 'الرقم الوطني',
     'Needs sponsor': 'يحتاج إلى كفيل',
@@ -4188,7 +4190,7 @@ class AppTranslations extends Translations {
         'لا توجد منشورات منشورة متاحة بعد.',
     'No records are available yet.': 'لا توجد سجلات متاحة بعد.',
     'No requests yet': 'لا توجد طلبات بعد',
-    'No sponsorships yet': 'لا توجد دعم بعد',
+    'No sponsorships yet': 'لا يوجد دعم بعد',
     'Notes': 'ملاحظات',
     'Organizer user ID': 'معرف مستخدم المنظم',
     'Other notes (Arabic, optional)': 'ملاحظات أخرى (بالعربية، اختياري)',
@@ -4364,7 +4366,7 @@ class AppTranslations extends Translations {
     'Given so far': 'ما تم تقديمه حتى الآن',
     'Confirmed donations': 'المساهمات المؤكدة',
     'Open campaigns': 'الحملات المفتوحة',
-    'Pending sponsorships': 'الدعم المعلقة',
+    'Pending sponsorships': 'الدعم المعلق',
     'No recent alerts.': 'لا توجد تنبيهات حديثة.',
     'Active cases': 'الحالات النشطة',
     'Pending requests': 'الطلبات المعلقة',
@@ -4387,7 +4389,7 @@ class AppTranslations extends Translations {
     'Donor dashboard': 'لوحة المانح',
     'Beneficiary dashboard': 'لوحة المستفيد المؤهل',
     'Volunteer dashboard': 'لوحة المتطوع',
-    'Active sponsorships': 'الدعم النشطة',
+    'Active sponsorships': 'الدعم النشط',
     'Available missions': 'المهام المتاحة',
     'Active missions': 'المهام النشطة',
     'Completed missions': 'المهام المكتملة',
@@ -4520,9 +4522,9 @@ class AppTranslations extends Translations {
     'Search skills (try "driver" or "nurse")':
         'ابحث عن المهارات (جرب "سائق" أو "ممرض")',
     'See every donation made to your campaigns and who donated.':
-        'شاهد كل مساهمة لحملاتك ومن مساهمة.',
+        'شاهد كل مساهمة لحملاتك ومن ساهم.',
     'Sponsorship update': 'تحديث الدعم',
-    'Sponsorships': 'الدعم',
+    'Sponsorships': 'الكفالات',
     'Start a chat from a donation (donor) or from your campaign donations (owner).':
         'ابدأ دردشة من مساهمة (مانح) أو من مساهمات حملتك (مالك).',
     'Start a chat?': 'بدء دردشة؟',
@@ -4610,7 +4612,7 @@ class AppTranslations extends Translations {
     'Donation @ref was confirmed. Thank you!':
         'تم تأكيد المساهمة @ref. شكراً لك!',
     'Donation @ref could not be confirmed.': 'تعذر تأكيد المساهمة @ref.',
-    'Donation @ref is back under review.': 'عاد المساهمة @ref إلى المراجعة.',
+    'Donation @ref is back under review.': 'عادت المساهمة @ref إلى المراجعة.',
     'wants to chat with you (@role)': 'يريد الدردشة معك (@role)',
     'campaign owner': 'صاحب الحملة',
     'donor': 'مانح',
@@ -5890,13 +5892,11 @@ class AppTranslations extends Translations {
     'Join mission': 'بەشداری لە ئەرکەکە بکە',
     'Volunteer mission': 'ئەرکی خۆبەخشی',
     'Services': 'خزمەتگوزارییەکان',
-    'Submit beneficiary case': 'ناردنی کەیسی مستحق',
-    'Marriage service': 'خزمەتگوزاری هاوسەرگیری',
+        'Marriage service': 'خزمەتگوزاری هاوسەرگیری',
     'Partners': 'هاوبەشەکان',
     'News and activities': 'هەواڵ و چالاکییەکان',
     'Technical support': 'پشتیوانی تەکنیکی',
-    'Beneficiary cases': 'کەیسەکانی مستحق',
-    'Create sponsorship': 'دروستکردنی کەفالەت',
+        'Create sponsorship': 'دروستکردنی کەفالەت',
     'In-kind donation': 'بەشداریی کاڵا (جگە لە پارە)',
     'Reports': 'ڕاپۆرتەکان',
     'Open volunteer missions': 'ئەرکە خۆبەخشییە کراوەکان',
@@ -5978,25 +5978,20 @@ class AppTranslations extends Translations {
     'Submitting…': 'خەریکی ناردنە...',
     'Track requests that are still waiting for admin review, requested changes, approval, or sponsor matching.':
         'بەدواداچوون بۆ ئەو داواکارییانە بکە کە هێشتا چاوەڕێی پێداچوونەوەی ئەدمین، گۆڕانکارییە داواکراوەکان، پەسەندکردن، یان دۆزینەوەی پاڵپشت دەکەن.',
-    'Unable to load beneficiary cases from the server.':
-        'نەتوانرا کەیسەکانی مستحق لە سێرڤەرەوە باربکرێن.',
-    'Unable to load directory entries from the server.':
+        'Unable to load directory entries from the server.':
         'نەتوانرا زانیارییەکانی بەڕێوەبەرایەتی لە سێرڤەرەوە باربکرێن.',
     'Unable to load news and activities.':
         'نەتوانرا هەواڵ و چالاکییەکان باربکرێن.',
     'Unable to load notifications.': 'نەتوانرا ئاگادارکردنەوەکان باربکرێن.',
     'Unable to load partners.': 'نەتوانرا هاوبەشەکان باربکرێن.',
     'Unable to load sponsorships.': 'نەتوانرا پاڵپشتیکردنەکان باربکرێن.',
-    'Unable to load your beneficiary cases.':
-        'نەتوانرا کەیسەکانی مستحقت باربکرێن.',
-    'Unable to load your projects.': 'نەتوانرا پڕۆژەکانت باربکرێن.',
+        'Unable to load your projects.': 'نەتوانرا پڕۆژەکانت باربکرێن.',
     'Unable to mark notification as read.':
         'نەتوانرا ئاگادارکردنەوەکە وەک خوێندراوە نیشانە بکرێت.',
     'Unknown error': 'هەڵەیەکی نەزانراو',
     'You entered a headcount — add a gender split, volunteer profile, and skills in free text so coordinators can plan teams (all optional below).':
         'تۆ ژمارەی کەسەکانت تومار کردووە — دابەشکردنی ڕەگەز، پرۆفایلی خۆبەخش، و کارامەییەکان بە دەقی ئازاد زیاد بکە تاوەکو ڕێکخەران بتوانن تیمەکان ڕێکبخەن (هەموویان لە خوارەوە ئارەزوومەندانەن).',
-    'Your beneficiary workspace': 'شوێنی کاری مستحقی تۆ',
-    'Your profile details have been saved.':
+        'Your profile details have been saved.':
         'زانیارییەکانی پرۆفایلەکەت پاشکەوت کران.',
     'Your project is pending review (reference #@id).':
         'پڕۆژەکەت لەژێر پێداچوونەوەدایە (ژمارەی ئاماژە #@id).',
@@ -6014,11 +6009,7 @@ class AppTranslations extends Translations {
         'نزیکەی ژمارەی ئەو کەسانەی کاریگەر دەبن (ئارەزوومەندانە)',
     'Availability': 'بەردەستبوون',
     'Available Missions': 'مێشنە (ئەرکە) بەردەستەکان',
-    'Beneficiary community': 'کۆمەڵگەی مستحق',
-    'Beneficiary or community name': 'ناوی مستحق یان کۆمەڵگە',
-    'Beneficiary or community name (Arabic)':
-        'ناوی مستحق یان کۆمەڵگە (بە عەرەبی)',
-    'Budget': 'بودجە',
+                'Budget': 'بودجە',
     'Campaign details': 'وردەکارییەکانی کەمپەین',
     'Case code': 'کۆدی کەیس',
     'Cash': 'کاش',
@@ -6166,8 +6157,7 @@ class AppTranslations extends Translations {
     'Men / women': 'پیاوان / ئافرەتان',
     'Message': 'پەیام',
     'Monthly amount IQD': 'بڕی مانگانە بە دینار',
-    'My beneficiary cases': 'کەیسەکانی مستحقی من',
-    'My help requests': 'داواکارییەکانی یارمەتی من',
+        'My help requests': 'داواکارییەکانی یارمەتی من',
     'My missions': 'ئەرکەکانی من',
     'My monthly sponsorships': 'پاڵپشتییە مانگانەکانی من',
     'My projects': 'پڕۆژەکانی من',
@@ -6254,9 +6244,7 @@ class AppTranslations extends Translations {
     'Submit items for institution review and delivery.':
         'بابەتەکان پێشکەش بکە بۆ پێداچوونەوەی دامەزراوە و گەیاندن.',
     'Submit project for help': 'پڕۆژە بۆ یارمەتی بنێرە',
-    'Submitted beneficiary cases will appear here.':
-        'کەیسە نێردراوەکانی مستحق لێرە دەردەکەون.',
-    'Submitted project requests that need review or matching will appear here.':
+        'Submitted project requests that need review or matching will appear here.':
         'داواکارییە نێردراوەکانی پڕۆژە کە پێویستیان بە پێداچوونەوە یان گونجاندن هەیە لێرە دەردەکەون.',
     'Submitted project requests will appear here.':
         'داواکارییە نێردراوەکانی پڕۆژە لێرە دەردەکەون.',
@@ -6339,8 +6327,7 @@ class AppTranslations extends Translations {
     'Completed works': 'کارە تەواوکراوەکان',
     'Completed activities': 'چالاکییە تەواوکراوەکان',
     'Grantors': 'بەخشەران',
-    'Eligibles': 'مستحقەکان',
-    'Beneficiaries': 'وەرگرە شایستەکان',
+        'Beneficiaries': 'وەرگرە شایستەکان',
     'Open profile': 'کردنەوەی پرۆفایل',
     'Profile menu': 'مینوی پرۆفایل',
     'Guest': 'میوان',
@@ -6356,8 +6343,7 @@ class AppTranslations extends Translations {
     'Please sign in again to load your history.':
         'تکایە دوبارە بچۆ ژوورەوە بۆ بارکردنی مێژووت.',
     'Volunteer history': 'مێژووی خۆبەخشی',
-    'Beneficiary history': 'مێژووی مستحق',
-    'Review donations, sponsorships, payment status, and references in one place.':
+        'Review donations, sponsorships, payment status, and references in one place.':
         'بەشداری و کەفالەت و دۆخی پارەدان و سەرچاوەکانت لە یەک شوێن ببینە.',
     'Review mission signups, application status, attendance, and completed work.':
         'تۆماری ناونوسکردنی ئەرکەکان و دۆخی داواکاری و ئامادەبوون و کارە تەواوکراوەکان ببینە.',
@@ -6385,8 +6371,7 @@ class AppTranslations extends Translations {
     'Approved requests': 'داواکارییە پەسەندکراوەکان',
     'Open support tickets': 'تیکێتە کراوەکانی پشتگیری',
     'Recent case updates': 'نوێکارییە دواییەکانی کەیس',
-    'No beneficiary cases yet.': 'هێشتا هیچ کەیسێکی مستحق نییە.',
-    'Project request progress': 'پێشکەوتنی داواکارییەکانی پرۆژە',
+        'Project request progress': 'پێشکەوتنی داواکارییەکانی پرۆژە',
     'No submitted requests yet.': 'هێشتا هیچ داواکارییەکی نێردراو نییە.',
     'Application status': 'دۆخی داواکاری',
     'Application city': 'شارەکەی داواکاری',
@@ -6784,9 +6769,7 @@ class AppTranslations extends Translations {
     'Pending donations': 'بەشداریە چاوەڕوانەکان',
     'Project request groups': 'گرووپەکانی داواکاری پڕۆژە',
     'Expense groups': 'گرووپەکانی خەرجی',
-    'Beneficiary case saved for review.':
-        'کەیسی مستحق پاشەکەوتکرا بۆ پێداچوونەوە.',
-    'Enter a valid family member count.':
+        'Enter a valid family member count.':
         'ژمارەیەکی دروستی ئەندامانی خێزان بنووسە.',
     'Enter a valid income amount.': 'بڕێکی دروستی داهات بنووسە.',
     'Enter a valid monthly amount.': 'بڕێکی دروستی مانگانە بنووسە.',
@@ -6826,8 +6809,7 @@ class AppTranslations extends Translations {
     '@m men · @f women': '@m پیاو · @f ژن',
     '@n people': '@n کەس',
     '@raised / @goal@suffix': '@raised / @goal@suffix',
-    'Beneficiary pending projects': 'پڕۆژە چاوەڕوانەکانی مستحق',
-    'Choose a photo from your gallery to personalize your account.':
+        'Choose a photo from your gallery to personalize your account.':
         'وێنەیەک لە گەلەرییەکەتەوە هەڵبژێرە بۆ کەسیکردنی هەژمارەکەت.',
     'Choose general support or connect this monthly sponsorship to a campaign.':
         'پشتیوانی گشتی هەڵبژێرە یان ئەم کەفالە مانگانەیە بە کەمپەینێکەوە ببەستەوە.',
@@ -6859,8 +6841,7 @@ class AppTranslations extends Translations {
         'ئیمەیڵێکی دروست بنووسە یان بەتاڵی بهێڵە',
     'Enter a valid phone or leave empty':
         'ژمارەیەکی دروست بنووسە یان بەتاڵی بهێڵە',
-    'Enter beneficiary or community': 'مستحق یان کۆمەڵگا بنووسە',
-    'Enter currency': 'دراو بنووسە',
+        'Enter currency': 'دراو بنووسە',
     'Enter the amount needed': 'بڕی پێویست بنووسە',
     'Enter the location': 'شوێنەکە بنووسە',
     'Example: “Clean water for Al-Mafraq village” — state the goal, who benefits, and the total budget you need.':
@@ -7691,8 +7672,7 @@ class AppTranslations extends Translations {
         "راپۆرتێن خۆبەخشی، نووکرنێن گشتی، و ئامرازێن پشتەڤانیێ.",
     "Giving tools, public updates, reports, and support.":
         "ئامرازێن بەشداریێ، نووکرنێن گشتی، راپۆرت و پشتەڤانی.",
-    "Submit beneficiary case": "پێشکێشکرنا حالەتەکێ مستحق",
-    "Send personal, housing, income, and needs details.":
+        "Send personal, housing, income, and needs details.":
         "هویرکاتیێن کەسی، ئاکنجیبوون، داهات و پێدڤیان بفرێکە.",
     "Marriage service": "خزمەتگوزاریا هەڤژینیێ",
     "Create or review private marriage service requests.":
@@ -7706,8 +7686,7 @@ class AppTranslations extends Translations {
     "Technical support": "پشتەڤانیا تەکنیکی",
     "Send a support request to the institution.":
         "داخوازیەکا پشتەڤانیێ بۆ دەزگەهی بفرێکە.",
-    "Beneficiary cases": "حالەتێن مستحق",
-    "Review verified cases by code, need, and priority.":
+        "Review verified cases by code, need, and priority.":
         "داچۆنا حالەتێن پشتراستکری بکە ل دویڤ کۆد، پێدڤی، و پێشینەیێ.",
     "Create sponsorship": "دروستکرنا کەفالەتێ",
     "Register a scheduled sponsorship commitment.":
@@ -7737,9 +7716,7 @@ class AppTranslations extends Translations {
     "Pending donations": "بەشداریێن ل هیڤیێ",
     "Project request groups": "کۆمێن داخوازیێن پرۆژەی",
     "Expense groups": "کۆمێن خەرجیان",
-    "Beneficiary case saved for review.":
-        "حالەتێ مستحق بۆ داچۆنێ هاتە پاراستن.",
-    "Enter a valid family member count.":
+        "Enter a valid family member count.":
         "ژمارەیەکا دروستا ئەندامێن خێزانێ بنڤیسە.",
     "Enter a valid income amount.": "بڕەکێ دروست یێ داهاتی بنڤیسە.",
     "Enter a valid monthly amount.": "بڕەکێ دروست یێ مەهانە بنڤیسە.",
@@ -7793,8 +7770,7 @@ class AppTranslations extends Translations {
     "@m men · @f women": "@m زەلام · @f ژن",
     "@n people": "@n کەس",
     "@raised / @goal@suffix": "@raised / @goal@suffix هاتە کۆمکرن",
-    "Beneficiary pending projects": "پرۆژەیێن مستحق یێن ل هیڤیێ",
-    "Cancel sponsorship": "هەلوەشاندنا کەفالەتێ",
+        "Cancel sponsorship": "هەلوەشاندنا کەفالەتێ",
     "sponsorship_due_today": "دەمێ بێت ئەڤرۆیە",
     "sponsorship_due_in_day": "دەمێ بێت دوای @n ڕۆژ",
     "sponsorship_due_in_days": "دەمێ بێت دوای @n ڕۆژان",
@@ -7837,13 +7813,10 @@ class AppTranslations extends Translations {
         "ئیمێلەکێ دروست بنڤیسە یان ڤالا بهێلە",
     "Enter a valid phone or leave empty":
         "ژمارەیەکا دروست بنڤیسە یان ڤالا بهێلە",
-    "Enter beneficiary or community": "ناڤێ مستحق یان جڤاکی بنڤیسە",
-    "Enter currency": "جۆرێ پارەی (عوملە) بنڤیسە",
+        "Enter currency": "جۆرێ پارەی (عوملە) بنڤیسە",
     "Enter the amount needed": "بڕێ پارەی یێ پێدڤی بنڤیسە",
     "Enter the location": "جهی بنڤیسە",
-    "Example: “Clean water for Al-Mafraq village” — state the goal, who benefits, and the total budget you need.":
-        "بۆ نموونە: “ئاڤا پاقژ بۆ گوندێ ئەلمەفرەق” — ئارمانجێ دیار بکە، کێ مستحقە، و کۆما بودجەیێ پێدڤی.",
-    "Failed to load campaigns (@code).": "کەمپین بار نەبوون (@code).",
+        "Failed to load campaigns (@code).": "کەمپین بار نەبوون (@code).",
     "Failed to load campaigns.": "کەمپین بار نەبوون.",
     "Failed to save donation.": "بەشداری نەهاتە پاراستن.",
     "Failed to update user role.": "گوهۆڕینا رۆلێ بەکارهێنەری سەرنەکەفت.",
@@ -7898,24 +7871,19 @@ class AppTranslations extends Translations {
     'Submitting…': 'دهێتە پێشکێشکرن...',
     'Track requests that are still waiting for admin review, requested changes, approval, or sponsor matching.':
         'دووڤچوونا وان داخوازیان بکە یێن کو هێشتا ل هیڤیا پێداچوونا ئەدمینی، گوهۆڕینێن داخوازی، پەسەندکرن، یان دیتنا پاڵپشتی نە.',
-    'Unable to load beneficiary cases from the server.':
-        'نەشیان کەیسێن مستحقتی ژ سێرڤەری بار بکەن.',
-    'Unable to load directory entries from the server.':
+        'Unable to load directory entries from the server.':
         'نەشیان پێڕستێن ناڤان ژ سێرڤەری بار بکەن.',
     'Unable to load news and activities.': 'نەشیان نووچە و چالاکیان بار بکەن.',
     'Unable to load notifications.': 'نەشیان ئاگەهداریان بار بکەن.',
     'Unable to load partners.': 'نەشیان هەڤپشکان بار بکەن.',
     'Unable to load sponsorships.': 'نەشیان پاڵپشتیان بار بکەن.',
-    'Unable to load your beneficiary cases.':
-        'نەشیان کەیسێن تە یێن مستحقتی بار بکەن.',
-    'Unable to load your projects.': 'نەشیان پرۆژەیێن تە بار بکەن.',
+        'Unable to load your projects.': 'نەشیان پرۆژەیێن تە بار بکەن.',
     'Unable to mark notification as read.':
         'نەشیان ئاگەهداریێ وەک خواندی نیشان بدەن.',
     'Unknown error': 'شاشیەکا نەناسیاڕ',
     'You entered a headcount — add a gender split, volunteer profile, and skills in free text so coordinators can plan teams (all optional below).':
         'تە ژمارەیا کەسان دیار کر - دابەشکرنا ڕەگەزی، پرۆفایلا خۆبەخشان، و شارەزاییان ب دەقەکێ ئازاد زێدە بکە دا کو رێکخەر بشێن تیما رێک بێخن (هەمی ل خوارێ ئارەزوومەندانە نە).',
-    'Your beneficiary workspace': 'جهێ کارێ تە یێ مستحقێ',
-    'Your profile details have been saved.':
+        'Your profile details have been saved.':
         'زانیاریێن پرۆفایلا تە هاتنە پاشکەفتکرن.',
     'Your project is pending review (reference #@id).':
         'پرۆژەیێ تە ل ژێر پێداچوونێ دایە (ژمارەیا ژێدەر #@id).',
@@ -7933,10 +7901,7 @@ class AppTranslations extends Translations {
         'نێزیکەیی ژمارەیا کەسێن کارتێکرن لێ هاتیە کرن (ئارەزوومەندانە)',
     'Availability': 'بەرهەڤبوون',
     'Available Missions': 'ئەرکێن بەردەست',
-    'Beneficiary community': 'جڤاکێ مستحق',
-    'Beneficiary or community name': 'ناڤێ مستحق یان جڤاکی',
-    'Beneficiary or community name (Arabic)': 'ناڤێ مستحق یان جڤاکی (ب عەرەبی)',
-    'Budget': 'بودجە',
+                'Budget': 'بودجە',
     'Campaign details': 'تێبینیێن کەمپەینێ',
     'Case code': 'کۆدێ کەیسی',
     'Cash': 'کاش (نەقد)',
@@ -8084,8 +8049,7 @@ class AppTranslations extends Translations {
     'Men / women': 'زەلام / ژن',
     'Message': 'پەیام',
     'Monthly amount IQD': 'بڕێ هەیڤانە ب دینارێ عێراقی',
-    'My beneficiary cases': 'کەیسێن من یێن مستحقێ',
-    'My help requests': 'داخوازیێن من یێن هاریکاریێ',
+        'My help requests': 'داخوازیێن من یێن هاریکاریێ',
     'My missions': 'ئەرکێن من',
     'My monthly sponsorships': 'پاڵپشتیێن من یێن هەیڤانە',
     'My projects': 'پرۆژەیێن من',
@@ -8170,9 +8134,7 @@ class AppTranslations extends Translations {
     'Submit items for institution review and delivery.':
         'تشتان پێشکێشی دەزگەهی بکە بۆ پێداچوون و گەهاندنێ.',
     'Submit project for help': 'پرۆژەی بۆ هاریکاریێ پێشکێش بکە',
-    'Submitted beneficiary cases will appear here.':
-        'کەیسێن مستحقێ یێن هنارتی دێ ل ڤێرە دیار بن.',
-    'Submitted project requests that need review or matching will appear here.':
+        'Submitted project requests that need review or matching will appear here.':
         'داخوازیێن پرۆژەی یێن هنارتی یێن پێدڤی ب پێداچوون یان پاڵپشتی، دێ ل ڤێرە دیار بن.',
     'Submitted project requests will appear here.':
         'داخوازیێن پرۆژەی یێن هنارتی دێ ل ڤێرە دیار بن.',
@@ -8252,8 +8214,7 @@ class AppTranslations extends Translations {
     'Completed works': 'کارێن تەواوکری',
     'Completed activities': 'چالاکیێن تەواوکری',
     'Grantors': 'بەخشەر',
-    'Eligibles': 'مستحق',
-    'Beneficiaries': 'وەرگرێن شایستە',
+        'Beneficiaries': 'وەرگرێن شایستە',
     'Open profile': 'ڤەکرنا پرۆفایلی',
     'Profile menu': 'لیستا پرۆفایلی',
     'Guest': 'میوان',
@@ -8269,8 +8230,7 @@ class AppTranslations extends Translations {
     'Please sign in again to load your history.':
         'تکایە دوبارە چوونەژوورەوە بکە بۆ بارکرنا مێژوویێ.',
     'Volunteer history': 'مێژوویا خۆبەخشیێ',
-    'Beneficiary history': 'مێژوویا مستحقێ',
-    'Review donations, sponsorships, payment status, and references in one place.':
+        'Review donations, sponsorships, payment status, and references in one place.':
         'بەشداری و کەفالەت و دۆخا پارەدانێ و ژێدەرێن وان ل جهەکێ ببینە.',
     'Review mission signups, application status, attendance, and completed work.':
         'تۆمارێن ناڤنووسبوونا ئەرکان و دۆخا داخوازیێ و ئامادەبوون و کارێن تەواوکری ببینە.',
@@ -8298,8 +8258,7 @@ class AppTranslations extends Translations {
     'Approved requests': 'داخوازیێن پەسەندکری',
     'Open support tickets': 'تیکێتێن ڤەکری یێن پشتەڤانیێ',
     'Recent case updates': 'نووکرنێن دوماهیێ یێن کەیسێ',
-    'No beneficiary cases yet.': 'هێشتا هیچ کەیسێن مستحق نینن.',
-    'Project request progress': 'پێشکەفتنا داخوازیێن پرۆژەی',
+        'Project request progress': 'پێشکەفتنا داخوازیێن پرۆژەی',
     'No submitted requests yet.': 'هێشتا هیچ داخوازیێن هنارتی نینن.',
     'Application status': 'دۆخا داخوازیێ',
     'Application city': 'باژێرێ داخوازیێ',
@@ -9305,11 +9264,83 @@ class AppTranslations extends Translations {
     'Select a project': 'پرۆژەکێ هەلبژێرە',
   };
 
+  // ─── Test-visible views of the raw maps ───
+  // The published maps (see `keys`) are not the raw ones: Kurdish is published
+  // layered over English. Tests that check translation COVERAGE have to see
+  // what a translator actually wrote, so they read these instead.
+
+  @visibleForTesting
+  static Map<String, String> get englishForTest => _en;
+
+  @visibleForTesting
+  static Map<String, String> get arabicForTest => _ar;
+
+  @visibleForTesting
+  static Map<String, String> get soraniForTest => _sorani;
+
+  @visibleForTesting
+  static Map<String, String> get badiniForTest => _badini;
+
+  // ─── What actually gets registered with GetX ───
+
+  /// Sorani as published: the Kurdish map layered ON TOP OF English.
+  ///
+  /// Kurdish is deliberately incomplete — inventing Kurdish is worse than a
+  /// visible English fallback (issue #21431) — so a large number of keys have
+  /// no Sorani value. Merging English underneath makes the untranslated ones
+  /// resolve to English *inside this bucket*, which is the only place the
+  /// fallback can be made reliable. See [keys] for why.
+  static final Map<String, String> _soraniPublished = {..._en, ..._sorani};
+
+  /// Badini as published. Same reasoning as [_soraniPublished].
+  static final Map<String, String> _badiniPublished = {..._en, ..._badini};
+
+  /// The four locale buckets, in the order GetX must see them.
+  ///
+  /// TWO NON-OBVIOUS THINGS ARE LOAD-BEARING HERE. Both exist to work around
+  /// `Trans.tr` in GetX, and both are pinned by
+  /// `test/localization/locale_routing_test.dart`.
+  ///
+  /// 1. WHY KURDISH IS REGISTERED UNDER `ar_IQ` / `ar_TR` RATHER THAN
+  ///    `ckb` / `kmr`.
+  ///    The BCP-47 codes would be `ckb` and `kmr`, and the backend does use
+  ///    those (see `AppLocaleService.assistantLang`). The GetX buckets cannot,
+  ///    because the same [Locale] object drives Flutter as well:
+  ///      * `GlobalMaterialLocalizations` ships data for `ar` and has no
+  ///        `ckb`/`kmr` case, so those locales in `supportedLocales` would be
+  ///        unsupported by the app's own delegates; and
+  ///      * GetX decides text direction with
+  ///        `rtlLanguages.contains(Get.locale?.languageCode)`, and that list is
+  ///        `['ar','fa','he','ps','ur']` — no Kurdish. Under `ckb`/`kmr` the
+  ///        entire Kurdish UI would render LEFT-TO-RIGHT.
+  ///    Reusing `ar` with a distinguishing region code keeps both correct.
+  ///    Nothing resolves a *device* region to Kurdish — `AppLocaleService`
+  ///    switches on the language code alone — so an Arabic phone set to Iraq
+  ///    (`ar_IQ`) still gets Arabic. Only the in-app language picker selects
+  ///    Kurdish.
+  ///
+  /// 2. WHY `ar_SA` IS REGISTERED LAST, AND WHY KURDISH IS MERGED OVER
+  ///    ENGLISH ABOVE.
+  ///    When a key is missing from the exact `<lang>_<country>` bucket, GetX
+  ///    does NOT go straight to `fallbackLocale`. It first builds a bucket
+  ///    keyed by language code alone:
+  ///      `Get.translations.map((k, v) => MapEntry(k.split('_').first, v))`
+  ///    which collapses `ar_SA`, `ar_IQ` and `ar_TR` onto ONE `ar` entry —
+  ///    last registration wins. With Badini registered last, any key missing
+  ///    from Arabic or Sorani resolved to BADINI KURDISH, and a bare `ar`
+  ///    locale resolved to Kurdish for *every* key. Registering `ar_SA` last
+  ///    makes that collapsed bucket Arabic.
+  ///    That alone is not enough for Kurdish, though: it would send a Sorani
+  ///    reader to Arabic instead of English. Hence the merge above — with
+  ///    English underneath, the exact bucket always has the key, so the
+  ///    collapsed bucket is never consulted for Kurdish and an untranslated
+  ///    string degrades to English exactly as intended.
   @override
   Map<String, Map<String, String>> get keys => {
     'en_US': _en,
+    'ar_IQ': _soraniPublished,
+    'ar_TR': _badiniPublished,
+    // MUST stay last — see note 2 above.
     'ar_SA': _ar,
-    'ar_IQ': _sorani,
-    'ar_TR': _badini,
   };
 }
