@@ -246,6 +246,18 @@ class AppTranslations extends Translations {
     'high': 'High',
     'medium': 'Medium',
     'low': 'Low',
+
+    // marketplace_orders.status, per the CHECK constraint in migration 001.
+    // 'approved' is shared with the case statuses above. Without these the
+    // order card rendered APPROVED / PROCESSING / CANCELLED in Latin capitals
+    // on an Arabic screen — AppStatusTag upper-cases whatever `.tr` returns,
+    // and `.tr` returns the key unchanged when there is no entry.
+    'pending': 'Pending',
+    'processing': 'Processing',
+    'completed': 'Completed',
+    'cancelled': 'Cancelled',
+    // Fallback product name when a listing has no title in any language.
+    'Product': 'Product',
     'Registration': 'Registration',
     // Says the registration IS safe before saying what failed, because that is
     // the order the user needs it in — the alarming half first would read as
@@ -2674,6 +2686,12 @@ class AppTranslations extends Translations {
     'high': 'مرتفعة',
     'medium': 'متوسطة',
     'low': 'منخفضة',
+
+    'pending': 'قيد الانتظار',
+    'processing': 'قيد التنفيذ',
+    'completed': 'مكتمل',
+    'cancelled': 'ملغى',
+    'Product': 'منتج',
     'Registration': 'التسجيل',
     'Your registration was saved, but your documents did not upload. You can add them from your profile.':
         'تم حفظ تسجيلك، لكن لم يتم رفع مستنداتك. يمكنك إضافتها من ملفك الشخصي.',

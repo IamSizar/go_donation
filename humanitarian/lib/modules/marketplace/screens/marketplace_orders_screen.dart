@@ -109,7 +109,15 @@ class _MarketplaceOrderCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 10),
-                    AppStatusTag(label: status, tone: _statusTone(status)),
+                    // The RAW backend token used to go straight in, and
+                    // AppStatusTag renders `label.tr.toUpperCase()` — so with
+                    // no entry for 'approved' the Arabic UI showed APPROVED in
+                    // Latin capitals. localizedTag is the app's single
+                    // mechanism for turning a backend tag into a readable word.
+                    AppStatusTag(
+                      label: localizedTag(status),
+                      tone: _statusTone(status),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -118,7 +126,10 @@ class _MarketplaceOrderCard extends StatelessWidget {
                 Text('${'Total'.tr}: ${_formatMoney(total, currency)}'),
                 if (createdAt.isNotEmpty) ...[
                   const SizedBox(height: 4),
-                  Text('${'Submitted'.tr}: $createdAt'),
+                  // Was the raw RFC 3339 string Go marshals — the card read
+                  // "Submitted: 2026-08-15T12:15:35.660229Z". The money on the
+                  // line above was already locale-formatted; the date was not.
+                  Text('${'Submitted'.tr}: ${localizedDate(createdAt)}'),
                 ],
               ],
             ),

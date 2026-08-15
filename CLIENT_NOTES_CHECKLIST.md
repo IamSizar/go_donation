@@ -423,7 +423,49 @@ real out-of-band OTP for staff) pass both before and after.
 | B18 | **Gender dropdown options not Arabized** — "تعريب خيارات القائمة المنسدلة الخاصة بالجنس في الواجهة العربية". `[D p3]` | Dashboard → المستخدمون → تعديل → الجنس | ⬜ |
 | B19 | The Arabic wording **"حالة دورة الحياة"** (lifecycle status) is wrong and must be corrected — "تصحيح كلمة حالة دورة الحياة في اللغة العربي". `[D p4]` | Dashboard → الحملات → حملة جديدة | ⬜ |
 | B20 | Top dropdown headers (**الكل، المهام، أي يوم**) are unnamed/English, and all option words inside those dropdowns are untranslated. `[D p6]` | Dashboard → المتطوعين → الطلبات | ⬜ |
-| B21 | **Choosing a language must translate ALL app text** — "عند اختيار لغة معينة يجب أن يكون جميع الكلام الموجود داخل التطبيق باللغة التي تم اختيارها". Test by switching each of the four languages and sweeping every screen. `[A p34]` | App | ⬜ |
+| B21 | **Choosing a language must translate ALL app text** — "عند اختيار لغة معينة يجب أن يكون جميع الكلام الموجود داخل التطبيق باللغة التي تم اختيارها". Test by switching each of the four languages and sweeping every screen. `[A p34]` | App | 🔎 **marketplace orders fixed, not deployed** — see B21 notes below. The sweep itself is still outstanding |
+
+### B21 — marketplace order card (2026-08-15)
+
+**Two machine values were printed onto one card in the Arabic UI.**
+
+`marketplace_orders_screen.dart` passed the **raw order status** to
+`AppStatusTag`, which renders `label.tr.toUpperCase()`. GetX returns the key
+unchanged when it has no entry, and there were **no entries for any of the five
+statuses** — so `approved` / `pending` / `processing` / `completed` /
+`cancelled` rendered as Latin capitals, right-to-left, directly beside money
+that `_formatMoney` was already localizing correctly.
+
+The same card interpolated `created_at` as-is, so it read
+**`Submitted: 2026-08-15T12:15:35.660229Z`** — Go's RFC 3339 marshalling,
+shown to a person.
+
+**Fixed with the app's existing mechanisms, not new ones.** The status goes
+through `localizedTag`, which is already the single mechanism for backend tags,
+and the five statuses gained `en` + `ar` entries. The date goes through a new
+`localizedDate` in the **same file as `localizedTag`** — the eight screens that
+format a date each carry their own private copy of the same five lines, and
+adding a ninth was the wrong answer. `AppLocaleService.syncDateFormatLocale`
+already pins `Intl.defaultLocale` on every language switch, so it takes no
+locale argument.
+
+`_statusTone` still switches on the RAW status — the tone is a mapping from a
+machine value and must not depend on a translation.
+
+The screen's four states were already correct (`AppAsync`, error checked before
+empty) and were left alone.
+
+**Test:** `humanitarian/test/localization/marketplace_order_labels_test.dart`.
+Verified 2 of its 8 fail without the translation keys — the Arabic assertion
+and the one proving `AppStatusTag`'s second `.tr` + `toUpperCase()` cannot
+resurrect the token. The date tests pin `localizedDate`'s contract; that helper
+landed one commit earlier (with E8), so they pass on either side of this change
+rather than failing first.
+
+**Left deliberately:** the other six copies of the private date formatter are
+untouched — migrating them is a labelled refactor of its own, not a drive-by.
+And B21 as a whole is a four-language sweep of every screen; this closes one
+card, not the row.
 
 ## C. Duplication / information architecture
 
