@@ -66,6 +66,16 @@ before adding — `_badini` mixes quote styles and a duplicate is a silent bug.*
 | `Sign in or create an account with your phone number.` | Sign in or create an account with your phone number. | سجّل الدخول أو أنشئ حساباً برقم هاتفك. | ckb + kmr |
 | `Your registration was saved, but your documents did not upload. You can add them from your profile.` | Your registration was saved, but your documents did not upload. You can add them from your profile. | تم حفظ تسجيلك، لكن لم يتم رفع مستنداتك. يمكنك إضافتها من ملفك الشخصي. | ckb + kmr |
 
+## community, widgets · C2 filter-row error states  (2 keys)
+
+Added 2026-08-15. Two filter rows used to vanish without a word when their
+fetch failed. They now say what is missing and offer a retry.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `Could not load the browse categories.` | Could not load the browse categories. | تعذّر تحميل فئات التصفح. | ckb + kmr |
+| `Could not load the sector filters.` | Could not load the sector filters. | تعذّر تحميل مرشحات القطاعات. | ckb + kmr |
+
 ## auth · E5 OTP resend countdown  (2 keys)
 
 Added 2026-08-15. The OTP screen now says how long until another code can be

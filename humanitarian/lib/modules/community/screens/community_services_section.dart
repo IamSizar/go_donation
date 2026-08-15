@@ -12,6 +12,7 @@ import 'package:flutter_application_1/modules/legal/screens/content_page_screen.
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_application_1/core/widgets/app_pressable.dart';
 import 'package:flutter_application_1/core/design/motion.dart';
+import 'package:flutter_application_1/core/design/tokens.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 double? _parseCoord(dynamic v) {
@@ -336,12 +337,33 @@ class _CityGuideScreenState extends State<CityGuideScreen> {
                 ),
               ),
               // #29 — sector filter chips (admin-managed, 4-language).
-              if (sectors.isNotEmpty) ...[
+              //
+              // C2 — this row used to be behind `if (sectors.isNotEmpty)`
+              // over a loader that swallowed every error, so a failed fetch
+              // and an empty taxonomy both rendered as nothing at all. On a
+              // bad connection the map below reported its failure and offered
+              // a retry while this row simply was not there — the same screen
+              // telling the user two different stories about one outage.
+              //
+              // A genuinely empty taxonomy still renders nothing, heading and
+              // all: there is no filter to offer and nothing went wrong.
+              if (_controller.sectorsLoading.value ||
+                  _controller.sectorsError.value != null ||
+                  sectors.isNotEmpty) ...[
                 const SizedBox(height: 12),
-                _SectorFilterRow(
-                  sectors: sectors,
-                  selected: selected,
-                  onSelect: _controller.selectSector,
+                AppAsync<List<Map<String, dynamic>>>(
+                  loading: _controller.sectorsLoading.value,
+                  error: _controller.sectorsError.value,
+                  onRetry: _controller.fetchSectors,
+                  data: sectors,
+                  isEmpty: (list) => list.isEmpty,
+                  empty: const SizedBox.shrink(),
+                  skeleton: const _SectorFilterSkeleton(),
+                  builder: (list) => _SectorFilterRow(
+                    sectors: list,
+                    selected: selected,
+                    onSelect: _controller.selectSector,
+                  ),
                 ),
               ],
               const SizedBox(height: 14),
@@ -531,6 +553,36 @@ class _SectorFilterRow extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// Chip-shaped bones at the row's real height, so the filters fill in rather
+/// than popping in and pushing the map down (5.8).
+class _SectorFilterSkeleton extends StatelessWidget {
+  const _SectorFilterSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    // Varied widths: four identical pills read as a progress bar, not chips.
+    const widths = <double>[50, 88, 70, 104];
+    return SizedBox(
+      height: 38,
+      child: AppSkeleton(
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: widths.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 8),
+          itemBuilder: (context, i) => Container(
+            width: widths[i],
+            decoration: BoxDecoration(
+              color: AppColors.of(context).line,
+              borderRadius: BorderRadius.circular(19),
+            ),
+          ),
+        ),
       ),
     );
   }

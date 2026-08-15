@@ -50,28 +50,36 @@ class CaseCategory {
   );
 }
 
-/// Fetches the active case categories (ordered), or an empty list on
-/// error/offline (the capsule row then simply doesn't show).
+/// Fetches the active case categories, in admin order.
+///
+/// THROWS on failure. It used to end in `catch (_) { return const []; }`, with
+/// a comment arguing the silence was safe: these are a browse FILTER taxonomy
+/// rather than the user's own data, so an absent row "states nothing untrue"
+/// — unlike an empty list of *their* cases, which would claim they have none.
+///
+/// That argument was correct about the row and wrong about the screen. Home
+/// prints the heading "Browse by category" above these capsules, and a heading
+/// with nothing under it asserts two contradictory things at once: that there
+/// are categories, and that there are none. Once the failure is visible here,
+/// [CaseCategoryCapsules] can tell the two apart and show a retry (C2).
+///
+/// A successful response carrying no items is still an empty list, not an
+/// error — over-throwing would replace a legitimately empty taxonomy with a
+/// permanent error banner.
 Future<List<CaseCategory>> fetchCaseCategories() async {
-  try {
-    final resp = await http.get(
-      Uri.parse(caseCategoriesUrl),
-      headers: const {'Accept': 'application/json'},
-    );
-    if (resp.statusCode != 200) return const [];
-    final decoded = jsonDecode(resp.body);
-    if (decoded is Map && decoded['items'] is List) {
-      return (decoded['items'] as List)
-          .whereType<Map>()
-          .map((m) => CaseCategory.fromJson(Map<String, dynamic>.from(m)))
-          .toList();
-    }
-    return const [];
-  } catch (_) {
-    // DELIBERATE silence: these are a browse FILTER taxonomy, not the user's
-    // data. CaseCategoryCapsules renders nothing when the list is empty, so a
-    // failed load costs the user a filter row and states nothing untrue —
-    // unlike an empty list of *their* cases, which would claim they have none.
-    return const [];
+  final resp = await http.get(
+    Uri.parse(caseCategoriesUrl),
+    headers: const {'Accept': 'application/json'},
+  );
+  if (resp.statusCode != 200) {
+    throw Exception('Case categories request failed (${resp.statusCode})');
   }
+  final decoded = jsonDecode(resp.body);
+  if (decoded is Map && decoded['items'] is List) {
+    return (decoded['items'] as List)
+        .whereType<Map>()
+        .map((m) => CaseCategory.fromJson(Map<String, dynamic>.from(m)))
+        .toList();
+  }
+  return const [];
 }

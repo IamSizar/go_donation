@@ -2119,10 +2119,34 @@ button.danger:disabled { background: var(--danger-disabled-bg); border-color: va
   margin: 0;
 }
 
-/* Phase 16: read-only detail page — definition-list grid */
+/* Phase 16: read-only detail page — definition-list grid.
+ *
+ * G1/G7 — the label track used to be a flat `220px` with the label
+ * start-aligned inside it. Measured on the real المستخدمون → عرض label set
+ * under dir="rtl": the label ink sat at the panel's right edge and the value
+ * ink ended 214px away, with nothing in between. That empty band IS the
+ * client's report — "التسميات أقصى اليمين والبيانات أقصى اليسار" — and it was
+ * never an RTL bug: 220px is simply far wider than any label on the page, and
+ * the same band was there in English.
+ *
+ * Two changes, and both are needed:
+ *   • the track is sized to the widest label instead of a guessed 220px, so
+ *     the column stops reserving space nothing uses. Capped, because one
+ *     40-character label on a 63-column resource would otherwise set the
+ *     width for all of them.
+ *   • the label is aligned to its END — the side the value is on — so the
+ *     distance from a label to its own value is the 14px column gap on EVERY
+ *     row, whatever that label's length. Sizing alone does not do this: with
+ *     the track fitted to the longest label, a short label still trailed 67px
+ *     behind its value.
+ *
+ * Both are direction-agnostic (`max-content`, `end`, and the grid's own
+ * inline-direction placement), so there is still no [dir="rtl"] override for
+ * this block and the two directions cannot drift apart.
+ */
 .detail-grid {
   display: grid;
-  grid-template-columns: 220px 1fr;
+  grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
   gap: 4px 14px;
   background: var(--panel);
   border: 1px solid var(--border);
@@ -2138,6 +2162,10 @@ button.danger:disabled { background: var(--danger-disabled-bg); border-color: va
   padding: 6px 0;
   border-bottom: 1px dashed var(--border);
   align-self: start;
+  text-align: end;
+  /* An over-long label wraps inside the cap rather than widening the column
+     for every other row on the page. */
+  max-width: 240px;
 }
 .detail-value {
   padding: 6px 0;
@@ -2165,12 +2193,14 @@ button.danger:disabled { background: var(--danger-disabled-bg); border-color: va
 /* The bulk-bar is translated horizontally; the transform origin matters in RTL */
 [dir="rtl"] .bulk-bar { /* nothing to flip — flex order is fine */ }
 
-/* Detail page (global notice #3): no RTL override needed — CSS grid follows
-   the inline direction, so under dir="rtl" the base `220px 1fr` template
-   already places the key column at the RIGHT edge with the value immediately
-   to its left, both start-aligned (= right). The old override here swapped
-   the template AND the item order (a double flip), which stranded labels and
-   values at opposite edges of the panel. */
+/* Detail page (global notice #3, G1/G7): still no RTL override — CSS grid
+   follows the inline direction, so under dir="rtl" the base template places
+   the key column at the RIGHT edge with the value immediately to its left.
+   The old override here swapped the template AND the item order (a double
+   flip), which stranded labels and values at opposite edges of the panel.
+   The band that survived that removal was a sizing problem, fixed in the
+   .detail-grid rule above with properties that behave the same in both
+   directions. */
 
 /* Numbers in RTL still read left-to-right; preserve that for code blocks */
 code, pre { direction: ltr; unicode-bidi: bidi-override; }

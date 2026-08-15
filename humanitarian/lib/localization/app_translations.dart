@@ -316,6 +316,11 @@ class AppTranslations extends Translations {
     'Could not load your wallet and payment methods.':
         'Could not load your wallet and payment methods.',
     'Could not load your tasks.': 'Could not load your tasks.',
+    // C2 — two filter rows that used to vanish in silence now say so.
+    'Could not load the browse categories.':
+        'Could not load the browse categories.',
+    'Could not load the sector filters.':
+        'Could not load the sector filters.',
     'Could not load your sponsorship schedule.':
         'Could not load your sponsorship schedule.',
     'Could not load the comments.': 'Could not load the comments.',
@@ -2946,6 +2951,8 @@ class AppTranslations extends Translations {
     'Could not load your wallet and payment methods.':
         'تعذّر تحميل محفظتك وطرق الدفع.',
     'Could not load your tasks.': 'تعذّر تحميل مهامك.',
+    'Could not load the browse categories.': 'تعذّر تحميل فئات التصفح.',
+    'Could not load the sector filters.': 'تعذّر تحميل مرشحات القطاعات.',
     'Could not load your sponsorship schedule.': 'تعذّر تحميل جدول الكفالة.',
     'Could not load the comments.': 'تعذّر تحميل التعليقات.',
     'Could not play this video.': 'تعذّر تشغيل هذا الفيديو.',

@@ -19,196 +19,19 @@
 // stand in a fake without the production code needing a seam for testing.
 // That matters: adding an injection point purely for tests would have changed
 // the shape of the code under test.
-import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:flutter_application_1/api/case_categories_api.dart';
 import 'package:flutter_application_1/api/payment_methods_api.dart';
 import 'package:flutter_application_1/api/task_api.dart';
 import 'package:flutter_application_1/api/wallet_api.dart';
 
-/// How a faked request should behave.
-enum _Behaviour {
-  /// The socket never connects — offline, DNS failure, unreachable host.
-  networkError,
-
-  /// The server answers, but with a failure status.
-  serverError,
-
-  /// A normal, successful response carrying [_FakeHttpOverrides.body].
-  ok,
-}
-
-class _FakeHttpOverrides extends HttpOverrides {
-  _FakeHttpOverrides(this.behaviour, {this.body = '{}'});
-
-  final _Behaviour behaviour;
-  final String body;
-
-  @override
-  HttpClient createHttpClient(SecurityContext? context) =>
-      _FakeHttpClient(this);
-}
-
-class _FakeHttpClient implements HttpClient {
-  _FakeHttpClient(this.overrides);
-  final _FakeHttpOverrides overrides;
-
-  @override
-  Future<HttpClientRequest> openUrl(String method, Uri url) async {
-    if (overrides.behaviour == _Behaviour.networkError) {
-      // What an unreachable backend actually looks like to the caller.
-      throw const SocketException('Network is unreachable');
-    }
-    return _FakeRequest(overrides);
-  }
-
-  // http's IOClient closes its client after each request, so this one really
-  // is called — it cannot be left to noSuchMethod.
-  @override
-  void close({bool force = false}) {}
-
-  // Everything below is unused by these tests. `noSuchMethod` keeps the fake
-  // from having to implement the whole of HttpClient, which is large and would
-  // bury the three lines above that carry the meaning.
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
-class _FakeRequest implements HttpClientRequest {
-  _FakeRequest(this.overrides);
-  final _FakeHttpOverrides overrides;
-
-  @override
-  final HttpHeaders headers = _FakeHeaders();
-
-  // IOClient.send sets each of these on every request, so they have to be real
-  // fields rather than noSuchMethod fallbacks.
-  @override
-  bool followRedirects = true;
-
-  @override
-  int maxRedirects = 5;
-
-  @override
-  int contentLength = -1;
-
-  @override
-  bool persistentConnection = true;
-
-  @override
-  bool bufferOutput = true;
-
-  @override
-  Encoding encoding = utf8;
-
-  @override
-  Future<HttpClientResponse> close() async => _FakeResponse(overrides);
-
-  @override
-  void add(List<int> data) {}
-
-  @override
-  Future<dynamic> addStream(Stream<List<int>> stream) async {}
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
-class _FakeResponse extends Stream<List<int>> implements HttpClientResponse {
-  _FakeResponse(this.overrides);
-  final _FakeHttpOverrides overrides;
-
-  @override
-  int get statusCode =>
-      overrides.behaviour == _Behaviour.serverError ? 500 : 200;
-
-  @override
-  int get contentLength => utf8.encode(overrides.body).length;
-
-  @override
-  HttpHeaders get headers => _FakeHeaders();
-
-  @override
-  bool get isRedirect => false;
-
-  @override
-  bool get persistentConnection => false;
-
-  @override
-  String get reasonPhrase => '';
-
-  @override
-  List<Cookie> get cookies => const [];
-
-  @override
-  List<RedirectInfo> get redirects => const [];
-
-  @override
-  StreamSubscription<List<int>> listen(
-    void Function(List<int> event)? onData, {
-    Function? onError,
-    void Function()? onDone,
-    bool? cancelOnError,
-  }) {
-    return Stream<List<int>>.fromIterable([utf8.encode(overrides.body)]).listen(
-      onData,
-      onError: onError,
-      onDone: onDone,
-      cancelOnError: cancelOnError,
-    );
-  }
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
-class _FakeHeaders implements HttpHeaders {
-  final _values = <String, List<String>>{};
-
-  @override
-  List<String>? operator [](String name) => _values[name.toLowerCase()];
-
-  @override
-  void set(String name, Object value, {bool preserveHeaderCase = false}) =>
-      _values[name.toLowerCase()] = ['$value'];
-
-  @override
-  void add(String name, Object value, {bool preserveHeaderCase = false}) =>
-      _values.putIfAbsent(name.toLowerCase(), () => []).add('$value');
-
-  @override
-  String? value(String name) => _values[name.toLowerCase()]?.first;
-
-  @override
-  ContentType? get contentType => ContentType.json;
-
-  // IOClient walks the response headers to build its own, so this is reached.
-  @override
-  void forEach(void Function(String name, List<String> values) action) =>
-      _values.forEach(action);
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
-/// Runs [body] with every HTTP request faked according to [overrides].
-Future<T> _withHttp<T>(
-  _FakeHttpOverrides overrides,
-  Future<T> Function() body,
-) {
-  return HttpOverrides.runZoned(
-    body,
-    createHttpClient: overrides.createHttpClient,
-  );
-}
+import '../support/fake_http.dart';
 
 void main() {
   group('a failed load throws rather than returning an empty result', () {
     test('fetchWalletBalance throws when the network is unreachable', () async {
-      await _withHttp(_FakeHttpOverrides(_Behaviour.networkError), () async {
+      await withHttp(FakeHttpOverrides(HttpBehaviour.networkError), () async {
         // The specific regression: this used to return balanceIQD: 0, which
         // the user could not tell apart from genuinely having no money.
         await expectLater(fetchWalletBalance(), throwsA(isA<Object>()));
@@ -216,26 +39,44 @@ void main() {
     });
 
     test('fetchWalletBalance throws on a 500', () async {
-      await _withHttp(_FakeHttpOverrides(_Behaviour.serverError), () async {
+      await withHttp(FakeHttpOverrides(HttpBehaviour.serverError), () async {
         await expectLater(fetchWalletBalance(), throwsA(isA<Object>()));
       });
     });
 
     test('fetchWalletTransactions throws on a 500', () async {
-      await _withHttp(_FakeHttpOverrides(_Behaviour.serverError), () async {
+      await withHttp(FakeHttpOverrides(HttpBehaviour.serverError), () async {
         await expectLater(fetchWalletTransactions(), throwsA(isA<Object>()));
       });
     });
 
     test('fetchPaymentMethods throws on a 500', () async {
-      await _withHttp(_FakeHttpOverrides(_Behaviour.serverError), () async {
+      await withHttp(FakeHttpOverrides(HttpBehaviour.serverError), () async {
         await expectLater(fetchPaymentMethods(), throwsA(isA<Object>()));
       });
     });
 
     test('fetchMyTasks throws when the network is unreachable', () async {
-      await _withHttp(_FakeHttpOverrides(_Behaviour.networkError), () async {
+      await withHttp(FakeHttpOverrides(HttpBehaviour.networkError), () async {
         await expectLater(fetchMyTasks(), throwsA(isA<Object>()));
+      });
+    });
+
+    // C2 — the eighth function, missed when the other seven were fixed
+    // because its silence came with an argument attached: the categories are
+    // "a browse FILTER taxonomy, not the user's data", so an empty row was
+    // said to state nothing untrue. That held right up until a heading reading
+    // "Browse by category" was placed above the row. A heading over nothing
+    // does assert something, and it asserts the wrong thing.
+    test('fetchCaseCategories throws when the network is unreachable', () async {
+      await withHttp(FakeHttpOverrides(HttpBehaviour.networkError), () async {
+        await expectLater(fetchCaseCategories(), throwsA(isA<Object>()));
+      });
+    });
+
+    test('fetchCaseCategories throws on a 500', () async {
+      await withHttp(FakeHttpOverrides(HttpBehaviour.serverError), () async {
+        await expectLater(fetchCaseCategories(), throwsA(isA<Object>()));
       });
     });
   });
@@ -247,8 +88,8 @@ void main() {
     // replace every empty state in the app with an error banner.
 
     test('an empty wallet ledger returns [] rather than throwing', () async {
-      await _withHttp(
-        _FakeHttpOverrides(_Behaviour.ok, body: '{"transactions": []}'),
+      await withHttp(
+        FakeHttpOverrides(HttpBehaviour.ok, body: '{"transactions": []}'),
         () async {
           expect(await fetchWalletTransactions(), isEmpty);
         },
@@ -256,8 +97,8 @@ void main() {
     });
 
     test('a 200 with no transactions key is treated as empty', () async {
-      await _withHttp(
-        _FakeHttpOverrides(_Behaviour.ok, body: '{"ok": true}'),
+      await withHttp(
+        FakeHttpOverrides(HttpBehaviour.ok, body: '{"ok": true}'),
         () async {
           expect(await fetchWalletTransactions(), isEmpty);
         },
@@ -267,8 +108,8 @@ void main() {
     test(
       'an empty payment catalogue returns [] rather than throwing',
       () async {
-        await _withHttp(
-          _FakeHttpOverrides(_Behaviour.ok, body: '{"items": []}'),
+        await withHttp(
+          FakeHttpOverrides(HttpBehaviour.ok, body: '{"items": []}'),
           () async {
             expect(await fetchPaymentMethods(), isEmpty);
           },
@@ -276,10 +117,19 @@ void main() {
       },
     );
 
+    test('an empty category taxonomy returns [] rather than throwing', () async {
+      await withHttp(
+        FakeHttpOverrides(HttpBehaviour.ok, body: '{"items": []}'),
+        () async {
+          expect(await fetchCaseCategories(), isEmpty);
+        },
+      );
+    });
+
     test('a real balance is parsed and returned', () async {
-      await _withHttp(
-        _FakeHttpOverrides(
-          _Behaviour.ok,
+      await withHttp(
+        FakeHttpOverrides(
+          HttpBehaviour.ok,
           body: '{"balance_iqd": 25000, "currency": "IQD"}',
         ),
         () async {

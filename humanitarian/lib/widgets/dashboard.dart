@@ -365,9 +365,15 @@ class DashboardHomeSection extends StatelessWidget {
         // Quick Filter Capsules (client spec, Home "Section Three") — tap a
         // category to jump straight into Orphan & Family Profiles filtered
         // to it.
-        const _SectionLabel(title: 'Browse by category'),
-        const SizedBox(height: 12),
+        //
+        // C2 — the heading is handed to the capsules rather than printed here.
+        // It used to be a sibling, rendered unconditionally, while the row
+        // below it disappeared whenever the fetch failed or returned nothing;
+        // Home was left showing "Browse by category" over blank space. The
+        // widget now shows the heading only when it has a row or an error to
+        // put under it.
         CaseCategoryCapsules(
+          header: const _SectionLabel(title: 'Browse by category'),
           selected: null,
           onSelected: (slug) =>
               Get.to(() => OrphanFamilyProfilesScreen(initialCategory: slug)),
