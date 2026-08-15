@@ -625,6 +625,27 @@ they fall back to English rather than be guessed.
 > staff add later are typed in by staff in all four languages on the screen
 > itself, which is the point of the row.
 
+## `field.section` · `col.sort_order` · `hint.eg_section` · F7 mission sections  (3 keys)
+
+Added for F7, which gave قائمة المهام a section per mission and an order
+column. `common.move_up` / `common.move_down` already exist in all four
+locales and are reused for the arrows, so only these three are missing.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `field.section` | Section | القسم | ckb + kmr |
+| `col.sort_order` | Order | الترتيب | ckb + kmr |
+| `hint.eg_section` | e.g. Field work | مثال: العمل الميداني | ckb + kmr |
+
+> `col.sort_order` is a NEW key rather than a reuse of the existing
+> `noun.order`, because that one means a **purchase order** (`طلب` in Arabic)
+> and would have mislabelled the column. Translate it as *sort position*, not
+> as *a request*.
+
+> `hint.eg_section` is a placeholder, and placeholders in this file already
+> fall back to English for Kurdish (`hint.eg_city` has no ckb/kmr either), so
+> it is the lowest priority of the three.
+
 ---
 
 # Part 2b — Backend push / in-app notification templates

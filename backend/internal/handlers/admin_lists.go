@@ -787,23 +787,27 @@ var _ = time.Now
 // can see "5 of 8 needed volunteers approved" at a glance.
 
 type adminMission struct {
-	ID                 int64   `json:"id"`
-	Title              string  `json:"title"`
-	TitleAr            *string `json:"title_ar"`
-	TitleSorani        *string `json:"title_sorani"`
-	TitleBadini        *string `json:"title_badini"`
-	Description        *string `json:"description"`
-	DescriptionAr      *string `json:"description_ar"`
-	DescriptionSorani  *string `json:"description_sorani"`
-	DescriptionBadini  *string `json:"description_badini"`
-	City               *string `json:"city"`
-	MissionDate        *string `json:"mission_date"` // YYYY-MM-DD
-	NeededVolunteers   *int    `json:"needed_volunteers"`
-	Status             string  `json:"status"`
-	ProjectRequestID   *int64  `json:"project_request_id"`
-	AcceptedVolunteers int     `json:"accepted_volunteers"` // approved+joined+completed
-	PendingVolunteers  int     `json:"pending_volunteers"`  // pending+completion_requested
-	CreatedAt          string  `json:"created_at"`
+	ID                int64   `json:"id"`
+	Title             string  `json:"title"`
+	TitleAr           *string `json:"title_ar"`
+	TitleSorani       *string `json:"title_sorani"`
+	TitleBadini       *string `json:"title_badini"`
+	Description       *string `json:"description"`
+	DescriptionAr     *string `json:"description_ar"`
+	DescriptionSorani *string `json:"description_sorani"`
+	DescriptionBadini *string `json:"description_badini"`
+	City              *string `json:"city"`
+	MissionDate       *string `json:"mission_date"` // YYYY-MM-DD
+	NeededVolunteers  *int    `json:"needed_volunteers"`
+	Status            string  `json:"status"`
+	ProjectRequestID  *int64  `json:"project_request_id"`
+	// F7 — the section a mission is filed under ('' = unsectioned) and the
+	// staff-chosen position within the list (migration 106).
+	Section            string `json:"section"`
+	DisplayOrder       int    `json:"display_order"`
+	AcceptedVolunteers int    `json:"accepted_volunteers"` // approved+joined+completed
+	PendingVolunteers  int    `json:"pending_volunteers"`  // pending+completion_requested
+	CreatedAt          string `json:"created_at"`
 }
 
 func (h *AdminListsHandler) VolunteerMissions(c *gin.Context) {
@@ -839,12 +843,18 @@ func (h *AdminListsHandler) VolunteerMissions(c *gin.Context) {
 	limitIdx := len(args) + 1
 	offsetIdx := len(args) + 2
 	args = append(args, pp, off)
+	// F7 — the list now orders by the staff-chosen position, with newest-first
+	// as the tiebreak. Migration 106 adds no backfill, so every row starts at
+	// display_order 0 and this reproduces the previous `ORDER BY m.id DESC`
+	// exactly until someone actually reorders something. Served by
+	// idx_volunteer_missions_order.
 	rows, err := h.Pool.Query(c.Request.Context(), `
 		SELECT m.id, m.title, m.title_ar, m.title_sorani, m.title_badini,
 		       m.description, m.description_ar, m.description_sorani, m.description_badini,
 		       m.city,
 		       to_char(m.mission_date, 'YYYY-MM-DD') AS mission_date,
 		       m.needed_volunteers, m.status, m.project_request_id,
+		       m.section, m.display_order,
 		       COALESCE(c.accepted_count, 0),
 		       COALESCE(c.pending_count,  0),
 		       to_char(m.created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at
@@ -857,7 +867,7 @@ func (h *AdminListsHandler) VolunteerMissions(c *gin.Context) {
 		     GROUP BY mission_id
 		  ) c ON c.mission_id = m.id
 		 `+where+`
-		 ORDER BY m.id DESC
+		 ORDER BY m.display_order, m.id DESC
 		 LIMIT $`+strconv.Itoa(limitIdx)+` OFFSET $`+strconv.Itoa(offsetIdx),
 		args...,
 	)
@@ -873,6 +883,7 @@ func (h *AdminListsHandler) VolunteerMissions(c *gin.Context) {
 			&m.ID, &m.Title, &m.TitleAr, &m.TitleSorani, &m.TitleBadini,
 			&m.Description, &m.DescriptionAr, &m.DescriptionSorani, &m.DescriptionBadini,
 			&m.City, &m.MissionDate, &m.NeededVolunteers, &m.Status, &m.ProjectRequestID,
+			&m.Section, &m.DisplayOrder,
 			&m.AcceptedVolunteers, &m.PendingVolunteers, &m.CreatedAt,
 		); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})

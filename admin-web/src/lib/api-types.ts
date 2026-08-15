@@ -593,6 +593,10 @@ export type AdminMission = {
   needed_volunteers: number | null
   status: 'draft' | 'open' | 'closed' | 'completed' | 'cancelled'
   project_request_id: number | null
+  // F7 — the section a mission is filed under ('' = unsectioned) and the
+  // staff-chosen position in the list (backend migration 106).
+  section: string
+  display_order: number
   accepted_volunteers: number
   pending_volunteers: number
   created_at: string

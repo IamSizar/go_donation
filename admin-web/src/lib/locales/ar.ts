@@ -936,6 +936,8 @@ const ar: DeepPartial<typeof en> = {
     progress_in: 'حضر:',
     progress_done: 'تم:',
     mission: 'المهمة',
+    // F7 — ترتيب المهمة في قائمة المهام. ليست noun.order التي تعني طلب شراء.
+    sort_order: 'الترتيب',
     volunteer: 'المتطوع',
     volunteers: 'المتطوعون',
     applicant: 'مقدّم الطلب',
@@ -1402,6 +1404,7 @@ const ar: DeepPartial<typeof en> = {
     one_key_value_per_line: 'سطر واحد لكل "المفتاح: القيمة"',
     one_link_per_line: 'رابط واحد في كل سطر',
     eg_city: 'مثال: أربيل',
+    eg_section: 'مثال: العمل الميداني',
     eg_volunteer_count: 'مثال: 10',
   },
 
@@ -1418,6 +1421,8 @@ const ar: DeepPartial<typeof en> = {
     social_links: 'روابط التواصل',
     sku: 'الرمز التخزيني', specs: 'المواصفات', labels: 'الوسوم',
     status: 'الحالة', city: 'المدينة', phone: 'الهاتف', currency: 'العملة', category: 'الفئة',
+    // F7 — القسم الذي تُصنَّف تحته مهمة التطوع في قائمة المهام.
+    section: 'القسم',
     address: 'العنوان', type: 'النوع', full_name: 'الاسم الكامل', website: 'الموقع الإلكتروني',
     user_id: 'معرّف المستخدم', user_id_optional: 'معرّف المستخدم (اختياري)', quantity: 'الكمية', notes: 'ملاحظات',
     message: 'الرسالة', gender: 'الجنس', donor_user_id: 'معرّف المانح',

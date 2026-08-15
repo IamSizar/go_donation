@@ -1769,6 +1769,10 @@ func (h *AdminEditHandler) Mission(c *gin.Context) {
 	addOptString(&b, "description_sorani", req.DescriptionSorani)
 	addOptString(&b, "description_badini", req.DescriptionBadini)
 	addOptString(&b, "city", req.City)
+	// F7 — "change their sections". addOptString skips a nil pointer, so an
+	// edit that does not mention section leaves it alone; sending "" clears it
+	// back to unsectioned, which is a legitimate thing to want.
+	addOptString(&b, "section", req.Section)
 	if !addOptDate(c, &b, "mission_date", req.MissionDate) {
 		return
 	}

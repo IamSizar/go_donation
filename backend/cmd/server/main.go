@@ -769,6 +769,12 @@ func main() {
 			admin.POST("/admin/missions", perm("missions", "add"), adminCreateH.Mission)
 			admin.POST("/admin/missions/", perm("missions", "add"), adminCreateH.Mission)
 			admin.PATCH("/admin/missions/:id", perm("missions", "edit"), adminEditH.Mission)
+			// F7 — reorder قائمة المهام. Same `missions edit` permission as the
+			// PATCH above: changing the order staff see is an edit to the list.
+			// Registered BEFORE the :id routes would matter if it collided, but
+			// it does not — "reorder" is a distinct literal path segment under
+			// /admin/missions/, not an :id parameter.
+			admin.POST("/admin/missions/reorder", perm("missions", "edit"), adminEditH.MissionsReorder)
 			admin.POST("/admin/missions/:id/status", perm("missions", "edit"), adminStatusH.Mission)
 			admin.DELETE("/admin/missions/:id", perm("missions", "delete"), adminDeleteH.VolunteerMission)
 			admin.GET("/admin/audit_logs", perm("audit", "view"), adminListsH.AuditLogs)

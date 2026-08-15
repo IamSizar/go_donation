@@ -1299,6 +1299,9 @@ type missionEditReq struct {
 	NeededVolunteers  *int    `json:"needed_volunteers"`
 	Status            *string `json:"status"`
 	ProjectRequestID  *int64  `json:"project_request_id"`
+	// F7 — the section this mission is filed under on قائمة المهام. Free text,
+	// '' meaning unsectioned; see migration 106 for why it is not a FK.
+	Section *string `json:"section"`
 }
 
 var missionStatusesAllowed = map[string]bool{
@@ -1350,8 +1353,9 @@ func (h *AdminCreateHandler) Mission(c *gin.Context) {
 		INSERT INTO volunteer_missions
 		  (title, title_ar, title_sorani, title_badini,
 		   description, description_ar, description_sorani, description_badini,
-		   city, mission_date, needed_volunteers, status, project_request_id)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+		   city, mission_date, needed_volunteers, status, project_request_id,
+		   section)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
 		RETURNING id`,
 		title,
 		optStringOrNil(req.TitleAr), optStringOrNil(req.TitleSorani), optStringOrNil(req.TitleBadini),
@@ -1359,6 +1363,10 @@ func (h *AdminCreateHandler) Mission(c *gin.Context) {
 		optStringOrNil(req.DescriptionSorani), optStringOrNil(req.DescriptionBadini),
 		optStringOrNil(req.City), missionDate,
 		nullableIntPtr(req.NeededVolunteers), status, nullableInt64Ptr(req.ProjectRequestID),
+		// F7 — section is NOT NULL DEFAULT '', so derefString (not
+		// optStringOrNil) is the right helper: an omitted value stores ''
+		// (unsectioned) instead of a NULL that would violate the constraint.
+		derefString(req.Section),
 	).Scan(&id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})

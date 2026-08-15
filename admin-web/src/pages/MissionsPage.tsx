@@ -51,6 +51,9 @@ const MISSION_FIELDS: FieldSpec[] = [
   { key: 'title_ar',           label: 'Title (AR)', labelKey: 'field.title_ar',          type: 'text',     dir: 'rtl' },
   { key: 'title_sorani',       label: 'Title (Sorani)', labelKey: 'field.title_sorani',      type: 'text',     dir: 'rtl' },
   { key: 'title_badini',       label: 'Title (Badini)', labelKey: 'field.title_badini',      type: 'text',     dir: 'rtl' },
+  // F7 — "change their sections". Free text so staff can name a section
+  // without an admin first creating one; empty means unsectioned.
+  { key: 'section',            label: 'Section', labelKey: 'field.section',          type: 'text',     placeholder: 'e.g. Field work', placeholderKey: 'hint.eg_section' },
   { key: 'city',               label: 'City', labelKey: 'field.city',                type: 'text',     placeholder: 'e.g. Erbil', placeholderKey: 'hint.eg_city' },
   { key: 'mission_date',       label: 'Mission date', labelKey: 'field.mission_date',        type: 'text',     placeholder: 'YYYY-MM-DD' },
   { key: 'needed_volunteers',  label: 'Needed volunteers', labelKey: 'field.needed_volunteers',   type: 'number',   placeholder: 'e.g. 10', placeholderKey: 'hint.eg_volunteer_count' },
@@ -64,6 +67,7 @@ const CSV_COLUMNS: CsvColumn<AdminMission>[] = [
   { header: 'id', get: (m) => m.id },
   { header: 'title', get: (m) => m.title },
   { header: 'title_ar', get: (m) => m.title_ar },
+  { header: 'section', get: (m) => m.section },
   { header: 'city', get: (m) => m.city },
   { header: 'mission_date', get: (m) => m.mission_date },
   { header: 'needed_volunteers', get: (m) => m.needed_volunteers },
@@ -95,6 +99,9 @@ export default function MissionsPage() {
   const [creating, setCreating] = useState(false)
   const [deleting, setDeleting] = useState<AdminMission | null>(null)
   const [refreshTick, setRefreshTick] = useState(0)
+  // F7 — true while a reorder POST is in flight, so the arrows disable and two
+  // fast clicks cannot race each other into an order neither click asked for.
+  const [reordering, setReordering] = useState(false)
   // Phase 27.9 — true while a background poll is refetching, so the loader
   // stays hidden and the list updates silently (no full reload flash).
   const pollSilent = useRef(false)
@@ -121,6 +128,41 @@ export default function MissionsPage() {
   // mission creation isn't urgent, but volunteer signup counts moving
   // is useful to see live).
   useLivePoll(() => { pollSilent.current = true; setRefreshTick((t) => t + 1) }, 10_000)
+
+  // F7 — the rows as currently displayed. The reorder POST sends the ids of
+  // THIS page in their new order, and the backend numbers them from 1.
+  const items = resp?.items ?? []
+
+  // move swaps a mission with its neighbour and persists the new order.
+  //
+  // Optimistic: the row moves immediately and only rolls back if the server
+  // refuses, because waiting on a round-trip to see an arrow take effect makes
+  // reordering a long list feel broken. A refused reorder is atomic on the
+  // server (nothing moved), so refetching restores the true order exactly.
+  const move = useCallback(
+    async (index: number, dir: -1 | 1) => {
+      const next = index + dir
+      if (index < 0 || next < 0 || next >= items.length) return
+      const reordered = [...items]
+      const [row] = reordered.splice(index, 1)
+      reordered.splice(next, 0, row)
+      const previous = resp
+      setResp((r) => (r ? { ...r, items: reordered } : r))
+      setReordering(true)
+      try {
+        await api.post('/api/admin/missions/reorder', { ids: reordered.map((x) => x.id) })
+        // Refetch rather than trust the optimistic list: another admin may
+        // have changed the same page, and the server is the authority on order.
+        setRefreshTick((t) => t + 1)
+      } catch (e) {
+        setResp(previous)
+        toast.error(describeError(e))
+      } finally {
+        setReordering(false)
+      }
+    },
+    [items, resp, toast],
+  )
 
   const handleSave = useCallback(
     async (id: number, patch: Record<string, unknown>) => {
@@ -186,8 +228,43 @@ export default function MissionsPage() {
         <div className="cell-stack">
           <strong>{m.title}</strong>
           {m.title_ar && <span className="muted">{m.title_ar}</span>}
+          {/* F7 — the section is shown on the row rather than in a separate
+              column, so the list stays readable at this width and an
+              unsectioned mission simply shows nothing extra. */}
+          {m.section && <span className="muted" style={{ fontSize: 11 }}>{m.section}</span>}
         </div>
       ),
+    },
+    {
+      // F7 — reorder. Arrows rather than drag-and-drop: they work with a
+      // keyboard and a screen reader, and they are unambiguous in RTL, where
+      // a dragged row's direction is a guess. Disabled at the ends, and
+      // disabled entirely while a reorder is in flight so two quick clicks
+      // cannot race each other into a wrong order.
+      key: 'order',
+      header: t('col.sort_order'),
+      width: '92px',
+      cell: (m) => {
+        const i = items.findIndex((x) => x.id === m.id)
+        return (
+          <div style={{ display: 'flex', gap: 4 }}>
+            <button
+              className="btn"
+              title={t('common.move_up')}
+              aria-label={t('common.move_up')}
+              disabled={reordering || i <= 0}
+              onClick={() => move(i, -1)}
+            >↑</button>
+            <button
+              className="btn"
+              title={t('common.move_down')}
+              aria-label={t('common.move_down')}
+              disabled={reordering || i < 0 || i >= items.length - 1}
+              onClick={() => move(i, 1)}
+            >↓</button>
+          </div>
+        )
+      },
     },
     {
       key: 'when_where',

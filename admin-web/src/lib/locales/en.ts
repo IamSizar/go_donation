@@ -980,6 +980,9 @@ const en = {
     progress_in: 'in:',
     progress_done: 'done:',
     mission: 'Mission',
+    // F7 — the staff-chosen position of a mission in قائمة المهام.
+    // NOT noun.order, which means a purchase order.
+    sort_order: 'Order',
     volunteer: 'Volunteer',
     volunteers: 'Volunteers',
     applicant: 'Applicant',
@@ -1486,6 +1489,7 @@ const en = {
     one_key_value_per_line: 'One "Key: Value" per line',
     one_link_per_line: 'One link per line',
     eg_city: 'e.g. Erbil',
+    eg_section: 'e.g. Field work',
     eg_volunteer_count: 'e.g. 10',
   },
 
@@ -1503,6 +1507,8 @@ const en = {
     social_links: 'Social links',
     sku: 'SKU', specs: 'Specs', labels: 'Labels',
     status: 'Status', city: 'City', phone: 'Phone', currency: 'Currency', category: 'Category',
+    // F7 — the section a volunteer mission is filed under on قائمة المهام.
+    section: 'Section',
     address: 'Address', type: 'Type', full_name: 'Full name', website: 'Website',
     user_id: 'User ID', user_id_optional: 'User ID (optional)', quantity: 'Quantity', notes: 'Notes',
     message: 'Message', gender: 'Gender', donor_user_id: 'Grantor user ID',
