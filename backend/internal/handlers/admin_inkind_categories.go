@@ -105,9 +105,7 @@ func (h *InkindCategoriesHandler) Delete(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid category id."})
 		return
 	}
-	if err := h.Store.Delete(c.Request.Context(), id); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"success": true})
+	// H15 — to the Trash, not straight out of the table. This is a category authored in four languages,
+	// and until now a misclick destroyed it with no way back.
+	trashRow(c, h.Store.Pool, "inkind_categories", id)
 }

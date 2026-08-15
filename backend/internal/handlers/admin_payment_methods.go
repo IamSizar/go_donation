@@ -105,9 +105,7 @@ func (h *PaymentMethodsHandler) Delete(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid method id."})
 		return
 	}
-	if err := h.Store.Delete(c.Request.Context(), id); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"success": true})
+	// H15 — to the Trash, not straight out of the table. This is a payment method the client names explicitly as unrecoverable today,
+	// and until now a misclick destroyed it with no way back.
+	trashRow(c, h.Store.Pool, "payment_methods", id)
 }

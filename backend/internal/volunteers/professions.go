@@ -159,6 +159,10 @@ func (s *ProfessionStore) Reorder(ctx context.Context, orderedIDs []int64) error
 // its skill_key keep the tag; the key simply drops out of the dropdown. (The
 // in-memory validator still knows the key until the next restart — harmless,
 // since it only ever gates adding new tags.)
+// H15 — the admin route no longer calls this: DELETE goes through
+// handlers.trashRow so the row lands in the Trash and can be restored.
+// Kept as the low-level primitive; if you wire it to a route again, that
+// route becomes permanently destructive.
 func (s *ProfessionStore) Delete(ctx context.Context, id int64) error {
 	ct, err := s.Pool.Exec(ctx, `DELETE FROM custom_professions WHERE id = $1`, id)
 	if err != nil {

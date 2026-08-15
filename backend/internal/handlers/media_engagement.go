@@ -226,11 +226,11 @@ func (h *MediaEngagementHandler) AdminDeleteComment(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid comment id."})
 		return
 	}
-	if err := h.Store.DeleteComment(c.Request.Context(), id); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"success": true})
+	// H15 — to the Trash, not straight out of the table. This is a comment a
+	// real person wrote, removed by a moderator; a moderator who removes the
+	// wrong one needs it back, and the author's words should not be destroyed
+	// by a misclick.
+	trashRow(c, h.Store.Pool, "post_comments", id)
 }
 
 // snippet trims text to at most n runes, appending an ellipsis when cut.

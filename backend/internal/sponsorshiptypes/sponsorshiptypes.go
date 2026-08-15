@@ -183,6 +183,10 @@ func (s *Store) Reorder(ctx context.Context, orderedIDs []int64) error {
 
 // Delete removes a type. Sponsorships keep their stored type string, so an
 // existing record is never orphaned — the type just leaves the picker.
+// H15 — the admin route no longer calls this: DELETE goes through
+// handlers.trashRow so the row lands in the Trash and can be restored.
+// Kept as the low-level primitive; if you wire it to a route again, that
+// route becomes permanently destructive.
 func (s *Store) Delete(ctx context.Context, id int64) error {
 	ct, err := s.Pool.Exec(ctx, `DELETE FROM sponsorship_types WHERE id = $1`, id)
 	if err != nil {

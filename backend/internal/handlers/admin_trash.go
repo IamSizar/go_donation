@@ -18,7 +18,8 @@ import (
 
 // AdminTrashHandler backs the Phase 7 Trash container (G-06 / A-16): listing
 // what's been deleted, restoring a row from its JSON snapshot, and permanently
-// purging it (PIN-gated). Deletes land here via AdminDeleteHandler.deleteRow.
+// purging it (PIN-gated). Deletes land here via trashRow (admin_delete.go),
+// which the catalogue, task and comment handlers now call as well.
 type AdminTrashHandler struct {
 	Pool *pgxpool.Pool
 }
@@ -28,9 +29,9 @@ func NewAdminTrashHandler(pool *pgxpool.Pool) *AdminTrashHandler {
 }
 
 // restorableTables is the allowlist of tables a trash row may be restored into.
-// It mirrors the tables AdminDeleteHandler.deleteRow can trash. Because restore
-// interpolates the table name into SQL, we validate against this set first so a
-// tampered source_table can never inject.
+// It mirrors the tables trashRow is called with. Because restore interpolates
+// the table name into SQL, we validate against this set first so a tampered
+// source_table can never inject.
 var restorableTables = map[string]bool{
 	"partners":                     true,
 	"media_posts":                  true,
@@ -48,6 +49,24 @@ var restorableTables = map[string]bool{
 	"campaigns":                    true,
 	"users":                        true,
 	"volunteer_missions":           true,
+
+	// H15 — the thirteen routes that used to hard-delete. Without an entry here
+	// a row would reach the Trash and then refuse to come back out, which is a
+	// worse bug than the one being fixed, so this list and the trashRow() call
+	// sites have to be added in the same change.
+	"custom_professions":             true,
+	"project_categories":             true,
+	"sponsorship_types":              true,
+	"inkind_categories":              true,
+	"city_sectors":                   true,
+	"city_categories":                true,
+	"media_categories":               true,
+	"case_categories":                true,
+	"marketplace_categories":         true,
+	"payment_methods":                true,
+	"marriage_subscription_packages": true,
+	"tasks":                          true,
+	"post_comments":                  true,
 }
 
 // List returns everything currently in the trash (not yet restored), newest

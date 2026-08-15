@@ -155,6 +155,10 @@ func (s *Store) ReorderPackages(ctx context.Context, ids []int64) error {
 // hold this package's slug as their subscription_status are untouched (no
 // FK there by design — deleting a package must not corrupt a profile's
 // history of what it once purchased).
+// H15 — the admin route no longer calls this: DELETE goes through
+// handlers.trashRow so the row lands in the Trash and can be restored.
+// Kept as the low-level primitive; if you wire it to a route again, that
+// route becomes permanently destructive.
 func (s *Store) DeletePackage(ctx context.Context, id int64) error {
 	ct, err := s.Pool.Exec(ctx, `DELETE FROM marriage_subscription_packages WHERE id = $1`, id)
 	if err != nil {

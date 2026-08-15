@@ -223,15 +223,9 @@ func (h *MarriageHandler) AdminDeleteSubscriptionPackage(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid package id."})
 		return
 	}
-	if err := h.Store.DeletePackage(c.Request.Context(), id); err != nil {
-		status := http.StatusInternalServerError
-		if errors.Is(err, marriage.ErrPackageNotFound) {
-			status = http.StatusNotFound
-		}
-		c.JSON(status, gin.H{"success": false, "error": "Unable to delete package."})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"success": true})
+	// H15 — to the Trash, not straight out of the table. A package carries a
+	// price and four languages of copy; deleting one was permanent.
+	trashRow(c, h.Store.Pool, "marriage_subscription_packages", id)
 }
 
 // ============================================================

@@ -768,7 +768,7 @@ The client flags this as one repeated global defect and asks for one global fix:
 | H12 | **Audit Log**: a dedicated DB record of the time, date and IP of every change the admin makes in this section (example given: "المدير قام بتعديل صلاحية الموظف أحمد"); read-only, cannot be finally deleted. `[D p8]` | Dashboard → الصلاحيات | ⬜ |
 | H13 | **Super Admin protection**: no other user — even "ادمن" or "مشرف" — may edit, disable, or change the permissions of the "المدير الأساسي / Super Admin" account from inside the dashboard. `[D p8]` | Dashboard → الصلاحيات | 🔎 **confirmed, fixed, not deployed** — see H13 notes below |
 | H14 | **Temporary block + immediate auto-logout with SMS confirmation to lift**, triggered when repeated and rapid change/delete operations are detected in this section. `[D p8]` | Dashboard → الصلاحيات | ⬜ |
-| H15 | **Global trash**: every delete anywhere moves to سلة المهملات automatically; final delete only from inside the trash, by the main admin, with mandatory password, item-by-item or select-all. Employees get **archive** instead of delete — "مع إضافة الأرشفة كبديل للموظفين". `[D p3, p9]` | Dashboard, global | ⬜ |
+| H15 | **Global trash**: every delete anywhere moves to سلة المهملات automatically; final delete only from inside the trash, by the main admin, with mandatory password, item-by-item or select-all. Employees get **archive** instead of delete — "مع إضافة الأرشفة كبديل للموظفين". `[D p3, p9]` | Dashboard, global | 🔎 **confirmed, fixed (29 of 31), not deployed** — see H15 notes below |
 | H16 | **CSV export gated**: enabled only for the main admin or users he authorizes, "مع فرض إدخال الرقم السري كشرط أساسي مسبق لإتمام عملية تصدير البيانات". `[D p3]` | Dashboard, all export buttons | ⬜ |
 | H17 | **JSON database export restricted to the main super admin exclusively**, or whoever he grants that permission from the permissions section. `[D p7]` | Dashboard → تصدير قاعدة البيانات | ⬜ |
 | H18 | **Force Logout (إنهاء الجلسات النشطة)**: end any user's session immediately, or revoke login from the phone and from the dashboard entry points. Note this overlaps A2 — the existing button reportedly does not work. `[D p9]` | Dashboard | ⬜ |
@@ -825,6 +825,41 @@ to wave the write through (it now refuses), and refusals now carry a translatabl
 Super-Admin's *permissions*. That half was already correct — the permissions
 matrix is `RequireSuperAdmin`-gated, and `super_admin` is never stored as
 overridable (`internal/permissions/permissions.go`).
+
+### H15 — diagnosis and fix (2026-08-15)
+
+**Counted, not estimated: 31 admin delete routes, 16 recoverable, 15 permanent.**
+Among the permanent ones were the two you named — **فئات المشاريع** and
+**طرق الدفع**.
+
+The cause was structural rather than an oversight anywhere. The trash helper was
+a *private method* on one handler, so the catalogue, task and comment handlers —
+which live in their own files with their own stores — could not call it even if
+someone had wanted to. It is a shared function now, and "delete" means the same
+thing wherever it is written.
+
+**13 of the 15 now go to المهملات:** project categories · payment methods ·
+assistance types · in-kind categories · city sectors · guide sub-categories ·
+Our Work categories · case categories · product categories · professions ·
+marriage subscription packages · tasks · post comments. Each can also be
+restored — the restore allow-list was extended in the same change, because a row
+that reaches the Trash and then refuses to come back out is worse than one that
+was never trashed.
+
+**2 stay permanent, deliberately:**
+
+| Route | Why it stays permanent |
+|---|---|
+| `DELETE /admin/events/:id` (Notification Centre feed) | `app_events` is an append-only activity/analytics log. A log line is not an authored record; its delete is already Super-Admin-only by your own rule; and filling المهملات with feed rows would bury the records staff actually need to recover. |
+| `DELETE /admin/banned-words/:id` (blocked words) | The blocklist is held in memory with no expiry, and only its own code refreshes that copy. Routing the delete around it would leave a word you removed **still being blocked** until the server restarts — and the restore path could not refresh it either. Re-typing a word takes seconds; silently enforcing one you deleted is the worse failure. |
+
+**Also fixed in the Trash page:** the new rows would have shown a bare id (their
+display text lives in `name_ar` / `label_ar` / `body`, which the preview did not
+look at) and their module column would have printed the raw English table name
+into the Arabic UI. Both corrected.
+
+**Still not built:** the "employees get أرشفة instead of حذف" half of H15.
+Archive exists only for user accounts, not for the other resources.
 
 ### H10 / B7 — the detail page was sending password hashes (2026-08-15)
 

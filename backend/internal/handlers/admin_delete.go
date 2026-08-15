@@ -12,10 +12,10 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
 )
 
-// AdminDeleteHandler exposes hard-delete endpoints for Phase 13.
+// AdminDeleteHandler exposes the delete endpoints for Phase 13.
 //
-// Pattern: every handler runs `DELETE FROM <table> WHERE id = $1` and returns:
-//   - 200 {success, id}                     — row deleted
+// Pattern: every handler moves the row to the Trash via trashRow and returns:
+//   - 200 {success, id, trashed}            — row moved to the Trash
 //   - 404 {success:false, error}            — id not found
 //   - 409 {success:false, error}            — FK violation (row is referenced
 //     by another table). Includes the
@@ -36,16 +36,33 @@ func NewAdminDeleteHandler(pool *pgxpool.Pool) *AdminDeleteHandler {
 	return &AdminDeleteHandler{Pool: pool}
 }
 
-// deleteRow moves a row to the Trash instead of hard-deleting it (Phase 7 ·
-// G-06 / A-16): it snapshots the whole row as a JSON document into trash_items,
-// then removes it from the source table — both in one transaction, so a row is
-// never lost nor left half-deleted. A Super-Admin can later restore or purge it.
-// Returns nothing — the caller's handler ends after calling this.
+// deleteRow is the AdminDeleteHandler entry point: parse the :id and trash it.
 func (h *AdminDeleteHandler) deleteRow(c *gin.Context, table string) {
 	id, ok := parseID(c)
 	if !ok {
 		return
 	}
+	trashRow(c, h.Pool, table, id)
+}
+
+// trashRow moves a row to the Trash instead of hard-deleting it (Phase 7 ·
+// G-06 / A-16): it snapshots the whole row as a JSON document into trash_items,
+// then removes it from the source table — both in one transaction, so a row is
+// never lost nor left half-deleted. A Super-Admin can later restore or purge it.
+//
+// H15 — this used to be a private method on AdminDeleteHandler, which is the
+// whole reason 15 of the 31 admin delete routes hard-deleted instead: the
+// catalogue, task and comment handlers live in other files with their own
+// stores and simply could not reach it. It is a package-level function now, so
+// "delete" means the same thing wherever it is written.
+//
+// It writes the HTTP response itself and reports whether the row was trashed,
+// so a caller with a side effect to run afterwards (a cache to invalidate, a
+// notification to send) can key off the result instead of guessing.
+//
+// `table` MUST be a literal from this package — it is interpolated into the SQL.
+// Never pass anything derived from a request.
+func trashRow(c *gin.Context, pool *pgxpool.Pool, table string, id int64) bool {
 	ctx := c.Request.Context()
 
 	// Who performed the delete (for the trash audit trail).
@@ -54,10 +71,10 @@ func (h *AdminDeleteHandler) deleteRow(c *gin.Context, table string) {
 		actor = &u.UserID
 	}
 
-	tx, err := h.Pool.Begin(ctx)
+	tx, err := pool.Begin(ctx)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
-		return
+		return false
 	}
 	defer tx.Rollback(ctx)
 
@@ -69,10 +86,10 @@ func (h *AdminDeleteHandler) deleteRow(c *gin.Context, table string) {
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Not found."})
-			return
+			return false
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
-		return
+		return false
 	}
 
 	// 2) Archive it into the central trash container.
@@ -81,7 +98,7 @@ func (h *AdminDeleteHandler) deleteRow(c *gin.Context, table string) {
 		 VALUES ($1, $2, $3, $4)`, table, id, payload, actor,
 	); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
-		return
+		return false
 	}
 
 	// 3) Remove from the source table. FK cascades still fire for child rows;
@@ -97,17 +114,18 @@ func (h *AdminDeleteHandler) deleteRow(c *gin.Context, table string) {
 				msg = msg + " " + pgErr.Detail
 			}
 			c.JSON(http.StatusConflict, gin.H{"success": false, "error": msg})
-			return
+			return false
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
-		return
+		return false
 	}
 
 	if err = tx.Commit(ctx); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
-		return
+		return false
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "id": id, "trashed": true})
+	return true
 }
 
 // ===== one handler per resource (mirrors admin_edit.go) =====

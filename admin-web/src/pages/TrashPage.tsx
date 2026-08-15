@@ -42,21 +42,56 @@ const MODULE_TKEY: Record<string, string> = {
   campaigns: 'nav.campaigns',
   users: 'nav.users',
   volunteer_missions: 'nav.missions',
+
+  // H15 — the thirteen routes that used to delete permanently. Each maps to
+  // the section it is managed in, because this column is the MODULE, not the
+  // record type. Without an entry here the table would print the raw source
+  // table name — an English database token in an Arabic dashboard.
+  custom_professions: 'nav.volunteers',
+  project_categories: 'nav.project_categories',
+  sponsorship_types: 'nav.sponsorship_types',
+  inkind_categories: 'nav.in_kind',
+  city_sectors: 'nav.city_sectors',
+  city_categories: 'nav.city_categories',
+  media_categories: 'nav.media_categories',
+  case_categories: 'nav.beneficiary',
+  marketplace_categories: 'nav.marketplace_categories',
+  payment_methods: 'nav.payment_methods',
+  marriage_subscription_packages: 'nav.marriage_subscriptions',
+  tasks: 'nav.tasks',
+  post_comments: 'nav.comments',
 }
 
 // Pull a human-readable label out of the snapshot to help identify the record.
-function previewOf(payload: Record<string, unknown>): string {
-  const cand = ['full_name', 'title', 'name', 'product_name', 'reference', 'ref', 'username', 'phone', 'email']
+//
+// H15 — the catalogue rows that now reach the Trash store their display text in
+// per-language columns (`name_ar`, `label_en`, …), not a bare `name`, and a
+// comment's text lives in `body`. Without those the Trash showed a bare id and
+// an admin had to guess what they were about to restore. Reading order: the
+// admin's own language first, then Arabic, then English.
+function previewOf(payload: Record<string, unknown>, locale: string): string {
+  const localized = ['name', 'label', 'title'].flatMap((base) => [
+    `${base}_${locale}`, `${base}_ar`, `${base}_en`,
+  ])
+  const cand = [
+    'full_name', ...localized, 'title', 'name', 'product_name',
+    'reference', 'ref', 'username', 'phone', 'email',
+    'body', 'word', // a moderated comment; a blocked word
+  ]
   for (const k of cand) {
     const v = payload?.[k]
-    if (typeof v === 'string' && v.trim()) return v
+    if (typeof v === 'string' && v.trim()) {
+      const s = v.trim()
+      // A comment body can be a paragraph; the Trash needs a handle, not the text.
+      return s.length > 60 ? `${s.slice(0, 60)}…` : s
+    }
   }
   return ''
 }
 
 export default function TrashPage() {
   const { user } = useAuth()
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const toast = useToast()
   const [items, setItems] = useState<TrashItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -183,7 +218,7 @@ export default function TrashPage() {
     { key: 'record', header: t('page.trash.col_record'), cell: (it) => (
       <div className="cell-stack">
         <strong>{fmtId(it.row_id)}</strong>
-        {previewOf(it.payload) && <span className="muted">{previewOf(it.payload)}</span>}
+        {previewOf(it.payload, locale) && <span className="muted">{previewOf(it.payload, locale)}</span>}
       </div>
     ) },
     { key: 'by', header: t('page.trash.col_deleted_by'), cell: (it) => it.deleted_by_name || <span className="muted">—</span> },

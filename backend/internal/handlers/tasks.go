@@ -148,13 +148,8 @@ func (h *TasksHandler) AdminDelete(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "error": "Invalid task id."})
 		return
 	}
-	if err := h.Tasks.AdminDelete(c.Request.Context(), taskID); err != nil {
-		if errors.Is(err, tasks.ErrNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"status": "error", "error": "Task not found."})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "error": "Unable to delete task."})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"status": "success"})
+	// H15 — to the Trash, not straight out of the table. A task is assigned
+	// work with a person's name on it; "an admin correcting a mis-assignment"
+	// is exactly the misclick the Trash exists for.
+	trashRow(c, h.Tasks.Pool, "tasks", taskID)
 }

@@ -177,6 +177,10 @@ func (s *Store) AdminList(ctx context.Context, userID int64, page, perPage int) 
 }
 
 // AdminDelete removes a task outright (an admin correcting a mis-assignment).
+// H15 — the admin route no longer calls this: DELETE goes through
+// handlers.trashRow so the row lands in the Trash and can be restored.
+// Kept as the low-level primitive; if you wire it to a route again, that
+// route becomes permanently destructive.
 func (s *Store) AdminDelete(ctx context.Context, taskID int64) error {
 	tag, err := s.Pool.Exec(ctx, `DELETE FROM tasks WHERE id = $1`, taskID)
 	if err != nil {
