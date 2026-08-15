@@ -99,21 +99,28 @@ class AppTranslations extends Translations {
     // and the English sentence rendered verbatim in Arabic
     'Eligible support': 'Eligible support',
     'Kafala Support': 'Kafala Support',
-    'Submit help requests and track admin review in one place.': 'Submit help requests and track admin review in one place.',
-    'Monitor sponsorship plans, your submitted projects, and stories.': 'Monitor sponsorship plans, your submitted projects, and stories.',
+    'Submit help requests and track admin review in one place.':
+        'Submit help requests and track admin review in one place.',
+    'Monitor sponsorship plans, your submitted projects, and stories.':
+        'Monitor sponsorship plans, your submitted projects, and stories.',
     'gifts': 'gifts',
     'contributions': 'contributions',
     'Delivered': 'Delivered',
     'Awaiting confirmation': 'Awaiting confirmation',
     'No gifts yet': 'No gifts yet',
-    'Every gift you make appears here with its reference code and delivery status, so you always know where it went.': 'Every gift you make appears here with its reference code and delivery status, so you always know where it went.',
-    'Send the first message to start the conversation.': 'Send the first message to start the conversation.',
-    'Send a support request and track the reply.': 'Send a support request and track the reply.',
+    'Every gift you make appears here with its reference code and delivery status, so you always know where it went.':
+        'Every gift you make appears here with its reference code and delivery status, so you always know where it went.',
+    'Send the first message to start the conversation.':
+        'Send the first message to start the conversation.',
+    'Send a support request and track the reply.':
+        'Send a support request and track the reply.',
     'Flexible': 'Flexible',
     'My volunteer application': 'My volunteer application',
-    'Submit your skills and availability to the institution.': 'Submit your skills and availability to the institution.',
+    'Submit your skills and availability to the institution.':
+        'Submit your skills and availability to the institution.',
     'Sending...': 'Sending...',
-    'Featured campaigns will appear here once published.': 'Featured campaigns will appear here once published.',
+    'Featured campaigns will appear here once published.':
+        'Featured campaigns will appear here once published.',
     'new one for review.': 'new one for review.',
     'edited here.': 'edited here.',
     // ─── A16 · password sign-in and the code-verified password setup ───
@@ -202,6 +209,39 @@ class AppTranslations extends Translations {
         'Goes to the general fund or a project you choose.',
     'Help people in need': 'Help people in need',
     'Where should this go?': 'Where should this go?',
+    // ─── M3 · the five kinds of donation, asked once, before checkout ───
+    // The client's note names all five in Arabic; the Arabic values below are
+    // his own wording. 'In-kind donation' and 'Support the organization' are
+    // NOT repeated here — they already exist above and in the Services hub,
+    // and DonationChannel deliberately reuses those keys.
+    'What kind of donation is this?': 'What kind of donation is this?',
+    'Choose how you would like to give.': 'Choose how you would like to give.',
+    'Cash donation (direct handover)': 'Cash donation (direct handover)',
+    'Hand your gift to a representative or leave it at a collection point.':
+        'Hand your gift to a representative or leave it at a collection point.',
+    'Donation by electronic payment': 'Donation by electronic payment',
+    'Cards, electronic wallets and bank transfer.':
+        'Cards, electronic wallets and bank transfer.',
+    'Donation by balance transfer': 'Donation by balance transfer',
+    'Recharge cards, or transfer to the numbers set aside for donations.':
+        'Recharge cards, or transfer to the numbers set aside for donations.',
+    'Food, clothing, stationery, furniture or home appliances.':
+        'Food, clothing, stationery, furniture or home appliances.',
+    'We could not load the ways you can give.':
+        'We could not load the ways you can give.',
+    'No ways to pay yet': 'No ways to pay yet',
+    'The organization has not published a payment method yet. You can still donate goods below.':
+        'The organization has not published a payment method yet. You can still donate goods below.',
+    'Kind of donation': 'Kind of donation',
+    'Change': 'Change',
+    'this option is not available right now, so every method the organization accepts is shown below.':
+        'this option is not available right now, so every method the organization accepts is shown below.',
+    // The giving TYPE field, now read from GET /api/donation-types instead of
+    // being hardcoded in the checkout widget.
+    'We could not load the donation types.':
+        'We could not load the donation types.',
+    'No donation type has been published yet, so this gift will be recorded as a general donation.':
+        'No donation type has been published yet, so this gift will be recorded as a general donation.',
     'Demo code': 'Demo code',
     'WhatsApp / SMS': 'WhatsApp / SMS',
     'Delivery': 'Delivery',
@@ -326,8 +366,7 @@ class AppTranslations extends Translations {
     // C2 — two filter rows that used to vanish in silence now say so.
     'Could not load the browse categories.':
         'Could not load the browse categories.',
-    'Could not load the sector filters.':
-        'Could not load the sector filters.',
+    'Could not load the sector filters.': 'Could not load the sector filters.',
     'Could not load your sponsorship schedule.':
         'Could not load your sponsorship schedule.',
     'Could not load the comments.': 'Could not load the comments.',
@@ -2779,21 +2818,28 @@ class AppTranslations extends Translations {
     // and the English sentence rendered verbatim in Arabic
     'Eligible support': 'الدعم المتاح',
     'Kafala Support': 'دعم الكفالة',
-    'Submit help requests and track admin review in one place.': 'قدّم طلبات المساعدة وتابع مراجعة الإدارة في مكان واحد.',
-    'Monitor sponsorship plans, your submitted projects, and stories.': 'تابع خطط الكفالة ومشاريعك المقدَّمة والقصص.',
+    'Submit help requests and track admin review in one place.':
+        'قدّم طلبات المساعدة وتابع مراجعة الإدارة في مكان واحد.',
+    'Monitor sponsorship plans, your submitted projects, and stories.':
+        'تابع خطط الكفالة ومشاريعك المقدَّمة والقصص.',
     'gifts': 'مساهمة',
     'contributions': 'مساهمة',
     'Delivered': 'تم التسليم',
     'Awaiting confirmation': 'بانتظار التأكيد',
     'No gifts yet': 'لا توجد مساهمات بعد',
-    'Every gift you make appears here with its reference code and delivery status, so you always know where it went.': 'كل مساهمة تقدّمها تظهر هنا مع رمزها المرجعي وحالة تسليمها، لتعرف دائمًا أين وصلت.',
-    'Send the first message to start the conversation.': 'أرسل أول رسالة لبدء المحادثة.',
-    'Send a support request and track the reply.': 'أرسل طلب دعم وتابع الرد عليه.',
+    'Every gift you make appears here with its reference code and delivery status, so you always know where it went.':
+        'كل مساهمة تقدّمها تظهر هنا مع رمزها المرجعي وحالة تسليمها، لتعرف دائمًا أين وصلت.',
+    'Send the first message to start the conversation.':
+        'أرسل أول رسالة لبدء المحادثة.',
+    'Send a support request and track the reply.':
+        'أرسل طلب دعم وتابع الرد عليه.',
     'Flexible': 'مرن',
     'My volunteer application': 'طلب التطوع الخاص بي',
-    'Submit your skills and availability to the institution.': 'قدّم مهاراتك وأوقات توفّرك إلى المؤسسة.',
+    'Submit your skills and availability to the institution.':
+        'قدّم مهاراتك وأوقات توفّرك إلى المؤسسة.',
     'Sending...': 'جارٍ الإرسال...',
-    'Featured campaigns will appear here once published.': 'ستظهر الحملات المميزة هنا بمجرد نشرها.',
+    'Featured campaigns will appear here once published.':
+        'ستظهر الحملات المميزة هنا بمجرد نشرها.',
     'new one for review.': 'نسخة جديدة للمراجعة.',
     'edited here.': 'تُعدَّل هنا.',
     // ─── A16 · password sign-in and the code-verified password setup ───
@@ -2877,6 +2923,33 @@ class AppTranslations extends Translations {
         'يذهب إلى الصندوق العام أو إلى مشروع تختاره.',
     'Help people in need': 'مساعدة المحتاجين',
     'Where should this go?': 'أين تريد توجيه تبرعك؟',
+    // ─── M3 · أنواع التبرعات المتاحة عند الاختيار ───
+    // The five titles are the client's own Arabic from his note, verbatim.
+    'What kind of donation is this?': 'ما نوع هذا التبرع؟',
+    'Choose how you would like to give.': 'اختر الطريقة التي تريد التبرع بها.',
+    'Cash donation (direct handover)': 'تبرع نقدي (تسليم مباشر)',
+    'Hand your gift to a representative or leave it at a collection point.':
+        'سلّم تبرعك إلى مندوب أو اتركه في نقطة تجميع.',
+    'Donation by electronic payment': 'التبرع عبر وسائل الدفع الإلكتروني',
+    'Cards, electronic wallets and bank transfer.':
+        'البطاقات والمحافظ الإلكترونية والتحويل المصرفي.',
+    'Donation by balance transfer': 'التبرع عبر تحويل الرصيد',
+    'Recharge cards, or transfer to the numbers set aside for donations.':
+        'بطاقات تعبئة الرصيد، أو التحويل إلى الأرقام المخصصة للتبرعات.',
+    'Food, clothing, stationery, furniture or home appliances.':
+        'مواد غذائية، ملابس، قرطاسية، أثاث، أجهزة منزلية.',
+    'We could not load the ways you can give.':
+        'تعذّر تحميل طرق التبرع المتاحة.',
+    'No ways to pay yet': 'لا توجد وسائل دفع بعد',
+    'The organization has not published a payment method yet. You can still donate goods below.':
+        'لم تنشر المنظمة أي وسيلة دفع بعد. لا يزال بإمكانك التبرع بالمواد العينية أدناه.',
+    'Kind of donation': 'نوع التبرع المختار',
+    'Change': 'تغيير',
+    'this option is not available right now, so every method the organization accepts is shown below.':
+        'هذا الخيار غير متاح حالياً، لذلك تظهر أدناه جميع الوسائل التي تقبلها المنظمة.',
+    'We could not load the donation types.': 'تعذّر تحميل أنواع التبرع.',
+    'No donation type has been published yet, so this gift will be recorded as a general donation.':
+        'لم يُنشر أي نوع تبرع بعد، لذلك سيُسجَّل هذا التبرع كتبرع عام.',
     'Demo code': 'رمز تجريبي',
     'WhatsApp / SMS': 'واتساب / رسالة نصية',
     'Delivery': 'طريقة الإرسال',

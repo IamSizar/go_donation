@@ -646,6 +646,70 @@ locales and are reused for the arrows, so only these three are missing.
 > fall back to English for Kurdish (`hint.eg_city` has no ckb/kmr either), so
 > it is the lowest priority of the three.
 
+## donations · M3 the five kinds of donation  (14 keys)
+
+Added 2026-08-16 by the M3 fix, which put one step between the Contribute tab
+and checkout asking what kind of donation this is. Source map:
+`humanitarian/lib/localization/app_translations.dart`.
+
+**Two of the five titles needed nothing** and are deliberately not listed
+below: `In-kind donation` and `Support the organization` already exist in
+`_en`, `_ar` and `_sorani` (`Support the organization` has `_badini` too), and
+`DonationChannel` reuses those exact keys rather than minting synonyms. Same
+for the organization channel's one-line explanation, `Covers running costs:
+servers, subscriptions and administration.`, which is present in all four.
+
+The Arabic below is the **client's own wording** from his donation note,
+verbatim where he supplied it — these are the five labels he asked to see.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `What kind of donation is this?` | What kind of donation is this? | ما نوع هذا التبرع؟ | ckb + kmr |
+| `Choose how you would like to give.` | Choose how you would like to give. | اختر الطريقة التي تريد التبرع بها. | ckb + kmr |
+| `Cash donation (direct handover)` | Cash donation (direct handover) | تبرع نقدي (تسليم مباشر) | ckb + kmr |
+| `Hand your gift to a representative or leave it at a collection point.` | Hand your gift to a representative or leave it at a collection point. | سلّم تبرعك إلى مندوب أو اتركه في نقطة تجميع. | ckb + kmr |
+| `Donation by electronic payment` | Donation by electronic payment | التبرع عبر وسائل الدفع الإلكتروني | ckb + kmr |
+| `Cards, electronic wallets and bank transfer.` | Cards, electronic wallets and bank transfer. | البطاقات والمحافظ الإلكترونية والتحويل المصرفي. | ckb + kmr |
+| `Donation by balance transfer` | Donation by balance transfer | التبرع عبر تحويل الرصيد | ckb + kmr |
+| `Recharge cards, or transfer to the numbers set aside for donations.` | Recharge cards, or transfer to the numbers set aside for donations. | بطاقات تعبئة الرصيد، أو التحويل إلى الأرقام المخصصة للتبرعات. | ckb + kmr |
+| `Food, clothing, stationery, furniture or home appliances.` | Food, clothing, stationery, furniture or home appliances. | مواد غذائية، ملابس، قرطاسية، أثاث، أجهزة منزلية. | ckb + kmr |
+| `We could not load the ways you can give.` | We could not load the ways you can give. | تعذّر تحميل طرق التبرع المتاحة. | ckb + kmr |
+| `No ways to pay yet` | No ways to pay yet | لا توجد وسائل دفع بعد | ckb + kmr |
+| `The organization has not published a payment method yet. You can still donate goods below.` | The organization has not published a payment method yet. You can still donate goods below. | لم تنشر المنظمة أي وسيلة دفع بعد. لا يزال بإمكانك التبرع بالمواد العينية أدناه. | ckb + kmr |
+| `Kind of donation` | Kind of donation | نوع التبرع المختار | ckb + kmr |
+| `this option is not available right now, so every method the organization accepts is shown below.` | this option is not available right now, so every method the organization accepts is shown below. | هذا الخيار غير متاح حالياً، لذلك تظهر أدناه جميع الوسائل التي تقبلها المنظمة. | ckb + kmr |
+
+> `Kind of donation` and the existing `Donation type` are **different
+> questions** and must not be given the same Kurdish word. `Donation type` is
+> the giving type — Zakat / Sadaqah / General. `Kind of donation` labels the
+> row reporting which of the five ways to give the donor picked, so the Arabic
+> adds المختار (*the chosen one*) to keep them apart; do the same in Kurdish.
+
+> `Change` was added in the same pass and is listed under the M3 fix here for
+> completeness, but it is a single common verb — check `_sorani`/`_badini` for
+> an existing word before adding a new one.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `Change` | Change | تغيير | ckb + kmr |
+
+## donations · M3 the giving-type field  (2 keys)
+
+The `Donation type` chips stopped being three `const` entries in the checkout
+widget and now come from `GET /api/donation-types` (M7, migration 103). That
+gave the field its own loading, error and empty states, and two new strings
+with them.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `We could not load the donation types.` | We could not load the donation types. | تعذّر تحميل أنواع التبرع. | ckb + kmr |
+| `No donation type has been published yet, so this gift will be recorded as a general donation.` | No donation type has been published yet, so this gift will be recorded as a general donation. | لم يُنشر أي نوع تبرع بعد، لذلك سيُسجَّل هذا التبرع كتبرع عام. | ckb + kmr |
+
+> The type NAMES need nothing here — they are server content, typed in by
+> staff in all four languages on the dashboard screen, and the app renders
+> `name_ckb` / `name_kmr` straight from the row (falling back to `name_en`
+> when staff leave a language blank).
+
 ---
 
 # Part 2b — Backend push / in-app notification templates

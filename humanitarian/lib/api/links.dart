@@ -151,6 +151,12 @@ const String donationOptionsUrl = '${baseUrl}donation-options';
 /// GET: admin-managed donation payment methods for the donate screen (#19).
 const String paymentMethodsUrl = '${baseUrl}payment-methods';
 
+/// GET: admin-managed donor-facing donation types — General / Zakat / Sadaqah
+/// and anything staff add after them (M7, migration 103). The app used to keep
+/// its own hardcoded copy of this list, so a type added from the dashboard was
+/// accepted by the server and never offered to the donor.
+const String donationTypesUrl = '${baseUrl}donation-types';
+
 /// GET: admin-managed "Our Work" categories for the News & Activities filter (#22).
 const String mediaCategoriesUrl = '${baseUrl}media-categories';
 

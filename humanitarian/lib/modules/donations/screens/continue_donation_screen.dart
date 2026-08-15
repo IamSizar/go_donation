@@ -9,6 +9,8 @@ import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/api/payment_methods_api.dart';
 import 'package:flutter_application_1/api/wallet_api.dart';
 import 'package:flutter_application_1/modules/donations/controllers/continue_donation_controller.dart';
+import 'package:flutter_application_1/modules/donations/models/donation_channel.dart';
+import 'package:flutter_application_1/modules/donations/widgets/donation_type_field.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:flutter_application_1/api/project_categories_api.dart';
 import 'package:flutter_application_1/api/module_api.dart';
@@ -31,6 +33,7 @@ class ContinueDonationScreen extends StatefulWidget {
     required this.optionIcon,
     required this.optionColor,
     required this.paymentMethod,
+    required this.channel,
   });
 
   final int amount;
@@ -44,6 +47,12 @@ class ContinueDonationScreen extends StatefulWidget {
   final IconData optionIcon;
   final Color optionColor;
   final String paymentMethod;
+
+  /// M3 — which of the five kinds of donation the donor chose on the step
+  /// before this one. It decides three things here and is not asked again:
+  /// which payment methods are on offer, whether a project may be chosen, and
+  /// whether the gift is filed as operational support.
+  final DonationChannel channel;
 
   @override
   State<ContinueDonationScreen> createState() => _ContinueDonationScreenState();
@@ -69,13 +78,16 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
   ProjectCategory? _selectedProject;
   bool _projectsVisible = false;
 
-  // Where the gift goes. 'cause' = the normal flow (general fund, or the
-  // project/campaign chosen below); 'operational' = "Donation to Support the
-  // Organization", which funds running costs — servers, subscriptions,
-  // administration — rather than a beneficiary. It is its own reporting
-  // section with its own transaction-code prefix, so it is a choice here
-  // rather than another entry in the project list.
-  String _destination = 'cause';
+  // Where the gift goes — 'operational' for "Donation to Support the
+  // Organization" (running costs: servers, subscriptions, administration; its
+  // own reporting section and its own transaction-code prefix), null for an
+  // ordinary cause donation.
+  //
+  // This used to be a pair of tiles ON THIS SCREEN, asked directly above the
+  // payment list. M3 moved the question one screen earlier, where it is one of
+  // the five kinds of donation, so asking it twice would be the duplication
+  // the client reported. It is now derived, never re-asked.
+  String? get _donationKind => widget.channel.donationKind;
 
   // #19 — payment methods are admin-managed (fetched from /api/payment-methods).
   // These two are the offline fallback so the donate form always works.
@@ -84,17 +96,20 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
       title: 'Cash',
       subtitle: 'Pay in person or at a collection point',
       icon: Icons.payments_rounded,
+      methodType: 'cash',
       submitName: 'Cash',
     ),
     _PaymentMethodData(
       title: 'FIB',
       subtitle: 'First Iraqi Bank and supported channels',
       icon: Icons.account_balance_rounded,
+      methodType: 'bank',
       accountNumber: '7510208962',
       submitName: 'FIB',
     ),
   ];
 
+  /// Every method on offer, before the channel filter.
   List<_PaymentMethodData> _paymentMethods = _fallbackMethods;
 
   // True once a payment-methods load has actually failed, so the donor is
@@ -104,10 +119,8 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
   bool _paymentMethodsFailed = false;
 
   // Note #42 — the internal test-phase wallet. Prepended to whatever
-  // admin-managed methods exist (it's not one of them), always at index 0 of
-  // [_displayMethods]; _selectedPaymentIndex stays offset by 1 from
-  // _paymentMethods so existing indexWhere/default logic below is otherwise
-  // unchanged.
+  // admin-managed methods exist (it's not one of them), at index 0 of
+  // [_displayMethods] on the channels that accept it.
   //
   // `null` means "we do not know the balance" — it is the starting state and
   // the state we fall back to when the balance request fails. It is
@@ -123,13 +136,37 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
         ? 'Balance unavailable right now'.tr
         : '${'Balance'.tr}: ${_formatIQD(_walletBalanceIQD!)} IQD',
     icon: Icons.account_balance_wallet_rounded,
+    // A stored electronic balance, so it belongs to the electronic family.
+    methodType: 'wallet',
     submitName: 'app_wallet',
   );
 
-  List<_PaymentMethodData> get _displayMethods => [
-    _walletMethod,
-    ..._paymentMethods,
+  /// The methods that belong to the channel the donor chose (M3).
+  ///
+  /// Empty means the choice made one screen ago has nothing behind it here —
+  /// see [_displayMethods], which refuses to leave the donor with no way to
+  /// pay.
+  List<_PaymentMethodData> get _channelMethods => [
+    if (widget.channel.includesAppWallet) _walletMethod,
+    ..._paymentMethods.where(
+      (m) => widget.channel.acceptsMethodType(m.methodType),
+    ),
   ];
+
+  /// True when the chosen channel matched nothing in the list we ended up
+  /// with, so the donor is being shown every method instead of that family.
+  ///
+  /// Reachable in one way: the catalogue was readable on the step screen and
+  /// not here, so checkout fell back to its built-in Cash/FIB pair, which has
+  /// no `mobile` method in it. Silently widening the list would make the
+  /// channel choice a control that did nothing, so [_ChannelFallbackNote] says
+  /// what happened.
+  bool get _channelHasNoMethods => _channelMethods.isEmpty;
+
+  /// What the donor actually sees, in order.
+  List<_PaymentMethodData> get _displayMethods => _channelHasNoMethods
+      ? [_walletMethod, ..._paymentMethods]
+      : _channelMethods;
 
   static String _formatIQD(int n) => NumberFormat('#,##0').format(n);
 
@@ -173,18 +210,32 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
     }
     _submitController = Get.put(ContinueDonationController());
     _loadProjects();
-    // +1: index 0 is always the wallet (see _displayMethods); never
-    // default-select it unless the caller explicitly asked for it by name.
-    _selectedPaymentIndex = 1;
-    final i = _paymentMethods.indexWhere(
-      (m) => m.title == widget.paymentMethod,
-    );
-    if (i >= 0) {
-      _selectedPaymentIndex = i + 1;
-    }
+    _selectPreferredMethod();
     _moneyController.text = widget.amount.toString();
     _loadPaymentMethods();
     _loadWalletBalance();
+  }
+
+  /// Points [_selectedPaymentIndex] at the method the Contribute tab had
+  /// preselected, or at the first one the channel offers.
+  ///
+  /// The index used to be maintained by hand with a `+1` offset for the wallet
+  /// row. That offset stopped being a constant once the channel filter could
+  /// drop the wallet, so the preference is resolved against the list the donor
+  /// actually sees. The default is never the wallet unless the wallet is the
+  /// only thing on offer — spending a stored balance should be a deliberate
+  /// choice.
+  void _selectPreferredMethod() {
+    final shown = _displayMethods;
+    final named = shown.indexWhere((m) => m.title == widget.paymentMethod);
+    if (named >= 0) {
+      _selectedPaymentIndex = named;
+      return;
+    }
+    final firstNonWallet = shown.indexWhere(
+      (m) => m.submitName != 'app_wallet',
+    );
+    _selectedPaymentIndex = firstNonWallet >= 0 ? firstNonWallet : 0;
   }
 
   /// Loads the wallet balance shown on the App Wallet payment card.
@@ -235,15 +286,15 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
             title: m.localizedName,
             subtitle: m.localizedInstructions,
             icon: _iconForMethodType(m.methodType),
+            methodType: m.methodType,
             accountNumber: m.accountNumber,
             accountName: m.accountName,
             submitName: m.nameEn.isNotEmpty ? m.nameEn : m.localizedName,
           ),
       ];
-      final idx = _paymentMethods.indexWhere(
-        (p) => p.title == widget.paymentMethod,
-      );
-      _selectedPaymentIndex = idx >= 0 ? idx + 1 : 1;
+      // The list just changed under the selection, so re-resolve it rather
+      // than leaving an index pointing at whatever now sits in that slot.
+      _selectPreferredMethod();
     });
   }
 
@@ -294,8 +345,13 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
           ? paymentMethod.submitName
           : paymentMethod.title,
       donationType: _donationType,
-      projectSlug: _selectedProject?.slug,
-      donationKind: _destination == 'operational' ? 'operational' : null,
+      // Belt and braces: the project section is hidden on the channels that
+      // cannot target one, and the slug is dropped here too, so a stale
+      // selection can never travel with an operational gift and mis-file it.
+      projectSlug: widget.channel.allowsProjectChoice
+          ? _selectedProject?.slug
+          : null,
+      donationKind: _donationKind,
     );
 
     if (!mounted) return;
@@ -503,20 +559,19 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
                         ),
                       ),
                       const SizedBox(height: 22),
-                      const SectionLabel(title: 'Where should this go?'),
+                      const SectionLabel(title: 'Kind of donation'),
                       const SizedBox(height: 12),
-                      _DestinationSelector(
-                        selected: _destination,
+                      // Reports the choice made on the step before this one
+                      // rather than asking again, and offers the way back to
+                      // change it — the tiles that used to sit here are that
+                      // step now.
+                      _ChosenKindRow(
+                        channel: widget.channel,
                         accentColor: widget.optionColor,
-                        onSelected: (d) => setState(() {
-                          _destination = d;
-                          // Supporting the organization is not a project gift,
-                          // so a previously picked project would otherwise be
-                          // sent alongside it and mis-file the donation.
-                          if (d == 'operational') _selectedProject = null;
-                        }),
+                        onChange: () => Get.back<void>(),
                       ),
-                      if (_projectsVisible && _destination == 'cause') ...[
+                      if (_projectsVisible &&
+                          widget.channel.allowsProjectChoice) ...[
                         const SizedBox(height: 22),
                         const SectionLabel(title: 'Project'),
                         const SizedBox(height: 12),
@@ -538,8 +593,11 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
                       const SizedBox(height: 22),
                       const SectionLabel(title: 'Donation type'),
                       const SizedBox(height: 12),
-                      _DonationTypeSelector(
-                        selected: _donationType,
+                      // The three types this widget used to hardcode are rows
+                      // in the dashboard now (migration 103), so it asks the
+                      // server what to offer.
+                      DonationTypeField(
+                        selectedSlug: _donationType,
                         accentColor: widget.optionColor,
                         onSelected: (t) => setState(() => _donationType = t),
                       ),
@@ -562,6 +620,13 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
                         ),
                         const SizedBox(height: 12),
                       ],
+                      // The channel chosen a screen ago matched none of the
+                      // methods we ended up with. Never silently widen the
+                      // list — say what happened.
+                      if (_channelHasNoMethods) ...[
+                        _ChannelFallbackNote(channel: widget.channel),
+                        const SizedBox(height: 12),
+                      ],
                       ...List.generate(_displayMethods.length, (index) {
                         final paymentMethod = _displayMethods[index];
                         final isSelected = index == _selectedPaymentIndex;
@@ -572,6 +637,7 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
                             isSelected: isSelected,
                             accentColor: widget.optionColor,
                             onTap: () {
+                              AppHaptics.selection();
                               setState(() => _selectedPaymentIndex = index);
                             },
                           ),
@@ -1098,129 +1164,6 @@ class _CheckoutTextField extends StatelessWidget {
   }
 }
 
-class _DonationTypeOption {
-  const _DonationTypeOption({
-    required this.value,
-    required this.label,
-    required this.icon,
-  });
-
-  final String value;
-  final String label;
-  final IconData icon;
-}
-
-/// Segmented selector for the donor-facing donation type (#16): General / Zakat
-/// / Sadaqah. Stored on the donation and orthogonal to the campaign choice.
-class _DonationTypeSelector extends StatelessWidget {
-  const _DonationTypeSelector({
-    required this.selected,
-    required this.accentColor,
-    required this.onSelected,
-  });
-
-  final String selected;
-  final Color accentColor;
-  final ValueChanged<String> onSelected;
-
-  static const List<_DonationTypeOption> _options = [
-    _DonationTypeOption(
-      value: 'general',
-      label: 'General',
-      icon: Icons.volunteer_activism_rounded,
-    ),
-    _DonationTypeOption(value: 'zakat', label: 'Zakat', icon: Icons.mosque),
-    _DonationTypeOption(
-      value: 'sadaqah',
-      label: 'Sadaqah',
-      icon: Icons.favorite_rounded,
-    ),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        for (int i = 0; i < _options.length; i++) ...[
-          if (i > 0) const SizedBox(width: 10),
-          Expanded(
-            child: _DonationTypeChip(
-              option: _options[i],
-              selected: selected == _options[i].value,
-              accentColor: accentColor,
-              onTap: () => onSelected(_options[i].value),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-class _DonationTypeChip extends StatelessWidget {
-  const _DonationTypeChip({
-    required this.option,
-    required this.selected,
-    required this.accentColor,
-    required this.onTap,
-  });
-
-  final _DonationTypeOption option;
-  final bool selected;
-  final Color accentColor;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: AppMotion.resolve(context, AppMotion.snapDuration),
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
-          decoration: BoxDecoration(
-            color: selected
-                ? accentColor.withValues(alpha: 0.14)
-                : AppThemeConfig.surface(context),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: selected ? accentColor : AppThemeConfig.border(context),
-              width: selected ? 2 : 1,
-            ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                option.icon,
-                size: 22,
-                color: selected
-                    ? accentColor
-                    : AppThemeConfig.mutedText(context),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                option.label.tr,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: selected
-                      ? AppThemeConfig.text(context)
-                      : AppThemeConfig.mutedText(context),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _PaymentMethodCard extends StatelessWidget {
   const _PaymentMethodCard({
     required this.data,
@@ -1364,6 +1307,7 @@ class _PaymentMethodData {
     required this.title,
     required this.subtitle,
     required this.icon,
+    required this.methodType,
     this.accountNumber = '',
     this.accountName = '',
     this.submitName = '',
@@ -1372,137 +1316,104 @@ class _PaymentMethodData {
   final String title; // localized display name
   final String subtitle; // localized instructions
   final IconData icon;
+
+  /// The catalogue's own `method_type` — cash | bank | card | wallet | mobile.
+  ///
+  /// Carried through from [PaymentMethod] so the donation channel chosen one
+  /// screen earlier can filter this list to the family the donor picked (M3).
+  /// Without it the channel choice would be a label with nothing behind it.
+  final String methodType;
   final String accountNumber; // '' → no transfer details for this method
   final String accountName;
   final String submitName; // canonical name (name_en) sent to the backend
 }
 
-/// Where the donation goes: toward a cause (general fund / a project / the
-/// campaign already chosen) or toward keeping the organization running.
+/// Reports the kind of donation chosen on the step before this one, and offers
+/// the way back to change it.
 ///
-/// "Donation to Support the Organization" existed everywhere except here: it
-/// has its own transaction-code prefix (OPS), its own notify phone and its own
-/// Arabic SMS label, and the Admin Panel could file one by hand — but the
-/// donate endpoint derived the section from whether a campaign was attached,
-/// so a donor had no way to make one.
-class _DestinationSelector extends StatelessWidget {
-  const _DestinationSelector({
-    required this.selected,
+/// The two tiles that used to stand here asked "where should this go?" —
+/// cause or organization — directly above the payment list, and nothing on the
+/// screen read the payment choice. That question is one of the five kinds of
+/// donation now (M3), asked once, one screen earlier. What is left here is the
+/// answer, plus the affordance that makes it changeable: a summary with no way
+/// back would be a worse dead end than asking twice.
+class _ChosenKindRow extends StatelessWidget {
+  const _ChosenKindRow({
+    required this.channel,
     required this.accentColor,
-    required this.onSelected,
+    required this.onChange,
   });
 
-  final String selected;
+  final DonationChannel channel;
   final Color accentColor;
-  final ValueChanged<String> onSelected;
+  final VoidCallback onChange;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        _DestinationTile(
-          value: 'cause',
-          title: 'Help people in need'.tr,
-          subtitle: 'Goes to the general fund or a project you choose.'.tr,
-          icon: Icons.volunteer_activism_rounded,
-          selected: selected == 'cause',
-          accentColor: accentColor,
-          onTap: () => onSelected('cause'),
-        ),
-        const SizedBox(height: 10),
-        _DestinationTile(
-          value: 'operational',
-          title: 'Support the organization'.tr,
-          subtitle:
-              'Covers running costs: servers, subscriptions and administration.'
-                  .tr,
-          icon: Icons.settings_suggest_rounded,
-          selected: selected == 'operational',
-          accentColor: accentColor,
-          onTap: () => onSelected('operational'),
-        ),
-      ],
+    return GlassPanel(
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        children: [
+          TileIcon(icon: Icons.category_rounded, color: accentColor),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  channel.titleKey.tr,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14.5,
+                    color: AppThemeConfig.text(context),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  channel.subtitleKey.tr,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    height: 1.4,
+                    color: AppThemeConfig.mutedText(context),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          TextButton(
+            onPressed: () {
+              AppHaptics.selection();
+              onChange();
+            },
+            child: Text('Change'.tr),
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _DestinationTile extends StatelessWidget {
-  const _DestinationTile({
-    required this.value,
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.selected,
-    required this.accentColor,
-    required this.onTap,
-  });
+/// Says why the payment list is wider than the channel the donor picked.
+///
+/// Only shown when the filter matched nothing — which happens when the
+/// catalogue was readable on the step screen and unreachable here, so this
+/// screen fell back to its built-in Cash/FIB pair. Widening the list without
+/// saying so would turn the choice made a moment ago into a control that did
+/// nothing.
+class _ChannelFallbackNote extends StatelessWidget {
+  const _ChannelFallbackNote({required this.channel});
 
-  final String value;
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final bool selected;
-  final Color accentColor;
-  final VoidCallback onTap;
+  final DonationChannel channel;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: AppMotion.resolve(context, AppMotion.snapDuration),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-          decoration: BoxDecoration(
-            color: selected
-                ? accentColor.withValues(alpha: 0.12)
-                : AppThemeConfig.surface(context),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: selected ? accentColor : AppThemeConfig.border(context),
-              width: selected ? 2 : 1,
-            ),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                icon,
-                color: selected
-                    ? accentColor
-                    : AppThemeConfig.mutedText(context),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        color: AppThemeConfig.text(context),
-                        fontWeight: FontWeight.w700,
-                        fontSize: 15,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        color: AppThemeConfig.mutedText(context),
-                        fontSize: 12.5,
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (selected)
-                Icon(Icons.check_circle_rounded, color: accentColor, size: 22),
-            ],
-          ),
-        ),
+    return Text(
+      '${channel.titleKey.tr} — ${'this option is not available right now, so every method the organization accepts is shown below.'.tr}',
+      style: TextStyle(
+        color: AppThemeConfig.mutedText(context),
+        fontSize: 12.5,
+        height: 1.4,
       ),
     );
   }
