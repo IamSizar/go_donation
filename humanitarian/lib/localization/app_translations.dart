@@ -210,6 +210,15 @@ class AppTranslations extends Translations {
     'article': 'Article',
     'Your contributions will appear here once you give.':
         'Your contributions will appear here once you give.',
+    // Support-ticket statuses. Rendered via a 'status_<value>' key with a
+    // localizedTag fallback, so a new status added server-side degrades to a
+    // humanised word rather than showing the key.
+    'status_open': 'Open',
+    'status_pending': 'Pending',
+    'status_in_progress': 'In progress',
+    'status_resolved': 'Resolved',
+    'status_closed': 'Closed',
+    'status_done': 'Done',
     'Registration': 'Registration',
     // Says the registration IS safe before saying what failed, because that is
     // the order the user needs it in — the alarming half first would read as
@@ -2614,6 +2623,12 @@ class AppTranslations extends Translations {
     'article': 'مقال',
     'Your contributions will appear here once you give.':
         'ستظهر مساهماتك هنا بعد أول تبرع.',
+    'status_open': 'مفتوح',
+    'status_pending': 'قيد الانتظار',
+    'status_in_progress': 'قيد المعالجة',
+    'status_resolved': 'تم الحل',
+    'status_closed': 'مغلق',
+    'status_done': 'منجز',
     'Registration': 'التسجيل',
     'Your registration was saved, but your documents did not upload. You can add them from your profile.':
         'تم حفظ تسجيلك، لكن لم يتم رفع مستنداتك. يمكنك إضافتها من ملفك الشخصي.',

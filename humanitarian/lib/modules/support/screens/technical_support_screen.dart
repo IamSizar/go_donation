@@ -5,6 +5,7 @@ import 'package:flutter_application_1/core/design/tokens.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
+import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:get/get.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -333,6 +334,14 @@ class _EscalationCard extends StatelessWidget {
   }
 }
 
+String _statusLabel(String status) {
+  final key = 'status_$status';
+  final translated = key.tr;
+  // GetX hands back the key when there is no entry for it.
+  if (translated != key) return translated;
+  return localizedTag(status);
+}
+
 class _TicketCard extends StatelessWidget {
   const _TicketCard({required this.ticket});
 
@@ -377,7 +386,14 @@ class _TicketCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
-                  'status_$status'.tr,
+                  // A prefixed key first ('status_open'), falling back to
+                  // localizedTag on the bare value. Without the fallback an
+                  // untranslated status renders as the literal key — the app
+                  // was showing "status_open" on a ticket card in the Arabic
+                  // UI. GetX returns the key unchanged when it has no entry,
+                  // so a missing translation is silent, which is exactly how
+                  // this survived.
+                  _statusLabel(status),
                   style: TextStyle(
                     color: done
                         ? Colors.green.shade700
