@@ -88,17 +88,34 @@ func (n *Notifier) Send(ctx context.Context, userID int64, m LocalizedMessage) (
 		return 0, errors.New("LocalizedMessage requires at least Title.En + Body.En")
 	}
 
-	// #31 — respect the user's notification switch. When off, skip silently
-	// (no in-app row, no push). A query error defaults to enabled so a transient
-	// failure never mutes a user.
-	notifEnabled := 1
-	if err := n.Pool.QueryRow(ctx,
-		`SELECT notifications_enabled FROM users WHERE id = $1`, userID).Scan(&notifEnabled); err == nil && notifEnabled == 0 {
-		return 0, nil
-	}
-
 	category := resolveCategory(m.Type)
 	priority := defaultPriority(category)
+
+	// #31 — respect the user's master notification switch, and K7 — respect
+	// their per-category choice. When either says no, skip silently: no in-app
+	// row, no push.
+	//
+	// This gate lives HERE, next to the send, for the reason K7 exists: the
+	// push is composed server-side, so a filter in the app would silence the
+	// in-app list while the phone still lit up. Both answers come back in one
+	// query, so refining the switch did not cost a round trip.
+	//
+	// A query error defaults to enabled, and a user with no preference row for
+	// this category is enabled (COALESCE), so neither a transient failure nor
+	// a category nobody has ever touched can silently mute somebody.
+	notifEnabled := 1
+	categoryEnabled := true
+	if err := n.Pool.QueryRow(ctx, `
+		SELECT u.notifications_enabled,
+		       COALESCE((SELECT p.enabled FROM notification_preferences p
+		                  WHERE p.user_id = u.id AND p.category = $2), TRUE)
+		  FROM users u WHERE u.id = $1`,
+		userID, category,
+	).Scan(&notifEnabled, &categoryEnabled); err == nil {
+		if notifEnabled == 0 || !categoryEnabled {
+			return 0, nil
+		}
+	}
 
 	// Dedupe: same user + EN title + EN body + type. Matches the PHP
 	// helper's behavior so re-running an admin action doesn't double-fire.

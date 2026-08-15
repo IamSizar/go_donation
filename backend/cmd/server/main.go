@@ -505,6 +505,10 @@ func main() {
 			// #31 — per-user notification switch.
 			authed.GET("/profile/notifications", profileH.GetNotificationSetting)
 			authed.POST("/profile/notifications", profileH.SetNotificationSetting)
+			// K7 — the master switch above, refined: one switch per category
+			// of alert, enforced server-side inside notify.Send.
+			authed.GET("/profile/notification-categories", profileH.GetNotificationCategories)
+			authed.POST("/profile/notification-categories", profileH.SetNotificationCategories)
 			// #32 — per-user profile field privacy (which fields are hidden).
 			authed.GET("/profile/privacy-options", profileH.GetPrivacyOptions)
 			authed.GET("/profile/privacy", profileH.GetFieldPrivacy)

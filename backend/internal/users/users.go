@@ -105,6 +105,105 @@ func (s *Store) SetNotificationsEnabled(ctx context.Context, userID int64, enabl
 	return err
 }
 
+// ─── Per-category notification preferences (K7) ─────────────────────────
+
+// NotificationCategory is one switch on the Settings screen's notification
+// section: a category of alert the user can turn off on its own, rather than
+// the single all-or-nothing switch that used to be the only option.
+//
+// The catalogue is data-driven (notification_categories, migration 108), and
+// Enabled is THIS user's effective answer, so the app can render the whole
+// screen from one response.
+type NotificationCategory struct {
+	Category     string `json:"category"`
+	LabelKey     string `json:"label_key"`
+	DisplayOrder int    `json:"display_order"`
+	Enabled      bool   `json:"enabled"`
+}
+
+// NotificationCategories returns every enabled category with this user's
+// choice applied. A category the user has never touched comes back enabled —
+// absence of a row means "on", the same rule GetNotificationsEnabled uses, so
+// nothing is ever silently muted.
+func (s *Store) NotificationCategories(ctx context.Context, userID int64) ([]NotificationCategory, error) {
+	rows, err := s.Pool.Query(ctx, `
+		SELECT c.category, c.label_key, c.display_order,
+		       COALESCE(p.enabled, TRUE)
+		  FROM notification_categories c
+		  LEFT JOIN notification_preferences p
+		         ON p.category = c.category AND p.user_id = $1
+		 WHERE c.enabled = true
+		 ORDER BY c.display_order, c.category`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list notification categories for user %d: %w", userID, err)
+	}
+	defer rows.Close()
+	out := []NotificationCategory{}
+	for rows.Next() {
+		var c NotificationCategory
+		if err := rows.Scan(&c.Category, &c.LabelKey, &c.DisplayOrder, &c.Enabled); err != nil {
+			return nil, fmt.Errorf("scan notification category: %w", err)
+		}
+		// A row can be inserted with no label_key; the app falls back to the
+		// category name so it is usable immediately.
+		if c.LabelKey == "" {
+			c.LabelKey = c.Category
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
+// SetNotificationCategories replaces the user's per-category choices: every
+// category in the catalogue is written as enabled, except those named in
+// disabled. Returns the categories that ended up switched off.
+//
+// It writes the full picture rather than a delta so the stored state always
+// matches what the screen showed — a partial update is how a switch ends up
+// disagreeing with the server about its own position. Unknown category names
+// are dropped: the catalogue is the contract, and keeping a preference nothing
+// will ever read is how a switch starts lying about what it does.
+func (s *Store) SetNotificationCategories(ctx context.Context, userID int64, disabled []string) ([]string, error) {
+	if userID <= 0 {
+		return nil, errors.New("invalid userID")
+	}
+	known, err := s.NotificationCategories(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	off := map[string]bool{}
+	for _, d := range disabled {
+		off[strings.TrimSpace(strings.ToLower(d))] = true
+	}
+
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin notification preference write: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	saved := []string{}
+	for _, c := range known {
+		enabled := !off[c.Category]
+		if !enabled {
+			saved = append(saved, c.Category)
+		}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO notification_preferences (user_id, category, enabled)
+			VALUES ($1, $2, $3)
+			ON CONFLICT (user_id, category)
+			DO UPDATE SET enabled = EXCLUDED.enabled, updated_at = CURRENT_TIMESTAMP`,
+			userID, c.Category, enabled,
+		); err != nil {
+			return nil, fmt.Errorf("save notification preference %q for user %d: %w", c.Category, userID, err)
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit notification preferences: %w", err)
+	}
+	return saved, nil
+}
+
 // PrivacyFieldOption is one toggleable entry in the Privacy Settings screen.
 // The catalogue is data-driven (privacy_field_options, migration 083) so new
 // options can be added without an app change — see that migration's note.

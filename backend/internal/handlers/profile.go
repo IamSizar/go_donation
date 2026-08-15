@@ -46,6 +46,55 @@ func (h *ProfileHandler) GetNotificationSetting(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "enabled": enabled})
 }
 
+// GET /api/profile/notification-categories (K7) — the categories of alert the
+// user can switch on or off individually, each with THIS user's current
+// answer, so the Settings screen renders from one response.
+//
+// The list is data-driven (notification_categories, migration 108), the same
+// arrangement the privacy screen already has: staff can retire a category
+// without an app release.
+func (h *ProfileHandler) GetNotificationCategories(c *gin.Context) {
+	user, ok := auth.UserFromGin(c)
+	if !ok || user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		return
+	}
+	items, err := h.Users.NotificationCategories(c.Request.Context(), user.UserID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "items": items})
+}
+
+// POST /api/profile/notification-categories (K7) — body {disabled: [...]}.
+// Replaces the whole set of per-category choices, deliberately mirroring the
+// shape of /api/profile/privacy so the app has one pattern to follow.
+//
+// The response echoes the categories that actually ended up switched off, so
+// the screen can show real state rather than assume its request landed;
+// categories the catalogue does not list are dropped rather than stored.
+func (h *ProfileHandler) SetNotificationCategories(c *gin.Context) {
+	user, ok := auth.UserFromGin(c)
+	if !ok || user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		return
+	}
+	var req struct {
+		Disabled []string `json:"disabled"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid JSON body."})
+		return
+	}
+	saved, err := h.Users.SetNotificationCategories(c.Request.Context(), user.UserID, req.Disabled)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "disabled": saved})
+}
+
 // GET /api/profile/privacy-options — Privacy Settings spec ("Future
 // Development"): the admin-managed catalogue of fields a user may show or
 // hide. The app renders whatever this returns, so adding an option is a DB
