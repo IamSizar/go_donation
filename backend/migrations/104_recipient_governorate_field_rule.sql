@@ -1,0 +1,55 @@
+-- 104 — L20: the one registration field an admin could not control.
+--
+-- THE GAP THIS CLOSES
+-- L20 asks that "every field's Required/Optional flag" be admin-controllable.
+-- A field is controllable only if it has a row here: SetState
+-- (internal/handlers/field_rules.go) is a pure UPDATE, and when it matches
+-- nothing the route answers 400 "Unknown field." There is no INSERT on any code
+-- path, so a field with no seeded row is frozen forever — never requirable,
+-- never hideable, whatever the dashboard shows.
+--
+-- `recipient_governorate` was that field. The app validates it for role 2
+-- (humanitarian/lib/modules/auth/screens/registration_form.dart:363, reading the
+-- same _governorate value the grantor's field reads), and every sibling in the
+-- family was seeded — grantor_governorate (045), volunteer_governorate,
+-- marriage_governorate (056), case_governorate (054) — but the recipient's was
+-- missed. Measured, not guessed: comparing the 119 field keys in the app's
+-- validation map against the 232 seeded keys, this is the ONLY app field with
+-- no rule row. The visible consequence was an asymmetry the client would hit
+-- directly — a grantor can be forced to give a governorate, an eligible
+-- recipient cannot.
+--
+-- ADDITIVE AND BEHAVIOUR-PRESERVING
+-- One INSERT, no schema change, no column touched, no existing row modified.
+-- State is 'optional' deliberately: with no row at all the field is today
+-- neither required nor hidden, and 'optional' is exactly that behaviour. So
+-- applying this migration changes nothing for any user on any existing form —
+-- it only makes the switch on قواعد الحقول reach the field. Seeding it as
+-- 'required' would have silently started rejecting recipient registrations
+-- that are valid today, which is a behaviour change nobody asked for.
+--
+-- display_order 239 places it immediately before recipient_housing_side (240),
+-- which is where the app puts it: it is the first field of the recipient's
+-- "Housing Information" section.
+--
+-- No index is added or needed. registration_field_rules is looked up by
+-- field_key, which already carries a UNIQUE constraint (migration 045), and
+-- that is the only column any query filters on.
+INSERT INTO registration_field_rules (field_key, state, display_order) VALUES
+  ('recipient_governorate', 'optional', 239)
+ON CONFLICT (field_key) DO NOTHING;
+
+-- ─── DOWN (reversal) ───────────────────────────────────────────────────────
+-- This repo's runner (internal/db/migrate.go) is forward-only and records each
+-- file in schema_migrations; there is no .down.sql convention, so the reversal
+-- is recorded here and was EXECUTED against a local database before this
+-- migration was committed:
+--
+--   DELETE FROM registration_field_rules WHERE field_key = 'recipient_governorate';
+--   DELETE FROM schema_migrations WHERE version = '104_recipient_governorate_field_rule.sql';
+--
+-- Reversing is lossless for user data — this table holds configuration, not
+-- records, and no user row references it. The only effect of a reversal is that
+-- the field goes back to being uncontrollable, and any state an admin had
+-- chosen for it is lost (it would return to behaving as 'optional', which is
+-- what it does today).

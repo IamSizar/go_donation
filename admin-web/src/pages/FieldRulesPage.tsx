@@ -56,6 +56,9 @@ const MARRIAGE_FIELD_LABEL_KEYS: Record<string, string> = {
   gender: 'field.gender',
   age: 'dbfield.age',
   city: 'field.city',
+  // L20 — the fifth member of the governorate family; mapped with the other
+  // four so all five read المحافظة rather than four Arabic and one English.
+  governorate: 'field.governorate',
   social_summary: 'field.social_summary',
   private_notes: 'field.private_notes',
   marital_status: 'field.marital_status',
@@ -100,6 +103,20 @@ const REGISTRATION_FIELD_LABEL_KEYS: Record<string, string> = {
   skills: 'field.skills',
   availability: 'field.availability',
   experience: 'field.experience',
+  // L20 — the role-prefixed governorate family. `recipient_governorate` is new
+  // (migration 104) and the other two already existed; all three are mapped
+  // together so the family reads consistently and so adding the new row does
+  // not put one more humanize()-d English label on the Arabic dashboard.
+  // `field.governorate` is already translated in all four locales.
+  //
+  // These three are only part of the problem: 183 of the 233 rows on this page
+  // still fall through to humanize() and render English here — see NEW FINDING
+  // 9 in VERIFICATION_REPORT.md. That is its own unit of work (most of those
+  // keys have no existing label key in any locale), deliberately not started
+  // inside this row.
+  grantor_governorate: 'field.governorate',
+  recipient_governorate: 'field.governorate',
+  volunteer_governorate: 'field.governorate',
 }
 
 export default function FieldRulesPage() {
