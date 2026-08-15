@@ -649,6 +649,9 @@ const ar: DeepPartial<typeof en> = {
     next: 'التالي',
     previous: 'السابق',
     confirm: 'تأكيد',
+    // يظهر هذا النص للمستفيد داخل التطبيق، لذا يُكتب بلغة موجّهة إليه.
+    reason_title: 'ما سبب تغيير الحالة إلى «{status}»؟',
+    reviewed_by_on: 'روجعت من قبل {name} · {date}',
     required: 'مطلوب',
     upload: 'رفع',
     replace: 'استبدال',

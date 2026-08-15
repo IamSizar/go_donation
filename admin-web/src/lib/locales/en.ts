@@ -661,6 +661,10 @@ const en = {
     next: 'Next',
     previous: 'Previous',
     confirm: 'Confirm',
+    // Shown when a status change needs the reviewer to say why. The applicant
+    // is shown this text in the app, so it is written for them, not for a log.
+    reason_title: 'Why is this being set to “{status}”?',
+    reviewed_by_on: 'Reviewed by {name} · {date}',
     required: 'required',
     upload: 'Upload',
     replace: 'Replace',

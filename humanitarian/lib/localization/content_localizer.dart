@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_application_1/localization/locale_service.dart';
 import 'package:get/get.dart';
+import 'package:intl/intl.dart';
 
 String currentContentLocaleTag([Locale? locale]) {
   return AppLocaleService.contentLocaleTag(locale ?? Get.locale);
@@ -79,4 +80,30 @@ String localizedTag(Object? raw) {
   final spaced = value.replaceAll('_', ' ').replaceAll('-', ' ').trim();
   if (spaced.isEmpty) return '';
   return spaced[0].toUpperCase() + spaced.substring(1);
+}
+
+/// Renders a backend TIMESTAMP as a date a human should read.
+///
+/// WHY THIS EXISTS
+/// The same problem [localizedTag] solves, one field over. Go marshals
+/// `time.Time` as RFC 3339, and several screens interpolated that string
+/// straight into a label — a marketplace order read
+/// "Submitted: 2026-08-15T12:15:35.660229Z" in the Arabic UI. That is a
+/// machine value, in Latin digits, in a right-to-left interface.
+///
+/// [AppLocaleService.syncDateFormatLocale] already pins `Intl.defaultLocale`
+/// on startup and on every language switch (both Kurdish variants fall back to
+/// Arabic calendar data, since `intl` ships no Sorani/Badini month names), so a
+/// bare [DateFormat] here is already locale-correct and needs no argument.
+///
+/// Falls back to the raw string if it will not parse, and to an empty string
+/// for empty input, so a caller can hide the line rather than render a blank.
+String localizedDate(Object? raw) {
+  final value = (raw ?? '').toString().trim();
+  if (value.isEmpty) return '';
+  final parsed = DateTime.tryParse(value);
+  // Unparseable is better shown than swallowed — it means the server sent a
+  // shape we do not know, and hiding it would hide the bug too.
+  if (parsed == null) return value;
+  return DateFormat('dd MMM yyyy').format(parsed.toLocal());
 }

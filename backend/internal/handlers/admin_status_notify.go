@@ -47,7 +47,11 @@ func (h *AdminStatusHandler) notifyOptional() bool {
 
 // --- Beneficiary cases ----------------------------------------------------
 
-func (h *AdminStatusHandler) notifyBeneficiaryCaseDecision(ctx context.Context, caseID int64, newStatus string) {
+// notifyBeneficiaryCaseDecision tells the applicant what was decided — and,
+// on a rejection, WHY. The reason used to be dropped on the floor: the copy
+// said "Please contact support for details" because there were no details to
+// give, which made the user chase an answer the reviewer had already written.
+func (h *AdminStatusHandler) notifyBeneficiaryCaseDecision(ctx context.Context, caseID int64, newStatus, reason string) {
 	if h.notifyOptional() {
 		return
 	}
@@ -69,7 +73,7 @@ func (h *AdminStatusHandler) notifyBeneficiaryCaseDecision(ctx context.Context, 
 	case "approved":
 		msg = notify.BeneficiaryCaseApprovedMsg(title, caseID)
 	case "rejected":
-		msg = notify.BeneficiaryCaseRejectedMsg(title, caseID)
+		msg = notify.BeneficiaryCaseRejectedMsg(title, caseID, reason)
 	default:
 		return
 	}

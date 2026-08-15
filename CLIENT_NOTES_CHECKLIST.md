@@ -463,7 +463,7 @@ real out-of-band OTP for staff) pass both before and after.
 | E5 | **No countdown timer** showing how long until the OTP can be re-requested ("Please wait before requesting another code" with no timer). Related backend requirement: H22 (progressive rate limiting). | App → login | ⬜ |
 | E6 | City Guide: "كيفية اضافة رابط" — how to add a link is unclear | Dashboard → دليل المدينة | ⬜ |
 | E7 | **Trim spaces in phone number fields programmatically** — "إلغاء الفراغات والمساحات الزائدة (Trim Spaces) داخل حقول أرقام الهواتف برمجياً، لمنع تشتت الأرقام وظهورها بشكل غير نظامي عند تحويل الواجهة للغة العربية". `[D p10]` | App + Dashboard, phone inputs | ⬜ |
-| E8 | **Rejection reason never appears in the dashboard** — "إصلاح مشكلة عدم ظهور سبب الرفض في لوحة التحكم، وإلزام النظام بعرض نص وسبب الرفض المكتوب بوضوح". Client also asks that reasons be written in Arabic, and asks **"ماهي الحالات التي تضهر فيها اسباب الرفض"** *(needs owner clarification — which states surface a reason)*. `[D p1, p4]` | Dashboard → المستخدمون / registrations | ⬜ |
+| E8 | **Rejection reason never appears in the dashboard** — "إصلاح مشكلة عدم ظهور سبب الرفض في لوحة التحكم، وإلزام النظام بعرض نص وسبب الرفض المكتوب بوضوح". Client also asks that reasons be written in Arabic, and asks **"ماهي الحالات التي تضهر فيها اسباب الرفض"** *(needs owner clarification — which states surface a reason)*. `[D p1, p4]` | Dashboard → المستخدمون / registrations | 🔎 **beneficiary cases fixed, not deployed** — see E8 notes below |
 | E9 | **No "تعديل الباسوورد" option inside the user edit page** — "إضافة خيار (تعديل الباسوورد) داخل صفحة تعديل اليوزر". `[D p3]` | Dashboard → المستخدمون → تعديل | ⬜ |
 | E10 | **التسجيلات has no details and no export** — "لا يوجد فيها تفاصيل وأيضا لا يوجد فيها خيار التصدير". `[D p4]` | Dashboard → التسجيلات | ⬜ |
 | E11 | Delivery needs an optional **"إيقاف أو أرشفة"** — "إضافة خياري (إيقاف أو أرشفة) لعملية التسليم". `[D p4]` | Dashboard → التبرعات → التسليم | ⬜ |
@@ -474,6 +474,93 @@ real out-of-band OTP for staff) pass both before and after.
 | E16 | **Login phone input must accept international numbers** — "عند تسجيل الدخول يجب أن يكون رقم الهاتف مويد يدعم جميع دول العالم" (country-code support for every country). `[A p34]` | App → login | ⬜ |
 | E17 | **Profile edits must not save until an employee approves** — request goes to the dashboard; "لا تُعتمد التغييرات إلا بعد مراجعتها والموافقة عليها من قبل موظف التطبيق"; employee can accept or reject with a stated reason. `[A p26, p34]` | App → تعديل الملف الشخصي + Dashboard | ⬜ |
 | E18 | **All registration and profile-edit requests go through a review workflow** for donors, volunteers and beneficiaries — "ولا يتم تفعيل الحساب أو عرض بياناته إلا بعد الموافقة النهائية" by the follow-up/evaluation employee. `[A p33]` | App + Dashboard | ⬜ |
+
+### E8 — diagnosis and fix, beneficiary cases (2026-08-15)
+
+**Answering the client's own question — "ماهي الحالات التي تضهر فيها اسباب
+الرفض" — for this resource: `rejected` and `needs_changes` now REQUIRE a
+reason, `approved` clears any earlier one, and every other transition leaves
+the note alone.** Registrations already had a reason flow (`RegistrationsPage`);
+beneficiary cases had none, which is the gap closed here.
+
+**Approving or rejecting an aid case recorded nothing but the word.**
+`POST /admin/beneficiary_cases/:id/status` ran through the generic
+`updateStringStatus`, which writes exactly one column. `beneficiary_cases` has
+carried `review_notes`, `reviewed_by_user_id` and `reviewed_at` since migration
+001 — with an FK on the reviewer — and **nothing ever wrote them**, so:
+
+- the reviewer's reason went nowhere (the only way to record one was to abandon
+  the status control and open the edit modal, which notifies nobody);
+- no query returned the reviewer or the decision date, to the app or the
+  dashboard, so nobody could see who decided;
+- `BeneficiaryCaseRejectedMsg` took no reason and its copy said *"Please
+  contact support for details"* — sending the applicant to ask for an answer a
+  member of staff had already typed.
+
+HANDOFF's acceptance criterion ("reviewer name + rejection reason shown in the
+app") was therefore unreachable by any code path.
+
+**Changed, backend:** `admin_status.go` — `updateStringStatus` now delegates to
+`updateReviewedStringStatus`, which takes an OPT-IN `reviewStamp`. The other
+eleven status resources pass nil and behave byte-for-byte as before; only
+beneficiary cases stamp reviewer + timestamp and record the reason.
+`statusReq.ReviewNotes` is a `*string` so three cases stay apart — absent
+(leave the note), empty (clear it), present (record it). The reviewer is
+written NULL rather than 0 when the actor cannot be resolved, because the
+column carries an FK. · `admin_status_notify.go` passes the reason on. ·
+`templates.go` — `reasonTail` extracted from `RegistrationRejectedMsg` so
+`BeneficiaryCaseRejectedMsg` reuses **those exact four strings** instead of
+composing new Kurdish. · `beneficiary.go` — one shared `caseColumns` projection
+across all three case queries, adding `reviewed_by_name` and `reviewed_at`. The
+name comes from a scalar SUBQUERY, not a join: joining `users` would put a
+second `phone`, `full_name` and `city` in scope and `AdminListCases`' search
+filter matches on exactly those unqualified names.
+
+**Changed, app:** `beneficiary_case_detail_screen.dart` — a Review-decision
+panel directly under the summary (reason, reviewer, date); an applicant who has
+been refused should not read past nine rows of their own data to find out why.
+`_DetailLine` gained `translateValue: false` so a person's name is never
+swapped for a translation it happens to collide with. `verification_status` and
+`priority_level` now route through `localizedTag` — they were printed raw, so
+an Arabic reader saw "needs_changes". Same for the list subtitle, whose
+`replaceAll('_', ' ')` only made the English prettier.
+
+**Changed, dashboard:** `StatusCell` gained an opt-in `reasonRequiredFor`,
+which opens a required reason box (reusing `EditModal`, so validation, Esc,
+click-outside and error display come for free) and does NOT flip the visible
+value until the operator confirms. `BeneficiaryPage` passes
+`['rejected', 'needs_changes']`, sends `review_notes: ''` on approve, and shows
+the reason plus "Reviewed by {name} · {date}" under the status cell — the E8
+complaint itself, since the reason previously lived only inside the edit modal.
+
+**Bulk status changes deliberately collect no reason.** One sentence cannot
+honestly stand for a decision on twenty different cases. They still stamp the
+reviewer and the date, and a bulk approve still clears a stale reason.
+
+**Verified against a real database and the real HTTP endpoint**, on a scratch
+DB migrated from `backend/migrations`:
+
+| Check | Result |
+|---|---|
+| reject with a reason | `review_notes` + `reviewed_by_user_id=8` + `reviewed_at` all persisted |
+| the applicant's notification | *"…was rejected. Reason: Missing the tenancy contract…"* / *"…السبب: …"* |
+| status change with no `review_notes` key | note untouched, reviewer + date still stamped |
+| approve with `review_notes: ""` | stale rejection reason cleared to NULL |
+| app + admin case payloads | `reviewed_by_name: "Sara Al-Rawi"`, `reviewed_at` present |
+
+**Tests:** `backend/internal/notify/templates_review_test.go` and
+`humanitarian/test/localization/case_review_labels_test.dart`. The Flutter one
+was verified to FAIL before the fix — 5 of 7 failing, the case statuses and the
+panel labels having no Arabic at all.
+
+**Not deployed. No production data touched** — all verification ran against a
+scratch database.
+
+**Left deliberately:** `beneficiary_project_requests` uses the same generic
+endpoint and has no review columns, so it is unchanged; giving it the same
+treatment needs a migration and is its own item. The `PATCH` edit form can
+still set `review_notes` without notifying anyone — a second way in that
+predates this and is worth closing separately.
 
 ## F. Missing dashboard features
 

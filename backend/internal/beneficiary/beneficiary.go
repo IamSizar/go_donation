@@ -43,12 +43,19 @@ type Case struct {
 	// non-pointer string is a hard error that used to abort the ENTIRE list
 	// query — one such row broke the admin Cases screen for every row, not
 	// just itself, surfacing as a generic "Database error."
-	VerificationStatus *string   `json:"verification_status"`
-	PublicVisibility   string    `json:"public_visibility"`
-	CategorySlug       *string   `json:"category_slug"`
-	ReviewNotes        *string   `json:"review_notes"`
-	CreatedAt          time.Time `json:"created_at"`
-	UpdatedAt          time.Time `json:"updated_at"`
+	VerificationStatus *string `json:"verification_status"`
+	PublicVisibility   string  `json:"public_visibility"`
+	CategorySlug       *string `json:"category_slug"`
+	ReviewNotes        *string `json:"review_notes"`
+	// Who decided, and when. `beneficiary_cases` has carried
+	// reviewed_by_user_id / reviewed_at since migration 001 and no query ever
+	// returned them, so an applicant could be told "rejected" with no reason
+	// and nobody's name against it. ReviewedByName is resolved server-side —
+	// the app has no business receiving a staff user id it cannot look up.
+	ReviewedByName *string    `json:"reviewed_by_name"`
+	ReviewedAt     *time.Time `json:"reviewed_at"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
 }
 
 // ProjectRequest matches the GET /beneficiary_project_requests response shape.
@@ -161,6 +168,30 @@ const priorityOrderClause = `
     ELSE 5
   END, id DESC`
 
+// caseColumns is the projection every Case query shares, so the three of them
+// and queryCases' Scan cannot drift apart.
+//
+// The reviewer's name comes from a scalar SUBQUERY rather than a join on
+// purpose: joining `users` would put a second `phone`, `full_name` and `city`
+// in scope, and AdminListCases' search filter matches on exactly those
+// unqualified column names. A subquery adds the column without putting
+// anything new in the FROM clause, so no existing WHERE or ORDER BY changes
+// meaning. It is a primary-key lookup on a list capped at 200 rows.
+const caseColumns = `id, user_id, case_code, public_title, public_title_ar,
+	             NULL::text, NULL::text,
+	             full_name, national_id, phone, gender, date_of_birth::text, marital_status,
+	             city, district, address, family_members_count,
+	             income_amount::text, housing_status, work_status,
+	             health_status, education_status, actual_needs,
+	             priority_level, verification_status, public_visibility,
+	             category_slug, review_notes,
+	             (SELECT COALESCE(NULLIF(TRIM(rp.full_name), ''), NULLIF(TRIM(ru.username), ''))
+	                FROM users ru
+	                LEFT JOIN user_profiles rp ON rp.user_id = ru.id
+	               WHERE ru.id = beneficiary_cases.reviewed_by_user_id),
+	             reviewed_at,
+	             created_at, updated_at`
+
 // ListCasesForUser returns the cases owned by the given user (optionally
 // filtered by verification_status).
 func (s *Store) ListCasesForUser(ctx context.Context, userID int64, status string, limit int) ([]Case, error) {
@@ -171,14 +202,7 @@ func (s *Store) ListCasesForUser(ctx context.Context, userID int64, status strin
 		limit = 50
 	}
 	args := []any{userID}
-	q := `SELECT id, user_id, case_code, public_title, public_title_ar,
-	             NULL::text, NULL::text,
-	             full_name, national_id, phone, gender, date_of_birth::text, marital_status,
-	             city, district, address, family_members_count,
-	             income_amount::text, housing_status, work_status,
-	             health_status, education_status, actual_needs,
-	             priority_level, verification_status, public_visibility,
-	             category_slug, review_notes, created_at, updated_at
+	q := `SELECT ` + caseColumns + `
 	        FROM beneficiary_cases
 	       WHERE user_id = $1`
 	if status != "" {
@@ -199,14 +223,7 @@ func (s *Store) ListPublicCases(ctx context.Context, status string, limit int) (
 	if limit <= 0 || limit > 200 {
 		limit = 50
 	}
-	q := `SELECT id, user_id, case_code, public_title, public_title_ar,
-	             NULL::text, NULL::text,
-	             full_name, national_id, phone, gender, date_of_birth::text, marital_status,
-	             city, district, address, family_members_count,
-	             income_amount::text, housing_status, work_status,
-	             health_status, education_status, actual_needs,
-	             priority_level, verification_status, public_visibility,
-	             category_slug, review_notes, created_at, updated_at
+	q := `SELECT ` + caseColumns + `
 	        FROM beneficiary_cases
 	       WHERE verification_status = $1
 	         AND public_visibility <> 'hidden'
@@ -231,7 +248,9 @@ func (s *Store) queryCases(ctx context.Context, q string, args ...any) ([]Case, 
 			&c.IncomeAmount, &c.HousingStatus, &c.WorkStatus,
 			&c.HealthStatus, &c.EducationStatus, &c.ActualNeeds,
 			&c.PriorityLevel, &c.VerificationStatus, &c.PublicVisibility,
-			&c.CategorySlug, &c.ReviewNotes, &c.CreatedAt, &c.UpdatedAt,
+			&c.CategorySlug, &c.ReviewNotes,
+			&c.ReviewedByName, &c.ReviewedAt,
+			&c.CreatedAt, &c.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
@@ -489,14 +508,7 @@ func (s *Store) AdminListCases(ctx context.Context, page, perPage int, status, q
 
 	limitIdx := len(args) + 1
 	offsetIdx := len(args) + 2
-	sqlStr := `SELECT id, user_id, case_code, public_title, public_title_ar,
-	             NULL::text, NULL::text,
-	             full_name, national_id, phone, gender, date_of_birth::text, marital_status,
-	             city, district, address, family_members_count,
-	             income_amount::text, housing_status, work_status,
-	             health_status, education_status, actual_needs,
-	             priority_level, verification_status, public_visibility,
-	             category_slug, review_notes, created_at, updated_at
+	sqlStr := `SELECT ` + caseColumns + `
 	        FROM beneficiary_cases` + where + `
 	       ORDER BY` + priorityOrderClause + ` LIMIT $` + itoa(limitIdx) + ` OFFSET $` + itoa(offsetIdx)
 	args = append(args, perPage, offset)

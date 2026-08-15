@@ -16,6 +16,17 @@ class BeneficiaryCaseDetailScreen extends StatelessWidget {
       fallback: 'Eligible case',
     );
     final needs = (caseItem['actual_needs'] ?? '').toString();
+    // The review outcome. `review_notes` is the reviewer's own words — the
+    // reason behind an approval or a rejection — and reviewed_by_name /
+    // reviewed_at say who decided and when. None of it used to reach this
+    // screen: the applicant saw "rejected" and nothing else, and the rejection
+    // notification told them to go and ask support for the reason a member of
+    // staff had already typed.
+    final reviewNotes = (caseItem['review_notes'] ?? '').toString().trim();
+    final reviewedBy = (caseItem['reviewed_by_name'] ?? '').toString().trim();
+    final reviewedAt = localizedDate(caseItem['reviewed_at']);
+    final hasReview =
+        reviewNotes.isNotEmpty || reviewedBy.isNotEmpty || reviewedAt.isNotEmpty;
 
     return GradientScreen(
       child: SafeArea(
@@ -88,20 +99,64 @@ class BeneficiaryCaseDetailScreen extends StatelessWidget {
                           value: (caseItem['education_status'] ?? '')
                               .toString(),
                         ),
+                        // Both are backend enums ('high', 'under_review',
+                        // 'needs_changes'). _DetailLine only does `.tr`, which
+                        // returns the key unchanged when there is no entry —
+                        // so an Arabic user was reading "needs_changes" in a
+                        // right-to-left UI. localizedTag is the app's single
+                        // mechanism for exactly this.
                         _DetailLine(
                           icon: Icons.priority_high_rounded,
                           label: 'Priority',
-                          value: (caseItem['priority_level'] ?? '').toString(),
+                          value: localizedTag(caseItem['priority_level']),
                         ),
                         _DetailLine(
                           icon: Icons.verified_rounded,
                           label: 'Status',
-                          value: (caseItem['verification_status'] ?? '')
-                              .toString(),
+                          value: localizedTag(caseItem['verification_status']),
                         ),
                       ],
                     ),
                   ),
+                  // The decision, in its own panel directly under the summary
+                  // — an applicant who has been refused should not have to
+                  // read past nine rows of their own data to find out why.
+                  if (hasReview) ...[
+                    const SizedBox(height: 14),
+                    GlassPanel(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'case_review_title'.tr,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          if (reviewNotes.isNotEmpty) ...[
+                            const SizedBox(height: 10),
+                            // Free text a reviewer typed, so it is shown as
+                            // written — NOT through `.tr`, which would try to
+                            // look a whole sentence up as a translation key.
+                            Text(reviewNotes),
+                          ],
+                          _DetailLine(
+                            icon: Icons.person_rounded,
+                            label: 'case_reviewed_by',
+                            value: reviewedBy,
+                            translateValue: false,
+                          ),
+                          _DetailLine(
+                            icon: Icons.event_rounded,
+                            label: 'case_reviewed_at',
+                            value: reviewedAt,
+                            translateValue: false,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   if (needs.trim().isNotEmpty) ...[
                     const SizedBox(height: 14),
                     GlassPanel(
@@ -136,11 +191,21 @@ class _DetailLine extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.value,
+    this.translateValue = true,
   });
 
   final IconData icon;
   final String label;
   final String value;
+
+  /// Whether to run the value through `.tr`.
+  ///
+  /// True for the enum-ish columns most rows carry (`housing_status`,
+  /// `work_status`, …), where the value IS a translation key. False for
+  /// content that only looks like one — a person's name, a formatted date —
+  /// which must never be silently swapped for a translation because it
+  /// happened to collide with a key.
+  final bool translateValue;
 
   @override
   Widget build(BuildContext context) {
@@ -162,7 +227,7 @@ class _DetailLine extends StatelessWidget {
                   style: const TextStyle(fontWeight: FontWeight.w800),
                 ),
                 const SizedBox(height: 3),
-                Text(value.tr),
+                Text(translateValue ? value.tr : value),
               ],
             ),
           ),

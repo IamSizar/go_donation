@@ -226,6 +226,26 @@ class AppTranslations extends Translations {
     'status_resolved': 'Resolved',
     'status_closed': 'Closed',
     'status_done': 'Done',
+
+    // Beneficiary-case review outcome, shown to the applicant.
+    'case_review_title': 'Review decision',
+    'case_reviewed_by': 'Reviewed by',
+    'case_reviewed_at': 'Reviewed on',
+
+    // Beneficiary-case verification_status and priority_level, as the backend
+    // spells them. localizedTag looks up the BARE token, so these are the
+    // keys — without them an Arabic user read "needs_changes" and "high".
+    'draft': 'Draft',
+    'submitted': 'Submitted',
+    'under_review': 'Under review',
+    'needs_changes': 'Needs changes',
+    'approved': 'Approved',
+    'rejected': 'Rejected',
+    'archived': 'Archived',
+    'urgent': 'Urgent',
+    'high': 'High',
+    'medium': 'Medium',
+    'low': 'Low',
     'Registration': 'Registration',
     // Says the registration IS safe before saying what failed, because that is
     // the order the user needs it in — the alarming half first would read as
@@ -2638,6 +2658,22 @@ class AppTranslations extends Translations {
     'status_resolved': 'تم الحل',
     'status_closed': 'مغلق',
     'status_done': 'منجز',
+
+    'case_review_title': 'قرار المراجعة',
+    'case_reviewed_by': 'روجعت من قبل',
+    'case_reviewed_at': 'تاريخ المراجعة',
+
+    'draft': 'مسودة',
+    'submitted': 'تم الإرسال',
+    'under_review': 'قيد المراجعة',
+    'needs_changes': 'بحاجة إلى تعديل',
+    'approved': 'تمت الموافقة',
+    'rejected': 'مرفوض',
+    'archived': 'مؤرشف',
+    'urgent': 'عاجل',
+    'high': 'مرتفعة',
+    'medium': 'متوسطة',
+    'low': 'منخفضة',
     'Registration': 'التسجيل',
     'Your registration was saved, but your documents did not upload. You can add them from your profile.':
         'تم حفظ تسجيلك، لكن لم يتم رفع مستنداتك. يمكنك إضافتها من ملفك الشخصي.',

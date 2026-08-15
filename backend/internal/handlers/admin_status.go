@@ -427,6 +427,16 @@ type statusReq struct {
 	// HoursServed is only read by MissionSignup, on a transition to
 	// "completed" — every other status endpoint ignores it.
 	HoursServed *float64 `json:"hours_served,omitempty"`
+	// ReviewNotes is the reason behind the decision, read only by the
+	// resources that pass a reviewStamp (today: beneficiary cases).
+	//
+	// A POINTER, so three cases stay distinguishable:
+	//   nil    — key absent: leave whatever note is already on the row
+	//            (this is what a bulk status change sends).
+	//   ""     — key present and empty: clear the column, so a stale
+	//            rejection reason cannot survive a later approval.
+	//   "text" — key present: record it.
+	ReviewNotes *string `json:"review_notes,omitempty"`
 }
 
 // ===== Generic helper: update one string column =====
@@ -435,6 +445,34 @@ type statusReq struct {
 // implement it live in admin_status_notify.go; each one looks up the owning
 // user (if any) and fires a 4-language LocalizedMessage.
 type statusNotifyFn func(ctx context.Context, id int64, newStatus string)
+
+// statusReviewNotifyFn is statusNotifyFn plus the reason the reviewer gave,
+// for the resources whose decision records one. Kept separate so the eleven
+// resources that do not record a reason are untouched.
+type statusReviewNotifyFn func(ctx context.Context, id int64, newStatus, reason string)
+
+// reviewStamp names the columns that record WHO decided, WHEN, and WHY, for a
+// resource whose status change is a formal review rather than a bare state
+// flip. Nil for every resource that has no such columns.
+//
+// The columns are always calling-code literals, never user input — same rule
+// as `table` and `column` below.
+type reviewStamp struct {
+	NotesColumn      string
+	ReviewedByColumn string
+	ReviewedAtColumn string
+}
+
+// beneficiaryCaseReview — the three columns migration 001 has carried on
+// `beneficiary_cases` since day one and that nothing ever wrote. Approving or
+// rejecting someone's aid case is a decision a person made, and the record has
+// to say who made it, when, and why: the app shows the applicant the outcome,
+// and "rejected" with no reason and no name attached is not an answer.
+var beneficiaryCaseReview = &reviewStamp{
+	NotesColumn:      "review_notes",
+	ReviewedByColumn: "reviewed_by_user_id",
+	ReviewedAtColumn: "reviewed_at",
+}
 
 // updateStringStatus runs `UPDATE <table> SET <column> = $1 WHERE id = $2`
 // after validating that the new value appears in `allowed`. table and column
@@ -446,6 +484,28 @@ type statusNotifyFn func(ctx context.Context, id int64, newStatus string)
 // but the bell doesn't show anything"). Callbacks swallow their own errors
 // — they never fail the admin's request.
 func (h *AdminStatusHandler) updateStringStatus(c *gin.Context, table, column string, allowed []string, notifyFn statusNotifyFn) {
+	var wrapped statusReviewNotifyFn
+	if notifyFn != nil {
+		// These resources record no reason, so there is none to hand on.
+		wrapped = func(ctx context.Context, id int64, newStatus, _ string) {
+			notifyFn(ctx, id, newStatus)
+		}
+	}
+	h.updateReviewedStringStatus(c, table, column, allowed, nil, wrapped)
+}
+
+// updateReviewedStringStatus is updateStringStatus plus the optional review
+// stamp. When `review` is nil the behaviour is byte-for-byte the old one, which
+// is what the other eleven status resources still get.
+//
+// When `review` is set it additionally writes the reviewer and the decision
+// time on every status change through this endpoint (a status change here IS
+// the review), and the reason when the caller sent one — see statusReq.
+// ReviewNotes for the absent / empty / present distinction.
+func (h *AdminStatusHandler) updateReviewedStringStatus(
+	c *gin.Context, table, column string, allowed []string,
+	review *reviewStamp, notifyFn statusReviewNotifyFn,
+) {
 	id, ok := parseID(c)
 	if !ok {
 		return
@@ -467,9 +527,37 @@ func (h *AdminStatusHandler) updateStringStatus(c *gin.Context, table, column st
 		})
 		return
 	}
+
+	sets := []string{column + " = $1"}
+	args := []any{status}
+	reason := ""
+	if review != nil {
+		// Who decided. NULL rather than 0 when the actor cannot be resolved:
+		// reviewed_by_user_id carries an FK to users(id), and 0 would fail it.
+		var reviewerArg any
+		if actor, ok := auth.UserFromGin(c); ok && actor != nil && actor.UserID > 0 {
+			reviewerArg = actor.UserID
+		}
+		args = append(args, reviewerArg)
+		sets = append(sets, review.ReviewedByColumn+" = $"+strconv.Itoa(len(args)))
+		sets = append(sets, review.ReviewedAtColumn+" = CURRENT_TIMESTAMP")
+
+		if req.ReviewNotes != nil {
+			reason = strings.TrimSpace(*req.ReviewNotes)
+			var notesArg any
+			if reason != "" {
+				notesArg = reason
+			}
+			args = append(args, notesArg)
+			sets = append(sets, review.NotesColumn+" = $"+strconv.Itoa(len(args)))
+		}
+	}
+	args = append(args, id)
+
 	ct, err := h.Pool.Exec(c.Request.Context(),
-		"UPDATE "+table+" SET "+column+" = $1 WHERE id = $2",
-		status, id,
+		"UPDATE "+table+" SET "+strings.Join(sets, ", ")+
+			" WHERE id = $"+strconv.Itoa(len(args)),
+		args...,
 	)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
@@ -480,7 +568,7 @@ func (h *AdminStatusHandler) updateStringStatus(c *gin.Context, table, column st
 		return
 	}
 	if notifyFn != nil {
-		notifyFn(c.Request.Context(), id, status)
+		notifyFn(c.Request.Context(), id, status, reason)
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "id": id, "status": status})
 }
@@ -488,8 +576,8 @@ func (h *AdminStatusHandler) updateStringStatus(c *gin.Context, table, column st
 // ===== Per-resource handlers =====
 
 func (h *AdminStatusHandler) BeneficiaryCase(c *gin.Context) {
-	h.updateStringStatus(c, "beneficiary_cases", "verification_status",
-		beneficiaryCaseStatuses, h.notifyBeneficiaryCaseDecision)
+	h.updateReviewedStringStatus(c, "beneficiary_cases", "verification_status",
+		beneficiaryCaseStatuses, beneficiaryCaseReview, h.notifyBeneficiaryCaseDecision)
 }
 func (h *AdminStatusHandler) ProjectRequest(c *gin.Context) {
 	h.updateStringStatus(c, "beneficiary_project_requests", "status",

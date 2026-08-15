@@ -324,7 +324,15 @@ function CasesTab() {
     async (newStatus: string) => {
       const ids = [...sel.selected]
       const results = await Promise.allSettled(
-        ids.map((id) => api.post(`/api/admin/beneficiary_cases/${id}/status`, { status: newStatus })),
+        // No reason is collected in bulk — a single sentence cannot honestly
+        // stand for a decision on twenty different cases, and the endpoint
+        // leaves the existing note alone when the key is absent. Approving
+        // still clears any earlier rejection reason, so an approved case
+        // cannot show the applicant why it was once refused.
+        ids.map((id) => api.post(`/api/admin/beneficiary_cases/${id}/status`, {
+          status: newStatus,
+          review_notes: newStatus === 'approved' ? '' : undefined,
+        })),
       )
       const ok = results.filter((r) => r.status === 'fulfilled').length
       sel.clear()
@@ -424,6 +432,7 @@ function CasesTab() {
       key: 'status',
       header: t('col.status'),
       cell: (r) => (
+        <div className="cell-stack">
         <StatusCell
           // Note #15 — legacy self-submitted cases can have a null
           // verification_status (backend now defaults new ones to
@@ -431,11 +440,41 @@ function CasesTab() {
           // a normal, editable status instead of an empty/uncontrolled select.
           value={r.verification_status ?? 'submitted'}
           allowed={EDITABLE_CASE_STATUSES}
-          onSave={(next) =>
-            api.post(`/api/admin/beneficiary_cases/${r.id}/status`, { status: next })
+          // Refusing or holding an aid case now requires the reviewer to say
+          // why. The applicant is shown that text, the reviewer's name and the
+          // date in the app — before this the endpoint wrote nothing but the
+          // status, so "rejected" reached them with no reason and nobody's
+          // name against it, and the rejection notification told them to go
+          // and ask support for it.
+          reasonRequiredFor={['rejected', 'needs_changes']}
+          onSave={(next, reason) =>
+            api.post(`/api/admin/beneficiary_cases/${r.id}/status`, {
+              status: next,
+              // Present → recorded. Empty → clears a stale rejection reason,
+              // which is what an approval must do. Absent (undefined, dropped
+              // by JSON.stringify) → the note is left exactly as it is, which
+              // is what an ordinary state change should do.
+              review_notes: reason ?? (next === 'approved' ? '' : undefined),
+            })
           }
           label={t('common.case_ref', { id: r.id })}
         />
+        {/* Client note E8 — "the rejection reason never appears in the
+            dashboard". It never did: the reason lived only inside the edit
+            modal, so an operator scanning the list could not see why a case
+            had been refused, or by whom. */}
+        {r.review_notes && r.review_notes.trim() !== '' && (
+          <span className="muted">{r.review_notes}</span>
+        )}
+        {r.reviewed_by_name && (
+          <span className="muted">
+            {t('common.reviewed_by_on', {
+              name: r.reviewed_by_name,
+              date: r.reviewed_at ? formatDateTime(r.reviewed_at) : '—',
+            })}
+          </span>
+        )}
+        </div>
       ),
     },
     {

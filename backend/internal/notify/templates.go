@@ -561,17 +561,28 @@ func RegistrationApprovedMsg(userID int64) LocalizedMessage {
 	}
 }
 
+// reasonTail renders " Reason: <text>" in each language, or four empty
+// strings when no reason was given, so the sentence reads correctly either way.
+//
+// Extracted from RegistrationRejectedMsg so a second "we said no, here is why"
+// template reuses THESE EXACT four strings rather than composing new Kurdish.
+// Both Kurdish locales use Arabic script, so a plausible-looking guess is the
+// easiest mistake to make here and the hardest to spot.
+func reasonTail(reason string) (en, ar, ckb, kmr string) {
+	reason = strings.TrimSpace(reason)
+	if reason == "" {
+		return "", "", "", ""
+	}
+	return fmt.Sprintf(" Reason: %s", reason),
+		fmt.Sprintf(" السبب: %s", reason),
+		fmt.Sprintf(" هۆکار: %s", reason),
+		fmt.Sprintf(" ئەگەر: %s", reason)
+}
+
 // RegistrationRejectedMsg — admin rejected the registration; the user may edit
 // their details and submit again. reason is optional.
 func RegistrationRejectedMsg(userID int64, reason string) LocalizedMessage {
-	reason = strings.TrimSpace(reason)
-	enTail, arTail, ckbTail, kmrTail := "", "", "", ""
-	if reason != "" {
-		enTail = fmt.Sprintf(" Reason: %s", reason)
-		arTail = fmt.Sprintf(" السبب: %s", reason)
-		ckbTail = fmt.Sprintf(" هۆکار: %s", reason)
-		kmrTail = fmt.Sprintf(" ئەگەر: %s", reason)
-	}
+	enTail, arTail, ckbTail, kmrTail := reasonTail(reason)
 	return LocalizedMessage{
 		Type:              "registration_rejected",
 		RelatedEntityType: "users",
@@ -1145,8 +1156,29 @@ func BeneficiaryCaseApprovedMsg(title string, caseID int64) LocalizedMessage {
 	}
 }
 
-// BeneficiaryCaseRejectedMsg — admin rejected a eligible case.
-func BeneficiaryCaseRejectedMsg(title string, caseID int64) LocalizedMessage {
+// BeneficiaryCaseRejectedMsg — admin rejected a eligible case. reason is
+// optional and carries the reviewer's own words.
+//
+// It used to take no reason, and the copy said "Please contact support for
+// details" because there were none to give — sending the applicant to chase an
+// answer the reviewer had already typed. The tail comes from the shared
+// reasonTail so this reuses RegistrationRejectedMsg's exact four strings, not
+// a fresh guess at Kurdish.
+func BeneficiaryCaseRejectedMsg(title string, caseID int64, reason string) LocalizedMessage {
+	enTail, arTail, ckbTail, kmrTail := reasonTail(reason)
+	// With no reason on file the old "contact support" line is still the only
+	// honest next step; with one, it would be telling the user to go and ask
+	// for something they have just been handed.
+	enBody := fmt.Sprintf("Your eligible case \"%s\" was rejected. Please contact support for details.", title)
+	arBody := fmt.Sprintf("تم رفض حالة المستحق \"%s\". يرجى التواصل مع الدعم للمزيد من التفاصيل.", title)
+	ckbBody := fmt.Sprintf("دۆسیە مستحقیت «%s» ڕەتکرایەوە. تکایە پەیوەندی بە پشتگیریەوە بکە.", title)
+	kmrBody := fmt.Sprintf("دۆسیا تە یا هەژاری «%s» هاتە رەتکرن. ژکەرەما خۆ دگەل پشتگیریێ پەیوەندیێ بکە.", title)
+	if enTail != "" {
+		enBody = fmt.Sprintf("Your eligible case \"%s\" was rejected.", title) + enTail
+		arBody = fmt.Sprintf("تم رفض حالة المستحق \"%s\".", title) + arTail
+		ckbBody = fmt.Sprintf("دۆسیە مستحقیت «%s» ڕەتکرایەوە.", title) + ckbTail
+		kmrBody = fmt.Sprintf("دۆسیا تە یا هەژاری «%s» هاتە رەتکرن.", title) + kmrTail
+	}
 	return LocalizedMessage{
 		Type:              "beneficiary_case_rejected",
 		RelatedEntityType: "beneficiary_cases",
@@ -1157,12 +1189,7 @@ func BeneficiaryCaseRejectedMsg(title string, caseID int64) LocalizedMessage {
 			Ckb: "دۆسیەی مستحق ڕەتکرایەوە",
 			Kmr: "دۆسیا هەژاری هاتە رەتکرن",
 		},
-		Body: LocalText{
-			En:  fmt.Sprintf("Your eligible case \"%s\" was rejected. Please contact support for details.", title),
-			Ar:  fmt.Sprintf("تم رفض حالة المستحق \"%s\". يرجى التواصل مع الدعم للمزيد من التفاصيل.", title),
-			Ckb: fmt.Sprintf("دۆسیە مستحقیت «%s» ڕەتکرایەوە. تکایە پەیوەندی بە پشتگیریەوە بکە.", title),
-			Kmr: fmt.Sprintf("دۆسیا تە یا هەژاری «%s» هاتە رەتکرن. ژکەرەما خۆ دگەل پشتگیریێ پەیوەندیێ بکە.", title),
-		},
+		Body: LocalText{En: enBody, Ar: arBody, Ckb: ckbBody, Kmr: kmrBody},
 	}
 }
 

@@ -383,9 +383,11 @@ String _caseSubtitle(Map<String, dynamic> item) {
 }
 
 String _myCaseSubtitle(Map<String, dynamic> item) {
-  final status = (item['verification_status'] ?? 'submitted')
-      .toString()
-      .replaceAll('_', ' ');
+  // `replaceAll('_', ' ')` only made the backend token prettier — it stayed
+  // English ("under review", "needs changes") in the Arabic UI. localizedTag
+  // is the app's single mechanism for turning a backend tag into a word a
+  // reader should see; it humanises the same way as a last resort.
+  final status = localizedTag(item['verification_status'] ?? 'submitted');
   final base = _caseSubtitle(item);
   final notes = (item['review_notes'] ?? '').toString().trim();
   return [

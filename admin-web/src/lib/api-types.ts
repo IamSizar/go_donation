@@ -231,6 +231,10 @@ export type BeneficiaryCase = {
   public_visibility: string
   category_slug: string | null
   review_notes: string | null
+  // Who decided and when. Resolved server-side to a NAME — the dashboard is
+  // showing an operator a colleague, not a foreign key.
+  reviewed_by_name: string | null
+  reviewed_at: string | null
   created_at: string
   updated_at: string
 }
