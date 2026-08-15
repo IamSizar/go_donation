@@ -48,7 +48,14 @@ const CITY_GUIDE_FIELDS: FieldSpec[] = [
   { key: 'city',          label: 'City',               labelKey: 'field.city',           type: 'text' },
   { key: 'address',       label: 'Address',            labelKey: 'field.address',        type: 'text' },
   { key: 'phone',         label: 'Phone Number',       labelKey: 'field.phone',          type: 'text',     phone: 'contact' },
-  { key: 'website',       label: 'Link / Website',     labelKey: 'field.website',        type: 'text' },
+  // E6 — "كيفية اضافة رابط": the client could not tell what belonged in this
+  // box. It was the only link-ish field on the form with no example, while
+  // `social_links` and `hours` below it both show one, so it read as a
+  // free-text note rather than a URL. A bare URL sample carries no English to
+  // translate (see EditModal's `placeholderKey` note), so it is the same
+  // placeholder in all four locales.
+  { key: 'website',       label: 'Link / Website',     labelKey: 'field.website',        type: 'text',
+    placeholder: 'https://example.com' },
   { key: 'latitude',      label: 'Latitude',           labelKey: 'field.latitude',       type: 'text',     required: true },
   { key: 'longitude',     label: 'Longitude',          labelKey: 'field.longitude',      type: 'text',     required: true },
   { key: 'approx_location', label: 'Map privacy',      labelKey: 'field.map_privacy',    type: 'select',   options: ['exact', 'approx'] },
