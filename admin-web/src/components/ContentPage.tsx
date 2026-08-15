@@ -11,6 +11,11 @@
 // silently overwritten on every save. It is therefore rendered only while the
 // sub-section list is empty — a page with no sub-sections is a plain blob page,
 // exactly as before K12.
+//
+// K13 — a page passed `contact` also edits its own CONTACT DETAILS (migration
+// 112): logo, phone, WhatsApp, email, social links and a localized address.
+// They are validated inline before the Save button will fire, mirroring the
+// server's ValidateContact.
 import { useCallback, useEffect, useState } from 'react'
 import { isAxiosError } from 'axios'
 import { api, describeError, isSuperAdmin } from '../lib/api'
@@ -18,14 +23,16 @@ import { useAuth } from '../lib/auth'
 import { useI18n } from '../lib/i18n'
 import { useToast } from '../lib/toast'
 import { useRegisterSaveAction } from '../lib/saveAction'
+import { validateContactFields } from '../lib/contactFields'
 import PageHead from './PageHead'
 import ContentSectionsEditor, { type ContentSection } from './ContentSectionsEditor'
+import ContentContactEditor, { type ContactValues } from './ContentContactEditor'
 
 type Content = {
   slug: string
   title_en: string; title_ar: string; title_ckb: string; title_kmr: string
   body_en: string; body_ar: string; body_ckb: string; body_kmr: string
-}
+} & ContactValues
 
 const LANGS: Array<{ suf: 'en' | 'ar' | 'ckb' | 'kmr'; labelKey: string; rtl: boolean }> = [
   { suf: 'en', labelKey: 'common.lang_en', rtl: false },
@@ -34,7 +41,22 @@ const LANGS: Array<{ suf: 'en' | 'ar' | 'ckb' | 'kmr'; labelKey: string; rtl: bo
   { suf: 'kmr', labelKey: 'common.lang_badini', rtl: true },
 ]
 
-export default function ContentPage({ slug, titleKey, subtitleKey }: { slug: string; titleKey: string; subtitleKey: string }) {
+export default function ContentPage({
+  slug,
+  titleKey,
+  subtitleKey,
+  contact = false,
+}: {
+  slug: string
+  titleKey: string
+  subtitleKey: string
+  /**
+   * K13 — show the contact-details editor. Passed only by the pages that are
+   * actually a Contact page, so Terms and About are not given six boxes that
+   * their screen has nowhere to render.
+   */
+  contact?: boolean
+}) {
   const { t } = useI18n()
   const { user } = useAuth()
   const toast = useToast()
@@ -42,6 +64,9 @@ export default function ContentPage({ slug, titleKey, subtitleKey }: { slug: str
     slug,
     title_en: '', title_ar: '', title_ckb: '', title_kmr: '',
     body_en: '', body_ar: '', body_ckb: '', body_kmr: '',
+    logo_path: '', contact_phone: '', contact_whatsapp: '', contact_email: '',
+    social_links: '',
+    address_en: '', address_ar: '', address_ckb: '', address_kmr: '',
   }
   const [form, setForm] = useState<Content>(empty)
   const [sections, setSections] = useState<ContentSection[]>([])
@@ -93,7 +118,19 @@ export default function ContentPage({ slug, titleKey, subtitleKey }: { slug: str
 
   const set = (key: keyof Content) => (v: string) => setForm((f) => ({ ...f, [key]: v }))
 
+  // K13 — recomputed on every keystroke so the message under a field appears
+  // and clears as it is fixed, rather than only on submit. Only consulted on a
+  // Contact page: the other pages have no contact boxes to be wrong.
+  const contactErrors = contact ? validateContactFields(form) : {}
+  const hasContactError = Object.keys(contactErrors).length > 0
+
   const save = async () => {
+    // Never let a doomed request fire. The button is disabled below too; this
+    // is the guard for the top-bar save action, which shares this function.
+    if (hasContactError) {
+      toast.error(t('content.fix_fields_first'))
+      return
+    }
     setSaving(true)
     try {
       // Order matters. The page PUT writes `body_*` verbatim; the sections PUT
@@ -122,7 +159,7 @@ export default function ContentPage({ slug, titleKey, subtitleKey }: { slug: str
   // for a non-Super-Admin — who sees the "restricted" panel instead of a form,
   // and for whom the backend would refuse the PUT anyway. The button is
   // disabled in each of those states rather than failing when pressed.
-  useRegisterSaveAction(amSuper && !loading && !saving ? save : null)
+  useRegisterSaveAction(amSuper && !loading && !saving && !hasContactError ? save : null)
 
   if (!amSuper) {
     return (
@@ -140,7 +177,7 @@ export default function ContentPage({ slug, titleKey, subtitleKey }: { slug: str
           <h1>{t(titleKey)}</h1>
           <p className="muted">{t(subtitleKey)}</p>
         </div>
-        <button className="btn primary" onClick={save} disabled={loading || saving}>
+        <button className="btn primary" onClick={save} disabled={loading || saving || hasContactError}>
           {saving ? t('common.saving') : t('common.save')}
         </button>
       </PageHead>
@@ -183,6 +220,15 @@ export default function ContentPage({ slug, titleKey, subtitleKey }: { slug: str
           )}
         </div>
       ))}
+
+      {!loading && contact && (
+        <ContentContactEditor
+          values={form}
+          onChange={(key, value) => set(key)(value)}
+          errors={contactErrors}
+          disabled={saving}
+        />
+      )}
 
       {!loading && (
         <ContentSectionsEditor

@@ -11,6 +11,7 @@ export default function CityGuideContactPage() {
       slug="city-guide-contact"
       titleKey="cityGuideContact.title"
       subtitleKey="cityGuideContact.subtitle"
+      contact
     />
   )
 }

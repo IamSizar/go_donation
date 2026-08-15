@@ -12,7 +12,7 @@ Updated 2026-08-16 again with the 8 keys the K7 alert-categories screen added.
 Updated 2026-08-16 once more with the 2 keys the L19 engagement-profile field
 privacy picker added.
 Updated 2026-08-16 again with the 6 keys the K12 content sub-section editor
-added.
+added, and the 9 keys the K13 contact-details editor added.
 
 ## Why these are empty rather than wrong
 
@@ -25,7 +25,7 @@ made on this project once and had to be reverted.
 Every key below currently renders its **English** string to a Kurdish user.
 That is deliberate and safe. It is not a crash, and it is not Arabic text.
 
-## Count: 254 keys need Kurdish
+## Count: 263 keys need Kurdish
 
 | Client | Sorani (ckb) | Badini (kmr) | Distinct keys |
 |---|---|---|---|
@@ -38,7 +38,8 @@ That is deliberate and safe. It is not a crash, and it is not Arabic text.
 | Admin dashboard — audited `status.*` | 20 | 20 | 20 |
 | Admin dashboard — B1 notification types (new) | 81 | 81 | *same 81 words as above* |
 | Admin dashboard — K12 content sub-sections (new) | 6 | 6 | 6 |
-| **Total distinct words to translate** | | | **254** |
+| Admin dashboard — K13 contact details (new) | 9 | 9 | 9 |
+| **Total distinct words to translate** | | | **263** |
 
 > **The dashboard figure above is a floor, not a ceiling — and it is the one
 > number in this file that was never fully measured.** Counting key paths in
@@ -844,6 +845,32 @@ Arabic are written; ckb/kmr fall back to English until these are filled in.
 > organization / its goals), not a section of the dashboard and not the
 > `section` field on a volunteer mission. Pick a word that reads as "part of
 > this page".
+
+## K13 contact details (9 keys)
+
+New vocabulary added by the "تواصل معنا: logo, phone, WhatsApp, email, socials,
+address" editor (`admin-web/src/components/ContentContactEditor.tsx`). English
+and Arabic are written; ckb/kmr fall back to English until these are filled in.
+
+The five `error.*` rows are shown UNDER the field as the operator types, and are
+the same codes the server sends back if a save gets past the form — so one
+translation covers both. They must say what to type, not just that something is
+wrong.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `content.contact_title` | Contact details | بيانات التواصل | ckb + kmr |
+| `content.contact_desc` | Shown on this page in the app, so people can call, message or find you. Leave a field empty to hide it. | تظهر في هذه الصفحة داخل التطبيق ليتمكّن الناس من الاتصال بك أو مراسلتك أو الوصول إليك. اترك الحقل فارغاً لإخفائه. | ckb + kmr |
+| `content.fix_fields_first` | Fix the highlighted fields before saving. | صحّح الحقول المميّزة قبل الحفظ. | ckb + kmr |
+| `field.whatsapp` | WhatsApp | واتساب | ckb + kmr |
+| `error.invalid_phone` | Enter a phone number — at least 5 digits. Spaces, +, brackets and an extension are fine. | أدخل رقم هاتف — خمسة أرقام على الأقل. المسافات وعلامة + والأقواس ورقم التحويلة مقبولة. | ckb + kmr |
+| `error.invalid_email` | Enter a full email address, like info@example.com. | أدخل بريداً إلكترونياً كاملاً، مثل info@example.com. | ckb + kmr |
+| `error.invalid_social_links` | One link per line, each with a website address — for example facebook.com/yourpage. | رابط واحد في كل سطر، وكل رابط يتضمّن عنوان موقع — مثل facebook.com/yourpage. | ckb + kmr |
+| `error.invalid_logo_path` | That logo could not be used. Upload the image again. | تعذّر استخدام هذا الشعار. أعد رفع الصورة. | ckb + kmr |
+| `error.value_too_long` | This is too long. Please shorten it. | النص طويل جداً. يرجى اختصاره. | ckb + kmr |
+
+> `info@example.com` and `facebook.com/yourpage` are EXAMPLES the reader copies
+> the shape of — leave them in Latin script exactly as they are.
 
 ---
 

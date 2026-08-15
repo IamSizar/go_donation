@@ -441,6 +441,10 @@ const en = {
     section_n: 'Sub-section {n}',
     add_section: 'Add sub-section',
     body_from_sections: 'The body is built from the sub-sections below, so edit the text there.',
+    // K13 — structured contact details for a Contact page.
+    contact_title: 'Contact details',
+    contact_desc: 'Shown on this page in the app, so people can call, message or find you. Leave a field empty to hide it.',
+    fix_fields_first: 'Fix the highlighted fields before saving.',
   },
   sponsorshipTypes: {
     title: 'Assistance types',
@@ -1137,6 +1141,14 @@ const en = {
     reply_failed: 'The reply could not be saved. Please try again in a moment.',
     invalid_ticket_id: 'That ticket reference is not valid. Refresh the list and try again.',
     invalid_body: 'The form could not be sent. Refresh the page and try again.',
+    // K13 — contact-detail validation. Shown inline under the field as the
+    // operator types, and again if the server refuses a save that got past the
+    // form (it sends the same codes).
+    invalid_phone: 'Enter a phone number — at least 5 digits. Spaces, +, brackets and an extension are fine.',
+    invalid_email: 'Enter a full email address, like info@example.com.',
+    invalid_social_links: 'One link per line, each with a website address — for example facebook.com/yourpage.',
+    invalid_logo_path: 'That logo could not be used. Upload the image again.',
+    value_too_long: 'This is too long. Please shorten it.',
   },
 
   // Singular entity nouns — used by the live-feed highlight banner.
@@ -1534,6 +1546,9 @@ const en = {
     next_due_date: 'Next due date', needed_volunteers: 'Needed volunteers', national_id: 'National ID',
     mission_date: 'Mission date', media: 'Media', male_count: 'Male count', longitude: 'Longitude',
     logo: 'Logo', location: 'Location', link_url: 'Link URL', lifecycle_status: 'Lifecycle status',
+    // K13 — the Contact page keeps WhatsApp separate from the phone number,
+    // because in practice they are often not the same line.
+    whatsapp: 'WhatsApp',
     gallery: 'Gallery (extra images)', location_ar: 'Location (Arabic)',
     location_sorani: 'Location (Sorani)', location_badini: 'Location (Badini)',
     latitude: 'Latitude', kind: 'Kind', item: 'Item', income_amount: 'Income amount',

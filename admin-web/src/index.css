@@ -3073,3 +3073,21 @@ html[dir='rtl'] .data-table th {
   overflow-wrap: anywhere;
 }
 .activity-meta { margin: 4px 0 0; font-size: var(--text-sm); }
+
+/* Inline per-field validation message (K13 contact details).
+   Sits directly under the input it belongs to, in the danger tone, so the
+   operator reads the rule they broke at the box rather than in a toast after a
+   failed save. `aria-invalid` on the input carries the same fact to a screen
+   reader, and the red border below is what makes it visible without relying on
+   colour alone being noticed. */
+.field-error {
+  display: block;
+  margin-top: 4px;
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  color: var(--tone-danger-fg-strong);
+}
+.field input[aria-invalid='true'],
+.field textarea[aria-invalid='true'] {
+  border-color: var(--color-danger);
+}

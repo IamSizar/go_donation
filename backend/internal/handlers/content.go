@@ -84,6 +84,24 @@ func (h *ContentHandler) AdminUpdateContent(c *gin.Context) {
 	}
 	body.Slug = slug
 
+	// K13 — validate the contact details at the trust boundary. The dashboard
+	// checks the same rules inline so this is rarely reached, but a client is
+	// never the control, and a phone number that is prose would render as a
+	// tappable button that dials nothing.
+	//
+	// `field` tells the caller WHICH box is wrong and `code` is the stable key
+	// the dashboard translates, so the operator reads the reason in their own
+	// language instead of English from a Go file.
+	if field, code := content.ValidateContact(body); field != "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   content.ContactRejectionMessage(field, code),
+			"code":    code,
+			"field":   field,
+		})
+		return
+	}
+
 	var updatedBy int64
 	if actor, ok := auth.UserFromGin(c); ok && actor != nil {
 		updatedBy = actor.UserID

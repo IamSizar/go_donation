@@ -11,6 +11,7 @@ export default function MarriageContactPage() {
       slug="marriage-contact"
       titleKey="marriageContact.title"
       subtitleKey="marriageContact.subtitle"
+      contact
     />
   )
 }
