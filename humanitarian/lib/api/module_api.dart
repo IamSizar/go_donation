@@ -190,31 +190,28 @@ class ModuleApi {
     }
   }
 
-  /// 27.2 — authed GET with a single self-heal retry. In the moments right
-  /// after login the session token can be briefly stale/not-yet-attached; the
-  /// first request then comes back 401/403 and the screen would otherwise be
-  /// stuck on a hard error. On that auth failure we refresh the session ONCE
-  /// (re-derives a token from the stored phone) and retry with fresh headers
-  /// before surfacing the error. This is what makes "screens fail on login"
-  /// self-heal instead of dead-ending.
+  /// Authed GET.
+  ///
+  /// 27.2 added a "self-heal" retry here: on a 401/403 it re-derived a token
+  /// from the stored phone number and replayed the request. A16 removed it,
+  /// because that re-derivation was the authentication hole — the server no
+  /// longer trades a phone number for a session, so the retry could only ever
+  /// fail, and the refresh it called cleared the caller's still-valid token on
+  /// the way (which is how a plain 403 — an approval gate, a guest
+  /// restriction — used to sign a working user out).
+  ///
+  /// A 401/403 is now surfaced to the caller, which renders the screen's
+  /// designed error state; the next launch routes an expired session to
+  /// sign-in.
   Future<http.Response> _authedGet(String url) async {
     Uri buildUri() => Uri.parse(url).replace(
       queryParameters: withApiAuthQueryParameters(
         Uri.parse(url).queryParameters,
       ),
     );
-    var response = await http
+    return http
         .get(buildUri(), headers: withApiAuthHeaders())
         .timeout(_requestTimeout);
-    if (response.statusCode == 401 || response.statusCode == 403) {
-      final refreshed = await ensureApiSession(forceRefresh: true);
-      if (refreshed) {
-        response = await http
-            .get(buildUri(), headers: withApiAuthHeaders())
-            .timeout(_requestTimeout);
-      }
-    }
-    return response;
   }
 
   Future<List<Map<String, dynamic>>> getItems(String url) async {

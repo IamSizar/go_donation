@@ -42,14 +42,17 @@ String get publicBaseUrl {
   return '$root/';
 }
 
-/// Phone-only login. POST JSON: `phone` or `number`.
-/// Returns `status`, `user_id`, `returning_user`, `has_role`, `role_id`, `account`,
-/// `access_token`, `token_type`, `expires_at`, `expires_in`.
+/// Phone + PASSWORD login. POST JSON: `phone` (or `number`) and `password`.
+/// Returns `status`, `user_id`, `returning_user`, `has_role`, `role_id`,
+/// `account`, `access_token`, `token_type`, `expires_at`, `expires_in`.
+///
+/// A16 — this endpoint no longer accepts a phone number on its own, and no
+/// longer creates accounts. A number with no password on file is answered with
+/// `401 {code: "otp_required"}`: phone-only sign-in and sign-up both go through
+/// [otpRequestUrl] + [otpVerifyUrl], which verify a code before issuing a
+/// token. (The companion `insertUserWithPhoneUrl` constant was deleted with the
+/// silent session re-mint that used it — see api/auth_session.dart.)
 const String loginUrl = '${baseUrl}auth/login/';
-
-/// After OTP is verified, POST JSON: `phone` or `number` only (`insertUserWithPhone`).
-/// Same response shape as `loginUrl` — including the Bearer token in `access_token`.
-const String insertUserWithPhoneUrl = '${baseUrl}auth/login/';
 
 /// Phase 19 — OTP-based login (OTPIQ → WhatsApp first, SMS fallback).
 ///

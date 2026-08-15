@@ -292,6 +292,37 @@ func (s *Store) GetPasswordHash(ctx context.Context, userID int64) (string, erro
 	return *hash, nil
 }
 
+// StaffTierByPhone returns the id and staff_tier of the account holding this
+// phone. Returns (0, "", nil) when no account has the number — an unknown
+// phone is not staff, which is the only "not staff" answer this function is
+// allowed to give without an error.
+//
+// A16 — backs the sign-in gates that must know whether a phone number belongs
+// to a STAFF account BEFORE any token is minted for it. The caller is expected
+// to fail CLOSED on a non-nil error: "we could not tell" must never be read as
+// "not staff", or a database flap re-opens the hole this gate exists to close.
+func (s *Store) StaffTierByPhone(ctx context.Context, phone string) (int64, string, error) {
+	phone = strings.TrimSpace(phone)
+	if phone == "" {
+		return 0, "", nil
+	}
+	var id int64
+	var tier *string
+	err := s.Pool.QueryRow(ctx,
+		`SELECT id, staff_tier FROM users WHERE phone = $1 LIMIT 1`, phone,
+	).Scan(&id, &tier)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, "", nil
+		}
+		return 0, "", err
+	}
+	if tier == nil {
+		return id, "", nil
+	}
+	return id, strings.TrimSpace(*tier), nil
+}
+
 // GetByUsername looks up an account by username and returns its id, bcrypt
 // password hash, is_admin flag, and is_guest flag. Returns id=0 (and nil
 // error) when no such username exists, so callers can map that to a generic

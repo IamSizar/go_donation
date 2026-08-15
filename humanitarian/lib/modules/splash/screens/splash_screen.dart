@@ -58,12 +58,16 @@ class _SplashScreenState extends State<SplashScreen>
     final accessToken = currentApiAccessToken();
     if ((userId != null && userId.isNotEmpty) &&
         (accessToken == null || accessToken.isEmpty)) {
-      final restored = await ensureApiSession(expectedUserId: userId);
-      if (!restored) {
-        await sharedPreferences.remove('id_user');
-        await sharedPreferences.remove('role_id');
-        await sharedPreferences.remove('registration_status');
-      }
+      // A16 — a stored identity with no token used to be silently re-armed by
+      // POSTing the remembered phone number to /api/auth/login, which minted a
+      // fresh session for anyone who knew the number. That trade no longer
+      // exists: a token is only issued to a sign-in that verified a password or
+      // an out-of-band code. So a missing token means the session really is
+      // over — drop the stale identity and let the routing below land on
+      // welcome/sign-in instead of on a signed-in screen with no session.
+      await sharedPreferences.remove('id_user');
+      await sharedPreferences.remove('role_id');
+      await sharedPreferences.remove('registration_status');
     }
     final effectiveUserId = sharedPreferences.getString('id_user');
     String regStatus = '';

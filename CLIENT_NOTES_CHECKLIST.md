@@ -35,6 +35,7 @@ PDF repeats the same complaint). Groups G–N are new material extracted from th
 | A13 | **The `mark completed` button disappears when clicked** — "عند اختيار هذا الزر المجاور للعرض والتعديل يختفي عند الضغط عليه" `[D p6]` | Dashboard → المهام | ⬜ |
 | A14 | **المهام → عرض has no detail page at all** — shows "مورد غير معروف" (unknown resource); no details page exists for `volunteer_missions`. And **there is no back button or route out** — "لايوجد زر او طريقة رجوع عند الدخول لصفحة العرض" `[D p6]` | Dashboard → المهام → عرض | ⬜ |
 | A15 | **SECURITY: ordinary app users can reach the dashboard.** Client asks to close "الثغرة الحالية التي تسمح لهم باستعراض وتعديل الأقسام كالأخبار والحملات والدليل" — block any app user from logging into and browsing/editing dashboard pages; restrict to admin and approved employees only. `[D p9]` | Dashboard auth | 🔎 **confirmed, fixed, not deployed** — see A15 notes below |
+| A16 | **SECURITY: a phone number alone bought a session — including a Super-Admin's.** Found while fixing A15 and raised there as needing its own item. `POST /api/auth/login` issued a 30-day token for any number with no `password_hash`, and no OTP was enforced anywhere on the server. Production id **34** is a `super_admin` with no password. | App + Dashboard auth (shared token store) | 🔎 **confirmed, fixed, not deployed** — see A16 notes below |
 
 ### A3 — diagnosis and fix (2026-08-15)
 
@@ -288,12 +289,113 @@ all. Ids 1, 15, 19 and 34 are staff who must sign in through the app — which i
 how app tokens ended up being the dashboard's de-facto credential in the first
 place.
 
-**Out of scope, found on the way — please track separately:**
-`POST /api/auth/login` issues a token for a phone with **no password_hash**
+**Out of scope, found on the way — now tracked as A16 and fixed there:**
+`POST /api/auth/login` issued a token for a phone with **no password_hash**
 without verifying an OTP; the OTP endpoint is separate and the server never
-requires it. Any account with no password (production id 34 — a `super_admin`)
-can therefore be signed in as by anyone who knows the phone number. This is a
-bigger blast radius than A15 and needs its own item; it was not touched here.
+required it. Any account with no password (production id 34 — a `super_admin`)
+could therefore be signed in as by anyone who knew the phone number. This is a
+bigger blast radius than A15 and was not touched here.
+
+**Not deployed.**
+
+### A16 — diagnosis and fix (2026-08-15)
+
+**Confirmed, and wider than reported: there were TWO doors, not one.**
+
+**Door 1 — `POST /api/auth/login` traded a phone number for a session.** The
+handler looked the number up, and *only if* the row had a `password_hash` did it
+ask for a password. No hash meant no question asked: it minted a 30-day Bearer
+token. For an *unknown* number it created the account first, then minted the
+token. Nothing consulted the OTP tables — `/auth/otp/request` and
+`/auth/otp/verify` are separate public endpoints the app merely *chose* to call,
+and a verified code leaves no durable trace (the record is deleted on success),
+so this handler could not have checked one even if it had wanted to. Combined
+with A15's finding that the app and dashboard **share one token store with no
+marker**, the token issued here was a dashboard token.
+
+**Door 2 — the OTP path never checked a password, and demo mode is on in
+production.** `/auth/otp/verify` issues a token for whatever phone verifies a
+code, with no password and no tier check — so it reached *every* staff account,
+including the ones that do have passwords. And on the production backend
+`OTP_DEMO_ENABLED` is **on** while `OTPIQ_API_KEY` is **unset**, so demo is the
+only OTP mode that works there — and demo mode **returns the code to the caller
+in the `/auth/otp/request` response body** (a fixed value besides). A factor that
+hands you the factor is not a factor.
+
+**Production exposure (read-only query, nothing modified):** 36 of 46 accounts
+have a phone and no password. Among them:
+
+| id | staff_tier | password | username | exposure before this fix |
+|----|-----------|----------|----------|--------------------------|
+| 34 | `super_admin` | **none** | none | **The reported hole.** Phone number alone → super-admin session. |
+| 1 | `admin` | **none** | none | Same shape, not previously reported. |
+| 15, 19 | `admin`, `super_admin` | yes | none | Password bypassable via the demo-OTP door. |
+| 18 | `super_admin` | yes | `admin` | Same demo-OTP bypass. The only account that can use the dashboard login form. |
+
+**The decision — a token requires a verified factor, and demo is not one.**
+
+1. **`/auth/login` no longer accepts a phone on its own.** A password account
+   verifies its password (unchanged, including the brute-force lockout, which is
+   deliberately *not* incremented when no password was submitted — otherwise
+   anyone could lock a victim out by replaying their number). A passwordless
+   account gets `401 {code: "otp_required"}` and is sent to the OTP flow, which
+   is what the app already uses to sign in. The endpoint also no longer creates
+   accounts.
+2. **A demo OTP can never sign in a staff account** — refused at
+   `/auth/otp/request` (so no such code is ever stored) and again at
+   `/auth/otp/verify` (so codes stored before this shipped can't be spent),
+   `403 {code: "staff_demo_otp_blocked"}`.
+
+**Why not simply bar all staff from the phone path?** Because it would have
+locked four of the five staff accounts out of the platform entirely: only id 18
+has the username *and* password the dashboard door requires, and A15 already
+noted that ids 1, 15, 19 and 34 must sign in through the app. The rule shipped
+instead — staff may not authenticate with a factor that proves nothing — closes
+the reported hole under the *current* production configuration while leaving
+every genuine factor (a password; a real out-of-band OTP once OTPIQ is
+configured) working.
+
+**Why not turn demo mode off?** Because ordinary users sign in with it today —
+the app's login screen defaults to `mode: 'demo'` precisely because
+`OTPIQ_API_KEY` is unset. Turning it off with no SMS provider configured would
+lock out every user on the platform. It is an env flag and therefore the owner's
+call (§2 rule 1). Ordinary users are unaffected by this fix.
+
+**Effect on the production accounts above:** ids 15, 18 and 19 keep access
+(phone + password). **Ids 1 and 34 can no longer sign in** — they have no
+password, no username, and real OTP delivery is not configured, so nothing they
+hold proves who they are. That is the fail-closed outcome, and those two rows
+*are* the vulnerability. Recovery needs no data surgery: id 18 can set a password
+for them from the dashboard (`POST /api/admin/users/:id/password`, Users →
+edit). **No production data was modified.**
+
+**Changed:** `backend/internal/handlers/auth.go` (`Login` verified-factor gate;
+`blockStaffDemoOTP` + its two call sites in `OTPRequest`/`OTPVerify`; every
+refusal carries a translatable `code` and is logged with user id, tier and IP;
+all lookups fail **closed**) · `backend/internal/users/users.go`
+(`StaffTierByPhone`) · app `api/auth_session.dart` (deleted `ensureApiSession`,
+the silent re-mint that POSTed the remembered phone number to `/auth/login` —
+the same hole seen from the client, and it *cleared the working token before*
+the request, so a plain 403 used to sign a working user out) ·
+`api/module_api.dart` (drops the retry that called it) ·
+`modules/splash/screens/splash_screen.dart` (no token now means sign in again) ·
+`api/links.dart` (doc + the orphaned `insertUserWithPhoneUrl`).
+
+**Test:** `backend/internal/handlers/auth_verified_factor_test.go`. Verified it
+**FAILS before** the fix — `status = 200, want 401` for a passwordless
+`super_admin`, an account created by an unknown number, and a demo code minting
+a staff session at all four staff tiers — and **passes after**, while the
+legitimate paths (correct password; ordinary user completing request → verify;
+real out-of-band OTP for staff) pass both before and after.
+
+**Still open for the owner — this fix does not remove these:**
+
+1. **`OTP_DEMO_ENABLED` is on in production with `OTPIQ_API_KEY` unset.** For
+   *ordinary* accounts the demo code is still a free pass, because it is printed
+   in the response body. Set `OTPIQ_API_KEY` (and `OTPIQ_SENDER_ID`), confirm
+   real delivery, then turn demo off — in that order, or sign-in breaks.
+2. **Ids 1 and 34 are privileged rows with no credentials.** Give them a password
+   (and ideally a username), or decide they should not be staff.
 
 **Not deployed.**
 

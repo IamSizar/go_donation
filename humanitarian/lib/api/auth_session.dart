@@ -4,7 +4,6 @@ import 'package:flutter_application_1/api/links.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
-import 'dart:convert';
 
 const String kApiAccessTokenPrefsKey = 'api_access_token';
 const String kApiAccessTokenExpiryPrefsKey = 'api_access_token_expires_at';
@@ -184,71 +183,23 @@ Future<void> logout() async {
   await exitGuestMode();
 }
 
-Future<bool> ensureApiSession({
-  String? phone,
-  String? expectedUserId,
-  bool forceRefresh = false,
-}) async {
-  final existing = currentApiAccessToken();
-  if (!forceRefresh && existing != null && existing.isNotEmpty) {
-    return true;
-  }
-
-  if (forceRefresh) {
-    await clearApiSession();
-  }
-
-  final phoneValue = (phone ?? sharedPreferences.getString('phone_user') ?? '')
-      .trim();
-  if (phoneValue.isEmpty) {
-    return false;
-  }
-
-  try {
-    final response = await http
-        .post(
-          Uri.parse(insertUserWithPhoneUrl),
-          headers: const {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-          },
-          body: jsonEncode({'phone': phoneValue}),
-        )
-        .timeout(const Duration(seconds: 12));
-
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      return false;
-    }
-
-    final decoded = jsonDecode(response.body);
-    if (decoded is! Map<String, dynamic>) {
-      return false;
-    }
-    final success =
-        decoded['status'] == 'success' || decoded['success'] == true;
-    if (!success) {
-      return false;
-    }
-
-    final returnedUserId = decoded['user_id']?.toString().trim();
-    final expected =
-        (expectedUserId ?? sharedPreferences.getString('id_user') ?? '').trim();
-    if (expected.isNotEmpty &&
-        returnedUserId != null &&
-        returnedUserId.isNotEmpty &&
-        returnedUserId != expected) {
-      return false;
-    }
-
-    await persistApiSessionFromResponse(decoded);
-    return currentApiAccessToken() != null;
-  } catch (_) {
-    // NOT swallowed: `false` means "there is no usable session", which is
-    // this function's whole contract — every non-2xx, wrong-user and bad-body
-    // path above returns the same thing, so a network failure is not a
-    // special case. Deliberately not a throw: callers use this to DECIDE
-    // whether to proceed, and an exception escaping session restore would
-    // turn a recoverable offline start into a crash on launch.
-    return false;
-  }
-}
+/// A16 — `ensureApiSession()` USED TO LIVE HERE, and it is gone on purpose.
+///
+/// It re-minted a session by POSTing the phone number stashed in
+/// `phone_user` to `/api/auth/login`, which handed back a fresh 30-day token
+/// for any number that had no password. That silent re-mint WAS the
+/// authentication hole, seen from the client side: a phone number is not a
+/// secret, and the server now refuses to trade one for a token (it answers
+/// `401 otp_required`). Keeping the call would have achieved nothing except
+/// destroying the caller's working token on its way to a guaranteed refusal —
+/// it cleared the session BEFORE the request, so every failure logged the user
+/// out. (That already happened to guests and to anyone with no `phone_user`
+/// pref: those callers returned early, after the clear.)
+///
+/// A session now comes from one place only — a sign-in that verified
+/// something: a password, or an OTP delivered out-of-band. When the token is
+/// gone, the session is over, and the splash screen routes to sign-in rather
+/// than papering over it.
+///
+/// Callers that need to know whether a usable session exists should read
+/// [currentApiAccessToken] directly.

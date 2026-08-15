@@ -89,87 +89,137 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
+	ip := auth.ClientIP(c.Request.RemoteAddr)
 
 	existingID, err := h.Users.GetIDByPhone(ctx, phone)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "error": "Database error (lookup)."})
+		// Fail CLOSED: we could not tell whether this phone has an account, so
+		// we certainly cannot tell whether it proved anything. Never fall
+		// through to token issue on a lookup error.
+		log.Printf("[authn] login: phone lookup failed ip=%s: %v", ip, err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status": "error", "error": "Database error (lookup).", "code": "server_error",
+		})
 		return
 	}
 	returning := existingID > 0
 
-	// Phase 20 — password gate. If the existing user has a password_hash,
-	// the caller MUST supply a matching password. This is checked BEFORE
-	// we issue any tokens. New users (no row yet) skip this step — they
-	// flow through the regular auto-create path below.
-	if existingID > 0 {
-		hash, err := h.Users.GetPasswordHash(ctx, existingID)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"status": "error",
-				"error":  "Database error (password lookup).",
+	// ─── A16 · a token requires a VERIFIED factor ───────────────────────
+	//
+	// This endpoint used to mint a 30-day access token for ANY phone number
+	// that had no `password_hash` — and, for an unknown number, it created the
+	// account first and then minted the token. Knowing a phone number was the
+	// entire authentication. 36 of 46 production accounts have a phone and no
+	// password, including a super_admin and an admin.
+	//
+	// Nothing anywhere required an OTP: /auth/otp/request and /auth/otp/verify
+	// are separate public endpoints, the app CHOSE to call them, and a verified
+	// code leaves no durable trace (the record is deleted on success), so this
+	// handler could not have consulted one even if it wanted to.
+	//
+	// Because the app and the dashboard SHARE ONE TOKEN STORE with no marker
+	// distinguishing them (A15), a token minted here is a dashboard token. That
+	// is how a phone number alone reached /api/admin/*.
+	//
+	// So phone-alone stops being an identity claim. The two ways to prove one:
+	//   - a password, verified below (unchanged, lockout semantics intact); or
+	//   - a code delivered out-of-band, via POST /auth/otp/request + /auth/otp/
+	//     verify — which is this app's REAL sign-up/sign-in flow and issues its
+	//     own token on success, so ordinary users are unaffected.
+	//
+	// Account creation moves with it: an unknown phone is refused rather than
+	// registered, so this endpoint can no longer create a row either.
+	if existingID == 0 {
+		log.Printf("[authn] login refused: unverified phone (no account) ip=%s", ip)
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"status": "error",
+			"error":  "Verify this number with the code we send you before signing in.",
+			"code":   "otp_required",
+		})
+		return
+	}
+
+	hash, err := h.Users.GetPasswordHash(ctx, existingID)
+	if err != nil {
+		log.Printf("[authn] login: password lookup failed user_id=%d ip=%s: %v", existingID, ip, err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status": "error", "error": "Database error (password lookup).", "code": "server_error",
+		})
+		return
+	}
+	if hash == "" {
+		// The account exists but holds no password, so this request carries no
+		// proof of anything. Deliberately NOT counted as a failed login attempt:
+		// nothing was submitted to verify, and counting it would let anyone lock
+		// a victim out of their own account by replaying their phone number.
+		log.Printf("[authn] login refused: account has no password, OTP required user_id=%d ip=%s",
+			existingID, ip)
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"status": "error",
+			"error":  "Verify this number with the code we send you before signing in.",
+			"code":   "otp_required",
+		})
+		return
+	}
+
+	// Phase 20 — password gate. Requirement 6c — brute-force throttle. Password
+	// accounts are locked after too many failed attempts within the window.
+	lockID := "p:" + phone
+	if h.LoginLocks != nil {
+		if locked, retryAfter := h.LoginLocks.Status(ctx, lockID); locked {
+			c.JSON(http.StatusTooManyRequests, gin.H{
+				"status":      "error",
+				"error":       "Too many failed attempts. Try again later.",
+				"retry_after": retryAfter,
 			})
 			return
 		}
-		if hash != "" {
-			// Requirement 6c — brute-force throttle. Password accounts are
-			// locked after too many failed attempts within the window.
-			lockID := "p:" + phone
-			if h.LoginLocks != nil {
-				if locked, retryAfter := h.LoginLocks.Status(ctx, lockID); locked {
-					c.JSON(http.StatusTooManyRequests, gin.H{
-						"status":      "error",
-						"error":       "Too many failed attempts. Try again later.",
-						"retry_after": retryAfter,
-					})
-					return
-				}
-			}
-			provided := strings.TrimSpace(req.Password)
-			if provided == "" {
-				// Tell the client a password is required so the SPA can
-				// re-prompt without having to guess. (Not counted as a failed
-				// attempt — no password was submitted to verify.)
-				c.JSON(http.StatusUnauthorized, gin.H{
-					"status":            "error",
-					"error":             "Password required for this account.",
-					"password_required": true,
-				})
-				return
-			}
-			if err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(provided)); err != nil {
-				if h.LoginLocks != nil {
-					if locked, retryAfter := h.LoginLocks.RegisterFailure(ctx, lockID); locked {
-						c.JSON(http.StatusTooManyRequests, gin.H{
-							"status":      "error",
-							"error":       "Too many failed attempts. Try again later.",
-							"retry_after": retryAfter,
-						})
-						return
-					}
-				}
-				c.JSON(http.StatusUnauthorized, gin.H{
-					"status": "error",
-					"error":  "Incorrect phone or password.",
-				})
-				return
-			}
-			// Correct password — clear any accumulated failed-attempt counter.
-			if h.LoginLocks != nil {
-				h.LoginLocks.Reset(ctx, lockID)
-			}
-		}
 	}
-
-	uid, err := h.Users.InsertWithPhone(ctx, phone)
-	if err != nil || uid <= 0 {
-		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "error": "Unable to create user."})
+	provided := strings.TrimSpace(req.Password)
+	if provided == "" {
+		// Tell the client a password is required so the SPA can
+		// re-prompt without having to guess. (Not counted as a failed
+		// attempt — no password was submitted to verify.)
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"status":            "error",
+			"error":             "Password required for this account.",
+			"password_required": true,
+			"code":              "password_required",
+		})
 		return
 	}
+	if err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(provided)); err != nil {
+		if h.LoginLocks != nil {
+			if locked, retryAfter := h.LoginLocks.RegisterFailure(ctx, lockID); locked {
+				c.JSON(http.StatusTooManyRequests, gin.H{
+					"status":      "error",
+					"error":       "Too many failed attempts. Try again later.",
+					"retry_after": retryAfter,
+				})
+				return
+			}
+		}
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"status": "error",
+			"error":  "Incorrect phone or password.",
+			"code":   "invalid_credentials",
+		})
+		return
+	}
+	// Correct password — clear any accumulated failed-attempt counter.
+	if h.LoginLocks != nil {
+		h.LoginLocks.Reset(ctx, lockID)
+	}
+
+	// The account was resolved by phone above and has now proved its password;
+	// no find-or-create step remains, which is what keeps this endpoint from
+	// registering anybody.
+	uid := existingID
 
 	role, _ := h.Users.GetRoleID(ctx, uid)
 	account, _ := h.Users.GetAccountForClient(ctx, uid)
 
-	session, err := h.Tokens.IssueToken(ctx, uid, c.Request.UserAgent(), auth.ClientIP(c.Request.RemoteAddr))
+	session, err := h.Tokens.IssueToken(ctx, uid, c.Request.UserAgent(), ip)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "error": "Unable to issue token."})
 		return
@@ -321,6 +371,54 @@ func (h *AuthHandler) sendAdminLoginOTP(ctx context.Context, phone string) (mode
 }
 
 var errOTPNotConfigured = errors.New("OTP delivery is not configured (OTPIQ_API_KEY)")
+
+// ─── A16 · a demo code must never authenticate a staff account ──────────
+//
+// `OTP_DEMO_ENABLED` is ON in production while `OTPIQ_API_KEY` is unset, so
+// demo is the ONLY OTP mode that currently works there — and demo mode returns
+// the code to the caller in the /auth/otp/request response body (and the code
+// is a fixed value besides). A "verified factor" that hands you the factor is
+// not a factor at all: it is a public door with a doorbell.
+//
+// Ordinary users need that door — it is how the live app signs everyone in
+// today (the login screen defaults to mode 'demo' precisely because OTPIQ is
+// not configured), so it stays open for them and this change breaks no one's
+// sign-in. But it must never be what stands between a stranger and a
+// super_admin, because the app and the dashboard share one token store: a
+// token minted for a staff phone here is a dashboard token (A15).
+//
+// Staff therefore keep exactly the doors that verify something real — their
+// password (via /auth/login or the dashboard's /auth/admin/login) and a REAL
+// out-of-band OTP once OTPIQ_API_KEY is configured. Only the demo free pass is
+// closed, and only for them.
+//
+// blockStaffDemoOTP reports whether phone belongs to a staff account, writing
+// the refusal itself when it does so the caller only has to return. `stage`
+// names the endpoint for the audit line. Fails CLOSED: a lookup error refuses,
+// because "we could not tell" must never be read as "not staff".
+func (h *AuthHandler) blockStaffDemoOTP(c *gin.Context, phone, stage string) bool {
+	ip := auth.ClientIP(c.Request.RemoteAddr)
+	uid, tier, err := h.Users.StaffTierByPhone(c.Request.Context(), phone)
+	if err != nil {
+		log.Printf("[authn] %s: staff lookup failed for phone_hint=%s ip=%s: %v",
+			stage, maskPhone(phone), ip, err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status": "error", "error": "Could not verify this number.", "code": "server_error",
+		})
+		return true
+	}
+	if uid == 0 || !permissions.CanAccessDashboard(permissions.TierFrom(tier)) {
+		return false
+	}
+	log.Printf("[authn] %s refused: demo OTP cannot sign in a staff account user_id=%d staff_tier=%q ip=%s",
+		stage, uid, tier, ip)
+	c.JSON(http.StatusForbidden, gin.H{
+		"status": "error",
+		"error":  "This account must sign in with its password.",
+		"code":   "staff_demo_otp_blocked",
+	})
+	return true
+}
 
 // POST /api/auth/admin/login
 //
@@ -550,6 +648,11 @@ func (h *AuthHandler) OTPRequest(c *gin.Context) {
 			c.JSON(http.StatusForbidden, gin.H{"error": "Demo OTP mode is disabled."})
 			return
 		}
+		// A16 — refuse BEFORE a demo code is stored for a staff phone, so no
+		// such code ever exists to be verified (see blockStaffDemoOTP).
+		if h.blockStaffDemoOTP(c, phone, "otp request") {
+			return
+		}
 		code := auth.DemoCode()
 		if err := h.OTPs.StoreCode(ctx, phone, code, "demo"); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store verification code."})
@@ -701,6 +804,25 @@ func (h *AuthHandler) OTPVerify(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
+
+	// A16 — a demo code must not sign a staff account in (see
+	// blockStaffDemoOTP). Checked BEFORE the code is consumed, so a refusal
+	// changes no state, and it catches demo codes that were already sitting in
+	// `otp_codes` when this gate shipped — /auth/otp/request stops new ones
+	// being created, this stops the existing ones being spent. The extra read
+	// costs one indexed lookup on a low-traffic endpoint.
+	rec, err := h.OTPs.GetRecord(ctx, phone)
+	if err != nil {
+		log.Printf("[authn] otp verify: record lookup failed phone_hint=%s ip=%s: %v",
+			maskPhone(phone), auth.ClientIP(c.Request.RemoteAddr), err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status": "error", "error": "Database error (otp lookup).", "code": "server_error",
+		})
+		return
+	}
+	if rec != nil && rec.Mode == "demo" && h.blockStaffDemoOTP(c, phone, "otp verify") {
+		return
+	}
 
 	ok, mode, status, body := h.consumeOTPCode(ctx, phone, code)
 	if !ok {
