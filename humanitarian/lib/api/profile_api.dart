@@ -272,11 +272,18 @@ Future<Map<String, dynamic>?> fetchUserAccount(int userId) async {
         return parsed;
       }
     } on DioException catch (_) {
+      // DELIBERATE: this is a fallback CHAIN over two account endpoints, not a
+      // swallow. A failure on one base is exactly the condition for trying the
+      // next; if every base fails the loop falls through to `return null`,
+      // which is the failure signal callers already branch on.
       continue;
     } catch (_) {
+      // Same reason as the DioException branch above — try the next base URL.
       continue;
     }
   }
+  // Every base failed (or returned an unusable body): null tells the caller
+  // the account could not be loaded. It never fabricates an account map.
   return null;
 }
 

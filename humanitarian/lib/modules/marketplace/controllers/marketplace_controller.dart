@@ -327,6 +327,9 @@ class MarketplaceController extends GetxController with RealtimePollingMixin {
     try {
       categories.assignAll(await const ModuleApi().marketplaceCategories());
     } catch (_) {
+      // Deliberate: categories are only a name lookup for the product cards.
+      // Products carry their own error state, and a missing category label is a
+      // smaller lie than a stale one.
       categories.clear();
     }
   }

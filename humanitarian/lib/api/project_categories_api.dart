@@ -67,6 +67,11 @@ Future<List<ProjectCategory>> fetchProjectCategories() async {
     }
     return const [];
   } catch (_) {
+    // DELIBERATE silence: this is an input vocabulary, not the user's data.
+    // Both call sites (beneficiary_submit_project_screen, and the optional
+    // project picker in continue_donation_screen) degrade to a usable form —
+    // a free-text category field, or a hidden picker with the gift going to
+    // the general fund. Throwing here would block a donation over a dropdown.
     return const [];
   }
 }

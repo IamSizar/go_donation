@@ -68,6 +68,10 @@ Future<List<CaseCategory>> fetchCaseCategories() async {
     }
     return const [];
   } catch (_) {
+    // DELIBERATE silence: these are a browse FILTER taxonomy, not the user's
+    // data. CaseCategoryCapsules renders nothing when the list is empty, so a
+    // failed load costs the user a filter row and states nothing untrue —
+    // unlike an empty list of *their* cases, which would claim they have none.
     return const [];
   }
 }

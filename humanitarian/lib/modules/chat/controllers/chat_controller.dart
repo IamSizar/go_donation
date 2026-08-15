@@ -40,6 +40,9 @@ class ChatController extends GetxController {
     try {
       await fetchThreads(silent: true);
     } catch (_) {
+      // Deliberate: background poll (every 5s). The last good thread list stays
+      // on screen and the next tick retries seconds later — surfacing a
+      // transient poll failure would flicker an error banner on and off.
       return;
     }
     final now = threads.map((t) => t.id).toSet();

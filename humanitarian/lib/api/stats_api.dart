@@ -70,6 +70,10 @@ Future<ImpactStats?> fetchImpactStats() async {
     }
     return null;
   } catch (_) {
+    // DELIBERATE silence: null already means "unknown", and the home slider
+    // hides itself entirely rather than rendering zeros. Public headline
+    // numbers are decoration on the Home screen, not something the user can
+    // act on, and showing nothing is honest where showing "0" would not be.
     return null;
   }
 }

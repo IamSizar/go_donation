@@ -68,6 +68,9 @@ Future<List<InkindCategory>> fetchInkindCategories() async {
     }
     return const [];
   } catch (_) {
+    // DELIBERATE silence, same reasoning as fetchProjectCategories: an input
+    // vocabulary rather than the user's data. The submit screen falls back to
+    // a free-text field, so the form stays usable and claims nothing false.
     return const [];
   }
 }

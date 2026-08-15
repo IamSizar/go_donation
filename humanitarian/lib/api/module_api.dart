@@ -157,6 +157,9 @@ class ModuleApi {
     try {
       return jsonDecode(response.body);
     } catch (_) {
+      // NOT a swallow: this catch does real work and then always throws. The
+      // decode failure is the evidence, and the body is inspected to turn a
+      // PHP fatal-error page into a message a human can act on.
       final body = response.body.trim();
       final looksLikeHtml =
           body.startsWith('<!DOCTYPE html') ||
@@ -406,6 +409,7 @@ class ModuleApi {
         comprehensiveEnabled: res['comprehensive_enabled'] != false,
       );
     } catch (_) {
+      // DELIBERATE — see the doc comment above: feature flags, not user data.
       return const DonationOptions();
     }
   }
@@ -651,6 +655,11 @@ class ModuleApi {
       final number = (res['number'] ?? '').toString().trim();
       return (res['enabled'] == true && number.isNotEmpty) ? number : null;
     } catch (_) {
+      // DELIBERATE: null already means "no WhatsApp contact configured", a
+      // legitimate absence, and both callers simply hide the WhatsApp button.
+      // A failed fetch collapses into that same absence — the user loses one
+      // of several support channels and is told nothing untrue. (The support
+      // screen additionally logs its own failures around this call.)
       return null;
     }
   }

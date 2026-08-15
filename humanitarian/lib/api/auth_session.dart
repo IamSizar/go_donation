@@ -243,6 +243,12 @@ Future<bool> ensureApiSession({
     await persistApiSessionFromResponse(decoded);
     return currentApiAccessToken() != null;
   } catch (_) {
+    // NOT swallowed: `false` means "there is no usable session", which is
+    // this function's whole contract — every non-2xx, wrong-user and bad-body
+    // path above returns the same thing, so a network failure is not a
+    // special case. Deliberately not a throw: callers use this to DECIDE
+    // whether to proceed, and an exception escaping session restore would
+    // turn a recoverable offline start into a crash on launch.
     return false;
   }
 }

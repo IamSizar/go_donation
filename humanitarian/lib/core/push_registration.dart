@@ -102,6 +102,10 @@ abstract final class PushRegistration {
     try {
       token = await FirebaseMessaging.instance.getToken();
     } catch (_) {
+      // Deliberate: this runs inside sign-out. With no token there is no row to
+      // deactivate, and blocking or alarming a user who is leaving would be
+      // worse than the consequence (pushes keep arriving until the next login
+      // re-registers this device).
       return;
     }
     if (token == null || token.isEmpty) return;
@@ -111,7 +115,9 @@ abstract final class PushRegistration {
         'unregister': true,
       });
     } catch (_) {
-      // ignore
+      // Deliberate: best-effort cleanup during sign-out. The next successful
+      // registration overwrites this device row anyway, so a failure here is
+      // self-healing and must not interrupt the sign-out flow.
     }
   }
 

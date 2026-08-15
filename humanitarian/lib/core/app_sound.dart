@@ -73,7 +73,10 @@ abstract final class AppSound {
     if (p != null) {
       try {
         await p.dispose();
-      } catch (_) {}
+      } catch (_) {
+        // Deliberate: the reference is already dropped above, so a failed
+        // teardown only leaks a player the OS reclaims — nothing to report.
+      }
     }
   }
 }

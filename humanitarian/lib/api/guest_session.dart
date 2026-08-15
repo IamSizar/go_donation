@@ -61,7 +61,10 @@ Future<void> fetchGuestConfig() async {
       }
     }
   } catch (_) {
-    /* keep whatever we have */
+    // DELIBERATE and fail-CLOSED: the whitelist is left untouched, so a
+    // transient error can never widen a guest's access. There is no screen to
+    // report this on — it is a background config fetch — and the worst case
+    // is a guest seeing fewer screens, never more.
   }
 }
 
@@ -143,6 +146,10 @@ Future<GuestAuthResult> _guestAuthCall(
     );
     return const GuestAuthResult(ok: true);
   } catch (_) {
+    // NOT swallowed: the failure is reported through GuestAuthResult, which
+    // is what the sign-in form renders. Deliberately not a throw — this is
+    // the auth entry point and a network blip must stay a retryable form
+    // error, not an unhandled exception on the login screen.
     return const GuestAuthResult(
       ok: false,
       error: 'Network error. Please try again.',
@@ -155,7 +162,11 @@ Map<String, dynamic> _decodeGuestBody(String s) {
     final d = jsonDecode(s);
     if (d is Map<String, dynamic>) return d;
     if (d is Map) return Map<String, dynamic>.from(d);
-  } catch (_) {}
+  } catch (_) {
+    // DELIBERATE: an unparseable body is handled by the empty map below — the
+    // callers then find no 'status' == 'success' and report the failure with
+    // their generic message. The error is signalled, just not from here.
+  }
   return <String, dynamic>{};
 }
 
@@ -266,6 +277,10 @@ Future<GuestUpgradeResult> upgradeGuestVerifyOtp(
     await sharedPreferences.setBool(kGuestModePrefsKey, false);
     return const GuestUpgradeResult(ok: true);
   } catch (_) {
+    // NOT swallowed: reported via GuestUpgradeResult, which the OTP screen
+    // shows. Deliberately not a throw for the same reason as the guest
+    // auth call above — the user must be able to retry the code, and the
+    // guest flag is only cleared on a confirmed success, never on failure.
     return const GuestUpgradeResult(
       ok: false,
       error: 'Network error. Please try again.',

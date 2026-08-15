@@ -193,11 +193,15 @@ Future<void> _clearCache(BuildContext context) async {
       for (final e in tmp.listSync()) {
         try {
           e.deleteSync(recursive: true);
-        } catch (_) {}
+        } catch (_) {
+          // Deliberate: one locked temp entry (a file still open) must not
+          // abort the sweep — the remaining entries are still worth clearing.
+        }
       }
     }
     Get.snackbar('clear_cache'.tr, 'cache_cleared'.tr);
   } catch (_) {
+    // Not silent: the failure is reported to the user by this snackbar.
     Get.snackbar('clear_cache'.tr, 'cache_clear_failed'.tr);
   }
 }
@@ -746,6 +750,10 @@ class _NotificationsRowState extends State<NotificationsRow> {
       final applied = await const ModuleApi().setNotificationSetting(next);
       if (mounted) setState(() => _enabled = applied);
     } catch (_) {
+      // Deliberate: this is the optimistic-update rollback. The switch snapping
+      // back IS the feedback — the setting truthfully reads as unchanged — and
+      // the user can simply tap again, so a snackbar would add noise, not
+      // information.
       if (mounted) setState(() => _enabled = previous);
     }
   }

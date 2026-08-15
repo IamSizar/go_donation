@@ -136,6 +136,9 @@ class AssistantController extends GetxController {
               toolResults: toolResults,
             );
     } catch (_) {
+      // Deliberate: the on-device [BotQA] table answers the same question the
+      // backend would, so the user gets a real answer instead of an error — the
+      // designed offline behaviour documented on this class, not a swallow.
       reply = _localFallbackMessage(trimmed, lang, intentID: intentID);
     }
 

@@ -73,6 +73,10 @@ Future<bool> completeTask(int taskId) async {
         .timeout(const Duration(seconds: 12));
     return resp.statusCode == 200;
   } catch (_) {
+    // NOT swallowed: `false` IS the failure signal for this action, and it is
+    // indistinguishable from a server-side refusal by design — the caller
+    // shows the same "couldn't complete the task" message either way and the
+    // task stays visibly undone. Nothing false is asserted.
     return false;
   }
 }

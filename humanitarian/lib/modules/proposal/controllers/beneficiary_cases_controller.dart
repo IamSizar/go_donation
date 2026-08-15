@@ -43,6 +43,7 @@ class BeneficiaryCasesController extends GetxController
         errorMessage.value =
             'Unable to load beneficiary cases from the server.'.tr;
       }
+      // Silent polls keep the last good list: the next tick retries in 20s.
     } finally {
       if (!silent) isLoading.value = false;
     }

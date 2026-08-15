@@ -253,6 +253,8 @@ class NotificationsController extends GetxController {
           'user_id': userId,
         });
       } catch (_) {
+        // Not silent: each failure is collected and reported below, as a count
+        // in errorMessage, after the whole batch has been attempted.
         failures.add(originalById[n.id]!);
       }
     }

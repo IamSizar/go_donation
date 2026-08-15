@@ -138,9 +138,15 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
     // donation already has its destination.
     if (widget.campaignsId != null) return;
     try {
-      // getDonationOptions() still falls back to defaults internally — it
-      // serves feature flags, not the donor's data — so it cannot throw here.
-      // fetchProjectCategories() can, so the load is guarded.
+      // Neither of these throws today: getDonationOptions() falls back to
+      // defaults internally because it serves feature flags rather than the
+      // donor's data, and fetchProjectCategories() returns an empty list for
+      // the same reason — a lost input vocabulary must not block a donation
+      // over a dropdown.
+      //
+      // The guard stays anyway. It costs nothing, and it means a future
+      // decision to make either of them signal cannot turn this into an
+      // unhandled async error on the checkout screen.
       final opts = await const ModuleApi().getDonationOptions();
       if (!opts.projectsVisible) return;
       final cats = await fetchProjectCategories();
