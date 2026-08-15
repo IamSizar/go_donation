@@ -39,7 +39,18 @@ String _resolvePhotoUrl(String path) {
 /// rendered at all. visibility_level stays a fixed field (admin workflow
 /// setting, not applicant data).
 class MarriageFormScreen extends StatefulWidget {
-  const MarriageFormScreen({super.key});
+  const MarriageFormScreen({super.key, this.openedFromStatusScreen = false});
+
+  /// Whether the status screen ([MarriageMyProfileScreen]) pushed this form.
+  ///
+  /// Spec item 11 — the hub now opens the status screen, and the status
+  /// screen opens this form, so after a successful submit the status screen
+  /// is already sitting underneath: popping back to it satisfies Note #18
+  /// (the user lands on their status straight away) without stacking a
+  /// second copy of it. Entry points that push the form directly — the
+  /// support bot's `marriage` shortcut, see bot_navigation.dart — leave this
+  /// false and still get the Note #18 replace-with-status behaviour.
+  final bool openedFromStatusScreen;
 
   @override
   State<MarriageFormScreen> createState() => _MarriageFormScreenState();
@@ -720,11 +731,14 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
             : _socialOtherController.text.trim(),
       });
       if (!mounted) return;
-      // Note #18 — was Get.back() (just returns to Profile with a toast, no
-      // way to check status afterward). Now replaces this screen with the
-      // status screen so the user immediately sees "Submitted" and can come
-      // back to check it later without re-finding this tile.
-      Get.off(() => const MarriageMyProfileScreen());
+      // Note #18 — the user must land on their status, not on a dead end.
+      // Two ways to get there depending on how this form was opened; see
+      // [MarriageFormScreen.openedFromStatusScreen].
+      if (widget.openedFromStatusScreen) {
+        Get.back();
+      } else {
+        Get.off(() => const MarriageMyProfileScreen());
+      }
       Get.snackbar('marriage_title'.tr, 'marriage_submitted'.tr);
     } catch (_) {
       if (mounted) {

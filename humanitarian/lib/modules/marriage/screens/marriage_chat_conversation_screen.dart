@@ -37,6 +37,7 @@ class _MarriageChatConversationScreenState
   Timer? _poll;
   List<Map<String, dynamic>> _messages = [];
   late String _status;
+
   /// True only for the FIRST load. The 3-second poll and the accept/decline
   /// reload must never flash a skeleton over messages already on screen.
   bool _loading = true;

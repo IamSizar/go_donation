@@ -6,11 +6,23 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
 
+import 'marriage_form_screen.dart';
+
 // Note #18 — shows the user their OWN submitted marriage profile and its
 // review status (submitted/under_review/active/paused/matched/rejected/
 // closed). Previously the app gave zero visibility after submitting — the
 // user just got a one-time toast and had no way to check back. Mirrors
 // BeneficiaryMyProjectsScreen's layout/pattern for consistency.
+//
+// Spec item 11 — this is now the SINGLE "my profile" entry in the marriage
+// hub. It was one of two tiles sitting side by side, the other opening the
+// submission form directly; the hub could not tell the two apart because it
+// never fetches the profile, so it offered both to everyone regardless of
+// state. This screen does fetch it, so it is the one place that can put the
+// right action in front of the user: "create one" when there is no profile,
+// and "submit a new one" when there is. The form stays a separate screen —
+// it is ~1600 lines of field-rules-driven inputs and has nothing to gain
+// from being inlined here.
 class MarriageMyProfileScreen extends StatelessWidget {
   const MarriageMyProfileScreen({super.key});
 
@@ -35,9 +47,15 @@ class MarriageMyProfileScreen extends StatelessWidget {
           onRetry: controller.fetchProfiles,
           data: items,
           isEmpty: (list) => list.isEmpty,
+          // The empty state is where a first-time user lands, so it carries
+          // the create action rather than just reporting that nothing is
+          // here. AppAsync checks `error` before `isEmpty`, so a failed
+          // fetch shows the retry banner and never this.
           empty: AppEmpty(
             title: 'marriage_my_profile_empty'.tr,
             message: 'marriage_my_profile_empty_desc'.tr,
+            actionLabel: 'Create my profile',
+            onAction: () => _openSubmissionForm(controller),
           ),
           builder: (list) => RefreshIndicator(
             onRefresh: controller.fetchProfiles,
@@ -48,11 +66,78 @@ class MarriageMyProfileScreen extends StatelessWidget {
                   _ProfileStatusCard(item: item),
                   const SizedBox(height: 14),
                 ],
+                _NewSubmissionCard(
+                  onTap: () => _openSubmissionForm(controller),
+                ),
               ],
             ),
           ),
         );
       }),
+    );
+  }
+}
+
+/// Opens the submission form, then refreshes the list on return.
+///
+/// The form pops back here after a successful submit (see
+/// [MarriageFormScreen.openedFromStatusScreen]), but it can also be
+/// abandoned with the back button — refreshing either way is cheap and
+/// avoids the case where a just-submitted profile is missing until the user
+/// pulls to refresh.
+Future<void> _openSubmissionForm(MarriageMyProfileController controller) async {
+  await Get.to(() => const MarriageFormScreen(openedFromStatusScreen: true));
+  await controller.fetchProfiles();
+}
+
+/// The "submit another profile" affordance shown under the existing cards.
+///
+/// Deliberately worded as a NEW submission rather than an edit: there is no
+/// endpoint for changing your own profile (POST /api/marriage inserts a row
+/// with a freshly generated profile_code; only staff can PATCH an existing
+/// one), so calling it "edit" — as the old hub tile did — promised something
+/// the app cannot do. Changes go through staff, and the caption says so.
+class _NewSubmissionCard extends StatelessWidget {
+  const _NewSubmissionCard({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassPanel(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Need to change something?'.tr,
+            style: TextStyle(
+              color: AppThemeConfig.text(context),
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Ask the staff team to update an existing profile, or submit a '
+                    'new one for review.'
+                .tr,
+            style: TextStyle(
+              color: AppThemeConfig.mutedText(context),
+              height: 1.5,
+              fontSize: 12.5,
+            ),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: onTap,
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: Text('Submit a new profile'.tr),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

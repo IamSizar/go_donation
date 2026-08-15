@@ -181,6 +181,36 @@ class AppTranslations extends Translations {
         'Could not refresh the list of fields you can hide.',
     'Could not load your display-name choice.':
         'Could not load your display-name choice.',
+    // ─── Structural de-duplication (redesign phase 2) ───
+    // Copy introduced when several duplicate entry points were collapsed into
+    // one. "Continue with phone" names the MECHANISM rather than the outcome:
+    // the screen behind it both signs in returning users and creates new
+    // accounts, so "Sign in" would under-describe it and "Create account"
+    // would mislead. Sorani and Badini deliberately omitted — see the _ar note.
+    'Continue with phone': 'Continue with phone',
+    'Sign in or create an account with your phone number.':
+        'Sign in or create an account with your phone number.',
+    'All partners': 'All partners',
+    'All requests': 'All requests',
+    'No pending requests': 'No pending requests',
+    'No approved requests': 'No approved requests',
+    'No rejected requests': 'No rejected requests',
+    'Requests waiting for review, changes, or sponsor matching will appear here.':
+        'Requests waiting for review, changes, or sponsor matching will appear here.',
+    'Requests the admins approve will appear here.':
+        'Requests the admins approve will appear here.',
+    'Requests the admins turn down will appear here.':
+        'Requests the admins turn down will appear here.',
+    'View your profile and its status, or create one':
+        'View your profile and its status, or create one',
+    'Create my profile': 'Create my profile',
+    'Need to change something?': 'Need to change something?',
+    // Worded as "submit", never "edit": the backend has no user-facing update
+    // endpoint, so an "edit" label would promise a capability that does not
+    // exist.
+    'Submit a new profile': 'Submit a new profile',
+    'Ask the staff team to update an existing profile, or submit a new one for review.':
+        'Ask the staff team to update an existing profile, or submit a new one for review.',
     'Legal': 'Legal',
     'Read the terms that apply to using the app.':
         'Read the terms that apply to using the app.',
@@ -2503,6 +2533,29 @@ class AppTranslations extends Translations {
         'تعذّر تحديث قائمة الحقول التي يمكنك إخفاؤها.',
     'Could not load your display-name choice.':
         'تعذّر تحميل اختيارك لاسم العرض.',
+    // ─── إعادة هيكلة الواجهة (المرحلة الثانية) ───
+    // en + ar only; Sorani and Badini await a native speaker (#21431).
+    'Continue with phone': 'المتابعة برقم الهاتف',
+    'Sign in or create an account with your phone number.':
+        'سجّل الدخول أو أنشئ حساباً برقم هاتفك.',
+    'All partners': 'كل الشركاء',
+    'All requests': 'كل الطلبات',
+    'No pending requests': 'لا توجد طلبات قيد الانتظار',
+    'No approved requests': 'لا توجد طلبات موافق عليها',
+    'No rejected requests': 'لا توجد طلبات مرفوضة',
+    'Requests waiting for review, changes, or sponsor matching will appear here.':
+        'ستظهر هنا الطلبات التي تنتظر المراجعة أو التعديل أو مطابقة الكفيل.',
+    'Requests the admins approve will appear here.':
+        'ستظهر هنا الطلبات التي يوافق عليها المشرفون.',
+    'Requests the admins turn down will appear here.':
+        'ستظهر هنا الطلبات التي يرفضها المشرفون.',
+    'View your profile and its status, or create one':
+        'اطّلع على ملفك وحالته، أو أنشئ ملفاً',
+    'Create my profile': 'إنشاء ملفي',
+    'Need to change something?': 'هل تحتاج إلى تعديل شيء؟',
+    'Submit a new profile': 'إرسال ملف جديد',
+    'Ask the staff team to update an existing profile, or submit a new one for review.':
+        'اطلب من فريق العمل تحديث ملف قائم، أو أرسل ملفاً جديداً للمراجعة.',
     'Legal': 'قانوني',
     'Read the terms that apply to using the app.':
         'اقرأ الشروط التي تنطبق على استخدام التطبيق.',

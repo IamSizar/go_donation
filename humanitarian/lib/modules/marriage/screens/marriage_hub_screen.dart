@@ -9,7 +9,8 @@ import 'package:flutter_application_1/modules/legal/screens/content_page_screen.
 
 import 'event_service_request_screen.dart';
 import 'marriage_chats_screen.dart';
-import 'marriage_form_screen.dart';
+// The submission form is no longer reached from here — the status screen
+// below owns that entry point now (spec item 11).
 import 'marriage_my_profile_screen.dart';
 import 'marriage_posts_screen.dart';
 import 'marriage_search_screen.dart';
@@ -131,19 +132,22 @@ class MarriageHubScreen extends StatelessWidget {
           ),
           if (!guest) ...[
             const SizedBox(height: 12),
+            // Spec item 11 — this used to be TWO tiles ("Create / edit my
+            // profile" → the form, "My profile" → the status view) for one
+            // concept. The hub has no idea whether the user has a profile
+            // yet, so it showed both to everyone: a first-time user was
+            // offered a status screen that could only be empty, and a user
+            // with a pending profile was offered a "Create / edit" form that
+            // cannot edit anything (there is no PATCH for your own profile —
+            // POST /api/marriage always inserts a fresh row). One entry now,
+            // landing on the status view, which is the screen that actually
+            // knows the profile's state and can therefore offer the right
+            // next action from its empty and content states.
             _MarriageTile(
               icon: Icons.favorite_outline_rounded,
               color: AppThemeConfig.accent(context),
-              title: 'Create / edit my profile',
-              subtitle: 'Submit or update your event profile',
-              onTap: () => Get.to(() => const MarriageFormScreen()),
-            ),
-            const SizedBox(height: 12),
-            _MarriageTile(
-              icon: Icons.fact_check_outlined,
-              color: AppThemeConfig.pending(context),
               title: 'My profile',
-              subtitle: 'View your submitted profile and its status',
+              subtitle: 'View your profile and its status, or create one',
               onTap: () => Get.to(() => const MarriageMyProfileScreen()),
             ),
             const SizedBox(height: 12),
