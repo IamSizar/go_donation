@@ -92,16 +92,31 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
 
   List<_PaymentMethodData> _paymentMethods = _fallbackMethods;
 
+  // True once a payment-methods load has actually failed, so the donor is
+  // told the list they are looking at is the built-in default rather than the
+  // organization's current catalogue. Not set merely because the catalogue
+  // came back empty — that is a real (if unhelpful) answer, not a failure.
+  bool _paymentMethodsFailed = false;
+
   // Note #42 — the internal test-phase wallet. Prepended to whatever
   // admin-managed methods exist (it's not one of them), always at index 0 of
   // [_displayMethods]; _selectedPaymentIndex stays offset by 1 from
   // _paymentMethods so existing indexWhere/default logic below is otherwise
   // unchanged.
-  int _walletBalanceIQD = 0;
+  //
+  // `null` means "we do not know the balance" — it is the starting state and
+  // the state we fall back to when the balance request fails. It is
+  // deliberately NOT 0: a confident "0 IQD" on a checkout screen tells the
+  // donor their wallet is empty, which is a specific claim we cannot make when
+  // the request never succeeded. Unknown is rendered as an explicit
+  // unavailable line instead (see [_walletMethod]).
+  int? _walletBalanceIQD;
 
   _PaymentMethodData get _walletMethod => _PaymentMethodData(
     title: 'App Wallet',
-    subtitle: '${'Balance'.tr}: ${_formatIQD(_walletBalanceIQD)} IQD',
+    subtitle: _walletBalanceIQD == null
+        ? 'Balance unavailable right now'.tr
+        : '${'Balance'.tr}: ${_formatIQD(_walletBalanceIQD!)} IQD',
     icon: Icons.account_balance_wallet_rounded,
     submitName: 'app_wallet',
   );
@@ -117,14 +132,26 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
     // Only a campaign-less donation can target a project — a campaign
     // donation already has its destination.
     if (widget.campaignsId != null) return;
-    final opts = await const ModuleApi().getDonationOptions();
-    if (!opts.projectsVisible) return;
-    final cats = await fetchProjectCategories();
-    if (!mounted) return;
-    setState(() {
-      _projects = cats;
-      _projectsVisible = cats.isNotEmpty;
-    });
+    try {
+      // getDonationOptions() still falls back to defaults internally — it
+      // serves feature flags, not the donor's data — so it cannot throw here.
+      // fetchProjectCategories() can, so the load is guarded.
+      final opts = await const ModuleApi().getDonationOptions();
+      if (!opts.projectsVisible) return;
+      final cats = await fetchProjectCategories();
+      if (!mounted) return;
+      setState(() {
+        _projects = cats;
+        _projectsVisible = cats.isNotEmpty;
+      });
+    } catch (e) {
+      // The project picker is an optional refinement of the gift, not a
+      // prerequisite for making one. If the list cannot be loaded the section
+      // simply stays hidden and the donation goes to the general fund, exactly
+      // as it does when the feature is switched off — so this degrades
+      // silently rather than blocking checkout.
+      debugPrint('ContinueDonation: project list unavailable: $e');
+    }
   }
 
   @override
@@ -149,18 +176,48 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
     _loadWalletBalance();
   }
 
+  /// Loads the wallet balance shown on the App Wallet payment card.
+  ///
+  /// [fetchWalletBalance] now throws instead of reporting a zero balance on
+  /// failure. We must not turn that back into a number: on a checkout screen a
+  /// wrong balance is worse than an absent one. On failure the balance is set
+  /// back to `null`, which renders as "Balance unavailable right now" — the
+  /// donor can still choose the wallet, and the server remains the authority
+  /// on whether the funds cover the donation.
   Future<void> _loadWalletBalance() async {
-    final balance = await fetchWalletBalance();
-    if (!mounted) return;
-    setState(() => _walletBalanceIQD = balance.balanceIQD);
+    try {
+      final balance = await fetchWalletBalance();
+      if (!mounted) return;
+      setState(() => _walletBalanceIQD = balance.balanceIQD);
+    } catch (e) {
+      debugPrint('ContinueDonation: wallet balance unavailable: $e');
+      if (!mounted) return;
+      setState(() => _walletBalanceIQD = null);
+    }
   }
 
   // #19 — fetch the admin-managed payment methods; keep the built-in fallback
   // (Cash/FIB) if the list is empty or the request fails.
+  //
+  // The fallback is deliberate and lives here, at the call site: a donor must
+  // still be able to pay when the catalogue endpoint is down, so a failure is
+  // caught, logged, and answered with the built-in Cash/FIB pair plus a note
+  // telling the donor these are default options. This is the one place that
+  // wants that behaviour — it is no longer hidden inside the API where every
+  // other caller inherited it.
   Future<void> _loadPaymentMethods() async {
-    final fetched = await fetchPaymentMethods();
+    final List<PaymentMethod> fetched;
+    try {
+      fetched = await fetchPaymentMethods();
+    } catch (e) {
+      debugPrint('ContinueDonation: payment methods unavailable: $e');
+      if (!mounted) return;
+      setState(() => _paymentMethodsFailed = true);
+      return;
+    }
     if (!mounted || fetched.isEmpty) return;
     setState(() {
+      _paymentMethodsFailed = false;
       _paymentMethods = [
         for (final m in fetched)
           _PaymentMethodData(
@@ -470,6 +527,22 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
                       const SizedBox(height: 22),
                       const SectionLabel(title: 'Payment method'),
                       const SizedBox(height: 12),
+                      // The catalogue could not be reached, so the cards below
+                      // are the built-in defaults. Say so plainly rather than
+                      // letting the donor assume they are seeing every option
+                      // the organization currently accepts.
+                      if (_paymentMethodsFailed) ...[
+                        Text(
+                          "We couldn't load the latest payment options, so these are the default ones."
+                              .tr,
+                          style: TextStyle(
+                            color: AppThemeConfig.mutedText(context),
+                            fontSize: 12.5,
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
                       ...List.generate(_displayMethods.length, (index) {
                         final paymentMethod = _displayMethods[index];
                         final isSelected = index == _selectedPaymentIndex;

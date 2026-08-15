@@ -317,20 +317,19 @@ class ModuleApi {
   }
 
   /// "Eleventh: Partners Section" — activities implemented with a partner.
-  /// Returns an empty list on failure so the Partner Page shows its empty
-  /// state rather than an error.
+  ///
+  /// THROWS on failure. The old doc said it returned an empty list "so the
+  /// Partner Page shows its empty state rather than an error" — which names
+  /// the bug precisely: the empty state asserts this partner has run no
+  /// activities, and that assertion is false when the request simply failed.
   Future<List<Map<String, dynamic>>> partnerActivities(int partnerId) async {
-    try {
-      final res = await getObject(partnerActivitiesUrl(partnerId));
-      final raw = res['items'];
-      if (raw is! List) return const [];
-      return raw
-          .whereType<Map>()
-          .map((e) => Map<String, dynamic>.from(e))
-          .toList();
-    } catch (_) {
-      return const [];
-    }
+    final res = await getObject(partnerActivitiesUrl(partnerId));
+    final raw = res['items'];
+    if (raw is! List) return const [];
+    return raw
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
   }
 
   /// Switch the signed-in user's own account type.
@@ -367,30 +366,38 @@ class ModuleApi {
   /// of toggleable fields. Returns an empty list on failure; the caller falls
   /// back to its built-in defaults so the screen still works offline.
   /// "Eighth: Sponsorship Schedule and Calendar" — the caller's schedule
-  /// occurrences, optionally filtered by status. Returns an empty list on
-  /// failure so the tracking screen can show its empty state rather than an
-  /// error dead end.
+  /// occurrences, optionally filtered by status.
+  ///
+  /// THROWS on failure. The old behaviour returned an empty list "so the
+  /// tracking screen can show its empty state rather than an error dead end".
+  /// The dead end was the real problem and it has since been fixed properly —
+  /// the screen now has an error state WITH a retry — so the workaround can
+  /// go, and with it the false claim that a sponsor has no upcoming payments.
   Future<List<ScheduleOccurrence>> getSponsorshipSchedule({
     String status = '',
   }) async {
-    try {
-      final url = status.isEmpty
-          ? sponsorshipScheduleUrl
-          : '$sponsorshipScheduleUrl?status=$status';
-      final res = await getObject(url);
-      final raw = res['items'];
-      if (raw is! List) return const [];
-      return raw
-          .whereType<Map>()
-          .map((e) => ScheduleOccurrence.fromJson(Map<String, dynamic>.from(e)))
-          .toList();
-    } catch (_) {
-      return const [];
-    }
+    final url = status.isEmpty
+        ? sponsorshipScheduleUrl
+        : '$sponsorshipScheduleUrl?status=$status';
+    final res = await getObject(url);
+    final raw = res['items'];
+    if (raw is! List) return const [];
+    return raw
+        .whereType<Map>()
+        .map((e) => ScheduleOccurrence.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
   }
 
   /// Donations Page spec — whether the project list and the Comprehensive
   /// Grant option are shown. Falls back to both enabled on failure.
+  ///
+  /// DELIBERATELY still swallows, unlike its neighbours in this file. These
+  /// are FEATURE FLAGS, not the user's data: falling back to "both enabled"
+  /// shows the standard donate screen, which tells the user nothing false
+  /// about themselves. Compare the wallet, where the equivalent fallback
+  /// asserted a specific balance of zero. The test for whether a default is
+  /// acceptable is not "does it avoid a crash" but "does it state something
+  /// untrue to the user".
   Future<DonationOptions> getDonationOptions() async {
     try {
       final res = await getObject(donationOptionsUrl);
@@ -403,25 +410,26 @@ class ModuleApi {
     }
   }
 
+  /// The per-field privacy toggles this user can set.
+  ///
+  /// THROWS on failure. Returning `[]` rendered a privacy screen with nothing
+  /// on it, which reads as "there is nothing here you can control" — a bad
+  /// thing to tell someone wrongly on a privacy screen specifically.
   Future<List<PrivacyFieldOption>> getPrivacyOptions() async {
-    try {
-      final res = await getObject(privacyOptionsUrl);
-      final raw = res['items'];
-      if (raw is! List) return const [];
-      return raw
-          .whereType<Map>()
-          .map(
-            (e) => PrivacyFieldOption(
-              fieldKey: (e['field_key'] ?? '').toString(),
-              labelKey: (e['label_key'] ?? '').toString(),
-              defaultHidden: e['default_hidden'] == true,
-            ),
-          )
-          .where((o) => o.fieldKey.isNotEmpty)
-          .toList();
-    } catch (_) {
-      return const [];
-    }
+    final res = await getObject(privacyOptionsUrl);
+    final raw = res['items'];
+    if (raw is! List) return const [];
+    return raw
+        .whereType<Map>()
+        .map(
+          (e) => PrivacyFieldOption(
+            fieldKey: (e['field_key'] ?? '').toString(),
+            labelKey: (e['label_key'] ?? '').toString(),
+            defaultHidden: e['default_hidden'] == true,
+          ),
+        )
+        .where((o) => o.fieldKey.isNotEmpty)
+        .toList();
   }
 
   // Privacy Settings spec — display-name choice (real name vs. alias) and

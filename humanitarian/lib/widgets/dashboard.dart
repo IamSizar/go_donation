@@ -877,6 +877,9 @@ class _WalletCard extends StatefulWidget {
 
 class _WalletCardState extends State<_WalletCard> {
   int? _balanceIQD;
+  // True once a load attempt failed. Kept separate from `_balanceIQD == null`
+  // so the card can tell "still loading" apart from "we couldn't find out".
+  bool _loadFailed = false;
 
   @override
   void initState() {
@@ -884,10 +887,28 @@ class _WalletCardState extends State<_WalletCard> {
     _load();
   }
 
+  /// Loads the balance, swallowing the error into an explicit unknown state.
+  ///
+  /// [fetchWalletBalance] throws on failure. Home genuinely cannot show a
+  /// full-screen error for one card, so the failure is contained here — but it
+  /// is contained as "unknown", not as 0. The card keeps its shape and renders
+  /// a dash where the number goes, so the layout never jumps and the user is
+  /// never told they have no money when we simply could not ask.
   Future<void> _load() async {
-    final balance = await fetchWalletBalance();
-    if (!mounted) return;
-    setState(() => _balanceIQD = balance.balanceIQD);
+    try {
+      final balance = await fetchWalletBalance();
+      if (!mounted) return;
+      setState(() {
+        _balanceIQD = balance.balanceIQD;
+        _loadFailed = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _balanceIQD = null;
+        _loadFailed = true;
+      });
+    }
   }
 
   @override
@@ -919,35 +940,52 @@ class _WalletCardState extends State<_WalletCard> {
             ),
           ),
           const SizedBox(width: 12),
+          // Tapping the balance retries a failed load — the card has no other
+          // way out, and Home can't surface a retry button without changing
+          // its height.
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'My wallet'.tr,
-                  style: TextStyle(
-                    color: AppThemeConfig.onAccent(
-                      context,
-                    ).withValues(alpha: 0.85),
-                    fontWeight: FontWeight.w600,
-                    fontSize: 12.5,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _loadFailed ? _load : null,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _loadFailed
+                        ? 'Balance unavailable — tap to retry'.tr
+                        : 'My wallet'.tr,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: AppThemeConfig.onAccent(
+                        context,
+                      ).withValues(alpha: 0.85),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12.5,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  balance == null
-                      ? '···'
-                      : '${NumberFormat('#,##0').format(balance)} IQD',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: AppThemeConfig.onAccent(context),
-                    fontWeight: FontWeight.w800,
-                    fontSize: 20,
+                  const SizedBox(height: 2),
+                  // Three states in one slot, all the same height so the card
+                  // never resizes: '···' while loading, an em dash when the
+                  // balance is unknown, the real figure otherwise. A dash is
+                  // used rather than 0 because 0 is a claim we can't make.
+                  Text(
+                    _loadFailed
+                        ? '—'
+                        : balance == null
+                        ? '···'
+                        : '${NumberFormat('#,##0').format(balance)} IQD',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: AppThemeConfig.onAccent(context),
+                      fontWeight: FontWeight.w800,
+                      fontSize: 20,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
           Semantics(

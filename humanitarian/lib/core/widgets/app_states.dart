@@ -266,6 +266,22 @@ class AppErrorState extends StatelessWidget {
 
   /// Anything already loaded before the failure. Shown dimmed beneath the
   /// banner so an offline user keeps what they had.
+  ///
+  /// CALLER'S RESPONSIBILITY: this content is dimmed but still INTERACTIVE.
+  /// It is only wrapped in [Opacity], which changes how it looks and nothing
+  /// about what it does, so every button inside it still fires.
+  ///
+  /// That is deliberate — making it inert would need an [IgnorePointer], and
+  /// that would also kill scrolling, which defeats the purpose of keeping the
+  /// data readable in the first place.
+  ///
+  /// So a screen passing [staleContent] must gate any action that DECIDES
+  /// something on the strength of the data that just failed to refresh. The
+  /// case that prompted this note: the marriage subscription screen kept its
+  /// package cards visible after a refresh failure, and their Subscribe
+  /// buttons still opened a payment sheet that offered or refused the wallet
+  /// based on a balance we had already admitted was stale. Reading stale data
+  /// is fine; spending against it is not.
   final Widget? staleContent;
 
   @override

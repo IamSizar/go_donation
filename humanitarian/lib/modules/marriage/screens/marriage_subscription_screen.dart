@@ -93,6 +93,20 @@ class _MarriageSubscriptionScreenState
   }
 
   Future<void> _choosePayment(Map<String, dynamic> pkg) async {
+    // The error state keeps the previously-loaded packages on screen, dimmed
+    // but still tappable (AppErrorState only wraps stale content in Opacity).
+    // `_walletBalanceIQD` comes from the same failed load, so opening the
+    // payment sheet here would offer — or refuse — the wallet on a balance we
+    // know we could not refresh. Money decisions do not get made on data we
+    // have already admitted is stale, so the purchase is gated until a retry
+    // succeeds.
+    if (_error != null) {
+      Get.snackbar(
+        'Subscription'.tr,
+        'Your balance could not be refreshed. Retry the load before subscribing.',
+      );
+      return;
+    }
     final id = (pkg['id'] as num).toInt();
     final priceIQD = (pkg['price_iqd'] as num?)?.toInt() ?? 0;
     final result = await showModalBottomSheet<String>(

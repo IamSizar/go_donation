@@ -164,6 +164,23 @@ class AppTranslations extends Translations {
         'Could not load your sponsorship schedule.',
     'Could not load the comments.': 'Could not load the comments.',
     'Could not play this video.': 'Could not play this video.',
+    // Added with the API-layer honesty pass. "Unavailable" rather than a
+    // number: the wallet used to report a confident 0 IQD when the request
+    // had actually failed, which is a wrong figure rather than a missing one.
+    'Balance unavailable right now': 'Balance unavailable right now',
+    'Balance unavailable — tap to retry': 'Balance unavailable — tap to retry',
+    "We couldn't load the latest payment options, so these are the default ones.":
+        "We couldn't load the latest payment options, so these are the default ones.",
+    'Your balance could not be refreshed. Retry the load before subscribing.':
+        'Your balance could not be refreshed. Retry the load before subscribing.',
+    "Could not load this partner's joint activities.":
+        "Could not load this partner's joint activities.",
+    'Could not load your privacy settings.':
+        'Could not load your privacy settings.',
+    'Could not refresh the list of fields you can hide.':
+        'Could not refresh the list of fields you can hide.',
+    'Could not load your display-name choice.':
+        'Could not load your display-name choice.',
     'Legal': 'Legal',
     'Read the terms that apply to using the app.':
         'Read the terms that apply to using the app.',
@@ -2471,6 +2488,21 @@ class AppTranslations extends Translations {
     'Could not load your sponsorship schedule.': 'تعذّر تحميل جدول الكفالة.',
     'Could not load the comments.': 'تعذّر تحميل التعليقات.',
     'Could not play this video.': 'تعذّر تشغيل هذا الفيديو.',
+    // en + ar only, as above — Sorani and Badini await a native speaker.
+    'Balance unavailable right now': 'الرصيد غير متاح حالياً',
+    'Balance unavailable — tap to retry':
+        'الرصيد غير متاح — اضغط لإعادة المحاولة',
+    "We couldn't load the latest payment options, so these are the default ones.":
+        'تعذّر تحميل أحدث خيارات الدفع، لذا هذه هي الخيارات الافتراضية.',
+    'Your balance could not be refreshed. Retry the load before subscribing.':
+        'تعذّر تحديث رصيدك. أعد المحاولة قبل الاشتراك.',
+    "Could not load this partner's joint activities.":
+        'تعذّر تحميل الأنشطة المشتركة لهذا الشريك.',
+    'Could not load your privacy settings.': 'تعذّر تحميل إعدادات الخصوصية.',
+    'Could not refresh the list of fields you can hide.':
+        'تعذّر تحديث قائمة الحقول التي يمكنك إخفاؤها.',
+    'Could not load your display-name choice.':
+        'تعذّر تحميل اختيارك لاسم العرض.',
     'Legal': 'قانوني',
     'Read the terms that apply to using the app.':
         'اقرأ الشروط التي تنطبق على استخدام التطبيق.',

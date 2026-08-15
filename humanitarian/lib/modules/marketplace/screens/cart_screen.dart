@@ -266,8 +266,9 @@ class _CartCheckoutPanel extends StatelessWidget {
             _CartPaymentCard(
               icon: Icons.account_balance_wallet_rounded,
               title: 'App Wallet'.tr,
-              subtitle:
-                  '${'Balance'.tr}: ${controller.walletBalanceIQD.value} IQD',
+              // Goes through the controller getter so an unknown balance reads
+              // as "unavailable" instead of a fabricated number.
+              subtitle: controller.walletBalanceLabel,
               selected: controller.payWithWallet.value,
               onTap: () => controller.payWithWallet.value = true,
             ),
