@@ -4,6 +4,8 @@ import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/modules/auth/screens/edit_profile.dart';
 import 'package:flutter_application_1/modules/community/screens/community_services_section.dart';
+import 'package:flutter_application_1/modules/dashboard/screens/games_screen.dart';
+import 'package:flutter_application_1/modules/notifications/screens/notifications_screen.dart';
 import 'package:flutter_application_1/modules/legal/screens/content_page_screen.dart';
 import 'package:flutter_application_1/modules/proposal/screens/our_work_screen.dart';
 import 'package:flutter_application_1/modules/proposal/screens/saved_posts_screen.dart';
@@ -143,15 +145,36 @@ class ProfileMenuScreen extends StatelessWidget {
             color: AppThemeConfig.accent(context),
             onTap: () => Get.to(() => const CommunityServicesSection()),
           ),
+          // J6 — "اللعبة". The wheel and the coupon were both finished, but
+          // their only door in the app was the donor Home quick-actions panel,
+          // which is not rendered for any other role. This entry is the
+          // role-neutral one the client's menu asks for; GamesScreen offers
+          // both games because the client asked for a single menu entry.
+          DrawerTile(
+            icon: Icons.casino_rounded,
+            label: 'Game',
+            color: AppThemeConfig.pending(context),
+            onTap: () => Get.to(() => const GamesScreen()),
+          ),
           const DrawerDivider(),
           // Language uses the existing picker row (a trailing arrow that
           // opens the language list), and Dark mode its existing switch.
           const LanguageRow(),
           const DarkModeRow(),
-          // "Twelfth: General Settings" — enable/disable notifications. This
-          // is the notification *setting*; the notification *list* stays
-          // behind the top-bar bell, so the two aren't duplicates.
-          const NotificationsRow(),
+          // "Twelfth: General Settings" + J6 — one row doing both jobs.
+          //
+          // It used to be the on/off switch alone, on the reasoning that the
+          // list belonged behind the top-bar bell and repeating it here would
+          // be duplication. The client read it the other way: الاشعارات is one
+          // of the eleven ENTRIES this menu is supposed to hold, so tapping it
+          // should show your notifications. It flipped a preference instead.
+          //
+          // Tapping the label now opens the list; the switch beside it still
+          // changes the setting. The bell keeps its badge and stays the fast
+          // route — this is a second door to one screen, not a second screen.
+          NotificationsRow(
+            onOpenList: () => Get.to(() => const NotificationsScreen()),
+          ),
           // K26 — "full user control over sounds and vibration from an
           // app-settings menu". AppMute has always worked; its only UI was a
           // card on ProfileSection, and the sole route to that screen is the

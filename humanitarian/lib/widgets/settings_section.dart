@@ -714,8 +714,18 @@ class DarkModeRow extends StatelessWidget {
 ///
 /// Optimistic: the switch flips immediately and reverts if the write fails, so
 /// a slow network never makes the toggle feel stuck.
+///
+/// J6 — the row is also a DOOR. The client listed الاشعارات among the eleven
+/// profile-menu ENTRIES, i.e. somewhere you go; what was here was a switch
+/// alone, so tapping the word "Notifications" changed a preference and never
+/// showed a single notification. [onOpenList] is what the label now leads to.
+/// It stays optional because the switch is still legitimate on its own in any
+/// settings surface that has no list to open.
 class NotificationsRow extends StatefulWidget {
-  const NotificationsRow({super.key});
+  const NotificationsRow({super.key, this.onOpenList});
+
+  /// Where tapping the label goes. Null leaves the row switch-only.
+  final VoidCallback? onOpenList;
 
   @override
   State<NotificationsRow> createState() => _NotificationsRowState();
@@ -767,34 +777,74 @@ class _NotificationsRowState extends State<NotificationsRow> {
 
   @override
   Widget build(BuildContext context) {
+    // Icon + label + chevron: the part that navigates. Kept separate from the
+    // switch so the two affordances never fight — a finger on the label opens
+    // the list, a finger on the switch changes the preference, and neither
+    // triggers the other.
+    final Widget label = Row(
+      children: [
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: Colors.amber.withValues(alpha: 0.14),
+            borderRadius: BorderRadius.circular(11),
+          ),
+          child: Icon(
+            Icons.notifications_active_rounded,
+            color: AppThemeConfig.pending(context),
+            size: 18,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            'Notifications'.tr,
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 14.5,
+              color: AppThemeConfig.text(context),
+            ),
+          ),
+        ),
+        if (widget.onOpenList != null) ...[
+          const SizedBox(width: 6),
+          // The same chevron DrawerTile draws, and directional, so it points
+          // the right way in Arabic and Kurdish.
+          Icon(
+            AppIcons.forward(context),
+            size: 14,
+            color: AppThemeConfig.mutedText(context),
+          ),
+        ],
+      ],
+    );
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: Row(
         children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: Colors.amber.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(11),
-            ),
-            child: Icon(
-              Icons.notifications_active_rounded,
-              color: AppThemeConfig.pending(context),
-              size: 18,
-            ),
-          ),
-          const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              'Notifications'.tr,
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 14.5,
-                color: AppThemeConfig.text(context),
-              ),
-            ),
+            child: widget.onOpenList == null
+                ? label
+                : Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(14),
+                      onTap: () {
+                        AppHaptics.selection();
+                        widget.onOpenList!();
+                      },
+                      // Vertical padding restores the 44pt touch target the
+                      // 36pt icon alone would fall short of.
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: label,
+                      ),
+                    ),
+                  ),
           ),
+          const SizedBox(width: 8),
           if (_loading)
             const SizedBox(
               width: 18,

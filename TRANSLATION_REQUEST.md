@@ -472,6 +472,18 @@ both Kurdish variants. Only these two UI strings are outstanding.
 | `activity_pick_sector_first` | Choose a sector above to see its sub-categories. | اختر قطاعًا في الأعلى لعرض فئاته الفرعية. | ckb + kmr |
 | `activity_need_fields` | Please enter a name and choose a sub-category. | يرجى إدخال الاسم واختيار فئة فرعية. | **ckb + kmr — REWORDED**, the existing Kurdish says "enter a name and a category" and now describes a control that no longer exists |
 
+## dashboard · J6 the اللعبة menu entry  (1 key)
+
+Added 2026-08-15 by the J6 fix. The wheel and the coupon already read correctly
+in both Kurdish variants — `Wheel of Fortune`, `Lucky Coupon` and both of their
+one-line descriptions are present in all four locales, so the new hub screen
+reuses them verbatim. One word is outstanding: the name of the menu entry and
+of the hub itself.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `Game` | Game | اللعبة | ckb + kmr |
+
 ## (shared / not directly referenced)  (16 keys)
 
 | Key | English | Arabic | Needs |

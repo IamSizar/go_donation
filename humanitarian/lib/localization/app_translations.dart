@@ -211,6 +211,9 @@ class AppTranslations extends Translations {
     'Enter your phone number and we will send you a verification code.':
         'Enter your phone number and we will send you a verification code.',
     // Quick Actions #4 — Wheel of Fortune / Lucky Coupon.
+    // J6 — 'Game' names the profile-menu entry (اللعبة) and the hub it opens,
+    // which offers both of the games below.
+    'Game': 'Game',
     'Wheel of Fortune': 'Wheel of Fortune',
     'Lucky Coupon': 'Lucky Coupon',
     'New': 'New',
@@ -2873,6 +2876,7 @@ class AppTranslations extends Translations {
     'Enter your phone number and we will send you a verification code.':
         'أدخل رقم هاتفك وسنرسل لك رمز تحقق.',
     // Quick Actions #4 — Wheel of Fortune / Lucky Coupon.
+    'Game': 'اللعبة',
     'Wheel of Fortune': 'عجلة الحظ',
     'Lucky Coupon': 'كوبون الحظ',
     'New': 'جديد',
