@@ -251,15 +251,71 @@ func NewAdminStatusHandler(pool *pgxpool.Pool, n *notify.Notifier, ev *events.St
 	return &AdminStatusHandler{Pool: pool, Notifier: n, Events: ev, CaseVolChat: cvc}
 }
 
-// forceLogout revokes every active session token for a user — the "force
-// logout" security primitive. Called when an account is deactivated or its
-// staff_tier is reduced, so the affected user is signed out immediately and
-// the updated permissions take effect on their next request. Best-effort: a
-// failure here must never block the security action that triggered it.
-func (h *AdminStatusHandler) forceLogout(ctx context.Context, userID int64) {
-	_, _ = h.Pool.Exec(ctx,
+// revokeSessionsForUser revokes every active session token for one user — the
+// "force logout" security primitive. auth/token.go refuses a revoked token on
+// the very next request, so the user is signed out of every device at once.
+//
+// H11 — this was a PRIVATE METHOD on AdminStatusHandler, which is exactly why
+// the الصلاحيات screen could not use it: the permissions handler lives in
+// another file with its own store and could not reach it, so unticking a
+// checkbox left every affected session running. Same shape as the H15 bug, and
+// the same fix — a package-level function, so "force logout" means one thing
+// wherever it is written.
+//
+// Returns the number of sessions ended, so a caller can log what it did.
+// `pool` and `userID` are the only inputs; nothing here is request-scoped.
+func revokeSessionsForUser(ctx context.Context, pool *pgxpool.Pool, userID int64) (int64, error) {
+	ct, err := pool.Exec(ctx,
 		`UPDATE api_access_tokens SET revoked_at = NOW()
 		  WHERE user_id = $1 AND revoked_at IS NULL`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("revoking sessions for user %d: %w", userID, err)
+	}
+	return ct.RowsAffected(), nil
+}
+
+// revokeSessionsForTierPermission ends the sessions of everyone on `tier` whose
+// EFFECTIVE answer for (module, action) just changed — used when a tier-wide
+// checkbox is unticked in الصلاحيات.
+//
+// The NOT EXISTS is the whole point of the function. A staff member who carries
+// a PER-USER override for this (module, action) is resolved by that override
+// (permissions.AllowedForUser looks up by user_id alone and never consults the
+// tier row), so the tier change did not reduce their authority and signing them
+// out would be a logout they cannot explain. Everyone else on the tier resolved
+// through the row that just changed, and must be signed out.
+func revokeSessionsForTierPermission(
+	ctx context.Context, pool *pgxpool.Pool, tier, module, action string,
+) (int64, error) {
+	ct, err := pool.Exec(ctx,
+		`UPDATE api_access_tokens t
+		    SET revoked_at = NOW()
+		   FROM users u
+		  WHERE t.user_id = u.id
+		    AND t.revoked_at IS NULL
+		    AND u.staff_tier = $1
+		    AND NOT EXISTS (
+		          SELECT 1 FROM role_permissions rp
+		           WHERE rp.user_id = u.id
+		             AND rp.module = $2
+		             AND rp.action = $3
+		        )`, tier, module, action)
+	if err != nil {
+		return 0, fmt.Errorf("revoking sessions for tier %s after %s/%s reduction: %w",
+			tier, module, action, err)
+	}
+	return ct.RowsAffected(), nil
+}
+
+// forceLogout is the AdminStatusHandler's call site for the primitive above.
+// Best-effort by design: a failure here must never block the security action
+// that triggered it (a suspend must still suspend), but it is logged rather
+// than swallowed — a force-logout that silently did nothing is the H11 class
+// of bug all over again.
+func (h *AdminStatusHandler) forceLogout(ctx context.Context, userID int64) {
+	if _, err := revokeSessionsForUser(ctx, h.Pool, userID); err != nil {
+		log.Printf("[security] force-logout failed for user %d: %v", userID, err)
+	}
 }
 
 // POST /api/admin/users/:id/force_logout — on-demand revoke of every active

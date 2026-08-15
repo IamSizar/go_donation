@@ -16,6 +16,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -181,6 +182,22 @@ func (s *Store) ListOverrides(ctx context.Context) ([]Override, error) {
 
 // SetOverride upserts a single (tier, module, action) → allowed override.
 // super_admin is never stored (it is always allowed).
+//
+// The `WHERE user_id IS NULL` on the conflict target is REQUIRED, not
+// decoration. Migration 055 dropped the plain UNIQUE (tier, module, action)
+// constraint this statement was written against and replaced it with two
+// PARTIAL unique indexes — role_permissions_tier_uniq is
+// `(tier, module, action) WHERE user_id IS NULL`. Postgres will only use a
+// partial index as an arbiter when the conflict target repeats its predicate,
+// so without this clause every tier-wide permission write failed with
+//
+//	ERROR: there is no unique or exclusion constraint matching the
+//	ON CONFLICT specification (SQLSTATE 42P10)
+//
+// i.e. the الصلاحيات matrix could not be saved at all. SetUserOverride below
+// was written at the same time as migration 055 and already carries its own
+// predicate, which is why only this half was broken and the per-employee half
+// kept working — and why the failure went unnoticed.
 func (s *Store) SetOverride(ctx context.Context, tier, module, action string, allowed bool) error {
 	if TierFrom(tier) == TierSuperAdmin {
 		return errors.New("super_admin permissions cannot be overridden")
@@ -188,11 +205,14 @@ func (s *Store) SetOverride(ctx context.Context, tier, module, action string, al
 	_, err := s.Pool.Exec(ctx,
 		`INSERT INTO role_permissions (tier, module, action, allowed, updated_at)
 		 VALUES ($1, $2, $3, $4, NOW())
-		 ON CONFLICT (tier, module, action)
+		 ON CONFLICT (tier, module, action) WHERE user_id IS NULL
 		 DO UPDATE SET allowed = EXCLUDED.allowed, updated_at = NOW()`,
 		tier, module, action, allowed,
 	)
-	return err
+	if err != nil {
+		return fmt.Errorf("set %s/%s/%s override: %w", tier, module, action, err)
+	}
+	return nil
 }
 
 // ── Note 31 — per-employee overrides ────────────────────────────────────

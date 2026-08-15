@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"context"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -184,6 +186,30 @@ func (h *AdminPermissionsHandler) SetPermission(c *gin.Context) {
 		return
 	}
 
+	// H11 — "force logout the instant permissions are reduced". A tier demotion,
+	// a suspend, a ban and an archive all already end the affected sessions;
+	// this screen did not, so a staff member kept the dashboard the SPA had
+	// already rendered for them and only met the change on their next gated
+	// click. Charged ONLY on a reduction: being granted something must not sign
+	// anyone out, or operators learn to avoid this screen.
+	//
+	// Skipped for the `user` tier on purpose. That tier cannot reach the
+	// dashboard at all (permissions.CanAccessDashboard) and the matrix governs
+	// nothing else for it, so revoking there would mass-log-out every app user
+	// on the platform for a change that does not affect them — a far worse
+	// outcome than the bug being fixed.
+	if oldAllowed && !req.Allowed && permissions.CanAccessDashboard(permissions.TierFrom(req.Tier)) {
+		if n, err := revokeSessionsForTierPermission(ctx, h.Perms.Pool, req.Tier, req.Module, req.Action); err != nil {
+			// Best-effort, like every other force-logout call site: the
+			// permission change itself has already been written and audited,
+			// and refusing it now would leave the operator worse off. Logged so
+			// a session that outlived its permission is traceable.
+			log.Printf("[security] permission reduced (%s) but force-logout failed: %v", req.Tier+"/"+req.Module+"/"+req.Action, err)
+		} else if n > 0 {
+			log.Printf("[security] permission reduced (%s) — ended %d session(s)", req.Tier+"/"+req.Module+"/"+req.Action, n)
+		}
+	}
+
 	id := actor.UserID
 	target := req.Tier + "/" + req.Module + "/" + req.Action
 	_ = h.Perms.LogAudit(ctx, &id, "permission_set", target,
@@ -363,6 +389,13 @@ func (h *AdminPermissionsHandler) SetUserPermission(c *gin.Context) {
 			return
 		}
 		newAllowed, _ := h.Perms.AllowedForUser(ctx, targetID, tier, req.Module, req.Action)
+		// H11 — clearing an override can REDUCE this employee just as surely as
+		// setting one to false: if their personal grant was the only reason they
+		// held the permission, removing it drops them back to a tier that does
+		// not. Compared on the EFFECTIVE value before and after, not on the
+		// override's presence, because only the effective value is what they
+		// could actually do.
+		h.forceLogoutIfReduced(ctx, targetID, oldAllowed, newAllowed, target)
 		id := actor.UserID
 		_ = h.Perms.LogAudit(ctx, &id, "user_permission_cleared", target, boolWord(oldAllowed), boolWord(newAllowed), c.ClientIP())
 		c.JSON(http.StatusOK, gin.H{"success": true, "user_id": targetID, "module": req.Module, "action": req.Action, "allowed": newAllowed, "source": "tier"})
@@ -373,9 +406,35 @@ func (h *AdminPermissionsHandler) SetUserPermission(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
 		return
 	}
+	// H11 — the narrow half of the same rule. Only this employee's sessions end,
+	// because only this employee's authority changed.
+	h.forceLogoutIfReduced(ctx, targetID, oldAllowed, *req.Allowed, target)
 	id := actor.UserID
 	_ = h.Perms.LogAudit(ctx, &id, "user_permission_set", target, boolWord(oldAllowed), boolWord(*req.Allowed), c.ClientIP())
 	c.JSON(http.StatusOK, gin.H{"success": true, "user_id": targetID, "module": req.Module, "action": req.Action, "allowed": *req.Allowed, "source": "user"})
+}
+
+// forceLogoutIfReduced ends one employee's sessions when their effective
+// permission went from allowed to denied, and does nothing otherwise.
+//
+// H11 — factored out because BOTH per-user paths need it (setting an override
+// to false, and clearing an override that was the only thing granting it), and
+// duplicating the comparison is how the two would drift apart.
+//
+// Best-effort, matching every other force-logout call site: the permission
+// change is already written and audited by the time this runs, so a failure
+// here is logged rather than turned into an error the operator cannot act on.
+func (h *AdminPermissionsHandler) forceLogoutIfReduced(
+	ctx context.Context, userID int64, oldAllowed, newAllowed bool, target string,
+) {
+	if !oldAllowed || newAllowed {
+		return
+	}
+	if _, err := revokeSessionsForUser(ctx, h.Perms.Pool, userID); err != nil {
+		log.Printf("[security] permission reduced (%s) but force-logout failed: %v", target, err)
+		return
+	}
+	log.Printf("[security] permission reduced (%s) — ended user %d's sessions", target, userID)
 }
 
 func validIn(v string, set []string) bool {
