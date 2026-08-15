@@ -10,6 +10,7 @@ import 'package:get/get.dart';
 
 import 'package:flutter_application_1/core/auth_navigation.dart';
 import 'package:flutter_application_1/api/guest_session.dart';
+import 'package:flutter_application_1/modules/auth/widgets/auth_inline_error.dart';
 import 'package:flutter_application_1/routes/app_routes.dart';
 
 import '../../../widgets/auth_ui.dart';
@@ -320,34 +321,19 @@ class _LoginFormState extends State<_LoginForm> {
                   )
                 : const SizedBox.shrink(),
           ),
+          // E4 — this line was the correct one; the OTP screen and the
+          // registration form each had their own, drawn in a hardcoded red.
+          // All three now share AuthInlineError, so there is one place where
+          // the colour is chosen and one place a test can read it back.
           Obx(
-            () =>
-                _loginController.errorMessage.value.isNotEmpty &&
-                    !_loginController.needsPasswordSetup.value
-                ? Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          Icons.error_outline_rounded,
-                          size: 18,
-                          color: AppThemeConfig.consequence(context),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _loginController.errorMessage.value,
-                            style: TextStyle(
-                              color: AppThemeConfig.consequence(context),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : const SizedBox.shrink(),
+            () => AuthInlineError(
+              // The gap sits below, unchanged from before the extraction: this
+              // line is above the field it refers to.
+              padding: const EdgeInsets.only(bottom: 12),
+              message: _loginController.needsPasswordSetup.value
+                  ? '' // the card above already says this, with an action
+                  : _loginController.errorMessage.value,
+            ),
           ),
           // #39 — phone field with an interactive country-code picker
           // (defaults to Iraq). The user types ONLY the local number;

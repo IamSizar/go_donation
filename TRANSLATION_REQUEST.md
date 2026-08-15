@@ -66,6 +66,19 @@ before adding — `_badini` mixes quote styles and a duplicate is a silent bug.*
 | `Sign in or create an account with your phone number.` | Sign in or create an account with your phone number. | سجّل الدخول أو أنشئ حساباً برقم هاتفك. | ckb + kmr |
 | `Your registration was saved, but your documents did not upload. You can add them from your profile.` | Your registration was saved, but your documents did not upload. You can add them from your profile. | تم حفظ تسجيلك، لكن لم يتم رفع مستنداتك. يمكنك إضافتها من ملفك الشخصي. | ckb + kmr |
 
+## auth · E5 OTP resend countdown  (2 keys)
+
+Added 2026-08-15. The OTP screen now says how long until another code can be
+requested, instead of offering a button the server will refuse. `@time` is a
+pre-formatted `m:ss` duration already wrapped in LTR isolate marks by the app —
+**keep `@time` exactly as written and do not reorder it**, or the digits mirror
+inside the RTL sentence.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `Resend in @time` | Resend in @time | إعادة الإرسال خلال @time | ckb + kmr |
+| `A code was just sent. You can ask for another shortly.` | A code was just sent. You can ask for another shortly. | تم إرسال رمز للتو. يمكنك طلب رمز آخر بعد قليل. | ckb + kmr |
+
 ## auth · A16 password sign-in  (25 keys)
 
 The sign-in design changed on 2026-08-15: a code now only CREATES an account

@@ -5,6 +5,7 @@ import 'package:flutter_application_1/core/app_haptics.dart';
 import 'package:flutter_application_1/controllers/login.dart';
 import 'package:flutter_application_1/core/phone_format.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
+import 'package:flutter_application_1/modules/auth/widgets/auth_inline_error.dart';
 import 'package:flutter_application_1/routes/app_routes.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
@@ -60,6 +61,78 @@ class _VerificationPageState extends State<VerificationPage> {
 
   Future<void> _resendOtp() async {
     await _loginController.resendOtp();
+  }
+
+  // ─── Resend control (E5) ────────────────────────────────────────────────
+
+  /// A remaining wait, written the way a person reads a duration.
+  ///
+  /// `m:ss`, not a bare second count: the server's escalating lockout answers
+  /// in hours, so "7200" would be shown where "120:00" is meant.
+  ///
+  /// Wrapped in an LTR isolate for the same reason the phone number above is
+  /// (#39): under an Arabic or Kurdish locale the ambient RTL direction would
+  /// otherwise mirror "1:05" into "05:1". Written as escapes, not as the
+  /// literal characters, because invisible direction marks in source are a
+  /// lint (`text_direction_code_point_in_literal`) and rightly so.
+  static String _formatCooldown(int totalSeconds) {
+    final minutes = totalSeconds ~/ 60;
+    final seconds = (totalSeconds % 60).toString().padLeft(2, '0');
+    return '\u2066$minutes:$seconds\u2069';
+  }
+
+  /// The button under the Verify action — either "resend the code" or, once
+  /// there is nothing left to verify, the way back to sign-in.
+  ///
+  /// The two modes are built as one control so the label and the action can
+  /// never disagree. They previously could: while a resend was in flight the
+  /// button still read "Resend OTP" but its tap handler navigated away to the
+  /// login screen, throwing away the code that was mid-send.
+  Widget _buildResendControl(bool hasPendingPhone) {
+    final canOfferResend = hasPendingPhone && !_passwordAlreadySet;
+    if (!canOfferResend) {
+      return TextButton(
+        onPressed: () => Get.offAllNamed(AppRoutes.authLogin),
+        child: Text('Back to login'.tr),
+      );
+    }
+
+    final secondsLeft = _loginController.resendCooldown.value;
+    final waiting = secondsLeft > 0;
+    final busy = _loginController.isLoading.value;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        TextButton(
+          // Disabled, not hidden: a control that vanishes and returns is
+          // harder to find than one that visibly counts down (5.8).
+          onPressed: (waiting || busy) ? null : _resendOtp,
+          child: Text(
+            waiting
+                ? 'Resend in @time'.trParams({
+                    'time': _formatCooldown(secondsLeft),
+                  })
+                : 'Resend OTP'.tr,
+          ),
+        ),
+        if (waiting)
+          // The reason, once, under the button — the countdown alone says
+          // "wait" without saying why anything is being withheld (5.9).
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              'A code was just sent. You can ask for another shortly.'.tr,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppThemeConfig.mutedText(context),
+                fontSize: 12,
+                height: 1.4,
+              ),
+            ),
+          ),
+      ],
+    );
   }
 
   @override
@@ -124,16 +197,13 @@ class _VerificationPageState extends State<VerificationPage> {
                           counterText: '',
                         ),
                       ),
-                      if (_loginController.errorMessage.value.isNotEmpty) ...[
-                        const SizedBox(height: 12),
-                        Text(
-                          _loginController.errorMessage.value,
-                          style: const TextStyle(
-                            color: Colors.redAccent,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
+                      // E4 — this line used to hardcode `Colors.redAccent`,
+                      // which measures 3.19:1 on this card. The shared widget
+                      // draws it in the themed `consequence` token instead,
+                      // the same one the sign-in screen behind it uses.
+                      AuthInlineError(
+                        message: _loginController.errorMessage.value,
+                      ),
                       const SizedBox(height: 24),
                       SizedBox(
                         width: double.infinity,
@@ -162,21 +232,7 @@ class _VerificationPageState extends State<VerificationPage> {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      Center(
-                        child: TextButton(
-                          onPressed:
-                              hasPendingPhone &&
-                                  !_passwordAlreadySet &&
-                                  !_loginController.isLoading.value
-                              ? _resendOtp
-                              : () => Get.offAllNamed(AppRoutes.authLogin),
-                          child: Text(
-                            hasPendingPhone && !_passwordAlreadySet
-                                ? 'Resend OTP'.tr
-                                : 'Back to login'.tr,
-                          ),
-                        ),
-                      ),
+                      Center(child: _buildResendControl(hasPendingPhone)),
                     ],
                   );
                 }),

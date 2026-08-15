@@ -11,6 +11,7 @@ import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/data/iraq_governorates.dart';
 import 'package:flutter_application_1/data/nineveh_districts.dart';
 import 'package:flutter_application_1/data/nineveh_neighborhoods.dart';
+import 'package:flutter_application_1/modules/auth/widgets/auth_inline_error.dart';
 import 'package:flutter_application_1/modules/legal/screens/terms_screen.dart';
 import 'package:flutter_application_1/routes/app_routes.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
@@ -4441,16 +4442,13 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                           ),
                         ),
                       ],
-                      if (_error != null) ...[
-                        const SizedBox(height: 16),
-                        Text(
-                          _error!,
-                          style: const TextStyle(
-                            color: Colors.redAccent,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
+                      // E4 — was a hardcoded `Colors.redAccent`, 3.19:1 on this
+                      // card and illegible in dark mode. Same widget, same
+                      // token as the rest of the sign-in flow.
+                      AuthInlineError(
+                        message: _error ?? '',
+                        padding: const EdgeInsets.only(top: 16),
+                      ),
                       const SizedBox(height: 18),
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,

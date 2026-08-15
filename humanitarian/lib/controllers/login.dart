@@ -40,6 +40,73 @@ class LoginController extends GetxController {
   /// registered, and the app must not invent the distinction either.
   final needsPasswordSetup = false.obs;
 
+  // ─── Resend cooldown (E5) ──────────────────────────────────────────────
+  //
+  // The server has always refused a second code inside a window; the app
+  // simply never said so, so "Resend" looked broken rather than early. The
+  // countdown lives here rather than in the OTP screen because the screen is
+  // not the thing that knows: a send is what starts the window, the screen is
+  // only what draws it, and a screen-owned timer would restart on every
+  // rebuild and die on every navigation.
+
+  /// Seconds left before another code may be requested. 0 means resend is free.
+  final resendCooldown = 0.obs;
+
+  /// Drives [resendCooldown] down to zero, one second at a time.
+  Timer? _resendTicker;
+
+  /// The server's own per-phone resend window, mirrored from
+  /// `auth.OTPResendCooldown` in `backend/internal/auth/otp.go` (60s, itself
+  /// set from OTP_RESEND_COOLDOWN_SECONDS).
+  ///
+  /// A mirrored constant is a guess, not the authority — it only exists so the
+  /// countdown can start at the moment of a *successful* send, when the server
+  /// says nothing about waiting. Every refusal carries `retry_after`, and
+  /// [startResendCooldown] always prefers the longer of the two, because the
+  /// progressive phone lockout answers in hours.
+  static const int resendCooldownSeconds = 60;
+
+  /// Whether the resend control should do anything if tapped.
+  bool get canResendOtp => resendCooldown.value <= 0;
+
+  /// Begins (or extends) the wait before another code may be requested.
+  ///
+  /// Takes the LONGER of [seconds] and whatever is already running. Taking the
+  /// smaller would let a 60-second local guess paper over a two-hour server
+  /// lockout and invite a tap that can only be refused again.
+  ///
+  /// A non-positive [seconds] with nothing running is a no-op, so callers may
+  /// pass a missing/zero `retry_after` through without checking it first.
+  void startResendCooldown(int seconds) {
+    if (seconds <= resendCooldown.value) return;
+
+    resendCooldown.value = seconds;
+    _resendTicker?.cancel();
+    if (seconds <= 0) return;
+
+    _resendTicker = Timer.periodic(const Duration(seconds: 1), (timer) {
+      final left = resendCooldown.value - 1;
+      resendCooldown.value = left > 0 ? left : 0;
+      if (left <= 0) timer.cancel();
+    });
+  }
+
+  /// Ends the wait immediately. Only for when the *number* changes — a new
+  /// phone has its own window on the server and must not inherit this one's.
+  void _stopResendCooldown() {
+    _resendTicker?.cancel();
+    _resendTicker = null;
+    resendCooldown.value = 0;
+  }
+
+  @override
+  void onClose() {
+    // A periodic timer outlives the controller unless it is cancelled here,
+    // and would keep an Rx alive after disposal.
+    _resendTicker?.cancel();
+    super.onClose();
+  }
+
   /// The single-use ticket from the last successful /auth/otp/verify. Held here
   /// (not passed through routes) so it never lands in a URL or in route
   /// arguments that survive a hot restart. Cleared as soon as it is spent.
@@ -144,6 +211,14 @@ class LoginController extends GetxController {
         // Map common backend errors to user-friendly messages.
         final raw = body?['error']?.toString() ?? body?['message']?.toString();
         if (code == 429) {
+          // E5 — the refusal already carries how long to wait. Feeding it into
+          // the countdown is what turns "Please wait" into a number, and it is
+          // the only source that knows about the escalating phone lockout,
+          // which is measured in hours rather than the local 60 seconds.
+          final retryAfter = body?['retry_after'];
+          if (retryAfter is num) {
+            startResendCooldown(retryAfter.toInt());
+          }
           errorMessage.value =
               raw ?? 'Too many requests. Please wait before trying again.'.tr;
         } else if (code == 502 || code == 503) {
@@ -164,6 +239,11 @@ class LoginController extends GetxController {
           ? (body!['expires_in'] as num).toInt()
           : 300;
       _otpExpiresAt = DateTime.now().add(Duration(seconds: expiresIn));
+
+      // E5 — a code just went out, so the server's resend window is now
+      // running. Start the same clock locally, or the user's next tap spends
+      // its wait discovering a limit we already knew about.
+      startResendCooldown(resendCooldownSeconds);
 
       // Demo path: the backend returned the actual code so the dev can copy it.
       final demoCode = body?['demo_code']?.toString();
@@ -551,6 +631,8 @@ class LoginController extends GetxController {
     _otpExpiresAt = null;
     _setupTicket = '';
     needsPasswordSetup.value = false;
+    // The cooldown belongs to the number that was pending, not to the app.
+    _stopResendCooldown();
     unawaited(_loginSessionJar.deleteAll());
   }
 

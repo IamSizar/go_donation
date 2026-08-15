@@ -1394,6 +1394,11 @@ class AppTranslations extends Translations {
     'Enter the 6-digit code': 'Enter the 6-digit code',
     'Verify OTP': 'Verify OTP',
     'Resend OTP': 'Resend OTP',
+    // E5 — @time is a pre-formatted m:ss duration, already wrapped in LTR
+    // isolate marks by the caller so it keeps its order in an RTL sentence.
+    'Resend in @time': 'Resend in @time',
+    'A code was just sent. You can ask for another shortly.':
+        'A code was just sent. You can ask for another shortly.',
     'Back to login': 'Back to login',
     'Request a new OTP first.': 'Request a new OTP first.',
     'This OTP has expired. Please request a new one.':
@@ -3940,6 +3945,9 @@ class AppTranslations extends Translations {
     'Enter the 6-digit code': 'أدخل الرمز المكون من 6 أرقام',
     'Verify OTP': 'تحقق من الرمز',
     'Resend OTP': 'إعادة إرسال الرمز',
+    'Resend in @time': 'إعادة الإرسال خلال @time',
+    'A code was just sent. You can ask for another shortly.':
+        'تم إرسال رمز للتو. يمكنك طلب رمز آخر بعد قليل.',
     'Back to login': 'العودة إلى تسجيل الدخول',
     'Request a new OTP first.': 'اطلب رمزا جديدا أولا.',
     'This OTP has expired. Please request a new one.':
