@@ -11,6 +11,7 @@ import 'package:flutter_application_1/modules/proposal/screens/proposal_services
 import 'package:flutter_application_1/modules/legal/screens/terms_screen.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:flutter_application_1/widgets/settings_section.dart';
+import 'package:flutter_application_1/widgets/sound_vibration_row.dart';
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/modules/dashboard/controllers/role_dashboard_controller.dart';
 import 'package:get/get.dart';
@@ -151,6 +152,14 @@ class ProfileMenuScreen extends StatelessWidget {
           // is the notification *setting*; the notification *list* stays
           // behind the top-bar bell, so the two aren't duplicates.
           const NotificationsRow(),
+          // K26 — "full user control over sounds and vibration from an
+          // app-settings menu". AppMute has always worked; its only UI was a
+          // card on ProfileSection, and the sole route to that screen is the
+          // AI assistant's 'profile' deep link — so in practice the setting
+          // could only be found by asking the chatbot for it. It belongs with
+          // the other preference switches, and next to Notifications in
+          // particular, because the chime it silences is a notification cue.
+          const SoundVibrationRow(),
           const DrawerDivider(),
           DrawerTile(
             icon: Icons.support_agent_rounded,
