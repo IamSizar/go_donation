@@ -32,7 +32,7 @@ const PARTNER_FIELDS: FieldSpec[] = [
   { key: 'contact_phone',       label: 'Contact phone', labelKey: 'field.contact_phone',       type: 'text' },
   { key: 'email',               label: 'Email', labelKey: 'field.email',               type: 'text' },
   { key: 'website',             label: 'Website', labelKey: 'field.website',             type: 'text' },
-  { key: 'social_links',        label: 'Social links', labelKey: 'field.social_links',        type: 'textarea', rows: 3, full: true, placeholder: 'One link per line' },
+  { key: 'social_links',        label: 'Social links', labelKey: 'field.social_links',        type: 'textarea', rows: 3, full: true, placeholder: 'One link per line', placeholderKey: 'hint.one_link_per_line' },
   { key: 'location',            label: 'Location (EN)', labelKey: 'field.location',            type: 'text' },
   { key: 'location_ar',         label: 'Location (AR)', labelKey: 'field.location_ar',         type: 'text', dir: 'rtl' },
   { key: 'location_sorani',     label: 'Location (Sorani)', labelKey: 'field.location_sorani',     type: 'text', dir: 'rtl' },
@@ -44,11 +44,11 @@ const PARTNER_FIELDS: FieldSpec[] = [
   { key: 'description_badini',  label: 'Description (Badini)', labelKey: 'field.description_badini',type: 'textarea', rows: 3, dir: 'rtl' },
   // "Partner Rating" — the organization's own assessment, separate from the
   // crowd star rating users give in the app. 1-5 each; enter 0 to clear one.
-  { key: 'admin_rating',        label: 'Assessed rating (1-5)', labelKey: 'field.admin_rating',        type: 'number', placeholder: '1-5, or 0 to clear' },
-  { key: 'score_activities',    label: 'Completed activities (1-5)', labelKey: 'field.score_activities',    type: 'number', placeholder: '1-5, or 0 to clear' },
-  { key: 'score_donations',     label: 'Value of donations (1-5)', labelKey: 'field.score_donations',     type: 'number', placeholder: '1-5, or 0 to clear' },
-  { key: 'score_cooperation',   label: 'Cooperation (1-5)', labelKey: 'field.score_cooperation',   type: 'number', placeholder: '1-5, or 0 to clear' },
-  { key: 'score_continuity',    label: 'Continuity of support (1-5)', labelKey: 'field.score_continuity',    type: 'number', placeholder: '1-5, or 0 to clear' },
+  { key: 'admin_rating',        label: 'Assessed rating (1-5)', labelKey: 'field.admin_rating',        type: 'number', placeholder: '1-5, or 0 to clear', placeholderKey: 'hint.rating_1_5_or_0' },
+  { key: 'score_activities',    label: 'Completed activities (1-5)', labelKey: 'field.score_activities',    type: 'number', placeholder: '1-5, or 0 to clear', placeholderKey: 'hint.rating_1_5_or_0' },
+  { key: 'score_donations',     label: 'Value of donations (1-5)', labelKey: 'field.score_donations',     type: 'number', placeholder: '1-5, or 0 to clear', placeholderKey: 'hint.rating_1_5_or_0' },
+  { key: 'score_cooperation',   label: 'Cooperation (1-5)', labelKey: 'field.score_cooperation',   type: 'number', placeholder: '1-5, or 0 to clear', placeholderKey: 'hint.rating_1_5_or_0' },
+  { key: 'score_continuity',    label: 'Continuity of support (1-5)', labelKey: 'field.score_continuity',    type: 'number', placeholder: '1-5, or 0 to clear', placeholderKey: 'hint.rating_1_5_or_0' },
   { key: 'admin_rating_note',   label: 'Assessment note', labelKey: 'field.admin_rating_note',   type: 'textarea', rows: 2, full: true },
 ]
 

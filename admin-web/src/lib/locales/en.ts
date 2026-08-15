@@ -1213,6 +1213,13 @@ const en = {
     // with health/commercial and deleted worship+relief, and nothing in src/
     // referenced them. Sector names now resolve from the DB, not from here.
     education: 'Education', government: 'Government & Services',
+    // B3 — the remaining city-guide sector slugs. The read-only Detail page
+    // renders a TEXT[] element-by-element through statusLabel and has no
+    // access to the admin-managed city_sectors list the City Guide page
+    // fetches, so without these four the array printed raw slugs.
+    // Wording condensed from migrations 052 and 100.
+    health: 'Health & Medical', commercial: 'Commercial & Services',
+    industrial: 'Industrial & Productive', tourism: 'Tourism & Heritage',
     exact: 'Exact location', approx: 'Approximate (~500m)',
     pending: 'Pending',
     registered: 'Registered',
@@ -1348,6 +1355,20 @@ const en = {
   placeholder: {
     body: 'This section is a Phase 4 placeholder. The real screen ships in Phase 5.',
     route: 'Route: {path}',
+  },
+
+  // B6 — EditModal placeholder hints. Resolved via FieldSpec.placeholderKey,
+  // the counterpart to labelKey. Only hints that CARRY English live here;
+  // format samples ('IQD', 'YYYY-MM-DD', a JSON or URL sample) stay as bare
+  // `placeholder` literals because there is nothing in them to translate.
+  hint: {
+    leave_blank_unchanged: 'Leave blank to keep unchanged',
+    rating_1_5_or_0: '1-5, or 0 to clear',
+    eg_50_families: 'e.g. 50 families',
+    one_key_value_per_line: 'One "Key: Value" per line',
+    one_link_per_line: 'One link per line',
+    eg_city: 'e.g. Erbil',
+    eg_volunteer_count: 'e.g. 10',
   },
 
   // EditModal field labels. Resolved via FieldSpec.labelKey.

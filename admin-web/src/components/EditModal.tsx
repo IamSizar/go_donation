@@ -37,6 +37,15 @@ export type FieldSpec = {
   options?: string[]           // for type='select'
   optionLabels?: Record<string, string> // for type='select': value → display label (else statusLabel(value))
   placeholder?: string
+  // B6 — the last English left in the Arabic dashboard was the grey hint text
+  // inside empty boxes: `placeholder` was rendered raw while `label` had gone
+  // through `labelKey` since Phase 19. Same shape as labelKey — when set, it
+  // wins over the literal.
+  //
+  // Format hints that carry no English ('IQD', '0', 'YYYY-MM-DD', a JSON
+  // sample, a URL sample) deliberately keep the bare `placeholder` — there is
+  // nothing in them to translate.
+  placeholderKey?: string
   rows?: number                // for textarea
   required?: boolean           // disallow empty on save
   dir?: 'ltr' | 'rtl' | 'auto' // text direction hint (rtl for Arabic / Kurdish)
@@ -235,6 +244,7 @@ export default function EditModal({ open, title, initial, fields, onSave, onClos
               const v = values[f.key] ?? ''
               const setV = (next: string) => setValues((m) => ({ ...m, [f.key]: next }))
               const label = f.labelKey ? t(f.labelKey) : f.label
+              const placeholder = f.placeholderKey ? t(f.placeholderKey) : f.placeholder
               const dir = f.dir ?? 'auto'
               const ref = i === 0 ? firstRef : undefined
 
@@ -290,7 +300,7 @@ export default function EditModal({ open, title, initial, fields, onSave, onClos
                       ref={ref as React.RefObject<HTMLTextAreaElement>}
                       rows={f.rows ?? 3}
                       value={v}
-                      placeholder={f.placeholder}
+                      placeholder={placeholder}
                       disabled={busy}
                       dir={dir}
                       onChange={(e) => setV(e.target.value)}
@@ -323,7 +333,7 @@ export default function EditModal({ open, title, initial, fields, onSave, onClos
                     type={f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : f.type === 'password' ? 'password' : 'text'}
                     autoComplete={f.type === 'password' ? 'new-password' : undefined}
                     value={v}
-                    placeholder={f.placeholder}
+                    placeholder={placeholder}
                     disabled={busy}
                     dir={dir}
                     onChange={(e) => setV(e.target.value)}

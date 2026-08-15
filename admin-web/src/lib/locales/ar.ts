@@ -60,7 +60,12 @@ const ar: DeepPartial<typeof en> = {
     volunteers: 'المتطوعون',
     volunteer_board: 'لوحة المتطوعين',
     tasks: 'المهام',
-    missions: 'المهام',
+    // B16 — these two sidebar entries both read "المهام", so two different
+    // sections were indistinguishable in Arabic. /missions is the VOLUNTEER
+    // missions module (the volunteer_missions table, noun.mission); /tasks is
+    // staff tasks. English already distinguishes them (Tasks / Missions).
+    // ckb and kmr still collide and need a translator — TRANSLATION_REQUEST.md.
+    missions: 'مهام التطوع',
     in_kind: 'مساهمات عينية',
     support: 'الدعم',
     notifications: 'الإشعارات',
@@ -1144,6 +1149,8 @@ const ar: DeepPartial<typeof en> = {
   status: {
     all: 'الكل',
     education: 'التعليم', government: 'الدوائر والخدمات',
+    health: 'القطاع الصحي والطبي', commercial: 'القطاع التجاري والخدمي',
+    industrial: 'القطاع الصناعي والإنتاجي', tourism: 'السياحة والتراث والترفيه',
     exact: 'الموقع الدقيق', approx: 'تقريبي (~٥٠٠م)',
     pending: 'قيد الانتظار',
     registered: 'مُسجّل',
@@ -1272,6 +1279,16 @@ const ar: DeepPartial<typeof en> = {
   placeholder: {
     body: 'هذا القسم عنصر نائب للمرحلة 4. تُطلق الشاشة الفعلية في المرحلة 5.',
     route: 'المسار: {path}',
+  },
+
+  hint: {
+    leave_blank_unchanged: 'اتركه فارغًا للإبقاء على القيمة الحالية',
+    rating_1_5_or_0: 'من 1 إلى 5، أو 0 للمسح',
+    eg_50_families: 'مثال: 50 عائلة',
+    one_key_value_per_line: 'سطر واحد لكل "المفتاح: القيمة"',
+    one_link_per_line: 'رابط واحد في كل سطر',
+    eg_city: 'مثال: أربيل',
+    eg_volunteer_count: 'مثال: 10',
   },
 
   field: {

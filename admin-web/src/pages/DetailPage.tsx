@@ -16,6 +16,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, describeError, assetUrl } from '../lib/api'
+import { formatDateOnly, formatDateTime } from '../lib/dates'
 import { useI18n, useFieldLabel, useStatusLabel } from '../lib/i18n'
 import { RESOURCE_LABELS } from '../lib/resourceLabels'
 import PageHead from '../components/PageHead'
@@ -40,6 +41,19 @@ function looksLikeImagePath(key: string, val: unknown): boolean {
 function dirFor(key: string): 'rtl' | 'ltr' {
   return /(_ar|_sorani|_badini)$/i.test(key) ? 'rtl' : 'ltr'
 }
+
+// B9 — a timestamp reached this page as Go's RFC 3339 marshalling, so
+// "تاريخ الإنشاء" read `2026-06-14T11:13:32.50385Z`. The formatters already
+// exist and are used on 10+ other pages; this page simply never imported
+// them, and a date string fell through to statusLabel, which returns an
+// unrecognised value verbatim.
+//
+// Matched on the VALUE rather than the key name: `created_at` is a reliable
+// signal but `next_due_date`, `dob` and `event_date` are not one convention,
+// while the two ISO shapes are unmistakable and free text cannot collide
+// with them.
+const ISO_DATETIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 
 // Note #7 — several user_profiles fields are only ever COLLECTED for one
 // specific role's registration form (mobile app: registration_form.dart) —
@@ -71,15 +85,37 @@ function renderValue(
   if (looksLikeImagePath(key, val)) {
     return <img src={assetUrl(String(val))} alt="" className="file-input-preview" />
   }
+  // B3 — a Postgres TEXT[] arrived as a JS array and fell into the object
+  // branch below, so دليل المدينة → عرض printed `["commercial","government"]`
+  // at an Arabic reader. Several resources carry one (city sectors, volunteer
+  // skill_tags, marketplace labels, field_privacy), so this is the generic
+  // fix rather than a per-column one.
+  //
+  // Each element goes through statusLabel — the same vocabulary the list
+  // pages use for these values — and the separator is the Arabic comma, which
+  // renders correctly in both directions.
+  if (Array.isArray(val)) {
+    if (val.length === 0) return <span className="muted">—</span>
+    const parts = val.map((x) =>
+      x !== null && typeof x === 'object' ? JSON.stringify(x) : statusLabel(String(x)),
+    )
+    return <span dir={dirFor(key)}>{parts.join('، ')}</span>
+  }
   if (typeof val === 'object') {
+    // Genuinely structured data (audit metadata) — a JSON panel is the honest
+    // rendering, and it is not what the client reported.
     return <pre className="audit-meta-panel" style={{ margin: 0 }}>{JSON.stringify(val, null, 2)}</pre>
   }
   if (typeof val === 'boolean') {
     return <span>{val ? t('common.yes') : t('common.no')}</span>
   }
+  if (typeof val === 'string') {
+    if (ISO_DATETIME.test(val)) return <span>{formatDateTime(val)}</span>
+    if (ISO_DATE.test(val)) return <span>{formatDateOnly(val)}</span>
+  }
   // Localize controlled-vocabulary values (status/priority enums). statusLabel
   // returns the raw string when there's no matching status.* key, so free data
-  // (names, cities, dates) is left untouched.
+  // (names, cities) is left untouched.
   return <span dir={dirFor(key)}>{statusLabel(String(val))}</span>
 }
 

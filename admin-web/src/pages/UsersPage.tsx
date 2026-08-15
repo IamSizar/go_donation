@@ -50,7 +50,7 @@ const USER_FIELDS: FieldSpec[] = [
   { key: 'experience',      label: 'Experience', labelKey: 'field.experience',      type: 'text' },
   { key: 'skills',          label: 'Skills', labelKey: 'field.skills',          type: 'textarea', rows: 2, full: true },
   { key: 'profile_picture', label: 'Profile picture', labelKey: 'field.profile_picture', type: 'file', full: true },
-  { key: 'password',        label: 'New password', labelKey: 'field.new_password',    type: 'password', placeholder: 'Leave blank to keep unchanged', full: true },
+  { key: 'password',        label: 'New password', labelKey: 'field.new_password',    type: 'password', placeholder: 'Leave blank to keep unchanged', placeholderKey: 'hint.leave_blank_unchanged', full: true },
 ]
 
 // Note #34 — the New-User form used to only have phone/full_name/role; the

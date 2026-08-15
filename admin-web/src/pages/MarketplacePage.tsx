@@ -82,7 +82,7 @@ const PRODUCT_FIELDS: FieldSpec[] = [
   { key: 'currency',            label: 'Currency', labelKey: 'field.currency',           type: 'text',     placeholder: 'IQD' },
   { key: 'stock_quantity',      label: 'Stock quantity', labelKey: 'field.stock_quantity',     type: 'number' },
   { key: 'labels',              label: 'Labels', labelKey: 'field.labels',             type: 'multiselect', full: true, options: PRODUCT_LABELS },
-  { key: 'specs',               label: 'Specs', labelKey: 'field.specs',              type: 'textarea', rows: 3, full: true, placeholder: 'One "Key: Value" per line' },
+  { key: 'specs',               label: 'Specs', labelKey: 'field.specs',              type: 'textarea', rows: 3, full: true, placeholder: 'One "Key: Value" per line', placeholderKey: 'hint.one_key_value_per_line' },
   { key: 'image_path',          label: 'Image', labelKey: 'field.image',              type: 'file', full: true },
   { key: 'description',         label: 'Description (EN)', labelKey: 'field.description_en',   type: 'textarea', rows: 3 },
   { key: 'description_ar',      label: 'Description (AR)', labelKey: 'field.description_ar',   type: 'textarea', rows: 3, dir: 'rtl' },
