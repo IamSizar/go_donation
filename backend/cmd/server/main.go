@@ -335,6 +335,11 @@ func main() {
 		api.POST("/auth/otp/request/", authH.OTPRequest)
 		api.POST("/auth/otp/verify", authH.OTPVerify)
 		api.POST("/auth/otp/verify/", authH.OTPVerify)
+		// A16 — finishes account creation (and rescues the accounts that hold no
+		// password) by giving a first password to a number that has just proved
+		// itself with a code. Never opens an account that already has one.
+		api.POST("/auth/password/set", authH.SetPassword)
+		api.POST("/auth/password/set/", authH.SetPassword)
 		// Note #40 — real (username + password) guest accounts.
 		api.POST("/auth/guest/register", authH.GuestRegister)
 		api.POST("/auth/guest/login", authH.GuestLogin)

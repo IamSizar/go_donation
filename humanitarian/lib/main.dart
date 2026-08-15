@@ -12,6 +12,7 @@ import 'package:flutter_application_1/modules/auth/screens/guest_upgrade.dart';
 import 'package:flutter_application_1/modules/auth/screens/login.dart';
 import 'package:flutter_application_1/modules/auth/screens/pending_approval.dart';
 import 'package:flutter_application_1/modules/auth/screens/registration_form.dart';
+import 'package:flutter_application_1/modules/auth/screens/create_password.dart';
 import 'package:flutter_application_1/modules/auth/screens/verification.dart';
 import 'package:flutter_application_1/modules/auth/screens/welcome.dart';
 import 'package:flutter_application_1/modules/dashboard/screens/dashboard_screen.dart';
@@ -195,6 +196,10 @@ class HumanitarianApp extends StatelessWidget {
           GetPage(
             name: AppRoutes.authVerify,
             page: () => const VerificationPage(),
+          ),
+          GetPage(
+            name: AppRoutes.authCreatePassword,
+            page: () => const CreatePasswordPage(),
           ),
           GetPage(
             name: AppRoutes.registration,

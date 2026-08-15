@@ -145,6 +145,17 @@ I3, J11, K31, N1–N11. The three that block other work:
    is returned in the response body, so it proves nothing. Set the SMS keys, confirm real
    delivery, *then* turn demo off — in that order, or every user is locked out.
 
+   **Updated 2026-08-15, and this is now the one blocker on finishing sign-in.** Under
+   the settled design (A16 — "OTP for account creation only, password to sign in") a code
+   is only ever spent to choose a **first** password, and each of the 36 passwordless
+   accounts can be claimed once, so the demo code's reach is bounded. **What it still
+   blocks is "forgot my password".** That flow is the same flow with the bound removed —
+   with a public code it would let anyone take over any account, permanently — so it has
+   deliberately **not** been built. It becomes safe the day `OTPIQ_API_KEY` is set and a
+   real code arrives out of band. Until then, resets are yours to do from
+   المستخدمون → تعديل. This is a finding, not a preference: there is no version of
+   self-service reset that is safe while the code is printed to whoever asks for it.
+
 ### 4. What could not be verified — 7 of 204
 
 **The dashboard login session had expired** when this pass began (`localStorage` is
@@ -190,7 +201,7 @@ the simulator is signed in as a donor — and rows depending on them say so.
 | A13 | The `mark completed` button disappears when clicked | **CANNOT VERIFY** | Dashboard session expired; this is a click-time behaviour that cannot be settled from code. The button itself exists and is translated at `VolunteersPage.tsx:859`, `MissionsPage.tsx:258`, `VolunteerBoardPage.tsx:112` | Dashboard → المهام, press "تحديد كمكتمل" and watch: if the button vanishes with nothing replacing it, screenshot it for us. |
 | A14 | المهام → عرض shows "مورد غير معروف"; no way back | **FIXED** | `af3e8c9`. `volunteer_missions` is a registered detail resource at `backend/internal/handlers/admin_detail.go:69`, and the detail page carries a back control at `admin-web/src/pages/DetailPage.tsx:176` (`common.back_to_list`) | Dashboard → المهام → الإجراءات → عرض. You should see the mission's fields and a "رجوع للقائمة" button. |
 | A15 | Ordinary app users can reach the dashboard | **FIXED — live** | `5932a84`, deployed. `staff_tier` is now the only authority; the legacy `is_admin` flag grants nothing. Confirmed against production: the API's refusal now carries `{"code":"dashboard_access_required"}`/`auth_required`, fields this commit introduced | Ask a normal app user to open the dashboard URL and sign in — they should be refused. |
-| A16 | A phone number alone bought a session, incl. a Super-Admin's | **FIXED — live** | `389fbe4`, deployed 17:32. **Probed the live API**: a password-holding account with no password submitted now answers `{"code":"password_required"}`, a field this commit introduced. A phone with no password gets `401 otp_required`, and the endpoint no longer creates accounts. **Two follow-ups remain for you** — see "Needs your decision" #3 (demo OTP) and the note on ids 1 and 34, who now have no way to sign in and need a password set | Nothing to click. Two things to action: set `OTPIQ_API_KEY` and turn demo OTP off, and give accounts **id 1** and **id 34** a password from المستخدمون → تعديل — they are privileged rows that can no longer sign in at all. |
+| A16 | A phone number alone bought a session, incl. a Super-Admin's | **FIXED — live; final design written, not yet deployed** | `389fbe4` (deployed 17:32) closed the original hole and **is live** — probed against production: a password-holding account with no password submitted answers `{"code":"password_required"}`, and a phone with no password gets `401 otp_required`. Since then the owner settled the design — *"OTP for account creation only, password will be used for sign in to the app later"* — and it is implemented but **not deployed**: `/auth/otp/verify` no longer issues a session at all, only a single-use ticket to choose a FIRST password, so a code can never open an account that already has one (that was still possible until today, for the ten accounts that do). Each of the **36 passwordless accounts (of 46)** can be claimed exactly once. **⚠️ Two things still need you** — see "Needs your decision" #3 and the A16 notes in the checklist | Nothing to click yet, and **do not** hand out passwords manually any more: **(1)** set `OTP_STAFF_DEMO_CODE` to a random six digits and give it privately to the holders of **id 1** and **id 34** so they can claim their accounts and choose their own passwords, then delete the variable; **(2)** set `OTPIQ_API_KEY` when the account is funded — until it is set there can be **no self-service "forgot password"**, because with the demo code public it would let anyone take over any account. Until then, a forgotten password is reset by you from المستخدمون → تعديل. |
 
 ## B. English leaking into the Arabic UI
 

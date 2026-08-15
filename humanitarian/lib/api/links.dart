@@ -54,17 +54,37 @@ String get publicBaseUrl {
 /// silent session re-mint that used it — see api/auth_session.dart.)
 const String loginUrl = '${baseUrl}auth/login/';
 
-/// Phase 19 — OTP-based login (OTPIQ → WhatsApp first, SMS fallback).
+/// Phase 19 — OTP delivery (OTPIQ → WhatsApp first, SMS fallback).
 ///
 /// `otpRequestUrl` — POST JSON: `{ "phone": "...", "mode": "real" | "demo" }`.
 ///   On success returns `{ status, mode, phone, expires_in, [sms_id], [demo_code] }`.
-///   Demo mode is only allowed when the backend has OTP_DEMO_ENABLED=1.
+///   Demo mode is only allowed when the backend has OTP_DEMO_ENABLED=1, and the
+///   server upgrades a "demo" request to real delivery once OTPIQ is configured.
 ///
 /// `otpVerifyUrl` — POST JSON: `{ "phone": "...", "code": "123456" }`.
-///   On success returns the SAME shape as `loginUrl` (access_token + account +
-///   user_id + role_id + expires_at), so calling code can swap in transparently.
+///
+///   A16 — this NO LONGER RETURNS A SESSION. Under the owner's design a code
+///   proves a number once, at account creation, and a password is what signs a
+///   user in afterwards. So a correct code returns
+///   `{ status: "password_setup_required", setup_ticket, expires_in,
+///      min_password_length }` — the single-use permission to choose a first
+///   password — and answers `409 {code: "password_required"}` for a number that
+///   already HAS one, because a code must never stand in for a password.
 const String otpRequestUrl = '${baseUrl}auth/otp/request/';
 const String otpVerifyUrl = '${baseUrl}auth/otp/verify/';
+
+/// A16 — finish sign-up (or rescue an account that has no password).
+///
+/// POST JSON: `{ "phone": "...", "setup_ticket": "...", "password": "..." }`
+/// where `setup_ticket` came from [otpVerifyUrl]. Returns the SAME shape as
+/// [loginUrl] (access_token + account + user_id + role_id + expires_at), so the
+/// end of sign-up is a normal signed-in session.
+///
+/// It can only ever set a FIRST password: an account that already has one is
+/// answered `409 {code: "password_already_set"}`. Refusals carry a translatable
+/// `code` (`setup_ticket_invalid` / `setup_ticket_expired` /
+/// `setup_ticket_exhausted` / `password_too_short` / `password_too_long`).
+const String passwordSetUrl = '${baseUrl}auth/password/set';
 
 /// Section 27.5 — POST (Bearer required) to revoke the current session token
 /// server-side on logout, so it can never be reused. Best-effort: the client

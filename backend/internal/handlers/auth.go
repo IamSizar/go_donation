@@ -23,6 +23,10 @@ type AuthHandler struct {
 	Tokens *auth.TokenStore
 	OTPs   *auth.OTPStore
 	Users  *users.Store
+	// A16 — single-use tickets that carry "this phone answered a code" from
+	// /auth/otp/verify to /auth/password/set. Derived from the OTP store's pool
+	// by NewAuthHandler; see auth_password_setup.go.
+	SetupTickets *auth.SetupTicketStore
 	// Phase 19 — OTPIQ delivery client. nil when OTPIQ_API_KEY is not set;
 	// the handler then refuses real-mode OTP with a 502 (demo still works).
 	OTPIQ *auth.OTPIQClient
@@ -35,7 +39,16 @@ type AuthHandler struct {
 }
 
 func NewAuthHandler(t *auth.TokenStore, o *auth.OTPStore, u *users.Store, otpiq *auth.OTPIQClient, ll *auth.LoginLockStore, n *notify.Notifier) *AuthHandler {
-	return &AuthHandler{Tokens: t, OTPs: o, Users: u, OTPIQ: otpiq, LoginLocks: ll, Notifier: n}
+	h := &AuthHandler{Tokens: t, OTPs: o, Users: u, OTPIQ: otpiq, LoginLocks: ll, Notifier: n}
+	// SetupTickets is DERIVED rather than passed in. It is not an independent
+	// collaborator — it is one more table in the database the OTP store already
+	// holds — and an AuthHandler built without it would accept an OTP it could
+	// then do nothing with. Deriving it here removes the way to build that
+	// broken handler, and keeps this constructor off a seventh parameter.
+	if o != nil && o.Pool != nil {
+		h.SetupTickets = auth.NewSetupTicketStore(o.Pool)
+	}
+	return h
 }
 
 // notifyStaffInBackground alerts staff (dashboard) on a detached goroutine, so
@@ -104,28 +117,25 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 	returning := existingID > 0
 
-	// ─── A16 · a token requires a VERIFIED factor ───────────────────────
+	// ─── A16 · this endpoint verifies a PASSWORD, and nothing else ──────
 	//
-	// This endpoint used to mint a 30-day access token for ANY phone number
-	// that had no `password_hash` — and, for an unknown number, it created the
-	// account first and then minted the token. Knowing a phone number was the
-	// entire authentication. 36 of 46 production accounts have a phone and no
-	// password, including a super_admin and an admin.
+	// It used to mint a 30-day access token for ANY phone number that had no
+	// `password_hash` — and, for an unknown number, it created the account first
+	// and then minted the token. Knowing a phone number was the entire
+	// authentication. 36 of 46 production accounts have a phone and no password,
+	// including a super_admin and an admin. Because the app and the dashboard
+	// SHARE ONE TOKEN STORE with no marker distinguishing them (A15), a token
+	// minted here is a dashboard token — that is how a phone number alone
+	// reached /api/admin/*.
 	//
-	// Nothing anywhere required an OTP: /auth/otp/request and /auth/otp/verify
-	// are separate public endpoints, the app CHOSE to call them, and a verified
-	// code leaves no durable trace (the record is deleted on success), so this
-	// handler could not have consulted one even if it wanted to.
+	// Under the owner's design this is THE sign-in door: phone + password. The
+	// two refusals below are the doorway to the only other flow there is —
+	// prove the number with a code, then choose a password (POST
+	// /auth/otp/request → /auth/otp/verify → /auth/password/set).
 	//
-	// Because the app and the dashboard SHARE ONE TOKEN STORE with no marker
-	// distinguishing them (A15), a token minted here is a dashboard token. That
-	// is how a phone number alone reached /api/admin/*.
-	//
-	// So phone-alone stops being an identity claim. The two ways to prove one:
-	//   - a password, verified below (unchanged, lockout semantics intact); or
-	//   - a code delivered out-of-band, via POST /auth/otp/request + /auth/otp/
-	//     verify — which is this app's REAL sign-up/sign-in flow and issues its
-	//     own token on success, so ordinary users are unaffected.
+	// The unknown-number and no-password answers are deliberately IDENTICAL,
+	// down to the `code`, so this endpoint cannot be asked "does this number
+	// have an account?".
 	//
 	// Account creation moves with it: an unknown phone is refused rather than
 	// registered, so this endpoint can no longer create a row either.
@@ -133,7 +143,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		log.Printf("[authn] login refused: unverified phone (no account) ip=%s", ip)
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"status": "error",
-			"error":  "Verify this number with the code we send you before signing in.",
+			"error":  "Verify this number with the code we send you, then choose a password.",
 			"code":   "otp_required",
 		})
 		return
@@ -148,15 +158,19 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 	if hash == "" {
-		// The account exists but holds no password, so this request carries no
-		// proof of anything. Deliberately NOT counted as a failed login attempt:
-		// nothing was submitted to verify, and counting it would let anyone lock
-		// a victim out of their own account by replaying their phone number.
-		log.Printf("[authn] login refused: account has no password, OTP required user_id=%d ip=%s",
+		// The account exists but holds no password — one of the 36. There is
+		// nothing here to verify a submitted password against, so this request
+		// carries no proof of anything and the answer is the same as for an
+		// unknown number: go and set a password (auth_password_setup.go).
+		//
+		// Deliberately NOT counted as a failed login attempt: nothing was
+		// submitted that could be verified, and counting it would let anyone
+		// lock a victim out of their own account by replaying their number.
+		log.Printf("[authn] login refused: account has no password, setup required user_id=%d ip=%s",
 			existingID, ip)
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"status": "error",
-			"error":  "Verify this number with the code we send you before signing in.",
+			"error":  "Verify this number with the code we send you, then choose a password.",
 			"code":   "otp_required",
 		})
 		return
@@ -766,7 +780,26 @@ func (h *AuthHandler) consumeOTPCode(ctx context.Context, phone, code string) (o
 }
 
 // POST /api/auth/otp/verify
-// Mirrors percentage/api/auth/otp/verify/index.php.
+//
+// A16 — this endpoint NO LONGER SIGNS ANYBODY IN. Under the owner's design an
+// OTP proves a phone number once, at account creation; a password is what opens
+// the app afterwards. So a correct code buys exactly one thing: the right to
+// give a password to an account that has none (POST /auth/password/set). It
+// answers with a short-lived, single-use setup ticket instead of a token.
+//
+// Two consequences worth stating, because they are the whole security argument:
+//
+//   - A code can never open an account that already HAS a password. That case
+//     is refused here with `password_required` before anything is issued, which
+//     is what stops the echoed demo code (production runs OTP_DEMO_ENABLED with
+//     no OTPIQ gateway, and demo delivery returns the code in the response body)
+//     from bypassing the password of the ten accounts that have one.
+//   - No row is created here any more. The account is created at password-set
+//     time, so an abandoned signup leaves nothing behind.
+//
+// Staff are gated further upstream: while demo delivery is the only delivery,
+// staffDemoVerifyRefused requires OTP_STAFF_DEMO_CODE — never printed by the
+// server — before a staff phone can spend a demo code at all.
 func (h *AuthHandler) OTPVerify(c *gin.Context) {
 	var req otpVerifyReq
 	if !bindFlexibleJSON(c, &req) {
@@ -813,50 +846,82 @@ func (h *AuthHandler) OTPVerify(c *gin.Context) {
 		return
 	}
 
-	existingID, _ := h.Users.GetIDByPhone(ctx, phone)
-	returning := existingID > 0
+	ip := auth.ClientIP(c.Request.RemoteAddr)
 
-	uid, err := h.Users.InsertWithPhone(ctx, phone)
-	if err != nil || uid <= 0 {
+	// Does this number already have a password? Fail CLOSED — "we could not
+	// tell" must never be answered with a ticket, because a ticket against an
+	// account that DOES have a password is exactly the bypass this endpoint
+	// exists to refuse (SetPasswordIfUnset would catch it as well; refusing
+	// twice is cheap and the second check is not the one that should matter).
+	existingID, err := h.Users.GetIDByPhone(ctx, phone)
+	if err != nil {
+		log.Printf("[authn] otp verify: phone lookup failed phone_hint=%s ip=%s: %v",
+			maskPhone(phone), ip, err)
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"status": "error",
-			"error":  "Unable to resolve user account.",
+			"status": "error", "error": "Database error (lookup).", "code": "server_error",
 		})
 		return
 	}
+	if existingID > 0 {
+		hash, err := h.Users.GetPasswordHash(ctx, existingID)
+		if err != nil {
+			log.Printf("[authn] otp verify: password lookup failed user_id=%d ip=%s: %v",
+				existingID, ip, err)
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"status": "error", "error": "Database error (password lookup).", "code": "server_error",
+			})
+			return
+		}
+		if hash != "" {
+			// The account has a real credential. A code — which under demo
+			// delivery is printed to whoever asks for it — must not be able to
+			// stand in for it, so this is where an OTP stops.
+			log.Printf("[authn] otp verify refused: account already has a password user_id=%d ip=%s",
+				existingID, ip)
+			c.JSON(http.StatusConflict, gin.H{
+				"status": "error",
+				"error":  "This number already has a password. Sign in with it instead.",
+				"code":   "password_required",
+			})
+			return
+		}
+	}
 
-	role, _ := h.Users.GetRoleID(ctx, uid)
-	account, _ := h.Users.GetAccountForClient(ctx, uid)
-	session, err := h.Tokens.IssueToken(ctx, uid, c.Request.UserAgent(), auth.ClientIP(c.Request.RemoteAddr))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to issue token."})
+	// Claimable: either a brand-new number or an account that has never had a
+	// password. Hand back the single-use proof, never a session.
+	if h.SetupTickets == nil {
+		// Cannot happen through NewAuthHandler, which derives the store. Fail
+		// CLOSED rather than trust that.
+		log.Printf("[authn] otp verify: setup ticket store unavailable phone_hint=%s ip=%s",
+			maskPhone(phone), ip)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status": "error", "error": "Could not start password setup.", "code": "server_error",
+		})
 		return
 	}
+	ticket, err := h.SetupTickets.Issue(ctx, phone)
+	if err != nil {
+		log.Printf("[authn] otp verify: could not issue setup ticket phone_hint=%s ip=%s: %v",
+			maskPhone(phone), ip, err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status": "error", "error": "Could not start password setup.", "code": "server_error",
+		})
+		return
+	}
+	log.Printf("[authn] otp verify: setup ticket issued phone_hint=%s existing_account=%t ip=%s",
+		maskPhone(phone), existingID > 0, ip)
 
-	var roleField any = nil
-	if role > 0 {
-		roleField = role
-	}
-	regStatus := ""
-	if account != nil {
-		regStatus = account.RegistrationStatus
-	}
+	// Deliberately does NOT say whether the number was already registered. The
+	// next screen is the same either way ("choose a password"), so telling the
+	// caller would only turn this endpoint into an account-existence oracle.
 	c.JSON(http.StatusOK, gin.H{
-		"status":              "success",
-		"message":             "Verification code is valid.",
+		"status":              "password_setup_required",
+		"message":             "Verification code is valid. Choose a password to finish.",
 		"mode":                mode,
 		"phone":               phone,
-		"user_id":             uid,
-		"returning_user":      returning,
-		"has_role":            role > 0,
-		"role_id":             roleField,
-		"registration_status": regStatus,
-		"account":             account,
-		"session":             session,
-		"access_token":        session.AccessToken,
-		"token_type":          session.TokenType,
-		"expires_at":          session.ExpiresAt,
-		"expires_in":          session.ExpiresIn,
+		"setup_ticket":        ticket,
+		"expires_in":          int(auth.SetupTicketTTL.Seconds()),
+		"min_password_length": auth.MinPasswordLength,
 	})
 }
 

@@ -4,6 +4,7 @@
 nothing in the codebase was guessed.**
 
 Generated 2026-08-15 by measuring the committed tree, not by estimating.
+Updated 2026-08-15 with the 25 strings the A16 password sign-in flow added.
 
 ## Why these are empty rather than wrong
 
@@ -16,13 +17,13 @@ made on this project once and had to be reverted.
 Every key below currently renders its **English** string to a Kurdish user.
 That is deliberate and safe. It is not a crash, and it is not Arabic text.
 
-## Count: 111 keys need Kurdish
+## Count: 136 keys need Kurdish
 
 | Client | Sorani (ckb) | Badini (kmr) | Distinct keys |
 |---|---|---|---|
-| Flutter app | 87 | 91 | 91 |
+| Flutter app | 112 | 116 | 116 |
 | Admin dashboard | 20 | 20 | 20 |
-| **Total** | | | **111** |
+| **Total** | | | **136** |
 
 Each row below gives the English and the Arabic. Supply **ckb** and **kmr**.
 Where a row is marked `REMOVED (was Arabic)`, a value existed but was
@@ -50,6 +51,42 @@ before adding — `_badini` mixes quote styles and a duplicate is a silent bug.*
 | `Registration` | Registration | التسجيل | ckb + kmr |
 | `Sign in or create an account with your phone number.` | Sign in or create an account with your phone number. | سجّل الدخول أو أنشئ حساباً برقم هاتفك. | ckb + kmr |
 | `Your registration was saved, but your documents did not upload. You can add them from your profile.` | Your registration was saved, but your documents did not upload. You can add them from your profile. | تم حفظ تسجيلك، لكن لم يتم رفع مستنداتك. يمكنك إضافتها من ملفك الشخصي. | ckb + kmr |
+
+## auth · A16 password sign-in  (25 keys)
+
+The sign-in design changed on 2026-08-15: a code now only CREATES an account
+(and rescues one that never had a password), and every sign-in after that uses
+a password. These are the strings that flow carries. Two of them interpolate —
+`@n` is the minimum password length and `@phone` is the user's own number, and
+both must survive the translation, in place.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `At least @n characters.` | At least @n characters. | @n أحرف على الأقل. | ckb + kmr |
+| `Back to sign in` | Back to sign in | العودة إلى تسجيل الدخول | ckb + kmr |
+| `Choose a password` | Choose a password | اختر كلمة مرور | ckb + kmr |
+| `Could not save your password. Please try again.` | Could not save your password. Please try again. | تعذّر حفظ كلمة المرور. يرجى المحاولة مرة أخرى. | ckb + kmr |
+| `Could not sign you in. Please try again.` | Could not sign you in. Please try again. | تعذّر تسجيل دخولك. يرجى المحاولة مرة أخرى. | ckb + kmr |
+| `Go to sign in` | Go to sign in | اذهب إلى تسجيل الدخول | ckb + kmr |
+| `Hide password` | Hide password | إخفاء كلمة المرور | ckb + kmr |
+| `Incorrect phone number or password.` | Incorrect phone number or password. | رقم الهاتف أو كلمة المرور غير صحيحة. | ckb + kmr |
+| `New here? Create an account` | New here? Create an account | جديد هنا؟ أنشئ حساباً | ckb + kmr |
+| `New password` | New password | كلمة المرور الجديدة | ckb + kmr |
+| `Save and continue` | Save and continue | حفظ ومتابعة | ckb + kmr |
+| `Setting the password for @phone` | Setting the password for @phone | تعيين كلمة المرور للرقم @phone | ckb + kmr |
+| `Show password` | Show password | إظهار كلمة المرور | ckb + kmr |
+| `Sign in with your phone number and password.` | Sign in with your phone number and password. | سجّل الدخول برقم هاتفك وكلمة المرور. | ckb + kmr |
+| `Sign-in endpoint returned an invalid response.` | Sign-in endpoint returned an invalid response. | أعادت خدمة تسجيل الدخول استجابة غير صالحة. | ckb + kmr |
+| `That password is too long. Use 72 characters or fewer.` | That password is too long. Use 72 characters or fewer. | كلمة المرور طويلة جداً. استخدم 72 حرفاً أو أقل. | ckb + kmr |
+| `That verification expired. Request a new code and try again.` | That verification expired. Request a new code and try again. | انتهت صلاحية التحقق. اطلب رمزاً جديداً وحاول مرة أخرى. | ckb + kmr |
+| `The two passwords do not match.` | The two passwords do not match. | كلمتا المرور غير متطابقتين. | ckb + kmr |
+| `This number already has a password. Sign in with it instead.` | This number already has a password. Sign in with it instead. | لهذا الرقم كلمة مرور بالفعل. سجّل الدخول بها بدلاً من ذلك. | ckb + kmr |
+| `This number has no password yet. Verify it to choose one.` | This number has no password yet. Verify it to choose one. | لا توجد كلمة مرور لهذا الرقم بعد. تحقق منه لاختيار واحدة. | ckb + kmr |
+| `Too many failed attempts. Try again later.` | Too many failed attempts. Try again later. | محاولات فاشلة كثيرة. حاول مرة أخرى لاحقاً. | ckb + kmr |
+| `Use at least @n characters.` | Use at least @n characters. | استخدم @n أحرف على الأقل. | ckb + kmr |
+| `Verify my number` | Verify my number | تحقق من رقمي | ckb + kmr |
+| `Verify your number again to continue.` | Verify your number again to continue. | تحقق من رقمك مرة أخرى للمتابعة. | ckb + kmr |
+| `Your number is verified. This password is how you will sign in from now on.` | Your number is verified. This password is how you will sign in from now on. | تم التحقق من رقمك. ستسجّل الدخول بكلمة المرور هذه من الآن فصاعداً. | ckb + kmr |
 
 ## bot, localization, notifications, proposal, widgets  (1 keys)
 
@@ -298,13 +335,18 @@ one was answered.
 # Part 3 — Housekeeping for whoever applies the translations
 
 **Stale Kurdish keys that no longer exist in English.** They are dead
-weight and can be deleted; they are listed so the finding is not lost.
+weight and can be deleted; they are listed so the finding is not lost. The last
+two went stale on 2026-08-15: the login screen's footer became a real "New here?
+Create an account" action when sign-up stopped being the same thing as sign-in,
+and the sentence it replaced was removed from `_en` and `_ar`.
 
 | Map | Key |
 |---|---|
 | `_badini` | `Ask me anything — I'll guide you through the app` |
 | `_badini` | `Don't have an account?` |
 | `_badini` | `You are getting close to this month's impact milestone with a strong donor retention trend.` |
+| `_sorani` | `New here? Entering your number creates your account.` |
+| `_badini` | `New here? Entering your number creates your account.` |
 
 **Do not translate these** — they are protected vocabulary (`TERMINOLOGY.md` T18):
 

@@ -13,10 +13,44 @@ import 'package:flutter_application_1/core/app_haptics.dart';
 import 'package:get/get.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+/// What POST /auth/otp/verify decided, under the A16 design where a code buys
+/// a password setup rather than a session.
+enum OtpVerifyOutcome {
+  /// The number is claimable: go and choose a password.
+  setPassword,
+
+  /// The number already has a password — the only way in is to type it.
+  passwordAlreadySet,
+
+  /// Wrong/expired/exhausted code, or the request failed. See [errorMessage].
+  failed,
+}
+
 class LoginController extends GetxController {
   var isLoading = false.obs;
   var errorMessage = ''.obs;
   final pendingPhone = ''.obs;
+
+  /// A16 — set when /auth/login answers `otp_required`, meaning this number has
+  /// no password yet (either it is new, or it is one of the accounts that were
+  /// created before passwords existed). The login screen reads it to offer the
+  /// "verify your number and choose a password" path instead of an error the
+  /// user cannot act on. Deliberately the SAME signal for both cases: the
+  /// server answers them identically so it cannot be asked which numbers are
+  /// registered, and the app must not invent the distinction either.
+  final needsPasswordSetup = false.obs;
+
+  /// The single-use ticket from the last successful /auth/otp/verify. Held here
+  /// (not passed through routes) so it never lands in a URL or in route
+  /// arguments that survive a hot restart. Cleared as soon as it is spent.
+  String _setupTicket = '';
+
+  /// Server-declared minimum password length, so the field's inline validation
+  /// says the same thing the server will. Falls back to 8 — the value in
+  /// auth.MinPasswordLength — when the response omits it.
+  final minPasswordLength = 8.obs;
+
+  bool get hasSetupTicket => _setupTicket.isNotEmpty;
   final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
   bool _googleInitialized = false;
   // Phase 19 — these were the local-only OTP placeholder fields the pre-19
@@ -163,23 +197,25 @@ class LoginController extends GetxController {
     return false;
   }
 
-  /// Phase 19 — verifyOtp now POSTs to /api/auth/otp/verify which returns
-  /// the SAME shape as /api/auth/login (access_token + account + role_id +
-  /// expires_at), so we can drop the second "_insertUserWithPhone" call
-  /// that the old flow needed.
-  Future<Map<String, dynamic>?> verifyOtp(String otp) async {
+  /// A16 — POSTs to /api/auth/otp/verify, which no longer signs anybody in.
+  ///
+  /// A correct code now buys ONE thing: permission to give a password to an
+  /// account that has none. On success the ticket is stashed in [_setupTicket]
+  /// and the caller routes to the create-password screen; a number that already
+  /// has a password is answered 409 and must be signed in with it instead.
+  Future<OtpVerifyOutcome> verifyOtp(String otp) async {
     isLoading.value = true;
     errorMessage.value = '';
 
     try {
       if (pendingPhone.value.isEmpty) {
         errorMessage.value = 'Request a new OTP first.'.tr;
-        return null;
+        return OtpVerifyOutcome.failed;
       }
       final code = otp.trim();
       if (code.length != 6 || int.tryParse(code) == null) {
         errorMessage.value = 'Verification code must be 6 digits.'.tr;
-        return null;
+        return OtpVerifyOutcome.failed;
       }
 
       final resp = await _loginSessionDio.post<dynamic>(
@@ -191,6 +227,13 @@ class LoginController extends GetxController {
       final status = resp.statusCode ?? 0;
       final body = _dioDataAsMap(resp.data);
 
+      // 409 — this number signs in with a password. Not an error the user can
+      // fix here, so it gets its own outcome and its own way forward.
+      if (status == 409) {
+        errorMessage.value =
+            'This number already has a password. Sign in with it instead.'.tr;
+        return OtpVerifyOutcome.passwordAlreadySet;
+      }
       if (status == 401) {
         final left = body?['attempts_left'];
         errorMessage.value = (left is num && left > 0)
@@ -198,13 +241,13 @@ class LoginController extends GetxController {
                 'n': left.toString(),
               })
             : (body?['error']?.toString() ?? 'Incorrect verification code.'.tr);
-        return null;
+        return OtpVerifyOutcome.failed;
       }
       if (status == 410 || status == 404 || status == 429) {
         errorMessage.value =
             body?['error']?.toString() ??
             'This code is no longer valid. Tap Resend.'.tr;
-        return null;
+        return OtpVerifyOutcome.failed;
       }
       if (status != 200 || body == null) {
         errorMessage.value =
@@ -212,23 +255,178 @@ class LoginController extends GetxController {
             'Verification failed. (@code)'.trParams({
               'code': status.toString(),
             });
-        return null;
+        return OtpVerifyOutcome.failed;
       }
 
-      // Server returned a valid session — translate the login-shape into the
-      // legacy user-map that the rest of the app already consumes. This
-      // also persists the access_token + logs the login event to Firestore.
-      final user = await _buildUserFromLoginResponse(body, pendingPhone.value);
-      if (user == null) {
+      final ticket = body['setup_ticket']?.toString().trim() ?? '';
+      if (ticket.isEmpty) {
+        // A 200 with nothing to spend is a server we don't understand; say so
+        // rather than dropping the user on a screen that cannot work.
         errorMessage.value =
             'Verification endpoint returned an invalid response.'.tr;
+        return OtpVerifyOutcome.failed;
+      }
+      _setupTicket = ticket;
+      final min = body['min_password_length'];
+      if (min is num && min >= 4 && min <= 64) {
+        minPasswordLength.value = min.toInt();
+      }
+      return OtpVerifyOutcome.setPassword;
+    } catch (e, stack) {
+      log('OTP verification error: $e', stackTrace: stack);
+      errorMessage.value = 'An error occurred: @error'.trParams({
+        'error': e.toString(),
+      });
+    } finally {
+      isLoading.value = false;
+    }
+
+    return OtpVerifyOutcome.failed;
+  }
+
+  /// A16 — POST /api/auth/password/set: spends the verify ticket, stores the
+  /// FIRST password for this number (creating the account when it is new) and
+  /// returns the signed-in user map, exactly like a password sign-in.
+  ///
+  /// Client-side length checks exist for instant feedback only; the server
+  /// applies the same rules and is the one that decides (see the `password_too_*`
+  /// codes below).
+  Future<Map<String, dynamic>?> setPassword(String password) async {
+    isLoading.value = true;
+    errorMessage.value = '';
+
+    try {
+      if (pendingPhone.value.isEmpty || _setupTicket.isEmpty) {
+        errorMessage.value = 'Verify your number again to continue.'.tr;
         return null;
       }
 
+      final resp = await _loginSessionDio.post<dynamic>(
+        passwordSetUrl,
+        data: <String, dynamic>{
+          'phone': pendingPhone.value,
+          'setup_ticket': _setupTicket,
+          'password': password,
+        },
+        options: Options(contentType: Headers.jsonContentType),
+      );
+
+      final status = resp.statusCode ?? 0;
+      final body = _dioDataAsMap(resp.data);
+      final code = body?['code']?.toString() ?? '';
+
+      if (status != 200 || body == null) {
+        errorMessage.value = switch (code) {
+          'password_too_short' => 'Use at least @n characters.'.trParams({
+            'n': minPasswordLength.value.toString(),
+          }),
+          'password_too_long' =>
+            'That password is too long. Use 72 characters or fewer.'.tr,
+          'password_already_set' =>
+            'This number already has a password. Sign in with it instead.'.tr,
+          'setup_ticket_expired' || 'setup_ticket_exhausted' =>
+            'That verification expired. Request a new code and try again.'.tr,
+          'setup_ticket_invalid' => 'Verify your number again to continue.'.tr,
+          _ =>
+            body?['error']?.toString() ??
+                'Could not save your password. Please try again.'.tr,
+        };
+        // A spent or dead ticket cannot be retried on this screen — send the
+        // user back for a fresh code rather than leaving them tapping Save.
+        if (code == 'setup_ticket_expired' ||
+            code == 'setup_ticket_exhausted' ||
+            code == 'setup_ticket_invalid') {
+          _setupTicket = '';
+        }
+        return null;
+      }
+
+      final user = await _buildUserFromLoginResponse(
+        body,
+        pendingPhone.value,
+        method: 'OTP',
+      );
+      if (user == null) {
+        errorMessage.value =
+            'Sign-in endpoint returned an invalid response.'.tr;
+        return null;
+      }
+      _setupTicket = ''; // single-use on the server; don't keep a dead copy
       clearPendingOtp();
       return user;
     } catch (e, stack) {
-      log('OTP verification error: $e', stackTrace: stack);
+      log('Password setup error: $e', stackTrace: stack);
+      errorMessage.value = 'An error occurred: @error'.trParams({
+        'error': e.toString(),
+      });
+    } finally {
+      isLoading.value = false;
+    }
+
+    return null;
+  }
+
+  /// A16 — POST /api/auth/login: phone + password, the ordinary way in for
+  /// everyone who has finished sign-up.
+  ///
+  /// A `401 otp_required` means this number holds no password (a new number, or
+  /// one of the accounts that predate passwords). That is not a dead end: it
+  /// raises [needsPasswordSetup] so the screen can offer to verify the number
+  /// and set one.
+  Future<Map<String, dynamic>?> signInWithPassword(
+    String phone,
+    String password,
+  ) async {
+    isLoading.value = true;
+    errorMessage.value = '';
+    needsPasswordSetup.value = false;
+
+    try {
+      final normalizedPhone = _normalizePhone(phone);
+      if (normalizedPhone.isEmpty) {
+        errorMessage.value = 'Enter a valid phone number.'.tr;
+        return null;
+      }
+      pendingPhone.value = normalizedPhone;
+
+      final resp = await _loginSessionDio.post<dynamic>(
+        loginUrl,
+        data: <String, dynamic>{'phone': normalizedPhone, 'password': password},
+        options: Options(contentType: Headers.jsonContentType),
+      );
+
+      final status = resp.statusCode ?? 0;
+      final body = _dioDataAsMap(resp.data);
+      final code = body?['code']?.toString() ?? '';
+
+      if (status != 200 || body == null) {
+        if (code == 'otp_required') {
+          needsPasswordSetup.value = true;
+          errorMessage.value =
+              'This number has no password yet. Verify it to choose one.'.tr;
+          return null;
+        }
+        errorMessage.value = switch (status) {
+          401 => 'Incorrect phone number or password.'.tr,
+          429 =>
+            body?['error']?.toString() ??
+                'Too many failed attempts. Try again later.'.tr,
+          _ =>
+            body?['error']?.toString() ??
+                'Could not sign you in. Please try again.'.tr,
+        };
+        return null;
+      }
+
+      final user = await _buildUserFromLoginResponse(body, normalizedPhone);
+      if (user == null) {
+        errorMessage.value =
+            'Sign-in endpoint returned an invalid response.'.tr;
+        return null;
+      }
+      return user;
+    } catch (e, stack) {
+      log('Password sign-in error: $e', stackTrace: stack);
       errorMessage.value = 'An error occurred: @error'.trParams({
         'error': e.toString(),
       });
@@ -245,8 +443,14 @@ class LoginController extends GetxController {
   /// user record (session persisted + Firestore login/register event).
   Future<Map<String, dynamic>?> _buildUserFromLoginResponse(
     Map<String, dynamic> body,
-    String phoneFallback,
-  ) async {
+    String phoneFallback, {
+
+    /// How this session was obtained, for the analytics event only. A16 split
+    /// the phone flow in two — a code now finishes a SIGN-UP, while returning
+    /// users arrive with a password — so a single hardcoded "OTP" label would
+    /// have described neither.
+    String method = 'password',
+  }) async {
     final accRaw = body['account'];
     Map<String, dynamic>? accountMap;
     if (accRaw is Map) {
@@ -312,8 +516,8 @@ class LoginController extends GetxController {
     await AppEventFirestore.log(
       eventType: user['returning_user'] == true ? 'login' : 'register',
       eventLabel: user['returning_user'] == true
-          ? 'User logged in (OTP)'
-          : 'User registered (OTP)',
+          ? 'User logged in ($method)'
+          : 'User registered ($method)',
       module: 'auth',
       action: user['returning_user'] == true ? 'login' : 'register',
       userId: int.tryParse(user['id']?.toString() ?? ''),
@@ -323,8 +527,8 @@ class LoginController extends GetxController {
       name: resolvedName,
       number: resolvedPhone,
       note: user['returning_user'] == true
-          ? 'OTP login succeeded'
-          : 'OTP registration succeeded',
+          ? '$method login succeeded'
+          : '$method registration succeeded',
     );
 
     return user;
@@ -345,6 +549,8 @@ class LoginController extends GetxController {
     pendingPhone.value = '';
     _pendingOtp = null;
     _otpExpiresAt = null;
+    _setupTicket = '';
+    needsPasswordSetup.value = false;
     unawaited(_loginSessionJar.deleteAll());
   }
 
@@ -455,7 +661,11 @@ class LoginController extends GetxController {
         return null;
       }
 
-      final user = await _buildUserFromLoginResponse(body, '');
+      final user = await _buildUserFromLoginResponse(
+        body,
+        '',
+        method: 'Google',
+      );
       if (user == null) {
         errorMessage.value = 'Google sign-in returned an invalid response.'.tr;
         return null;

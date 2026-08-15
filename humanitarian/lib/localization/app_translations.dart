@@ -3,6 +3,45 @@ import 'package:get/get.dart';
 
 class AppTranslations extends Translations {
   static const Map<String, String> _en = {
+    // ─── A16 · password sign-in and the code-verified password setup ───
+    // Sign-in is a password now; a code only creates the account.
+    'Sign in with your phone number and password.':
+        'Sign in with your phone number and password.',
+    'Show password': 'Show password',
+    'Hide password': 'Hide password',
+    'New here? Create an account': 'New here? Create an account',
+    'This number has no password yet. Verify it to choose one.':
+        'This number has no password yet. Verify it to choose one.',
+    'Verify my number': 'Verify my number',
+    'Choose a password': 'Choose a password',
+    'Your number is verified. This password is how you will sign in from now on.':
+        'Your number is verified. This password is how you will sign in from now on.',
+    'Setting the password for @phone': 'Setting the password for @phone',
+    'New password': 'New password',
+    'At least @n characters.': 'At least @n characters.',
+    'Use at least @n characters.': 'Use at least @n characters.',
+    'The two passwords do not match.': 'The two passwords do not match.',
+    'Save and continue': 'Save and continue',
+    'Back to sign in': 'Back to sign in',
+    'Go to sign in': 'Go to sign in',
+    'This number already has a password. Sign in with it instead.':
+        'This number already has a password. Sign in with it instead.',
+    'That verification expired. Request a new code and try again.':
+        'That verification expired. Request a new code and try again.',
+    'Verify your number again to continue.':
+        'Verify your number again to continue.',
+    'That password is too long. Use 72 characters or fewer.':
+        'That password is too long. Use 72 characters or fewer.',
+    'Could not save your password. Please try again.':
+        'Could not save your password. Please try again.',
+    'Incorrect phone number or password.':
+        'Incorrect phone number or password.',
+    'Could not sign you in. Please try again.':
+        'Could not sign you in. Please try again.',
+    'Too many failed attempts. Try again later.':
+        'Too many failed attempts. Try again later.',
+    'Sign-in endpoint returned an invalid response.':
+        'Sign-in endpoint returned an invalid response.',
     'city_social_links': 'Social links',
     'city_closed_now': 'Closed now',
     'city_open_now': 'Open now',
@@ -55,8 +94,6 @@ class AppTranslations extends Translations {
     'Delivery': 'Delivery',
     'By continuing you agree to our Terms and Privacy Policy.':
         'By continuing you agree to our Terms and Privacy Policy.',
-    'New here? Entering your number creates your account.':
-        'New here? Entering your number creates your account.',
     'or': 'or',
     'Enter your phone number and we will send you a verification code.':
         'Enter your phone number and we will send you a verification code.',
@@ -216,10 +253,10 @@ class AppTranslations extends Translations {
     'article': 'Article',
     'Your contributions will appear here once you give.':
         'Your contributions will appear here once you give.',
+
     // Support-ticket statuses. Rendered via a 'status_<value>' key with a
     // localizedTag fallback, so a new status added server-side degrades to a
     // humanised word rather than showing the key.
-    
     'status_open': 'Open',
     'status_pending': 'Pending',
     'status_in_progress': 'In progress',
@@ -2472,6 +2509,44 @@ class AppTranslations extends Translations {
   };
 
   static const Map<String, String> _ar = {
+    // ─── A16 · password sign-in and the code-verified password setup ───
+    // Sign-in is a password now; a code only creates the account.
+    'Sign in with your phone number and password.':
+        'سجّل الدخول برقم هاتفك وكلمة المرور.',
+    'Show password': 'إظهار كلمة المرور',
+    'Hide password': 'إخفاء كلمة المرور',
+    'New here? Create an account': 'جديد هنا؟ أنشئ حساباً',
+    'This number has no password yet. Verify it to choose one.':
+        'لا توجد كلمة مرور لهذا الرقم بعد. تحقق منه لاختيار واحدة.',
+    'Verify my number': 'تحقق من رقمي',
+    'Choose a password': 'اختر كلمة مرور',
+    'Your number is verified. This password is how you will sign in from now on.':
+        'تم التحقق من رقمك. ستسجّل الدخول بكلمة المرور هذه من الآن فصاعداً.',
+    'Setting the password for @phone': 'تعيين كلمة المرور للرقم @phone',
+    'New password': 'كلمة المرور الجديدة',
+    'At least @n characters.': '@n أحرف على الأقل.',
+    'Use at least @n characters.': 'استخدم @n أحرف على الأقل.',
+    'The two passwords do not match.': 'كلمتا المرور غير متطابقتين.',
+    'Save and continue': 'حفظ ومتابعة',
+    'Back to sign in': 'العودة إلى تسجيل الدخول',
+    'Go to sign in': 'اذهب إلى تسجيل الدخول',
+    'This number already has a password. Sign in with it instead.':
+        'لهذا الرقم كلمة مرور بالفعل. سجّل الدخول بها بدلاً من ذلك.',
+    'That verification expired. Request a new code and try again.':
+        'انتهت صلاحية التحقق. اطلب رمزاً جديداً وحاول مرة أخرى.',
+    'Verify your number again to continue.': 'تحقق من رقمك مرة أخرى للمتابعة.',
+    'That password is too long. Use 72 characters or fewer.':
+        'كلمة المرور طويلة جداً. استخدم 72 حرفاً أو أقل.',
+    'Could not save your password. Please try again.':
+        'تعذّر حفظ كلمة المرور. يرجى المحاولة مرة أخرى.',
+    'Incorrect phone number or password.':
+        'رقم الهاتف أو كلمة المرور غير صحيحة.',
+    'Could not sign you in. Please try again.':
+        'تعذّر تسجيل دخولك. يرجى المحاولة مرة أخرى.',
+    'Too many failed attempts. Try again later.':
+        'محاولات فاشلة كثيرة. حاول مرة أخرى لاحقاً.',
+    'Sign-in endpoint returned an invalid response.':
+        'أعادت خدمة تسجيل الدخول استجابة غير صالحة.',
     'city_social_links': 'روابط التواصل',
     'city_closed_now': 'مغلق الآن',
     'city_open_now': 'مفتوح الآن',
@@ -2520,8 +2595,6 @@ class AppTranslations extends Translations {
     'Delivery': 'طريقة الإرسال',
     'By continuing you agree to our Terms and Privacy Policy.':
         'بالمتابعة فإنك توافق على الشروط وسياسة الخصوصية.',
-    'New here? Entering your number creates your account.':
-        'جديد هنا؟ إدخال رقمك يُنشئ حسابك.',
     'or': 'أو',
     'Enter your phone number and we will send you a verification code.':
         'أدخل رقم هاتفك وسنرسل لك رمز تحقق.',
@@ -5953,11 +6026,11 @@ class AppTranslations extends Translations {
     'Join mission': 'بەشداری لە ئەرکەکە بکە',
     'Volunteer mission': 'ئەرکی خۆبەخشی',
     'Services': 'خزمەتگوزارییەکان',
-        'Marriage service': 'خزمەتگوزاری هاوسەرگیری',
+    'Marriage service': 'خزمەتگوزاری هاوسەرگیری',
     'Partners': 'هاوبەشەکان',
     'News and activities': 'هەواڵ و چالاکییەکان',
     'Technical support': 'پشتیوانی تەکنیکی',
-        'Create sponsorship': 'دروستکردنی کەفالەت',
+    'Create sponsorship': 'دروستکردنی کەفالەت',
     'In-kind donation': 'بەشداریی کاڵا (جگە لە پارە)',
     'Reports': 'ڕاپۆرتەکان',
     'Open volunteer missions': 'ئەرکە خۆبەخشییە کراوەکان',
@@ -6039,20 +6112,20 @@ class AppTranslations extends Translations {
     'Submitting…': 'خەریکی ناردنە...',
     'Track requests that are still waiting for admin review, requested changes, approval, or sponsor matching.':
         'بەدواداچوون بۆ ئەو داواکارییانە بکە کە هێشتا چاوەڕێی پێداچوونەوەی ئەدمین، گۆڕانکارییە داواکراوەکان، پەسەندکردن، یان دۆزینەوەی پاڵپشت دەکەن.',
-        'Unable to load directory entries from the server.':
+    'Unable to load directory entries from the server.':
         'نەتوانرا زانیارییەکانی بەڕێوەبەرایەتی لە سێرڤەرەوە باربکرێن.',
     'Unable to load news and activities.':
         'نەتوانرا هەواڵ و چالاکییەکان باربکرێن.',
     'Unable to load notifications.': 'نەتوانرا ئاگادارکردنەوەکان باربکرێن.',
     'Unable to load partners.': 'نەتوانرا هاوبەشەکان باربکرێن.',
     'Unable to load sponsorships.': 'نەتوانرا پاڵپشتیکردنەکان باربکرێن.',
-        'Unable to load your projects.': 'نەتوانرا پڕۆژەکانت باربکرێن.',
+    'Unable to load your projects.': 'نەتوانرا پڕۆژەکانت باربکرێن.',
     'Unable to mark notification as read.':
         'نەتوانرا ئاگادارکردنەوەکە وەک خوێندراوە نیشانە بکرێت.',
     'Unknown error': 'هەڵەیەکی نەزانراو',
     'You entered a headcount — add a gender split, volunteer profile, and skills in free text so coordinators can plan teams (all optional below).':
         'تۆ ژمارەی کەسەکانت تومار کردووە — دابەشکردنی ڕەگەز، پرۆفایلی خۆبەخش، و کارامەییەکان بە دەقی ئازاد زیاد بکە تاوەکو ڕێکخەران بتوانن تیمەکان ڕێکبخەن (هەموویان لە خوارەوە ئارەزوومەندانەن).',
-        'Your profile details have been saved.':
+    'Your profile details have been saved.':
         'زانیارییەکانی پرۆفایلەکەت پاشکەوت کران.',
     'Your project is pending review (reference #@id).':
         'پڕۆژەکەت لەژێر پێداچوونەوەدایە (ژمارەی ئاماژە #@id).',
@@ -6070,7 +6143,7 @@ class AppTranslations extends Translations {
         'نزیکەی ژمارەی ئەو کەسانەی کاریگەر دەبن (ئارەزوومەندانە)',
     'Availability': 'بەردەستبوون',
     'Available Missions': 'مێشنە (ئەرکە) بەردەستەکان',
-                'Budget': 'بودجە',
+    'Budget': 'بودجە',
     'Campaign details': 'وردەکارییەکانی کەمپەین',
     'Case code': 'کۆدی کەیس',
     'Cash': 'کاش',
@@ -6218,7 +6291,7 @@ class AppTranslations extends Translations {
     'Men / women': 'پیاوان / ئافرەتان',
     'Message': 'پەیام',
     'Monthly amount IQD': 'بڕی مانگانە بە دینار',
-        'My help requests': 'داواکارییەکانی یارمەتی من',
+    'My help requests': 'داواکارییەکانی یارمەتی من',
     'My missions': 'ئەرکەکانی من',
     'My monthly sponsorships': 'پاڵپشتییە مانگانەکانی من',
     'My projects': 'پڕۆژەکانی من',
@@ -6305,7 +6378,7 @@ class AppTranslations extends Translations {
     'Submit items for institution review and delivery.':
         'بابەتەکان پێشکەش بکە بۆ پێداچوونەوەی دامەزراوە و گەیاندن.',
     'Submit project for help': 'پڕۆژە بۆ یارمەتی بنێرە',
-        'Submitted project requests that need review or matching will appear here.':
+    'Submitted project requests that need review or matching will appear here.':
         'داواکارییە نێردراوەکانی پڕۆژە کە پێویستیان بە پێداچوونەوە یان گونجاندن هەیە لێرە دەردەکەون.',
     'Submitted project requests will appear here.':
         'داواکارییە نێردراوەکانی پڕۆژە لێرە دەردەکەون.',
@@ -6388,7 +6461,7 @@ class AppTranslations extends Translations {
     'Completed works': 'کارە تەواوکراوەکان',
     'Completed activities': 'چالاکییە تەواوکراوەکان',
     'Grantors': 'بەخشەران',
-        'Beneficiaries': 'وەرگرە شایستەکان',
+    'Beneficiaries': 'وەرگرە شایستەکان',
     'Open profile': 'کردنەوەی پرۆفایل',
     'Profile menu': 'مینوی پرۆفایل',
     'Guest': 'میوان',
@@ -6404,7 +6477,7 @@ class AppTranslations extends Translations {
     'Please sign in again to load your history.':
         'تکایە دوبارە بچۆ ژوورەوە بۆ بارکردنی مێژووت.',
     'Volunteer history': 'مێژووی خۆبەخشی',
-        'Review donations, sponsorships, payment status, and references in one place.':
+    'Review donations, sponsorships, payment status, and references in one place.':
         'بەشداری و کەفالەت و دۆخی پارەدان و سەرچاوەکانت لە یەک شوێن ببینە.',
     'Review mission signups, application status, attendance, and completed work.':
         'تۆماری ناونوسکردنی ئەرکەکان و دۆخی داواکاری و ئامادەبوون و کارە تەواوکراوەکان ببینە.',
@@ -6432,7 +6505,7 @@ class AppTranslations extends Translations {
     'Approved requests': 'داواکارییە پەسەندکراوەکان',
     'Open support tickets': 'تیکێتە کراوەکانی پشتگیری',
     'Recent case updates': 'نوێکارییە دواییەکانی کەیس',
-        'Project request progress': 'پێشکەوتنی داواکارییەکانی پرۆژە',
+    'Project request progress': 'پێشکەوتنی داواکارییەکانی پرۆژە',
     'No submitted requests yet.': 'هێشتا هیچ داواکارییەکی نێردراو نییە.',
     'Application status': 'دۆخی داواکاری',
     'Application city': 'شارەکەی داواکاری',
@@ -6830,7 +6903,7 @@ class AppTranslations extends Translations {
     'Pending donations': 'بەشداریە چاوەڕوانەکان',
     'Project request groups': 'گرووپەکانی داواکاری پڕۆژە',
     'Expense groups': 'گرووپەکانی خەرجی',
-        'Enter a valid family member count.':
+    'Enter a valid family member count.':
         'ژمارەیەکی دروستی ئەندامانی خێزان بنووسە.',
     'Enter a valid income amount.': 'بڕێکی دروستی داهات بنووسە.',
     'Enter a valid monthly amount.': 'بڕێکی دروستی مانگانە بنووسە.',
@@ -6870,7 +6943,7 @@ class AppTranslations extends Translations {
     '@m men · @f women': '@m پیاو · @f ژن',
     '@n people': '@n کەس',
     '@raised / @goal@suffix': '@raised / @goal@suffix',
-        'Choose a photo from your gallery to personalize your account.':
+    'Choose a photo from your gallery to personalize your account.':
         'وێنەیەک لە گەلەرییەکەتەوە هەڵبژێرە بۆ کەسیکردنی هەژمارەکەت.',
     'Choose general support or connect this monthly sponsorship to a campaign.':
         'پشتیوانی گشتی هەڵبژێرە یان ئەم کەفالە مانگانەیە بە کەمپەینێکەوە ببەستەوە.',
@@ -6902,7 +6975,7 @@ class AppTranslations extends Translations {
         'ئیمەیڵێکی دروست بنووسە یان بەتاڵی بهێڵە',
     'Enter a valid phone or leave empty':
         'ژمارەیەکی دروست بنووسە یان بەتاڵی بهێڵە',
-        'Enter currency': 'دراو بنووسە',
+    'Enter currency': 'دراو بنووسە',
     'Enter the amount needed': 'بڕی پێویست بنووسە',
     'Enter the location': 'شوێنەکە بنووسە',
     'Example: “Clean water for Al-Mafraq village” — state the goal, who benefits, and the total budget you need.':
@@ -7733,7 +7806,7 @@ class AppTranslations extends Translations {
         "راپۆرتێن خۆبەخشی، نووکرنێن گشتی، و ئامرازێن پشتەڤانیێ.",
     "Giving tools, public updates, reports, and support.":
         "ئامرازێن بەشداریێ، نووکرنێن گشتی، راپۆرت و پشتەڤانی.",
-        "Send personal, housing, income, and needs details.":
+    "Send personal, housing, income, and needs details.":
         "هویرکاتیێن کەسی، ئاکنجیبوون، داهات و پێدڤیان بفرێکە.",
     "Marriage service": "خزمەتگوزاریا هەڤژینیێ",
     "Create or review private marriage service requests.":
@@ -7747,7 +7820,7 @@ class AppTranslations extends Translations {
     "Technical support": "پشتەڤانیا تەکنیکی",
     "Send a support request to the institution.":
         "داخوازیەکا پشتەڤانیێ بۆ دەزگەهی بفرێکە.",
-        "Review verified cases by code, need, and priority.":
+    "Review verified cases by code, need, and priority.":
         "داچۆنا حالەتێن پشتراستکری بکە ل دویڤ کۆد، پێدڤی، و پێشینەیێ.",
     "Create sponsorship": "دروستکرنا کەفالەتێ",
     "Register a scheduled sponsorship commitment.":
@@ -7777,7 +7850,7 @@ class AppTranslations extends Translations {
     "Pending donations": "بەشداریێن ل هیڤیێ",
     "Project request groups": "کۆمێن داخوازیێن پرۆژەی",
     "Expense groups": "کۆمێن خەرجیان",
-        "Enter a valid family member count.":
+    "Enter a valid family member count.":
         "ژمارەیەکا دروستا ئەندامێن خێزانێ بنڤیسە.",
     "Enter a valid income amount.": "بڕەکێ دروست یێ داهاتی بنڤیسە.",
     "Enter a valid monthly amount.": "بڕەکێ دروست یێ مەهانە بنڤیسە.",
@@ -7831,7 +7904,7 @@ class AppTranslations extends Translations {
     "@m men · @f women": "@m زەلام · @f ژن",
     "@n people": "@n کەس",
     "@raised / @goal@suffix": "@raised / @goal@suffix هاتە کۆمکرن",
-        "Cancel sponsorship": "هەلوەشاندنا کەفالەتێ",
+    "Cancel sponsorship": "هەلوەشاندنا کەفالەتێ",
     "sponsorship_due_today": "دەمێ بێت ئەڤرۆیە",
     "sponsorship_due_in_day": "دەمێ بێت دوای @n ڕۆژ",
     "sponsorship_due_in_days": "دەمێ بێت دوای @n ڕۆژان",
@@ -7874,10 +7947,10 @@ class AppTranslations extends Translations {
         "ئیمێلەکێ دروست بنڤیسە یان ڤالا بهێلە",
     "Enter a valid phone or leave empty":
         "ژمارەیەکا دروست بنڤیسە یان ڤالا بهێلە",
-        "Enter currency": "جۆرێ پارەی (عوملە) بنڤیسە",
+    "Enter currency": "جۆرێ پارەی (عوملە) بنڤیسە",
     "Enter the amount needed": "بڕێ پارەی یێ پێدڤی بنڤیسە",
     "Enter the location": "جهی بنڤیسە",
-        "Failed to load campaigns (@code).": "کەمپین بار نەبوون (@code).",
+    "Failed to load campaigns (@code).": "کەمپین بار نەبوون (@code).",
     "Failed to load campaigns.": "کەمپین بار نەبوون.",
     "Failed to save donation.": "بەشداری نەهاتە پاراستن.",
     "Failed to update user role.": "گوهۆڕینا رۆلێ بەکارهێنەری سەرنەکەفت.",
@@ -7932,19 +8005,19 @@ class AppTranslations extends Translations {
     'Submitting…': 'دهێتە پێشکێشکرن...',
     'Track requests that are still waiting for admin review, requested changes, approval, or sponsor matching.':
         'دووڤچوونا وان داخوازیان بکە یێن کو هێشتا ل هیڤیا پێداچوونا ئەدمینی، گوهۆڕینێن داخوازی، پەسەندکرن، یان دیتنا پاڵپشتی نە.',
-        'Unable to load directory entries from the server.':
+    'Unable to load directory entries from the server.':
         'نەشیان پێڕستێن ناڤان ژ سێرڤەری بار بکەن.',
     'Unable to load news and activities.': 'نەشیان نووچە و چالاکیان بار بکەن.',
     'Unable to load notifications.': 'نەشیان ئاگەهداریان بار بکەن.',
     'Unable to load partners.': 'نەشیان هەڤپشکان بار بکەن.',
     'Unable to load sponsorships.': 'نەشیان پاڵپشتیان بار بکەن.',
-        'Unable to load your projects.': 'نەشیان پرۆژەیێن تە بار بکەن.',
+    'Unable to load your projects.': 'نەشیان پرۆژەیێن تە بار بکەن.',
     'Unable to mark notification as read.':
         'نەشیان ئاگەهداریێ وەک خواندی نیشان بدەن.',
     'Unknown error': 'شاشیەکا نەناسیاڕ',
     'You entered a headcount — add a gender split, volunteer profile, and skills in free text so coordinators can plan teams (all optional below).':
         'تە ژمارەیا کەسان دیار کر - دابەشکرنا ڕەگەزی، پرۆفایلا خۆبەخشان، و شارەزاییان ب دەقەکێ ئازاد زێدە بکە دا کو رێکخەر بشێن تیما رێک بێخن (هەمی ل خوارێ ئارەزوومەندانە نە).',
-        'Your profile details have been saved.':
+    'Your profile details have been saved.':
         'زانیاریێن پرۆفایلا تە هاتنە پاشکەفتکرن.',
     'Your project is pending review (reference #@id).':
         'پرۆژەیێ تە ل ژێر پێداچوونێ دایە (ژمارەیا ژێدەر #@id).',
@@ -7962,7 +8035,7 @@ class AppTranslations extends Translations {
         'نێزیکەیی ژمارەیا کەسێن کارتێکرن لێ هاتیە کرن (ئارەزوومەندانە)',
     'Availability': 'بەرهەڤبوون',
     'Available Missions': 'ئەرکێن بەردەست',
-                'Budget': 'بودجە',
+    'Budget': 'بودجە',
     'Campaign details': 'تێبینیێن کەمپەینێ',
     'Case code': 'کۆدێ کەیسی',
     'Cash': 'کاش (نەقد)',
@@ -8110,7 +8183,7 @@ class AppTranslations extends Translations {
     'Men / women': 'زەلام / ژن',
     'Message': 'پەیام',
     'Monthly amount IQD': 'بڕێ هەیڤانە ب دینارێ عێراقی',
-        'My help requests': 'داخوازیێن من یێن هاریکاریێ',
+    'My help requests': 'داخوازیێن من یێن هاریکاریێ',
     'My missions': 'ئەرکێن من',
     'My monthly sponsorships': 'پاڵپشتیێن من یێن هەیڤانە',
     'My projects': 'پرۆژەیێن من',
@@ -8195,7 +8268,7 @@ class AppTranslations extends Translations {
     'Submit items for institution review and delivery.':
         'تشتان پێشکێشی دەزگەهی بکە بۆ پێداچوون و گەهاندنێ.',
     'Submit project for help': 'پرۆژەی بۆ هاریکاریێ پێشکێش بکە',
-        'Submitted project requests that need review or matching will appear here.':
+    'Submitted project requests that need review or matching will appear here.':
         'داخوازیێن پرۆژەی یێن هنارتی یێن پێدڤی ب پێداچوون یان پاڵپشتی، دێ ل ڤێرە دیار بن.',
     'Submitted project requests will appear here.':
         'داخوازیێن پرۆژەی یێن هنارتی دێ ل ڤێرە دیار بن.',
@@ -8275,7 +8348,7 @@ class AppTranslations extends Translations {
     'Completed works': 'کارێن تەواوکری',
     'Completed activities': 'چالاکیێن تەواوکری',
     'Grantors': 'بەخشەر',
-        'Beneficiaries': 'وەرگرێن شایستە',
+    'Beneficiaries': 'وەرگرێن شایستە',
     'Open profile': 'ڤەکرنا پرۆفایلی',
     'Profile menu': 'لیستا پرۆفایلی',
     'Guest': 'میوان',
@@ -8291,7 +8364,7 @@ class AppTranslations extends Translations {
     'Please sign in again to load your history.':
         'تکایە دوبارە چوونەژوورەوە بکە بۆ بارکرنا مێژوویێ.',
     'Volunteer history': 'مێژوویا خۆبەخشیێ',
-        'Review donations, sponsorships, payment status, and references in one place.':
+    'Review donations, sponsorships, payment status, and references in one place.':
         'بەشداری و کەفالەت و دۆخا پارەدانێ و ژێدەرێن وان ل جهەکێ ببینە.',
     'Review mission signups, application status, attendance, and completed work.':
         'تۆمارێن ناڤنووسبوونا ئەرکان و دۆخا داخوازیێ و ئامادەبوون و کارێن تەواوکری ببینە.',
@@ -8319,7 +8392,7 @@ class AppTranslations extends Translations {
     'Approved requests': 'داخوازیێن پەسەندکری',
     'Open support tickets': 'تیکێتێن ڤەکری یێن پشتەڤانیێ',
     'Recent case updates': 'نووکرنێن دوماهیێ یێن کەیسێ',
-        'Project request progress': 'پێشکەفتنا داخوازیێن پرۆژەی',
+    'Project request progress': 'پێشکەفتنا داخوازیێن پرۆژەی',
     'No submitted requests yet.': 'هێشتا هیچ داخوازیێن هنارتی نینن.',
     'Application status': 'دۆخا داخوازیێ',
     'Application city': 'باژێرێ داخوازیێ',

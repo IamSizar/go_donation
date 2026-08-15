@@ -6,6 +6,10 @@ class AppRoutes {
   // it waited 650ms and forwarded to '/verify' — and nothing ever navigated
   // to it. Real signup is the phone/OTP flow on '/login'.
   static const authVerify = '/verify';
+  // A16 — the last step of sign-up: the code proved the number, this screen
+  // turns that into the password every later sign-in uses. Also the way back in
+  // for an account created before passwords existed.
+  static const authCreatePassword = '/create-password';
   // New-user onboarding: registration form + admin-approval waiting screen.
   // (Replaces the removed '/role-selection' choose-your-role screen.)
   static const registration = '/registration';

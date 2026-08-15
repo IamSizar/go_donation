@@ -4,9 +4,8 @@ import 'package:country_code_picker/country_code_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter/services.dart'; // LengthLimitingTextInputFormatter
-import 'package:flutter_application_1/core/app_state.dart';
+import 'package:flutter_application_1/core/app_haptics.dart';
 import 'package:flutter_application_1/core/phone_format.dart';
-import 'package:flutter_application_1/core/push_registration.dart';
 import 'package:get/get.dart';
 
 import 'package:flutter_application_1/core/auth_navigation.dart';
@@ -21,17 +20,8 @@ class LoginPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final titleStyle = Theme.of(context).textTheme.headlineMedium?.copyWith(
-      color: AppThemeConfig.text(context),
-      fontWeight: FontWeight.w800,
-      height: 1.1,
-    );
-
-    final subtitleStyle = Theme.of(context).textTheme.bodyLarge?.copyWith(
-      color: AppThemeConfig.mutedText(context),
-      height: 1.5,
-    );
-
+    // The headline lives in _LoginForm: A16 gave this screen two modes, and the
+    // title has to say which one is showing.
     return AuthScaffold(
       // No card. A panel drawn on a background of the same colour is just a
       // floating box with padding — it added a border and a shadow around the
@@ -54,22 +44,21 @@ class LoginPage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 28),
-          Text('Welcome back'.tr, style: titleStyle),
-          const SizedBox(height: 8),
-          // Says what pressing the button will actually do. The old subtitle
-          // ("Sign in to continue.") restated the title.
-          Text(
-            'Enter your phone number and we will send you a verification code.'
-                .tr,
-            style: subtitleStyle,
-          ),
-          const SizedBox(height: 26),
           const _LoginForm(),
         ],
       ),
     );
   }
 }
+
+/// Which of the two things this screen is doing right now.
+///
+/// A16 — the owner's design gives the screen two jobs that used to be one. A
+/// returning user signs in with a password; a new one proves a number with a
+/// code and then chooses a password. Mixing them into a single "Continue"
+/// button was what made a phone number look like a credential, so they are
+/// separate modes with separate buttons and separate copy.
+enum _LoginMode { signIn, signUp }
 
 class _LoginForm extends StatefulWidget {
   const _LoginForm();
@@ -85,6 +74,14 @@ class _LoginFormState extends State<_LoginForm> {
       : Get.put(LoginController());
 
   final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final FocusNode _passwordFocus = FocusNode();
+
+  /// Sign in (phone + password) or sign up (phone → code → password). Starts on
+  /// sign-in because that is what almost every visit is.
+  _LoginMode _mode = _LoginMode.signIn;
+
+  bool _obscurePassword = true;
 
   // #39 — international phone support: the selected country's dial code
   // (no "+"), defaulting to Iraq. Changed via the CountryCodePicker.
@@ -139,16 +136,11 @@ class _LoginFormState extends State<_LoginForm> {
   // store release. Asking for 'demo' means "demo if that is all there is".
   String _otpMode = 'demo';
 
-  void _completeLogin(Map<String, dynamic> user) {
-    sharedPreferences.setString('id_user', user['id'].toString());
-    sharedPreferences.setString('phone_user', (user['phone'] ?? '').toString());
-    sharedPreferences.setString('name_user', user['name'].toString());
-    // Phase 27.3 — now that we know the user id, register the FCM device
-    // row so this device can receive push notifications in the user's
-    // preferred language. Fire-and-forget so navigation doesn't block.
-    unawaited(PushRegistration.registerNow());
-    goToPostLoginDestination();
-  }
+  /// A16 — one shared finish for every way of arriving signed in (password,
+  /// Google, or a completed sign-up), so no path lands the user in the app with
+  /// a half-populated profile. See core/auth_navigation.dart.
+  Future<void> _completeLogin(Map<String, dynamic> user) =>
+      completeSignInAndRoute(user);
 
   @override
   void initState() {
@@ -167,8 +159,40 @@ class _LoginFormState extends State<_LoginForm> {
         : pending;
   }
 
+  /// Sign-in: phone + password. The ordinary way in for anyone who has finished
+  /// signing up.
+  Future<void> _handleSignIn() async {
+    if (!_formKey.currentState!.validate()) {
+      AppHaptics.error();
+      return;
+    }
+    // Never leave the keyboard over the button or ghosting onto the next screen.
+    FocusScope.of(context).unfocus();
+
+    final localDigits = _phoneController.text.replaceAll(RegExp(r'\D'), '');
+    final user = await _loginController.signInWithPassword(
+      _normalizeLocalPhone(localDigits),
+      _passwordController.text,
+    );
+    if (!mounted) return;
+    if (user == null) {
+      AppHaptics.error();
+      return; // the message (or the setup offer) is already on screen
+    }
+    AppHaptics.success();
+    await _completeLogin(user);
+  }
+
+  /// Sign-up, and the rescue path for an account that holds no password: send a
+  /// code, then the verify screen, then "choose a password".
   Future<void> _handleSendOtp() async {
-    if (!_formKey.currentState!.validate()) return;
+    // Only the phone matters here, so a half-typed password must not block it.
+    if (_phoneMessage(_phoneController.text) != null) {
+      _formKey.currentState!.validate();
+      AppHaptics.error();
+      return;
+    }
+    FocusScope.of(context).unfocus();
 
     // Phase 19c — auto-prepend the selected country's dial code so the
     // user only ever types their local number. The leading "+" tells
@@ -178,16 +202,17 @@ class _LoginFormState extends State<_LoginForm> {
     final localDigits = _phoneController.text.replaceAll(RegExp(r'\D'), '');
     final normalizedPhone = _normalizeLocalPhone(localDigits);
 
-    debugPrint(
-      'Logging in with phone number: $normalizedPhone (mode=$_otpMode)',
-    );
+    debugPrint('Requesting a code for: $normalizedPhone (mode=$_otpMode)');
 
     final sent = await _loginController.sendOtp(
       normalizedPhone,
       mode: _otpMode,
     );
+    if (!mounted) return;
     if (sent) {
-      Get.toNamed('/verify');
+      Get.toNamed(AppRoutes.authVerify);
+    } else {
+      AppHaptics.error();
     }
   }
 
@@ -208,7 +233,10 @@ class _LoginFormState extends State<_LoginForm> {
   Future<void> _handleGoogleLogin() async {
     final result = await _loginController.signInWithGoogle();
     if (result != null) {
-      _completeLogin(result);
+      // Awaited now that the finish is shared and asynchronous: it writes the
+      // prefs the destination screen reads, so routing before it completes
+      // would land the user on a screen with no identity yet.
+      await _completeLogin(result);
     }
   }
 
@@ -230,26 +258,93 @@ class _LoginFormState extends State<_LoginForm> {
   @override
   void dispose() {
     _phoneController.dispose();
+    _passwordController.dispose();
+    _passwordFocus.dispose();
     super.dispose();
+  }
+
+  /// Switch between signing in and signing up, clearing anything that belonged
+  /// to the other mode — a stale "wrong password" under a sign-up form reads as
+  /// a bug.
+  void _setMode(_LoginMode next) {
+    if (_mode == next) return;
+    setState(() {
+      _mode = next;
+      _passwordController.clear();
+    });
+    _loginController.errorMessage.value = '';
+    _loginController.needsPasswordSetup.value = false;
   }
 
   @override
   Widget build(BuildContext context) {
+    final isSignUp = _mode == _LoginMode.signUp;
+    final titleStyle = Theme.of(context).textTheme.headlineMedium?.copyWith(
+      color: AppThemeConfig.text(context),
+      fontWeight: FontWeight.w800,
+      height: 1.1,
+    );
+    final subtitleStyle = Theme.of(context).textTheme.bodyLarge?.copyWith(
+      color: AppThemeConfig.mutedText(context),
+      height: 1.5,
+    );
+
     return Form(
       key: _formKey,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // The headline says which of the two jobs is on screen, and the line
+          // under it says exactly what the button will do.
+          Text(
+            isSignUp ? 'Create your account'.tr : 'Welcome back'.tr,
+            style: titleStyle,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            isSignUp
+                ? 'Enter your phone number and we will send you a verification code.'
+                      .tr
+                : 'Sign in with your phone number and password.'.tr,
+            style: subtitleStyle,
+          ),
+          const SizedBox(height: 26),
+          // A16 — "this number has no password yet" is not an error the user
+          // can retype their way out of, so it gets an action instead of a
+          // scolding: verify the number, then choose a password (5.7).
           Obx(
-            () => _loginController.errorMessage.value.isNotEmpty
+            () => _loginController.needsPasswordSetup.value
+                ? _NeedsPasswordSetupCard(
+                    busy: _loginController.isLoading.value,
+                    onVerify: _handleSendOtp,
+                  )
+                : const SizedBox.shrink(),
+          ),
+          Obx(
+            () =>
+                _loginController.errorMessage.value.isNotEmpty &&
+                    !_loginController.needsPasswordSetup.value
                 ? Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: Text(
-                      _loginController.errorMessage.value,
-                      style: TextStyle(
-                        color: AppThemeConfig.consequence(context),
-                        fontWeight: FontWeight.w600,
-                      ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          Icons.error_outline_rounded,
+                          size: 18,
+                          color: AppThemeConfig.consequence(context),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _loginController.errorMessage.value,
+                            style: TextStyle(
+                              color: AppThemeConfig.consequence(context),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   )
                 : const SizedBox.shrink(),
@@ -384,19 +479,30 @@ class _LoginFormState extends State<_LoginForm> {
                           vertical: 18,
                         ),
                       ),
-                      keyboardType: TextInputType.number,
+                      keyboardType: TextInputType.phone,
                       inputFormatters: [
                         PhoneSpaceInputFormatter(),
                         LengthLimitingTextInputFormatter(20),
                       ],
-                      textInputAction: TextInputAction.done,
+                      // Sign-in has a password field after this one, so the
+                      // return key moves on rather than submitting a half-
+                      // filled form (5.6).
+                      textInputAction: isSignUp
+                          ? TextInputAction.done
+                          : TextInputAction.next,
                       onChanged: (_) {
                         if (_phoneError != null) {
                           setState(() => _phoneError = null);
                         }
+                        if (_loginController.needsPasswordSetup.value) {
+                          _loginController.needsPasswordSetup.value = false;
+                          _loginController.errorMessage.value = '';
+                        }
                       },
                       validator: _validatePhone,
-                      onFieldSubmitted: (_) => _handleSendOtp(),
+                      onFieldSubmitted: (_) => isSignUp
+                          ? _handleSendOtp()
+                          : _passwordFocus.requestFocus(),
                     ),
                   ),
                 ],
@@ -428,6 +534,49 @@ class _LoginFormState extends State<_LoginForm> {
               ],
             ),
           ],
+          // Password — sign-in only. A16: a code is for creating an account,
+          // and this is the credential everyone uses afterwards.
+          if (!isSignUp) ...[
+            const SizedBox(height: 14),
+            TextFormField(
+              controller: _passwordController,
+              focusNode: _passwordFocus,
+              obscureText: _obscurePassword,
+              keyboardType: TextInputType.visiblePassword,
+              autocorrect: false,
+              enableSuggestions: false,
+              textInputAction: TextInputAction.done,
+              style: TextStyle(color: AppThemeConfig.text(context)),
+              cursorColor: AppThemeConfig.primary,
+              decoration:
+                  authInputDecoration(
+                    context,
+                    label: 'Password',
+                    hintText: '••••••••',
+                    icon: Icons.lock_outline_rounded,
+                  ).copyWith(
+                    suffixIcon: IconButton(
+                      tooltip:
+                          (_obscurePassword ? 'Show password' : 'Hide password')
+                              .tr,
+                      icon: Icon(
+                        _obscurePassword
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                        color: AppThemeConfig.mutedText(context),
+                      ),
+                      onPressed: () =>
+                          setState(() => _obscurePassword = !_obscurePassword),
+                    ),
+                  ),
+              // Only "is there one at all" here: the server decides whether it
+              // is right, and telling the user their length is wrong on the
+              // sign-in screen would leak the rule for an existing password.
+              validator: (v) =>
+                  (v ?? '').isEmpty ? 'Enter your password'.tr : null,
+              onFieldSubmitted: (_) => _handleSignIn(),
+            ),
+          ],
           const SizedBox(height: 20),
           Obx(
             () => SizedBox(
@@ -435,7 +584,7 @@ class _LoginFormState extends State<_LoginForm> {
               child: ElevatedButton(
                 onPressed: _loginController.isLoading.value
                     ? null
-                    : _handleSendOtp,
+                    : (isSignUp ? _handleSendOtp : _handleSignIn),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppThemeConfig.primary,
                   foregroundColor: Colors.white,
@@ -459,7 +608,7 @@ class _LoginFormState extends State<_LoginForm> {
                         ),
                       )
                     : Text(
-                        'Continue'.tr,
+                        isSignUp ? 'Send code'.tr : 'Sign in'.tr,
                         style: const TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 17,
@@ -577,18 +726,27 @@ class _LoginFormState extends State<_LoginForm> {
             ),
           ),
           const SizedBox(height: 18),
-          // This screen IS the sign-up: the phone/OTP flow creates the account
-          // if the number is new. The old footer sent people to /register,
-          // whose submit handler waits 650ms and routes to /verify without
-          // ever calling the backend — a dead end that looks like it worked.
+          // The switch between the screen's two jobs. This screen IS the
+          // sign-up — there is no /register — but under A16 signing up is a
+          // different set of steps from signing in, so it says so.
           Center(
-            child: Text(
-              'New here? Entering your number creates your account.'.tr,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppThemeConfig.mutedText(context),
-                fontSize: 13,
-                height: 1.5,
+            child: TextButton(
+              onPressed: _loginController.isLoading.value
+                  ? null
+                  : () => _setMode(
+                      isSignUp ? _LoginMode.signIn : _LoginMode.signUp,
+                    ),
+              child: Text(
+                isSignUp
+                    ? 'Already have an account? Sign in'.tr
+                    : 'New here? Create an account'.tr,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: AppThemeConfig.primary,
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w700,
+                  height: 1.5,
+                ),
               ),
             ),
           ),
@@ -607,10 +765,102 @@ class _LoginFormState extends State<_LoginForm> {
           // Delivery mode. Demoted from a pair of full-size cards sitting
           // directly above the primary button — a developer control competing
           // with the main action — to one quiet row at the very bottom.
-          const SizedBox(height: 20),
-          _OtpModeRow(
-            value: _otpMode,
-            onChanged: (next) => setState(() => _otpMode = next),
+          //
+          // A16 — shown only where it applies. Signing in no longer involves a
+          // code at all, so on that side of the screen this row would offer a
+          // choice about something that is not going to happen.
+          if (isSignUp || _loginController.needsPasswordSetup.value) ...[
+            const SizedBox(height: 20),
+            _OtpModeRow(
+              value: _otpMode,
+              onChanged: (next) => setState(() => _otpMode = next),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// _NeedsPasswordSetupCard — the answer to `401 otp_required`.
+///
+/// A16 — 36 of the 46 live accounts hold no password, so "wrong password" would
+/// be both untrue and useless for them: there is nothing to get right. The
+/// server says so with a code the app can act on, and this is the action —
+/// verify the number, then choose a password.
+///
+/// It does NOT say whether the number is registered. The server answers an
+/// unknown number and a passwordless account identically, on purpose, so this
+/// card has to fit both readings — and it does: either way, the next step is to
+/// verify the number and pick a password.
+class _NeedsPasswordSetupCard extends StatelessWidget {
+  const _NeedsPasswordSetupCard({required this.busy, required this.onVerify});
+
+  final bool busy;
+  final VoidCallback onVerify;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: authFieldFill(context),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: authFieldBorder(context)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Icons.lock_reset_rounded,
+                size: 20,
+                color: AppThemeConfig.primary,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'This number has no password yet. Verify it to choose one.'
+                      .tr,
+                  style: TextStyle(
+                    color: AppThemeConfig.text(context),
+                    fontWeight: FontWeight.w600,
+                    height: 1.45,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: busy ? null : onVerify,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppThemeConfig.primary,
+                side: BorderSide(color: AppThemeConfig.primary, width: 1.2),
+                minimumSize: const Size.fromHeight(46),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: busy
+                  ? SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppThemeConfig.primary,
+                      ),
+                    )
+                  : Text(
+                      'Verify my number'.tr,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+            ),
           ),
         ],
       ),

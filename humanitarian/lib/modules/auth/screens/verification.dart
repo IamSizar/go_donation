@@ -1,14 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/api/profile_api.dart';
 import 'package:flutter_application_1/core/app_haptics.dart';
 import 'package:flutter_application_1/controllers/login.dart';
-import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/phone_format.dart';
-import 'package:flutter_application_1/core/push_registration.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
-import 'package:flutter_application_1/core/auth_navigation.dart';
 import 'package:flutter_application_1/routes/app_routes.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
@@ -26,68 +22,41 @@ class _VerificationPageState extends State<VerificationPage> {
       : Get.put(LoginController());
   final TextEditingController _otpController = TextEditingController();
 
-  Future<void> _completeLogin(Map<String, dynamic> user) async {
-    await sharedPreferences.setString('id_user', user['id'].toString());
-    await sharedPreferences.setString(
-      'phone_user',
-      (user['phone'] ?? '').toString(),
-    );
-    await sharedPreferences.setString('name_user', user['name'].toString());
-
-    final rawAcc = user['account'];
-    if (rawAcc is Map) {
-      await applyUserAccountToSharedPreferences(
-        Map<String, dynamic>.from(rawAcc),
-        includeRoleId: false,
-      );
-    }
-
-    // Always reload profile from GET — login `account` may be missing, nested, or use odd keys.
-    final uid = int.tryParse(user['id'].toString());
-    if (uid != null && uid > 0) {
-      final remote = await fetchUserAccount(uid);
-      if (remote != null) {
-        await applyUserAccountToSharedPreferences(remote, includeRoleId: false);
-      }
-    }
-
-    // Phone login API returns has_role / role_id — sync prefs with server.
-    if (user.containsKey('has_role')) {
-      final hasRole = user['has_role'] == true;
-      if (hasRole) {
-        final raw = user['role_id'];
-        final rid = raw is int ? raw : int.tryParse(raw?.toString() ?? '');
-        if (rid != null && rid > 0) {
-          await sharedPreferences.setString('role_id', rid.toString());
-        }
-      } else {
-        await sharedPreferences.remove('role_id');
-      }
-    }
-
-    // New-user approval flow — persist the status so the router can decide
-    // between the registration form, the pending screen, or home.
-    final regStatus = user['registration_status']?.toString();
-    if (regStatus != null && regStatus.isNotEmpty) {
-      await sharedPreferences.setString('registration_status', regStatus);
-    }
-
-    // Phase 27.3 — register the FCM device row with the user's locale
-    // so server-side pushes arrive in the right language.
-    unawaited(PushRegistration.registerNow());
-
-    goToPostLoginDestination();
-  }
-
+  /// A16 — the code no longer signs anybody in. A correct one earns the right
+  /// to choose a password (the next screen); a number that ALREADY has one is
+  /// told to use it, because a code must never stand in for a password.
+  ///
+  /// What used to live here — persisting the session, refreshing the profile,
+  /// registering for push, routing by registration status — moved to
+  /// completeSignInAndRoute() in core/auth_navigation.dart, because three
+  /// screens now finish a sign-in and they must all finish it the same way.
   Future<void> _verifyOtp() async {
-    final result = await _loginController.verifyOtp(_otpController.text.trim());
-    if (result != null) {
-      AppHaptics.success();
-      await _completeLogin(result);
-    } else if (_loginController.errorMessage.value.isNotEmpty) {
-      AppHaptics.error();
+    final outcome = await _loginController.verifyOtp(
+      _otpController.text.trim(),
+    );
+    if (!mounted) return;
+    switch (outcome) {
+      case OtpVerifyOutcome.setPassword:
+        AppHaptics.success();
+        // Keep the code screen off the back stack: the ticket is single-use, so
+        // returning here would only offer a code that can no longer be spent.
+        Get.offNamed(AppRoutes.authCreatePassword);
+      case OtpVerifyOutcome.passwordAlreadySet:
+        // Not a failure the user can fix here. The message is already set; the
+        // button below turns into the way out (see _passwordAlreadySet).
+        AppHaptics.error();
+        setState(() => _passwordAlreadySet = true);
+      case OtpVerifyOutcome.failed:
+        if (_loginController.errorMessage.value.isNotEmpty) {
+          AppHaptics.error();
+        }
     }
   }
+
+  /// True once the server has said this number signs in with a password. The
+  /// screen then stops offering a code and offers the sign-in screen instead —
+  /// an error with no way out is a dead end (5.7).
+  bool _passwordAlreadySet = false;
 
   Future<void> _resendOtp() async {
     await _loginController.resendOtp();
@@ -145,6 +114,7 @@ class _VerificationPageState extends State<VerificationPage> {
                         textInputAction: TextInputAction.done,
                         enabled:
                             hasPendingPhone &&
+                            !_passwordAlreadySet &&
                             !_loginController.isLoading.value,
                         maxLength: 6,
                         onSubmitted: (_) => _verifyOtp(),
@@ -170,9 +140,12 @@ class _VerificationPageState extends State<VerificationPage> {
                         child: ElevatedButton(
                           onPressed:
                               hasPendingPhone &&
+                                  !_passwordAlreadySet &&
                                   !_loginController.isLoading.value
                               ? _verifyOtp
-                              : null,
+                              : (_passwordAlreadySet
+                                    ? () => Get.offAllNamed(AppRoutes.authLogin)
+                                    : null),
                           child: _loginController.isLoading.value
                               ? const SizedBox(
                                   width: 20,
@@ -181,7 +154,11 @@ class _VerificationPageState extends State<VerificationPage> {
                                     strokeWidth: 2,
                                   ),
                                 )
-                              : Text('Verify OTP'.tr),
+                              : Text(
+                                  _passwordAlreadySet
+                                      ? 'Go to sign in'.tr
+                                      : 'Verify OTP'.tr,
+                                ),
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -189,11 +166,12 @@ class _VerificationPageState extends State<VerificationPage> {
                         child: TextButton(
                           onPressed:
                               hasPendingPhone &&
+                                  !_passwordAlreadySet &&
                                   !_loginController.isLoading.value
                               ? _resendOtp
                               : () => Get.offAllNamed(AppRoutes.authLogin),
                           child: Text(
-                            hasPendingPhone
+                            hasPendingPhone && !_passwordAlreadySet
                                 ? 'Resend OTP'.tr
                                 : 'Back to login'.tr,
                           ),

@@ -35,7 +35,7 @@ PDF repeats the same complaint). Groups G–N are new material extracted from th
 | A13 | **The `mark completed` button disappears when clicked** — "عند اختيار هذا الزر المجاور للعرض والتعديل يختفي عند الضغط عليه" `[D p6]` | Dashboard → المهام | ⬜ |
 | A14 | **المهام → عرض has no detail page at all** — shows "مورد غير معروف" (unknown resource); no details page exists for `volunteer_missions`. And **there is no back button or route out** — "لايوجد زر او طريقة رجوع عند الدخول لصفحة العرض" `[D p6]` | Dashboard → المهام → عرض | ⬜ |
 | A15 | **SECURITY: ordinary app users can reach the dashboard.** Client asks to close "الثغرة الحالية التي تسمح لهم باستعراض وتعديل الأقسام كالأخبار والحملات والدليل" — block any app user from logging into and browsing/editing dashboard pages; restrict to admin and approved employees only. `[D p9]` | Dashboard auth | 🔎 **confirmed, fixed, not deployed** — see A15 notes below |
-| A16 | **SECURITY: a phone number alone bought a session — including a Super-Admin's.** Found while fixing A15 and raised there as needing its own item. `POST /api/auth/login` issued a 30-day token for any number with no `password_hash`, and no OTP was enforced anywhere on the server. Production id **34** is a `super_admin` with no password. | App + Dashboard auth (shared token store) | 🔎 **confirmed, fixed, not deployed** — see A16 notes below. **Revised 2026-08-15** to the owner's OTP-only design: staff sign in with `OTP_STAFF_DEMO_CODE` (**must be set, or ids 1 and 34 stay locked out**), and setting `OTPIQ_API_KEY` now switches the whole platform to real OTP with no app release. **Residual risk while the interim lasts: that one code is a shared password for every staff account — anyone holding it and a staff phone number can sign in as that Super-Admin.** |
+| A16 | **SECURITY: a phone number alone bought a session — including a Super-Admin's.** Found while fixing A15 and raised there as needing its own item. `POST /api/auth/login` issued a 30-day token for any number with no `password_hash`, and no OTP was enforced anywhere on the server. Production id **34** is a `super_admin` with no password. | App + Dashboard auth (shared token store) | 🔎 **confirmed, fixed, not deployed** — see A16 notes below. **Final design 2026-08-15, as decided by the owner: a code CREATES an account, a password signs you in.** A verified code can now do exactly one thing — give a first password to an account that has none — so it can never open one that already has a password (that hole was live until today), and each of the 36 passwordless accounts can be claimed **once**. Staff still need `OTP_STAFF_DEMO_CODE` to claim theirs (**must be set, or ids 1 and 34 stay locked out**), and `OTPIQ_API_KEY` still switches the platform to real OTP with no app release. **Residual risk while demo OTP is on: whoever knows the number of a passwordless account can claim it first — narrower than today, where that same person gets a session on it repeatedly and forever. ⚠️ A safe self-service "forgot password" needs `OTPIQ_API_KEY` first; until then staff reset passwords from the dashboard.** |
 
 ### A3 — diagnosis and fix (2026-08-15)
 
@@ -507,6 +507,103 @@ still misconfigured rows — privileged, with no credentials of their own — an
 setting `OTP_STAFF_DEMO_CODE` is a workaround for that, not a fix.
 
 **Not deployed.**
+
+### A16 — final design: OTP creates the account, a password signs you in (2026-08-15)
+
+**The instruction, verbatim.** "OTP for account creation only, password will be
+used for sign in to the app later." This supersedes the OTP-only revision above.
+
+**The problem it creates, and the whole of the answer.** Read-only production
+count, re-checked today: **46 accounts, 36 with no `password_hash`.**
+
+| staff_tier | accounts | no password | no username |
+|---|---|---|---|
+| `super_admin` | 3 | 1 (id 34) | 2 |
+| `admin` | 2 | 1 (id 1) | 2 |
+| `user` | 41 | 34 | 38 (3 are guests) |
+
+Under "sign in with your password" all 36 are locked out, and ids 1 and 34 cannot
+fall back to the dashboard door either — **only id 18 has a username**. So the
+design needs a bridge, and the bridge is one sentence:
+
+> **A verified code can do exactly one thing: give a password to an account that
+> has NONE.**
+
+Everything else follows from it, and every part is enforced server-side:
+
+1. `/auth/otp/verify` **no longer issues a session.** It returns a single-use
+   setup ticket (10 minutes, 5 guesses, bound to that phone) — new table
+   `password_setup_tickets`, migration 102. Until now a verified code left *no
+   durable trace* at all, which is why nothing could ever check one.
+2. `/auth/password/set` spends the ticket and writes the FIRST password. The
+   write is `UPDATE … WHERE password_hash IS NULL OR is empty`, so two racing
+   claims cannot both win and an existing password can never be overwritten.
+3. A code therefore **cannot open an account that already has a password** —
+   refused `409 password_required` before anything is issued. That closes a hole
+   nobody had reported: until today the public demo code signed in *any* account,
+   password or not, so the ten accounts that do have one (ids 15, 18, 19 among
+   them) were protected by nothing.
+4. The claim is **once per account, for good.** The window shuts the moment the
+   legitimate owner uses it.
+5. **Staff are not claimable on the public code.** A staff phone still needs
+   `OTP_STAFF_DEMO_CODE` (never printed by the server) while demo delivery is all
+   there is — the gate from the previous revision, now guarding a one-time claim
+   rather than an unlimited session.
+
+**The exposure, stated plainly.** While demo OTP is on, anyone who knows the
+phone number of one of the 34 non-staff passwordless accounts can claim it once
+by setting a password — and after that the account has a real credential no code
+can touch. That is **narrower than what production does today**, where the same
+person gets a full 30-day session on that number, repeatedly, forever. For the
+two staff accounts the claim additionally needs `OTP_STAFF_DEMO_CODE`, and it is
+spent on first use. The exposure shrinks every time a user signs up, and ends
+entirely when `OTPIQ_API_KEY` is configured.
+
+**There is deliberately NO self-service forgot-password, and this is the finding
+the owner should act on.** A reset flow is this same flow with the bound removed:
+under demo delivery it would make *every* account on the platform permanently
+seizable by phone number, which is worse than what we started with. **A safe
+forgot-password requires real OTP delivery — i.e. `OTPIQ_API_KEY` configured.**
+Until then a forgotten password is reset by staff through the existing
+`POST /api/admin/users/:id/password`, which is already rank-guarded (H13).
+
+**Order of operations for the owner (revised).** Set `OTP_STAFF_DEMO_CODE` so
+ids 1 and 34 can claim their accounts → tell those two staff members to sign in
+once and choose a password → **remove `OTP_STAFF_DEMO_CODE`** (it is spent; they
+now have real passwords) → set `OTPIQ_API_KEY` when funded → confirm a real code
+arrives → remove `OTP_DEMO_ENABLED` → self-service password reset becomes safe to
+build. Migration 102 applies itself on the next deploy (`RUN_MIGRATIONS=1` is
+already set on the backend service).
+
+**App.** The login screen now has two modes: **Sign in** (phone + password) and
+**Create an account** (phone → code → choose a password). A `401 otp_required`
+is answered with an action, not a scolding — a card offering "Verify my number",
+which leads to the same code screen and then to the new create-password screen.
+Inline per-field validation, `visiblePassword` keyboards, show/hide toggles, the
+return key moving through the form, in-button loading, and one shared post-sign-in
+finish for all three routes in (`completeSignInAndRoute`). en + ar only; the 25
+new strings are listed for a Kurdish translator in `TRANSLATION_REQUEST.md`.
+
+**Changed:** `backend/migrations/102_password_setup_tickets.sql` (new) ·
+`backend/internal/auth/password_setup.go` (new — ticket store + the password
+rules) · `backend/internal/handlers/auth_password_setup.go` (new —
+`POST /auth/password/set`) · `backend/internal/handlers/auth.go` (`OTPVerify`
+issues a ticket instead of a session and refuses accounts that have a password;
+`Login` comments/messages) · `backend/internal/users/users.go`
+(`SetPasswordIfUnset`) · `backend/cmd/server/main.go` (route) · app
+`controllers/login.dart`, `core/auth_navigation.dart`, `api/links.dart`,
+`modules/auth/screens/{login,verification,create_password}.dart`,
+`routes/app_routes.dart`, `main.dart`, `localization/app_translations.dart`.
+
+**Test:** `auth_verified_factor_test.go` gains `TestOTPCannotOpenAnAccountThatHasAPassword`,
+`TestPasswordSetupBridge` (11 cases) and `TestOTPRequestRateLimitBoundsEnumeration`,
+and the existing OTP cases were rewritten to the new rule. All were run against
+the shipped code first and **failed** there — a demo code returned `200` with an
+`access_token` for an account that has a password — and pass after. The file is
+written so it still COMPILES at the previous commit, so anyone can reproduce that.
+
+**Not deployed. No production data was modified; the counts above come from
+SELECT-only queries.**
 
 ## B. English leaking into the Arabic UI (hard project rule)
 

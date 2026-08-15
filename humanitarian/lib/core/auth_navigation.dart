@@ -1,4 +1,8 @@
+import 'dart:async';
+
+import 'package:flutter_application_1/api/profile_api.dart';
 import 'package:flutter_application_1/core/app_state.dart';
+import 'package:flutter_application_1/core/push_registration.dart';
 import 'package:flutter_application_1/routes/app_routes.dart';
 import 'package:get/get.dart';
 
@@ -35,6 +39,73 @@ void routeByRegistrationStatus([String? status]) {
   }
 }
 
-/// Entry point used right after OTP verification. Reads the status the verify
-/// response persisted to prefs.
+/// Entry point used right after a session is established. Reads the status the
+/// sign-in response persisted to prefs.
 void goToPostLoginDestination() => routeByRegistrationStatus();
+
+/// Persists a fresh session's identity and routes to wherever this user belongs.
+///
+/// A16 — extracted from the verification screen, which used to be the only place
+/// a phone session was born. There are three now (password sign-in, finishing
+/// sign-up with a password, and the code-verified rescue of an account that had
+/// none), and all three must land the user in the same state: same prefs, same
+/// profile refresh, same push registration, same routing decision. Three copies
+/// of this would have drifted, and the first symptom would have been a user
+/// signed in with an empty profile.
+///
+/// [user] is the map the login controller builds from any /auth/* success
+/// response. Safe to await; it never throws for a missing field.
+Future<void> completeSignInAndRoute(Map<String, dynamic> user) async {
+  await sharedPreferences.setString('id_user', user['id'].toString());
+  await sharedPreferences.setString(
+    'phone_user',
+    (user['phone'] ?? '').toString(),
+  );
+  await sharedPreferences.setString('name_user', user['name'].toString());
+
+  final rawAcc = user['account'];
+  if (rawAcc is Map) {
+    await applyUserAccountToSharedPreferences(
+      Map<String, dynamic>.from(rawAcc),
+      includeRoleId: false,
+    );
+  }
+
+  // Always reload the profile from GET — the sign-in `account` may be missing,
+  // nested, or use odd keys.
+  final uid = int.tryParse(user['id'].toString());
+  if (uid != null && uid > 0) {
+    final remote = await fetchUserAccount(uid);
+    if (remote != null) {
+      await applyUserAccountToSharedPreferences(remote, includeRoleId: false);
+    }
+  }
+
+  // The sign-in APIs return has_role / role_id — sync prefs with the server.
+  if (user.containsKey('has_role')) {
+    final hasRole = user['has_role'] == true;
+    if (hasRole) {
+      final raw = user['role_id'];
+      final rid = raw is int ? raw : int.tryParse(raw?.toString() ?? '');
+      if (rid != null && rid > 0) {
+        await sharedPreferences.setString('role_id', rid.toString());
+      }
+    } else {
+      await sharedPreferences.remove('role_id');
+    }
+  }
+
+  // New-user approval flow — persist the status so the router can decide
+  // between the registration form, the pending screen, or home.
+  final regStatus = user['registration_status']?.toString();
+  if (regStatus != null && regStatus.isNotEmpty) {
+    await sharedPreferences.setString('registration_status', regStatus);
+  }
+
+  // Phase 27.3 — register the FCM device row with the user's locale so
+  // server-side pushes arrive in the right language. Fire-and-forget so
+  // navigation doesn't wait on the network.
+  unawaited(PushRegistration.registerNow());
+
+  goToPostLoginDestination();
+}

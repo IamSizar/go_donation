@@ -292,6 +292,37 @@ func (s *Store) GetPasswordHash(ctx context.Context, userID int64) (string, erro
 	return *hash, nil
 }
 
+// SetPasswordIfUnset writes a bcrypt hash to an account that currently has
+// NONE, and reports whether it did. It never overwrites an existing password.
+//
+// A16 — this is the whole bound on the OTP bridge. 36 of 46 production accounts
+// hold no password, so an OTP-verified "choose a password" step is the only way
+// they can ever sign in again; but while demo OTP delivery is the only delivery
+// there is, a code proves nothing, so that step must be able to happen AT MOST
+// ONCE per account. The `WHERE password_hash IS NULL OR is empty` clause makes
+// that true, and it lives in the UPDATE rather than in a read-then-write so two
+// racing claims cannot both see "no password" and both succeed: exactly one of
+// them gets RowsAffected() == 1.
+//
+// Returns (false, nil) when the account already had a password or does not
+// exist — the caller refuses in both cases. A non-nil error means the write may
+// or may not have happened; callers must fail closed.
+func (s *Store) SetPasswordIfUnset(ctx context.Context, userID int64, passwordHash string) (bool, error) {
+	if userID <= 0 || strings.TrimSpace(passwordHash) == "" {
+		return false, errors.New("user id and password hash are required")
+	}
+	ct, err := s.Pool.Exec(ctx,
+		`UPDATE users
+		    SET password_hash = $2
+		  WHERE id = $1
+		    AND (password_hash IS NULL OR password_hash = '')`,
+		userID, passwordHash)
+	if err != nil {
+		return false, err
+	}
+	return ct.RowsAffected() == 1, nil
+}
+
 // StaffTierByPhone returns the id and staff_tier of the account holding this
 // phone. Returns (0, "", nil) when no account has the number — an unknown
 // phone is not staff, which is the only "not staff" answer this function is
