@@ -249,7 +249,7 @@ class _LoginFormState extends State<_LoginForm> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => const _GuestAccessSheet(),
+      builder: (_) => const GuestAccessSheet(),
     );
     if (ok == true) {
       Get.offAllNamed(AppRoutes.home);
@@ -935,19 +935,33 @@ class _ModeLink extends StatelessWidget {
 
 /// access" the app: the primary action always tries to REGISTER a new guest
 /// account first; if that username is already taken, a secondary "Log in
-/// instead" action appears using the same two fields. Pops `true` on success
+/// instead" action appears using the same fields. Pops `true` on success
 /// so the caller knows to navigate to Home.
-class _GuestAccessSheet extends StatefulWidget {
-  const _GuestAccessSheet();
+///
+/// J1 — the client asked for an "الاسم" box here. It is public (it was
+/// `_GuestAccessSheet`) only so a widget test can pump it directly and assert
+/// what the sheet actually posts; nothing else constructs it.
+class GuestAccessSheet extends StatefulWidget {
+  const GuestAccessSheet({super.key});
 
   @override
-  State<_GuestAccessSheet> createState() => _GuestAccessSheetState();
+  State<GuestAccessSheet> createState() => _GuestAccessSheetState();
 }
 
-class _GuestAccessSheetState extends State<_GuestAccessSheet> {
+class _GuestAccessSheetState extends State<GuestAccessSheet> {
   final _formKey = GlobalKey<FormState>();
+
+  /// J1 — the name box. Optional, matching the server: `guestFullName()`
+  /// treats an absent name as "this client collected none", not as an error.
+  final _fullNameController = TextEditingController();
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
+
+  /// Mirrors `guestFullNameMaxRunes` in handlers/auth.go, which mirrors
+  /// user_profiles.full_name VARCHAR(200). Checked here so an over-long name
+  /// is caught at the field rather than by a 400 after a round trip.
+  static const int _fullNameMaxRunes = 200;
+
   bool _loading = false;
   bool _obscure = true;
   String _error = '';
@@ -955,12 +969,16 @@ class _GuestAccessSheetState extends State<_GuestAccessSheet> {
 
   @override
   void dispose() {
+    _fullNameController.dispose();
     _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
   Future<void> _submit({required bool asLogin}) async {
+    // The keyboard is dismissed before the request so it never hangs over the
+    // error line the submit may produce, nor over the screen we navigate to.
+    FocusScope.of(context).unfocus();
     if (!_formKey.currentState!.validate()) return;
     setState(() {
       _loading = true;
@@ -968,9 +986,16 @@ class _GuestAccessSheetState extends State<_GuestAccessSheet> {
     });
     final username = _usernameController.text.trim();
     final password = _passwordController.text;
+    // Deliberately NOT passed to loginGuest. GuestLogin parses the name and
+    // never reads it (handlers/auth.go), so sending it there would be a value
+    // the user believes they set and the server drops.
     final result = asLogin
         ? await loginGuest(username, password)
-        : await registerGuest(username, password);
+        : await registerGuest(
+            username,
+            password,
+            fullName: _fullNameController.text.trim(),
+          );
     if (!mounted) return;
     setState(() {
       _loading = false;
@@ -1040,10 +1065,48 @@ class _GuestAccessSheetState extends State<_GuestAccessSheet> {
                       ),
                     ),
                   ),
+                // J1 — the name box the client asked for. A guest's username
+                // is a handle (`guest_name`, letters/digits/underscore), so
+                // before this the account had no human-readable name at all
+                // and staff saw a blank where every other account shows one.
+                //
+                // Optional on purpose: the sheet's promise is "just a username
+                // and password to quickly browse", and the server accepts a
+                // registration with no name. `pf_full_name` is used for the
+                // label because it is the same field the profile screens
+                // label, and it exists in all four locales.
                 TextFormField(
+                  key: const Key('guest_full_name_field'),
+                  controller: _fullNameController,
+                  style: TextStyle(color: AppThemeConfig.text(context)),
+                  cursorColor: AppThemeConfig.primary,
+                  // A name is words, not sentences: the name keyboard, with
+                  // word capitalisation for Latin scripts (a no-op in Arabic).
+                  keyboardType: TextInputType.name,
+                  textCapitalization: TextCapitalization.words,
+                  textInputAction: TextInputAction.next,
+                  decoration: authInputDecoration(
+                    context,
+                    label: 'pf_full_name'.tr,
+                    hintText: 'guest_full_name_hint',
+                    icon: Icons.badge_outlined,
+                  ),
+                  validator: (v) {
+                    final s = (v ?? '').trim();
+                    // Empty is valid — see above.
+                    if (s.runes.length > _fullNameMaxRunes) {
+                      return 'guest_full_name_too_long'.tr;
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 14),
+                TextFormField(
+                  key: const Key('guest_username_field'),
                   controller: _usernameController,
                   style: TextStyle(color: AppThemeConfig.text(context)),
                   cursorColor: AppThemeConfig.primary,
+                  textInputAction: TextInputAction.next,
                   decoration: authInputDecoration(
                     context,
                     label: 'Username'.tr,
@@ -1060,6 +1123,7 @@ class _GuestAccessSheetState extends State<_GuestAccessSheet> {
                 ),
                 const SizedBox(height: 14),
                 TextFormField(
+                  key: const Key('guest_password_field'),
                   controller: _passwordController,
                   style: TextStyle(color: AppThemeConfig.text(context)),
                   cursorColor: AppThemeConfig.primary,
@@ -1089,6 +1153,7 @@ class _GuestAccessSheetState extends State<_GuestAccessSheet> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
+                    key: const Key('guest_submit_button'),
                     onPressed: _loading ? null : () => _submit(asLogin: false),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppThemeConfig.onAccent(context),
@@ -1119,6 +1184,7 @@ class _GuestAccessSheetState extends State<_GuestAccessSheet> {
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton(
+                      key: const Key('guest_login_instead_button'),
                       onPressed: _loading ? null : () => _submit(asLogin: true),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppThemeConfig.primary,

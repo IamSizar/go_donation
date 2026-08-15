@@ -81,10 +81,27 @@ class GuestAuthResult {
 
 /// #40 — create a new guest account (username + password) and enter guest
 /// mode with a real, server-issued session.
-Future<GuestAuthResult> registerGuest(String username, String password) =>
-    _guestAuthCall(guestRegisterUrl, username, password, isLogin: false);
+///
+/// J1 — [fullName] is the "الاسم" box on the sign-up sheet. Optional: an empty
+/// name is omitted from the body entirely, which is what POST
+/// /api/auth/guest/register treats as "this client collected no name".
+Future<GuestAuthResult> registerGuest(
+  String username,
+  String password, {
+  String fullName = '',
+}) => _guestAuthCall(
+  guestRegisterUrl,
+  username,
+  password,
+  isLogin: false,
+  fullName: fullName,
+);
 
 /// #40 — sign back into an existing guest account.
+///
+/// Takes no name, deliberately. `GuestLogin` (handlers/auth.go) parses the
+/// same request struct but never reads the name, so accepting one here would
+/// let a caller believe it had renamed an account it had not.
 Future<GuestAuthResult> loginGuest(String username, String password) =>
     _guestAuthCall(guestLoginUrl, username, password, isLogin: true);
 
@@ -93,8 +110,17 @@ Future<GuestAuthResult> _guestAuthCall(
   String username,
   String password, {
   required bool isLogin,
+  String fullName = '',
 }) async {
   try {
+    // `full_name` is the canonical key across this API; the handler also
+    // accepts `name`, but sending the canonical one keeps this call the same
+    // shape as every other place the app writes a profile name.
+    final payload = <String, dynamic>{
+      'username': username,
+      'password': password,
+      if (fullName.trim().isNotEmpty) 'full_name': fullName.trim(),
+    };
     final resp = await http
         .post(
           Uri.parse(url),
@@ -102,7 +128,7 @@ Future<GuestAuthResult> _guestAuthCall(
             'Content-Type': 'application/json',
             'Accept': 'application/json',
           },
-          body: jsonEncode({'username': username, 'password': password}),
+          body: jsonEncode(payload),
         )
         .timeout(const Duration(seconds: 15));
     final body = _decodeGuestBody(resp.body);

@@ -2691,6 +2691,11 @@ class AppTranslations extends Translations {
     'Upgrade Account': 'Upgrade Account',
     'Use 3-32 letters, numbers or underscore':
         'Use 3-32 letters, numbers or underscore',
+    // J1 — the guest sign-up sheet's name box. The label reuses
+    // `pf_full_name`; only the example and the length rule are new here.
+    'guest_full_name_hint': 'e.g. Zaid Ahmed',
+    'guest_full_name_too_long':
+        'That name is too long. Use 200 characters or fewer.',
     'Use a different number': 'Use a different number',
     'User': 'User',
     'Verify & Continue': 'Verify & Continue',
@@ -5265,6 +5270,9 @@ class AppTranslations extends Translations {
     'Upgrade Account': 'ترقية الحساب',
     'Use 3-32 letters, numbers or underscore':
         'استخدم من ٣ إلى ٣٢ حرفًا أو رقمًا أو شرطة سفلية',
+    // J1 — انظر التعليق نفسه في الخريطة الإنجليزية.
+    'guest_full_name_hint': 'مثال: زيد أحمد',
+    'guest_full_name_too_long': 'الاسم طويل جدًا. استخدم ٢٠٠ حرف أو أقل.',
     'Use a different number': 'استخدم رقمًا مختلفًا',
     'User': 'مستخدم',
     'Verify & Continue': 'تحقّق وتابع',

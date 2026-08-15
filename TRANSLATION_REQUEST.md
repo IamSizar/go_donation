@@ -7,6 +7,7 @@ Generated 2026-08-15 by measuring the committed tree, not by estimating.
 Updated 2026-08-15 with the 25 strings the A16 password sign-in flow added.
 Updated 2026-08-15 again with the 100 keys the group-B English-leak sweep added
 (81 notification types, shared by both clients, plus 19 widget literals).
+Updated 2026-08-16 with the 2 keys the J1 guest sign-up name box added.
 
 ## Why these are empty rather than wrong
 
@@ -19,16 +20,17 @@ made on this project once and had to be reverted.
 Every key below currently renders its **English** string to a Kurdish user.
 That is deliberate and safe. It is not a crash, and it is not Arabic text.
 
-## Count: 236 keys need Kurdish
+## Count: 238 keys need Kurdish
 
 | Client | Sorani (ckb) | Badini (kmr) | Distinct keys |
 |---|---|---|---|
 | Flutter app | 112 | 116 | 116 |
 | Flutter app — B1 notification types (new) | 81 | 81 | 81 |
 | Flutter app — B21 widget literals (new) | 19 | 19 | 19 |
+| Flutter app — J1 guest sign-up name (new) | 2 | 2 | 2 |
 | Admin dashboard — audited `status.*` | 20 | 20 | 20 |
 | Admin dashboard — B1 notification types (new) | 81 | 81 | *same 81 words as above* |
-| **Total distinct words to translate** | | | **236** |
+| **Total distinct words to translate** | | | **238** |
 
 > **The dashboard figure above is a floor, not a ceiling — and it is the one
 > number in this file that was never fully measured.** Counting key paths in
@@ -65,6 +67,23 @@ before adding — `_badini` mixes quote styles and a duplicate is a silent bug.*
 | `Registration` | Registration | التسجيل | ckb + kmr |
 | `Sign in or create an account with your phone number.` | Sign in or create an account with your phone number. | سجّل الدخول أو أنشئ حساباً برقم هاتفك. | ckb + kmr |
 | `Your registration was saved, but your documents did not upload. You can add them from your profile.` | Your registration was saved, but your documents did not upload. You can add them from your profile. | تم حفظ تسجيلك، لكن لم يتم رفع مستنداتك. يمكنك إضافتها من ملفك الشخصي. | ckb + kmr |
+
+## auth · J1 guest sign-up name  (2 keys)
+
+Added 2026-08-16. The guest sign-up sheet now collects a name (the client's
+"الاسم" box), which the backend stores on the guest's `user_profiles` row. Only
+two strings are new: the field's example and its length rule. The LABEL is
+`pf_full_name`, which already has Sorani **and** Badini, so nothing about the
+box is untranslated except these two.
+
+`guest_full_name_hint` is an EXAMPLE NAME, not a sentence — replace "زيد أحمد"
+with a name that reads naturally in Kurdish rather than transliterating it.
+The `٢٠٠` in the second row is the database column limit and must stay 200.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `guest_full_name_hint` | e.g. Zaid Ahmed | مثال: زيد أحمد | ckb + kmr |
+| `guest_full_name_too_long` | That name is too long. Use 200 characters or fewer. | الاسم طويل جدًا. استخدم ٢٠٠ حرف أو أقل. | ckb + kmr |
 
 ## community, widgets · C2 filter-row error states  (2 keys)
 
