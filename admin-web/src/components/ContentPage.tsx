@@ -1,7 +1,17 @@
 // ContentPage — generic editor for an app_content CMS page (#9/#35). Loads
 // GET /api/content/:slug and saves via PUT /api/admin/content/:slug. Super-Admin
 // only (backend enforces RequireSuperAdmin). Reused by Terms, About, Contact.
-import { useEffect, useState } from 'react'
+//
+// K12 — the page also edits its named, ordered SUB-SECTIONS (migration 111),
+// saved to PUT /api/admin/content/:slug/sections by the same Save button.
+//
+// The two halves are exclusive by design, and this is the rule to keep in mind
+// when changing this file: when a page has sub-sections, the backend COMPOSES
+// `body_*` out of them, so a plain Body textarea shown next to them would be
+// silently overwritten on every save. It is therefore rendered only while the
+// sub-section list is empty — a page with no sub-sections is a plain blob page,
+// exactly as before K12.
+import { useCallback, useEffect, useState } from 'react'
 import { isAxiosError } from 'axios'
 import { api, describeError, isSuperAdmin } from '../lib/api'
 import { useAuth } from '../lib/auth'
@@ -9,6 +19,7 @@ import { useI18n } from '../lib/i18n'
 import { useToast } from '../lib/toast'
 import { useRegisterSaveAction } from '../lib/saveAction'
 import PageHead from './PageHead'
+import ContentSectionsEditor, { type ContentSection } from './ContentSectionsEditor'
 
 type Content = {
   slug: string
@@ -33,6 +44,7 @@ export default function ContentPage({ slug, titleKey, subtitleKey }: { slug: str
     body_en: '', body_ar: '', body_ckb: '', body_kmr: '',
   }
   const [form, setForm] = useState<Content>(empty)
+  const [sections, setSections] = useState<ContentSection[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -41,18 +53,23 @@ export default function ContentPage({ slug, titleKey, subtitleKey }: { slug: str
 
   const amSuper = isSuperAdmin(user)
 
+  // Loads the page and its sub-sections. Extracted from the effect because
+  // save() re-runs it: the backend recomposes `body_*` from the sub-sections,
+  // so the form would otherwise hold a body the server has already replaced.
+  const load = useCallback(async () => {
+    const res = await api.get<{ content: Content; sections?: ContentSection[] }>(`/api/content/${slug}`)
+    setForm({ ...empty, ...res.data.content })
+    setSections(res.data.sections ?? [])
+    setErr(null)
+    setNotYetCreated(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug])
+
   useEffect(() => {
     if (!amSuper) { setLoading(false); return }
     let cancelled = false
     setLoading(true)
-    api
-      .get<{ content: Content }>(`/api/content/${slug}`)
-      .then((res) => {
-        if (cancelled) return
-        setForm({ ...empty, ...res.data.content })
-        setErr(null)
-        setNotYetCreated(false)
-      })
+    load()
       .catch((e) => {
         if (cancelled) return
         // A 404 means this page has no row yet, not that anything is broken —
@@ -62,6 +79,7 @@ export default function ContentPage({ slug, titleKey, subtitleKey }: { slug: str
         // was seeded in migration 096).
         if (isAxiosError(e) && e.response?.status === 404) {
           setForm(empty)
+          setSections([])
           setErr(null)
           setNotYetCreated(true)
           return
@@ -71,15 +89,22 @@ export default function ContentPage({ slug, titleKey, subtitleKey }: { slug: str
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [amSuper, slug])
+  }, [amSuper, slug, load])
 
   const set = (key: keyof Content) => (v: string) => setForm((f) => ({ ...f, [key]: v }))
 
   const save = async () => {
     setSaving(true)
     try {
+      // Order matters. The page PUT writes `body_*` verbatim; the sections PUT
+      // then recomposes it from the sub-sections. Doing it the other way round
+      // would let the stale body in `form` overwrite the composed one.
       await api.put(`/api/admin/content/${slug}`, form)
+      await api.put(`/api/admin/content/${slug}/sections`, { sections })
       setNotYetCreated(false)
+      // Re-read so the form shows what the server actually stored — the
+      // composed body, and server-assigned sub-section ids.
+      await load()
       toast.success(t('terms.saved'))
     } catch (e) {
       toast.error(describeError(e))
@@ -140,17 +165,32 @@ export default function ContentPage({ slug, titleKey, subtitleKey }: { slug: str
               onChange={(e) => set(`title_${suf}` as keyof Content)(e.target.value)}
             />
           </label>
-          <label className="field">
-            <span className="muted">{t('terms.field_body')}</span>
-            <textarea
-              rows={12}
-              dir={rtl ? 'rtl' : 'ltr'}
-              value={form[`body_${suf}` as keyof Content]}
-              onChange={(e) => set(`body_${suf}` as keyof Content)(e.target.value)}
-            />
-          </label>
+          {/* Composed server-side while sub-sections exist, so editing it here
+              would be discarded on the next save. Explained rather than shown
+              disabled: a greyed-out box full of text invites a bug report. */}
+          {sections.length > 0 ? (
+            <p className="hint">{t('content.body_from_sections')}</p>
+          ) : (
+            <label className="field">
+              <span className="muted">{t('terms.field_body')}</span>
+              <textarea
+                rows={12}
+                dir={rtl ? 'rtl' : 'ltr'}
+                value={form[`body_${suf}` as keyof Content]}
+                onChange={(e) => set(`body_${suf}` as keyof Content)(e.target.value)}
+              />
+            </label>
+          )}
         </div>
       ))}
+
+      {!loading && (
+        <ContentSectionsEditor
+          sections={sections}
+          onChange={setSections}
+          disabled={saving}
+        />
+      )}
     </div>
   )
 }

@@ -1154,6 +1154,10 @@ func main() {
 			admin.PUT("/admin/settings/nav-layout", auth.RequireSuperAdmin(), settingsH.SetNavLayout)
 			// #9 — edit static content pages (Terms & Conditions, etc.).
 			admin.PUT("/admin/content/:slug", auth.RequireSuperAdmin(), contentH.AdminUpdateContent)
+			// K12 — edit a page's named, ordered sub-sections ("من نحن" asks
+			// for three, extendable). Same Super-Admin gate as the page editor
+			// above: it writes the same page, in the same CMS.
+			admin.PUT("/admin/content/:slug/sections", auth.RequireSuperAdmin(), contentH.AdminUpdateSections)
 		}
 	}
 

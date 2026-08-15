@@ -11,6 +11,8 @@ Updated 2026-08-16 with the 2 keys the J1 guest sign-up name box added.
 Updated 2026-08-16 again with the 8 keys the K7 alert-categories screen added.
 Updated 2026-08-16 once more with the 2 keys the L19 engagement-profile field
 privacy picker added.
+Updated 2026-08-16 again with the 6 keys the K12 content sub-section editor
+added.
 
 ## Why these are empty rather than wrong
 
@@ -23,7 +25,7 @@ made on this project once and had to be reverted.
 Every key below currently renders its **English** string to a Kurdish user.
 That is deliberate and safe. It is not a crash, and it is not Arabic text.
 
-## Count: 248 keys need Kurdish
+## Count: 254 keys need Kurdish
 
 | Client | Sorani (ckb) | Badini (kmr) | Distinct keys |
 |---|---|---|---|
@@ -35,7 +37,8 @@ That is deliberate and safe. It is not a crash, and it is not Arabic text.
 | Flutter app — L19 engagement field privacy (new) | 2 | 2 | 2 |
 | Admin dashboard — audited `status.*` | 20 | 20 | 20 |
 | Admin dashboard — B1 notification types (new) | 81 | 81 | *same 81 words as above* |
-| **Total distinct words to translate** | | | **248** |
+| Admin dashboard — K12 content sub-sections (new) | 6 | 6 | 6 |
+| **Total distinct words to translate** | | | **254** |
 
 > **The dashboard figure above is a floor, not a ceiling — and it is the one
 > number in this file that was never fully measured.** Counting key paths in
@@ -819,6 +822,28 @@ The Arabic for the two path names is the client's own wording.
 > The 22 PROJECT NAMES need nothing — migration 085 seeds `name_ckb` and
 > `name_kmr` for every row, so the picker already reads correctly in both
 > Kurdish variants.
+
+## `content.*` — K12 content sub-sections (6 keys)
+
+New vocabulary added by the "من نحن: three named sub-sections, extendable"
+editor (`admin-web/src/components/ContentSectionsEditor.tsx`). English and
+Arabic are written; ckb/kmr fall back to English until these are filled in.
+
+`{n}` is a number substituted at runtime — keep it exactly as written.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `content.sections_title` | Sub-sections | الأقسام الفرعية | ckb + kmr |
+| `content.sections_desc` | Split this page into named parts. They appear in the app in this order. Add as many as you need — changes apply when you press Save. | قسّم هذه الصفحة إلى أجزاء مسمّاة تظهر في التطبيق بهذا الترتيب. أضف ما تحتاجه منها — تُطبَّق التغييرات عند الضغط على حفظ. | ckb + kmr |
+| `content.sections_empty` | No sub-sections yet — this page is one block of text. | لا توجد أقسام فرعية بعد — هذه الصفحة كتلة نص واحدة. | ckb + kmr |
+| `content.section_n` | Sub-section {n} | القسم الفرعي {n} | ckb + kmr |
+| `content.add_section` | Add sub-section | إضافة قسم فرعي | ckb + kmr |
+| `content.body_from_sections` | The body is built from the sub-sections below, so edit the text there. | يُبنى النص من الأقسام الفرعية أدناه، لذا حرّره هناك. | ckb + kmr |
+
+> "Sub-section" here means a NAMED PART OF ONE PAGE (About Us → the app / the
+> organization / its goals), not a section of the dashboard and not the
+> `section` field on a volunteer mission. Pick a word that reads as "part of
+> this page".
 
 ---
 

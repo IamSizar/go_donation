@@ -434,6 +434,13 @@ const en = {
   content: {
     not_created_title: 'Not published yet.',
     not_created_hint: 'This page has no content yet — fill it in below and press Save to create it.',
+    // K12 — named, ordered sub-sections of a content page.
+    sections_title: 'Sub-sections',
+    sections_desc: 'Split this page into named parts. They appear in the app in this order. Add as many as you need — changes apply when you press Save.',
+    sections_empty: 'No sub-sections yet — this page is one block of text.',
+    section_n: 'Sub-section {n}',
+    add_section: 'Add sub-section',
+    body_from_sections: 'The body is built from the sub-sections below, so edit the text there.',
   },
   sponsorshipTypes: {
     title: 'Assistance types',
