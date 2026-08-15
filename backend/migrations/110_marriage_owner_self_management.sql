@@ -1,0 +1,105 @@
+-- 110 — K14: the خطوبتي profile its owner could not edit, pause or delete.
+--
+-- THE GAP THIS CLOSES
+-- The spec asks for "a profile with edit / activate / delete-account". None of
+-- the three existed, and not because the app forgot them:
+--
+--   POST   /api/marriage            INSERTS a row with a freshly generated
+--                                   profile_code — a second submission, not an
+--                                   update.
+--   PATCH  /api/marriage/:id        did not exist.
+--   DELETE /api/marriage/:id        did not exist.
+--
+-- internal/marriage had exactly ONE owner-scoped mutation, SetFieldPrivacy, so
+-- there was nothing for an "edit" button to call. The app says so in writing
+-- (marriage_my_profile_screen.dart): the button is deliberately not labelled
+-- "edit", because "calling it 'edit' ... promised something the app cannot do".
+--
+-- The endpoints live in internal/marriage/owner.go. This file adds the two
+-- columns they need.
+--
+-- ADDITIVE ONLY
+-- Two new nullable columns. No column is dropped, no type changed, no existing
+-- value rewritten, and NO BACKFILL: NULL in both means "never deleted" and
+-- "never paused by its owner", which is exactly how every profile in the system
+-- behaves today. A down-and-up cycle changes no profile's visibility.
+
+-- ─── The recoverable delete ─────────────────────────────────────────────────
+--
+-- WHY A STAMP AND NOT A ROW DELETE. The repo's recoverable-delete mechanism is
+-- handlers.trashRow: it snapshots the row into trash_items and then deletes it.
+-- Its own comment records the limit — "FK cascades still fire for child rows;
+-- those children are not individually trashed". marriage_profiles has two
+-- ON DELETE CASCADE children:
+--
+--   marriage_chat_threads      (058) -> marriage_chat_messages, _reads
+--   marriage_subscription_purchases (068)
+--
+-- So routing this delete through trashRow would destroy the user's mediated
+-- chat history AND the record that they PAID for a subscription, and restoring
+-- from المهملات would bring back the profile row alone. Losing a payment record
+-- because somebody tapped حذف is not a recoverable delete; it is silent data
+-- loss with a Trash entry on top of it.
+--
+-- The stamp keeps every row and every child. status moves to 'closed' (already
+-- in the table's CHECK since migration 001) so the existing status filters
+-- behave, and this column records that the OWNER did it rather than staff —
+-- which staff cannot otherwise tell, and which is the difference between "we
+-- closed this case" and "this person left".
+--
+-- The restore is the status decision staff already make: AdminStatusHandler
+-- .Marriage clears this column on every status change through
+-- POST /api/admin/marriage/:id/status.
+ALTER TABLE marriage_profiles
+  ADD COLUMN IF NOT EXISTS owner_deleted_at TIMESTAMP;
+
+-- ─── The pause that cannot self-approve ─────────────────────────────────────
+--
+-- Resume has to put the profile back in the state it was in, not into 'active'.
+-- The browsable set is ('active','under_review','submitted'), so a profile
+-- awaiting review is visible but NOT yet approved — and if resume always wrote
+-- 'active', pause-then-resume would be a one-tap route from "submitted" to
+-- "approved by nobody". This column remembers what to go back to, written and
+-- read inside the same UPDATE that flips the status.
+--
+-- NULL after a resume, and NULL for any profile paused before this migration.
+-- The Go side treats that as 'submitted' — back into the review queue rather
+-- than into the approved feed, which is the safe direction to guess in.
+ALTER TABLE marriage_profiles
+  ADD COLUMN IF NOT EXISTS paused_from_status VARCHAR(20);
+
+-- NO INDEX IS ADDED HERE, DELIBERATELY.
+-- `owner_deleted_at IS NULL` is now a condition on every marriage.Store.List
+-- query, which looks like an index candidate and is not one: it matches
+-- essentially EVERY row (self-deletion is rare), so a btree on it would be
+-- scanned in full and rejected in favour of a sequential read on every plan,
+-- while being paid for on every profile write. The selective conditions in
+-- those queries are user_id and status, which idx_marriage_profiles_user and
+-- idx_marriage_profiles_status (migration 001) already cover, and this column
+-- narrows the result they produce.
+--
+-- paused_from_status is never a WHERE condition at all — it is read and written
+-- as part of the row already being updated by id.
+--
+-- This is the same reasoning recorded in migrations 105 and 107, and the same
+-- conclusion: an index nobody's query can use is a write cost with no reader.
+-- If self-deletions ever become common enough to matter, the fix is a partial
+-- index on the rare side (WHERE owner_deleted_at IS NOT NULL) for the staff
+-- view that lists them, not a btree on the common one.
+--
+-- ─── DOWN (reversal) ───────────────────────────────────────────────────────
+-- This repo's runner (internal/db/migrate.go) is forward-only and records each
+-- file in schema_migrations; there is no .down.sql convention, so the reversal
+-- is recorded here and was EXECUTED against a local database before this
+-- migration was committed:
+--
+--   ALTER TABLE marriage_profiles DROP COLUMN IF EXISTS paused_from_status;
+--   ALTER TABLE marriage_profiles DROP COLUMN IF EXISTS owner_deleted_at;
+--   DELETE FROM schema_migrations WHERE version = '110_marriage_owner_self_management.sql';
+--
+-- Reversing loses the record of WHO closed a profile and what a paused profile
+-- should resume to. It does NOT lose a profile: every row, every chat and every
+-- subscription purchase survives, because this migration never deletes
+-- anything — that is the whole point of it. A profile whose owner had deleted
+-- it would reappear in the app still marked 'closed', which keeps it out of the
+-- browse feed; staff would have to re-close it only if they had reopened it.

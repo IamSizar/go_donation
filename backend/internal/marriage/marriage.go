@@ -180,6 +180,13 @@ func (s *Store) List(ctx context.Context, f SearchFilters) ([]Profile, error) {
 	// product decision and is recorded as open in the L19 row.
 	args = append(args, f.ViewerUserID)
 	conds = append(conds, "(visibility_level <> 'private' OR user_id = $"+itoa(len(args))+")")
+	// K14 — a profile its owner deleted is gone from every surface of the app:
+	// the browse feed, the owner's own list, and other people's bookmarks. It
+	// is a stamp rather than a row delete (see Store.DeleteOwnProfile for the
+	// cascade that made a real delete unacceptable), so this condition is what
+	// actually makes حذف mean deleted. Staff still see the row — the dashboard
+	// queries this table directly — which is what makes the delete recoverable.
+	conds = append(conds, "owner_deleted_at IS NULL")
 	where := ""
 	if len(conds) > 0 {
 		where = "WHERE " + strings.Join(conds, " AND ")

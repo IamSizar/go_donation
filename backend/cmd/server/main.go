@@ -629,6 +629,16 @@ func main() {
 			authed.GET("/marriage/privacy-options", marriageH.GetPrivacyOptions)
 			authed.POST("/marriage/:id/privacy", auth.RequireNotGuest(), marriageH.SetPrivacy)
 			authed.POST("/marriage/:id/request-meeting", auth.RequireNotGuest(), marriageH.RequestMeeting)
+			// K14 — تعديل / إيقاف / حذف on your OWN engagement profile. Until
+			// these existed the only write was POST /marriage, which INSERTS a
+			// new row with a fresh profile_code, so "edit" had nothing to call
+			// and the app deliberately refused to offer it. Ownership is
+			// enforced inside each UPDATE (internal/marriage/owner.go), not
+			// here — the route gate only proves who is asking.
+			authed.PATCH("/marriage/:id", auth.RequireNotGuest(), marriageH.UpdateMine)
+			authed.POST("/marriage/:id/pause", auth.RequireNotGuest(), marriageH.PauseMine)
+			authed.POST("/marriage/:id/resume", auth.RequireNotGuest(), marriageH.ResumeMine)
+			authed.DELETE("/marriage/:id", auth.RequireNotGuest(), marriageH.DeleteMine)
 			authed.POST("/marriage/subscription-packages/:id/purchase", auth.RequireNotGuest(), marriageH.PurchaseSubscription)
 			authed.POST("/marriage/", auth.RequireNotGuest(), marriageH.Post)
 

@@ -541,7 +541,14 @@ var beneficiaryCaseReview = &reviewStamp{
 // in the DB by the time the admin's UI refreshes (avoids "I approved it
 // but the bell doesn't show anything"). Callbacks swallow their own errors
 // — they never fail the admin's request.
-func (h *AdminStatusHandler) updateStringStatus(c *gin.Context, table, column string, allowed []string, notifyFn statusNotifyFn) {
+//
+// `extraSets` are additional literal SET fragments applied in the same UPDATE
+// (K14 — the marriage resource uses it to clear owner_deleted_at, making a
+// staff status decision the restore path for a profile its owner deleted).
+// Variadic so the eleven callers that need none are untouched. Like `table` and
+// `column`, these MUST be literals from this package and never request data —
+// they are concatenated into the statement.
+func (h *AdminStatusHandler) updateStringStatus(c *gin.Context, table, column string, allowed []string, notifyFn statusNotifyFn, extraSets ...string) {
 	var wrapped statusReviewNotifyFn
 	if notifyFn != nil {
 		// These resources record no reason, so there is none to hand on.
@@ -549,7 +556,7 @@ func (h *AdminStatusHandler) updateStringStatus(c *gin.Context, table, column st
 			notifyFn(ctx, id, newStatus)
 		}
 	}
-	h.updateReviewedStringStatus(c, table, column, allowed, nil, wrapped)
+	h.updateReviewedStringStatus(c, table, column, allowed, nil, wrapped, extraSets...)
 }
 
 // updateReviewedStringStatus is updateStringStatus plus the optional review
@@ -562,7 +569,7 @@ func (h *AdminStatusHandler) updateStringStatus(c *gin.Context, table, column st
 // ReviewNotes for the absent / empty / present distinction.
 func (h *AdminStatusHandler) updateReviewedStringStatus(
 	c *gin.Context, table, column string, allowed []string,
-	review *reviewStamp, notifyFn statusReviewNotifyFn,
+	review *reviewStamp, notifyFn statusReviewNotifyFn, extraSets ...string,
 ) {
 	id, ok := parseID(c)
 	if !ok {
@@ -610,6 +617,9 @@ func (h *AdminStatusHandler) updateReviewedStringStatus(
 			sets = append(sets, review.NotesColumn+" = $"+strconv.Itoa(len(args)))
 		}
 	}
+	// Literal fragments from the calling method (K14). Appended after the
+	// parameterised sets so the $N numbering above is unaffected.
+	sets = append(sets, extraSets...)
 	args = append(args, id)
 
 	ct, err := h.Pool.Exec(c.Request.Context(),
@@ -650,9 +660,20 @@ func (h *AdminStatusHandler) MarketplaceOrder(c *gin.Context) {
 	h.updateStringStatus(c, "marketplace_orders", "status",
 		marketplaceOrderStatuses, h.notifyMarketplaceOrderDecision)
 }
+
+// Marriage — POST /api/admin/marriage/:id/status.
+//
+// K14 — this is also the RESTORE path. An owner who taps حذف does not delete
+// the row (marriage_profiles' children cascade, so a real delete would take
+// their mediated chats and their subscription payment record with it — see
+// marriage.Store.DeleteOwnProfile); it is stamped owner_deleted_at and hidden
+// from every surface of the app. Staff deciding a status on that profile is
+// them putting it back, so the stamp is cleared in the same UPDATE. Without
+// this the profile would be visible in the dashboard, editable, and still
+// invisible in the app with nothing to explain why.
 func (h *AdminStatusHandler) Marriage(c *gin.Context) {
 	h.updateStringStatus(c, "marriage_profiles", "status",
-		marriageStatuses, h.notifyMarriageDecision)
+		marriageStatuses, h.notifyMarriageDecision, "owner_deleted_at = NULL")
 }
 func (h *AdminStatusHandler) Partner(c *gin.Context) {
 	// Partner-status changes don't trigger per-user notifications; broadcasts
