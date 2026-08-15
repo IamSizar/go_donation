@@ -998,10 +998,8 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
     }
   }
 
-  Future<void> _pickPersonalPhoto() => _pickPhotoInto(
-    'recipient_personal_photo',
-    (p) => _personalPhotoPath = p,
-  );
+  Future<void> _pickPersonalPhoto() =>
+      _pickPhotoInto('recipient_personal_photo', (p) => _personalPhotoPath = p);
 
   Future<void> _pickIdPhoto() =>
       _pickPhotoInto('recipient_id_photo', (p) => _idPhotoPath = p);
@@ -3329,6 +3327,58 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                           icon: Icons.credit_card_outlined,
                                           assign: (p) =>
                                               _rationCardPhotoPath = p,
+                                        ),
+                                        // L10 — the client's list reads
+                                        // "البطاقة التموينية / بطاقة السكن /
+                                        // الجواز (اختياري)": three alternative
+                                        // proofs of identity and residence, of
+                                        // which only the ration card was
+                                        // offered here. The other two existed
+                                        // in the app, but only inside the
+                                        // VOLUNTEER block, so an eligible
+                                        // applicant holding a residence card
+                                        // or a passport instead of a ration
+                                        // card had nowhere to put it.
+                                        //
+                                        // The two labels are reused from that
+                                        // block rather than duplicated under
+                                        // `reg_recipient_*` names. Their key
+                                        // names say "volunteer" and their
+                                        // VALUES are role-neutral ("بطاقة
+                                        // السكن", "جواز السفر (اختياري)"),
+                                        // they are already translated into all
+                                        // four languages, and the same reuse
+                                        // was made for the donor's social
+                                        // links in L2. Minting new keys would
+                                        // have added Kurdish debt for two
+                                        // words the app already knows.
+                                        //
+                                        // The RULE ids are recipient-specific,
+                                        // so an admin can switch these off for
+                                        // eligible applicants without touching
+                                        // the volunteer form. See the L10 note
+                                        // in VERIFICATION_REPORT.md: the two
+                                        // rows do not exist in `field_rules`
+                                        // yet, which means the tiles show
+                                        // (an absent rule is not a hidden one)
+                                        // and the admin switch arrives with
+                                        // the migration.
+                                        (
+                                          rule:
+                                              'recipient_residence_card_photo',
+                                          label:
+                                              'reg_volunteer_residence_card_photo',
+                                          path: _residenceCardPhotoPath,
+                                          icon: Icons.home_work_outlined,
+                                          assign: (p) =>
+                                              _residenceCardPhotoPath = p,
+                                        ),
+                                        (
+                                          rule: 'recipient_passport_photo',
+                                          label: 'reg_volunteer_passport_photo',
+                                          path: _passportPhotoPath,
+                                          icon: Icons.book_outlined,
+                                          assign: (p) => _passportPhotoPath = p,
                                         ),
                                         (
                                           rule:
