@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/modules/community/controllers/community_controller.dart';
+import 'package:flutter_application_1/core/theme/app_theme_config.dart';
+import 'package:flutter_application_1/shared/utils/social_links.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -93,7 +95,7 @@ class CommunityDetailScreen extends StatelessWidget {
     // nobody has filled it in — in which case no badge is shown rather than a
     // guess, because free text like "9 صباحاً حتى 5 مساءً" cannot be parsed.
     final openNow = _openNow(entry['hours']);
-    final socials = (entry['social_links'] ?? '').toString().trim();
+    final socials = socialLinksFrom(entry['social_links']);
     final sectorSlugs = (entry['sectors'] is List)
         ? (entry['sectors'] as List)
               .map((s) => s.toString())
@@ -227,12 +229,45 @@ class CommunityDetailScreen extends StatelessWidget {
                           const SizedBox(height: 8),
                           _OpenNowBadge(open: openNow),
                         ],
-                        if (socials.isNotEmpty)
-                          _DetailLine(
-                            icon: Icons.public_rounded,
-                            label: 'city_social_links',
-                            value: socials,
+                        // K17 — these used to be one blob of text in a
+                        // read-only _DetailLine, on a card where the phone
+                        // dials, the email opens mail and the website opens a
+                        // browser. Same chips the partner page has always
+                        // drawn, from the same parser, because migration 100
+                        // gave this column the partner column's shape on
+                        // purpose.
+                        if (socials.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.public_rounded,
+                                size: 18,
+                                color: AppThemeConfig.mutedText(context),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'city_social_links'.tr,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: AppThemeConfig.mutedText(context),
+                                ),
+                              ),
+                            ],
                           ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 10,
+                            children: [
+                              for (final link in socials)
+                                _SocialChip(
+                                  label: socialNetworkLabel(link),
+                                  onTap: () => openSocialLink(link),
+                                ),
+                            ],
+                          ),
+                        ],
                         // #29 — sector tags.
                         if (sectorSlugs.isNotEmpty) ...[
                           const SizedBox(height: 12),
@@ -506,6 +541,54 @@ class _DetailLine extends StatelessWidget {
 }
 
 /// A detail row that's tappable — shows a coloured trailing icon action badge.
+/// One tappable social account (K17).
+///
+/// A chip rather than another detail line because a place can carry several
+/// links and a stack of full-width rows would push the description, the hours
+/// badge and the gallery below the fold on the phone sizes this app targets.
+/// It mirrors the chip the partner page already draws for the same column.
+class _SocialChip extends StatelessWidget {
+  const _SocialChip({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = AppThemeConfig.accent(context);
+    return AppPressable(
+      onTap: onTap,
+      // The network name alone is not enough for a screen reader: it has to
+      // say the chip DOES something, since the same word sat here as plain
+      // text until now.
+      semanticLabel: '${label.tr} · ${'Open'.tr}',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: accent.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: accent.withValues(alpha: 0.35)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.open_in_new_rounded, size: 14, color: accent),
+            const SizedBox(width: 6),
+            Text(
+              label.tr,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: accent,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _TappableDetailLine extends StatelessWidget {
   const _TappableDetailLine({
     required this.icon,

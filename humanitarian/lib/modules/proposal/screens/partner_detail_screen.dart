@@ -7,6 +7,7 @@ import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/modules/proposal/screens/partners_screen.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/shared/utils/social_links.dart';
 
 /// Client spec, "Eleventh: Partners Section" — the dedicated Partner Page.
 ///
@@ -88,7 +89,7 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
     final email = (item['email'] ?? '').toString();
     final website = (item['website'] ?? '').toString();
     final location = localizedContentFromMap(item, 'location');
-    final socials = partnerSocialLinks(item['social_links']);
+    final socials = socialLinksFrom(item['social_links']);
     final logoUrl = partnerLogoUrl(item['logo_path']);
 
     return SectionScaffold(
@@ -206,7 +207,7 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
                     for (final link in socials)
                       PartnerActionChip(
                         icon: Icons.public_rounded,
-                        label: partnerSocialLabel(link),
+                        label: socialNetworkLabel(link),
                         onTap: () => openPartnerWebsite(link),
                       ),
                   ],

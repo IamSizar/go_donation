@@ -7,6 +7,7 @@ import 'package:flutter_application_1/modules/proposal/controllers/partners_cont
 import 'package:flutter_application_1/modules/proposal/screens/partner_detail_screen.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/shared/utils/social_links.dart';
 import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
@@ -169,7 +170,7 @@ class _PartnerCard extends StatelessWidget {
     final email = (item['email'] ?? '').toString(); // #26
     final website = (item['website'] ?? '').toString();
     final location = localizedContentFromMap(item, 'location'); // #26
-    final socials = partnerSocialLinks(item['social_links']); // #26
+    final socials = socialLinksFrom(item['social_links']); // #26
     final logoUrl = partnerLogoUrl(item['logo_path']);
 
     // "Eleventh: Partners Section" — the whole card opens the dedicated
@@ -281,7 +282,7 @@ class _PartnerCard extends StatelessWidget {
                       for (final link in socials)
                         PartnerActionChip(
                           icon: Icons.public_rounded,
-                          label: partnerSocialLabel(link),
+                          label: socialNetworkLabel(link),
                           onTap: () => openPartnerWebsite(link),
                         ),
                     ],
@@ -626,28 +627,10 @@ class _RatePickerSheetState extends State<_RatePickerSheet> {
   }
 }
 
-List<String> partnerSocialLinks(dynamic raw) {
-  final text = (raw ?? '').toString();
-  if (text.trim().isEmpty) return const [];
-  return text
-      .split(RegExp(r'[\n,]+'))
-      .map((s) => s.trim())
-      .where((s) => s.isNotEmpty)
-      .toList();
-}
-
-String partnerSocialLabel(String url) {
-  final u = url.toLowerCase();
-  if (u.contains('facebook') || u.contains('fb.')) return 'Facebook';
-  if (u.contains('instagram') || u.contains('instagr.am')) return 'Instagram';
-  if (u.contains('wa.me') || u.contains('whatsapp')) return 'WhatsApp';
-  if (u.contains('t.me') || u.contains('telegram')) return 'Telegram';
-  if (u.contains('youtube') || u.contains('youtu.be')) return 'YouTube';
-  if (u.contains('tiktok')) return 'TikTok';
-  if (u.contains('twitter') || u.contains('x.com')) return 'X';
-  if (u.contains('linkedin')) return 'LinkedIn';
-  return 'Social';
-}
+// K17 — these two used to be defined here. The City Guide place page needs
+// the same parsing for the same column shape (migration 100 says so in as many
+// words), so they moved to shared/utils/social_links.dart and both screens now
+// read one definition.
 
 Future<void> launchPartnerExternal(String url) async {
   final uri = Uri.tryParse(url);
