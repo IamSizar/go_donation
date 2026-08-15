@@ -1092,6 +1092,10 @@ const en = {
     admin_level_required: 'Only an Administrator or the Primary Administrator can do this.',
     super_admin_required: 'Only the Primary Administrator can do this.',
     permission_denied: 'Your access level does not allow this action. Ask the Primary Administrator if you need it.',
+    // H13 — refusals from the rank check on the users resource. The sign-in
+    // number is the credential now, so who may rewrite it is an access rule.
+    protected_account: 'This account has a higher access level than yours, so it cannot be edited from here. Ask the Primary Administrator.',
+    staff_phone_super_admin_only: 'The sign-in number of a staff account can only be changed by the Primary Administrator, because it is what that person signs in with.',
     // Support reply — the handler sends these as a stable `code` so the
     // operator never sees the store's raw English.
     reply_empty: 'Write a reply before sending it.',

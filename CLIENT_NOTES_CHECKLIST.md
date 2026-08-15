@@ -766,7 +766,7 @@ The client flags this as one repeated global defect and asks for one global fix:
 | H10 | **Control who may see sensitive contact data** (رقم الهاتف والإيميل) — otherwise hidden/encrypted "لحماية البيانات وتشفيرها". `[D p8]` | Dashboard → الصلاحيات | ⬜ |
 | H11 | **Force logout the instant an account is disabled or its permissions are reduced** — "يتم إنهاء جلسة ذلك اليوزر فوراً وعمل تسجيل خروج تلقائي له (Force Logout) لتطبيق التعديل في نفس اللحظة". `[D p8]` | Dashboard → الصلاحيات | ⬜ |
 | H12 | **Audit Log**: a dedicated DB record of the time, date and IP of every change the admin makes in this section (example given: "المدير قام بتعديل صلاحية الموظف أحمد"); read-only, cannot be finally deleted. `[D p8]` | Dashboard → الصلاحيات | ⬜ |
-| H13 | **Super Admin protection**: no other user — even "ادمن" or "مشرف" — may edit, disable, or change the permissions of the "المدير الأساسي / Super Admin" account from inside the dashboard. `[D p8]` | Dashboard → الصلاحيات | ⬜ |
+| H13 | **Super Admin protection**: no other user — even "ادمن" or "مشرف" — may edit, disable, or change the permissions of the "المدير الأساسي / Super Admin" account from inside the dashboard. `[D p8]` | Dashboard → الصلاحيات | 🔎 **confirmed, fixed, not deployed** — see H13 notes below |
 | H14 | **Temporary block + immediate auto-logout with SMS confirmation to lift**, triggered when repeated and rapid change/delete operations are detected in this section. `[D p8]` | Dashboard → الصلاحيات | ⬜ |
 | H15 | **Global trash**: every delete anywhere moves to سلة المهملات automatically; final delete only from inside the trash, by the main admin, with mandatory password, item-by-item or select-all. Employees get **archive** instead of delete — "مع إضافة الأرشفة كبديل للموظفين". `[D p3, p9]` | Dashboard, global | ⬜ |
 | H16 | **CSV export gated**: enabled only for the main admin or users he authorizes, "مع فرض إدخال الرقم السري كشرط أساسي مسبق لإتمام عملية تصدير البيانات". `[D p3]` | Dashboard, all export buttons | ⬜ |
@@ -777,6 +777,54 @@ The client flags this as one repeated global defect and asks for one global fix:
 | H21 | **Require password entry as a condition when changing user roles** — "تفعيل حماية طلب إدخال رقم سري كشرط عند تغيير الأدوار لليوزرات". `[D p3]` | Dashboard → المستخدمون | ⬜ |
 | H22 | **Rate limiting on OTP/login abuse**: on detecting repeated, continuous login/logout that burns OTP SMS, lock attempts progressively — **2 hours, then 6 hours, then a full day** if attempts continue. `[D p10]` | Backend / App login | ⬜ |
 | H23 | **Auto-generated identity codes instead of real names** for donors and beneficiaries at registration, "مع حظر عرض أي بيانات خاصة إلا بموافقة صاحب العلاقة". `[A p33]` | App + Dashboard | ⬜ |
+
+### H13 — diagnosis and fix (2026-08-15)
+
+**Reproduced, as a working takeover.** Eight of the nine write endpoints on the
+users resource asked "is the target protected?" before touching the row. The
+ninth — `PATCH /api/admin/users/:id`, the only route that can rewrite
+`users.phone` — asked nothing; its only gate was the `(users, edit)` permission,
+which **supervisor and employee hold by default** and which no production
+override narrows. A test driving the real request chain confirmed it: an `admin`,
+an `employee` and a `supervisor` each rewrote a higher-ranked account's phone
+number and the row changed in the database.
+
+That matters more than it used to, because the phone is no longer only a contact
+field — it is where a sign-in code is delivered, so whoever holds the number
+clears at least one factor of that person's login. How much that alone buys an
+attacker depends on the login design, which is currently being revised, so this
+fix does not rest on it. It rests on what production says today:
+
+| tier | accounts | with **no password at all** |
+|---|---|---|
+| `super_admin` | 3 | 1 |
+| `admin` | 2 | 1 |
+| `user` | 41 | 34 |
+
+For those two staff accounts there is no second factor to fall back on, so the
+phone number is currently sufficient on its own — set it to a handset you own and
+sign in as them.
+
+**Two rules now guard every write on the resource, from one shared place**
+(`backend/internal/handlers/admin_user_guard.go`):
+
+1. **Tier floor** — you may not write to an account that outranks you, on any
+   field. This generalises the old check, which only shielded the Super-Admin, so
+   a supervisor can no longer reset an *admin's* password either.
+2. **Credential rule** — changing the phone of any account that holds dashboard
+   access is **Super-Admin-only**. Rule 1 permits a peer edit, and a peer edit of
+   a credential is still a takeover, only sideways.
+
+Correcting an ordinary user's mistyped number stays available to every rank that
+holds تعديل — that is the everyday task, and it is covered by a test.
+Two behaviours also changed for the better on the way: a failed tier lookup used
+to wave the write through (it now refuses), and refusals now carry a translatable
+`code` and a server-side log line instead of a raw English sentence.
+
+**Not covered by this fix:** H13 also asks that no one may change the
+Super-Admin's *permissions*. That half was already correct — the permissions
+matrix is `RequireSuperAdmin`-gated, and `super_admin` is never stored as
+overridable (`internal/permissions/permissions.go`).
 
 ## I. Global terminology & naming changes
 

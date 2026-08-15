@@ -1447,6 +1447,14 @@ func (h *AdminEditHandler) User(c *gin.Context) {
 		return
 	}
 
+	// H13 — the rank check every other write on this resource performs. It runs
+	// AFTER the body is parsed because rule (b) only applies when this request
+	// actually rewrites the sign-in credential (see admin_user_guard.go), and
+	// BEFORE any write, so a refusal can never leave a half-applied edit.
+	if guardUserWrite(c, h.Pool, id, req.Phone != nil) {
+		return
+	}
+
 	usersHasChange := req.Phone != nil
 	profileHasChange := req.FullName != nil || req.Gender != nil || req.Address != nil || req.ProfilePicture != nil ||
 		req.DateOfBirth != nil || req.City != nil || req.Occupation != nil || req.FamilySize.Set ||

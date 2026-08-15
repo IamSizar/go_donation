@@ -24,25 +24,27 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/sponsorshipschedule"
 )
 
-// blockIfProtectedTarget enforces A-14: a super_admin account can only be
-// modified by another super_admin. Returns true (and writes 403) when the
-// caller must be stopped. Call it right after parseID in user-modify handlers.
+// blockIfProtectedTarget enforces A-14: an account may only be modified by
+// someone who outranks it, or matches its rank. Returns true (and writes the
+// refusal) when the caller must be stopped. Call it right after parseID in
+// user-modify handlers.
+//
+// H13 — the rule itself, the translatable `code`, the server-side log and the
+// fail-closed behaviour on a lookup error now live in ONE place shared with
+// AdminEditHandler, which had no rank check at all. See admin_user_guard.go.
+// Two things changed here beyond the move:
+//
+//   - a failed tier lookup used to `return false`, waving the write through on
+//     exactly the error where we no longer know who the target is. It now
+//     refuses.
+//   - the check was "is the target a super_admin?"; it is now "does the target
+//     outrank the actor?", so a supervisor can no longer reset an admin's
+//     password or suspend them either.
+//
+// changingPhone is false for every caller here — none of the status endpoints
+// touch users.phone. Only PATCH /admin/users/:id does.
 func (h *AdminStatusHandler) blockIfProtectedTarget(c *gin.Context, targetID int64) bool {
-	var tier *string
-	if err := h.Pool.QueryRow(c.Request.Context(),
-		"SELECT staff_tier FROM users WHERE id = $1", targetID).Scan(&tier); err != nil {
-		return false // let the handler surface not-found / db errors normally
-	}
-	if tier == nil || *tier != string(permissions.TierSuperAdmin) {
-		return false
-	}
-	actor, ok := auth.UserFromGin(c)
-	if !ok || actor == nil || permissions.TierFrom(actor.StaffTier) != permissions.TierSuperAdmin {
-		c.JSON(http.StatusForbidden, gin.H{"success": false,
-			"error": "This account is protected — only a Super-Admin can modify it."})
-		return true
-	}
-	return false
+	return guardUserWrite(c, h.Pool, targetID, false)
 }
 
 type userStaffTierReq struct {
