@@ -322,6 +322,14 @@ export type Product = {
   sku: string | null
   specs: string | null
   labels: string[] | null
+  // K15 — brand was on this form and in the database and connected to neither:
+  // the PATCH dropped it, the create INSERT omitted it, and no SELECT returned
+  // it, so typing a brand and reopening the row showed an empty box. It backs
+  // the app's العلامات التجارية filter. discount_percent (migration 109) backs
+  // العروض والخصومات; null means no offer.
+  brand: string
+  discount_percent: number | null
+  created_at: string
 }
 
 export type MarketplaceCategory = {

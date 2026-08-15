@@ -778,6 +778,23 @@ func (h *AdminCreateHandler) MarketplaceProduct(c *gin.Context) {
 	if req.BeneficiaryCaseID != nil && *req.BeneficiaryCaseID > 0 {
 		caseID = *req.BeneficiaryCaseID
 	}
+	// K15 — brand was absent from this INSERT (and from the PATCH), so a brand
+	// typed on the create form went nowhere. NOT NULL DEFAULT '' in the schema,
+	// hence a plain string rather than optStringOrNil's NULL.
+	brand := ""
+	if req.Brand != nil {
+		brand = strings.TrimSpace(*req.Brand)
+	}
+	var discount any
+	if req.DiscountPercent != nil {
+		v, ok := normalizeDiscountPercent(*req.DiscountPercent)
+		if !ok {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false,
+				"error": "discount_percent must be between 1 and 99, or 0 for no discount."})
+			return
+		}
+		discount = v
+	}
 	var id int64
 	err := h.Pool.QueryRow(c.Request.Context(), `
 		INSERT INTO marketplace_products
@@ -785,8 +802,8 @@ func (h *AdminCreateHandler) MarketplaceProduct(c *gin.Context) {
 		   name, name_ar, name_sorani, name_badini,
 		   description, description_ar, description_sorani, description_badini,
 		   category, price, currency, image_path, stock_quantity, status,
-		   category_slug, sku, specs, labels)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+		   category_slug, sku, specs, labels, brand, discount_percent)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
 		RETURNING id`,
 		sellerID, caseID,
 		name, optStringOrNil(req.NameAr), optStringOrNil(req.NameSorani), optStringOrNil(req.NameBadini),
@@ -796,6 +813,7 @@ func (h *AdminCreateHandler) MarketplaceProduct(c *gin.Context) {
 		optStringOrNil(req.ImagePath), nullableIntPtr(req.StockQuantity), status,
 		optStringOrNil(req.CategorySlug), optStringOrNil(req.SKU), // #28
 		optStringOrNil(req.Specs), productLabels(req.Labels),
+		brand, discount, // K15
 	).Scan(&id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})

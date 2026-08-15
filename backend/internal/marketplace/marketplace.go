@@ -37,6 +37,20 @@ type Product struct {
 	SKU          *string  `json:"sku"`
 	Specs        *string  `json:"specs"`
 	Labels       []string `json:"labels"`
+	// K15 — the three columns the product list needs and no query returned.
+	//
+	// Brand backs العلامات التجارية. The column has existed since migration
+	// 100 and the dashboard has had an input for it just as long, but nothing
+	// wrote it and nothing selected it: staff could type a brand, press save,
+	// reopen the product and find the box empty. It is NOT NULL DEFAULT '' in
+	// the schema, so "" means "no brand" and there is no nil case to handle.
+	Brand string `json:"brand"`
+	// DiscountPercent backs العروض والخصومات (migration 109). NULL — nil here
+	// — is the ordinary case: not discounted.
+	DiscountPercent *int `json:"discount_percent"`
+	// CreatedAt backs وصل حديثاً. The column always existed; the public query
+	// did not select it, so the app had no date to sort or label by.
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // Order is the row shape returned by ?view=orders.
@@ -72,49 +86,11 @@ func NewStore(pool *pgxpool.Pool) *Store {
 	return &Store{Pool: pool}
 }
 
-// ListProducts returns approved products, paged.
-func (s *Store) ListProducts(ctx context.Context, page, limit int) ([]Product, error) {
-	if page < 1 {
-		page = 1
-	}
-	if limit <= 0 || limit > 100 {
-		limit = 20
-	}
-	offset := (page - 1) * limit
-
-	rows, err := s.Pool.Query(ctx, `
-		SELECT id, seller_user_id, beneficiary_case_id,
-		       name, name_ar, name_sorani, name_badini,
-		       description, description_ar, description_sorani, description_badini,
-		       category, price::text, currency, image_path, stock_quantity, status,
-		       category_slug, sku, specs, COALESCE(labels, '{}')
-		  FROM marketplace_products
-		 WHERE status = 'approved'
-		 ORDER BY id DESC
-		 LIMIT $1 OFFSET $2`,
-		limit, offset,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []Product{}
-	for rows.Next() {
-		var p Product
-		err := rows.Scan(
-			&p.ID, &p.SellerUserID, &p.BeneficiaryCaseID,
-			&p.Name, &p.NameAr, &p.NameSorani, &p.NameBadini,
-			&p.Description, &p.DescriptionAr, &p.DescriptionSorani, &p.DescriptionBadini,
-			&p.Category, &p.Price, &p.Currency, &p.ImagePath, &p.StockQuantity, &p.Status,
-			&p.CategorySlug, &p.SKU, &p.Specs, &p.Labels,
-		)
-		if err != nil {
-			return nil, err
-		}
-		items = append(items, p)
-	}
-	return items, rows.Err()
-}
+// K15 — ListProducts(ctx, page, limit) used to live here. It has been replaced
+// by Store.ListCatalogue in catalogue.go, which takes the filters and sorts the
+// client's six functional labels need. It is not kept as a wrapper: a second
+// entry point that quietly ignores every filter is exactly how a chip ends up
+// describing one page instead of the catalogue.
 
 // ListOrdersForUser returns the buyer's orders + joined product columns, paged.
 func (s *Store) ListOrdersForUser(ctx context.Context, userID int64, page, limit int) ([]Order, error) {
@@ -211,7 +187,8 @@ func (s *Store) AdminListProducts(ctx context.Context, page, perPage int, status
 		       name, name_ar, name_sorani, name_badini,
 		       description, description_ar, description_sorani, description_badini,
 		       category, price::text, currency, image_path, stock_quantity, status,
-		       category_slug, sku, specs, COALESCE(labels, '{}')
+		       category_slug, sku, specs, COALESCE(labels, '{}'),
+		       brand, discount_percent, created_at
 		  FROM marketplace_products`+where+`
 		 ORDER BY id DESC
 		 LIMIT $`+itoa(limitIdx)+` OFFSET $`+itoa(offsetIdx),
@@ -230,6 +207,10 @@ func (s *Store) AdminListProducts(ctx context.Context, page, perPage int, status
 			&p.Description, &p.DescriptionAr, &p.DescriptionSorani, &p.DescriptionBadini,
 			&p.Category, &p.Price, &p.Currency, &p.ImagePath, &p.StockQuantity, &p.Status,
 			&p.CategorySlug, &p.SKU, &p.Specs, &p.Labels,
+			// K15 — the dashboard's product form has had a Brand input all
+			// along; without brand in this SELECT the field came back empty
+			// every time the row was reopened, whatever had been typed in it.
+			&p.Brand, &p.DiscountPercent, &p.CreatedAt,
 		); err != nil {
 			return nil, err
 		}

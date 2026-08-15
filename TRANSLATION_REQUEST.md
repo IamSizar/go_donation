@@ -9,6 +9,8 @@ Updated 2026-08-15 again with the 100 keys the group-B English-leak sweep added
 (81 notification types, shared by both clients, plus 19 widget literals).
 Updated 2026-08-16 with the 2 keys the J1 guest sign-up name box added.
 Updated 2026-08-16 again with the 8 keys the K7 alert-categories screen added.
+Updated 2026-08-16 once more with the 2 keys the L19 engagement-profile field
+privacy picker added.
 
 ## Why these are empty rather than wrong
 
@@ -21,7 +23,7 @@ made on this project once and had to be reverted.
 Every key below currently renders its **English** string to a Kurdish user.
 That is deliberate and safe. It is not a crash, and it is not Arabic text.
 
-## Count: 246 keys need Kurdish
+## Count: 248 keys need Kurdish
 
 | Client | Sorani (ckb) | Badini (kmr) | Distinct keys |
 |---|---|---|---|
@@ -30,9 +32,10 @@ That is deliberate and safe. It is not a crash, and it is not Arabic text.
 | Flutter app — B21 widget literals (new) | 19 | 19 | 19 |
 | Flutter app — J1 guest sign-up name (new) | 2 | 2 | 2 |
 | Flutter app — K7 alert categories (new) | 8 | 8 | 8 |
+| Flutter app — L19 engagement field privacy (new) | 2 | 2 | 2 |
 | Admin dashboard — audited `status.*` | 20 | 20 | 20 |
 | Admin dashboard — B1 notification types (new) | 81 | 81 | *same 81 words as above* |
-| **Total distinct words to translate** | | | **246** |
+| **Total distinct words to translate** | | | **248** |
 
 > **The dashboard figure above is a floor, not a ceiling — and it is the one
 > number in this file that was never fully measured.** Counting key paths in
@@ -109,6 +112,20 @@ as a state word ("on"/"off") — the switch itself already shows the state.
 | `notif_cat_master_off` | All notifications are switched off, so none of these will reach you until you turn the switch above back on. | جميع الإشعارات متوقّفة، لذا لن يصلك أي منها حتى تعيد تشغيل المفتاح أعلاه. | ckb + kmr |
 | `notif_cat_off` | You will not receive these | لن تصلك هذه التنبيهات | ckb + kmr |
 | `notif_cat_on` | You receive these | تصلك هذه التنبيهات | ckb + kmr |
+
+## marriage · L19 engagement field privacy  (2 keys)
+
+Added 2026-08-16. The خطوبتي profile gained a per-field picker: the owner
+chooses which details other people can see, and the server now actually masks
+them. The screen reuses everything it could — `Field privacy`, `privacy_desc`,
+`privacy_visible`, `privacy_hidden`, and the ten `marriage_*` field labels the
+engagement FORM already prints, all of which already have Sorani and Badini.
+Only the empty state, shown when staff have retired every option, is new.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `marriage_privacy_empty` | Nothing to hide yet | لا يوجد ما يمكن إخفاؤه بعد | ckb + kmr |
+| `marriage_privacy_empty_desc` | There are no details you can hide on this profile right now. It shows what it shows today. | لا توجد تفاصيل يمكنك إخفاؤها في هذا الملف حالياً. سيظهر كما هو الآن. | ckb + kmr |
 
 ## community, widgets · C2 filter-row error states  (2 keys)
 
@@ -625,6 +642,27 @@ would have made the dialog lie about what the button does.
 > `{name}` is a placeholder — keep it exactly as written, braces included. It is
 > substituted at runtime with the record's own label (for a mission signup: the
 > volunteer's name and the mission title).
+
+## `field.*` · K15 product discount  (1 key)
+
+Added by the K15 fix (العروض والخصومات needed an amount, not just the existing
+`sale` badge — a badge can say "on offer" and cannot say what the price now is).
+English and Arabic are written; `ckb.ts` / `kmr.ts` deliberately have no entry,
+so both Kurdish locales fall back to English until a native speaker fills this
+in.
+
+**Why it is a new string rather than a reuse.** Every existing `field.*` key in
+the four locale files was checked for something that already means "percentage
+off"; `field.brand` (the other half of the same fix) was reused exactly because
+it already existed in all four. There is no percent/discount key of any kind in
+`en.ts`, so this one had to be added.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `field.discount_percent` | Discount % | نسبة الخصم ٪ | ckb + kmr |
+
+> A whole number, 1–99. Empty or 0 means no offer, and the server stores that as
+> NULL — so the label must not imply a value is required.
 
 ## `status.*` · notification types  (81 keys — same words as Part 1)
 

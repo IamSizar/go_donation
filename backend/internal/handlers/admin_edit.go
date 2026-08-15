@@ -591,10 +591,36 @@ type productEditReq struct {
 	SKU          *string   `json:"sku"`
 	Specs        *string   `json:"specs"`
 	Labels       *[]string `json:"labels"`
+	// K15 — Brand was MISSING FROM THIS STRUCT, which is why typing a brand on
+	// the dashboard, saving, and reopening the product showed an empty box: the
+	// field was in the form and in the View page's column allow-list, the
+	// column had existed since migration 100, and the PATCH silently dropped
+	// it. Discount is new in migration 109 and backs العروض والخصومات.
+	Brand           *string `json:"brand"`
+	DiscountPercent *int    `json:"discount_percent"`
 }
 
 // marketplaceLabels is the fixed set of allowed product badges (#28).
 var marketplaceLabels = []string{"new", "sale", "featured", "used", "in_stock"}
+
+// normalizeDiscountPercent maps a submitted discount onto what the column
+// stores (K15, migration 109): 1–99 is a discount, 0 removes it, anything else
+// is a mistake the admin should be told about rather than have silently
+// clamped. The column's CHECK enforces the same range — this exists so a typo
+// comes back as a sentence instead of a constraint-violation 500.
+//
+// nil means "no discount": there is exactly one representation of that, so a
+// product cannot end up in the العروض feed advertising 0% off.
+func normalizeDiscountPercent(v int) (any, bool) {
+	switch {
+	case v == 0:
+		return nil, true
+	case v > 0 && v < 100:
+		return v, true
+	default:
+		return nil, false
+	}
+}
 
 // sanitizeLabels keeps only recognized labels, de-duplicated, preserving order.
 func sanitizeLabels(in []string) []string {
@@ -640,6 +666,21 @@ func (h *AdminEditHandler) MarketplaceProduct(c *gin.Context) {
 	addOptString(&b, "category_slug", req.CategorySlug) // #28
 	addOptString(&b, "sku", req.SKU)
 	addOptString(&b, "specs", req.Specs)
+	// brand is NOT NULL DEFAULT '' (migration 100), so it cannot go through
+	// addOptString — that helper writes NULL for a cleared field, which this
+	// column rejects. An empty string is how a brand is cleared.
+	if req.Brand != nil {
+		b.add("brand", strings.TrimSpace(*req.Brand))
+	}
+	if req.DiscountPercent != nil {
+		v, ok := normalizeDiscountPercent(*req.DiscountPercent)
+		if !ok {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false,
+				"error": "discount_percent must be between 1 and 99, or 0 to remove the discount."})
+			return
+		}
+		b.add("discount_percent", v)
+	}
 	if req.Labels != nil {
 		b.add("labels", sanitizeLabels(*req.Labels))
 	}

@@ -76,9 +76,16 @@ const PRODUCT_FIELDS: FieldSpec[] = [
   { key: 'name_badini',         label: 'Name (Badini)', labelKey: 'field.name_badini',      type: 'text',     dir: 'rtl' },
   { key: 'category',            label: 'Category', labelKey: 'field.category',           type: 'text' },
   { key: 'sku',                 label: 'SKU', labelKey: 'field.sku',                 type: 'text' },
-  { key: 'brand',        label: 'Brand', labelKey: 'field.brand', type: 'text' },
+  // K15 — this input existed before and saved nothing: the backend's edit
+  // struct had no brand field and its create INSERT had no brand column, so
+  // the value was silently discarded on both paths. Both are wired now.
+  { key: 'brand',               label: 'Brand', labelKey: 'field.brand',              type: 'text' },
   { key: 'status',              label: 'Status', labelKey: 'field.status',             type: 'select',   options: EDITABLE_PRODUCT_STATUSES },
   { key: 'price',               label: 'Price', labelKey: 'field.price',              type: 'number' },
+  // K15 — العروض والخصومات needs an amount, not just the existing 'sale'
+  // badge: a badge can say "on offer" and cannot say what the price now is.
+  // Whole percent; 0 or empty removes the discount.
+  { key: 'discount_percent',    label: 'Discount %', labelKey: 'field.discount_percent', type: 'number' },
   { key: 'currency',            label: 'Currency', labelKey: 'field.currency',           type: 'text',     placeholder: 'IQD' },
   { key: 'stock_quantity',      label: 'Stock quantity', labelKey: 'field.stock_quantity',     type: 'number' },
   { key: 'labels',              label: 'Labels', labelKey: 'field.labels',             type: 'multiselect', full: true, options: PRODUCT_LABELS },

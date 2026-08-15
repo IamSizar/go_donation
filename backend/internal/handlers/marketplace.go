@@ -69,17 +69,86 @@ func (h *MarketplaceHandler) Get(c *gin.Context) {
 		return
 	}
 
-	items, err := h.Store.ListProducts(c.Request.Context(), page, limit)
+	res, err := h.Store.ListCatalogue(c.Request.Context(), catalogueFiltersFrom(c, page, limit))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
 		return
 	}
-	hasMore := len(items) >= effectiveLimit(limit)
+	// items/page/has_more are the keys this endpoint has always returned, so
+	// an app that has not been updated keeps working; per_page, total_items and
+	// total_pages are additions. has_more is now arithmetic over the real
+	// total rather than `len(items) >= limit`, which claimed another page
+	// existed every time the last one happened to be exactly full.
 	c.JSON(http.StatusOK, gin.H{
-		"success":  true,
-		"items":    items,
-		"page":     normalizePage(page),
-		"has_more": hasMore,
+		"success":     true,
+		"items":       res.Items,
+		"page":        res.Page,
+		"per_page":    res.PerPage,
+		"total_items": res.TotalItems,
+		"total_pages": res.TotalPages,
+		"has_more":    res.HasMore,
+	})
+}
+
+// catalogueFiltersFrom reads the six functional labels' query parameters (K15).
+//
+// Every one of them is optional and every one of them defaults to "off", so a
+// request with no parameters returns exactly what this endpoint returned
+// before: page 1 of the approved catalogue, newest id first.
+func catalogueFiltersFrom(c *gin.Context, page, limit int) marketplace.ProductFilters {
+	// A malformed number means "no bound" rather than an error: a price filter
+	// is a convenience, and rejecting the whole catalogue because a stray
+	// character reached ?min_price= would be a worse answer than ignoring it.
+	minPrice, _ := strconv.ParseFloat(strings.TrimSpace(c.Query("min_price")), 64)
+	maxPrice, _ := strconv.ParseFloat(strings.TrimSpace(c.Query("max_price")), 64)
+	return marketplace.ProductFilters{
+		Page:  page,
+		Limit: limit,
+		Q:     c.Query("q"),
+		// الفئات / العلامات التجارية.
+		CategorySlug: strings.TrimSpace(c.Query("category")),
+		Brand:        strings.TrimSpace(c.Query("brand")),
+		Label:        strings.TrimSpace(c.Query("label")),
+		// العروض والخصومات, and التصفية's availability switch.
+		OnSale:      isTruthyQuery(c.Query("on_sale")),
+		InStockOnly: isTruthyQuery(c.Query("in_stock")),
+		MinPrice:    minPrice,
+		MaxPrice:    maxPrice,
+		// الأكثر مبيعاً / وصل حديثاً, plus the two price orderings.
+		Sort: strings.TrimSpace(c.Query("sort")),
+	}
+}
+
+// isTruthyQuery reads a flag parameter. Accepts the three spellings a client
+// might reasonably send for the same idea, so a working filter never depends on
+// which one the app happened to pick.
+func isTruthyQuery(v string) bool {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "1", "true", "yes":
+		return true
+	}
+	return false
+}
+
+// Brands — GET /api/marketplace/brands (K15). The العلامات التجارية chips:
+// which brands exist in the public catalogue and how many products are behind
+// each one, counted over the whole catalogue rather than the loaded page.
+func (h *MarketplaceHandler) Brands(c *gin.Context) {
+	page, _ := strconv.Atoi(strings.TrimSpace(c.DefaultQuery("page", "1")))
+	limit, _ := strconv.Atoi(strings.TrimSpace(c.DefaultQuery("limit", "100")))
+	res, err := h.Store.ListBrands(c.Request.Context(), page, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success":     true,
+		"items":       res.Items,
+		"page":        res.Page,
+		"per_page":    res.PerPage,
+		"total_items": res.TotalItems,
+		"total_pages": res.TotalPages,
+		"has_more":    res.HasMore,
 	})
 }
 

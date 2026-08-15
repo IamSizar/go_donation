@@ -418,6 +418,10 @@ func main() {
 		api.GET("/media-categories", mediaCategoriesH.PublicList)             // #22
 		api.GET("/case-categories", caseCategoriesH.PublicList)               // Quick Filter Capsules
 		api.GET("/marketplace/categories", marketplaceCategoriesH.PublicList) // #28
+		// K15 — العلامات التجارية: the brands actually present in the public
+		// catalogue, with counts. A facet, so it sits beside the category list
+		// rather than inside the product query.
+		api.GET("/marketplace/brands", marketplaceH.Brands)
 		// #19 — public payment methods for the donate screen.
 		api.GET("/payment-methods", paymentMethodsH.PublicList)
 

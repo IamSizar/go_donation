@@ -1465,6 +1465,8 @@ const ar: DeepPartial<typeof en> = {
     is_guest: 'زائر',
     wallet_balance_iqd: 'المحفظة',
     brand: 'العلامة التجارية',
+    // K15 — العروض والخصومات. نسبة مئوية صحيحة؛ الفراغ أو 0 يعني بلا خصم.
+    discount_percent: 'نسبة الخصم ٪',
     description_en: 'الوصف (إنجليزي)', description_ar: 'الوصف (عربي)', description_sorani: 'الوصف (سۆرانی)', description_badini: 'الوصف (بادینی)',
     sectors: 'القطاعات',
     sector: 'القطاع',

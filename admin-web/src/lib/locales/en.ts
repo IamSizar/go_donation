@@ -1560,6 +1560,8 @@ const en = {
     is_guest: 'Guest',
     wallet_balance_iqd: 'Wallet',
     brand: 'Brand',
+    // K15 — العروض والخصومات. Whole percent off; empty or 0 means no offer.
+    discount_percent: 'Discount %',
     description_en: 'Description (EN)', description_ar: 'Description (AR)', description_sorani: 'Description (Sorani)', description_badini: 'Description (Badini)',
     sectors: 'Sectors',
     sector: 'Sector',
