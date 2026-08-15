@@ -443,6 +443,12 @@ class AppTranslations extends Translations {
     // "your whole submission was lost".
     'Your registration was saved, but your documents did not upload. You can add them from your profile.':
         'Your registration was saved, but your documents did not upload. You can add them from your profile.',
+    // L2 — same shape, same reason, for the donor's optional social links:
+    // reassure first, then name the one thing that did not happen and where to
+    // do it instead. "Privacy settings" is the screen that owns these three
+    // fields after signup (field_privacy_screen.dart).
+    'Your registration was saved, but your social links did not. You can add them from Privacy settings.':
+        'Your registration was saved, but your social links did not. You can add them from Privacy settings.',
     'Could not save that preference. Please try again.':
         'Could not save that preference. Please try again.',
     // ─── Structural de-duplication (redesign phase 2) ───
@@ -3061,6 +3067,8 @@ class AppTranslations extends Translations {
     'Registration': 'التسجيل',
     'Your registration was saved, but your documents did not upload. You can add them from your profile.':
         'تم حفظ تسجيلك، لكن لم يتم رفع مستنداتك. يمكنك إضافتها من ملفك الشخصي.',
+    'Your registration was saved, but your social links did not. You can add them from Privacy settings.':
+        'تم حفظ تسجيلك، لكن لم يتم حفظ روابط التواصل. يمكنك إضافتها من إعدادات الخصوصية.',
     'Could not save that preference. Please try again.':
         'تعذّر حفظ هذا الإعداد. يرجى المحاولة مرة أخرى.',
     // ─── إعادة هيكلة الواجهة (المرحلة الثانية) ───

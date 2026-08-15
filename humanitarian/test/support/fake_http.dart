@@ -32,6 +32,16 @@ class FakeHttpOverrides extends HttpOverrides {
   final HttpBehaviour behaviour;
   final String body;
 
+  /// Every non-empty request body that was sent through this fake, in order.
+  ///
+  /// Added for L2, where the thing under test is not the response at all but
+  /// WHAT GETS WRITTEN: /api/profile/privacy-extras carries display_name_mode
+  /// alongside the social links, and posting the wrong one publishes a
+  /// donor's real name. Asserting on the response could never catch that.
+  /// Empty bodies are skipped so a GET does not leave a blank entry between
+  /// the writes.
+  final List<String> requestBodies = <String>[];
+
   @override
   HttpClient createHttpClient(SecurityContext? context) =>
       _FakeHttpClientImpl(this);
@@ -93,10 +103,21 @@ class _FakeRequestImpl implements HttpClientRequest {
   Future<HttpClientResponse> close() async => _FakeResponseImpl(overrides);
 
   @override
-  void add(List<int> data) {}
+  void add(List<int> data) => _record(data);
 
   @override
-  Future<dynamic> addStream(Stream<List<int>> stream) async {}
+  Future<dynamic> addStream(Stream<List<int>> stream) async {
+    // http's IOClient pipes the finalized body through here, so this — not
+    // `add` — is where a POST body actually arrives.
+    await for (final chunk in stream) {
+      _record(chunk);
+    }
+  }
+
+  void _record(List<int> data) {
+    if (data.isEmpty) return;
+    overrides.requestBodies.add(utf8.decode(data, allowMalformed: true));
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

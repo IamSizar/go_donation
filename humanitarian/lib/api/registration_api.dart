@@ -1,8 +1,10 @@
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_application_1/api/auth_session.dart';
 import 'package:flutter_application_1/api/links.dart';
+import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:http/http.dart' as http;
 
@@ -381,6 +383,64 @@ Future<bool> uploadRegistrationPhotos({
     // belongs to another change): because the result is discarded, a user
     // whose documents fail to upload is never told, and there is no retry.
     // If staff later require those documents, the silence becomes the bug.
+    return false;
+  }
+}
+
+/// L2 — persists the optional Facebook / Instagram / Telegram links a DONOR
+/// entered on the registration form. Returns true when there was nothing to
+/// save or the write reached the server and succeeded; false otherwise, so the
+/// caller can tell the user rather than pretend.
+///
+/// WHY THIS DOES NOT RIDE ON submitRegistration()
+/// POST /api/registration/submit accepts social_facebook/instagram/telegram in
+/// its body, but only WRITES them inside its `RoleID == 2` branch
+/// (backend/internal/handlers/registration.go:224 → SetRecipientHealthDetails).
+/// A donor's links are parsed off the wire and discarded. Rendering three
+/// inputs that feed that path would be worse than having no inputs at all.
+///
+/// POST /api/profile/privacy-extras writes the SAME three user_profiles
+/// columns (backend/internal/users/users.go:201-218) with no role gate — it is
+/// where the Privacy Settings screen already sends them. So a donor's links
+/// land in exactly the columns a recipient's do, and the admin panel reads
+/// them from the same place.
+///
+/// WHY IT READS BEFORE IT WRITES
+/// That endpoint also carries display_name_mode and alias_name. Posting a
+/// default 'real' over someone who had chosen a pseudonym publishes their real
+/// name, server-side and silently — the disclosure field_privacy_screen.dart
+/// documents at _loadExtras(). This fetches the current values and echoes them
+/// back untouched; if the fetch fails, nothing is written.
+Future<bool> saveRegistrationSocialLinks({
+  required String facebook,
+  required String instagram,
+  required String telegram,
+}) async {
+  final fb = facebook.trim();
+  final ig = instagram.trim();
+  final tg = telegram.trim();
+  if (fb.isEmpty && ig.isEmpty && tg.isEmpty) {
+    return true; // All three optional and all three blank — nothing to save.
+  }
+  try {
+    const api = ModuleApi();
+    final current = await api.getPrivacyExtras();
+    await api.setPrivacyExtras(
+      // Echoed back, never defaulted — see the doc comment above.
+      displayNameMode: (current['display_name_mode'] ?? 'real').toString(),
+      aliasName: (current['alias_name'] ?? '').toString(),
+      facebook: fb,
+      instagram: ig,
+      telegram: tg,
+    );
+    return true;
+  } catch (e) {
+    // NOT swallowed: false is the documented failure signal and the caller
+    // shows the user a message naming where to add the links instead. A throw
+    // is wrong here — this runs after the registration itself has already
+    // succeeded, and the links are optional, so a network blip must not turn
+    // a completed registration into an error screen.
+    debugPrint('saveRegistrationSocialLinks failed: $e');
     return false;
   }
 }

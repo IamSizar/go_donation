@@ -472,6 +472,18 @@ both Kurdish variants. Only these two UI strings are outstanding.
 | `activity_pick_sector_first` | Choose a sector above to see its sub-categories. | اختر قطاعًا في الأعلى لعرض فئاته الفرعية. | ckb + kmr |
 | `activity_need_fields` | Please enter a name and choose a sub-category. | يرجى إدخال الاسم واختيار فئة فرعية. | **ckb + kmr — REWORDED**, the existing Kurdish says "enter a name and a category" and now describes a control that no longer exists |
 
+## auth · L2 donor social links  (1 key)
+
+Added 2026-08-15 by the L2 fix. The three field labels needed nothing — the
+donor panel reuses `reg_recipient_social_accounts_section` and the three
+`reg_recipient_social_*` labels, whose key names say "recipient" but whose
+values are role-neutral and already present in ckb and kmr. Only the failure
+snackbar is new.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `Your registration was saved, but your social links did not. You can add them from Privacy settings.` | Your registration was saved, but your social links did not. You can add them from Privacy settings. | تم حفظ تسجيلك، لكن لم يتم حفظ روابط التواصل. يمكنك إضافتها من إعدادات الخصوصية. | ckb + kmr |
+
 ## dashboard · J6 the اللعبة menu entry  (1 key)
 
 Added 2026-08-15 by the J6 fix. The wheel and the coupon already read correctly

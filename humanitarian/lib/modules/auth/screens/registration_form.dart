@@ -1409,6 +1409,42 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
           }),
         );
       }
+      // L2 — the donor's optional social links. They cannot travel with the
+      // registration submit: that handler only persists them for role 2, so a
+      // donor's links would be parsed and dropped. They go to
+      // /api/profile/privacy-extras instead, which writes the same
+      // user_profiles columns for any role. See saveRegistrationSocialLinks.
+      //
+      // Unawaited for the same reason as the attachments above — the links are
+      // optional and the registration is already saved — but the result is NOT
+      // discarded: a silent failure here is how a user ends up believing three
+      // links were filed when nothing was written.
+      if (_roleId == 1) {
+        unawaited(
+          saveRegistrationSocialLinks(
+            facebook: _valueOf(
+              'grantor_social_facebook',
+              _socialFacebookController.text,
+            ),
+            instagram: _valueOf(
+              'grantor_social_instagram',
+              _socialInstagramController.text,
+            ),
+            telegram: _valueOf(
+              'grantor_social_telegram',
+              _socialTelegramController.text,
+            ),
+          ).then((saved) {
+            if (saved) return;
+            Get.snackbar(
+              'Registration'.tr,
+              'Your registration was saved, but your social links did not. You can add them from Privacy settings.'
+                  .tr,
+              duration: const Duration(seconds: 6),
+            );
+          }),
+        );
+      }
       // pending -> waiting screen; approved (grandfathered) -> home.
       routeByRegistrationStatus(res.status);
     } else {
@@ -1928,6 +1964,82 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                   onTap: _pickIdPhoto,
                                 ),
                               ]),
+                            ],
+                          ),
+                        ),
+                        // L2 — "optional Facebook / Instagram / Telegram
+                        // links" for the donor. The recipient and volunteer
+                        // forms have had this panel since their specs landed;
+                        // role 1 had none, which is what the client reported.
+                        //
+                        // It reuses the recipient's label keys deliberately.
+                        // Their KEY names say "recipient" but their VALUES are
+                        // role-neutral ("Social media accounts", "Facebook
+                        // link") and already exist in all four locales,
+                        // Kurdish included. Minting `reg_grantor_social_*`
+                        // twins would have meant three more English strings a
+                        // Kurdish reader sees untranslated, to say the same
+                        // words.
+                        //
+                        // These are NOT submitted with the registration — see
+                        // saveRegistrationSocialLinks in registration_api.dart
+                        // for why that path silently discards a donor's links.
+                        const SizedBox(height: 18),
+                        GlassPanel(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _label(
+                                context,
+                                'reg_recipient_social_accounts_section',
+                              ),
+                              for (final s
+                                  in <
+                                        ({
+                                          String rule,
+                                          String label,
+                                          TextEditingController controller,
+                                          IconData icon,
+                                        })
+                                      >[
+                                        (
+                                          rule: 'grantor_social_facebook',
+                                          label:
+                                              'reg_recipient_social_facebook',
+                                          controller: _socialFacebookController,
+                                          icon: Icons.facebook_outlined,
+                                        ),
+                                        (
+                                          rule: 'grantor_social_instagram',
+                                          label:
+                                              'reg_recipient_social_instagram',
+                                          controller:
+                                              _socialInstagramController,
+                                          icon: Icons.camera_alt_outlined,
+                                        ),
+                                        (
+                                          rule: 'grantor_social_telegram',
+                                          label:
+                                              'reg_recipient_social_telegram',
+                                          controller: _socialTelegramController,
+                                          icon: Icons.send_outlined,
+                                        ),
+                                      ]
+                                      .where((s) => !_isHidden(s.rule))) ...[
+                                const SizedBox(height: 16),
+                                _label(context, s.label),
+                                const SizedBox(height: 6),
+                                TextFormField(
+                                  controller: s.controller,
+                                  keyboardType: TextInputType.url,
+                                  textInputAction: TextInputAction.next,
+                                  decoration: InputDecoration(
+                                    hintText: '${s.label}_hint'.tr,
+                                    prefixIcon: Icon(s.icon),
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
