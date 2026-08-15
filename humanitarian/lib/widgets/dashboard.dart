@@ -19,7 +19,6 @@ import 'package:flutter_application_1/modules/dashboard/screens/lucky_coupon_scr
 import 'package:flutter_application_1/modules/dashboard/screens/wheel_of_fortune_screen.dart';
 import 'package:flutter_application_1/modules/history/screens/role_history_screen.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_my_projects_screen.dart';
-import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_pending_projects_screen.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_submit_project_screen.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/orphan_family_profiles_screen.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/sponsorship_overview_screen.dart';
@@ -487,8 +486,11 @@ class DashboardHomeSection extends StatelessWidget {
                 value: '${_intValue(stats, 'pending_requests')}',
                 label: 'Pending requests',
                 icon: Icons.schedule_rounded,
-                onTap: () =>
-                    Get.to(() => const BeneficiaryPendingProjectsScreen()),
+                onTap: () => Get.to(
+                  () => const BeneficiaryMyProjectsScreen(
+                    initialFilter: ProjectRequestFilter.pending,
+                  ),
+                ),
               ),
             ),
           ],
@@ -560,8 +562,11 @@ class DashboardHomeSection extends StatelessWidget {
                   icon: Icons.hourglass_bottom_rounded,
                   label: 'Pending',
                   color: AppThemeConfig.pending(context),
-                  onTap: () =>
-                      Get.to(() => const BeneficiaryPendingProjectsScreen()),
+                  onTap: () => Get.to(
+                    () => const BeneficiaryMyProjectsScreen(
+                      initialFilter: ProjectRequestFilter.pending,
+                    ),
+                  ),
                 ),
               ),
             ],

@@ -12,7 +12,7 @@ import 'package:flutter_application_1/modules/marriage/screens/marriage_form_scr
 import 'package:flutter_application_1/modules/notifications/screens/notifications_screen.dart';
 import 'package:flutter_application_1/modules/proposal/screens/proposal_services_section.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_campaign_donations_screen.dart';
-import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_pending_projects_screen.dart';
+import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_my_projects_screen.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_submit_project_screen.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/sponsorship_section.dart';
 import 'package:flutter_application_1/modules/support/screens/support_section.dart';
@@ -71,9 +71,13 @@ abstract final class BotNavigation {
       0,
       () => const BeneficiarySubmitProjectScreen(),
     ),
+    // Still its own bot keyword, but now a filter on the single requests
+    // screen rather than a separate one.
     'pending_projects': BotNavSpec(
       0,
-      () => const BeneficiaryPendingProjectsScreen(),
+      () => const BeneficiaryMyProjectsScreen(
+        initialFilter: ProjectRequestFilter.pending,
+      ),
     ),
     'campaign_donations': BotNavSpec(
       0,

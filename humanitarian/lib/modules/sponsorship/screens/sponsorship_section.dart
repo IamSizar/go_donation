@@ -4,7 +4,6 @@ import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_campaign_donations_screen.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_entitlements_screen.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_my_projects_screen.dart';
-import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_pending_projects_screen.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_submit_project_screen.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/orphan_family_profiles_screen.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/sponsorship_overview_screen.dart';
@@ -105,14 +104,10 @@ class _BeneficiarySupportList extends StatelessWidget {
           color: AppThemeConfig.accent(context),
           onTap: () => Get.to(() => const BeneficiaryMyProjectsScreen()),
         ),
-        const SizedBox(height: 12),
-        SectionTile(
-          icon: Icons.pending_actions_rounded,
-          title: 'Pending projects for help',
-          subtitle: 'Review requests still waiting for action or matching.',
-          color: AppThemeConfig.pending(context),
-          onTap: () => Get.to(() => const BeneficiaryPendingProjectsScreen()),
-        ),
+        // "Pending projects for help" was a second tile onto the SAME list —
+        // same controller, same fetch, one client-side status predicate apart.
+        // It is now the Pending chip inside "My help requests" above, whose
+        // subtitle already describes exactly that.
         const SizedBox(height: 12),
         SectionTile(
           icon: Icons.assignment_ind_rounded,
