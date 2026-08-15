@@ -454,7 +454,9 @@ function ApplicationsTab() {
         <p className="muted" style={{ margin: 0 }}>
           {resp ? `${resp.total_items} ${t('common.total')}` : t('common.loading')}
         </p>
-        <div className="row">
+        {/* `filter-row` bottom-aligns the controls so the captioned filters
+            below sit on the same line as the plain search box and buttons. */}
+        <div className="row filter-row">
           <input
             type="search"
             value={q}
@@ -462,40 +464,54 @@ function ApplicationsTab() {
             placeholder={t('page.volunteers.search_placeholder')}
             style={{ width: '220px' }}
           />
-          <select value={status} onChange={e => { setStatus(e.target.value); setPage(1); sel.clear() }} style={{ width: 'auto' }}>
-            {STATUSES.map(s => <option key={s} value={s}>{statusLabel(s)}</option>)}
-          </select>
-          <select
-            value={skillFilter}
-            onChange={(e) => { setSkillFilter(e.target.value); setPage(1); sel.clear() }}
-            style={{ width: 'auto' }}
-            title={t('filter.by_skill')}
-          >
-            <option value="all">{t('filter.all_skills')}</option>
-            {/* Group by category so the dropdown is scannable. The
-                native <optgroup> handles the visual indentation. */}
-            {SKILL_CATEGORIES.map((cat) => (
-              <optgroup key={cat.key} label={categoryLabelFor(cat.key, locale)}>
-                {cat.skills.map((s) => (
-                  <option key={s.key} value={s.key}>
-                    {(SKILL_ICON[s.key] ?? '•') + ' ' + skillLabelFor(s.key, locale)}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-            {/* Section 13 — admin-added professions. */}
-            {profs.length > 0 && (
-              <optgroup label={t('page.volunteers.custom_professions')}>
-                {getCustomSkills().map((s) => (
-                  <option key={s.key} value={s.key}>
-                    {'✚ ' + skillLabelFor(s.key, locale)}
-                  </option>
-                ))}
-              </optgroup>
-            )}
-            {/* Unused — ALL_SKILL_KEYS kept for future flat-iteration. */}
-            {false && ALL_SKILL_KEYS.map((k) => <option key={k} value={k} />)}
-          </select>
+          {/* B20 — these three boxes showed only their current value ("الكل",
+              "كل المهارات", "الأيام"), so nothing on screen said what each one
+              filtered; the status box had no accessible name at all and the
+              other two carried only a `title=` tooltip, which never appears on
+              a touch screen. Wrapping each in a <label> puts a permanent
+              caption above the box and gives the select the name it lacked.
+              The captions reuse the column headings the filters narrow
+              (col.status / col.skills / col.availability) — already present in
+              all four locales, so no new vocabulary and no invented Kurdish. */}
+          <label className="filter-field">
+            <span>{t('col.status')}</span>
+            <select value={status} onChange={e => { setStatus(e.target.value); setPage(1); sel.clear() }} style={{ width: 'auto' }}>
+              {STATUSES.map(s => <option key={s} value={s}>{statusLabel(s)}</option>)}
+            </select>
+          </label>
+          <label className="filter-field">
+            <span>{t('col.skills')}</span>
+            <select
+              value={skillFilter}
+              onChange={(e) => { setSkillFilter(e.target.value); setPage(1); sel.clear() }}
+              style={{ width: 'auto' }}
+            >
+              <option value="all">{t('filter.all_skills')}</option>
+              {/* Group by category so the dropdown is scannable. The
+                  native <optgroup> handles the visual indentation. */}
+              {SKILL_CATEGORIES.map((cat) => (
+                <optgroup key={cat.key} label={categoryLabelFor(cat.key, locale)}>
+                  {cat.skills.map((s) => (
+                    <option key={s.key} value={s.key}>
+                      {(SKILL_ICON[s.key] ?? '•') + ' ' + skillLabelFor(s.key, locale)}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+              {/* Section 13 — admin-added professions. */}
+              {profs.length > 0 && (
+                <optgroup label={t('page.volunteers.custom_professions')}>
+                  {getCustomSkills().map((s) => (
+                    <option key={s.key} value={s.key}>
+                      {'✚ ' + skillLabelFor(s.key, locale)}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {/* Unused — ALL_SKILL_KEYS kept for future flat-iteration. */}
+              {false && ALL_SKILL_KEYS.map((k) => <option key={k} value={k} />)}
+            </select>
+          </label>
           {/* Section 13 — add a new profession to the skill dropdown. */}
           <button className="secondary" onClick={() => setAddProfOpen(true)}>
             {t('page.volunteers.add_profession')}
@@ -506,17 +522,19 @@ function ApplicationsTab() {
               {t('page.volunteers.manage_professions')}
             </button>
           )}
-          <select
-            value={dayFilter}
-            onChange={(e) => { setDayFilter(e.target.value); setPage(1); sel.clear() }}
-            style={{ width: 'auto' }}
-            title={t('filter.by_day')}
-          >
-            <option value="all">{t('filter.any_day')}</option>
-            {DAY_KEYS.map((d) => (
-              <option key={d} value={d}>{dayLabelFor(d, locale)}</option>
-            ))}
-          </select>
+          <label className="filter-field">
+            <span>{t('col.availability')}</span>
+            <select
+              value={dayFilter}
+              onChange={(e) => { setDayFilter(e.target.value); setPage(1); sel.clear() }}
+              style={{ width: 'auto' }}
+            >
+              <option value="all">{t('filter.any_day')}</option>
+              {DAY_KEYS.map((d) => (
+                <option key={d} value={d}>{dayLabelFor(d, locale)}</option>
+              ))}
+            </select>
+          </label>
           <ExportCsvButton onExport={exportCsv} />
           <button onClick={() => setCreating(true)}>{t('page.volunteers.new')}</button>
         </div>
@@ -972,7 +990,7 @@ function MissionSignupsTab() {
         <p className="muted" style={{ margin: 0 }}>
           {resp ? `${resp.total_items} ${t('common.total')}` : t('common.loading')}
         </p>
-        <div className="row">
+        <div className="row filter-row">
           <input
             type="search"
             value={q}
@@ -980,13 +998,19 @@ function MissionSignupsTab() {
             placeholder={t('page.volunteers.signups_search_placeholder')}
             style={{ width: '240px' }}
           />
-          <select
-            value={status}
-            onChange={(e) => { setStatus(e.target.value); setPage(1) }}
-            style={{ width: 'auto' }}
-          >
-            {SIGNUP_STATUSES.map((s) => <option key={s} value={s}>{statusLabel(s)}</option>)}
-          </select>
+          {/* B20 — same unnamed-filter defect as the الطلبات tab one component
+              up. Both tabs live behind the same المتطوعين entry, so fixing one
+              and leaving the other would have looked like a partial fix. */}
+          <label className="filter-field">
+            <span>{t('col.status')}</span>
+            <select
+              value={status}
+              onChange={(e) => { setStatus(e.target.value); setPage(1) }}
+              style={{ width: 'auto' }}
+            >
+              {SIGNUP_STATUSES.map((s) => <option key={s} value={s}>{statusLabel(s)}</option>)}
+            </select>
+          </label>
           <ExportCsvButton onExport={exportCsv} />
         </div>
       </div>

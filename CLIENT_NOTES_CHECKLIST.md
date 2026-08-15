@@ -3,7 +3,7 @@
 Captured 2026-08-15 from the owner's written list, 11 annotated screenshots, and
 two PDFs (`ملاحظات - منصة توازن - الداشبورد.pdf` 10pp, `ملاحظات وتعديلات تطبيق توازن.pdf` 35pp).
 
-**Status key:** ⬜ not yet verified · 🔎 verified, defect confirmed · ✅ verified, already correct · ❌ could not verify
+**Status key:** ⬜ not yet verified · 🔎 verified, defect confirmed · ✅ verified, already correct · ❌ could not verify · 🛠️ defect confirmed **and fixed** (commit noted on the row)
 
 **Page reference key:** `[D pN]` = dashboard PDF page N · `[A pN]` = app PDF page N.
 
@@ -628,7 +628,7 @@ SELECT-only queries.**
 | B17 | Words and options under the **الأولوية** (priority) column are still English. `[D p4]` | Dashboard → المستفيدون → الأولوية | ⬜ |
 | B18 | **Gender dropdown options not Arabized** — "تعريب خيارات القائمة المنسدلة الخاصة بالجنس في الواجهة العربية". `[D p3]` | Dashboard → المستخدمون → تعديل → الجنس | ⬜ |
 | B19 | The Arabic wording **"حالة دورة الحياة"** (lifecycle status) is wrong and must be corrected — "تصحيح كلمة حالة دورة الحياة في اللغة العربي". `[D p4]` | Dashboard → الحملات → حملة جديدة | ⬜ |
-| B20 | Top dropdown headers (**الكل، المهام، أي يوم**) are unnamed/English, and all option words inside those dropdowns are untranslated. `[D p6]` | Dashboard → المتطوعين → الطلبات | ⬜ |
+| B20 | Top dropdown headers (**الكل، المهام، أي يوم**) are unnamed/English, and all option words inside those dropdowns are untranslated. `[D p6]` | Dashboard → المتطوعين → الطلبات | 🛠️ **fixed** — the *options* half was already correct (every word inside the boxes was Arabic). The *naming* half is now done: each filter box carries a visible caption above it (الحالة / المهارات / التوفّر), reusing the column headings the filter narrows, so nothing new needed translating. The same filter on تسجيلات المهام was fixed with it |
 | B21 | **Choosing a language must translate ALL app text** — "عند اختيار لغة معينة يجب أن يكون جميع الكلام الموجود داخل التطبيق باللغة التي تم اختيارها". Test by switching each of the four languages and sweeping every screen. `[A p34]` | App | 🔎 **marketplace orders fixed, not deployed** — see B21 notes below. The sweep itself is still outstanding |
 
 ### B21 — marketplace order card (2026-08-15)

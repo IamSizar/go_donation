@@ -263,6 +263,40 @@ p { margin: 0; }
 .stack > * + * { margin-top: var(--space-3); }
 .row   { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: center; }
 
+/* ---------- Labelled filter controls (B20) ----------
+   A bare <select> in a filter bar shows only its CURRENT value, so a status
+   box reading "الكل" said nothing about what it filtered — and once a value
+   was picked it said even less. A `title=` tooltip is not a fix: it never
+   appears on a touch screen and a screen reader announces it as a
+   description, not a heading. `.filter-field` pairs a control with a small
+   permanent caption above it, and because the caption is a <label> wrapping
+   the control it doubles as the accessible name.
+
+   Must stay AFTER `.row` in source order: both are single-class selectors, so
+   `.filter-row`'s align-items only wins by coming later. */
+.filter-row { align-items: flex-end; }
+.filter-field { display: inline-flex; flex-direction: column; gap: 2px; }
+.filter-field > span {
+  font-size: var(--text-xs);
+  color: var(--muted);
+  line-height: 1.4;
+  /* Start-relative so the caption tracks the box edge in both directions. */
+  padding-inline-start: 2px;
+  white-space: nowrap;
+}
+/* Inside the label the control is no longer a direct child of `.row`, so the
+   base `width: 100%` on select/input would apply. Every filter control sets
+   `width: auto` inline, which outranks this — the rule is here so a future
+   caller that forgets the inline style still gets a content-sized box rather
+   than one that swallows the row. */
+.filter-field > select, .filter-field > input { width: auto; }
+@media (max-width: 720px) {
+  /* Stacked controls go full width; the caption group must follow or the
+     select would sit content-sized inside a full-width column. */
+  .filter-field { width: 100%; }
+  .filter-field > select, .filter-field > input { width: 100% !important; }
+}
+
 /* ---------- Buttons ----------
    Heights: 36px (md, default) / 28px (sm). Touch target >= 28px even for small.
    Use box-shadow rather than y-translate on hover so text stays in place. */
