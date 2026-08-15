@@ -942,10 +942,35 @@ var guestUsernameRE = regexp.MustCompile(`^[A-Za-z0-9_]{3,32}$`)
 
 // guestCredentialsReq is the body for both POST /api/auth/guest/register and
 // POST /api/auth/guest/login.
+//
+// J1 — the client asked for an "الاسم" (name) box on the guest sign-up form.
+// FullName is optional and ignored by /guest/login. Two spellings are accepted
+// for the same reason the OTP request accepts phone-or-number above: the
+// canonical key across this API is `full_name` (see registration.go), but
+// `name` is the obvious thing to send from a box labelled "الاسم", and
+// silently dropping it would be exactly the class of lying field this change
+// exists to remove.
 type guestCredentialsReq struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
+	FullName string `json:"full_name"`
+	Name     string `json:"name"`
 }
+
+// guestFullName returns the name the client supplied under either accepted
+// key, trimmed. Empty means "the client collected no name" — a valid state
+// for older app builds, not an error.
+func (r guestCredentialsReq) guestFullName() string {
+	if n := strings.TrimSpace(r.FullName); n != "" {
+		return n
+	}
+	return strings.TrimSpace(r.Name)
+}
+
+// guestFullNameMaxRunes matches user_profiles.full_name VARCHAR(200). Checked
+// in the handler so an over-long name is a friendly 400 rather than a raw
+// Postgres "value too long" 500.
+const guestFullNameMaxRunes = 200
 
 // respondWithGuestSession issues a token for uid and writes the same response
 // shape the phone/Google/OTP login endpoints use, so the Flutter client can
@@ -1007,6 +1032,11 @@ func (h *AuthHandler) GuestRegister(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "error": "Password must be at least 6 characters."})
 		return
 	}
+	fullName := req.guestFullName()
+	if len([]rune(fullName)) > guestFullNameMaxRunes {
+		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "error": "Name is too long."})
+		return
+	}
 
 	ctx := c.Request.Context()
 
@@ -1015,7 +1045,7 @@ func (h *AuthHandler) GuestRegister(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "error": "Failed to hash password."})
 		return
 	}
-	uid, err := h.Users.InsertGuest(ctx, username, string(hash))
+	uid, err := h.Users.InsertGuest(ctx, username, string(hash), fullName)
 	if err != nil {
 		if errors.Is(err, users.ErrUsernameTaken) {
 			c.JSON(http.StatusConflict, gin.H{

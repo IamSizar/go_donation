@@ -3,6 +3,7 @@ package users
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -520,13 +521,40 @@ var ErrPhoneTaken = errors.New("phone already in use")
 // bcrypt password hash, no phone, registration_status 'approved' (self-serve,
 // no admin review needed to browse), role_id NULL until upgraded. Returns
 // ErrUsernameTaken if the username is already in use.
-func (s *Store) InsertGuest(ctx context.Context, username, passwordHash string) (int64, error) {
+//
+// fullName is the optional name the guest typed at sign-up (J1); pass "" when
+// the client did not collect one.
+//
+// It also creates the account's `user_profiles` row, in the same transaction.
+// That row is NOT a nicety for the name — it is the fix for a silent
+// data-loss bug. Guests used to have no profile row at all, so every writer
+// that does `UPDATE user_profiles … WHERE user_id = $1` (SetFieldPrivacy,
+// SetPrivacyExtras, and the profile setters) updated ZERO rows and still
+// returned a nil error: the guest's privacy switches appeared to save and
+// stored nothing. Creating the row up front makes those writers real.
+//
+// The NOT NULL columns are seeded with the empty string rather than the
+// legacy PHP "1" placeholder used by UpdateProfile — empty reads as blank
+// everywhere, whereas "1" would render as if the person were named "1". This matches
+// what the newer admin create/edit paths already do (admin_status.go,
+// admin_edit.go). A guest who later attaches a phone flows through
+// SubmitRegistration, which detects the existing row and takes its UPDATE
+// branch, so no duplicate row is ever created.
+func (s *Store) InsertGuest(ctx context.Context, username, passwordHash, fullName string) (int64, error) {
 	username = strings.TrimSpace(username)
+	fullName = strings.TrimSpace(fullName)
 	if username == "" || passwordHash == "" {
 		return 0, errors.New("username and password_hash are required")
 	}
+
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("begin guest insert: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
 	var id int64
-	err := s.Pool.QueryRow(ctx,
+	err = tx.QueryRow(ctx,
 		`INSERT INTO users (username, password_hash, is_guest, role_id, registration_status)
 		 VALUES ($1, $2, TRUE, NULL, 'approved') RETURNING id`,
 		username, passwordHash,
@@ -535,7 +563,19 @@ func (s *Store) InsertGuest(ctx context.Context, username, passwordHash string) 
 		if strings.Contains(err.Error(), "23505") || strings.Contains(strings.ToLower(err.Error()), "duplicate") {
 			return 0, ErrUsernameTaken
 		}
-		return 0, err
+		return 0, fmt.Errorf("insert guest user %q: %w", username, err)
+	}
+
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO user_profiles (user_id, full_name, gender, address)
+		 VALUES ($1, $2, '', '')`,
+		id, fullName,
+	); err != nil {
+		return 0, fmt.Errorf("insert guest profile for user %d: %w", id, err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return 0, fmt.Errorf("commit guest insert: %w", err)
 	}
 	return id, nil
 }
