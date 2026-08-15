@@ -193,6 +193,8 @@ class AppTranslations extends Translations {
     'error_title': 'Something went wrong',
     'retry': 'Try again',
     'Could not load your dashboard.': 'Could not load your dashboard.',
+    'We could not check for new notifications.':
+        'We could not check for new notifications.',
     'Registration': 'Registration',
     // Says the registration IS safe before saying what failed, because that is
     // the order the user needs it in — the alarming half first would read as
@@ -2585,6 +2587,8 @@ class AppTranslations extends Translations {
     'error_title': 'حدث خطأ ما',
     'retry': 'إعادة المحاولة',
     'Could not load your dashboard.': 'تعذّر تحميل لوحتك.',
+    'We could not check for new notifications.':
+        'تعذّر التحقق من وجود إشعارات جديدة.',
     'Registration': 'التسجيل',
     'Your registration was saved, but your documents did not upload. You can add them from your profile.':
         'تم حفظ تسجيلك، لكن لم يتم رفع مستنداتك. يمكنك إضافتها من ملفك الشخصي.',

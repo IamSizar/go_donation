@@ -37,7 +37,18 @@ class NotificationsScreen extends GetView<NotificationsController> {
                       // you chose", and hiding them with the results would
                       // leave no way to undo the selection that emptied the
                       // screen.
-                      _NotificationSummary(controller: controller),
+                      // countsKnown: a failed load leaves the lists empty,
+                      // and an empty list renders as "All caught up / 0 / 0 /
+                      // 0" — a confident claim that the user has nothing,
+                      // sitting directly above a banner admitting we could not
+                      // find out. Same rule as the wallet: a wrong number is
+                      // worse than a missing one.
+                      _NotificationSummary(
+                        controller: controller,
+                        countsKnown:
+                            controller.errorMessage.value == null ||
+                            controller.notifications.isNotEmpty,
+                      ),
                       const SizedBox(height: 16),
                       _FilterSection(controller: controller),
                       const SizedBox(height: 16),
@@ -112,16 +123,23 @@ class NotificationsScreen extends GetView<NotificationsController> {
 ///   • Below either state, a thin row of pills (All / Read / Unread)
 ///     keeps the previous quick-stat affordance.
 class _NotificationSummary extends StatelessWidget {
-  const _NotificationSummary({required this.controller});
+  const _NotificationSummary({
+    required this.controller,
+    this.countsKnown = true,
+  });
 
   final NotificationsController controller;
+
+  /// False when the last load failed and nothing is cached, so the counts
+  /// below are absences rather than zeros.
+  final bool countsKnown;
 
   @override
   Widget build(BuildContext context) {
     final total = controller.notifications.length;
     final unread = controller.unreadCount;
     final read = total - unread;
-    final hasUnread = unread > 0;
+    final hasUnread = countsKnown && unread > 0;
 
     // A single accent surface in both states. This was two hardcoded
     // gradients — brand-primary when unread, a raw 0xFF16A34A/0xFF22C55E green
@@ -151,7 +169,9 @@ class _NotificationSummary extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      hasUnread
+                      !countsKnown
+                          ? 'Notifications'.tr
+                          : hasUnread
                           ? '@n new'.trParams({'n': '$unread'})
                           : 'All caught up'.tr,
                       maxLines: 2,
@@ -165,7 +185,9 @@ class _NotificationSummary extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      hasUnread
+                      !countsKnown
+                          ? 'We could not check for new notifications.'.tr
+                          : hasUnread
                           ? 'Tap any alert to open it.'.tr
                           : 'No unread notifications.'.tr,
                       style: TextStyle(
@@ -227,6 +249,7 @@ class _NotificationSummary extends StatelessWidget {
                 icon: Icons.inbox_rounded,
                 label: 'All'.tr,
                 value: total,
+                known: countsKnown,
                 accent: AppThemeConfig.accent(context),
               ),
             ),
@@ -236,6 +259,7 @@ class _NotificationSummary extends StatelessWidget {
                 icon: Icons.fiber_manual_record_rounded,
                 label: 'Unread'.tr,
                 value: unread,
+                known: countsKnown,
                 accent: hasUnread
                     ? AppThemeConfig.accent(context)
                     : AppThemeConfig.subtleText(context),
@@ -247,6 +271,7 @@ class _NotificationSummary extends StatelessWidget {
                 icon: Icons.mark_email_read_rounded,
                 label: 'Read'.tr,
                 value: read,
+                known: countsKnown,
                 accent: AppThemeConfig.subtleText(context),
               ),
             ),
@@ -399,12 +424,17 @@ class _StatPill extends StatelessWidget {
     required this.label,
     required this.value,
     required this.accent,
+    this.known = true,
   });
 
   final IconData icon;
   final String label;
   final int value;
   final Color accent;
+
+  /// When false the count is UNKNOWN, not zero, and renders as an em dash.
+  /// "0" would be a specific claim we cannot support after a failed load.
+  final bool known;
 
   @override
   Widget build(BuildContext context) {
@@ -431,7 +461,7 @@ class _StatPill extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '$value',
+                  known ? '$value' : '—',
                   style: TextStyle(
                     color: AppThemeConfig.text(context),
                     fontSize: 16,
