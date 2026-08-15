@@ -75,7 +75,14 @@ func (h *BeneficiaryHandler) GetCases(c *gin.Context) {
 	if status == "" {
 		status = "approved"
 	}
-	items, err := h.Store.ListPublicCases(c.Request.Context(), status, 50)
+	// K8 — the public listing serves the case owner's own name/phone/address,
+	// so it passes through that owner's Privacy Settings. The bearer is
+	// optional here, so viewerID is 0 for an anonymous reader.
+	var viewerID int64
+	if tokenUser, _ := auth.UserFromGin(c); tokenUser != nil {
+		viewerID = tokenUser.UserID
+	}
+	items, err := h.Store.ListPublicCasesForViewer(c.Request.Context(), status, 50, viewerID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
 		return

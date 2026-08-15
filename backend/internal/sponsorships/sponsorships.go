@@ -4,30 +4,33 @@ package sponsorships
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/karam-flutter/humanitarian-backend/internal/privacy"
 )
 
 type Sponsorship struct {
-	ID                int64     `json:"id"`
-	DonorUserID       *int      `json:"donor_user_id"`
-	DonorPhone        *string   `json:"donor_phone"`
-	DonorFullName     *string   `json:"donor_full_name"`
-	BeneficiaryCaseID *int64    `json:"beneficiary_case_id"`
-	ProjectRequestID  *int64    `json:"project_request_id"`
-	SponsorshipType   string    `json:"sponsorship_type"`
-	Amount            string    `json:"amount"`
-	Currency          string    `json:"currency"`
-	ScheduleInterval  string    `json:"schedule_interval"`
+	ID                int64      `json:"id"`
+	DonorUserID       *int       `json:"donor_user_id"`
+	DonorPhone        *string    `json:"donor_phone"`
+	DonorFullName     *string    `json:"donor_full_name"`
+	BeneficiaryCaseID *int64     `json:"beneficiary_case_id"`
+	ProjectRequestID  *int64     `json:"project_request_id"`
+	SponsorshipType   string     `json:"sponsorship_type"`
+	Amount            string     `json:"amount"`
+	Currency          string     `json:"currency"`
+	ScheduleInterval  string     `json:"schedule_interval"`
 	NextDueDate       *time.Time `json:"next_due_date"`
-	Status            string    `json:"status"`
-	Notes             *string   `json:"notes"`
-	CreatedAt         time.Time `json:"created_at"`
-	ProjectTitle      string    `json:"project_title"`
-	ProjectTitleAr    string    `json:"project_title_ar"`
+	Status            string     `json:"status"`
+	Notes             *string    `json:"notes"`
+	CreatedAt         time.Time  `json:"created_at"`
+	ProjectTitle      string     `json:"project_title"`
+	ProjectTitleAr    string     `json:"project_title_ar"`
 }
 
 type Store struct {
@@ -38,7 +41,25 @@ func New(pool *pgxpool.Pool) *Store { return &Store{Pool: pool} }
 
 // List returns sponsorships, optionally filtered to a single donor.
 // Sort: active first, then by next_due_date asc, id desc.
-func (s *Store) List(ctx context.Context, donorUserID int64, q string, limit int) ([]Sponsorship, error) {
+// ListFilters carries everything List needs. It is a struct rather than four
+// positional arguments because K8 added the viewer, and a bare
+// List(ctx, donorID, viewerID, q, limit) invites the two ids being swapped —
+// a mistake that would silently show one user another user's masked-off data.
+type ListFilters struct {
+	// DonorUserID > 0 restricts the list to that donor's own sponsorships.
+	DonorUserID int64
+	// ViewerUserID is who the response is being written for. Their own
+	// details are never masked; everybody else's pass through their Privacy
+	// Settings. 0 = unauthenticated.
+	ViewerUserID int64
+	Q            string
+	Limit        int
+}
+
+// List returns sponsorships, optionally filtered to a single donor, with each
+// donor's identity masked according to that donor's own Privacy Settings (K8).
+func (s *Store) List(ctx context.Context, f ListFilters) ([]Sponsorship, error) {
+	donorUserID, q, limit := f.DonorUserID, f.Q, f.Limit
 	if limit <= 0 || limit > 200 {
 		limit = 100
 	}
@@ -92,7 +113,33 @@ func (s *Store) List(ctx context.Context, donorUserID int64, q string, limit int
 		}
 		items = append(items, x)
 	}
-	return items, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	// K8 — the donor's name and phone are the donor's data. Before this, any
+	// signed-in user could read every donor's real name and phone number off
+	// this endpoint regardless of what those donors had switched off.
+	donors := make([]int64, 0, len(items))
+	for _, x := range items {
+		if x.DonorUserID != nil {
+			donors = append(donors, int64(*x.DonorUserID))
+		}
+	}
+	seen, err := privacy.LoadFor(ctx, s.Pool, f.ViewerUserID, donors)
+	if err != nil {
+		// Fail CLOSED: empty settings hide nothing.
+		return nil, fmt.Errorf("sponsorship list privacy: %w", err)
+	}
+	for i := range items {
+		if items[i].DonorUserID == nil {
+			continue
+		}
+		owner := int64(*items[i].DonorUserID)
+		items[i].DonorFullName = seen.Name(owner, items[i].DonorFullName)
+		items[i].DonorPhone = seen.Field(owner, privacy.FieldPhone, items[i].DonorPhone)
+	}
+	return items, nil
 }
 
 // ListByBeneficiary returns sponsorships that BENEFIT the given user — i.e.

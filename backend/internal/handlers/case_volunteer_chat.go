@@ -81,7 +81,8 @@ func (h *CaseVolunteerChatHandler) Messages(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"success": false, "error": "You are not a participant in this chat."})
 		return
 	}
-	msgs, err := h.Store.ListMessages(c.Request.Context(), id)
+	// K8 — each sender's name passes through their own Privacy Settings.
+	msgs, err := h.Store.ListMessagesForViewer(c.Request.Context(), id, user.UserID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
 		return

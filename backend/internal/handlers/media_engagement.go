@@ -102,7 +102,13 @@ func (h *MediaEngagementHandler) Comments(c *gin.Context) {
 		return
 	}
 	limit, _ := strconv.Atoi(c.Query("limit"))
-	items, err := h.Store.ListComments(c.Request.Context(), postID, true, limit)
+	// K8 — a commenter who hid their name is shown as the feed's existing
+	// anonymous placeholder. viewerID 0 when the reader is not signed in.
+	var viewerID int64
+	if u, _ := auth.UserFromGin(c); u != nil {
+		viewerID = u.UserID
+	}
+	items, err := h.Store.ListCommentsForViewer(c.Request.Context(), postID, viewerID, limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
 		return

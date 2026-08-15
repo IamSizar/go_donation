@@ -5,10 +5,13 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/karam-flutter/humanitarian-backend/internal/privacy"
 )
 
 // Case mirrors the JSON shape returned by the PHP /beneficiary_cases GET.
@@ -229,6 +232,50 @@ func (s *Store) ListPublicCases(ctx context.Context, status string, limit int) (
 	         AND public_visibility <> 'hidden'
 	       ORDER BY` + priorityOrderClause + ` LIMIT ` + itoa(limit)
 	return s.queryCases(ctx, q, status)
+}
+
+// ListPublicCasesForViewer is the PUBLIC case listing (K8): the case owner's
+// personal columns pass through that owner's own Privacy Settings first.
+//
+// This endpoint takes an optional bearer, so viewerID is 0 for an anonymous
+// reader — which matches no owner and therefore applies every owner's
+// choices. An owner always sees their own case in full.
+//
+// The columns masked here are the ones that are the OWNER'S OWN details and
+// have a matching switch in the privacy catalogue: full_name, phone, gender,
+// date_of_birth, address. Case-specific fields (needs, housing, income) are
+// not personal-profile fields and have no switch; national_id has none either
+// and is discussed in the K8 row of VERIFICATION_REPORT.md.
+//
+// ListPublicCases stays unmasked for callers that are not serving a user.
+func (s *Store) ListPublicCasesForViewer(ctx context.Context, status string, limit int, viewerID int64) ([]Case, error) {
+	items, err := s.ListPublicCases(ctx, status, limit)
+	if err != nil {
+		return nil, err
+	}
+	owners := make([]int64, 0, len(items))
+	for _, c := range items {
+		if c.UserID != nil {
+			owners = append(owners, int64(*c.UserID))
+		}
+	}
+	seen, err := privacy.LoadFor(ctx, s.Pool, viewerID, owners)
+	if err != nil {
+		// Fail CLOSED: empty settings hide nothing.
+		return nil, fmt.Errorf("public case privacy: %w", err)
+	}
+	for i := range items {
+		if items[i].UserID == nil {
+			continue
+		}
+		owner := int64(*items[i].UserID)
+		items[i].FullName = seen.Name(owner, items[i].FullName)
+		items[i].Phone = seen.Field(owner, privacy.FieldPhone, items[i].Phone)
+		items[i].Gender = seen.Field(owner, privacy.FieldGender, items[i].Gender)
+		items[i].DateOfBirth = seen.Field(owner, privacy.FieldDateOfBirth, items[i].DateOfBirth)
+		items[i].Address = seen.Field(owner, privacy.FieldAddress, items[i].Address)
+	}
+	return items, nil
 }
 
 func (s *Store) queryCases(ctx context.Context, q string, args ...any) ([]Case, error) {

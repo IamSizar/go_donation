@@ -6,11 +6,14 @@ package postengagement
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/karam-flutter/humanitarian-backend/internal/privacy"
 )
 
 // Comment is one user comment on a post. UserName / PostTitle are joined in for
@@ -177,6 +180,41 @@ func (s *Store) AddComment(ctx context.Context, postID, userID int64, body, stat
 
 // ListComments returns a post's comments, newest first. When onlyApproved, only
 // 'approved' rows (the public app view).
+// commentNameFallback is what the comment query already prints for a comment
+// whose author has no profile row. A comment whose author HID their name
+// reuses it, so the feed keeps its existing shape instead of showing a blank
+// where a name used to be.
+const commentNameFallback = "User"
+
+// ListCommentsForViewer is the public comment feed as one app user sees it
+// (K8): a commenter who switched their name off in Privacy Settings is shown
+// as the same anonymous placeholder the query already uses for a missing
+// profile. AdminListComments is untouched — staff visibility is the separate
+// sensitive_data mechanism.
+func (s *Store) ListCommentsForViewer(ctx context.Context, postID, viewerID int64, limit int) ([]Comment, error) {
+	items, err := s.ListComments(ctx, postID, true, limit)
+	if err != nil {
+		return nil, err
+	}
+	authors := make([]int64, 0, len(items))
+	for _, c := range items {
+		authors = append(authors, c.UserID)
+	}
+	seen, err := privacy.LoadFor(ctx, s.Pool, viewerID, authors)
+	if err != nil {
+		// Fail CLOSED: empty settings hide nothing.
+		return nil, fmt.Errorf("comment feed privacy: %w", err)
+	}
+	for i := range items {
+		if name := seen.NameString(items[i].UserID, items[i].UserName); name != "" {
+			items[i].UserName = name
+		} else {
+			items[i].UserName = commentNameFallback
+		}
+	}
+	return items, nil
+}
+
 func (s *Store) ListComments(ctx context.Context, postID int64, onlyApproved bool, limit int) ([]Comment, error) {
 	if limit <= 0 || limit > 200 {
 		limit = 100

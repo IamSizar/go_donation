@@ -14,11 +14,14 @@ package casevolchat
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/karam-flutter/humanitarian-backend/internal/privacy"
 )
 
 type Store struct {
@@ -223,7 +226,27 @@ func (s *Store) ListThreadsForUser(ctx context.Context, userID int64) ([]ThreadV
 		}
 		out = append(out, v)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	// K8 — the counterpart's name belongs to them, so their Privacy Settings
+	// decide whether it is served. (This thread carries no phone number; the
+	// package note above is about staff identity masking, which is a separate
+	// concern.)
+	others := make([]int64, 0, len(out))
+	for _, v := range out {
+		others = append(others, v.OtherUserID)
+	}
+	seen, err := privacy.LoadFor(ctx, s.Pool, userID, others)
+	if err != nil {
+		// Fail CLOSED: empty settings hide nothing.
+		return nil, fmt.Errorf("case-volunteer thread privacy: %w", err)
+	}
+	for i := range out {
+		out[i].OtherName = seen.Name(out[i].OtherUserID, out[i].OtherName)
+	}
+	return out, nil
 }
 
 type Message struct {
@@ -234,6 +257,29 @@ type Message struct {
 	SenderName   *string   `json:"sender_name"`
 	Body         string    `json:"body"`
 	CreatedAt    time.Time `json:"created_at"`
+}
+
+// ListMessagesForViewer is the message list served to an APP USER (K8): each
+// sender's name passes through their own Privacy Settings. ListMessages stays
+// raw for the admin path (AdminListMessages reads it), where staff visibility
+// is governed by the separate sensitive_data permission.
+func (s *Store) ListMessagesForViewer(ctx context.Context, threadID, viewerID int64) ([]Message, error) {
+	msgs, err := s.ListMessages(ctx, threadID)
+	if err != nil {
+		return nil, err
+	}
+	senders := make([]int64, 0, len(msgs))
+	for _, m := range msgs {
+		senders = append(senders, m.SenderUserID)
+	}
+	seen, err := privacy.LoadFor(ctx, s.Pool, viewerID, senders)
+	if err != nil {
+		return nil, fmt.Errorf("case-volunteer message privacy: %w", err)
+	}
+	for i := range msgs {
+		msgs[i].SenderName = seen.Name(msgs[i].SenderUserID, msgs[i].SenderName)
+	}
+	return msgs, nil
 }
 
 func (s *Store) ListMessages(ctx context.Context, threadID int64) ([]Message, error) {

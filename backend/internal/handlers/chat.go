@@ -15,6 +15,7 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
 	"github.com/karam-flutter/humanitarian-backend/internal/chat"
 	"github.com/karam-flutter/humanitarian-backend/internal/notify"
+	"github.com/karam-flutter/humanitarian-backend/internal/privacy"
 )
 
 // ChatHandler exposes the donor ↔ campaign-owner chat endpoints (Phase 28).
@@ -32,14 +33,32 @@ func (h *ChatHandler) bg() (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.Background(), 10*time.Second)
 }
 
+// fullName is the sender's display name as it will appear to SOMEBODY ELSE —
+// every caller feeds it into a push notification sent to the other party. It
+// therefore passes through the sender's own Privacy Settings (K8): a user who
+// switched their name off would otherwise be re-identified by the notification
+// even though the chat screen behind it no longer shows the name.
+//
+// Viewer 0 (nobody) is deliberate: the recipient is by definition not the
+// sender, so the sender's choices always apply. An empty result is fine —
+// notify's message builders already handle a nameless sender.
 func (h *ChatHandler) fullName(userID int64) string {
+	ctx, cancel := h.bg()
+	defer cancel()
 	var name *string
-	_ = h.Pool.QueryRow(context.Background(),
+	_ = h.Pool.QueryRow(ctx,
 		`SELECT full_name FROM user_profiles WHERE user_id = $1`, userID).Scan(&name)
+	real := ""
 	if name != nil {
-		return strings.TrimSpace(*name)
+		real = strings.TrimSpace(*name)
 	}
-	return ""
+	seen, err := privacy.LoadFor(ctx, h.Pool, 0, []int64{userID})
+	if err != nil {
+		// Fail CLOSED: without the settings we cannot tell whether this name
+		// may be shown, so it is not shown.
+		return ""
+	}
+	return seen.NameString(userID, real)
 }
 
 func (h *ChatHandler) campaignTitle(campaignID *int64) string {
@@ -296,7 +315,9 @@ func (h *ChatHandler) Messages(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"success": false, "error": "You are not a participant in this chat."})
 		return
 	}
-	msgs, err := h.Store.ListMessages(c.Request.Context(), id)
+	// K8 — ...ForViewer applies each sender's own Privacy Settings. The admin
+	// view below deliberately keeps the unmasked ListMessages.
+	msgs, err := h.Store.ListMessagesForViewer(c.Request.Context(), id, user.UserID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
 		return

@@ -9,11 +9,14 @@ package chat
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/karam-flutter/humanitarian-backend/internal/privacy"
 )
 
 type Store struct {
@@ -303,7 +306,60 @@ func (s *Store) ListThreadsForUser(ctx context.Context, userID int64) ([]ThreadV
 		v.IncomingPending = v.Status == "pending" && v.InitiatedBy != userID
 		out = append(out, v)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	// K8 — the counterpart's name and phone are THEIR data, so their Privacy
+	// Settings decide whether this user gets to see them. Loaded in one query
+	// after the scan rather than joined in, so the policy lives in exactly one
+	// place (internal/privacy) instead of being re-expressed in SQL here and
+	// in every other query that serves somebody's name.
+	others := make([]int64, 0, len(out))
+	for _, v := range out {
+		others = append(others, v.OtherUserID)
+	}
+	seen, err := privacy.LoadFor(ctx, s.Pool, userID, others)
+	if err != nil {
+		// Fail CLOSED: an empty settings map hides nothing, so serving the
+		// list anyway would leak exactly what the user switched off.
+		return nil, fmt.Errorf("chat thread list privacy: %w", err)
+	}
+	for i := range out {
+		owner := out[i].OtherUserID
+		out[i].OtherName = seen.Name(owner, out[i].OtherName)
+		out[i].OtherPhone = seen.Field(owner, privacy.FieldPhone, out[i].OtherPhone)
+	}
+	return out, nil
+}
+
+// ListMessagesForViewer is the message list served to an APP USER (K8): every
+// sender's name passes through their own Privacy Settings first, so a sender
+// who hid their name is not re-identified by the bubble above their message.
+//
+// It is deliberately separate from ListMessages rather than a flag on it.
+// ListMessages stays raw because the admin view must keep showing real
+// identities — staff visibility is governed by the `sensitive_data`
+// permission (admin_detail.go), a different and already-implemented
+// mechanism. Two names make it impossible to reach for the wrong one by
+// accident.
+func (s *Store) ListMessagesForViewer(ctx context.Context, threadID, viewerID int64) ([]Message, error) {
+	msgs, err := s.ListMessages(ctx, threadID)
+	if err != nil {
+		return nil, err
+	}
+	senders := make([]int64, 0, len(msgs))
+	for _, m := range msgs {
+		senders = append(senders, m.SenderUserID)
+	}
+	seen, err := privacy.LoadFor(ctx, s.Pool, viewerID, senders)
+	if err != nil {
+		return nil, fmt.Errorf("chat message privacy: %w", err)
+	}
+	for i := range msgs {
+		msgs[i].SenderName = seen.Name(msgs[i].SenderUserID, msgs[i].SenderName)
+	}
+	return msgs, nil
 }
 
 // ListMessages returns all messages in a thread oldest-first, with sender name.

@@ -607,7 +607,18 @@ func (h *SponsorshipsHandler) Get(c *gin.Context) {
 	}
 
 	limit, _ := strconv.Atoi(strings.TrimSpace(c.Query("limit")))
-	items, err := h.Store.List(c.Request.Context(), uid, c.Query("q"), limit)
+	// K8 — with no user_id this returns every sponsorship, so each donor's
+	// name and phone are masked by that donor's own Privacy Settings.
+	var viewerID int64
+	if tokenUser != nil {
+		viewerID = tokenUser.UserID
+	}
+	items, err := h.Store.List(c.Request.Context(), sponsorships.ListFilters{
+		DonorUserID:  uid,
+		ViewerUserID: viewerID,
+		Q:            c.Query("q"),
+		Limit:        limit,
+	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
 		return

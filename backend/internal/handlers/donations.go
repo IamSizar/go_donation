@@ -15,6 +15,7 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
 	"github.com/karam-flutter/humanitarian-backend/internal/donations"
 	"github.com/karam-flutter/humanitarian-backend/internal/notify"
+	"github.com/karam-flutter/humanitarian-backend/internal/privacy"
 	"github.com/karam-flutter/humanitarian-backend/internal/wallet"
 )
 
@@ -577,6 +578,34 @@ func (h *DonationsHandler) BeneficiaryCampaignDonations(c *gin.Context) {
 		}
 		if camp, ok := campByID[campID]; ok {
 			camp.Donations = append(camp.Donations, &dr)
+		}
+	}
+	if err := dRows.Err(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		return
+	}
+	dRows.Close()
+
+	// K8 — the donor's name and phone are the DONOR's data, so each donor's
+	// own Privacy Settings decide whether this campaign owner sees them. The
+	// masking sits here rather than in a store because this query lives here.
+	donorIDs := []int64{}
+	for _, camp := range campaigns {
+		for _, d := range camp.Donations {
+			donorIDs = append(donorIDs, d.DonorUserID)
+		}
+	}
+	seen, err := privacy.LoadFor(c.Request.Context(), h.Store.Pool, tokenUser.UserID, donorIDs)
+	if err != nil {
+		// Fail CLOSED: an empty settings map hides nothing, so serving the
+		// page anyway would leak exactly what those donors switched off.
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		return
+	}
+	for _, camp := range campaigns {
+		for _, d := range camp.Donations {
+			d.DonorName = seen.Name(d.DonorUserID, d.DonorName)
+			d.DonorPhone = seen.Field(d.DonorUserID, privacy.FieldPhone, d.DonorPhone)
 		}
 	}
 
