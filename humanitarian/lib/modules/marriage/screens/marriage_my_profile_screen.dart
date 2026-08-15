@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/core/widgets/app_row.dart';
 
+import 'marriage_field_privacy_screen.dart';
 import 'marriage_form_screen.dart';
 
 // Note #18 — shows the user their OWN submitted marriage profile and its
@@ -64,7 +65,10 @@ class MarriageMyProfileScreen extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
               children: [
                 for (final item in list) ...[
-                  _ProfileStatusCard(item: item),
+                  _ProfileStatusCard(
+                    item: item,
+                    onOpenPrivacy: () => _openFieldPrivacy(controller, item),
+                  ),
                   const SizedBox(height: 14),
                 ],
                 _NewSubmissionCard(
@@ -77,6 +81,34 @@ class MarriageMyProfileScreen extends StatelessWidget {
       }),
     );
   }
+}
+
+/// L19 — opens the per-field privacy picker for one profile, then refreshes so
+/// the card reflects what was saved.
+///
+/// This screen is the only place the picker can live: the write is
+/// POST /api/marriage/:id/privacy, so it needs a profile that already exists,
+/// and the submission form has no id yet. The owner's current choices ride
+/// along on the same GET /api/marriage/mine response that drew this card
+/// (`field_privacy` is served to the owner and emptied for everybody else), so
+/// the picker opens knowing them instead of defaulting to "nothing is hidden".
+Future<void> _openFieldPrivacy(
+  MarriageMyProfileController controller,
+  Map<String, dynamic> item,
+) async {
+  final id = item['id'] is int
+      ? item['id'] as int
+      : int.tryParse(item['id']?.toString() ?? '');
+  if (id == null || id <= 0) return;
+  final raw = item['field_privacy'];
+  final hidden = raw is List
+      ? raw.map((e) => e.toString()).where((e) => e.isNotEmpty).toList()
+      : <String>[];
+
+  await Get.to(
+    () => MarriageFieldPrivacyScreen(profileId: id, initialHidden: hidden),
+  );
+  await controller.fetchProfiles();
 }
 
 /// Opens the submission form, then refreshes the list on return.
@@ -144,9 +176,12 @@ class _NewSubmissionCard extends StatelessWidget {
 }
 
 class _ProfileStatusCard extends StatelessWidget {
-  const _ProfileStatusCard({required this.item});
+  const _ProfileStatusCard({required this.item, required this.onOpenPrivacy});
 
   final Map<String, dynamic> item;
+
+  /// L19 — opens the per-field privacy picker for THIS profile.
+  final VoidCallback onOpenPrivacy;
 
   @override
   Widget build(BuildContext context) {
@@ -222,6 +257,19 @@ class _ProfileStatusCard extends StatelessWidget {
             const SizedBox(height: 14),
             _MetricPill(icon: Icons.schedule_rounded, label: createdAt),
           ],
+          // L19 — the door to the per-field picker. On the card rather than in
+          // the submission form because the write needs a profile that already
+          // exists, and because this is where the owner comes to look at what
+          // their profile says about them.
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: onOpenPrivacy,
+              icon: const Icon(Icons.visibility_off_outlined, size: 18),
+              label: Text('Field privacy'.tr),
+            ),
+          ),
         ],
       ),
     );

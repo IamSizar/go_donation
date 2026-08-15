@@ -765,6 +765,14 @@ class AppTranslations extends Translations {
     'Could not load your notification settings.':
         'Could not load your notification settings.',
     'Field privacy': 'Field privacy',
+    // L19 — the engagement profile's own field picker reuses every string on
+    // this screen (title, `privacy_desc`, `privacy_visible`/`privacy_hidden`,
+    // and the `marriage_*` field labels the form already prints). Only its
+    // empty state, for a catalogue staff have emptied, is new.
+    'marriage_privacy_empty': 'Nothing to hide yet',
+    'marriage_privacy_empty_desc':
+        'There are no details you can hide on this profile right now. It '
+            'shows what it shows today.',
     'privacy_desc': 'Choose which profile details other people can see.',
     'privacy_visible': 'Visible to others',
     'privacy_hidden': 'Hidden',
@@ -3439,6 +3447,10 @@ class AppTranslations extends Translations {
     'Could not load your notification settings.':
         'تعذّر تحميل إعدادات الإشعارات.',
     'Field privacy': 'خصوصية الحقول',
+    // L19 — انظر التعليق نفسه في الخريطة الإنجليزية.
+    'marriage_privacy_empty': 'لا يوجد ما يمكن إخفاؤه بعد',
+    'marriage_privacy_empty_desc':
+        'لا توجد تفاصيل يمكنك إخفاؤها في هذا الملف حالياً. سيظهر كما هو الآن.',
     'privacy_desc': 'اختر تفاصيل ملفك التي يمكن للآخرين رؤيتها.',
     'privacy_visible': 'ظاهر للآخرين',
     'privacy_hidden': 'مخفي',

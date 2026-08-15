@@ -42,6 +42,15 @@ class FakeHttpOverrides extends HttpOverrides {
   /// the writes.
   final List<String> requestBodies = <String>[];
 
+  /// Every URL opened through this fake, in order — GETs included.
+  ///
+  /// Added for L19, where the body alone cannot catch the bug: the engagement
+  /// profile's privacy write is POST /api/marriage/:id/privacy, ownership is
+  /// checked inside the UPDATE, and a request carrying the right `hidden` list
+  /// to the WRONG id answers 403 rather than saving anything. So the id in the
+  /// path is part of what has to be pinned.
+  final List<Uri> requestUrls = <Uri>[];
+
   @override
   HttpClient createHttpClient(SecurityContext? context) =>
       _FakeHttpClientImpl(this);
@@ -53,6 +62,10 @@ class _FakeHttpClientImpl implements HttpClient {
 
   @override
   Future<HttpClientRequest> openUrl(String method, Uri url) async {
+    // Recorded BEFORE the offline branch: a request the app tried to make is
+    // still a request it made, and a test asserting "it never called X" would
+    // otherwise pass for the wrong reason when the socket is down.
+    overrides.requestUrls.add(url);
     if (overrides.behaviour == HttpBehaviour.networkError) {
       // What an unreachable backend actually looks like to the caller.
       throw const SocketException('Network is unreachable');

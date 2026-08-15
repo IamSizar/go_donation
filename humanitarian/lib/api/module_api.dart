@@ -866,6 +866,48 @@ class ModuleApi {
   Future<List<Map<String, dynamic>>> marriageProfiles() =>
       getItems(marriageProfilesUrl);
 
+  /// L19 — the engagement-profile fields an owner may hide.
+  ///
+  /// THROWS on failure, and the picker shows no switches when it does. That is
+  /// stricter than the user-profile screen, which falls back to a built-in
+  /// list, and the difference is deliberate: `SetFieldPrivacy` DROPS any key
+  /// this catalogue does not list, so a guessed switch is a switch that
+  /// silently does nothing — the exact defect L19 was refused over.
+  Future<List<PrivacyFieldOption>> getMarriagePrivacyOptions() async {
+    final res = await getObject(marriagePrivacyOptionsUrl);
+    final raw = res['items'];
+    if (raw is! List) return const [];
+    return raw
+        .whereType<Map>()
+        .map(
+          (e) => PrivacyFieldOption(
+            fieldKey: (e['field_key'] ?? '').toString(),
+            labelKey: (e['label_key'] ?? '').toString(),
+            defaultHidden: e['default_hidden'] == true,
+          ),
+        )
+        .where((o) => o.fieldKey.isNotEmpty)
+        .toList();
+  }
+
+  /// L19 — replaces which fields [profileId] hides from other users.
+  ///
+  /// [hidden] is the WHOLE set: the handler writes the column outright, so
+  /// posting only the field just switched off would un-hide every other one.
+  /// Returns what the server actually stored — keys outside the catalogue are
+  /// dropped there, so the caller can render real state instead of its own
+  /// request.
+  Future<List<String>> setMarriageFieldPrivacy(
+    int profileId,
+    List<String> hidden,
+  ) async {
+    final res = await postJson(marriagePrivacyUrl(profileId), {
+      'hidden': hidden,
+    });
+    final raw = res['hidden'];
+    return raw is List ? raw.map((e) => e.toString()).toList() : <String>[];
+  }
+
   Future<Map<String, dynamic>> reports() => getObject(reportsUrl);
 }
 

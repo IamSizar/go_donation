@@ -209,6 +209,24 @@ const String supportWhatsappUrl = '${baseUrl}support/whatsapp';
 /// POST: create a marriage/engagement profile (#42). Eligible role only.
 const String marriageSubmitUrl = '${baseUrl}marriage';
 
+/// GET: the catalogue of engagement-profile fields an owner may hide (L19,
+/// migration 107).
+///
+/// Deliberately SEPARATE from [privacyOptionsUrl]: the engagement profile and
+/// the user profile share column names (gender, age, city) but are different
+/// objects — one person may show their photo on one and hide it on the other.
+/// The keys here are the `marriage_profiles` column names.
+const String marriagePrivacyOptionsUrl = '${baseUrl}marriage/privacy-options';
+
+/// POST: replace which fields this engagement profile hides (L19). Body
+/// `{"hidden": [...]}` — the whole set, echoed back as stored.
+///
+/// Owner-only, checked INSIDE the UPDATE, so the id belongs in the path: the
+/// right list posted to somebody else's profile is a 403, and a profile that
+/// does not exist answers identically so ids cannot be probed.
+String marriagePrivacyUrl(int profileId) =>
+    '${baseUrl}marriage/$profileId/privacy';
+
 /// GET: the current user's own submitted marriage profile(s) + status
 /// (Note #18). Unlike marriageProfilesUrl (public browse), this is never
 /// status-filtered — a user needs to see their own profile even when it's
