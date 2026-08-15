@@ -11,7 +11,6 @@ import 'package:flutter_application_1/modules/notifications/controllers/notifica
 import 'package:flutter_application_1/modules/proposal/controllers/beneficiary_cases_controller.dart';
 import 'package:flutter_application_1/modules/proposal/screens/beneficiary_case_detail_screen.dart';
 import 'package:flutter_application_1/modules/proposal/screens/news_activities_screen.dart';
-import 'package:flutter_application_1/modules/proposal/screens/partners_screen.dart';
 import 'package:flutter_application_1/modules/sponsorship/controllers/sponsorships_controller.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/sponsorship_overview_screen.dart';
 import 'package:flutter_application_1/modules/support/screens/technical_support_screen.dart';
@@ -181,13 +180,18 @@ List<Widget> _roleSpecificTiles(BuildContext context, String roleId) {
 /// any role, which is why this tile is safe to share.
 List<Widget> _communityAndSupportTiles(BuildContext context) {
   return [
-    SectionTile(
-      icon: Icons.apartment_rounded,
-      title: 'Partners',
-      subtitle: 'Browse partner and supporting entities.',
-      color: AppThemeConfig.accent(context),
-      onTap: () => Get.to(() => const PartnersScreen()),
-    ),
+    // C1 — the Partners tile used to sit here as well as in the Settings
+    // drawer. It was the ONLY destination in the app listed in both hubs,
+    // which is what marked it out as an accident rather than a pattern, and
+    // the client had counted "شركاؤنا" three or four times over.
+    //
+    // The Settings copy is the one that survived, for a reason that is about
+    // reach rather than taste: Settings is a bottom-nav tab, one tap from
+    // anywhere, while this screen is itself reached through the profile.
+    // Deleting the tab entry and keeping this one would have buried a section
+    // the client specifically asked to feature. Nothing is lost — the
+    // destination is unchanged and still reachable, from search and from a
+    // partner notification as well.
     SectionTile(
       icon: Icons.article_rounded,
       title: 'News and activities',

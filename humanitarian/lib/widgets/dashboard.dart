@@ -10,6 +10,7 @@ import 'package:flutter_application_1/modules/donations/screens/my_donations_pag
 import 'package:flutter_application_1/modules/marketplace/screens/marketplace_section.dart';
 import 'package:flutter_application_1/modules/proposal/controllers/partners_controller.dart';
 import 'package:flutter_application_1/modules/proposal/controllers/media_posts_controller.dart';
+import 'package:flutter_application_1/modules/proposal/screens/partner_detail_screen.dart';
 import 'package:flutter_application_1/modules/proposal/screens/partners_screen.dart';
 import 'package:flutter_application_1/modules/proposal/screens/news_activities_screen.dart';
 import 'package:flutter_application_1/localization/content_localizer.dart';
@@ -2155,9 +2156,22 @@ class _PartnersStrip extends StatelessWidget {
   }
 }
 
-// One partner logo card: rounded logo tile + name beneath. Tapping opens
-// the full partners screen (the card itself doesn't deep-link to a single
-// partner since that screen lists them all with details).
+// One partner logo card: rounded logo tile + name beneath. Tapping opens THAT
+// partner's page.
+//
+// C1 — it used to open the undifferentiated list instead, and the comment here
+// explained why: "the card itself doesn't deep-link to a single partner since
+// that screen lists them all with details". That was true when it was written
+// and stopped being true when K6 shipped PartnerDetailScreen. So the user
+// tapped a named, pictured organisation and arrived somewhere that did not
+// mention it.
+//
+// This is why the four navigations to PartnersScreen were not four copies of
+// one thing: three were doors, and this one was a wire crossed. Removing it as
+// a duplicate would have destroyed the obvious behaviour rather than restoring
+// it. The map handed to the detail screen is the same row PartnersScreen
+// passes — both read the one PartnersController — so nothing about the
+// destination changes.
 class _PartnerLogoCard extends StatelessWidget {
   const _PartnerLogoCard({required this.partner});
 
@@ -2175,7 +2189,7 @@ class _PartnerLogoCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         child: InkWell(
           borderRadius: BorderRadius.circular(18),
-          onTap: () => Get.to(() => const PartnersScreen()),
+          onTap: () => Get.to(() => PartnerDetailScreen(partner: partner)),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
