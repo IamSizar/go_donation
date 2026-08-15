@@ -7,6 +7,22 @@ class PartnersController extends GetxController {
   final isLoading = false.obs;
   final errorMessage = RxnString();
 
+  /// K24 — whether the organization currently publishes partner ratings.
+  ///
+  /// The client asked for the 1–5 star rating "with an option to hide it", and
+  /// staff already have that switch in the dashboard. When it is off the
+  /// server blanks every score before sending the rows, so the app has to stop
+  /// offering the picker too: otherwise the user rates a partner, is told
+  /// "Your rating was saved", and watches the stars empty again on the next
+  /// refresh.
+  ///
+  /// Defaults to true so a failed or older response shows the feature rather
+  /// than hiding it — the same default the server uses for an unset setting.
+  /// It is deliberately NOT reset on failure: [fetchPartners] leaves the last
+  /// known policy in place, because guessing "visible" after a dropped request
+  /// would flash a picker that the previous, successful load had hidden.
+  final ratingsVisible = true.obs;
+
   int get _uid =>
       int.tryParse(sharedPreferences.getString('id_user') ?? '') ?? 0;
 
@@ -20,8 +36,11 @@ class PartnersController extends GetxController {
     isLoading.value = true;
     errorMessage.value = null;
     try {
-      final rows = await const ModuleApi().partners(userId: _uid);
-      partners.assignAll(rows);
+      final res = await const ModuleApi().partnersWithRatingPolicy(
+        userId: _uid,
+      );
+      partners.assignAll(res.items);
+      ratingsVisible.value = res.ratingsVisible;
     } catch (_) {
       partners.clear();
       errorMessage.value = 'Unable to load partners.'.tr;
@@ -31,7 +50,14 @@ class PartnersController extends GetxController {
   }
 
   /// #27 — submit a rating; reconciles the card with the server aggregate.
+  ///
+  /// Refuses outright while [ratingsVisible] is false (K24). The UI no longer
+  /// offers the picker in that state, so this guard is for the method itself:
+  /// it is public, and `POST /api/partners/:id/rate` has no visibility check of
+  /// its own, so any future caller could otherwise write a score into a column
+  /// the public API will strip on the very next read.
   Future<void> submitRating(Map<String, dynamic> partner, int stars) async {
+    if (!ratingsVisible.value) return;
     final id = int.tryParse('${partner['id']}') ?? 0;
     if (id == 0) return;
     try {

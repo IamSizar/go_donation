@@ -446,13 +446,28 @@ class PartnerActionChip extends StatelessWidget {
 }
 
 // #27 — average-rating display + a "Rate" button opening a 1–5 star picker.
+//
+// K24 — renders NOTHING while the organization has ratings switched off. The
+// server strips the scores in that state, so what stood here before was five
+// empty stars over "No ratings yet" and a working Rate button: two lies and a
+// dead end. The empty phrase is a claim about the partner ("nobody has rated
+// this organization"); the truth is that the organization does not publish
+// ratings, which is not the partner's business at all.
 class PartnerRating extends StatelessWidget {
   const PartnerRating({super.key, required this.item});
 
   final Map<String, dynamic> item;
 
+  /// The shared controller both the list and the Partner Page already use, so
+  /// the visibility switch has ONE home rather than a copy per screen.
+  static PartnersController _controller() =>
+      Get.isRegistered<PartnersController>()
+      ? Get.find<PartnersController>()
+      : Get.put(PartnersController());
+
   @override
   Widget build(BuildContext context) {
+    if (!_controller().ratingsVisible.value) return const SizedBox.shrink();
     final avg = (item['avg_rating'] as num?)?.toDouble() ?? 0;
     final count = (item['rating_count'] as num?)?.toInt() ?? 0;
     final mine = (item['my_rating'] as num?)?.toInt() ?? 0;

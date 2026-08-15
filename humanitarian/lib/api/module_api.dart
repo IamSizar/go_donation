@@ -756,16 +756,42 @@ class ModuleApi {
     });
   }
 
-  Future<List<Map<String, dynamic>>> partners({int? userId}) {
+  /// GET /api/partners — the rows **and** the organization's rating switch.
+  ///
+  /// WHY THIS IS NOT JUST [partners] (K24). The client asked for the star
+  /// rating "with an option to hide it", and that option is a real server
+  /// setting: the response envelope carries `ratings_visible`, and when it is
+  /// false the handler has already blanked every score on every row before
+  /// sending them. [getItems] reads `items` and discards the rest of the
+  /// envelope, so the app could not see the switch — it rendered five empty
+  /// stars, "No ratings yet", and a Rate button that wrote a score nothing
+  /// would ever display again.
+  ///
+  /// Returns the rows plus the flag. An absent flag means VISIBLE, matching
+  /// the server's own rule ("unset means visible, which is how it behaved
+  /// before the toggle existed") — so an older backend keeps today's
+  /// behaviour rather than silently hiding a feature.
+  Future<({List<Map<String, dynamic>> items, bool ratingsVisible})>
+  partnersWithRatingPolicy({int? userId}) async {
     // #27 — pass user_id so the list flags the viewer's own rating.
-    if (userId != null && userId > 0) {
-      final uri = Uri.parse(
-        partnersUrl,
-      ).replace(queryParameters: {'user_id': '$userId'});
-      return getItems(uri.toString());
-    }
-    return getItems(partnersUrl);
+    final url = (userId != null && userId > 0)
+        ? Uri.parse(
+            partnersUrl,
+          ).replace(queryParameters: {'user_id': '$userId'}).toString()
+        : partnersUrl;
+    final body = await getObject(url);
+    final rawItems = body['items'];
+    final items = rawItems is List
+        ? rawItems
+              .whereType<Map>()
+              .map((item) => Map<String, dynamic>.from(item))
+              .toList(growable: false)
+        : const <Map<String, dynamic>>[];
+    return (items: items, ratingsVisible: body['ratings_visible'] != false);
   }
+
+  Future<List<Map<String, dynamic>>> partners({int? userId}) async =>
+      (await partnersWithRatingPolicy(userId: userId)).items;
 
   /// #27 — submit a 1–5 star rating for a partner. Returns
   /// {avg_rating, rating_count, my_rating}.

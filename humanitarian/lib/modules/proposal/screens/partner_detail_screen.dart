@@ -4,6 +4,7 @@ import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/localization/content_localizer.dart';
+import 'package:flutter_application_1/modules/proposal/controllers/partners_controller.dart';
 import 'package:flutter_application_1/modules/proposal/screens/partners_screen.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
@@ -44,6 +45,16 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
   String? _activitiesError;
 
   int get _partnerId => (widget.partner['id'] as num?)?.toInt() ?? 0;
+
+  /// K24 — the organization's rating switch, read from the SAME controller the
+  /// list uses. This page is handed its partner map by whoever opened it (the
+  /// list, or a Home logo card), and both of those already read
+  /// [PartnersController], so there is no second copy of the policy to drift.
+  bool _ratingsVisible() => (Get.isRegistered<PartnersController>()
+          ? Get.find<PartnersController>()
+          : Get.put(PartnersController()))
+      .ratingsVisible
+      .value;
 
   @override
   void initState() {
@@ -218,18 +229,33 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
             // Rating level — the crowd rating (with the viewer's own star
             // picker) and, when staff have assessed the partner, the
             // organization's own rating broken down by criterion.
-            const SizedBox(height: 12),
-            _Section(
-              title: 'Rating'.tr,
-              icon: Icons.star_rounded,
-              child: Column(
+            //
+            // K24 — the whole SECTION goes when the organization has ratings
+            // switched off, heading included. Hiding only the stars would
+            // leave a "Rating" panel with nothing in it, which reads as a
+            // partner nobody has assessed rather than as a feature the
+            // organization does not publish. The server strips both numbers
+            // together, so they belong behind one switch here too.
+            Obx(() {
+              if (!_ratingsVisible()) return const SizedBox.shrink();
+              return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  PartnerRating(item: item),
-                  ..._adminRating(context, item),
+                  const SizedBox(height: 12),
+                  _Section(
+                    title: 'Rating'.tr,
+                    icon: Icons.star_rounded,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        PartnerRating(item: item),
+                        ..._adminRating(context, item),
+                      ],
+                    ),
+                  ),
                 ],
-              ),
-            ),
+              );
+            }),
 
             // History of activities implemented in cooperation with the
             // partner.
