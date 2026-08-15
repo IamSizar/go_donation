@@ -328,6 +328,11 @@ class ModuleApi {
 
   Future<List<Map<String, dynamic>>> citySectors() => getItems(citySectorsUrl);
 
+  /// The curated sub-categories under each sector (K16). Each row carries
+  /// `slug`, `sector_slug` and the four `name_*` columns.
+  Future<List<Map<String, dynamic>>> cityCategories() =>
+      getItems(cityCategoriesUrl);
+
   Future<Map<String, dynamic>> submitCommunity(Map<String, dynamic> body) =>
       postJson(communitySubmitUrl, body);
 

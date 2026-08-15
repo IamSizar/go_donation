@@ -2352,7 +2352,12 @@ class AppTranslations extends Translations {
     'activity_submitting': 'Submitting…',
     'activity_submitted': 'Thanks! Your suggestion was sent for review.',
     'activity_submit_failed': 'Could not submit. Please try again.',
-    'activity_need_fields': 'Please enter at least a name and category.',
+    // K16 — the category field is a picker over the curated sub-categories
+    // now, and they are scoped to the sectors ticked above it, so this is what
+    // the field says before a sector is chosen.
+    'activity_pick_sector_first':
+        'Choose a sector above to see its sub-categories.',
+    'activity_need_fields': 'Please enter a name and choose a sub-category.',
     'Clear all': 'Clear all',
     'Code: 123456': 'Code: 123456',
     'Conversations': 'Conversations',
@@ -4888,7 +4893,9 @@ class AppTranslations extends Translations {
     'activity_submitting': 'جارٍ الإرسال…',
     'activity_submitted': 'شكرًا! تم إرسال اقتراحك للمراجعة.',
     'activity_submit_failed': 'تعذّر الإرسال. حاول مرة أخرى.',
-    'activity_need_fields': 'يرجى إدخال الاسم والفئة على الأقل.',
+    // K16 — حقل التصنيف صار قائمة اختيار من الفئات الفرعية المعتمدة.
+    'activity_pick_sector_first': 'اختر قطاعًا في الأعلى لعرض فئاته الفرعية.',
+    'activity_need_fields': 'يرجى إدخال الاسم واختيار فئة فرعية.',
     'Clear all': 'مسح الكل',
     'Code: 123456': 'الرمز: 123456',
     'Conversations': 'المحادثات',

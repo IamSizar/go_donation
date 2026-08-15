@@ -306,6 +306,8 @@ class _CityGuideScreenState extends State<CityGuideScreen> {
         final items = _controller.filteredEntries;
         final sectors = _controller.sectors.toList();
         final selected = _controller.selectedSector.value;
+        final subCategories = _controller.categoriesForSelectedSector;
+        final selectedCategory = _controller.selectedCategory.value;
         return Padding(
           // 120 bottom clearance (not 16) — matches Home's ListView, otherwise
           // the place-card row below the map ends up hidden behind the
@@ -366,6 +368,34 @@ class _CityGuideScreenState extends State<CityGuideScreen> {
                   ),
                 ),
               ],
+              // K16 — the 27 sub-categories of migration 101, which the app
+              // had never fetched. They appear only once a sector is chosen:
+              // 27 chips with no parent is not a filter, it is a wall, and the
+              // sectors exist precisely to narrow it first.
+              //
+              // Same four states as the row above it, for the same reason
+              // (C2): a failed fetch here used to be indistinguishable from a
+              // sector that genuinely has no children.
+              if (selected != null &&
+                  (_controller.categoriesLoading.value ||
+                      _controller.categoriesError.value != null ||
+                      subCategories.isNotEmpty)) ...[
+                const SizedBox(height: 8),
+                AppAsync<List<Map<String, dynamic>>>(
+                  loading: _controller.categoriesLoading.value,
+                  error: _controller.categoriesError.value,
+                  onRetry: _controller.fetchCategories,
+                  data: subCategories,
+                  isEmpty: (list) => list.isEmpty,
+                  empty: const SizedBox.shrink(),
+                  skeleton: const _SectorFilterSkeleton(),
+                  builder: (list) => _SubCategoryFilterRow(
+                    categories: list,
+                    selected: selectedCategory,
+                    onSelect: _controller.selectCategory,
+                  ),
+                ),
+              ],
               const SizedBox(height: 14),
               // The map + place strip is an async region and now says so.
               // Before this, a first load and a FAILED load looked identical:
@@ -399,6 +429,20 @@ class _CityGuideScreenState extends State<CityGuideScreen> {
                           message:
                               'Approved places in the city guide will appear '
                               'here. You can suggest one with Add an Activity.',
+                        )
+                      // Two filters can now empty the list, and the way out
+                      // differs: dropping the sub-category keeps the sector,
+                      // which is almost always what the user wants (K16).
+                      : selectedCategory != null
+                      ? AppEmpty(
+                          icon: Icons.filter_alt_off_rounded,
+                          title: 'No places in this sub-category',
+                          message:
+                              'Nothing here has been tagged with this '
+                              'sub-category yet. Clear it to see the whole '
+                              'sector.',
+                          actionLabel: 'Show the whole sector',
+                          onAction: () => _controller.selectCategory(null),
                         )
                       : AppEmpty(
                           icon: Icons.filter_alt_off_rounded,
@@ -550,6 +594,57 @@ class _SectorFilterRow extends StatelessWidget {
               label: _sectorLabel((s['slug'] ?? '').toString(), sectors),
               active: selected == (s['slug'] ?? '').toString(),
               onTap: () => onSelect((s['slug'] ?? '').toString()),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// K16 — the sub-categories under the chosen sector.
+///
+/// Visually lighter than [_SectorFilterRow] and indented, because it is a
+/// second level: two identical rows stacked would read as two independent
+/// filters rather than as a parent and its children.
+class _SubCategoryFilterRow extends StatelessWidget {
+  const _SubCategoryFilterRow({
+    required this.categories,
+    required this.selected,
+    required this.onSelect,
+  });
+
+  final List<Map<String, dynamic>> categories;
+  final String? selected;
+  final void Function(String?) onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 32,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: [
+          _SectorChip(
+            label: 'city_all'.tr,
+            active: selected == null,
+            onTap: () => onSelect(null),
+          ),
+          for (final c in categories) ...[
+            const SizedBox(width: 8),
+            _SectorChip(
+              // The four name_* columns are seeded for all 27 rows, so this
+              // resolves to a real word in every supported language rather
+              // than leaking the slug.
+              label: localizedContentFromValues(
+                base: (c['name_en'] ?? '').toString(),
+                arabic: (c['name_ar'] ?? '').toString(),
+                sorani: (c['name_ckb'] ?? '').toString(),
+                badini: (c['name_kmr'] ?? '').toString(),
+                fallback: (c['slug'] ?? '').toString(),
+              ),
+              active: selected == (c['slug'] ?? '').toString(),
+              onTap: () => onSelect((c['slug'] ?? '').toString()),
             ),
           ],
         ],

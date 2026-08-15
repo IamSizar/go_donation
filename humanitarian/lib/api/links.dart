@@ -161,6 +161,12 @@ const String caseCategoriesUrl = '${baseUrl}case-categories';
 /// GET: admin-managed City Guide sectors for the directory filter chips (#29).
 const String citySectorsUrl = '${baseUrl}city-sectors';
 
+/// GET: admin-managed City Guide SUB-categories, the second half of the
+/// spec's "Main and subcategory" (migration 101, 27 rows in four languages).
+/// Public, like `citySectorsUrl`. K16 — the route and the data have existed
+/// since migration 101; the app had never asked for either.
+const String cityCategoriesUrl = '${baseUrl}city-categories';
+
 /// POST: a user suggests a new City Guide place → admin approval queue (#30).
 const String communitySubmitUrl = '${baseUrl}community/submit';
 

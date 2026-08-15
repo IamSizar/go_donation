@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/modules/community/controllers/community_controller.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
@@ -18,7 +19,6 @@ class AddActivityScreen extends StatefulWidget {
 
 class _AddActivityScreenState extends State<AddActivityScreen> {
   final _name = TextEditingController();
-  final _category = TextEditingController();
   final _city = TextEditingController();
   final _address = TextEditingController();
   final _phone = TextEditingController();
@@ -26,6 +26,12 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
   final _lat = TextEditingController();
   final _lng = TextEditingController();
   final _selected = <String>{};
+
+  /// The chosen sub-category's slug (K16). Null until one is picked, which is
+  /// what `_submit` validates — the field is required, exactly as the free-text
+  /// box it replaces was.
+  String? _categorySlug;
+
   bool _busy = false;
 
   late final CommunityController _controller =
@@ -37,27 +43,35 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
   void initState() {
     super.initState();
     if (_controller.sectors.isEmpty) _controller.fetchSectors();
+    // K16 — the curated sub-categories. Without them "التصنيف" was a free-text
+    // box, which is how the column ended up holding 'asdsa' and single Arabic
+    // letters alongside real values.
+    if (_controller.categories.isEmpty) _controller.fetchCategories();
   }
 
   @override
   void dispose() {
-    for (final c in [
-      _name,
-      _category,
-      _city,
-      _address,
-      _phone,
-      _hours,
-      _lat,
-      _lng,
-    ]) {
+    for (final c in [_name, _city, _address, _phone, _hours, _lat, _lng]) {
       c.dispose();
     }
     super.dispose();
   }
 
+  /// The sub-categories offered, given the sectors ticked below.
+  ///
+  /// Scoped rather than showing all 27: a place tagged "الصحة" has no business
+  /// offering "Malls and shopping complexes", and the whole point of the
+  /// curated list is that the pair is coherent. With no sector chosen yet the
+  /// list is empty and the field says so, which is also the nudge to pick one.
+  List<Map<String, dynamic>> get _categoryOptions {
+    if (_selected.isEmpty) return const [];
+    return _controller.categories
+        .where((c) => _selected.contains((c['sector_slug'] ?? '').toString()))
+        .toList();
+  }
+
   Future<void> _submit() async {
-    if (_name.text.trim().isEmpty || _category.text.trim().isEmpty) {
+    if (_name.text.trim().isEmpty || _categorySlug == null) {
       Get.snackbar('add_activity'.tr, 'activity_need_fields'.tr);
       return;
     }
@@ -65,7 +79,9 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
     try {
       await const ModuleApi().submitCommunity({
         'name': _name.text.trim(),
-        'category': _category.text.trim(),
+        // The SLUG, not a typed name: it is stable across languages, and the
+        // City Guide filter matches it directly.
+        'category': _categorySlug!,
         'city': _city.text.trim(),
         'address': _address.text.trim(),
         'phone': _phone.text.trim(),
@@ -93,7 +109,6 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
         children: [
           _field(_name, 'activity_name'.tr, required: true),
-          _field(_category, 'activity_category'.tr, required: true),
           _field(_city, 'activity_city'.tr),
           _field(_address, 'activity_address'.tr),
           _field(_phone, 'activity_phone'.tr, keyboard: TextInputType.phone),
@@ -149,6 +164,61 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                       ),
                   ],
                 ),
+              ],
+            );
+          }),
+          const SizedBox(height: 16),
+          // K16 — "التصنيف" is a picker now, fed by the curated list under the
+          // sectors ticked above. It sits BELOW the sectors on purpose: it
+          // cannot offer anything until one is chosen, and a control that
+          // fills in after the control above it reads as a consequence rather
+          // than as a bug.
+          Obx(() {
+            final options = _categoryOptions;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${'activity_category'.tr} *',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: AppThemeConfig.text(context),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                if (_controller.categoriesLoading.value)
+                  const AppSkeleton(child: SizedBox(height: 38))
+                else if (_controller.categoriesError.value != null)
+                  AppErrorState(
+                    message: _controller.categoriesError.value!,
+                    onRetry: _controller.fetchCategories,
+                  )
+                else if (options.isEmpty)
+                  Text(
+                    'activity_pick_sector_first'.tr,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: AppThemeConfig.mutedText(context),
+                    ),
+                  )
+                else
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final c in options)
+                        _categoryChip(
+                          (c['slug'] ?? '').toString(),
+                          localizedContentFromValues(
+                            base: (c['name_en'] ?? '').toString(),
+                            arabic: (c['name_ar'] ?? '').toString(),
+                            sorani: (c['name_ckb'] ?? '').toString(),
+                            badini: (c['name_kmr'] ?? '').toString(),
+                            fallback: (c['slug'] ?? '').toString(),
+                          ),
+                        ),
+                    ],
+                  ),
               ],
             );
           }),
@@ -215,7 +285,26 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
         } else {
           _selected.add(slug);
         }
+        // Un-ticking a sector can strand a sub-category belonging to it, which
+        // would then be submitted under a sector the place is not in.
+        if (_categorySlug != null &&
+            !_categoryOptions.any(
+              (c) => (c['slug'] ?? '').toString() == _categorySlug,
+            )) {
+          _categorySlug = null;
+        }
       }),
+    );
+  }
+
+  /// One sub-category option. Single-select: a place has one classification,
+  /// and the spec calls the field "التصنيف الرئيسي والفرعي" — one of each.
+  Widget _categoryChip(String slug, String label) {
+    return ChoiceChip(
+      label: Text(label),
+      selected: _categorySlug == slug,
+      onSelected: (picked) =>
+          setState(() => _categorySlug = picked ? slug : null),
     );
   }
 }

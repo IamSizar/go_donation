@@ -20,11 +20,21 @@ class CommunityController extends GetxController {
   final sectorsLoading = false.obs;
   final sectorsError = RxnString();
 
+  // K16 — the curated sub-categories under each sector (migration 101, 27
+  // rows, four languages). They were seeded and served from day one; the app
+  // had simply never called `GET /api/city-categories`, so a sector opened
+  // onto nothing and "التصنيف" on the add-a-place form was a typing box.
+  final categories = <Map<String, dynamic>>[].obs;
+  final selectedCategory = RxnString();
+  final categoriesLoading = false.obs;
+  final categoriesError = RxnString();
+
   @override
   void onInit() {
     super.onInit();
     fetchEntries();
     fetchSectors();
+    fetchCategories();
   }
 
   Future<void> fetchEntries() async {
@@ -69,21 +79,102 @@ class CommunityController extends GetxController {
     }
   }
 
-  void selectSector(String? slug) {
-    selectedSector.value = slug;
+  /// Loads the sub-category catalogue. Same failure policy as [fetchSectors]:
+  /// recorded, not swallowed, so the chip row can say what went wrong and
+  /// offer a retry instead of silently not being there.
+  Future<void> fetchCategories() async {
+    categoriesLoading.value = true;
+    categoriesError.value = null;
+    try {
+      final rows = await const ModuleApi().cityCategories();
+      categories.assignAll(rows);
+    } catch (_) {
+      categories.clear();
+      categoriesError.value = 'Could not load the sub-categories.';
+    } finally {
+      categoriesLoading.value = false;
+    }
   }
 
-  // Entries filtered by the selected sector (#29). An entry matches when its
-  // `sectors` array contains the selected slug. No selection → all entries.
+  void selectSector(String? slug) {
+    selectedSector.value = slug;
+    // A sub-category belongs to exactly one sector, so keeping the old one
+    // selected after switching would filter the list to nothing and read as
+    // "the guide is empty" rather than "that combination cannot exist".
+    selectedCategory.value = null;
+  }
+
+  void selectCategory(String? slug) {
+    selectedCategory.value = slug;
+  }
+
+  /// The sub-categories offered under the currently selected sector.
+  ///
+  /// Empty when no sector is chosen, deliberately: 27 chips with no parent is
+  /// not a filter, it is a wall, and the sectors exist precisely to narrow it
+  /// first.
+  List<Map<String, dynamic>> get categoriesForSelectedSector {
+    final sector = selectedSector.value;
+    if (sector == null || sector.isEmpty) return const [];
+    return categories
+        .where((c) => (c['sector_slug'] ?? '').toString() == sector)
+        .toList();
+  }
+
+  /// Every spelling of [categorySlug] an entry's free-text `category` column
+  /// might legitimately hold: the slug itself, and each of the four localized
+  /// names.
+  ///
+  /// WHY MATCHING IS NOT JUST THE SLUG. Migration 101 deliberately left
+  /// `city_directory_entries.category` in place rather than migrating it, so
+  /// staff can retag at their own pace and nothing is lost. That column was
+  /// filled in by hand and holds values like 'الصيدليات ومخازن المستلزمات
+  /// الطبية' next to 'training' and 'asdsa'. Matching the slug alone would
+  /// hide every place recorded before the curated list existed.
+  Set<String> _spellingsOf(String categorySlug) {
+    for (final c in categories) {
+      if ((c['slug'] ?? '').toString() != categorySlug) continue;
+      return {
+        for (final key in const [
+          'slug',
+          'name_en',
+          'name_ar',
+          'name_ckb',
+          'name_kmr',
+        ])
+          (c[key] ?? '').toString().trim().toLowerCase(),
+      }..removeWhere((s) => s.isEmpty);
+    }
+    return {categorySlug.toLowerCase()};
+  }
+
+  // Entries filtered by the selected sector (#29) and, under it, the selected
+  // sub-category (K16). An entry matches the sector when its `sectors` array
+  // contains the slug; it matches the sub-category when its free-text
+  // `category` equals any spelling of that sub-category.
   List<Map<String, dynamic>> get filteredEntries {
     final slug = selectedSector.value;
-    if (slug == null || slug.isEmpty) return entries.toList();
-    return entries.where((e) {
-      final raw = e['sectors'];
-      if (raw is List) {
-        return raw.map((s) => s.toString()).contains(slug);
-      }
-      return false;
-    }).toList();
+    var rows = entries.toList();
+
+    if (slug != null && slug.isNotEmpty) {
+      rows = rows.where((e) {
+        final raw = e['sectors'];
+        if (raw is List) {
+          return raw.map((s) => s.toString()).contains(slug);
+        }
+        return false;
+      }).toList();
+    }
+
+    final category = selectedCategory.value;
+    if (category != null && category.isNotEmpty) {
+      final spellings = _spellingsOf(category);
+      rows = rows.where((e) {
+        final value = (e['category'] ?? '').toString().trim().toLowerCase();
+        return value.isNotEmpty && spellings.contains(value);
+      }).toList();
+    }
+
+    return rows;
   }
 }

@@ -457,6 +457,21 @@ All 13 currently fall back to English for a Kurdish reader.
 > Donations page shipped — so the app and the dashboard now say the same word
 > for the same state rather than two translators' versions of it.
 
+## community · K16 City Guide sub-categories  (2 keys)
+
+Added 2026-08-15 by the K16 fix. The "التصنيف" field on إضافة نشاط stopped
+being a typing box and became a picker over the 27 curated sub-categories,
+scoped to the sectors the user ticked above it.
+
+**The 27 sub-category names themselves need nothing** — migration 101 seeded
+`name_ckb` and `name_kmr` for every row, so the chips already read correctly in
+both Kurdish variants. Only these two UI strings are outstanding.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `activity_pick_sector_first` | Choose a sector above to see its sub-categories. | اختر قطاعًا في الأعلى لعرض فئاته الفرعية. | ckb + kmr |
+| `activity_need_fields` | Please enter a name and choose a sub-category. | يرجى إدخال الاسم واختيار فئة فرعية. | **ckb + kmr — REWORDED**, the existing Kurdish says "enter a name and a category" and now describes a control that no longer exists |
+
 ## (shared / not directly referenced)  (16 keys)
 
 | Key | English | Arabic | Needs |
