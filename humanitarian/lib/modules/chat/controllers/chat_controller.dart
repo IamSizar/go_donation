@@ -40,6 +40,9 @@ class ChatController extends GetxController {
     try {
       await fetchThreads(silent: true);
     } catch (_) {
+      // Deliberate: background poll (every 5s). The last good thread list stays
+      // on screen and the next tick retries seconds later — surfacing a
+      // transient poll failure would flicker an error banner on and off.
       return;
     }
     final now = threads.map((t) => t.id).toSet();
@@ -91,7 +94,8 @@ class ChatController extends GetxController {
   /// Opens (or reuses) a direct chat with the configured support/tech staff
   /// account (#45) — powers "Message the staff team" entry points across
   /// sections (Marriage and similar).
-  Future<({int threadId, String status, bool already})> requestSupportChat() async {
+  Future<({int threadId, String status, bool already})>
+  requestSupportChat() async {
     final res = await const ModuleApi().postJson(chatSupportUrl, {});
     await fetchThreads(silent: true);
     return (
@@ -131,7 +135,10 @@ class ChatThreadController extends GetxController {
   void onInit() {
     super.onInit();
     fetchMessages();
-    _poll = Timer.periodic(const Duration(seconds: 3), (_) => fetchMessages(silent: true));
+    _poll = Timer.periodic(
+      const Duration(seconds: 3),
+      (_) => fetchMessages(silent: true),
+    );
   }
 
   @override
@@ -151,9 +158,9 @@ class ChatThreadController extends GetxController {
       final items = res['items'];
       final list = items is List
           ? items
-              .whereType<Map>()
-              .map((e) => ChatMessage.fromMap(Map<String, dynamic>.from(e)))
-              .toList()
+                .whereType<Map>()
+                .map((e) => ChatMessage.fromMap(Map<String, dynamic>.from(e)))
+                .toList()
           : <ChatMessage>[];
       // Chime on a genuinely new incoming message during a silent poll.
       final newest = list.isEmpty ? 0 : list.last.id;
@@ -175,7 +182,9 @@ class ChatThreadController extends GetxController {
     if (text.isEmpty || isSending.value) return false;
     isSending.value = true;
     try {
-      final res = await const ModuleApi().postJson(chatMessagesUrl(threadId), {'body': text});
+      final res = await const ModuleApi().postJson(chatMessagesUrl(threadId), {
+        'body': text,
+      });
       final m = res['message'];
       if (m is Map) {
         messages.add(ChatMessage.fromMap(Map<String, dynamic>.from(m)));

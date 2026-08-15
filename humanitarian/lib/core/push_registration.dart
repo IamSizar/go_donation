@@ -78,16 +78,15 @@ abstract final class PushRegistration {
     final platform = _platformString();
 
     try {
-      await const ModuleApi().postJson(
-        '${baseUrl}notifications/device',
-        {
-          'device_token': token,
-          'platform': platform,
-          'app_version': _appVersionGuess,
-          'locale_code': localeCode,
-        },
+      await const ModuleApi().postJson('${baseUrl}notifications/device', {
+        'device_token': token,
+        'platform': platform,
+        'app_version': _appVersionGuess,
+        'locale_code': localeCode,
+      });
+      debugPrint(
+        '[push] registered token (locale=$localeCode, platform=$platform)',
       );
-      debugPrint('[push] registered token (locale=$localeCode, platform=$platform)');
     } catch (e) {
       // Don't surface to the user — silently retry on next trigger.
       debugPrint('[push] register failed (will retry): $e');
@@ -103,16 +102,22 @@ abstract final class PushRegistration {
     try {
       token = await FirebaseMessaging.instance.getToken();
     } catch (_) {
+      // Deliberate: this runs inside sign-out. With no token there is no row to
+      // deactivate, and blocking or alarming a user who is leaving would be
+      // worse than the consequence (pushes keep arriving until the next login
+      // re-registers this device).
       return;
     }
     if (token == null || token.isEmpty) return;
     try {
-      await const ModuleApi().postJson(
-        '${baseUrl}notifications/device',
-        {'device_token': token, 'unregister': true},
-      );
+      await const ModuleApi().postJson('${baseUrl}notifications/device', {
+        'device_token': token,
+        'unregister': true,
+      });
     } catch (_) {
-      // ignore
+      // Deliberate: best-effort cleanup during sign-out. The next successful
+      // registration overwrites this device row anyway, so a failure here is
+      // self-healing and must not interrupt the sign-out flow.
     }
   }
 

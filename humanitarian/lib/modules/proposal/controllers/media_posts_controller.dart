@@ -54,6 +54,9 @@ class MediaPostsController extends GetxController {
           (res['like_count'] as num?)?.toInt() ?? post['like_count'];
       posts.refresh();
     } catch (_) {
+      // Deliberate: the rollback restores the exact pre-tap counts, so the card
+      // never shows a like the server did not record. The heart visibly springing
+      // back is the feedback; a snackbar per failed tap would be noise.
       post['liked_by_me'] = wasLiked;
       post['like_count'] = count;
       posts.refresh();
@@ -76,6 +79,8 @@ class MediaPostsController extends GetxController {
       post['saved_by_me'] = res['saved'] == true;
       posts.refresh();
     } catch (_) {
+      // Deliberate: same optimistic rollback as [toggleLike] — the flag returns
+      // to its true value, so nothing false is left on screen.
       post['saved_by_me'] = wasSaved;
       posts.refresh();
     }
@@ -108,6 +113,8 @@ class MediaPostsController extends GetxController {
     try {
       categories.assignAll(await const ModuleApi().mediaCategories());
     } catch (_) {
+      // Deliberate: no chips is a NARROWER claim than a wrong chip row, and the
+      // posts themselves (which carry their own error state) still load.
       categories.clear();
     }
   }

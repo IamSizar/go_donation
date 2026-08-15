@@ -5,6 +5,7 @@ import 'package:flutter_application_1/modules/marriage/widgets/marriage_post_car
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:flutter_application_1/modules/marriage/widgets/marriage_request_sheet.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 /// Marriage Posts — the continuous feed of approved marriage profiles
 /// themselves (photo + age/city/gender + bio cards), newest first, infinite
@@ -103,11 +104,7 @@ class _MarriagePostsScreenState extends State<MarriagePostsScreen> {
     try {
       final type = await pickMarriageRequestType(context);
       if (type == null || !mounted) return;
-      await const ModuleApi().requestMarriageMeeting(
-        id,
-        '',
-        requestType: type,
-      );
+      await const ModuleApi().requestMarriageMeeting(id, '', requestType: type);
       Get.snackbar('marriage_posts_title'.tr, 'meeting_requested'.tr);
     } catch (_) {
       Get.snackbar('marriage_posts_title'.tr, 'meeting_request_failed'.tr);
@@ -119,48 +116,44 @@ class _MarriagePostsScreenState extends State<MarriagePostsScreen> {
     return SectionScaffold(
       title: 'marriage_posts_title'.tr,
       subtitle: 'marriage_posts_subtitle'.tr,
-      child: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _loadFirstPage,
-              child: ListView(
-                controller: _scroll,
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 40),
-                children: [
-                  if (_error != null)
-                    SectionTile(
-                      icon: Icons.diversity_1_rounded,
-                      title: 'marriage_posts_title'.tr,
-                      subtitle: _error!,
-                      color: Colors.deepPurple,
-                      onTap: _loadFirstPage,
-                    )
-                  else if (_items.isEmpty)
-                    SectionTile(
-                      icon: Icons.diversity_1_rounded,
-                      title: 'marriage_posts_title'.tr,
-                      subtitle: 'marriage_posts_empty'.tr,
-                      color: Colors.deepPurple,
-                    )
-                  else ...[
-                    for (final item in _items) ...[
-                      MarriagePostCard(
-                        profile: item,
-                        saved: _saved.contains((item['id'] as num).toInt()),
-                        onSave: () => _toggleSave((item['id'] as num).toInt()),
-                        onMeet: () => _requestMeeting((item['id'] as num).toInt()),
-                      ),
-                      const SizedBox(height: 14),
-                    ],
-                    if (_loadingMore)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        child: Center(child: CircularProgressIndicator()),
-                      ),
-                  ],
-                ],
-              ),
-            ),
+      child: AppAsync<List<Map<String, dynamic>>>(
+        loading: _loading,
+        error: _error,
+        onRetry: _loadFirstPage,
+        data: _items,
+        isEmpty: (list) => list.isEmpty,
+        empty: AppEmpty(
+          icon: Icons.diversity_1_rounded,
+          title: 'marriage_posts_title'.tr,
+          message: 'marriage_posts_empty'.tr,
+        ),
+        builder: (list) => RefreshIndicator(
+          onRefresh: _loadFirstPage,
+          child: ListView(
+            controller: _scroll,
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 40),
+            children: [
+              for (final item in list) ...[
+                MarriagePostCard(
+                  profile: item,
+                  saved: _saved.contains((item['id'] as num).toInt()),
+                  onSave: () => _toggleSave((item['id'] as num).toInt()),
+                  onMeet: () => _requestMeeting((item['id'] as num).toInt()),
+                ),
+                const SizedBox(height: 14),
+              ],
+              // Pagination spinner, NOT a load state: this appends to a list
+              // the user is already reading, so it belongs inside the content
+              // rather than replacing it.
+              if (_loadingMore)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

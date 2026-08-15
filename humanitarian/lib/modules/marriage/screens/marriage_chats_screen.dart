@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/module_api.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/modules/marriage/screens/marriage_chat_conversation_screen.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
@@ -26,7 +27,15 @@ class _MarriageChatsScreenState extends State<MarriageChatsScreen> {
 
   Future<void> _refresh() async {
     setState(() => _future = const ModuleApi().marriageChats());
-    await _future;
+    try {
+      await _future;
+    } catch (_) {
+      // Deliberately not surfaced here: the FutureBuilder above reads
+      // snapshot.hasError and renders the error state with its retry. This
+      // await exists only so the pull-to-refresh spinner waits for the fetch,
+      // and without the guard a failed retry would also throw out of this
+      // callback as an unhandled async error.
+    }
   }
 
   @override
@@ -37,32 +46,36 @@ class _MarriageChatsScreenState extends State<MarriageChatsScreen> {
       child: FutureBuilder<List<Map<String, dynamic>>>(
         future: _future,
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+          // The failure copy was previously rendered as a bare centred line
+          // inside the empty branch: the user was told the load failed, but
+          // handed no way out — a dead-end error screen, which the four-state
+          // rule counts as a bug. It now routes through AppAsync so the same
+          // message arrives with a working retry that re-runs the fetch.
+          if (snapshot.hasError) {
+            debugPrint('marriageChats failed: ${snapshot.error}');
           }
-          final items = snapshot.data ?? const <Map<String, dynamic>>[];
-          return RefreshIndicator(
-            onRefresh: _refresh,
-            child: items.isEmpty
-                ? ListView(
-                    padding: const EdgeInsets.fromLTRB(20, 40, 20, 40),
-                    children: [
-                      Center(
-                        child: Text(
-                          snapshot.hasError
-                              ? 'marriage_chats_load_failed'.tr
-                              : 'marriage_chats_empty'.tr,
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ],
-                  )
-                : ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
-                    itemCount: items.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 10),
-                    itemBuilder: (_, i) => _ThreadTile(thread: items[i]),
-                  ),
+          return AppAsync<List<Map<String, dynamic>>>(
+            loading: snapshot.connectionState == ConnectionState.waiting,
+            // Retry clears the error implicitly: _refresh replaces _future, so
+            // the next snapshot starts clean.
+            error: snapshot.hasError ? 'marriage_chats_load_failed'.tr : null,
+            onRetry: _refresh,
+            data: snapshot.data ?? const <Map<String, dynamic>>[],
+            isEmpty: (threads) => threads.isEmpty,
+            empty: AppEmpty(
+              icon: Icons.forum_rounded,
+              title: 'marriage_chats_title'.tr,
+              message: 'marriage_chats_empty'.tr,
+            ),
+            builder: (threads) => RefreshIndicator(
+              onRefresh: _refresh,
+              child: ListView.separated(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+                itemCount: threads.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                itemBuilder: (_, i) => _ThreadTile(thread: threads[i]),
+              ),
+            ),
           );
         },
       ),
@@ -87,20 +100,27 @@ class _ThreadTile extends StatelessWidget {
 
     return GlassPanel(
       child: InkWell(
-        onTap: () => Get.to(() => MarriageChatConversationScreen(
-              threadId: id,
-              otherLabel: otherLabel,
-              myRole: myRole,
-              initialStatus: status,
-            )),
+        onTap: () => Get.to(
+          () => MarriageChatConversationScreen(
+            threadId: id,
+            otherLabel: otherLabel,
+            myRole: myRole,
+            initialStatus: status,
+          ),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 Expanded(
-                  child: Text(otherLabel,
-                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                  child: Text(
+                    otherLabel,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 15,
+                    ),
+                  ),
                 ),
                 _StatusChip(status: status),
               ],
@@ -125,8 +145,8 @@ class _StatusChip extends StatelessWidget {
     final color = status == 'active'
         ? Colors.green
         : status == 'pending'
-            ? Colors.orange
-            : Colors.grey;
+        ? Colors.orange
+        : Colors.grey;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
@@ -135,7 +155,11 @@ class _StatusChip extends StatelessWidget {
       ),
       child: Text(
         'marriage_chat_status_$status'.tr,
-        style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w700),
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }

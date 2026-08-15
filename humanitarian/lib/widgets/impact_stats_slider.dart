@@ -5,6 +5,7 @@ import 'package:flutter_application_1/api/stats_api.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_application_1/core/design/motion.dart';
 
 /// Auto-rotating "Our impact" carousel shown near the top of the home tab.
 ///
@@ -57,7 +58,6 @@ class _ImpactStatsSliderState extends State<ImpactStatsSlider> {
           value: s.grantors.toDouble(),
           label: 'Grantors'.tr,
           format: _count,
-          gradient: const [Color(0xFFF59E0B), Color(0xFFEA580C)],
         ),
       if (s.eligibles > 0)
         _ImpactSlide(
@@ -65,7 +65,6 @@ class _ImpactStatsSliderState extends State<ImpactStatsSlider> {
           value: s.eligibles.toDouble(),
           label: 'Beneficiaries'.tr,
           format: _count,
-          gradient: const [Color(0xFFDB2777), Color(0xFFF43F5E)],
         ),
       if (s.completedWorks > 0)
         _ImpactSlide(
@@ -73,7 +72,6 @@ class _ImpactStatsSliderState extends State<ImpactStatsSlider> {
           value: s.completedWorks.toDouble(),
           label: 'Completed activities'.tr,
           format: _count,
-          gradient: const [Color(0xFF4F46E5), Color(0xFF3B82F6)],
         ),
     ];
     return all;
@@ -129,10 +127,10 @@ class _ImpactStatsSliderState extends State<ImpactStatsSlider> {
       children: [
         Row(
           children: [
-            const Icon(
+            Icon(
               Icons.insights_rounded,
               size: 18,
-              color: Color(0xFF14B8A6),
+              color: AppThemeConfig.accent(context),
             ),
             const SizedBox(width: 8),
             Text(
@@ -164,14 +162,14 @@ class _ImpactStatsSliderState extends State<ImpactStatsSlider> {
           children: [
             for (int i = 0; i < _slides.length; i++)
               AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
+                duration: AppMotion.resolve(context, AppMotion.settleDuration),
                 margin: const EdgeInsets.symmetric(horizontal: 3),
                 width: i == _current ? 20 : 7,
                 height: 7,
                 decoration: BoxDecoration(
                   color: i == _current
-                      ? const Color(0xFF0F766E)
-                      : const Color(0xFF0F766E).withValues(alpha: 0.25),
+                      ? AppThemeConfig.accent(context)
+                      : AppThemeConfig.accent(context).withValues(alpha: 0.25),
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
@@ -188,14 +186,12 @@ class _ImpactSlide {
     required this.value,
     required this.label,
     required this.format,
-    required this.gradient,
   });
 
   final IconData icon;
   final double value;
   final String label;
   final String Function(double) format;
-  final List<Color> gradient;
 }
 
 class _ImpactCard extends StatelessWidget {
@@ -207,15 +203,16 @@ class _ImpactCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: slide.gradient,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        // One accent for every slide. The metrics are told apart by their
+        // icon, number and label; giving each its own hue made colour mean
+        // "which statistic" instead of meaning anything about state, and put
+        // an amber, a magenta and an indigo card on a screen whose palette
+        // contains none of them.
+        color: AppThemeConfig.accent(context),
         borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(
-            color: slide.gradient.last.withValues(alpha: 0.35),
+            color: AppThemeConfig.accent(context).withValues(alpha: 0.20),
             blurRadius: 18,
             offset: const Offset(0, 8),
           ),
@@ -233,7 +230,7 @@ class _ImpactCard extends StatelessWidget {
               height: 120,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.10),
+                color: AppThemeConfig.onAccent(context).withValues(alpha: 0.10),
               ),
             ),
           ),
@@ -246,10 +243,16 @@ class _ImpactCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.20),
+                    color: AppThemeConfig.onAccent(
+                      context,
+                    ).withValues(alpha: 0.20),
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  child: Icon(slide.icon, color: Colors.white, size: 22),
+                  child: Icon(
+                    slide.icon,
+                    color: AppThemeConfig.onAccent(context),
+                    size: 22,
+                  ),
                 ),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -262,8 +265,8 @@ class _ImpactCard extends StatelessWidget {
                         slide.format(v),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: AppThemeConfig.onAccent(context),
                           fontSize: 22,
                           fontWeight: FontWeight.w900,
                           letterSpacing: 0.2,
@@ -276,7 +279,9 @@ class _ImpactCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.92),
+                        color: AppThemeConfig.onAccent(
+                          context,
+                        ).withValues(alpha: 0.92),
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                       ),

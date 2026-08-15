@@ -5,6 +5,8 @@ import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_application_1/core/widgets/app_pressable.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 /// Note #35 — one staff-mediated marriage chat thread. Every bubble is
 /// labeled only by role ("You" / the counterpart's masked label / "Staff")
@@ -35,9 +37,14 @@ class _MarriageChatConversationScreenState
   Timer? _poll;
   List<Map<String, dynamic>> _messages = [];
   late String _status;
+
+  /// True only for the FIRST load. The 3-second poll and the accept/decline
+  /// reload must never flash a skeleton over messages already on screen.
   bool _loading = true;
   bool _sending = false;
   bool _deciding = false;
+
+  /// A user-facing failure message, or null when the last load succeeded.
   String? _error;
 
   @override
@@ -45,7 +52,10 @@ class _MarriageChatConversationScreenState
     super.initState();
     _status = widget.initialStatus;
     _load();
-    _poll = Timer.periodic(const Duration(seconds: 3), (_) => _load(silent: true));
+    _poll = Timer.periodic(
+      const Duration(seconds: 3),
+      (_) => _load(silent: true),
+    );
   }
 
   @override
@@ -57,7 +67,15 @@ class _MarriageChatConversationScreenState
   }
 
   Future<void> _load({bool silent = false}) async {
-    if (!silent) setState(() => _loading = true);
+    // Only the first load shows the loading state; once we hold messages a
+    // reload refreshes them in place. Clearing the error here is what makes
+    // the retry button work — a recovered fetch drops the banner.
+    if (!silent) {
+      setState(() {
+        _loading = _messages.isEmpty;
+        _error = null;
+      });
+    }
     try {
       final res = await const ModuleApi().marriageChatMessages(widget.threadId);
       final items = (res['items'] as List? ?? const [])
@@ -72,8 +90,15 @@ class _MarriageChatConversationScreenState
       });
       _scrollToBottom();
     } catch (e) {
+      // `_error = e.toString()` used to put the raw exception in front of the
+      // user. The message is now plain language; the cause goes to the log.
+      // A silent poll failure stays silent — the messages already on screen
+      // are still the best thing we can show, and the next tick may recover.
+      debugPrint('marriageChatMessages(${widget.threadId}) failed: $e');
       if (!mounted) return;
-      if (!silent) setState(() => _error = e.toString());
+      if (!silent) {
+        setState(() => _error = 'Could not load this conversation.');
+      }
     } finally {
       if (!silent && mounted) setState(() => _loading = false);
     }
@@ -101,7 +126,9 @@ class _MarriageChatConversationScreenState
       await _load(silent: true);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
         _input.text = text;
       }
     } finally {
@@ -120,7 +147,9 @@ class _MarriageChatConversationScreenState
       await _load();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
       }
     } finally {
       if (mounted) setState(() => _deciding = false);
@@ -132,7 +161,10 @@ class _MarriageChatConversationScreenState
     final isOwner = widget.myRole == 'owner';
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.otherLabel, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+        title: Text(
+          widget.otherLabel,
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+        ),
       ),
       body: Column(
         children: [
@@ -143,12 +175,19 @@ class _MarriageChatConversationScreenState
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.shield_rounded, size: 14, color: AppThemeConfig.primary),
+                Icon(
+                  Icons.shield_rounded,
+                  size: 14,
+                  color: AppThemeConfig.primary,
+                ),
                 const SizedBox(width: 6),
                 Flexible(
                   child: Text(
                     'marriage_chat_mediated_notice'.tr,
-                    style: TextStyle(fontSize: 11.5, color: AppThemeConfig.mutedText(context)),
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: AppThemeConfig.mutedText(context),
+                    ),
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -161,8 +200,10 @@ class _MarriageChatConversationScreenState
               child: Row(
                 children: [
                   Expanded(
-                    child: Text('marriage_chat_pending_owner_notice'.tr,
-                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                    child: Text(
+                      'marriage_chat_pending_owner_notice'.tr,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
                   ),
                   const SizedBox(width: 8),
                   OutlinedButton(
@@ -180,28 +221,52 @@ class _MarriageChatConversationScreenState
           else if (_status == 'pending' && !isOwner)
             Padding(
               padding: const EdgeInsets.all(14),
-              child: Text('marriage_chat_pending_requester_notice'.tr, textAlign: TextAlign.center),
+              child: Text(
+                'marriage_chat_pending_requester_notice'.tr,
+                textAlign: TextAlign.center,
+              ),
             ),
           Expanded(
-            child: _loading && _messages.isEmpty
-                ? const Center(child: CircularProgressIndicator())
-                : _error != null && _messages.isEmpty
-                    ? Center(child: Text(_error!))
-                    : _messages.isEmpty
-                        ? Center(child: Text('marriage_chat_no_messages'.tr))
-                        : ListView.builder(
-                            controller: _scroll,
-                            padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-                            itemCount: _messages.length,
-                            itemBuilder: (context, i) => _Bubble(message: _messages[i]),
-                          ),
+            // The failure branch used to be `Center(child: Text(_error!))` —
+            // a dead end with no way back. AppAsync gives the same four
+            // states with a retry that re-runs the fetch.
+            child: AppAsync<List<Map<String, dynamic>>>(
+              loading: _loading,
+              error: _error,
+              onRetry: _load,
+              // Null while the first load runs: AppAsync only shows its
+              // skeleton for `loading && data == null`, so handing it an
+              // empty list here would render the empty state instead.
+              data: _loading ? null : _messages,
+              isEmpty: (messages) => messages.isEmpty,
+              // AppAsync would otherwise fall back to AppSkeleton.rows, whose
+              // uniform full-width rows are the wrong shape for a transcript.
+              // Only reachable on the first load: `_loading` stays false for
+              // the 3-second poll and the accept/decline reload, so neither
+              // draws this over messages already on screen.
+              skeleton: AppSkeleton.bubbles(),
+              empty: AppEmpty(
+                icon: Icons.chat_bubble_outline_rounded,
+                title: widget.otherLabel,
+                message: 'marriage_chat_no_messages'.tr,
+              ),
+              builder: (messages) => ListView.builder(
+                controller: _scroll,
+                padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+                itemCount: messages.length,
+                itemBuilder: (context, i) => _Bubble(message: messages[i]),
+              ),
+            ),
           ),
           if (_status == 'active')
             _Composer(input: _input, sending: _sending, onSend: _send)
           else if (_status == 'declined')
             Padding(
               padding: const EdgeInsets.all(14),
-              child: Text('marriage_chat_declined_notice'.tr, textAlign: TextAlign.center),
+              child: Text(
+                'marriage_chat_declined_notice'.tr,
+                textAlign: TextAlign.center,
+              ),
             ),
         ],
       ),
@@ -209,6 +274,13 @@ class _MarriageChatConversationScreenState
   }
 }
 
+/// First-load placeholder for the transcript, shaped like the transcript.
+///
+/// The default [AppSkeleton.rows] is the wrong shape here: this screen's
+/// content is a stack of bubbles of uneven width alternating between the two
+/// edges, so uniform full-width rows would jump into a conversation rather
+/// than fill into one. The bones mirror [_Bubble] — same corner radii, same
+/// 10px gap, a mix of one- and two-line heights so it reads as talking.
 class _Bubble extends StatelessWidget {
   const _Bubble({required this.message});
   final Map<String, dynamic> message;
@@ -222,36 +294,49 @@ class _Bubble extends StatelessWidget {
     final bg = isStaff
         ? Colors.blueGrey.withValues(alpha: 0.18)
         : mine
-            ? AppThemeConfig.primary
-            : AppThemeConfig.softSurface(context);
+        ? AppThemeConfig.primary
+        : AppThemeConfig.softSurface(context);
     final fg = mine && !isStaff ? Colors.white : AppThemeConfig.text(context);
-    final createdAt = DateTime.tryParse((message['created_at'] ?? '').toString());
+    final createdAt = DateTime.tryParse(
+      (message['created_at'] ?? '').toString(),
+    );
 
     return Align(
       alignment: align,
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.76),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.76,
+        ),
         child: Column(
-          crossAxisAlignment: mine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          crossAxisAlignment: mine
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.start,
           children: [
             Padding(
               padding: const EdgeInsets.only(bottom: 3, left: 4, right: 4),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (isStaff) Icon(Icons.shield_rounded, size: 12, color: Colors.blueGrey),
+                  if (isStaff)
+                    Icon(
+                      Icons.shield_rounded,
+                      size: 12,
+                      color: Colors.blueGrey,
+                    ),
                   if (isStaff) const SizedBox(width: 4),
                   Text(
                     mine
                         ? 'marriage_chat_you'.tr
                         : isStaff
-                            ? 'Support'.tr
-                            : 'marriage_chat_other_party'.tr,
+                        ? 'Support'.tr
+                        : 'marriage_chat_other_party'.tr,
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
-                      color: isStaff ? Colors.blueGrey : AppThemeConfig.mutedText(context),
+                      color: isStaff
+                          ? Colors.blueGrey
+                          : AppThemeConfig.mutedText(context),
                     ),
                   ),
                 ],
@@ -278,7 +363,10 @@ class _Bubble extends StatelessWidget {
                 padding: const EdgeInsets.only(top: 3, left: 4, right: 4),
                 child: Text(
                   DateFormat('MMM d · HH:mm').format(createdAt),
-                  style: TextStyle(fontSize: 10, color: AppThemeConfig.mutedText(context)),
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: AppThemeConfig.mutedText(context),
+                  ),
                 ),
               ),
           ],
@@ -289,7 +377,11 @@ class _Bubble extends StatelessWidget {
 }
 
 class _Composer extends StatelessWidget {
-  const _Composer({required this.input, required this.sending, required this.onSend});
+  const _Composer({
+    required this.input,
+    required this.sending,
+    required this.onSend,
+  });
   final TextEditingController input;
   final bool sending;
   final VoidCallback onSend;
@@ -302,7 +394,9 @@ class _Composer extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
         decoration: BoxDecoration(
           color: AppThemeConfig.softSurface(context),
-          border: Border(top: BorderSide(color: AppThemeConfig.border(context))),
+          border: Border(
+            top: BorderSide(color: AppThemeConfig.border(context)),
+          ),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
@@ -317,31 +411,48 @@ class _Composer extends StatelessWidget {
                   hintText: 'Type a message…'.tr,
                   filled: true,
                   fillColor: AppThemeConfig.surface(context),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(22),
-                    borderSide: BorderSide(color: AppThemeConfig.border(context)),
+                    borderSide: BorderSide(
+                      color: AppThemeConfig.border(context),
+                    ),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(22),
-                    borderSide: BorderSide(color: AppThemeConfig.border(context)),
+                    borderSide: BorderSide(
+                      color: AppThemeConfig.border(context),
+                    ),
                   ),
                 ),
               ),
             ),
             const SizedBox(width: 8),
-            GestureDetector(
+            AppPressable(
               onTap: sending ? null : onSend,
               child: Container(
                 width: 46,
                 height: 46,
-                decoration: BoxDecoration(color: AppThemeConfig.primary, shape: BoxShape.circle),
+                decoration: BoxDecoration(
+                  color: AppThemeConfig.primary,
+                  shape: BoxShape.circle,
+                ),
                 child: sending
                     ? const Padding(
                         padding: EdgeInsets.all(13),
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       )
-                    : const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                    : const Icon(
+                        Icons.send_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
               ),
             ),
           ],

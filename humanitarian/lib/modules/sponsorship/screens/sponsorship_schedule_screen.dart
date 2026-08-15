@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
+import 'package:flutter_application_1/core/widgets/app_row.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -31,8 +33,20 @@ class _SponsorshipScheduleScreenState extends State<SponsorshipScheduleScreen> {
   ];
 
   String _selected = 'upcoming';
+
+  /// True only while there is nothing to show yet: the first load and each
+  /// filter switch, which discards the previous filter's rows. A
+  /// pull-to-refresh passes `silent: true` and keeps the current rows on
+  /// screen rather than flashing a skeleton over them.
   bool _loading = true;
-  List<ScheduleOccurrence> _items = const [];
+
+  /// User-facing failure message, or null when the last load succeeded.
+  String? _error;
+
+  /// Null while a fresh set of rows is still in flight — AppAsync shows its
+  /// skeleton only when the data is null, which is what distinguishes
+  /// "not loaded yet" from "loaded and genuinely empty".
+  List<ScheduleOccurrence>? _items;
 
   @override
   void initState() {
@@ -40,17 +54,38 @@ class _SponsorshipScheduleScreenState extends State<SponsorshipScheduleScreen> {
     _load();
   }
 
-  Future<void> _load() async {
-    setState(() => _loading = true);
-    final status = _filters.firstWhere((f) => f.key == _selected).status;
-    final items = await const ModuleApi().getSponsorshipSchedule(
-      status: status,
-    );
-    if (!mounted) return;
+  Future<void> _load({bool silent = false}) async {
     setState(() {
-      _items = items;
-      _loading = false;
+      // Cleared here so a successful retry does not leave the previous
+      // failure's banner on screen.
+      _error = null;
+      if (!silent) {
+        _loading = true;
+        _items = null;
+      }
     });
+    final status = _filters.firstWhere((f) => f.key == _selected).status;
+    try {
+      final items = await const ModuleApi().getSponsorshipSchedule(
+        status: status,
+      );
+      if (!mounted) return;
+      setState(() {
+        _items = items;
+        _loading = false;
+      });
+    } catch (e) {
+      // There was no catch here and no error field, so a failed fetch left
+      // `_items` empty and rendered the filter's empty copy — telling a
+      // beneficiary they had no assistance due, or no history, when the
+      // request had merely failed. No retry was offered either.
+      if (!mounted) return;
+      setState(() {
+        _error = 'Could not load your sponsorship schedule.';
+        _loading = false;
+      });
+      debugPrint('getSponsorshipSchedule($status) failed: $e');
+    }
   }
 
   void _select(String key) {
@@ -109,20 +144,32 @@ class _SponsorshipScheduleScreenState extends State<SponsorshipScheduleScreen> {
           ),
           const SizedBox(height: 12),
           Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : _items.isEmpty
-                ? _EmptyState(filterKey: _selected)
-                : RefreshIndicator(
-                    onRefresh: _load,
-                    child: ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                      itemCount: _items.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 10),
-                      itemBuilder: (context, i) =>
-                          _OccurrenceCard(item: _items[i]),
-                    ),
-                  ),
+            child: AppAsync<List<ScheduleOccurrence>>(
+              loading: _loading,
+              error: _error,
+              onRetry: _load,
+              data: _items,
+              isEmpty: (items) => items.isEmpty,
+              // Padded to the list's own gutters so the bones land where the
+              // occurrence cards will.
+              skeleton: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                child: AppSkeleton.rows(count: 4, withProgress: false),
+              ),
+              // The existing per-filter empty copy is kept as-is: "no
+              // upcoming contributions" and "no overdue assistance" are
+              // different messages and both are correct empty states.
+              empty: _EmptyState(filterKey: _selected),
+              builder: (items) => RefreshIndicator(
+                onRefresh: () => _load(silent: true),
+                child: ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                  itemCount: items.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  itemBuilder: (context, i) => _OccurrenceCard(item: items[i]),
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -165,19 +212,20 @@ class _OccurrenceCard extends StatelessWidget {
 
   final ScheduleOccurrence item;
 
-  /// Status colour: overdue reads as a problem, due as action-needed, paid as
+  /// Status tone: overdue reads as a problem, due as action-needed, paid as
   /// settled, upcoming as neutral.
-  Color _statusColor() {
-    switch (item.status) {
-      case 'overdue':
-        return const Color(0xFFEF4444);
-      case 'due':
-        return const Color(0xFFF59E0B);
-      case 'paid':
-        return const Color(0xFF16A34A);
-      default:
-        return AppThemeConfig.primary;
-    }
+  ///
+  /// This replaces three hand-picked hex colours (#EF4444/#F59E0B/#16A34A)
+  /// that tinted both the calendar mark and the pill — the same status drawn
+  /// twice on one row. [AppStatusTag] now states it once, in words, using the
+  /// design system's tokens so it adapts to dark mode for free.
+  AppStatusTone _statusTone() {
+    return switch (item.status) {
+      'overdue' => AppStatusTone.attention,
+      'due' => AppStatusTone.pending,
+      'paid' => AppStatusTone.settled,
+      _ => AppStatusTone.neutral, // upcoming
+    };
   }
 
   String _money() =>
@@ -193,7 +241,9 @@ class _OccurrenceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = _statusColor();
+    // The mark says "this is a dated occurrence" and nothing more; the status
+    // belongs to the tag below the date.
+    final markColor = AppThemeConfig.primary;
     return GlassPanel(
       padding: const EdgeInsets.all(16),
       child: Row(
@@ -202,10 +252,14 @@ class _OccurrenceCard extends StatelessWidget {
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.14),
+              color: markColor.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(14),
             ),
-            child: Icon(Icons.calendar_month_rounded, color: color, size: 22),
+            child: Icon(
+              Icons.calendar_month_rounded,
+              color: markColor,
+              size: 22,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -262,20 +316,11 @@ class _OccurrenceCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  'sched_status_${item.status}'.tr,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 11,
-                    color: color,
-                  ),
-                ),
+              // The existing sched_status_* keys are reused as-is — they are
+              // already translated in all four languages.
+              AppStatusTag(
+                label: 'sched_status_${item.status}',
+                tone: _statusTone(),
               ),
             ],
           ),

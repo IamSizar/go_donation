@@ -11,7 +11,6 @@ import 'package:flutter_application_1/shared/widgets/dismiss_keyboard.dart';
 import 'package:flutter_application_1/modules/auth/screens/guest_upgrade.dart';
 import 'package:flutter_application_1/modules/auth/screens/login.dart';
 import 'package:flutter_application_1/modules/auth/screens/pending_approval.dart';
-import 'package:flutter_application_1/modules/auth/screens/register.dart';
 import 'package:flutter_application_1/modules/auth/screens/registration_form.dart';
 import 'package:flutter_application_1/modules/auth/screens/verification.dart';
 import 'package:flutter_application_1/modules/auth/screens/welcome.dart';
@@ -105,12 +104,16 @@ Future<void> main() async {
   // Foreground messages: log so devs can confirm delivery via console
   // even before the UI work above kicks in.
   FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-    debugPrint('[push] foreground: ${message.notification?.title} — ${message.notification?.body}');
+    debugPrint(
+      '[push] foreground: ${message.notification?.title} — ${message.notification?.body}',
+    );
   });
 
   // Tapping a notification when the app is in the background or terminated.
   FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-    debugPrint('[push] opened from notification: ${message.notification?.title}');
+    debugPrint(
+      '[push] opened from notification: ${message.notification?.title}',
+    );
   });
 
   await initializeAppState();
@@ -189,10 +192,6 @@ class HumanitarianApp extends StatelessWidget {
             transitionDuration: const Duration(milliseconds: 320),
           ),
           GetPage(name: AppRoutes.authLogin, page: () => const LoginPage()),
-          GetPage(
-            name: AppRoutes.authRegister,
-            page: () => const RegisterPage(),
-          ),
           GetPage(
             name: AppRoutes.authVerify,
             page: () => const VerificationPage(),

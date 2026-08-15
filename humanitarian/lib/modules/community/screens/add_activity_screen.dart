@@ -28,7 +28,8 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
   final _selected = <String>{};
   bool _busy = false;
 
-  late final CommunityController _controller = Get.isRegistered<CommunityController>()
+  late final CommunityController _controller =
+      Get.isRegistered<CommunityController>()
       ? Get.find<CommunityController>()
       : Get.put(CommunityController());
 
@@ -40,7 +41,16 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
 
   @override
   void dispose() {
-    for (final c in [_name, _category, _city, _address, _phone, _hours, _lat, _lng]) {
+    for (final c in [
+      _name,
+      _category,
+      _city,
+      _address,
+      _phone,
+      _hours,
+      _lat,
+      _lng,
+    ]) {
       c.dispose();
     }
     super.dispose();
@@ -90,9 +100,21 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
           _field(_hours, 'city_opening_hours'.tr),
           Row(
             children: [
-              Expanded(child: _field(_lat, 'activity_latitude'.tr, keyboard: TextInputType.number)),
+              Expanded(
+                child: _field(
+                  _lat,
+                  'activity_latitude'.tr,
+                  keyboard: TextInputType.number,
+                ),
+              ),
               const SizedBox(width: 12),
-              Expanded(child: _field(_lng, 'activity_longitude'.tr, keyboard: TextInputType.number)),
+              Expanded(
+                child: _field(
+                  _lng,
+                  'activity_longitude'.tr,
+                  keyboard: TextInputType.number,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 8),
@@ -102,11 +124,13 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('field_sectors'.tr,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      color: AppThemeConfig.text(context),
-                    )),
+                Text(
+                  'field_sectors'.tr,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: AppThemeConfig.text(context),
+                  ),
+                ),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
@@ -133,7 +157,9 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
             width: double.infinity,
             child: ElevatedButton(
               onPressed: _busy ? null : _submit,
-              child: Text(_busy ? 'activity_submitting'.tr : 'activity_submit'.tr),
+              child: Text(
+                _busy ? 'activity_submitting'.tr : 'activity_submit'.tr,
+              ),
             ),
           ),
         ],

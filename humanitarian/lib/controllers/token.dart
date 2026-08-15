@@ -30,13 +30,12 @@ class TokenController extends GetxController {
     csrfToken.value = '';
     action.value = actionParam;
 
-    final dio = actionParam == 'campaigns'
-        ? CampaignsApiClient.dio
-        : _dio;
+    final dio = actionParam == 'campaigns' ? CampaignsApiClient.dio : _dio;
 
     try {
-      final uri =
-          Uri.parse(apiUrl).replace(queryParameters: {'action': actionParam});
+      final uri = Uri.parse(
+        apiUrl,
+      ).replace(queryParameters: {'action': actionParam});
       final response = await dio.get(uri.toString());
 
       if (response.statusCode != 200) {
@@ -46,8 +45,9 @@ class TokenController extends GetxController {
         return false;
       }
 
-      final data =
-          response.data is String ? jsonDecode(response.data) : response.data;
+      final data = response.data is String
+          ? jsonDecode(response.data)
+          : response.data;
 
       if (data['status'] != 'success') {
         errorMessage.value =

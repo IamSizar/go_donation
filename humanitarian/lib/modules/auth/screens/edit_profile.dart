@@ -17,7 +17,6 @@ class EditProfilePage extends StatefulWidget {
 }
 
 class _EditProfilePageState extends State<EditProfilePage> {
-  static const Color _primary = Color(0xFF0F766E);
   static const List<String> _genderOptions = ['Male', 'Female', 'Other'];
 
   bool _genderLocked = false;
@@ -275,9 +274,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
         borderRadius: BorderRadius.circular(18),
         borderSide: BorderSide(color: AppThemeConfig.border(context)),
       ),
-      focusedBorder: const OutlineInputBorder(
+      focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.all(Radius.circular(18)),
-        borderSide: BorderSide(color: _primary, width: 1.4),
+        borderSide: BorderSide(
+          color: AppThemeConfig.accent(context),
+          width: 1.4,
+        ),
       ),
     );
   }
@@ -287,16 +289,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     return Scaffold(
       appBar: AppBar(title: Text('Edit profile'.tr)),
       body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              AppThemeConfig.backgroundTop(context),
-              AppThemeConfig.backgroundBottom(context),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
+        decoration: BoxDecoration(color: AppThemeConfig.backgroundTop(context)),
         child: SafeArea(
           top: false,
           child: Form(
@@ -309,7 +302,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     children: [
                       Stack(
                         clipBehavior: Clip.none,
-                        alignment: Alignment.bottomRight,
+                        alignment: AlignmentDirectional.bottomEnd,
                         children: [
                           _ProfileCompletionAvatar(
                             isComplete: _isDraftProfileComplete,
@@ -318,7 +311,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                               localPath: _effectiveLocalImagePath,
                               imageUrl: _remoteProfilePictureUrl,
                               radius: 48,
-                              backgroundColor: _primary,
+                              backgroundColor: AppThemeConfig.accent(context),
                               placeholder: const Icon(
                                 Icons.person,
                                 size: 48,
@@ -332,7 +325,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                             child: IconButton(
                               onPressed: _pickProfileImage,
                               icon: const Icon(Icons.photo_camera_outlined),
-                              color: _primary,
+                              color: AppThemeConfig.accent(context),
                             ),
                           ),
                         ],
@@ -379,29 +372,18 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   child: Column(
                     children: [
                       // Read-only phone number — this is the OTP-verified
-                      // login identity, so it's shown but not editable here.
-                      // #39 — forced LTR so the digit grouping doesn't
-                      // mirror under an RTL (Arabic/Kurdish) locale.
-                      Directionality(
-                        textDirection: TextDirection.ltr,
-                        child: TextFormField(
-                          readOnly: true,
-                          initialValue: _displayPhone(),
-                          decoration:
-                              _inputDecoration(
-                                context,
-                                label: 'Phone number'.tr,
-                                icon: Icons.phone_outlined,
-                              ).copyWith(
-                                suffixIcon: Icon(
-                                  Icons.lock_outline_rounded,
-                                  size: 18,
-                                  color: AppThemeConfig.mutedText(context),
-                                ),
-                                helperText: 'Your verified number'.tr,
-                              ),
-                        ),
-                      ),
+                      // login identity, so it cannot be edited from the
+                      // profile form at all; changing it means re-verifying a
+                      // new number, which is a different flow.
+                      //
+                      // It used to be a `readOnly: true` TextFormField sitting
+                      // in a column of editable ones, which made it look like
+                      // every other input on the screen: users tapped it and
+                      // got nothing back. It is now a labelled value row, so
+                      // there is no input affordance to fight with, and the
+                      // helper line says why rather than just restating what
+                      // the value is.
+                      _LockedPhoneRow(phone: _displayPhone()),
                       const SizedBox(height: 14),
                       TextFormField(
                         controller: _nameController,
@@ -481,13 +463,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
                                   : AppThemeConfig.text(context),
                               fontWeight: FontWeight.w700,
                             ),
-                            selectedColor: _primary,
+                            selectedColor: AppThemeConfig.accent(context),
                             backgroundColor: AppThemeConfig.softSurface(
                               context,
                             ),
                             side: BorderSide(
                               color: isSelected
-                                  ? _primary
+                                  ? AppThemeConfig.accent(context)
                                   : AppThemeConfig.border(context),
                             ),
                             showCheckmark: false,
@@ -505,7 +487,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 FilledButton(
                   onPressed: _isSaving ? null : _saveProfile,
                   style: FilledButton.styleFrom(
-                    backgroundColor: _primary,
+                    backgroundColor: AppThemeConfig.accent(context),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
@@ -525,6 +507,99 @@ class _EditProfilePageState extends State<EditProfilePage> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// The account's verified phone number, presented as a locked value row.
+///
+/// WHY NOT A TEXT FIELD
+/// The number is the OTP-verified login identity; the profile form cannot
+/// change it. A `readOnly` TextFormField would still look identical to the
+/// editable name and address fields beneath it, so the false affordance stays
+/// and the user learns nothing from tapping it. A label + value + padlock, and
+/// a line saying why it is locked, removes the affordance at the source.
+class _LockedPhoneRow extends StatelessWidget {
+  const _LockedPhoneRow({required this.phone});
+
+  /// Already formatted for display; '—' when nothing is on file.
+  final String phone;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          decoration: BoxDecoration(
+            color: AppThemeConfig.softSurface(context),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppThemeConfig.border(context)),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.phone_outlined,
+                color: AppThemeConfig.mutedText(context),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Phone number'.tr,
+                      style: TextStyle(
+                        color: AppThemeConfig.mutedText(context),
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    // #39 — forced LTR so the digit grouping doesn't mirror
+                    // under an RTL (Arabic/Kurdish) locale.
+                    Directionality(
+                      textDirection: TextDirection.ltr,
+                      child: Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: Text(
+                          phone,
+                          style: TextStyle(
+                            color: AppThemeConfig.text(context),
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                Icons.lock_outline_rounded,
+                size: 18,
+                color: AppThemeConfig.mutedText(context),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 7),
+        Padding(
+          padding: const EdgeInsetsDirectional.only(start: 4),
+          child: Text(
+            'This is the verified number you sign in with, so it cannot be '
+                    'edited here.'
+                .tr,
+            style: TextStyle(
+              color: AppThemeConfig.mutedText(context),
+              fontSize: 12.5,
+              height: 1.35,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -583,18 +658,16 @@ class _ProfileCompletionAvatar extends StatelessWidget {
                 width: width,
                 height: shoulderHeight,
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFFFD166), Color(0xFFF59E0B)],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                  ),
+                  color: AppThemeConfig.pending(context),
                   borderRadius: BorderRadius.vertical(
                     top: Radius.circular(shoulderHeight),
                     bottom: const Radius.circular(28),
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFFF59E0B).withValues(alpha: 0.24),
+                      color: AppThemeConfig.pending(
+                        context,
+                      ).withValues(alpha: 0.24),
                       blurRadius: 18,
                       offset: const Offset(0, 10),
                     ),
@@ -611,12 +684,14 @@ class _ProfileCompletionAvatar extends StatelessWidget {
                 width: 28,
                 height: 28,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF97316),
+                  color: AppThemeConfig.pending(context),
                   shape: BoxShape.circle,
                   border: Border.all(color: Colors.white, width: 2),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFFF97316).withValues(alpha: 0.25),
+                      color: AppThemeConfig.pending(
+                        context,
+                      ).withValues(alpha: 0.25),
                       blurRadius: 14,
                       offset: const Offset(0, 8),
                     ),
@@ -650,8 +725,9 @@ class _ProfileCompletionBanner extends StatelessWidget {
     // about — don't show a "you're done" banner at all, just show nothing.
     if (isComplete) return const SizedBox.shrink();
 
-    const background = Color(0xFFFFF4D8);
-    const foreground = Color(0xFFB45309);
+    // The same incomplete-profile prompt as profile.dart, on the same token.
+    final background = AppThemeConfig.pending(context).withValues(alpha: 0.10);
+    final foreground = AppThemeConfig.pending(context);
     const title = 'Complete your profile';
     const subtitle =
         'Add the missing details so your account looks trusted and ready to use.';

@@ -23,6 +23,10 @@ Future<Map<String, dynamic>?> fetchContent(String slug) async {
     }
     return null;
   } catch (_) {
+    // NOT swallowed: null is this function's failure signal, and both callers
+    // (terms_screen, content_page_screen) treat it as one — there is no
+    // "successfully empty" CMS page, so they render AppErrorState with a
+    // retry. Throwing would only move the same decision into a try/catch.
     return null;
   }
 }

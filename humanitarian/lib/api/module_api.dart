@@ -10,6 +10,20 @@ import 'package:http/http.dart' as http;
 class ModuleApi {
   const ModuleApi();
 
+  /// How long any single request may hang before it is treated as a failure.
+  ///
+  /// This file had NO timeout at all, unlike wallet_api and task_api which
+  /// both use 12s. That is not a tidiness point: a request that never returns
+  /// also never runs its caller's `finally`, so a screen's `isLoading` stays
+  /// true forever. The home dashboard was caught in exactly that state against
+  /// a hanging backend — a skeleton with no error and no retry, permanently,
+  /// because its only non-silent load was the one that hung and the 10s poll
+  /// that follows is silent by design.
+  ///
+  /// A timeout converts "hangs forever" into "fails", and this app already
+  /// knows how to show a failure.
+  static const Duration _requestTimeout = Duration(seconds: 12);
+
   String _normalizedUrl(String url) {
     final parsed = Uri.parse(url);
     final path = parsed.path.endsWith('/') && parsed.path.length > 1
@@ -157,6 +171,9 @@ class ModuleApi {
     try {
       return jsonDecode(response.body);
     } catch (_) {
+      // NOT a swallow: this catch does real work and then always throws. The
+      // decode failure is the evidence, and the body is inspected to turn a
+      // PHP fatal-error page into a message a human can act on.
       final body = response.body.trim();
       final looksLikeHtml =
           body.startsWith('<!DOCTYPE html') ||
@@ -186,11 +203,15 @@ class ModuleApi {
         Uri.parse(url).queryParameters,
       ),
     );
-    var response = await http.get(buildUri(), headers: withApiAuthHeaders());
+    var response = await http
+        .get(buildUri(), headers: withApiAuthHeaders())
+        .timeout(_requestTimeout);
     if (response.statusCode == 401 || response.statusCode == 403) {
       final refreshed = await ensureApiSession(forceRefresh: true);
       if (refreshed) {
-        response = await http.get(buildUri(), headers: withApiAuthHeaders());
+        response = await http
+            .get(buildUri(), headers: withApiAuthHeaders())
+            .timeout(_requestTimeout);
       }
     }
     return response;
@@ -238,11 +259,15 @@ class ModuleApi {
     Map<String, dynamic> body,
   ) async {
     final enrichedBody = withApiAuthJsonBody(body);
-    final response = await http.post(
-      Uri.parse(url),
-      headers: withApiAuthHeaders(const {'Content-Type': 'application/json'}),
-      body: jsonEncode(enrichedBody),
-    );
+    final response = await http
+        .post(
+          Uri.parse(url),
+          headers: withApiAuthHeaders(const {
+            'Content-Type': 'application/json',
+          }),
+          body: jsonEncode(enrichedBody),
+        )
+        .timeout(_requestTimeout);
     final decoded = _decodeJson(response);
     if (decoded is! Map<String, dynamic>) {
       throw Exception('Request failed');
@@ -264,11 +289,15 @@ class ModuleApi {
     Map<String, dynamic> body,
   ) async {
     final enrichedBody = withApiAuthJsonBody(body);
-    final response = await http.post(
-      Uri.parse(url),
-      headers: withApiAuthHeaders(const {'Content-Type': 'application/json'}),
-      body: jsonEncode(enrichedBody),
-    );
+    final response = await http
+        .post(
+          Uri.parse(url),
+          headers: withApiAuthHeaders(const {
+            'Content-Type': 'application/json',
+          }),
+          body: jsonEncode(enrichedBody),
+        )
+        .timeout(_requestTimeout);
     final decoded = _decodeJson(response);
     if (decoded is! Map<String, dynamic>) {
       throw Exception('Request failed');
@@ -317,20 +346,19 @@ class ModuleApi {
   }
 
   /// "Eleventh: Partners Section" — activities implemented with a partner.
-  /// Returns an empty list on failure so the Partner Page shows its empty
-  /// state rather than an error.
+  ///
+  /// THROWS on failure. The old doc said it returned an empty list "so the
+  /// Partner Page shows its empty state rather than an error" — which names
+  /// the bug precisely: the empty state asserts this partner has run no
+  /// activities, and that assertion is false when the request simply failed.
   Future<List<Map<String, dynamic>>> partnerActivities(int partnerId) async {
-    try {
-      final res = await getObject(partnerActivitiesUrl(partnerId));
-      final raw = res['items'];
-      if (raw is! List) return const [];
-      return raw
-          .whereType<Map>()
-          .map((e) => Map<String, dynamic>.from(e))
-          .toList();
-    } catch (_) {
-      return const [];
-    }
+    final res = await getObject(partnerActivitiesUrl(partnerId));
+    final raw = res['items'];
+    if (raw is! List) return const [];
+    return raw
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
   }
 
   /// Switch the signed-in user's own account type.
@@ -367,30 +395,38 @@ class ModuleApi {
   /// of toggleable fields. Returns an empty list on failure; the caller falls
   /// back to its built-in defaults so the screen still works offline.
   /// "Eighth: Sponsorship Schedule and Calendar" — the caller's schedule
-  /// occurrences, optionally filtered by status. Returns an empty list on
-  /// failure so the tracking screen can show its empty state rather than an
-  /// error dead end.
+  /// occurrences, optionally filtered by status.
+  ///
+  /// THROWS on failure. The old behaviour returned an empty list "so the
+  /// tracking screen can show its empty state rather than an error dead end".
+  /// The dead end was the real problem and it has since been fixed properly —
+  /// the screen now has an error state WITH a retry — so the workaround can
+  /// go, and with it the false claim that a sponsor has no upcoming payments.
   Future<List<ScheduleOccurrence>> getSponsorshipSchedule({
     String status = '',
   }) async {
-    try {
-      final url = status.isEmpty
-          ? sponsorshipScheduleUrl
-          : '$sponsorshipScheduleUrl?status=$status';
-      final res = await getObject(url);
-      final raw = res['items'];
-      if (raw is! List) return const [];
-      return raw
-          .whereType<Map>()
-          .map((e) => ScheduleOccurrence.fromJson(Map<String, dynamic>.from(e)))
-          .toList();
-    } catch (_) {
-      return const [];
-    }
+    final url = status.isEmpty
+        ? sponsorshipScheduleUrl
+        : '$sponsorshipScheduleUrl?status=$status';
+    final res = await getObject(url);
+    final raw = res['items'];
+    if (raw is! List) return const [];
+    return raw
+        .whereType<Map>()
+        .map((e) => ScheduleOccurrence.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
   }
 
   /// Donations Page spec — whether the project list and the Comprehensive
   /// Grant option are shown. Falls back to both enabled on failure.
+  ///
+  /// DELIBERATELY still swallows, unlike its neighbours in this file. These
+  /// are FEATURE FLAGS, not the user's data: falling back to "both enabled"
+  /// shows the standard donate screen, which tells the user nothing false
+  /// about themselves. Compare the wallet, where the equivalent fallback
+  /// asserted a specific balance of zero. The test for whether a default is
+  /// acceptable is not "does it avoid a crash" but "does it state something
+  /// untrue to the user".
   Future<DonationOptions> getDonationOptions() async {
     try {
       final res = await getObject(donationOptionsUrl);
@@ -399,29 +435,31 @@ class ModuleApi {
         comprehensiveEnabled: res['comprehensive_enabled'] != false,
       );
     } catch (_) {
+      // DELIBERATE — see the doc comment above: feature flags, not user data.
       return const DonationOptions();
     }
   }
 
+  /// The per-field privacy toggles this user can set.
+  ///
+  /// THROWS on failure. Returning `[]` rendered a privacy screen with nothing
+  /// on it, which reads as "there is nothing here you can control" — a bad
+  /// thing to tell someone wrongly on a privacy screen specifically.
   Future<List<PrivacyFieldOption>> getPrivacyOptions() async {
-    try {
-      final res = await getObject(privacyOptionsUrl);
-      final raw = res['items'];
-      if (raw is! List) return const [];
-      return raw
-          .whereType<Map>()
-          .map(
-            (e) => PrivacyFieldOption(
-              fieldKey: (e['field_key'] ?? '').toString(),
-              labelKey: (e['label_key'] ?? '').toString(),
-              defaultHidden: e['default_hidden'] == true,
-            ),
-          )
-          .where((o) => o.fieldKey.isNotEmpty)
-          .toList();
-    } catch (_) {
-      return const [];
-    }
+    final res = await getObject(privacyOptionsUrl);
+    final raw = res['items'];
+    if (raw is! List) return const [];
+    return raw
+        .whereType<Map>()
+        .map(
+          (e) => PrivacyFieldOption(
+            fieldKey: (e['field_key'] ?? '').toString(),
+            labelKey: (e['label_key'] ?? '').toString(),
+            defaultHidden: e['default_hidden'] == true,
+          ),
+        )
+        .where((o) => o.fieldKey.isNotEmpty)
+        .toList();
   }
 
   // Privacy Settings spec — display-name choice (real name vs. alias) and
@@ -532,9 +570,9 @@ class ModuleApi {
     String message, {
     String requestType = 'meeting',
   }) => postJson('$marriageSubmitUrl/$profileId/request-meeting', {
-        'request_type': requestType,
-        'message': message,
-      });
+    'request_type': requestType,
+    'message': message,
+  });
 
   // Note #35 — staff-mediated marriage chat. My threads (identity-masked —
   // the other party is only ever a profile_code or a generic placeholder,
@@ -643,6 +681,11 @@ class ModuleApi {
       final number = (res['number'] ?? '').toString().trim();
       return (res['enabled'] == true && number.isNotEmpty) ? number : null;
     } catch (_) {
+      // DELIBERATE: null already means "no WhatsApp contact configured", a
+      // legitimate absence, and both callers simply hide the WhatsApp button.
+      // A failed fetch collapses into that same absence — the user loses one
+      // of several support channels and is told nothing untrue. (The support
+      // screen additionally logs its own failures around this call.)
       return null;
     }
   }
@@ -705,9 +748,9 @@ class ModuleApi {
 
   /// The signed-in user's saved posts, newest saved first.
   Future<List<Map<String, dynamic>>> savedMediaPosts(int userId) {
-    final uri = Uri.parse(mediaPostsUrl).replace(
-      queryParameters: {'user_id': '$userId', 'saved': '1'},
-    );
+    final uri = Uri.parse(
+      mediaPostsUrl,
+    ).replace(queryParameters: {'user_id': '$userId', 'saved': '1'});
     return getItems(uri.toString());
   }
 

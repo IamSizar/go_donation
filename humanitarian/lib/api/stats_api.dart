@@ -37,12 +37,12 @@ class ImpactStats {
   }
 
   factory ImpactStats.fromJson(Map<String, dynamic> json) => ImpactStats(
-        grantors: _int(json['grantors']),
-        eligibles: _int(json['eligibles']),
-        volunteers: _int(json['volunteers']),
-        completedWorks: _int(json['completed_works']),
-        totalGiven: _num(json['total_given']),
-      );
+    grantors: _int(json['grantors']),
+    eligibles: _int(json['eligibles']),
+    volunteers: _int(json['volunteers']),
+    completedWorks: _int(json['completed_works']),
+    totalGiven: _num(json['total_given']),
+  );
 
   /// True when every number is zero — nothing meaningful to show yet.
   bool get isEmpty =>
@@ -70,6 +70,10 @@ Future<ImpactStats?> fetchImpactStats() async {
     }
     return null;
   } catch (_) {
+    // DELIBERATE silence: null already means "unknown", and the home slider
+    // hides itself entirely rather than rendering zeros. Public headline
+    // numbers are decoration on the Home screen, not something the user can
+    // act on, and showing nothing is honest where showing "0" would not be.
     return null;
   }
 }

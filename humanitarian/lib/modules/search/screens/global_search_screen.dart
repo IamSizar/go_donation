@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/core/design/directional_icons.dart';
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/data/featured_campaigns.dart';
@@ -15,6 +16,7 @@ import 'package:flutter_application_1/modules/proposal/screens/news_activities_s
 import 'package:flutter_application_1/modules/proposal/screens/partners_screen.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/core/widgets/app_pressable.dart';
 
 /// #33 — route a tapped search result to the right place. `place` and
 /// `campaign` open their own detail screen (the search payload only has
@@ -39,13 +41,9 @@ Future<void> _openSearchResult(Map<String, dynamic> result) async {
     case 'campaign':
       final campaign = await _fetchCampaignEntry(result);
       if (campaign != null) {
-        Get.to(
-          () => CampaignDetailScreen(campaign: campaign),
-        )?.then((donate) {
+        Get.to(() => CampaignDetailScreen(campaign: campaign))?.then((donate) {
           if (donate == true) {
-            Get.to(
-              () => DonationsSection(initialCampaignId: campaign.id),
-            );
+            Get.to(() => DonationsSection(initialCampaignId: campaign.id));
           }
         });
       } else {
@@ -77,7 +75,9 @@ Future<FeaturedCampaignData?> _fetchCampaignEntry(
 // #33 — the search `place` result only has id + name; look up the full
 // directory entry so CommunityDetailScreen has category/address/phone/map/
 // etc. Falls back to the thin result if the fetch fails or finds no match.
-Future<Map<String, dynamic>> _fetchPlaceEntry(Map<String, dynamic> result) async {
+Future<Map<String, dynamic>> _fetchPlaceEntry(
+  Map<String, dynamic> result,
+) async {
   try {
     final entries = await const ModuleApi().communityDirectory(
       q: result['name']?.toString(),
@@ -157,13 +157,34 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
     return items;
   }
 
-  static const _typeMeta = <String, ({IconData icon, String labelKey, Color color})>{
-    'campaign': (icon: Icons.volunteer_activism_rounded, labelKey: 'search_campaigns', color: Colors.pink),
-    'media': (icon: Icons.article_rounded, labelKey: 'search_media', color: Colors.indigo),
-    'product': (icon: Icons.storefront_rounded, labelKey: 'search_products', color: Colors.teal),
-    'partner': (icon: Icons.handshake_rounded, labelKey: 'search_partners', color: Colors.orange),
-    'place': (icon: Icons.location_city_rounded, labelKey: 'search_places', color: Colors.blue),
-  };
+  static const _typeMeta =
+      <String, ({IconData icon, String labelKey, Color color})>{
+        'campaign': (
+          icon: Icons.volunteer_activism_rounded,
+          labelKey: 'search_campaigns',
+          color: Colors.pink,
+        ),
+        'media': (
+          icon: Icons.article_rounded,
+          labelKey: 'search_media',
+          color: Colors.indigo,
+        ),
+        'product': (
+          icon: Icons.storefront_rounded,
+          labelKey: 'search_products',
+          color: Colors.teal,
+        ),
+        'partner': (
+          icon: Icons.handshake_rounded,
+          labelKey: 'search_partners',
+          color: Colors.orange,
+        ),
+        'place': (
+          icon: Icons.location_city_rounded,
+          labelKey: 'search_places',
+          color: Colors.blue,
+        ),
+      };
 
   @override
   void dispose() {
@@ -306,7 +327,7 @@ class _ResultTile extends StatelessWidget {
     final type = (result['type'] ?? '').toString();
     final m = meta[type];
     final name = localizedContentFromMap(result, 'name', fallback: '—');
-    return GestureDetector(
+    return AppPressable(
       onTap: () => _openSearchResult(result),
       child: GlassPanel(
         child: Row(
@@ -318,7 +339,10 @@ class _ResultTile extends StatelessWidget {
                 color: (m?.color ?? Colors.grey).withValues(alpha: 0.14),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(m?.icon ?? Icons.search_rounded, color: m?.color ?? Colors.grey),
+              child: Icon(
+                m?.icon ?? Icons.search_rounded,
+                color: m?.color ?? Colors.grey,
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -338,13 +362,16 @@ class _ResultTile extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     (m?.labelKey ?? type).tr,
-                    style: TextStyle(fontSize: 12, color: m?.color ?? Colors.grey),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: m?.color ?? Colors.grey,
+                    ),
                   ),
                 ],
               ),
             ),
             Icon(
-              Icons.chevron_right_rounded,
+              AppIcons.chevronForward(context),
               color: AppThemeConfig.mutedText(context),
             ),
           ],
@@ -358,7 +385,11 @@ class _ResultTile extends StatelessWidget {
 // type's full section (see _openSection) since the search API only caps
 // per-type, it doesn't paginate.
 class _MoreTile extends StatelessWidget {
-  const _MoreTile({required this.type, required this.meta, required this.onTap});
+  const _MoreTile({
+    required this.type,
+    required this.meta,
+    required this.onTap,
+  });
   final String type;
   final Map<String, ({IconData icon, String labelKey, Color color})> meta;
   final VoidCallback onTap;
@@ -366,7 +397,7 @@ class _MoreTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final m = meta[type];
-    return GestureDetector(
+    return AppPressable(
       onTap: onTap,
       child: GlassPanel(
         child: Row(
@@ -378,7 +409,10 @@ class _MoreTile extends StatelessWidget {
                 color: (m?.color ?? Colors.grey).withValues(alpha: 0.14),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(Icons.more_horiz_rounded, color: m?.color ?? Colors.grey),
+              child: Icon(
+                Icons.more_horiz_rounded,
+                color: m?.color ?? Colors.grey,
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -396,13 +430,16 @@ class _MoreTile extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     (m?.labelKey ?? type).tr,
-                    style: TextStyle(fontSize: 12, color: m?.color ?? Colors.grey),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: m?.color ?? Colors.grey,
+                    ),
                   ),
                 ],
               ),
             ),
             Icon(
-              Icons.chevron_right_rounded,
+              AppIcons.chevronForward(context),
               color: AppThemeConfig.mutedText(context),
             ),
           ],

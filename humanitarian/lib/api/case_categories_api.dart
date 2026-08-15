@@ -33,8 +33,7 @@ class CaseCategory {
       'ckb' => nameCkb,
       'kmr' => nameKmr,
       _ => nameEn,
-    }
-        .trim();
+    }.trim();
     return v.isNotEmpty ? v : nameEn;
   }
 
@@ -42,13 +41,13 @@ class CaseCategory {
       v is int ? v : int.tryParse(v?.toString() ?? '') ?? 0;
 
   factory CaseCategory.fromJson(Map<String, dynamic> j) => CaseCategory(
-        id: _int(j['id']),
-        slug: (j['slug'] ?? '').toString(),
-        nameEn: (j['name_en'] ?? '').toString(),
-        nameAr: (j['name_ar'] ?? '').toString(),
-        nameCkb: (j['name_ckb'] ?? '').toString(),
-        nameKmr: (j['name_kmr'] ?? '').toString(),
-      );
+    id: _int(j['id']),
+    slug: (j['slug'] ?? '').toString(),
+    nameEn: (j['name_en'] ?? '').toString(),
+    nameAr: (j['name_ar'] ?? '').toString(),
+    nameCkb: (j['name_ckb'] ?? '').toString(),
+    nameKmr: (j['name_kmr'] ?? '').toString(),
+  );
 }
 
 /// Fetches the active case categories (ordered), or an empty list on
@@ -69,6 +68,10 @@ Future<List<CaseCategory>> fetchCaseCategories() async {
     }
     return const [];
   } catch (_) {
+    // DELIBERATE silence: these are a browse FILTER taxonomy, not the user's
+    // data. CaseCategoryCapsules renders nothing when the list is empty, so a
+    // failed load costs the user a filter row and states nothing untrue —
+    // unlike an empty list of *their* cases, which would claim they have none.
     return const [];
   }
 }

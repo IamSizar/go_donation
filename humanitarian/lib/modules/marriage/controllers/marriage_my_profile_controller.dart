@@ -57,7 +57,9 @@ class MarriageMyProfileController extends GetxController
     );
     _lastStatusSnapshot = {
       for (final m in profiles)
-        (m['id'] ?? '').toString(): (m['status'] ?? '').toString().toLowerCase(),
+        (m['id'] ?? '').toString(): (m['status'] ?? '')
+            .toString()
+            .toLowerCase(),
     };
     for (final t in transitions) {
       final msg = _messageForTransition(t.toStatus);

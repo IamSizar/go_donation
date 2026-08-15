@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/data/motivational_tasks.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/core/design/motion.dart';
 
 /// Client note — Quick Actions #4: "Scratch the Lucky Coupon". Tapping the
 /// coupon reveals one of [motivationalTasks] at random. Self-contained
@@ -44,7 +45,7 @@ class _LuckyCouponScreenState extends State<LuckyCouponScreen> {
             GestureDetector(
               onTap: _scratch,
               child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 420),
+                duration: AppMotion.resolve(context, AppMotion.carryDuration),
                 transitionBuilder: (child, animation) => ScaleTransition(
                   scale: animation,
                   child: FadeTransition(opacity: animation, child: child),
@@ -86,11 +87,7 @@ class _ScratchCard extends StatelessWidget {
       width: 280,
       height: 180,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF6B7280), Color(0xFF9CA3AF)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: Color(0xFF6B7280),
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
@@ -136,11 +133,7 @@ class _RevealedCard extends StatelessWidget {
       height: 180,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFF59E0B), Color(0xFFEA580C)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: Color(0xFFF59E0B),
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(

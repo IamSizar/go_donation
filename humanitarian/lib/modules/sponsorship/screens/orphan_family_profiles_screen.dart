@@ -7,6 +7,7 @@ import 'package:flutter_application_1/modules/proposal/screens/proposal_services
 import 'package:flutter_application_1/shared/widgets/case_category_capsules.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 class OrphanFamilyProfilesScreen extends StatefulWidget {
   const OrphanFamilyProfilesScreen({super.key, this.initialCategory});
@@ -39,8 +40,8 @@ class _OrphanFamilyProfilesScreenState
         final items = _selectedCategory == null
             ? controller.cases
             : controller.cases
-                .where((c) => (c['category_slug'] ?? '') == _selectedCategory)
-                .toList();
+                  .where((c) => (c['category_slug'] ?? '') == _selectedCategory)
+                  .toList();
         return RefreshIndicator(
           onRefresh: controller.fetchCases,
           child: ListView(
@@ -48,35 +49,38 @@ class _OrphanFamilyProfilesScreenState
             children: [
               const _ProfilesIntroCard(),
               const SizedBox(height: 18),
+              // The category filter stays OUTSIDE AppAsync deliberately. The
+              // empty state here is usually "no profiles in THIS category",
+              // and hiding the capsules along with the list would leave the
+              // user no way to change the filter that produced it - a dead
+              // end. Only the result of the filter swaps between states.
               CaseCategoryCapsules(
                 selected: _selectedCategory,
-                onSelected: (slug) =>
-                    setState(() => _selectedCategory = slug),
+                onSelected: (slug) => setState(() => _selectedCategory = slug),
               ),
               const SizedBox(height: 22),
-              if (controller.isLoading.value)
-                const Center(child: CircularProgressIndicator()),
-              if (controller.errorMessage.value != null)
-                SectionTile(
-                  icon: Icons.child_care_rounded,
+              AppAsync<List<Map<String, dynamic>>>(
+                loading: controller.isLoading.value,
+                error: controller.errorMessage.value,
+                onRetry: controller.fetchCases,
+                data: items,
+                isEmpty: (list) => list.isEmpty,
+                empty: const AppEmpty(
                   title: 'Orphan & Family Profiles',
-                  subtitle: controller.errorMessage.value!,
-                  color: Colors.amber,
-                  onTap: controller.fetchCases,
+                  message: 'No approved profiles are available yet.',
                 ),
-              if (!controller.isLoading.value &&
-                  controller.errorMessage.value == null &&
-                  items.isEmpty)
-                SectionTile(
-                  icon: Icons.child_care_rounded,
-                  title: 'Orphan & Family Profiles',
-                  subtitle: 'No approved profiles are available yet.',
-                  color: Colors.amber,
+                // A Column, not a nested ListView: this already sits inside
+                // one, and nesting scrollables is the commonest way to break
+                // a list.
+                builder: (list) => Column(
+                  children: [
+                    for (final item in list) ...[
+                      _ProfileCard(item: item),
+                      const SizedBox(height: 14),
+                    ],
+                  ],
                 ),
-              for (final item in items) ...[
-                _ProfileCard(item: item),
-                const SizedBox(height: 14),
-              ],
+              ),
             ],
           ),
         );
@@ -204,7 +208,7 @@ class _ProfileCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 14),
                 Align(
-                  alignment: Alignment.centerRight,
+                  alignment: AlignmentDirectional.centerEnd,
                   child: OutlinedButton.icon(
                     onPressed: () =>
                         Get.to(() => const SponsorshipFormScreen()),

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/modules/marketplace/controllers/marketplace_controller.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
+import 'package:flutter_application_1/core/widgets/app_row.dart';
 
 class MarketplaceOrdersScreen extends StatelessWidget {
   const MarketplaceOrdersScreen({super.key});
@@ -24,39 +27,33 @@ class MarketplaceOrdersScreen extends StatelessWidget {
             ),
             Expanded(
               child: Obx(() {
-                final error = controller.ordersErrorMessage.value;
-                final orders = controller.orders;
-
-                return RefreshIndicator(
-                  onRefresh: controller.fetchOrders,
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
-                    children: [
-                      if (controller.isLoadingOrders.value)
-                        const Center(child: CircularProgressIndicator()),
-                      if (error != null)
-                        SectionTile(
-                          icon: Icons.receipt_long_rounded,
-                          title: 'Your orders',
-                          subtitle: error,
-                          color: Colors.deepOrange,
-                          onTap: controller.fetchOrders,
-                        ),
-                      if (error == null &&
-                          !controller.isLoadingOrders.value &&
-                          orders.isEmpty)
-                        SectionTile(
-                          icon: Icons.receipt_long_rounded,
-                          title: 'Your orders',
-                          subtitle: 'Your marketplace orders will appear here.',
-                          color: Colors.deepOrange,
-                          onTap: controller.fetchOrders,
-                        ),
-                      for (final order in orders) ...[
-                        _MarketplaceOrderCard(order: order),
-                        const SizedBox(height: 12),
+                // Three stacked `if` blocks replaced by one state. Before, a
+                // failed load drew the error tile AND any cached orders under
+                // it, and both the error and the empty tile were SectionTiles
+                // whose onTap was the retry - unlabelled, and identical in
+                // shape to the order cards below them.
+                return AppAsync<List<dynamic>>(
+                  loading: controller.isLoadingOrders.value,
+                  error: controller.ordersErrorMessage.value,
+                  onRetry: controller.fetchOrders,
+                  data: controller.orders,
+                  isEmpty: (list) => list.isEmpty,
+                  empty: const AppEmpty(
+                    icon: Icons.receipt_long_rounded,
+                    title: 'Your orders',
+                    message: 'Your marketplace orders will appear here.',
+                  ),
+                  builder: (list) => RefreshIndicator(
+                    onRefresh: controller.fetchOrders,
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
+                      children: [
+                        for (final order in list) ...[
+                          _MarketplaceOrderCard(order: order),
+                          const SizedBox(height: 12),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 );
               }),
@@ -87,7 +84,15 @@ class _MarketplaceOrderCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          TileIcon(icon: _statusIcon(status), color: _statusColor(status)),
+          // Spec item 13 — the order status used to be drawn three times on
+          // this one card: as the leading glyph, as that glyph's colour, and
+          // as the pill next to the title. The leading mark is now a plain
+          // "this is an order" icon in the accent colour, so the status is
+          // stated exactly once, in words, by the tag.
+          TileIcon(
+            icon: Icons.receipt_long_rounded,
+            color: AppThemeConfig.accent(context),
+          ),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
@@ -104,7 +109,7 @@ class _MarketplaceOrderCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 10),
-                    _StatusPill(status: status),
+                    AppStatusTag(label: status, tone: _statusTone(status)),
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -124,45 +129,18 @@ class _MarketplaceOrderCard extends StatelessWidget {
   }
 }
 
-class _StatusPill extends StatelessWidget {
-  const _StatusPill({required this.status});
-
-  final String status;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = _statusColor(status);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Text(
-        status.tr,
-        style: TextStyle(color: color, fontWeight: FontWeight.w800),
-      ),
-    );
-  }
-}
-
-Color _statusColor(String status) {
+/// Maps an order status onto the design system's semantic tones.
+///
+/// The local pill and its bespoke colour switch are gone: [AppStatusTag] is
+/// the app-wide status word, so orders now look like every other status in
+/// the app and the word — not the colour — carries the meaning.
+AppStatusTone _statusTone(String status) {
   return switch (status) {
-    'approved' => Colors.green,
-    'processing' => Colors.blueAccent,
-    'completed' => Colors.teal,
-    'cancelled' => Colors.redAccent,
-    _ => Colors.orange,
-  };
-}
-
-IconData _statusIcon(String status) {
-  return switch (status) {
-    'approved' => Icons.verified_rounded,
-    'processing' => Icons.local_shipping_rounded,
-    'completed' => Icons.check_circle_rounded,
-    'cancelled' => Icons.cancel_rounded,
-    _ => Icons.hourglass_bottom_rounded,
+    // Approved, shipped and delivered are all "settled" as far as the donor
+    // is concerned: nothing is outstanding on their side.
+    'approved' || 'processing' || 'completed' => AppStatusTone.settled,
+    'cancelled' => AppStatusTone.attention,
+    _ => AppStatusTone.pending,
   };
 }
 

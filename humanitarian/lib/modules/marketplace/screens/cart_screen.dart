@@ -8,6 +8,7 @@ import 'package:flutter_application_1/modules/marketplace/controllers/marketplac
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_application_1/core/design/motion.dart';
 
 /// The cart, as its own screen. Previously a floating panel over the
 /// product list — once payment method, totals, and actions all had to fit
@@ -113,11 +114,7 @@ class _CartLineItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title = localizedContentFromMap(
-      product,
-      'name',
-      fallback: 'Product',
-    );
+    final title = localizedContentFromMap(product, 'name', fallback: 'Product');
     final price = double.tryParse((product['price'] ?? '0').toString()) ?? 0;
     final currency = (product['currency'] ?? 'IQD').toString();
     final imageUrl = _cartImageUrl(product['image_path']);
@@ -269,8 +266,9 @@ class _CartCheckoutPanel extends StatelessWidget {
             _CartPaymentCard(
               icon: Icons.account_balance_wallet_rounded,
               title: 'App Wallet'.tr,
-              subtitle:
-                  '${'Balance'.tr}: ${controller.walletBalanceIQD.value} IQD',
+              // Goes through the controller getter so an unknown balance reads
+              // as "unavailable" instead of a fabricated number.
+              subtitle: controller.walletBalanceLabel,
               selected: controller.payWithWallet.value,
               onTap: () => controller.payWithWallet.value = true,
             ),
@@ -334,7 +332,10 @@ class _CartCheckoutPanel extends StatelessWidget {
                         height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Icon(Icons.shopping_cart_checkout_rounded, size: 18),
+                    : const Icon(
+                        Icons.shopping_cart_checkout_rounded,
+                        size: 18,
+                      ),
                 label: Text('Checkout'.tr),
               ),
             ),
@@ -407,7 +408,10 @@ class _CartPaymentCard extends StatelessWidget {
                   ),
                 ),
                 AnimatedContainer(
-                  duration: const Duration(milliseconds: 220),
+                  duration: AppMotion.resolve(
+                    context,
+                    AppMotion.settleDuration,
+                  ),
                   width: 22,
                   height: 22,
                   decoration: BoxDecoration(

@@ -19,7 +19,9 @@ class BeneficiaryCampaignDonationsController extends GetxController {
     isLoading.value = true;
     errorMessage.value = null;
     try {
-      final raw = await const ModuleApi().getObject(beneficiaryCampaignDonationsUrl);
+      final raw = await const ModuleApi().getObject(
+        beneficiaryCampaignDonationsUrl,
+      );
       final list = raw['campaigns'];
       if (list is List) {
         campaigns.assignAll(
@@ -35,8 +37,10 @@ class BeneficiaryCampaignDonationsController extends GetxController {
     }
   }
 
-  int get totalDonations =>
-      campaigns.fold(0, (sum, c) => sum + ((c['donations'] as List?)?.length ?? 0));
+  int get totalDonations => campaigns.fold(
+    0,
+    (sum, c) => sum + ((c['donations'] as List?)?.length ?? 0),
+  );
 
   double get totalRaised {
     double total = 0;

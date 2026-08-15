@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/core/design/directional_icons.dart';
 import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/modules/chat/chat_actions.dart';
@@ -8,7 +9,8 @@ import 'package:flutter_application_1/modules/legal/screens/content_page_screen.
 
 import 'event_service_request_screen.dart';
 import 'marriage_chats_screen.dart';
-import 'marriage_form_screen.dart';
+// The submission form is no longer reached from here — the status screen
+// below owns that entry point now (spec item 11).
 import 'marriage_my_profile_screen.dart';
 import 'marriage_posts_screen.dart';
 import 'marriage_search_screen.dart';
@@ -42,7 +44,7 @@ class MarriageHubScreen extends StatelessWidget {
           const SizedBox(height: 8),
           _MarriageTile(
             icon: Icons.villa_outlined,
-            color: Colors.indigo,
+            color: AppThemeConfig.accent(context),
             title: 'Hall booking',
             subtitle: 'Request a hall for your event',
             onTap: () => Get.to(
@@ -77,7 +79,7 @@ class MarriageHubScreen extends StatelessWidget {
           const SizedBox(height: 12),
           _MarriageTile(
             icon: Icons.local_florist_outlined,
-            color: Colors.green,
+            color: AppThemeConfig.accent(context),
             title: 'Decorations',
             subtitle: 'Request decorations for your event',
             onTap: () => Get.to(
@@ -88,7 +90,7 @@ class MarriageHubScreen extends StatelessWidget {
           const SizedBox(height: 12),
           _MarriageTile(
             icon: Icons.other_houses_outlined,
-            color: Colors.orange,
+            color: AppThemeConfig.pending(context),
             title: 'Event tents and equipment',
             subtitle: 'Request tents and related equipment',
             onTap: () => Get.to(
@@ -100,7 +102,7 @@ class MarriageHubScreen extends StatelessWidget {
           const SizedBox(height: 12),
           _MarriageTile(
             icon: Icons.add_circle_outline_rounded,
-            color: Colors.blueGrey,
+            color: AppThemeConfig.subtleText(context),
             title: 'Add another service',
             subtitle: 'Request a service not listed above',
             onTap: () => Get.to(
@@ -115,7 +117,7 @@ class MarriageHubScreen extends StatelessWidget {
           const SizedBox(height: 8),
           _MarriageTile(
             icon: Icons.search_rounded,
-            color: Colors.pinkAccent,
+            color: AppThemeConfig.accent(context),
             title: 'Browse profiles',
             subtitle: 'Search event profiles by name or gender',
             onTap: () => Get.to(() => const MarriageSearchScreen()),
@@ -123,32 +125,35 @@ class MarriageHubScreen extends StatelessWidget {
           const SizedBox(height: 12),
           _MarriageTile(
             icon: Icons.article_outlined,
-            color: Colors.deepPurple,
+            color: AppThemeConfig.accent(context),
             title: 'Event posts',
             subtitle: 'News and stories from the events section',
             onTap: () => Get.to(() => const MarriagePostsScreen()),
           ),
           if (!guest) ...[
             const SizedBox(height: 12),
+            // Spec item 11 — this used to be TWO tiles ("Create / edit my
+            // profile" → the form, "My profile" → the status view) for one
+            // concept. The hub has no idea whether the user has a profile
+            // yet, so it showed both to everyone: a first-time user was
+            // offered a status screen that could only be empty, and a user
+            // with a pending profile was offered a "Create / edit" form that
+            // cannot edit anything (there is no PATCH for your own profile —
+            // POST /api/marriage always inserts a fresh row). One entry now,
+            // landing on the status view, which is the screen that actually
+            // knows the profile's state and can therefore offer the right
+            // next action from its empty and content states.
             _MarriageTile(
               icon: Icons.favorite_outline_rounded,
-              color: Colors.pink,
-              title: 'Create / edit my profile',
-              subtitle: 'Submit or update your event profile',
-              onTap: () => Get.to(() => const MarriageFormScreen()),
-            ),
-            const SizedBox(height: 12),
-            _MarriageTile(
-              icon: Icons.fact_check_outlined,
-              color: Colors.deepOrange,
+              color: AppThemeConfig.accent(context),
               title: 'My profile',
-              subtitle: 'View your submitted profile and its status',
+              subtitle: 'View your profile and its status, or create one',
               onTap: () => Get.to(() => const MarriageMyProfileScreen()),
             ),
             const SizedBox(height: 12),
             _MarriageTile(
               icon: Icons.workspace_premium_rounded,
-              color: Colors.pinkAccent,
+              color: AppThemeConfig.accent(context),
               title: 'Subscription',
               subtitle: 'Upgrade your profile with a subscription package',
               onTap: () => Get.to(() => const MarriageSubscriptionScreen()),
@@ -158,7 +163,7 @@ class MarriageHubScreen extends StatelessWidget {
             const SizedBox(height: 12),
             _MarriageTile(
               icon: Icons.forum_outlined,
-              color: Colors.purple,
+              color: AppThemeConfig.accent(context),
               title: 'Chats',
               subtitle: 'Staff-mediated conversations for accepted meetings',
               onTap: () => Get.to(() => const MarriageChatsScreen()),
@@ -166,7 +171,7 @@ class MarriageHubScreen extends StatelessWidget {
             const SizedBox(height: 12),
             _MarriageTile(
               icon: Icons.support_agent_rounded,
-              color: Colors.teal,
+              color: AppThemeConfig.accent(context),
               title: 'Message the staff team',
               subtitle: 'Questions or issues about the events section',
               onTap: () => ChatActions.startSupportChat(
@@ -183,7 +188,7 @@ class MarriageHubScreen extends StatelessWidget {
           const SizedBox(height: 8),
           _MarriageTile(
             icon: Icons.info_outline_rounded,
-            color: Colors.teal,
+            color: AppThemeConfig.accent(context),
             title: 'About My Engagement',
             subtitle: 'What this service is and how it works',
             onTap: () => Get.to(
@@ -196,7 +201,7 @@ class MarriageHubScreen extends StatelessWidget {
           const SizedBox(height: 12),
           _MarriageTile(
             icon: Icons.support_agent_rounded,
-            color: Colors.indigo,
+            color: AppThemeConfig.accent(context),
             title: 'Contact My Engagement',
             subtitle: 'Reach the engagement service team',
             onTap: () => Get.to(
@@ -206,7 +211,6 @@ class MarriageHubScreen extends StatelessWidget {
               ),
             ),
           ),
-
         ],
       ),
     );
@@ -278,7 +282,7 @@ class _MarriageTile extends StatelessWidget {
                 ),
               ),
               Icon(
-                Icons.arrow_forward_ios_rounded,
+                AppIcons.forward(context),
                 size: 15,
                 color: AppThemeConfig.mutedText(context),
               ),

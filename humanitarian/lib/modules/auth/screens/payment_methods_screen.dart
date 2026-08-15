@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/payment_methods_api.dart';
 import 'package:flutter_application_1/api/wallet_api.dart';
+import 'package:flutter_application_1/core/design/tokens.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart' hide TextDirection;
@@ -23,7 +25,13 @@ class PaymentMethodsScreen extends StatefulWidget {
 }
 
 class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
+  /// True for the FIRST load only. A pull-to-refresh leaves it false so the
+  /// wallet card and ledger update in place instead of flashing a spinner.
   bool _loading = true;
+
+  /// User-facing failure message, or null when the last load succeeded.
+  String? _error;
+
   WalletBalance _wallet = const WalletBalance(balanceIQD: 0, currency: 'IQD');
   List<WalletTransaction> _transactions = const [];
   List<PaymentMethod> _methods = const [];
@@ -35,18 +43,36 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
   }
 
   Future<void> _load() async {
-    final results = await Future.wait([
-      fetchWalletBalance(),
-      fetchWalletTransactions(),
-      fetchPaymentMethods(),
-    ]);
-    if (!mounted) return;
-    setState(() {
-      _wallet = results[0] as WalletBalance;
-      _transactions = results[1] as List<WalletTransaction>;
-      _methods = results[2] as List<PaymentMethod>;
-      _loading = false;
-    });
+    // Cleared up front so a successful retry does not leave the previous
+    // failure's banner on screen.
+    if (_error != null) setState(() => _error = null);
+    try {
+      final results = await Future.wait([
+        fetchWalletBalance(),
+        fetchWalletTransactions(),
+        fetchPaymentMethods(),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _wallet = results[0] as WalletBalance;
+        _transactions = results[1] as List<WalletTransaction>;
+        _methods = results[2] as List<PaymentMethod>;
+        _loading = false;
+      });
+    } catch (e) {
+      // There was no catch here at all, and no error field: a failure left
+      // the screen showing a zero balance with "No wallet activity yet." and
+      // "No payment methods configured yet." — telling the user their wallet
+      // was empty and that there was no way to pay, when in fact the request
+      // had failed. On a money screen that is the worst possible lie, and
+      // there was no retry either.
+      if (!mounted) return;
+      setState(() {
+        _error = 'Could not load your wallet and payment methods.';
+        _loading = false;
+      });
+      debugPrint('payment methods load failed: $e');
+    }
   }
 
   @override
@@ -54,8 +80,25 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
     return SectionScaffold(
       title: 'Payment Methods',
       subtitle: 'Your wallet balance and the ways you can pay.',
+      // AppAsync is deliberately not used here: this screen is a composite of
+      // a balance card and two independently-empty sections, so there is no
+      // single `empty` widget for it to require. It gets AppErrorState
+      // directly instead — checked BEFORE the content branch so the two
+      // states are mutually exclusive rather than stacked.
       child: _loading
-          ? const Center(child: CircularProgressIndicator())
+          // A spinner here told the user nothing about what was coming and let
+          // the balance card, the two section labels and the rows all pop in at
+          // once. The skeleton mirrors that exact geometry so the real content
+          // fills in over it instead.
+          ? const Padding(
+              padding: EdgeInsets.fromLTRB(20, 0, 20, 24),
+              child: _PaymentMethodsSkeleton(),
+            )
+          : _error != null
+          ? Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+              child: AppErrorState(message: _error!, onRetry: _load),
+            )
           : RefreshIndicator(
               onRefresh: _load,
               child: ListView(
@@ -92,6 +135,69 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
   }
 }
 
+/// First-load placeholder shaped like this screen's real content.
+///
+/// [AppSkeleton.rows] would be wrong here. This screen is not a list: it opens
+/// with a large rounded balance card and then runs two labelled sections of
+/// tall icon rows. Ragged text bones do not fill into a balance card — they
+/// would land nowhere near it and the layout would still jump. So the bones are
+/// blocks at the real heights instead: 104 for the balance card (20 padding
+/// each side + icon row + gap + the 24pt figure), 72 for a transaction row
+/// (12 padding each side + the 48pt [TileIcon]) and 76 for a method card
+/// (14 padding each side + the same icon). All share GlassPanel's 28pt radius.
+class _PaymentMethodsSkeleton extends StatelessWidget {
+  const _PaymentMethodsSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return AppSkeleton(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // The wallet balance card.
+          const _BoneBlock(height: 104),
+          const SizedBox(height: 22),
+          // "Wallet activity" label, then two ledger rows. Two, not more: the
+          // placeholder should not promise a longer history than most users
+          // have.
+          AppSkeleton.bone(height: 14, widthFactor: 0.38),
+          const SizedBox(height: 10),
+          const _BoneBlock(height: 72),
+          const SizedBox(height: 10),
+          const _BoneBlock(height: 72),
+          const SizedBox(height: 22),
+          // "Ways to pay" label, then two method cards.
+          AppSkeleton.bone(height: 14, widthFactor: 0.3),
+          const SizedBox(height: 10),
+          const _BoneBlock(height: 76),
+          const SizedBox(height: 10),
+          const _BoneBlock(height: 76),
+        ],
+      ),
+    );
+  }
+}
+
+/// A card-shaped bone. [AppSkeleton.bone] rounds to height/2, which turns
+/// anything this tall into a stadium pill, so the card bones are drawn here
+/// with GlassPanel's own 28pt radius.
+class _BoneBlock extends StatelessWidget {
+  const _BoneBlock({required this.height});
+
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: height,
+      decoration: BoxDecoration(
+        color: AppColors.of(context).groundSunken,
+        borderRadius: BorderRadius.circular(28),
+      ),
+    );
+  }
+}
+
 class _WalletBalanceCard extends StatelessWidget {
   const _WalletBalanceCard({required this.wallet});
 
@@ -102,11 +208,7 @@ class _WalletBalanceCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF0F766E), Color(0xFF115E59)],
-        ),
+        color: AppThemeConfig.accent(context),
         borderRadius: BorderRadius.circular(28),
       ),
       child: Column(
@@ -152,32 +254,36 @@ class _TransactionRow extends StatelessWidget {
   final WalletTransaction tx;
   final String currency;
 
-  ({IconData icon, Color color, bool isCredit}) _visual() {
+  ({IconData icon, Color color, bool isCredit}) _visual(BuildContext context) {
     switch (tx.type) {
       case 'topup':
         return (
           icon: Icons.add_circle_rounded,
-          color: Colors.green,
+          color: AppThemeConfig.accent(context),
           isCredit: true,
         );
       case 'refund':
-        return (icon: Icons.undo_rounded, color: Colors.blue, isCredit: true);
+        return (
+          icon: Icons.undo_rounded,
+          color: AppThemeConfig.accent(context),
+          isCredit: true,
+        );
       case 'donation':
         return (
           icon: Icons.favorite_rounded,
-          color: Colors.pinkAccent,
+          color: AppThemeConfig.accent(context),
           isCredit: false,
         );
       case 'purchase':
         return (
           icon: Icons.shopping_bag_rounded,
-          color: Colors.deepOrange,
+          color: AppThemeConfig.pending(context),
           isCredit: false,
         );
       default:
         return (
           icon: Icons.receipt_long_rounded,
-          color: Colors.blueGrey,
+          color: AppThemeConfig.subtleText(context),
           isCredit: false,
         );
     }
@@ -200,7 +306,7 @@ class _TransactionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final v = _visual();
+    final v = _visual(context);
     final locale = Get.locale?.toLanguageTag() ?? 'en';
     final date = DateFormat.yMMMd(
       locale,
@@ -252,7 +358,9 @@ class _TransactionRow extends StatelessWidget {
             '$sign${_formatMoney(tx.amountIQD.toDouble(), currency)}',
             style: TextStyle(
               fontWeight: FontWeight.w800,
-              color: v.isCredit ? Colors.green : AppThemeConfig.text(context),
+              color: v.isCredit
+                  ? AppThemeConfig.accent(context)
+                  : AppThemeConfig.text(context),
             ),
           ),
         ],
@@ -289,7 +397,7 @@ class _PaymentMethodInfoCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          TileIcon(icon: _icon(), color: Colors.green),
+          TileIcon(icon: _icon(), color: AppThemeConfig.accent(context)),
           const SizedBox(width: 12),
           Expanded(
             child: Column(

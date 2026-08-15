@@ -22,7 +22,10 @@ abstract final class AppVoice {
       await t.setSpeechRate(0.45);
       await t.setVolume(1.0);
       await t.setPitch(1.0);
-    } catch (_) {}
+    } catch (_) {
+      // Deliberate: rate/volume/pitch are cosmetic. An engine that rejects them
+      // can still speak, so we keep the player rather than disabling voice.
+    }
     _tts = t;
     return t;
   }
@@ -45,17 +48,24 @@ abstract final class AppVoice {
   /// Speak [text] aloud, cancelling any in-progress speech first. langCode
   /// overrides the app locale when given. Safe no-op on failure.
   static Future<void> speak(String text, {String? langCode}) async {
-    if (_disabled || AppMute.isMuted || text.trim().isEmpty) return; // #37 — global mute
+    if (_disabled || AppMute.isMuted || text.trim().isEmpty) {
+      return; // #37 — global mute
+    }
     try {
       final t = await _ensure();
       await t.stop();
       try {
-        await t.setLanguage(_ttsLang(langCode ?? AppLocaleService.assistantLang()));
+        await t.setLanguage(
+          _ttsLang(langCode ?? AppLocaleService.assistantLang()),
+        );
       } catch (_) {
         // Language not available — speak with whatever the engine defaults to.
       }
       await t.speak(text);
     } catch (_) {
+      // Deliberate: TTS is an accessibility EXTRA layered over text that is
+      // already on screen, so a missing engine must never interrupt the user
+      // with an error. First failure disables it so we stop retrying.
       _disabled = true;
     }
   }
@@ -64,6 +74,9 @@ abstract final class AppVoice {
   static Future<void> stop() async {
     try {
       await _tts?.stop();
-    } catch (_) {}
+    } catch (_) {
+      // Deliberate: called from dispose/back-navigation. Failing to stop
+      // silence-that-is-already-silent is not something to tell the user.
+    }
   }
 }

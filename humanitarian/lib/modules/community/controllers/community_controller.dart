@@ -41,6 +41,8 @@ class CommunityController extends GetxController {
       final rows = await const ModuleApi().citySectors();
       sectors.assignAll(rows);
     } catch (_) {
+      // Deliberate: an empty filter row claims nothing about the user's data —
+      // the directory itself has its own error state and still loads.
       sectors.clear();
     }
   }

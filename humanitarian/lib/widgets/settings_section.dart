@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/core/design/directional_icons.dart';
 import 'package:flutter_application_1/api/auth_session.dart';
 import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/api/module_api.dart';
@@ -21,6 +22,7 @@ import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:flutter_application_1/widgets/cached_profile_avatar.dart';
 import 'package:get/get.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:flutter_application_1/core/widgets/app_theme_mode_picker.dart';
 
 /// Client note — "Settings and Profile Interface": its own bottom-nav tab
 /// (previously a side drawer opened by tapping the profile avatar).
@@ -30,7 +32,6 @@ import 'package:path_provider/path_provider.dart';
 /// Terms, Log out) now live in ProfileMenuScreen, reached from the top-right
 /// avatar. What remains here is the operational content: preferences,
 /// volunteer tools, Task Verification, partners, receipts, share and cache.
-const Color drawerPrimary = Color(0xFF0F766E);
 const Color drawerPrimaryDark = Color(0xFF115E59);
 const Color drawerDanger = Color(0xFFEF4444);
 
@@ -54,63 +55,64 @@ class SettingsSection extends StatelessWidget {
             DrawerTile(
               icon: Icons.tune_rounded,
               label: 'Control Settings and Preferences',
-              color: Colors.blueAccent,
+              color: AppThemeConfig.accent(context),
               onTap: () => Get.to(() => const ControlSettingsScreen()),
             ),
           const DrawerDivider(),
-          // Both volunteer rows are kept role-segmented, matching how the
-          // rest of the app keeps each role's own dashboard/tools separate
-          // rather than surfacing them to every role.
-          if (sharedPreferences.getString('role_id') == '3') ...[
+          // Volunteer entry, kept role-segmented, matching how the rest of the
+          // app keeps each role's own dashboard/tools separate rather than
+          // surfacing them to every role.
+          //
+          // Redesign de-duplication — this used to be TWO rows ("Volunteer
+          // With Us" and "Volunteer Attendance and Absence System") pushing
+          // the identical `SupportSection()` with no argument to tell them
+          // apart, so the second row was a pure duplicate. Attendance is not
+          // a separate destination: SupportSection's mission cards are where
+          // check-in / check-out is recorded, so one row reaches all of it.
+          if (sharedPreferences.getString('role_id') == '3')
             DrawerTile(
               icon: Icons.volunteer_activism_rounded,
               label: 'Volunteer With Us',
-              color: Colors.deepOrange,
+              color: AppThemeConfig.pending(context),
               onTap: () => Get.to(() => const SupportSection()),
             ),
-            DrawerTile(
-              icon: Icons.fact_check_rounded,
-              label: 'Volunteer Attendance and Absence System',
-              color: Colors.deepOrange,
-              onTap: () => Get.to(() => const SupportSection()),
-            ),
-          ],
           DrawerTile(
             icon: Icons.checklist_rounded,
             label: 'Task Verification',
-            color: Colors.deepOrange,
+            color: AppThemeConfig.pending(context),
             onTap: () => Get.to(() => const TaskVerificationScreen()),
           ),
+          // Redesign de-duplication — "Supporting Organizations" was a second
+          // row onto the same PartnersScreen, differing only by
+          // `onlySupporting: true`, which client-side-filters the very same
+          // list by keywords in the free-text `partner_type` field. That is a
+          // *view* of one list, not a second destination, so it belongs as a
+          // control inside the screen rather than as its own menu entry.
+          // Nothing is hidden by collapsing the pair: the unfiltered list is a
+          // superset that already contains every supporting organization.
           DrawerTile(
             icon: Icons.handshake_rounded,
             label: 'Our Partners',
-            color: Colors.deepOrange,
+            color: AppThemeConfig.pending(context),
             onTap: () => Get.to(() => const PartnersScreen()),
-          ),
-          DrawerTile(
-            icon: Icons.diversity_3_rounded,
-            label: 'Supporting Organizations',
-            color: Colors.deepOrange,
-            onTap: () =>
-                Get.to(() => const PartnersScreen(onlySupporting: true)),
           ),
           DrawerTile(
             icon: Icons.receipt_long_rounded,
             label: 'receipts_title',
-            color: Colors.teal,
+            color: AppThemeConfig.accent(context),
             onTap: () => Get.to(() => const AidReceiptsScreen()),
           ),
           DrawerTile(
             icon: Icons.ios_share_rounded,
             label: 'share_app',
-            color: Colors.green,
+            color: AppThemeConfig.accent(context),
             onTap: shareApp,
           ),
           const DrawerDivider(),
           DrawerTile(
             icon: Icons.volunteer_activism_outlined,
             label: 'Our Humanitarian Work',
-            color: Colors.teal,
+            color: AppThemeConfig.accent(context),
             onTap: () => Get.to(
               () => const ContentPageScreen(
                 slug: 'humanitarian-work',
@@ -191,11 +193,15 @@ Future<void> _clearCache(BuildContext context) async {
       for (final e in tmp.listSync()) {
         try {
           e.deleteSync(recursive: true);
-        } catch (_) {}
+        } catch (_) {
+          // Deliberate: one locked temp entry (a file still open) must not
+          // abort the sweep — the remaining entries are still worth clearing.
+        }
       }
     }
     Get.snackbar('clear_cache'.tr, 'cache_cleared'.tr);
   } catch (_) {
+    // Not silent: the failure is reported to the user by this snackbar.
     Get.snackbar('clear_cache'.tr, 'cache_clear_failed'.tr);
   }
 }
@@ -243,21 +249,17 @@ class AccountHeader extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [drawerPrimary, drawerPrimaryDark],
-        ),
+        color: AppThemeConfig.accent(context),
         borderRadius: BorderRadius.circular(24),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(2),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.fromBorderSide(
-                BorderSide(color: Colors.white, width: 2),
+                BorderSide(color: AppThemeConfig.onAccent(context), width: 2),
               ),
             ),
             child: CachedProfileAvatar(
@@ -265,9 +267,9 @@ class AccountHeader extends StatelessWidget {
               imageUrl: _remoteImageUrl(),
               radius: 26,
               backgroundColor: drawerPrimaryDark,
-              placeholder: const Icon(
+              placeholder: Icon(
                 Icons.person,
-                color: Colors.white,
+                color: AppThemeConfig.onAccent(context),
                 size: 26,
               ),
             ),
@@ -282,8 +284,8 @@ class AccountHeader extends StatelessWidget {
                   guest ? 'Guest'.tr : _name(),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: AppThemeConfig.onAccent(context),
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
                   ),
@@ -296,7 +298,9 @@ class AccountHeader extends StatelessWidget {
                           ? Icons.alternate_email_rounded
                           : Icons.phone_rounded,
                       size: 12,
-                      color: Colors.white.withValues(alpha: 0.85),
+                      color: AppThemeConfig.onAccent(
+                        context,
+                      ).withValues(alpha: 0.85),
                     ),
                     const SizedBox(width: 4),
                     Flexible(
@@ -307,7 +311,9 @@ class AccountHeader extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.85),
+                            color: AppThemeConfig.onAccent(
+                              context,
+                            ).withValues(alpha: 0.85),
                             fontSize: 12.5,
                             fontWeight: FontWeight.w600,
                           ),
@@ -321,18 +327,18 @@ class AccountHeader extends StatelessWidget {
           ),
           if (!guest)
             Material(
-              color: Colors.white.withValues(alpha: 0.16),
+              color: AppThemeConfig.onAccent(context).withValues(alpha: 0.16),
               shape: const CircleBorder(),
               child: InkWell(
                 customBorder: const CircleBorder(),
                 onTap: () async {
                   await Get.to<bool>(() => const EditProfilePage());
                 },
-                child: const Padding(
+                child: Padding(
                   padding: EdgeInsets.all(8),
                   child: Icon(
                     Icons.edit_rounded,
-                    color: Colors.white,
+                    color: AppThemeConfig.onAccent(context),
                     size: 16,
                   ),
                 ),
@@ -364,13 +370,16 @@ class DrawerTile extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onTap,
-    this.color = drawerPrimary,
+    this.color,
     this.trailing,
   });
 
   final IconData icon;
   final String label;
-  final Color color;
+
+  /// Null resolves to the theme accent at build time — a token call
+  /// cannot be a const default.
+  final Color? color;
   final VoidCallback onTap;
   final Widget? trailing;
 
@@ -392,7 +401,9 @@ class DrawerTile extends StatelessWidget {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
+                  color: (color ?? AppThemeConfig.accent(context)).withValues(
+                    alpha: 0.12,
+                  ),
                   borderRadius: BorderRadius.circular(11),
                 ),
                 child: Icon(icon, color: color, size: 18),
@@ -413,7 +424,7 @@ class DrawerTile extends StatelessWidget {
               const SizedBox(width: 6),
               trailing ??
                   Icon(
-                    Icons.arrow_forward_ios_rounded,
+                    AppIcons.forward(context),
                     size: 14,
                     color: AppThemeConfig.mutedText(context),
                   ),
@@ -477,7 +488,7 @@ class LanguageRow extends StatelessWidget {
           ),
           const SizedBox(width: 6),
           Icon(
-            Icons.arrow_forward_ios_rounded,
+            AppIcons.forward(context),
             size: 14,
             color: AppThemeConfig.mutedText(context),
           ),
@@ -578,11 +589,13 @@ class _LanguageOptionRow extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
           decoration: BoxDecoration(
             color: selected
-                ? drawerPrimary.withValues(alpha: 0.08)
+                ? AppThemeConfig.accent(context).withValues(alpha: 0.08)
                 : AppThemeConfig.softSurface(context),
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: selected ? drawerPrimary : AppThemeConfig.border(context),
+              color: selected
+                  ? AppThemeConfig.accent(context)
+                  : AppThemeConfig.border(context),
               width: selected ? 1.5 : 1,
             ),
           ),
@@ -594,14 +607,16 @@ class _LanguageOptionRow extends StatelessWidget {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: selected
-                      ? drawerPrimary
-                      : drawerPrimary.withValues(alpha: 0.12),
+                      ? AppThemeConfig.accent(context)
+                      : AppThemeConfig.accent(context).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
                   option.code,
                   style: TextStyle(
-                    color: selected ? Colors.white : drawerPrimary,
+                    color: selected
+                        ? AppThemeConfig.onAccent(context)
+                        : AppThemeConfig.accent(context),
                     fontWeight: FontWeight.w800,
                     fontSize: 12,
                   ),
@@ -635,7 +650,7 @@ class _LanguageOptionRow extends StatelessWidget {
                     ? Icons.check_circle_rounded
                     : Icons.radio_button_unchecked_rounded,
                 color: selected
-                    ? drawerPrimary
+                    ? AppThemeConfig.accent(context)
                     : AppThemeConfig.mutedText(context).withValues(alpha: 0.5),
                 size: 20,
               ),
@@ -648,52 +663,43 @@ class _LanguageOptionRow extends StatelessWidget {
 }
 
 /// Dark Mode — per spec: a direct toggle, no sub-page.
+/// The appearance row in Settings.
+///
+/// Was a two-state Switch bound to setAppDarkMode; it is now the shared
+/// tri-state picker, so System is reachable. The heading stays because the
+/// segments alone do not say what they control.
 class DarkModeRow extends StatelessWidget {
   const DarkModeRow({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: appThemeMode,
-      builder: (context, mode, _) {
-        final isDark = mode == ThemeMode.dark;
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: Row(
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: Colors.indigo.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(11),
-                ),
-                child: const Icon(
-                  Icons.dark_mode_rounded,
-                  color: Colors.indigo,
-                  size: 18,
-                ),
+              Icon(
+                Icons.contrast_rounded,
+                color: AppThemeConfig.accent(context),
+                size: 18,
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Dark mode'.tr,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14.5,
-                    color: AppThemeConfig.text(context),
-                  ),
+              const SizedBox(width: 10),
+              Text(
+                'Dark mode'.tr,
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14.5,
+                  color: AppThemeConfig.text(context),
                 ),
-              ),
-              Switch.adaptive(
-                value: isDark,
-                activeThumbColor: drawerPrimary,
-                onChanged: setAppDarkMode,
               ),
             ],
           ),
-        );
-      },
+          const SizedBox(height: 10),
+          const AppThemeModePicker(),
+        ],
+      ),
     );
   }
 }
@@ -743,8 +749,19 @@ class _NotificationsRowState extends State<NotificationsRow> {
     try {
       final applied = await const ModuleApi().setNotificationSetting(next);
       if (mounted) setState(() => _enabled = applied);
-    } catch (_) {
+    } catch (e) {
+      // The rollback keeps the switch TRUTHFUL — it reads as unchanged, which
+      // it is. But truthful is not the same as understood: a switch that flips
+      // back on its own reads as a broken control, not as a save that failed.
+      // One line distinguishes the two, and it is information rather than
+      // noise because it changes what the user does next (try again later
+      // versus assume the app is broken).
       if (mounted) setState(() => _enabled = previous);
+      debugPrint('setNotificationSetting failed: $e');
+      Get.snackbar(
+        'Settings'.tr,
+        'Could not save that preference. Please try again.'.tr,
+      );
     }
   }
 
@@ -761,9 +778,9 @@ class _NotificationsRowState extends State<NotificationsRow> {
               color: Colors.amber.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(11),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.notifications_active_rounded,
-              color: Colors.amber,
+              color: AppThemeConfig.pending(context),
               size: 18,
             ),
           ),
@@ -787,7 +804,7 @@ class _NotificationsRowState extends State<NotificationsRow> {
           else
             Switch.adaptive(
               value: _enabled,
-              activeThumbColor: drawerPrimary,
+              activeThumbColor: AppThemeConfig.accent(context),
               onChanged: _toggle,
             ),
         ],

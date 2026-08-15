@@ -181,7 +181,6 @@ class AuthFeatureChip extends StatelessWidget {
   }
 }
 
-
 /// Field colours for the auth forms.
 ///
 /// AppThemeConfig.border() is `white @ 80%` in light mode and surface() is

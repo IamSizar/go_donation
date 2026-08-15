@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/modules/proposal/screens/partners_screen.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
@@ -31,6 +32,16 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
   List<Map<String, dynamic>> _activities = const [];
   bool _loadingActivities = true;
 
+  /// User-facing reason the joint-activity history is missing, or null.
+  ///
+  /// Kept separate from `_activities.isEmpty` on purpose. A partner with no
+  /// recorded joint activities and a partner whose history failed to load both
+  /// leave the list empty, but they are opposite claims: the first says this
+  /// partnership has produced nothing, which is a real and checkable statement
+  /// about an organization's record. We must not make it on the strength of a
+  /// dropped connection.
+  String? _activitiesError;
+
   int get _partnerId => (widget.partner['id'] as num?)?.toInt() ?? 0;
 
   @override
@@ -39,13 +50,32 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
     _loadActivities();
   }
 
+  /// Loads the activity history. Also the RefreshIndicator's callback, so it
+  /// runs both as a first load and as a user-initiated refresh.
   Future<void> _loadActivities() async {
-    final items = await ModuleApi().partnerActivities(_partnerId);
-    if (!mounted) return;
-    setState(() {
-      _activities = items;
-      _loadingActivities = false;
-    });
+    // Cleared up front so a successful retry cannot leave the previous
+    // failure's banner sitting above fresh, correct rows.
+    if (_activitiesError != null) {
+      setState(() => _activitiesError = null);
+    }
+    try {
+      final items = await ModuleApi().partnerActivities(_partnerId);
+      if (!mounted) return;
+      setState(() {
+        _activities = items;
+        _loadingActivities = false;
+      });
+    } catch (e) {
+      // partnerActivities now THROWS rather than returning `const []`. Without
+      // this guard the rejected future would escape initState as an unhandled
+      // async error — trading a wrong empty state for a crash, which is worse.
+      if (!mounted) return;
+      setState(() {
+        _activitiesError = 'Could not load this partner\'s joint activities.';
+        _loadingActivities = false;
+      });
+      debugPrint('partnerActivities($_partnerId) failed: $e');
+    }
   }
 
   @override
@@ -206,34 +236,69 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
             _Section(
               title: 'Joint activities'.tr,
               icon: Icons.history_rounded,
-              child: _loadingActivities
-                  ? const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 14),
-                      child: Center(
-                        child: SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      ),
-                    )
-                  : _activities.isEmpty
-                  ? Text(
-                      'No joint activities recorded yet.'.tr,
-                      style: TextStyle(
-                        color: AppThemeConfig.mutedText(context),
-                        height: 1.5,
-                      ),
-                    )
-                  : Column(
-                      children: [
-                        for (final a in _activities) _ActivityTile(activity: a),
-                      ],
-                    ),
+              child: _activitiesBody(context),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  /// The four states of the joint-activity history, in the one order that is
+  /// correct: loading, then ERROR, then empty, then content.
+  ///
+  /// Error must be tested before empty. A failed fetch leaves `_activities`
+  /// empty too, so an `isEmpty` check placed first would swallow every failure
+  /// back into "No joint activities recorded yet." — the exact bug being fixed.
+  ///
+  /// This section is one child of the page's ListView, so it is laid out with
+  /// UNBOUNDED height. That rules out the shared [AppAsync] switcher here:
+  /// its empty state scrolls (AppEmpty wraps a SingleChildScrollView) and its
+  /// stale-content error branch uses an Expanded, both of which throw under
+  /// unbounded constraints. The same widgets are used directly instead, in the
+  /// same order, choosing the shapes that size themselves.
+  Widget _activitiesBody(BuildContext context) {
+    if (_loadingActivities) {
+      // A skeleton shaped like _ActivityTile — a title line and a date/code
+      // line, no progress rule — so the rows fill in rather than pop in.
+      return AppSkeleton.rows(count: 3, withProgress: false);
+    }
+
+    if (_activitiesError != null) {
+      // AppErrorState's own `staleContent` slot is not used, because it lays
+      // the kept content out with an Expanded — fine full-screen, fatal under
+      // this section's unbounded height. The same idea is composed by hand: on
+      // a failed REFRESH the rows already fetched stay readable beneath the
+      // banner, dimmed to mark them as possibly out of date.
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AppErrorState(message: _activitiesError!, onRetry: _loadActivities),
+          if (_activities.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Opacity(
+              opacity: 0.55,
+              child: Column(
+                children: [
+                  for (final a in _activities) _ActivityTile(activity: a),
+                ],
+              ),
+            ),
+          ],
+        ],
+      );
+    }
+
+    if (_activities.isEmpty) {
+      // Reached only on a load that genuinely succeeded and returned nothing.
+      return Text(
+        'No joint activities recorded yet.'.tr,
+        style: TextStyle(color: AppThemeConfig.mutedText(context), height: 1.5),
+      );
+    }
+
+    return Column(
+      children: [for (final a in _activities) _ActivityTile(activity: a)],
     );
   }
 

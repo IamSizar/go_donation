@@ -5,7 +5,10 @@ import 'package:get/get.dart';
 
 import '../controllers/notifications_controller.dart';
 import '../widgets/notification_detail_dialog.dart';
+import '../models/app_notification_model.dart';
 import '../widgets/notification_tile.dart';
+import 'package:flutter_application_1/core/design/motion.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 class NotificationsScreen extends GetView<NotificationsController> {
   const NotificationsScreen({super.key});
@@ -24,80 +27,79 @@ class NotificationsScreen extends GetView<NotificationsController> {
             Expanded(
               child: Obx(() {
                 final items = controller.filteredNotifications;
-                // Only show the full-screen spinner on the very first load,
-                // when there's nothing to display yet. Once the list exists,
-                // background polls update it in place without ever swapping it
-                // out for a spinner (which read as an ugly reload every ~5s).
-                if (controller.isLoading.value &&
-                    controller.notifications.isEmpty) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                final error = controller.errorMessage.value;
-                if (error != null) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 32),
-                      child: Text(
-                        error,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: AppThemeConfig.mutedText(context),
-                          fontSize: 16,
-                          height: 1.4,
-                        ),
-                      ),
-                    ),
-                  );
-                }
                 return RefreshIndicator(
                   onRefresh: controller.refreshNotifications,
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
                     children: [
-                      _NotificationSummary(controller: controller),
+                      // The summary and filters stay OUTSIDE AppAsync: the
+                      // empty state is normally "nothing matches the filters
+                      // you chose", and hiding them with the results would
+                      // leave no way to undo the selection that emptied the
+                      // screen.
+                      // countsKnown: a failed load leaves the lists empty,
+                      // and an empty list renders as "All caught up / 0 / 0 /
+                      // 0" — a confident claim that the user has nothing,
+                      // sitting directly above a banner admitting we could not
+                      // find out. Same rule as the wallet: a wrong number is
+                      // worse than a missing one.
+                      _NotificationSummary(
+                        controller: controller,
+                        countsKnown:
+                            controller.errorMessage.value == null ||
+                            controller.notifications.isNotEmpty,
+                      ),
                       const SizedBox(height: 16),
                       _FilterSection(controller: controller),
                       const SizedBox(height: 16),
-                      if (items.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 32,
-                            vertical: 40,
-                          ),
-                          child: Text(
-                            'No notifications match the selected filters.'.tr,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: AppThemeConfig.mutedText(context),
-                              fontSize: 16,
-                              height: 1.4,
-                            ),
-                          ),
-                        )
-                      else ...[
-                        for (var i = 0; i < items.length; i++) ...[
-                          NotificationTile(
-                            notification: items[i],
-                            // Show the whole record first; the type's
-                            // destination (when it has one) is an explicit
-                            // action inside the dialog.
-                            onTap: () async {
-                              final n = items[i];
-                              await controller.markAsRead(n);
-                              if (!context.mounted) return;
-                              await showNotificationDetail(
-                                context,
-                                n,
-                                onOpen: controller.destinationFor(n),
-                              );
-                            },
-                            onDismissed: items[i].isRead
-                                ? null
-                                : () => controller.markAsRead(items[i]),
-                          ),
-                          if (i < items.length - 1) const SizedBox(height: 12),
-                        ],
-                      ],
+                      AppAsync<List<AppNotificationModel>>(
+                        // `loading` is passed straight through: AppAsync only
+                        // shows the skeleton when there is no data yet, so a
+                        // background poll updates the list in place instead of
+                        // swapping it for a spinner every few seconds - the
+                        // behaviour the old `isLoading && notifications.isEmpty`
+                        // guard was hand-rolling.
+                        loading: controller.isLoading.value,
+                        error: controller.errorMessage.value,
+                        onRetry: controller.refreshNotifications,
+                        data: items,
+                        isEmpty: (list) => list.isEmpty,
+                        empty: AppEmpty(
+                          title: 'Notifications'.tr,
+                          message:
+                              'No notifications match the selected filters.'.tr,
+                        ),
+                        // The error used to be a bare centred sentence with no
+                        // way to recover - a dead end for anyone who lost
+                        // connection.
+                        builder: (list) => Column(
+                          children: [
+                            for (var i = 0; i < list.length; i++) ...[
+                              NotificationTile(
+                                notification: list[i],
+                                // Show the whole record first; the type's
+                                // destination (when it has one) is an explicit
+                                // action inside the dialog.
+                                onTap: () async {
+                                  final n = list[i];
+                                  await controller.markAsRead(n);
+                                  if (!context.mounted) return;
+                                  await showNotificationDetail(
+                                    context,
+                                    n,
+                                    onOpen: controller.destinationFor(n),
+                                  );
+                                },
+                                onDismissed: list[i].isRead
+                                    ? null
+                                    : () => controller.markAsRead(list[i]),
+                              ),
+                              if (i < list.length - 1)
+                                const SizedBox(height: 12),
+                            ],
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 );
@@ -121,35 +123,31 @@ class NotificationsScreen extends GetView<NotificationsController> {
 ///   • Below either state, a thin row of pills (All / Read / Unread)
 ///     keeps the previous quick-stat affordance.
 class _NotificationSummary extends StatelessWidget {
-  const _NotificationSummary({required this.controller});
+  const _NotificationSummary({
+    required this.controller,
+    this.countsKnown = true,
+  });
 
   final NotificationsController controller;
+
+  /// False when the last load failed and nothing is cached, so the counts
+  /// below are absences rather than zeros.
+  final bool countsKnown;
 
   @override
   Widget build(BuildContext context) {
     final total = controller.notifications.length;
     final unread = controller.unreadCount;
     final read = total - unread;
-    final hasUnread = unread > 0;
+    final hasUnread = countsKnown && unread > 0;
 
-    final theme = Theme.of(context);
-    final primary = theme.colorScheme.primary;
-    // Gradient anchors: vivid when there's something unread, calm when
-    // empty. Both keep enough contrast for the white text on top.
-    final gradient = hasUnread
-        ? LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [primary, primary.withValues(alpha: 0.72)],
-          )
-        : LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              const Color(0xFF16A34A), // green-600
-              const Color(0xFF22C55E).withValues(alpha: 0.78),
-            ],
-          );
+    // A single accent surface in both states. This was two hardcoded
+    // gradients — brand-primary when unread, a raw 0xFF16A34A/0xFF22C55E green
+    // pair when caught up — neither of which resolved through the token layer,
+    // so neither adapted to dark mode. The unread/caught-up distinction is
+    // already carried by the headline text and the bell-vs-check mark; it did
+    // not need a second, redundant colour encoding.
+    final surface = AppThemeConfig.accent(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -158,16 +156,8 @@ class _NotificationSummary extends StatelessWidget {
         Container(
           padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
           decoration: BoxDecoration(
-            gradient: gradient,
+            color: surface,
             borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: (hasUnread ? primary : const Color(0xFF16A34A))
-                    .withValues(alpha: 0.22),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
-              ),
-            ],
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -179,13 +169,15 @@ class _NotificationSummary extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      hasUnread
+                      !countsKnown
+                          ? 'Notifications'.tr
+                          : hasUnread
                           ? '@n new'.trParams({'n': '$unread'})
                           : 'All caught up'.tr,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: AppThemeConfig.onAccent(context),
                         fontSize: 20,
                         fontWeight: FontWeight.w800,
                         height: 1.1,
@@ -193,11 +185,15 @@ class _NotificationSummary extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      hasUnread
+                      !countsKnown
+                          ? 'We could not check for new notifications.'.tr
+                          : hasUnread
                           ? 'Tap any alert to open it.'.tr
                           : 'No unread notifications.'.tr,
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.88),
+                        color: AppThemeConfig.onAccent(
+                          context,
+                        ).withValues(alpha: 0.88),
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
                       ),
@@ -207,7 +203,9 @@ class _NotificationSummary extends StatelessWidget {
               ),
               if (hasUnread)
                 Material(
-                  color: Colors.white.withValues(alpha: 0.18),
+                  color: AppThemeConfig.onAccent(
+                    context,
+                  ).withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(99),
                   child: InkWell(
                     onTap: controller.markAllAsRead,
@@ -220,16 +218,16 @@ class _NotificationSummary extends StatelessWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.done_all_rounded,
                             size: 16,
-                            color: Colors.white,
+                            color: AppThemeConfig.onAccent(context),
                           ),
                           const SizedBox(width: 4),
                           Text(
                             'Mark all'.tr,
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: AppThemeConfig.onAccent(context),
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
                             ),
@@ -251,7 +249,8 @@ class _NotificationSummary extends StatelessWidget {
                 icon: Icons.inbox_rounded,
                 label: 'All'.tr,
                 value: total,
-                accent: theme.colorScheme.primary,
+                known: countsKnown,
+                accent: AppThemeConfig.accent(context),
               ),
             ),
             const SizedBox(width: 8),
@@ -260,9 +259,10 @@ class _NotificationSummary extends StatelessWidget {
                 icon: Icons.fiber_manual_record_rounded,
                 label: 'Unread'.tr,
                 value: unread,
+                known: countsKnown,
                 accent: hasUnread
-                    ? const Color(0xFFEF4444) // red-500
-                    : theme.disabledColor,
+                    ? AppThemeConfig.accent(context)
+                    : AppThemeConfig.subtleText(context),
               ),
             ),
             const SizedBox(width: 8),
@@ -271,7 +271,8 @@ class _NotificationSummary extends StatelessWidget {
                 icon: Icons.mark_email_read_rounded,
                 label: 'Read'.tr,
                 value: read,
-                accent: const Color(0xFF16A34A),
+                known: countsKnown,
+                accent: AppThemeConfig.subtleText(context),
               ),
             ),
           ],
@@ -308,18 +309,39 @@ class _BellOrCheckState extends State<_BellOrCheck>
     // Sine-ish wobble between -0.18 and +0.18 radians (~10°) so the bell
     // looks like it's gently ringing. Curve.easeInOut keeps the motion
     // smooth at the extremes; loop while unread > 0.
-    _swing = Tween<double>(begin: -0.18, end: 0.18).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
-    );
-    if (widget.hasUnread) _ctrl.repeat(reverse: true);
+    _swing = Tween<double>(
+      begin: -0.18,
+      end: 0.18,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
+    // The swing is started from didChangeDependencies rather than here,
+    // because deciding whether to swing at all requires MediaQuery, which is
+    // not safe to read during initState.
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncSwing();
   }
 
   @override
   void didUpdateWidget(covariant _BellOrCheck old) {
     super.didUpdateWidget(old);
-    if (widget.hasUnread && !_ctrl.isAnimating) {
+    _syncSwing();
+  }
+
+  /// Starts or stops the bell swing to match the unread state.
+  ///
+  /// Reduce Motion parks the bell instead of swinging it. A ±10° rotation
+  /// repeating with reverse:true is a 3.2s cycle — a slow looping oscillation
+  /// with no end condition, which is the specific shape the setting exists to
+  /// suppress. The unread state is still conveyed: the badge count next to the
+  /// bell carries it, so nothing is lost by holding still.
+  void _syncSwing() {
+    final shouldSwing = widget.hasUnread && !AppMotion.reduced(context);
+    if (shouldSwing && !_ctrl.isAnimating) {
       _ctrl.repeat(reverse: true);
-    } else if (!widget.hasUnread && _ctrl.isAnimating) {
+    } else if (!shouldSwing && _ctrl.isAnimating) {
       _ctrl.stop();
       _ctrl.value = 0.5; // park at neutral
     }
@@ -337,7 +359,7 @@ class _BellOrCheckState extends State<_BellOrCheck>
       width: 60,
       height: 60,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.18),
+        color: AppThemeConfig.onAccent(context).withValues(alpha: 0.18),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Stack(
@@ -347,20 +369,18 @@ class _BellOrCheckState extends State<_BellOrCheck>
           if (widget.hasUnread)
             AnimatedBuilder(
               animation: _swing,
-              builder: (context, child) => Transform.rotate(
-                angle: _swing.value,
-                child: child,
-              ),
-              child: const Icon(
+              builder: (context, child) =>
+                  Transform.rotate(angle: _swing.value, child: child),
+              child: Icon(
                 Icons.notifications_active_rounded,
-                color: Colors.white,
+                color: AppThemeConfig.onAccent(context),
                 size: 30,
               ),
             )
           else
-            const Icon(
+            Icon(
               Icons.check_circle_rounded,
-              color: Colors.white,
+              color: AppThemeConfig.onAccent(context),
               size: 30,
             ),
           // Red badge with count when unread > 0, capped at "99+".
@@ -370,20 +390,20 @@ class _BellOrCheckState extends State<_BellOrCheck>
               right: -4,
               child: Container(
                 constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 6,
-                  vertical: 2,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEF4444),
+                  color: AppThemeConfig.consequence(context),
                   borderRadius: BorderRadius.circular(99),
-                  border: Border.all(color: Colors.white, width: 2),
+                  border: Border.all(
+                    color: AppThemeConfig.onAccent(context),
+                    width: 2,
+                  ),
                 ),
                 child: Text(
                   widget.unreadCount > 99 ? '99+' : '${widget.unreadCount}',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: AppThemeConfig.onAccent(context),
                     fontWeight: FontWeight.w800,
                     fontSize: 11,
                     height: 1.0,
@@ -404,12 +424,17 @@ class _StatPill extends StatelessWidget {
     required this.label,
     required this.value,
     required this.accent,
+    this.known = true,
   });
 
   final IconData icon;
   final String label;
   final int value;
   final Color accent;
+
+  /// When false the count is UNKNOWN, not zero, and renders as an em dash.
+  /// "0" would be a specific claim we cannot support after a failed load.
+  final bool known;
 
   @override
   Widget build(BuildContext context) {
@@ -436,7 +461,7 @@ class _StatPill extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '$value',
+                  known ? '$value' : '—',
                   style: TextStyle(
                     color: AppThemeConfig.text(context),
                     fontSize: 16,

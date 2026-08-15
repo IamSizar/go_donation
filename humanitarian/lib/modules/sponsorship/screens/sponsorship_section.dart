@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_campaign_donations_screen.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_entitlements_screen.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_my_projects_screen.dart';
-import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_pending_projects_screen.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_submit_project_screen.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/orphan_family_profiles_screen.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/sponsorship_overview_screen.dart';
@@ -76,7 +76,7 @@ class _BeneficiarySupportList extends StatelessWidget {
           icon: Icons.upload_file_rounded,
           title: 'Submit project for help',
           subtitle: 'Send a project request with budget, location, and needs.',
-          color: Colors.deepPurple,
+          color: AppThemeConfig.accent(context),
           onTap: () => Get.to(() => const BeneficiarySubmitProjectScreen()),
         ),
         const SizedBox(height: 12),
@@ -84,41 +84,36 @@ class _BeneficiarySupportList extends StatelessWidget {
           icon: Icons.card_giftcard_rounded,
           title: 'My entitlements',
           subtitle: 'Sponsorships supporting you and your next support date.',
-          color: Colors.pinkAccent,
+          color: AppThemeConfig.accent(context),
           onTap: () => Get.to(() => const BeneficiaryEntitlementsScreen()),
         ),
         const SizedBox(height: 12),
         SectionTile(
           icon: Icons.volunteer_activism_rounded,
           title: 'My campaign donations',
-          subtitle: 'See every donation made to your campaigns and who donated.',
-          color: Colors.teal,
-          onTap: () => Get.to(
-            () => const BeneficiaryCampaignDonationsScreen(),
-          ),
+          subtitle:
+              'See every donation made to your campaigns and who donated.',
+          color: AppThemeConfig.accent(context),
+          onTap: () => Get.to(() => const BeneficiaryCampaignDonationsScreen()),
         ),
         const SizedBox(height: 12),
         SectionTile(
           icon: Icons.dashboard_customize_rounded,
           title: 'My help requests',
           subtitle: 'See submitted, pending, approved, and rejected requests.',
-          color: Colors.indigo,
+          color: AppThemeConfig.accent(context),
           onTap: () => Get.to(() => const BeneficiaryMyProjectsScreen()),
         ),
-        const SizedBox(height: 12),
-        SectionTile(
-          icon: Icons.pending_actions_rounded,
-          title: 'Pending projects for help',
-          subtitle: 'Review requests still waiting for action or matching.',
-          color: Colors.amber,
-          onTap: () => Get.to(() => const BeneficiaryPendingProjectsScreen()),
-        ),
+        // "Pending projects for help" was a second tile onto the SAME list —
+        // same controller, same fetch, one client-side status predicate apart.
+        // It is now the Pending chip inside "My help requests" above, whose
+        // subtitle already describes exactly that.
         const SizedBox(height: 12),
         SectionTile(
           icon: Icons.assignment_ind_rounded,
           title: 'Submit beneficiary case',
           subtitle: 'Send family, income, housing, and needs information.',
-          color: Colors.green,
+          color: AppThemeConfig.accent(context),
           onTap: () => Get.to(() => const BeneficiaryCaseFormScreen()),
         ),
         const SizedBox(height: 12),
@@ -126,7 +121,7 @@ class _BeneficiarySupportList extends StatelessWidget {
           icon: Icons.fact_check_rounded,
           title: 'My beneficiary cases',
           subtitle: 'Track submitted, reviewed, approved, and rejected cases.',
-          color: Colors.teal,
+          color: AppThemeConfig.accent(context),
           onTap: () => Get.to(() => const MyBeneficiaryCasesScreen()),
         ),
         // Technical support intentionally lives only in the Services tab (it is
@@ -149,7 +144,7 @@ class _SponsorshipList extends StatelessWidget {
           icon: Icons.family_restroom_rounded,
           title: 'Overview',
           subtitle: 'Review current sponsorship activity and milestones.',
-          color: Colors.teal,
+          color: AppThemeConfig.accent(context),
           onTap: () => Get.to(() => const SponsorshipOverviewScreen()),
         ),
         const SizedBox(height: 12),
@@ -158,7 +153,7 @@ class _SponsorshipList extends StatelessWidget {
           title: 'Create monthly sponsorship',
           subtitle:
               'Choose general support or a campaign and submit it for admin review.',
-          color: Colors.pinkAccent,
+          color: AppThemeConfig.accent(context),
           onTap: () => Get.to(() => const SponsorshipFormScreen()),
         ),
         const SizedBox(height: 12),
@@ -166,7 +161,7 @@ class _SponsorshipList extends StatelessWidget {
           icon: Icons.child_care_rounded,
           title: 'Orphan & Family Profiles',
           subtitle: 'See updates, family needs, and sponsorship history.',
-          color: Colors.amber,
+          color: AppThemeConfig.pending(context),
           onTap: () => Get.to(() => const OrphanFamilyProfilesScreen()),
         ),
       ],

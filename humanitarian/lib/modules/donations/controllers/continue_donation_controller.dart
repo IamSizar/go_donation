@@ -17,6 +17,7 @@ class ContinueDonationController extends GetxController {
     required int amount,
     required String paymentMethod,
     String donationType = 'general',
+
     /// project_categories.slug when the donor picked a specific project
     /// (#7). Null for a general or campaign donation.
     String? projectSlug,

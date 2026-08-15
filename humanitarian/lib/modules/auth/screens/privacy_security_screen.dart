@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/core/design/directional_icons.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/modules/auth/screens/field_privacy_screen.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
@@ -62,7 +63,7 @@ class PrivacySecurityScreen extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Icon(
-                      Icons.arrow_forward_ios_rounded,
+                      AppIcons.forward(context),
                       color: AppThemeConfig.mutedText(context),
                       size: 16,
                     ),

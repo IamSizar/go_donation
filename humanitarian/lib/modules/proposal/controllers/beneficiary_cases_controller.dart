@@ -43,6 +43,7 @@ class BeneficiaryCasesController extends GetxController
         errorMessage.value =
             'Unable to load beneficiary cases from the server.'.tr;
       }
+      // Silent polls keep the last good list: the next tick retries in 20s.
     } finally {
       if (!silent) isLoading.value = false;
     }
@@ -105,13 +106,15 @@ class MyBeneficiaryCasesController extends GetxController
     final transitions = detectStatusTransitions<Map<String, dynamic>>(
       items: cases,
       keyOf: (m) => (m['id'] ?? '').toString(),
-      statusOf: (m) => (m['verification_status'] ?? '').toString().toLowerCase(),
+      statusOf: (m) =>
+          (m['verification_status'] ?? '').toString().toLowerCase(),
       previous: _lastStatusSnapshot,
     );
     _lastStatusSnapshot = {
       for (final m in cases)
-        (m['id'] ?? '').toString():
-            (m['verification_status'] ?? '').toString().toLowerCase(),
+        (m['id'] ?? '').toString(): (m['verification_status'] ?? '')
+            .toString()
+            .toLowerCase(),
     };
     for (final t in transitions) {
       final msg = _messageForCaseTransition(t.toStatus);

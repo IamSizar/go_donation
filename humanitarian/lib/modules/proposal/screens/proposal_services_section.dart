@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/api/links.dart';
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/core/app_state.dart';
@@ -15,6 +16,7 @@ import 'package:flutter_application_1/modules/sponsorship/controllers/sponsorshi
 import 'package:flutter_application_1/modules/sponsorship/screens/sponsorship_overview_screen.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 class ProposalServicesSection extends StatelessWidget {
   const ProposalServicesSection({super.key});
@@ -41,194 +43,172 @@ String _servicesSubtitleForRole(String roleId) {
   };
 }
 
-Widget _servicesForRole(String roleId) {
+Widget _servicesForRole(String roleId) => _ServicesHub(roleId: roleId);
+
+/// The Services hub, assembled from two clearly separated groups.
+///
+/// Previously each role had its own hand-written tile list, and four of those
+/// tiles — Partners, News and activities, Technical support and Marriage posts
+/// — were copy-pasted into all three lists with byte-identical icons, titles,
+/// subtitles, colours, destinations and (absent) visibility rules. Three copies
+/// of the same row is three chances to drift, and it also buried each role's
+/// genuinely role-specific actions in a flat, undifferentiated stack.
+///
+/// So the shared four are hoisted into one "Community and support" group that
+/// is written once and rendered for every role, and each role variant now
+/// declares only what is actually specific to it. No destination was lost:
+/// every screen reachable from any role before is still reachable from that
+/// same role after — see [_roleSpecificTiles] and [_communityAndSupportTiles].
+///
+/// Deliberately NOT hoisted: "Reports". It is absent for beneficiaries and, for
+/// the two roles that do get it, the subtitle differs (donation/case/project
+/// totals vs volunteer attendance/mission totals), so it is genuinely
+/// role-specific and stays in [_roleSpecificTiles].
+class _ServicesHub extends StatelessWidget {
+  const _ServicesHub({required this.roleId});
+
+  /// Raw `role_id` string as stored in preferences: '2' beneficiary,
+  /// '3' volunteer, anything else (including empty) is treated as donor.
+  final String roleId;
+
+  @override
+  Widget build(BuildContext context) {
+    final roleTiles = _roleSpecificTiles(context, roleId);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Beneficiaries have no role-specific Services tiles at all (their own
+        // actions live on the Kafala and Profile tabs — see the notes on
+        // _roleSpecificTiles), so the whole group and its heading are skipped
+        // rather than rendering an empty labelled section.
+        if (roleTiles.isNotEmpty) ...[
+          SectionLabel(title: _roleSectionTitle(roleId)),
+          const SizedBox(height: 12),
+          ..._separated(roleTiles),
+          const SizedBox(height: 20),
+        ],
+        const SectionLabel(title: 'Community and support'),
+        const SizedBox(height: 12),
+        ..._separated(_communityAndSupportTiles(context)),
+      ],
+    );
+  }
+}
+
+/// Heading for the role-specific group. Only called when that group is
+/// non-empty, so the beneficiary case never needs a string.
+String _roleSectionTitle(String roleId) {
   return switch (roleId) {
-    '2' => const _BeneficiaryServices(),
-    '3' => const _VolunteerServices(),
-    _ => const _DonorServices(),
+    '3' => 'Volunteer tools',
+    _ => 'Giving tools',
   };
 }
 
-class _BeneficiaryServices extends StatelessWidget {
-  const _BeneficiaryServices();
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // "Submit beneficiary case" intentionally lives only in the Kafala /
-        // Beneficiary-support tab, where it sits next to "My beneficiary cases"
-        // tracking — so it is not duplicated here in Services.
-        //
-        // Submitting/editing your own marriage profile already has 4 tiles on
-        // the Profile tab (form, search, my profile, chats — modules/marriage);
-        // not re-duplicated here. Only the public posts feed is repeated,
-        // since Services is explicitly the "public updates" hub.
-        SectionTile(
-          icon: Icons.diversity_1_rounded,
-          title: 'marriage_posts_title',
-          subtitle: 'marriage_posts_services_subtitle',
-          color: Colors.deepPurple,
-          onTap: () => Get.to(() => const MarriagePostsScreen()),
-        ),
-        const SizedBox(height: 12),
-        SectionTile(
-          icon: Icons.apartment_rounded,
-          title: 'Partners',
-          subtitle: 'Browse partner and supporting entities.',
-          color: Colors.blueAccent,
-          onTap: () => Get.to(() => const PartnersScreen()),
-        ),
-        const SizedBox(height: 12),
-        SectionTile(
-          icon: Icons.article_rounded,
-          title: 'News and activities',
-          subtitle: 'See activities, news, articles, and events.',
-          color: Colors.orange,
-          onTap: () => Get.to(() => const NewsActivitiesScreen()),
-        ),
-        const SizedBox(height: 12),
-        SectionTile(
-          icon: Icons.support_agent_rounded,
-          title: 'Technical support',
-          subtitle: 'Send a support request to the institution.',
-          color: Colors.indigo,
-          onTap: () => Get.to(() => const SupportTicketFormScreen()),
-        ),
-      ],
-    );
-  }
+/// Interleaves a 12px gap between tiles without leaving a trailing gap, which
+/// is what the old hand-written `const SizedBox(height: 12)` rows did.
+List<Widget> _separated(List<Widget> tiles) {
+  return [
+    for (var i = 0; i < tiles.length; i++) ...[
+      tiles[i],
+      if (i != tiles.length - 1) const SizedBox(height: 12),
+    ],
+  ];
 }
 
-class _DonorServices extends StatelessWidget {
-  const _DonorServices();
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        SectionTile(
-          icon: Icons.verified_user_rounded,
-          title: 'Beneficiary cases'.tr,
-          subtitle: 'Review verified cases by code, need, and priority.',
-          color: Colors.teal,
-          onTap: () => Get.to(() => const BeneficiaryCasesScreen()),
-        ),
-        const SizedBox(height: 12),
-        SectionTile(
-          icon: Icons.handshake_rounded,
-          title: 'Create sponsorship',
-          subtitle: 'Register a scheduled sponsorship commitment.',
-          color: Colors.pinkAccent,
-          onTap: () => Get.to(() => const SponsorshipFormScreen()),
-        ),
-        const SizedBox(height: 12),
-        SectionTile(
-          icon: Icons.inventory_2_rounded,
-          title: 'In-kind donation',
-          subtitle: 'Submit food, clothing, supplies, or other items.',
-          color: Colors.green,
-          onTap: () => Get.to(() => const InKindDonationFormScreen()),
-        ),
-        const SizedBox(height: 12),
-        SectionTile(
-          icon: Icons.apartment_rounded,
-          title: 'Partners',
-          subtitle: 'Browse partner and supporting entities.',
-          color: Colors.blueAccent,
-          onTap: () => Get.to(() => const PartnersScreen()),
-        ),
-        const SizedBox(height: 12),
-        SectionTile(
-          icon: Icons.article_rounded,
-          title: 'News and activities',
-          subtitle: 'See activities, news, articles, and events.',
-          color: Colors.orange,
-          onTap: () => Get.to(() => const NewsActivitiesScreen()),
-        ),
-        const SizedBox(height: 12),
-        SectionTile(
-          icon: Icons.support_agent_rounded,
-          title: 'Technical support',
-          subtitle: 'Send a support request to the institution.',
-          color: Colors.indigo,
-          onTap: () => Get.to(() => const SupportTicketFormScreen()),
-        ),
-        const SizedBox(height: 12),
-        SectionTile(
-          icon: Icons.query_stats_rounded,
-          title: 'Reports',
-          subtitle: 'View donation, case, project, and expense totals.',
-          color: Colors.cyan,
-          onTap: () => Get.to(() => const ReportsScreen()),
-        ),
-        const SizedBox(height: 12),
-        // Note: submitting a marriage profile is a beneficiary-only action
-        // (backend-enforced) — donors only get the public posts feed here.
-        SectionTile(
-          icon: Icons.diversity_1_rounded,
-          title: 'marriage_posts_title',
-          subtitle: 'marriage_posts_services_subtitle',
-          color: Colors.deepPurple,
-          onTap: () => Get.to(() => const MarriagePostsScreen()),
-        ),
-      ],
-    );
-  }
+/// Tiles only this role can act on.
+///
+/// Beneficiary ('2') returns an empty list on purpose:
+/// - "Submit beneficiary case" intentionally lives only in the Kafala /
+///   Beneficiary-support tab, where it sits next to "My beneficiary cases"
+///   tracking — so it is not duplicated here in Services.
+/// - Submitting/editing your own marriage profile already has 4 tiles on the
+///   Profile tab (form, search, my profile, chats — modules/marriage); not
+///   re-duplicated here. Only the public posts feed is repeated below, since
+///   Services is explicitly the "public updates" hub.
+List<Widget> _roleSpecificTiles(BuildContext context, String roleId) {
+  return switch (roleId) {
+    '2' => const <Widget>[],
+    '3' => [
+      SectionTile(
+        icon: Icons.query_stats_rounded,
+        title: 'Reports',
+        subtitle: 'View volunteer attendance, mission, and completion totals.',
+        color: AppThemeConfig.accent(context),
+        onTap: () => Get.to(() => const ReportsScreen()),
+      ),
+    ],
+    _ => [
+      SectionTile(
+        icon: Icons.verified_user_rounded,
+        title: 'Beneficiary cases'.tr,
+        subtitle: 'Review verified cases by code, need, and priority.',
+        color: AppThemeConfig.accent(context),
+        onTap: () => Get.to(() => const BeneficiaryCasesScreen()),
+      ),
+      SectionTile(
+        icon: Icons.handshake_rounded,
+        title: 'Create sponsorship',
+        subtitle: 'Register a scheduled sponsorship commitment.',
+        color: AppThemeConfig.accent(context),
+        onTap: () => Get.to(() => const SponsorshipFormScreen()),
+      ),
+      SectionTile(
+        icon: Icons.inventory_2_rounded,
+        title: 'In-kind donation',
+        subtitle: 'Submit food, clothing, supplies, or other items.',
+        color: AppThemeConfig.accent(context),
+        onTap: () => Get.to(() => const InKindDonationFormScreen()),
+      ),
+      SectionTile(
+        icon: Icons.query_stats_rounded,
+        title: 'Reports',
+        subtitle: 'View donation, case, project, and expense totals.',
+        color: AppThemeConfig.accent(context),
+        onTap: () => Get.to(() => const ReportsScreen()),
+      ),
+    ],
+  };
 }
 
-class _VolunteerServices extends StatelessWidget {
-  const _VolunteerServices();
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        SectionTile(
-          icon: Icons.query_stats_rounded,
-          title: 'Reports',
-          subtitle:
-              'View volunteer attendance, mission, and completion totals.',
-          color: Colors.cyan,
-          onTap: () => Get.to(() => const ReportsScreen()),
-        ),
-        const SizedBox(height: 12),
-        SectionTile(
-          icon: Icons.apartment_rounded,
-          title: 'Partners',
-          subtitle: 'Browse partner and supporting entities.',
-          color: Colors.blueAccent,
-          onTap: () => Get.to(() => const PartnersScreen()),
-        ),
-        const SizedBox(height: 12),
-        SectionTile(
-          icon: Icons.article_rounded,
-          title: 'News and activities',
-          subtitle: 'See activities, news, articles, and events.',
-          color: Colors.orange,
-          onTap: () => Get.to(() => const NewsActivitiesScreen()),
-        ),
-        const SizedBox(height: 12),
-        SectionTile(
-          icon: Icons.support_agent_rounded,
-          title: 'Technical support',
-          subtitle: 'Send a support request to the institution.',
-          color: Colors.indigo,
-          onTap: () => Get.to(() => const SupportTicketFormScreen()),
-        ),
-        const SizedBox(height: 12),
-        // Note: submitting a marriage profile is a beneficiary-only action
-        // (backend-enforced) — volunteers only get the public posts feed here.
-        SectionTile(
-          icon: Icons.diversity_1_rounded,
-          title: 'marriage_posts_title',
-          subtitle: 'marriage_posts_services_subtitle',
-          color: Colors.deepPurple,
-          onTap: () => Get.to(() => const MarriagePostsScreen()),
-        ),
-      ],
-    );
-  }
+/// The four public, role-neutral destinations. Every role saw all four before
+/// this refactor with identical wording and identical targets, and every role
+/// still sees all four — this is the single definition of that group.
+///
+/// Marriage posts is the public posts feed only; submitting a marriage profile
+/// is a beneficiary-only action (backend-enforced) and is not offered here for
+/// any role, which is why this tile is safe to share.
+List<Widget> _communityAndSupportTiles(BuildContext context) {
+  return [
+    SectionTile(
+      icon: Icons.apartment_rounded,
+      title: 'Partners',
+      subtitle: 'Browse partner and supporting entities.',
+      color: AppThemeConfig.accent(context),
+      onTap: () => Get.to(() => const PartnersScreen()),
+    ),
+    SectionTile(
+      icon: Icons.article_rounded,
+      title: 'News and activities',
+      subtitle: 'See activities, news, articles, and events.',
+      color: AppThemeConfig.pending(context),
+      onTap: () => Get.to(() => const NewsActivitiesScreen()),
+    ),
+    SectionTile(
+      icon: Icons.support_agent_rounded,
+      title: 'Technical support',
+      subtitle: 'Send a support request to the institution.',
+      color: AppThemeConfig.accent(context),
+      onTap: () => Get.to(() => const SupportTicketFormScreen()),
+    ),
+    SectionTile(
+      icon: Icons.diversity_1_rounded,
+      title: 'marriage_posts_title',
+      subtitle: 'marriage_posts_services_subtitle',
+      color: AppThemeConfig.accent(context),
+      onTap: () => Get.to(() => const MarriagePostsScreen()),
+    ),
+  ];
 }
 
 class BeneficiaryCasesScreen extends StatelessWidget {
@@ -245,42 +225,40 @@ class BeneficiaryCasesScreen extends StatelessWidget {
       subtitle: 'Verified public case records.',
       child: Obx(() {
         final items = controller.cases;
-        return RefreshIndicator(
-          onRefresh: controller.fetchCases,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
-            children: [
-              if (controller.isLoading.value)
-                const Center(child: CircularProgressIndicator()),
-              if (controller.errorMessage.value != null)
-                SectionTile(
-                  icon: Icons.verified_user_rounded,
-                  title: 'Beneficiary cases'.tr,
-                  subtitle: controller.errorMessage.value!,
-                  color: Colors.teal,
-                  onTap: controller.fetchCases,
-                ),
-              if (!controller.isLoading.value &&
-                  controller.errorMessage.value == null &&
-                  items.isEmpty)
-                SectionTile(
-                  icon: Icons.verified_user_rounded,
-                  title: 'Beneficiary cases'.tr,
-                  subtitle: 'No approved cases are available yet.',
-                  color: Colors.teal,
-                ),
-              for (final item in items) ...[
-                SectionTile(
-                  icon: Icons.verified_user_rounded,
-                  title: _localizedCaseTitle(item),
-                  subtitle: _caseSubtitle(item),
-                  color: Colors.teal,
-                  onTap: () =>
-                      Get.to(() => BeneficiaryCaseDetailScreen(caseItem: item)),
-                ),
-                const SizedBox(height: 12),
+        // Three stacked `if` blocks replaced by AppAsync, which renders
+        // exactly ONE state. Before, a failed load drew the error tile and
+        // then the case list beneath it, and the error was a SectionTile -
+        // the same card used for the cases themselves - so an error looked
+        // like just another tappable row.
+        return AppAsync<List<Map<String, dynamic>>>(
+          loading: controller.isLoading.value,
+          error: controller.errorMessage.value,
+          onRetry: controller.fetchCases,
+          data: items,
+          isEmpty: (list) => list.isEmpty,
+          empty: AppEmpty(
+            title: 'Beneficiary cases'.tr,
+            message: 'No approved cases are available yet.',
+          ),
+          builder: (list) => RefreshIndicator(
+            onRefresh: controller.fetchCases,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+              children: [
+                for (final item in list) ...[
+                  SectionTile(
+                    icon: Icons.verified_user_rounded,
+                    title: _localizedCaseTitle(item),
+                    subtitle: _caseSubtitle(item),
+                    color: AppThemeConfig.accent(context),
+                    onTap: () => Get.to(
+                      () => BeneficiaryCaseDetailScreen(caseItem: item),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
               ],
-            ],
+            ),
           ),
         );
       }),
@@ -302,46 +280,43 @@ class MyBeneficiaryCasesScreen extends StatelessWidget {
       subtitle: 'Track private case submissions and admin review status.',
       child: Obx(() {
         final items = controller.cases;
-        return RefreshIndicator(
-          onRefresh: controller.fetchCases,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
-            children: [
-              _CaseSummaryBand(items: items),
-              const SizedBox(height: 14),
-              if (controller.isLoading.value)
-                const Center(child: CircularProgressIndicator()),
-              if (controller.errorMessage.value != null)
-                SectionTile(
-                  icon: Icons.refresh_rounded,
-                  title: 'My beneficiary cases',
-                  subtitle: controller.errorMessage.value!,
-                  color: Colors.teal,
-                  onTap: controller.fetchCases,
-                ),
-              if (!controller.isLoading.value &&
-                  controller.errorMessage.value == null &&
-                  items.isEmpty)
-                const SectionTile(
-                  icon: Icons.assignment_ind_rounded,
-                  title: 'No cases yet',
-                  subtitle: 'Submitted beneficiary cases will appear here.',
-                  color: Colors.teal,
-                ),
-              for (final item in items) ...[
-                SectionTile(
-                  icon: Icons.assignment_ind_rounded,
-                  title: _localizedCaseTitle(item),
-                  subtitle: _myCaseSubtitle(item),
-                  color: _caseStatusColor(
-                    (item['verification_status'] ?? '').toString(),
+        // The summary band moves INSIDE the builder: it reports counts, and
+        // rendering a zeroed summary while the fetch is still in flight
+        // states something not yet known.
+        return AppAsync<List<Map<String, dynamic>>>(
+          loading: controller.isLoading.value,
+          error: controller.errorMessage.value,
+          onRetry: controller.fetchCases,
+          data: items,
+          isEmpty: (list) => list.isEmpty,
+          empty: const AppEmpty(
+            title: 'No cases yet',
+            message: 'Submitted beneficiary cases will appear here.',
+          ),
+          builder: (list) => RefreshIndicator(
+            onRefresh: controller.fetchCases,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+              children: [
+                _CaseSummaryBand(items: list),
+                const SizedBox(height: 14),
+                for (final item in list) ...[
+                  SectionTile(
+                    icon: Icons.assignment_ind_rounded,
+                    title: _localizedCaseTitle(item),
+                    subtitle: _myCaseSubtitle(item),
+                    color: _caseStatusColor(
+                      context,
+                      (item['verification_status'] ?? '').toString(),
+                    ),
+                    onTap: () => Get.to(
+                      () => BeneficiaryCaseDetailScreen(caseItem: item),
+                    ),
                   ),
-                  onTap: () =>
-                      Get.to(() => BeneficiaryCaseDetailScreen(caseItem: item)),
-                ),
-                const SizedBox(height: 12),
+                  const SizedBox(height: 12),
+                ],
               ],
-            ],
+            ),
           ),
         );
       }),
@@ -414,13 +389,13 @@ String _myCaseSubtitle(Map<String, dynamic> item) {
   ].join(' - ');
 }
 
-Color _caseStatusColor(String status) {
+Color _caseStatusColor(BuildContext context, String status) {
   return switch (status) {
-    'approved' => Colors.green,
-    'rejected' => Colors.redAccent,
-    'under_review' || 'needs_changes' => Colors.orange,
-    'submitted' || 'draft' => Colors.amber,
-    _ => Colors.teal,
+    'approved' => AppThemeConfig.accent(context),
+    'rejected' => AppThemeConfig.consequence(context),
+    'under_review' || 'needs_changes' => AppThemeConfig.pending(context),
+    'submitted' || 'draft' => AppThemeConfig.pending(context),
+    _ => AppThemeConfig.accent(context),
   };
 }
 
@@ -763,7 +738,7 @@ class _SponsorshipFormScreenState extends State<SponsorshipFormScreen> {
       onSubmit: _submit,
       fields: [
         Align(
-          alignment: Alignment.centerRight,
+          alignment: AlignmentDirectional.centerEnd,
           child: OutlinedButton.icon(
             onPressed: () => Get.to(() => const SponsorshipOverviewScreen()),
             icon: const Icon(Icons.list_alt_rounded),
@@ -989,11 +964,11 @@ class ReportsScreen extends StatelessWidget {
               if (snapshot.connectionState == ConnectionState.waiting)
                 const Center(child: CircularProgressIndicator()),
               if (snapshot.hasError)
-                const SectionTile(
+                SectionTile(
                   icon: Icons.query_stats_rounded,
                   title: 'Reports',
                   subtitle: 'Unable to load reports from the server.',
-                  color: Colors.cyan,
+                  color: AppThemeConfig.accent(context),
                 ),
               if (!snapshot.hasError &&
                   snapshot.connectionState != ConnectionState.waiting) ...[
@@ -1004,7 +979,7 @@ class ReportsScreen extends StatelessWidget {
                     subtitle: '@count available now'.trParams({
                       'count': '${volunteers['missions_open'] ?? '0'}',
                     }),
-                    color: Colors.green,
+                    color: AppThemeConfig.accent(context),
                   ),
                   const SizedBox(height: 12),
                   SectionTile(
@@ -1013,7 +988,7 @@ class ReportsScreen extends StatelessWidget {
                     subtitle: '@count waiting for admin review'.trParams({
                       'count': '${volunteers['signups_pending'] ?? '0'}',
                     }),
-                    color: Colors.orange,
+                    color: AppThemeConfig.pending(context),
                   ),
                   const SizedBox(height: 12),
                   SectionTile(
@@ -1022,7 +997,7 @@ class ReportsScreen extends StatelessWidget {
                     subtitle: '@count attended signups'.trParams({
                       'count': '${volunteers['attended_total'] ?? '0'}',
                     }),
-                    color: Colors.indigo,
+                    color: AppThemeConfig.accent(context),
                   ),
                   const SizedBox(height: 12),
                   SectionTile(
@@ -1033,7 +1008,7 @@ class ReportsScreen extends StatelessWidget {
                           'count': '${volunteers['signups_completed'] ?? '0'}',
                           'hours': '${volunteers['hours_served'] ?? '0'}',
                         }),
-                    color: Colors.pinkAccent,
+                    color: AppThemeConfig.accent(context),
                   ),
                   const SizedBox(height: 12),
                 ] else ...[
@@ -1041,14 +1016,14 @@ class ReportsScreen extends StatelessWidget {
                     icon: Icons.payments_rounded,
                     title: 'Completed donations',
                     subtitle: '${donations['completed_amount'] ?? '0'} IQD',
-                    color: Colors.green,
+                    color: AppThemeConfig.accent(context),
                   ),
                   const SizedBox(height: 12),
                   SectionTile(
                     icon: Icons.hourglass_bottom_rounded,
                     title: 'Pending donations',
                     subtitle: '${donations['pending_amount'] ?? '0'} IQD',
-                    color: Colors.orange,
+                    color: AppThemeConfig.pending(context),
                   ),
                   const SizedBox(height: 12),
                 ],
@@ -1057,7 +1032,7 @@ class ReportsScreen extends StatelessWidget {
                   title: 'Project request groups',
                   subtitle:
                       '${(data['project_requests'] as List?)?.length ?? 0} status groups',
-                  color: Colors.indigo,
+                  color: AppThemeConfig.accent(context),
                 ),
                 const SizedBox(height: 12),
                 SectionTile(
@@ -1065,7 +1040,7 @@ class ReportsScreen extends StatelessWidget {
                   title: 'Expense groups',
                   subtitle:
                       '${(data['expenses'] as List?)?.length ?? 0} expense groups',
-                  color: Colors.pinkAccent,
+                  color: AppThemeConfig.accent(context),
                 ),
               ],
             ],

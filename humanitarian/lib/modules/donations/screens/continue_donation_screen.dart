@@ -13,7 +13,11 @@ import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:flutter_application_1/api/project_categories_api.dart';
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:get/get.dart';
-import 'package:intl/intl.dart';
+// `intl` exports its own `TextDirection`, which collides with Flutter's when
+// forcing LTR on the locked phone row below — this file only needs the
+// formatters from it.
+import 'package:intl/intl.dart' hide TextDirection;
+import 'package:flutter_application_1/core/design/motion.dart';
 
 class ContinueDonationScreen extends StatefulWidget {
   const ContinueDonationScreen({
@@ -47,8 +51,10 @@ class ContinueDonationScreen extends StatefulWidget {
 
 class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _emailController = TextEditingController();
+  // Note: there are no name/phone controllers here. Those two donor details
+  // are read straight out of the signed-in account (see `_accountName` /
+  // `_accountPhone`) and are never editable and never submitted, so they are
+  // rendered as locked rows instead of as text fields.
   final _moneyController = TextEditingController();
   final _noteController = TextEditingController();
 
@@ -91,16 +97,31 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
 
   List<_PaymentMethodData> _paymentMethods = _fallbackMethods;
 
+  // True once a payment-methods load has actually failed, so the donor is
+  // told the list they are looking at is the built-in default rather than the
+  // organization's current catalogue. Not set merely because the catalogue
+  // came back empty — that is a real (if unhelpful) answer, not a failure.
+  bool _paymentMethodsFailed = false;
+
   // Note #42 — the internal test-phase wallet. Prepended to whatever
   // admin-managed methods exist (it's not one of them), always at index 0 of
   // [_displayMethods]; _selectedPaymentIndex stays offset by 1 from
   // _paymentMethods so existing indexWhere/default logic below is otherwise
   // unchanged.
-  int _walletBalanceIQD = 0;
+  //
+  // `null` means "we do not know the balance" — it is the starting state and
+  // the state we fall back to when the balance request fails. It is
+  // deliberately NOT 0: a confident "0 IQD" on a checkout screen tells the
+  // donor their wallet is empty, which is a specific claim we cannot make when
+  // the request never succeeded. Unknown is rendered as an explicit
+  // unavailable line instead (see [_walletMethod]).
+  int? _walletBalanceIQD;
 
   _PaymentMethodData get _walletMethod => _PaymentMethodData(
     title: 'App Wallet',
-    subtitle: '${'Balance'.tr}: ${_formatIQD(_walletBalanceIQD)} IQD',
+    subtitle: _walletBalanceIQD == null
+        ? 'Balance unavailable right now'.tr
+        : '${'Balance'.tr}: ${_formatIQD(_walletBalanceIQD!)} IQD',
     icon: Icons.account_balance_wallet_rounded,
     submitName: 'app_wallet',
   );
@@ -116,14 +137,32 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
     // Only a campaign-less donation can target a project — a campaign
     // donation already has its destination.
     if (widget.campaignsId != null) return;
-    final opts = await const ModuleApi().getDonationOptions();
-    if (!opts.projectsVisible) return;
-    final cats = await fetchProjectCategories();
-    if (!mounted) return;
-    setState(() {
-      _projects = cats;
-      _projectsVisible = cats.isNotEmpty;
-    });
+    try {
+      // Neither of these throws today: getDonationOptions() falls back to
+      // defaults internally because it serves feature flags rather than the
+      // donor's data, and fetchProjectCategories() returns an empty list for
+      // the same reason — a lost input vocabulary must not block a donation
+      // over a dropdown.
+      //
+      // The guard stays anyway. It costs nothing, and it means a future
+      // decision to make either of them signal cannot turn this into an
+      // unhandled async error on the checkout screen.
+      final opts = await const ModuleApi().getDonationOptions();
+      if (!opts.projectsVisible) return;
+      final cats = await fetchProjectCategories();
+      if (!mounted) return;
+      setState(() {
+        _projects = cats;
+        _projectsVisible = cats.isNotEmpty;
+      });
+    } catch (e) {
+      // The project picker is an optional refinement of the gift, not a
+      // prerequisite for making one. If the list cannot be loaded the section
+      // simply stays hidden and the donation goes to the general fund, exactly
+      // as it does when the feature is switched off — so this degrades
+      // silently rather than blocking checkout.
+      debugPrint('ContinueDonation: project list unavailable: $e');
+    }
   }
 
   @override
@@ -148,18 +187,48 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
     _loadWalletBalance();
   }
 
+  /// Loads the wallet balance shown on the App Wallet payment card.
+  ///
+  /// [fetchWalletBalance] now throws instead of reporting a zero balance on
+  /// failure. We must not turn that back into a number: on a checkout screen a
+  /// wrong balance is worse than an absent one. On failure the balance is set
+  /// back to `null`, which renders as "Balance unavailable right now" — the
+  /// donor can still choose the wallet, and the server remains the authority
+  /// on whether the funds cover the donation.
   Future<void> _loadWalletBalance() async {
-    final balance = await fetchWalletBalance();
-    if (!mounted) return;
-    setState(() => _walletBalanceIQD = balance.balanceIQD);
+    try {
+      final balance = await fetchWalletBalance();
+      if (!mounted) return;
+      setState(() => _walletBalanceIQD = balance.balanceIQD);
+    } catch (e) {
+      debugPrint('ContinueDonation: wallet balance unavailable: $e');
+      if (!mounted) return;
+      setState(() => _walletBalanceIQD = null);
+    }
   }
 
   // #19 — fetch the admin-managed payment methods; keep the built-in fallback
   // (Cash/FIB) if the list is empty or the request fails.
+  //
+  // The fallback is deliberate and lives here, at the call site: a donor must
+  // still be able to pay when the catalogue endpoint is down, so a failure is
+  // caught, logged, and answered with the built-in Cash/FIB pair plus a note
+  // telling the donor these are default options. This is the one place that
+  // wants that behaviour — it is no longer hidden inside the API where every
+  // other caller inherited it.
   Future<void> _loadPaymentMethods() async {
-    final fetched = await fetchPaymentMethods();
+    final List<PaymentMethod> fetched;
+    try {
+      fetched = await fetchPaymentMethods();
+    } catch (e) {
+      debugPrint('ContinueDonation: payment methods unavailable: $e');
+      if (!mounted) return;
+      setState(() => _paymentMethodsFailed = true);
+      return;
+    }
     if (!mounted || fetched.isEmpty) return;
     setState(() {
+      _paymentMethodsFailed = false;
       _paymentMethods = [
         for (final m in fetched)
           _PaymentMethodData(
@@ -199,8 +268,6 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
     if (Get.isRegistered<ContinueDonationController>()) {
       Get.delete<ContinueDonationController>();
     }
-    _nameController.dispose();
-    _emailController.dispose();
     _moneyController.dispose();
     _noteController.dispose();
     super.dispose();
@@ -315,6 +382,16 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
     );
   }
 
+  /// The donor name held on the signed-in account. Empty for a guest session
+  /// that has not filled a profile in yet, in which case the row shows a dash
+  /// rather than an empty box.
+  String get _accountName =>
+      (sharedPreferences.getString('name_user') ?? '').trim();
+
+  /// The account's phone number — the OTP-verified login identity.
+  String get _accountPhone =>
+      (sharedPreferences.getString('phone_user') ?? '').trim();
+
   int _parsedDonationAmount() {
     final n = int.tryParse(_moneyController.text.trim());
     if (n != null && n >= 1) return n;
@@ -355,34 +432,34 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
                       GlassPanel(
                         child: Column(
                           children: [
-                            _CheckoutTextField(
-                              controller: _nameController
-                                ..text =
-                                    sharedPreferences.getString('name_user') ??
-                                    '',
+                            // Name and phone are taken from the signed-in
+                            // account and are never sent with the donation, so
+                            // they are shown as locked rows rather than as
+                            // disabled text fields: a box you cannot type into
+                            // still looks like a box you should type into, and
+                            // the tap that goes nowhere is the bug. The note
+                            // beneath the pair explains where the values come
+                            // from and where to change them.
+                            _LockedAccountRow(
                               label: 'Full name',
-                              hintText: 'Your name',
+                              value: _accountName,
                               icon: Icons.person_rounded,
-                              textInputAction: TextInputAction.next,
-                              // Read-only display of the signed-in account's
-                              // name — never editable and never sent to the
-                              // backend, so it must not gate submission.
-                              enabled: false,
                             ),
-
                             const SizedBox(height: 14),
-                            _CheckoutTextField(
-                              controller: _emailController
-                                ..text =
-                                    sharedPreferences.getString('phone_user') ??
-                                    '',
+                            _LockedAccountRow(
                               label: 'Phone',
-                              hintText: 'Your phone number',
+                              value: _accountPhone,
                               icon: Icons.phone_rounded,
-                              keyboardType: TextInputType.phone,
-                              textInputAction: TextInputAction.next,
-                              // Same as above — read-only, never submitted.
-                              enabled: false,
+                              // Phone numbers are read left-to-right even in
+                              // Arabic/Kurdish, so the digits must not mirror.
+                              forceLtr: true,
+                            ),
+                            const SizedBox(height: 10),
+                            const _LockedFieldsNote(
+                              text:
+                                  'Name and phone come from your verified '
+                                  'account. Change them in Profile > Edit '
+                                  'profile.',
                             ),
 
                             const SizedBox(height: 14),
@@ -469,6 +546,22 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
                       const SizedBox(height: 22),
                       const SectionLabel(title: 'Payment method'),
                       const SizedBox(height: 12),
+                      // The catalogue could not be reached, so the cards below
+                      // are the built-in defaults. Say so plainly rather than
+                      // letting the donor assume they are seeing every option
+                      // the organization currently accepts.
+                      if (_paymentMethodsFailed) ...[
+                        Text(
+                          "We couldn't load the latest payment options, so these are the default ones."
+                              .tr,
+                          style: TextStyle(
+                            color: AppThemeConfig.mutedText(context),
+                            fontSize: 12.5,
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
                       ...List.generate(_displayMethods.length, (index) {
                         final paymentMethod = _displayMethods[index];
                         final isSelected = index == _selectedPaymentIndex;
@@ -626,15 +719,10 @@ class _CheckoutHeroCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            optionColor,
-            optionColor.withValues(alpha: 0.84),
-            const Color(0xFF2563EB),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        // Flat. The third stop here was a raw 0xFF2563EB blue that had no
+        // relationship to optionColor, so the card faded from the option's own
+        // colour into an unrelated blue regardless of which option it was.
+        color: optionColor,
         borderRadius: BorderRadius.circular(32),
         boxShadow: [
           BoxShadow(
@@ -811,6 +899,133 @@ class _AccountCard extends StatelessWidget {
   }
 }
 
+/// A donor detail the checkout shows but never lets the user edit.
+///
+/// It deliberately is NOT a disabled [_CheckoutTextField] (which is why that
+/// widget no longer takes an `enabled` flag): a disabled field carries the
+/// same rounded box, hint and caret affordance as a real input, so the user
+/// taps it, nothing happens, and nothing tells them why. This renders the
+/// same value as a labelled row with a padlock — it
+/// reads as information, not as an input — while keeping the panel's fill,
+/// border and radius so the layout does not shift.
+class _LockedAccountRow extends StatelessWidget {
+  const _LockedAccountRow({
+    required this.label,
+    required this.value,
+    required this.icon,
+    this.forceLtr = false,
+  });
+
+  /// Translated via `.tr`.
+  final String label;
+
+  /// The account value. Empty renders as an em dash — a guest session may not
+  /// have a name on file yet.
+  final String value;
+
+  final IconData icon;
+
+  /// Forces left-to-right for values (phone numbers) whose digit order must
+  /// not mirror under an RTL locale.
+  final bool forceLtr;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasValue = value.isNotEmpty;
+    final valueText = Text(
+      hasValue ? value : '—',
+      style: TextStyle(
+        color: hasValue
+            ? AppThemeConfig.text(context)
+            : AppThemeConfig.mutedText(context),
+        fontWeight: FontWeight.w600,
+        fontSize: 15,
+      ),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label.tr,
+          style: TextStyle(
+            color: AppThemeConfig.text(context),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          decoration: BoxDecoration(
+            color: AppThemeConfig.softSurface(context),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppThemeConfig.border(context)),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, color: AppThemeConfig.mutedText(context)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: forceLtr
+                    ? Directionality(
+                        textDirection: TextDirection.ltr,
+                        child: Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          child: valueText,
+                        ),
+                      )
+                    : valueText,
+              ),
+              const SizedBox(width: 8),
+              // The padlock is the "why can't I type here" answer at a glance;
+              // the note under the pair of rows is the long form.
+              Icon(
+                Icons.lock_outline_rounded,
+                size: 18,
+                color: AppThemeConfig.mutedText(context),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// One quiet line explaining why the rows above it are locked and where the
+/// user can actually change those values.
+class _LockedFieldsNote extends StatelessWidget {
+  const _LockedFieldsNote({required this.text});
+
+  /// Translated via `.tr`.
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          Icons.info_outline_rounded,
+          size: 15,
+          color: AppThemeConfig.mutedText(context),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text.tr,
+            style: TextStyle(
+              color: AppThemeConfig.mutedText(context),
+              fontSize: 12.5,
+              height: 1.35,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _CheckoutTextField extends StatelessWidget {
   const _CheckoutTextField({
     required this.controller,
@@ -821,7 +1036,6 @@ class _CheckoutTextField extends StatelessWidget {
     this.keyboardType,
     this.textInputAction,
     this.maxLines = 1,
-    this.enabled = true,
     this.inputFormatters,
     this.onChanged,
   });
@@ -834,7 +1048,6 @@ class _CheckoutTextField extends StatelessWidget {
   final TextInputType? keyboardType;
   final TextInputAction? textInputAction;
   final int maxLines;
-  final bool enabled;
   final List<TextInputFormatter>? inputFormatters;
   final ValueChanged<String>? onChanged;
 
@@ -853,7 +1066,6 @@ class _CheckoutTextField extends StatelessWidget {
         const SizedBox(height: 10),
         TextFormField(
           controller: controller,
-          enabled: enabled,
           validator: validator,
           keyboardType: keyboardType,
           textInputAction: textInputAction,
@@ -966,7 +1178,7 @@ class _DonationTypeChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         onTap: onTap,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
+          duration: AppMotion.resolve(context, AppMotion.snapDuration),
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
           decoration: BoxDecoration(
             color: selected
@@ -1077,7 +1289,10 @@ class _PaymentMethodCard extends StatelessWidget {
                   ),
                 ),
                 AnimatedContainer(
-                  duration: const Duration(milliseconds: 220),
+                  duration: AppMotion.resolve(
+                    context,
+                    AppMotion.settleDuration,
+                  ),
                   width: 24,
                   height: 24,
                   decoration: BoxDecoration(
@@ -1238,7 +1453,7 @@ class _DestinationTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         onTap: onTap,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
+          duration: AppMotion.resolve(context, AppMotion.snapDuration),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
           decoration: BoxDecoration(
             color: selected
@@ -1252,7 +1467,12 @@ class _DestinationTile extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(icon, color: selected ? accentColor : AppThemeConfig.mutedText(context)),
+              Icon(
+                icon,
+                color: selected
+                    ? accentColor
+                    : AppThemeConfig.mutedText(context),
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(

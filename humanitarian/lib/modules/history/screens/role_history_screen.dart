@@ -4,6 +4,7 @@ import 'package:flutter_application_1/modules/history/controllers/role_history_c
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 final NumberFormat _historyNumberFormat = NumberFormat.decimalPattern();
 
@@ -54,17 +55,10 @@ class _RoleHistoryScreenState extends State<RoleHistoryScreen> {
             children: [
               _HistoryHero(controller: _controller),
               const SizedBox(height: 18),
-              if (_controller.errorMessage.value != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 14),
-                  child: SectionTile(
-                    icon: Icons.error_outline_rounded,
-                    title: _controller.title,
-                    subtitle: _controller.errorMessage.value!,
-                    color: Colors.orange,
-                    onTap: _controller.fetchHistory,
-                  ),
-                ),
+              // The filters and the count row stay OUTSIDE AppAsync. The
+              // empty state here is almost always "nothing matches the
+              // filters you chose", so hiding the filters with the results
+              // would remove the only way out of it.
               _FilterSection(controller: _controller),
               const SizedBox(height: 18),
               Row(
@@ -88,26 +82,34 @@ class _RoleHistoryScreenState extends State<RoleHistoryScreen> {
                 ],
               ),
               const SizedBox(height: 12),
-              if (_controller.isLoading.value && _controller.items.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 28),
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              else if (filtered.isEmpty)
-                GlassPanel(
-                  child: Text(
-                      'No history records match the selected filters.'.tr),
-                )
-              else
-                ...filtered.map(
-                  (item) => Padding(
-                    padding: const EdgeInsets.only(bottom: 14),
-                    child: _HistoryCard(
-                      item: item,
-                      onTap: () => _showDetails(context, item),
-                    ),
-                  ),
+              // The error used to render as a SectionTile ABOVE the filters
+              // while the list below carried on showing its own empty state,
+              // so a failed load produced two competing messages. It is one
+              // state now, and AppAsync keeps already-loaded records visible
+              // behind it rather than wiping the screen for an offline user.
+              AppAsync<List<Map<String, dynamic>>>(
+                loading: _controller.isLoading.value,
+                error: _controller.errorMessage.value,
+                onRetry: _controller.fetchHistory,
+                data: filtered,
+                isEmpty: (list) => list.isEmpty,
+                empty: AppEmpty(
+                  title: _controller.title.tr,
+                  message: 'No history records match the selected filters.'.tr,
                 ),
+                builder: (list) => Column(
+                  children: [
+                    for (final item in list)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 14),
+                        child: _HistoryCard(
+                          item: item,
+                          onTap: () => _showDetails(context, item),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             ],
           ),
         );
@@ -270,11 +272,7 @@ class _HistoryHero extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF0F766E), Color(0xFF2563EB), Color(0xFF0EA5A4)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: AppThemeConfig.accent(context),
         borderRadius: BorderRadius.circular(30),
         boxShadow: [
           BoxShadow(
@@ -290,13 +288,13 @@ class _HistoryHero extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.16),
+              color: AppThemeConfig.onAccent(context).withValues(alpha: 0.16),
               borderRadius: BorderRadius.circular(999),
             ),
             child: Text(
               controller.title.tr,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: AppThemeConfig.onAccent(context),
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -305,7 +303,7 @@ class _HistoryHero extends StatelessWidget {
           Text(
             controller.subtitle.tr,
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.92),
+              color: AppThemeConfig.onAccent(context).withValues(alpha: 0.92),
               height: 1.5,
             ),
           ),
@@ -350,7 +348,7 @@ class _HeroMetric extends StatelessWidget {
       constraints: const BoxConstraints(minWidth: 140),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.14),
+        color: AppThemeConfig.onAccent(context).withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(18),
       ),
       child: Column(
@@ -358,8 +356,8 @@ class _HeroMetric extends StatelessWidget {
         children: [
           Text(
             value,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: AppThemeConfig.onAccent(context),
               fontWeight: FontWeight.w900,
               fontSize: 18,
             ),
@@ -368,7 +366,7 @@ class _HeroMetric extends StatelessWidget {
           Text(
             label.tr,
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.86),
+              color: AppThemeConfig.onAccent(context).withValues(alpha: 0.86),
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -490,7 +488,10 @@ class _HistoryCard extends StatelessWidget {
               children: [
                 TileIcon(
                   icon: _iconForKind((item['kind'] ?? '').toString()),
-                  color: _colorForStatus((item['status'] ?? '').toString()),
+                  color: _colorForStatus(
+                    context,
+                    (item['status'] ?? '').toString(),
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -554,7 +555,7 @@ class _StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = _colorForStatus(status);
+    final color = _colorForStatus(context, status);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
@@ -617,7 +618,7 @@ IconData _iconForKind(String kind) {
   };
 }
 
-Color _colorForStatus(String status) {
+Color _colorForStatus(BuildContext context, String status) {
   if ([
     'approved',
     'success',
@@ -626,7 +627,7 @@ Color _colorForStatus(String status) {
     'active',
     'joined',
   ].contains(status)) {
-    return Colors.green;
+    return AppThemeConfig.accent(context);
   }
   if ([
     'pending',
@@ -635,7 +636,7 @@ Color _colorForStatus(String status) {
     'in_progress',
     'open',
   ].contains(status)) {
-    return Colors.orange;
+    return AppThemeConfig.pending(context);
   }
   if ([
     'rejected',
@@ -644,7 +645,7 @@ Color _colorForStatus(String status) {
     'cancelled',
     'inactive',
   ].contains(status)) {
-    return Colors.redAccent;
+    return AppThemeConfig.consequence(context);
   }
-  return Colors.blueGrey;
+  return AppThemeConfig.subtleText(context);
 }

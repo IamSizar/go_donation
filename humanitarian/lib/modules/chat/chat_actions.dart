@@ -59,11 +59,13 @@ abstract final class ChatActions {
 
       if (res.status == 'active') {
         // Already accepted before (existing thread) → open it straight away.
-        Get.to(() => ChatConversationScreen(
-              threadId: res.threadId,
-              title: conversationTitle ?? 'Chat'.tr,
-              subtitle: conversationSubtitle,
-            ));
+        Get.to(
+          () => ChatConversationScreen(
+            threadId: res.threadId,
+            title: conversationTitle ?? 'Chat'.tr,
+            subtitle: conversationSubtitle,
+          ),
+        );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -71,7 +73,7 @@ abstract final class ChatActions {
               res.already
                   ? 'Your chat request is still waiting to be accepted.'.tr
                   : 'Chat request sent! You can message once they accept. Check the Messages tab.'
-                      .tr,
+                        .tr,
             ),
             duration: const Duration(seconds: 4),
           ),
@@ -100,10 +102,12 @@ abstract final class ChatActions {
       if (!context.mounted) return;
 
       if (res.status == 'active') {
-        Get.to(() => ChatConversationScreen(
-              threadId: res.threadId,
-              title: conversationTitle ?? 'Staff support'.tr,
-            ));
+        Get.to(
+          () => ChatConversationScreen(
+            threadId: res.threadId,
+            title: conversationTitle ?? 'Staff support'.tr,
+          ),
+        );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -111,7 +115,7 @@ abstract final class ChatActions {
               res.already
                   ? 'Your message request is still waiting to be accepted.'.tr
                   : 'Message sent to the staff team! You can chat once they accept. Check the Messages tab.'
-                      .tr,
+                        .tr,
             ),
             duration: const Duration(seconds: 4),
           ),

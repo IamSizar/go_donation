@@ -26,7 +26,7 @@ class _WheelOfFortuneScreenState extends State<WheelOfFortuneScreen>
   final _random = Random();
 
   static const _colors = [
-    Color(0xFF0F766E),
+    Color(0xFF2F5D4A),
     Color(0xFFF59E0B),
     Color(0xFFDB2777),
     Color(0xFF4F46E5),

@@ -43,7 +43,11 @@ class FeaturedCampaignsController extends GetxController
         final decoded = jsonDecode(data);
         if (decoded is Map<String, dynamic>) return decoded;
         if (decoded is Map) return Map<String, dynamic>.from(decoded);
-      } catch (_) {}
+      } catch (_) {
+        // Deliberate: an unparseable body is not an error to report from here —
+        // returning null makes every caller take its own "invalid response"
+        // branch, which is where the user-facing message belongs.
+      }
     }
     return null;
   }
@@ -76,6 +80,9 @@ class FeaturedCampaignsController extends GetxController
       await sharedPreferences.setString(kCampaignsCsrfPrefsKey, token);
       return true;
     } catch (_) {
+      // Deliberate: failure is reported through the `false` return, and every
+      // caller turns that into a visible errorMessage ("Could not load campaigns
+      // security token") — so the silence here is a handoff, not a swallow.
       return false;
     }
   }
@@ -248,7 +255,8 @@ class FeaturedCampaignsController extends GetxController
     if (token == null || token.isEmpty) return null;
 
     const perPage = 50;
-    const maxPages = 6; // up to 300 campaigns — enough headroom without unbounded fetching
+    const maxPages =
+        6; // up to 300 campaigns — enough headroom without unbounded fetching
     try {
       for (var page = 1; page <= maxPages; page++) {
         final uri = Uri.parse(featuredCampaignsUrl).replace(
@@ -283,6 +291,9 @@ class FeaturedCampaignsController extends GetxController
         if (!hasMore || raw.isEmpty) return null;
       }
     } catch (_) {
+      // Deliberate: `null` means "could not resolve this exact campaign", and
+      // the caller falls back to the generic campaigns section — the user still
+      // reaches campaigns rather than a dead end.
       return null;
     }
     return null;

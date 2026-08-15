@@ -1,8 +1,8 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/core/design/directional_icons.dart';
 import 'package:flutter_application_1/api/links.dart';
 import 'package:flutter_application_1/api/wallet_api.dart';
-import 'package:flutter_application_1/modules/community/screens/community_services_section.dart';
 import 'package:flutter_application_1/modules/dashboard/controllers/featured_campaigns_controller.dart';
 import 'package:flutter_application_1/modules/donations/screens/campaign_detail_screen.dart';
 import 'package:flutter_application_1/modules/donations/screens/donations_section.dart';
@@ -18,7 +18,6 @@ import 'package:flutter_application_1/modules/dashboard/screens/lucky_coupon_scr
 import 'package:flutter_application_1/modules/dashboard/screens/wheel_of_fortune_screen.dart';
 import 'package:flutter_application_1/modules/history/screens/role_history_screen.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_my_projects_screen.dart';
-import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_pending_projects_screen.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_submit_project_screen.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/orphan_family_profiles_screen.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/sponsorship_overview_screen.dart';
@@ -36,13 +35,10 @@ import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 
 import '../data/featured_campaigns.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 class DashboardHomeSection extends StatelessWidget {
   const DashboardHomeSection({super.key});
-
-  static const Color _primary = Color(0xFF0F766E);
-  static const Color _accent = Color(0xFF14B8A6);
-  static const Color _ink = Color(0xFF0F172A);
 
   String _roleKey(RoleDashboardController controller) {
     final backendRole = controller.roleKey.value.trim();
@@ -108,24 +104,39 @@ class DashboardHomeSection extends StatelessWidget {
   }
 
   Widget _buildHero({
+    required BuildContext context,
     required String firstName,
     required Widget primaryAction,
-    required Widget secondaryAction,
     required List<Widget> stats,
+    // Optional, and currently passed by nobody. Every role's hero used to put
+    // a "My history" button here, going to the same screen as "My Engagement"
+    // in the shortcuts row 18px below it — the same destination twice, within
+    // one glance, in all three roles. The shortcuts row won because it is a
+    // client-specified grouping; this slot stays available for a secondary
+    // that is genuinely distinct from it.
+    Widget? secondaryAction,
   }) {
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [_ink, _primary, _accent],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        // Flat, not a three-stop ramp. Contrast on a gradient is positional:
+        // the previous ink→teal→mint version put white text over a stop that
+        // measured 2.49:1, below even the 3.0 large-text floor, on the most
+        // prominent element in the product.
+        //
+        // The foreground here is `onAccent`, NOT Colors.white. White is only
+        // right in light mode: the dark accent is a light mint (#6FBF9C) and
+        // white on it measures 2.19:1 — worse than the gradient this replaced.
+        // onAccent measures 7.54:1 light / 7.72:1 dark, because it flips with
+        // the palette.
+        color: AppThemeConfig.accent(context),
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+        border: Border.all(
+          color: AppThemeConfig.onAccent(context).withValues(alpha: 0.10),
+        ),
         boxShadow: [
           BoxShadow(
-            color: _primary.withValues(alpha: 0.28),
+            color: AppThemeConfig.accent(context).withValues(alpha: 0.28),
             blurRadius: 30,
             offset: const Offset(0, 18),
           ),
@@ -142,7 +153,7 @@ class DashboardHomeSection extends StatelessWidget {
               top: -10,
               child: Icon(
                 Icons.volunteer_activism_rounded,
-                color: Colors.white.withValues(alpha: 0.07),
+                color: AppThemeConfig.onAccent(context).withValues(alpha: 0.07),
                 size: 170,
               ),
             ),
@@ -155,8 +166,8 @@ class DashboardHomeSection extends StatelessWidget {
                     'Welcome back, @name'.trParams({'name': firstName}),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: AppThemeConfig.onAccent(context),
                       fontSize: 22,
                       fontWeight: FontWeight.w800,
                     ),
@@ -166,8 +177,10 @@ class DashboardHomeSection extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(child: primaryAction),
-                    const SizedBox(width: 10),
-                    secondaryAction,
+                    if (secondaryAction != null) ...[
+                      const SizedBox(width: 10),
+                      secondaryAction,
+                    ],
                   ],
                 ),
                 const SizedBox(height: 20),
@@ -183,13 +196,14 @@ class DashboardHomeSection extends StatelessWidget {
   /// Shared white pill CTA for the hero card's primary action (task: reduce
   /// per-role duplication of the same button chrome).
   Widget _heroPrimaryButton({
+    required BuildContext context,
     required IconData icon,
     required String label,
     required VoidCallback onTap,
     void Function()? onLongPress,
   }) {
     return Material(
-      color: Colors.white,
+      color: AppThemeConfig.onAccent(context),
       borderRadius: BorderRadius.circular(999),
       child: InkWell(
         borderRadius: BorderRadius.circular(999),
@@ -200,7 +214,7 @@ class DashboardHomeSection extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: _primary, size: 16),
+              Icon(icon, color: AppThemeConfig.accent(context), size: 16),
               const SizedBox(width: 6),
               Flexible(
                 child: Text(
@@ -208,8 +222,8 @@ class DashboardHomeSection extends StatelessWidget {
                   textAlign: TextAlign.center,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: _primary,
+                  style: TextStyle(
+                    color: AppThemeConfig.accent(context),
                     fontWeight: FontWeight.w800,
                     fontSize: 13.5,
                   ),
@@ -233,19 +247,17 @@ class DashboardHomeSection extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
       children: [
         _buildHero(
+          context: context,
           firstName:
               ((sharedPreferences.getString('name_user') ?? 'No name'.tr)
                       .trim())
                   .split(RegExp(r'\s+'))
                   .first,
           primaryAction: _heroPrimaryButton(
+            context: context,
             icon: Icons.favorite_rounded,
             label: 'Make donation'.tr,
             onTap: () => Get.to(() => const DonationsSection()),
-          ),
-          secondaryAction: _WatchNowButton(
-            label: 'My history',
-            onTap: () => Get.to(() => const RoleHistoryScreen()),
           ),
           stats: [
             Expanded(
@@ -280,65 +292,42 @@ class DashboardHomeSection extends StatelessWidget {
               value: '${_intValue(stats, 'successful_count')}',
               label: 'Confirmed donations'.tr,
               icon: Icons.volunteer_activism_rounded,
-              color: Colors.green,
+              color: AppThemeConfig.accent(context),
             ),
             _StatItem(
               value: '${_intValue(stats, 'pending_count')}',
               label: 'Pending payments'.tr,
               icon: Icons.hourglass_top_rounded,
-              color: Colors.orange,
+              color: AppThemeConfig.pending(context),
             ),
             _StatItem(
               value: '${_intValue(stats, 'active_campaigns')}',
               label: 'Open campaigns'.tr,
               icon: Icons.track_changes_rounded,
-              color: Colors.indigo,
+              color: AppThemeConfig.accent(context),
             ),
             _StatItem(
               value: '${_intValue(stats, 'pending_sponsorships')}',
               label: 'Pending sponsorships'.tr,
               icon: Icons.schedule_rounded,
-              color: Colors.pink,
+              color: AppThemeConfig.pending(context),
             ),
           ],
         ),
         const SizedBox(height: 22),
         const _SectionLabel(title: 'Quick actions'),
         const SizedBox(height: 12),
-        _GlassPanel(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-          child: Row(
-            children: [
-              Expanded(
-                child: _QuickAction(
-                  icon: Icons.send_rounded,
-                  label: 'Contribute',
-                  color: Colors.orange,
-                  onTap: () => Get.to(() => const DonationsSection()),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _QuickAction(
-                  icon: Icons.receipt_long_rounded,
-                  label: 'History',
-                  color: Colors.blueAccent,
-                  onTap: () => Get.to(() => const RoleHistoryScreen()),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _QuickAction(
-                  icon: Icons.favorite_rounded,
-                  label: 'Support',
-                  color: Colors.teal,
-                  onTap: () => Get.to(() => const SponsorshipOverviewScreen()),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
+        // Removed: a three-up quick-action row (Contribute / History /
+        // Support). Every one of its three destinations was already reachable
+        // from the hero card a few hundred pixels above, on this same screen,
+        // with no scrolling in between — Contribute repeated the hero's
+        // "Make donation" primary button, History repeated the hero's
+        // "My history" secondary button, and Support repeated the tappable
+        // "Active sponsorships" hero stat. It was the hero rendered a second
+        // time as small chips, not a set of additional shortcuts, so it cost
+        // vertical space and split attention without adding a single new way
+        // in. The panel below survives because Wheel of Fortune and Lucky
+        // Coupon have no other entry point on Home.
         _GlassPanel(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
           child: Row(
@@ -347,7 +336,7 @@ class DashboardHomeSection extends StatelessWidget {
                 child: _QuickAction(
                   icon: Icons.casino_rounded,
                   label: 'Wheel of Fortune',
-                  color: Colors.deepPurple,
+                  color: AppThemeConfig.accent(context),
                   compact: true,
                   badgeLabel: 'New',
                   onTap: () => Get.to(() => const WheelOfFortuneScreen()),
@@ -358,7 +347,7 @@ class DashboardHomeSection extends StatelessWidget {
                 child: _QuickAction(
                   icon: Icons.card_giftcard_rounded,
                   label: 'Lucky Coupon',
-                  color: Colors.pinkAccent,
+                  color: AppThemeConfig.accent(context),
                   compact: true,
                   badgeLabel: 'New',
                   onTap: () => Get.to(() => const LuckyCouponScreen()),
@@ -398,8 +387,8 @@ class DashboardHomeSection extends StatelessWidget {
               onTap: () => Get.to(() => const MyDonationsPage()),
               child: Text(
                 'See all'.tr,
-                style: const TextStyle(
-                  color: _primary,
+                style: TextStyle(
+                  color: AppThemeConfig.accent(context),
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -416,7 +405,7 @@ class DashboardHomeSection extends StatelessWidget {
                 for (var i = 0; i < recentDonations.length; i++) ...[
                   _DashboardActivityTile(
                     icon: Icons.receipt_long_rounded,
-                    color: Colors.teal,
+                    color: AppThemeConfig.accent(context),
                     title: _moneyLabel(
                       _doubleValue(recentDonations[i], 'amount'),
                     ),
@@ -446,20 +435,18 @@ class DashboardHomeSection extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
       children: [
         _buildHero(
+          context: context,
           firstName:
               ((sharedPreferences.getString('name_user') ?? 'No name'.tr)
                       .trim())
                   .split(RegExp(r'\s+'))
                   .first,
           primaryAction: _heroPrimaryButton(
+            context: context,
             icon: Icons.add_circle_rounded,
             label: 'Submit request'.tr,
             onTap: () => Get.to(() => const BeneficiarySubmitProjectScreen()),
             onLongPress: () => Get.to(() => const FirebaseScreenAdd()),
-          ),
-          secondaryAction: _WatchNowButton(
-            label: 'My history',
-            onTap: () => Get.to(() => const RoleHistoryScreen()),
           ),
           stats: [
             Expanded(
@@ -475,8 +462,11 @@ class DashboardHomeSection extends StatelessWidget {
                 value: '${_intValue(stats, 'pending_requests')}',
                 label: 'Pending requests',
                 icon: Icons.schedule_rounded,
-                onTap: () =>
-                    Get.to(() => const BeneficiaryPendingProjectsScreen()),
+                onTap: () => Get.to(
+                  () => const BeneficiaryMyProjectsScreen(
+                    initialFilter: ProjectRequestFilter.pending,
+                  ),
+                ),
               ),
             ),
           ],
@@ -494,25 +484,25 @@ class DashboardHomeSection extends StatelessWidget {
               value: '${_intValue(stats, 'approved_cases')}',
               label: 'Approved cases'.tr,
               icon: Icons.verified_rounded,
-              color: Colors.green,
+              color: AppThemeConfig.accent(context),
             ),
             _StatItem(
               value: '${_intValue(stats, 'needs_changes_cases')}',
               label: 'Needs changes'.tr,
               icon: Icons.edit_note_rounded,
-              color: Colors.orange,
+              color: AppThemeConfig.accent(context),
             ),
             _StatItem(
               value: '${_intValue(stats, 'approved_requests')}',
               label: 'Approved requests'.tr,
               icon: Icons.volunteer_activism_rounded,
-              color: Colors.teal,
+              color: AppThemeConfig.accent(context),
             ),
             _StatItem(
               value: '${_intValue(stats, 'open_support_tickets')}',
               label: 'Open support tickets'.tr,
               icon: Icons.support_agent_rounded,
-              color: Colors.indigo,
+              color: AppThemeConfig.accent(context),
             ),
           ],
         ),
@@ -521,35 +511,24 @@ class DashboardHomeSection extends StatelessWidget {
         const SizedBox(height: 12),
         _GlassPanel(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          // "Submit" and "Pending" were removed: Submit repeated the hero's
+          // primary button and Pending repeated the hero stat directly above,
+          // both within one glance. Pending was doubly redundant — pending is
+          // now a filter chip INSIDE the requests screen, so the shortcut
+          // pointed at a view the destination already offers.
+          //
+          // "My requests" stays and is the whole panel: it is the only route
+          // in the app to the UNFILTERED request list, so unlike the donor
+          // panel this one could not simply be deleted.
           child: Row(
             children: [
               Expanded(
                 child: _QuickAction(
-                  icon: Icons.add_circle_outline_rounded,
-                  label: 'Submit',
-                  color: Colors.orange,
-                  onTap: () =>
-                      Get.to(() => const BeneficiarySubmitProjectScreen()),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _QuickAction(
                   icon: Icons.folder_open_rounded,
                   label: 'My requests',
-                  color: Colors.blueAccent,
+                  color: AppThemeConfig.accent(context),
                   onTap: () =>
                       Get.to(() => const BeneficiaryMyProjectsScreen()),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _QuickAction(
-                  icon: Icons.hourglass_bottom_rounded,
-                  label: 'Pending',
-                  color: Colors.teal,
-                  onTap: () =>
-                      Get.to(() => const BeneficiaryPendingProjectsScreen()),
                 ),
               ),
             ],
@@ -567,7 +546,7 @@ class DashboardHomeSection extends StatelessWidget {
                 for (var i = 0; i < recentCases.length; i++) ...[
                   _DashboardActivityTile(
                     icon: Icons.assignment_rounded,
-                    color: Colors.indigo,
+                    color: AppThemeConfig.accent(context),
                     title: (recentCases[i]['public_title'] ?? 'Case')
                         .toString(),
                     subtitle:
@@ -592,7 +571,7 @@ class DashboardHomeSection extends StatelessWidget {
                 for (var i = 0; i < recentRequests.length; i++) ...[
                   _DashboardActivityTile(
                     icon: Icons.flag_rounded,
-                    color: Colors.teal,
+                    color: AppThemeConfig.accent(context),
                     title: (recentRequests[i]['project_title'] ?? 'Request')
                         .toString(),
                     subtitle:
@@ -627,19 +606,17 @@ class DashboardHomeSection extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
       children: [
         _buildHero(
+          context: context,
           firstName:
               ((sharedPreferences.getString('name_user') ?? 'No name'.tr)
                       .trim())
                   .split(RegExp(r'\s+'))
                   .first,
           primaryAction: _heroPrimaryButton(
+            context: context,
             icon: Icons.front_hand_rounded,
             label: 'Open missions'.tr,
             onTap: () => Get.to(() => const SupportSection()),
-          ),
-          secondaryAction: _WatchNowButton(
-            label: 'My history',
-            onTap: () => Get.to(() => const RoleHistoryScreen()),
           ),
           stats: [
             Expanded(
@@ -674,13 +651,13 @@ class DashboardHomeSection extends StatelessWidget {
               value: '${_intValue(stats, 'available_missions')}',
               label: 'Available missions'.tr,
               icon: Icons.assignment_turned_in_rounded,
-              color: Colors.cyan,
+              color: AppThemeConfig.accent(context),
             ),
             _StatItem(
               value: '${_intValue(stats, 'completed_missions')}',
               label: 'Completed missions'.tr,
               icon: Icons.workspace_premium_rounded,
-              color: Colors.green,
+              color: AppThemeConfig.accent(context),
             ),
             _StatItem(
               value: applicationStatus.isEmpty
@@ -688,13 +665,13 @@ class DashboardHomeSection extends StatelessWidget {
                   : applicationStatus.replaceAll('_', ' '),
               label: 'Application status'.tr,
               icon: Icons.person_add_alt_1_rounded,
-              color: Colors.orange,
+              color: AppThemeConfig.accent(context),
             ),
             _StatItem(
               value: (application['city'] ?? '—').toString(),
               label: 'Application city'.tr,
               icon: Icons.location_city_rounded,
-              color: Colors.indigo,
+              color: AppThemeConfig.accent(context),
             ),
           ],
         ),
@@ -709,7 +686,7 @@ class DashboardHomeSection extends StatelessWidget {
                 child: _QuickAction(
                   icon: Icons.front_hand_rounded,
                   label: 'Missions',
-                  color: Colors.orange,
+                  color: AppThemeConfig.accent(context),
                   onTap: () => Get.to(() => const SupportSection()),
                 ),
               ),
@@ -718,20 +695,19 @@ class DashboardHomeSection extends StatelessWidget {
                 child: _QuickAction(
                   icon: Icons.badge_rounded,
                   label: 'Apply',
-                  color: Colors.blueAccent,
+                  color: AppThemeConfig.accent(context),
                   onTap: () =>
                       Get.to(() => const VolunteerApplicationFormScreen()),
                 ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _QuickAction(
-                  icon: Icons.notifications_active_rounded,
-                  label: 'History',
-                  color: Colors.teal,
-                  onTap: () => Get.to(() => const RoleHistoryScreen()),
-                ),
-              ),
+              // Removed: a third "History" chip pointing at RoleHistoryScreen.
+              // The volunteer already reaches that exact screen twice higher
+              // up the same page — the hero's "My history" button and the
+              // "My Engagement" shortcut directly beneath it — and this chip
+              // was additionally mislabelled with a notifications bell, so it
+              // advertised a destination it did not go to. "Missions" and
+              // "Apply" stay: Apply is the only route to the application form,
+              // and Missions is the row's anchor action.
             ],
           ),
         ),
@@ -747,7 +723,7 @@ class DashboardHomeSection extends StatelessWidget {
                 for (var i = 0; i < upcomingMissions.length; i++) ...[
                   _DashboardActivityTile(
                     icon: Icons.task_alt_rounded,
-                    color: Colors.cyan,
+                    color: AppThemeConfig.accent(context),
                     title: (upcomingMissions[i]['title'] ?? 'Mission')
                         .toString(),
                     subtitle:
@@ -779,6 +755,22 @@ class DashboardHomeSection extends StatelessWidget {
 
     return Obx(() {
       final roleKey = _roleKey(controller);
+      // READ INSIDE THE Obx BUILDER, deliberately.
+      //
+      // Obx only subscribes to observables read during its OWN synchronous
+      // build. These three used to be read inside the nested Builder below,
+      // which Flutter invokes later — so Obx never subscribed to them and the
+      // only tracked value was roleKey.
+      //
+      // The consequence was severe and invisible in tests: roleKey stays
+      // 'guest' whenever the summary request fails, so nothing ever triggered
+      // a rebuild, so the FIRST paint — isLoading true — was frozen on screen
+      // permanently. The Home dashboard's error branch and its retry button
+      // could never render at all. Caught by running the app against a backend
+      // returning 500: a skeleton that never resolved, with no way out.
+      final isLoading = controller.isLoading.value;
+      final error = controller.errorMessage.value;
+      final summary = Map<String, dynamic>.from(controller.summary);
       return _SectionScaffold(
         // Note #41 — the title and profile avatar moved to the persistent
         // top bar (shown above every tab now, not just Home), so neither is
@@ -787,36 +779,33 @@ class DashboardHomeSection extends StatelessWidget {
         // is now a plain pull-to-refresh on the list below.
         child: Builder(
           builder: (context) {
-            if (controller.isLoading.value && controller.summary.isEmpty) {
-              return const Center(child: CircularProgressIndicator());
+            if (isLoading && summary.isEmpty) {
+              // A skeleton, not a spinner, so the first paint has roughly the
+              // shape of the dashboard that replaces it. Deliberately NOT
+              // AppAsync: the summary is a Map, and it has no empty state
+              // distinct from "not loaded", so AppAsync's required `empty`
+              // would be a state that can never occur.
+              return Padding(
+                padding: const EdgeInsets.all(20),
+                child: AppSkeleton.rows(),
+              );
             }
-            if (controller.errorMessage.value != null &&
-                controller.summary.isEmpty) {
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        controller.errorMessage.value!,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: AppThemeConfig.mutedText(context),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      FilledButton(
-                        onPressed: controller.fetchSummary,
-                        child: Text('Retry'.tr),
-                      ),
-                    ],
-                  ),
+            if (error != null && summary.isEmpty) {
+              // AppErrorState, not a bespoke Center/Column. This was the
+              // app's fourth hand-rolled error presentation, and being
+              // hand-rolled it rendered `Text(error)` WITHOUT `.tr` — so the
+              // message stayed English for every Arabic and Kurdish user,
+              // beside a "Retry" button that WAS translated. Using the shared
+              // widget gets translation, the design-system styling and the
+              // retry affordance from one place.
+              return Padding(
+                padding: const EdgeInsets.all(20),
+                child: AppErrorState(
+                  message: error,
+                  onRetry: controller.fetchSummary,
                 ),
               );
             }
-            final summary = Map<String, dynamic>.from(controller.summary);
             return RefreshIndicator(
               onRefresh: controller.fetchSummary,
               // 'marriage' (and 'employee') have no bespoke summary yet —
@@ -855,6 +844,9 @@ class _WalletCard extends StatefulWidget {
 
 class _WalletCardState extends State<_WalletCard> {
   int? _balanceIQD;
+  // True once a load attempt failed. Kept separate from `_balanceIQD == null`
+  // so the card can tell "still loading" apart from "we couldn't find out".
+  bool _loadFailed = false;
 
   @override
   void initState() {
@@ -862,10 +854,28 @@ class _WalletCardState extends State<_WalletCard> {
     _load();
   }
 
+  /// Loads the balance, swallowing the error into an explicit unknown state.
+  ///
+  /// [fetchWalletBalance] throws on failure. Home genuinely cannot show a
+  /// full-screen error for one card, so the failure is contained here — but it
+  /// is contained as "unknown", not as 0. The card keeps its shape and renders
+  /// a dash where the number goes, so the layout never jumps and the user is
+  /// never told they have no money when we simply could not ask.
   Future<void> _load() async {
-    final balance = await fetchWalletBalance();
-    if (!mounted) return;
-    setState(() => _balanceIQD = balance.balanceIQD);
+    try {
+      final balance = await fetchWalletBalance();
+      if (!mounted) return;
+      setState(() {
+        _balanceIQD = balance.balanceIQD;
+        _loadFailed = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _balanceIQD = null;
+        _loadFailed = true;
+      });
+    }
   }
 
   @override
@@ -878,11 +888,7 @@ class _WalletCardState extends State<_WalletCard> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF0F766E), Color(0xFF14B8A6)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: AppThemeConfig.accent(context),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
@@ -891,43 +897,62 @@ class _WalletCardState extends State<_WalletCard> {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.18),
+              color: AppThemeConfig.onAccent(context).withValues(alpha: 0.18),
               shape: BoxShape.circle,
             ),
-            child: const Icon(
+            child: Icon(
               Icons.account_balance_wallet_rounded,
-              color: Colors.white,
+              color: AppThemeConfig.onAccent(context),
               size: 20,
             ),
           ),
           const SizedBox(width: 12),
+          // Tapping the balance retries a failed load — the card has no other
+          // way out, and Home can't surface a retry button without changing
+          // its height.
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'My wallet'.tr,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.85),
-                    fontWeight: FontWeight.w600,
-                    fontSize: 12.5,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _loadFailed ? _load : null,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _loadFailed
+                        ? 'Balance unavailable — tap to retry'.tr
+                        : 'My wallet'.tr,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: AppThemeConfig.onAccent(
+                        context,
+                      ).withValues(alpha: 0.85),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12.5,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  balance == null
-                      ? '···'
-                      : '${NumberFormat('#,##0').format(balance)} IQD',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 20,
+                  const SizedBox(height: 2),
+                  // Three states in one slot, all the same height so the card
+                  // never resizes: '···' while loading, an em dash when the
+                  // balance is unknown, the real figure otherwise. A dash is
+                  // used rather than 0 because 0 is a claim we can't make.
+                  Text(
+                    _loadFailed
+                        ? '—'
+                        : balance == null
+                        ? '···'
+                        : '${NumberFormat('#,##0').format(balance)} IQD',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: AppThemeConfig.onAccent(context),
+                      fontWeight: FontWeight.w800,
+                      fontSize: 20,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
           Semantics(
@@ -935,7 +960,10 @@ class _WalletCardState extends State<_WalletCard> {
             label: 'How do I add funds?'.tr,
             child: IconButton(
               tooltip: 'How do I add funds?'.tr,
-              icon: const Icon(Icons.info_outline_rounded, color: Colors.white),
+              icon: Icon(
+                Icons.info_outline_rounded,
+                color: AppThemeConfig.onAccent(context),
+              ),
               onPressed: () => Get.dialog(
                 AlertDialog(
                   title: Text('My wallet'.tr),
@@ -984,8 +1012,8 @@ class _FeaturedCampaignsSection extends StatelessWidget {
               onTap: () => Get.to(() => const DonationsSection()),
               child: Text(
                 'See all'.tr,
-                style: const TextStyle(
-                  color: Color(0xFF0F766E),
+                style: TextStyle(
+                  color: AppThemeConfig.accent(context),
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -994,50 +1022,45 @@ class _FeaturedCampaignsSection extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         Obx(() {
-          if (campaignsController.isLoading.value) {
-            return const SizedBox(
-              height: 340,
-              child: Center(child: CircularProgressIndicator()),
-            );
-          }
-          if (campaignsController.errorMessage.value != null) {
-            return SizedBox(
-              height: 200,
-              child: Center(
-                child: Text(
-                  campaignsController.errorMessage.value!,
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            );
-          }
-          if (campaignsController.campaigns.isEmpty) {
-            return _GlassPanel(child: Text('No campaigns available.'.tr));
-          }
-          // Client note — this horizontal carousel sits inside the page's
-          // 20px side padding, so its own scroll viewport was clipped ~20px
-          // short of the real screen edge on both sides: dragging a card
-          // toward the edge made it disappear early, well before actually
-          // reaching the edge. FullBleedHorizontal cancels that parent inset
-          // just for this row (letting the list bleed to the true screen
-          // edges), and the matching positive padding on the ListView itself
-          // restores the same resting-state look.
-          // OverflowBox (inside FullBleedHorizontal) sizes itself using its
-          // own incoming constraints, which are unbounded height here (a
-          // Column under a ListView) — so the fixed-height SizedBox must be
-          // the outer widget, not nested inside FullBleedHorizontal, or
-          // OverflowBox tries to report an infinite height and corrupts the
+          // One fixed height around all four states. Each branch used to size
+          // itself - 340 for loading, 200 for the error, an intrinsic panel
+          // for empty - so the page visibly jumped as the fetch settled. The
+          // error state also had NO retry: a failed carousel was a dead end
+          // until the user left the screen and came back.
+          //
+          // The SizedBox must stay OUTSIDE FullBleedHorizontal: OverflowBox
+          // sizes from its own incoming constraints, which are unbounded in
+          // height here (a Column under a ListView), so nesting it inside
+          // would make OverflowBox report an infinite height and corrupt the
           // rest of the list's layout.
           return SizedBox(
             height: 340,
-            child: FullBleedHorizontal(
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                clipBehavior: Clip.none,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                children: campaignsController.campaigns
-                    .map((campaign) => _CampaignCard(campaign: campaign))
-                    .toList(),
+            child: AppAsync<List<dynamic>>(
+              loading: campaignsController.isLoading.value,
+              error: campaignsController.errorMessage.value,
+              onRetry: campaignsController.refreshCampaigns,
+              data: campaignsController.campaigns,
+              isEmpty: (list) => list.isEmpty,
+              empty: AppEmpty(
+                title: 'No campaigns available.'.tr,
+                message:
+                    'Featured campaigns will appear here once published.'.tr,
+              ),
+              // Client note — this horizontal carousel sits inside the page's
+              // 20px side padding, so its own scroll viewport was clipped
+              // ~20px short of the real screen edge on both sides: dragging a
+              // card toward the edge made it disappear early. FullBleedHorizontal
+              // cancels that parent inset just for this row, and the matching
+              // positive padding on the ListView restores the resting look.
+              builder: (list) => FullBleedHorizontal(
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  clipBehavior: Clip.none,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  children: list
+                      .map((campaign) => _CampaignCard(campaign: campaign))
+                      .toList(),
+                ),
               ),
             ),
           );
@@ -1061,14 +1084,9 @@ class _SectionScaffold extends StatelessWidget {
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              AppThemeConfig.backgroundTop(context),
-              AppThemeConfig.backgroundBottom(context),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          // Both stops resolved to the same token, so this was already
+          // painting flat. Stated plainly instead.
+          color: AppThemeConfig.backgroundTop(context),
         ),
         child: SafeArea(child: child),
       ),
@@ -1087,49 +1105,6 @@ String dashboardTitleForRole(String roleKey) => switch (roleKey) {
   _ => 'Dashboard',
 };
 
-class _WatchNowButton extends StatelessWidget {
-  const _WatchNowButton({required this.onTap, required this.label});
-
-  final VoidCallback onTap;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF14B8A6).withValues(alpha: 0.28),
-            blurRadius: 22,
-            offset: const Offset(0, 14),
-          ),
-        ],
-      ),
-      child: TextButton.icon(
-        onPressed: onTap,
-        style: TextButton.styleFrom(
-          backgroundColor: const Color(0xFF0F766E),
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
-          minimumSize: Size.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(999),
-          ),
-          textStyle: const TextStyle(
-            fontWeight: FontWeight.w700,
-            fontSize: 13,
-            letterSpacing: 0.1,
-          ),
-          elevation: 2,
-        ),
-        icon: const Icon(Icons.history_rounded, size: 16),
-        label: Text(label.tr, maxLines: 1, overflow: TextOverflow.ellipsis),
-      ),
-    );
-  }
-}
-
 class _GlassPanel extends StatelessWidget {
   const _GlassPanel({
     required this.child,
@@ -1144,14 +1119,7 @@ class _GlassPanel extends StatelessWidget {
     return Container(
       padding: padding,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppThemeConfig.surface(context),
-            AppThemeConfig.elevatedSurface(context),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: AppThemeConfig.surface(context),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: AppThemeConfig.border(context)),
         boxShadow: [
@@ -1179,11 +1147,9 @@ class _SectionLabel extends StatelessWidget {
         Container(
           width: 10,
           height: 10,
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             shape: BoxShape.circle,
-            gradient: LinearGradient(
-              colors: [Color(0xFF0F766E), Color(0xFF14B8A6)],
-            ),
+            color: AppThemeConfig.accent(context),
           ),
         ),
         const SizedBox(width: 10),
@@ -1219,11 +1185,7 @@ class _IconShell extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [color.withValues(alpha: 0.24), color.withValues(alpha: 0.1)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: color.withValues(alpha: 0.14),
         shape: BoxShape.circle,
         border: Border.all(color: color.withValues(alpha: 0.16)),
         boxShadow: [
@@ -1373,9 +1335,11 @@ class _DashboardHeroStat extends StatelessWidget {
     final child = Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.14),
+        color: AppThemeConfig.onAccent(context).withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+        border: Border.all(
+          color: AppThemeConfig.onAccent(context).withValues(alpha: 0.16),
+        ),
       ),
       child: Row(
         children: [
@@ -1383,17 +1347,14 @@ class _DashboardHeroStat extends StatelessWidget {
             width: 34,
             height: 34,
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Colors.white.withValues(alpha: 0.24),
-                  Colors.white.withValues(alpha: 0.12),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              color: AppThemeConfig.onAccent(context).withValues(alpha: 0.18),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: Colors.white, size: 17),
+            child: Icon(
+              icon,
+              color: AppThemeConfig.onAccent(context),
+              size: 17,
+            ),
           ),
           const SizedBox(width: 9),
           Expanded(
@@ -1405,8 +1366,8 @@ class _DashboardHeroStat extends StatelessWidget {
                   value,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: AppThemeConfig.onAccent(context),
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
                   ),
@@ -1417,7 +1378,9 @@ class _DashboardHeroStat extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.9),
+                    color: AppThemeConfig.onAccent(
+                      context,
+                    ).withValues(alpha: 0.9),
                     fontWeight: FontWeight.w600,
                     fontSize: 10.5,
                   ),
@@ -1448,6 +1411,11 @@ class _DashboardHeroStat extends StatelessWidget {
 class _TopShortcutsRow extends StatelessWidget {
   const _TopShortcutsRow();
 
+  /// Bottom-nav index of the City Guide tab, per the `_sections` list in
+  /// dashboard_screen.dart. Named rather than inlined, matching the
+  /// `_settingsTabIndex` precedent in profile_menu_screen.dart.
+  static const int _cityGuideTabIndex = 3;
+
   @override
   Widget build(BuildContext context) {
     return _GlassPanel(
@@ -1458,7 +1426,7 @@ class _TopShortcutsRow extends StatelessWidget {
             child: _QuickAction(
               icon: Icons.storefront_rounded,
               label: 'Our Products',
-              color: Colors.deepOrangeAccent,
+              color: AppThemeConfig.accent(context),
               compact: true,
               onTap: () => Get.to(() => const MarketplaceSection()),
             ),
@@ -1468,7 +1436,7 @@ class _TopShortcutsRow extends StatelessWidget {
             child: _QuickAction(
               icon: Icons.volunteer_activism_rounded,
               label: 'My Engagement',
-              color: Colors.teal,
+              color: AppThemeConfig.accent(context),
               compact: true,
               onTap: () => Get.to(() => const RoleHistoryScreen()),
             ),
@@ -1478,9 +1446,18 @@ class _TopShortcutsRow extends StatelessWidget {
             child: _QuickAction(
               icon: Icons.explore_rounded,
               label: 'City Guide',
-              color: Colors.indigo,
+              color: AppThemeConfig.accent(context),
               compact: true,
-              onTap: () => Get.to(() => const CityGuideScreen()),
+              // Selects the City Guide TAB rather than pushing a second copy
+              // of the same screen on top of it. CityGuideScreen is already
+              // tab 3 (dashboard_screen.dart), so `Get.to` here stacked a
+              // duplicate the user then had to back out of, landing them on
+              // the identical screen they had just left.
+              //
+              // The shortcut itself stays: this row is a client-specified
+              // grouping, and the duplication was in HOW it navigated, not in
+              // the entry point existing.
+              onTap: () => dashboardTabNotifier.value = _cityGuideTabIndex,
             ),
           ),
         ],
@@ -1511,8 +1488,11 @@ class _QuickAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final boxSize = compact ? 50.0 : 62.0;
-    final iconSize = compact ? 22.0 : 28.0;
+    // Quick actions are navigation shortcuts, not the point of the screen.
+    // They were reading as the loudest thing on Home; scaled down so the
+    // headline figure and the campaigns keep the emphasis.
+    final boxSize = compact ? 38.0 : 44.0;
+    final iconSize = compact ? 17.0 : 20.0;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -1521,7 +1501,7 @@ class _QuickAction extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 4),
           child: Container(
-            padding: const EdgeInsets.fromLTRB(6, 12, 6, 12),
+            padding: const EdgeInsets.fromLTRB(6, 9, 6, 9),
             decoration: BoxDecoration(
               color: AppThemeConfig.softSurface(context),
               borderRadius: BorderRadius.circular(20),
@@ -1533,15 +1513,8 @@ class _QuickAction extends StatelessWidget {
                   width: boxSize,
                   height: boxSize,
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        color.withValues(alpha: 0.24),
-                        color.withValues(alpha: 0.08),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(20),
+                    color: color.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(13),
                     border: Border.all(color: color.withValues(alpha: 0.14)),
                   ),
                   child: Stack(
@@ -1550,11 +1523,11 @@ class _QuickAction extends StatelessWidget {
                     children: [
                       if (badgeLabel == null)
                         Positioned(
-                          top: 10,
-                          right: 10,
+                          top: 7,
+                          right: 7,
                           child: Container(
-                            width: 8,
-                            height: 8,
+                            width: 6,
+                            height: 6,
                             decoration: BoxDecoration(
                               color: color.withValues(alpha: 0.9),
                               shape: BoxShape.circle,
@@ -1575,14 +1548,14 @@ class _QuickAction extends StatelessWidget {
                               color: color,
                               borderRadius: BorderRadius.circular(999),
                               border: Border.all(
-                                color: Colors.white,
+                                color: AppThemeConfig.onAccent(context),
                                 width: 1.5,
                               ),
                             ),
                             child: Text(
                               badgeLabel!.tr,
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: AppThemeConfig.onAccent(context),
                                 fontWeight: FontWeight.w800,
                                 fontSize: 9,
                               ),
@@ -1592,14 +1565,14 @@ class _QuickAction extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 7),
                 Text(
                   label.tr,
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
-                    fontSize: compact ? 12.5 : null,
+                    fontSize: compact ? 11.5 : 12.5,
                     color: AppThemeConfig.text(context),
                   ),
                 ),
@@ -1624,21 +1597,15 @@ class _CampaignCard extends StatelessWidget {
     // thicker gradient progress bar. Cleaner hierarchy than the old
     // info-line stack.
     final pct = (campaign.fundedProgress.clamp(0.0, 1.0) * 100).round();
-    final accent = campaign.color;
+    final accent = AppThemeConfig.accent(context);
 
     return Container(
       width: 244,
-      margin: const EdgeInsets.only(right: 14),
+      margin: const EdgeInsetsDirectional.only(end: 14),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppThemeConfig.elevatedSurface(context),
-            accent.withValues(alpha: 0.16),
-            accent.withValues(alpha: 0.06),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        // A single tint over the card surface, replacing a three-stop ramp
+        // from surface through two accent alphas.
+        color: accent.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: AppThemeConfig.border(context)),
         boxShadow: [
@@ -1803,14 +1770,12 @@ class _CampaignCard extends StatelessWidget {
                     height: 10,
                     color: accent.withValues(alpha: 0.14),
                     child: Align(
-                      alignment: Alignment.centerLeft,
+                      alignment: AlignmentDirectional.centerStart,
                       child: FractionallySizedBox(
                         widthFactor: campaign.fundedProgress.clamp(0.0, 1.0),
                         child: Container(
                           decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [accent.withValues(alpha: 0.7), accent],
-                            ),
+                            color: accent,
                             borderRadius: BorderRadius.circular(999),
                           ),
                         ),
@@ -1831,7 +1796,11 @@ class _CampaignCard extends StatelessWidget {
                         color: accent,
                       ),
                     ),
-                    Icon(Icons.arrow_forward_rounded, size: 16, color: accent),
+                    Icon(
+                      AppIcons.forwardSolid(context),
+                      size: 16,
+                      color: accent,
+                    ),
                   ],
                 ),
               ],
@@ -1883,8 +1852,8 @@ class _NewsStrip extends StatelessWidget {
                   ),
                   child: Text(
                     'See all'.tr,
-                    style: const TextStyle(
-                      color: Color(0xFF0F766E),
+                    style: TextStyle(
+                      color: AppThemeConfig.accent(context),
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -1946,17 +1915,13 @@ class _NewsCard extends StatelessWidget {
                 width: double.infinity,
                 child: imageUrl == null
                     ? Container(
-                        decoration: const BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [Color(0xFF0F766E), Color(0xFF14B8A6)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
+                        decoration: BoxDecoration(
+                          color: AppThemeConfig.accent(context),
                         ),
-                        child: const Center(
+                        child: Center(
                           child: Icon(
                             Icons.article_rounded,
-                            color: Colors.white,
+                            color: AppThemeConfig.onAccent(context),
                             size: 34,
                           ),
                         ),
@@ -1975,17 +1940,13 @@ class _NewsCard extends StatelessWidget {
                           ),
                         ),
                         errorWidget: (_, __, ___) => Container(
-                          decoration: const BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [Color(0xFF0F766E), Color(0xFF14B8A6)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
+                          decoration: BoxDecoration(
+                            color: AppThemeConfig.accent(context),
                           ),
-                          child: const Center(
+                          child: Center(
                             child: Icon(
                               Icons.article_rounded,
-                              color: Colors.white,
+                              color: AppThemeConfig.onAccent(context),
                               size: 34,
                             ),
                           ),
@@ -2006,15 +1967,15 @@ class _NewsCard extends StatelessWidget {
                             vertical: 3,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(
-                              0xFF0F766E,
+                            color: AppThemeConfig.accent(
+                              context,
                             ).withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(999),
                           ),
                           child: Text(
                             type.tr,
-                            style: const TextStyle(
-                              color: Color(0xFF0F766E),
+                            style: TextStyle(
+                              color: AppThemeConfig.accent(context),
                               fontSize: 10.5,
                               fontWeight: FontWeight.w700,
                             ),
@@ -2121,8 +2082,8 @@ class _PartnersStrip extends StatelessWidget {
                   ),
                   child: Text(
                     'See all'.tr,
-                    style: const TextStyle(
-                      color: Color(0xFF0F766E),
+                    style: TextStyle(
+                      color: AppThemeConfig.accent(context),
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -2199,10 +2160,10 @@ class _PartnerLogoCard extends StatelessWidget {
                     ? Center(
                         child: Text(
                           name.isNotEmpty ? name.characters.first : '?',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 30,
                             fontWeight: FontWeight.w800,
-                            color: Color(0xFF0F766E),
+                            color: AppThemeConfig.accent(context),
                           ),
                         ),
                       )
@@ -2219,10 +2180,10 @@ class _PartnerLogoCard extends StatelessWidget {
                         errorWidget: (_, __, ___) => Center(
                           child: Text(
                             name.isNotEmpty ? name.characters.first : '?',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 30,
                               fontWeight: FontWeight.w800,
-                              color: Color(0xFF0F766E),
+                              color: AppThemeConfig.accent(context),
                             ),
                           ),
                         ),
@@ -2333,7 +2294,7 @@ class _DashboardActivityTile extends StatelessWidget {
             if (onTap != null) ...[
               const SizedBox(height: 2),
               Icon(
-                Icons.chevron_right_rounded,
+                AppIcons.chevronForward(context),
                 size: 18,
                 color: AppThemeConfig.mutedText(context),
               ),

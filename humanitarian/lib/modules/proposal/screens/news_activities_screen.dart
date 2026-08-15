@@ -12,6 +12,9 @@ import 'package:share_plus/share_plus.dart';
 import 'package:flutter_application_1/core/app_share.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
+import 'package:flutter_application_1/core/design/tokens.dart';
+import 'package:flutter_application_1/core/widgets/app_pressable.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 class NewsActivitiesScreen extends StatelessWidget {
   const NewsActivitiesScreen({super.key});
@@ -36,43 +39,178 @@ class NewsActivitiesScreen extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
             children: [
-              // #22 — "Our Work" category filter chips.
+              // #22 — "Our Work" category filter chips. Kept OUTSIDE AppAsync:
+              // the empty state is usually "nothing in THIS category", so
+              // hiding the chips with the results would leave no way to undo
+              // the selection that emptied the screen.
               if (cats.isNotEmpty) ...[
                 _CategoryChips(controller: controller),
                 const SizedBox(height: 14),
               ],
-              if (controller.isLoading.value)
-                const Center(child: CircularProgressIndicator()),
-              if (controller.errorMessage.value != null)
-                SectionTile(
-                  icon: Icons.article_rounded,
+              // Three stacked `if` blocks replaced by one state. Previously a
+              // failed load drew the error tile AND the post list beneath it,
+              // and the error was a SectionTile whose retry was an unlabelled
+              // onTap on a card shaped like every nav row in the app.
+              AppAsync<List<Map<String, dynamic>>>(
+                loading: controller.isLoading.value,
+                error: controller.errorMessage.value,
+                onRetry: controller.fetchPosts,
+                data: items,
+                isEmpty: (list) => list.isEmpty,
+                // The default AppSkeleton.rows() was wrong for this screen: a
+                // MediaPostCard leads with a 16:9 image, so title/meta/progress
+                // text bones would have jumped into a big picture rather than
+                // filled into one.
+                skeleton: const _PostFeedSkeleton(),
+                empty: const AppEmpty(
                   title: 'News and activities',
-                  subtitle: controller.errorMessage.value!,
-                  color: Colors.orange,
-                  onTap: controller.fetchPosts,
+                  message: 'No published posts are available yet.',
                 ),
-              if (!controller.isLoading.value &&
-                  controller.errorMessage.value == null &&
-                  items.isEmpty)
-                const SectionTile(
-                  icon: Icons.article_rounded,
-                  title: 'News and activities',
-                  subtitle: 'No published posts are available yet.',
-                  color: Colors.orange,
+                builder: (list) => Column(
+                  children: [
+                    for (final item in list) ...[
+                      MediaPostCard(
+                        item: item,
+                        categoryLabel: controller.categoryLabelForSlug(
+                          (item['category_slug'] ?? '').toString(),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                    ],
+                  ],
                 ),
-              for (final item in items) ...[
-                MediaPostCard(
-                  item: item,
-                  categoryLabel: controller.categoryLabelForSlug(
-                    (item['category_slug'] ?? '').toString(),
-                  ),
-                ),
-                const SizedBox(height: 14),
-              ],
+              ),
             ],
           ),
         );
       }),
+    );
+  }
+}
+
+/// First-load placeholder for the post feed, shaped like the [MediaPostCard]s
+/// it is replaced by rather than like generic text rows.
+///
+/// It is built inside a real [GlassPanel] with the same `EdgeInsets.zero`
+/// padding the card uses, so the panel radius, border, blur and shadow are the
+/// card's own geometry rather than a second guess at it — only the contents are
+/// bones. Two cards is enough to read as a feed without filling the screen with
+/// grey before there is anything to show.
+class _PostFeedSkeleton extends StatelessWidget {
+  const _PostFeedSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return AppSkeleton(
+      child: Column(
+        children: [
+          for (var i = 0; i < 2; i++) ...[
+            if (i > 0) const SizedBox(height: 14),
+            const _PostCardBones(),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// The bones of a single post card: hero, pill row, headline, body, action.
+class _PostCardBones extends StatelessWidget {
+  const _PostCardBones();
+
+  @override
+  Widget build(BuildContext context) {
+    // One neutral bone colour from the theme so it holds in both modes.
+    final bone = AppThemeConfig.border(context);
+    return GlassPanel(
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // The hero. A solid block, like _MediaLoading and for the same
+          // reason: an image's honest placeholder is a block of pixels, not
+          // lines of text. No radius of its own — GlassPanel already clips the
+          // top corners, and rounding twice would notch them.
+          AspectRatio(
+            aspectRatio: 16 / 9,
+            child: Container(color: bone),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // The Wrap of _PostPills: small rounded tablets of varying
+                // width, drawn as containers rather than AppSkeleton.bone
+                // because bone() rounds to height/2 and a 30px tablet would
+                // come out as a stadium pill instead of a chip.
+                Row(
+                  children: [
+                    for (final width in const <double>[86, 64, 104]) ...[
+                      Container(
+                        width: width,
+                        height: 30,
+                        margin: const EdgeInsetsDirectional.only(end: 8),
+                        decoration: BoxDecoration(
+                          color: bone,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 12),
+                // The headline — fontSize 20, so a taller, wider bar than the
+                // body lines beneath it.
+                AppSkeleton.bone(height: 14, widthFactor: 0.82),
+                const SizedBox(height: 6),
+                // Body copy, ragged so it reads as prose rather than a slab.
+                AppSkeleton.bone(height: 9, widthFactor: 0.95),
+                AppSkeleton.bone(height: 9, widthFactor: 0.88),
+                AppSkeleton.bone(height: 9, widthFactor: 0.55),
+                const SizedBox(height: 14),
+                // The full-width "Watch video" / "Open media" button. Height
+                // and radius come from the theme's ElevatedButton
+                // (minimumSize 48, AppRadius.sm), not from a guess.
+                Container(
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: bone,
+                    borderRadius: AppRadius.smAll,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                // The rule above the engagement bar is a real Divider in the
+                // card, so it is a real Divider here too — it is already a
+                // hairline and needs no bone of its own.
+                const Divider(height: 1),
+                const SizedBox(height: 4),
+                // Like / Comment / Share / Save: four evenly-weighted actions
+                // across the full width. Included so the card does not GROW
+                // when the real bar arrives underneath the loaded content.
+                Row(
+                  children: [
+                    for (var i = 0; i < 4; i++)
+                      Expanded(
+                        child: Container(
+                          height: 20,
+                          margin: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: bone,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -130,9 +268,7 @@ class _FilterChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: active
-          ? AppThemeConfig.primary
-          : AppThemeConfig.surface(context),
+      color: active ? AppThemeConfig.primary : AppThemeConfig.surface(context),
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
@@ -321,7 +457,9 @@ class _EngagementBar extends StatelessWidget {
         ),
         Expanded(
           child: _EngageButton(
-            icon: saved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+            icon: saved
+                ? Icons.bookmark_rounded
+                : Icons.bookmark_border_rounded,
             color: saved ? AppThemeConfig.primary : null,
             label: 'Save'.tr,
             onTap: () async {
@@ -393,7 +531,11 @@ Future<void> _sharePost(
     try {
       await const ModuleApi().shareMediaPost(id);
       controller.bumpShareCount(id);
-    } catch (_) {}
+    } catch (_) {
+      // Deliberately silent: the share itself already happened in the system
+      // sheet above. This call only records the share count, so a failure has
+      // nothing the user can act on and no surface to report it in.
+    }
   }
 }
 
@@ -430,6 +572,10 @@ class _CommentsSheetState extends State<_CommentsSheet> {
   final _comments = <Map<String, dynamic>>[];
   bool _loading = true;
   bool _sending = false;
+  // Set when the comment FETCH fails. Without it the sheet rendered "No
+  // comments yet." after a failed load — telling the user the post had no
+  // discussion when the request had simply errored, with no way to retry.
+  String? _error;
 
   @override
   void initState() {
@@ -444,6 +590,14 @@ class _CommentsSheetState extends State<_CommentsSheet> {
   }
 
   Future<void> _load() async {
+    // Clear any previous failure so a retry starts from the loading state
+    // rather than leaving the error banner up while the refetch runs.
+    if (mounted && _error != null) {
+      setState(() {
+        _error = null;
+        _loading = true;
+      });
+    }
     try {
       final rows = await const ModuleApi().mediaComments(widget.postId);
       if (!mounted) return;
@@ -453,9 +607,15 @@ class _CommentsSheetState extends State<_CommentsSheet> {
           ..addAll(rows);
         _loading = false;
       });
-    } catch (_) {
+    } catch (e) {
+      // Was `catch (_) { _loading = false; }` — the failure was swallowed and
+      // the sheet fell through to its "No comments yet." copy.
       if (!mounted) return;
-      setState(() => _loading = false);
+      setState(() {
+        _error = 'Could not load the comments.';
+        _loading = false;
+      });
+      debugPrint('mediaComments(${widget.postId}) failed: $e');
     }
   }
 
@@ -476,6 +636,9 @@ class _CommentsSheetState extends State<_CommentsSheet> {
         widget.controller.bumpCommentCount(widget.postId);
       }
     } catch (_) {
+      // Not swallowed: a failed SEND is reported here as a snackbar. It stays
+      // a snackbar rather than an error state because the comment list behind
+      // it loaded fine and must keep rendering.
       Get.snackbar('Error'.tr, 'Could not post your comment.'.tr);
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -485,7 +648,9 @@ class _CommentsSheetState extends State<_CommentsSheet> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: DraggableScrollableSheet(
         expand: false,
         initialChildSize: 0.7,
@@ -500,8 +665,9 @@ class _CommentsSheetState extends State<_CommentsSheet> {
               // solid dark in dark mode). surface() is translucent by design
               // (glassmorphism), which is what made this sheet see-through.
               color: AppThemeConfig.elevatedSurface(context),
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(22)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(22),
+              ),
               border: Border.all(color: AppThemeConfig.border(context)),
             ),
             clipBehavior: Clip.antiAlias,
@@ -513,8 +679,9 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                   width: 44,
                   height: 5,
                   decoration: BoxDecoration(
-                    color: AppThemeConfig.mutedText(context)
-                        .withValues(alpha: 0.35),
+                    color: AppThemeConfig.mutedText(
+                      context,
+                    ).withValues(alpha: 0.35),
                     borderRadius: BorderRadius.circular(3),
                   ),
                 ),
@@ -539,8 +706,9 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                             vertical: 3,
                           ),
                           decoration: BoxDecoration(
-                            color:
-                                AppThemeConfig.primary.withValues(alpha: 0.12),
+                            color: AppThemeConfig.primary.withValues(
+                              alpha: 0.12,
+                            ),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
@@ -566,8 +734,23 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                 ),
                 Divider(height: 1, color: AppThemeConfig.border(context)),
                 Expanded(
-                  child: _loading
-                      ? const Center(child: CircularProgressIndicator())
+                  // Error is checked BEFORE empty: a failed fetch leaves
+                  // _comments empty, so without this the empty state would win
+                  // and claim the post has no comments.
+                  child: _error != null
+                      ? SingleChildScrollView(
+                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                          child: AppErrorState(
+                            message: _error!,
+                            onRetry: _load,
+                          ),
+                        )
+                      : _loading
+                      // A spinner here made the sheet jump: it sat centred in
+                      // an empty pane and the comment list then appeared from
+                      // the top. The skeleton stands in the list's own place
+                      // so the comments fill in rather than pop in.
+                      ? const _CommentsSkeleton()
                       : _comments.isEmpty
                       ? Center(
                           child: Column(
@@ -576,8 +759,9 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                               Icon(
                                 Icons.mode_comment_outlined,
                                 size: 40,
-                                color: AppThemeConfig.mutedText(context)
-                                    .withValues(alpha: 0.5),
+                                color: AppThemeConfig.mutedText(
+                                  context,
+                                ).withValues(alpha: 0.5),
                               ),
                               const SizedBox(height: 12),
                               Text(
@@ -616,8 +800,9 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                             maxLines: 4,
                             textInputAction: TextInputAction.send,
                             onSubmitted: (_) => _submit(),
-                            style:
-                                TextStyle(color: AppThemeConfig.text(context)),
+                            style: TextStyle(
+                              color: AppThemeConfig.text(context),
+                            ),
                             decoration: InputDecoration(
                               hintText: 'Write a comment…'.tr,
                               filled: true,
@@ -633,8 +818,9 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(24),
                                 borderSide: BorderSide(
-                                  color: AppThemeConfig.primary
-                                      .withValues(alpha: 0.5),
+                                  color: AppThemeConfig.primary.withValues(
+                                    alpha: 0.5,
+                                  ),
                                 ),
                               ),
                               contentPadding: const EdgeInsets.symmetric(
@@ -680,6 +866,82 @@ class _CommentsSheetState extends State<_CommentsSheet> {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// First-load placeholder for the comments sheet, shaped like the
+/// [_CommentTile] rows it is replaced by: a round avatar with a name bar and a
+/// short date beside it, then two body lines underneath.
+///
+/// [AppSkeleton.rows] would be the wrong shape here — it draws a title, a meta
+/// line and a progress rule, and has no avatar, so the round mark would appear
+/// out of nowhere when the comments landed. Same padding and separator spacing
+/// as the real ListView.separated, so nothing shifts on arrival.
+class _CommentsSkeleton extends StatelessWidget {
+  const _CommentsSkeleton();
+
+  // Body lines are ragged rather than uniform so the block reads as text.
+  static const _bodyWidths = <double>[0.92, 0.64, 0.86, 0.5];
+
+  @override
+  Widget build(BuildContext context) {
+    // One neutral bone colour taken from the theme, so it holds up in both
+    // light and dark mode.
+    final bone = AppThemeConfig.border(context);
+    return AppSkeleton(
+      child: ListView.separated(
+        // Never scrolled: the sheet's real list owns the scroll controller, and
+        // handing a placeholder its own scroll position would fight it.
+        physics: const NeverScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        itemCount: 4,
+        separatorBuilder: (_, __) => const Divider(height: 20),
+        itemBuilder: (_, i) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                // Matches the CircleAvatar(radius: 14) in _CommentTile.
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: bone,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // The author name — a short bar, not a full-width one.
+                Expanded(
+                  child: AppSkeleton.bone(
+                    height: 11,
+                    widthFactor: i.isEven ? 0.42 : 0.34,
+                    margin: EdgeInsets.zero,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // The trailing yyyy-mm-dd stamp.
+                Container(
+                  width: 54,
+                  height: 9,
+                  decoration: BoxDecoration(
+                    color: bone,
+                    borderRadius: BorderRadius.circular(4.5),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            AppSkeleton.bone(height: 9, widthFactor: _bodyWidths[i % 4]),
+            AppSkeleton.bone(
+              height: 9,
+              widthFactor: _bodyWidths[(i + 1) % 4],
+              margin: EdgeInsets.zero,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -738,10 +1000,7 @@ class _CommentTile extends StatelessWidget {
         const SizedBox(height: 6),
         Text(
           body,
-          style: TextStyle(
-            color: AppThemeConfig.text(context),
-            height: 1.4,
-          ),
+          style: TextStyle(color: AppThemeConfig.text(context), height: 1.4),
         ),
       ],
     );
@@ -813,7 +1072,7 @@ class _MediaGallery extends StatelessWidget {
           separatorBuilder: (_, __) => const SizedBox(width: 8),
           itemBuilder: (context, i) {
             final url = urls[i];
-            return GestureDetector(
+            return AppPressable(
               onTap: () => _openGalleryImage(context, url),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
@@ -857,7 +1116,11 @@ void _openGalleryImage(BuildContext context, String url) {
             top: 40,
             right: 16,
             child: IconButton(
-              icon: const Icon(Icons.close_rounded, color: Colors.white, size: 30),
+              icon: const Icon(
+                Icons.close_rounded,
+                color: Colors.white,
+                size: 30,
+              ),
               onPressed: () => Navigator.of(context).pop(),
             ),
           ),
@@ -867,15 +1130,24 @@ void _openGalleryImage(BuildContext context, String url) {
   );
 }
 
+/// Placeholder while a post image is fetched — used for both the 16:9 hero and
+/// the 78px gallery thumbnails.
+///
+/// It fills its slot rather than centring a spinner in it. An image is a solid
+/// block of pixels, so the honest placeholder is a solid block: the photo fades
+/// into the same rectangle the bone occupied, instead of replacing a small
+/// spinning ring floating in the middle of an empty panel. Text bones would be
+/// wrong for the same reason the City Guide needed a map-shaped one.
 class _MediaLoading extends StatelessWidget {
   const _MediaLoading();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: AppThemeConfig.surface(context),
-      alignment: Alignment.center,
-      child: const CircularProgressIndicator(),
+    return AppSkeleton(
+      // No radius of its own: the hero is already clipped by the GlassPanel and
+      // the thumbnails by their own ClipRRect, so a corner here would round
+      // twice and leave a visible notch.
+      child: Container(color: AppThemeConfig.border(context)),
     );
   }
 }
@@ -946,12 +1218,20 @@ class MediaVideoScreen extends StatefulWidget {
 }
 
 class _MediaVideoScreenState extends State<MediaVideoScreen> {
-  late final VideoPlayerController _controller;
-  late final Future<void> _ready;
+  // Not `late final`: a retry has to throw the failed controller away and
+  // build a fresh one, because a VideoPlayerController that failed to
+  // initialize cannot be re-initialized.
+  late VideoPlayerController _controller;
+  late Future<void> _ready;
 
   @override
   void initState() {
     super.initState();
+    _start();
+  }
+
+  /// Create the player and begin loading. Also the retry path.
+  void _start() {
     _controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl));
     _ready = _controller.initialize().then((_) {
       _controller
@@ -959,6 +1239,14 @@ class _MediaVideoScreenState extends State<MediaVideoScreen> {
         ..play();
       if (mounted) setState(() {});
     });
+  }
+
+  /// Discard the dead controller and start over, so the FutureBuilder is
+  /// handed a genuinely new future rather than the already-failed one.
+  void _retry() {
+    final dead = _controller;
+    setState(_start);
+    dead.dispose();
   }
 
   @override
@@ -975,8 +1263,28 @@ class _MediaVideoScreenState extends State<MediaVideoScreen> {
       child: FutureBuilder<void>(
         future: _ready,
         builder: (context, snapshot) {
+          // snapshot.hasError was never read. A video that failed to
+          // initialize (dead link, unsupported codec, no connection) still
+          // fell through to the player, which rendered a blank box with a
+          // Pause button and no explanation or way to try again.
+          if (snapshot.hasError) {
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+              children: [
+                AppErrorState(
+                  message: 'Could not play this video.',
+                  onRetry: _retry,
+                ),
+              ],
+            );
+          }
           if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
+            // Shaped like the player that replaces it — a 16:9 rounded frame
+            // with the play/pause button below — rather than a spinner floating
+            // in the middle of the page. The real aspect ratio isn't known
+            // until the video initializes, so this uses the same 16/9 the
+            // player itself falls back to; content fills the frame in place.
+            return const _VideoSkeleton();
           }
           final aspectRatio = _controller.value.aspectRatio <= 0
               ? 16 / 9
@@ -1012,6 +1320,47 @@ class _MediaVideoScreenState extends State<MediaVideoScreen> {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+/// First-load placeholder for [MediaVideoScreen]: the video frame and the
+/// control beneath it, in the same list padding the loaded screen uses.
+class _VideoSkeleton extends StatelessWidget {
+  const _VideoSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final bone = AppThemeConfig.border(context);
+    return AppSkeleton(
+      child: ListView(
+        // Static placeholder — nothing to scroll to yet.
+        physics: const NeverScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+        children: [
+          // The video frame, matching the ClipRRect(8) + AspectRatio below it.
+          AspectRatio(
+            aspectRatio: 16 / 9,
+            child: Container(
+              decoration: BoxDecoration(
+                color: bone,
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          // The Play/Pause button. Height and radius are taken from the theme's
+          // ElevatedButton (minimumSize 48, AppRadius.sm) rather than guessed,
+          // so the real control lands on exactly this footprint.
+          Container(
+            height: 48,
+            decoration: BoxDecoration(
+              color: bone,
+              borderRadius: AppRadius.smAll,
+            ),
+          ),
+        ],
       ),
     );
   }

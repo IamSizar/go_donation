@@ -14,8 +14,10 @@
 // (lib/data/skill_catalogue.dart) doesn't have to import flutter/material.
 
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/core/design/directional_icons.dart';
 import 'package:flutter_application_1/data/skill_catalogue.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/core/design/motion.dart';
 
 /// Per-skill Material icon. Keyed by the canonical catalogue key.
 const Map<String, IconData> _skillIcons = {
@@ -69,19 +71,33 @@ class _CategoryStyle {
 
 const Map<String, _CategoryStyle> _categoryStyle = {
   'transport': _CategoryStyle(
-      icon: Icons.directions_bus_rounded, color: Color(0xFF4F46E5)), // indigo
+    icon: Icons.directions_bus_rounded,
+    color: Color(0xFF4F46E5),
+  ), // indigo
   'trades': _CategoryStyle(
-      icon: Icons.construction_rounded, color: Color(0xFFEA580C)), // orange
+    icon: Icons.construction_rounded,
+    color: Color(0xFFEA580C),
+  ), // orange
   'medical': _CategoryStyle(
-      icon: Icons.medical_services_rounded, color: Color(0xFFDC2626)), // red
+    icon: Icons.medical_services_rounded,
+    color: Color(0xFFDC2626),
+  ), // red
   'service': _CategoryStyle(
-      icon: Icons.room_service_rounded, color: Color(0xFF0D9488)), // teal
+    icon: Icons.room_service_rounded,
+    color: Color(0xFF2F5D4A),
+  ), // brand
   'office': _CategoryStyle(
-      icon: Icons.laptop_mac_rounded, color: Color(0xFF7C3AED)), // purple
+    icon: Icons.laptop_mac_rounded,
+    color: Color(0xFF7C3AED),
+  ), // purple
   'teaching': _CategoryStyle(
-      icon: Icons.menu_book_rounded, color: Color(0xFF16A34A)), // green
+    icon: Icons.menu_book_rounded,
+    color: Color(0xFF16A34A),
+  ), // green
   'field': _CategoryStyle(
-      icon: Icons.terrain_rounded, color: Color(0xFF92400E)), // brown
+    icon: Icons.terrain_rounded,
+    color: Color(0xFF92400E),
+  ), // brown
 };
 
 class SkillChipPicker extends StatelessWidget {
@@ -117,8 +133,11 @@ class SkillChipPicker extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: 10),
             child: Row(
               children: [
-                Icon(Icons.check_circle_rounded,
-                    size: 18, color: theme.colorScheme.primary),
+                Icon(
+                  Icons.check_circle_rounded,
+                  size: 18,
+                  color: theme.colorScheme.primary,
+                ),
                 const SizedBox(width: 6),
                 Text(
                   '@n selected'.trParams({'n': '${selectedKeys.length}'}),
@@ -173,13 +192,16 @@ class _CategoryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     // Fallback to a neutral accent if catalogue grows a category we
     // haven't styled yet — keeps the chip rendering sane.
-    final style = _categoryStyle[category.key] ??
+    final style =
+        _categoryStyle[category.key] ??
         _CategoryStyle(
-            icon: Icons.work_outline_rounded,
-            color: Theme.of(context).colorScheme.primary);
+          icon: Icons.work_outline_rounded,
+          color: Theme.of(context).colorScheme.primary,
+        );
     final accent = style.color;
-    final pickedCount =
-        category.skills.where((s) => selectedKeys.contains(s.key)).length;
+    final pickedCount = category.skills
+        .where((s) => selectedKeys.contains(s.key))
+        .length;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -216,7 +238,9 @@ class _CategoryCard extends StatelessWidget {
               if (pickedCount > 0)
                 Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 2),
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: accent,
                     borderRadius: BorderRadius.circular(99),
@@ -236,26 +260,28 @@ class _CategoryCard extends StatelessWidget {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: category.skills.map((skill) {
-              final isSelected = selectedKeys.contains(skill.key);
-              final icon =
-                  _skillIcons[skill.key] ?? Icons.work_outline_rounded;
-              return _SkillPill(
-                label: skill.labelFor(locale),
-                icon: icon,
-                accent: accent,
-                selected: isSelected,
-                onTap: () {
-                  final next = Set<String>.from(selectedKeys);
-                  if (isSelected) {
-                    next.remove(skill.key);
-                  } else {
-                    next.add(skill.key);
-                  }
-                  onChanged(next);
-                },
-              );
-            }).toList(growable: false),
+            children: category.skills
+                .map((skill) {
+                  final isSelected = selectedKeys.contains(skill.key);
+                  final icon =
+                      _skillIcons[skill.key] ?? Icons.work_outline_rounded;
+                  return _SkillPill(
+                    label: skill.labelFor(locale),
+                    icon: icon,
+                    accent: accent,
+                    selected: isSelected,
+                    onTap: () {
+                      final next = Set<String>.from(selectedKeys);
+                      if (isSelected) {
+                        next.remove(skill.key);
+                      } else {
+                        next.add(skill.key);
+                      }
+                      onChanged(next);
+                    },
+                  );
+                })
+                .toList(growable: false),
           ),
         ],
       ),
@@ -295,7 +321,7 @@ class _SkillPill extends StatelessWidget {
         borderRadius: BorderRadius.circular(99),
         splashColor: accent.withValues(alpha: 0.18),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
+          duration: AppMotion.resolve(context, AppMotion.snapDuration),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(99),
@@ -357,10 +383,8 @@ class SkillPickerField extends StatelessWidget {
       backgroundColor: Colors.transparent,
       // We let the sheet draw its own rounded top + drag handle for
       // tighter control over the layout.
-      builder: (ctx) => _SkillPickerSheet(
-        initial: selectedKeys,
-        onChanged: onChanged,
-      ),
+      builder: (ctx) =>
+          _SkillPickerSheet(initial: selectedKeys, onChanged: onChanged),
     );
   }
 
@@ -423,8 +447,8 @@ class SkillPickerField extends StatelessWidget {
                                 })
                               : 'Pick your skills'.tr,
                           style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.w800,
-                              ),
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                         const SizedBox(height: 2),
                         Text(
@@ -432,13 +456,17 @@ class SkillPickerField extends StatelessWidget {
                               ? 'Tap to add or remove'.tr
                               : 'Browse 28 skills across 7 categories'.tr,
                           style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.disabledColor,
-                              ),
+                            color: theme.disabledColor,
+                          ),
                         ),
                       ],
                     ),
                   ),
-                  Icon(Icons.chevron_right_rounded, color: primary, size: 22),
+                  Icon(
+                    AppIcons.chevronForward(context),
+                    color: primary,
+                    size: 22,
+                  ),
                 ],
               ),
             ),
@@ -451,22 +479,23 @@ class SkillPickerField extends StatelessWidget {
           Wrap(
             spacing: 6,
             runSpacing: 6,
-            children: selectedKeys.map((key) {
-              final entry = findSkillByKey(key);
-              if (entry == null) return const SizedBox.shrink();
-              final accent = _accentForKey(key);
-              final icon =
-                  _skillIcons[key] ?? Icons.work_outline_rounded;
-              return _RemovableChip(
-                label: entry.labelFor(locale),
-                icon: icon,
-                accent: accent,
-                onRemove: () {
-                  final next = Set<String>.from(selectedKeys)..remove(key);
-                  onChanged(next);
-                },
-              );
-            }).toList(growable: false),
+            children: selectedKeys
+                .map((key) {
+                  final entry = findSkillByKey(key);
+                  if (entry == null) return const SizedBox.shrink();
+                  final accent = _accentForKey(key);
+                  final icon = _skillIcons[key] ?? Icons.work_outline_rounded;
+                  return _RemovableChip(
+                    label: entry.labelFor(locale),
+                    icon: icon,
+                    accent: accent,
+                    onRemove: () {
+                      final next = Set<String>.from(selectedKeys)..remove(key);
+                      onChanged(next);
+                    },
+                  );
+                })
+                .toList(growable: false),
           ),
         ],
       ],
@@ -505,7 +534,7 @@ class _RemovableChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(10, 6, 6, 6),
+      padding: const EdgeInsetsDirectional.fromSTEB(10, 6, 6, 6),
       decoration: BoxDecoration(
         color: accent.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(99),
@@ -530,8 +559,11 @@ class _RemovableChip extends StatelessWidget {
             borderRadius: BorderRadius.circular(99),
             child: Padding(
               padding: const EdgeInsets.all(3),
-              child: Icon(Icons.close_rounded,
-                  size: 14, color: accent.withValues(alpha: 0.70)),
+              child: Icon(
+                Icons.close_rounded,
+                size: 14,
+                color: accent.withValues(alpha: 0.70),
+              ),
             ),
           ),
         ],
@@ -546,10 +578,7 @@ class _RemovableChip extends StatelessWidget {
 /// (and inline preview chips) stay in sync live — closing the sheet
 /// doesn't "save" anything that wasn't already committed.
 class _SkillPickerSheet extends StatefulWidget {
-  const _SkillPickerSheet({
-    required this.initial,
-    required this.onChanged,
-  });
+  const _SkillPickerSheet({required this.initial, required this.onChanged});
 
   final Set<String> initial;
   final ValueChanged<Set<String>> onChanged;
@@ -650,8 +679,8 @@ class _SkillPickerSheetState extends State<_SkillPickerSheet> {
                     child: Text(
                       'Pick your skills'.tr,
                       style: theme.textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
                   TextButton.icon(
@@ -705,8 +734,11 @@ class _SkillPickerSheetState extends State<_SkillPickerSheet> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.search_off_rounded,
-                                size: 40, color: theme.disabledColor),
+                            Icon(
+                              Icons.search_off_rounded,
+                              size: 40,
+                              color: theme.disabledColor,
+                            ),
                             const SizedBox(height: 10),
                             Text(
                               'No skills match "@q"'.trParams({'q': _query}),
@@ -719,9 +751,10 @@ class _SkillPickerSheetState extends State<_SkillPickerSheet> {
                   : ListView(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                       children: kSkillCategories
-                          .where((c) =>
-                              (visibleByCategory[c.key] ?? const [])
-                                  .isNotEmpty)
+                          .where(
+                            (c) => (visibleByCategory[c.key] ?? const [])
+                                .isNotEmpty,
+                          )
                           .map(
                             (cat) => _SheetCategoryBlock(
                               category: cat,
@@ -752,8 +785,7 @@ class _SkillPickerSheetState extends State<_SkillPickerSheet> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.check_circle_rounded,
-                      color: primary, size: 18),
+                  Icon(Icons.check_circle_rounded, color: primary, size: 18),
                   const SizedBox(width: 6),
                   Text(
                     '@n selected'.trParams({'n': '${_local.length}'}),
@@ -800,14 +832,16 @@ class _SheetCategoryBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = _categoryStyle[category.key] ??
+    final style =
+        _categoryStyle[category.key] ??
         _CategoryStyle(
           icon: Icons.work_outline_rounded,
           color: Theme.of(context).colorScheme.primary,
         );
     final accent = style.color;
-    final pickedCount =
-        skills.where((s) => selectedKeys.contains(s.key)).length;
+    final pickedCount = skills
+        .where((s) => selectedKeys.contains(s.key))
+        .length;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -844,7 +878,9 @@ class _SheetCategoryBlock extends StatelessWidget {
               if (pickedCount > 0)
                 Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 2),
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: accent,
                     borderRadius: BorderRadius.circular(99),
@@ -864,18 +900,20 @@ class _SheetCategoryBlock extends StatelessWidget {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: skills.map((skill) {
-              final isSelected = selectedKeys.contains(skill.key);
-              final icon =
-                  _skillIcons[skill.key] ?? Icons.work_outline_rounded;
-              return _SkillPill(
-                label: skill.labelFor(locale),
-                icon: icon,
-                accent: accent,
-                selected: isSelected,
-                onTap: () => onToggle(skill.key),
-              );
-            }).toList(growable: false),
+            children: skills
+                .map((skill) {
+                  final isSelected = selectedKeys.contains(skill.key);
+                  final icon =
+                      _skillIcons[skill.key] ?? Icons.work_outline_rounded;
+                  return _SkillPill(
+                    label: skill.labelFor(locale),
+                    icon: icon,
+                    accent: accent,
+                    selected: isSelected,
+                    onTap: () => onToggle(skill.key),
+                  );
+                })
+                .toList(growable: false),
           ),
         ],
       ),

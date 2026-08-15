@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/core/design/directional_icons.dart';
 import 'package:flutter_application_1/api/auth_session.dart';
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/api/profile_api.dart';
@@ -21,10 +22,9 @@ import '../../receipts/screens/aid_receipts_screen.dart';
 import '../../../localization/locale_service.dart';
 import 'package:flutter_application_1/modules/legal/screens/content_page_screen.dart';
 import 'package:flutter_application_1/modules/legal/screens/terms_screen.dart';
-
-const Color _profilePrimary = Color(0xFF0F766E);
-const Color _profilePrimaryDark = Color(0xFF115E59);
-const Color _profileDanger = Color(0xFFEF4444);
+import 'package:flutter_application_1/core/widgets/app_pressable.dart';
+import 'package:flutter_application_1/core/design/motion.dart';
+import 'package:flutter_application_1/core/widgets/app_theme_mode_picker.dart';
 
 class ProfileSection extends StatefulWidget {
   const ProfileSection({super.key});
@@ -78,7 +78,9 @@ class _ProfileSectionState extends State<ProfileSection> {
                 // storage and the app went black/frozen. Just confirm; the
                 // clearing happens after we've navigated away.
                 onPressed: () => Navigator.of(context).pop(true),
-                style: TextButton.styleFrom(foregroundColor: _profileDanger),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppThemeConfig.consequence(context),
+                ),
                 child: Text('Log out'.tr),
               ),
             ],
@@ -195,16 +197,7 @@ class _ProfileSectionState extends State<ProfileSection> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppThemeConfig.backgroundTop(context),
-            AppThemeConfig.backgroundBottom(context),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
+      decoration: BoxDecoration(color: AppThemeConfig.backgroundTop(context)),
       child: SafeArea(
         child: Column(
           children: [
@@ -244,7 +237,7 @@ class _ProfileSectionState extends State<ProfileSection> {
                               localPath: _localProfileImagePath(),
                               imageUrl: _remoteProfileImageUrl(),
                               radius: 38,
-                              backgroundColor: _profilePrimaryDark,
+                              backgroundColor: AppThemeConfig.accent(context),
                               placeholder: const Icon(
                                 Icons.person,
                                 color: Colors.white,
@@ -267,37 +260,33 @@ class _ProfileSectionState extends State<ProfileSection> {
                   const SizedBox(height: 22),
                   _SectionLabel('Account'.tr),
                   const SizedBox(height: 10),
-                  _ProfileOptionTile(
-                    icon: Icons.security_rounded,
-                    title: "Privacy & Security",
-                    subtitle:
-                        'Control account access, passwords, and verification.',
-                    color: Colors.deepPurple,
-                  ),
-                  const SizedBox(height: 12),
+                  // Redesign de-duplication — three tiles used to sit in this
+                  // section with no `onTap` at all ("Privacy & Security",
+                  // "Payment Methods", "App Settings"). They looked tappable,
+                  // did nothing, and each duplicated something that already
+                  // works elsewhere, so the app effectively advertised two
+                  // settings hubs. They were removed rather than wired up,
+                  // because every destination they promised already has a
+                  // live route in:
+                  //  - Privacy & Security → the "Field privacy" tile directly
+                  //    below is the only privacy capability that actually
+                  //    exists (see PrivacySecurityScreen's own note), and the
+                  //    full screen is reachable from the Settings tab via
+                  //    Control Settings and Preferences.
+                  //  - Payment Methods → PaymentMethodsScreen is reached from
+                  //    the same Control Settings screen; adding a second door
+                  //    here is exactly the duplication being removed.
+                  //  - App Settings → the "Preferences" section further down
+                  //    THIS screen already owns language, theme, notifications
+                  //    and mute, so the tile promised a screen that is really
+                  //    just a scroll away.
                   // #32 — choose which profile fields are public/hidden.
                   _ProfileOptionTile(
                     icon: Icons.visibility_off_rounded,
                     title: 'Field privacy',
                     subtitle: 'privacy_desc',
-                    color: Colors.indigo,
+                    color: AppThemeConfig.accent(context),
                     onTap: () => Get.to(() => const FieldPrivacyScreen()),
-                  ),
-                  const SizedBox(height: 12),
-                  _ProfileOptionTile(
-                    icon: Icons.payment_rounded,
-                    title: "Payment Methods",
-                    subtitle:
-                        'View cards, recurring donations, and billing details.',
-                    color: Colors.green,
-                  ),
-                  const SizedBox(height: 12),
-                  _ProfileOptionTile(
-                    icon: Icons.tune_rounded,
-                    title: "App Settings",
-                    subtitle:
-                        'Customize notifications, language, and preferences.',
-                    color: Colors.blueAccent,
                   ),
                   const SizedBox(height: 12),
                   // #34 — clear cached data (images / temp files).
@@ -317,7 +306,7 @@ class _ProfileSectionState extends State<ProfileSection> {
                     icon: Icons.search_rounded,
                     title: 'search_title',
                     subtitle: 'search_subtitle',
-                    color: Colors.blue,
+                    color: AppThemeConfig.accent(context),
                     onTap: () => Get.to(() => const GlobalSearchScreen()),
                   ),
                   const SizedBox(height: 12),
@@ -326,7 +315,7 @@ class _ProfileSectionState extends State<ProfileSection> {
                     icon: Icons.receipt_long_rounded,
                     title: 'receipts_title',
                     subtitle: 'receipts_subtitle',
-                    color: Colors.teal,
+                    color: AppThemeConfig.accent(context),
                     onTap: () => Get.to(() => const AidReceiptsScreen()),
                   ),
                   const SizedBox(height: 12),
@@ -335,7 +324,7 @@ class _ProfileSectionState extends State<ProfileSection> {
                     icon: Icons.ios_share_rounded,
                     title: 'share_app',
                     subtitle: 'share_app_desc',
-                    color: Colors.green,
+                    color: AppThemeConfig.accent(context),
                     onTap: shareApp,
                   ),
                   // Note #41 — Marriage moved to its own bottom-nav tab
@@ -347,7 +336,7 @@ class _ProfileSectionState extends State<ProfileSection> {
                     icon: Icons.apps_rounded,
                     title: 'Services',
                     subtitle: 'Requests, forms, partners, support, and more.',
-                    color: Colors.deepPurple,
+                    color: AppThemeConfig.accent(context),
                     // Note #41 — Services isn't a bottom tab; push it directly.
                     onTap: () => Get.to(() => const ProposalServicesSection()),
                   ),
@@ -370,7 +359,7 @@ class _ProfileSectionState extends State<ProfileSection> {
                     icon: Icons.description_rounded,
                     title: 'Terms & Conditions',
                     subtitle: 'Read the terms that apply to using the app.',
-                    color: Colors.blueGrey,
+                    color: AppThemeConfig.subtleText(context),
                     onTap: () => Get.to(() => const TermsScreen()),
                   ),
                   const SizedBox(height: 12),
@@ -379,27 +368,31 @@ class _ProfileSectionState extends State<ProfileSection> {
                     icon: Icons.info_outline_rounded,
                     title: 'About Us',
                     subtitle: 'about_desc',
-                    color: Colors.teal,
-                    onTap: () => Get.to(() => const ContentPageScreen(
-                          slug: 'about',
-                          titleKey: 'About Us',
-                        )),
+                    color: AppThemeConfig.accent(context),
+                    onTap: () => Get.to(
+                      () => const ContentPageScreen(
+                        slug: 'about',
+                        titleKey: 'About Us',
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 12),
                   _ProfileOptionTile(
                     icon: Icons.mail_outline_rounded,
                     title: 'Contact Us',
                     subtitle: 'contact_desc',
-                    color: Colors.orange,
-                    onTap: () => Get.to(() => const ContentPageScreen(
-                          slug: 'contact',
-                          titleKey: 'Contact Us',
-                        )),
+                    color: AppThemeConfig.pending(context),
+                    onTap: () => Get.to(
+                      () => const ContentPageScreen(
+                        slug: 'contact',
+                        titleKey: 'Contact Us',
+                      ),
+                    ),
                   ),
 
                   const SizedBox(height: 24),
                   _LogoutTile(
-                    color: _profileDanger,
+                    color: AppThemeConfig.consequence(context),
                     onTap: () => _handleLogout(context),
                   ),
                 ],
@@ -436,23 +429,24 @@ class _ProfileHero extends StatelessWidget {
   Widget build(BuildContext context) {
     // Ring + badge turn gold/amber when the profile is incomplete, green when
     // everything's filled in — a calm at-a-glance status.
-    final ringColor = isComplete ? Colors.white : const Color(0xFFFBBF24);
+    // Complete = settled (accent); incomplete = still in flight (pending).
+    // These carry state, so they use the semantic tokens rather than a hue
+    // picked by eye.
+    final ringColor = isComplete
+        ? Colors.white
+        : AppThemeConfig.pending(context);
     final badgeColor = isComplete
-        ? const Color(0xFF22C55E)
-        : const Color(0xFFF59E0B);
+        ? AppThemeConfig.accent(context)
+        : AppThemeConfig.pending(context);
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(18, 20, 14, 20),
+      padding: const EdgeInsetsDirectional.fromSTEB(18, 20, 14, 20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [_profilePrimary, _profilePrimaryDark],
-        ),
+        color: AppThemeConfig.accent(context),
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: _profilePrimary.withValues(alpha: 0.35),
+            color: AppThemeConfig.accent(context).withValues(alpha: 0.35),
             blurRadius: 22,
             offset: const Offset(0, 12),
           ),
@@ -583,11 +577,11 @@ class _ProfileHero extends StatelessWidget {
             child: InkWell(
               customBorder: const CircleBorder(),
               onTap: onEdit,
-              child: const Padding(
+              child: Padding(
                 padding: EdgeInsets.all(10),
                 child: Icon(
                   Icons.edit_rounded,
-                  color: _profilePrimary,
+                  color: AppThemeConfig.accent(context),
                   size: 20,
                 ),
               ),
@@ -663,15 +657,10 @@ class _ProfileCompletionReminder extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            const Color(0xFFFFF7E1),
-            const Color(0xFFFFE7B7).withValues(alpha: 0.92),
-          ],
-        ),
+        color: AppThemeConfig.pending(context).withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: const Color(0xFFF4B942).withValues(alpha: 0.6),
+          color: AppThemeConfig.pending(context).withValues(alpha: 0.35),
         ),
       ),
       child: Column(
@@ -682,21 +671,21 @@ class _ProfileCompletionReminder extends StatelessWidget {
               Container(
                 width: 34,
                 height: 34,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFFFD166),
+                decoration: BoxDecoration(
+                  color: AppThemeConfig.pending(context),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.auto_awesome_rounded,
-                  color: Color(0xFF9A5A00),
+                  color: AppThemeConfig.pending(context),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   'Complete your profile'.tr,
-                  style: const TextStyle(
-                    color: Color(0xFF9A5A00),
+                  style: TextStyle(
+                    color: AppThemeConfig.pending(context),
                     fontWeight: FontWeight.w800,
                     fontSize: 15,
                   ),
@@ -708,7 +697,10 @@ class _ProfileCompletionReminder extends StatelessWidget {
           Text(
             'Add the missing details so your account looks trusted and ready to use.'
                 .tr,
-            style: const TextStyle(color: Color(0xFF9A5A00), height: 1.4),
+            style: TextStyle(
+              color: AppThemeConfig.pending(context),
+              height: 1.4,
+            ),
           ),
           const SizedBox(height: 12),
           Wrap(
@@ -727,8 +719,8 @@ class _ProfileCompletionReminder extends StatelessWidget {
                   ),
                   child: Text(
                     field.tr,
-                    style: const TextStyle(
-                      color: Color(0xFF9A5A00),
+                    style: TextStyle(
+                      color: AppThemeConfig.pending(context),
                       fontWeight: FontWeight.w700,
                       fontSize: 12,
                     ),
@@ -740,7 +732,7 @@ class _ProfileCompletionReminder extends StatelessWidget {
           FilledButton.icon(
             onPressed: onEdit,
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFB45309),
+              backgroundColor: AppThemeConfig.pending(context),
               foregroundColor: Colors.white,
             ),
             icon: const Icon(Icons.edit_rounded),
@@ -808,7 +800,7 @@ class _ProfileOptionTile extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Icon(
-            Icons.arrow_forward_ios_rounded,
+            AppIcons.forward(context),
             size: 16,
             color: AppThemeConfig.mutedText(context),
           ),
@@ -817,7 +809,7 @@ class _ProfileOptionTile extends StatelessWidget {
     );
     return onTap == null
         ? card
-        : GestureDetector(
+        : AppPressable(
             onTap: onTap,
             behavior: HitTestBehavior.opaque,
             child: card,
@@ -876,7 +868,7 @@ class _LogoutTile extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Icon(Icons.arrow_forward_ios_rounded, color: color, size: 16),
+              Icon(AppIcons.forward(context), color: color, size: 16),
             ],
           ),
         ),
@@ -937,12 +929,12 @@ class _LanguagePreferenceCard extends StatelessWidget {
                 width: 46,
                 height: 46,
                 decoration: BoxDecoration(
-                  color: _profilePrimary.withValues(alpha: 0.12),
+                  color: AppThemeConfig.accent(context).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.translate_rounded,
-                  color: _profilePrimary,
+                  color: AppThemeConfig.accent(context),
                 ),
               ),
               const SizedBox(width: 14),
@@ -978,8 +970,7 @@ class _LanguagePreferenceCard extends StatelessWidget {
             _LanguageOptionRow(
               option: _options[i],
               selected:
-                  currentCode ==
-                  AppLocaleService.localeTag(_options[i].locale),
+                  currentCode == AppLocaleService.localeTag(_options[i].locale),
             ),
           ],
         ],
@@ -1002,17 +993,17 @@ class _LanguageOptionRow extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         onTap: () => AppLocaleService.changeLocale(option.locale),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
+          duration: AppMotion.resolve(context, AppMotion.snapDuration),
+          curve: AppMotion.resolveCurve(context, Curves.easeOut),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
           decoration: BoxDecoration(
             color: selected
-                ? _profilePrimary.withValues(alpha: 0.08)
+                ? AppThemeConfig.accent(context).withValues(alpha: 0.08)
                 : AppThemeConfig.softSurface(context),
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: selected
-                  ? _profilePrimary
+                  ? AppThemeConfig.accent(context)
                   : AppThemeConfig.border(context),
               width: selected ? 1.5 : 1,
             ),
@@ -1026,14 +1017,16 @@ class _LanguageOptionRow extends StatelessWidget {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: selected
-                      ? _profilePrimary
-                      : _profilePrimary.withValues(alpha: 0.12),
+                      ? AppThemeConfig.accent(context)
+                      : AppThemeConfig.accent(context).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(11),
                 ),
                 child: Text(
                   option.code,
                   style: TextStyle(
-                    color: selected ? Colors.white : _profilePrimary,
+                    color: selected
+                        ? Colors.white
+                        : AppThemeConfig.accent(context),
                     fontWeight: FontWeight.w800,
                     fontSize: 13,
                   ),
@@ -1069,7 +1062,7 @@ class _LanguageOptionRow extends StatelessWidget {
                     ? Icons.check_circle_rounded
                     : Icons.radio_button_unchecked_rounded,
                 color: selected
-                    ? _profilePrimary
+                    ? AppThemeConfig.accent(context)
                     : AppThemeConfig.mutedText(context).withValues(alpha: 0.5),
                 size: 22,
               ),
@@ -1134,7 +1127,7 @@ class _NotificationPreferenceCardState
       child: SwitchListTile.adaptive(
         contentPadding: EdgeInsets.zero,
         value: _enabled,
-        activeThumbColor: _profilePrimary,
+        activeThumbColor: AppThemeConfig.accent(context),
         onChanged: (_loading || _saving) ? null : _toggle,
         title: Text(
           'Notifications'.tr,
@@ -1159,7 +1152,10 @@ class _NotificationPreferenceCardState
             color: Colors.teal.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(14),
           ),
-          child: const Icon(Icons.notifications_rounded, color: Colors.teal),
+          child: Icon(
+            Icons.notifications_rounded,
+            color: AppThemeConfig.accent(context),
+          ),
         ),
       ),
     );
@@ -1179,7 +1175,7 @@ class _MutePreferenceCard extends StatelessWidget {
           return SwitchListTile.adaptive(
             contentPadding: EdgeInsets.zero,
             value: muted,
-            activeThumbColor: _profilePrimary,
+            activeThumbColor: AppThemeConfig.accent(context),
             onChanged: (v) {
               AppMute.set(v);
               if (v) AppVoice.stop();
@@ -1209,7 +1205,7 @@ class _MutePreferenceCard extends StatelessWidget {
               ),
               child: Icon(
                 muted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
-                color: Colors.blueGrey,
+                color: AppThemeConfig.subtleText(context),
               ),
             ),
           );
@@ -1225,42 +1221,53 @@ class _ThemePreferenceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _ProfileCard(
-      child: ValueListenableBuilder<ThemeMode>(
-        valueListenable: appThemeMode,
-        builder: (context, mode, _) {
-          final isDark = mode == ThemeMode.dark;
-          return SwitchListTile.adaptive(
-            contentPadding: EdgeInsets.zero,
-            value: isDark,
-            activeThumbColor: _profilePrimary,
-            title: Text(
-              'Dark mode'.tr,
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 15,
-                color: AppThemeConfig.text(context),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: AppThemeConfig.accent(context).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(
+                  Icons.contrast_rounded,
+                  color: AppThemeConfig.accent(context),
+                ),
               ),
-            ),
-            subtitle: Text(
-              'Use a darker appearance across the app.'.tr,
-              style: TextStyle(
-                color: AppThemeConfig.mutedText(context),
-                height: 1.35,
-                fontSize: 13,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Dark mode'.tr,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                        color: AppThemeConfig.text(context),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Use a darker appearance across the app.'.tr,
+                      style: TextStyle(
+                        color: AppThemeConfig.mutedText(context),
+                        height: 1.35,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            secondary: Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                color: Colors.indigo.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: const Icon(Icons.dark_mode_rounded, color: Colors.indigo),
-            ),
-            onChanged: setAppDarkMode,
-          );
-        },
+            ],
+          ),
+          const SizedBox(height: 14),
+          const AppThemeModePicker(),
+        ],
       ),
     );
   }

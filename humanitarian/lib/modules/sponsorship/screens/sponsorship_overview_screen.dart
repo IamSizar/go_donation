@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/core/design/directional_icons.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/modules/sponsorship/controllers/sponsorships_controller.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/sponsorship_schedule_screen.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 class SponsorshipOverviewScreen extends StatelessWidget {
   const SponsorshipOverviewScreen({super.key});
@@ -23,81 +25,79 @@ class SponsorshipOverviewScreen extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
           children: [
             const _OverviewHeroCard(),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             // "Eighth: Sponsorship Schedule and Calendar" — entitlement
             // tracking: every due date, split into upcoming / due / overdue
             // / history.
             GlassPanel(
               padding: EdgeInsets.zero,
               child: ListTile(
-                leading: const Icon(
+                leading: Icon(
                   Icons.calendar_month_rounded,
-                  color: Color(0xFF0F766E),
+                  color: AppThemeConfig.accent(context),
                 ),
                 title: Text(
                   'sched_title'.tr,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
+                  style: TextStyle(fontWeight: FontWeight.w700),
                 ),
                 subtitle: Text('sched_subtitle'.tr),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () => Get.to(() => const SponsorshipScheduleScreen()),
+                trailing: Icon(AppIcons.chevronForward(context)),
+                onTap: () => Get.to(() => SponsorshipScheduleScreen()),
               ),
             ),
-            const SizedBox(height: 18),
-            const SectionLabel(title: 'My monthly sponsorships'),
-            const SizedBox(height: 12),
+            SizedBox(height: 18),
+            SectionLabel(title: 'My monthly sponsorships'),
+            SizedBox(height: 12),
             Obx(() {
-              if (controller.isLoading.value && controller.items.isEmpty) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (controller.errorMessage.value != null &&
-                  controller.items.isEmpty) {
-                return _OverviewNoticeCard(
-                  icon: Icons.error_outline_rounded,
-                  title: 'Unable to load sponsorships',
-                  subtitle: controller.errorMessage.value!,
-                  color: Colors.redAccent,
-                );
-              }
-              if (controller.items.isEmpty) {
-                return const _OverviewNoticeCard(
-                  icon: Icons.handshake_rounded,
+              // AppAsync renders exactly ONE of loading / content / error /
+              // empty. The error branch here used a _OverviewNoticeCard with
+              // no retry at all, so a failed load was a dead end - the only
+              // way to try again was to leave the screen and come back.
+              return AppAsync<List<dynamic>>(
+                loading: controller.isLoading.value,
+                error: controller.errorMessage.value,
+                onRetry: controller.fetchSponsorships,
+                data: controller.items,
+                isEmpty: (list) => list.isEmpty,
+                empty: const AppEmpty(
                   title: 'No sponsorships yet',
-                  subtitle: 'Create one from the Support page.',
-                  color: Colors.pinkAccent,
-                );
-              }
-              return Column(
-                children: [
-                  if (controller.isCancelling.value)
-                    const Padding(
-                      padding: EdgeInsets.only(bottom: 12),
-                      child: LinearProgressIndicator(),
-                    ),
-                  ...controller.items.map(
-                    (item) => Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _SponsorshipPlanCard(
-                        item: item,
-                        onCancel: () async {
-                          final id = int.tryParse('${item['id']}') ?? 0;
-                          final ok = await controller.cancelSponsorship(id);
-                          if (ok) {
-                            Get.snackbar(
-                              'Cancelled'.tr,
-                              'Sponsorship cancelled.'.tr,
-                            );
-                          } else if (controller.errorMessage.value != null) {
-                            Get.snackbar(
-                              'Error'.tr,
-                              controller.errorMessage.value!,
-                            );
-                          }
-                        },
+                  message: 'Create one from the Support page.',
+                ),
+                builder: (list) => Column(
+                  children: [
+                    // A cancel in flight is genuine determinate-ish progress
+                    // on EXISTING content, not a load - so it stays inside the
+                    // content state rather than replacing it.
+                    if (controller.isCancelling.value)
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 12),
+                        child: LinearProgressIndicator(),
+                      ),
+                    ...list.map(
+                      (item) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _SponsorshipPlanCard(
+                          item: item,
+                          onCancel: () async {
+                            final id = int.tryParse('${item['id']}') ?? 0;
+                            final ok = await controller.cancelSponsorship(id);
+                            if (ok) {
+                              Get.snackbar(
+                                'Cancelled'.tr,
+                                'Sponsorship cancelled.'.tr,
+                              );
+                            } else if (controller.errorMessage.value != null) {
+                              Get.snackbar(
+                                'Error'.tr,
+                                controller.errorMessage.value!,
+                              );
+                            }
+                          },
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               );
             }),
             const SizedBox(height: 22),
@@ -106,32 +106,6 @@ class SponsorshipOverviewScreen extends StatelessWidget {
             const _OverviewFocusCard(),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _OverviewNoticeCard extends StatelessWidget {
-  const _OverviewNoticeCard({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassPanel(
-      child: _OverviewLine(
-        icon: icon,
-        color: color,
-        title: title,
-        subtitle: subtitle,
       ),
     );
   }
@@ -165,9 +139,9 @@ class _SponsorshipPlanCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const TileIcon(
+              TileIcon(
                 icon: Icons.handshake_rounded,
-                color: Colors.pinkAccent,
+                color: AppThemeConfig.accent(context),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -212,7 +186,7 @@ class _SponsorshipPlanCard extends StatelessWidget {
           if (canCancel) ...[
             const SizedBox(height: 14),
             Align(
-              alignment: Alignment.centerRight,
+              alignment: AlignmentDirectional.centerEnd,
               child: OutlinedButton.icon(
                 onPressed: onCancel,
                 icon: const Icon(Icons.cancel_outlined),
@@ -253,15 +227,11 @@ class _OverviewHeroCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF0F766E), Color(0xFF14B8A6), Color(0xFF2563EB)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: AppThemeConfig.accent(context),
         borderRadius: BorderRadius.circular(32),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0F766E).withValues(alpha: 0.22),
+            color: AppThemeConfig.accent(context).withValues(alpha: 0.22),
             blurRadius: 28,
             offset: const Offset(0, 18),
           ),
@@ -295,53 +265,6 @@ class _OverviewHeroCard extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _OverviewLine extends StatelessWidget {
-  const _OverviewLine({
-    required this.icon,
-    required this.color,
-    required this.title,
-    required this.subtitle,
-  });
-
-  final IconData icon;
-  final Color color;
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        TileIcon(icon: icon, color: color),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title.tr,
-                style: TextStyle(
-                  color: AppThemeConfig.text(context),
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                subtitle.tr,
-                style: TextStyle(
-                  color: AppThemeConfig.mutedText(context),
-                  height: 1.45,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }

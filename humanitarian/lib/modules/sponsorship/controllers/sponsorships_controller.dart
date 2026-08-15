@@ -6,8 +6,7 @@ import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/realtime_polling.dart';
 import 'package:get/get.dart';
 
-class SponsorshipsController extends GetxController
-    with RealtimePollingMixin {
+class SponsorshipsController extends GetxController with RealtimePollingMixin {
   final isLoading = false.obs;
   final isCancelling = false.obs;
   final items = <Map<String, dynamic>>[].obs;
@@ -69,8 +68,9 @@ class SponsorshipsController extends GetxController
     );
     _lastStatusSnapshot = {
       for (final m in items)
-        (m['id'] ?? '').toString():
-            (m['status'] ?? '').toString().toLowerCase(),
+        (m['id'] ?? '').toString(): (m['status'] ?? '')
+            .toString()
+            .toLowerCase(),
     };
     for (final t in transitions) {
       final msg = _messageForSponsorshipTransition(t.fromStatus, t.toStatus);

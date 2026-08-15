@@ -10,6 +10,9 @@ import 'package:latlong2/latlong.dart';
 import 'package:get/get.dart';
 import 'package:flutter_application_1/modules/legal/screens/content_page_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_application_1/core/widgets/app_pressable.dart';
+import 'package:flutter_application_1/core/design/motion.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 double? _parseCoord(dynamic v) {
   if (v == null) return null;
@@ -44,7 +47,6 @@ double _fitZoom(List<({LatLng pos, Map<String, dynamic> entry})> pins) {
 const _kPinA = Color(0xFF45B8D1); // soft cyan — calmer, easier on the eyes
 const _kPinB = Color(0xFF3C7CB0); // muted blue
 const _kCardA = Color(0xFF0D1B2A); // header top
-const _kCardB = Color(0xFF1A3349); // header bottom
 
 class CommunityServicesSection extends StatelessWidget {
   const CommunityServicesSection({super.key});
@@ -81,29 +83,38 @@ class _CommunityServicesList extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
           children: [
-            if (loading) const Center(child: CircularProgressIndicator()),
-            if (error != null)
-              SectionTile(
-                icon: Icons.local_library_rounded,
+            // Three stacked `if` blocks replaced by one state. Before, a
+            // failed load drew the error tile AND the service cards under it,
+            // and the error was a SectionTile - the same card shape as the
+            // About and Contact rows below - so it read as another nav row
+            // rather than as a failure with a retry.
+            //
+            // The About and Contact tiles below stay OUTSIDE this: they are
+            // standing entry points, and someone whose directory failed to
+            // load is exactly who needs the "add or correct a place" contact.
+            AppAsync<List<dynamic>>(
+              loading: loading,
+              error: error,
+              onRetry: controller.fetchEntries,
+              data: items,
+              isEmpty: (list) => list.isEmpty,
+              empty: const AppEmpty(
                 title: 'Services Directory',
-                subtitle: error,
-                color: Colors.indigo,
-                onTap: controller.fetchEntries,
+                message: 'No approved city services are available yet.',
               ),
-            if (error == null && !loading && items.isEmpty)
-              const SectionTile(
-                icon: Icons.local_library_rounded,
-                title: 'Services Directory',
-                subtitle: 'No approved city services are available yet.',
-                color: Colors.indigo,
+              builder: (list) => Column(
+                children: [
+                  for (final item in list) ...[
+                    _CityServiceCard(
+                      entry: item,
+                      onTap: () =>
+                          Get.to(() => CommunityDetailScreen(entry: item)),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                ],
               ),
-            for (final item in items) ...[
-              _CityServiceCard(
-                entry: item,
-                onTap: () => Get.to(() => CommunityDetailScreen(entry: item)),
-              ),
-              const SizedBox(height: 12),
-            ],
+            ),
             // The City Guide map now lives on its own screen, opened from Home.
             const SizedBox(height: 8),
             // "A separate About Us and Contact Us option in the My Engagement
@@ -113,7 +124,7 @@ class _CommunityServicesList extends StatelessWidget {
               icon: Icons.info_outline_rounded,
               title: 'About the Mosul Guide',
               subtitle: 'What this guide covers',
-              color: Colors.teal,
+              color: AppThemeConfig.accent(context),
               onTap: () => Get.to(
                 () => const ContentPageScreen(
                   slug: 'city-guide-about',
@@ -126,7 +137,7 @@ class _CommunityServicesList extends StatelessWidget {
               icon: Icons.support_agent_rounded,
               title: 'Contact the Mosul Guide',
               subtitle: 'Add or correct a place',
-              color: Colors.indigo,
+              color: AppThemeConfig.accent(context),
               onTap: () => Get.to(
                 () => const ContentPageScreen(
                   slug: 'city-guide-contact',
@@ -154,11 +165,7 @@ class _CityGuideHeader extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
-        gradient: const LinearGradient(
-          colors: [_kCardA, _kCardB],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: _kCardA,
         border: Border.all(color: _kPinA.withValues(alpha: 0.22), width: 1.2),
         boxShadow: [
           BoxShadow(
@@ -175,11 +182,7 @@ class _CityGuideHeader extends StatelessWidget {
             width: 52,
             height: 52,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [_kPinA, _kPinB],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              color: _kPinA,
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
@@ -229,11 +232,7 @@ class _CityGuideHeader extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [_kPinA, _kPinB],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                color: _kPinA,
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
@@ -346,23 +345,122 @@ class _CityGuideScreenState extends State<CityGuideScreen> {
                 ),
               ],
               const SizedBox(height: 14),
-              Expanded(child: _CityMap(entries: items)),
-              if (items.isNotEmpty) ...[
-                const SizedBox(height: 14),
-                SizedBox(
-                  height: 96,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: items.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 10),
-                    itemBuilder: (_, i) => _PlaceCard(entry: items[i]),
+              // The map + place strip is an async region and now says so.
+              // Before this, a first load and a FAILED load looked identical:
+              // an empty basemap with the overlay "No locations yet. Add
+              // coordinates from the admin panel." — admin-facing copy shown
+              // to a user whose fetch had just errored, with no retry
+              // anywhere on the screen. Error is checked before empty
+              // (AppAsync does this), because a failed fetch also leaves the
+              // list empty and "empty" would otherwise win.
+              //
+              // The header, "Add an Activity" button and sector chips stay
+              // OUTSIDE this on purpose: they are standing actions, and
+              // someone whose places failed to load is exactly who may want
+              // to suggest a missing one.
+              Expanded(
+                child: AppAsync<List<Map<String, dynamic>>>(
+                  loading: _controller.isLoading.value,
+                  error: _controller.errorMessage.value,
+                  onRetry: _controller.fetchEntries,
+                  data: items,
+                  isEmpty: (list) => list.isEmpty,
+                  skeleton: const _CityGuideSkeleton(),
+                  // Two different "nothing here" situations, two different
+                  // ways out: an empty guide can only be waited on (or added
+                  // to), whereas an empty FILTER is the user's own doing and
+                  // is undone by clearing it.
+                  empty: selected == null
+                      ? const AppEmpty(
+                          icon: Icons.explore_off_rounded,
+                          title: 'No places on the map yet',
+                          message:
+                              'Approved places in the city guide will appear '
+                              'here. You can suggest one with Add an Activity.',
+                        )
+                      : AppEmpty(
+                          icon: Icons.filter_alt_off_rounded,
+                          title: 'No places in this sector',
+                          message:
+                              'Nothing in the guide matches this sector yet. '
+                              'Clear the filter to see every place.',
+                          actionLabel: 'Show all places',
+                          onAction: () => _controller.selectSector(null),
+                        ),
+                  builder: (list) => Column(
+                    children: [
+                      Expanded(child: _CityMap(entries: list)),
+                      const SizedBox(height: 14),
+                      // The strip is NOT a second copy of the pins: a place
+                      // with no latitude/longitude gets no pin at all, so for
+                      // those entries this row is the only way to reach them
+                      // from the map screen. It stays.
+                      SizedBox(
+                        height: 96,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: list.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(width: 10),
+                          itemBuilder: (_, i) => _PlaceCard(entry: list[i]),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
+              ),
             ],
           ),
         );
       }),
+    );
+  }
+}
+
+/// First-load placeholder for the City Guide, shaped like what replaces it:
+/// one large rounded block where the map goes and two place cards where the
+/// strip goes. The default [AppSkeleton.rows] would be wrong here — this
+/// screen's content is a map, not a list of text rows, so text bones would
+/// jump into a map rather than fill into one.
+class _CityGuideSkeleton extends StatelessWidget {
+  const _CityGuideSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    // One neutral bone colour, taken from the theme so it works in both modes.
+    final bone = AppThemeConfig.border(context);
+    return AppSkeleton(
+      child: Column(
+        children: [
+          Expanded(
+            child: Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: bone,
+                borderRadius: BorderRadius.circular(22),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            height: 96,
+            child: Row(
+              children: [
+                for (var i = 0; i < 2; i++) ...[
+                  if (i > 0) const SizedBox(width: 10),
+                  Container(
+                    width: 210,
+                    decoration: BoxDecoration(
+                      color: bone,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -450,10 +548,10 @@ class _SectorChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return AppPressable(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
+        duration: AppMotion.resolve(context, AppMotion.snapDuration),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         alignment: Alignment.center,
         decoration: BoxDecoration(
@@ -628,7 +726,7 @@ class _CityMapState extends State<_CityMap> {
                         point: pins[i].pos,
                         width: 130,
                         height: 64,
-                        child: GestureDetector(
+                        child: AppPressable(
                           onTap: () => _select(i, pins[i].pos, pins[i].entry),
                           child: _CityPin(
                             selected: i == _selected,
@@ -667,7 +765,13 @@ class _CityMapState extends State<_CityMap> {
               ),
             ),
 
-            // Empty state.
+            // "We have places, but none of them can be drawn." The screen-level
+            // empty/error states are handled by AppAsync above, so by the time
+            // the map builds there IS at least one place — this overlay only
+            // fires for the narrower case where none of them carry
+            // coordinates. The old copy ("Add coordinates from the admin
+            // panel") was instructions for an admin shown to every user; it
+            // now points at the strip, which can reach those places.
             if (pins.isEmpty)
               IgnorePointer(
                 child: Center(
@@ -687,7 +791,7 @@ class _CityMapState extends State<_CityMap> {
                       ],
                     ),
                     child: Text(
-                      'No locations yet.\nAdd coordinates from the admin panel.'
+                      'These places have no map location yet.\nBrowse them in the row below.'
                           .tr,
                       textAlign: TextAlign.center,
                       style: const TextStyle(
@@ -724,7 +828,6 @@ class _CityMapState extends State<_CityMap> {
   }
 }
 
-const _pinFill = Color(0xFF0F766E); // teal — strong on the light map
 const _pinRing = Color(0xFF38BDF8); // sky — selected highlight
 
 /// A clean circular map pin; grows and shows a label card when selected.
@@ -766,16 +869,12 @@ class _CityPin extends StatelessWidget {
           const SizedBox(height: 4),
         ],
         AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          curve: Curves.easeOut,
+          duration: AppMotion.resolve(context, AppMotion.snapDuration),
+          curve: AppMotion.resolveCurve(context, Curves.easeOut),
           width: size,
           height: size,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF14B8A6), _pinFill],
-            ),
+            color: AppThemeConfig.accent(context),
             shape: BoxShape.circle,
             border: Border.all(
               color: selected ? _pinRing : Colors.white,
@@ -817,7 +916,7 @@ class _MapButton extends StatelessWidget {
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(10),
-          child: Icon(icon, color: _pinFill, size: 22),
+          child: Icon(icon, color: AppThemeConfig.accent(context), size: 22),
         ),
       ),
     );
@@ -848,7 +947,7 @@ class _MapChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: _pinFill),
+          Icon(icon, size: 14, color: AppThemeConfig.accent(context)),
           const SizedBox(width: 5),
           Text(
             label,
@@ -1043,7 +1142,7 @@ class _PlaceCard extends StatelessWidget {
     final city = (entry['city'] ?? '').toString();
     final sub = [category, city].where((s) => s.isNotEmpty).join(' · ');
 
-    return GestureDetector(
+    return AppPressable(
       onTap: () => _showEntrySheet(context, entry),
       child: Container(
         width: 210,
@@ -1066,10 +1165,13 @@ class _PlaceCard extends StatelessWidget {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: _pinFill.withValues(alpha: 0.12),
+                color: AppThemeConfig.accent(context).withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.location_city_rounded, color: _pinFill),
+              child: Icon(
+                Icons.location_city_rounded,
+                color: AppThemeConfig.accent(context),
+              ),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -1145,11 +1247,7 @@ class _EntrySheet extends StatelessWidget {
 
     return Container(
       decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [_kCardA, Color(0xFF162032)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: _kCardA,
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       padding: EdgeInsets.fromLTRB(
@@ -1181,7 +1279,7 @@ class _EntrySheet extends StatelessWidget {
                 width: 50,
                 height: 50,
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [_kPinA, _kPinB]),
+                  color: _kPinA,
                   borderRadius: BorderRadius.circular(14),
                   boxShadow: [
                     BoxShadow(
@@ -1221,7 +1319,7 @@ class _EntrySheet extends StatelessWidget {
                 ),
               ),
               if (lat != null && lng != null)
-                GestureDetector(
+                AppPressable(
                   onTap: () => _launch('https://maps.google.com/?q=$lat,$lng'),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
@@ -1229,7 +1327,7 @@ class _EntrySheet extends StatelessWidget {
                       vertical: 8,
                     ),
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(colors: [_kPinA, _kPinB]),
+                      color: _kPinA,
                       borderRadius: BorderRadius.circular(22),
                       boxShadow: [
                         BoxShadow(
@@ -1338,7 +1436,7 @@ class _EntrySheet extends StatelessWidget {
                 scrollDirection: Axis.horizontal,
                 itemCount: gallery.length,
                 separatorBuilder: (_, __) => const SizedBox(width: 10),
-                itemBuilder: (_, i) => GestureDetector(
+                itemBuilder: (_, i) => AppPressable(
                   onTap: () => Get.to(
                     () => _GalleryViewer(images: gallery, initialIndex: i),
                   ),
@@ -1405,7 +1503,7 @@ class _SheetRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return AppPressable(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),

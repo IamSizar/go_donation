@@ -5,6 +5,8 @@ import 'package:flutter_application_1/modules/chat/controllers/chat_controller.d
 import 'package:flutter_application_1/modules/chat/models/chat_models.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_application_1/core/widgets/app_pressable.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 class ChatConversationScreen extends StatefulWidget {
   const ChatConversationScreen({
@@ -66,9 +68,9 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
     _input.clear();
     final ok = await ctrl.send(text);
     if (!ok && mounted && ctrl.errorMessage.value != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(ctrl.errorMessage.value!)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(ctrl.errorMessage.value!)));
       _input.text = text; // restore so the user doesn't lose it
     }
   }
@@ -80,11 +82,17 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(widget.title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+            Text(
+              widget.title,
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+            ),
             if (widget.subtitle != null && widget.subtitle!.trim().isNotEmpty)
               Text(
                 widget.subtitle!,
-                style: TextStyle(fontSize: 12, color: AppThemeConfig.mutedText(context)),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppThemeConfig.mutedText(context),
+                ),
               ),
           ],
         ),
@@ -99,36 +107,47 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.shield_rounded, size: 14, color: AppThemeConfig.primary),
+                Icon(
+                  Icons.shield_rounded,
+                  size: 14,
+                  color: AppThemeConfig.primary,
+                ),
                 const SizedBox(width: 6),
                 Text(
                   'Support can view and help in this chat'.tr,
-                  style: TextStyle(fontSize: 11.5, color: AppThemeConfig.mutedText(context)),
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: AppThemeConfig.mutedText(context),
+                  ),
                 ),
               ],
             ),
           ),
           Expanded(
             child: Obx(() {
+              // Deliberately NOT AppAsync, despite the shape looking like it.
+              //
+              // ctrl.errorMessage here is a SEND failure - it is surfaced as a
+              // SnackBar when a message fails to post - not a load failure.
+              // Wiring it into AppAsync's error state would replace the entire
+              // conversation with an error screen because one outgoing message
+              // did not send, losing the history the user is reading.
+              //
+              // So this takes the skeleton and the empty state for consistency
+              // with the rest of the app, and leaves error handling where it
+              // belongs.
               if (ctrl.isLoading.value && ctrl.messages.isEmpty) {
-                return const Center(child: CircularProgressIndicator());
+                return Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: AppSkeleton.rows(),
+                );
               }
               if (ctrl.messages.isEmpty) {
-                return Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(32),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.forum_outlined, size: 48, color: AppThemeConfig.mutedText(context)),
-                        const SizedBox(height: 12),
-                        Text(
-                          'No messages yet. Say hello! 👋'.tr,
-                          style: TextStyle(color: AppThemeConfig.mutedText(context)),
-                        ),
-                      ],
-                    ),
-                  ),
+                return AppEmpty(
+                  icon: Icons.forum_outlined,
+                  title: 'No messages yet. Say hello! 👋'.tr,
+                  message:
+                      'Send the first message to start the conversation.'.tr,
                 );
               }
               return ListView.builder(
@@ -163,17 +182,21 @@ class _MessageBubble extends StatelessWidget {
     final bg = isSupport
         ? Colors.blueGrey.withValues(alpha: 0.18)
         : mine
-            ? AppThemeConfig.primary
-            : AppThemeConfig.softSurface(context);
+        ? AppThemeConfig.primary
+        : AppThemeConfig.softSurface(context);
     final fg = mine && !isSupport ? Colors.white : AppThemeConfig.text(context);
 
     return Align(
       alignment: align,
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.76),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.76,
+        ),
         child: Column(
-          crossAxisAlignment: mine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          crossAxisAlignment: mine
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.start,
           children: [
             // Note #36 — sender label: name for the other party, and now also
             // the real name of the "Responsible Staff Member" for admin
@@ -187,14 +210,20 @@ class _MessageBubble extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (isSupport)
-                      Icon(Icons.shield_rounded, size: 12, color: Colors.blueGrey),
+                      Icon(
+                        Icons.shield_rounded,
+                        size: 12,
+                        color: Colors.blueGrey,
+                      ),
                     if (isSupport) const SizedBox(width: 4),
                     Text(
                       message.senderName,
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
-                        color: isSupport ? Colors.blueGrey : AppThemeConfig.mutedText(context),
+                        color: isSupport
+                            ? Colors.blueGrey
+                            : AppThemeConfig.mutedText(context),
                       ),
                     ),
                   ],
@@ -221,7 +250,10 @@ class _MessageBubble extends StatelessWidget {
                 padding: const EdgeInsets.only(top: 3, left: 4, right: 4),
                 child: Text(
                   DateFormat('MMM d · HH:mm').format(message.createdAt!),
-                  style: TextStyle(fontSize: 10, color: AppThemeConfig.mutedText(context)),
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: AppThemeConfig.mutedText(context),
+                  ),
                 ),
               ),
           ],
@@ -232,7 +264,11 @@ class _MessageBubble extends StatelessWidget {
 }
 
 class _Composer extends StatelessWidget {
-  const _Composer({required this.input, required this.onSend, required this.controller});
+  const _Composer({
+    required this.input,
+    required this.onSend,
+    required this.controller,
+  });
 
   final TextEditingController input;
   final VoidCallback onSend;
@@ -246,7 +282,9 @@ class _Composer extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
         decoration: BoxDecoration(
           color: AppThemeConfig.softSurface(context),
-          border: Border(top: BorderSide(color: AppThemeConfig.border(context))),
+          border: Border(
+            top: BorderSide(color: AppThemeConfig.border(context)),
+          ),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
@@ -261,21 +299,28 @@ class _Composer extends StatelessWidget {
                   hintText: 'Type a message…'.tr,
                   filled: true,
                   fillColor: AppThemeConfig.surface(context),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(22),
-                    borderSide: BorderSide(color: AppThemeConfig.border(context)),
+                    borderSide: BorderSide(
+                      color: AppThemeConfig.border(context),
+                    ),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(22),
-                    borderSide: BorderSide(color: AppThemeConfig.border(context)),
+                    borderSide: BorderSide(
+                      color: AppThemeConfig.border(context),
+                    ),
                   ),
                 ),
               ),
             ),
             const SizedBox(width: 8),
             Obx(
-              () => GestureDetector(
+              () => AppPressable(
                 onTap: controller.isSending.value ? null : onSend,
                 child: Container(
                   width: 46,
@@ -287,9 +332,16 @@ class _Composer extends StatelessWidget {
                   child: controller.isSending.value
                       ? const Padding(
                           padding: EdgeInsets.all(13),
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
                         )
-                      : const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                      : const Icon(
+                          Icons.send_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
                 ),
               ),
             ),

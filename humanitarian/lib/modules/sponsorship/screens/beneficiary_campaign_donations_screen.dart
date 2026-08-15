@@ -6,6 +6,7 @@ import 'package:flutter_application_1/modules/sponsorship/controllers/beneficiar
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 class BeneficiaryCampaignDonationsScreen extends StatelessWidget {
   const BeneficiaryCampaignDonationsScreen({super.key});
@@ -20,60 +21,36 @@ class BeneficiaryCampaignDonationsScreen extends StatelessWidget {
       title: 'Campaign Contributions',
       subtitle: 'All donations received for your published campaigns.',
       child: Obx(() {
-        if (ctrl.isLoading.value) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(40),
-              child: CircularProgressIndicator(),
-            ),
-          );
-        }
-
-        if (ctrl.errorMessage.value != null) {
-          return ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              SectionTile(
-                icon: Icons.refresh_rounded,
-                title: 'Campaign Contributions',
-                subtitle: ctrl.errorMessage.value!,
-                color: Colors.orange,
-                onTap: ctrl.fetch,
-              ),
-            ],
-          );
-        }
-
-        if (ctrl.campaigns.isEmpty) {
-          return ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              const SectionTile(
-                icon: Icons.campaign_rounded,
-                title: 'No campaigns yet',
-                subtitle:
-                    'Once your project request is approved and published, donations will appear here.',
-                color: Colors.indigo,
-              ),
-            ],
-          );
-        }
-
-        return RefreshIndicator(
-          onRefresh: ctrl.fetch,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-            children: [
-              // ── Summary band ───────────────────────────────────────
-              _SummaryBand(ctrl: ctrl),
-              const SizedBox(height: 16),
-
-              // ── One card per campaign ───────────────────────────────
-              for (final camp in ctrl.campaigns) ...[
-                _CampaignDonationsCard(campaign: camp),
+        // AppAsync renders exactly ONE of loading / content / error / empty.
+        // This screen already branched correctly - it was the only one that
+        // did - but each branch hand-built its own ListView shell, and both
+        // the error and empty states were SectionTiles: the same card shape
+        // used for navigation elsewhere, with an unlabelled onTap standing in
+        // for a retry button.
+        return AppAsync<List<dynamic>>(
+          loading: ctrl.isLoading.value,
+          error: ctrl.errorMessage.value,
+          onRetry: ctrl.fetch,
+          data: ctrl.campaigns,
+          isEmpty: (list) => list.isEmpty,
+          empty: const AppEmpty(
+            title: 'No campaigns yet',
+            message:
+                'Once your project request is approved and published, donations will appear here.',
+          ),
+          builder: (list) => RefreshIndicator(
+            onRefresh: ctrl.fetch,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
+              children: [
+                _SummaryBand(ctrl: ctrl),
                 const SizedBox(height: 16),
+                for (final camp in list) ...[
+                  _CampaignDonationsCard(campaign: camp),
+                  const SizedBox(height: 16),
+                ],
               ],
-            ],
+            ),
           ),
         );
       }),
@@ -123,8 +100,7 @@ class _CampaignDonationsCard extends StatefulWidget {
   final Map<String, dynamic> campaign;
 
   @override
-  State<_CampaignDonationsCard> createState() =>
-      _CampaignDonationsCardState();
+  State<_CampaignDonationsCard> createState() => _CampaignDonationsCardState();
 }
 
 class _CampaignDonationsCardState extends State<_CampaignDonationsCard> {
@@ -163,12 +139,7 @@ class _CampaignDonationsCardState extends State<_CampaignDonationsCard> {
                         width: 42,
                         height: 42,
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              AppThemeConfig.primary.withValues(alpha: 0.25),
-                              AppThemeConfig.primary.withValues(alpha: 0.10),
-                            ],
-                          ),
+                          color: AppThemeConfig.primary.withValues(alpha: 0.25),
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: Icon(
@@ -268,10 +239,7 @@ class _CampaignDonationsCardState extends State<_CampaignDonationsCard> {
 
           // ── Donations list ───────────────────────────────────────
           if (_expanded) ...[
-            Divider(
-              height: 1,
-              color: AppThemeConfig.border(context),
-            ),
+            Divider(height: 1, color: AppThemeConfig.border(context)),
             if (donations.isEmpty)
               Padding(
                 padding: const EdgeInsets.all(20),
@@ -327,7 +295,9 @@ class _DonationRow extends StatelessWidget {
   Future<void> _suggestChat(BuildContext context) async {
     final donorId = int.tryParse('${donation['donor_user_id']}');
     if (donorId == null || campaignId == null) return;
-    final donorName = (donation['donor_name'] ?? 'Anonymous Donor'.tr).toString().trim();
+    final donorName = (donation['donor_name'] ?? 'Anonymous Donor'.tr)
+        .toString()
+        .trim();
     await ChatActions.startChat(
       context,
       donorUserId: donorId,
@@ -340,8 +310,7 @@ class _DonationRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final amount =
-        double.tryParse((donation['amount'] ?? '0').toString()) ?? 0;
+    final amount = double.tryParse((donation['amount'] ?? '0').toString()) ?? 0;
     final status = (donation['delivery_status'] ?? 'registered').toString();
     final method = (donation['payment_method'] ?? '').toString();
     final message = (donation['message'] ?? '').toString().trim();
@@ -349,169 +318,175 @@ class _DonationRow extends StatelessWidget {
     final donorPhone = (donation['donor_phone'] ?? '').toString().trim();
     final dateStr = (donation['transaction_date'] ?? '').toString();
     final date = _parseDate(dateStr);
-    final statusColor = _donationStatusColor(status);
-    final canChat = int.tryParse('${donation['donor_user_id']}') != null &&
+    final statusColor = _donationStatusColor(context, status);
+    final canChat =
+        int.tryParse('${donation['donor_user_id']}') != null &&
         campaignId != null;
 
     return InkWell(
       onTap: canChat ? () => _suggestChat(context) : null,
       child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        border: isLast
-            ? null
-            : Border(
-                bottom: BorderSide(
-                  color: AppThemeConfig.border(context),
-                  width: 0.5,
-                ),
-              ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ── Donor avatar ────────────────────────────────────────
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: Colors.teal.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Center(
-              child: Text(
-                donorName.isNotEmpty
-                    ? donorName[0].toUpperCase()
-                    : '?',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.teal,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          // ── Info ─────────────────────────────────────────────────
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        donorName.isNotEmpty
-                            ? donorName
-                            : 'Anonymous Donor'.tr,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w800,
-                          color: AppThemeConfig.text(context),
-                        ),
-                      ),
-                    ),
-                    Text(
-                      '${_fmtMoney(amount)} IQD',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w900,
-                        color: AppThemeConfig.primary,
-                      ),
-                    ),
-                    if (canChat) ...[
-                      const SizedBox(width: 8),
-                      Icon(Icons.forum_rounded, size: 16, color: AppThemeConfig.primary.withValues(alpha: 0.7)),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    if (donorPhone.isNotEmpty) ...[
-                      Icon(
-                        Icons.phone_rounded,
-                        size: 12,
-                        color: AppThemeConfig.mutedText(context),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        donorPhone,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppThemeConfig.mutedText(context),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                    ],
-                    if (method.isNotEmpty) ...[
-                      Icon(
-                        Icons.payment_rounded,
-                        size: 12,
-                        color: AppThemeConfig.mutedText(context),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        method,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppThemeConfig.mutedText(context),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    // ── Status chip ────────────────────────────
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: statusColor.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(
-                            color: statusColor.withValues(alpha: 0.3)),
-                      ),
-                      child: Text(
-                        status.replaceAll('_', ' ').tr,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          color: statusColor,
-                        ),
-                      ),
-                    ),
-                    const Spacer(),
-                    if (date != null)
-                      Text(
-                        DateFormat.yMMMd().format(date),
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: AppThemeConfig.mutedText(context),
-                        ),
-                      ),
-                  ],
-                ),
-                if (message.isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    '"$message"',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontStyle: FontStyle.italic,
-                      color: AppThemeConfig.mutedText(context),
-                    ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          border: isLast
+              ? null
+              : Border(
+                  bottom: BorderSide(
+                    color: AppThemeConfig.border(context),
+                    width: 0.5,
                   ),
-                ],
-              ],
+                ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Donor avatar ────────────────────────────────────────
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: Colors.teal.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Center(
+                child: Text(
+                  donorName.isNotEmpty ? donorName[0].toUpperCase() : '?',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: AppThemeConfig.accent(context),
+                  ),
+                ),
+              ),
             ),
-          ),
-        ],
-      ),
+            const SizedBox(width: 12),
+            // ── Info ─────────────────────────────────────────────────
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          donorName.isNotEmpty
+                              ? donorName
+                              : 'Anonymous Donor'.tr,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: AppThemeConfig.text(context),
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '${_fmtMoney(amount)} IQD',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                          color: AppThemeConfig.primary,
+                        ),
+                      ),
+                      if (canChat) ...[
+                        const SizedBox(width: 8),
+                        Icon(
+                          Icons.forum_rounded,
+                          size: 16,
+                          color: AppThemeConfig.primary.withValues(alpha: 0.7),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      if (donorPhone.isNotEmpty) ...[
+                        Icon(
+                          Icons.phone_rounded,
+                          size: 12,
+                          color: AppThemeConfig.mutedText(context),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          donorPhone,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppThemeConfig.mutedText(context),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                      ],
+                      if (method.isNotEmpty) ...[
+                        Icon(
+                          Icons.payment_rounded,
+                          size: 12,
+                          color: AppThemeConfig.mutedText(context),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          method,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppThemeConfig.mutedText(context),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      // ── Status chip ────────────────────────────
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: statusColor.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: statusColor.withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: Text(
+                          status.replaceAll('_', ' ').tr,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: statusColor,
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
+                      if (date != null)
+                        Text(
+                          DateFormat.yMMMd().format(date),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppThemeConfig.mutedText(context),
+                          ),
+                        ),
+                    ],
+                  ),
+                  if (message.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      '"$message"',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontStyle: FontStyle.italic,
+                        color: AppThemeConfig.mutedText(context),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -525,7 +500,7 @@ class _StatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = _campaignStatusColor(status);
+    final color = _campaignStatusColor(context, status);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
@@ -547,8 +522,7 @@ class _StatusPill extends StatelessWidget {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-String _fmtMoney(double amount) =>
-    NumberFormat.decimalPattern().format(amount);
+String _fmtMoney(double amount) => NumberFormat.decimalPattern().format(amount);
 
 DateTime? _parseDate(String raw) {
   if (raw.isEmpty) return null;
@@ -556,21 +530,21 @@ DateTime? _parseDate(String raw) {
   return DateTime.tryParse(raw.replaceAll(' ', 'T'));
 }
 
-Color _donationStatusColor(String s) {
+Color _donationStatusColor(BuildContext context, String s) {
   return switch (s) {
-    'delivered' => Colors.green,
-    'received' => Colors.teal,
-    'under_review' => Colors.orange,
-    'cancelled' => Colors.redAccent,
-    _ => Colors.blueGrey,
+    'delivered' => AppThemeConfig.accent(context),
+    'received' => AppThemeConfig.accent(context),
+    'under_review' => AppThemeConfig.pending(context),
+    'cancelled' => AppThemeConfig.consequence(context),
+    _ => AppThemeConfig.subtleText(context),
   };
 }
 
-Color _campaignStatusColor(String s) {
+Color _campaignStatusColor(BuildContext context, String s) {
   return switch (s) {
-    'active' => Colors.green,
-    'finished' => Colors.blueGrey,
-    'hidden' => Colors.orange,
-    _ => Colors.indigo,
+    'active' => AppThemeConfig.accent(context),
+    'finished' => AppThemeConfig.subtleText(context),
+    'hidden' => AppThemeConfig.pending(context),
+    _ => AppThemeConfig.accent(context),
   };
 }

@@ -5,6 +5,7 @@ import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 /// Everything the user has saved for later, newest save first.
 ///
@@ -22,6 +23,7 @@ class SavedPostsScreen extends StatefulWidget {
 class _SavedPostsScreenState extends State<SavedPostsScreen> {
   List<Map<String, dynamic>> _items = const [];
   bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
@@ -42,9 +44,17 @@ class _SavedPostsScreenState extends State<SavedPostsScreen> {
         _items = items;
         _loading = false;
       });
-    } catch (_) {
+    } catch (e) {
+      // Was `catch (_) { _loading = false; }` — the failure was swallowed
+      // whole, so a fetch that errored fell through to the "Nothing saved
+      // yet." empty state. That told the user they had saved nothing when in
+      // fact the request had failed, and offered no way to retry.
       if (!mounted) return;
-      setState(() => _loading = false);
+      setState(() {
+        _error = 'Could not load your saved items.';
+        _loading = false;
+      });
+      debugPrint('savedMediaPosts failed: $e');
     }
   }
 
@@ -70,40 +80,30 @@ class _SavedPostsScreenState extends State<SavedPostsScreen> {
     return SectionScaffold(
       title: 'Saved'.tr,
       subtitle: '',
-      child: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _load,
-              child: _items.isEmpty
-                  ? ListView(
-                      padding: const EdgeInsets.fromLTRB(20, 60, 20, 20),
-                      children: [
-                        Icon(
-                          Icons.bookmark_border_rounded,
-                          size: 48,
-                          color: AppThemeConfig.mutedText(context),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Nothing saved yet.'.tr,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: AppThemeConfig.mutedText(context),
-                            height: 1.5,
-                          ),
-                        ),
-                      ],
-                    )
-                  : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
-                      itemCount: _items.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 12),
-                      itemBuilder: (context, i) {
-                        final p = _items[i];
-                        return _SavedTile(post: p, onUnsave: () => _unsave(p));
-                      },
-                    ),
-            ),
+      child: AppAsync<List<Map<String, dynamic>>>(
+        loading: _loading,
+        error: _error,
+        onRetry: _load,
+        data: _items,
+        isEmpty: (list) => list.isEmpty,
+        empty: AppEmpty(
+          icon: Icons.bookmark_border_rounded,
+          title: 'Saved'.tr,
+          message: 'Nothing saved yet.'.tr,
+        ),
+        builder: (list) => RefreshIndicator(
+          onRefresh: _load,
+          child: ListView.separated(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+            itemCount: list.length,
+            separatorBuilder: (_, _) => const SizedBox(height: 12),
+            itemBuilder: (context, i) {
+              final post = list[i];
+              return _SavedTile(post: post, onUnsave: () => _unsave(post));
+            },
+          ),
+        ),
+      ),
     );
   }
 }

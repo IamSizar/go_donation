@@ -9,8 +9,7 @@ import 'package:flutter_application_1/core/realtime_polling.dart';
 import 'package:flutter_application_1/localization/locale_service.dart';
 import 'package:get/get.dart';
 
-class MarketplaceController extends GetxController
-    with RealtimePollingMixin {
+class MarketplaceController extends GetxController with RealtimePollingMixin {
   static const int _productsPerPage = 10;
   static const int _ordersPerPage = 100;
 
@@ -35,7 +34,27 @@ class MarketplaceController extends GetxController
   // Note #42 — pay the cart with the internal test-phase wallet instead of
   // the default cash-on-delivery-style flow.
   final payWithWallet = false.obs;
-  final walletBalanceIQD = 0.obs;
+
+  // Null means "we don't know the balance" (never loaded, or the load failed).
+  // It deliberately does NOT default to 0: showing a confident "0 IQD" when the
+  // request failed tells the user their wallet is empty, which may be false.
+  // Rendering goes through [walletBalanceLabel] so every surface says the same
+  // thing when the value is unknown.
+  final walletBalanceIQD = RxnInt();
+
+  /// Payment-card subtitle for the App Wallet option.
+  ///
+  /// Returns the real balance when known, and an explicit "unavailable" line
+  /// otherwise. The wallet option stays selectable either way: the balance here
+  /// is display-only and the server is the authority on whether a wallet
+  /// payment succeeds, so an unknown balance must not silently block checkout.
+  String get walletBalanceLabel {
+    final balance = walletBalanceIQD.value;
+    // Same wording as the donation checkout deliberately — one sentence, one
+    // translation key, rather than two that differ only by a full stop.
+    if (balance == null) return 'Balance unavailable right now'.tr;
+    return '${'Balance'.tr}: $balance IQD';
+  }
 
   // Status snapshot per order id, for diff detection between polls.
   Map<String, String> _lastOrderStatusSnapshot = {};
@@ -154,8 +173,9 @@ class MarketplaceController extends GetxController
     );
     _lastOrderStatusSnapshot = {
       for (final m in orders)
-        (m['id'] ?? '').toString():
-            (m['status'] ?? '').toString().toLowerCase(),
+        (m['id'] ?? '').toString(): (m['status'] ?? '')
+            .toString()
+            .toLowerCase(),
     };
     for (final t in transitions) {
       final msg = _messageForOrderTransition(t.toStatus);
@@ -253,9 +273,20 @@ class MarketplaceController extends GetxController
     return 'IQD';
   }
 
+  /// Loads the wallet balance for the checkout payment card.
+  ///
+  /// [fetchWalletBalance] throws on any failure. This is called unawaited from
+  /// [onInit] and after a wallet checkout, so the throw is caught here — an
+  /// escaping error would be an unhandled async exception during controller
+  /// init. On failure the balance is reset to null (unknown) rather than 0, so
+  /// the card says "unavailable" instead of claiming an empty wallet.
   Future<void> loadWalletBalance() async {
-    final balance = await fetchWalletBalance();
-    walletBalanceIQD.value = balance.balanceIQD;
+    try {
+      final balance = await fetchWalletBalance();
+      walletBalanceIQD.value = balance.balanceIQD;
+    } catch (_) {
+      walletBalanceIQD.value = null;
+    }
   }
 
   Future<void> checkoutCart() async {
@@ -296,6 +327,9 @@ class MarketplaceController extends GetxController
     try {
       categories.assignAll(await const ModuleApi().marketplaceCategories());
     } catch (_) {
+      // Deliberate: categories are only a name lookup for the product cards.
+      // Products carry their own error state, and a missing category label is a
+      // smaller lie than a stale one.
       categories.clear();
     }
   }

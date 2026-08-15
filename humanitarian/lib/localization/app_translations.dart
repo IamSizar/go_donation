@@ -8,7 +8,8 @@ class AppTranslations extends Translations {
     'Add or correct a place': 'Add or correct a place',
     'What this guide covers': 'What this guide covers',
     'Reach the engagement service team': 'Reach the engagement service team',
-    'What this service is and how it works': 'What this service is and how it works',
+    'What this service is and how it works':
+        'What this service is and how it works',
     'About & contact': 'About & contact',
     'Contact the Mosul Guide': 'Contact the Mosul Guide',
     'About the Mosul Guide': 'About the Mosul Guide',
@@ -16,13 +17,15 @@ class AppTranslations extends Translations {
     'About My Engagement': 'About My Engagement',
     'marriage_request_visit_sub': 'Ask to visit the family at home',
     'marriage_request_visit': 'Visit request',
-    'marriage_request_intermediary_sub': 'A team member passes messages between you',
+    'marriage_request_intermediary_sub':
+        'A team member passes messages between you',
     'marriage_request_intermediary': 'Through a staff member',
     'marriage_request_meeting_sub': 'Meet face to face, arranged by the team',
     'marriage_request_meeting': 'In-person meeting',
     'marriage_request_how': 'How would you like to be put in touch?',
     'support_escalate_cta': 'Contact us on WhatsApp',
-    'support_escalate_body': 'You have written to us on more than three separate days without a resolution. Reach the team directly on WhatsApp to speed this up.',
+    'support_escalate_body':
+        'You have written to us on more than three separate days without a resolution. Reach the team directly on WhatsApp to speed this up.',
     'support_escalate_title': 'Still waiting?',
     'support_reply': 'Support reply',
     'support_no_requests': 'You have not contacted support yet.',
@@ -34,18 +37,23 @@ class AppTranslations extends Translations {
     'support_message': 'Message',
     'support_subject': 'Subject',
     'support_new_message': 'Send a message to support',
-    'Covers running costs: servers, subscriptions and administration.': 'Covers running costs: servers, subscriptions and administration.',
+    'Covers running costs: servers, subscriptions and administration.':
+        'Covers running costs: servers, subscriptions and administration.',
     'Support the organization': 'Support the organization',
-    'Goes to the general fund or a project you choose.': 'Goes to the general fund or a project you choose.',
+    'Goes to the general fund or a project you choose.':
+        'Goes to the general fund or a project you choose.',
     'Help people in need': 'Help people in need',
     'Where should this go?': 'Where should this go?',
     'Demo code': 'Demo code',
     'WhatsApp / SMS': 'WhatsApp / SMS',
     'Delivery': 'Delivery',
-    'By continuing you agree to our Terms and Privacy Policy.': 'By continuing you agree to our Terms and Privacy Policy.',
-    'New here? Entering your number creates your account.': 'New here? Entering your number creates your account.',
+    'By continuing you agree to our Terms and Privacy Policy.':
+        'By continuing you agree to our Terms and Privacy Policy.',
+    'New here? Entering your number creates your account.':
+        'New here? Entering your number creates your account.',
     'or': 'or',
-    'Enter your phone number and we will send you a verification code.': 'Enter your phone number and we will send you a verification code.',
+    'Enter your phone number and we will send you a verification code.':
+        'Enter your phone number and we will send you a verification code.',
     // Quick Actions #4 — Wheel of Fortune / Lucky Coupon.
     'Wheel of Fortune': 'Wheel of Fortune',
     'Lucky Coupon': 'Lucky Coupon',
@@ -133,6 +141,126 @@ class AppTranslations extends Translations {
         'Please accept the Terms & Conditions to continue',
     'Could not load the Terms & Conditions.':
         'Could not load the Terms & Conditions.',
+    // ─── Load-failure messages ───
+    // Shown by AppErrorState when a fetch fails, so that a failed load is
+    // never mistaken for an empty one. Each names what failed in plain words;
+    // the retry affordance is the widget's, so the copy does not repeat it.
+    // Deliberately NOT added to Sorani or Badini — see the note in the _ar
+    // block below.
+    'Could not load your saved items.': 'Could not load your saved items.',
+    'Could not load subscription packages.':
+        'Could not load subscription packages.',
+    'Could not load this conversation.': 'Could not load this conversation.',
+    'Could not load your case chats.': 'Could not load your case chats.',
+    'Could not decline this chat request.':
+        'Could not decline this chat request.',
+    'Could not load volunteer missions.': 'Could not load volunteer missions.',
+    'Could not load your support requests.':
+        'Could not load your support requests.',
+    'Could not load your wallet and payment methods.':
+        'Could not load your wallet and payment methods.',
+    'Could not load your tasks.': 'Could not load your tasks.',
+    'Could not load your sponsorship schedule.':
+        'Could not load your sponsorship schedule.',
+    'Could not load the comments.': 'Could not load the comments.',
+    'Could not play this video.': 'Could not play this video.',
+    // Added with the API-layer honesty pass. "Unavailable" rather than a
+    // number: the wallet used to report a confident 0 IQD when the request
+    // had actually failed, which is a wrong figure rather than a missing one.
+    'Balance unavailable right now': 'Balance unavailable right now',
+    'Balance unavailable — tap to retry': 'Balance unavailable — tap to retry',
+    "We couldn't load the latest payment options, so these are the default ones.":
+        "We couldn't load the latest payment options, so these are the default ones.",
+    'Your balance could not be refreshed. Retry the load before subscribing.':
+        'Your balance could not be refreshed. Retry the load before subscribing.',
+    "Could not load this partner's joint activities.":
+        "Could not load this partner's joint activities.",
+    'Could not load your privacy settings.':
+        'Could not load your privacy settings.',
+    'Could not refresh the list of fields you can hide.':
+        'Could not refresh the list of fields you can hide.',
+    'Could not load your display-name choice.':
+        'Could not load your display-name choice.',
+    // AppErrorState's two DEFAULTS. Every error banner in the app uses them
+    // unless a caller overrides, and neither key existed — so `.tr` returned
+    // the key and users were shown the literal string "error_title" above
+    // every failure, with a lowercase "retry" under it.
+    //
+    // Found by running the app against a backend returning 500. No test caught
+    // it because the widget tests assert on the message the caller passes, not
+    // on the defaults, and a missing key is a silent fallback rather than an
+    // error.
+    'error_title': 'Something went wrong',
+    'retry': 'Try again',
+    'Could not load your dashboard.': 'Could not load your dashboard.',
+    'We could not check for new notifications.':
+        'We could not check for new notifications.',
+    'Registration': 'Registration',
+    // Says the registration IS safe before saying what failed, because that is
+    // the order the user needs it in — the alarming half first would read as
+    // "your whole submission was lost".
+    'Your registration was saved, but your documents did not upload. You can add them from your profile.':
+        'Your registration was saved, but your documents did not upload. You can add them from your profile.',
+    'Could not save that preference. Please try again.':
+        'Could not save that preference. Please try again.',
+    // ─── Structural de-duplication (redesign phase 2) ───
+    // Copy introduced when several duplicate entry points were collapsed into
+    // one. "Continue with phone" names the MECHANISM rather than the outcome:
+    // the screen behind it both signs in returning users and creates new
+    // accounts, so "Sign in" would under-describe it and "Create account"
+    // would mislead. Sorani and Badini deliberately omitted — see the _ar note.
+    'Continue with phone': 'Continue with phone',
+    'Sign in or create an account with your phone number.':
+        'Sign in or create an account with your phone number.',
+    'All partners': 'All partners',
+    'All requests': 'All requests',
+    'No pending requests': 'No pending requests',
+    'No approved requests': 'No approved requests',
+    'No rejected requests': 'No rejected requests',
+    'Requests waiting for review, changes, or sponsor matching will appear here.':
+        'Requests waiting for review, changes, or sponsor matching will appear here.',
+    'Requests the admins approve will appear here.':
+        'Requests the admins approve will appear here.',
+    'Requests the admins turn down will appear here.':
+        'Requests the admins turn down will appear here.',
+    'View your profile and its status, or create one':
+        'View your profile and its status, or create one',
+    'Create my profile': 'Create my profile',
+    'Need to change something?': 'Need to change something?',
+    // Worded as "submit", never "edit": the backend has no user-facing update
+    // endpoint, so an "edit" label would promise a capability that does not
+    // exist.
+    'Submit a new profile': 'Submit a new profile',
+    'Ask the staff team to update an existing profile, or submit a new one for review.':
+        'Ask the staff team to update an existing profile, or submit a new one for review.',
+    // ─── Structural de-duplication, wave 2 ───
+    // Services-hub section headings: the shared tiles now render once under
+    // one heading instead of being repeated in all three role variants.
+    'Community and support': 'Community and support',
+    'Giving tools': 'Giving tools',
+    'Volunteer tools': 'Volunteer tools',
+    // City Guide: the map had no error or empty state at all, and its old
+    // overlay showed ADMIN instructions ("add coordinates from the admin
+    // panel") to end users. These replace it, and separate "the guide is
+    // empty" from "this sector is empty" — different facts, different exits.
+    'No places on the map yet': 'No places on the map yet',
+    'Approved places in the city guide will appear here. You can suggest one with Add an Activity.':
+        'Approved places in the city guide will appear here. You can suggest one with Add an Activity.',
+    'No places in this sector': 'No places in this sector',
+    'Nothing in the guide matches this sector yet. Clear the filter to see every place.':
+        'Nothing in the guide matches this sector yet. Clear the filter to see every place.',
+    'Show all places': 'Show all places',
+    'These places have no map location yet.\nBrowse them in the row below.':
+        'These places have no map location yet.\nBrowse them in the row below.',
+    // Locked fields: each says WHY it is locked and, where useful, where the
+    // value can actually be changed — so the user learns the rule instead of
+    // tapping a control that will never respond.
+    'Name and phone come from your verified account. Change them in Profile > Edit profile.':
+        'Name and phone come from your verified account. Change them in Profile > Edit profile.',
+    'This is the verified number you sign in with, so it cannot be edited here.':
+        'This is the verified number you sign in with, so it cannot be edited here.',
+    'Projects are funded in Iraqi dinar (IQD), so the currency is fixed.':
+        'Projects are funded in Iraqi dinar (IQD), so the currency is fixed.',
     'Legal': 'Legal',
     'Read the terms that apply to using the app.':
         'Read the terms that apply to using the app.',
@@ -930,6 +1058,7 @@ class AppTranslations extends Translations {
     'receipts_title': 'Aid receipts',
     'receipts_subtitle': 'Your aid-delivery receipts with photos.',
     'receipts_empty': 'You have no receipts yet.',
+    'receipts_load_failed': 'Could not load your receipts.',
     'receipts_delivered_by': 'Delivered by',
     'ai_helper': 'AI helper',
     'Male': 'Male',
@@ -956,6 +1085,8 @@ class AppTranslations extends Translations {
     'Urgent': 'Urgent',
     'Payment': 'Payment',
     'System': 'System',
+    'Light': 'Light',
+    'Dark': 'Dark',
     'Reminder': 'Reminder',
     'Priority @priority': 'Priority @priority',
     'Thanks for joining the platform.': 'Thanks for joining the platform.',
@@ -2292,13 +2423,15 @@ class AppTranslations extends Translations {
     'About My Engagement': 'عن خدمة الارتباط',
     'marriage_request_visit_sub': 'طلب زيارة العائلة في المنزل',
     'marriage_request_visit': 'طلب زيارة',
-    'marriage_request_intermediary_sub': 'يقوم أحد الموظفين بنقل الرسائل بينكما',
+    'marriage_request_intermediary_sub':
+        'يقوم أحد الموظفين بنقل الرسائل بينكما',
     'marriage_request_intermediary': 'عبر موظف وسيط',
     'marriage_request_meeting_sub': 'لقاء وجهاً لوجه ينظّمه الفريق',
     'marriage_request_meeting': 'لقاء مباشر',
     'marriage_request_how': 'كيف تودّ أن يتم التواصل؟',
     'support_escalate_cta': 'تواصل عبر واتساب',
-    'support_escalate_body': 'لقد راسلتنا في أكثر من ثلاثة أيام مختلفة دون حل. تواصل مع الفريق مباشرة عبر واتساب لتسريع المعالجة.',
+    'support_escalate_body':
+        'لقد راسلتنا في أكثر من ثلاثة أيام مختلفة دون حل. تواصل مع الفريق مباشرة عبر واتساب لتسريع المعالجة.',
     'support_escalate_title': 'ما زلت تنتظر؟',
     'support_reply': 'رد الدعم',
     'support_no_requests': 'لم تتواصل مع الدعم بعد.',
@@ -2310,18 +2443,23 @@ class AppTranslations extends Translations {
     'support_message': 'الرسالة',
     'support_subject': 'الموضوع',
     'support_new_message': 'أرسل رسالة إلى الدعم',
-    'Covers running costs: servers, subscriptions and administration.': 'يغطي تكاليف التشغيل: الخوادم والاشتراكات والإدارة.',
+    'Covers running costs: servers, subscriptions and administration.':
+        'يغطي تكاليف التشغيل: الخوادم والاشتراكات والإدارة.',
     'Support the organization': 'دعم المنظمة',
-    'Goes to the general fund or a project you choose.': 'يذهب إلى الصندوق العام أو إلى مشروع تختاره.',
+    'Goes to the general fund or a project you choose.':
+        'يذهب إلى الصندوق العام أو إلى مشروع تختاره.',
     'Help people in need': 'مساعدة المحتاجين',
     'Where should this go?': 'أين تريد توجيه تبرعك؟',
     'Demo code': 'رمز تجريبي',
     'WhatsApp / SMS': 'واتساب / رسالة نصية',
     'Delivery': 'طريقة الإرسال',
-    'By continuing you agree to our Terms and Privacy Policy.': 'بالمتابعة فإنك توافق على الشروط وسياسة الخصوصية.',
-    'New here? Entering your number creates your account.': 'جديد هنا؟ إدخال رقمك يُنشئ حسابك.',
+    'By continuing you agree to our Terms and Privacy Policy.':
+        'بالمتابعة فإنك توافق على الشروط وسياسة الخصوصية.',
+    'New here? Entering your number creates your account.':
+        'جديد هنا؟ إدخال رقمك يُنشئ حسابك.',
     'or': 'أو',
-    'Enter your phone number and we will send you a verification code.': 'أدخل رقم هاتفك وسنرسل لك رمز تحقق.',
+    'Enter your phone number and we will send you a verification code.':
+        'أدخل رقم هاتفك وسنرسل لك رمز تحقق.',
     // Quick Actions #4 — Wheel of Fortune / Lucky Coupon.
     'Wheel of Fortune': 'عجلة الحظ',
     'Lucky Coupon': 'كوبون الحظ',
@@ -2407,6 +2545,97 @@ class AppTranslations extends Translations {
     'Please accept the Terms & Conditions to continue':
         'يرجى الموافقة على الشروط والأحكام للمتابعة',
     'Could not load the Terms & Conditions.': 'تعذر تحميل الشروط والأحكام.',
+    // ─── رسائل تعذّر التحميل ───
+    // Counterparts to the English block above.
+    //
+    // These are added to English and Arabic ONLY. Sorani and Badini fall back
+    // to English until a native speaker supplies them, which is the standing
+    // decision on #21431: writing invented Kurdish is worse than a visible
+    // English fallback. Note the trap that decision came from — Sorani and
+    // Badini are written in ARABIC SCRIPT, so "looks Arabic" is not a usable
+    // test for which map a string belongs in.
+    'Could not load your saved items.': 'تعذّر تحميل العناصر المحفوظة.',
+    'Could not load subscription packages.': 'تعذّر تحميل باقات الاشتراك.',
+    'Could not load this conversation.': 'تعذّر تحميل هذه المحادثة.',
+    'Could not load your case chats.': 'تعذّر تحميل محادثات حالتك.',
+    'Could not decline this chat request.': 'تعذّر رفض طلب المحادثة.',
+    'Could not load volunteer missions.': 'تعذّر تحميل المهام التطوعية.',
+    'Could not load your support requests.':
+        'تعذّر تحميل طلبات الدعم الخاصة بك.',
+    'Could not load your wallet and payment methods.':
+        'تعذّر تحميل محفظتك وطرق الدفع.',
+    'Could not load your tasks.': 'تعذّر تحميل مهامك.',
+    'Could not load your sponsorship schedule.': 'تعذّر تحميل جدول الكفالة.',
+    'Could not load the comments.': 'تعذّر تحميل التعليقات.',
+    'Could not play this video.': 'تعذّر تشغيل هذا الفيديو.',
+    // en + ar only, as above — Sorani and Badini await a native speaker.
+    'Balance unavailable right now': 'الرصيد غير متاح حالياً',
+    'Balance unavailable — tap to retry':
+        'الرصيد غير متاح — اضغط لإعادة المحاولة',
+    "We couldn't load the latest payment options, so these are the default ones.":
+        'تعذّر تحميل أحدث خيارات الدفع، لذا هذه هي الخيارات الافتراضية.',
+    'Your balance could not be refreshed. Retry the load before subscribing.':
+        'تعذّر تحديث رصيدك. أعد المحاولة قبل الاشتراك.',
+    "Could not load this partner's joint activities.":
+        'تعذّر تحميل الأنشطة المشتركة لهذا الشريك.',
+    'Could not load your privacy settings.': 'تعذّر تحميل إعدادات الخصوصية.',
+    'Could not refresh the list of fields you can hide.':
+        'تعذّر تحديث قائمة الحقول التي يمكنك إخفاؤها.',
+    'Could not load your display-name choice.':
+        'تعذّر تحميل اختيارك لاسم العرض.',
+    // AppErrorState defaults — see the note in the _en block.
+    'error_title': 'حدث خطأ ما',
+    'retry': 'إعادة المحاولة',
+    'Could not load your dashboard.': 'تعذّر تحميل لوحتك.',
+    'We could not check for new notifications.':
+        'تعذّر التحقق من وجود إشعارات جديدة.',
+    'Registration': 'التسجيل',
+    'Your registration was saved, but your documents did not upload. You can add them from your profile.':
+        'تم حفظ تسجيلك، لكن لم يتم رفع مستنداتك. يمكنك إضافتها من ملفك الشخصي.',
+    'Could not save that preference. Please try again.':
+        'تعذّر حفظ هذا الإعداد. يرجى المحاولة مرة أخرى.',
+    // ─── إعادة هيكلة الواجهة (المرحلة الثانية) ───
+    // en + ar only; Sorani and Badini await a native speaker (#21431).
+    'Continue with phone': 'المتابعة برقم الهاتف',
+    'Sign in or create an account with your phone number.':
+        'سجّل الدخول أو أنشئ حساباً برقم هاتفك.',
+    'All partners': 'كل الشركاء',
+    'All requests': 'كل الطلبات',
+    'No pending requests': 'لا توجد طلبات قيد الانتظار',
+    'No approved requests': 'لا توجد طلبات موافق عليها',
+    'No rejected requests': 'لا توجد طلبات مرفوضة',
+    'Requests waiting for review, changes, or sponsor matching will appear here.':
+        'ستظهر هنا الطلبات التي تنتظر المراجعة أو التعديل أو مطابقة الكفيل.',
+    'Requests the admins approve will appear here.':
+        'ستظهر هنا الطلبات التي يوافق عليها المشرفون.',
+    'Requests the admins turn down will appear here.':
+        'ستظهر هنا الطلبات التي يرفضها المشرفون.',
+    'View your profile and its status, or create one':
+        'اطّلع على ملفك وحالته، أو أنشئ ملفاً',
+    'Create my profile': 'إنشاء ملفي',
+    'Need to change something?': 'هل تحتاج إلى تعديل شيء؟',
+    'Submit a new profile': 'إرسال ملف جديد',
+    'Ask the staff team to update an existing profile, or submit a new one for review.':
+        'اطلب من فريق العمل تحديث ملف قائم، أو أرسل ملفاً جديداً للمراجعة.',
+    // ─── إعادة الهيكلة، الموجة الثانية ───
+    'Community and support': 'المجتمع والدعم',
+    'Giving tools': 'أدوات العطاء',
+    'Volunteer tools': 'أدوات التطوع',
+    'No places on the map yet': 'لا توجد أماكن على الخريطة بعد',
+    'Approved places in the city guide will appear here. You can suggest one with Add an Activity.':
+        'ستظهر هنا الأماكن المعتمدة في دليل المدينة. يمكنك اقتراح مكان عبر «إضافة نشاط».',
+    'No places in this sector': 'لا توجد أماكن في هذا القطاع',
+    'Nothing in the guide matches this sector yet. Clear the filter to see every place.':
+        'لا يوجد في الدليل ما يطابق هذا القطاع بعد. امسح المرشّح لعرض كل الأماكن.',
+    'Show all places': 'عرض كل الأماكن',
+    'These places have no map location yet.\nBrowse them in the row below.':
+        'هذه الأماكن ليس لها موقع على الخريطة بعد.\nتصفّحها في الصف أدناه.',
+    'Name and phone come from your verified account. Change them in Profile > Edit profile.':
+        'الاسم ورقم الهاتف يأتيان من حسابك المُوثّق. يمكنك تغييرهما من «الملف الشخصي > تعديل الملف».',
+    'This is the verified number you sign in with, so it cannot be edited here.':
+        'هذا هو الرقم المُوثّق الذي تسجّل الدخول به، لذا لا يمكن تعديله هنا.',
+    'Projects are funded in Iraqi dinar (IQD), so the currency is fixed.':
+        'تموّل المشاريع بالدينار العراقي (IQD)، لذا فإن العملة ثابتة.',
     'Legal': 'قانوني',
     'Read the terms that apply to using the app.':
         'اقرأ الشروط التي تنطبق على استخدام التطبيق.',
@@ -3176,6 +3405,7 @@ class AppTranslations extends Translations {
     'receipts_title': 'إيصالات المساعدات',
     'receipts_subtitle': 'إيصالات تسليم المساعدات مع الصور.',
     'receipts_empty': 'لا توجد لديك إيصالات بعد.',
+    'receipts_load_failed': 'تعذّر تحميل إيصالاتك.',
     'receipts_delivered_by': 'سُلّمت بواسطة',
     'ai_helper': 'المساعد الذكي',
     'Male': 'ذكر',
@@ -3202,6 +3432,8 @@ class AppTranslations extends Translations {
     'Urgent': 'عاجل',
     'Payment': 'دفع',
     'System': 'النظام',
+    'Light': 'فاتح',
+    'Dark': 'داكن',
     'Reminder': 'تذكير',
     'Priority @priority': 'الأولوية @priority',
     'Thanks for joining the platform.': 'شكراً لانضمامك إلى المنصة.',
@@ -4483,8 +4715,10 @@ class AppTranslations extends Translations {
     'city_open_now': 'ئێستا کراوەیە',
     'Add or correct a place': 'شوێنێک زیاد بکە یان ڕاستی بکەرەوە',
     'What this guide covers': 'ئەم ڕێنمایە چی دەگرێتەوە',
-    'Reach the engagement service team': 'پەیوەندی بە تیمی خزمەتگوزارییەکەوە بکە',
-    'What this service is and how it works': 'ئەم خزمەتگوزارییە چییە و چۆن کار دەکات',
+    'Reach the engagement service team':
+        'پەیوەندی بە تیمی خزمەتگوزارییەکەوە بکە',
+    'What this service is and how it works':
+        'ئەم خزمەتگوزارییە چییە و چۆن کار دەکات',
     'About & contact': 'دەربارە و پەیوەندی',
     'Contact the Mosul Guide': 'پەیوەندی — ڕێنمای مووسڵ',
     'About the Mosul Guide': 'دەربارەی ڕێنمای مووسڵ',
@@ -4498,7 +4732,8 @@ class AppTranslations extends Translations {
     'marriage_request_meeting': 'دیداری ڕووبەڕوو',
     'marriage_request_how': 'چۆن دەتەوێت پەیوەندی بکرێت؟',
     'support_escalate_cta': 'لە ڕێگەی واتساپ پەیوەندی بکە',
-    'support_escalate_body': 'لە زیاتر لە سێ ڕۆژی جیاوازدا نامەت بۆ ناردووین بەبێ چارەسەر. ڕاستەوخۆ لە ڕێگەی واتساپ پەیوەندی بە تیمەکەوە بکە بۆ خێراکردنی.',
+    'support_escalate_body':
+        'لە زیاتر لە سێ ڕۆژی جیاوازدا نامەت بۆ ناردووین بەبێ چارەسەر. ڕاستەوخۆ لە ڕێگەی واتساپ پەیوەندی بە تیمەکەوە بکە بۆ خێراکردنی.',
     'support_escalate_title': 'هێشتا چاوەڕوانیت؟',
     'support_reply': 'وەڵامی پشتیوانی',
     'support_no_requests': 'هێشتا پەیوەندیت بە پشتیوانییەوە نەکردووە.',
@@ -4510,18 +4745,23 @@ class AppTranslations extends Translations {
     'support_message': 'نامە',
     'support_subject': 'بابەت',
     'support_new_message': 'نامەیەک بۆ پشتیوانی بنێرە',
-    'Covers running costs: servers, subscriptions and administration.': 'تێچووی کارکردن دادەپۆشێت: سێرڤەر و بەشداریەکان و بەڕێوەبردن.',
+    'Covers running costs: servers, subscriptions and administration.':
+        'تێچووی کارکردن دادەپۆشێت: سێرڤەر و بەشداریەکان و بەڕێوەبردن.',
     'Support the organization': 'پشتگیری ڕێکخراوەکە',
-    'Goes to the general fund or a project you choose.': 'بۆ سندوقی گشتی یان ئەو پڕۆژەیە دەچێت کە هەڵیدەبژێریت.',
+    'Goes to the general fund or a project you choose.':
+        'بۆ سندوقی گشتی یان ئەو پڕۆژەیە دەچێت کە هەڵیدەبژێریت.',
     'Help people in need': 'یارمەتیدانی پێویستداران',
     'Where should this go?': 'دەتەوێت بەخشینەکەت بۆ کوێ بچێت؟',
     'Demo code': 'کۆدی تاقیکردنەوە',
     'WhatsApp / SMS': 'واتساپ / کورتەنامە',
     'Delivery': 'شێوازی ناردن',
-    'By continuing you agree to our Terms and Privacy Policy.': 'بە بەردەوامبوون ڕازی دەبیت بە مەرجەکان و سیاسەتی تایبەتمەندێتی.',
-    'New here? Entering your number creates your account.': 'نوێیت لێرە؟ نووسینی ژمارەکەت هەژمارەکەت دروست دەکات.',
+    'By continuing you agree to our Terms and Privacy Policy.':
+        'بە بەردەوامبوون ڕازی دەبیت بە مەرجەکان و سیاسەتی تایبەتمەندێتی.',
+    'New here? Entering your number creates your account.':
+        'نوێیت لێرە؟ نووسینی ژمارەکەت هەژمارەکەت دروست دەکات.',
     'or': 'یان',
-    'Enter your phone number and we will send you a verification code.': 'ژمارەی مۆبایلەکەت بنووسە و کۆدی پشتڕاستکردنەوەت بۆ دەنێرین.',
+    'Enter your phone number and we will send you a verification code.':
+        'ژمارەی مۆبایلەکەت بنووسە و کۆدی پشتڕاستکردنەوەت بۆ دەنێرین.',
     // Quick Actions #4 — Wheel of Fortune / Lucky Coupon.
     'Wheel of Fortune': 'چەرخی بەخت',
     'Lucky Coupon': 'کۆپۆنی بەخت',
@@ -6779,7 +7019,8 @@ class AppTranslations extends Translations {
     'marriage_request_meeting': 'دیدارا رووبەروو',
     'marriage_request_how': 'چاوا دخوازی پەیوەندی بێتە کرن؟',
     'support_escalate_cta': 'ب رێکا واتساپێ پەیوەندی بکە',
-    'support_escalate_body': 'تە ژ زێدەتری سێ رۆژێن جودا نامە بۆ مە هنارتینە بێی چارەسەری. راستەوخۆ ب رێکا واتساپێ پەیوەندی ب تیمێ بکە دا زوتر بێتە چارەسەرکرن.',
+    'support_escalate_body':
+        'تە ژ زێدەتری سێ رۆژێن جودا نامە بۆ مە هنارتینە بێی چارەسەری. راستەوخۆ ب رێکا واتساپێ پەیوەندی ب تیمێ بکە دا زوتر بێتە چارەسەرکرن.',
     'support_escalate_title': 'تو هێشتا چاڤەڕێیی؟',
     'support_reply': 'بەرسڤا پشتەڤانیێ',
     'support_no_requests': 'تە هێشتا پەیوەندی ب پشتەڤانیێ نەکریە.',
@@ -6791,18 +7032,23 @@ class AppTranslations extends Translations {
     'support_message': 'نامە',
     'support_subject': 'بابەت',
     'support_new_message': 'نامەیەکێ بۆ پشتەڤانیێ بشینە',
-    'Covers running costs: servers, subscriptions and administration.': 'مەسرەفێن کارکرنێ ددەت: سێرڤەر و بەشداری و بەرێڤەبرن.',
+    'Covers running costs: servers, subscriptions and administration.':
+        'مەسرەفێن کارکرنێ ددەت: سێرڤەر و بەشداری و بەرێڤەبرن.',
     'Support the organization': 'پشتەڤانیا رێکخراوێ',
-    'Goes to the general fund or a project you choose.': 'دچیتە سندوقێ گشتی یان وی پرۆژەیێ تو هەلدبژێری.',
+    'Goes to the general fund or a project you choose.':
+        'دچیتە سندوقێ گشتی یان وی پرۆژەیێ تو هەلدبژێری.',
     'Help people in need': 'هاریکاریا پێدڤیداران',
     'Where should this go?': 'تو دخوازی بەخشینا تە بۆ کیڤە بچیت؟',
     'Demo code': 'کۆدێ تاقیکرنێ',
     'WhatsApp / SMS': 'واتساپ / کورتەنامە',
     'Delivery': 'رێکا هنارتنێ',
-    'By continuing you agree to our Terms and Privacy Policy.': 'ب بەردەوامبوونێ تو ب مەرجان و سیاسەتا تایبەتمەندیێ رازی دبی.',
-    'New here? Entering your number creates your account.': 'نوی یی ل ڤێرێ؟ نڤیسینا ژمارا تە هەژمارا تە دروست دکەت.',
+    'By continuing you agree to our Terms and Privacy Policy.':
+        'ب بەردەوامبوونێ تو ب مەرجان و سیاسەتا تایبەتمەندیێ رازی دبی.',
+    'New here? Entering your number creates your account.':
+        'نوی یی ل ڤێرێ؟ نڤیسینا ژمارا تە هەژمارا تە دروست دکەت.',
     'or': 'یان',
-    'Enter your phone number and we will send you a verification code.': 'ژمارا موبایلا خۆ بنڤیسە و ئەم دێ کۆدێ پشتراستکرنێ بۆ تە بشینین.',
+    'Enter your phone number and we will send you a verification code.':
+        'ژمارا موبایلا خۆ بنڤیسە و ئەم دێ کۆدێ پشتراستکرنێ بۆ تە بشینین.',
     // Quick Actions #4 — Wheel of Fortune / Lucky Coupon.
     'Wheel of Fortune': 'چەرخا بەختێ',
     'Lucky Coupon': 'کۆپۆنا بەختێ',

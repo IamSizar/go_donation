@@ -134,32 +134,37 @@ class NotificationsController extends GetxController {
     }
     try {
       final rows = await const ModuleApi().getItems(uri.toString());
-      final fetched = rows
-          .map(
-            (row) => AppNotificationModel(
-              id: (row['id'] ?? '').toString(),
-              title: (row['title'] ?? 'Notification').toString(),
-              titleAr: (row['title_ar'] ?? '').toString(),
-              titleSorani: (row['title_sorani'] ?? '').toString(),
-              titleBadini: (row['title_badini'] ?? '').toString(),
-              message: (row['body'] ?? '').toString(),
-              messageAr: (row['body_ar'] ?? '').toString(),
-              messageSorani: (row['body_sorani'] ?? '').toString(),
-              messageBadini: (row['body_badini'] ?? '').toString(),
-              notificationType: (row['notification_type'] ?? '').toString(),
-              notificationCategory: (row['notification_category'] ?? '')
-                  .toString(),
-              priority: int.tryParse((row['priority'] ?? '0').toString()) ?? 0,
-              isRead: (row['is_read'] ?? '0').toString() == '1',
-              createdAt: DateTime.tryParse((row['created_at'] ?? '').toString()),
-              readAt: DateTime.tryParse((row['read_at'] ?? '').toString()),
-              actionUrl: (row['action_url'] ?? '').toString(),
-              relatedEntityType: (row['related_entity_type'] ?? '').toString(),
-              relatedEntityId: (row['related_entity_id'] ?? '').toString(),
-            ),
-          )
-          .toList()
-        ..sort(_compareNotifications);
+      final fetched =
+          rows
+              .map(
+                (row) => AppNotificationModel(
+                  id: (row['id'] ?? '').toString(),
+                  title: (row['title'] ?? 'Notification').toString(),
+                  titleAr: (row['title_ar'] ?? '').toString(),
+                  titleSorani: (row['title_sorani'] ?? '').toString(),
+                  titleBadini: (row['title_badini'] ?? '').toString(),
+                  message: (row['body'] ?? '').toString(),
+                  messageAr: (row['body_ar'] ?? '').toString(),
+                  messageSorani: (row['body_sorani'] ?? '').toString(),
+                  messageBadini: (row['body_badini'] ?? '').toString(),
+                  notificationType: (row['notification_type'] ?? '').toString(),
+                  notificationCategory: (row['notification_category'] ?? '')
+                      .toString(),
+                  priority:
+                      int.tryParse((row['priority'] ?? '0').toString()) ?? 0,
+                  isRead: (row['is_read'] ?? '0').toString() == '1',
+                  createdAt: DateTime.tryParse(
+                    (row['created_at'] ?? '').toString(),
+                  ),
+                  readAt: DateTime.tryParse((row['read_at'] ?? '').toString()),
+                  actionUrl: (row['action_url'] ?? '').toString(),
+                  relatedEntityType: (row['related_entity_type'] ?? '')
+                      .toString(),
+                  relatedEntityId: (row['related_entity_id'] ?? '').toString(),
+                ),
+              )
+              .toList()
+            ..sort(_compareNotifications);
 
       // Only touch the observable list when something actually changed. This is
       // what stops the every-5s rebuild: an unchanged poll skips assignAll, so
@@ -185,12 +190,10 @@ class NotificationsController extends GetxController {
   int _compareNotifications(AppNotificationModel a, AppNotificationModel b) {
     final aPinned =
         !a.isRead &&
-        (a.normalizedCategory == 'urgent' ||
-            a.normalizedCategory == 'payment');
+        (a.normalizedCategory == 'urgent' || a.normalizedCategory == 'payment');
     final bPinned =
         !b.isRead &&
-        (b.normalizedCategory == 'urgent' ||
-            b.normalizedCategory == 'payment');
+        (b.normalizedCategory == 'urgent' || b.normalizedCategory == 'payment');
     if (aPinned != bPinned) return aPinned ? -1 : 1;
     final weightCompare = b.sortWeight.compareTo(a.sortWeight);
     if (weightCompare != 0) return weightCompare;
@@ -250,6 +253,8 @@ class NotificationsController extends GetxController {
           'user_id': userId,
         });
       } catch (_) {
+        // Not silent: each failure is collected and reported below, as a count
+        // in errorMessage, after the whole batch has been attempted.
         failures.add(originalById[n.id]!);
       }
     }
@@ -263,8 +268,9 @@ class NotificationsController extends GetxController {
         if (i >= 0) notifications[i] = orig;
       }
       notifications.refresh();
-      errorMessage.value = '@count could not be marked. Try again.'
-          .trParams({'count': failures.length.toString()});
+      errorMessage.value = '@count could not be marked. Try again.'.trParams({
+        'count': failures.length.toString(),
+      });
     }
   }
 

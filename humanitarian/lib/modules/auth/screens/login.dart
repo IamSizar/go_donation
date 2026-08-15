@@ -58,8 +58,11 @@ class LoginPage extends StatelessWidget {
           const SizedBox(height: 8),
           // Says what pressing the button will actually do. The old subtitle
           // ("Sign in to continue.") restated the title.
-          Text('Enter your phone number and we will send you a verification code.'.tr,
-              style: subtitleStyle),
+          Text(
+            'Enter your phone number and we will send you a verification code.'
+                .tr,
+            style: subtitleStyle,
+          ),
           const SizedBox(height: 26),
           const _LoginForm(),
         ],
@@ -239,8 +242,8 @@ class _LoginFormState extends State<_LoginForm> {
                     padding: const EdgeInsets.only(bottom: 12),
                     child: Text(
                       _loginController.errorMessage.value,
-                      style: const TextStyle(
-                        color: Colors.redAccent,
+                      style: TextStyle(
+                        color: AppThemeConfig.consequence(context),
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -286,15 +289,20 @@ class _LoginFormState extends State<_LoginForm> {
                 children: [
                   CountryCodePicker(
                     onChanged: (code) => setState(
-                      () => _dialCode = (code.dialCode ?? '+964')
-                          .replaceFirst('+', ''),
+                      () => _dialCode = (code.dialCode ?? '+964').replaceFirst(
+                        '+',
+                        '',
+                      ),
                     ),
                     initialSelection: 'IQ',
                     favorite: const ['+964', 'IQ'],
                     showCountryOnly: false,
                     showOnlyCountryWhenClosed: false,
                     alignLeft: false,
-                    padding: const EdgeInsets.only(left: 12, right: 2),
+                    padding: const EdgeInsetsDirectional.only(
+                      start: 12,
+                      end: 2,
+                    ),
                     flagWidth: 24,
                     showDropDownButton: true,
                     textStyle: TextStyle(
@@ -352,8 +360,9 @@ class _LoginFormState extends State<_LoginForm> {
                       decoration: InputDecoration(
                         hintText: '750 858 2031',
                         hintStyle: TextStyle(
-                          color: AppThemeConfig.mutedText(context)
-                              .withValues(alpha: 0.6),
+                          color: AppThemeConfig.mutedText(
+                            context,
+                          ).withValues(alpha: 0.6),
                           fontWeight: FontWeight.w500,
                           letterSpacing: 0.4,
                         ),
@@ -396,14 +405,17 @@ class _LoginFormState extends State<_LoginForm> {
             const SizedBox(height: 8),
             Row(
               children: [
-                const Icon(Icons.error_outline_rounded,
-                    size: 16, color: Color(0xFFDC2626)),
+                Icon(
+                  Icons.error_outline_rounded,
+                  size: 16,
+                  color: AppThemeConfig.consequence(context),
+                ),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     _phoneError!,
-                    style: const TextStyle(
-                      color: Color(0xFFDC2626),
+                    style: TextStyle(
+                      color: AppThemeConfig.consequence(context),
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
@@ -423,8 +435,9 @@ class _LoginFormState extends State<_LoginForm> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppThemeConfig.primary,
                   foregroundColor: Colors.white,
-                  disabledBackgroundColor: AppThemeConfig.primary
-                      .withValues(alpha: 0.5),
+                  disabledBackgroundColor: AppThemeConfig.primary.withValues(
+                    alpha: 0.5,
+                  ),
                   disabledForegroundColor: Colors.white,
                   minimumSize: const Size.fromHeight(54),
                   shape: RoundedRectangleBorder(
@@ -626,10 +639,7 @@ class _OtpModeRow extends StatelessWidget {
         alignment: WrapAlignment.center,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          Text(
-            'Delivery'.tr,
-            style: TextStyle(color: muted, fontSize: 12),
-          ),
+          Text('Delivery'.tr, style: TextStyle(color: muted, fontSize: 12)),
           const SizedBox(width: 8),
           _ModeLink(
             label: 'WhatsApp / SMS'.tr,
@@ -747,13 +757,7 @@ class _GuestAccessSheetState extends State<_GuestAccessSheet> {
             24,
             24 + MediaQuery.of(context).padding.bottom,
           ),
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFF0E3B5C), Color(0xFF114C72)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
+          decoration: BoxDecoration(color: AppThemeConfig.accent(context)),
           child: Form(
             key: _formKey,
             child: Column(
@@ -790,8 +794,8 @@ class _GuestAccessSheetState extends State<_GuestAccessSheet> {
                     padding: const EdgeInsets.only(bottom: 12),
                     child: Text(
                       _error,
-                      style: const TextStyle(
-                        color: Colors.redAccent,
+                      style: TextStyle(
+                        color: AppThemeConfig.consequence(context),
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -800,7 +804,8 @@ class _GuestAccessSheetState extends State<_GuestAccessSheet> {
                   controller: _usernameController,
                   style: TextStyle(color: AppThemeConfig.text(context)),
                   cursorColor: AppThemeConfig.primary,
-                  decoration: authInputDecoration(context, 
+                  decoration: authInputDecoration(
+                    context,
                     label: 'Username'.tr,
                     hintText: 'guest_name',
                     icon: Icons.person_outline_rounded,
@@ -820,7 +825,8 @@ class _GuestAccessSheetState extends State<_GuestAccessSheet> {
                   cursorColor: AppThemeConfig.primary,
                   obscureText: _obscure,
                   decoration:
-                      authInputDecoration(context, 
+                      authInputDecoration(
+                        context,
                         label: 'Password'.tr,
                         hintText: '••••••',
                         icon: Icons.lock_outline_rounded,
@@ -845,8 +851,8 @@ class _GuestAccessSheetState extends State<_GuestAccessSheet> {
                   child: ElevatedButton(
                     onPressed: _loading ? null : () => _submit(asLogin: false),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppThemeConfig.text(context),
-                      foregroundColor: const Color(0xFF0B385D),
+                      backgroundColor: AppThemeConfig.onAccent(context),
+                      foregroundColor: AppThemeConfig.accent(context),
                       padding: const EdgeInsets.symmetric(vertical: 15),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(18),
@@ -854,11 +860,11 @@ class _GuestAccessSheetState extends State<_GuestAccessSheet> {
                       elevation: 0,
                     ),
                     child: _loading
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 20,
                             height: 20,
                             child: CircularProgressIndicator(
-                              color: Color(0xFF0B385D),
+                              color: AppThemeConfig.accent(context),
                               strokeWidth: 2,
                             ),
                           )
@@ -876,9 +882,7 @@ class _GuestAccessSheetState extends State<_GuestAccessSheet> {
                       onPressed: _loading ? null : () => _submit(asLogin: true),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppThemeConfig.primary,
-                        side: BorderSide(
-                          color: AppThemeConfig.border(context),
-                        ),
+                        side: BorderSide(color: AppThemeConfig.border(context)),
                         padding: const EdgeInsets.symmetric(vertical: 15),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(18),

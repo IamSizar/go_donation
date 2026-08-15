@@ -54,7 +54,16 @@ Future<FieldRuleSets> fetchFieldRuleSets() async {
         searchable: searchable,
       );
     }
-  } catch (_) {}
+  } catch (_) {
+    // DELIBERATE, same class as ModuleApi.getDonationOptions(): these are
+    // admin FORM-CONFIG flags, not the user's data. Falling back to empty
+    // means "show every field, require none", i.e. the plain registration
+    // form — which tells the user nothing untrue about themselves. The server
+    // remains the authority on what is actually required, so a wrongly-lenient
+    // client still gets a real, reportable error on submit rather than a
+    // silently wrong save. Deliberately not a throw: this feeds the signup
+    // form, and failing it would lock a new user out over a config fetch.
+  }
   return FieldRuleSets.empty;
 }
 
@@ -360,6 +369,18 @@ Future<bool> uploadRegistrationPhotos({
     final body = resp.data;
     return resp.statusCode == 200 && body is Map && body['status'] == 'success';
   } catch (_) {
+    // Fire-and-forget by design: registration_form.dart calls this inside
+    // `unawaited(...)` AFTER submitRegistration() has already succeeded, and
+    // discards the bool. The catch is therefore load-bearing — letting the
+    // error escape an unawaited future would surface as an unhandled async
+    // error, not as anything the user could act on. The attachments are all
+    // optional and the registration itself is already saved, so a failed
+    // upload costs the user nothing they were promised.
+    //
+    // NEEDS A DECISION (not made here — the fix lives in the caller, which
+    // belongs to another change): because the result is discarded, a user
+    // whose documents fail to upload is never told, and there is no retry.
+    // If staff later require those documents, the silence becomes the bug.
     return false;
   }
 }
@@ -407,6 +428,12 @@ Future<Map<String, dynamic>?> fetchRegistrationStatus() async {
     }
     return body;
   } catch (_) {
+    // NOT swallowed: null is the documented failure signal. Crucially, the
+    // prefs writes above are skipped entirely on failure, so the last KNOWN
+    // registration status is kept rather than being overwritten with a guess
+    // — the user is never wrongly told they were approved or rejected.
+    // Deliberately not a throw: this runs on the pending/splash path where an
+    // exception would become a launch crash instead of a stale-but-true view.
     return null;
   }
 }
@@ -416,6 +443,10 @@ Map<String, dynamic> _decode(String s) {
     final d = jsonDecode(s);
     if (d is Map<String, dynamic>) return d;
     if (d is Map) return Map<String, dynamic>.from(d);
-  } catch (_) {}
+  } catch (_) {
+    // DELIBERATE: an unparseable body yields the empty map below, and every
+    // caller then finds no status/error key and reports its generic failure.
+    // The error surfaces there, with the HTTP status still in hand.
+  }
   return <String, dynamic>{};
 }

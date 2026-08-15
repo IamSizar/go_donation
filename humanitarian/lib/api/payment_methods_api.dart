@@ -78,24 +78,34 @@ class PaymentMethod {
   );
 }
 
-/// Fetches the active payment methods (ordered), or an empty list on
-/// error/offline (the donate screen then uses its built-in fallback).
+/// Fetches the active payment methods, in display order.
+///
+/// THROWS on failure. It used to return `[]`, with the intent that the donate
+/// screen would quietly drop to its built-in fallback list. That fallback is
+/// worth keeping — a donor should still be able to pay when the catalogue
+/// endpoint is down — but it belongs at the CALL SITE, written down, rather
+/// than hidden in here where every other caller inherited it by accident.
+///
+/// The payment-methods screen inherited exactly that accident: it could not
+/// distinguish "you have configured no payment methods" from "we could not
+/// reach the server", and said the former.
+///
+/// A 200 whose body carries no `items` list is still an empty catalogue, not
+/// an error.
 Future<List<PaymentMethod>> fetchPaymentMethods() async {
-  try {
-    final resp = await http.get(
-      Uri.parse(paymentMethodsUrl),
-      headers: const {'Accept': 'application/json'},
-    );
-    if (resp.statusCode != 200) return const [];
-    final decoded = jsonDecode(resp.body);
-    if (decoded is Map && decoded['items'] is List) {
-      return (decoded['items'] as List)
-          .whereType<Map>()
-          .map((m) => PaymentMethod.fromJson(Map<String, dynamic>.from(m)))
-          .toList();
-    }
-    return const [];
-  } catch (_) {
-    return const [];
+  final resp = await http.get(
+    Uri.parse(paymentMethodsUrl),
+    headers: const {'Accept': 'application/json'},
+  );
+  if (resp.statusCode != 200) {
+    throw Exception('Payment methods request failed (${resp.statusCode})');
   }
+  final decoded = jsonDecode(resp.body);
+  if (decoded is Map && decoded['items'] is List) {
+    return (decoded['items'] as List)
+        .whereType<Map>()
+        .map((m) => PaymentMethod.fromJson(Map<String, dynamic>.from(m)))
+        .toList();
+  }
+  return const [];
 }

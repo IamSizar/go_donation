@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/api/links.dart';
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/core/app_haptics.dart';
@@ -10,6 +11,7 @@ import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/modules/notifications/controllers/notifications_controller.dart';
 import 'package:flutter_application_1/modules/support/widgets/availability_schedule_picker.dart';
 import 'package:flutter_application_1/modules/support/widgets/skill_chip_picker.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
@@ -91,9 +93,9 @@ class _SupportSectionState extends State<SupportSection>
   Future<void> _silentRefresh() async {
     if (!mounted || _isRefreshing || _userId <= 0) return;
     try {
-      final result = await ModuleApi().volunteerDashboard(_userId).timeout(
-            const Duration(seconds: 8),
-          );
+      final result = await ModuleApi()
+          .volunteerDashboard(_userId)
+          .timeout(const Duration(seconds: 8));
       if (!mounted) return;
       _detectStatusChanges(result);
       setState(() => _future = Future.value(result));
@@ -177,6 +179,10 @@ class _SupportSectionState extends State<SupportSection>
           .volunteerDashboard(_userId)
           .timeout(const Duration(seconds: 15));
     } catch (e) {
+      // The cause goes to the log, not to the user — `error` is kept in the
+      // map only as a failure FLAG for the builder, which renders its own
+      // plain-language sentence instead of this exception string.
+      debugPrint('volunteerDashboard($_userId) failed: $e');
       return {
         'success': false,
         'error': e.toString(),
@@ -223,9 +229,18 @@ class _SupportSectionState extends State<SupportSection>
         future: _future,
         builder: (context, snapshot) {
           final data = snapshot.data ?? const <String, dynamic>{};
-          final loadError = data['success'] == false
-              ? (data['error'] ?? 'Unable to load volunteer missions.')
-                    .toString()
+          // snapshot.hasError is now read alongside the `success: false` flag.
+          // It was not before, so a future that THREW (rather than returning
+          // the failure map) fell through to `snapshot.data ?? {}` and the
+          // screen showed "No open volunteer missions are available yet." —
+          // telling the volunteer there is no work when the request had simply
+          // failed. The raw exception string is no longer shown either.
+          final hasLoadError = snapshot.hasError || data['success'] == false;
+          if (snapshot.hasError) {
+            debugPrint('volunteer dashboard future failed: ${snapshot.error}');
+          }
+          final loadError = hasLoadError
+              ? 'Could not load volunteer missions.'
               : '';
           final missions = _listFrom(data['items']);
           final applications = _listFrom(data['applications']);
@@ -240,8 +255,9 @@ class _SupportSectionState extends State<SupportSection>
               .toSet();
           final availableMissions = missions
               .where(
-                (mission) =>
-                    !joinedMissionIds.contains((mission['id'] ?? '').toString()),
+                (mission) => !joinedMissionIds.contains(
+                  (mission['id'] ?? '').toString(),
+                ),
               )
               .toList();
 
@@ -257,6 +273,7 @@ class _SupportSectionState extends State<SupportSection>
                     ? 'Submit your skills and availability to the institution.'
                     : _applicationSubtitle(latestApplication),
                 color: _applicationColor(
+                  context,
                   (latestApplication?['status'] ?? '').toString(),
                 ),
                 onTap: () async {
@@ -277,19 +294,19 @@ class _SupportSectionState extends State<SupportSection>
                     icon: Icons.task_alt_rounded,
                     title: _localizedMissionTitle(mission),
                     subtitle: _missionSubtitle(mission),
-                    color: Colors.green,
+                    color: AppThemeConfig.accent(context),
                     onTap: () async {
                       final changed = await Get.to<bool>(
-                      () => VolunteerMissionDetailScreen(
-                        mission: mission,
-                        alreadyJoined: true,
-                        signupStatus: (mission['signup_status'] ?? '')
-                            .toString(),
-                        signupId: int.tryParse(
-                          (mission['signup_id'] ?? '').toString(),
+                        () => VolunteerMissionDetailScreen(
+                          mission: mission,
+                          alreadyJoined: true,
+                          signupStatus: (mission['signup_status'] ?? '')
+                              .toString(),
+                          signupId: int.tryParse(
+                            (mission['signup_id'] ?? '').toString(),
+                          ),
                         ),
-                      ),
-                    );
+                      );
                       if (changed == true && mounted) await _refresh();
                     },
                   ),
@@ -298,31 +315,33 @@ class _SupportSectionState extends State<SupportSection>
               ],
               const SectionLabel(title: 'Available Missions'),
               const SizedBox(height: 12),
-              if (snapshot.connectionState == ConnectionState.waiting)
-                const Center(child: CircularProgressIndicator()),
+              // Loading is shown for the FIRST load only. A manual refresh
+              // swaps in a new future (so the snapshot goes back to waiting),
+              // but the toolbar button already spins — showing a skeleton here
+              // too would blank the list the volunteer is reading.
+              if (snapshot.connectionState == ConnectionState.waiting &&
+                  !_isRefreshing)
+                AppSkeleton.rows(count: 3),
+              // A failure used to render as a tappable SectionTile carrying the
+              // raw exception as its subtitle — it looked like a mission, and
+              // nothing said the tap would retry.
               if (loadError.isNotEmpty)
-                SectionTile(
-                  icon: Icons.assignment_turned_in_rounded,
-                  title: 'Available Missions',
-                  subtitle: loadError,
-                  color: Colors.cyan,
-                  onTap: _refresh,
-                ),
+                AppErrorState(message: loadError, onRetry: _refresh),
               if (loadError.isEmpty &&
                   snapshot.connectionState != ConnectionState.waiting &&
                   availableMissions.isEmpty)
-                const SectionTile(
+                SectionTile(
                   icon: Icons.assignment_turned_in_rounded,
                   title: 'Available Missions',
                   subtitle: 'No open volunteer missions are available yet.',
-                  color: Colors.cyan,
+                  color: AppThemeConfig.accent(context),
                 ),
               for (final mission in availableMissions) ...[
                 SectionTile(
                   icon: Icons.assignment_turned_in_rounded,
                   title: _localizedMissionTitle(mission),
                   subtitle: _missionSubtitle(mission),
-                  color: Colors.cyan,
+                  color: AppThemeConfig.accent(context),
                   onTap: () async {
                     final signupStatus = _signupStatusFor(
                       mission,
@@ -387,7 +406,8 @@ class _VolunteerMissionDetailScreenState
   // Note #37 — captures device GPS + a camera-only ("live") photo, uploads
   // the photo, and returns both — or null if the volunteer cancelled or a
   // permission was denied (an error/snackbar has already been shown).
-  Future<({double lat, double lng, String photoPath})?> _captureEvidence() async {
+  Future<({double lat, double lng, String photoPath})?>
+  _captureEvidence() async {
     try {
       var permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
@@ -403,7 +423,9 @@ class _VolunteerMissionDetailScreenState
         return null;
       }
       final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
       );
 
       final picked = await ImagePicker().pickImage(
@@ -484,7 +506,8 @@ class _VolunteerMissionDetailScreenState
             child: Text('Cancel'.tr),
           ),
           FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(controller.text.trim()),
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(controller.text.trim()),
             child: Text('Confirm'.tr),
           ),
         ],
@@ -882,14 +905,14 @@ class _SectionLabel extends StatelessWidget {
                 Text(
                   title,
                   style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
                 Text(
                   subtitle,
                   style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.disabledColor,
-                      ),
+                    color: theme.disabledColor,
+                  ),
                 ),
               ],
             ),
@@ -976,12 +999,12 @@ String _applicationSubtitle(Map<String, dynamic> application) {
   ].where((value) => value.trim().isNotEmpty).join(' - ');
 }
 
-Color _applicationColor(String status) {
+Color _applicationColor(BuildContext context, String status) {
   return switch (status) {
-    'approved' => Colors.green,
-    'rejected' => Colors.redAccent,
-    'inactive' => Colors.orange,
-    _ => Colors.indigo,
+    'approved' => AppThemeConfig.accent(context),
+    'rejected' => AppThemeConfig.consequence(context),
+    'inactive' => AppThemeConfig.pending(context),
+    _ => AppThemeConfig.accent(context),
   };
 }
 

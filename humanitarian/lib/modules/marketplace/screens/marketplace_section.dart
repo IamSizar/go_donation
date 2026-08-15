@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/core/design/directional_icons.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_application_1/api/links.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
@@ -9,6 +10,8 @@ import 'package:flutter_application_1/modules/marketplace/screens/marketplace_or
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_application_1/core/design/motion.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 class MarketplaceSection extends StatelessWidget {
   const MarketplaceSection({super.key});
@@ -55,42 +58,48 @@ class _MarketplaceList extends StatelessWidget {
                 // clearance for it.
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                 children: [
+                  // The orders shortcut is a standing entry point, not
+                  // content: a shopper must still be able to reach their
+                  // existing orders when the product fetch fails.
                   _OrdersShortcut(controller: controller),
                   const SizedBox(height: 12),
-                  if (controller.isLoading.value)
-                    const Center(child: CircularProgressIndicator()),
-                  if (error != null)
-                    SectionTile(
-                      icon: Icons.storefront_rounded,
+                  // Three stacked `if` blocks replaced by one state. Before,
+                  // a failed load rendered the error tile AND whatever
+                  // products were already cached beneath it, and the error
+                  // was a SectionTile whose retry was an unlabelled onTap.
+                  AppAsync<List<Map<String, dynamic>>>(
+                    loading: controller.isLoading.value,
+                    error: error,
+                    onRetry: () => controller.fetchProducts(reset: true),
+                    data: items,
+                    isEmpty: (list) => list.isEmpty,
+                    empty: const AppEmpty(
                       title: 'Product Listings',
-                      subtitle: error,
-                      color: Colors.deepOrange,
-                      onTap: () => controller.fetchProducts(reset: true),
+                      message: 'No approved products are available yet.',
                     ),
-                  if (error == null &&
-                      !controller.isLoading.value &&
-                      items.isEmpty)
-                    const SectionTile(
-                      icon: Icons.storefront_rounded,
-                      title: 'Product Listings',
-                      subtitle: 'No approved products are available yet.',
-                      color: Colors.deepOrange,
+                    builder: (list) => Column(
+                      children: [
+                        for (var i = 0; i < list.length; i++) ...[
+                          _AnimatedProductEntry(
+                            index: i,
+                            child: _MarketplaceProductTile(
+                              item: list[i],
+                              controller: controller,
+                              quantity: controller.quantityFor(list[i]['id']),
+                              onAdd: () => controller.addProduct(list[i]),
+                              onRemove: () =>
+                                  controller.removeProduct(list[i]['id']),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                        ],
+                        // Pagination footer stays with the content: it is
+                        // "load MORE", which only means anything once there
+                        // is a first page.
+                        _LoadMoreProductsFooter(controller: controller),
+                      ],
                     ),
-                  for (var i = 0; i < items.length; i++) ...[
-                    _AnimatedProductEntry(
-                      index: i,
-                      child: _MarketplaceProductTile(
-                        item: items[i],
-                        controller: controller,
-                        quantity: controller.quantityFor(items[i]['id']),
-                        onAdd: () => controller.addProduct(items[i]),
-                        onRemove: () =>
-                            controller.removeProduct(items[i]['id']),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                  ],
-                  _LoadMoreProductsFooter(controller: controller),
+                  ),
                 ],
               ),
             ),
@@ -105,9 +114,15 @@ class _MarketplaceList extends StatelessWidget {
             bottom: 130,
             child: Obx(
               () => AnimatedSwitcher(
-                duration: const Duration(milliseconds: 260),
-                switchInCurve: Curves.easeOutBack,
-                switchOutCurve: Curves.easeInCubic,
+                duration: AppMotion.resolve(context, AppMotion.settleDuration),
+                switchInCurve: AppMotion.resolveCurve(
+                  context,
+                  Curves.easeOutBack,
+                ),
+                switchOutCurve: AppMotion.resolveCurve(
+                  context,
+                  Curves.easeInCubic,
+                ),
                 transitionBuilder: (child, animation) {
                   final offset = Tween<Offset>(
                     begin: const Offset(0, 0.35),
@@ -150,7 +165,7 @@ class _AnimatedProductEntry extends StatelessWidget {
       key: ValueKey(index),
       tween: Tween(begin: 0, end: 1),
       duration: Duration(milliseconds: 220 + (index % 5) * 30),
-      curve: Curves.easeOutCubic,
+      curve: AppMotion.resolveCurve(context, Curves.easeOutCubic),
       builder: (context, value, child) {
         return Opacity(
           opacity: value,
@@ -202,6 +217,9 @@ class _MarketplaceProductTileState extends State<_MarketplaceProductTile> {
     final currency = (widget.item['currency'] ?? 'IQD').toString();
     final imageUrl = _marketplaceImageUrl(widget.item['image_path']);
 
+    // Deliberately NOT AppPressable: this card's press IS a peek-preview
+    // (hold to open, release to close), so a press-scale would fight the
+    // sheet animation and AppPressable models tap only.
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => _showProductDetails(context),
@@ -327,8 +345,8 @@ class _ProductDetailsSheet extends StatelessWidget {
         ),
         child: TweenAnimationBuilder<double>(
           tween: Tween(begin: 0.92, end: 1),
-          duration: const Duration(milliseconds: 260),
-          curve: Curves.easeOutBack,
+          duration: AppMotion.resolve(context, AppMotion.settleDuration),
+          curve: AppMotion.resolveCurve(context, Curves.easeOutBack),
           builder: (context, value, child) {
             return Opacity(
               opacity: value.clamp(0, 1).toDouble(),
@@ -492,26 +510,26 @@ class _LabelChip extends StatelessWidget {
 
   final String label;
 
-  Color _color() {
+  Color _color(BuildContext context) {
     switch (label) {
       case 'new':
-        return Colors.green;
+        return AppThemeConfig.accent(context);
       case 'sale':
-        return Colors.red;
+        return AppThemeConfig.consequence(context);
       case 'featured':
-        return Colors.amber.shade800;
+        return AppThemeConfig.pending(context);
       case 'used':
-        return Colors.blueGrey;
+        return AppThemeConfig.subtleText(context);
       case 'in_stock':
-        return Colors.teal;
+        return AppThemeConfig.accent(context);
       default:
-        return Colors.grey;
+        return AppThemeConfig.subtleText(context);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final c = _color();
+    final c = _color(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(
@@ -592,9 +610,9 @@ class _QuantityControl extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 220),
-      switchInCurve: Curves.easeOutBack,
-      switchOutCurve: Curves.easeIn,
+      duration: AppMotion.resolve(context, AppMotion.settleDuration),
+      switchInCurve: AppMotion.resolveCurve(context, Curves.easeOutBack),
+      switchOutCurve: AppMotion.resolveCurve(context, Curves.easeIn),
       transitionBuilder: (child, animation) => ScaleTransition(
         scale: animation,
         child: FadeTransition(opacity: animation, child: child),
@@ -615,8 +633,8 @@ class _QuantityControl extends StatelessWidget {
             )
           : AnimatedContainer(
               key: ValueKey('quantity-$quantity'),
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeOutCubic,
+              duration: AppMotion.resolve(context, AppMotion.settleDuration),
+              curve: AppMotion.resolveCurve(context, Curves.easeOutCubic),
               decoration: BoxDecoration(
                 color: Colors.deepOrange.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(18),
@@ -633,7 +651,10 @@ class _QuantityControl extends StatelessWidget {
                     visualDensity: VisualDensity.compact,
                   ),
                   AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 180),
+                    duration: AppMotion.resolve(
+                      context,
+                      AppMotion.snapDuration,
+                    ),
                     transitionBuilder: (child, animation) =>
                         ScaleTransition(scale: animation, child: child),
                     child: Text(
@@ -735,9 +756,9 @@ class _CartTeaserBar extends StatelessWidget {
                     color: Colors.deepOrange.withValues(alpha: 0.14),
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.shopping_cart_rounded,
-                    color: Colors.deepOrange,
+                    color: AppThemeConfig.pending(context),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -766,7 +787,7 @@ class _CartTeaserBar extends StatelessWidget {
                   ),
                 ),
                 Icon(
-                  Icons.chevron_right_rounded,
+                  AppIcons.chevronForward(context),
                   color: AppThemeConfig.mutedText(context),
                 ),
               ],
@@ -794,7 +815,7 @@ class _OrdersShortcut extends StatelessWidget {
         subtitle: count == 0
             ? 'Track your marketplace order status.'
             : '$count ${'orders'.tr} • ${'Track your marketplace order status.'.tr}',
-        color: Colors.deepOrange,
+        color: AppThemeConfig.pending(context),
         onTap: () => Get.to(() => const MarketplaceOrdersScreen()),
       );
     });
@@ -885,9 +906,9 @@ class _ProductImageFallback extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       color: Colors.deepOrange.withValues(alpha: 0.12),
-      child: const Icon(
+      child: Icon(
         Icons.storefront_rounded,
-        color: Colors.deepOrange,
+        color: AppThemeConfig.pending(context),
         size: 48,
       ),
     );

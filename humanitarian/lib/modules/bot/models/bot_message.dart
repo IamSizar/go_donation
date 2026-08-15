@@ -19,11 +19,11 @@ class AssistantToolResult {
 /// [toolResults] the backend looked up to answer it.
 class BotMessage {
   BotMessage.user(this.text)
-      : isUser = true,
-        actionLabel = null,
-        actionRoute = null,
-        isError = false,
-        toolResults = const [];
+    : isUser = true,
+      actionLabel = null,
+      actionRoute = null,
+      isError = false,
+      toolResults = const [];
 
   BotMessage.bot(
     this.text, {
