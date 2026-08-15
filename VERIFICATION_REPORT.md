@@ -57,14 +57,14 @@ remain invisible to the client when he re-tests on his phone.
 
 | Verdict | Count |
 |---|---|
-| **FIXED** | 77 |
+| **FIXED** | 78 |
 | **ALREADY OK** | 43 |
-| **STILL BROKEN** | 57 |
+| **STILL BROKEN** | 56 |
 | **NEEDS OWNER** | 20 |
 | **CANNOT VERIFY** | 7 |
 | **Total** | **204** |
 
-**120 of 204 (59%) are already correct** — fixed in this batch or never actually broken.
+**121 of 204 (59%) are already correct** — fixed in this batch or never actually broken.
 Roughly a third of the "still broken" rows are *partial* implementations, where the
 feature exists but does not yet cover everything the client described; each says so.
 
@@ -140,8 +140,9 @@ fixed** (1, 2, 3 and 7).
 
 ### 3. Needs the owner's decision (not defects)
 
-**A1 (second half)**, C4, C5, C8, D1 wording, E8 (which states show a reason), F10, I1,
-I3, J11, K31, N1–N11. The three that block other work:
+**A1 (second half)**, C4, C5, C8, D1 wording, E8 (which states show a reason), **E17
+scope (new — see 4 below)**, F10, I1, I3, J11, K31, N1–N11. The four that block other
+work:
 
 1. **Terminology (I1/I3/N7).** Is the giving section **المساهمات** or **ادعمنا**? Is
    الكفالات becoming **المعونات**? The English already says "Assistance"; the Arabic is
@@ -163,6 +164,19 @@ I3, J11, K31, N1–N11. The three that block other work:
    real code arrives out of band. Until then, resets are yours to do from
    المستخدمون → تعديل. This is a finding, not a preference: there is no version of
    self-service reset that is safe while the code is printed to whoever asks for it.
+
+4. **Which profile fields go through review (E17).** Your note says profile edits must
+   not save until an employee approves. Today exactly two do: the **name** and the
+   **photo**. **Address** saves the moment the user presses save, and **removing** a
+   photo takes effect immediately — a user can therefore delete an approved photo
+   without anyone reviewing it, which may or may not be what you intend.
+
+   The app no longer misreports any of this: it now says exactly which parts are waiting
+   and which are already saved. Widening the rule is a separate, deliberate change —
+   a migration to make `address` reviewable, a queue entry for a removal, and the
+   dashboard screens to review both — and it is a policy question rather than a bug:
+   **should an address change, and should deleting a photo, wait for an employee?**
+   Answer that and it is a day's work; guessing at it is not.
 
 ### 4. What could not be verified — 7 of 204
 
@@ -284,7 +298,7 @@ the simulator is signed in as a donor — and rows depending on them say so.
 | E14 | حقل التقديم layout breaks when dropdown options change | **FIXED** | `06ab6c0`. `StatusCell.tsx:97-113` computes the width from the **widest** option, not the selected one, and pins it — the comment states the intent. The signups status column is additionally pinned at 180px (`VolunteersPage.tsx:914`) | Dashboard → المتطوعين → تسجيلات المهام: change a status from a short word to a long one; the columns beside it must not shift. |
 | E15 | Need a fixed list always showing موافق/قبول/رفض/تراجع/حذف | **STILL BROKEN (حذف missing)** | Four of five are permanently available: the status dropdown always offers all 8 states (`VolunteersPage.tsx:918-923`) and the server validates against a flat allowlist, so قبول/رفض/تراجع work from any state. **حذف does not exist** — `main.go:713-716` registers only GET and two POST routes for `volunteer_mission_signups`, no DELETE, and no delete control appears | Dashboard → المتطوعين → تسجيلات المهام → ⋯ on a completed row: you can still change its status, but there is no حذف anywhere. |
 | E16 | Login must accept international numbers | **FIXED** | `d19e213` + `5ba891a`. **Verified live**: the sign-in screen shows an Iraq flag and `+964` with a dropdown arrow; `login.dart:290-342` mounts a country picker ("200+ available") driving normalization at `:199-202`, with Iraq-strict vs generic 4–14-digit validation at `:113-123`; the server accepts `+`/`00` prefixes (`auth/phone.go:52-59`) | App sign-in: tap the flag beside the phone box — a searchable country list opens. |
-| E17 | Profile edits must not save until an employee approves | **STILL BROKEN** | Two problems. **Scope:** only two fields are reviewed — `profilechanges.go:17-20` defines exactly `FieldFullName` and `FieldPicture`. `address` saves instantly (`profile.go:257-259`) and photo **removal** skips review entirely (`:271-275`). **Honesty:** the server returns `pending_review` specifically so the app can say "waiting for approval" (`profile.go:325-332`), but **nothing in the app reads that key** and `edit_profile.dart:97-101` unconditionally says "saved" | App → تعديل الملف الشخصي: change your name **and** your address, save. It says saved with no mention of review — then check the dashboard queue: only the name is waiting there. |
+| E17 | Profile edits must not save until an employee approves | **FIXED (honesty) — scope NEEDS OWNER** | **Honesty half fixed.** The app now reads the `pending_review` list the server has been sending since migration 093 (the handler comment at `profile.go:325-332` says it exists "so the app can say 'waiting for approval'"; nothing read it). The message is picked by `profileSaveMessage()` in `api/profile_api.dart` from what the server actually did — four outcomes, tested. A second, quieter version of the same lie is fixed with it: a photo awaiting review used to be cached locally and shown as the user's avatar everywhere, so the app displayed a picture no one had approved. **Scope half is your decision, not a defect** — only `full_name` and `profile_picture` are reviewable (`profilechanges.go:17-20`). `address` still saves instantly, and photo **removal** still skips review. Extending review to those needs a migration and a dashboard queue change, and it is a policy call: see "Needs your decision" | App → تعديل الملف الشخصي: change your name **and** your address, save. It should now say "تم الحفظ — بانتظار الموافقة" and explain that the name is waiting while the rest is saved — matching what the dashboard queue actually holds. |
 | E18 | All registrations and profile edits go through review | **FIXED** | `32fdd99` + `1bb6275`. Role-independent by construction: `registration.go:240` moves **any** submitting user to `pending`; `RequireApproved()` (`middleware.go:130-150`) 403s every non-approved user and is mounted on the whole authenticated group (`main.go:462`). The app routes pending/rejected users to a waiting screen (`auth_navigation.dart:23-25`) | Register a fresh test account as متطوع: after the code step it should land on "waiting for approval" and refuse the home tabs until you approve it in التسجيلات. |
 
 ## F. Missing dashboard features

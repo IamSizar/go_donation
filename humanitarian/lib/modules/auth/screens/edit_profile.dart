@@ -191,10 +191,19 @@ class _EditProfilePageState extends State<EditProfilePage> {
         _removeProfilePicture = false;
       });
     } else {
-      if (hasLocalFile) {
+      // E17 — do NOT cache the picked file when the photo is awaiting review.
+      // The server deliberately returns the LIVE picture (the old one, or
+      // none), so caching the local path here would show the user their
+      // unapproved photo everywhere in the app while staff still see the
+      // pending request. A second, quieter version of the same lie the
+      // snackbar was telling.
+      if (hasLocalFile && !result.isPicturePending) {
         await sharedPreferences.setString('profile_image_path', localPath);
-      } else if ((localPath ?? '').isEmpty) {
+      } else if ((localPath ?? '').isEmpty || result.isPicturePending) {
         await sharedPreferences.remove('profile_image_path');
+        if (result.isPicturePending) {
+          setState(() => _profileImagePath = null);
+        }
       }
     }
 
@@ -205,9 +214,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
     setState(() => _isSaving = false);
     AppHaptics.success();
     Get.back(result: true);
+    // E17 — the message used to be the same sentence whatever happened, so a
+    // user whose name went to the review queue was told it had been saved. The
+    // server has always said which fields it queued; nothing read it until now.
+    // The branch itself lives in profile_api.dart so it can be tested.
+    final message = profileSaveMessage(result);
     Get.snackbar(
-      'Profile updated'.tr,
-      'Your profile details have been saved.'.tr,
+      message.title.tr,
+      message.body.tr,
       snackPosition: SnackPosition.BOTTOM,
     );
   }

@@ -311,6 +311,7 @@ class ProfileUpdateResult {
     required this.address,
     required this.gender,
     this.profilePictureUrl,
+    this.pendingReview = const <String>[],
   }) : ok = true,
        errorMessage = null;
 
@@ -319,7 +320,8 @@ class ProfileUpdateResult {
       fullName = null,
       address = null,
       gender = null,
-      profilePictureUrl = null;
+      profilePictureUrl = null,
+      pendingReview = const <String>[];
 
   final bool ok;
   final String? errorMessage;
@@ -327,6 +329,72 @@ class ProfileUpdateResult {
   final String? address;
   final String? gender;
   final String? profilePictureUrl;
+
+  /// Fields the server queued for staff review instead of applying (E17).
+  ///
+  /// Values are the server's own field names — `full_name`, `profile_picture`
+  /// (`backend/internal/profilechanges/profilechanges.go`). An empty list means
+  /// everything the user submitted is already live.
+  ///
+  /// The server has sent this since migration 093, with a comment saying it
+  /// exists "so the app can say 'waiting for approval'". Nothing read it, so
+  /// the app said "saved" either way.
+  final List<String> pendingReview;
+
+  /// True when the user's new name is queued and the live profile still shows
+  /// the old one.
+  bool get isNamePending => pendingReview.contains(fieldFullName);
+
+  /// True when the user's new photo is queued and the avatar still shows the
+  /// old one (or none).
+  bool get isPicturePending => pendingReview.contains(fieldProfilePicture);
+}
+
+/// The two reviewable field names, mirroring the Go constants so no call site
+/// writes the literal twice (`profilechanges.FieldFullName` / `FieldPicture`).
+const String fieldFullName = 'full_name';
+const String fieldProfilePicture = 'profile_picture';
+
+/// What to tell the user after a profile save, given what the server actually
+/// did with it.
+///
+/// E17 — the screen used to say "Your profile details have been saved" no
+/// matter what. When the name or the photo is queued for review that sentence
+/// is false: the live profile still shows the old value, and the user walks
+/// away believing a change landed that nobody has approved.
+///
+/// Pure and separate from the widget so the decision can be tested without
+/// pumping a screen or mocking an upload — the branch is the part that was
+/// wrong, not the snackbar.
+///
+/// Returns an untranslated (title, body) pair; the caller applies `.tr`.
+({String title, String body}) profileSaveMessage(ProfileUpdateResult result) {
+  final name = result.isNamePending;
+  final picture = result.isPicturePending;
+
+  if (!name && !picture) {
+    return (title: 'Profile updated', body: 'Your profile details have been saved.');
+  }
+  // "Your other details are saved" is load-bearing: address and gender DO
+  // apply immediately, so a message that only mentioned the review would be
+  // just as misleading in the other direction.
+  const title = 'Saved — waiting for approval';
+  if (name && picture) {
+    return (
+      title: title,
+      body: 'Your other details are saved. Your new name and photo need staff approval before they appear.',
+    );
+  }
+  if (name) {
+    return (
+      title: title,
+      body: 'Your other details are saved. Your new name needs staff approval before it appears.',
+    );
+  }
+  return (
+    title: title,
+    body: 'Your other details are saved. Your new photo needs staff approval before it appears.',
+  );
 }
 
 Future<void> _sendProfileUpdateEventToFirestore({
@@ -413,11 +481,20 @@ Future<ProfileUpdateResult> updateUserProfile({
         userId: userId,
         fullName: resolvedFullName,
       );
+      // E17 — `pending_review` lists the fields the server QUEUED rather than
+      // applied. Absent on an older server, which is why the default is an
+      // empty list rather than a null: "no key" and "nothing queued" mean the
+      // same thing to every caller.
+      final pendingRaw = body['pending_review'];
+      final pending = pendingRaw is List
+          ? pendingRaw.map((e) => e.toString()).toList(growable: false)
+          : const <String>[];
       return ProfileUpdateResult.success(
         fullName: resolvedFullName,
         address: resolvedAddress,
         gender: resolvedGender,
         profilePictureUrl: resolveProfilePictureUrl(body['profile_picture']),
+        pendingReview: pending,
       );
     }
 

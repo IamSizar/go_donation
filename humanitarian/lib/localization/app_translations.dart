@@ -1844,6 +1844,18 @@ class AppTranslations extends Translations {
     'Your beneficiary workspace': 'Your eligible workspace',
     'Your profile details have been saved.':
         'Your profile details have been saved.',
+    // ─── E17 · honest profile-save message ───
+    // The screen used to say "Your profile details have been saved" whether
+    // the change landed or went to the staff review queue. These three cover
+    // what actually happened; the branch is profileSaveMessage() in
+    // api/profile_api.dart.
+    'Saved — waiting for approval': 'Saved — waiting for approval',
+    'Your other details are saved. Your new name needs staff approval before it appears.':
+        'Your other details are saved. Your new name needs staff approval before it appears.',
+    'Your other details are saved. Your new photo needs staff approval before it appears.':
+        'Your other details are saved. Your new photo needs staff approval before it appears.',
+    'Your other details are saved. Your new name and photo need staff approval before they appear.':
+        'Your other details are saved. Your new name and photo need staff approval before they appear.',
     'Your project is pending review (reference #@id).':
         'Your project is pending review (reference #@id).',
     'Your project is pending review.': 'Your project is pending review.',
@@ -4366,6 +4378,17 @@ class AppTranslations extends Translations {
         'لقد أدخلت عدد الأشخاص — أضف توزيع الجنسين وملف المتطوعين والمهارات كنص حر حتى يتمكن المنسقون من تخطيط الفرق (كلها اختيارية أدناه).',
     'Your beneficiary workspace': 'مساحة المستحق الخاصة بك',
     'Your profile details have been saved.': 'تم حفظ تفاصيل ملفك الشخصي.',
+    // ─── E17 · honest profile-save message ───
+    // Wording follows the client's own sentence for this rule: "لا تُعتمد
+    // التغييرات إلا بعد مراجعتها والموافقة عليها من قبل موظف التطبيق" — hence
+    // "موظف" rather than a synonym.
+    'Saved — waiting for approval': 'تم الحفظ — بانتظار الموافقة',
+    'Your other details are saved. Your new name needs staff approval before it appears.':
+        'تم حفظ بقية بياناتك. اسمك الجديد بحاجة إلى موافقة موظف قبل أن يظهر.',
+    'Your other details are saved. Your new photo needs staff approval before it appears.':
+        'تم حفظ بقية بياناتك. صورتك الجديدة بحاجة إلى موافقة موظف قبل أن تظهر.',
+    'Your other details are saved. Your new name and photo need staff approval before they appear.':
+        'تم حفظ بقية بياناتك. اسمك وصورتك الجديدان بحاجة إلى موافقة موظف قبل أن يظهرا.',
     'Your project is pending review (reference #@id).':
         'مشروعك بانتظار المراجعة (المرجع #@id).',
     'Your project is pending review.': 'مشروعك بانتظار المراجعة.',
