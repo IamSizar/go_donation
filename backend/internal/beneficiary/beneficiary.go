@@ -244,8 +244,16 @@ func (s *Store) ListPublicCases(ctx context.Context, status string, limit int) (
 // The columns masked here are the ones that are the OWNER'S OWN details and
 // have a matching switch in the privacy catalogue: full_name, phone, gender,
 // date_of_birth, address. Case-specific fields (needs, housing, income) are
-// not personal-profile fields and have no switch; national_id has none either
-// and is discussed in the K8 row of VERIFICATION_REPORT.md.
+// not personal-profile fields and have no switch.
+//
+// national_id is NOT one of them and is never served here at all. It has no
+// catalogue key, so no privacy switch could ever govern it — and a government
+// ID number is not something an anonymous reader browsing aid cases has any
+// reason to receive. It was reaching the public endpoint in production. Unlike
+// the columns above this is unconditional: it does not depend on the owner
+// having opened Privacy Settings, and it applies to ownerless rows too, which
+// skip the per-owner loop below entirely because they have no owner whose
+// preferences could be consulted.
 //
 // ListPublicCases stays unmasked for callers that are not serving a user.
 func (s *Store) ListPublicCasesForViewer(ctx context.Context, status string, limit int, viewerID int64) ([]Case, error) {
@@ -253,6 +261,8 @@ func (s *Store) ListPublicCasesForViewer(ctx context.Context, status string, lim
 	if err != nil {
 		return nil, err
 	}
+	// Strip before anything else, so no later early-return can leak it.
+	stripNationalIDs(items)
 	owners := make([]int64, 0, len(items))
 	for _, c := range items {
 		if c.UserID != nil {
@@ -276,6 +286,19 @@ func (s *Store) ListPublicCasesForViewer(ctx context.Context, status string, lim
 		items[i].Address = seen.Field(owner, privacy.FieldAddress, items[i].Address)
 	}
 	return items, nil
+}
+
+// stripNationalIDs clears the national ID on every case in the slice.
+//
+// Kept as its own function so the guarantee is testable without a database:
+// the caller it serves needs a live Pool, and a rule this important should not
+// rest on an integration test that skips itself when TEST_DATABASE_URL is
+// unset. It clears every element unconditionally — including cases with no
+// owner, which are precisely the rows the per-owner privacy loop skips.
+func stripNationalIDs(items []Case) {
+	for i := range items {
+		items[i].NationalID = nil
+	}
 }
 
 func (s *Store) queryCases(ctx context.Context, q string, args ...any) ([]Case, error) {
