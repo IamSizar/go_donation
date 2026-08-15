@@ -99,7 +99,10 @@ export default function NotificationsPage() {
       key: 'body', header: t('col.body'),
       cell: (n) => <span style={{ whiteSpace: 'normal' }}>{n.body.length > 100 ? n.body.slice(0, 100) + '…' : n.body}</span>,
     },
-    { key: 'type', header: t('col.type'), cell: (n) => n.notification_type ? <code style={{ background: 'transparent', padding: 0 }}>{n.notification_type}</code> : <span className="muted">—</span> },
+    // notification_type was rendered inside <code> as a raw enum
+    // (beneficiary_case_submitted, volunteer_application_approved, …) —
+    // checklist B1. The sibling category cell below already did this right.
+    { key: 'type', header: t('col.type'), cell: (n) => n.notification_type ? statusLabel(n.notification_type) : <span className="muted">—</span> },
     {
       key: 'cat', header: t('col.category'),
       cell: (n) => <span className={`badge ${categoryBadge(n.notification_category)}`}>{statusLabel(n.notification_category)}</span>,

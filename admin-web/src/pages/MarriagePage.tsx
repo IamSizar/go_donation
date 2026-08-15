@@ -162,7 +162,9 @@ export default function MarriagePage() {
       header: t('col.profile_code'),
       cell: (p) => <code style={{ background: 'transparent', padding: 0 }}>{p.profile_code}</code>,
     },
-    { key: 'gender', header: t('col.gender'), cell: (p) => p.gender ?? <span className="muted">—</span> },
+    // gender arrives as a backend token ('Male'/'male'); statusLabel resolves
+    // it the same way the visibility and subscription cells below already do.
+    { key: 'gender', header: t('col.gender'), cell: (p) => p.gender ? statusLabel(p.gender) : <span className="muted">—</span> },
     { key: 'age', header: t('col.age'), align: 'right', cell: (p) => p.age ?? <span className="muted">—</span> },
     { key: 'city', header: t('col.city'), cell: (p) => p.city ?? <span className="muted">—</span> },
     {

@@ -149,7 +149,9 @@ export default function SupportPage() {
       key: 'user', header: tr('col.user'),
       cell: (t) => (
         <div className="cell-stack">
-          <strong>{t.user_full_name ?? (t.user_id ? `user #${t.user_id}` : '—')}</strong>
+          {/* `user #N` was hardcoded English; common.user_ref_lc localizes it
+              and bidi-isolates the number so it stays LTR inside RTL text. */}
+          <strong>{t.user_full_name ?? (t.user_id ? tr('common.user_ref_lc', { id: t.user_id }) : '—')}</strong>
           {t.user_phone && <span className="muted">{t.user_phone}</span>}
         </div>
       ),

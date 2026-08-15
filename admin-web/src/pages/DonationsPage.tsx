@@ -13,7 +13,7 @@ import StatusCell from '../components/StatusCell'
 import EditModal, { type FieldSpec } from '../components/EditModal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../lib/toast'
-import { useI18n } from '../lib/i18n'
+import { useI18n, useStatusLabel } from '../lib/i18n'
 import { type CsvColumn } from '../lib/csv'
 import { HighlightBanner, useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForDonation } from '../lib/statusColors'
@@ -99,6 +99,7 @@ export default function DonationsPage() {
   const pollSilent = useRef(false)
   const toast = useToast()
   const { t } = useI18n()
+  const statusLabel = useStatusLabel()
   // Live-feed click landing: scrolls to and pulses the matching row when the
   // URL has `?highlight=<id>`. No-op for direct visits to /donations.
   const highlight = useHighlightedRow()
@@ -290,8 +291,10 @@ export default function DonationsPage() {
         />
       ),
     },
-    { key: 'method', header: t('col.method'), cell: (d) => d.payment_method || <span className="muted">—</span> },
-    { key: 'type', header: t('col.type'), cell: (d) => <span className="muted">{d.donation_type || '—'}</span> },
+    // payment_method and donation_type are backend enums (cash/bank/wallet,
+    // zakat/sadaqah/general) and were being printed as raw tokens.
+    { key: 'method', header: t('col.method'), cell: (d) => d.payment_method ? statusLabel(d.payment_method) : <span className="muted">—</span> },
+    { key: 'type', header: t('col.type'), cell: (d) => <span className="muted">{d.donation_type ? statusLabel(d.donation_type) : '—'}</span> },
     {
       key: 'date',
       header: t('col.date'),

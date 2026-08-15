@@ -163,7 +163,9 @@ export default function InKindPage() {
         </div>
       ),
     },
-    { key: 'cat', header: t('col.category'), cell: (k) => k.category },
+    // Legacy free-text category slug from the backend. Printed raw it showed
+    // machine values like "beauty_care"/"food_pantry" in every language.
+    { key: 'cat', header: t('col.category'), cell: (k) => k.category ? statusLabel(k.category) : <span className="muted">—</span> },
     { key: 'item', header: t('col.item'), cell: (k) => k.item_name },
     { key: 'qty', header: t('col.quantity'), cell: (k) => k.quantity ?? <span className="muted">—</span> },
     { key: 'pickup', header: t('col.pickup'), cell: (k) => k.pickup_address ?? <span className="muted">—</span> },

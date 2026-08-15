@@ -17,7 +17,7 @@ import Table, { type Column } from '../components/Table'
 import EditModal, { type FieldSpec } from '../components/EditModal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../lib/toast'
-import { useI18n, type Locale } from '../lib/i18n'
+import { useI18n, useStatusLabel, type Locale } from '../lib/i18n'
 import PageHead, { PageActions, BarSecondary } from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
 import RowActionsMenu from '../components/RowActionsMenu'
@@ -86,6 +86,7 @@ export default function CityGuidePage() {
   const [sectors, setSectors] = useState<CitySector[]>([])
   const toast = useToast()
   const { t, locale } = useI18n()
+  const statusLabel = useStatusLabel()
 
   useEffect(() => {
     let cancelled = false
@@ -226,7 +227,9 @@ export default function CityGuidePage() {
         </div>
       ),
     },
-    { key: 'cat',  header: t('col.category'), cell: (e) => e.category },
+    // Legacy free-text category slug from the backend — printed raw it showed
+    // e.g. "food_pantry". statusLabel resolves it, or degrades to the value.
+    { key: 'cat',  header: t('col.category'), cell: (e) => e.category ? statusLabel(e.category) : <span className="muted">—</span> },
     {
       key: 'sector', header: t('field.sector'),
       cell: (e) => {
@@ -267,9 +270,11 @@ export default function CityGuidePage() {
     },
     {
       key: 'status', header: t('col.status'),
+      // Only 'pending' was special-cased; every other status (approved,
+      // rejected, …) fell through and rendered as a raw English token.
       cell: (e) => e.status === 'pending'
         ? <span className="badge" style={{ background: 'rgba(255,183,77,0.18)', color: '#ffb74d' }}>{t('cityGuide.filter_pending')}</span>
-        : <span className="muted">{e.status ?? '—'}</span>,
+        : <span className="muted">{e.status ? statusLabel(e.status) : '—'}</span>,
     },
     {
       key: 'actions', header: t('common.actions'), width: '260px',

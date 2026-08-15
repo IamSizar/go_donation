@@ -1104,8 +1104,7 @@ const kmr: DeepPartial<typeof en> = {
 
   status: {
     all: 'هەمی',
-    healthcare: 'چاودێریا تەندرستیێ', education: 'پەروەردە', government: 'نڤیسینگەه و خزمەت',
-    markets: 'بازار و دوکان', worship: 'جهێن پەرستنێ', relief: 'هاریکاری و فریاکەفتن',
+    education: 'پەروەردە', government: 'نڤیسینگەه و خزمەت',
     exact: 'جهێ دیاری', approx: 'نێزیکی (~٥٠٠م)',
     pending: 'چاڤەڕوان',
     registered: 'تۆمارکری',

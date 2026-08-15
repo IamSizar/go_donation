@@ -1178,14 +1178,26 @@ const en = {
   // Unknown values fall back to the raw string.
   status: {
     all: 'all',
-    // #29 — City Guide sector slugs (default seeds; admin-added sectors fall back to their slug).
-    healthcare: 'Healthcare', education: 'Education', government: 'Government & Services',
-    markets: 'Markets & Shops', worship: 'Places of Worship', relief: 'Relief & Emergency',
+    // #29 — City Guide sector slugs. `healthcare`/`markets`/`worship`/`relief`
+    // were removed: migration 052_city_guide_five_sectors.sql replaced them
+    // with health/commercial and deleted worship+relief, and nothing in src/
+    // referenced them. Sector names now resolve from the DB, not from here.
+    education: 'Education', government: 'Government & Services',
     exact: 'Exact location', approx: 'Approximate (~500m)',
     pending: 'Pending',
     registered: 'Registered',
     under_review: 'Under review',
     needs_changes: 'Needs changes',
+    // Backend enums that had NO status.* entry, so useStatusLabel fell
+    // through and printed the raw token. Wording mirrors the option.* /
+    // paymentMethods.* labels already used for the same concepts.
+    male: 'Male', female: 'Female',
+    single: 'Single', married: 'Married', widowed: 'Widowed', divorced: 'Divorced',
+    employed: 'Employed', unemployed: 'Unemployed', self_employed: 'Self-employed', student: 'Student',
+    cash: 'Cash', bank: 'Bank', wallet: 'Wallet',
+    staff: 'Staff', requester: 'Requester', owner: 'Owner',
+    incomplete: 'Incomplete', other: 'Other',
+    required: 'Required', optional: 'Optional',
     'Active — accepting donations': 'Active — accepting contributions',
     'Hidden — not visible to donors': 'Hidden — not visible to grantors',
     'Finished — closed for donations': 'Finished — closed for contributions',

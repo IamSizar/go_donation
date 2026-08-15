@@ -4,7 +4,7 @@ import type { ReportsResp } from '../lib/api-types'
 import StatCard from '../components/StatCard'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { type CsvColumn } from '../lib/csv'
-import { useI18n } from '../lib/i18n'
+import { useI18n, useStatusLabel } from '../lib/i18n'
 import PageHead from '../components/PageHead'
 
 // A report is a set of headline figures, not a row list — so the export is a
@@ -49,7 +49,7 @@ export default function ReportsPage() {
   const [err, setErr] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const { t } = useI18n()
-
+  const statusLabel = useStatusLabel()
 
   useEffect(() => {
     let cancelled = false
@@ -123,7 +123,9 @@ export default function ReportsPage() {
               <ul className="key-value">
                 {resp!.expenses.map(e => (
                   <li key={e.expense_type}>
-                    <span>{e.expense_type}</span>
+                    {/* expense_type is a backend enum; printed raw it read
+                        e.g. "beneficiary_assistance" in every language. */}
+                    <span>{statusLabel(e.expense_type)}</span>
                     <strong>{fmt(e.amount)} IQD</strong>
                   </li>
                 ))}
@@ -135,13 +137,19 @@ export default function ReportsPage() {
   )
 }
 
+// `label` is a raw backend enum, not display text: the buckets come straight
+// from `GROUP BY verification_status` / `GROUP BY status` (backend
+// internal/reports/reports.go). It was being printed verbatim, so every one of
+// the three lists that use this component showed machine tokens like
+// `needs_changes` — in ALL four languages, not just Arabic.
 function BucketList({ items, loading }: { items: Array<{ label: string; total: number }>, loading: boolean }) {
   const { t } = useI18n()
+  const statusLabel = useStatusLabel()
   if (loading) return <div className="muted">{t('common.loading')}</div>
   if (items.length === 0) return <div className="muted">{t('page.reports.no_data')}</div>
   return (
     <ul className="key-value">
-      {items.map(b => <li key={b.label}><span>{b.label}</span><strong>{b.total}</strong></li>)}
+      {items.map(b => <li key={b.label}><span>{statusLabel(b.label)}</span><strong>{b.total}</strong></li>)}
     </ul>
   )
 }

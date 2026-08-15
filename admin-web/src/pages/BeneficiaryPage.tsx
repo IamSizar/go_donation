@@ -686,7 +686,9 @@ function RequestsTab() {
         </div>
       ),
     },
-    { key: 'category', header: t('col.category'), cell: (r) => r.category },
+    // Legacy free-text category slug from the backend. Printed raw it showed
+    // machine values like "beauty_care"/"food_pantry" in every language.
+    { key: 'category', header: t('col.category'), cell: (r) => r.category ? statusLabel(r.category) : <span className="muted">—</span> },
     {
       key: 'user',
       header: t('col.submitted_by'),

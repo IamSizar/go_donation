@@ -290,7 +290,9 @@ function ProductsTab() {
         </div>
       ),
     },
-    { key: 'cat', header: t('col.category'), cell: (p) => p.category ?? <span className="muted">—</span> },
+    // Legacy free-text category slug from the backend. Printed raw it showed
+    // machine values like "beauty_care"/"food_pantry" in every language.
+    { key: 'cat', header: t('col.category'), cell: (p) => p.category ? statusLabel(p.category) : <span className="muted">—</span> },
     {
       key: 'price',
       header: t('col.price'),
@@ -311,7 +313,9 @@ function ProductsTab() {
       key: 'seller',
       header: t('col.seller'),
       cell: (p) =>
-        p.seller_user_id ? `user #${p.seller_user_id}` : <span className="muted">—</span>,
+        // `user #N` was hardcoded English AND a raw sequential id; the
+        // common.user_ref_lc helper localizes it and bidi-isolates the number.
+        p.seller_user_id ? t('common.user_ref_lc', { id: p.seller_user_id }) : <span className="muted">—</span>,
     },
     {
       key: 'status',
@@ -528,7 +532,7 @@ function OrdersTab() {
       key: 'buyer',
       header: t('col.buyer'),
       cell: (o) =>
-        o.buyer_user_id ? `user #${o.buyer_user_id}` : <span className="muted">—</span>,
+        o.buyer_user_id ? t('common.user_ref_lc', { id: o.buyer_user_id }) : <span className="muted">—</span>,
     },
     { key: 'qty', header: t('col.qty'), align: 'right', cell: (o) => o.quantity },
     {

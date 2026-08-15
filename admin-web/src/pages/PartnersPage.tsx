@@ -181,7 +181,9 @@ export default function PartnersPage() {
         </div>
       ),
     },
-    { key: 'type', header: t('col.type'), cell: (p) => p.partner_type ?? <span className="muted">—</span> },
+    // partner_type is a backend enum; the file already uses statusLabel
+    // elsewhere, this cell was simply missed.
+    { key: 'type', header: t('col.type'), cell: (p) => p.partner_type ? statusLabel(p.partner_type) : <span className="muted">—</span> },
     {
       key: 'website',
       header: t('col.website'),

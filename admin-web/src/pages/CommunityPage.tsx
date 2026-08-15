@@ -6,7 +6,7 @@ import Table, { type Column } from '../components/Table'
 import EditModal, { type FieldSpec } from '../components/EditModal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../lib/toast'
-import { useI18n } from '../lib/i18n'
+import { useI18n, useStatusLabel } from '../lib/i18n'
 import { type CsvColumn } from '../lib/csv'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
@@ -60,6 +60,7 @@ export default function CommunityPage() {
   const [refreshTick, setRefreshTick] = useState(0)
   const toast = useToast()
   const { t } = useI18n()
+  const statusLabel = useStatusLabel()
 
   useEffect(() => {
     let cancelled = false
@@ -119,7 +120,9 @@ export default function CommunityPage() {
         </div>
       ),
     },
-    { key: 'cat', header: t('col.category'), cell: (e) => e.category },
+    // Legacy free-text category slug from the backend; raw it showed machine
+    // values like "food_pantry" in every language.
+    { key: 'cat', header: t('col.category'), cell: (e) => e.category ? statusLabel(e.category) : <span className="muted">—</span> },
     { key: 'city', header: t('col.city'), cell: (e) => e.city ?? <span className="muted">—</span> },
     { key: 'addr', header: t('col.address'), cell: (e) => e.address ?? <span className="muted">—</span> },
     { key: 'phone', header: t('col.phone'), cell: (e) => e.phone ?? <span className="muted">—</span> },
@@ -156,7 +159,9 @@ export default function CommunityPage() {
           />
           <select value={category} onChange={e => setCategory(e.target.value)} style={{ width: 'auto' }}>
             <option value="">{t('filter.all_categories')}</option>
-            {categories.map(c => <option key={c} value={c}>{c}</option>)}
+            {/* The option VALUE stays the raw slug (it is the filter query);
+                only the visible label is localized. */}
+            {categories.map(c => <option key={c} value={c}>{statusLabel(c)}</option>)}
           </select>
           <select value={city} onChange={e => setCity(e.target.value)} style={{ width: 'auto' }}>
             <option value="">{t('filter.all_cities')}</option>

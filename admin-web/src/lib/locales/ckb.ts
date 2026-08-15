@@ -1103,8 +1103,7 @@ const ckb: DeepPartial<typeof en> = {
 
   status: {
     all: 'هەموو',
-    healthcare: 'چاودێری تەندروستی', education: 'پەروەردە', government: 'نووسینگە و خزمەت',
-    markets: 'بازاڕ و دووکان', worship: 'شوێنی پەرستن', relief: 'فریاگوزاری و فریاکەوتن',
+    education: 'پەروەردە', government: 'نووسینگە و خزمەت',
     exact: 'شوێنی وردی', approx: 'نزیکەیی (~٥٠٠م)',
     pending: 'چاوەڕوان',
     registered: 'تۆمارکراو',
