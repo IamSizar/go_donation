@@ -853,7 +853,26 @@ func main() {
 			admin.DELETE("/admin/tasks/:id", perm("tasks", "delete"), tasksH.AdminDelete)
 			// Section 25 — immediate administrative actions (super-admin only).
 			admin.POST("/admin/users/:id/force_logout", auth.RequireSuperAdmin(), adminStatusH.UserForceLogout)
-			admin.POST("/admin/users/:id/account_status", auth.RequireSuperAdmin(), adminStatusH.UserAccountStatus)
+			// H8 — "control activating/deactivating accounts, products, stores".
+			// Products, stores, partners and media obeyed the matrix already;
+			// this one was hard-pinned to RequireSuperAdmin(), so no checkbox
+			// could grant it and only the owner could suspend anyone.
+			//
+			// It sits on its own SIBLING's gate — the archive route three lines
+			// down takes an account out of circulation too, calls the same
+			// guardUserWrite, and has been delegable all along. Suspending and
+			// archiving are the same kind of act on the same resource; only one
+			// of them was controllable. Reusing users/archive rather than
+			// inventing a module or an action means NOTHING new is granted by
+			// default: exactly whoever could already archive an account can now
+			// suspend one (supervisor yes, employee no), and a Super-Admin can
+			// untick it for any rank.
+			//
+			// The permission says WHETHER, never WHOSE: UserAccountStatus calls
+			// blockIfProtectedTarget first, so a supervisor still cannot suspend
+			// an admin or a Super-Admin. Pinned by
+			// admin_account_status_gate_test.go.
+			admin.POST("/admin/users/:id/account_status", perm("users", "archive"), adminStatusH.UserAccountStatus)
 			// Note #4 — Archive is deliberately NOT super-admin-only: it's the
 			// non-destructive alternative to Delete that lower tiers can be
 			// granted via the Permissions page.
