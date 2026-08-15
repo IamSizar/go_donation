@@ -130,9 +130,13 @@ class _LoginFormState extends State<_LoginForm> {
   // Defaulted to 'demo' at the client's request while OTPIQ_API_KEY is unset
   // on the backend: real delivery returns 502 "Failed to send verification
   // code." for every number, so 'real' as the default made Continue fail on
-  // the first tap for everyone. Switch this back to 'real' the moment the
-  // key is configured — the Delivery row below still offers both, so no code
-  // change is needed to test real delivery once it works.
+  // the first tap for everyone.
+  //
+  // A16 — this default no longer needs changing, and a shipped build can no
+  // longer be stuck on demo codes. The server decides delivery now: once
+  // OTPIQ_API_KEY is configured it serves a 'demo' request as a real
+  // out-of-band code, so the switchover is an environment change and never a
+  // store release. Asking for 'demo' means "demo if that is all there is".
   String _otpMode = 'demo';
 
   void _completeLogin(Map<String, dynamic> user) {

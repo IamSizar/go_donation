@@ -345,8 +345,12 @@ func adminLogin2FAEnabled() bool {
 // sendAdminLoginOTP issues a login OTP to phone, mirroring the permission-change
 // OTP flow: demo mode returns the code inline; real mode sends via OTPIQ. Returns
 // (mode, demoCode). demoCode is "" outside demo mode.
+//
+// A16 — demo is a fallback, not a preference (see demoDeliveryActive): once
+// OTPIQ_API_KEY is configured this second factor becomes a real out-of-band code
+// with no further code change.
 func (h *AuthHandler) sendAdminLoginOTP(ctx context.Context, phone string) (mode, demoCode string, err error) {
-	if auth.DemoEnabled() {
+	if demoDeliveryActive(h.OTPIQ) {
 		code := auth.DemoCode()
 		if err := h.OTPs.StoreCode(ctx, phone, code, "demo"); err != nil {
 			return "", "", err
@@ -371,54 +375,6 @@ func (h *AuthHandler) sendAdminLoginOTP(ctx context.Context, phone string) (mode
 }
 
 var errOTPNotConfigured = errors.New("OTP delivery is not configured (OTPIQ_API_KEY)")
-
-// ─── A16 · a demo code must never authenticate a staff account ──────────
-//
-// `OTP_DEMO_ENABLED` is ON in production while `OTPIQ_API_KEY` is unset, so
-// demo is the ONLY OTP mode that currently works there — and demo mode returns
-// the code to the caller in the /auth/otp/request response body (and the code
-// is a fixed value besides). A "verified factor" that hands you the factor is
-// not a factor at all: it is a public door with a doorbell.
-//
-// Ordinary users need that door — it is how the live app signs everyone in
-// today (the login screen defaults to mode 'demo' precisely because OTPIQ is
-// not configured), so it stays open for them and this change breaks no one's
-// sign-in. But it must never be what stands between a stranger and a
-// super_admin, because the app and the dashboard share one token store: a
-// token minted for a staff phone here is a dashboard token (A15).
-//
-// Staff therefore keep exactly the doors that verify something real — their
-// password (via /auth/login or the dashboard's /auth/admin/login) and a REAL
-// out-of-band OTP once OTPIQ_API_KEY is configured. Only the demo free pass is
-// closed, and only for them.
-//
-// blockStaffDemoOTP reports whether phone belongs to a staff account, writing
-// the refusal itself when it does so the caller only has to return. `stage`
-// names the endpoint for the audit line. Fails CLOSED: a lookup error refuses,
-// because "we could not tell" must never be read as "not staff".
-func (h *AuthHandler) blockStaffDemoOTP(c *gin.Context, phone, stage string) bool {
-	ip := auth.ClientIP(c.Request.RemoteAddr)
-	uid, tier, err := h.Users.StaffTierByPhone(c.Request.Context(), phone)
-	if err != nil {
-		log.Printf("[authn] %s: staff lookup failed for phone_hint=%s ip=%s: %v",
-			stage, maskPhone(phone), ip, err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"status": "error", "error": "Could not verify this number.", "code": "server_error",
-		})
-		return true
-	}
-	if uid == 0 || !permissions.CanAccessDashboard(permissions.TierFrom(tier)) {
-		return false
-	}
-	log.Printf("[authn] %s refused: demo OTP cannot sign in a staff account user_id=%d staff_tier=%q ip=%s",
-		stage, uid, tier, ip)
-	c.JSON(http.StatusForbidden, gin.H{
-		"status": "error",
-		"error":  "This account must sign in with its password.",
-		"code":   "staff_demo_otp_blocked",
-	})
-	return true
-}
 
 // POST /api/auth/admin/login
 //
@@ -596,6 +552,18 @@ func (h *AuthHandler) OTPRequest(c *gin.Context) {
 	ctx := c.Request.Context()
 	ip := auth.ClientIP(c.Request.RemoteAddr)
 
+	// A16 — the SERVER decides how a code is delivered; the caller only asks.
+	// The shipped app always asks for "demo" (it was defaulted that way because
+	// real delivery 502s with no gateway configured, and it cannot be changed
+	// without a store release), so honouring the request literally would keep
+	// every user on demo codes long after OTPIQ_API_KEY was set. Upgrading here
+	// is what makes real OTP a pure environment change.
+	if mode == "demo" && h.OTPIQ != nil {
+		log.Printf("[otp] demo request served as real delivery (OTPIQ configured) phone_hint=%s ip=%s",
+			maskPhone(phone), ip)
+		mode = "real"
+	}
+
 	rate := h.OTPs.CheckIPRate(ctx, ip)
 	if !rate.Allowed {
 		c.JSON(http.StatusTooManyRequests, gin.H{
@@ -645,27 +613,34 @@ func (h *AuthHandler) OTPRequest(c *gin.Context) {
 
 	if mode == "demo" {
 		if !auth.DemoEnabled() {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Demo OTP mode is disabled."})
+			c.JSON(http.StatusForbidden, gin.H{
+				"error": "Demo OTP mode is disabled.", "code": "demo_otp_disabled",
+			})
 			return
 		}
-		// A16 — refuse BEFORE a demo code is stored for a staff phone, so no
-		// such code ever exists to be verified (see blockStaffDemoOTP).
-		if h.blockStaffDemoOTP(c, phone, "otp request") {
+		// A16 — which code this phone gets, and whether the response may print
+		// it. An ordinary account gets the public demo code echoed back, which
+		// is the app's only source for it; a staff account gets the separate
+		// OTP_STAFF_DEMO_CODE and no echo, or is refused when none is set.
+		code, echo, refused := h.staffDemoCodeFor(c, phone, "otp request")
+		if refused {
 			return
 		}
-		code := auth.DemoCode()
 		if err := h.OTPs.StoreCode(ctx, phone, code, "demo"); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store verification code."})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{
+		resp := gin.H{
 			"status":     "success",
 			"message":    "Demo verification code is ready.",
 			"mode":       "demo",
 			"phone":      phone,
 			"expires_in": int(auth.OTPTTL.Seconds()),
-			"demo_code":  code,
-		})
+		}
+		if echo {
+			resp["demo_code"] = code
+		}
+		c.JSON(http.StatusOK, resp)
 		return
 	}
 
@@ -766,7 +741,10 @@ func (h *AuthHandler) consumeOTPCode(ctx context.Context, phone, code string) (o
 	}
 	if rec.Attempts >= auth.OTPMaxAttempts {
 		_ = h.OTPs.ClearRecord(ctx, phone)
-		return false, "", http.StatusTooManyRequests, gin.H{"error": "Too many failed attempts. Request a new code."}
+		return false, "", http.StatusTooManyRequests, gin.H{
+			"error": "Too many failed attempts. Request a new code.",
+			"code":  "otp_attempts_exhausted",
+		}
 	}
 	if !auth.VerifyCode(rec.CodeHash, code) {
 		newCount, _ := h.OTPs.IncAttempts(ctx, phone)
@@ -774,9 +752,13 @@ func (h *AuthHandler) consumeOTPCode(ctx context.Context, phone, code string) (o
 		if left < 0 {
 			left = 0
 		}
+		// The `code` matches staffDemoVerifyRefused's wrong-code answer byte for
+		// byte, so a caller cannot tell a staff number from an ordinary one by
+		// submitting a wrong code at it.
 		return false, "", http.StatusUnauthorized, gin.H{
 			"error":         "Invalid verification code.",
 			"attempts_left": left,
+			"code":          "invalid_otp",
 		}
 	}
 	_ = h.OTPs.ClearRecord(ctx, phone)
@@ -805,12 +787,13 @@ func (h *AuthHandler) OTPVerify(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
-	// A16 — a demo code must not sign a staff account in (see
-	// blockStaffDemoOTP). Checked BEFORE the code is consumed, so a refusal
-	// changes no state, and it catches demo codes that were already sitting in
-	// `otp_codes` when this gate shipped — /auth/otp/request stops new ones
-	// being created, this stops the existing ones being spent. The extra read
-	// costs one indexed lookup on a low-traffic endpoint.
+	// A16 — a staff account may only spend a demo code that came from
+	// OTP_STAFF_DEMO_CODE (see staffDemoVerifyRefused). Checked BEFORE the code
+	// is consumed, so a refusal mints nothing, and it covers demo records that
+	// were already sitting in `otp_codes` carrying the PUBLIC code — /auth/otp/
+	// request stops new ones being written for staff, this stops the old ones
+	// being spent. The extra read costs one indexed lookup on a low-traffic
+	// endpoint.
 	rec, err := h.OTPs.GetRecord(ctx, phone)
 	if err != nil {
 		log.Printf("[authn] otp verify: record lookup failed phone_hint=%s ip=%s: %v",
@@ -820,7 +803,7 @@ func (h *AuthHandler) OTPVerify(c *gin.Context) {
 		})
 		return
 	}
-	if rec != nil && rec.Mode == "demo" && h.blockStaffDemoOTP(c, phone, "otp verify") {
+	if rec != nil && rec.Mode == "demo" && h.staffDemoVerifyRefused(c, phone, code, rec) {
 		return
 	}
 

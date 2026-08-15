@@ -137,12 +137,19 @@ func insertAccount(t *testing.T, pool *pgxpool.Pool, staffTier, password string)
 // OTPIQ_API_KEY is unset.
 func newAuthRouter(t *testing.T, pool *pgxpool.Pool) *gin.Engine {
 	t.Helper()
+	return newAuthRouterWith(t, pool, nil) // OTPIQ unconfigured, as in production
+}
+
+// newAuthRouterWith is newAuthRouter with an explicit OTPIQ client, so a test
+// can exercise the configured-gateway half of the switch.
+func newAuthRouterWith(t *testing.T, pool *pgxpool.Pool, otpiq *auth.OTPIQClient) *gin.Engine {
+	t.Helper()
 	gin.SetMode(gin.TestMode)
 	h := NewAuthHandler(
 		auth.NewTokenStore(pool),
 		auth.NewOTPStore(pool),
 		users.NewStore(pool),
-		nil, // OTPIQ unconfigured, as in production
+		otpiq,
 		auth.NewLoginLockStore(pool),
 		nil, // notifier — not exercised here
 	)
@@ -341,10 +348,12 @@ func TestVerifiedFactorOTPSignIn(t *testing.T) {
 		}
 	})
 
-	// The demo code is handed to the caller in the response body, so it proves
-	// nothing. It must not open a staff account — at either end of the flow.
+	// The PUBLIC demo code is handed to the caller in the response body, so it
+	// proves nothing. It must not open a staff account — at either end of the
+	// flow — and with no staff code configured (the state production is in) a
+	// staff account has no demo door at all.
 	for _, tier := range []string{"super_admin", "admin", "supervisor", "employee"} {
-		t.Run("demo OTP cannot sign in staff tier "+tier, func(t *testing.T) {
+		t.Run("public demo OTP cannot sign in staff tier "+tier, func(t *testing.T) {
 			acc := insertAccount(t, pool, tier, "")
 
 			status, body := postJSON(t, r, "/api/auth/otp/request",
@@ -352,8 +361,8 @@ func TestVerifiedFactorOTPSignIn(t *testing.T) {
 			if status != http.StatusForbidden {
 				t.Errorf("otp request status = %d, want 403 (body: %v)", status, body)
 			}
-			if got, _ := body["code"].(string); got != "staff_demo_otp_blocked" {
-				t.Errorf("code = %q, want %q", got, "staff_demo_otp_blocked")
+			if got, _ := body["code"].(string); got != "staff_otp_unavailable" {
+				t.Errorf("code = %q, want %q", got, "staff_otp_unavailable")
 			}
 			if _, leaked := body["demo_code"]; leaked {
 				t.Error("a demo code was issued for a staff phone")
@@ -397,4 +406,218 @@ func TestVerifiedFactorOTPSignIn(t *testing.T) {
 			t.Error("a real out-of-band code did not sign staff in")
 		}
 	})
+}
+
+// ─── The staff door under an OTP-only design ────────────────────────────
+//
+// Sign-in is phone + OTP only, so "staff must use their password instead" is no
+// longer an answer: production ids 1 (admin) and 34 (super_admin) hold no
+// password and no username. They get an OTP-shaped door whose code the server
+// never prints — OTP_STAFF_DEMO_CODE, set by the owner and shared out of band.
+//
+// The exposure that buys, stated plainly and pinned below: while that variable
+// is set, anyone holding BOTH a staff phone number AND that one code can sign in
+// as that staff member, dashboard included. It is a shared password, and these
+// tests exist to keep it from being anything weaker than one.
+func TestStaffDemoOTPSignIn(t *testing.T) {
+	pool := newAuthTestPool(t)
+	t.Setenv("OTP_DEMO_ENABLED", "1")
+	t.Setenv("OTP_DEMO_CODE", "424242")
+	t.Setenv("OTP_STAFF_DEMO_CODE", "907183")
+	r := newAuthRouter(t, pool)
+
+	// The owner's requirement: a staff account signs in with a phone and a code,
+	// like everyone else. Without this, ids 1 and 34 stay locked out.
+	t.Run("staff completes request to verify with the staff code", func(t *testing.T) {
+		acc := insertAccount(t, pool, "super_admin", "")
+
+		status, body := postJSON(t, r, "/api/auth/otp/request",
+			map[string]any{"phone": acc.phone, "mode": "demo"})
+		if status != http.StatusOK {
+			t.Fatalf("otp request status = %d, want 200 (body: %v)", status, body)
+		}
+		// The whole point of a separate code: it is never handed back.
+		if leaked, ok := body["demo_code"]; ok {
+			t.Errorf("the staff code was echoed to the caller: %v", leaked)
+		}
+
+		status, body = postJSON(t, r, "/api/auth/otp/verify",
+			map[string]any{"phone": acc.phone, "code": "907183"})
+		if status != http.StatusOK {
+			t.Fatalf("otp verify status = %d, want 200 (body: %v)", status, body)
+		}
+		if !hasToken(body) {
+			t.Error("the staff code did not produce a session")
+		}
+		if n := tokenCount(t, pool, acc.id); n != 1 {
+			t.Errorf("tokens minted = %d, want 1", n)
+		}
+	})
+
+	// The public code is printed in every ordinary user's response, so it must
+	// stay useless against staff even now that staff have a demo door.
+	t.Run("the public demo code still cannot sign staff in", func(t *testing.T) {
+		acc := insertAccount(t, pool, "admin", "")
+		if _, body := postJSON(t, r, "/api/auth/otp/request",
+			map[string]any{"phone": acc.phone, "mode": "demo"}); body["demo_code"] != nil {
+			t.Fatal("staff request echoed a code")
+		}
+		status, body := postJSON(t, r, "/api/auth/otp/verify",
+			map[string]any{"phone": acc.phone, "code": "424242"})
+		if status != http.StatusUnauthorized {
+			t.Errorf("status = %d, want 401 (body: %v)", status, body)
+		}
+		if hasToken(body) {
+			t.Error("the public demo code minted a staff session")
+		}
+		if n := tokenCount(t, pool, acc.id); n != 0 {
+			t.Errorf("tokens minted = %d, want 0", n)
+		}
+	})
+
+	// A wrong staff code must answer exactly as a wrong ordinary code does, or
+	// the endpoint becomes an oracle for "is this number staff?".
+	t.Run("a wrong code reveals nothing about the account", func(t *testing.T) {
+		staff := insertAccount(t, pool, "supervisor", "")
+		ordinary := insertAccount(t, pool, "user", "")
+		for _, acc := range []authTestAccount{staff, ordinary} {
+			postJSON(t, r, "/api/auth/otp/request", map[string]any{"phone": acc.phone, "mode": "demo"})
+		}
+		_, staffBody := postJSON(t, r, "/api/auth/otp/verify",
+			map[string]any{"phone": staff.phone, "code": "111111"})
+		_, ordinaryBody := postJSON(t, r, "/api/auth/otp/verify",
+			map[string]any{"phone": ordinary.phone, "code": "111111"})
+
+		staffJSON, _ := json.Marshal(staffBody)
+		ordinaryJSON, _ := json.Marshal(ordinaryBody)
+		if string(staffJSON) != string(ordinaryJSON) {
+			t.Errorf("wrong-code answers differ:\n  staff    = %s\n  ordinary = %s", staffJSON, ordinaryJSON)
+		}
+		if got, _ := staffBody["code"].(string); got != "invalid_otp" {
+			t.Errorf("code = %q, want %q", got, "invalid_otp")
+		}
+	})
+
+	// Ordinary users must be untouched by any of this — they still receive the
+	// public code in the body, which is the app's only source for it.
+	t.Run("an ordinary user still gets the echoed public code", func(t *testing.T) {
+		acc := insertAccount(t, pool, "user", "")
+		status, body := postJSON(t, r, "/api/auth/otp/request",
+			map[string]any{"phone": acc.phone, "mode": "demo"})
+		if status != http.StatusOK {
+			t.Fatalf("status = %d, want 200 (body: %v)", status, body)
+		}
+		if got, _ := body["demo_code"].(string); got != "424242" {
+			t.Errorf("demo_code = %q, want %q — the app has no other source for it", got, "424242")
+		}
+	})
+}
+
+// TestStaffDemoCodeMisconfiguration pins the two ways the staff door must refuse
+// to open, both of which would otherwise restore the original hole silently.
+func TestStaffDemoCodeMisconfiguration(t *testing.T) {
+	pool := newAuthTestPool(t)
+	t.Setenv("OTP_DEMO_ENABLED", "1")
+	t.Setenv("OTP_DEMO_CODE", "424242")
+
+	t.Run("a staff code equal to the public code is ignored", func(t *testing.T) {
+		t.Setenv("OTP_STAFF_DEMO_CODE", "424242")
+		r := newAuthRouter(t, pool)
+		acc := insertAccount(t, pool, "super_admin", "")
+		status, body := postJSON(t, r, "/api/auth/otp/request",
+			map[string]any{"phone": acc.phone, "mode": "demo"})
+		if status != http.StatusForbidden {
+			t.Errorf("status = %d, want 403 (body: %v)", status, body)
+		}
+		if got, _ := body["code"].(string); got != "staff_otp_unavailable" {
+			t.Errorf("code = %q, want %q", got, "staff_otp_unavailable")
+		}
+	})
+
+	t.Run("a malformed staff code is ignored", func(t *testing.T) {
+		t.Setenv("OTP_STAFF_DEMO_CODE", "letmein")
+		r := newAuthRouter(t, pool)
+		acc := insertAccount(t, pool, "admin", "")
+		status, _ := postJSON(t, r, "/api/auth/otp/request",
+			map[string]any{"phone": acc.phone, "mode": "demo"})
+		if status != http.StatusForbidden {
+			t.Errorf("status = %d, want 403", status)
+		}
+	})
+}
+
+// TestRealDeliveryTakesOverFromDemo is the switchover proof: setting
+// OTPIQ_API_KEY — and nothing else, no code change, no app release — must move
+// every sign-in onto real out-of-band codes.
+//
+// It matters that the request below asks for mode "demo". That is what the
+// SHIPPED app sends, hard-coded, and a build already on people's phones cannot
+// be told otherwise. If the server honoured the caller's choice, configuring
+// OTPIQ would change nothing for the users who are actually out there.
+func TestRealDeliveryTakesOverFromDemo(t *testing.T) {
+	pool := newAuthTestPool(t)
+
+	// A stand-in for OTPIQ. Deterministic and offline — it records the code the
+	// server tried to deliver, which is exactly what must NOT be in the response.
+	var delivered struct {
+		phone string
+		code  string
+	}
+	gateway := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		var sent struct {
+			PhoneNumber      string `json:"phoneNumber"`
+			VerificationCode string `json:"verificationCode"`
+		}
+		_ = json.NewDecoder(req.Body).Decode(&sent)
+		delivered.phone, delivered.code = sent.PhoneNumber, sent.VerificationCode
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"smsId":"sms-test-1","cost":1,"remainingCredit":99,"canCover":true}`))
+	}))
+	t.Cleanup(gateway.Close)
+
+	// Demo is left switched ON, to show the key alone is what settles it.
+	t.Setenv("OTP_DEMO_ENABLED", "1")
+	t.Setenv("OTP_DEMO_CODE", "424242")
+	t.Setenv("OTPIQ_API_KEY", "sk_test_switchover")
+	t.Setenv("OTPIQ_BASE_URL", gateway.URL)
+	otpiq := auth.NewOTPIQClient()
+	if otpiq == nil {
+		t.Fatal("OTPIQ client was nil with OTPIQ_API_KEY set")
+	}
+	r := newAuthRouterWith(t, pool, otpiq)
+
+	// Staff, because they are the accounts the interim locks out. Once delivery
+	// is real, the staff code is irrelevant and they sign in like anyone else.
+	acc := insertAccount(t, pool, "super_admin", "")
+
+	status, body := postJSON(t, r, "/api/auth/otp/request",
+		map[string]any{"phone": acc.phone, "mode": "demo"})
+	if status != http.StatusOK {
+		t.Fatalf("otp request status = %d, want 200 (body: %v)", status, body)
+	}
+	if got, _ := body["mode"].(string); got != "real" {
+		t.Errorf("mode = %q, want %q — a demo request was not upgraded", got, "real")
+	}
+	if leaked, ok := body["demo_code"]; ok {
+		t.Errorf("the response printed a code after switchover: %v", leaked)
+	}
+	if delivered.code == "" {
+		t.Fatal("nothing was handed to the gateway — no real code was sent")
+	}
+	if delivered.code == "424242" {
+		t.Error("the gateway was sent the fixed demo code, not a generated one")
+	}
+
+	// And the delivered code is the one that works.
+	status, body = postJSON(t, r, "/api/auth/otp/verify",
+		map[string]any{"phone": acc.phone, "code": delivered.code})
+	if status != http.StatusOK {
+		t.Fatalf("otp verify status = %d, want 200 (body: %v)", status, body)
+	}
+	if !hasToken(body) {
+		t.Error("the out-of-band code did not produce a session")
+	}
+	if got, _ := body["mode"].(string); got != "real" {
+		t.Errorf("verified mode = %q, want %q", got, "real")
+	}
 }

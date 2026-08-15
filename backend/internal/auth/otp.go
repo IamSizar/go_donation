@@ -248,6 +248,34 @@ func DemoCode() string {
 	return "123456"
 }
 
+// StaffDemoCode returns the interim sign-in code for STAFF accounts, read from
+// OTP_STAFF_DEMO_CODE, or "" when no usable value is configured.
+//
+// A16 — why staff need their own code. Demo delivery hands the ordinary demo
+// code straight back to the caller in the /auth/otp/request response body, so
+// spending it proves nothing: anyone who knows a phone number can sign in as
+// its owner. The owner has accepted that for app users during the interim
+// before OTPIQ is configured. It is a different proposition for an account that
+// can reach the dashboard, because the app and the dashboard share one token
+// store (A15) — a token minted for a staff phone IS a dashboard token.
+//
+// Staff therefore get a SEPARATE code that the server never echoes. The owner
+// sets it once and passes it to the handful of staff out of band, so it behaves
+// like a shared password rather than a public doorbell, and the OTP-only shape
+// of sign-in is preserved: staff still enter a phone number and then a code.
+//
+// Returns "" — leaving staff sign-in closed, which is the fail-closed answer —
+// when the value is missing, is not six digits, or is the SAME as the public
+// demo code. That last case matters: setting them equal would silently restore
+// the very hole this exists to close, so it is refused rather than obeyed.
+func StaffDemoCode() string {
+	v := strings.TrimSpace(os.Getenv("OTP_STAFF_DEMO_CODE"))
+	if !ValidateCodeFormat(v) || v == DemoCode() {
+		return ""
+	}
+	return v
+}
+
 // ClientIP picks a stable client-IP string from a Gin/HTTP request, falling
 // back to "" when nothing usable is available. We intentionally ignore X-F-F
 // in dev — only the direct RemoteAddr is trusted.

@@ -35,7 +35,7 @@ PDF repeats the same complaint). Groups G–N are new material extracted from th
 | A13 | **The `mark completed` button disappears when clicked** — "عند اختيار هذا الزر المجاور للعرض والتعديل يختفي عند الضغط عليه" `[D p6]` | Dashboard → المهام | ⬜ |
 | A14 | **المهام → عرض has no detail page at all** — shows "مورد غير معروف" (unknown resource); no details page exists for `volunteer_missions`. And **there is no back button or route out** — "لايوجد زر او طريقة رجوع عند الدخول لصفحة العرض" `[D p6]` | Dashboard → المهام → عرض | ⬜ |
 | A15 | **SECURITY: ordinary app users can reach the dashboard.** Client asks to close "الثغرة الحالية التي تسمح لهم باستعراض وتعديل الأقسام كالأخبار والحملات والدليل" — block any app user from logging into and browsing/editing dashboard pages; restrict to admin and approved employees only. `[D p9]` | Dashboard auth | 🔎 **confirmed, fixed, not deployed** — see A15 notes below |
-| A16 | **SECURITY: a phone number alone bought a session — including a Super-Admin's.** Found while fixing A15 and raised there as needing its own item. `POST /api/auth/login` issued a 30-day token for any number with no `password_hash`, and no OTP was enforced anywhere on the server. Production id **34** is a `super_admin` with no password. | App + Dashboard auth (shared token store) | 🔎 **confirmed, fixed, not deployed** — see A16 notes below |
+| A16 | **SECURITY: a phone number alone bought a session — including a Super-Admin's.** Found while fixing A15 and raised there as needing its own item. `POST /api/auth/login` issued a 30-day token for any number with no `password_hash`, and no OTP was enforced anywhere on the server. Production id **34** is a `super_admin` with no password. | App + Dashboard auth (shared token store) | 🔎 **confirmed, fixed, not deployed** — see A16 notes below. **Revised 2026-08-15** to the owner's OTP-only design: staff sign in with `OTP_STAFF_DEMO_CODE` (**must be set, or ids 1 and 34 stay locked out**), and setting `OTPIQ_API_KEY` now switches the whole platform to real OTP with no app release. **Residual risk while the interim lasts: that one code is a shared password for every staff account — anyone holding it and a staff phone number can sign in as that Super-Admin.** |
 
 ### A3 — diagnosis and fix (2026-08-15)
 
@@ -344,7 +344,9 @@ have a phone and no password. Among them:
 2. **A demo OTP can never sign in a staff account** — refused at
    `/auth/otp/request` (so no such code is ever stored) and again at
    `/auth/otp/verify` (so codes stored before this shipped can't be spent),
-   `403 {code: "staff_demo_otp_blocked"}`.
+   `403 {code: "staff_demo_otp_blocked"}`. ⚠️ **Superseded — see the revision
+   below.** This left staff with no way in at all under an OTP-only design, and
+   the refusal code is now `staff_otp_unavailable`.
 
 **Why not simply bar all staff from the phone path?** Because it would have
 locked four of the five staff accounts out of the platform entirely: only id 18
@@ -396,6 +398,113 @@ real out-of-band OTP for staff) pass both before and after.
    real delivery, then turn demo off — in that order, or sign-in breaks.
 2. **Ids 1 and 34 are privileged rows with no credentials.** Give them a password
    (and ideally a username), or decide they should not be staff.
+
+**Not deployed.**
+
+### A16 — revised to the owner's OTP-only design (2026-08-15)
+
+**The instruction.** "We don't want passwords, it's all going to be with OTP. A
+user only enters his phone number and receives an OTP to sign in. For now make
+demo OTP until we implement the real OTPIQ API key."
+
+The verified-factor gate above matches that. Its second rule did not: barring
+staff from demo OTP was survivable only while "sign in with your password"
+remained an answer, and under an OTP-only design it is not one. Ids 1 and 34
+hold no password and no username, so they could not sign in at all.
+
+**Checked before changing anything — one claim in the brief was wrong.** It was
+put to us that the demo code is already shown on the app's login screen, so the
+server could stop returning it in the `/auth/otp/request` body at no cost. It is
+not. `_OtpModeRow` at the foot of the sign-in screen offers only a delivery
+choice ("WhatsApp / SMS · Demo code"); the string `Code: 123456` survives in the
+translation files but no widget renders it. **The response echo is the app's only
+source for the code**, so removing it would have ended sign-in for every user on
+the platform. It stays for ordinary users, and is the one thing staff never get.
+
+**What changed.**
+
+1. **Delivery is decided by the server, not the caller.** A request for
+   `mode: "demo"` is served as a real out-of-band code whenever `OTPIQ_API_KEY`
+   is configured. This is what makes the switchover a pure environment change:
+   the shipped app hard-codes `mode: "demo"` (it was defaulted that way because
+   real delivery 502s with no gateway) and a build already on people's phones
+   cannot be told otherwise — so *without* this, setting the key would have
+   changed nothing for the users who are actually out there. The same rule now
+   governs the dashboard's optional login second factor and the permission-change
+   OTP, so no demo code survives anywhere once the gateway is live.
+2. **Staff sign in with a code the server never prints.** `OTP_STAFF_DEMO_CODE`
+   — six digits, and refused if it equals `OTP_DEMO_CODE` — is stored for a staff
+   phone in place of the public code and is left out of the response. The owner
+   sets it once and passes it to the five staff members out of band. The flow
+   they see is unchanged: phone number, then a code. Unset, malformed, or equal
+   to the public code ⇒ `403 {code: "staff_otp_unavailable"}`, which is where
+   production stands today, so **ids 1 and 34 remain locked out until this
+   variable is set.**
+3. **The public code still cannot open a staff account**, including a demo record
+   written before any of this shipped: at verify, a demo record standing against
+   a staff phone is only spendable by the staff code. A wrong code there answers
+   byte-for-byte as any other wrong code (`401 invalid_otp` with the same
+   `attempts_left`), so the endpoint cannot be used to ask "is this number staff?"
+
+**The exposure this buys, stated plainly.** While `OTP_STAFF_DEMO_CODE` is set,
+**anyone who holds that one code and a staff phone number can sign in as that
+staff member — Super-Admin included, dashboard included.** It is a shared
+password, not a second factor. It is strictly narrower than the alternative the
+instruction implies (letting staff spend the public code, which would need no
+secret at all), and strictly wider than today's total block. Treat it as
+temporary: set it to a random six digits, give it to staff directly rather than
+in a group chat, and **delete it the day `OTPIQ_API_KEY` goes in** — from that
+moment it is ignored anyway.
+
+**Rate limiting is unchanged and still applies to all of this:** 10 requests per
+IP per hour, a 60-second resend cooldown, an escalating per-phone lock (5 genuine
+requests in 15 minutes ⇒ 2h, then 6h, then 24h), and 5 wrong codes per issued
+code. Guessing a six-digit staff code is therefore capped at five attempts before
+a fresh code is needed and lockout follows. `/auth/login` still does **not** count
+a failed attempt when no password was submitted, so nobody can lock a victim out
+by replaying their number.
+
+**Real OTP works on an environment change alone — verified, not assumed.**
+`TestRealDeliveryTakesOverFromDemo` points the OTPIQ client at a stub gateway,
+sends the request the shipped app sends (`mode: "demo"`), and asserts the
+response carries no code, the gateway received a generated one, and that code
+signs in. `OTPIQ_BASE_URL` was added to make that possible without touching the
+network; unset, it is the live API exactly as before.
+
+**Order of operations for the owner:** set `OTP_STAFF_DEMO_CODE` now to get ids 1
+and 34 working → set `OTPIQ_API_KEY` (+ `OTPIQ_SENDER_ID`) when the account is
+funded → confirm a real code arrives on one number → remove
+`OTP_STAFF_DEMO_CODE` and `OTP_DEMO_ENABLED`. The server logs which state it is
+in at boot.
+
+**Changed:** `backend/internal/handlers/auth_staff_otp.go` (new — the whole rule,
+kept out of `auth.go`, which is already over the size limit) ·
+`backend/internal/handlers/auth.go` (`OTPRequest` mode upgrade + demo branch;
+`OTPVerify` staff gate; `consumeOTPCode` refusals carry a `code`;
+`sendAdminLoginOTP`) · `backend/internal/handlers/admin_permissions.go` (demo
+only as fallback) · `backend/internal/auth/otp.go` (`StaffDemoCode`) ·
+`backend/internal/auth/otpiq.go` (`OTPIQ_BASE_URL`) · `backend/cmd/server/main.go`
+(boot log says which OTP state the server is in) · `backend/.env.example` ·
+app `modules/auth/screens/login.dart` (comment only — the default no longer needs
+changing by hand).
+
+**Test:** `auth_verified_factor_test.go` gains `TestStaffDemoOTPSignIn`,
+`TestStaffDemoCodeMisconfiguration` and `TestRealDeliveryTakesOverFromDemo`. All
+were run against the shipped code first and **failed** there (staff request
+`403 staff_demo_otp_blocked` where 200 was wanted; a demo request not upgraded to
+real), and pass after. The pre-existing cases — phone alone buys nothing, an
+unknown number creates no account, a correct password still works, an ordinary
+user completes request → verify, the public code cannot open any of the four
+staff tiers — pass both before and after.
+
+**Known gap, not introduced here:** the app renders the server's English `error`
+string because it has no `code` → message mapping yet (tracked under B4), so the
+new staff refusal reads in English on the app. The stable `code` is on every
+refusal and every refusal is logged server-side with user id, tier and IP.
+
+**No production data was read or modified in this revision.** Ids 1 and 34 are
+still misconfigured rows — privileged, with no credentials of their own — and
+setting `OTP_STAFF_DEMO_CODE` is a workaround for that, not a fix.
 
 **Not deployed.**
 

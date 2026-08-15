@@ -16,6 +16,8 @@
 //	                 telegram-sms, whatsapp-telegram-sms.
 //	OTPIQ_SENDER_ID  Optional sender id (max 11 chars). Falls back to OTPIQ's
 //	                 default sender when unset.
+//	OTPIQ_BASE_URL   Optional override for the API root, for pointing at a
+//	                 sandbox or at a stub in tests. Defaults to the live API.
 //
 // The client is a singleton per AuthHandler — created once at boot and
 // re-used. HTTP timeouts are conservative (10s) so a flaky OTPIQ never
@@ -48,6 +50,7 @@ type OTPIQClient struct {
 	apiKey   string
 	provider string
 	senderID string
+	baseURL  string
 	http     *http.Client
 }
 
@@ -63,10 +66,19 @@ func NewOTPIQClient() *OTPIQClient {
 	if provider == "" {
 		provider = otpiqDefaultProv
 	}
+	// Optional API root override. Lets a test point the client at a stub —
+	// which is how the "real delivery takes over the moment the key is set"
+	// behaviour is proved without touching the network — and lets ops aim at a
+	// sandbox. Unset means the live API, exactly as before.
+	base := strings.TrimRight(strings.TrimSpace(os.Getenv("OTPIQ_BASE_URL")), "/")
+	if base == "" {
+		base = otpiqBaseURL
+	}
 	return &OTPIQClient{
 		apiKey:   key,
 		provider: provider,
 		senderID: strings.TrimSpace(os.Getenv("OTPIQ_SENDER_ID")),
+		baseURL:  base,
 		http:     &http.Client{Timeout: time.Duration(otpiqHTTPTimeoutMS) * time.Millisecond},
 	}
 }
@@ -156,8 +168,12 @@ func (c *OTPIQClient) postSMS(ctx context.Context, body map[string]any) (*SendRe
 		return nil, fmt.Errorf("marshal otpiq payload: %w", err)
 	}
 
+	root := c.baseURL
+	if root == "" {
+		root = otpiqBaseURL
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		otpiqBaseURL+"/sms", bytes.NewReader(bodyBytes))
+		root+"/sms", bytes.NewReader(bodyBytes))
 	if err != nil {
 		return nil, fmt.Errorf("build otpiq request: %w", err)
 	}

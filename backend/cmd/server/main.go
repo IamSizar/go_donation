@@ -171,13 +171,27 @@ func main() {
 
 	healthH := handlers.NewHealthHandler(pool)
 	// Phase 19 — OTPIQ delivery for real-mode OTP. Returns nil when
-	// OTPIQ_API_KEY isn't set; the handler then refuses real-mode but
-	// demo mode keeps working.
+	// OTPIQ_API_KEY isn't set; the handler then falls back to demo delivery.
+	//
+	// A16 — these three lines are the whole switchover. With a key configured,
+	// every OTP is a real out-of-band code even for the shipped app, which asks
+	// for demo (see demoDeliveryActive), and OTP_STAFF_DEMO_CODE stops mattering.
 	otpiqClient := auth.NewOTPIQClient()
 	if otpiqClient != nil {
-		log.Printf("[otp] OTPIQ enabled (provider=whatsapp-sms by default)")
+		log.Printf("[otp] OTPIQ enabled (provider=whatsapp-sms by default) — all OTP delivery is real; demo mode is off")
 	} else {
-		log.Printf("[otp] OTPIQ disabled (OTPIQ_API_KEY not set; demo mode still works)")
+		log.Printf("[otp] OTPIQ disabled (OTPIQ_API_KEY not set) — demo delivery in use, demo_enabled=%t", auth.DemoEnabled())
+		// Staff cannot spend the public demo code (it is printed in the request
+		// response, so it proves nothing). Say plainly at boot whether the
+		// separate staff code is usable, because when it is not, every staff
+		// account without a password is locked out of the platform.
+		if auth.DemoEnabled() {
+			if auth.StaffDemoCode() != "" {
+				log.Printf("[otp] OTP_STAFF_DEMO_CODE is set — staff sign in with it; treat it as a shared password")
+			} else {
+				log.Printf("[otp] OTP_STAFF_DEMO_CODE is unset or invalid (6 digits, and must differ from OTP_DEMO_CODE) — staff accounts without a password cannot sign in")
+			}
+		}
 	}
 	// #15 — wire the OTPIQ custom-SMS sender into the donation store so a donation
 	// arrival can alert the section's contact (best-effort, nil-safe).

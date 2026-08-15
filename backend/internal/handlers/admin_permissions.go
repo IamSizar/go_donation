@@ -95,7 +95,10 @@ func (h *AdminPermissionsHandler) RequestOTP(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	// Demo mode (local/testing) — store the fixed demo code and return it.
-	if auth.DemoEnabled() {
+	// A16 — demo is a fallback, not a preference (see demoDeliveryActive): the
+	// moment OTPIQ_API_KEY is configured this second factor becomes a real
+	// out-of-band code instead of one printed back to the caller.
+	if demoDeliveryActive(h.OTPIQ) {
 		code := auth.DemoCode()
 		if err := h.OTPs.StoreCode(ctx, phone, code, "demo"); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to store the code."})
