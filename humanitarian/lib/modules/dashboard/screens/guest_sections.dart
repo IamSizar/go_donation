@@ -192,9 +192,11 @@ class GuestAccountSection extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(
-                  // The dedicated RegisterPage never actually registered
-                  // anyone; route through the phone/OTP login flow instead,
-                  // same as the Sign in button above.
+                  // There is no separate registration screen: the phone/OTP
+                  // login flow both signs in existing users and creates new
+                  // accounts. (A RegisterPage used to exist but registered
+                  // nobody — it waited 650ms and forwarded to /verify — and
+                  // has since been deleted.)
                   onPressed: _goSignIn,
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppThemeConfig.primary,

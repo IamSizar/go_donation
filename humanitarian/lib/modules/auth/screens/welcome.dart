@@ -65,6 +65,17 @@ class WelcomeScreen extends StatelessWidget {
               style: titleStyle,
             ),
             const SizedBox(height: 28),
+            // One entry action, not two. This screen used to show a filled
+            // "Sign in" button and an outlined "Create account" button, but
+            // both navigated to '/login' — the outlined one only existed
+            // because a dedicated email/password RegisterPage was planned.
+            // That page never called an API (it faked a delay and jumped to
+            // '/verify'), so it was deleted; the phone/OTP flow on Login is
+            // the single path that both signs in existing users and registers
+            // new ones. Two buttons for one destination was a false choice,
+            // so the copy names the mechanism ("Continue with phone") instead
+            // of picking a side — "Sign in" would under-describe it and
+            // "Create account" would mislead returning users.
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -83,31 +94,22 @@ class WelcomeScreen extends StatelessWidget {
                   ),
                   elevation: 0,
                 ),
-                child: Text('Sign in'.tr),
+                child: Text('Continue with phone'.tr),
               ),
             ),
             const SizedBox(height: 12),
+            // Says out loud what the single button covers, so a returning
+            // user isn't left wondering where "Sign in" went.
+            // Full-width box because the Column is start-aligned, so a bare
+            // Text would shrink-wrap and textAlign.center would do nothing.
             SizedBox(
               width: double.infinity,
-              child: OutlinedButton(
-                // The dedicated email/password RegisterPage never created an
-                // account (see #register bug); the phone/OTP flow on Login
-                // is the only path that actually registers a new user.
-                onPressed: () => Get.toNamed('/login'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppThemeConfig.primary,
-                  side: BorderSide(color: AppThemeConfig.primary, width: 1.4),
-                  backgroundColor: Colors.transparent,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 18),
-                  textStyle: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
-                  ),
+              child: Text(
+                'Sign in or create an account with your phone number.'.tr,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppThemeConfig.mutedText(context),
                 ),
-                child: Text('Create account'.tr),
               ),
             ),
           ],

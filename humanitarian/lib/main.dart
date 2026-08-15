@@ -11,7 +11,6 @@ import 'package:flutter_application_1/shared/widgets/dismiss_keyboard.dart';
 import 'package:flutter_application_1/modules/auth/screens/guest_upgrade.dart';
 import 'package:flutter_application_1/modules/auth/screens/login.dart';
 import 'package:flutter_application_1/modules/auth/screens/pending_approval.dart';
-import 'package:flutter_application_1/modules/auth/screens/register.dart';
 import 'package:flutter_application_1/modules/auth/screens/registration_form.dart';
 import 'package:flutter_application_1/modules/auth/screens/verification.dart';
 import 'package:flutter_application_1/modules/auth/screens/welcome.dart';
@@ -193,10 +192,6 @@ class HumanitarianApp extends StatelessWidget {
             transitionDuration: const Duration(milliseconds: 320),
           ),
           GetPage(name: AppRoutes.authLogin, page: () => const LoginPage()),
-          GetPage(
-            name: AppRoutes.authRegister,
-            page: () => const RegisterPage(),
-          ),
           GetPage(
             name: AppRoutes.authVerify,
             page: () => const VerificationPage(),

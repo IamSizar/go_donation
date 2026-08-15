@@ -2,7 +2,9 @@ class AppRoutes {
   static const splash = '/splash';
   static const welcome = '/';
   static const authLogin = '/login';
-  static const authRegister = '/register';
+  // '/register' was removed: the screen behind it performed no registration —
+  // it waited 650ms and forwarded to '/verify' — and nothing ever navigated
+  // to it. Real signup is the phone/OTP flow on '/login'.
   static const authVerify = '/verify';
   // New-user onboarding: registration form + admin-approval waiting screen.
   // (Replaces the removed '/role-selection' choose-your-role screen.)
