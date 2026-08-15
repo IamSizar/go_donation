@@ -1,4 +1,5 @@
 import axios, { AxiosError } from 'axios'
+import { translate } from './i18n'
 
 const TOKEN_KEY = 'humanitarian.admin.token'
 const USER_KEY = 'humanitarian.admin.user'
@@ -97,14 +98,45 @@ api.interceptors.response.use(
   },
 )
 
-// Tiny helper: convert axios errors into a flat message string.
+// describeError — turn an axios failure into a message an Arabic-speaking
+// operator can actually read and act on.
+//
+// This used to `return data.error` verbatim, which is how the backend's raw
+// English "Database error." ended up painted across an Arabic-only dashboard:
+// a technical string, in the wrong language, telling the admin nothing they
+// could do about it. The rules now, in order:
+//
+//   1. `code` — the stable machine key handlers send alongside the message.
+//      Translated via the `error.*` namespace, so the same failure reads
+//      correctly in all four locales.
+//   2. 5xx without a code — the server broke, and whatever prose it attached
+//      is for the log, not the operator. Always the generic translated line.
+//   3. 4xx — validation/permission replies that pages already surface as-is
+//      (field messages, "not allowed", etc.). Passed through unchanged so
+//      this change stays scoped to server faults.
+//   4. No response at all — the request never landed: offline, DNS, timeout.
+//
+// translate() is the hook-free t() from lib/i18n (the same one the export
+// builders use), so this stays a plain function and its ~30 call sites keep
+// working untouched.
 export function describeError(err: unknown): string {
   if (axios.isAxiosError(err)) {
-    const data = err.response?.data as { error?: string; details?: string } | undefined
+    if (!err.response) return translate('error.network')
+    const data = err.response.data as
+      | { error?: string; details?: string; code?: string }
+      | undefined
+    if (data?.code) {
+      const key = `error.${data.code}`
+      const msg = translate(key)
+      // translate() echoes the key back when nothing matches — fall through to
+      // the generic line rather than printing "error.some_new_code" on screen.
+      if (msg !== key) return msg
+    }
+    if (err.response.status >= 500) return translate('error.server')
     if (data?.error) return data.error
     if (data?.details) return data.details
     return err.message
   }
   if (err instanceof Error) return err.message
-  return 'Unknown error.'
+  return translate('error.unknown')
 }

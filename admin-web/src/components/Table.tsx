@@ -40,6 +40,15 @@ type Props<T> = {
   /** Optional per-row className + data-* attributes (used by the live-feed
    *  highlight feature). Merges with the built-in `row-selected` class. */
   rowProps?: (row: T) => RowAttrs | undefined
+  /** Message from a failed load. When set, the placeholder row shows this
+   *  instead of `empty` — because zero rows after an error means "we don't
+   *  know what's here", not "there is nothing here". Contributions shipped
+   *  for months claiming "no contributions yet" over a 500 that was hiding
+   *  14 real records; that reassuring lie is the bug this prop prevents. */
+  error?: ReactNode
+  /** Retry handler for the error state. Renders a button beside the message
+   *  so a failed list is never a dead end (project rule 5.7). */
+  onRetry?: () => void
 }
 
 // Map a column's (physical) align to a LOGICAL one so headers + cells flip
@@ -54,7 +63,7 @@ function logicalAlign(a?: 'left' | 'right' | 'center'): 'start' | 'end' | 'cente
   return 'start'
 }
 
-export default function Table<T>({ rows, columns, rowKey, empty, loading, selectable, rowProps }: Props<T>) {
+export default function Table<T>({ rows, columns, rowKey, empty, loading, selectable, rowProps, error, onRetry }: Props<T>) {
   const { t } = useI18n()
   const totalCols = columns.length + (selectable ? 1 : 0)
   return (
@@ -87,10 +96,29 @@ export default function Table<T>({ rows, columns, rowKey, empty, loading, select
               mean framer-motion won't replay the entrance animation, so
               only genuinely changed rows update in place — real-time
               without the ugly cutoff reload. */}
+          {/* The three no-rows states are mutually exclusive and ordered by
+              what the operator most needs to know. Error wins over loading:
+              a poll that fails while `loading` is still true must not keep
+              showing a spinner forever, which is how /donations sat on
+              "جارٍ التحميل…" next to a red banner. Empty is only ever claimed
+              once a load has actually succeeded. */}
           {rows.length === 0 && (
             <tr>
               <td colSpan={totalCols} className="cell-muted">
-                {loading ? t('common.loading') : (empty ?? t('common.no_rows'))}
+                {error ? (
+                  <span className="table-error">
+                    <span>{error}</span>
+                    {onRetry && (
+                      <button type="button" className="secondary" onClick={onRetry}>
+                        {t('error.retry')}
+                      </button>
+                    )}
+                  </span>
+                ) : loading ? (
+                  t('common.loading')
+                ) : (
+                  empty ?? t('common.no_rows')
+                )}
               </td>
             </tr>
           )}

@@ -227,8 +227,14 @@ type DirectoryEntry struct {
 
 // Directory lists every dashboard (staff_tier != 'user') account except the caller.
 func (s *Store) Directory(ctx context.Context, excludeUserID int64) ([]DirectoryEntry, error) {
+	// COALESCE, not a bare u.phone: users.phone is nullable (migration 017
+	// dropped the NOT NULL for Google sign-in, and guest/incomplete-OTP
+	// accounts have none either), while Phone above is a plain string. Promote
+	// one phoneless account to any staff tier and the bare column would fail
+	// the Scan and take this whole directory down — the same single-row fault
+	// that took out the admin contributions list.
 	rows, err := s.Pool.Query(ctx, `
-		SELECT u.id, p.full_name, u.phone, u.staff_tier
+		SELECT u.id, p.full_name, COALESCE(u.phone, ''), u.staff_tier
 		  FROM users u
 		  LEFT JOIN user_profiles p ON p.user_id = u.id
 		 WHERE u.staff_tier <> 'user' AND u.id <> $1

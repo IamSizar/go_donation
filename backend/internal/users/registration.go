@@ -632,7 +632,12 @@ func (s *Store) ListRegistrations(ctx context.Context, statusFilter string, page
 	offIdx := len(args) + 2
 	args = append(args, perPage, offset)
 	rows, err := s.Pool.Query(ctx,
-		`SELECT u.id, u.phone, u.role_id, u.registration_status, u.created_at,
+		// u.phone is COALESCEd for the same reason up.full_name below already
+		// is: the column is nullable (migration 017) and Phone is a plain
+		// string. A Google sign-in that hasn't attached a phone yet is exactly
+		// a pending registration, so this list is the most likely place for a
+		// NULL to appear and fail the Scan for every row at once.
+		`SELECT u.id, COALESCE(u.phone, ''), u.role_id, u.registration_status, u.created_at,
 		        to_char(u.registration_submitted_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
 		        u.registration_reject_reason,
 		        COALESCE(up.full_name, ''), COALESCE(up.address, ''),

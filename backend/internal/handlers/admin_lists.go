@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -22,6 +23,23 @@ type AdminListsHandler struct {
 
 func NewAdminListsHandler(pool *pgxpool.Pool) *AdminListsHandler {
 	return &AdminListsHandler{Pool: pool}
+}
+
+// listLoadFailed is the single answer every admin list gives when its query or
+// row scan blows up. It exists because these handlers used to reply with a bare
+// "Database error.", which surfaced verbatim as untranslated English on an
+// Arabic-only dashboard and gave the operator nothing to act on. The driver
+// error goes to the server log (where support can actually read it); the client
+// gets a stable `code` it can translate and a plain-English `error` fallback
+// for non-UI callers. Keep `code` in sync with the dashboard's `error.*` keys.
+func listLoadFailed(c *gin.Context, what string, err error) {
+	log.Printf("[admin] list %s failed (path=%s query=%q): %v",
+		what, c.FullPath(), c.Request.URL.RawQuery, err)
+	c.JSON(http.StatusInternalServerError, gin.H{
+		"success": false,
+		"code":    "list_load_failed",
+		"error":   "Could not load " + what + ".",
+	})
 }
 
 type page struct {
@@ -197,7 +215,7 @@ func (h *AdminListsHandler) InKindDonations(c *gin.Context) {
 	if err := h.Pool.QueryRow(c.Request.Context(),
 		"SELECT COUNT(*) FROM in_kind_donations k WHERE "+whereSQL, args...,
 	).Scan(&total); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		listLoadFailed(c, "in-kind contributions", err)
 		return
 	}
 
@@ -216,7 +234,7 @@ func (h *AdminListsHandler) InKindDonations(c *gin.Context) {
 		args...,
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		listLoadFailed(c, "in-kind contributions", err)
 		return
 	}
 	defer rows.Close()
@@ -226,7 +244,7 @@ func (h *AdminListsHandler) InKindDonations(c *gin.Context) {
 		if err := rows.Scan(&k.ID, &k.DonorUserID, &k.DonorPhone, &k.DonorFullName,
 			&k.Category, &k.ItemName, &k.Quantity, &k.ConditionNote, &k.PickupAddress,
 			&k.Status, &k.Notes, &k.CreatedAt); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+			listLoadFailed(c, "in-kind contributions", err)
 			return
 		}
 		items = append(items, k)

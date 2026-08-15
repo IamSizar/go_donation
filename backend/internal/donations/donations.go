@@ -573,8 +573,16 @@ func (s *Store) AdminList(ctx context.Context, page, perPage int, q string) (*Ad
 	// Phase 18c — join campaigns (the table donations.campaign_id actually
 	// references) instead of beneficiary_project_requests. See the comment
 	// on ListByUser above for the full history.
+	// users.phone is NULLABLE and guest accounts are created without one, so a
+	// bare `u.phone` here returns NULL the moment a guest appears in the list.
+	// DonorPhone below is a plain string (not *string), so pgx fails the whole
+	// Scan on that single row and the entire admin contributions page 500s —
+	// one phoneless donor took the whole list down in production. COALESCE
+	// keeps the non-pointer scan target valid; it matches how every other
+	// query in this repo reads a joined phone (users.go, auth/token.go,
+	// profilechanges.go, sponsorshipschedule.go all use COALESCE(u.phone,'')).
 	rows, err := s.Pool.Query(ctx, `
-		SELECT d.id, d.reference_number, d.user_id, u.phone, up.full_name,
+		SELECT d.id, d.reference_number, d.user_id, COALESCE(u.phone, ''), up.full_name,
 		       d.campaign_id, c.title,
 		       d.donation_kind, d.donation_type, d.amount,
 		       'IQD'::text AS currency,

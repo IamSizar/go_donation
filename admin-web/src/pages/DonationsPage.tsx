@@ -109,7 +109,11 @@ export default function DonationsPage() {
     api
       .get<DonationsListResp>('/api/admin/donations', { params: { page, per_page: PER_PAGE, q: q || undefined } })
       .then((res) => {
-        if (!cancelled) setResp(res.data)
+        // Clearing the error on success has to happen here, not only in the
+        // `setErr(null)` above: that one is skipped for silent polls, so a
+        // failure followed by a recovering poll left the banner stranded over
+        // freshly loaded rows. Any successful load means the error is over.
+        if (!cancelled) { setResp(res.data); setErr(null) }
       })
       .catch((e) => {
         if (!cancelled && !pollSilent.current) setErr(describeError(e))
@@ -158,6 +162,14 @@ export default function DonationsPage() {
 
   const modalOpen = editing !== null || creating
   const closeModal = () => { setEditing(null); setCreating(false) }
+
+  // `err` here is only ever set by the list fetch above, so it describes the
+  // table's contents and nothing else. hasRows decides WHERE it gets shown:
+  // with rows on screen the table is busy displaying the last good data, so
+  // the banner carries the warning; with no rows the table itself becomes the
+  // error state. Exactly one of the two renders, never both.
+  const hasRows = (resp?.items.length ?? 0) > 0
+  const retry = () => setRefreshTick((n) => n + 1)
 
 
   const handleDelete = useCallback(
@@ -310,7 +322,11 @@ export default function DonationsPage() {
       <PageHead>
         <div>
           <h1>{t('page.donations.title')}</h1>
-          <p className="muted">{resp ? `${resp.total_items} ${t('common.total')}` : t('common.loading')}</p>
+          {/* Once a load has failed there is no count to report and nothing is
+              still in flight, so this must stop saying "loading…" — that stale
+              spinner text sat above the error banner and made a dead page look
+              like a slow one. The error itself is shown in the table below. */}
+          <p className="muted">{resp ? `${resp.total_items} ${t('common.total')}` : err ? '—' : t('common.loading')}</p>
         </div>
         <div className="row">
           <input
@@ -330,7 +346,7 @@ export default function DonationsPage() {
           <button onClick={() => setCreating(true)}>{t('page.donations.new')}</button>
         </div>
       </PageHead>
-      {err && <div className="error-box">{err}</div>}
+      {err && hasRows && <div className="error-box">{err}</div>}
       {/* Banner appears only when the URL has `?highlight=<id>` (set by the
           dashboard live-feed click). Tells the admin which row they jumped
           to and offers a dismiss. */}
@@ -340,6 +356,8 @@ export default function DonationsPage() {
         columns={columns}
         rowKey={(d) => d.id}
         loading={loading}
+        error={hasRows ? undefined : err}
+        onRetry={retry}
         empty={t('empty.donations')}
         rowProps={(d) => ({
           // is-highlighted triggers the emerald pulse via index.css;

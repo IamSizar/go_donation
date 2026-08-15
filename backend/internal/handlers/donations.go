@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -452,7 +453,19 @@ func (h *DonationsHandler) AdminList(c *gin.Context) {
 
 	res, err := h.Store.AdminList(c.Request.Context(), page, perPage, c.Query("q"))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		// The technical detail belongs in the server log, never in the admin's
+		// browser: this endpoint used to answer with a bare "Database error.",
+		// which reached an Arabic-only dashboard as untranslated English and
+		// told the operator nothing they could act on. `code` is the stable
+		// machine key the dashboard translates against; `error` stays as a
+		// last-resort English fallback for non-UI callers (curl, scripts).
+		log.Printf("[admin] AdminList donations failed (page=%d per_page=%d q=%q): %v",
+			page, perPage, c.Query("q"), err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"code":    "list_load_failed",
+			"error":   "Could not load contributions.",
+		})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{

@@ -1252,6 +1252,18 @@ nav .nav-group-header:hover { background: var(--panel-2); color: var(--text-h); 
 .data-table tbody tr:hover td { background: rgba(16, 185, 129, 0.05); }
 .cell-muted { color: var(--muted); padding: var(--space-6); text-align: center; font-size: var(--text-sm); }
 .cell-stack { display: flex; flex-direction: column; gap: 2px; }
+/* Placeholder-row error state: message plus its Retry button, centred inside
+   the .cell-muted cell. Wraps on narrow screens so the button never pushes
+   the table into a horizontal scroll. Colour comes from the danger token so
+   it reads as a fault, not as the muted "nothing here" text it replaces. */
+.table-error {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  color: var(--tone-danger-fg-strong);
+}
 
 /* Responsive pass — below tablet width a <table> stops reading as rows of
    columns (the sideways scroll the client specifically complained about) and

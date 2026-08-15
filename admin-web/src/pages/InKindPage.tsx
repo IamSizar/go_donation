@@ -79,7 +79,10 @@ export default function InKindPage() {
       .get<AdminPageResp<AdminInKind>>('/api/admin/in_kind_donations', {
         params: { page, per_page: PER_PAGE, status, q: q || undefined },
       })
-      .then(r => { if (!cancelled) setResp(r.data) })
+      // See DonationsPage: a silent poll skips the setErr(null) above, so
+      // clear the error on every success or a recovered list keeps showing a
+      // stale failure banner.
+      .then(r => { if (!cancelled) { setResp(r.data); setErr(null) } })
       .catch(e => { if (!cancelled && !pollSilent.current) setErr(describeError(e)) })
       .finally(() => { if (!cancelled && !pollSilent.current) setLoading(false); pollSilent.current = false })
     return () => { cancelled = true }
@@ -108,6 +111,12 @@ export default function InKindPage() {
 
   const modalOpen = editing !== null || creating
   const closeModal = () => { setEditing(null); setCreating(false) }
+
+  // Same split as DonationsPage: with rows on screen the banner warns that
+  // what's shown is stale; with no rows the table becomes the error state
+  // rather than claiming "no in-kind contributions" over a failed load.
+  const hasRows = (resp?.items.length ?? 0) > 0
+  const retry = () => setRefreshTick((n) => n + 1)
 
   const applyBulkStatus = useCallback(
     async (newStatus: string) => {
@@ -187,7 +196,9 @@ export default function InKindPage() {
       <PageHead>
         <div>
           <h1>{t('page.in_kind.title')}</h1>
-          <p className="muted">{resp ? `${resp.total_items} ${t('common.total')}` : t('common.loading')}</p>
+          {/* See DonationsPage — never keep claiming "loading…" after a load
+              has already failed and nothing is in flight. */}
+          <p className="muted">{resp ? `${resp.total_items} ${t('common.total')}` : err ? '—' : t('common.loading')}</p>
         </div>
         <div className="row">
           <input
@@ -210,13 +221,15 @@ export default function InKindPage() {
           <button onClick={() => setCreating(true)}>{t('page.in_kind.new')}</button>
         </div>
       </PageHead>
-      {err && <div className="error-box">{err}</div>}
+      {err && hasRows && <div className="error-box">{err}</div>}
       <HighlightBanner kind={t('noun.in_kind_donation')} />
       <Table<AdminInKind>
         rows={resp?.items ?? []}
         columns={columns}
         rowKey={(k) => k.id}
         loading={loading}
+        error={hasRows ? undefined : err}
+        onRetry={retry}
         empty={t('empty.in_kind')}
         selectable={sel.forRows(resp?.items ?? [])}
         rowProps={(k) => ({

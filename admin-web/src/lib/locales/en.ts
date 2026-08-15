@@ -1066,6 +1066,17 @@ const en = {
     notifications: 'No notifications.',
     audit: 'No audit entries.',
   },
+  // Failure messages shown to the operator. Keys under `error.*` are matched
+  // against the `code` a backend handler sends, so a server fault reads in the
+  // admin's own language instead of leaking the raw English driver message.
+  // Each line says what happened and what to do next — never a status code.
+  error: {
+    list_load_failed: 'Could not load this list. Nothing was lost — try again, and contact support if it keeps happening.',
+    server: 'A server error occurred. Please try again in a moment.',
+    network: 'No connection to the server. Check your internet connection and try again.',
+    unknown: 'Something went wrong. Please try again.',
+    retry: 'Try again',
+  },
 
   // Singular entity nouns — used by the live-feed highlight banner.
   noun: {
