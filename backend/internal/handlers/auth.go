@@ -15,6 +15,7 @@ import (
 
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
 	"github.com/karam-flutter/humanitarian-backend/internal/notify"
+	"github.com/karam-flutter/humanitarian-backend/internal/permissions"
 	"github.com/karam-flutter/humanitarian-backend/internal/users"
 )
 
@@ -325,8 +326,10 @@ var errOTPNotConfigured = errors.New("OTP delivery is not configured (OTPIQ_API_
 //
 // Phase 30 — username + password login for the admin dashboard. Unlike the
 // phone login this NEVER auto-creates a user: the account must already exist,
-// have a bcrypt password_hash, and be is_admin=1. All failure modes return the
-// same generic message so the endpoint can't be used to enumerate usernames.
+// have a bcrypt password_hash, and hold a STAFF staff_tier (A15 — previously
+// is_admin=1). Credential failures all return the same generic message so the
+// endpoint can't be used to enumerate usernames; the staff-tier refusal is
+// distinct because by then the caller has already proven the password.
 func (h *AuthHandler) AdminLogin(c *gin.Context) {
 	var req adminLoginReq
 	if !bindFlexibleJSON(c, &req) {
@@ -354,7 +357,7 @@ func (h *AuthHandler) AdminLogin(c *gin.Context) {
 		}
 	}
 
-	id, hash, isAdmin, _, err := h.Users.GetByUsername(ctx, username)
+	id, hash, _, _, err := h.Users.GetByUsername(ctx, username)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "error": "Database error (lookup)."})
 		return
@@ -374,8 +377,33 @@ func (h *AuthHandler) AdminLogin(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"status": "error", "error": "Invalid username or password."})
 		return
 	}
-	if isAdmin != 1 {
-		c.JSON(http.StatusForbidden, gin.H{"status": "error", "error": "Admin access required."})
+	// A15 — the dashboard door is gated on `staff_tier`, the same field
+	// RequireAdmin enforces on every /api/admin/* request. It used to be gated
+	// on the legacy `is_admin` flag, which had drifted out of sync with the
+	// tiers in both directions: an ordinary app user carrying is_admin=1 was
+	// let in, while a genuine super_admin with is_admin=0 was turned away.
+	// A door and a gate that disagree is how a hole gets built.
+	//
+	// The account is loaded here (rather than after the token is minted) so the
+	// tier is known before we decide. A lookup failure is a 500, never a silent
+	// allow — this check must fail CLOSED.
+	account, err := h.Users.GetAccountForClient(ctx, id)
+	if err != nil || account == nil {
+		log.Printf("[authz] admin login: could not load account for user_id=%d: %v", id, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "error": "Database error (account)."})
+		return
+	}
+	if !permissions.CanAccessDashboard(permissions.TierFrom(account.StaffTier)) {
+		// The password was correct, so this is NOT a brute-force signal: the
+		// lockout counter is deliberately left untouched (neither incremented
+		// nor reset), exactly as the previous is_admin check behaved.
+		log.Printf("[authz] admin login refused for user_id=%d staff_tier=%q ip=%s",
+			id, account.StaffTier, auth.ClientIP(c.Request.RemoteAddr))
+		c.JSON(http.StatusForbidden, gin.H{
+			"status": "error",
+			"error":  "Dashboard access is limited to staff accounts.",
+			"code":   "dashboard_access_required",
+		})
 		return
 	}
 	// §24 — optional OTP second factor (env-gated, OFF by default). Runs AFTER
@@ -413,8 +441,9 @@ func (h *AuthHandler) AdminLogin(c *gin.Context) {
 		h.LoginLocks.Reset(ctx, lockID)
 	}
 
+	// `account` was already loaded above for the staff-tier gate — reuse it
+	// rather than re-querying.
 	role, _ := h.Users.GetRoleID(ctx, id)
-	account, _ := h.Users.GetAccountForClient(ctx, id)
 	session, err := h.Tokens.IssueToken(ctx, id, c.Request.UserAgent(), auth.ClientIP(c.Request.RemoteAddr))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "error": "Unable to issue token."})

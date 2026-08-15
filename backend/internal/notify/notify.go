@@ -276,17 +276,23 @@ func (n *Notifier) BroadcastToPackage(ctx context.Context, packageSlug string, m
 }
 
 // BroadcastToStaff sends a notification to every active STAFF member — the
-// dashboard operators who review submissions. Staff are identified by is_admin=1
-// or a staff staff_tier (super_admin/admin/supervisor/employee), NOT by role_id
-// (role_id is the app-side role: donor/beneficiary/volunteer). Use this for
-// "new X needs review" alerts so they land on the admin dashboard bell.
+// dashboard operators who review submissions. Staff are identified by
+// staff_tier (super_admin/admin/supervisor/employee), NOT by role_id (role_id
+// is the app-side role: donor/beneficiary/volunteer). Use this for "new X needs
+// review" alerts so they land on the admin dashboard bell.
 // Best-effort: individual send failures are logged, not fatal.
+//
+// A15 — the legacy `is_admin = 1` clause was dropped along with the auth gates
+// that honoured it. These alerts describe pending moderation work (new cases,
+// registrations, reports); an account that can no longer open the dashboard has
+// no business being told about them, and production holds exactly one such row
+// (is_admin = 1, staff_tier = 'user'). staff_tier is now the single definition
+// of "staff" everywhere in the codebase.
 func (n *Notifier) BroadcastToStaff(ctx context.Context, m LocalizedMessage) (int, error) {
 	rows, err := n.Pool.Query(ctx,
 		`SELECT id FROM users
 		  WHERE active = 1
-		    AND (is_admin = 1
-		         OR staff_tier IN ('super_admin','admin','supervisor','employee'))`)
+		    AND staff_tier IN ('super_admin','admin','supervisor','employee')`)
 	if err != nil {
 		return 0, err
 	}

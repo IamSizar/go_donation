@@ -8,17 +8,27 @@ export type StoredUser = {
   user_id: number
   phone: string
   role_id: number | null
-  is_admin: number  // 1 = admin, 0 = not
+  // Legacy display flag. A15 — it no longer gates ANYTHING, here or on the
+  // server: it had drifted out of sync with staff_tier in both directions.
+  // Kept on the type only so sessions stored before that change still parse.
+  is_admin: number
   // Phase 6 dashboard access tier: super_admin | admin | supervisor | employee | user
   staff_tier?: string
 }
 
+// isDashboardStaff mirrors the server's auth.IsDashboardStaff — the tiers that
+// may reach /api/admin/* at all. Client-side this is UX only (the server is the
+// control), but it must never be MORE permissive than the gate, or the
+// dashboard promises actions the API will refuse.
+export function isDashboardStaff(user: StoredUser | null): boolean {
+  const tier = user?.staff_tier
+  return tier === 'super_admin' || tier === 'admin' || tier === 'supervisor' || tier === 'employee'
+}
+
 // canExportData gates the CSV / DB-export tools to admin-level staff only
-// (Phase 7 · G-07 / M-60). Legacy is_admin=1 accounts are grandfathered in.
+// (Phase 7 · G-07 · M-60), matching auth.IsAdminLevel on the server.
 export function canExportData(user: StoredUser | null): boolean {
-  if (!user) return false
-  if (user.staff_tier === 'super_admin' || user.staff_tier === 'admin') return true
-  return user.is_admin === 1
+  return user?.staff_tier === 'super_admin' || user?.staff_tier === 'admin'
 }
 
 // isSuperAdmin gates the most sensitive tools (raw DB export, permissions

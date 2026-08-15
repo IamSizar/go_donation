@@ -1,18 +1,18 @@
 // LoginPage — admin-only username + password login.
 //
-// Phase 30 — admins sign in with a username + password via
+// Phase 30 — staff sign in with a username + password via
 // POST /api/auth/admin/login. This replaces the old single-tenant
 // hardcoded-phone login, so the dashboard now supports any number of
-// admin accounts (each a users row with a username, bcrypt password_hash,
-// and is_admin=1).
+// staff accounts (each a users row with a username, bcrypt password_hash,
+// and a staff `staff_tier`).
 //
-// Only is_admin=1 accounts are permitted: the backend rejects non-admins,
-// and this form double-checks is_admin in the response before storing the
-// session.
+// A15 — only STAFF tiers are permitted. The backend refuses everyone else with
+// 403 `dashboard_access_required`; this form re-checks the tier before storing
+// a session, so a stale or hand-edited response can't seed one either.
 
 import { useState, type FormEvent } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { api, describeError } from '../lib/api'
+import { api, describeError, isDashboardStaff, type StoredUser } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useI18n } from '../lib/i18n'
 
@@ -72,18 +72,23 @@ export default function LoginPage() {
       }
       const token = data?.access_token as string
       if (!token) throw new Error(t('auth.no_token'))
-      const isAdmin = Number(data.account?.is_admin ?? 0)
-      if (isAdmin !== 1) {
-        setError(t('auth.admin_required'))
-        return
-      }
-      login(token, {
+      // A15 — mirror the server's staff_tier gate. This used to read the legacy
+      // `is_admin` flag and, worse, DERIVE staff_tier from it
+      // (`is_admin === 1 ? 'admin' : 'user'`) — so an ordinary app user holding
+      // that flag got a session stamped 'admin' and the dashboard rendered as
+      // if they were one. The tier is now taken only from the server's answer.
+      const storedUser: StoredUser = {
         user_id: data.account?.user_id ?? data.user_id,
         phone: data.account?.phone ?? '',
         role_id: data.account?.role_id ?? data.role_id ?? null,
-        is_admin: isAdmin,
-        staff_tier: data.account?.staff_tier ?? (isAdmin === 1 ? 'admin' : 'user'),
-      })
+        is_admin: Number(data.account?.is_admin ?? 0),
+        staff_tier: data.account?.staff_tier ?? 'user',
+      }
+      if (!isDashboardStaff(storedUser)) {
+        setError(t('auth.admin_required'))
+        return
+      }
+      login(token, storedUser)
       navigate(from, { replace: true })
     } catch (err) {
       setError(describeError(err))

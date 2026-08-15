@@ -639,9 +639,11 @@ func main() {
 			authed.GET("/history/", historyH.Get)
 		}
 
-		// Admin-only routes — Bearer + users.is_admin=1 required. Returns 403
-		// for non-admin users; 401 for missing/expired tokens. Defense in depth:
-		// the SPA also hides these pages from non-admin users (Phase 8).
+		// Admin-only routes — Bearer + a STAFF users.staff_tier required (A15;
+		// the legacy is_admin flag no longer grants anything). Returns 403 for
+		// app users; 401 for missing/expired tokens. The SPA also hides these
+		// pages, but that is UX only — this gate is the control, because the
+		// mobile app issues the very same kind of Bearer token.
 		admin := api.Group("/")
 		admin.Use(auth.RequireAdmin(tokenStore))
 		{
@@ -807,7 +809,15 @@ func main() {
 			admin.POST("/admin/donations/:id/status", perm("donations", "edit"), adminStatusH.Donation)
 			admin.POST("/admin/users/:id/role", perm("users", "edit"), adminStatusH.UserRole)
 			admin.POST("/admin/users/:id/active", perm("users", "edit"), adminStatusH.UserActive)
-			admin.POST("/admin/users/:id/admin", perm("users", "edit"), adminStatusH.UserAdmin)
+			// A15 — this writes the legacy `is_admin` column, which no longer
+			// authorises anything (staff_tier is the sole gate). It used to sit
+			// on perm("users","edit"), which employees and supervisors hold by
+			// default — so any employee could stamp is_admin=1 on any row and
+			// hand it dashboard + admin-level authority. That is very likely how
+			// production ended up with an is_admin=1 / staff_tier='user' account.
+			// Pinned to Super-Admin to match /staff_tier, the field that now
+			// actually grants access.
+			admin.POST("/admin/users/:id/admin", auth.RequireSuperAdmin(), adminStatusH.UserAdmin)
 			admin.POST("/admin/users/:id/password", perm("users", "edit"), adminStatusH.UserPassword)
 			admin.POST("/admin/users/:id/staff_tier", perm("users", "edit"), adminStatusH.UserStaffTier) // Users #c
 			// Note #42 — test-phase wallet top-up (admin credits a user's balance).

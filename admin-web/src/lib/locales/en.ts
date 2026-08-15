@@ -1076,6 +1076,13 @@ const en = {
     network: 'No connection to the server. Check your internet connection and try again.',
     unknown: 'Something went wrong. Please try again.',
     retry: 'Try again',
+    // A15 — authorisation refusals. The server sends these as a stable `code`
+    // so the operator reads the reason in their own language.
+    auth_required: 'Your session has ended. Please sign in again.',
+    dashboard_access_required: 'This dashboard is for staff accounts only. Your account does not have dashboard access.',
+    admin_level_required: 'Only an Administrator or the Primary Administrator can do this.',
+    super_admin_required: 'Only the Primary Administrator can do this.',
+    permission_denied: 'Your access level does not allow this action. Ask the Primary Administrator if you need it.',
   },
 
   // Singular entity nouns — used by the live-feed highlight banner.

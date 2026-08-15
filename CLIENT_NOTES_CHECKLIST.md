@@ -34,7 +34,7 @@ PDF repeats the same complaint). Groups G–N are new material extracted from th
 | A12 | **Volunteer request action buttons disappear after final approval/submission**, so a request can never be closed or reversed — "إصلاح مشكلة اختفاء أزرار الإجراءات بعد الموافقة النهائية أو تقديم الطلب، لضمان عدم قفل الطلب تماماً" `[D p6]` | Dashboard → المتطوعين → تسجيلات المهام | ⬜ |
 | A13 | **The `mark completed` button disappears when clicked** — "عند اختيار هذا الزر المجاور للعرض والتعديل يختفي عند الضغط عليه" `[D p6]` | Dashboard → المهام | ⬜ |
 | A14 | **المهام → عرض has no detail page at all** — shows "مورد غير معروف" (unknown resource); no details page exists for `volunteer_missions`. And **there is no back button or route out** — "لايوجد زر او طريقة رجوع عند الدخول لصفحة العرض" `[D p6]` | Dashboard → المهام → عرض | ⬜ |
-| A15 | **SECURITY: ordinary app users can reach the dashboard.** Client asks to close "الثغرة الحالية التي تسمح لهم باستعراض وتعديل الأقسام كالأخبار والحملات والدليل" — block any app user from logging into and browsing/editing dashboard pages; restrict to admin and approved employees only. `[D p9]` | Dashboard auth | ⬜ |
+| A15 | **SECURITY: ordinary app users can reach the dashboard.** Client asks to close "الثغرة الحالية التي تسمح لهم باستعراض وتعديل الأقسام كالأخبار والحملات والدليل" — block any app user from logging into and browsing/editing dashboard pages; restrict to admin and approved employees only. `[D p9]` | Dashboard auth | 🔎 **confirmed, fixed, not deployed** — see A15 notes below |
 
 ### A1 — diagnosis and fix (2026-08-15)
 
@@ -113,6 +113,84 @@ loads, and with the fix reverted the page shows the translated Arabic error plus
 Retry instead of the false "no contributions yet".
 
 **Not deployed.** Production still 500s until the backend is released.
+
+### A15 — diagnosis and fix (2026-08-15)
+
+**The client is right. The hole is real, and it is wider than reported.**
+
+**Root cause — two fields, one of them lying.** `users` carries both
+`is_admin` (a legacy SMALLINT) and `staff_tier` (the tier the whole permission
+system is built on). Migration 015 backfilled `staff_tier` from `is_admin` and
+`is_admin` was supposed to retire — but every gate kept honouring it as an
+*independent* grant, written as `if user.IsAdmin != 1 && <tier check>`. So the
+legacy flag alone opened the door, tier be damned. The two fields then drifted
+apart in production, in both directions.
+
+**Why an app user could walk in.** The mobile app and the dashboard share one
+token store: `POST /api/auth/login` (phone) and `POST /api/auth/admin/login`
+(username + password) mint the same kind of Bearer token, and nothing marks a
+token as "app" or "dashboard". So an ordinary app user whose row carried
+`is_admin = 1` did not need the dashboard login form at all — their **normal app
+login token** passed `RequireAdmin`. Production user **23** is exactly that
+shape (`is_admin = 1`, `staff_tier = 'user'`, no username, has a password).
+
+**Reproduced end-to-end** against a local backend on the real schema, with a
+row seeded in user 23's shape: `POST /api/auth/login` → token →
+`GET /api/admin/campaigns` → **HTTP 200 with the campaign list**. Same token
+also reached `/api/admin/community` (the الدليل / City Guide queue) and
+`/api/admin/users`. After the fix all return **403 `dashboard_access_required`**.
+
+**Wider than reported — two more consequences of the same flag:**
+
+1. `RequireAdminTier` had the identical short-circuit, so `is_admin = 1` also
+   conferred *admin-level* authority: trash restore, catalogue CRUD, payment
+   methods, global settings.
+2. `POST /api/admin/users/:id/admin` (which writes `is_admin`) was gated on
+   `perm("users","edit")` — an **employee**-default permission. Any employee
+   could stamp `is_admin = 1` on any row, including their own, and self-promote
+   past every tier check. That is the most likely origin of user 23's shape.
+
+**The decision: `staff_tier` is authoritative; `is_admin` no longer authorises
+anything.** It survives as a display column only. Every gate now routes through
+one predicate pair (`auth.IsDashboardStaff` / `auth.IsAdminLevel`), so "who is
+staff" has a single answer in a single place.
+
+**Changed:** `backend/internal/auth/middleware.go` (both predicates, all four
+gates, plus a `denyAuthz` helper that logs every refusal with user id / tier /
+IP and returns a translatable `code`) · `backend/internal/handlers/auth.go`
+(`AdminLogin` gates on `staff_tier`, fails closed on lookup error, brute-force
+lockout semantics unchanged) · `backend/cmd/server/main.go`
+(`/admin/users/:id/admin` → Super-Admin only) ·
+`backend/internal/notify/notify.go` (staff broadcast by tier) · admin-web
+`lib/api.ts`, `LoginPage.tsx`, `UsersPage.tsx` + 5 `error.*` locale keys × 4
+languages.
+
+**Test:** `backend/internal/auth/dashboard_access_test.go`. Verified it FAILS
+before the fix (`status = 200, want 403` on the user-23 shape, for both
+`RequireAdmin` and `RequireAdminTier`) and passes after.
+
+**Production rows that look misconfigured — NOT modified, for the owner to
+decide:**
+
+| id | is_admin | staff_tier | what it means |
+|----|----------|-----------|----------------|
+| 23 | 1 | `user` | An **app user** who held dashboard + admin-level access. The reported hole. Now blocked. Someone should establish whether this account was meant to be staff — and if not, why it was flagged. |
+| 34 | 0 | `super_admin` | The inverse: a genuine Super-Admin the **dashboard login refused**, because the login checked `is_admin`. Now admitted. Has no username/password, so it can only sign in through the app. |
+
+Also worth the owner's attention: of five staff accounts only **id 18** has both
+a username and a password, i.e. only one can use the dashboard login form at
+all. Ids 1, 15, 19 and 34 are staff who must sign in through the app — which is
+how app tokens ended up being the dashboard's de-facto credential in the first
+place.
+
+**Out of scope, found on the way — please track separately:**
+`POST /api/auth/login` issues a token for a phone with **no password_hash**
+without verifying an OTP; the OTP endpoint is separate and the server never
+requires it. Any account with no password (production id 34 — a `super_admin`)
+can therefore be signed in as by anyone who knows the phone number. This is a
+bigger blast radius than A15 and needs its own item; it was not touched here.
+
+**Not deployed.**
 
 ## B. English leaking into the Arabic UI (hard project rule)
 

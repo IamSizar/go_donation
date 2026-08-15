@@ -197,11 +197,13 @@ export default function UsersPage() {
   // auth.go). So setting a password on a regular app user (not staff/admin)
   // doesn't just do nothing — it silently locks them out of their normal
   // login with no way back in through the app. Warn before it happens;
-  // staff/admin accounts (is_admin=1) are exactly what this field is for and
-  // skip the warning.
+  // staff accounts are exactly what this field is for and skip the warning.
+  // A15 — "staff" is read from staff_tier, not the legacy is_admin flag: the
+  // two had drifted, and an app user carrying is_admin=1 is precisely the
+  // person this warning exists to protect.
   const confirmPasswordSet = useCallback(
     (u: UserAccount) => {
-      if (u.is_admin === 1) return true
+      if (u.staff_tier && u.staff_tier !== 'user') return true
       return window.confirm(t('page.users.password_non_staff_warning'))
     },
     [t],
@@ -335,12 +337,17 @@ export default function UsersPage() {
     },
     {
       // Note #10 — was 3 separate columns (Admin, Access tier, and this one)
-      // showing overlapping Admin/User/Supervisor wording. `is_admin` never
-      // gated anything independently of `staff_tier` (a 2023 migration folded
-      // every is_admin=1 account into staff_tier='admin'), so the standalone
-      // "Admin" column was pure duplication — dropped. This is now the single
-      // "Access Permission" column. Only the Super-Admin can change it; others
-      // see it read-only. PIN-confirmed.
+      // showing overlapping Admin/User/Supervisor wording, so the standalone
+      // "Admin" column was dropped. This is now the single "Access Permission"
+      // column. Only the Super-Admin can change it; others see it read-only.
+      // PIN-confirmed.
+      //
+      // A15 corrects what this comment used to claim. `is_admin` DID gate
+      // things independently of `staff_tier`: migration 015 backfilled the tiers
+      // but left `is_admin != 1 && ...` short-circuits in RequireAdmin,
+      // RequireAdminTier and the dashboard login, and the two fields then
+      // drifted. Dropping the column was right; believing the flag was inert
+      // was not. It is inert NOW — every gate reads staff_tier alone.
       key: 'tier',
       header: t('col.tier'),
       cell: (u) => (
