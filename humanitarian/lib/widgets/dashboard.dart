@@ -397,7 +397,22 @@ class DashboardHomeSection extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         if (recentDonations.isEmpty)
-          _GlassPanel(child: Text('No donations yet.'.tr))
+          // A designed empty state, not a bare sentence in a panel.
+          //
+          // This is a first-time donor's most likely view of the section, so
+          // it is the app's chance to say what will appear here and offer the
+          // action that makes it appear — rule 5.8. It was a single line of
+          // muted text with no icon, no explanation and no way forward, which
+          // reads as a dead section rather than an invitation.
+          _GlassPanel(
+            child: AppEmpty(
+              icon: Icons.volunteer_activism_rounded,
+              title: 'No donations yet.',
+              message: 'Your contributions will appear here once you give.',
+              actionLabel: 'Make donation',
+              onAction: () => Get.to(() => const DonationsSection()),
+            ),
+          )
         else
           _GlassPanel(
             child: Column(
@@ -1745,23 +1760,33 @@ class _CampaignCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const Spacer(),
-                    if (campaign.fundingAmountsLine.isNotEmpty)
-                      Flexible(
-                        child: Text(
-                          campaign.fundingAmountsLine,
-                          textAlign: TextAlign.end,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: AppThemeConfig.mutedText(context),
-                          ),
-                        ),
-                      ),
                   ],
                 ),
+                // The raised/goal figures get their OWN full-width line.
+                //
+                // They used to sit in the Row above, sharing a 256pt card with
+                // a 22pt percentage, so a real campaign rendered as
+                // "9,000,000 ..." — the goal clipped off entirely. Truncating
+                // a money figure is worse than wrapping one: the reader cannot
+                // tell 9,000,000 from 9,000,000,000, and this is the number
+                // that tells them whether the campaign still needs them.
+                //
+                // Abbreviating to "9M" was the other option and was rejected
+                // for the same reason — precision is the point here.
+                if (campaign.fundingAmountsLine.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    campaign.fundingAmountsLine,
+                    textAlign: TextAlign.end,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: AppThemeConfig.mutedText(context),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 8),
                 // ---- Thick gradient progress bar ----
                 ClipRRect(

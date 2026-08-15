@@ -208,6 +208,8 @@ class AppTranslations extends Translations {
     'event': 'Event',
     'news': 'News',
     'article': 'Article',
+    'Your contributions will appear here once you give.':
+        'Your contributions will appear here once you give.',
     'Registration': 'Registration',
     // Says the registration IS safe before saying what failed, because that is
     // the order the user needs it in — the alarming half first would read as
@@ -2610,6 +2612,8 @@ class AppTranslations extends Translations {
     'event': 'فعالية',
     'news': 'أخبار',
     'article': 'مقال',
+    'Your contributions will appear here once you give.':
+        'ستظهر مساهماتك هنا بعد أول تبرع.',
     'Registration': 'التسجيل',
     'Your registration was saved, but your documents did not upload. You can add them from your profile.':
         'تم حفظ تسجيلك، لكن لم يتم رفع مستنداتك. يمكنك إضافتها من ملفك الشخصي.',
