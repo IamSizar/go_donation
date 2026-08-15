@@ -345,23 +345,122 @@ class _CityGuideScreenState extends State<CityGuideScreen> {
                 ),
               ],
               const SizedBox(height: 14),
-              Expanded(child: _CityMap(entries: items)),
-              if (items.isNotEmpty) ...[
-                const SizedBox(height: 14),
-                SizedBox(
-                  height: 96,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: items.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 10),
-                    itemBuilder: (_, i) => _PlaceCard(entry: items[i]),
+              // The map + place strip is an async region and now says so.
+              // Before this, a first load and a FAILED load looked identical:
+              // an empty basemap with the overlay "No locations yet. Add
+              // coordinates from the admin panel." — admin-facing copy shown
+              // to a user whose fetch had just errored, with no retry
+              // anywhere on the screen. Error is checked before empty
+              // (AppAsync does this), because a failed fetch also leaves the
+              // list empty and "empty" would otherwise win.
+              //
+              // The header, "Add an Activity" button and sector chips stay
+              // OUTSIDE this on purpose: they are standing actions, and
+              // someone whose places failed to load is exactly who may want
+              // to suggest a missing one.
+              Expanded(
+                child: AppAsync<List<Map<String, dynamic>>>(
+                  loading: _controller.isLoading.value,
+                  error: _controller.errorMessage.value,
+                  onRetry: _controller.fetchEntries,
+                  data: items,
+                  isEmpty: (list) => list.isEmpty,
+                  skeleton: const _CityGuideSkeleton(),
+                  // Two different "nothing here" situations, two different
+                  // ways out: an empty guide can only be waited on (or added
+                  // to), whereas an empty FILTER is the user's own doing and
+                  // is undone by clearing it.
+                  empty: selected == null
+                      ? const AppEmpty(
+                          icon: Icons.explore_off_rounded,
+                          title: 'No places on the map yet',
+                          message:
+                              'Approved places in the city guide will appear '
+                              'here. You can suggest one with Add an Activity.',
+                        )
+                      : AppEmpty(
+                          icon: Icons.filter_alt_off_rounded,
+                          title: 'No places in this sector',
+                          message:
+                              'Nothing in the guide matches this sector yet. '
+                              'Clear the filter to see every place.',
+                          actionLabel: 'Show all places',
+                          onAction: () => _controller.selectSector(null),
+                        ),
+                  builder: (list) => Column(
+                    children: [
+                      Expanded(child: _CityMap(entries: list)),
+                      const SizedBox(height: 14),
+                      // The strip is NOT a second copy of the pins: a place
+                      // with no latitude/longitude gets no pin at all, so for
+                      // those entries this row is the only way to reach them
+                      // from the map screen. It stays.
+                      SizedBox(
+                        height: 96,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: list.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(width: 10),
+                          itemBuilder: (_, i) => _PlaceCard(entry: list[i]),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
+              ),
             ],
           ),
         );
       }),
+    );
+  }
+}
+
+/// First-load placeholder for the City Guide, shaped like what replaces it:
+/// one large rounded block where the map goes and two place cards where the
+/// strip goes. The default [AppSkeleton.rows] would be wrong here — this
+/// screen's content is a map, not a list of text rows, so text bones would
+/// jump into a map rather than fill into one.
+class _CityGuideSkeleton extends StatelessWidget {
+  const _CityGuideSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    // One neutral bone colour, taken from the theme so it works in both modes.
+    final bone = AppThemeConfig.border(context);
+    return AppSkeleton(
+      child: Column(
+        children: [
+          Expanded(
+            child: Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: bone,
+                borderRadius: BorderRadius.circular(22),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            height: 96,
+            child: Row(
+              children: [
+                for (var i = 0; i < 2; i++) ...[
+                  if (i > 0) const SizedBox(width: 10),
+                  Container(
+                    width: 210,
+                    decoration: BoxDecoration(
+                      color: bone,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -666,7 +765,13 @@ class _CityMapState extends State<_CityMap> {
               ),
             ),
 
-            // Empty state.
+            // "We have places, but none of them can be drawn." The screen-level
+            // empty/error states are handled by AppAsync above, so by the time
+            // the map builds there IS at least one place — this overlay only
+            // fires for the narrower case where none of them carry
+            // coordinates. The old copy ("Add coordinates from the admin
+            // panel") was instructions for an admin shown to every user; it
+            // now points at the strip, which can reach those places.
             if (pins.isEmpty)
               IgnorePointer(
                 child: Center(
@@ -686,7 +791,7 @@ class _CityMapState extends State<_CityMap> {
                       ],
                     ),
                     child: Text(
-                      'No locations yet.\nAdd coordinates from the admin panel.'
+                      'These places have no map location yet.\nBrowse them in the row below.'
                           .tr,
                       textAlign: TextAlign.center,
                       style: const TextStyle(
