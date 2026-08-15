@@ -49,29 +49,41 @@ class ProjectCategory {
   );
 }
 
-/// Fetches the active project categories (ordered), or an empty list on
-/// error/offline (the submit screen then falls back to a free-text field).
+/// Fetches the active project categories, in admin order.
+///
+/// THROWS on failure. It used to end in `catch (_) { return const []; }`, and
+/// the comment defending that silence made a real argument: these are an input
+/// VOCABULARY rather than the user's own data, and both call sites degraded to
+/// something usable — a free-text category field on the submit-project form,
+/// or a hidden picker on checkout with the gift going to the general fund.
+///
+/// That argument held exactly as long as the picker was an optional
+/// refinement. M4 turned it into one of two named paths a donor chooses
+/// between, so a failed load now means tapping "donate to a specific project"
+/// and being shown nothing — the C2 mistake in a new place. Once the failure
+/// is visible here, [AidTargetField] can tell "there are no projects open"
+/// apart from "we could not ask", and offer a retry for the second.
+///
+/// The submit-project form still wants the old behaviour and still gets it:
+/// it catches this and keeps its free-text fallback, which is now a written-
+/// down decision at the call site instead of one inherited by accident.
+///
+/// A 200 carrying no `items` list is a genuinely empty catalogue, not an
+/// error.
 Future<List<ProjectCategory>> fetchProjectCategories() async {
-  try {
-    final resp = await http.get(
-      Uri.parse(projectCategoriesUrl),
-      headers: const {'Accept': 'application/json'},
-    );
-    if (resp.statusCode != 200) return const [];
-    final decoded = jsonDecode(resp.body);
-    if (decoded is Map && decoded['items'] is List) {
-      return (decoded['items'] as List)
-          .whereType<Map>()
-          .map((m) => ProjectCategory.fromJson(Map<String, dynamic>.from(m)))
-          .toList();
-    }
-    return const [];
-  } catch (_) {
-    // DELIBERATE silence: this is an input vocabulary, not the user's data.
-    // Both call sites (beneficiary_submit_project_screen, and the optional
-    // project picker in continue_donation_screen) degrade to a usable form —
-    // a free-text category field, or a hidden picker with the gift going to
-    // the general fund. Throwing here would block a donation over a dropdown.
-    return const [];
+  final resp = await http.get(
+    Uri.parse(projectCategoriesUrl),
+    headers: const {'Accept': 'application/json'},
+  );
+  if (resp.statusCode != 200) {
+    throw Exception('Project categories request failed (${resp.statusCode})');
   }
+  final decoded = jsonDecode(resp.body);
+  if (decoded is Map && decoded['items'] is List) {
+    return (decoded['items'] as List)
+        .whereType<Map>()
+        .map((m) => ProjectCategory.fromJson(Map<String, dynamic>.from(m)))
+        .toList();
+  }
+  return const [];
 }

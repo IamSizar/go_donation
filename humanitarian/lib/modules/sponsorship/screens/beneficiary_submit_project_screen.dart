@@ -56,7 +56,20 @@ class _BeneficiarySubmitProjectScreenState
   }
 
   Future<void> _loadCategories() async {
-    final cats = await fetchProjectCategories();
+    // fetchProjectCategories signals failure now instead of swallowing it
+    // (M4), so the fallback this form has always relied on is written down
+    // here rather than inherited from inside the API. It is the right answer
+    // for THIS screen specifically: the field degrades to a free-text box that
+    // still submits, so a lost vocabulary must not block someone filing a
+    // project request. The donate screen makes the opposite choice, because
+    // there the list is one of two paths the donor picks between.
+    List<ProjectCategory> cats;
+    try {
+      cats = await fetchProjectCategories();
+    } catch (e) {
+      debugPrint('SubmitProject: category list unavailable: $e');
+      cats = const [];
+    }
     if (!mounted) return;
     setState(() => _categories = cats);
   }

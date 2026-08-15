@@ -22,7 +22,9 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_application_1/api/case_categories_api.dart';
+import 'package:flutter_application_1/api/donation_types_api.dart';
 import 'package:flutter_application_1/api/payment_methods_api.dart';
+import 'package:flutter_application_1/api/project_categories_api.dart';
 import 'package:flutter_application_1/api/task_api.dart';
 import 'package:flutter_application_1/api/wallet_api.dart';
 
@@ -68,15 +70,49 @@ void main() {
     // said to state nothing untrue. That held right up until a heading reading
     // "Browse by category" was placed above the row. A heading over nothing
     // does assert something, and it asserts the wrong thing.
-    test('fetchCaseCategories throws when the network is unreachable', () async {
-      await withHttp(FakeHttpOverrides(HttpBehaviour.networkError), () async {
-        await expectLater(fetchCaseCategories(), throwsA(isA<Object>()));
-      });
-    });
+    test(
+      'fetchCaseCategories throws when the network is unreachable',
+      () async {
+        await withHttp(FakeHttpOverrides(HttpBehaviour.networkError), () async {
+          await expectLater(fetchCaseCategories(), throwsA(isA<Object>()));
+        });
+      },
+    );
 
     test('fetchCaseCategories throws on a 500', () async {
       await withHttp(FakeHttpOverrides(HttpBehaviour.serverError), () async {
         await expectLater(fetchCaseCategories(), throwsA(isA<Object>()));
+      });
+    });
+
+    // M4 — the ninth, and it went the same way as the eighth. Its silence also
+    // came with an argument attached: an input vocabulary whose call sites both
+    // degraded to something usable, so hiding the picker "states nothing
+    // untrue". That held while the picker was an optional refinement of a gift.
+    // M4 turned it into one of two NAMED PATHS a donor chooses between, and a
+    // tile reading "donate to a specific project" that shows nothing when
+    // tapped is a control that does not work.
+    test(
+      'fetchProjectCategories throws when the network is unreachable',
+      () async {
+        await withHttp(FakeHttpOverrides(HttpBehaviour.networkError), () async {
+          await expectLater(fetchProjectCategories(), throwsA(isA<Object>()));
+        });
+      },
+    );
+
+    test('fetchProjectCategories throws on a 500', () async {
+      await withHttp(FakeHttpOverrides(HttpBehaviour.serverError), () async {
+        await expectLater(fetchProjectCategories(), throwsA(isA<Object>()));
+      });
+    });
+
+    // M3 — the tenth. The donate screen's giving-type chips came from this
+    // call, and an empty result there would have told the donor the
+    // organization offers no giving types at all.
+    test('fetchDonationTypes throws on a 500', () async {
+      await withHttp(FakeHttpOverrides(HttpBehaviour.serverError), () async {
+        await expectLater(fetchDonationTypes(), throwsA(isA<Object>()));
       });
     });
   });
@@ -117,14 +153,40 @@ void main() {
       },
     );
 
-    test('an empty category taxonomy returns [] rather than throwing', () async {
+    test(
+      'an empty category taxonomy returns [] rather than throwing',
+      () async {
+        await withHttp(
+          FakeHttpOverrides(HttpBehaviour.ok, body: '{"items": []}'),
+          () async {
+            expect(await fetchCaseCategories(), isEmpty);
+          },
+        );
+      },
+    );
+
+    test('an organization with no open projects is empty, not broken', () async {
+      // The donate screen tells these two apart on screen: "no project is open
+      // right now, so your gift goes to general aid" versus a retry banner.
       await withHttp(
         FakeHttpOverrides(HttpBehaviour.ok, body: '{"items": []}'),
         () async {
-          expect(await fetchCaseCategories(), isEmpty);
+          expect(await fetchProjectCategories(), isEmpty);
         },
       );
     });
+
+    test(
+      'an organization offering no giving types is empty, not broken',
+      () async {
+        await withHttp(
+          FakeHttpOverrides(HttpBehaviour.ok, body: '{"items": []}'),
+          () async {
+            expect(await fetchDonationTypes(), isEmpty);
+          },
+        );
+      },
+    );
 
     test('a real balance is parsed and returned', () async {
       await withHttp(

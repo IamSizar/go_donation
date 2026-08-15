@@ -242,6 +242,21 @@ class AppTranslations extends Translations {
         'We could not load the donation types.',
     'No donation type has been published yet, so this gift will be recorded as a general donation.':
         'No donation type has been published yet, so this gift will be recorded as a general donation.',
+    // ─── M4 · مساعدات عامة vs التبرع حسب مشروع محدد ───
+    'Who should this help?': 'Who should this help?',
+    'General aid': 'General aid',
+    'Our team distributes it by priority and real need.':
+        'Our team distributes it by priority and real need.',
+    'Donate to a specific project': 'Donate to a specific project',
+    "Choose one of the organization's open projects.":
+        "Choose one of the organization's open projects.",
+    'We could not load the projects.': 'We could not load the projects.',
+    'Choose a project, or go back to general aid.':
+        'Choose a project, or go back to general aid.',
+    'No project is open for donation right now, so your gift goes to general aid.':
+        'No project is open for donation right now, so your gift goes to general aid.',
+    'Project donations are switched off right now, so your gift goes to general aid.':
+        'Project donations are switched off right now, so your gift goes to general aid.',
     'Demo code': 'Demo code',
     'WhatsApp / SMS': 'WhatsApp / SMS',
     'Delivery': 'Delivery',
@@ -2950,6 +2965,21 @@ class AppTranslations extends Translations {
     'We could not load the donation types.': 'تعذّر تحميل أنواع التبرع.',
     'No donation type has been published yet, so this gift will be recorded as a general donation.':
         'لم يُنشر أي نوع تبرع بعد، لذلك سيُسجَّل هذا التبرع كتبرع عام.',
+    // ─── M4 · the two paths, in the client's own words ───
+    'Who should this help?': 'من تريد أن يستفيد من تبرعك؟',
+    'General aid': 'مساعدات عامة',
+    'Our team distributes it by priority and real need.':
+        'يوزّعه فريقنا حسب الأولوية والحاجة الفعلية.',
+    'Donate to a specific project': 'التبرع حسب مشروع محدد',
+    "Choose one of the organization's open projects.":
+        'اختر أحد مشاريع المنظمة المفتوحة.',
+    'We could not load the projects.': 'تعذّر تحميل المشاريع.',
+    'Choose a project, or go back to general aid.':
+        'اختر مشروعًا، أو ارجع إلى المساعدات العامة.',
+    'No project is open for donation right now, so your gift goes to general aid.':
+        'لا يوجد مشروع مفتوح للتبرع حالياً، لذلك سيذهب تبرعك إلى المساعدات العامة.',
+    'Project donations are switched off right now, so your gift goes to general aid.':
+        'التبرع حسب مشروع موقوف حالياً، لذلك سيذهب تبرعك إلى المساعدات العامة.',
     'Demo code': 'رمز تجريبي',
     'WhatsApp / SMS': 'واتساب / رسالة نصية',
     'Delivery': 'طريقة الإرسال',

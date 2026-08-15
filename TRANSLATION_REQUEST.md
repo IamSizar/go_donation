@@ -710,6 +710,34 @@ with them.
 > `name_ckb` / `name_kmr` straight from the row (falling back to `name_en`
 > when staff leave a language blank).
 
+## donations · M4 general aid vs a specific project  (9 keys)
+
+Added 2026-08-16 by the M4 fix, which replaced checkout's bare project dropdown
+with the two named paths the client asked for. `Select a project` already exists
+in all four locales and is reused for the picker's hint, so it is not listed.
+
+The Arabic for the two path names is the client's own wording.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `Who should this help?` | Who should this help? | من تريد أن يستفيد من تبرعك؟ | ckb + kmr |
+| `General aid` | General aid | مساعدات عامة | ckb + kmr |
+| `Our team distributes it by priority and real need.` | Our team distributes it by priority and real need. | يوزّعه فريقنا حسب الأولوية والحاجة الفعلية. | ckb + kmr |
+| `Donate to a specific project` | Donate to a specific project | التبرع حسب مشروع محدد | ckb + kmr |
+| `Choose one of the organization's open projects.` | Choose one of the organization's open projects. | اختر أحد مشاريع المنظمة المفتوحة. | ckb + kmr |
+| `We could not load the projects.` | We could not load the projects. | تعذّر تحميل المشاريع. | ckb + kmr |
+| `Choose a project, or go back to general aid.` | Choose a project, or go back to general aid. | اختر مشروعًا، أو ارجع إلى المساعدات العامة. | ckb + kmr |
+| `No project is open for donation right now, so your gift goes to general aid.` | No project is open for donation right now, so your gift goes to general aid. | لا يوجد مشروع مفتوح للتبرع حالياً، لذلك سيذهب تبرعك إلى المساعدات العامة. | ckb + kmr |
+| `Project donations are switched off right now, so your gift goes to general aid.` | Project donations are switched off right now, so your gift goes to general aid. | التبرع حسب مشروع موقوف حالياً، لذلك سيذهب تبرعك إلى المساعدات العامة. | ckb + kmr |
+
+> The last two are **different states and must stay distinguishable**. One means
+> the organization turned project donations off; the other means it left them on
+> and has nothing open today. A donor reading them should be able to tell which.
+
+> The 22 PROJECT NAMES need nothing — migration 085 seeds `name_ckb` and
+> `name_kmr` for every row, so the picker already reads correctly in both
+> Kurdish variants.
+
 ---
 
 # Part 2b — Backend push / in-app notification templates

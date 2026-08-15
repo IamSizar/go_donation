@@ -10,10 +10,10 @@ import 'package:flutter_application_1/api/payment_methods_api.dart';
 import 'package:flutter_application_1/api/wallet_api.dart';
 import 'package:flutter_application_1/modules/donations/controllers/continue_donation_controller.dart';
 import 'package:flutter_application_1/modules/donations/models/donation_channel.dart';
+import 'package:flutter_application_1/modules/donations/widgets/aid_target_field.dart';
 import 'package:flutter_application_1/modules/donations/widgets/donation_type_field.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:flutter_application_1/api/project_categories_api.dart';
-import 'package:flutter_application_1/api/module_api.dart';
 import 'package:get/get.dart';
 // `intl` exports its own `TextDirection`, which collides with Flutter's when
 // forcing LTR on the locked phone row below — this file only needs the
@@ -71,12 +71,11 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
 
   int _selectedPaymentIndex = 0;
   String _donationType = 'general';
-  // #7 — "Donate to a specific project". The list and its visibility switch
-  // were both already served (GET /project-categories, GET /donation-options)
-  // but nothing rendered them, so the option was unreachable.
-  List<ProjectCategory> _projects = const [];
+  // M4 — where a cause donation lands: null is مساعدات عامة (staff distribute
+  // by need), a value is التبرع حسب مشروع محدد. The list, the dashboard
+  // visibility switch and all four load states now live in [AidTargetField];
+  // this screen holds only what it will actually submit.
   ProjectCategory? _selectedProject;
-  bool _projectsVisible = false;
 
   // Where the gift goes — 'operational' for "Donation to Support the
   // Organization" (running costs: servers, subscriptions, administration; its
@@ -170,38 +169,6 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
 
   static String _formatIQD(int n) => NumberFormat('#,##0').format(n);
 
-  Future<void> _loadProjects() async {
-    // Only a campaign-less donation can target a project — a campaign
-    // donation already has its destination.
-    if (widget.campaignsId != null) return;
-    try {
-      // Neither of these throws today: getDonationOptions() falls back to
-      // defaults internally because it serves feature flags rather than the
-      // donor's data, and fetchProjectCategories() returns an empty list for
-      // the same reason — a lost input vocabulary must not block a donation
-      // over a dropdown.
-      //
-      // The guard stays anyway. It costs nothing, and it means a future
-      // decision to make either of them signal cannot turn this into an
-      // unhandled async error on the checkout screen.
-      final opts = await const ModuleApi().getDonationOptions();
-      if (!opts.projectsVisible) return;
-      final cats = await fetchProjectCategories();
-      if (!mounted) return;
-      setState(() {
-        _projects = cats;
-        _projectsVisible = cats.isNotEmpty;
-      });
-    } catch (e) {
-      // The project picker is an optional refinement of the gift, not a
-      // prerequisite for making one. If the list cannot be loaded the section
-      // simply stays hidden and the donation goes to the general fund, exactly
-      // as it does when the feature is switched off — so this degrades
-      // silently rather than blocking checkout.
-      debugPrint('ContinueDonation: project list unavailable: $e');
-    }
-  }
-
   @override
   void initState() {
     super.initState();
@@ -209,7 +176,6 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
       Get.delete<ContinueDonationController>();
     }
     _submitController = Get.put(ContinueDonationController());
-    _loadProjects();
     _selectPreferredMethod();
     _moneyController.text = widget.amount.toString();
     _loadPaymentMethods();
@@ -570,22 +536,19 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
                         accentColor: widget.optionColor,
                         onChange: () => Get.back<void>(),
                       ),
-                      if (_projectsVisible &&
+                      // M4 — the two paths, named. Skipped entirely for a
+                      // campaign donation (its destination is already the
+                      // campaign) and for operational support (running costs
+                      // are not a project), so the question is only asked
+                      // where it has two real answers.
+                      if (widget.campaignsId == null &&
                           widget.channel.allowsProjectChoice) ...[
                         const SizedBox(height: 22),
-                        const SectionLabel(title: 'Project'),
+                        const SectionLabel(title: 'Who should this help?'),
                         const SizedBox(height: 12),
-                        DropdownButtonFormField<ProjectCategory>(
-                          initialValue: _selectedProject,
-                          isExpanded: true,
-                          hint: Text('Select a project'.tr),
-                          items: [
-                            for (final p in _projects)
-                              DropdownMenuItem(
-                                value: p,
-                                child: Text(p.localizedName),
-                              ),
-                          ],
+                        AidTargetField(
+                          selectedProject: _selectedProject,
+                          accentColor: widget.optionColor,
                           onChanged: (p) =>
                               setState(() => _selectedProject = p),
                         ),
