@@ -44,43 +44,58 @@ class OperationStatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pct = (_clamped * 100).round();
-    return Tooltip(
-      message: _statusLabel,
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: statusColor(context, progress),
-          border: Border.all(
-            color: AppThemeConfig.onAccent(context).withValues(alpha: 0.35),
-            width: 2,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: statusColor(context, progress).withValues(alpha: 0.4),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+    // Semantics, not just the Tooltip. A tooltip needs a hover or a long
+    // press, so on a phone this badge's STATE was carried by its colour and
+    // nothing else — which fails the rule the suite pins for AppRow ("status
+    // is a word, not colour alone") for exactly the users that rule protects.
+    //
+    // The percentage inside the disc is not a substitute: it says how far
+    // along, not what state that counts as, and a colour-blind user reading
+    // "40%" still cannot tell partially-received from overdue.
+    //
+    // The label is merged rather than replacing the child's own semantics, so
+    // the percentage is still announced alongside it.
+    return Semantics(
+      label: _statusLabel,
+      container: true,
+      child: Tooltip(
+        message: _statusLabel,
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: statusColor(context, progress),
+            border: Border.all(
+              color: AppThemeConfig.onAccent(context).withValues(alpha: 0.35),
+              width: 2,
             ),
-          ],
-        ),
-        alignment: Alignment.center,
-        child: _clamped >= 1.0
-            ? Icon(
-                Icons.check_rounded,
-                color: AppThemeConfig.onAccent(context),
-                size: size * 0.52,
-              )
-            : Text(
-                '$pct%',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: AppThemeConfig.onAccent(context),
-                  fontWeight: FontWeight.w900,
-                  fontSize: size * 0.30,
-                  height: 1,
-                ),
+            boxShadow: [
+              BoxShadow(
+                color: statusColor(context, progress).withValues(alpha: 0.4),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
+            ],
+          ),
+          alignment: Alignment.center,
+          child: _clamped >= 1.0
+              ? Icon(
+                  Icons.check_rounded,
+                  color: AppThemeConfig.onAccent(context),
+                  size: size * 0.52,
+                )
+              : Text(
+                  '$pct%',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppThemeConfig.onAccent(context),
+                    fontWeight: FontWeight.w900,
+                    fontSize: size * 0.30,
+                    height: 1,
+                  ),
+                ),
+        ),
       ),
     );
   }

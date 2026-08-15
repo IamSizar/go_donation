@@ -107,8 +107,14 @@ class DashboardHomeSection extends StatelessWidget {
     required BuildContext context,
     required String firstName,
     required Widget primaryAction,
-    required Widget secondaryAction,
     required List<Widget> stats,
+    // Optional, and currently passed by nobody. Every role's hero used to put
+    // a "My history" button here, going to the same screen as "My Engagement"
+    // in the shortcuts row 18px below it — the same destination twice, within
+    // one glance, in all three roles. The shortcuts row won because it is a
+    // client-specified grouping; this slot stays available for a secondary
+    // that is genuinely distinct from it.
+    Widget? secondaryAction,
   }) {
     return Container(
       padding: const EdgeInsets.all(22),
@@ -171,8 +177,10 @@ class DashboardHomeSection extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(child: primaryAction),
-                    const SizedBox(width: 10),
-                    secondaryAction,
+                    if (secondaryAction != null) ...[
+                      const SizedBox(width: 10),
+                      secondaryAction,
+                    ],
                   ],
                 ),
                 const SizedBox(height: 20),
@@ -250,10 +258,6 @@ class DashboardHomeSection extends StatelessWidget {
             icon: Icons.favorite_rounded,
             label: 'Make donation'.tr,
             onTap: () => Get.to(() => const DonationsSection()),
-          ),
-          secondaryAction: _WatchNowButton(
-            label: 'My history',
-            onTap: () => Get.to(() => const RoleHistoryScreen()),
           ),
           stats: [
             Expanded(
@@ -444,10 +448,6 @@ class DashboardHomeSection extends StatelessWidget {
             onTap: () => Get.to(() => const BeneficiarySubmitProjectScreen()),
             onLongPress: () => Get.to(() => const FirebaseScreenAdd()),
           ),
-          secondaryAction: _WatchNowButton(
-            label: 'My history',
-            onTap: () => Get.to(() => const RoleHistoryScreen()),
-          ),
           stats: [
             Expanded(
               child: _DashboardHeroStat(
@@ -511,18 +511,17 @@ class DashboardHomeSection extends StatelessWidget {
         const SizedBox(height: 12),
         _GlassPanel(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          // "Submit" and "Pending" were removed: Submit repeated the hero's
+          // primary button and Pending repeated the hero stat directly above,
+          // both within one glance. Pending was doubly redundant — pending is
+          // now a filter chip INSIDE the requests screen, so the shortcut
+          // pointed at a view the destination already offers.
+          //
+          // "My requests" stays and is the whole panel: it is the only route
+          // in the app to the UNFILTERED request list, so unlike the donor
+          // panel this one could not simply be deleted.
           child: Row(
             children: [
-              Expanded(
-                child: _QuickAction(
-                  icon: Icons.add_circle_outline_rounded,
-                  label: 'Submit',
-                  color: AppThemeConfig.accent(context),
-                  onTap: () =>
-                      Get.to(() => const BeneficiarySubmitProjectScreen()),
-                ),
-              ),
-              const SizedBox(width: 8),
               Expanded(
                 child: _QuickAction(
                   icon: Icons.folder_open_rounded,
@@ -530,19 +529,6 @@ class DashboardHomeSection extends StatelessWidget {
                   color: AppThemeConfig.accent(context),
                   onTap: () =>
                       Get.to(() => const BeneficiaryMyProjectsScreen()),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _QuickAction(
-                  icon: Icons.hourglass_bottom_rounded,
-                  label: 'Pending',
-                  color: AppThemeConfig.pending(context),
-                  onTap: () => Get.to(
-                    () => const BeneficiaryMyProjectsScreen(
-                      initialFilter: ProjectRequestFilter.pending,
-                    ),
-                  ),
                 ),
               ),
             ],
@@ -631,10 +617,6 @@ class DashboardHomeSection extends StatelessWidget {
             icon: Icons.front_hand_rounded,
             label: 'Open missions'.tr,
             onTap: () => Get.to(() => const SupportSection()),
-          ),
-          secondaryAction: _WatchNowButton(
-            label: 'My history',
-            onTap: () => Get.to(() => const RoleHistoryScreen()),
           ),
           stats: [
             Expanded(
@@ -1117,49 +1099,6 @@ String dashboardTitleForRole(String roleKey) => switch (roleKey) {
   'marriage' => 'Marriage dashboard',
   _ => 'Dashboard',
 };
-
-class _WatchNowButton extends StatelessWidget {
-  const _WatchNowButton({required this.onTap, required this.label});
-
-  final VoidCallback onTap;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        boxShadow: [
-          BoxShadow(
-            color: AppThemeConfig.accent(context).withValues(alpha: 0.28),
-            blurRadius: 22,
-            offset: const Offset(0, 14),
-          ),
-        ],
-      ),
-      child: TextButton.icon(
-        onPressed: onTap,
-        style: TextButton.styleFrom(
-          backgroundColor: AppThemeConfig.accent(context),
-          foregroundColor: AppThemeConfig.onAccent(context),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
-          minimumSize: Size.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(999),
-          ),
-          textStyle: const TextStyle(
-            fontWeight: FontWeight.w700,
-            fontSize: 13,
-            letterSpacing: 0.1,
-          ),
-          elevation: 2,
-        ),
-        icon: const Icon(Icons.history_rounded, size: 16),
-        label: Text(label.tr, maxLines: 1, overflow: TextOverflow.ellipsis),
-      ),
-    );
-  }
-}
 
 class _GlassPanel extends StatelessWidget {
   const _GlassPanel({
