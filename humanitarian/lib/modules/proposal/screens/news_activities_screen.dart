@@ -301,7 +301,10 @@ class MediaPostCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final title = localizedContentFromMap(item, 'title', fallback: 'Post');
     final body = localizedContentFromMap(item, 'body');
-    final type = (item['post_type'] ?? 'news').toString();
+    // localizedTag: post_type is a backend enum (activity/event/news/
+    // article) and was printed raw, so the Arabic UI showed the English
+    // word on every card.
+    final type = localizedTag(item['post_type'] ?? 'news');
     final date = (item['event_date'] ?? item['created_at'] ?? '').toString();
     final location = localizedContentFromMap(item, 'location'); // #23
     // "Post Information" — the Activity Code identifying the post and the

@@ -195,6 +195,19 @@ class AppTranslations extends Translations {
     'Could not load your dashboard.': 'Could not load your dashboard.',
     'We could not check for new notifications.':
         'We could not check for new notifications.',
+    // ─── Backend tags rendered to users ───
+    // Machine values from the API — marketplace's legacy free-text `category`
+    // and media's `post_type`. They were printed raw, so an Arabic user saw
+    // "beauty_care" on a product card. Resolved through localizedTag, which
+    // falls back to a humanised form for any tag added server-side before it
+    // is translated here.
+    'beauty_care': 'Beauty care',
+    'food_pantry': 'Food pantry',
+    'home_textiles': 'Home textiles',
+    'activity': 'Activity',
+    'event': 'Event',
+    'news': 'News',
+    'article': 'Article',
     'Registration': 'Registration',
     // Says the registration IS safe before saying what failed, because that is
     // the order the user needs it in — the alarming half first would read as
@@ -2589,6 +2602,14 @@ class AppTranslations extends Translations {
     'Could not load your dashboard.': 'تعذّر تحميل لوحتك.',
     'We could not check for new notifications.':
         'تعذّر التحقق من وجود إشعارات جديدة.',
+    // ─── وسوم قادمة من الخادم ───
+    'beauty_care': 'العناية بالجمال',
+    'food_pantry': 'المواد الغذائية',
+    'home_textiles': 'مفروشات منزلية',
+    'activity': 'نشاط',
+    'event': 'فعالية',
+    'news': 'أخبار',
+    'article': 'مقال',
     'Registration': 'التسجيل',
     'Your registration was saved, but your documents did not upload. You can add them from your profile.':
         'تم حفظ تسجيلك، لكن لم يتم رفع مستنداتك. يمكنك إضافتها من ملفك الشخصي.',

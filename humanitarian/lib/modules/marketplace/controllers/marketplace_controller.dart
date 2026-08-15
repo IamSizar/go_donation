@@ -6,6 +6,7 @@ import 'package:flutter_application_1/core/app_haptics.dart';
 import 'package:flutter_application_1/core/app_sound.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/realtime_polling.dart';
+import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/localization/locale_service.dart';
 import 'package:get/get.dart';
 
@@ -358,7 +359,11 @@ class MarketplaceController extends GetxController with RealtimePollingMixin {
         }
       }
     }
-    return (product['category'] ?? '').toString();
+    // Legacy free-text fallback. Runs through localizedTag so a value like
+    // 'beauty_care' reaches the user as a translated label — or at worst as
+    // "Beauty care" — instead of raw snake_case. Products predating the CMS
+    // categories have no category_slug, so this path is the common one today.
+    return localizedTag(product['category']);
   }
 
   /// Looks up a cart line's full product record (for the cart screen's

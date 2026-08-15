@@ -1894,7 +1894,10 @@ class _NewsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final title = localizedContentFromMap(post, 'title', fallback: 'Post');
-    final type = (post['post_type'] ?? 'news').toString();
+    // localizedTag: post_type is a backend enum (activity/event/news/
+    // article) and was printed raw, so the Arabic UI showed the English
+    // word on every card.
+    final type = localizedTag(post['post_type'] ?? 'news');
     final dateRaw = (post['event_date'] ?? post['created_at'] ?? '').toString();
     final imageUrl = _dashboardMediaUrl(post['media_url']);
 
