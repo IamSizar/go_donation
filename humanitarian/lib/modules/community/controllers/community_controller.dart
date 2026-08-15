@@ -29,6 +29,27 @@ class CommunityController extends GetxController {
   final categoriesLoading = false.obs;
   final categoriesError = RxnString();
 
+  /// J8 — the in-list search term, sent to the server as `?q=`.
+  ///
+  /// The directory is capped at 50 entries per response and is the list that
+  /// grows fastest, so a local filter would go wrong soonest here. The server
+  /// matches name, name_ar, address, phone AND category (`listings.go:354-357`)
+  /// — which is why a phone number or a street pasted into the box finds the
+  /// place, and a client-side name match never would.
+  final searchQuery = ''.obs;
+
+  /// Whether a query is narrowing the directory right now. Drives the empty
+  /// copy: "no places listed" is a claim about the guide itself.
+  bool get hasActiveSearch => searchQuery.value.trim().isNotEmpty;
+
+  /// Applies [query] and reloads from the server. A no-op when unchanged.
+  Future<void> setSearchQuery(String query) async {
+    final next = query.trim();
+    if (next == searchQuery.value) return;
+    searchQuery.value = next;
+    await fetchEntries();
+  }
+
   @override
   void onInit() {
     super.onInit();
@@ -42,7 +63,9 @@ class CommunityController extends GetxController {
     errorMessage.value = null;
 
     try {
-      final rows = await const ModuleApi().communityDirectory();
+      final rows = await const ModuleApi().communityDirectory(
+        q: searchQuery.value,
+      );
       entries.assignAll(rows);
     } catch (_) {
       entries.clear();

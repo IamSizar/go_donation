@@ -13,6 +13,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_application_1/core/widgets/app_pressable.dart';
 import 'package:flutter_application_1/core/design/motion.dart';
 import 'package:flutter_application_1/core/design/tokens.dart';
+import 'package:flutter_application_1/core/widgets/app_list_search_field.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 double? _parseCoord(dynamic v) {
@@ -316,6 +317,14 @@ class _CityGuideScreenState extends State<CityGuideScreen> {
           child: Column(
             children: [
               _CityGuideHeader(count: items.length),
+              // J8 — in-list search. Server-side (`?q=`): the directory is
+              // capped at 50 entries per response and is the fastest-growing
+              // list in the app, and the server matches address, phone and
+              // category as well as the name — so a street or a phone number
+              // pasted in here finds the place. A local name filter could do
+              // neither.
+              const SizedBox(height: 10),
+              AppListSearchField(onChanged: _controller.setSearchQuery),
               // #30 — let users suggest a new place (goes to the admin queue).
               const SizedBox(height: 10),
               SizedBox(
@@ -422,7 +431,18 @@ class _CityGuideScreenState extends State<CityGuideScreen> {
                   // ways out: an empty guide can only be waited on (or added
                   // to), whereas an empty FILTER is the user's own doing and
                   // is undone by clearing it.
-                  empty: selected == null
+                  // J8 — a search that matched nothing is checked FIRST, and
+                  // before the two filter cases. It is the narrowest true
+                  // statement available: "no places on the map yet" would be a
+                  // claim about the whole guide, and "nothing in this sector"
+                  // would blame a chip the user may not have touched.
+                  empty: _controller.hasActiveSearch
+                      ? const AppEmpty(
+                          icon: Icons.search_off_rounded,
+                          title: 'search_title',
+                          message: 'search_no_results',
+                        )
+                      : selected == null
                       ? const AppEmpty(
                           icon: Icons.explore_off_rounded,
                           title: 'No places on the map yet',

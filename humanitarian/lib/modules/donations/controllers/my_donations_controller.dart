@@ -17,6 +17,47 @@ class MyDonationsController extends GetxController with RealtimePollingMixin {
   final summary = DonationHistorySummary.empty.obs;
   final items = <DonationHistoryEntry>[].obs;
 
+  /// J8 — the in-list search term.
+  ///
+  /// WHY THIS ONE FILTERS LOCALLY WHILE THE OTHER LISTS ASK THE SERVER.
+  /// `donations.ListByUser` (donations.go:557-565) has no LIMIT and no paging:
+  /// the donor's ENTIRE history is already in [items]. Searching it here
+  /// therefore searches everything there is, which is the only condition under
+  /// which a client-side filter tells the truth — the capped lists (partners,
+  /// media, the City Guide, the catalogue) all send `?q=` instead, because a
+  /// filter over their loaded page would deny rows it has never seen.
+  ///
+  /// If that endpoint ever grows a LIMIT, this stops being honest and has to
+  /// move server-side. The test suite pins the claim.
+  final searchQuery = ''.obs;
+
+  /// Whether a query is narrowing the history right now. Drives the empty
+  /// copy: "you have not donated yet" is a claim about the donor.
+  bool get hasActiveSearch => searchQuery.value.trim().isNotEmpty;
+
+  /// The rows to render: the whole history, or the part of it matching
+  /// [searchQuery].
+  ///
+  /// Matches the campaign name, the reference and the payment method. The
+  /// REFERENCE matters most — it is what the receipt and the confirmation
+  /// notification quote, so it is what a donor chasing one donation actually
+  /// has in front of them.
+  List<DonationHistoryEntry> get visibleItems {
+    final query = searchQuery.value.trim().toLowerCase();
+    if (query.isEmpty) return items;
+    return items
+        .where(
+          (d) =>
+              d.campaignName.toLowerCase().contains(query) ||
+              d.reference.toLowerCase().contains(query) ||
+              d.paymentMethod.toLowerCase().contains(query),
+        )
+        .toList(growable: false);
+  }
+
+  /// Applies [query]. No request: everything is already loaded.
+  void setSearchQuery(String query) => searchQuery.value = query.trim();
+
   // Snapshot of donation status by id, used to detect admin-side
   // transitions (e.g. pending → confirmed) between polls and pop a
   // snackbar so the donor sees the update happen live.

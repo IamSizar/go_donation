@@ -13,6 +13,7 @@ import 'package:flutter_application_1/core/app_share.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
 import 'package:flutter_application_1/core/design/tokens.dart';
+import 'package:flutter_application_1/core/widgets/app_list_search_field.dart';
 import 'package:flutter_application_1/core/widgets/app_pressable.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
 
@@ -37,8 +38,17 @@ class NewsActivitiesScreen extends StatelessWidget {
             await controller.fetchCategories();
           },
           child: ListView(
+            // Scrolling the feed puts the keyboard away, so it never covers
+            // the posts the search just found.
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
             children: [
+              // J8 — in-list search. Server-side (`?q=`): the feed is capped
+              // at 50 posts, and the server also matches the post BODY, so a
+              // word from inside a write-up finds the activity. A filter over
+              // the loaded posts could do neither.
+              AppListSearchField(onChanged: controller.setSearchQuery),
+              const SizedBox(height: 14),
               // #22 — "Our Work" category filter chips. Kept OUTSIDE AppAsync:
               // the empty state is usually "nothing in THIS category", so
               // hiding the chips with the results would leave no way to undo
@@ -62,10 +72,20 @@ class NewsActivitiesScreen extends StatelessWidget {
                 // text bones would have jumped into a big picture rather than
                 // filled into one.
                 skeleton: const _PostFeedSkeleton(),
-                empty: const AppEmpty(
-                  title: 'News and activities',
-                  message: 'No published posts are available yet.',
-                ),
+                // J8 — a search that matched nothing is not an empty feed.
+                // "No published posts are available yet" would be a false
+                // claim about the organization's work, made because the user
+                // typed a word that happens not to appear in it.
+                empty: controller.hasActiveSearch
+                    ? const AppEmpty(
+                        icon: Icons.search_off_rounded,
+                        title: 'search_title',
+                        message: 'search_no_results',
+                      )
+                    : const AppEmpty(
+                        title: 'News and activities',
+                        message: 'No published posts are available yet.',
+                      ),
                 builder: (list) => Column(
                   children: [
                     for (final item in list) ...[

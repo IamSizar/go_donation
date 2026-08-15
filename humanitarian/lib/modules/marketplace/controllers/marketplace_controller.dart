@@ -32,6 +32,33 @@ class MarketplaceController extends GetxController with RealtimePollingMixin {
   final ordersErrorMessage = RxnString();
   var _productsPage = 1;
 
+  /// J8 — the catalogue search term, sent to the server as `?q=`.
+  ///
+  /// This is the list where a client-side filter would be most obviously
+  /// wrong: products arrive ten at a time, so a box over [products] would
+  /// search page one and tell the shopper the item is not sold. The server
+  /// matches name, name_ar, description, sku AND brand
+  /// (`marketplace/catalogue.go:220-221`) — an SKU off a receipt finds the
+  /// product, which no local name match could do.
+  final productSearch = ''.obs;
+
+  /// Whether a query is narrowing the catalogue right now. Drives the empty
+  /// copy: "no products available" is a claim about the shop.
+  bool get hasActiveSearch => productSearch.value.trim().isNotEmpty;
+
+  /// Applies [query] and reloads the catalogue from page 1.
+  ///
+  /// The reset is load-bearing: keeping the page number would ask the server
+  /// for page 3 of the NEW result set, and the shopper would be handed a
+  /// catalogue starting in the middle — or nothing at all, which reads as "no
+  /// such product".
+  Future<void> setProductSearch(String query) async {
+    final next = query.trim();
+    if (next == productSearch.value) return;
+    productSearch.value = next;
+    await fetchProducts(reset: true);
+  }
+
   // Note #42 — pay the cart with the internal test-phase wallet instead of
   // the default cash-on-delivery-style flow.
   final payWithWallet = false.obs;
@@ -119,9 +146,17 @@ class MarketplaceController extends GetxController with RealtimePollingMixin {
   }
 
   Future<List<Map<String, dynamic>>> _fetchProductsPage(int page) {
-    final uri = Uri.parse(
-      marketplaceProductsUrl,
-    ).replace(queryParameters: {'page': '$page', 'limit': '$_productsPerPage'});
+    final uri = Uri.parse(marketplaceProductsUrl).replace(
+      queryParameters: {
+        'page': '$page',
+        'limit': '$_productsPerPage',
+        // J8 — carried on EVERY page, load-more included. Dropping it from the
+        // second page would append unfiltered products under the search
+        // results, which is worse than no search at all.
+        if (productSearch.value.trim().isNotEmpty)
+          'q': productSearch.value.trim(),
+      },
+    );
     return const ModuleApi().getItems(uri.toString());
   }
 

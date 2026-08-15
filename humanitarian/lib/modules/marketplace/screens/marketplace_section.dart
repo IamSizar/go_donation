@@ -11,6 +11,7 @@ import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_application_1/core/design/motion.dart';
+import 'package:flutter_application_1/core/widgets/app_list_search_field.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 class MarketplaceSection extends StatelessWidget {
@@ -53,6 +54,10 @@ class _MarketplaceList extends StatelessWidget {
             child: RefreshIndicator(
               onRefresh: controller.refreshMarketplace,
               child: ListView(
+                // Scrolling the catalogue puts the keyboard away, so it never
+                // covers the products the search just found.
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
                 // Scaffold already reserves space above the bottom nav bar —
                 // this only needs a small resting margin, not extra
                 // clearance for it.
@@ -62,6 +67,15 @@ class _MarketplaceList extends StatelessWidget {
                   // content: a shopper must still be able to reach their
                   // existing orders when the product fetch fails.
                   _OrdersShortcut(controller: controller),
+                  const SizedBox(height: 12),
+                  // J8 — catalogue search. This is the list where a local
+                  // filter would be most obviously wrong: products arrive ten
+                  // at a time, so a box over the loaded rows would search page
+                  // one and tell the shopper the item is not sold. Sent as
+                  // `?q=`, which the server matches against name, name_ar,
+                  // description, sku and brand — so an SKU off a receipt finds
+                  // the product.
+                  AppListSearchField(onChanged: controller.setProductSearch),
                   const SizedBox(height: 12),
                   // Three stacked `if` blocks replaced by one state. Before,
                   // a failed load rendered the error tile AND whatever
@@ -73,10 +87,20 @@ class _MarketplaceList extends StatelessWidget {
                     onRetry: () => controller.fetchProducts(reset: true),
                     data: items,
                     isEmpty: (list) => list.isEmpty,
-                    empty: const AppEmpty(
-                      title: 'Product Listings',
-                      message: 'No approved products are available yet.',
-                    ),
+                    // J8 — a search that matched nothing is not an empty
+                    // shop. "No approved products are available yet" would be
+                    // a claim about the whole catalogue, made because one word
+                    // did not match.
+                    empty: controller.hasActiveSearch
+                        ? const AppEmpty(
+                            icon: Icons.search_off_rounded,
+                            title: 'search_title',
+                            message: 'search_no_results',
+                          )
+                        : const AppEmpty(
+                            title: 'Product Listings',
+                            message: 'No approved products are available yet.',
+                          ),
                     builder: (list) => Column(
                       children: [
                         for (var i = 0; i < list.length; i++) ...[

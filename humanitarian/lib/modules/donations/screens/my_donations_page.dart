@@ -5,6 +5,7 @@ import 'package:flutter_application_1/modules/donations/controllers/my_donations
 import 'package:flutter_application_1/modules/donations/models/donation_history_models.dart';
 import 'package:flutter_application_1/core/design/tokens.dart';
 import 'package:flutter_application_1/core/widgets/app_figure.dart';
+import 'package:flutter_application_1/core/widgets/app_list_search_field.dart';
 import 'package:flutter_application_1/core/widgets/app_row.dart';
 import 'package:flutter_application_1/core/widgets/app_screen.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
@@ -48,7 +49,11 @@ class _MyDonationsPageState extends State<MyDonationsPage> {
       final loading = _controller.isLoading.value;
       final err = _controller.errorMessage.value;
       final s = _controller.summary.value;
-      final list = _controller.items;
+      // J8 — the rows AFTER the in-list search. This list filters locally
+      // and it is the only one in the app that may: donations.ListByUser has
+      // no LIMIT, so the donor's entire history is already here and searching
+      // it searches everything there is.
+      final list = _controller.visibleItems;
 
       return AppScreen(
         assistantRoute: 'my_donations',
@@ -97,6 +102,13 @@ class _MyDonationsPageState extends State<MyDonationsPage> {
 
               const AppSectionHeader(label: 'Recent donations'),
 
+              // J8 — search the donor's own history. Matches the campaign
+              // name, the payment method and the REFERENCE — the reference
+              // being what the receipt and the confirmation notification
+              // quote, so it is what a donor chasing one gift has to hand.
+              AppListSearchField(onChanged: _controller.setSearchQuery),
+              const SizedBox(height: AppSpace.md),
+
               // One switcher owns all four states, so none can be forgotten.
               AppAsync<List<DonationHistoryEntry>>(
                 loading: loading,
@@ -105,14 +117,24 @@ class _MyDonationsPageState extends State<MyDonationsPage> {
                 data: list,
                 isEmpty: (items) => items.isEmpty,
                 skeleton: AppSkeleton.rows(count: 4, withProgress: false),
-                empty: const AppEmpty(
-                  icon: Icons.volunteer_activism_rounded,
-                  title: 'No gifts yet',
-                  message:
-                      'Every gift you make appears here with its reference '
-                      'code and delivery status, so you always know where it '
-                      'went.',
-                ),
+                // J8 — a search that matched nothing is not an empty
+                // history. "No gifts yet" would tell a donor who has given
+                // for years that they never have, because one word did not
+                // match.
+                empty: _controller.hasActiveSearch
+                    ? const AppEmpty(
+                        icon: Icons.search_off_rounded,
+                        title: 'search_title',
+                        message: 'search_no_results',
+                      )
+                    : const AppEmpty(
+                        icon: Icons.volunteer_activism_rounded,
+                        title: 'No gifts yet',
+                        message:
+                            'Every gift you make appears here with its '
+                            'reference code and delivery status, so you '
+                            'always know where it went.',
+                      ),
                 builder: (items) => Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [

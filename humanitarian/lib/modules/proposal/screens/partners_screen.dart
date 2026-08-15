@@ -10,6 +10,7 @@ import 'package:get/get.dart';
 import 'package:flutter_application_1/shared/utils/social_links.dart';
 import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_application_1/core/widgets/app_list_search_field.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 class PartnersScreen extends StatefulWidget {
@@ -108,9 +109,19 @@ class _PartnersScreenState extends State<PartnersScreen> {
             ),
           ),
           const SizedBox(height: 12),
+          // J8 — in-list search. Wired to the SERVER (`?q=`), not to the 50
+          // partners already loaded: the register is capped per response, so a
+          // local filter would report a partner as unlisted on the strength of
+          // rows it had never fetched.
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: AppListSearchField(onChanged: controller.setSearchQuery),
+          ),
+          const SizedBox(height: 12),
           Expanded(
             child: Obx(() {
               final supporting = _selected == 'supporting';
+              final searching = controller.hasActiveSearch;
               final items = supporting
                   ? controller.partners.where(_isSupporting).toList()
                   : controller.partners.toList();
@@ -129,15 +140,32 @@ class _PartnersScreenState extends State<PartnersScreen> {
                 // Per-filter empty copy: "no supporting organizations" is a
                 // different fact from "no partners at all", and the filtered
                 // view being empty says nothing about the full list.
-                empty: AppEmpty(
-                  title: supporting ? 'Supporting Organizations' : 'Partners',
-                  message: supporting
-                      ? 'No supporting organizations are listed yet.'
-                      : 'No partner records are available yet.',
-                ),
+                //
+                // J8 adds a third case, and it is the one that matters most: a
+                // SEARCH that matched nothing. "No partner records are
+                // available yet" would then be a false statement about the
+                // organization's register, made because the user typed a word.
+                empty: searching
+                    ? AppEmpty(
+                        icon: Icons.search_off_rounded,
+                        title: 'search_title',
+                        message: 'search_no_results',
+                      )
+                    : AppEmpty(
+                        title: supporting
+                            ? 'Supporting Organizations'
+                            : 'Partners',
+                        message: supporting
+                            ? 'No supporting organizations are listed yet.'
+                            : 'No partner records are available yet.',
+                      ),
                 builder: (list) => RefreshIndicator(
                   onRefresh: controller.fetchPartners,
                   child: ListView(
+                    // Scrolling the results puts the keyboard away, so it
+                    // never covers the rows the search just found.
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
                     children: [
                       for (final item in list) ...[

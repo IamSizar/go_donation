@@ -11,6 +11,26 @@ class MediaPostsController extends GetxController {
   final isLoading = false.obs;
   final errorMessage = RxnString();
 
+  /// J8 — the in-list search term, sent to the server as `?q=`.
+  ///
+  /// Server-side deliberately. The feed is capped at 50 posts (`clampLimit`),
+  /// so a filter over [posts] would search the newest 50 and report an older
+  /// activity as nonexistent. `GET /api/media` matches title, title_ar AND the
+  /// post body in SQL, so searching for a word from inside a write-up finds it.
+  final searchQuery = ''.obs;
+
+  /// Whether a query is narrowing the feed right now. Drives the empty copy:
+  /// "no posts published yet" is a claim about the organization's work.
+  bool get hasActiveSearch => searchQuery.value.trim().isNotEmpty;
+
+  /// Applies [query] and reloads from the server. A no-op when unchanged.
+  Future<void> setSearchQuery(String query) async {
+    final next = query.trim();
+    if (next == searchQuery.value) return;
+    searchQuery.value = next;
+    await fetchPosts();
+  }
+
   @override
   void onInit() {
     super.onInit();
@@ -25,7 +45,10 @@ class MediaPostsController extends GetxController {
     isLoading.value = true;
     errorMessage.value = null;
     try {
-      final rows = await const ModuleApi().mediaPosts(userId: _currentUserId);
+      final rows = await const ModuleApi().mediaPosts(
+        userId: _currentUserId,
+        q: searchQuery.value,
+      );
       posts.assignAll(rows);
     } catch (_) {
       posts.clear();

@@ -771,14 +771,20 @@ class ModuleApi {
   /// the server's own rule ("unset means visible, which is how it behaved
   /// before the toggle existed") — so an older backend keeps today's
   /// behaviour rather than silently hiding a feature.
+  /// [q] is J8's in-list search. `GET /api/partners` matches it against name,
+  /// name_ar and partner_type IN THE DATABASE (`listings.go:71-74`), so the
+  /// search covers the whole register rather than the 50 rows the app happens
+  /// to be holding.
   Future<({List<Map<String, dynamic>> items, bool ratingsVisible})>
-  partnersWithRatingPolicy({int? userId}) async {
+  partnersWithRatingPolicy({int? userId, String? q}) async {
     // #27 — pass user_id so the list flags the viewer's own rating.
-    final url = (userId != null && userId > 0)
-        ? Uri.parse(
-            partnersUrl,
-          ).replace(queryParameters: {'user_id': '$userId'}).toString()
-        : partnersUrl;
+    final params = <String, String>{
+      if (userId != null && userId > 0) 'user_id': '$userId',
+      if (q != null && q.trim().isNotEmpty) 'q': q.trim(),
+    };
+    final url = params.isEmpty
+        ? partnersUrl
+        : Uri.parse(partnersUrl).replace(queryParameters: params).toString();
     final body = await getObject(url);
     final rawItems = body['items'];
     final items = rawItems is List
@@ -790,23 +796,27 @@ class ModuleApi {
     return (items: items, ratingsVisible: body['ratings_visible'] != false);
   }
 
-  Future<List<Map<String, dynamic>>> partners({int? userId}) async =>
-      (await partnersWithRatingPolicy(userId: userId)).items;
+  Future<List<Map<String, dynamic>>> partners({int? userId, String? q}) async =>
+      (await partnersWithRatingPolicy(userId: userId, q: q)).items;
 
   /// #27 — submit a 1–5 star rating for a partner. Returns
   /// {avg_rating, rating_count, my_rating}.
   Future<Map<String, dynamic>> ratePartner(int partnerId, int stars) =>
       postJsonNoTrack(partnerRateUrl(partnerId), {'stars': stars});
 
-  Future<List<Map<String, dynamic>>> mediaPosts({int? userId}) {
+  /// [q] is J8's in-list search. `GET /api/media` matches it against title,
+  /// title_ar and the post BODY in the database (`listings.go:233-236`), so it
+  /// finds an activity by a word inside the write-up, not only by its headline
+  /// — and it searches every published post, not the 50 the feed is capped to.
+  Future<List<Map<String, dynamic>>> mediaPosts({int? userId, String? q}) {
     // #24 — pass user_id when logged in so the feed flags liked posts.
-    if (userId != null && userId > 0) {
-      final uri = Uri.parse(
-        mediaPostsUrl,
-      ).replace(queryParameters: {'user_id': '$userId'});
-      return getItems(uri.toString());
-    }
-    return getItems(mediaPostsUrl);
+    final params = <String, String>{
+      if (userId != null && userId > 0) 'user_id': '$userId',
+      if (q != null && q.trim().isNotEmpty) 'q': q.trim(),
+    };
+    if (params.isEmpty) return getItems(mediaPostsUrl);
+    final uri = Uri.parse(mediaPostsUrl).replace(queryParameters: params);
+    return getItems(uri.toString());
   }
 
   /// #24 — toggle like on a post. Returns {liked, like_count}.

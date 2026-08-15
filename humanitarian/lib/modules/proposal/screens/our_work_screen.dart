@@ -7,6 +7,7 @@ import 'package:flutter_application_1/modules/proposal/controllers/media_posts_c
 import 'package:flutter_application_1/modules/proposal/screens/news_activities_screen.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/core/widgets/app_list_search_field.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 /// Portfolio-style presentation of the organization's work and achievements —
@@ -35,8 +36,18 @@ class OurWorkScreen extends StatelessWidget {
             await controller.fetchCategories();
           },
           child: ListView(
+            // Scrolling the grid puts the keyboard away, so it never covers
+            // the work the search just found.
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
             children: [
+              // J8 — this screen shares MediaPostsController with News &
+              // Activities, so it shares the search term. It therefore NEEDS
+              // its own box: without one, a query typed on the feed would
+              // silently narrow this grid too, with nothing here to clear it
+              // — an invisible filter, which is worse than no search at all.
+              AppListSearchField(onChanged: controller.setSearchQuery),
+              const SizedBox(height: 14),
               // The category chips stay OUTSIDE AppAsync: the empty state is
               // usually "nothing in THIS category", so hiding the filter with
               // the results would leave no way out of it.
@@ -54,10 +65,19 @@ class OurWorkScreen extends StatelessWidget {
                 onRetry: controller.fetchPosts,
                 data: items,
                 isEmpty: (list) => list.isEmpty,
-                empty: const AppEmpty(
-                  title: 'Our Work',
-                  message: 'No published work is available yet.',
-                ),
+                // J8 — a search that matched nothing is not an empty record.
+                // "No published work is available yet" would be a claim about
+                // the organization, made because one word did not match.
+                empty: controller.hasActiveSearch
+                    ? const AppEmpty(
+                        icon: Icons.search_off_rounded,
+                        title: 'search_title',
+                        message: 'search_no_results',
+                      )
+                    : const AppEmpty(
+                        title: 'Our Work',
+                        message: 'No published work is available yet.',
+                      ),
                 builder: (list) => GridView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),

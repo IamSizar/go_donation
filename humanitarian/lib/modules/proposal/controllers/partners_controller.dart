@@ -23,8 +23,32 @@ class PartnersController extends GetxController {
   /// would flash a picker that the previous, successful load had hidden.
   final ratingsVisible = true.obs;
 
+  /// J8 — the in-list search term, sent to the server as `?q=`.
+  ///
+  /// It is NOT a filter over [partners]. `GET /api/partners` caps the list at
+  /// 50 rows, so filtering what is loaded would answer "no such partner" about
+  /// a register the app has never seen all of. The server matches name,
+  /// name_ar and partner_type in SQL, so the answer covers every partner.
+  final searchQuery = ''.obs;
+
+  /// Whether a query is narrowing the list right now.
+  ///
+  /// The screen uses this to choose its empty copy: "no partners are listed
+  /// yet" is a claim about the organization's register, and under a search the
+  /// only true statement is "nothing matched".
+  bool get hasActiveSearch => searchQuery.value.trim().isNotEmpty;
+
   int get _uid =>
       int.tryParse(sharedPreferences.getString('id_user') ?? '') ?? 0;
+
+  /// Applies [query] and reloads from the server. A no-op when the term has
+  /// not actually changed, so a debounce firing twice costs one request.
+  Future<void> setSearchQuery(String query) async {
+    final next = query.trim();
+    if (next == searchQuery.value) return;
+    searchQuery.value = next;
+    await fetchPartners();
+  }
 
   @override
   void onInit() {
@@ -38,6 +62,7 @@ class PartnersController extends GetxController {
     try {
       final res = await const ModuleApi().partnersWithRatingPolicy(
         userId: _uid,
+        q: searchQuery.value,
       );
       partners.assignAll(res.items);
       ratingsVisible.value = res.ratingsVisible;
