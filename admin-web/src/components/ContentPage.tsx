@@ -7,6 +7,7 @@ import { api, describeError, isSuperAdmin } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useI18n } from '../lib/i18n'
 import { useToast } from '../lib/toast'
+import { useRegisterSaveAction } from '../lib/saveAction'
 import PageHead from './PageHead'
 
 type Content = {
@@ -86,6 +87,17 @@ export default function ContentPage({ slug, titleKey, subtitleKey }: { slug: str
       setSaving(false)
     }
   }
+
+  // F3 — offer this page's save to the shared حفظ button in the top bar. This
+  // one component backs eight sections (شروط الاستخدام, من نحن, اتصل بنا,
+  // أعمالنا الإنسانية, and the About/Contact pages of دليل المدينة and الزواج),
+  // so registering here is what makes the bar button real across all of them.
+  //
+  // Withheld while the page is loading, while a save is already in flight, and
+  // for a non-Super-Admin — who sees the "restricted" panel instead of a form,
+  // and for whom the backend would refuse the PUT anyway. The button is
+  // disabled in each of those states rather than failing when pressed.
+  useRegisterSaveAction(amSuper && !loading && !saving ? save : null)
 
   if (!amSuper) {
     return (

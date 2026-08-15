@@ -14,6 +14,7 @@ import ConfirmDialog from './ConfirmDialog'
 import ThemeToggle from './ThemeToggle'
 import TopActionBar from './TopActionBar'
 import { PageHeadSlotContext, PageActionsSlotContext, BarSecondarySlotContext } from './PageHead'
+import { SaveActionProvider } from '../lib/saveAction'
 import { ChevronDown, ChevronRight, LogOut, Menu, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 
 // Show "99+" instead of overflowing the badge with huge digits. ~5 chars max.
@@ -459,6 +460,10 @@ export default function AppShell() {
           </div>
         </header>
         <div className="content">
+          {/* F3 — the provider wraps BOTH the bar and the routed page, so the
+              page on screen can hand its save to the bar's حفظ button and the
+              button can tell whether this page has one at all. */}
+          <SaveActionProvider>
           {/* Unified top action bar (global notice #7) — shown on every page.
               It also hosts the slot the routed page's header portals into,
               so section title + page actions share this one row. */}
@@ -487,6 +492,7 @@ export default function AppShell() {
           </BarSecondarySlotContext.Provider>
           </PageActionsSlotContext.Provider>
           </PageHeadSlotContext.Provider>
+          </SaveActionProvider>
         </div>
       </div>
 

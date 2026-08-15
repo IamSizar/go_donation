@@ -1,11 +1,19 @@
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, RotateCw, Save } from 'lucide-react'
 import { useI18n } from '../lib/i18n'
+import { useSaveAction } from '../lib/saveAction'
 
 // Unified top action bar shown on every dashboard section (global notice #7).
-// Back / Next use browser history; Refresh reloads the current view; Save fires
-// a global 'app:save' event that any open form can listen for (it's a no-op on
-// pages without a save action, so the button is always present and consistent).
+// Back / Next use browser history; Refresh reloads the current view.
+//
+// F3 — Save used to dispatch a global 'app:save' event, described here as
+// "a no-op on pages without a save action". It was a no-op on EVERY page: no
+// listener for that event existed anywhere in admin-web/src, so the primary
+// button in the fixed bar did nothing in the whole product. It now runs the
+// save the page on screen registered (lib/saveAction.tsx), and is disabled
+// where no page-level save exists — a list page's edits are saved from inside
+// its row modal, so there is genuinely nothing here for this button to do.
+//
 // The page's own header renders into the slot between Refresh and Save.
 export default function TopActionBar({
   slotRef,
@@ -18,9 +26,9 @@ export default function TopActionBar({
 }) {
   const navigate = useNavigate()
   const { t } = useI18n()
+  const { save, canSave, busy } = useSaveAction()
 
   const refresh = () => window.location.reload()
-  const save = () => window.dispatchEvent(new CustomEvent('app:save'))
 
   return (
     <div className="top-action-bar" role="toolbar" aria-label={t('common.actions')}>
@@ -43,9 +51,17 @@ export default function TopActionBar({
       <div className="page-head-slot" ref={slotRef} />
       {/* The page's primary action lands here, right next to Save. */}
       <div className="page-actions-slot" ref={actionsRef} />
-      <button className="primary" onClick={save} title={t('toolbar.save')}>
+      {/* Disabled rather than hidden: the client asked for the SAME four
+          controls in every section, so the button keeps its place and its
+          state says whether this page has anything to save. */}
+      <button
+        className="primary"
+        onClick={save}
+        disabled={!canSave || busy}
+        title={t('toolbar.save')}
+      >
         <Save size={15} strokeWidth={2.2} />
-        <span>{t('toolbar.save')}</span>
+        <span>{busy ? t('common.saving') : t('toolbar.save')}</span>
       </button>
       {/* Full-width second line, so whatever a page puts here starts under
           Back rather than indented under the middle strip. Collapses to
