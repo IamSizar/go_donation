@@ -38,8 +38,15 @@ export type ContentSection = {
   body_kmr: string
 }
 
-/** A blank sub-section. Empty on purpose — the owner supplies the text. */
-export function emptySection(): ContentSection {
+/**
+ * A blank sub-section. Empty on purpose — the owner supplies the text.
+ *
+ * Not exported: only the Add button below creates one, and a component file
+ * that also exports a function breaks Fast Refresh
+ * (react-refresh/only-export-components). If another file ever needs it, it
+ * moves to lib/ rather than being exported from here.
+ */
+function emptySection(): ContentSection {
   return {
     title_en: '', title_ar: '', title_ckb: '', title_kmr: '',
     body_en: '', body_ar: '', body_ckb: '', body_kmr: '',
