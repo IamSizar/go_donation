@@ -1,8 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
+
+/// Placeholder bones shaped like one privacy switch row: a label line, a
+/// state line, and the block the switch itself occupies. Extracted so the
+/// loading state can be a `const` widget alongside the real rows it mimics.
+class _PrivacyRowBones extends StatelessWidget {
+  const _PrivacyRowBones();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                AppSkeleton.bone(height: 12, widthFactor: 0.5),
+                AppSkeleton.bone(height: 9, widthFactor: 0.32),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          SizedBox(width: 44, child: AppSkeleton.bone(height: 22)),
+        ],
+      ),
+    );
+  }
+}
 
 /// #32 — Field privacy: the user chooses which of their profile fields are
 /// public or hidden. A field is "hidden" when its key is in the stored list;
@@ -34,6 +65,27 @@ class _FieldPrivacyScreenState extends State<FieldPrivacyScreen> {
   bool _loading = true;
   bool _saving = false;
 
+  /// Set when the user's stored hidden-field list could not be fetched.
+  ///
+  /// THIS ONE IS A SAFETY GATE, NOT DECORATION. Every switch renders as
+  /// `!_hidden.contains(key)`, so an empty `_hidden` draws every field ON —
+  /// "Visible". When the fetch has simply failed, that is not a neutral
+  /// default: it shows a user their private fields as PUBLIC. They may then
+  /// leave believing the profile is exposed, or worse, toggle something and
+  /// have `_toggle` POST that empty set back as the truth, actually unhiding
+  /// every field they had hidden. While this is non-null the toggle list is
+  /// not rendered at all.
+  String? _hiddenError;
+
+  /// Set when the admin-managed option catalogue could not be fetched.
+  ///
+  /// Deliberately NOT a gate. The built-in `_fallbackFields` list stands in,
+  /// which states nothing untrue about the user's own settings — it only risks
+  /// omitting a field staff added recently. So this surfaces as a banner ABOVE
+  /// a fully working list rather than in place of it: hiding usable privacy
+  /// controls behind an error would be its own harm.
+  String? _optionsError;
+
   // Privacy Settings spec — display-name choice + social links.
   String _displayNameMode = 'real';
   final _aliasController = TextEditingController();
@@ -41,6 +93,11 @@ class _FieldPrivacyScreenState extends State<FieldPrivacyScreen> {
   final _instagramController = TextEditingController();
   final _telegramController = TextEditingController();
   bool _savingExtras = false;
+
+  /// Set when the display-name/social fetch failed. While it is non-null the
+  /// on-screen values are NOT known to match the server, so saving is blocked
+  /// — see the comment in [_loadExtras].
+  String? _extrasError;
 
   @override
   void initState() {
@@ -59,12 +116,30 @@ class _FieldPrivacyScreenState extends State<FieldPrivacyScreen> {
     super.dispose();
   }
 
+  /// Reloads both halves of the toggle list — the option catalogue and the
+  /// user's stored choices. The retry action for either failure, so one tap
+  /// recovers the screen whichever request dropped.
+  Future<void> _reloadFields() async {
+    await Future.wait([_loadOptions(), _load()]);
+  }
+
+  /// Fetches which of the user's fields are currently hidden.
   Future<void> _load() async {
+    // Cleared before the attempt so a successful retry cannot leave the old
+    // failure gating a list that has since loaded correctly.
+    if (_hiddenError != null) setState(() => _hiddenError = null);
     try {
       final hidden = await const ModuleApi().getFieldPrivacy();
       if (mounted) setState(() => _hidden.addAll(hidden));
-    } catch (_) {
-      // Keep everything visible if the fetch fails.
+    } catch (e) {
+      // Was `catch (_) {}` under the comment "Keep everything visible if the
+      // fetch fails." That is the one fallback a privacy screen may not have:
+      // it renders the user's hidden fields as public. Fail closed instead —
+      // record the error, show no switches, and offer a retry.
+      if (mounted) {
+        setState(() => _hiddenError = 'Could not load your privacy settings.');
+      }
+      debugPrint('getFieldPrivacy failed: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -73,14 +148,30 @@ class _FieldPrivacyScreenState extends State<FieldPrivacyScreen> {
   /// Pulls the admin-managed option catalogue. Falls back to the built-in
   /// list when the request fails so the screen still works offline.
   Future<void> _loadOptions() async {
-    final opts = await const ModuleApi().getPrivacyOptions();
-    if (!mounted || opts.isEmpty) return;
-    setState(() {
-      _fields = [for (final o in opts) (key: o.fieldKey, labelKey: o.labelKey)];
-    });
+    if (_optionsError != null) setState(() => _optionsError = null);
+    try {
+      final opts = await const ModuleApi().getPrivacyOptions();
+      if (!mounted || opts.isEmpty) return;
+      setState(() {
+        _fields = [
+          for (final o in opts) (key: o.fieldKey, labelKey: o.labelKey),
+        ];
+      });
+    } catch (e) {
+      // getPrivacyOptions now THROWS instead of returning `const []`. Unguarded
+      // that rejection escapes initState as an unhandled async error, so the
+      // screen would crash rather than merely mislead — a strictly worse
+      // outcome than the bug being fixed here.
+      if (!mounted) return;
+      setState(() {
+        _optionsError = 'Could not refresh the list of fields you can hide.';
+      });
+      debugPrint('getPrivacyOptions failed: $e');
+    }
   }
 
   Future<void> _loadExtras() async {
+    if (_extrasError != null) setState(() => _extrasError = null);
     try {
       final extras = await const ModuleApi().getPrivacyExtras();
       if (!mounted) return;
@@ -92,8 +183,23 @@ class _FieldPrivacyScreenState extends State<FieldPrivacyScreen> {
             .toString();
         _telegramController.text = (extras['social_telegram'] ?? '').toString();
       });
-    } catch (_) {
-      // Keep defaults if the fetch fails.
+    } catch (e) {
+      // FAILS CLOSED. This was `catch (_) { /* Keep defaults if the fetch
+      // fails. */ }`, and the default is _displayNameMode = 'real'.
+      //
+      // So a user who had chosen ALIAS, hitting a failed fetch, was shown
+      // "use my real name" already selected — and because _saveExtras() posts
+      // whatever _displayNameMode currently holds, editing an unrelated
+      // social link and tapping Save would have published their real name.
+      // A silent, server-side identity disclosure produced by a network
+      // error, on the one screen whose entire job is controlling that.
+      //
+      // The screen now refuses to save until it knows what the user actually
+      // chose. Defaults are only safe when being wrong about them is cheap;
+      // here being wrong un-anonymises someone.
+      if (!mounted) return;
+      setState(() => _extrasError = 'Could not load your display-name choice.');
+      debugPrint('getPrivacyExtras failed: $e');
     }
   }
 
@@ -142,44 +248,84 @@ class _FieldPrivacyScreenState extends State<FieldPrivacyScreen> {
     }
   }
 
+  /// The visible/hidden switches, or the reason they are not being shown.
+  ///
+  /// Order matters and it is error-before-empty: a failed fetch leaves both
+  /// `_hidden` and (in the catalogue's case) the option list empty, so a check
+  /// for emptiness placed first would quietly absorb every failure back into
+  /// the ordinary-looking screen this change exists to prevent.
+  List<Widget> _fieldToggles() {
+    // Fail CLOSED. Drawing switches from an unloaded `_hidden` would show
+    // every field as "Visible" — a claim about the user's own privacy that we
+    // cannot make, and one that `_toggle` would then persist for real on the
+    // next tap. No switches until we know what the user actually chose.
+    if (_hiddenError != null) {
+      return [
+        AppErrorState(message: _hiddenError!, onRetry: _reloadFields),
+        const SizedBox(height: 12),
+      ];
+    }
+
+    return [
+      // Non-blocking: the fallback catalogue below is still accurate about the
+      // user's settings, so the controls stay usable while this explains why
+      // the list may be short a recently added field.
+      if (_optionsError != null) ...[
+        AppErrorState(message: _optionsError!, onRetry: _loadOptions),
+        const SizedBox(height: 12),
+      ],
+      for (final f in _fields)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: GlassPanel(
+            child: SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              value: !_hidden.contains(f.key),
+              onChanged: _saving ? null : (v) => _toggle(f.key, v),
+              title: Text(
+                f.labelKey.tr,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                ),
+              ),
+              subtitle: Text(
+                _hidden.contains(f.key)
+                    ? 'privacy_hidden'.tr
+                    : 'privacy_visible'.tr,
+              ),
+            ),
+          ),
+        ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     return SectionScaffold(
       title: 'Field privacy'.tr,
       subtitle: 'privacy_desc'.tr,
       child: _loading
-          ? const Center(
-              child: Padding(
-                padding: EdgeInsets.all(40),
-                child: CircularProgressIndicator(),
+          ? const Padding(
+              // A skeleton shaped like the switch rows it replaces, so the
+              // controls fill in rather than pop in over a spinner.
+              padding: EdgeInsets.fromLTRB(20, 8, 20, 40),
+              child: AppSkeleton(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _PrivacyRowBones(),
+                    _PrivacyRowBones(),
+                    _PrivacyRowBones(),
+                    _PrivacyRowBones(),
+                  ],
+                ),
               ),
             )
           : ListView(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
               children: [
-                for (final f in _fields)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: GlassPanel(
-                      child: SwitchListTile.adaptive(
-                        contentPadding: EdgeInsets.zero,
-                        value: !_hidden.contains(f.key),
-                        onChanged: _saving ? null : (v) => _toggle(f.key, v),
-                        title: Text(
-                          f.labelKey.tr,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 15,
-                          ),
-                        ),
-                        subtitle: Text(
-                          _hidden.contains(f.key)
-                              ? 'privacy_hidden'.tr
-                              : 'privacy_visible'.tr,
-                        ),
-                      ),
-                    ),
-                  ),
+                ..._fieldToggles(),
                 const SizedBox(height: 8),
                 const SectionLabel(title: 'Display name'),
                 const SizedBox(height: 4),
@@ -268,10 +414,21 @@ class _FieldPrivacyScreenState extends State<FieldPrivacyScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
+                // The extras fetch failed, so what is selected above is this
+                // screen's DEFAULT rather than the user's actual choice.
+                // Saving would write that default back. Say so, and offer the
+                // way out, instead of silently disabling a button.
+                if (_extrasError != null) ...[
+                  AppErrorState(message: _extrasError!, onRetry: _loadExtras),
+                  const SizedBox(height: 16),
+                ],
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: _savingExtras ? null : _saveExtras,
+                    // Blocked while _extrasError is set — see _loadExtras.
+                    onPressed: (_savingExtras || _extrasError != null)
+                        ? null
+                        : _saveExtras,
                     child: _savingExtras
                         ? const SizedBox(
                             width: 20,
