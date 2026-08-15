@@ -66,7 +66,12 @@ class _NotificationDetailDialog extends StatelessWidget {
               runSpacing: 6,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                _Pill(label: n.categoryLabel),
+                // `.tr` is load-bearing: categoryLabel returns a fixed English
+                // word ('Urgent', 'Payment', …) that the list card behind this
+                // dialog already translates. Rendering it raw here made the
+                // same badge read "Urgent" in the dialog and "عاجل" on the
+                // card — the same value, two answers, one screen apart.
+                _Pill(label: n.categoryLabel.tr),
                 if (created != null)
                   Text(
                     DateFormat('yyyy-MM-dd · HH:mm').format(created.toLocal()),

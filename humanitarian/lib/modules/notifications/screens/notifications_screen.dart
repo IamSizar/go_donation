@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
+import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 
@@ -587,9 +588,21 @@ class _FilterSection extends StatelessWidget {
                 value: 'all',
                 child: Text('All types'.tr),
               ),
+              // The options are backend notification_type enums, built from
+              // whatever the API actually returned. They were rendered raw,
+              // one line below a sibling that uses `.tr`, so the Arabic UI
+              // listed `marketplace_order_approved` and `system_test`.
+              //
+              // localizedTag is the app's single mechanism for a backend tag:
+              // a translated label wins, and anything the server adds before
+              // it is translated degrades to readable words instead of
+              // snake_case. The VALUE stays the raw enum — it is what the
+              // filter sends back to the controller.
               ...controller.availableTypes.map(
-                (type) =>
-                    DropdownMenuItem<String>(value: type, child: Text(type)),
+                (type) => DropdownMenuItem<String>(
+                  value: type,
+                  child: Text(localizedTag(type)),
+                ),
               ),
             ],
             onChanged: (value) => controller.setType(value ?? 'all'),
