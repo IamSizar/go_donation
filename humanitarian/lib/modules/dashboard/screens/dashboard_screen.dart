@@ -16,6 +16,7 @@ import 'package:flutter_application_1/modules/notifications/controllers/notifica
 import 'package:flutter_application_1/modules/notifications/screens/notifications_screen.dart';
 import 'package:flutter_application_1/modules/auth/screens/profile_menu_screen.dart';
 import 'package:flutter_application_1/modules/search/screens/global_search_screen.dart';
+import 'package:flutter_application_1/modules/support/screens/technical_support_screen.dart';
 import 'package:flutter_application_1/widgets/cached_profile_avatar.dart';
 import 'package:flutter_application_1/api/profile_api.dart';
 import 'dart:io';
@@ -206,14 +207,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Scaffold(
         body: Column(
           children: [
-            _DashboardTopBar(tabIndex: _currentIndex),
+            DashboardTopBar(tabIndex: _currentIndex),
             Expanded(
               // Each tab's screen wraps itself in a SafeArea, because each is
               // also reachable as a standalone pushed route. Inside this
               // Column both of its insets are already accounted for, so both
               // must be stripped or they get applied twice:
               //
-              //   TOP — the _DashboardTopBar above reserves the status bar.
+              //   TOP — the DashboardTopBar above reserves the status bar.
               //   Without removeTop the gap appears twice, once under the
               //   status bar and again under the top bar.
               //
@@ -428,8 +429,8 @@ class _CompactNavItem extends StatelessWidget {
 /// and a Messages icon (unread badge). Each tab's own in-page header no
 /// longer repeats the title (see each tab's `title: ''` in its
 /// SectionScaffold call). Kept intentionally minimal.
-class _DashboardTopBar extends StatelessWidget {
-  const _DashboardTopBar({required this.tabIndex});
+class DashboardTopBar extends StatelessWidget {
+  const DashboardTopBar({super.key, required this.tabIndex});
 
   final int tabIndex;
 
@@ -438,6 +439,17 @@ class _DashboardTopBar extends StatelessWidget {
   static const int _marriageIndex = 2;
   static const int _cityGuideIndex = 3;
   static const int _settingsIndex = 4;
+
+  /// Space between the trailing controls.
+  ///
+  /// Was 8 with five controls; J9 makes it six, so it is 6. The arithmetic on
+  /// the narrowest phone Android still ships (320dp): 32dp of bar padding
+  /// leaves 288, and the six controls occupy 34 + 42×4 + 38 + 5×6 = 270 — the
+  /// title keeps 18dp there and 78dp on a 360dp screen. It cannot overflow
+  /// whatever the numbers do, because the title is Expanded and ellipsised
+  /// (see _TopBarTitle): a crowded bar truncates the title, it never breaks
+  /// the layout.
+  static const double _gap = 6;
 
   /// The BotNavigation route key for a tab, so the assistant knows which
   /// section it was asked about (K28).
@@ -502,7 +514,31 @@ class _DashboardTopBar extends StatelessWidget {
                 // one BotNavigation uses, so the assistant opens already
                 // asking about the tab the user is standing on.
                 AssistantHintButton(route: _assistantRouteForTab(tabIndex)),
-                const SizedBox(width: 8),
+                const SizedBox(width: _gap),
+                // J9 — "إضافة زر الدعم في أعلى التطبيق".
+                //
+                // There was a support button here before the Note #41
+                // restructure; it was removed on the reasoning that support is
+                // reachable from Settings. It is — الملف الشخصي → الدعم الفني,
+                // and the Services hub — but both are two taps in, and "at the
+                // top of the app" is a request that asking for help should not
+                // itself need navigating to. This bar is the only chrome drawn
+                // above every tab, so it is the only place where "at the top"
+                // is true everywhere.
+                //
+                // Next to the assistant deliberately: the AI answers the
+                // section's FAQ, this one reaches a human, and a user who
+                // cannot find what they need in the first should see the
+                // second without hunting. No badge — support replies arrive as
+                // notifications and in the ticket list, and a second unread
+                // count beside two real ones would be noise.
+                _TopBarIconButton(
+                  icon: Icons.support_agent_rounded,
+                  badgeCount: 0,
+                  tooltip: 'Technical Support'.tr,
+                  onTap: () => Get.to(() => const TechnicalSupportScreen()),
+                ),
+                const SizedBox(width: _gap),
                 // Note #43 — grouped with Notifications/Messages at the top,
                 // matching the client's requested layout (was inside the side
                 // drawer only). The profile avatar sits at the end of this row
@@ -513,7 +549,7 @@ class _DashboardTopBar extends StatelessWidget {
                   tooltip: 'search_title'.tr,
                   onTap: () => Get.to(() => const GlobalSearchScreen()),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: _gap),
                 Obx(
                   () => _TopBarIconButton(
                     icon: Icons.notifications_none_rounded,
@@ -522,7 +558,7 @@ class _DashboardTopBar extends StatelessWidget {
                     onTap: () => Get.to(() => const NotificationsScreen()),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: _gap),
                 Obx(
                   () => _TopBarIconButton(
                     icon: Icons.forum_outlined,
@@ -531,7 +567,7 @@ class _DashboardTopBar extends StatelessWidget {
                     onTap: () => Get.to(() => const MessagesScreen()),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: _gap),
                 // "Ninth: Improve the Home Interface Design" — the profile photo
                 // sits top-right and opens the account hub.
                 const _TopBarProfileAvatar(),

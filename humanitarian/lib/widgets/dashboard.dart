@@ -801,9 +801,15 @@ class DashboardHomeSection extends StatelessWidget {
       return _SectionScaffold(
         // Note #41 — the title and profile avatar moved to the persistent
         // top bar (shown above every tab now, not just Home), so neither is
-        // repeated here. The Technical support and Refresh header buttons
-        // were removed — support is reachable from Settings, and refreshing
-        // is now a plain pull-to-refresh on the list below.
+        // repeated here. The Refresh header button was removed too:
+        // refreshing is a plain pull-to-refresh on the list below.
+        //
+        // The Technical support button also moved to that top bar rather than
+        // disappearing. It was removed outright at first, on the reasoning
+        // that support is reachable from Settings — J9 is the client saying
+        // that was not enough ("إضافة زر الدعم في أعلى التطبيق"), so it lives
+        // beside the assistant icon in DashboardTopBar now, on every tab
+        // rather than only on Home.
         child: Builder(
           builder: (context) {
             if (isLoading && summary.isEmpty) {
