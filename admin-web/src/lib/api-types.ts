@@ -735,7 +735,20 @@ export function roleLabel(roleId: number): string {
       // Account type: the marriage / engagement service.
       return 'marriage'
     case 0:
-      return '—'
+      // D1 — "no role yet". This used to return the literal em dash '—', which
+      // is what put TWO entries for the same state in the نوع المستخدم
+      // dropdown: '—' is not in UsersPage's ROLE_LABELS, so StatusCell's
+      // "keep the current value selectable" branch injected an extra option
+      // for it, sitting beside the real 'none' option (بلا). Same role, two
+      // lines, no way to tell them apart.
+      //
+      // Returning the vocabulary value instead means the current value now
+      // matches an option that already exists, so the extra one is never
+      // injected and the list is the six real account types. The label stays
+      // the job of `status.none` (بلا / None / هیچ / چ), which all four
+      // locales already define — no new words, and the placeholder dash is
+      // still what an EMPTY cell renders, which is where a dash belongs.
+      return 'none'
     default:
       return `role ${roleId}`
   }
