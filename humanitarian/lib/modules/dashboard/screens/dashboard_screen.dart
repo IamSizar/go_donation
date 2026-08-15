@@ -23,6 +23,7 @@ import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:flutter_application_1/widgets/dashboard.dart';
 import 'package:flutter_application_1/widgets/settings_section.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/modules/bot/widgets/assistant_hint_button.dart';
 
 /// Note #41 — "Complete Restructuring and Distribution of the Application
 /// Interfaces". The bottom nav is now fixed at 5 tabs, identical for every
@@ -438,6 +439,22 @@ class _DashboardTopBar extends StatelessWidget {
   static const int _cityGuideIndex = 3;
   static const int _settingsIndex = 4;
 
+  /// The BotNavigation route key for a tab, so the assistant knows which
+  /// section it was asked about (K28).
+  ///
+  /// The Settings tab maps to 'profile': it is where account and preference
+  /// items live, and it is the nearest thing the assistant's FAQ tables
+  /// describe. A key with no matching FAQ for the user's role is not a
+  /// failure — `assistantTopicFor` returns null and the assistant opens on its
+  /// welcome and this role's own suggestion chips.
+  static String _assistantRouteForTab(int index) => switch (index) {
+    _storeIndex => 'market',
+    _marriageIndex => 'marriage',
+    _cityGuideIndex => 'city_guide',
+    _settingsIndex => 'profile',
+    _ => 'home',
+  };
+
   @override
   Widget build(BuildContext context) {
     final notifications = Get.find<NotificationsController>();
@@ -477,6 +494,15 @@ class _DashboardTopBar extends StatelessWidget {
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // K28 — "an AI icon beside each menu". These five tabs pass
+                // `title: ''` to their own SectionScaffold because their title
+                // lives in this bar, so this bar is where their icon belongs:
+                // putting it in the page header would draw a second, empty
+                // header row underneath this one. The route key is the same
+                // one BotNavigation uses, so the assistant opens already
+                // asking about the tab the user is standing on.
+                AssistantHintButton(route: _assistantRouteForTab(tabIndex)),
+                const SizedBox(width: 8),
                 // Note #43 — grouped with Notifications/Messages at the top,
                 // matching the client's requested layout (was inside the side
                 // drawer only). The profile avatar sits at the end of this row

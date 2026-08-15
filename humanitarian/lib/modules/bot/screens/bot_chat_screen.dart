@@ -16,6 +16,7 @@ import '../controllers/assistant_controller.dart';
 import '../data/bot_strings.dart';
 import '../models/bot_message.dart';
 import '../models/bot_qa.dart';
+import '../widgets/assistant_hint_button.dart' show AssistantTopic;
 import 'package:flutter_application_1/core/widgets/app_pressable.dart';
 import 'package:flutter_application_1/core/design/motion.dart';
 
@@ -23,7 +24,13 @@ import 'package:flutter_application_1/core/design/motion.dart';
 /// the backend `/assistant/chat` endpoint (Claude-backed when configured, a
 /// keyword engine otherwise). Replies can carry a one-tap navigation action.
 class BotChatScreen extends StatefulWidget {
-  const BotChatScreen({super.key});
+  const BotChatScreen({super.key, this.opening});
+
+  /// K28 — when the assistant is opened from a section's AI icon, the section's
+  /// own question is asked straight away, so the user gets the explanation of
+  /// where they are standing without having to phrase it. Null (the الرسائل
+  /// card, and any role with no FAQ for that section) opens the normal welcome.
+  final AssistantTopic? opening;
 
   @override
   State<BotChatScreen> createState() => _BotChatScreenState();
@@ -42,6 +49,22 @@ class _BotChatScreenState extends State<BotChatScreen> {
     // message + typing indicator in the same frame) don't fight each other.
     ever<List<BotMessage>>(ctrl.messages, (_) => _scrollToBottom());
     ever<bool>(ctrl.isTyping, (_) => _scrollToBottom());
+    _askOpeningQuestion();
+  }
+
+  /// Sends the section question the AI icon was tapped from, once, after the
+  /// first frame.
+  ///
+  /// Guarded on an empty conversation: `AssistantController` is a `Get.put`
+  /// singleton, so re-entering the assistant from a second section would
+  /// otherwise append a fresh question to a conversation already in progress.
+  void _askOpeningQuestion() {
+    final opening = widget.opening;
+    if (opening == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || ctrl.messages.isNotEmpty) return;
+      _send(opening.question, intentID: opening.intentId);
+    });
   }
 
   @override

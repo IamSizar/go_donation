@@ -151,6 +151,8 @@ class _DonationsSectionBodyState extends State<_DonationsSectionBody> {
         : DonationsSection._options.first;
 
     return SectionScaffold(
+      // K28 — the AI icon for this section.
+      assistantRoute: 'donate',
       title: 'Contribute',
       subtitle:
           'Choose an amount, pick general support or a featured campaign, and make your support count.',

@@ -211,6 +211,7 @@ class _SupportSectionState extends State<SupportSection>
   @override
   Widget build(BuildContext context) {
     return SectionScaffold(
+      assistantRoute: 'volunteer',
       title: 'Volunteer',
       subtitle:
           'Join missions, manage shifts, and follow local field activities.',

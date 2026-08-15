@@ -163,6 +163,7 @@ class _TechnicalSupportScreenState extends State<TechnicalSupportScreen> {
   @override
   Widget build(BuildContext context) {
     return SectionScaffold(
+      assistantRoute: 'support',
       title: 'Technical Support'.tr,
       subtitle: '',
       // The whole screen used to be replaced by a centred spinner on first

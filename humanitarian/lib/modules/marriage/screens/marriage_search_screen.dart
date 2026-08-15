@@ -395,6 +395,7 @@ class _MarriageSearchScreenState extends State<MarriageSearchScreen> {
   @override
   Widget build(BuildContext context) {
     return SectionScaffold(
+      assistantRoute: 'marriage',
       title: 'marriage_search'.tr,
       subtitle: 'marriage_search_desc'.tr,
       child: Column(

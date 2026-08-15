@@ -27,6 +27,7 @@ import 'package:get/get.dart';
 import 'package:flutter_application_1/core/design/tokens.dart';
 import 'package:flutter_application_1/core/widgets/app_pressable.dart';
 import 'package:flutter_application_1/core/design/directional_icons.dart';
+import 'package:flutter_application_1/modules/bot/widgets/assistant_hint_button.dart';
 
 class AppScreen extends StatelessWidget {
   const AppScreen({
@@ -36,6 +37,7 @@ class AppScreen extends StatelessWidget {
     this.subtitle = '',
     this.eyebrow = '',
     this.trailing,
+    this.assistantRoute,
     this.scrollable = false,
     this.bottomBar,
     this.padded = true,
@@ -59,6 +61,15 @@ class AppScreen extends StatelessWidget {
   /// An action at the far end of the header row (avatar, filter, overflow).
   final Widget? trailing;
 
+  /// K28 — a `BotNavigation` route key naming this section, e.g. `'donate'`.
+  ///
+  /// When set, the header shows the AI icon the client asked for beside each
+  /// menu, and tapping it opens the assistant already asking about this
+  /// section. It lives on the shared frame rather than on each screen's own
+  /// header so the next section added inherits it instead of quietly shipping
+  /// without one.
+  final String? assistantRoute;
+
   /// Wraps [child] in a scroll view with the standard gutter. Leave false
   /// when the child is already a ListView — nesting scrollables is the
   /// commonest way to break a list.
@@ -81,7 +92,8 @@ class AppScreen extends StatelessWidget {
         subtitle.isNotEmpty ||
         eyebrow.isNotEmpty ||
         canPop ||
-        trailing != null;
+        trailing != null ||
+        assistantRoute != null;
 
     Widget body = child;
     if (padded) {
@@ -112,6 +124,7 @@ class AppScreen extends StatelessWidget {
                 subtitle: subtitle,
                 eyebrow: eyebrow,
                 trailing: trailing,
+                assistantRoute: assistantRoute,
                 canPop: canPop,
               ),
             Expanded(child: body),
@@ -138,6 +151,7 @@ class _Header extends StatelessWidget {
     required this.subtitle,
     required this.eyebrow,
     required this.trailing,
+    required this.assistantRoute,
     required this.canPop,
   });
 
@@ -145,6 +159,7 @@ class _Header extends StatelessWidget {
   final String subtitle;
   final String eyebrow;
   final Widget? trailing;
+  final String? assistantRoute;
   final bool canPop;
 
   @override
@@ -226,6 +241,14 @@ class _Header extends StatelessWidget {
               ],
             ),
           ),
+          // K28 — the section's AI icon. Placed BEFORE `trailing` so a screen
+          // that already owns the far end of its header (a filter, an avatar)
+          // keeps that position and the assistant tucks in beside it, rather
+          // than the two fighting over the same slot.
+          if (assistantRoute != null) ...[
+            const SizedBox(width: AppSpace.xs),
+            AssistantHintButton(route: assistantRoute!),
+          ],
           if (trailing != null) ...[
             const SizedBox(width: AppSpace.xs),
             trailing!,

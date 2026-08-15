@@ -25,6 +25,7 @@ class ProposalServicesSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final roleId = sharedPreferences.getString('role_id') ?? '';
     return SectionScaffold(
+      assistantRoute: 'services',
       title: 'Services',
       subtitle: _servicesSubtitleForRole(roleId),
       child: ListView(

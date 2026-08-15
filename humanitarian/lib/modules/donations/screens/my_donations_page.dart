@@ -51,6 +51,7 @@ class _MyDonationsPageState extends State<MyDonationsPage> {
       final list = _controller.items;
 
       return AppScreen(
+        assistantRoute: 'my_donations',
         eyebrow: '${s.totalCount} ${'gifts'.tr}',
         title: 'My Contributions',
         // padded: false so the RefreshIndicator's scrollable owns the full

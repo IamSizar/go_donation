@@ -43,6 +43,7 @@ class MessagesScreen extends StatelessWidget {
         : Get.put(ChatController());
 
     return SectionScaffold(
+      assistantRoute: 'messages',
       title: 'Messages',
       subtitle: 'Chat with campaign owners and donors. Support is included.',
       child: Obx(() {

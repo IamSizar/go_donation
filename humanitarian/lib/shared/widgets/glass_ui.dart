@@ -222,12 +222,18 @@ class SectionScaffold extends StatelessWidget {
     required this.subtitle,
     required this.child,
     this.trailing,
+    this.assistantRoute,
   });
 
   final String title;
   final String subtitle;
   final Widget child;
   final Widget? trailing;
+
+  /// K28 — a BotNavigation route key naming this section. Passed straight
+  /// through to [AppScreen], which draws the AI icon in the header. Present
+  /// here because 46 screens still reach the frame through this shell.
+  final String? assistantRoute;
 
   @override
   Widget build(BuildContext context) {
@@ -251,6 +257,7 @@ class SectionScaffold extends StatelessWidget {
       title: title,
       subtitle: subtitle,
       trailing: trailing,
+      assistantRoute: assistantRoute,
       padded: false,
       child: child,
     );
