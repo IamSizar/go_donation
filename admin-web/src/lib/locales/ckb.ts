@@ -1284,6 +1284,13 @@ const ckb: DeepPartial<typeof en> = {
     title_en: 'سەردێر (EN)', title_ar: 'سەردێر (AR)', title_sorani: 'سەردێر (سۆرانی)', title_badini: 'سەردێر (بادینی)',
     name_en: 'ناو (EN)', name_ar: 'ناو (AR)', name_sorani: 'ناو (سۆرانی)', name_badini: 'ناو (بادینی)',
     hours_json: 'کاتژمێرەکان (JSON)',
+    // G7/G8 — see the note in en.ts. Copied verbatim from existing keys in
+    // this file (field.hours_json, field.opening_hours_en without its tag,
+    // page.users.guest_badge, col.wallet). No Kurdish was written here.
+    hours: 'کاتژمێرەکان (JSON)',
+    opening_hours: 'کاتی کردنەوە',
+    is_guest: 'میوان',
+    wallet_balance_iqd: 'جزدان',
     brand: 'براند',
     description_en: 'وەسف (EN)', description_ar: 'وەسف (AR)', description_sorani: 'وەسف (سۆرانی)', description_badini: 'وەسف (بادینی)',
     sectors: 'کەرتەکان',

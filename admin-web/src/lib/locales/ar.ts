@@ -1436,6 +1436,12 @@ const ar: DeepPartial<typeof en> = {
     title_en: 'العنوان (إنجليزي)', title_ar: 'العنوان (عربي)', title_sorani: 'العنوان (سۆرانی)', title_badini: 'العنوان (بادینی)',
     name_en: 'الاسم (إنجليزي)', name_ar: 'الاسم (عربي)', name_sorani: 'الاسم (سۆرانی)', name_badini: 'الاسم (بادینی)',
     hours_json: 'ساعات العمل (JSON)',
+    // G7/G8 — see the note in en.ts. Each value is copied verbatim from an
+    // existing translated key in this file, not newly worded.
+    hours: 'ساعات العمل (JSON)',
+    opening_hours: 'أوقات العمل',
+    is_guest: 'زائر',
+    wallet_balance_iqd: 'المحفظة',
     brand: 'العلامة التجارية',
     description_en: 'الوصف (إنجليزي)', description_ar: 'الوصف (عربي)', description_sorani: 'الوصف (سۆرانی)', description_badini: 'الوصف (بادینی)',
     sectors: 'القطاعات',

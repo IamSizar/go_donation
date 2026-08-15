@@ -1517,6 +1517,21 @@ const en = {
     title_en: 'Title (EN)', title_ar: 'Title (AR)', title_sorani: 'Title (Sorani)', title_badini: 'Title (Badini)',
     name_en: 'Name (EN)', name_ar: 'Name (AR)', name_sorani: 'Name (Sorani)', name_badini: 'Name (Badini)',
     hours_json: 'Hours (JSON)',
+    // G7/G8 — five raw English column names were reaching the عرض pages
+    // because no field.* key covered them. Every value here is copied
+    // verbatim from a key that already existed in all four locales, so no
+    // new wording was invented for any language:
+    //   hours              ← field.hours_json
+    //   opening_hours      ← field.opening_hours_en, minus its (EN) tag.
+    //                        This one key also fixes opening_hours_ar /
+    //                        _sorani / _badini, which fieldLabelFor resolves
+    //                        by stripping the suffix and looking up the base.
+    //   is_guest           ← page.users.guest_badge
+    //   wallet_balance_iqd ← col.wallet
+    hours: 'Hours (JSON)',
+    opening_hours: 'Opening Hours',
+    is_guest: 'Guest',
+    wallet_balance_iqd: 'Wallet',
     brand: 'Brand',
     description_en: 'Description (EN)', description_ar: 'Description (AR)', description_sorani: 'Description (Sorani)', description_badini: 'Description (Badini)',
     sectors: 'Sectors',

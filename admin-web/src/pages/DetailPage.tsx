@@ -21,6 +21,7 @@ import { useI18n, useFieldLabel, useStatusLabel } from '../lib/i18n'
 import { RESOURCE_LABELS } from '../lib/resourceLabels'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
+import { formatPhone } from '../lib/phone'
 
 type DetailResp = {
   success: true
@@ -73,12 +74,89 @@ function emptyFieldHint(key: string, roleId: number | undefined, t: (k: string) 
   return null
 }
 
+// G8 — the client's note was that this page's field order "follows the English
+// layout" and needs re-ordering. It was worse than that: there was no layout at
+// all in either language. The row is built server-side as a Go map
+// (`pgx.RowToMap` in admin_detail.go) and serialised with encoding/json, which
+// documents that it sorts map keys — so the page rendered its fields in
+// ALPHABETICAL ORDER OF THE ENGLISH COLUMN NAME. That is why it reads as an
+// English layout to an Arabic reader: account_status, active, address,
+// availability, city … is an ordering that only exists in English and carries
+// no meaning in any language.
+//
+// So the fix is one designed order, applied to every resource rather than to
+// `users` alone — the page is shared by all sixteen (App.tsx routes them all
+// here), and a per-resource list would rot the moment a column is added.
+//
+// Three tiers. HEAD is the spine every record has some of, in the order a
+// person actually asks the questions: which record is this, whose is it, what
+// is it called, what state is it in, how do I reach them, where are they, who
+// are they. TAIL is the audit trail — who reviewed it, when, and the
+// timestamps — which is reference material, not what you opened the page for.
+// Everything else keeps the order it arrived in, between the two.
+//
+// A key that is not listed simply falls in the middle; nothing is ever hidden
+// or dropped by this function.
+const FIELD_ORDER_HEAD = [
+  // which record
+  'id', 'case_code', 'profile_code', 'activity_code', 'transaction_code', 'code',
+  // whose
+  'user_id', 'username', 'owner_user_id', 'donor_user_id',
+  // what it is called
+  'full_name', 'name', 'name_ar', 'name_sorani', 'name_badini',
+  'title', 'title_ar', 'title_sorani', 'title_badini',
+  'public_title', 'public_title_ar', 'public_title_sorani', 'public_title_badini',
+  'project_title', 'project_title_ar',
+  // what state it is in
+  'status', 'account_status', 'verification_status', 'registration_status',
+  'active', 'is_active', 'public_visibility',
+  'role_id', 'staff_tier', 'is_admin', 'is_guest',
+  // how to reach them
+  'phone', 'contact_phone', 'donor_phone', 'email', 'contact_email', 'website',
+  // where
+  'address', 'city', 'governorate', 'district', 'location',
+  // who they are
+  'gender', 'date_of_birth', 'national_id', 'marital_status', 'occupation',
+]
+
+const FIELD_ORDER_TAIL = [
+  'review_notes', 'registration_reject_reason',
+  'reviewed_by_user_id', 'registration_reviewed_by',
+  'reviewed_at', 'registration_reviewed_at', 'registration_submitted_at',
+  'created_at', 'updated_at',
+]
+
+// Stable: two keys in the same tier keep the order they arrived in, so an
+// unlisted column never jumps around between page loads.
+function orderFields(entries: [string, unknown][]): [string, unknown][] {
+  const rank = (key: string): number => {
+    const head = FIELD_ORDER_HEAD.indexOf(key)
+    if (head !== -1) return head
+    const tail = FIELD_ORDER_TAIL.indexOf(key)
+    if (tail !== -1) return FIELD_ORDER_HEAD.length + 1 + tail
+    return FIELD_ORDER_HEAD.length // the middle tier
+  }
+  return entries
+    .map((entry, i) => ({ entry, i, r: rank(entry[0]) }))
+    .sort((a, b) => (a.r - b.r) || (a.i - b.i))
+    .map((x) => x.entry)
+}
+
+// E1 — a phone shown anywhere on the dashboard goes through the same helper,
+// which groups the digits and pins the run left-to-right. Matched on the key
+// name because the value is just a digit string: `phone`, `contact_phone`,
+// `donor_phone`, `notify_phone`.
+const PHONE_FIELD = /(^|_)phone$/
+
 function renderValue(
   key: string,
   val: unknown,
   t: (k: string) => string,
   statusLabel: (v: string) => string,
 ) {
+  if (typeof val === 'string' && val !== '' && PHONE_FIELD.test(key)) {
+    return <span>{formatPhone(val)}</span>
+  }
   if (val === null || val === undefined || val === '') {
     return <span className="muted">—</span>
   }
@@ -216,7 +294,7 @@ export default function DetailPage() {
       {loading && <p className="muted">{t('common.loading')}</p>}
       {resp && (
         <div className="detail-grid">
-          {Object.entries(resp.item).map(([k, v]) => (
+          {orderFields(Object.entries(resp.item)).map(([k, v]) => (
             <div key={k} className="detail-row">
               <div className="detail-key" title={k}>{fieldLabel(k)}</div>
               <div className="detail-value">{
