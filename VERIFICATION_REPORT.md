@@ -74,7 +74,18 @@ feature exists but does not yet cover everything the client described; each says
 > release** before the client can see any of them — add `fa861eb`, `58ffa6f`,
 > `f82e330` and `294a1f7` to the release table above.
 >
-> **C9 was checked and deliberately not touched.** It has no Flutter half: the
+> **Updated 2026-08-16, backend privacy/notification wave (K8, J1, K7, L19).**
+> Four rows moved. **K8** — `field_privacy` was stored and never read; it is now
+> enforced on **8 user-facing paths**, with the boundaries (staff paths, catalogue
+> defaults, `national_id`) stated in its row rather than glossed over. **J1** —
+> guests had no `user_profiles` row at all, so every privacy setter silently wrote
+> nothing; fixed at the root. **K7** and **L19** each got an additive migration
+> (108, 107) plus real server-side enforcement, so the two screens the app agent
+> refused to fake can now be built honestly. All four are **server-side and live
+> on deploy** — no store release needed — but the three app halves (guest name box,
+> notification settings screen, engagement privacy picker) are still outstanding.
+>
+> > **C9 was checked and deliberately not touched.** It has no Flutter half: the
 > checklist files it under Dashboard and every file its evidence names is in
 > `admin-web`. It stays STILL BROKEN and is closed by one fix to the shared
 > `DetailPage`.
