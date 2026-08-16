@@ -1040,10 +1040,21 @@ class _GuestAccessSheetState extends State<GuestAccessSheet> {
                     ),
                   ),
                 ),
+                // This sheet paints its background with accent(), so its text
+                // has to come from the onAccent family. It was using ink and
+                // inkSecondary — the tokens for the app's light ground — which
+                // measured 2.25:1 for the title and 1.04:1 for the subtitle
+                // against the green. The subtitle was effectively invisible on
+                // a real device; that is how this was found.
+                //
+                // The alpha is 0.8, not the 0.6 used for muted-on-accent text
+                // elsewhere in the app: 0.6 measures 3.83:1 here, which is
+                // still under the 4.5:1 floor. 0.8 gives 5.46:1 in light and
+                // 5.18:1 in dark, so both themes pass.
                 Text(
                   'Continue as guest'.tr,
                   style: TextStyle(
-                    color: AppThemeConfig.text(context),
+                    color: AppThemeConfig.onAccent(context),
                     fontWeight: FontWeight.w800,
                     fontSize: 20,
                   ),
@@ -1051,7 +1062,11 @@ class _GuestAccessSheetState extends State<GuestAccessSheet> {
                 const SizedBox(height: 6),
                 Text(
                   'Just a username and password to quickly browse.'.tr,
-                  style: TextStyle(color: AppThemeConfig.mutedText(context)),
+                  style: TextStyle(
+                    color: AppThemeConfig.onAccent(
+                      context,
+                    ).withValues(alpha: 0.8),
+                  ),
                 ),
                 const SizedBox(height: 18),
                 if (_error.isNotEmpty)
