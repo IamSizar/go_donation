@@ -281,6 +281,16 @@ class _MarriageTile extends StatelessWidget {
                   ],
                 ),
               ),
+              // The Expanded above ends flush against this chevron, so a
+              // subtitle that fills the row runs straight into it. Arabic never
+              // showed it — «اطّلع على ملفك وحالته، أو أنشئ ملفاً» fits one line —
+              // but the English "View your profile and its status, or create
+              // one" wraps, and the second line collides with the arrow.
+              //
+              // 8 is what the profile menu already puts before its own chevron
+              // (auth/screens/profile.dart:899 and :968); this tile was the one
+              // place in lib/ missing it.
+              const SizedBox(width: 8),
               Icon(
                 AppIcons.forward(context),
                 size: 15,
