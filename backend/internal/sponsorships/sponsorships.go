@@ -147,6 +147,40 @@ func (s *Store) List(ctx context.Context, f ListFilters) ([]Sponsorship, error) 
 // the beneficiary "My Entitlements" view). Distinct from List, which is the
 // donor-side view (filtered by donor_user_id). Active/pending/delayed/paused
 // only — the ones the beneficiary is still entitled to receive.
+// MaskAmountsForViewer blanks the money on every sponsorship the viewer does
+// not personally fund. It mutates items in place and is safe on a nil slice.
+//
+// WHY: List() is also the browse directory — the أعمالنا/services section calls
+// GET /api/sponsorships with no user_id, and that is a legitimate screen, so the
+// listing itself must stay reachable. But it selected amount, currency AND
+// beneficiary_case_id with no masking, to any caller holding a bearer.
+//
+// That defeated a protection this codebase already had. The `as=beneficiary`
+// view deliberately blanks Amount and Currency (note #53) so the eligible person
+// cannot see the money being paid on their behalf — and the very same person
+// could read all of it, correlated to their own case id, by asking for the plain
+// listing instead. A rule enforced on one route and not on the other route
+// returning the same rows is not a rule.
+//
+// Masking rather than refusing the request is deliberate: the browse screen is
+// real and shows who is sponsoring what. It is the amounts that are nobody
+// else's business. A viewer of 0 (no bearer, or a caller we cannot attribute)
+// funds nothing, so everything is blanked for them.
+//
+// The donor's own rows are untouched: a sponsor looking at the directory still
+// sees what they themselves committed, which is the one figure they are entitled
+// to and the reason this is not simply "blank every amount".
+func MaskAmountsForViewer(items []Sponsorship, viewerID int64) {
+	for i := range items {
+		owner := items[i].DonorUserID
+		if viewerID > 0 && owner != nil && int64(*owner) == viewerID {
+			continue
+		}
+		items[i].Amount = ""
+		items[i].Currency = ""
+	}
+}
+
 func (s *Store) ListByBeneficiary(ctx context.Context, userID int64) ([]Sponsorship, error) {
 	if userID <= 0 {
 		return nil, errors.New("invalid userID")

@@ -684,6 +684,13 @@ func (h *SponsorshipsHandler) Get(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
 		return
 	}
+	// Blank the money on rows this caller does not fund. With no user_id this
+	// route is the browse directory and returns EVERY sponsorship, so without
+	// this a signed-in beneficiary could read the amount paid for their own case
+	// here — the exact figure the `as=beneficiary` branch above blanks on
+	// purpose (#53). Applied unconditionally because it is a no-op on the
+	// filtered path: those rows are the caller's own and are left untouched.
+	sponsorships.MaskAmountsForViewer(items, viewerID)
 	c.JSON(http.StatusOK, gin.H{"success": true, "items": items})
 }
 
