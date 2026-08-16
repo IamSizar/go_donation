@@ -393,8 +393,9 @@ class DashboardHomeSection extends StatelessWidget {
         // then your latest alerts.
         Row(
           children: [
-            const _SectionLabel(title: 'Recent donations'),
-            const Spacer(),
+            // Expanded, not Spacer — see the matching note on
+            // _FeaturedCampaignsSection's header row.
+            const Expanded(child: _SectionLabel(title: 'Recent donations')),
             InkWell(
               onTap: () => Get.to(() => const MyDonationsPage()),
               child: Text(
@@ -1039,8 +1040,13 @@ class _FeaturedCampaignsSection extends StatelessWidget {
       children: [
         Row(
           children: [
-            const _SectionLabel(title: 'Featured campaigns'),
-            const Spacer(),
+            // Expanded rather than a Spacer after it. A Spacer only pushes
+            // "See all" to the end when there is space left over; an
+            // unconstrained _SectionLabel takes the whole row first, leaves the
+            // Spacer nothing, and the row overflows instead. Expanded gives the
+            // heading everything the trailing link does not need, which is the
+            // same resting layout and a truncating one when the heading is long.
+            const Expanded(child: _SectionLabel(title: 'Featured campaigns')),
             InkWell(
               onTap: () => Get.to(() => const DonationsSection()),
               child: Text(
@@ -1186,12 +1192,24 @@ class _SectionLabel extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 10),
-        Text(
-          title.tr,
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-            color: AppThemeConfig.text(context),
+        // Flexible, not bare. An 18px w800 heading with no constraint and no
+        // ellipsis hard-overflows the moment it is longer than the row: the
+        // beneficiary's "Project request progress" and the volunteer's "My
+        // mission schedule" both do at 320px, and neither had ever been
+        // rendered by anything to find out. Two lines rather than one because
+        // these are headings — truncating "Recent case updates" to "Recent
+        // case…" loses the noun the section is about, and there is vertical
+        // room here where there is no horizontal room.
+        Flexible(
+          child: Text(
+            title.tr,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: AppThemeConfig.text(context),
+            ),
           ),
         ),
       ],
@@ -1888,8 +1906,9 @@ class _NewsStrip extends StatelessWidget {
         children: [
           Row(
             children: [
-              const _SectionLabel(title: 'Latest news'),
-              const Spacer(),
+              // Expanded, not Spacer — see the matching note on
+              // _FeaturedCampaignsSection's header row.
+              const Expanded(child: _SectionLabel(title: 'Latest news')),
               InkWell(
                 onTap: () => Get.to(() => const NewsActivitiesScreen()),
                 borderRadius: BorderRadius.circular(8),
