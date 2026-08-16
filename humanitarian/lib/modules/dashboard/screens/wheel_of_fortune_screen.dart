@@ -207,14 +207,7 @@ const List<Color> wheelSliceColors = [
   Color(0xFFEA580C),
 ];
 
-/// The dark ink used for slice labels that sit on a light slice.
-///
-/// Deliberately the pointer's own colour rather than pure black — the wheel
-/// already establishes it as this screen's "dark", so the labels borrow a
-/// colour that is on the wheel instead of introducing a ninth one.
-const Color _kWheelInk = Color(0xFF0F172A);
-
-/// Whichever of white or [_kWheelInk] is actually readable on [slice].
+/// Whichever of white or [kInkDark] is actually readable on [slice].
 ///
 /// The labels were all white. On a rainbow that does not work: white measured
 /// 2.15:1 on the amber slice — below even the 3:1 floor for non-text UI, never
@@ -226,10 +219,7 @@ const Color _kWheelInk = Color(0xFF0F172A);
 /// keeping the hues is the point: the segment colours are what make the thing
 /// read as a fortune wheel at all. See test/design/wheel_label_contrast_test.dart.
 @visibleForTesting
-Color wheelLabelInk(Color slice) =>
-    contrastRatio(Colors.white, slice) >= contrastRatio(_kWheelInk, slice)
-    ? Colors.white
-    : _kWheelInk;
+Color wheelLabelInk(Color slice) => inkOn(slice);
 
 class _WheelPainter extends CustomPainter {
   _WheelPainter({required this.labels, required this.colors});

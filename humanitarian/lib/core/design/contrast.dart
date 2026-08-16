@@ -46,6 +46,31 @@ double contrastRatio(Color a, Color b) {
   return (math.max(la, lb) + 0.05) / (math.min(la, lb) + 0.05);
 }
 
+/// The near-black used as "dark ink" on a bright fill.
+///
+/// The games' own dark: it is already the wheel pointer's colour, so a label
+/// forced off white borrows a colour that is on screen rather than introducing
+/// another one.
+const Color kInkDark = Color(0xFF0F172A);
+
+/// Whichever of [light] and [dark] is actually readable on [background].
+///
+/// For a fill that is FIXED and vivid — a game's slice, a reward card — where
+/// the colour is the point and must not move. Flipping the text is the only
+/// lever left, and on a saturated palette it is a large one: white measured
+/// 2.15:1 on the games' amber #F59E0B, while [kInkDark] measures 8.31:1 on the
+/// same fill.
+///
+/// Prefer [readableOn] when the tint may be adjusted instead; use this when it
+/// may not.
+Color inkOn(
+  Color background, {
+  Color light = const Color(0xFFFFFFFF),
+  Color dark = kInkDark,
+}) => contrastRatio(light, background) >= contrastRatio(dark, background)
+    ? light
+    : dark;
+
 /// How many steps [readableOn] takes between the tint and the ink.
 ///
 /// Fine enough that the returned colour keeps as much of the original hue as

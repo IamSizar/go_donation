@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/data/motivational_tasks.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/core/design/contrast.dart';
 import 'package:flutter_application_1/core/design/motion.dart';
 
 /// Client note — Quick Actions #4: "Scratch the Lucky Coupon". Tapping the
@@ -121,6 +122,10 @@ class _ScratchCard extends StatelessWidget {
   }
 }
 
+/// The revealed coupon's fill. The same amber the wheel uses, deliberately —
+/// the two games share a "prize" colour.
+const Color _kCouponAmber = Color(0xFFF59E0B);
+
 class _RevealedCard extends StatelessWidget {
   const _RevealedCard({super.key, required this.task});
 
@@ -128,12 +133,19 @@ class _RevealedCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The challenge was white on the amber: 2.15:1, measured from the rendered
+    // pixels of the wheel's identically-coloured slice. At 16px w800 this is
+    // still ordinary text — WCAG's large-text allowance starts at 18.66px bold
+    // — so 4.5:1 applies and white missed it by more than half. The fill is the
+    // reward's identity and stays; the ink flips. The icon flips with it: it
+    // sits in the same column, and a white icon over dark text reads as a bug.
+    final ink = inkOn(_kCouponAmber);
     return Container(
       width: 280,
       height: 180,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Color(0xFFF59E0B),
+        color: _kCouponAmber,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
@@ -147,15 +159,15 @@ class _RevealedCard extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.celebration_rounded, color: Colors.white, size: 32),
+          Icon(Icons.celebration_rounded, color: ink, size: 32),
           const SizedBox(height: 10),
           Text(
             task,
             textAlign: TextAlign.center,
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: ink,
               fontWeight: FontWeight.w800,
               fontSize: 16,
               height: 1.25,
