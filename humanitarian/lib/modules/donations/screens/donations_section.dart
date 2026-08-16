@@ -635,17 +635,32 @@ class _DonationFeaturedCampaignCard extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 16),
+                    // The fill is the accent and the track a wash of it, which
+                    // is what the identical bar on the Home card already does
+                    // (widgets/dashboard.dart:1819). This one was drawing both
+                    // halves from `mist` (borderStrong #CFC8B9) at two alphas —
+                    // 0.5 for the fill over 0.12 for the track. Blended onto the
+                    // white card that is #E7E4DC on #F9F8F7: a contrast of
+                    // 1.2:1, against the 3:1 a non-text element needs to carry
+                    // information.
+                    //
+                    // So the bar showed nothing. A campaign funded 100% and one
+                    // funded 0% drew the same empty-looking strip, which is the
+                    // one number a donor is scanning this card for. Found by
+                    // looking at the screen: the 100% campaign's bar was bare.
                     ClipRRect(
                       borderRadius: BorderRadius.circular(99),
                       child: Container(
                         height: 8,
-                        color: mist.withValues(alpha: 0.12),
+                        color: AppThemeConfig.accent(
+                          context,
+                        ).withValues(alpha: 0.14),
                         child: Align(
                           alignment: AlignmentDirectional.centerStart,
                           child: FractionallySizedBox(
                             widthFactor: campaign.fundedProgress,
                             child: Container(
-                              color: mist.withValues(alpha: 0.5),
+                              color: AppThemeConfig.accent(context),
                             ),
                           ),
                         ),
