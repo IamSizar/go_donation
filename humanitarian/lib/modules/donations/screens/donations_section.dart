@@ -626,12 +626,18 @@ class _DonationFeaturedCampaignCard extends StatelessWidget {
                           label: campaign.location,
                           color: mist.withValues(alpha: 0.88),
                         ),
-                        const SizedBox(height: 10),
-                        _CampaignDetailLine(
-                          icon: Icons.groups_rounded,
-                          label: campaign.impact,
-                          color: mist.withValues(alpha: 0.88),
-                        ),
+                        // The spacer is conditional too: the line below hides
+                        // itself when it has nothing to say, and a gap left
+                        // behind for an absent row is the same defect one
+                        // pixel smaller.
+                        if (campaign.impact.trim().isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          _CampaignDetailLine(
+                            icon: Icons.groups_rounded,
+                            label: campaign.impact,
+                            color: mist.withValues(alpha: 0.88),
+                          ),
+                        ],
                       ],
                     ),
                     const SizedBox(height: 16),
@@ -741,6 +747,21 @@ class _CampaignDetailLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Nothing to say, nothing to draw. Both values this line renders are
+    // optional: `impact` returns '' when a campaign records no affected count,
+    // no community and no gender split, and `location` is empty when nobody
+    // filled it in. Rendered unconditionally, that left a bare people-icon
+    // floating on the card with empty space beside it — an icon captioning
+    // nothing.
+    //
+    // The guard belongs here rather than at the two call sites because this
+    // file already knows the rule and applies it in the other direction:
+    // _DonationOptionData.fromCampaign filters exactly these two values with
+    // `.where((value) => value.trim().isNotEmpty)` before joining them. One
+    // half of the file dropped the empty ones and the other half drew them.
+    //
+    // Found by opening تبرّع and noticing an icon with nothing after it.
+    if (label.trim().isEmpty) return const SizedBox.shrink();
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
