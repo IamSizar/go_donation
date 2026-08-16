@@ -265,14 +265,31 @@ class FeaturedCampaignData {
   }
 
   /// e.g. `1,200 / 5,000 IQD` when amounts exist.
+  ///
+  /// Wrapped in a Unicode LTR isolate (U+2066 LRI … U+2069 PDI) — the same
+  /// treatment the phone number gets on the verification and create-password
+  /// screens, and the same bug the dashboard's formatPhone had (E1).
+  ///
+  /// Without it this line REVERSES ON SCREEN in Arabic. "raised / goal" is two
+  /// LTR numeric runs separated by " / ", which is bidi-neutral; in an RTL
+  /// paragraph the neutral takes the paragraph direction, so the two runs are
+  /// laid out right-to-left and the goal is painted where the raised amount
+  /// should be. A campaign that had raised 9,000,000 of a 500,000 goal read as
+  /// "500,000 / 9,000,000" — which also made the honest "100% funded" beside it
+  /// look like a contradiction, because 500,000 of 9,000,000 is not 100%.
+  ///
+  /// Found by opening the donate screen in Arabic on a device: the percentage
+  /// and the amounts disagreed, and the percentage was the one telling the
+  /// truth.
   String get fundingAmountsLine {
     if (amountNeeded <= 0 && raisedAmount <= 0) return '';
     final suffix = _fundingCurrencySuffix;
-    return '@raised / @goal@suffix'.trParams({
+    final line = '@raised / @goal@suffix'.trParams({
       'raised': _formatMoney(raisedAmount),
       'goal': _formatMoney(amountNeeded),
       'suffix': suffix,
     });
+    return '\u2066$line\u2069';
   }
 
   String get displayRaisedAmount => _formatMoney(raisedAmount);
