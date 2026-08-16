@@ -314,6 +314,20 @@ func main() {
 	// Sponsorship reminders reuse the same best-effort SMS sender as the
 	// donation-arrival alerts.
 	sponsorshipScheduleH.SendSMS = donationStore.SendSMS
+	// M9 — the third reminder channel ("تنبيه صوتي ... عند توفره") is left
+	// UNWIRED on purpose: there is no voice account to point a provider at, and
+	// a client written against a service nobody has bought would be a guess in
+	// exactly the details that matter (audio format, language codes, retry and
+	// per-call cost). The seam is real and tested — internal/notify/voice.go —
+	// so switching it on is this one line and nothing else:
+	//
+	//	sponsorshipScheduleH.Voice = notify.VoiceCallerFunc(
+	//	    func(ctx context.Context, phone, message string) error { ... })
+	//
+	// Until then the sweep logs once per run that the channel is off. It does
+	// NOT report success for a call it never placed — which is the mistake the
+	// SMS closure above still makes, and the reason nobody noticed the SMS leg
+	// of these reminders has never worked in any environment.
 	sponsorshipScheduleH.StartReminderLoop(6 * time.Hour)
 	citySectorsH := handlers.NewCitySectorsHandler(citySectorStore)                                              // #29
 	cityCategoriesH := handlers.NewCityCategoriesHandler(citycategories.New(pool))                               // sub-categories

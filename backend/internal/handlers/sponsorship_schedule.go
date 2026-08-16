@@ -25,6 +25,11 @@ type SponsorshipScheduleHandler struct {
 	// SendSMS is the same best-effort sender the donation alerts use. Nil
 	// disables the SMS leg; in-app notifications still go out.
 	SendSMS func(ctx context.Context, phone, message string) error
+	// Voice — M9's third channel ("تنبيه صوتي ... عند توفره"). Nil in every
+	// environment today, which is a supported state and not an error: the
+	// sweep logs that the channel is off and carries on. See
+	// internal/notify/voice.go for why no provider ships with it.
+	Voice notify.VoiceCaller
 }
 
 func NewSponsorshipScheduleHandler(
@@ -109,6 +114,15 @@ func (h *SponsorshipScheduleHandler) RunReminderSweep(ctx context.Context) {
 		log.Printf("[sponsorship-reminders] query: %v", err)
 		return
 	}
+	// M9 — say once per sweep, not once per row, that the voice channel is off.
+	// Per-row logging would put a line in the journal for every reminder in
+	// every environment, which is how a real warning gets scrolled past.
+	voiceOn := notify.VoiceConfigured(h.Voice)
+	if !voiceOn && len(items) > 0 {
+		log.Printf("[sponsorship-reminders] voice channel not configured; %d reminder(s) go out by in-app%s only",
+			len(items), map[bool]string{true: " and SMS", false: ""}[h.SendSMS != nil])
+	}
+
 	for _, it := range items {
 		amount := strconv.FormatFloat(it.Amount, 'f', -1, 64)
 
@@ -117,23 +131,56 @@ func (h *SponsorshipScheduleHandler) RunReminderSweep(ctx context.Context) {
 				_, _ = h.Notifier.Send(ctx, *it.GrantorUserID,
 					notify.SponsorshipDueGrantorMsg(amount, it.Currency, it.DueDate, it.OccurrenceID))
 			}
-			h.sms(ctx, it.GrantorPhone,
-				"تذكير: مساهمتك بمبلغ "+amount+" "+it.Currency+" مستحقة بتاريخ "+it.DueDate)
-			if err := h.Store.MarkReminded(ctx, it.OccurrenceID, "grantor"); err != nil {
-				log.Printf("[sponsorship-reminders] mark grantor %d: %v", it.OccurrenceID, err)
-			}
+			text := "تذكير: مساهمتك بمبلغ " + amount + " " + it.Currency + " مستحقة بتاريخ " + it.DueDate
+			h.sms(ctx, it.GrantorPhone, text)
+			h.voice(ctx, voiceOn, it.GrantorPhone, text, it.OccurrenceID)
 		}
 		if it.RecipientUserID != nil {
 			if h.Notifier != nil {
 				_, _ = h.Notifier.Send(ctx, *it.RecipientUserID,
 					notify.SponsorshipDueRecipientMsg(amount, it.Currency, it.DueDate, it.OccurrenceID))
 			}
-			h.sms(ctx, it.RecipientPhone,
-				"تذكير: مساعدتك بمبلغ "+amount+" "+it.Currency+" مقررة بتاريخ "+it.DueDate)
-			if err := h.Store.MarkReminded(ctx, it.OccurrenceID, "recipient"); err != nil {
-				log.Printf("[sponsorship-reminders] mark recipient %d: %v", it.OccurrenceID, err)
+			text := "تذكير: مساعدتك بمبلغ " + amount + " " + it.Currency + " مقررة بتاريخ " + it.DueDate
+			h.sms(ctx, it.RecipientPhone, text)
+			h.voice(ctx, voiceOn, it.RecipientPhone, text, it.OccurrenceID)
+		}
+
+		// BOTH sides are always closed out, including a side with nobody on it.
+		//
+		// This is the fix for a forever-loop, and it is the reason the marking
+		// moved out of the two `if` blocks above. PendingReminders selects while
+		// EITHER stamp is NULL, but a sponsorship with no beneficiary_case_id
+		// (the column is nullable) has no recipient user, so the recipient stamp
+		// was never written and the occurrence was re-selected on every sweep —
+		// re-texting the grantor every six hours for the life of the
+		// sponsorship. The in-app leg hid it because notify.Send de-duplicates;
+		// the SMS leg has no dedupe, and a voice channel added to the same loop
+		// would have placed an automated call on that schedule.
+		//
+		// "Nobody to remind" is a finished side, not a pending one.
+		for _, side := range []string{"grantor", "recipient"} {
+			if err := h.Store.MarkReminded(ctx, it.OccurrenceID, side); err != nil {
+				log.Printf("[sponsorship-reminders] mark %s %d: %v", side, it.OccurrenceID, err)
 			}
 		}
+	}
+}
+
+// voice places the automated call for one recipient, best-effort.
+//
+// Failures are logged and never returned: a reminder that reached the app and
+// the phone must not be re-queued because a call did not connect, and the
+// occurrence is marked done either way. voiceOn is passed in so the "channel is
+// off" case is decided once per sweep rather than re-tested per row.
+func (h *SponsorshipScheduleHandler) voice(ctx context.Context, voiceOn bool, phone, message string, occurrenceID int64) {
+	if !voiceOn {
+		return
+	}
+	if strings.TrimSpace(phone) == "" {
+		return
+	}
+	if err := notify.PlaceVoiceCall(ctx, h.Voice, strings.TrimSpace(phone), message); err != nil {
+		log.Printf("[sponsorship-reminders] voice call for occurrence %d: %v", occurrenceID, err)
 	}
 }
 
