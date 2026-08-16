@@ -17,6 +17,11 @@
 // unchanged. A caption says which half is which, so the absence reads as a
 // rule rather than as a missing feature.
 //
+// WHERE THE CONTROLS THEMSELVES LIVE
+// widgets/marriage_edit_fields.dart. This file owns the state, the validation
+// and the save; that one owns how one input looks. The split is what keeps
+// both under the 500-line ceiling without either becoming a grab bag.
+//
 // WHY THE OPTION LISTS ARE COPIED FROM THE SUBMISSION FORM
 // gender / marital_status / employment_status / visibility_level use the same
 // value sets marriage_form_screen.dart submits and marriage_search_screen.dart
@@ -30,9 +35,8 @@ import 'package:get/get.dart';
 import 'package:flutter_application_1/api/links.dart';
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/core/app_haptics.dart';
-import 'package:flutter_application_1/core/theme/app_theme_config.dart';
-import 'package:flutter_application_1/core/widgets/app_pressable.dart';
 import 'package:flutter_application_1/modules/marriage/controllers/marriage_my_profile_controller.dart';
+import 'package:flutter_application_1/modules/marriage/widgets/marriage_edit_fields.dart';
 import 'package:flutter_application_1/shared/utils/image_pick.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 
@@ -298,10 +302,14 @@ class _MarriageProfileEditScreenState extends State<MarriageProfileEditScreen> {
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
           children: [
-            _photoField(),
+            MarriagePhotoField(
+              resolvedUrl: _resolvePhotoUrl(_photoUrl),
+              uploading: _uploadingPhoto,
+              onPick: _pickPhoto,
+            ),
             const SizedBox(height: 20),
-            _label('marriage_gender'),
-            _dropdown(
+            const MarriageEditLabel('marriage_gender'),
+            MarriageEditDropdown(
               value: _gender,
               hintKey: 'marriage_gender_hint',
               icon: Icons.wc_outlined,
@@ -310,17 +318,26 @@ class _MarriageProfileEditScreenState extends State<MarriageProfileEditScreen> {
               onChanged: (v) => setState(() => _gender = v),
             ),
             const SizedBox(height: 14),
-            _text(
-              _age,
-              'marriage_age',
-              Icons.cake_outlined,
+            MarriageEditTextField(
+              controller: _age,
+              labelKey: 'marriage_age',
+              icon: Icons.cake_outlined,
               keyboard: TextInputType.number,
               validator: (v) => _validateOptionalNumber(v, min: 16, max: 99),
             ),
-            _text(_city, 'marriage_city', Icons.location_city_outlined),
-            _text(_summary, 'marriage_summary', Icons.notes_outlined, lines: 3),
-            _label('marriage_marital_status'),
-            _dropdown(
+            MarriageEditTextField(
+              controller: _city,
+              labelKey: 'marriage_city',
+              icon: Icons.location_city_outlined,
+            ),
+            MarriageEditTextField(
+              controller: _summary,
+              labelKey: 'marriage_summary',
+              icon: Icons.notes_outlined,
+              lines: 3,
+            ),
+            const MarriageEditLabel('marriage_marital_status'),
+            MarriageEditDropdown(
               value: _maritalStatus,
               hintKey: 'marriage_marital_status_hint',
               icon: Icons.people_outline,
@@ -329,9 +346,13 @@ class _MarriageProfileEditScreenState extends State<MarriageProfileEditScreen> {
               onChanged: (v) => setState(() => _maritalStatus = v),
             ),
             const SizedBox(height: 14),
-            _text(_religion, 'marriage_religion', Icons.church_outlined),
-            _label('marriage_employment_status'),
-            _dropdown(
+            MarriageEditTextField(
+              controller: _religion,
+              labelKey: 'marriage_religion',
+              icon: Icons.church_outlined,
+            ),
+            const MarriageEditLabel('marriage_employment_status'),
+            MarriageEditDropdown(
               value: _employmentStatus,
               hintKey: 'marriage_employment_status_hint',
               icon: Icons.work_outline,
@@ -340,21 +361,21 @@ class _MarriageProfileEditScreenState extends State<MarriageProfileEditScreen> {
               onChanged: (v) => setState(() => _employmentStatus = v),
             ),
             const SizedBox(height: 14),
-            _text(
-              _weight,
-              'marriage_weight',
-              Icons.monitor_weight_outlined,
+            MarriageEditTextField(
+              controller: _weight,
+              labelKey: 'marriage_weight',
+              icon: Icons.monitor_weight_outlined,
               keyboard: TextInputType.number,
               validator: (v) => _validateOptionalNumber(v, min: 30, max: 250),
             ),
-            _text(
-              _height,
-              'marriage_height',
-              Icons.height_rounded,
+            MarriageEditTextField(
+              controller: _height,
+              labelKey: 'marriage_height',
+              icon: Icons.height_rounded,
               keyboard: TextInputType.number,
               validator: (v) => _validateOptionalNumber(v, min: 100, max: 250),
             ),
-            _label('marriage_privacy'),
+            const MarriageEditLabel('marriage_privacy'),
             DropdownButtonFormField<String>(
               key: const Key('marriage_owner_visibility'),
               initialValue: _visibility,
@@ -369,10 +390,10 @@ class _MarriageProfileEditScreenState extends State<MarriageProfileEditScreen> {
                   setState(() => _visibility = v ?? 'employee_only'),
             ),
             const SizedBox(height: 20),
-            _staffOnlyNote(),
+            const MarriageStaffFieldsNote(),
             if (_saveError != null) ...[
               const SizedBox(height: 16),
-              _SaveFailure(message: _saveError!),
+              MarriageSaveFailure(message: _saveError!),
             ],
             const SizedBox(height: 20),
             SizedBox(
@@ -396,174 +417,6 @@ class _MarriageProfileEditScreenState extends State<MarriageProfileEditScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  /// The one field with no text input: tap the avatar to replace the photo.
-  Widget _photoField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _label('marriage_photo'),
-        Center(
-          child: AppPressable(
-            onTap: _uploadingPhoto ? null : _pickPhoto,
-            semanticLabel: 'marriage_photo'.tr,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                CircleAvatar(
-                  radius: 48,
-                  backgroundColor: AppThemeConfig.softSurface(context),
-                  backgroundImage: _photoUrl.isNotEmpty
-                      ? NetworkImage(_resolvePhotoUrl(_photoUrl))
-                      : null,
-                  child: _photoUrl.isEmpty
-                      ? Icon(
-                          Icons.add_a_photo_outlined,
-                          size: 28,
-                          color: AppThemeConfig.mutedText(context),
-                        )
-                      : null,
-                ),
-                if (_uploadingPhoto)
-                  const CircularProgressIndicator.adaptive(strokeWidth: 2),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// Says which half of the profile this screen governs.
-  ///
-  /// 5.9 — the boundary between "I change this" and "staff change this" is not
-  /// discoverable from a form that simply lacks the other fields, so it is
-  /// stated rather than implied.
-  Widget _staffOnlyNote() {
-    return GlassPanel(
-      padding: const EdgeInsets.all(14),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            Icons.info_outline_rounded,
-            size: 18,
-            color: AppThemeConfig.mutedText(context),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'marriage_owner_staff_fields_note'.tr,
-              style: TextStyle(
-                color: AppThemeConfig.mutedText(context),
-                height: 1.5,
-                fontSize: 12.5,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _label(String key) => Padding(
-    padding: const EdgeInsets.only(bottom: 6),
-    child: Text(key.tr, style: const TextStyle(fontWeight: FontWeight.w700)),
-  );
-
-  Widget _text(
-    TextEditingController controller,
-    String labelKey,
-    IconData icon, {
-    int lines = 1,
-    TextInputType? keyboard,
-    String? Function(String?)? validator,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: TextFormField(
-        key: Key('marriage_owner_$labelKey'),
-        controller: controller,
-        keyboardType: keyboard,
-        minLines: lines,
-        maxLines: lines,
-        // Revalidate as the user corrects a rejected field, rather than only
-        // on the next save attempt.
-        autovalidateMode: AutovalidateMode.onUserInteraction,
-        validator: validator,
-        decoration: InputDecoration(
-          labelText: labelKey.tr,
-          prefixIcon: Icon(icon),
-          border: const OutlineInputBorder(),
-        ),
-      ),
-    );
-  }
-
-  Widget _dropdown({
-    required String? value,
-    required String hintKey,
-    required IconData icon,
-    required List<String> options,
-    required String Function(String) labelOf,
-    required ValueChanged<String?> onChanged,
-  }) {
-    return DropdownButtonFormField<String>(
-      initialValue: value,
-      decoration: InputDecoration(prefixIcon: Icon(icon)),
-      hint: Text(hintKey.tr),
-      items: [
-        for (final v in options)
-          DropdownMenuItem(value: v, child: Text(labelOf(v))),
-      ],
-      onChanged: (v) {
-        AppHaptics.selection();
-        onChanged(v);
-      },
-    );
-  }
-}
-
-/// The last save's failure, in the form, with the cause and nothing else.
-///
-/// Not an [AppErrorState]: that widget's contract is a failed LOAD with a
-/// retry, and the retry here is the Save button the user is already looking
-/// at. A second "try again" control beside it would be two ways to do one
-/// thing.
-class _SaveFailure extends StatelessWidget {
-  const _SaveFailure({required this.message});
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    final tone = AppThemeConfig.consequence(context);
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: tone.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: tone.withValues(alpha: 0.45)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.error_outline_rounded, size: 18, color: tone),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              message,
-              style: TextStyle(
-                color: AppThemeConfig.text(context),
-                height: 1.45,
-                fontSize: 13,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
