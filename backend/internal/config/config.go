@@ -23,6 +23,32 @@ type Config struct {
 	// the in-app support chat offers "Continue on WhatsApp" after 3 messages.
 	// Empty disables the offer.
 	SupportWhatsApp string
+
+	// H20 — outbound email. Unset in every environment today; see SMTPConfig
+	// for what an unset value means at each call site.
+	SMTP SMTPConfig
+}
+
+// SMTPConfig is everything the standard-library mail sender needs
+// (internal/auth/mailer.go). Deliberately five plain strings/int rather than a
+// provider SDK: the only thing this system sends is a short confirmation code,
+// and a dependency is a liability.
+//
+// CONFIGURED means Host, Port and From are all present. Username/Password are
+// optional — some relays authenticate by IP — but if EITHER is supplied the
+// sender demands TLS before offering it (see Mailer.Send), because a password
+// handed to a plaintext relay is a password published.
+//
+// Every field is empty in every environment the team can reach today. That is
+// not a bug to route around: each caller decides, deliberately and visibly,
+// what "no email channel" means for it, and none of them may report success
+// for a message that never left. See Mailer.Configured.
+type SMTPConfig struct {
+	Host     string // e.g. smtp.gmail.com
+	Port     int    // 587 (STARTTLS) or 465 (implicit TLS); 0 when unset
+	Username string
+	Password string // NEVER logged, never returned in an API response
+	From     string // envelope + header From, e.g. "no-reply@example.org"
 }
 
 func Load() (*Config, error) {
@@ -53,6 +79,19 @@ func Load() (*Config, error) {
 		}
 		return -1
 	}, os.Getenv("SUPPORT_WHATSAPP"))
+
+	// H20 — outbound email. Port defaults to 587 (submission + STARTTLS), the
+	// port a relay is most likely to be reachable on; 465 is the implicit-TLS
+	// alternative and the sender picks the right handshake from the number.
+	// Clamped to a real port range so a typo degrades to "unconfigured" — which
+	// every caller handles — instead of a dial to port 0 that hangs a request.
+	c.SMTP = SMTPConfig{
+		Host:     strings.TrimSpace(os.Getenv("SMTP_HOST")),
+		Port:     parseIntDefault("SMTP_PORT", 587, 1, 65535),
+		Username: strings.TrimSpace(os.Getenv("SMTP_USERNAME")),
+		Password: os.Getenv("SMTP_PASSWORD"), // not trimmed: spaces can be significant
+		From:     strings.TrimSpace(os.Getenv("SMTP_FROM")),
+	}
 
 	return c, nil
 }

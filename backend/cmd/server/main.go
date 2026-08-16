@@ -194,6 +194,25 @@ func main() {
 			}
 		}
 	}
+	// H20 — outbound email. Nil when SMTP_* is unset, which is every
+	// environment today. The boot line is deliberately loud: an operator
+	// reading the log has to be able to tell, without opening a screen,
+	// whether the main-admin protection can actually deliver.
+	mailer := auth.NewMailer(auth.MailerConfig{
+		Host:     cfg.SMTP.Host,
+		Port:     cfg.SMTP.Port,
+		Username: cfg.SMTP.Username,
+		Password: cfg.SMTP.Password,
+		From:     cfg.SMTP.From,
+	})
+	if mailer != nil {
+		log.Printf("[mail] SMTP enabled (host=%s port=%d from=%s) — email confirmations can be delivered",
+			cfg.SMTP.Host, cfg.SMTP.Port, cfg.SMTP.From)
+	} else {
+		log.Printf("[mail] SMTP disabled (SMTP_HOST/SMTP_PORT/SMTP_FROM not all set) — " +
+			"no email leaves this server; main-admin credential changes (H20) will be REFUSED, not silently half-sent")
+	}
+
 	// #15 — wire the OTPIQ custom-SMS sender into the donation store so a donation
 	// arrival can alert the section's contact (best-effort, nil-safe).
 	donationStore.SendSMS = func(ctx context.Context, phone, message string) error {
@@ -243,6 +262,14 @@ func main() {
 	adminListsH := handlers.NewAdminListsHandler(pool)
 	adminStatusH := handlers.NewAdminStatusHandler(pool, notifier, eventsStore, caseVolChatStore)
 	adminEditH := handlers.NewAdminEditHandler(pool)
+	// H20 — one guard instance shared by both handlers that can rewrite a
+	// main-admin credential, so "confirmed on both channels" means the same
+	// thing on the Edit modal and on the Set-Password action. Wiring it is not
+	// optional in the safety sense: leaving either field nil makes those writes
+	// REFUSE (see admin_main_admin_guard.go), never silently proceed.
+	mainAdminGuard := handlers.NewMainAdminConfirm(pool, otpiqClient, mailer)
+	adminStatusH.MainAdmin = mainAdminGuard
+	adminEditH.MainAdmin = mainAdminGuard
 	adminCreateH := handlers.NewAdminCreateHandler(pool, notifier)
 	adminCreateH.Codes = codesStore // #14 — namespace admin-created donation refs too
 	// "Post Information" — Activity Codes for Our Work posts, prefixed by the

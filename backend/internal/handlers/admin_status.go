@@ -49,6 +49,9 @@ func (h *AdminStatusHandler) blockIfProtectedTarget(c *gin.Context, targetID int
 
 type userStaffTierReq struct {
 	StaffTier string `json:"staff_tier"`
+	// H20 — see userPasswordReq. Moving the main admin's tier is the other way
+	// to take the account's authority in one request.
+	ConfirmationCode string `json:"confirmation_code"`
 }
 
 // POST /api/admin/users/:id/staff_tier — set a user's dashboard tier. Super-Admin
@@ -69,6 +72,15 @@ func (h *AdminStatusHandler) UserStaffTier(c *gin.Context) {
 		return
 	}
 	newTier := string(permissions.TierFrom(req.StaffTier)) // normalize; unknown → 'user'
+
+	// H20 — the main admin's own tier may only be moved with the two-channel
+	// confirmation. A no-op write (tier unchanged) is left alone: demanding an
+	// out-of-band code to set a value to what it already is would only train
+	// people to click through the prompt.
+	if newTier != string(permissions.TierSuperAdmin) &&
+		h.MainAdmin.required(c, mainAdminChange{h.Pool, id, changeKindStaffTier, req.ConfirmationCode}) {
+		return
+	}
 
 	ctx := c.Request.Context()
 	// Guard against removing the last super_admin.
@@ -235,9 +247,13 @@ func (h *AdminStatusHandler) CreateUser(c *gin.Context) {
 // All routes are wired under the `admin` group in main.go, so RequireAdmin
 // has already authenticated the caller before any code in here runs.
 type AdminStatusHandler struct {
-	Pool     *pgxpool.Pool
-	Notifier *notify.Notifier // Phase 18 — used by post-update notify helpers.
-	Events   *events.Store    // Admin Notification System — user-account CRUD is
+	Pool *pgxpool.Pool
+	// H20 — the two-channel confirmation guarding the main-admin account. Wired
+	// late in main.go like the other optional collaborators; a nil guard
+	// REFUSES a protected write rather than waving it through.
+	MainAdmin *MainAdminConfirm
+	Notifier  *notify.Notifier // Phase 18 — used by post-update notify helpers.
+	Events    *events.Store    // Admin Notification System — user-account CRUD is
 	// appended to app_events so it surfaces in the dashboard Notification Center
 	// and is permanently recorded (append-only audit).
 	// Note #36 — opens the Staff↔Volunteer↔Beneficiary chat the moment a
@@ -1302,6 +1318,11 @@ func (h *AdminStatusHandler) UserRole(c *gin.Context) {
 
 type userPasswordReq struct {
 	Password string `json:"password"`
+	// H20 — the confirmation code delivered to the main admin's phone AND
+	// email. Empty on the first call (which asks for one to be sent), ignored
+	// entirely for every target that is not a super_admin. Also decoded by
+	// VerifyPassword, which shares this struct and simply never reads it.
+	ConfirmationCode string `json:"confirmation_code"`
 }
 
 // POST /api/admin/users/:id/password — body {password}. Sets (or clears when
@@ -1318,6 +1339,12 @@ func (h *AdminStatusHandler) UserPassword(c *gin.Context) {
 	var req userPasswordReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid JSON body."})
+		return
+	}
+	// H20 — setting or clearing the main admin's password is a takeover in one
+	// request, so it needs the two-channel confirmation. Runs after the body is
+	// parsed (the code travels in it) and before any write.
+	if h.MainAdmin.required(c, mainAdminChange{h.Pool, id, changeKindPassword, req.ConfirmationCode}) {
 		return
 	}
 	pw := strings.TrimSpace(req.Password)

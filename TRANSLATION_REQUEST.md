@@ -1324,3 +1324,46 @@ whatever the app's other pickers use for a neutral, unchosen default.
 The Arabic for the six labels is the CLIENT'S OWN WORDING from the spec, not a
 translation of the English — so where the two read differently, the Arabic is
 the original and the English is the gloss.
+
+---
+
+## H20 — main-admin two-channel confirmation (dashboard, `admin-web`)
+
+New vocabulary added to `admin-web/src/lib/locales/`. **English and Arabic are
+written; ckb (سۆرانی) and kmr (بادینی) are NOT** — they fall back to English at
+runtime, which the i18n layer does silently and safely. No Kurdish was invented.
+
+These strings are refusals a Primary Administrator meets when the server cannot
+deliver a confirmation code to BOTH the phone and the email of a main-admin
+account, so the tone must stay calm and must always name the next action.
+
+`SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM` and `OTPIQ_API_KEY` are configuration
+identifiers, not prose — they stay in Latin script in every locale, the same way
+a phone number or a chart axis does.
+
+| key | English | العربية | ckb / kmr |
+|---|---|---|---|
+| `error.main_admin_confirmation_required` | This change needs a confirmation code sent to the Primary Administrator's phone and email. | هذا التغيير يحتاج رمز تأكيد يُرسَل إلى هاتف المدير الأساسي وبريده الإلكتروني. | **needed** |
+| `error.main_admin_confirmation_unavailable` | Main-admin confirmation is not available on this server. Contact whoever runs the server. | تأكيد حساب المدير الأساسي غير متاح على هذا الخادم. راجع المسؤول عن الخادم. | **needed** |
+| `error.main_admin_email_unavailable` | Email sending is not set up on the server… (names SMTP_HOST/PORT/FROM) | إرسال البريد الإلكتروني غير مُهيَّأ على الخادم… | **needed** |
+| `error.main_admin_sms_unavailable` | SMS sending is not set up on the server… (names OTPIQ_API_KEY) | إرسال الرسائل النصية غير مُهيَّأ على الخادم… | **needed** |
+| `error.main_admin_email_missing` | This account has no email address saved… | لا يوجد بريد إلكتروني محفوظ لهذا الحساب… | **needed** |
+| `error.main_admin_phone_missing` | This account has no phone number saved… | لا يوجد رقم هاتف محفوظ لهذا الحساب… | **needed** |
+| `error.main_admin_email_send_failed` | The confirmation email could not be sent, so nothing was changed. | تعذّر إرسال بريد التأكيد، ولم يتغيّر شيء. | **needed** |
+| `error.main_admin_sms_send_failed` | The confirmation SMS could not be sent, so nothing was changed. | تعذّر إرسال رسالة التأكيد، ولم يتغيّر شيء. | **needed** |
+| `error.main_admin_confirmation_invalid` | That confirmation code is not correct. | رمز التأكيد غير صحيح. | **needed** |
+| `error.main_admin_confirmation_missing` | No confirmation is waiting for this change. | لا يوجد تأكيد قيد الانتظار لهذا التغيير. | **needed** |
+| `error.main_admin_confirmation_expired` | The confirmation code has expired. | انتهت صلاحية رمز التأكيد. | **needed** |
+| `error.main_admin_confirmation_attempts` | Too many incorrect codes. | رموز خاطئة كثيرة. | **needed** |
+| `error.main_admin_one_channel_at_a_time` | Change the phone and the email one at a time. | غيّر رقم الهاتف والبريد الإلكتروني كلاً على حدة. | **needed** |
+| `perm.main_admin_confirm_prompt` | A confirmation code was sent to the Primary Administrator's phone {phone} and email {email}. Enter it to apply this change: | أُرسل رمز تأكيد إلى هاتف المدير الأساسي {phone} وبريده {email}. أدخل الرمز لتطبيق هذا التغيير: | **needed** |
+| `perm.main_admin_confirm_required` | The confirmation code is required — nothing was changed. | رمز التأكيد مطلوب — لم يتغيّر شيء. | **needed** |
+
+### Not a dashboard string — the email itself
+
+The confirmation **email body** is composed server-side in
+`backend/internal/handlers/admin_main_admin_guard.go` and is **Arabic only**. It
+passes through no translation layer, because the recipient is the main admin of
+this one organisation and the dashboard's locale is not known at send time. If
+the owner wants it in Kurdish or English, that is a product decision and needs a
+per-account language preference on the users row first — there is none today.

@@ -46,6 +46,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -309,19 +310,38 @@ func TestUserEditGuardAllowsLegitimateEdits(t *testing.T) {
 		}
 	})
 
-	t.Run("a super_admin can still change a super_admin's phone", func(t *testing.T) {
+	// H20 SUPERSEDED THE OLD ASSERTION HERE, deliberately.
+	//
+	// This case used to read "a super_admin can still change a super_admin's
+	// phone" and expect a 200: under H13 alone, rank was the whole question and
+	// a peer edit was legitimate. H20 answers a second question the client
+	// asked — does the OWNER of that account know it is happening? — so the
+	// same request now needs a code delivered to the target's own phone AND
+	// email before anything is written.
+	//
+	// What the original case was protecting is preserved and asserted below:
+	// the Super-Admin is not locked out of their own tool. They are told what
+	// is missing, in a message that names it, and the row is left alone rather
+	// than half-changed. The two-request happy path is covered end to end in
+	// admin_main_admin_guard_test.go with both channels live.
+	t.Run("a super_admin's phone now needs the two-channel confirmation", func(t *testing.T) {
 		actor := insertAccount(t, pool, "super_admin", "")
 		target := insertAccount(t, pool, "super_admin", "")
+		before := phoneOf(t, pool, target.id)
 		const corrected = "9647700000003"
 
 		status, body := patchUserAs(t, pool, actor.id, target.id,
 			map[string]any{"phone": corrected})
 
-		if status != http.StatusOK {
-			t.Fatalf("status = %d, want 200 (body: %v)", status, body)
+		if status == http.StatusOK {
+			t.Fatalf("status = 200 — a main-admin sign-in number was rewritten with no confirmation (body: %v)", body)
 		}
-		if got := phoneOf(t, pool, target.id); got != corrected {
-			t.Errorf("phone = %q, want %q — the Super-Admin was locked out of their own tool", got, corrected)
+		code, _ := body["code"].(string)
+		if !strings.HasPrefix(code, "main_admin_") {
+			t.Errorf("code = %q, want a main_admin_* refusal naming what is missing (body: %v)", code, body)
+		}
+		if got := phoneOf(t, pool, target.id); got != before {
+			t.Errorf("phone = %q, want it unchanged at %q — the refusal left a half-applied edit", got, before)
 		}
 	})
 

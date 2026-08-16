@@ -96,7 +96,16 @@ api.interceptors.response.use(
       const isAuthEntry =
         url.includes('/api/auth/login') ||
         url.includes('/api/auth/otp/')
-      if (!isAuthEntry) {
+      // H20 — a WRONG SECOND FACTOR is a 401 too, and it must not be read as
+      // "your session ended". Without this the operator who mistypes the
+      // confirmation code is thrown out of the dashboard and back to the login
+      // screen, which is both baffling and the exact lockout this feature was
+      // told not to create. Matched on the server's stable `code`, so only the
+      // confirmation refusals are exempted and a genuinely dead token still
+      // signs the operator out.
+      const code = (err.response.data as { code?: string } | undefined)?.code ?? ''
+      const isSecondFactorRefusal = code.startsWith('main_admin_')
+      if (!isAuthEntry && !isSecondFactorRefusal) {
         setToken(null)
         setStoredUser(null)
         if (window.location.pathname !== '/login') {
@@ -149,4 +158,53 @@ export function describeError(err: unknown): string {
   }
   if (err instanceof Error) return err.message
   return translate('error.unknown')
+}
+
+// withMainAdminConfirmation — the client half of H20.
+//
+// A change to the Primary Administrator's own account (their sign-in phone,
+// their email, their password, their tier) is refused by the server until it
+// carries a code that was delivered to BOTH that account's phone and its email.
+// The refusal is a 428 with `code: 'main_admin_confirmation_required'` plus
+// masked hints for the two channels it went to.
+//
+// This wrapper is what turns that into one step for the operator: run the
+// request; if the server asks for the code, prompt for it and run the request
+// once more with `confirmation_code` merged in. It deliberately retries EXACTLY
+// ONCE — a loop here would turn a mistyped code into an interrogation, and the
+// server already caps the guesses.
+//
+// `send` receives the extra body fields to merge, so the caller keeps ownership
+// of the URL, the method and the rest of the payload:
+//
+//	await withMainAdminConfirmation((extra) =>
+//	  api.post(`/api/admin/users/${id}/password`, { password, ...extra }))
+//
+// Every OTHER failure — including the "email is not configured on the server"
+// refusal, which is the one production will meet today — is re-thrown untouched
+// so the page's normal describeError path shows it. This wrapper never swallows
+// a refusal and never retries one it was not asked to.
+export async function withMainAdminConfirmation<T>(
+  send: (extra: Record<string, unknown>) => Promise<T>,
+): Promise<T> {
+  try {
+    return await send({})
+  } catch (e) {
+    if (!axios.isAxiosError(e) || !e.response) throw e
+    const data = e.response.data as
+      | { code?: string; phone_hint?: string; email_hint?: string }
+      | undefined
+    if (data?.code !== 'main_admin_confirmation_required') throw e
+
+    const code = window.prompt(
+      translate('perm.main_admin_confirm_prompt', {
+        phone: data.phone_hint ?? '',
+        email: data.email_hint ?? '',
+      }),
+    )
+    if (code == null || !code.trim()) {
+      throw new Error(translate('perm.main_admin_confirm_required'))
+    }
+    return await send({ confirmation_code: code.trim() })
+  }
 }

@@ -2,13 +2,17 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
+	"net/mail"
 	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/karam-flutter/humanitarian-backend/internal/permissions"
 	"github.com/karam-flutter/humanitarian-backend/internal/volunteers"
 )
 
@@ -55,6 +59,12 @@ func (n jsonNullableInt) IntPtr() *int {
 // has already authenticated the caller before any code in here runs.
 type AdminEditHandler struct {
 	Pool *pgxpool.Pool
+	// H20 — the two-channel confirmation that protects the main-admin account.
+	// Optional field rather than a constructor argument, matching the other
+	// late-wired collaborators in main.go (adminListsH.Perms and friends).
+	// A nil guard REFUSES a protected write rather than waving it through —
+	// see admin_main_admin_guard.go.
+	MainAdmin *MainAdminConfirm
 }
 
 func NewAdminEditHandler(pool *pgxpool.Pool) *AdminEditHandler {
@@ -1482,7 +1492,13 @@ func addOptString(b *setBuilder, col string, val *string) {
 // address/profile_picture, which are NOT NULL), so empty input clears them
 // to NULL instead of storing "".
 type userEditReq struct {
-	Phone          *string         `json:"phone"`
+	Phone *string `json:"phone"`
+	// H20 — users.email has existed since migration 017 (Google sign-in) and
+	// no admin endpoint could ever write it. It is editable here because it is
+	// now a DELIVERY CHANNEL for the main-admin confirmation: without a way to
+	// put an address on the account, that protection could never be switched on
+	// for an account that has none.
+	Email          *string         `json:"email"`
 	FullName       *string         `json:"full_name"`
 	Gender         *string         `json:"gender"`
 	Address        *string         `json:"address"`
@@ -1496,6 +1512,70 @@ type userEditReq struct {
 	Skills         *string         `json:"skills"`
 	Availability   *string         `json:"availability"`
 	Experience     *string         `json:"experience"`
+	// H20 — the code delivered to the main admin's phone AND email. Empty on
+	// the first call, which is what asks for one to be sent. Ignored entirely
+	// for every target that is not a super_admin.
+	ConfirmationCode string `json:"confirmation_code"`
+}
+
+// guardMainAdminUserEdit applies H20's two-channel confirmation to the two
+// fields on this endpoint that can hand somebody the main-admin account: the
+// sign-in phone, and the email the confirmation itself is delivered to.
+//
+// Returns true when the caller must be STOPPED (the response is already
+// written), matching the convention of guardUserWrite beside it.
+//
+// It compares against the STORED values rather than trusting the presence of a
+// JSON key, because the Edit modal posts the whole form: keying off "the field
+// was in the body" would demand an out-of-band code every time somebody
+// corrected a Super-Admin's address, and a confirmation people learn to click
+// through is not a confirmation.
+func (h *AdminEditHandler) guardMainAdminUserEdit(c *gin.Context, id int64, req *userEditReq) bool {
+	// Fast path: this request cannot touch either channel.
+	if req.Phone == nil && req.Email == nil {
+		return false
+	}
+	ctx := c.Request.Context()
+	var tier, curPhone, curEmail *string
+	err := h.Pool.QueryRow(ctx,
+		`SELECT staff_tier, phone, email FROM users WHERE id = $1`, id).Scan(&tier, &curPhone, &curEmail)
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		return false // no such user — the handler answers its own 404.
+	case err != nil:
+		denyUserWrite(c, http.StatusInternalServerError, "server_error",
+			"Could not verify this account. Please try again.", id)
+		return true
+	}
+	if tier == nil || permissions.TierFrom(*tier) != permissions.TierSuperAdmin {
+		return false // not the main admin — H20 does not apply.
+	}
+
+	stored := func(p *string) string {
+		if p == nil {
+			return ""
+		}
+		return strings.TrimSpace(*p)
+	}
+	phoneChanging := req.Phone != nil && strings.TrimSpace(*req.Phone) != stored(curPhone)
+	emailChanging := req.Email != nil &&
+		!strings.EqualFold(strings.TrimSpace(*req.Email), stored(curEmail))
+
+	switch {
+	case !phoneChanging && !emailChanging:
+		return false
+	case phoneChanging && emailChanging:
+		// One code authorises one KIND of change (see migration 114). Rewriting
+		// both delivery channels at once would let a single code retire both,
+		// which is precisely the takeover the gate exists to stop.
+		denyUserWrite(c, http.StatusBadRequest, "main_admin_one_channel_at_a_time",
+			"Change the phone and the email one at a time, so each is confirmed on the other channel.", id)
+		return true
+	case phoneChanging:
+		return h.MainAdmin.required(c, mainAdminChange{h.Pool, id, changeKindPhone, req.ConfirmationCode})
+	default:
+		return h.MainAdmin.required(c, mainAdminChange{h.Pool, id, changeKindEmail, req.ConfirmationCode})
+	}
 }
 
 func (h *AdminEditHandler) User(c *gin.Context) {
@@ -1509,11 +1589,13 @@ func (h *AdminEditHandler) User(c *gin.Context) {
 		return
 	}
 
-	// H10 — a phone that came back redacted was never seen by whoever is saving
-	// it. Storing it would replace the account's sign-in identity with "••••03".
-	// Runs before the rank check because it is cheaper and needs no database
-	// round-trip; either refusal leaves the row untouched.
-	if rejectMaskedContactWrite(c, contactWrite{"phone", req.Phone}) {
+	// H10 — a phone or email that came back redacted was never seen by whoever
+	// is saving it. Storing it would replace the account's sign-in identity
+	// with "••••03". Runs before the rank check because it is cheaper and needs
+	// no database round-trip; either refusal leaves the row untouched.
+	if rejectMaskedContactWrite(c,
+		contactWrite{"phone", req.Phone},
+		contactWrite{"email", req.Email}) {
 		return
 	}
 
@@ -1525,7 +1607,30 @@ func (h *AdminEditHandler) User(c *gin.Context) {
 		return
 	}
 
-	usersHasChange := req.Phone != nil
+	// H20 — and, if this is the main admin's account, the change has to be
+	// confirmed on BOTH of that account's channels before it is applied.
+	if h.guardMainAdminUserEdit(c, id, &req) {
+		return
+	}
+
+	if req.Email != nil {
+		s := strings.ToLower(strings.TrimSpace(*req.Email))
+		// Shallow validation, deliberately: the only mistake worth catching is
+		// an operator typing something that is not an address at all. An empty
+		// value is allowed and clears the column.
+		if s != "" {
+			if _, err := mail.ParseAddress(s); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"success": false, "code": "invalid_email",
+					"error": "That is not a valid email address.",
+				})
+				return
+			}
+		}
+		req.Email = &s
+	}
+
+	usersHasChange := req.Phone != nil || req.Email != nil
 	profileHasChange := req.FullName != nil || req.Gender != nil || req.Address != nil || req.ProfilePicture != nil ||
 		req.DateOfBirth != nil || req.City != nil || req.Occupation != nil || req.FamilySize.Set ||
 		req.HousingStatus != nil || req.MonthlyIncome != nil || req.Skills != nil || req.Availability != nil ||
@@ -1551,6 +1656,26 @@ func (h *AdminEditHandler) User(c *gin.Context) {
 		}
 		ct, err := tx.Exec(c.Request.Context(),
 			"UPDATE users SET phone = $1 WHERE id = $2", s, id)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
+			return
+		}
+		if ct.RowsAffected() == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "User not found."})
+			return
+		}
+	}
+
+	// users.email — nullable (migration 017), so an empty value CLEARS it
+	// rather than storing "". Normalised to lower case on the way in, matching
+	// users.UpsertGoogleUser, so the Google-linking lookup keeps matching.
+	if req.Email != nil {
+		var arg any = nil
+		if *req.Email != "" {
+			arg = *req.Email
+		}
+		ct, err := tx.Exec(c.Request.Context(),
+			"UPDATE users SET email = $1 WHERE id = $2", arg, id)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
 			return

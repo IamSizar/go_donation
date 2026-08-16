@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import ActionsMenu from '../components/ActionsMenu'
 import ExportCsvButton from '../components/ExportCsvButton'
-import { api, describeError, isSuperAdmin } from '../lib/api'
+import { api, describeError, isSuperAdmin, withMainAdminConfirmation } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { roleLabel, type UsersListResp, type UserAccount } from '../lib/api-types'
 import Table, { type Column } from '../components/Table'
@@ -223,11 +223,23 @@ export default function UsersPage() {
       if (!(settingPassword && !u.has_password)) {
         await verifyPin()
       }
+      // H20 — on the Primary Administrator's own row the server answers 428 and
+      // applies nothing until the request carries a code delivered to that
+      // account's phone AND its email. withMainAdminConfirmation asks for it
+      // once and repeats the request; on every other account it is a
+      // pass-through and the operator sees no extra step at all.
       if (Object.keys(profilePatch).length > 0) {
-        await api.patch(`/api/admin/users/${u.user_id}`, profilePatch)
+        await withMainAdminConfirmation((extra) =>
+          api.patch(`/api/admin/users/${u.user_id}`, { ...profilePatch, ...extra }),
+        )
       }
       if (settingPassword) {
-        await api.post(`/api/admin/users/${u.user_id}/password`, { password: (password as string).trim() })
+        await withMainAdminConfirmation((extra) =>
+          api.post(`/api/admin/users/${u.user_id}/password`, {
+            password: (password as string).trim(),
+            ...extra,
+          }),
+        )
       }
       toast.success(t('toast.saved', { noun: `${t('noun.user')} #${u.user_id}` }))
       setRefreshTick((t) => t + 1)
@@ -362,7 +374,11 @@ export default function UsersPage() {
           disabled={!amSuper}
           onSave={async (next) => {
             await verifyPin()
-            await api.post(`/api/admin/users/${u.user_id}/staff_tier`, { staff_tier: next })
+            // H20 — moving the Primary Administrator's own tier needs the
+            // two-channel confirmation too; every other tier is unaffected.
+            await withMainAdminConfirmation((extra) =>
+              api.post(`/api/admin/users/${u.user_id}/staff_tier`, { staff_tier: next, ...extra }),
+            )
           }}
           label={t('common.user_tier_ref', { id: u.user_id })}
         />
@@ -429,7 +445,9 @@ export default function UsersPage() {
                     // any account's very first password (a bootstrap deadlock
                     // with no password to ever confirm against).
                     if (u.has_password) await verifyPin()
-                    await api.post(`/api/admin/users/${u.user_id}/password`, { password: pw })
+                    await withMainAdminConfirmation((extra) =>
+                      api.post(`/api/admin/users/${u.user_id}/password`, { password: pw, ...extra }),
+                    )
                     toast.success(t('common.set_password_ok'))
                   } catch (e) {
                     toast.error(describeError(e))

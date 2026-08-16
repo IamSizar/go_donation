@@ -566,6 +566,12 @@ const en = {
     overridden_hint: 'Customized for this employee — click ↺ to revert to their tier default.',
     inherited_hint: 'Inherited from this employee’s tier.',
     reset_to_tier: 'Reset to tier default',
+    // H20 — the second step of a change to the Primary Administrator's own
+    // account. The hints are masked forms of the two channels the code went to,
+    // so the operator can tell it reached the right person without the full
+    // number or address appearing on screen.
+    main_admin_confirm_prompt: 'A confirmation code was sent to the Primary Administrator\u2019s phone {phone} and email {email}. Enter it to apply this change:',
+    main_admin_confirm_required: 'The confirmation code is required — nothing was changed.',
   },
 
   export: {
@@ -1160,6 +1166,22 @@ const en = {
     invalid_social_links: 'One link per line, each with a website address — for example facebook.com/yourpage.',
     invalid_logo_path: 'That logo could not be used. Upload the image again.',
     value_too_long: 'This is too long. Please shorten it.',
+    // H20 — the main-admin account is only changed with a code delivered to
+    // BOTH that account's phone and its email. These are the refusals when one
+    // of the two channels cannot carry it; each names the thing to fix.
+    main_admin_confirmation_required: 'This change needs a confirmation code sent to the Primary Administrator\u2019s phone and email.',
+    main_admin_confirmation_unavailable: 'Main-admin confirmation is not available on this server. Contact whoever runs the server.',
+    main_admin_email_unavailable: 'Email sending is not set up on the server, so the confirmation cannot reach both the phone and the email. The change was not applied. Ask whoever runs the server to set SMTP_HOST, SMTP_PORT and SMTP_FROM.',
+    main_admin_sms_unavailable: 'SMS sending is not set up on the server, so the confirmation cannot reach both the phone and the email. The change was not applied. Ask whoever runs the server to set OTPIQ_API_KEY.',
+    main_admin_email_missing: 'This account has no email address saved, so the confirmation cannot be sent to both channels. Add an email address to the account first.',
+    main_admin_phone_missing: 'This account has no phone number saved, so the confirmation cannot be sent to both channels.',
+    main_admin_email_send_failed: 'The confirmation email could not be sent, so nothing was changed. Try again in a moment.',
+    main_admin_sms_send_failed: 'The confirmation SMS could not be sent, so nothing was changed. Try again in a moment.',
+    main_admin_confirmation_invalid: 'That confirmation code is not correct.',
+    main_admin_confirmation_missing: 'No confirmation is waiting for this change. Start it again to get a new code.',
+    main_admin_confirmation_expired: 'The confirmation code has expired. Start the change again to get a new one.',
+    main_admin_confirmation_attempts: 'Too many incorrect codes. Start the change again to get a new one.',
+    main_admin_one_channel_at_a_time: 'Change the phone and the email one at a time, so each change is confirmed on the other channel.',
   },
 
   // Singular entity nouns — used by the live-feed highlight banner.
