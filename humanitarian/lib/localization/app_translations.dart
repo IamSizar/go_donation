@@ -2099,8 +2099,8 @@ class AppTranslations extends Translations {
     'Refund': 'Refund',
     'Donation': 'Donation',
     'Marketplace purchase': 'Marketplace purchase',
-    'Your account signs in with your phone number and a one-time code — there is no password to manage.':
-        'Your account signs in with your phone number and a one-time code — there is no password to manage.',
+    'Your account signs in with your phone number and password. A one-time code is only used when creating an account.':
+        'Your account signs in with your phone number and password. A one-time code is only used when creating an account.',
     'Your Cart': 'Your Cart',
     'Review your items, then choose how to pay.':
         'Review your items, then choose how to pay.',
@@ -4739,8 +4739,8 @@ class AppTranslations extends Translations {
     'Refund': 'استرداد',
     'Donation': 'تبرع',
     'Marketplace purchase': 'عملية شراء من المتجر',
-    'Your account signs in with your phone number and a one-time code — there is no password to manage.':
-        'يتم تسجيل الدخول إلى حسابك برقم هاتفك ورمز مؤقت — لا توجد كلمة مرور لإدارتها.',
+    'Your account signs in with your phone number and password. A one-time code is only used when creating an account.':
+        'يتم تسجيل الدخول إلى حسابك برقم هاتفك وكلمة المرور. الرمز المؤقت يُستخدم عند إنشاء الحساب فقط.',
     'Your Cart': 'سلة التسوق',
     'Review your items, then choose how to pay.':
         'راجع منتجاتك، ثم اختر طريقة الدفع.',
@@ -6732,8 +6732,6 @@ class AppTranslations extends Translations {
     'Refund': 'گەڕاندنەوەی پارە',
     'Donation': 'بەخشین',
     'Marketplace purchase': 'کڕینی بازاڕ',
-    'Your account signs in with your phone number and a one-time code — there is no password to manage.':
-        'هەژمارەکەت بە ژمارەی مۆبایل و کۆدێکی کاتی دەچێتە ژوورەوە — هیچ وشەی نهێنی نییە بۆ بەڕێوەبردن.',
     'Your Cart': 'سەبەتەی کڕین',
     'Review your items, then choose how to pay.':
         'کاڵاکانت پێداچوونەوە بکە، پاشان ڕێگەی دراو هەڵبژێرە.',
@@ -8624,8 +8622,6 @@ class AppTranslations extends Translations {
     'Refund': 'زڤرینا پارە',
     'Donation': 'بەخشین',
     'Marketplace purchase': 'کڕینا بازاڕێ',
-    'Your account signs in with your phone number and a one-time code — there is no password to manage.':
-        'هەژمارا تە ب ژمارا مۆبایلا تە و کۆدەکێ کاتی دچیتە هندۆر — چ پاسوۆردەک نینە بۆ بەڕێڤەبرنێ.',
     'Your Cart': 'سەبەتا کڕینێ',
     'Review your items, then choose how to pay.':
         'کالایێن خۆ پێداچوون بکە و ڕێکا پارەدانێ هەلبژێرە.',

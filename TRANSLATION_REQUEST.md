@@ -27,7 +27,7 @@ made on this project once and had to be reverted.
 Every key below currently renders its **English** string to a Kurdish user.
 That is deliberate and safe. It is not a crash, and it is not Arabic text.
 
-## Count: 373 keys need Kurdish
+## Count: 374 keys need Kurdish
 
 | Client | Sorani (ckb) | Badini (kmr) | Distinct keys |
 |---|---|---|---|
@@ -48,7 +48,8 @@ That is deliberate and safe. It is not a crash, and it is not Arabic text.
 | Admin dashboard — content page save confirmation | 2 | 2 | 2 |
 | Admin dashboard — delete confirmation bodies (were FALSE in Kurdish) | 5 | 5 | 5 |
 | App — City Guide map chip (place count) | 2 | 2 | 2 |
-| **Total distinct words to translate** | | | **373** |
+| App — security page auth description (old Kurdish was FALSE) | 1 | 1 | 1 |
+| **Total distinct words to translate** | | | **374** |
 
 > **The dashboard figure above is a floor, not a ceiling — and it is the one
 > number in this file that was never fully measured.** Counting key paths in

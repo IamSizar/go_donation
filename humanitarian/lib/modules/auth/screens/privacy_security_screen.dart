@@ -85,7 +85,7 @@ class PrivacySecurityScreen extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Your account signs in with your phone number and a one-time code — there is no password to manage.'
+                    'Your account signs in with your phone number and password. A one-time code is only used when creating an account.'
                         .tr,
                     style: TextStyle(
                       color: AppThemeConfig.mutedText(context),
