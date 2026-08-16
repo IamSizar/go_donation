@@ -828,6 +828,11 @@ func (h *AdminEditHandler) BeneficiaryCase(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid JSON body."})
 		return
 	}
+	// H10 — the case list masks this phone for staff without `sensitive_data`,
+	// and the edit modal is prefilled from that list row.
+	if rejectMaskedContactWrite(c, contactWrite{"phone", req.Phone}) {
+		return
+	}
 	b := setBuilder{}
 	if req.PublicTitle != nil {
 		s := strings.TrimSpace(*req.PublicTitle)
@@ -947,6 +952,14 @@ func (h *AdminEditHandler) ProjectRequest(c *gin.Context) {
 	var req projectReqEditReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid JSON body."})
+		return
+	}
+	// H10 — both of these are masked in the project-request list, and both are
+	// prefilled straight back into the edit form.
+	if rejectMaskedContactWrite(c,
+		contactWrite{"contact_phone", req.ContactPhone},
+		contactWrite{"contact_email", req.ContactEmail},
+	) {
 		return
 	}
 	b := setBuilder{}
@@ -1373,6 +1386,10 @@ func (h *AdminEditHandler) VolunteerApplication(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid JSON body."})
 		return
 	}
+	// H10 — masked in the volunteer-application list, prefilled into this form.
+	if rejectMaskedContactWrite(c, contactWrite{"phone", req.Phone}) {
+		return
+	}
 	b := setBuilder{}
 	if req.FullName != nil {
 		s := strings.TrimSpace(*req.FullName)
@@ -1489,6 +1506,14 @@ func (h *AdminEditHandler) User(c *gin.Context) {
 	var req userEditReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid JSON body."})
+		return
+	}
+
+	// H10 — a phone that came back redacted was never seen by whoever is saving
+	// it. Storing it would replace the account's sign-in identity with "••••03".
+	// Runs before the rank check because it is cheaper and needs no database
+	// round-trip; either refusal leaves the row untouched.
+	if rejectMaskedContactWrite(c, contactWrite{"phone", req.Phone}) {
 		return
 	}
 

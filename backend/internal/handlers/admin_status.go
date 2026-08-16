@@ -154,6 +154,11 @@ func (h *AdminStatusHandler) CreateUser(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Phone number is required."})
 		return
 	}
+	// H10 — an account created with a redacted phone could never sign in and
+	// could never be reached; `users.phone` is the sign-in identity.
+	if rejectMaskedContactWrite(c, contactWrite{"phone", &phone}) {
+		return
+	}
 	ctx := c.Request.Context()
 	var roleArg any = nil
 	if req.RoleID != nil && *req.RoleID > 0 {

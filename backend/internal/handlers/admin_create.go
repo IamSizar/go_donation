@@ -582,6 +582,10 @@ func (h *AdminCreateHandler) VolunteerApplication(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid JSON body."})
 		return
 	}
+	// H10 — see BeneficiaryCase above; the same form feeds both verbs.
+	if rejectMaskedContactWrite(c, contactWrite{"phone", req.Phone}) {
+		return
+	}
 	fullName, ok := requireString(c, "full_name", req.FullName)
 	if !ok {
 		return
@@ -837,6 +841,12 @@ func (h *AdminCreateHandler) BeneficiaryCase(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid JSON body."})
 		return
 	}
+	// H10 — the create form shares its field list with the edit form, so a
+	// redacted value can reach it the same way (duplicate a masked row, paste a
+	// masked value). A record born holding "••••03" has no contactable number.
+	if rejectMaskedContactWrite(c, contactWrite{"phone", req.Phone}) {
+		return
+	}
 	publicTitle, ok := requireString(c, "public_title", req.PublicTitle)
 	if !ok {
 		return
@@ -935,6 +945,13 @@ func (h *AdminCreateHandler) ProjectRequest(c *gin.Context) {
 	var req projectReqCreateReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid JSON body."})
+		return
+	}
+	// H10 — see BeneficiaryCase above; the same form feeds both verbs.
+	if rejectMaskedContactWrite(c,
+		contactWrite{"contact_phone", req.ContactPhone},
+		contactWrite{"contact_email", req.ContactEmail},
+	) {
 		return
 	}
 	if req.UserID == nil || *req.UserID <= 0 {
