@@ -704,12 +704,10 @@ const ar: DeepPartial<typeof en> = {
     modal_new: 'إضافة {noun}',
     modal_edit: 'تعديل {noun} \u2066#T{id}\u2069',
     confirm_delete_title: 'حذف {noun} \u2066#T{id}\u2069؟',
-    confirm_delete_body: '«{name}» ستتم إزالته نهائيًا.',
-    confirm_delete_body_noun: '{noun} ستتم إزالته نهائيًا.',
-    confirm_delete_body_code: '{noun} {code} ستتم إزالته نهائيًا.',
+    confirm_delete_body: 'سيُنقل «{name}» إلى المهملات، ويمكنك استرجاعه من هناك.',
+    confirm_delete_body_noun: 'سيُنقل {noun} إلى المهملات، ويمكنك استرجاعه من هناك.',
+    confirm_delete_body_code: 'سيُنقل {noun} {code} إلى المهملات، ويمكنك استرجاعه من هناك.',
     // E15 — الصياغة الصحيحة للحذف القابل للاسترجاع (يذهب إلى المهملات).
-    confirm_delete_body_recoverable: 'سيُنقل «{name}» إلى المهملات، ويمكنك استرجاعه من هناك.',
-    cannot_undo: 'لا يمكن التراجع عن هذا.',
   },
 
   toast: {

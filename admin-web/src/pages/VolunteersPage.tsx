@@ -855,9 +855,12 @@ function MissionSignupsTab() {
   // E15 — حذف, the fifth action the client asked this list to always carry.
   // It is a RECOVERABLE delete: DELETE /api/admin/volunteer_mission_signups/:id
   // is gated on volunteers/delete and routes the row through trashRow, so the
-  // signup lands in المهملات and a Super-Admin can restore it. That is why the
-  // dialog below uses confirm_delete_body_recoverable rather than the
-  // "permanently removed" body the older pages still use.
+  // signup lands in المهملات and a Super-Admin can restore it.
+  //
+  // This page once needed its own body string because the shared one promised
+  // "permanently removed". Every delete dialog in this dashboard turned out to
+  // be recoverable, so the shared body now says so and the separate string is
+  // gone.
   const handleDelete = useCallback(
     async (id: number) => {
       try {
@@ -1090,7 +1093,7 @@ function MissionSignupsTab() {
         open={deleting !== null}
         title={deleting ? t('common.confirm_delete_title', { noun: t('noun.mission_signup'), id: deleting.id }) : ''}
         message={deleting
-          ? t('common.confirm_delete_body_recoverable', {
+          ? t('common.confirm_delete_body', {
               name: [
                 deleting.user_full_name ?? t('common.user_ref_lc', { id: deleting.user_id }),
                 deleting.mission_title,

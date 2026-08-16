@@ -27,7 +27,7 @@ made on this project once and had to be reverted.
 Every key below currently renders its **English** string to a Kurdish user.
 That is deliberate and safe. It is not a crash, and it is not Arabic text.
 
-## Count: 366 keys need Kurdish
+## Count: 369 keys need Kurdish
 
 | Client | Sorani (ckb) | Badini (kmr) | Distinct keys |
 |---|---|---|---|
@@ -46,7 +46,8 @@ That is deliberate and safe. It is not a crash, and it is not Arabic text.
 | Admin dashboard — K13 contact details (new) | 9 | 9 | 9 |
 | Admin dashboard — Field Rules form labels (new) | 94 | 94 | 94 |
 | Admin dashboard — content page save confirmation | 2 | 2 | 2 |
-| **Total distinct words to translate** | | | **366** |
+| Admin dashboard — delete confirmation bodies (were FALSE in Kurdish) | 3 | 3 | 3 |
+| **Total distinct words to translate** | | | **369** |
 
 > **The dashboard figure above is a floor, not a ceiling — and it is the one
 > number in this file that was never fully measured.** Counting key paths in
@@ -1137,3 +1138,27 @@ reader's language — do not translate the placeholder itself.
 Arabic needed no such care and is already written: «تم حفظ» is built on the
 verbal noun «حفظ», not on `{page}`, so it does not shift with the gender of the
 page name — which is why substituting the object alone was safe there.
+
+## Delete confirmation bodies (3 keys) — URGENT, these were WRONG in Kurdish
+
+`common.confirm_delete_body`, `confirm_delete_body_noun` and
+`confirm_delete_body_code` told the reader the record would be **deleted
+permanently**. That is not what the button does: all 16 delete dialogs in the
+dashboard act on tables listed in the backend's `restorableTables`, so the row
+goes to المهملات and a Super-Admin can restore it.
+
+English and Arabic are corrected. The **Sorani and Badini strings were deleted
+rather than rewritten** — they said `بە تەواوی` / `ب تەمامی` ("completely"), and
+a mistranslated promise about whether data can be recovered is worse than an
+English sentence that is true. Until these are translated, Kurdish readers see
+the correct English.
+
+| Key | English (corrected) |
+|---|---|
+| `common.confirm_delete_body` | "{name}" will be moved to the Trash. You can restore it from there. |
+| `common.confirm_delete_body_noun` | {noun} will be moved to the Trash. You can restore it from there. |
+| `common.confirm_delete_body_code` | {noun} {code} will be moved to the Trash. You can restore it from there. |
+
+Note for the translator: "Trash" is the المهملات screen in the dashboard sidebar
+— please use whatever word that screen already uses in Kurdish, so the dialog
+and the destination match.

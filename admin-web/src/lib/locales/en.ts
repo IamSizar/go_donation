@@ -716,15 +716,9 @@ const en = {
     modal_new: 'New {noun}',
     modal_edit: 'Edit {noun} \u2066#T{id}\u2069',
     confirm_delete_title: 'Delete {noun} \u2066#T{id}\u2069?',
-    confirm_delete_body: '"{name}" will be permanently removed.',
-    confirm_delete_body_noun: '{noun} will be permanently removed.',
-    confirm_delete_body_code: '{noun} {code} will be permanently removed.',
-    // E15 — the honest wording for a delete that goes to the Trash. The three
-    // bodies above all promise "permanently", which is no longer true of the
-    // deletes H15 made recoverable; this is the string a NEW recoverable delete
-    // uses so the dialog matches what the button actually does.
-    confirm_delete_body_recoverable: '"{name}" will be moved to the Trash. You can restore it from there.',
-    cannot_undo: 'This cannot be undone.',
+    confirm_delete_body: '"{name}" will be moved to the Trash. You can restore it from there.',
+    confirm_delete_body_noun: '{noun} will be moved to the Trash. You can restore it from there.',
+    confirm_delete_body_code: '{noun} {code} will be moved to the Trash. You can restore it from there.',
   },
 
   toast: {

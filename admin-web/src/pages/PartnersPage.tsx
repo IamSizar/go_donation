@@ -276,10 +276,14 @@ export default function PartnersPage() {
         onClear={sel.clear}
         noun={t('noun.partner')}
       />
+      {/* `partners` is in restorableTables, so this delete goes to the Trash and
+          can be undone. This dialog used to append cannot_undo ("This cannot be
+          undone.") after the body — the one sentence in it that was flatly
+          false. */}
       <ConfirmDialog
         open={deleting !== null}
         title={deleting ? t('common.confirm_delete_title', { noun: t('noun.partner'), id: deleting.id }) : ''}
-        message={deleting ? `${t('common.confirm_delete_body', { name: deleting.name })} ${t('common.cannot_undo')}` : ''}
+        message={deleting ? t('common.confirm_delete_body', { name: deleting.name }) : ''}
         onConfirm={() => handleDelete(deleting!.id)}
         onCancel={() => setDeleting(null)}
       />

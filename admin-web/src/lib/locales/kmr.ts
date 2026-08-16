@@ -673,10 +673,6 @@ const kmr: DeepPartial<typeof en> = {
     modal_new: '{noun}ا نوو',
     modal_edit: 'دەستکاریا {noun} \u2066#T{id}\u2069',
     confirm_delete_title: '{noun} \u2066#T{id}\u2069 بهێتە ژێبرن؟',
-    confirm_delete_body: '"{name}" دێ ب تەمامی هێتە ژێبرن.',
-    confirm_delete_body_noun: '{noun} دێ ب تەمامی هێتە ژێبرن.',
-    confirm_delete_body_code: '{noun} {code} دێ ب تەمامی هێتە ژێبرن.',
-    cannot_undo: 'ئەڤ ناهێتە ڤەگەڕاندن.',
   },
 
   toast: {
