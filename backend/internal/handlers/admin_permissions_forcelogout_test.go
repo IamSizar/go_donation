@@ -93,7 +93,9 @@ func newPermissionsRouter(pool *pgxpool.Pool) (*gin.Engine, *auth.OTPStore) {
 	r := gin.New()
 	tokenStore := auth.NewTokenStore(pool)
 	otpStore := auth.NewOTPStore(pool)
-	h := NewAdminPermissionsHandler(permissions.New(pool), otpStore, nil)
+	// nil OTPIQ and nil mailer — the production shape, so these tests exercise
+	// the degraded-delivery path H1 deliberately keeps open.
+	h := NewAdminPermissionsHandler(permissions.New(pool), otpStore, nil, nil)
 	r.POST("/api/admin/permissions",
 		auth.RequireAdmin(tokenStore), auth.RequireSuperAdmin(), h.SetPermission)
 	r.POST("/api/admin/permissions/user/:id",

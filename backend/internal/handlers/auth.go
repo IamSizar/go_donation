@@ -30,6 +30,11 @@ type AuthHandler struct {
 	// Phase 19 — OTPIQ delivery client. nil when OTPIQ_API_KEY is not set;
 	// the handler then refuses real-mode OTP with a 502 (demo still works).
 	OTPIQ *auth.OTPIQClient
+	// H1 — the email half of "phone or email" on the admin-login second factor.
+	// nil when SMTP_* is unset, which is every environment today; wired late in
+	// main.go like the other optional collaborators. Nil-safe throughout: with
+	// no mailer, sign-in behaves exactly as it did before this field existed.
+	Mail *auth.Mailer
 	// Requirement 6c — login brute-force throttle. Counts failed password
 	// attempts per identity and locks after too many.
 	LoginLocks *auth.LoginLockStore
@@ -356,36 +361,70 @@ func adminLogin2FAEnabled() bool {
 	return false
 }
 
-// sendAdminLoginOTP issues a login OTP to phone, mirroring the permission-change
-// OTP flow: demo mode returns the code inline; real mode sends via OTPIQ. Returns
-// (mode, demoCode). demoCode is "" outside demo mode.
+// sendAdminLoginOTP issues a login OTP for `phone`, delivering it on the best
+// channel available. Returns (mode, demoCode); demoCode is "" outside demo mode.
 //
-// A16 — demo is a fallback, not a preference (see demoDeliveryActive): once
-// OTPIQ_API_KEY is configured this second factor becomes a real out-of-band code
+// H1 — the client asked for the code to reach "الهاتف أو البريد الإلكتروني",
+// phone OR email, and email did not exist anywhere in this system until H20
+// added a sender. EMAIL IS TRIED ONLY WHEN SMS IS UNAVAILABLE, never in
+// preference to it: an operator signing in expects the text message they have
+// always had, and an unexpected channel switch on the login screen reads as a
+// failure. Where SMS is configured nothing about this changes.
+//
+// A16 — demo is a fallback, not a preference (see demoDeliveryActive): once a
+// real channel is configured this second factor becomes a real out-of-band code
 // with no further code change.
-func (h *AuthHandler) sendAdminLoginOTP(ctx context.Context, phone string) (mode, demoCode string, err error) {
-	if demoDeliveryActive(h.OTPIQ) {
+func (h *AuthHandler) sendAdminLoginOTP(ctx context.Context, userID int64, phone string) (mode, demoCode string, err error) {
+	if demoDeliveryActive(h.OTPIQ) && !h.Mail.Configured() {
 		code := auth.DemoCode()
 		if err := h.OTPs.StoreCode(ctx, phone, code, "demo"); err != nil {
 			return "", "", err
 		}
 		return "demo", code, nil
 	}
-	if h.OTPIQ == nil {
+
+	// The account's own address, when there is one. A lookup failure is treated
+	// as "no email" rather than an error: it must never turn into a refused
+	// sign-in on a server where SMS works perfectly well.
+	email := ""
+	if h.Mail.Configured() {
+		email, _ = h.Users.GetEmailByID(ctx, userID)
+	}
+	if h.OTPIQ == nil && email == "" {
 		return "", "", errOTPNotConfigured
 	}
+
 	code, err := auth.GenerateCode()
 	if err != nil {
 		return "", "", err
 	}
+	// Stored keyed by phone either way — that is the row the verify step reads,
+	// whichever channel carried the code to the operator.
 	if err := h.OTPs.StoreCode(ctx, phone, code, "real"); err != nil {
 		return "", "", err
 	}
-	if _, err := h.OTPIQ.SendVerification(ctx, phone, code); err != nil {
+	if h.OTPIQ != nil {
+		if _, err := h.OTPIQ.SendVerification(ctx, phone, code); err != nil {
+			_ = h.OTPs.ClearRecord(ctx, phone)
+			return "", "", err
+		}
+		return "real", "", nil
+	}
+	if err := h.Mail.Send(ctx, email,
+		"رمز تسجيل الدخول إلى لوحة التحكم", adminLoginEmailBody(code)); err != nil {
 		_ = h.OTPs.ClearRecord(ctx, phone)
 		return "", "", err
 	}
-	return "real", "", nil
+	return "real_email", "", nil
+}
+
+// adminLoginEmailBody is the sign-in code message. Arabic, like every other
+// operator-facing message this server composes.
+func adminLoginEmailBody(code string) string {
+	return "رمز تسجيل الدخول إلى لوحة التحكم.\n\n" +
+		"رمز التأكيد: " + code + "\n\n" +
+		"صلاحية الرمز خمس دقائق ويُستخدم مرة واحدة. إذا لم تكن أنت من يحاول تسجيل الدخول، " +
+		"غيّر كلمة المرور فوراً."
 }
 
 var errOTPNotConfigured = errors.New("OTP delivery is not configured (OTPIQ_API_KEY)")
@@ -484,7 +523,7 @@ func (h *AuthHandler) AdminLogin(c *gin.Context) {
 			if strings.TrimSpace(req.Otp) == "" {
 				// First step: password was correct — send a code and ask for it.
 				// We do NOT clear the lock counter or issue a token yet.
-				mode, demoCode, err := h.sendAdminLoginOTP(ctx, phone)
+				mode, demoCode, err := h.sendAdminLoginOTP(ctx, id, phone)
 				if err != nil {
 					c.JSON(http.StatusBadGateway, gin.H{"status": "error", "error": "Could not send the verification code."})
 					return

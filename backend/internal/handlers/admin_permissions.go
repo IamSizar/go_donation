@@ -29,10 +29,16 @@ type AdminPermissionsHandler struct {
 	// real SMS (nil when OTPIQ_API_KEY isn't set — demo mode still works).
 	OTPs  *auth.OTPStore
 	OTPIQ *auth.OTPIQClient
+	// H1 — "phone OR email". The mailer is nil when SMTP_* is unset, which is
+	// every environment today; sendSecondFactor treats that as "email is not a
+	// real channel" and says so rather than pretending otherwise.
+	Mail *auth.Mailer
 }
 
-func NewAdminPermissionsHandler(p *permissions.Store, otps *auth.OTPStore, otpiq *auth.OTPIQClient) *AdminPermissionsHandler {
-	return &AdminPermissionsHandler{Perms: p, OTPs: otps, OTPIQ: otpiq}
+func NewAdminPermissionsHandler(
+	p *permissions.Store, otps *auth.OTPStore, otpiq *auth.OTPIQClient, mailer *auth.Mailer,
+) *AdminPermissionsHandler {
+	return &AdminPermissionsHandler{Perms: p, OTPs: otps, OTPIQ: otpiq, Mail: mailer}
 }
 
 // GET /api/admin/permissions — the full matrix the UI renders: the axis lists,
@@ -67,7 +73,11 @@ type setPermissionReq struct {
 	Module  string `json:"module"`
 	Action  string `json:"action"`
 	Allowed bool   `json:"allowed"`
-	Otp     string `json:"otp"` // Section 24 — phone OTP second factor
+	Otp     string `json:"otp"` // Section 24 — the second factor (phone or email)
+	// H1 — the FIRST factor. It used to be checked only by the page that asked
+	// for it (POST /admin/verify-password), so any caller that skipped that
+	// call skipped the password entirely. Verified here now.
+	Password string `json:"password"`
 }
 
 // maskPhone hides all but the last 4 digits (e.g. "•••••••2031").
@@ -79,63 +89,80 @@ func maskPhone(p string) string {
 	return strings.Repeat("•", len(p)-4) + p[len(p)-4:]
 }
 
-// POST /api/admin/permissions/otp — issue a phone OTP to the acting Super
-// Admin's number (the second factor for a permission change). In demo mode
-// (OTP_DEMO_ENABLED) it returns the code for local testing; otherwise it sends
-// a real SMS via OTPIQ.
+// requestOTPReq lets the operator pick which channel the code should travel on.
+// Empty means "whichever is real", which is the right default while only one of
+// the two gateways is ever configured.
+type requestOTPReq struct {
+	Channel string `json:"channel"` // "phone" | "email" | ""
+}
+
+// POST /api/admin/permissions/otp — issue the second factor for a permission
+// change to the acting Super Admin, on their phone OR their email (H1).
+//
+// Delivery, and how honest it is, is decided entirely by sendSecondFactor; this
+// handler only reports what happened. In particular `degraded: true` means the
+// code came back in this response instead of travelling out of band, and the
+// dashboard is expected to say so on screen rather than draw a padlock.
 func (h *AdminPermissionsHandler) RequestOTP(c *gin.Context) {
 	actor, ok := auth.UserFromGin(c)
 	if !ok || actor == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Not authenticated."})
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "code": "auth_required", "error": "Not authenticated."})
 		return
 	}
 	phone := strings.TrimSpace(actor.Phone)
 	if phone == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Your account has no phone number to receive a code."})
+		// The code is stored keyed by phone even when it is DELIVERED by email,
+		// because that is the row VerifyAndConsume reads. An account with no
+		// number therefore cannot use this factor at all.
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false, "code": "factor_no_phone",
+			"error": "Your account has no phone number to receive a code.",
+		})
 		return
 	}
 	ctx := c.Request.Context()
 
-	// Demo mode (local/testing) — store the fixed demo code and return it.
-	// A16 — demo is a fallback, not a preference (see demoDeliveryActive): the
-	// moment OTPIQ_API_KEY is configured this second factor becomes a real
-	// out-of-band code instead of one printed back to the caller.
-	if demoDeliveryActive(h.OTPIQ) {
-		code := auth.DemoCode()
-		if err := h.OTPs.StoreCode(ctx, phone, code, "demo"); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to store the code."})
-			return
-		}
-		c.JSON(http.StatusOK, gin.H{"success": true, "mode": "demo", "phone_hint": maskPhone(phone), "demo_code": code})
+	var req requestOTPReq
+	_ = c.ShouldBindJSON(&req) // body is optional; an absent one means "either"
+
+	delivery, err := h.sendSecondFactor(ctx, phone, h.actorEmail(ctx, actor.UserID), strings.TrimSpace(req.Channel))
+	if err != nil {
+		log.Printf("[security] H1: could not deliver the permission second factor to actor %d: %v",
+			actor.UserID, err)
+		c.JSON(http.StatusBadGateway, gin.H{
+			"success": false, "code": "factor_send_failed",
+			"error": "The verification code could not be sent.",
+		})
 		return
 	}
 
-	// Real mode — send via OTPIQ (persist before sending so a flake doesn't
-	// accept-but-lose the code).
-	if h.OTPIQ == nil {
-		c.JSON(http.StatusBadGateway, gin.H{"success": false, "error": "OTP delivery is not configured (OTPIQ_API_KEY)."})
-		return
+	resp := gin.H{
+		"success":  true,
+		"mode":     delivery.Mode,
+		"channel":  delivery.Channel,
+		"degraded": delivery.Degraded,
 	}
-	code, err := auth.GenerateCode()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to generate the code."})
-		return
+	// phone_hint is kept under its original name: the dashboard has read it
+	// since Section 24 and an un-updated tab must not break on this deploy.
+	if delivery.Channel == "email" {
+		resp["email_hint"] = delivery.Hint
+	} else {
+		resp["phone_hint"] = delivery.Hint
 	}
-	if err := h.OTPs.StoreCode(ctx, phone, code, "real"); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to store the code."})
-		return
+	if delivery.Degraded {
+		// Same field name the SPA already reads, so nothing regresses; the
+		// meaning is now stated alongside it rather than implied.
+		resp["demo_code"] = delivery.InBand
 	}
-	if _, err := h.OTPIQ.SendVerification(ctx, phone, code); err != nil {
-		_ = h.OTPs.ClearRecord(ctx, phone)
-		c.JSON(http.StatusBadGateway, gin.H{"success": false, "error": "Failed to send the verification code."})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "mode": "real", "phone_hint": maskPhone(phone)})
+	c.JSON(http.StatusOK, resp)
 }
 
 // POST /api/admin/permissions — set one (tier, module, action) → allowed and
-// append an audit record. Requires BOTH factors: the PIN (checked separately
-// by the SPA via /admin/verify-password) and a valid phone OTP in `otp`.
+// append an audit record.
+//
+// H1 — requires BOTH factors, and BOTH are now enforced HERE. The password used
+// to be checked only by the page that asked for it, so a caller that never
+// called /admin/verify-password never met it; see admin_permissions_2fa.go.
 func (h *AdminPermissionsHandler) SetPermission(c *gin.Context) {
 	var req setPermissionReq
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -161,20 +188,26 @@ func (h *AdminPermissionsHandler) SetPermission(c *gin.Context) {
 	// PER_MIN is configured. Checked before the OTP so a throttled request does
 	// not burn the admin's single-use code.
 	if !permLimiter.allow(actor.UserID, time.Now()) {
-		c.JSON(http.StatusTooManyRequests, gin.H{"success": false, "error": "Too many permission changes in a short time. Please wait a minute and try again."})
+		c.JSON(http.StatusTooManyRequests, gin.H{"success": false, "code": "perm_change_throttled", "error": "Too many permission changes in a short time. Please wait a minute and try again."})
 		return
 	}
 
-	// Section 24 — verify the phone OTP second factor BEFORE applying anything.
-	// The code is single-use (consumed on success), so each change needs a
-	// fresh OTP.
+	// H1 — FIRST factor: the acting admin's own password. Checked before the
+	// OTP so a wrong password does not burn the single-use code.
+	refused, passwordOutcome := h.checkPasswordFactor(c, actor.UserID, req.Password)
+	if refused {
+		return
+	}
+
+	// Section 24 — SECOND factor, verified BEFORE applying anything. The code is
+	// single-use (consumed on success), so each change needs a fresh one.
 	phone := strings.TrimSpace(actor.Phone)
 	if phone == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Your account has no phone number for 2FA."})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "code": "factor_no_phone", "error": "Your account has no phone number for 2FA."})
 		return
 	}
 	if okOtp, reason := h.OTPs.VerifyAndConsume(ctx, phone, req.Otp); !okOtp {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": reason})
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "code": "factor_code_rejected", "error": reason})
 		return
 	}
 
@@ -215,7 +248,11 @@ func (h *AdminPermissionsHandler) SetPermission(c *gin.Context) {
 	_ = h.Perms.LogAudit(ctx, &id, "permission_set", target,
 		boolWord(oldAllowed), boolWord(req.Allowed), c.ClientIP())
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "tier": req.Tier, "module": req.Module, "action": req.Action, "allowed": req.Allowed})
+	c.JSON(http.StatusOK, gin.H{
+		"success": true, "tier": req.Tier, "module": req.Module,
+		"action": req.Action, "allowed": req.Allowed,
+		"factors": factorReport(passwordOutcome, h.secondFactorDegraded()),
+	})
 }
 
 // GET /api/admin/permissions/audit — read-only, immutable permission audit log.
@@ -327,8 +364,9 @@ type setUserPermissionReq struct {
 	Action string `json:"action"`
 	// Allowed is nil to CLEAR the override (revert to the tier's own
 	// override/default) rather than set a value.
-	Allowed *bool  `json:"allowed"`
-	Otp     string `json:"otp"`
+	Allowed  *bool  `json:"allowed"`
+	Otp      string `json:"otp"`
+	Password string `json:"password"` // H1 — see setPermissionReq
 }
 
 // POST /api/admin/permissions/user/:id — set or clear one per-employee
@@ -359,17 +397,25 @@ func (h *AdminPermissionsHandler) SetUserPermission(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	if !permLimiter.allow(actor.UserID, time.Now()) {
-		c.JSON(http.StatusTooManyRequests, gin.H{"success": false, "error": "Too many permission changes in a short time. Please wait a minute and try again."})
+		c.JSON(http.StatusTooManyRequests, gin.H{"success": false, "code": "perm_change_throttled", "error": "Too many permission changes in a short time. Please wait a minute and try again."})
+		return
+	}
+
+	// H1 — the same two factors as the tier matrix. A per-employee override is
+	// just as sensitive, only narrower in blast radius, so it gets the identical
+	// treatment rather than a relaxed copy that would drift.
+	refused, passwordOutcome := h.checkPasswordFactor(c, actor.UserID, req.Password)
+	if refused {
 		return
 	}
 
 	phone := strings.TrimSpace(actor.Phone)
 	if phone == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Your account has no phone number for 2FA."})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "code": "factor_no_phone", "error": "Your account has no phone number for 2FA."})
 		return
 	}
 	if okOtp, reason := h.OTPs.VerifyAndConsume(ctx, phone, req.Otp); !okOtp {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": reason})
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "code": "factor_code_rejected", "error": reason})
 		return
 	}
 
@@ -398,7 +444,11 @@ func (h *AdminPermissionsHandler) SetUserPermission(c *gin.Context) {
 		h.forceLogoutIfReduced(ctx, targetID, oldAllowed, newAllowed, target)
 		id := actor.UserID
 		_ = h.Perms.LogAudit(ctx, &id, "user_permission_cleared", target, boolWord(oldAllowed), boolWord(newAllowed), c.ClientIP())
-		c.JSON(http.StatusOK, gin.H{"success": true, "user_id": targetID, "module": req.Module, "action": req.Action, "allowed": newAllowed, "source": "tier"})
+		c.JSON(http.StatusOK, gin.H{
+			"success": true, "user_id": targetID, "module": req.Module, "action": req.Action,
+			"allowed": newAllowed, "source": "tier",
+			"factors": factorReport(passwordOutcome, h.secondFactorDegraded()),
+		})
 		return
 	}
 
@@ -411,7 +461,11 @@ func (h *AdminPermissionsHandler) SetUserPermission(c *gin.Context) {
 	h.forceLogoutIfReduced(ctx, targetID, oldAllowed, *req.Allowed, target)
 	id := actor.UserID
 	_ = h.Perms.LogAudit(ctx, &id, "user_permission_set", target, boolWord(oldAllowed), boolWord(*req.Allowed), c.ClientIP())
-	c.JSON(http.StatusOK, gin.H{"success": true, "user_id": targetID, "module": req.Module, "action": req.Action, "allowed": *req.Allowed, "source": "user"})
+	c.JSON(http.StatusOK, gin.H{
+		"success": true, "user_id": targetID, "module": req.Module, "action": req.Action,
+		"allowed": *req.Allowed, "source": "user",
+		"factors": factorReport(passwordOutcome, h.secondFactorDegraded()),
+	})
 }
 
 // forceLogoutIfReduced ends one employee's sessions when their effective

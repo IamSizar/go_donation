@@ -512,6 +512,24 @@ func (s *Store) GetPhoneByID(ctx context.Context, id int64) (string, error) {
 	return strings.TrimSpace(*phone), nil
 }
 
+// GetEmailByID returns a user's email (empty string if none/unknown). H1 — the
+// admin-login and permission second factors may be delivered to it instead of
+// the phone, so the sender needs a way to ask for one.
+func (s *Store) GetEmailByID(ctx context.Context, id int64) (string, error) {
+	var email *string
+	err := s.Pool.QueryRow(ctx, `SELECT email FROM users WHERE id = $1 LIMIT 1`, id).Scan(&email)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", nil
+		}
+		return "", err
+	}
+	if email == nil {
+		return "", nil
+	}
+	return strings.TrimSpace(*email), nil
+}
+
 // InsertWithPhone returns the existing user id for the phone, or inserts a new
 // row (role_id NULL) and returns its id. Matches insertUserWithPhone() in PHP.
 func (s *Store) InsertWithPhone(ctx context.Context, phone string) (int64, error) {

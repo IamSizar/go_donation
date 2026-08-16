@@ -572,6 +572,12 @@ const en = {
     // number or address appearing on screen.
     main_admin_confirm_prompt: 'A confirmation code was sent to the Primary Administrator\u2019s phone {phone} and email {email}. Enter it to apply this change:',
     main_admin_confirm_required: 'The confirmation code is required — nothing was changed.',
+    // H1 — the second factor can now travel by email, and it can also fail to
+    // travel at all. The screen has to say which of the three happened.
+    otp_prompt_email: 'Enter the verification code sent to your email {email} to confirm this change:',
+    otp_degraded_warning: 'No SMS or email gateway is configured on this server, so this code was not sent anywhere — it is shown here only: {code}. Until a gateway is set up this is NOT a real second factor.',
+    saved_factor_degraded: 'Permission updated — but the confirmation code was not actually sent to you, because no SMS or email gateway is configured on the server.',
+    saved_no_password: 'Permission updated — but your account has no password, so the password step could not be applied. Set a password on your account.',
   },
 
   export: {
@@ -1182,6 +1188,14 @@ const en = {
     main_admin_confirmation_expired: 'The confirmation code has expired. Start the change again to get a new one.',
     main_admin_confirmation_attempts: 'Too many incorrect codes. Start the change again to get a new one.',
     main_admin_one_channel_at_a_time: 'Change the phone and the email one at a time, so each change is confirmed on the other channel.',
+    // H1 — the two factors on إدارة الصلاحيات, refused. These used to arrive as
+    // raw English prose with no code, so an Arabic-only screen printed English.
+    password_factor_required: 'Your password is required to confirm a permission change.',
+    password_factor_incorrect: 'Incorrect password — nothing was changed.',
+    factor_code_rejected: 'That verification code was not accepted. Request a new one and try again.',
+    factor_no_phone: 'Your account has no phone number, so a verification code cannot be issued. Ask the Primary Administrator to add one.',
+    factor_send_failed: 'The verification code could not be sent. Try again in a moment.',
+    perm_change_throttled: 'Too many permission changes in a short time. Wait a minute and try again.',
   },
 
   // Singular entity nouns — used by the live-feed highlight banner.

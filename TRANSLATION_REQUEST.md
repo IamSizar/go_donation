@@ -1367,3 +1367,41 @@ passes through no translation layer, because the recipient is the main admin of
 this one organisation and the dashboard's locale is not known at send time. If
 the owner wants it in Kurdish or English, that is a product decision and needs a
 per-account language preference on the users row first — there is none today.
+
+---
+
+## H1 — the two factors on إدارة الصلاحيات (dashboard, `admin-web`)
+
+Same rule as the H20 block above: **English and Arabic written, ckb/kmr left to
+fall back to English.** No Kurdish invented.
+
+Three of these say a protection did NOT fully apply. They are the most important
+strings in the set, because their whole job is to stop a half-protected change
+from looking identical to a fully protected one — so the Kurdish, when it is
+written, must keep that plainness and must not soften into "saved".
+
+| key | English | العربية | ckb / kmr |
+|---|---|---|---|
+| `perm.otp_prompt_email` | Enter the verification code sent to your email {email} to confirm this change: | أدخل رمز التحقق المُرسل إلى بريدك {email} لتأكيد هذا التغيير: | **needed** |
+| `perm.otp_degraded_warning` | No SMS or email gateway is configured on this server, so this code was not sent anywhere — it is shown here only: {code}. Until a gateway is set up this is NOT a real second factor. | لا يوجد مزوّد رسائل نصية أو بريد إلكتروني مضبوط على الخادم، لذلك لم يُرسَل هذا الرمز إلى أي مكان — وهو معروض هنا فقط: {code}. إلى أن يُضبط مزوّد، هذا ليس تحققاً ثنائياً حقيقياً. | **needed** |
+| `perm.saved_factor_degraded` | Permission updated — but the confirmation code was not actually sent to you… | تم تحديث الصلاحية — لكن رمز التأكيد لم يُرسَل إليك فعلياً… | **needed** |
+| `perm.saved_no_password` | Permission updated — but your account has no password, so the password step could not be applied. | تم تحديث الصلاحية — لكن حسابك بلا كلمة مرور، فتعذّر تطبيق خطوة كلمة المرور. | **needed** |
+| `error.password_factor_required` | Your password is required to confirm a permission change. | كلمة المرور مطلوبة لتأكيد تعديل الصلاحيات. | **needed** |
+| `error.password_factor_incorrect` | Incorrect password — nothing was changed. | كلمة المرور غير صحيحة — لم يتغيّر شيء. | **needed** |
+| `error.factor_code_rejected` | That verification code was not accepted. Request a new one and try again. | لم يُقبل رمز التحقق. اطلب رمزاً جديداً ثم أعد المحاولة. | **needed** |
+| `error.factor_no_phone` | Your account has no phone number, so a verification code cannot be issued. | لا يوجد رقم هاتف لحسابك، فلا يمكن إصدار رمز تحقق. | **needed** |
+| `error.factor_send_failed` | The verification code could not be sent. Try again in a moment. | تعذّر إرسال رمز التحقق. أعد المحاولة بعد قليل. | **needed** |
+| `error.perm_change_throttled` | Too many permission changes in a short time. Wait a minute and try again. | تعديلات كثيرة على الصلاحيات خلال وقت قصير. انتظر دقيقة ثم أعد المحاولة. | **needed** |
+
+The last six replace raw English the server used to send with no `code` at all —
+so on an Arabic screen these positions previously showed English prose. Adding
+the code is what makes them translatable; the ckb/kmr fallback is now English
+where it used to be English regardless of locale.
+
+### Not a dashboard string — two more server-composed emails
+
+`backend/internal/handlers/admin_permissions_2fa.go` (permission second factor)
+and `backend/internal/handlers/auth.go` (admin sign-in code) each compose an
+Arabic-only message body, for the same reason as the H20 email: no locale is
+known at send time and there is no per-account language preference on the users
+row.

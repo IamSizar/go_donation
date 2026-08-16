@@ -64,6 +64,59 @@ type UserMatrixResp = {
   cells: Record<string, Record<string, UserCell>>
 }
 
+// H1 — the two things the SECOND factor now has to communicate, kept in one
+// place because both the tier matrix and the per-employee card do them.
+//
+// askForFactor prompts for the code and, crucially, tells the operator WHERE it
+// went — phone, email, or nowhere at all. When the server reports `degraded` it
+// means no gateway is configured and the code came back in the response, so the
+// prompt says plainly that this is not a real second factor rather than
+// pretending the padlock is shut.
+type FactorResponse = {
+  phone_hint?: string
+  email_hint?: string
+  channel?: string
+  degraded?: boolean
+  demo_code?: string
+}
+
+async function askForFactor(
+  resp: FactorResponse | undefined,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+): Promise<string> {
+  const to = resp?.channel === 'email' ? (resp?.email_hint ?? '') : (resp?.phone_hint ?? '')
+  let msg =
+    resp?.channel === 'email'
+      ? t('perm.otp_prompt_email', { email: to })
+      : t('perm.otp_prompt', { phone: to })
+  if (resp?.degraded && resp?.demo_code) {
+    msg += `\n\n${t('perm.otp_degraded_warning', { code: resp.demo_code })}`
+  }
+  const code = window.prompt(msg)
+  if (code == null || !code.trim()) throw new Error(t('perm.otp_required'))
+  return code.trim()
+}
+
+// reportFactors replaces the old unconditional "saved" toast. A change that
+// only one real factor stood behind must not look identical to one that had
+// both — that indistinguishability is how a protection quietly stops existing.
+function reportFactors(
+  saved: { factors?: { password?: string; second_factor_degraded?: boolean } } | undefined,
+  toast: { success: (m: string) => void; error: (m: string) => void },
+  t: (key: string, vars?: Record<string, string | number>) => string,
+) {
+  const f = saved?.factors
+  if (f?.second_factor_degraded) {
+    toast.error(t('perm.saved_factor_degraded'))
+    return
+  }
+  if (f?.password === 'unset') {
+    toast.error(t('perm.saved_no_password'))
+    return
+  }
+  toast.success(t('perm.saved'))
+}
+
 function PerEmployeeCard({
   modules, actions, moduleLabel, actionLabel, verifyPin, onChanged,
 }: {
@@ -71,7 +124,7 @@ function PerEmployeeCard({
   actions: string[]
   moduleLabel: (m: string) => string
   actionLabel: (a: string) => string
-  verifyPin: () => Promise<void>
+  verifyPin: () => Promise<string>
   onChanged: () => void
 }) {
   const { t } = useI18n()
@@ -121,16 +174,13 @@ function PerEmployeeCard({
     const k = `${module}|${action}`
     setSaving(k)
     try {
-      await verifyPin()
+      const pin = await verifyPin()
       const { data: otpResp } = await api.post('/api/admin/permissions/otp')
-      let promptMsg = t('perm.otp_prompt', { phone: otpResp?.phone_hint ?? '' })
-      if (otpResp?.demo_code) {
-        promptMsg += `\n\n${t('perm.otp_demo_hint', { code: otpResp.demo_code })}`
-      }
-      const otp = window.prompt(promptMsg)
-      if (otp == null || !otp.trim()) throw new Error(t('perm.otp_required'))
-      await api.post(`/api/admin/permissions/user/${selected}`, { module, action, allowed: next, otp: otp.trim() })
-      toast.success(t('perm.saved'))
+      const otp = await askForFactor(otpResp, t)
+      const { data: saved } = await api.post(`/api/admin/permissions/user/${selected}`, {
+        module, action, allowed: next, otp, password: pin,
+      })
+      reportFactors(saved, toast, t)
       loadUserMatrix(selected)
       onChanged()
     } catch (e) {
@@ -230,11 +280,16 @@ export default function PermissionsPage() {
 
   // PIN step-up — required before every permission change (Section 24 2FA:
   // the PIN factor; the OTP factor is a separate follow-up).
-  const verifyPin = async () => {
+  // H1 — the PIN is no longer only checked here. verify-password stays as the
+  // instant "wrong password" feedback, but the value is RETURNED and travels
+  // with the write, because the server now verifies it itself: a factor the
+  // page alone enforces is skipped by anyone who does not use the page.
+  const verifyPin = async (): Promise<string> => {
     const pin = window.prompt(t('export.pin_prompt'))
     if (pin == null || !pin.trim()) throw new Error(t('export.pin_required'))
     const { data } = await api.post('/api/admin/verify-password', { password: pin })
     if (!data?.ok) throw new Error(data?.error || t('export.pin_incorrect'))
+    return pin
   }
 
   const loadAudit = useCallback(async () => {
@@ -280,17 +335,14 @@ export default function PermissionsPage() {
     try {
       // Two-factor: 1) PIN step-up, then 2) a phone OTP sent to the Super
       // Admin. Both must pass before the change is applied (Section 24).
-      await verifyPin()
+      const pin = await verifyPin()
       const { data: otpResp } = await api.post('/api/admin/permissions/otp')
-      let promptMsg = t('perm.otp_prompt', { phone: otpResp?.phone_hint ?? '' })
-      if (otpResp?.demo_code) {
-        promptMsg += `\n\n${t('perm.otp_demo_hint', { code: otpResp.demo_code })}`
-      }
-      const otp = window.prompt(promptMsg)
-      if (otp == null || !otp.trim()) throw new Error(t('perm.otp_required'))
-      await api.post('/api/admin/permissions', { tier, module, action, allowed: next, otp: otp.trim() })
+      const otp = await askForFactor(otpResp, t)
+      const { data: saved } = await api.post('/api/admin/permissions', {
+        tier, module, action, allowed: next, otp, password: pin,
+      })
       setState((s) => ({ ...s, [k]: next }))
-      toast.success(t('perm.saved'))
+      reportFactors(saved, toast, t)
       void loadAudit()
     } catch (e) {
       toast.error(describeError(e))

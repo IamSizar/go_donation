@@ -236,6 +236,9 @@ func main() {
 		log.Printf("[assistant] local mode (set ANTHROPIC_API_KEY for full AI; keyword engine active)")
 	}
 	authH := handlers.NewAuthHandler(tokenStore, otpStore, userStore, otpiqClient, loginLockStore, notifier)
+	// H1 — lets the admin-login second factor reach an email when no SMS
+	// gateway is configured. Nil here means sign-in behaves exactly as before.
+	authH.Mail = mailer
 	// #22 — staff review of a user's own name / photo change (migration 093).
 	profileChangesStore := profilechanges.New(pool)
 	profileH := handlers.NewProfileHandler(userStore, uploadDir, profileChangesStore)
@@ -287,7 +290,7 @@ func main() {
 	if err := permStore.BackfillChain(ctx); err != nil {
 		log.Printf("[audit] chain backfill failed: %v", err)
 	}
-	adminPermsH := handlers.NewAdminPermissionsHandler(permStore, otpStore, otpiqClient)
+	adminPermsH := handlers.NewAdminPermissionsHandler(permStore, otpStore, otpiqClient, mailer)
 	adminProfessionsH := handlers.NewAdminProfessionsHandler(professionStore)
 	projectCategoriesH := handlers.NewProjectCategoriesHandler(projectCatStore)
 	sponsorshipTypesH := handlers.NewSponsorshipTypesHandler(sponsorshiptypes.New(pool)) // "Eighth: 4. Scalability"
