@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/core/design/contrast.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/data/motivational_tasks.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
@@ -24,17 +25,6 @@ class _WheelOfFortuneScreenState extends State<WheelOfFortuneScreen>
   double _currentAngle = 0;
   bool _spinning = false;
   final _random = Random();
-
-  static const _colors = [
-    Color(0xFF2F5D4A),
-    Color(0xFFF59E0B),
-    Color(0xFFDB2777),
-    Color(0xFF4F46E5),
-    Color(0xFF16A34A),
-    Color(0xFFDC2626),
-    Color(0xFF0891B2),
-    Color(0xFFEA580C),
-  ];
 
   int get _slices => motivationalTasks.length;
 
@@ -164,7 +154,7 @@ class _WheelOfFortuneScreenState extends State<WheelOfFortuneScreen>
                           labels: motivationalTaskShortLabels
                               .map((l) => l.tr)
                               .toList(),
-                          colors: _colors,
+                          colors: wheelSliceColors,
                         ),
                       ),
                     ),
@@ -196,6 +186,50 @@ class _WheelOfFortuneScreenState extends State<WheelOfFortuneScreen>
     );
   }
 }
+
+/// The wheel's slice colours, in order.
+///
+/// A saturated rainbow, and deliberately KEPT that way. It is the one place the
+/// app leaves its single-accent palette, because a fortune wheel's segment
+/// colours are what make it legible AS a wheel — eight tints of the brand green
+/// would be eight slices nobody could tell apart, which is the whole affordance
+/// gone. The legibility problem the rainbow caused is fixed in [wheelLabelInk],
+/// which changes the text and leaves every hue alone.
+@visibleForTesting
+const List<Color> wheelSliceColors = [
+  Color(0xFF2F5D4A),
+  Color(0xFFF59E0B),
+  Color(0xFFDB2777),
+  Color(0xFF4F46E5),
+  Color(0xFF16A34A),
+  Color(0xFFDC2626),
+  Color(0xFF0891B2),
+  Color(0xFFEA580C),
+];
+
+/// The dark ink used for slice labels that sit on a light slice.
+///
+/// Deliberately the pointer's own colour rather than pure black — the wheel
+/// already establishes it as this screen's "dark", so the labels borrow a
+/// colour that is on the wheel instead of introducing a ninth one.
+const Color _kWheelInk = Color(0xFF0F172A);
+
+/// Whichever of white or [_kWheelInk] is actually readable on [slice].
+///
+/// The labels were all white. On a rainbow that does not work: white measured
+/// 2.15:1 on the amber slice — below even the 3:1 floor for non-text UI, never
+/// mind the 4.5:1 this 12px bold text needs — plus 3.30:1 on green, 3.56:1 on
+/// orange and 3.68:1 on cyan. Four of eight slices carried labels that could
+/// not be read.
+///
+/// Picking the ink per slice fixes all four WITHOUT touching a single hue, and
+/// keeping the hues is the point: the segment colours are what make the thing
+/// read as a fortune wheel at all. See test/design/wheel_label_contrast_test.dart.
+@visibleForTesting
+Color wheelLabelInk(Color slice) =>
+    contrastRatio(Colors.white, slice) >= contrastRatio(_kWheelInk, slice)
+    ? Colors.white
+    : _kWheelInk;
 
 class _WheelPainter extends CustomPainter {
   _WheelPainter({required this.labels, required this.colors});
@@ -237,14 +271,24 @@ class _WheelPainter extends CustomPainter {
     startAngle = -pi / 2 - sliceAngle / 2;
     for (var i = 0; i < slices; i++) {
       final midAngle = startAngle + sliceAngle / 2;
+      final ink = wheelLabelInk(colors[i % colors.length]);
       final textPainter = TextPainter(
         text: TextSpan(
           text: labels[i],
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: ink,
             fontWeight: FontWeight.w800,
             fontSize: 12,
-            shadows: [Shadow(color: Colors.black45, blurRadius: 3)],
+            // The halo lifts the label off the slice, so it has to oppose the
+            // ink: a black shadow under dark text just muddies it.
+            shadows: [
+              Shadow(
+                color: ink == Colors.white
+                    ? Colors.black45
+                    : Colors.white.withValues(alpha: 0.45),
+                blurRadius: 3,
+              ),
+            ],
           ),
         ),
         textAlign: TextAlign.center,
