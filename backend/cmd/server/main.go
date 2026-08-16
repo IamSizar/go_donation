@@ -1083,6 +1083,11 @@ func main() {
 			admin.POST("/admin/permissions", auth.RequireSuperAdmin(), adminPermsH.SetPermission)
 			// Section 24 — phone OTP second factor for permission changes.
 			admin.POST("/admin/permissions/otp", auth.RequireSuperAdmin(), adminPermsH.RequestOTP)
+			// H14 — lift the burst freeze with the code that was texted. Sits
+			// OUTSIDE the freeze on purpose: a blocked Super-Admin has to have
+			// somewhere to type the code, and the block covers permission
+			// WRITES, not sign-in and not this route.
+			admin.POST("/admin/permissions/unlock", auth.RequireSuperAdmin(), adminPermsH.Unlock)
 			admin.GET("/admin/permissions/audit", auth.RequireSuperAdmin(), adminPermsH.Audit)
 			// Requirement 6c — verify the audit ledger's hash chain is intact.
 			admin.GET("/admin/permissions/audit/verify", auth.RequireSuperAdmin(), adminPermsH.VerifyAudit)

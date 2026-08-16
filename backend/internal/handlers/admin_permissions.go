@@ -183,6 +183,14 @@ func (h *AdminPermissionsHandler) SetPermission(c *gin.Context) {
 	}
 	ctx := c.Request.Context()
 
+	// H14 — is this actor frozen out of the section after a burst? Checked
+	// first, before any factor is spent: a blocked actor must not be able to
+	// burn a single-use code, and must not be told anything about the change
+	// they attempted beyond "this section is locked".
+	if h.refuseBlocked(c, actor.UserID) {
+		return
+	}
+
 	// Section 24 — suspicious-activity guard: throttle rapid permission changes
 	// (defense-in-depth atop the per-change OTP). No-op unless PERM_CHANGE_MAX_
 	// PER_MIN is configured. Checked before the OTP so a throttled request does
@@ -247,6 +255,11 @@ func (h *AdminPermissionsHandler) SetPermission(c *gin.Context) {
 	target := req.Tier + "/" + req.Module + "/" + req.Action
 	_ = h.Perms.LogAudit(ctx, &id, "permission_set", target,
 		boolWord(oldAllowed), boolWord(req.Allowed), c.ClientIP())
+
+	// H14 — count what just landed in the audit trail and, if this actor is
+	// bursting, freeze the section and end their sessions. Runs AFTER the audit
+	// write because the audit trail IS the counter.
+	h.tripBlockIfBursting(c, actor.UserID, phone)
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true, "tier": req.Tier, "module": req.Module,
@@ -396,6 +409,12 @@ func (h *AdminPermissionsHandler) SetUserPermission(c *gin.Context) {
 	}
 	ctx := c.Request.Context()
 
+	// H14 — the per-employee screen writes to the same section, so it counts
+	// toward the same burst and obeys the same freeze.
+	if h.refuseBlocked(c, actor.UserID) {
+		return
+	}
+
 	if !permLimiter.allow(actor.UserID, time.Now()) {
 		c.JSON(http.StatusTooManyRequests, gin.H{"success": false, "code": "perm_change_throttled", "error": "Too many permission changes in a short time. Please wait a minute and try again."})
 		return
@@ -444,6 +463,7 @@ func (h *AdminPermissionsHandler) SetUserPermission(c *gin.Context) {
 		h.forceLogoutIfReduced(ctx, targetID, oldAllowed, newAllowed, target)
 		id := actor.UserID
 		_ = h.Perms.LogAudit(ctx, &id, "user_permission_cleared", target, boolWord(oldAllowed), boolWord(newAllowed), c.ClientIP())
+		h.tripBlockIfBursting(c, actor.UserID, phone) // H14 — same section, same burst
 		c.JSON(http.StatusOK, gin.H{
 			"success": true, "user_id": targetID, "module": req.Module, "action": req.Action,
 			"allowed": newAllowed, "source": "tier",
@@ -461,6 +481,7 @@ func (h *AdminPermissionsHandler) SetUserPermission(c *gin.Context) {
 	h.forceLogoutIfReduced(ctx, targetID, oldAllowed, *req.Allowed, target)
 	id := actor.UserID
 	_ = h.Perms.LogAudit(ctx, &id, "user_permission_set", target, boolWord(oldAllowed), boolWord(*req.Allowed), c.ClientIP())
+	h.tripBlockIfBursting(c, actor.UserID, phone) // H14 — same section, same burst
 	c.JSON(http.StatusOK, gin.H{
 		"success": true, "user_id": targetID, "module": req.Module, "action": req.Action,
 		"allowed": *req.Allowed, "source": "user",

@@ -578,6 +578,13 @@ const en = {
     otp_degraded_warning: 'No SMS or email gateway is configured on this server, so this code was not sent anywhere — it is shown here only: {code}. Until a gateway is set up this is NOT a real second factor.',
     saved_factor_degraded: 'Permission updated — but the confirmation code was not actually sent to you, because no SMS or email gateway is configured on the server.',
     saved_no_password: 'Permission updated — but your account has no password, so the password step could not be applied. Set a password on your account.',
+    // H14 — the burst freeze. Each prompt names the channel the code actually
+    // went to, and the no-channel case never asks for a code, because on that
+    // server none was sent.
+    unlock_prompt_sms: 'This section was locked after a rapid series of permission changes, and your open sessions were signed out. Enter the unlock code sent to your phone:',
+    unlock_prompt_email: 'This section was locked after a rapid series of permission changes, and your open sessions were signed out. Enter the unlock code sent to your email:',
+    unlock_required: 'The unlock code is required — the section is still locked.',
+    unlock_wait: 'This section is locked for another {minutes} minute(s) after a rapid series of permission changes. No unlock code could be sent, because neither SMS nor email is set up on this server, so the lock clears by itself.',
   },
 
   export: {
@@ -1196,6 +1203,14 @@ const en = {
     factor_no_phone: 'Your account has no phone number, so a verification code cannot be issued. Ask the Primary Administrator to add one.',
     factor_send_failed: 'The verification code could not be sent. Try again in a moment.',
     perm_change_throttled: 'Too many permission changes in a short time. Wait a minute and try again.',
+    // H14 — the burst freeze, for any path that does not go through
+    // withSectionUnlock (which handles the two code-bearing cases itself). These
+    // exist so the refusal is never printed as the server's raw English prose.
+    perm_section_blocked_sms: 'This section is temporarily locked after a rapid series of permission changes. Enter the unlock code sent to your phone.',
+    perm_section_blocked_email: 'This section is temporarily locked after a rapid series of permission changes. Enter the unlock code sent to your email.',
+    perm_section_blocked_wait: 'This section is temporarily locked after a rapid series of permission changes. No unlock code could be sent, because neither SMS nor email is set up on this server, so the lock clears by itself shortly.',
+    perm_unlock_invalid: 'That unlock code is not correct.',
+    perm_unlock_attempts: 'Too many incorrect unlock codes. The lock now has to run its course.',
   },
 
   // Singular entity nouns — used by the live-feed highlight banner.

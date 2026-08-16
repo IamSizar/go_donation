@@ -208,3 +208,58 @@ export async function withMainAdminConfirmation<T>(
     return await send({ confirmation_code: code.trim() })
   }
 }
+
+// withSectionUnlock — the client half of H14.
+//
+// After a rapid burst of permission changes the server freezes إدارة الصلاحيات
+// for that administrator, ends their sessions, and (when a gateway is
+// configured) texts or emails a code that lifts the freeze. Any further
+// permission write is refused 423 with a `perm_section_blocked_*` code.
+//
+// This wrapper turns that refusal into one step: prompt for the code, POST it to
+// /api/admin/permissions/unlock, then run the original request once more. The
+// retry sends the IDENTICAL body, which is safe precisely because the server
+// checks the block BEFORE it consumes the single-use second factor — a blocked
+// request never burns the operator's code, so the one they already typed is
+// still good.
+//
+// Retries EXACTLY ONCE, like the wrapper above and for the same reason: a loop
+// would turn a mistyped code into an interrogation, and the server caps the
+// guesses anyway.
+//
+// The no-gateway case gets no prompt at all. There is no code to ask for on a
+// server that could not send one, and inviting the operator to type one would be
+// the same lie the backend refuses to tell. They are told how long is left
+// instead — the freeze lapses by itself, which on that deployment IS the way
+// back in.
+export async function withSectionUnlock<T>(send: () => Promise<T>): Promise<T> {
+  try {
+    return await send()
+  } catch (e) {
+    if (!axios.isAxiosError(e) || !e.response) throw e
+    const data = e.response.data as
+      | { code?: string; retry_after?: number; unlock_channel?: string }
+      | undefined
+
+    // Nothing was delivered: say when it clears, and do not ask for a code.
+    if (data?.code === 'perm_section_blocked_wait') {
+      const minutes = Math.max(1, Math.ceil((data.retry_after ?? 60) / 60))
+      throw new Error(translate('perm.unlock_wait', { minutes }))
+    }
+    if (data?.code !== 'perm_section_blocked_sms' && data?.code !== 'perm_section_blocked_email') {
+      throw e
+    }
+
+    const promptKey =
+      data.code === 'perm_section_blocked_email' ? 'perm.unlock_prompt_email' : 'perm.unlock_prompt_sms'
+    const code = window.prompt(translate(promptKey))
+    if (code == null || !code.trim()) throw new Error(translate('perm.unlock_required'))
+
+    // A failure here is the server's refusal of the unlock code itself
+    // (perm_unlock_invalid / perm_unlock_attempts), and it is thrown on
+    // untouched so the page reports what actually went wrong rather than
+    // reporting the original permission write as the thing that failed.
+    await api.post('/api/admin/permissions/unlock', { code: code.trim() })
+    return await send()
+  }
+}

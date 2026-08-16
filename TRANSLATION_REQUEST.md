@@ -1405,3 +1405,45 @@ and `backend/internal/handlers/auth.go` (admin sign-in code) each compose an
 Arabic-only message body, for the same reason as the H20 email: no locale is
 known at send time and there is no per-account language preference on the users
 row.
+
+---
+
+## H14 — the burst freeze on إدارة الصلاحيات (dashboard, `admin-web`)
+
+Same rule as the H20 and H1 blocks above: **English and Arabic are written;
+ckb (سۆرانی) and kmr (بادینی) are NOT** — they fall back to English at runtime,
+which the i18n layer does silently and safely. No Kurdish was invented.
+
+These strings appear at the worst possible moment for the reader: they have just
+been signed out of the dashboard without asking to be, and the section they were
+working in has frozen. The tone has to stay calm, has to say plainly what
+happened, and — this is the part that must survive translation — has to be
+**honest about whether a code was actually sent**. `perm.unlock_wait` and
+`error.perm_section_blocked_wait` are the no-channel case: on that server nothing
+was sent to anybody, and the Kurdish must not soften into "check your phone".
+
+`{minutes}` is a number substituted at runtime and stays as-is in every locale.
+
+| key | English | العربية | ckb / kmr |
+|---|---|---|---|
+| `perm.unlock_prompt_sms` | This section was locked after a rapid series of permission changes, and your open sessions were signed out. Enter the unlock code sent to your phone: | جُمّد هذا القسم بعد سلسلة تعديلات سريعة على الصلاحيات، وأُنهيت جلساتك المفتوحة. أدخل رمز رفع الحظر المُرسل إلى هاتفك: | **needed** |
+| `perm.unlock_prompt_email` | …Enter the unlock code sent to your email: | …أدخل رمز رفع الحظر المُرسل إلى بريدك الإلكتروني: | **needed** |
+| `perm.unlock_required` | The unlock code is required — the section is still locked. | رمز رفع الحظر مطلوب — القسم لا يزال مجمّداً. | **needed** |
+| `perm.unlock_wait` | This section is locked for another {minutes} minute(s)… No unlock code could be sent, because neither SMS nor email is set up on this server, so the lock clears by itself. | هذا القسم مجمّد لمدة {minutes} دقيقة أخرى… تعذّر إرسال رمز رفع الحظر لعدم ضبط الرسائل النصية ولا البريد الإلكتروني على الخادم، لذلك يُرفع التجميد تلقائياً. | **needed** |
+| `error.perm_section_blocked_sms` | This section is temporarily locked… Enter the unlock code sent to your phone. | هذا القسم مجمّد مؤقتاً… أدخل رمز رفع الحظر المُرسل إلى هاتفك. | **needed** |
+| `error.perm_section_blocked_email` | This section is temporarily locked… Enter the unlock code sent to your email. | هذا القسم مجمّد مؤقتاً… أدخل رمز رفع الحظر المُرسل إلى بريدك الإلكتروني. | **needed** |
+| `error.perm_section_blocked_wait` | This section is temporarily locked… No unlock code could be sent… so the lock clears by itself shortly. | هذا القسم مجمّد مؤقتاً… تعذّر إرسال رمز رفع الحظر… لذلك يُرفع التجميد تلقائياً بعد قليل. | **needed** |
+| `error.perm_unlock_invalid` | That unlock code is not correct. | رمز رفع الحظر غير صحيح. | **needed** |
+| `error.perm_unlock_attempts` | Too many incorrect unlock codes. The lock now has to run its course. | رموز رفع حظر خاطئة كثيرة. على التجميد الآن أن يكتمل مدّته. | **needed** |
+
+### Not a dashboard string — the unlock message itself
+
+The unlock code's **email body** is composed server-side in
+`backend/internal/handlers/admin_permissions_block_notify.go`
+(`permissionUnlockEmailBody`) and is **Arabic only**, for the same reason as the
+H20 and H1 emails: no locale is known at send time and there is no per-account
+language preference on the users row.
+
+The **SMS** carries no prose at all. It goes out through OTPIQ's `verification`
+flow, which renders the gateway's own template around the six digits, so there
+is nothing in it for this project to translate.

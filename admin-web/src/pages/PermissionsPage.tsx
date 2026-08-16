@@ -6,7 +6,7 @@
 // matrix. The whole page is super-admin only (nav-hidden + guarded here + the
 // backend enforces RequireSuperAdmin).
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { api, describeError, isSuperAdmin } from '../lib/api'
+import { api, describeError, isSuperAdmin, withSectionUnlock } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useI18n } from '../lib/i18n'
 import { useToast } from '../lib/toast'
@@ -177,9 +177,13 @@ function PerEmployeeCard({
       const pin = await verifyPin()
       const { data: otpResp } = await api.post('/api/admin/permissions/otp')
       const otp = await askForFactor(otpResp, t)
-      const { data: saved } = await api.post(`/api/admin/permissions/user/${selected}`, {
-        module, action, allowed: next, otp, password: pin,
-      })
+      // H14 — the per-employee card writes to the same section, so it meets the
+      // same burst freeze and offers the same way out of it.
+      const { data: saved } = await withSectionUnlock(() =>
+        api.post(`/api/admin/permissions/user/${selected}`, {
+          module, action, allowed: next, otp, password: pin,
+        }),
+      )
       reportFactors(saved, toast, t)
       loadUserMatrix(selected)
       onChanged()
@@ -338,9 +342,16 @@ export default function PermissionsPage() {
       const pin = await verifyPin()
       const { data: otpResp } = await api.post('/api/admin/permissions/otp')
       const otp = await askForFactor(otpResp, t)
-      const { data: saved } = await api.post('/api/admin/permissions', {
-        tier, module, action, allowed: next, otp, password: pin,
-      })
+      // H14 — if a burst has frozen this section the write comes back 423.
+      // withSectionUnlock prompts for the code that was sent, lifts the freeze
+      // and replays this exact request; when nothing could be sent it says how
+      // long the freeze has left instead of asking for a code that never went
+      // anywhere.
+      const { data: saved } = await withSectionUnlock(() =>
+        api.post('/api/admin/permissions', {
+          tier, module, action, allowed: next, otp, password: pin,
+        }),
+      )
       setState((s) => ({ ...s, [k]: next }))
       reportFactors(saved, toast, t)
       void loadAudit()
