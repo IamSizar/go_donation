@@ -2,11 +2,26 @@
 // or Hidden (#43, extended by Note #33). Loads
 // GET /api/admin/registration/field-rules and updates each via
 // POST /api/admin/registration/field-rules/:key with {state}.
+//
+// One section per form, split on the key prefix the migrations seed rows with.
+// The labels themselves live in lib/fieldRuleLabels.ts — this file only
+// renders them.
 import { useEffect, useState } from 'react'
 import { api, describeError } from '../lib/api'
 import { useI18n } from '../lib/i18n'
 import { useToast } from '../lib/toast'
 import PageHead from '../components/PageHead'
+import {
+  humanize,
+  ALL_PREFIXES,
+  REGISTRATION_FIELD_LABEL_KEYS,
+  GRANTOR_PREFIX, GRANTOR_FIELD_LABEL_KEYS,
+  RECIPIENT_PREFIX, RECIPIENT_FIELD_LABEL_KEYS,
+  VOLUNTEER_PREFIX, VOLUNTEER_FIELD_LABEL_KEYS,
+  CASE_PREFIX, CASE_FIELD_LABEL_KEYS,
+  MARRIAGE_PREFIX, MARRIAGE_FIELD_LABEL_KEYS,
+  NEW_USER_PREFIX, NEW_USER_FIELD_LABEL_KEYS,
+} from '../lib/fieldRuleLabels'
 
 type FieldRuleState = 'required' | 'optional' | 'hidden'
 type Rule = {
@@ -16,107 +31,6 @@ type Rule = {
   // Client note — Marriage "Search": independent of required/optional/hidden
   // on the form, a field can also be enabled as a search filter.
   searchable: boolean
-}
-
-// Humanize a field_key for display (admin-facing).
-const humanize = (k: string) =>
-  k.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-
-// Note #32 — the beneficiary Add Case form's fields are seeded here with a
-// "case_" prefix (migration 054) so a Super-Admin can toggle each one
-// Required/Optional. They reuse the exact same field.* labels the Add Case
-// form itself shows, instead of a humanized raw key, so an admin recognizes
-// them as the same fields they see in that form.
-const CASE_PREFIX = 'case_'
-const CASE_FIELD_LABEL_KEYS: Record<string, string> = {
-  public_title: 'field.public_title_en',
-  full_name: 'field.full_name',
-  national_id: 'field.national_id',
-  gender: 'field.gender',
-  date_of_birth: 'field.date_of_birth',
-  marital_status: 'field.marital_status',
-  phone: 'field.phone',
-  governorate: 'field.governorate',
-  district: 'field.district',
-  address: 'field.address',
-  family_members_count: 'field.family_members',
-  income_amount: 'field.income_amount',
-  housing_status: 'field.housing_status',
-  work_status: 'field.work_status',
-  health_status: 'field.health_status',
-  education_status: 'field.education_status',
-  actual_needs: 'field.actual_needs',
-}
-
-// Note #33 — the Marriage/Engagement form's applicant-data fields, seeded
-// with a "marriage_" prefix (migration 056). Same label-reuse pattern as
-// the case fields above.
-const MARRIAGE_PREFIX = 'marriage_'
-const MARRIAGE_FIELD_LABEL_KEYS: Record<string, string> = {
-  gender: 'field.gender',
-  age: 'dbfield.age',
-  city: 'field.city',
-  // L20 — the fifth member of the governorate family; mapped with the other
-  // four so all five read المحافظة rather than four Arabic and one English.
-  governorate: 'field.governorate',
-  social_summary: 'field.social_summary',
-  private_notes: 'field.private_notes',
-  marital_status: 'field.marital_status',
-  religion: 'field.religion',
-  employment_status: 'field.employment_status',
-  weight: 'field.weight',
-  height: 'field.height',
-}
-
-// Note #34 — the dashboard's "Add New User" window's applicant-data fields,
-// seeded with a "user_" prefix (migration 057). Kept independent from the
-// un-prefixed general registration rules above since this is a separate,
-// admin-only screen.
-const NEW_USER_PREFIX = 'user_'
-const NEW_USER_FIELD_LABEL_KEYS: Record<string, string> = {
-  full_name: 'field.full_name',
-  gender: 'field.gender',
-  date_of_birth: 'field.date_of_birth',
-  address: 'field.address',
-  city: 'field.city',
-  occupation: 'field.occupation',
-  housing_status: 'field.housing_status',
-  family_size: 'field.family_size',
-  monthly_income: 'field.monthly_income',
-  availability: 'field.availability',
-  experience: 'field.experience',
-  skills: 'field.skills',
-  profile_picture: 'field.profile_picture',
-}
-
-// Note — the base Registration section's fields (migration 045). Same
-// label-reuse pattern as the Case/Marriage/New-User sections above, instead
-// of humanize()-ing the raw column name.
-const REGISTRATION_FIELD_LABEL_KEYS: Record<string, string> = {
-  gender: 'field.gender',
-  date_of_birth: 'field.date_of_birth',
-  city: 'field.city',
-  occupation: 'field.occupation',
-  family_size: 'field.family_size',
-  housing_status: 'field.housing_status',
-  monthly_income: 'field.monthly_income',
-  skills: 'field.skills',
-  availability: 'field.availability',
-  experience: 'field.experience',
-  // L20 — the role-prefixed governorate family. `recipient_governorate` is new
-  // (migration 104) and the other two already existed; all three are mapped
-  // together so the family reads consistently and so adding the new row does
-  // not put one more humanize()-d English label on the Arabic dashboard.
-  // `field.governorate` is already translated in all four locales.
-  //
-  // These three are only part of the problem: 183 of the 233 rows on this page
-  // still fall through to humanize() and render English here — see NEW FINDING
-  // 9 in VERIFICATION_REPORT.md. That is its own unit of work (most of those
-  // keys have no existing label key in any locale), deliberately not started
-  // inside this row.
-  grantor_governorate: 'field.governorate',
-  recipient_governorate: 'field.governorate',
-  volunteer_governorate: 'field.governorate',
 }
 
 export default function FieldRulesPage() {
@@ -227,8 +141,9 @@ export default function FieldRulesPage() {
       {!loading && (
         <>
           <h3 style={{ margin: '8px 0 0' }}>{t('fieldRules.section_registration')}</h3>
+          <p className="muted" style={{ marginTop: 0 }}>{t('fieldRules.section_registration_desc')}</p>
           {items
-            .filter((r) => !r.field_key.startsWith(CASE_PREFIX) && !r.field_key.startsWith(MARRIAGE_PREFIX) && !r.field_key.startsWith(NEW_USER_PREFIX))
+            .filter((r) => ALL_PREFIXES.every((p) => !r.field_key.startsWith(p)))
             .map((r) => (
               <div className="card" key={r.field_key}>
                 <label className="field" style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -237,6 +152,22 @@ export default function FieldRulesPage() {
                 </label>
               </div>
             ))}
+
+          {/* The three role-specific registration forms. Each is its own
+              section because their field keys repeat across roles — a flat
+              list would show "Primary phone number" three times with nothing
+              saying which role's form it belongs to. */}
+          <h3 style={{ margin: '16px 0 0' }}>{t('fieldRules.section_grantor')}</h3>
+          <p className="muted" style={{ marginTop: 0 }}>{t('fieldRules.section_grantor_desc')}</p>
+          {renderPrefixedSection(GRANTOR_PREFIX, GRANTOR_FIELD_LABEL_KEYS)}
+
+          <h3 style={{ margin: '16px 0 0' }}>{t('fieldRules.section_recipient')}</h3>
+          <p className="muted" style={{ marginTop: 0 }}>{t('fieldRules.section_recipient_desc')}</p>
+          {renderPrefixedSection(RECIPIENT_PREFIX, RECIPIENT_FIELD_LABEL_KEYS)}
+
+          <h3 style={{ margin: '16px 0 0' }}>{t('fieldRules.section_volunteer')}</h3>
+          <p className="muted" style={{ marginTop: 0 }}>{t('fieldRules.section_volunteer_desc')}</p>
+          {renderPrefixedSection(VOLUNTEER_PREFIX, VOLUNTEER_FIELD_LABEL_KEYS)}
 
           <h3 style={{ margin: '16px 0 0' }}>{t('fieldRules.section_case')}</h3>
           <p className="muted" style={{ marginTop: 0 }}>{t('fieldRules.section_case_desc')}</p>

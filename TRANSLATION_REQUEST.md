@@ -13,6 +13,8 @@ Updated 2026-08-16 once more with the 2 keys the L19 engagement-profile field
 privacy picker added.
 Updated 2026-08-16 again with the 6 keys the K12 content sub-section editor
 added, and the 9 keys the K13 contact-details editor added.
+Updated 2026-08-16 once more with the 82 keys that gave the grantor / eligible
+recipient / volunteer field-rule rows Arabic labels (NEW FINDING 9).
 
 ## Why these are empty rather than wrong
 
@@ -25,7 +27,7 @@ made on this project once and had to be reverted.
 Every key below currently renders its **English** string to a Kurdish user.
 That is deliberate and safe. It is not a crash, and it is not Arabic text.
 
-## Count: 270 keys need Kurdish
+## Count: 352 keys need Kurdish
 
 | Client | Sorani (ckb) | Badini (kmr) | Distinct keys |
 |---|---|---|---|
@@ -42,7 +44,8 @@ That is deliberate and safe. It is not a crash, and it is not Arabic text.
 | Admin dashboard — B1 notification types (new) | 81 | 81 | *same 81 words as above* |
 | Admin dashboard — K12 content sub-sections (new) | 6 | 6 | 6 |
 | Admin dashboard — K13 contact details (new) | 9 | 9 | 9 |
-| **Total distinct words to translate** | | | **270** |
+| Admin dashboard — Field Rules role-form labels (new) | 82 | 82 | 82 |
+| **Total distinct words to translate** | | | **352** |
 
 > **The dashboard figure above is a floor, not a ceiling — and it is the one
 > number in this file that was never fully measured.** Counting key paths in
@@ -935,6 +938,118 @@ wrong.
 
 > `info@example.com` and `facebook.com/yourpage` are EXAMPLES the reader copies
 > the shape of — leave them in Latin script exactly as they are.
+
+## Field Rules — grantor / recipient / volunteer form labels (82 keys)
+
+New vocabulary added while closing **NEW FINDING 9** in `VERIFICATION_REPORT.md`:
+179 of the 233 rows on **قواعد الحقول** (`admin-web/src/pages/FieldRulesPage.tsx`)
+printed a title-cased English column name — "Grantor National Id", "Recipient
+Tribe Clan" — because the `grantor_`/`recipient_`/`volunteer_` families had no
+label map. Each key below now labels one of those rows. English and Arabic are
+written; ckb/kmr fall back to English until these are filled in.
+
+> **The Flutter app almost certainly already has these words in Kurdish.** Every
+> label here was copied from the wording the app shows the applicant for the same
+> field — the matching `reg_*` key in
+> `humanitarian/lib/localization/app_translations.dart` — and most of those keys
+> already carry `_sorani`/`_badini` values. **Check the app's value first and
+> copy it if it is right**, rather than translating from scratch. They were not
+> copied automatically here: both Kurdish locales are written in Arabic script,
+> so a wrong value cannot be spotted by eye, and this project has already had to
+> revert Arabic text pasted into a Kurdish map.
+
+The seven `fieldRules.section_*` rows are the section headings that now split
+that page into one block per form. المانح / المستحق / المتطوّع are the role
+words the dashboard already uses elsewhere (`registrations.role_*`).
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `fieldRules.section_registration_desc` | Fields the app’s sign-up form asks every role for. | الحقول التي يطلبها نموذج التسجيل في التطبيق من جميع الأدوار. | ckb + kmr |
+| `fieldRules.section_grantor` | Grantor registration fields | حقول تسجيل المانح | ckb + kmr |
+| `fieldRules.section_grantor_desc` | Extra fields the app’s sign-up form asks a grantor for. | حقول إضافية يطلبها نموذج التسجيل في التطبيق من المانح. | ckb + kmr |
+| `fieldRules.section_recipient` | Eligible Recipient registration fields | حقول تسجيل المستحق | ckb + kmr |
+| `fieldRules.section_recipient_desc` | Extra fields the app’s sign-up form asks an eligible recipient for. | حقول إضافية يطلبها نموذج التسجيل في التطبيق من المستحق. | ckb + kmr |
+| `fieldRules.section_volunteer` | Volunteer registration fields | حقول تسجيل المتطوّع | ckb + kmr |
+| `fieldRules.section_volunteer_desc` | Extra fields the app’s sign-up form asks a volunteer for. | حقول إضافية يطلبها نموذج التسجيل في التطبيق من المتطوّع. | ckb + kmr |
+| `field.name_parts` | Full name (four parts) | الاسم الكامل (رباعي) | ckb + kmr |
+| `field.title_surname` | Surname / title | اللقب / الكنية | ckb + kmr |
+| `field.phone1` | Primary phone number | رقم الهاتف الأساسي | ckb + kmr |
+| `field.phone2` | Second phone number | رقم الهاتف الثاني | ckb + kmr |
+| `field.emergency_phone` | Emergency phone (family member) | هاتف الطوارئ (أحد أفراد العائلة) | ckb + kmr |
+| `field.gps_location` | GPS location | الموقع الجغرافي (GPS) | ckb + kmr |
+| `field.education_level` | Educational attainment | التحصيل الدراسي | ckb + kmr |
+| `field.id_photo` | National Card photo | صورة البطاقة الوطنية | ckb + kmr |
+| `field.tribe_clan` | Tribe / clan | العشيرة / القبيلة | ckb + kmr |
+| `field.nationality` | Nationality | الجنسية | ckb + kmr |
+| `field.residency_status` | Legal / residency status | الوضع القانوني / الإقامة | ckb + kmr |
+| `field.housing_side` | Side of the city | جانب المدينة | ckb + kmr |
+| `field.neighborhood` | Neighborhood / residential area | الحي / المنطقة السكنية | ckb + kmr |
+| `field.nearest_landmark` | Nearest landmark | أقرب معلم | ckb + kmr |
+| `field.housing_type` | Housing type | نوع السكن | ckb + kmr |
+| `field.rental_amount` | Rental amount | مبلغ الإيجار | ckb + kmr |
+| `field.housing_area` | Housing area / size | مساحة السكن | ckb + kmr |
+| `field.floors_count` | Number of floors | عدد الطوابق | ckb + kmr |
+| `field.rooms_count` | Number of rooms | عدد الغرف | ckb + kmr |
+| `field.families_count` | Number of families living in the house | عدد العائلات التي تسكن المنزل | ckb + kmr |
+| `field.other_certificate` | Other certificate / qualification | شهادة / مؤهل آخر | ckb + kmr |
+| `field.certificates_count` | Number of certificates | عدد الشهادات | ckb + kmr |
+| `field.previous_occupation` | Previous occupation | المهنة السابقة | ckb + kmr |
+| `field.job_description` | Job description | وصف العمل | ckb + kmr |
+| `field.working_hours` | Number of working hours | عدد ساعات العمل | ckb + kmr |
+| `field.is_employed` | Currently employed? | هل يعمل حالياً؟ | ckb + kmr |
+| `field.workplace` | Workplace | مكان العمل | ckb + kmr |
+| `field.wage_amount` | Wage amount | مبلغ الأجر | ckb + kmr |
+| `field.registered_social_welfare` | Registered with social welfare | مسجل في الرعاية الاجتماعية | ckb + kmr |
+| `field.registered_unemployed` | Registered as unemployed | مسجل كعاطل عن العمل | ckb + kmr |
+| `field.household_employees` | Number of employees in the household | عدد الموظفين في الأسرة | ckb + kmr |
+| `field.working_members` | Number of working household members | عدد أفراد الأسرة العاملين | ckb + kmr |
+| `field.men_count` | Number of men | عدد الرجال | ckb + kmr |
+| `field.women_count` | Number of women | عدد النساء | ckb + kmr |
+| `field.male_children_count` | Number of male children | عدد الأطفال الذكور | ckb + kmr |
+| `field.female_children_count` | Number of female children | عدد الأطفال الإناث | ckb + kmr |
+| `field.age_0_5_count` | Ages 0–5 years | الأعمار 0–5 سنوات | ckb + kmr |
+| `field.age_5_10_count` | Ages 5–10 years | الأعمار 5–10 سنوات | ckb + kmr |
+| `field.age_10_15_count` | Ages 10–15 years | الأعمار 10–15 سنة | ckb + kmr |
+| `field.age_15_25_count` | Ages 15–25 years | الأعمار 15–25 سنة | ckb + kmr |
+| `field.age_25_40_count` | Ages 25–40 years | الأعمار 25–40 سنة | ckb + kmr |
+| `field.age_40_plus_count` | Ages 40 years and above | 40 سنة فأكثر | ckb + kmr |
+| `field.students_count` | Number of students | عدد الطلاب | ckb + kmr |
+| `field.orphans_count` | Number of orphans | عدد الأيتام | ckb + kmr |
+| `field.widows_count` | Number of widows | عدد الأرامل | ckb + kmr |
+| `field.divorced_count` | Number of divorced persons | عدد المطلقين | ckb + kmr |
+| `field.smoking_status` | Smoking status | حالة التدخين | ckb + kmr |
+| `field.eyesight_condition` | Eyesight condition | حالة النظر | ckb + kmr |
+| `field.has_disability` | Person with special needs / disability? | من ذوي الاحتياجات الخاصة / إعاقة؟ | ckb + kmr |
+| `field.disability_type` | Type of disability | نوع الإعاقة | ckb + kmr |
+| `field.household_disabled` | Persons with disabilities in the household | عدد ذوي الإعاقة في الأسرة | ckb + kmr |
+| `field.chronic_illnesses` | Chronic illnesses | الأمراض المزمنة | ckb + kmr |
+| `field.medical_conditions_count` | Number of medical conditions | عدد الحالات المرضية | ckb + kmr |
+| `field.medical_conditions_desc` | Description of each medical condition | وصف كل حالة مرضية | ckb + kmr |
+| `field.ration_card_photo` | Ration Card | البطاقة التموينية | ckb + kmr |
+| `field.property_proof_photo` | Proof of property ownership or rental agreement | إثبات ملكية العقار أو عقد الإيجار | ckb + kmr |
+| `field.medical_report_photo` | Medical reports | التقارير الطبية | ckb + kmr |
+| `field.house_facade_photo` | House photo — exterior façade | صورة المنزل — الواجهة الخارجية | ckb + kmr |
+| `field.house_inside_photo` | House photo — inside the house | صورة المنزل — من الداخل | ckb + kmr |
+| `field.house_outside_photo` | House photo — outside the house | صورة المنزل — من الخارج | ckb + kmr |
+| `field.available_furniture` | Available furniture | الأثاث المتوفر | ckb + kmr |
+| `field.owns_car` | Owns a car? | يمتلك سيارة؟ | ckb + kmr |
+| `field.needs_description` | Situation, needs, or requested support | الوضع أو الاحتياجات أو الدعم المطلوب | ckb + kmr |
+| `field.social_facebook` | Facebook link | رابط فيسبوك | ckb + kmr |
+| `field.social_instagram` | Instagram link | رابط إنستغرام | ckb + kmr |
+| `field.social_telegram` | Telegram link | رابط تيليغرام | ckb + kmr |
+| `field.social_other` | Other social media links | روابط تواصل اجتماعي أخرى | ckb + kmr |
+| `field.consent_show_real_name` | Allow my real name to be shown to the grantor | السماح بعرض اسمي الحقيقي للمانح | ckb + kmr |
+| `field.consent_share_info` | Allow some of my information to be shown to the grantor | السماح بعرض بعض معلوماتي للمانح | ckb + kmr |
+| `field.languages` | Languages | اللغات | ckb + kmr |
+| `field.golden_square_photo` | Golden Square document | وثيقة المربع الذهبي | ckb + kmr |
+| `field.residence_card_photo` | Residence Card | بطاقة السكن | ckb + kmr |
+| `field.passport_photo` | Passport | جواز السفر | ckb + kmr |
+| `field.graduation_cert_photo` | Graduation certificate | شهادة التخرج | ckb + kmr |
+| `field.cv_photo` | Curriculum vitae (CV) | السيرة الذاتية | ckb + kmr |
+
+> `GPS` and `(CV)` are shown in Latin script on purpose — leave them as they are.
+> "Golden Square document" (`وثيقة المربع الذهبي`) is an Iraqi residence
+> document; keep whatever name it is known by locally.
 
 ---
 
