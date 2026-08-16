@@ -825,6 +825,22 @@ class AppTranslations extends Translations {
     'Contact Us': 'Contact Us',
     'about_desc': 'Learn more about who we are.',
     'contact_desc': 'Get in touch with our team.',
+    // ─── K21 · looking a history up by identity code ────────────────────
+    // The label for the code itself is NOT here: `reg_volunteer_code`
+    // ("Identification code") already exists in all four locales and is the
+    // same words, so a synonym would be new vocabulary for nothing.
+    'history_code_title': 'Look up by identity code',
+    'history_code_help':
+        'Enter an identity code to see its donation and support history. You can look up your own code; staff can look up others. Clear the box to return to your own history.',
+    // Deliberately the SAME claim the server makes, and deliberately vague: the
+    // server answers "no such code" and "that code is someone else's"
+    // identically, because the codes are sequential and telling them apart
+    // would confirm which ones are real.
+    'history_code_not_found': 'No history is available for that code.',
+    'history_code_not_permitted':
+        'Your account is not allowed to look up other people\'s records.',
+    'history_code_failed':
+        'Could not look that code up. Check your connection and try again.',
     'content_load_failed': 'Could not load this page.',
     // K12 — the load succeeded and the page carries no text at all. Kept
     // separate from content_load_failed on purpose: one is our failure, the
@@ -3508,6 +3524,13 @@ class AppTranslations extends Translations {
     'Contact Us': 'اتصل بنا',
     'about_desc': 'تعرّف أكثر على من نحن.',
     'contact_desc': 'تواصل مع فريقنا.',
+    'history_code_title': 'استعلام بالرمز التعريفي',
+    'history_code_help':
+        'أدخل الرمز التعريفي لعرض سجل التبرعات وحالة الدعم الخاص به. يمكنك الاستعلام برمزك الخاص، ويستطيع الموظفون الاستعلام برموز الآخرين. امسح الحقل للعودة إلى سجلك.',
+    'history_code_not_found': 'لا يوجد سجل متاح لهذا الرمز.',
+    'history_code_not_permitted': 'حسابك غير مخوّل بالاستعلام عن سجلات الآخرين.',
+    'history_code_failed':
+        'تعذّر الاستعلام عن هذا الرمز. تحقّق من اتصالك وحاول مرة أخرى.',
     'content_load_failed': 'تعذّر تحميل هذه الصفحة.',
     'content_page_empty': 'لا يوجد محتوى في هذه الصفحة بعد. يرجى العودة قريباً.',
     'whatsapp_offer': 'تحتاج مزيدًا من المساعدة؟ راسلنا على واتساب.',

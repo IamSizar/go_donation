@@ -146,6 +146,10 @@ const List<String> _identityPrefsKeys = [
   'role_id',
   'registration_status',
   'reject_reason',
+  // K21 — the account's own GR-/ER-/VL- code. It names a person, so it must go
+  // with the rest of the identity: a code left behind after sign-out would be
+  // shown to whoever signs in next.
+  'identity_code',
 ];
 
 /// Section 27.5 — full logout. Revokes the session token on the server (so it

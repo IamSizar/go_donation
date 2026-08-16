@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_application_1/core/design/directional_icons.dart';
 import 'package:flutter_application_1/api/auth_session.dart';
 import 'package:flutter_application_1/api/module_api.dart';
@@ -194,6 +195,18 @@ class _ProfileSectionState extends State<ProfileSection> {
     return missingProfileFieldsFromPreferences();
   }
 
+  /// K21 — this account's own identity code (GR-/ER-/VL-), or null.
+  ///
+  /// The registration form promises the code is generated automatically and
+  /// nothing ever showed it to the person it belongs to, so they could not
+  /// quote it on a receipt or look their own record up by it. Null for staff,
+  /// guests, and any account the server reports no code for — the card then
+  /// shows nothing rather than an empty row.
+  String? _identityCode() {
+    final code = sharedPreferences.getString('identity_code')?.trim() ?? '';
+    return code.isEmpty ? null : code;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -231,6 +244,7 @@ class _ProfileSectionState extends State<ProfileSection> {
                             name: _profileName(),
                             subtitle: _profileSubtitle(),
                             roleLabel: _roleLabel(),
+                            identityCode: _identityCode(),
                             isComplete: isComplete,
                             onEdit: _openEditProfile,
                             avatar: CachedProfileAvatar(
@@ -413,6 +427,7 @@ class _ProfileHero extends StatelessWidget {
     required this.name,
     required this.subtitle,
     required this.roleLabel,
+    required this.identityCode,
     required this.isComplete,
     required this.avatar,
     required this.onEdit,
@@ -421,6 +436,10 @@ class _ProfileHero extends StatelessWidget {
   final String name;
   final String subtitle;
   final String? roleLabel;
+
+  /// K21 — the account's own GR-/ER-/VL- code, or null when it has none.
+  final String? identityCode;
+
   final bool isComplete;
   final Widget avatar;
   final VoidCallback onEdit;
@@ -541,6 +560,10 @@ class _ProfileHero extends StatelessWidget {
                     ),
                   ),
                 ],
+                if (identityCode != null) ...[
+                  const SizedBox(height: 8),
+                  _IdentityCodeChip(code: identityCode!),
+                ],
                 if (subtitle.isNotEmpty) ...[
                   const SizedBox(height: 9),
                   Row(
@@ -588,6 +611,81 @@ class _ProfileHero extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// K21 — the account's own identity code, on the identity card, copyable.
+///
+/// WHY IT IS COPYABLE RATHER THAN JUST PRINTED
+/// The code exists to be QUOTED — on a receipt, to a staff member, into the
+/// history lookup. A code you can only read off a screen has to be transcribed
+/// by hand, and `ER-000123` / `ER-000128` are one keystroke apart. Copying is
+/// the action this label is for, so it is the action it offers.
+class _IdentityCodeChip extends StatelessWidget {
+  const _IdentityCodeChip({required this.code});
+
+  final String code;
+
+  Future<void> _copy() async {
+    await Clipboard.setData(ClipboardData(text: code));
+    // 'Copied' and 'reg_volunteer_code' are existing keys; nothing new was
+    // invented for this chip.
+    Get.snackbar('reg_volunteer_code'.tr, 'Copied'.tr);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AppPressable(
+      key: const Key('identity_code_chip'),
+      onTap: _copy,
+      // A copy is a completed action rather than a selection, so it gets the
+      // firmer tap — matching how the rest of the app grades its haptics.
+      haptic: AppPressHaptic.success,
+      semanticLabel: '${'reg_volunteer_code'.tr}: $code',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.18),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.badge_outlined, size: 14, color: Colors.white),
+            const SizedBox(width: 5),
+            Text(
+              // 'reg_volunteer_code' is "Identification code" in all four
+              // locales already. A synonym would be new vocabulary for no gain.
+              '${'reg_volunteer_code'.tr}:',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.85),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(width: 5),
+            Text(
+              code,
+              // The code is a machine value in Latin letters and digits, so it
+              // keeps its own direction inside an Arabic card rather than being
+              // mirrored into something that cannot be read back.
+              textDirection: TextDirection.ltr,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(width: 5),
+            Icon(
+              Icons.copy_rounded,
+              size: 13,
+              color: Colors.white.withValues(alpha: 0.85),
+            ),
+          ],
+        ),
       ),
     );
   }

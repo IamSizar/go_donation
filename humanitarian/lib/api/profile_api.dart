@@ -210,6 +210,24 @@ Future<void> applyUserAccountToSharedPreferences(
     await sharedPreferences.remove('profile_image_path');
   }
 
+  // K21 — the account's own identity code (GR-/ER-/VL-). Stored so the profile
+  // card can show it without waiting on a fetch.
+  //
+  // WRITE-OR-CLEAR, not write-if-present, and the difference matters. An
+  // account that reports an EMPTY code (staff, guests, or somebody whose code
+  // was withdrawn) must clear whatever this device had, or the card would name
+  // the wrong person. But a server too OLD to report the field sends no key at
+  // all, and that is not the same statement — so absence leaves the stored
+  // value alone.
+  if (account.containsKey('identity_code')) {
+    final identityCode = (account['identity_code'] ?? '').toString().trim();
+    if (identityCode.isEmpty) {
+      await sharedPreferences.remove('identity_code');
+    } else {
+      await sharedPreferences.setString('identity_code', identityCode);
+    }
+  }
+
   final doneRaw = account['done_profile'] ?? account['profile_complete'];
   if (doneRaw != null) {
     final n = int.tryParse(doneRaw.toString());

@@ -3,7 +3,12 @@ import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/modules/history/controllers/role_history_controller.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
-import 'package:intl/intl.dart';
+// `intl` exports a TextDirection of its own (an LTR/RTL constant class) which
+// shadows the dart:ui enum Flutter's Text widget takes, so an unhidden import
+// makes `TextDirection.ltr` fail to resolve. Only DateFormat/NumberFormat are
+// wanted from here.
+import 'package:intl/intl.dart' hide TextDirection;
+import 'package:flutter_application_1/core/widgets/app_list_search_field.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 final NumberFormat _historyNumberFormat = NumberFormat.decimalPattern();
@@ -52,8 +57,17 @@ class _RoleHistoryScreenState extends State<RoleHistoryScreen> {
           onRefresh: _controller.fetchHistory,
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 44),
+            // K21 put a text field on this list, so scrolling the results must
+            // put the keyboard away — the same behaviour every other screen
+            // carrying AppListSearchField sets.
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             children: [
               _HistoryHero(controller: _controller),
+              const SizedBox(height: 18),
+              // K21 — look a history up by identity code. Above the filters
+              // because it chooses WHOSE timeline is shown, where the filters
+              // only narrow whichever one that is.
+              _IdentityCodeLookup(controller: _controller),
               const SizedBox(height: 18),
               // The filters and the count row stay OUTSIDE AppAsync. The
               // empty state here is almost always "nothing matches the
@@ -299,6 +313,47 @@ class _HistoryHero extends StatelessWidget {
               ),
             ),
           ),
+          // K21 — WHOSE history this is, whenever it is not simply "mine".
+          //
+          // The screen's headings say "My history" and "Review YOUR recent
+          // activity", which stops being true the moment a code names somebody
+          // else — and staff carrying (users, view) can do exactly that. The
+          // endpoint deliberately returns no name (it answers "the timeline for
+          // this code" and nothing that would identify the holder), so the code
+          // itself is the honest label.
+          if (controller.identityCode.value.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Icon(
+                  Icons.badge_outlined,
+                  size: 15,
+                  color: AppThemeConfig.onAccent(context),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '${'reg_volunteer_code'.tr}:',
+                  style: TextStyle(
+                    color: AppThemeConfig.onAccent(
+                      context,
+                    ).withValues(alpha: 0.9),
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12.5,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  controller.identityCode.value,
+                  textDirection: TextDirection.ltr,
+                  style: TextStyle(
+                    color: AppThemeConfig.onAccent(context),
+                    fontWeight: FontWeight.w900,
+                    fontSize: 13.5,
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 14),
           Text(
             controller.subtitle.tr,
@@ -370,6 +425,103 @@ class _HeroMetric extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// K21 — "استعلام بالكود التعريفي لاستعراض سجل (التبرعات وحالة الدعم)".
+///
+/// WHAT THIS CAN AND CANNOT DO, SAID OUT LOUD
+/// The server allows a code lookup for the OWNER of the code and for staff
+/// carrying the (users, view) permission, and answers everybody else with a 404
+/// that is byte-identical to the one for a code nobody holds — because the codes
+/// are sequential, so an answer that told the two apart would be a way to
+/// enumerate real people.
+///
+/// A box that silently refuses most of what is typed into it would read as
+/// broken, so the caption says the rule instead of leaving the user to infer it
+/// from a refusal. That is the guidance rule (5.9) doing the work a tooltip
+/// would: the control is honest about its own scope before it is used.
+///
+/// The input is the app's existing list-search field, which already carries the
+/// debounce, the clear button, the keyboard type and the dismissal behaviour —
+/// clearing it is also the way back to your own history.
+class _IdentityCodeLookup extends StatelessWidget {
+  const _IdentityCodeLookup({required this.controller});
+
+  final RoleHistoryController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final ownCode = controller.ownIdentityCode;
+
+    return GlassPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'history_code_title'.tr,
+            style: TextStyle(
+              color: AppThemeConfig.text(context),
+              fontWeight: FontWeight.w900,
+              fontSize: 16,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'history_code_help'.tr,
+            style: TextStyle(
+              color: AppThemeConfig.mutedText(context),
+              height: 1.45,
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 12),
+          AppListSearchField(
+            // 'Identification code' — already in all four locales, and the
+            // words this field is asking for. A new key would be a synonym.
+            hintKey: 'reg_volunteer_code',
+            onChanged: controller.lookUpIdentityCode,
+          ),
+          if (ownCode.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            // Shown so the user has their own code to hand while typing in this
+            // very box — the one lookup every account is allowed to make.
+            // Absent entirely for an account with no code, rather than a label
+            // with a blank after it.
+            Row(
+              children: [
+                Icon(
+                  Icons.badge_outlined,
+                  size: 15,
+                  color: AppThemeConfig.mutedText(context),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '${'reg_volunteer_code'.tr}:',
+                  style: TextStyle(
+                    color: AppThemeConfig.mutedText(context),
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12.5,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  ownCode,
+                  // A machine value: it keeps its own direction on an Arabic
+                  // screen so it can be read back character by character.
+                  textDirection: TextDirection.ltr,
+                  style: TextStyle(
+                    color: AppThemeConfig.text(context),
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );

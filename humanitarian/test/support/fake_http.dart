@@ -27,10 +27,18 @@ enum HttpBehaviour {
 }
 
 class FakeHttpOverrides extends HttpOverrides {
-  FakeHttpOverrides(this.behaviour, {this.body = '{}'});
+  FakeHttpOverrides(this.behaviour, {this.body = '{}', this.status});
 
   final HttpBehaviour behaviour;
   final String body;
+
+  /// An exact status to answer with, overriding the one [behaviour] implies.
+  ///
+  /// Added for K21, where 404 and 403 are DIFFERENT ANSWERS the app must tell
+  /// apart — "no history for that code" versus "you may not look up other
+  /// people" — and neither is the generic 500 that `serverError` produces.
+  /// Null keeps the original behaviour exactly.
+  final int? status;
 
   /// Every non-empty request body that was sent through this fake, in order.
   ///
@@ -142,7 +150,8 @@ class _FakeResponseImpl extends Stream<List<int>> implements HttpClientResponse 
 
   @override
   int get statusCode =>
-      overrides.behaviour == HttpBehaviour.serverError ? 500 : 200;
+      overrides.status ??
+      (overrides.behaviour == HttpBehaviour.serverError ? 500 : 200);
 
   @override
   int get contentLength => utf8.encode(overrides.body).length;

@@ -25,7 +25,7 @@ made on this project once and had to be reverted.
 Every key below currently renders its **English** string to a Kurdish user.
 That is deliberate and safe. It is not a crash, and it is not Arabic text.
 
-## Count: 265 keys need Kurdish
+## Count: 270 keys need Kurdish
 
 | Client | Sorani (ckb) | Badini (kmr) | Distinct keys |
 |---|---|---|---|
@@ -37,11 +37,12 @@ That is deliberate and safe. It is not a crash, and it is not Arabic text.
 | Flutter app — L19 engagement field privacy (new) | 2 | 2 | 2 |
 | Flutter app — K12 content page states (new) | 1 | 1 | 1 |
 | Flutter app — K13 contact details (new) | 0 | 1 | 1 |
+| Flutter app — K21 identity-code lookup (new) | 5 | 5 | 5 |
 | Admin dashboard — audited `status.*` | 20 | 20 | 20 |
 | Admin dashboard — B1 notification types (new) | 81 | 81 | *same 81 words as above* |
 | Admin dashboard — K12 content sub-sections (new) | 6 | 6 | 6 |
 | Admin dashboard — K13 contact details (new) | 9 | 9 | 9 |
-| **Total distinct words to translate** | | | **265** |
+| **Total distinct words to translate** | | | **270** |
 
 > **The dashboard figure above is a floor, not a ceiling — and it is the one
 > number in this file that was never fully measured.** Counting key paths in
@@ -132,6 +133,34 @@ Only the empty state, shown when staff have retired every option, is new.
 |---|---|---|---|
 | `marriage_privacy_empty` | Nothing to hide yet | لا يوجد ما يمكن إخفاؤه بعد | ckb + kmr |
 | `marriage_privacy_empty_desc` | There are no details you can hide on this profile right now. It shows what it shows today. | لا توجد تفاصيل يمكنك إخفاؤها في هذا الملف حالياً. سيظهر كما هو الآن. | ckb + kmr |
+
+## history · K21 identity-code lookup  (5 keys)
+
+Added 2026-08-16. The history screen gained a box that looks a donation /
+support history up by identity code, and the profile card now shows the account
+its own code. **The label for the code itself is not in this list**:
+`reg_volunteer_code` ("Identification code") already carries Sorani and Badini
+and is the same words, so it is reused rather than duplicated under a new name.
+`Copied` is reused for the copy confirmation.
+
+Two of these carry a rule and must keep it in translation:
+
+* `history_code_not_found` is deliberately VAGUE and must stay so. The server
+  answers "no such code" and "that code belongs to somebody else" with the same
+  words on purpose — the codes are sequential (ER-000123, GR-000124), so an
+  answer that told them apart would let anyone confirm which codes are real. Do
+  not translate it into something more helpful.
+* `history_code_help` states who may look up what. It is the only thing telling
+  a user why a code they typed was refused, so the two halves ("your own" /
+  "staff can look up others") both have to survive.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `history_code_title` | Look up by identity code | استعلام بالرمز التعريفي | ckb + kmr |
+| `history_code_help` | Enter an identity code to see its donation and support history. You can look up your own code; staff can look up others. Clear the box to return to your own history. | أدخل الرمز التعريفي لعرض سجل التبرعات وحالة الدعم الخاص به. يمكنك الاستعلام برمزك الخاص، ويستطيع الموظفون الاستعلام برموز الآخرين. امسح الحقل للعودة إلى سجلك. | ckb + kmr |
+| `history_code_not_found` | No history is available for that code. | لا يوجد سجل متاح لهذا الرمز. | ckb + kmr |
+| `history_code_not_permitted` | Your account is not allowed to look up other people's records. | حسابك غير مخوّل بالاستعلام عن سجلات الآخرين. | ckb + kmr |
+| `history_code_failed` | Could not look that code up. Check your connection and try again. | تعذّر الاستعلام عن هذا الرمز. تحقّق من اتصالك وحاول مرة أخرى. | ckb + kmr |
 
 ## legal · K12 content page states  (1 key)
 
