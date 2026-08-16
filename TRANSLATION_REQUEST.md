@@ -15,6 +15,8 @@ Updated 2026-08-16 again with the 6 keys the K12 content sub-section editor
 added, and the 9 keys the K13 contact-details editor added.
 Updated 2026-08-16 once more with the 94 keys that gave every field-rule row on
 قواعد الحقول an Arabic label (NEW FINDING 9).
+Updated 2026-08-16 again with the 2 keys H10's sensitive-contact redaction
+added to the dashboard.
 Updated 2026-08-16 again with the 20 keys the K14 خطوبتي owner self-management
 (edit / pause / resume / remove) added.
 
@@ -47,6 +49,7 @@ That is deliberate and safe. It is not a crash, and it is not Arabic text.
 | Admin dashboard — K12 content sub-sections (new) | 6 | 6 | 6 |
 | Admin dashboard — K13 contact details (new) | 9 | 9 | 9 |
 | Admin dashboard — Field Rules form labels (new) | 94 | 94 | 94 |
+| Admin dashboard — H10 sensitive contact data (new) | 2 | 2 | 2 |
 | Admin dashboard — content page save confirmation | 2 | 2 | 2 |
 | Admin dashboard — delete confirmation bodies (were FALSE in Kurdish) | 5 | 5 | 5 |
 | App — City Guide map chip (place count) | 2 | 2 | 2 |
@@ -1244,3 +1247,26 @@ Two pairs share an English string but are separate keys: `marriage_owner_edit` /
 explained in place, and the same refusal returned by the server after a tap). A
 translator may reasonably want different wording for each half, which is why they
 were not merged.
+
+## Admin dashboard · H10 sensitive contact data (2 keys)
+
+The dashboard now hides phone numbers and email addresses from staff who have
+not been granted the **«بيانات الاتصال الحسّاسة» / "Sensitive contact data"**
+permission on the الصلاحيات page. Two strings say so.
+
+Both name that permission, and **the name must match the الصلاحيات page
+exactly** — the whole point of the sentence is that the reader can go and ask
+for the right thing by name. The Kurdish for the permission itself is already
+translated and in the codebase: `perm.sensitive_data` is
+`زانیاری پەیوەندی هەستیار` (ckb) and `زانیاریا پەیوەندیا هەستیار` (kmr). Please
+reuse those exact words inside these two sentences rather than coining a new
+phrase.
+
+| Key | English | Arabic | Where it appears |
+|---|---|---|---|
+| `hint.contact_hidden` | Hidden — needs the "Sensitive contact data" permission | مخفي — يتطلب صلاحية «بيانات الاتصال الحسّاسة» | Under a phone/email box in an edit form the reader may not see. The box is disabled; this line explains why and what to ask for. Keep it short — it sits under a form field. |
+| `error.redacted_contact_write` | This contact detail is hidden from you, so it cannot be saved. Leave the field as it is, or ask the Primary Administrator for the "Sensitive contact data" permission. | بيانات الاتصال هذه مخفيّة عنك، فلا يمكن حفظها. اترك الحقل كما هو، أو اطلب من المشرف الرئيسي صلاحية «بيانات الاتصال الحسّاسة». | Shown if a hidden value is ever sent back to the server. Two sentences on purpose: what happened, then the two things the reader can do about it. |
+
+"Primary Administrator" is the Super Admin — the same person `error.protected_account`
+and `error.staff_phone_super_admin_only` already refer to, so please keep the
+wording consistent with those two.

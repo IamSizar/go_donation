@@ -860,7 +860,7 @@ The client flags this as one repeated global defect and asks for one global fix:
 | H7 | **Grant or block viewing financial reports, statistics, and Audit Logs.** `[D p8]` | Dashboard → الصلاحيات | ⬜ |
 | H8 | **Control activating/deactivating accounts, products or stores** and temporarily disabling them from the dashboard. `[D p8]` | Dashboard → الصلاحيات | ⬜ |
 | H9 | **Control who may change product status** (مقبول، مسودة، مرفوض) based on the products table. `[D p8]` | Dashboard → الصلاحيات | ⬜ |
-| H10 | **Control who may see sensitive contact data** (رقم الهاتف والإيميل) — otherwise hidden/encrypted "لحماية البيانات وتشفيرها". `[D p8]` | Dashboard → الصلاحيات | 🔎 partly — see the H10/B7 note below |
+| H10 | **Control who may see sensitive contact data** (رقم الهاتف والإيميل) — otherwise hidden/encrypted "لحماية البيانات وتشفيرها". `[D p8]` | Dashboard → الصلاحيات | ✅ **the "who may see" half is built, not deployed** — 20 endpoints redacted, verified live. The "encrypted at rest" half is still unstarted and is a separate decision — see the H10 note below |
 | H11 | **Force logout the instant an account is disabled or its permissions are reduced** — "يتم إنهاء جلسة ذلك اليوزر فوراً وعمل تسجيل خروج تلقائي له (Force Logout) لتطبيق التعديل في نفس اللحظة". `[D p8]` | Dashboard → الصلاحيات | ⬜ |
 | H12 | **Audit Log**: a dedicated DB record of the time, date and IP of every change the admin makes in this section (example given: "المدير قام بتعديل صلاحية الموظف أحمد"); read-only, cannot be finally deleted. `[D p8]` | Dashboard → الصلاحيات | ⬜ |
 | H13 | **Super Admin protection**: no other user — even "ادمن" or "مشرف" — may edit, disable, or change the permissions of the "المدير الأساسي / Super Admin" account from inside the dashboard. `[D p8]` | Dashboard → الصلاحيات | 🔎 **confirmed, fixed, not deployed** — see H13 notes below |
@@ -995,6 +995,76 @@ from data the API already returned, so it inherits the fix.
 the caller to re-enter their own password, and is a **backup** — an export with
 the auth columns stripped could not be restored. Left as designed; flagged here
 so the owner knows the backup file is as sensitive as the database.
+
+### H10 — who may see a phone number, and the trap in fixing it (2026-08-16)
+
+**What was wrong.** The permission you asked for — «بيانات الاتصال الحسّاسة» on
+the الصلاحيات page — has existed since the permissions work, and it governed
+**one** screen. Twenty other screens sent the real number regardless. Reproduced
+before the fix: signed in as a مشرف, the عرض page for a user showed `••••31`
+while the المستخدمون list beside it showed `9647500000903`. Same person, same
+session, two answers.
+
+The cause was not carelessness. Answering "may this person see contact data?"
+needs the permissions service, and only two of the twenty-odd screens' code had
+been given it. The rest had no way to ask the question, so they never did.
+
+**The trap, which is why this took a safety commit first.** The obvious fix is
+to replace the number with `••••03` in the list. On this system that would
+**destroy sign-in numbers**. The تعديل window is filled in from the row the list
+just drew, and the phone is what an account signs in with — so a مشرف who opened
+تعديل on a hidden row, changed the city and pressed حفظ would have stored
+`••••03` as that person's phone number, and that account could never sign in
+again. Nothing on screen would have said so.
+
+So the first change was a rule with no exceptions: **a hidden value is never
+stored, by anybody**. Tested before the redaction existed, and the test output
+named the damage it would have done. The dashboard also no longer offers a
+hidden number as an editable box at all — it is locked, with a line underneath
+naming the permission to ask for, because you cannot correct a number you cannot
+see.
+
+**What is hidden now**, for staff without the permission: المستخدمون · طلبات
+التسجيل · التبرعات · الحالات · التبرعات العينية · الدعم · طلبات التطوع ·
+تسجيلات المهام · لوحة المتطوعين · الحملات · الرسائل · محادثات الحالات ·
+طلبات اللقاء ومحادثات الزواج · دليل الموظفين · طلبات تعديل الملف ·
+سجل النشاط · سلة المهملات · صفحة العرض · الكفالات.
+
+**What is NOT hidden, deliberately.** Your own organisation's numbers: الشركاء,
+دليل المدينة, طرق الدفع, رقم واتساب الدعم, وأرقام تنبيه أكواد التبرع. Those are
+published on purpose — `‎/api/partners` serves them to the public with no login
+at all — so hiding them from your own employee would only break the screen
+without protecting anyone.
+
+**What the Super Admin controls.** Ticking «بيانات الاتصال الحسّاسة» for a rank
+turns the numbers back on for that rank everywhere at once; unticking it for one
+named employee hides them from that person only. Both directions verified
+end-to-end.
+
+**Two things found on the way, reported not silently changed:**
+
+1. **A per-employee permission was being applied to the whole rank.** Granting
+   one مشرف a permission granted it to every مشرف, and denying one denied all.
+   That affected *every* permission, not just this one, and the granting
+   direction was the dangerous half. **Fixed** in its own change, with its own
+   tests.
+
+2. **سلة المهملات still contains password hashes.** A deleted record is stored
+   as a complete copy of its row, so a deleted account's `password_hash` is
+   inside it — the same credential the عرض page deliberately withholds (B7).
+   The phone numbers in those copies are now hidden; the credential column is
+   **not**, because that is a different decision: the copy has to stay complete
+   for استعادة to work, so the fix is to withhold the column when the Trash is
+   *displayed*, and it deserves its own change rather than being folded into
+   this one. The same is true of the JSON database export, already recorded
+   under B7.
+
+**Still not done, and it is a decision rather than an oversight:** the second
+half of your note, "otherwise encrypted" (لحماية البيانات وتشفيرها). Nothing is
+encrypted at rest today. That is a database migration plus a key-management
+choice (where the key lives, who can reach it, what happens on rotation), and it
+changes how every one of these numbers is searched. It needs your call before
+anyone starts it.
 
 ## I. Global terminology & naming changes
 
