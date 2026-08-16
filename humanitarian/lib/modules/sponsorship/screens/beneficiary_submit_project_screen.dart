@@ -674,7 +674,21 @@ class _BeneficiarySubmitProjectScreenState
                       style: TextStyle(color: AppThemeConfig.text(context)),
                       decoration: _fieldDecoration(
                         context,
-                        hintText: '+962 …',
+                        // +964 is Iraq. This read '+962', which is JORDAN —
+                        // the only place in the app that did. Every other
+                        // phone surface uses 964: the sign-in country picker
+                        // defaults to it (login.dart:89), profiles render
+                        // +9647…, and registration validates Iraqi 07XX.
+                        //
+                        // A hint is not decoration on this field: it is the
+                        // only thing telling a recipient what shape to type,
+                        // and the validator below accepts anything ≥8 digits,
+                        // so a number entered in the suggested foreign format
+                        // would be stored and later dialled by a coordinator.
+                        // Not localized because a dialling code is the same in
+                        // every language — the same reason the sign-in picker
+                        // shows a bare "+964".
+                        hintText: '+964 …',
                         icon: Icons.phone_rounded,
                       ),
                       validator: (v) {
