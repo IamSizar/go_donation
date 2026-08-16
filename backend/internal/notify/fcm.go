@@ -22,10 +22,10 @@ import (
 
 // fcmClient holds the long-lived state for talking to FCM HTTP v1.
 type fcmClient struct {
-	projectID  string
+	projectID   string
 	clientEmail string
-	privateKey *rsa.PrivateKey
-	httpClient *http.Client
+	privateKey  *rsa.PrivateKey
+	httpClient  *http.Client
 
 	mu           sync.Mutex
 	accessToken  string
@@ -103,10 +103,10 @@ func loadFCMClient() (*fcmClient, error) {
 	}
 
 	return &fcmClient{
-		projectID:  sa.ProjectID,
+		projectID:   sa.ProjectID,
 		clientEmail: sa.ClientEmail,
-		privateKey: pk,
-		httpClient: &http.Client{Timeout: 15 * time.Second},
+		privateKey:  pk,
+		httpClient:  &http.Client{Timeout: 15 * time.Second},
 	}, nil
 }
 
@@ -201,9 +201,9 @@ func (c *fcmClient) sendOne(ctx context.Context, token, title, body, imageURL st
 	//                                         (e.g. download an image)
 	apsAlert := map[string]any{"title": title, "body": body}
 	apsBlock := map[string]any{
-		"alert":            apsAlert,
-		"sound":            "default",
-		"mutable-content":  1,
+		"alert":           apsAlert,
+		"sound":           "default",
+		"mutable-content": 1,
 	}
 	apnsBlock := map[string]any{
 		"headers": map[string]any{

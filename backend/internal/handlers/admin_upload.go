@@ -18,19 +18,19 @@ import (
 // AdminUploadHandler serves Phase 15's POST /api/admin/upload endpoint.
 //
 // Flow:
-//   1. Read the multipart "file" field.
-//   2. Validate the extension (only images + PDF for case documents).
-//   3. Validate the size (configurable; defaults to 5 MB).
-//   4. Generate a random 32-hex name, preserve original extension.
-//   5. Save to <uploadDir>/uploads/<name><ext>.
-//   6. Return {success, path, size, mime} where `path` is what the SPA
-//      stores back into the corresponding column (e.g. partners.logo_path).
+//  1. Read the multipart "file" field.
+//  2. Validate the extension (only images + PDF for case documents).
+//  3. Validate the size (configurable; defaults to 5 MB).
+//  4. Generate a random 32-hex name, preserve original extension.
+//  5. Save to <uploadDir>/uploads/<name><ext>.
+//  6. Return {success, path, size, mime} where `path` is what the SPA
+//     stores back into the corresponding column (e.g. partners.logo_path).
 //
 // Storage layout matches the Gin static handler in main.go:
 //
-//   ./images                  ← uploadDir, served at GET /images/*
-//   ./images/uploads          ← where this handler writes
-//   ./images/seed/...         ← pre-existing seed files (not touched)
+//	./images                  ← uploadDir, served at GET /images/*
+//	./images/uploads          ← where this handler writes
+//	./images/seed/...         ← pre-existing seed files (not touched)
 //
 // So after a successful upload the SPA can render the new image via
 // `<img src={`/${path}`} />` immediately.

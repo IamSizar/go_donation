@@ -15,21 +15,21 @@ import (
 )
 
 type Mission struct {
-	ID                  int64      `json:"id"`
-	Title               string     `json:"title"`
-	TitleAr             *string    `json:"title_ar"`
-	TitleSorani         *string    `json:"title_sorani"`
-	TitleBadini         *string    `json:"title_badini"`
-	Description         *string    `json:"description"`
-	DescriptionAr       *string    `json:"description_ar"`
-	DescriptionSorani   *string    `json:"description_sorani"`
-	DescriptionBadini   *string    `json:"description_badini"`
-	City                *string    `json:"city"`
-	MissionDate         *string    `json:"mission_date"` // YYYY-MM-DD, matches admin_lists.go
-	NeededVolunteers    *int       `json:"needed_volunteers"`
-	Status              string     `json:"status"`
-	AcceptedVolunteers  int        `json:"accepted_volunteers"`
-	PendingVolunteers   int        `json:"pending_volunteers"`
+	ID                 int64   `json:"id"`
+	Title              string  `json:"title"`
+	TitleAr            *string `json:"title_ar"`
+	TitleSorani        *string `json:"title_sorani"`
+	TitleBadini        *string `json:"title_badini"`
+	Description        *string `json:"description"`
+	DescriptionAr      *string `json:"description_ar"`
+	DescriptionSorani  *string `json:"description_sorani"`
+	DescriptionBadini  *string `json:"description_badini"`
+	City               *string `json:"city"`
+	MissionDate        *string `json:"mission_date"` // YYYY-MM-DD, matches admin_lists.go
+	NeededVolunteers   *int    `json:"needed_volunteers"`
+	Status             string  `json:"status"`
+	AcceptedVolunteers int     `json:"accepted_volunteers"`
+	PendingVolunteers  int     `json:"pending_volunteers"`
 }
 
 type Application struct {

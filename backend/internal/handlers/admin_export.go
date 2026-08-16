@@ -17,26 +17,27 @@ import (
 // for backup / migration / offline analysis.
 //
 // Behaviour:
-//   • Streams to the response with Content-Disposition: attachment so the
+//   - Streams to the response with Content-Disposition: attachment so the
 //     browser opens a Save dialog with a dated filename.
-//   • Tables are read in a fixed order so diffs across exports stay stable.
-//   • Each row is returned as a JSON object (column name → value) via pgx's
+//   - Tables are read in a fixed order so diffs across exports stay stable.
+//   - Each row is returned as a JSON object (column name → value) via pgx's
 //     RowToMap — no per-table struct definitions needed.
-//   • Security: protected by RequireAdmin (wired in main.go). The OTP
+//   - Security: protected by RequireAdmin (wired in main.go). The OTP
 //     codes table is deliberately excluded because it holds active codes
 //     and exporting them would let anyone with the file replay logins.
 //
 // The output shape is:
-//   {
-//     "database": "humanitarian",
-//     "exported_at": "2026-05-16T12:34:56Z",
-//     "row_counts": { "users": 4, "donations": 12, ... },
-//     "tables": {
-//       "users":     [ {...}, {...} ],
-//       "donations": [ {...}, ... ],
-//       ...
-//     }
-//   }
+//
+//	{
+//	  "database": "humanitarian",
+//	  "exported_at": "2026-05-16T12:34:56Z",
+//	  "row_counts": { "users": 4, "donations": 12, ... },
+//	  "tables": {
+//	    "users":     [ {...}, {...} ],
+//	    "donations": [ {...}, ... ],
+//	    ...
+//	  }
+//	}
 type AdminExportHandler struct {
 	Pool *pgxpool.Pool
 }
@@ -59,8 +60,8 @@ var exportOrder = map[string]string{
 // sorted by id (or the override above) below.
 //
 // Excluded:
-//   • otp_codes           — active login codes; security risk
-//   • otp_ip_rate_limit   — transient operational counter, no business value
+//   - otp_codes           — active login codes; security risk
+//   - otp_ip_rate_limit   — transient operational counter, no business value
 var exportTables = []string{
 	// users + auth
 	"users",

@@ -42,12 +42,12 @@ type VolunteerOverview struct {
 
 // Report is the full payload returned by GET /api/reports.
 type Report struct {
-	Donations              DonationSummary   `json:"donations"`
-	BeneficiaryCases       []Bucket          `json:"beneficiary_cases"`
-	ProjectRequests        []Bucket          `json:"project_requests"`
-	Expenses               []ExpenseBucket   `json:"expenses"`
-	Volunteers             VolunteerOverview `json:"volunteers"`
-	VolunteerSignupStatuses []Bucket         `json:"volunteer_signup_statuses"`
+	Donations               DonationSummary   `json:"donations"`
+	BeneficiaryCases        []Bucket          `json:"beneficiary_cases"`
+	ProjectRequests         []Bucket          `json:"project_requests"`
+	Expenses                []ExpenseBucket   `json:"expenses"`
+	Volunteers              VolunteerOverview `json:"volunteers"`
+	VolunteerSignupStatuses []Bucket          `json:"volunteer_signup_statuses"`
 }
 
 type Store struct {
@@ -61,7 +61,7 @@ func (s *Store) Compute(ctx context.Context) (*Report, error) {
 		Donations: DonationSummary{
 			CompletedAmount: "0", PendingAmount: "0", FailedAmount: "0",
 		},
-		Volunteers: VolunteerOverview{HoursServed: "0"},
+		Volunteers:              VolunteerOverview{HoursServed: "0"},
 		BeneficiaryCases:        []Bucket{},
 		ProjectRequests:         []Bucket{},
 		Expenses:                []ExpenseBucket{},

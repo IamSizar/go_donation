@@ -68,22 +68,22 @@ func NewAdminDetailHandler(pool *pgxpool.Pool, perms *permissions.Store) *AdminD
 // resourceTables maps the URL :resource slug to the underlying table name.
 // Add to this map when introducing a new admin resource.
 var resourceTables = map[string]string{
-	"partners":                      "partners",
-	"media":                         "media_posts",
-	"community":                     "city_directory_entries",
-	"marriage":                      "marriage_profiles",
-	"products":                      "marketplace_products",
-	"orders":                        "marketplace_orders",
-	"beneficiary_cases":             "beneficiary_cases",
-	"beneficiary_project_requests":  "beneficiary_project_requests",
-	"sponsorships":                  "sponsorships",
-	"in_kind_donations":             "in_kind_donations",
-	"support_tickets":               "support_tickets",
-	"donations":                     "donations",
-	"volunteer_applications":        "volunteer_applications",
-	"volunteer_missions":            "volunteer_missions",
-	"campaigns":                     "campaigns",
-	"users":                         "users",
+	"partners":                     "partners",
+	"media":                        "media_posts",
+	"community":                    "city_directory_entries",
+	"marriage":                     "marriage_profiles",
+	"products":                     "marketplace_products",
+	"orders":                       "marketplace_orders",
+	"beneficiary_cases":            "beneficiary_cases",
+	"beneficiary_project_requests": "beneficiary_project_requests",
+	"sponsorships":                 "sponsorships",
+	"in_kind_donations":            "in_kind_donations",
+	"support_tickets":              "support_tickets",
+	"donations":                    "donations",
+	"volunteer_applications":       "volunteer_applications",
+	"volunteer_missions":           "volunteer_missions",
+	"campaigns":                    "campaigns",
+	"users":                        "users",
 }
 
 // detailColumns is the allow-list: for each resource slug, exactly the columns

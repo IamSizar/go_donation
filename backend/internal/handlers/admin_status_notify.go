@@ -390,7 +390,7 @@ func (h *AdminStatusHandler) notifyMissionStatusBroadcast(ctx context.Context, m
 	go func() {
 		bg, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
-		sent, err := h.Notifier.Broadcast(bg, 3 /* volunteers */,
+		sent, err := h.Notifier.Broadcast(bg, 3, /* volunteers */
 			notify.NewVolunteerMissionMsg(title, city, dateText, missionID))
 		if err != nil {
 			log.Printf("[notify] mission %d broadcast: %v", missionID, err)

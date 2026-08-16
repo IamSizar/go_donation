@@ -11,26 +11,26 @@ import (
 
 // Notification mirrors the JSON shape from the PHP GET /api/notifications.
 type Notification struct {
-	ID                   int64     `json:"id"`
-	UserID               *int      `json:"user_id"`
-	RoleID               *int      `json:"role_id"`
-	Title                string    `json:"title"`
-	TitleAr              *string   `json:"title_ar"`
-	TitleSorani          *string   `json:"title_sorani"`
-	TitleBadini          *string   `json:"title_badini"`
-	Body                 string    `json:"body"`
-	BodyAr               *string   `json:"body_ar"`
-	BodySorani           *string   `json:"body_sorani"`
-	BodyBadini           *string   `json:"body_badini"`
-	NotificationType     *string   `json:"notification_type"`
-	NotificationCategory string    `json:"notification_category"`
-	Priority             int       `json:"priority"`
-	ActionURL            *string   `json:"action_url"`
-	RelatedEntityType    *string   `json:"related_entity_type"`
-	RelatedEntityID      *int64    `json:"related_entity_id"`
-	IsRead               int       `json:"is_read"`
+	ID                   int64      `json:"id"`
+	UserID               *int       `json:"user_id"`
+	RoleID               *int       `json:"role_id"`
+	Title                string     `json:"title"`
+	TitleAr              *string    `json:"title_ar"`
+	TitleSorani          *string    `json:"title_sorani"`
+	TitleBadini          *string    `json:"title_badini"`
+	Body                 string     `json:"body"`
+	BodyAr               *string    `json:"body_ar"`
+	BodySorani           *string    `json:"body_sorani"`
+	BodyBadini           *string    `json:"body_badini"`
+	NotificationType     *string    `json:"notification_type"`
+	NotificationCategory string     `json:"notification_category"`
+	Priority             int        `json:"priority"`
+	ActionURL            *string    `json:"action_url"`
+	RelatedEntityType    *string    `json:"related_entity_type"`
+	RelatedEntityID      *int64     `json:"related_entity_id"`
+	IsRead               int        `json:"is_read"`
 	ReadAt               *time.Time `json:"read_at"`
-	CreatedAt            time.Time `json:"created_at"`
+	CreatedAt            time.Time  `json:"created_at"`
 }
 
 // ListFilter narrows the notifications query.
@@ -214,6 +214,7 @@ const (
 // MarkRead marks one notification as read for the user.
 //   - If the notification's user_id == userID, set is_read=1, read_at=NOW().
 //   - Otherwise (broadcast row, user_id IS NULL), upsert into app_notification_reads.
+//
 // Returns MarkNotFound if the row doesn't exist or isn't visible to the user.
 func (n *Notifier) MarkRead(ctx context.Context, notificationID, userID int64) (MarkResult, error) {
 	if notificationID <= 0 || userID <= 0 {

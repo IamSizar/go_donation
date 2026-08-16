@@ -28,53 +28,53 @@ import (
 // beyond AR, like/comment counts) are left as nil/zero so the JSON keys still
 // exist and the client doesn't trip on missing keys.
 type Campaign struct {
-	ID                              int64   `json:"id"`
-	UserID                          int     `json:"user_id"`
-	Title                           string  `json:"title"`
-	TitleAr                         *string `json:"title_ar"`
-	TitleSorani                     *string `json:"title_sorani"`
-	TitleBadini                     *string `json:"title_badini"`
-	Category                        string  `json:"category"`
-	CategoryAr                      *string `json:"category_ar"`
-	CategorySorani                  *string `json:"category_sorani"`
-	CategoryBadini                  *string `json:"category_badini"`
-	Summary                         string  `json:"summary"`
-	SummaryAr                       *string `json:"summary_ar"`
-	SummarySorani                   *string `json:"summary_sorani"`
-	SummaryBadini                   *string `json:"summary_badini"`
-	Description                     string  `json:"description"`
-	DescriptionAr                   *string `json:"description_ar"`
-	DescriptionSorani               *string `json:"description_sorani"`
-	DescriptionBadini               *string `json:"description_badini"`
-	Address                         string  `json:"address"`
-	AddressAr                       *string `json:"address_ar"`
-	AddressSorani                   *string `json:"address_sorani"`
-	AddressBadini                   *string `json:"address_badini"`
-	BeneficiaryCommunityName        string  `json:"beneficiary_community_name"`
-	BeneficiaryCommunityNameAr      *string `json:"beneficiary_community_name_ar"`
-	BeneficiaryCommunityNameSorani  *string `json:"beneficiary_community_name_sorani"`
-	BeneficiaryCommunityNameBadini  *string `json:"beneficiary_community_name_badini"`
-	Beneficiaries                   string  `json:"beneficiaries"`
-	GoalAmount                      string  `json:"goal_amount"`
-	RaisedAmount                    string  `json:"raised_amount"`
-	Currency                        string  `json:"currency"`
+	ID                             int64   `json:"id"`
+	UserID                         int     `json:"user_id"`
+	Title                          string  `json:"title"`
+	TitleAr                        *string `json:"title_ar"`
+	TitleSorani                    *string `json:"title_sorani"`
+	TitleBadini                    *string `json:"title_badini"`
+	Category                       string  `json:"category"`
+	CategoryAr                     *string `json:"category_ar"`
+	CategorySorani                 *string `json:"category_sorani"`
+	CategoryBadini                 *string `json:"category_badini"`
+	Summary                        string  `json:"summary"`
+	SummaryAr                      *string `json:"summary_ar"`
+	SummarySorani                  *string `json:"summary_sorani"`
+	SummaryBadini                  *string `json:"summary_badini"`
+	Description                    string  `json:"description"`
+	DescriptionAr                  *string `json:"description_ar"`
+	DescriptionSorani              *string `json:"description_sorani"`
+	DescriptionBadini              *string `json:"description_badini"`
+	Address                        string  `json:"address"`
+	AddressAr                      *string `json:"address_ar"`
+	AddressSorani                  *string `json:"address_sorani"`
+	AddressBadini                  *string `json:"address_badini"`
+	BeneficiaryCommunityName       string  `json:"beneficiary_community_name"`
+	BeneficiaryCommunityNameAr     *string `json:"beneficiary_community_name_ar"`
+	BeneficiaryCommunityNameSorani *string `json:"beneficiary_community_name_sorani"`
+	BeneficiaryCommunityNameBadini *string `json:"beneficiary_community_name_badini"`
+	Beneficiaries                  string  `json:"beneficiaries"`
+	GoalAmount                     string  `json:"goal_amount"`
+	RaisedAmount                   string  `json:"raised_amount"`
+	Currency                       string  `json:"currency"`
 	// Status is the lifecycle string the SPA + Flutter app both reason on:
 	//   "active"   — donor can see + donate
 	//   "hidden"   — donor list omits the row
 	//   "finished" — donor list omits the row; donations are rejected
 	// `is_active` is a derived 1/0 mirror retained for any legacy reader.
-	Status                          string  `json:"status"`
-	IsActive                        int     `json:"is_active"`
-	LikeCount                       int     `json:"like_count"`
-	CommentCount                    int     `json:"comment_count"`
+	Status       string `json:"status"`
+	IsActive     int    `json:"is_active"`
+	LikeCount    int    `json:"like_count"`
+	CommentCount int    `json:"comment_count"`
 }
 
 type Pagination struct {
-	Page        int  `json:"page"`
-	PerPage     int  `json:"per_page"`
-	TotalItems  int  `json:"total_items"`
-	TotalPages  int  `json:"total_pages"`
-	HasMore     bool `json:"has_more"`
+	Page       int  `json:"page"`
+	PerPage    int  `json:"per_page"`
+	TotalItems int  `json:"total_items"`
+	TotalPages int  `json:"total_pages"`
+	HasMore    bool `json:"has_more"`
 }
 
 type Page struct {
@@ -151,11 +151,11 @@ func scanRow(row pgx.Row, c *Campaign) error {
 // List returns a paginated page of campaigns visible to donors.
 //
 // Filtering rules:
-//   • status == "" or "approved" or "active" → donor default (only status='active').
-//   • status == "hidden"                      → only hidden rows.
-//   • status == "finished"                    → only finished rows.
-//   • status == "all"                         → every row (admin diagnostic).
-//   • any other value                         → donor default.
+//   - status == "" or "approved" or "active" → donor default (only status='active').
+//   - status == "hidden"                      → only hidden rows.
+//   - status == "finished"                    → only finished rows.
+//   - status == "all"                         → every row (admin diagnostic).
+//   - any other value                         → donor default.
 func (s *Store) List(ctx context.Context, page, perPage int, status string) (*Page, error) {
 	page = normalizePage(page)
 	perPage = normalizePerPage(perPage, 12, 100)

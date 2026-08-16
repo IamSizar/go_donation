@@ -19,10 +19,10 @@ import (
 // append-only — it is permanently recorded as an audit entry. Purging one is
 // gated to the Super-Admin (see EventsHandler.AdminDelete).
 //
-//   action  — short verb: create | role | tier | password | active | admin | status
-//   newVal  — the new value where meaningful (raw enum, so the FRONTEND localizes
-//             it to the viewer's language). Pass "" when there's no value to show
-//             (and NEVER pass a password).
+//	action  — short verb: create | role | tier | password | active | admin | status
+//	newVal  — the new value where meaningful (raw enum, so the FRONTEND localizes
+//	          it to the viewer's language). Pass "" when there's no value to show
+//	          (and NEVER pass a password).
 //
 // Best-effort: a logging failure must never fail the underlying admin action, so
 // all errors are swallowed. Runs synchronously (the row exists before we return)

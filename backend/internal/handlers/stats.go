@@ -28,7 +28,7 @@ func NewStatsHandler(pool *pgxpool.Pool) *StatsHandler {
 //     projects (the two things the app treats as "delivered" work)
 //   - total_given     sum of successful donation amounts (payment_status = 1)
 //
-// `donations.amount` is stored as TEXT, so it's cast via NULLIF(amount,'')::numeric
+// `donations.amount` is stored as TEXT, so it's cast via NULLIF(amount,”)::numeric
 // and returned as a string to avoid float rounding on large IQD totals.
 // Everything is COALESCE'd so an empty database returns zeros, never null.
 func (h *StatsHandler) ImpactStats(c *gin.Context) {
