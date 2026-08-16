@@ -2444,6 +2444,8 @@ class AppTranslations extends Translations {
     'Our Products': 'Our Products',
     'My Engagement': 'My Engagement',
     'Mosul · Iraq': 'Mosul · Iraq',
+    '@count place · Mosul': '@count place · Mosul',
+    '@count places · Mosul': '@count places · Mosul',
     'No locations yet.\nAdd coordinates from the admin panel.':
         'No locations yet.\nAdd coordinates from the admin panel.',
     'Maps ↗': 'Maps ↗',
@@ -5072,6 +5074,8 @@ class AppTranslations extends Translations {
     'Our Products': 'منتجاتنا',
     'My Engagement': 'مشاركتي',
     'Mosul · Iraq': 'الموصل · العراق',
+    '@count place · Mosul': '@count مكان · الموصل',
+    '@count places · Mosul': '@count مكانا · الموصل',
     'No locations yet.\nAdd coordinates from the admin panel.':
         'لا توجد مواقع بعد.\nأضف الإحداثيات من لوحة الإدارة.',
     'Maps ↗': 'الخرائط ↗',

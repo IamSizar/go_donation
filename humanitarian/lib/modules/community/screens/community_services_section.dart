@@ -914,11 +914,26 @@ class _CityMapState extends State<_CityMap> {
             Positioned(
               top: 12,
               left: 12,
+              // Both branches were raw English on a screen whose own header,
+              // 700 lines up, already renders this exact string through `.tr`
+              // as «الموصل · العراق». The chip sat on the map saying
+              // "8 places · Mosul" underneath it.
+              //
+              // The empty branch was the same key as the header, just missing
+              // its `.tr` — a one-character omission that turns a translated
+              // string into an English one, which is the quietest way this
+              // codebase leaks English.
               child: _MapChip(
                 icon: Icons.place_rounded,
                 label: pins.isEmpty
-                    ? 'Mosul · Iraq'
-                    : '${pins.length} ${pins.length == 1 ? 'place' : 'places'} · Mosul',
+                    ? 'Mosul · Iraq'.tr
+                    // Singular and plural are separate keys so English stays
+                    // correct at one pin; Arabic uses the تمييز form after the
+                    // numeral either way, following '@count شخصا متأثرا'.
+                    : (pins.length == 1
+                              ? '@count place · Mosul'
+                              : '@count places · Mosul')
+                          .trParams({'count': '${pins.length}'}),
               ),
             ),
 

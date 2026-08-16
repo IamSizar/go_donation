@@ -27,7 +27,7 @@ made on this project once and had to be reverted.
 Every key below currently renders its **English** string to a Kurdish user.
 That is deliberate and safe. It is not a crash, and it is not Arabic text.
 
-## Count: 371 keys need Kurdish
+## Count: 373 keys need Kurdish
 
 | Client | Sorani (ckb) | Badini (kmr) | Distinct keys |
 |---|---|---|---|
@@ -47,7 +47,8 @@ That is deliberate and safe. It is not a crash, and it is not Arabic text.
 | Admin dashboard — Field Rules form labels (new) | 94 | 94 | 94 |
 | Admin dashboard — content page save confirmation | 2 | 2 | 2 |
 | Admin dashboard — delete confirmation bodies (were FALSE in Kurdish) | 5 | 5 | 5 |
-| **Total distinct words to translate** | | | **371** |
+| App — City Guide map chip (place count) | 2 | 2 | 2 |
+| **Total distinct words to translate** | | | **373** |
 
 > **The dashboard figure above is a floor, not a ceiling — and it is the one
 > number in this file that was never fully measured.** Counting key paths in
@@ -1164,3 +1165,19 @@ the correct English.
 Note for the translator: "Trash" is the المهملات screen in the dashboard sidebar
 — please use whatever word that screen already uses in Kurdish, so the dialog
 and the destination match.
+
+## City Guide map chip (2 keys)
+
+The chip on the City Guide map was raw English — "8 places · Mosul" — on a
+screen whose own header already reads «الموصل · العراق». English and Arabic are
+written; ckb/kmr fall back to English.
+
+| Key | English | Arabic |
+|---|---|---|
+| `@count place · Mosul` | @count place · Mosul | @count مكان · الموصل |
+| `@count places · Mosul` | @count places · Mosul | @count مكانا · الموصل |
+
+Two keys rather than one so English stays correct at a single pin. Arabic uses
+the تمييز form after the numeral, following the existing `@count شخصا متأثرا`.
+The city name is part of the key because this guide is Mosul-specific — the
+sibling key `Mosul · Iraq` is already built the same way in all four locales.
