@@ -2061,6 +2061,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                 const SizedBox(height: 6),
                                 TextFormField(
                                   controller: _nationalIdController,
+                                  // The volunteer branch already asks for the
+                                  // number pad on the identical field
+                                  // (reg_volunteer_national_id), so the two
+                                  // disagreed about the same document.
+                                  keyboardType: TextInputType.number,
                                   textInputAction: TextInputAction.next,
                                   decoration: InputDecoration(
                                     hintText:
@@ -3725,6 +3730,12 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                 const SizedBox(height: 6),
                                 TextFormField(
                                   controller: _incomeController,
+                                  // Rule 5.6. A monthly income is an amount,
+                                  // and every other amount on this form —
+                                  // rental, wage, housing area, rooms, family
+                                  // size — already asks for the number pad.
+                                  // This one opened the alphabetic keyboard.
+                                  keyboardType: TextInputType.number,
                                   textInputAction: TextInputAction.done,
                                   decoration: InputDecoration(
                                     hintText: 'reg_income_hint'.tr,
