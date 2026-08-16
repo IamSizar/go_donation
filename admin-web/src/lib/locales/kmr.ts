@@ -107,7 +107,6 @@ const kmr: DeepPartial<typeof en> = {
   terms: {
     title: 'مەرج و رێسا',
     subtitle: 'مەرج و رێسایێن ل ئەپێ دیاردبن دەستکاری بکە (هەمی زمانان).',
-    saved: 'مەرج و رێسا هاتنە پاراستن.',
     field_title: 'سەرناڤ',
     field_body: 'دەق',
   },

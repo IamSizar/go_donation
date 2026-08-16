@@ -57,7 +57,7 @@ export default function ContentPage({
    */
   contact?: boolean
 }) {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const { user } = useAuth()
   const toast = useToast()
   const empty: Content = {
@@ -142,7 +142,21 @@ export default function ContentPage({
       // Re-read so the form shows what the server actually stored — the
       // composed body, and server-assigned sub-section ids.
       await load()
-      toast.success(t('terms.saved'))
+      // This one component backs eight pages, so a fixed message announced
+      // "Terms & Conditions saved." after saving من نحن or اتصل بنا — naming a
+      // page the admin had not opened. The row already carries its own title in
+      // all four languages, so the confirmation names itself: reader's locale
+      // first, English as the fallback the rest of this file uses, and a
+      // page-less wording when the row genuinely has no title yet (a new page
+      // saved before one was typed) so it can never read "Saved .".
+      const pageTitle = (
+        form[`title_${locale}` as keyof Content] as string | undefined
+      )?.trim() || form.title_en?.trim()
+      toast.success(
+        pageTitle
+          ? t('content.saved', { page: pageTitle })
+          : t('content.saved_untitled'),
+      )
     } catch (e) {
       toast.error(describeError(e))
     } finally {

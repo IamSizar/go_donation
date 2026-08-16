@@ -109,7 +109,6 @@ const en = {
   terms: {
     title: 'Terms & Conditions',
     subtitle: 'Edit the Terms & Conditions shown in the app (all languages).',
-    saved: 'Terms & Conditions saved.',
     field_title: 'Title',
     field_body: 'Body',
   },
@@ -439,6 +438,14 @@ const en = {
     empty: 'No activity yet.',
   },
   content: {
+    // One component backs eight content pages, so the save confirmation has to
+    // name the page it actually saved. {page} is that page's own title in the
+    // reader's language, taken from the row being edited — not a second list of
+    // page names to keep in step with the first.
+    saved: 'Saved {page}.',
+    // Only when the page has no title in any language: a brand-new row saved
+    // before a title was typed. Without this the message would read "Saved .".
+    saved_untitled: 'Page saved.',
     not_created_title: 'Not published yet.',
     not_created_hint: 'This page has no content yet — fill it in below and press Save to create it.',
     // K12 — named, ordered sub-sections of a content page.

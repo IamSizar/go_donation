@@ -27,7 +27,7 @@ made on this project once and had to be reverted.
 Every key below currently renders its **English** string to a Kurdish user.
 That is deliberate and safe. It is not a crash, and it is not Arabic text.
 
-## Count: 364 keys need Kurdish
+## Count: 366 keys need Kurdish
 
 | Client | Sorani (ckb) | Badini (kmr) | Distinct keys |
 |---|---|---|---|
@@ -45,7 +45,8 @@ That is deliberate and safe. It is not a crash, and it is not Arabic text.
 | Admin dashboard — K12 content sub-sections (new) | 6 | 6 | 6 |
 | Admin dashboard — K13 contact details (new) | 9 | 9 | 9 |
 | Admin dashboard — Field Rules form labels (new) | 94 | 94 | 94 |
-| **Total distinct words to translate** | | | **364** |
+| Admin dashboard — content page save confirmation | 2 | 2 | 2 |
+| **Total distinct words to translate** | | | **366** |
 
 > **The dashboard figure above is a floor, not a ceiling — and it is the one
 > number in this file that was never fully measured.** Counting key paths in
@@ -1121,3 +1122,18 @@ and the sentence it replaced was removed from `_en` and `_ar`.
 | `وەرگرتن` | Kurdish | to receive (the ordinary verb) |
 | `مستلمة` | Arabic | received (a delivered item) |
 
+
+## Content page save confirmation (2 keys, added with the CMS toast fix)
+
+One component backs eight content pages, so its save confirmation must name the
+page it saved. `{page}` is substituted with that page's own title in the
+reader's language — do not translate the placeholder itself.
+
+| Key | English | Arabic | Note for the translator |
+|---|---|---|---|
+| `content.saved` | Saved {page}. | تم حفظ {page}. | **Do not derive this from the old Terms & Conditions message.** The Sorani wording there was `پاشەکەوتکران`, whose verb is PLURAL because it agreed with "terms and rules". `{page}` is a single page title, so the number agreement changes. Please supply a form that reads correctly with any single page name. |
+| `content.saved_untitled` | Page saved. | تم حفظ الصفحة. | Shown only when the page has no title in any language. |
+
+Arabic needed no such care and is already written: «تم حفظ» is built on the
+verbal noun «حفظ», not on `{page}`, so it does not shift with the gender of the
+page name — which is why substituting the object alone was safe there.

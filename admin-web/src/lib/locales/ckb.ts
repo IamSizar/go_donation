@@ -106,7 +106,6 @@ const ckb: DeepPartial<typeof en> = {
   terms: {
     title: 'مەرج و ڕێساکان',
     subtitle: 'مەرج و ڕێساکان دەستکاری بکە کە لە ئەپەکەدا پیشان دەدرێن (هەموو زمانەکان).',
-    saved: 'مەرج و ڕێساکان پاشەکەوتکران.',
     field_title: 'ناونیشان',
     field_body: 'دەق',
   },
