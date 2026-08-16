@@ -31,33 +31,14 @@ function fetchMatrix(): Promise<PermMatrix | null> {
   return inflight
 }
 
-/** §24 — whether the current user may see raw contact info (phone/email). Uses
- *  the effective matrix (`sensitive_data.view`) when loaded; while loading /
- *  on failure, falls back to the tier gate (super_admin/admin only) so contact
- *  data is hidden by default rather than leaked. */
-export function useCanViewSensitive(user: StoredUser | null): boolean {
-  const [matrix, setMatrix] = useState<PermMatrix | null>(cache)
-  useEffect(() => {
-    let active = true
-    fetchMatrix().then((m) => {
-      if (active && m) setMatrix(m)
-    })
-    return () => {
-      active = false
-    }
-  }, [])
-  if (matrix && matrix['sensitive_data']) return matrix['sensitive_data'].view === true
-  const tier = user?.staff_tier
-  return tier === 'super_admin' || tier === 'admin'
-}
-
-/** Mask a contact string unless `canView`. Keeps a 2-char hint. */
-export function maskContact(value: string | null | undefined, canView: boolean): string {
-  const s = (value ?? '').trim()
-  if (canView || s === '') return s
-  if (s.length <= 2) return '••'
-  return '••••' + s.slice(-2)
-}
+// H10 — `useCanViewSensitive` and `maskContact` used to live here, and the
+// Users page painted a mask over a phone number the API had already sent in
+// full. That hid the value on the screen while the real one stayed in the
+// page's network data — which is exactly what the client asked to stop. Both
+// are gone: the SERVER now decides what a contact field contains
+// (backend/internal/handlers/admin_contact_view.go), and every page simply
+// renders what it received. lib/phone.ts's isRedactedContact is what a caller
+// needs if it has to RECOGNISE a redaction (EditModal locks such a field).
 
 /** Whether the current user may export `module`. Uses the effective matrix when
  *  loaded; falls back to the tier gate while loading or if the fetch failed. */
@@ -80,7 +61,7 @@ export function useExportAllowed(module: string, user: StoredUser | null): boole
 
 /** Note #4 — generic per-module/per-action permission check, e.g.
  *  usePermission('users', 'archive', user). Same load/fallback shape as
- *  useExportAllowed/useCanViewSensitive; falls back to the tier gate
+ *  useExportAllowed; falls back to the tier gate
  *  (admin/super_admin) while the matrix is loading or on fetch failure, so a
  *  transient error hides the action rather than exposing it to everyone. */
 export function usePermission(module: string, action: string, user: StoredUser | null): boolean {

@@ -20,6 +20,27 @@ const PHONE_STRIP_RE = /[\s\p{Z}\p{Cf}\-().]+/gu
 const IRAQ_DIAL_CODE = '964'
 const IRAQ_NSN_LENGTH = 10
 
+// H10 — the character the server builds a redaction from (U+2022 BULLET, see
+// backend/internal/sensitive). It cannot occur in a real phone number, so its
+// presence is a reliable "this value was never shown to me".
+const REDACTION_MARK = '•'
+
+/**
+ * Whether a value came back redacted because this staff member does not hold
+ * the "Sensitive contact data" permission.
+ *
+ * Covers emails as well as phone numbers — it lives here rather than in
+ * lib/permissions.ts only because this module is a leaf with no imports, and
+ * formatPhone below needs it. Every helper has to know: a redaction is NOT a
+ * phone number, and the moment one is treated as one it stops being readable.
+ * formatPhone would draw "••••03" as "+03" (it strips non-digits) and
+ * canonicalPhone would reduce it to '', which is how a mask becomes an empty
+ * write.
+ */
+export function isRedactedContact(raw: unknown): boolean {
+  return typeof raw === 'string' && raw.includes(REDACTION_MARK)
+}
+
 /**
  * Remove every space, bidi mark and human separator from a typed phone number,
  * leaving only the digits and any leading "+".
@@ -105,6 +126,15 @@ export function canonicalPhone(raw: string | null | undefined): string {
  */
 export function formatPhone(raw: string | null | undefined): string {
   if (!raw) return ''
+  // H10 — a redaction is not a number. Without this guard the digit-stripping
+  // below turns the server's "••••03" into "+03", which reads as a real (wrong)
+  // phone number rather than as "you are not allowed to see this".
+  //
+  // It still gets the LTR isolate, for the reason in the paragraph above: the
+  // bullets are bidi-neutral, so under the Arabic layout "••••03" is drawn as
+  // "03••••" — the hint jumps to the wrong end and stops lining up with the
+  // real numbers in the same column. Verified in the browser at ar.
+  if (isRedactedContact(raw)) return `⁦${String(raw)}⁩`
   const digits = String(raw).replace(/\D/g, '')
   if (!digits) return String(raw).trim()
 

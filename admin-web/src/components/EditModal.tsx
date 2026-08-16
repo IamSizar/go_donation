@@ -26,7 +26,7 @@ import { useI18n, useStatusLabel } from '../lib/i18n'
 import FileInput from './FileInput'
 import type { ShapeKey } from './CropDialog'
 import GalleryInput from './GalleryInput'
-import { canonicalPhone, stripPhoneFormatting } from '../lib/phone'
+import { canonicalPhone, isRedactedContact, stripPhoneFormatting } from '../lib/phone'
 
 export type FieldType = 'text' | 'textarea' | 'number' | 'date' | 'select' | 'file' | 'gallery' | 'multiselect' | 'password'
 
@@ -75,6 +75,20 @@ export type FieldSpec = {
   //               input can't be read as a phone number at all, so the
   //               server's own validation still gets to answer.
   phone?: 'contact' | 'login'
+  // H10 — this field's value came back REDACTED, because the operator does not
+  // hold "Sensitive contact data". The control renders disabled with an
+  // explanation, and buildPatch never sends it.
+  //
+  // WHY THE FIELD IS NOT SIMPLY LEFT EDITABLE. The value in the box is
+  // "••••03". Typing over it is the natural thing to do and there is no way to
+  // do it correctly: the operator cannot see what they are replacing. Leaving
+  // it editable also puts a mask one keystroke away from `users.phone`, the
+  // column sign-in resolves accounts by — the server refuses that write
+  // (backend/.../admin_contact_write_guard.go), but a refusal the operator
+  // cannot act on is a dead end, not a safeguard. Seeing the value is a
+  // precondition for changing it; whoever needs to change it needs the
+  // permission, which a Super-Admin grants on الصلاحيات.
+  readOnly?: boolean
 }
 
 type Props = {
@@ -105,9 +119,31 @@ function cleanFieldValue(f: FieldSpec, raw: string): string {
   return canonicalPhone(raw) || stripped
 }
 
-export default function EditModal({ open, title, initial, fields, onSave, onClose, mode = 'edit', saveLabel }: Props) {
+export default function EditModal({ open, title, initial, fields: declaredFields, onSave, onClose, mode = 'edit', saveLabel }: Props) {
   const { t } = useI18n()
   const statusLabel = useStatusLabel()
+
+  // H10 — a field whose CURRENT value arrived redacted is locked, wherever it
+  // appears. Decided from the VALUE the server actually sent rather than from
+  // the caller's belief about its own permissions, which is what makes this
+  // correct with no per-page list to maintain:
+  //
+  //   • the pages that show personal contact data get the lock automatically;
+  //   • the pages that show the ORGANISATION'S own numbers (Partners, City
+  //     Guide) never do, because those values are never redacted;
+  //   • it is right during the window before the permission matrix has loaded,
+  //     and right again if a Super-Admin changes the permission mid-session.
+  //
+  // Only in edit mode: a create form starts empty, so there is nothing hidden
+  // to protect and no reason to disable the box.
+  const fields = useMemo(
+    () =>
+      declaredFields.map((f) =>
+        mode === 'edit' && !f.readOnly && isRedactedContact(initial[f.key]) ? { ...f, readOnly: true } : f,
+      ),
+    [declaredFields, initial, mode],
+  )
+
   const initialStrings = useMemo(() => {
     const m: Record<string, string> = {}
     for (const f of fields) {
@@ -170,6 +206,11 @@ export default function EditModal({ open, title, initial, fields, onSave, onClos
   function buildPatch(): Record<string, unknown> {
     const patch: Record<string, unknown> = {}
     for (const f of fields) {
+      // H10 — a read-only field is never part of the patch. The control is
+      // disabled, so this is belt-and-braces: it also covers a caller that
+      // seeds `initial` with a redacted value and a field list that changes
+      // under it (the pages poll, and `fields` is rebuilt on every render).
+      if (f.readOnly) continue
       // E7 — clean BOTH sides before comparing, so re-typing the same number
       // with different spacing counts as "unchanged" and no pointless write is
       // sent, while a genuine edit is sent in the cleaned form.
@@ -212,6 +253,10 @@ export default function EditModal({ open, title, initial, fields, onSave, onClos
     setErr(null)
     // Required-field check (only when the field changed to empty).
     for (const f of fields) {
+      // H10 — a required field that is also read-only must not block the save.
+      // The phone box is `required`, so without this skip an operator who
+      // cannot see the number could not save ANY other change on the row.
+      if (f.readOnly) continue
       if (f.required) {
         const v = (values[f.key] ?? '').trim()
         if (v === '') {
@@ -354,7 +399,7 @@ export default function EditModal({ open, title, initial, fields, onSave, onClos
               }
               return (
                 <label key={f.key} className="form-row">
-                  <span className="form-label">{label}{f.required && <span className="req">*</span>}</span>
+                  <span className="form-label">{label}{f.required && !f.readOnly && <span className="req">*</span>}</span>
                   <input
                     ref={ref as React.RefObject<HTMLInputElement>}
                     type={f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : f.type === 'password' ? 'password' : 'text'}
@@ -364,7 +409,7 @@ export default function EditModal({ open, title, initial, fields, onSave, onClos
                     inputMode={f.phone ? 'tel' : undefined}
                     value={v}
                     placeholder={placeholder}
-                    disabled={busy}
+                    disabled={busy || !!f.readOnly}
                     // A phone number always reads left-to-right, whatever the
                     // dashboard's direction — the same reason formatPhone
                     // isolates it on the display side (E1).
@@ -376,8 +421,12 @@ export default function EditModal({ open, title, initial, fields, onSave, onClos
                     // spacing: leaving the field is not the moment to rewrite
                     // "0750…" into "964750…" under their cursor — buildPatch
                     // does the canonical step when they actually save.
-                    onBlur={f.phone ? (e) => setV(stripPhoneFormatting(e.target.value)) : undefined}
+                    onBlur={f.phone && !f.readOnly ? (e) => setV(stripPhoneFormatting(e.target.value)) : undefined}
                   />
+                  {/* H10 — say WHY the box is dead. A disabled control with no
+                      explanation reads as a broken screen, and the operator
+                      has an action available to them: ask for the permission. */}
+                  {f.readOnly && <span className="form-hint">{t('hint.contact_hidden')}</span>}
                 </label>
               )
             })}

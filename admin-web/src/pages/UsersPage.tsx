@@ -13,7 +13,7 @@ import { useToast } from '../lib/toast'
 import { useI18n } from '../lib/i18n'
 import { type CsvColumn } from '../lib/csv'
 import { formatPhone } from '../lib/phone'
-import { useCanViewSensitive, usePermission, maskContact } from '../lib/permissions'
+import { usePermission } from '../lib/permissions'
 import { useFieldRules, type FieldRuleState } from '../lib/fieldRules'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
@@ -145,7 +145,6 @@ export default function UsersPage() {
   const { t } = useI18n()
   const { user: authUser } = useAuth()
   const amSuper = isSuperAdmin(authUser)
-  const canViewSensitive = useCanViewSensitive(authUser)
   const { state: newUserFieldState } = useFieldRules('user_')
   const newUserFields = useMemo(() => buildNewUserFields(newUserFieldState), [newUserFieldState])
   // Note #4 — Archive is the reversible, non-destructive alternative to
@@ -300,7 +299,13 @@ export default function UsersPage() {
           <span className="muted">—</span>
         )),
     },
-    { key: 'phone', header: t('col.phone'), cell: (u) => canViewSensitive ? formatPhone(u.phone) : maskContact(u.phone, false) },
+    // H10 — no client-side masking here any more. The SERVER decides what this
+    // column contains: a caller without `sensitive_data` receives "••••03" in
+    // the JSON, not the number with a mask painted over it in the browser. The
+    // old version hid the value on screen while the real one sat in the page's
+    // network data, which is where the client note actually landed. formatPhone
+    // passes a redaction through untouched.
+    { key: 'phone', header: t('col.phone'), cell: (u) => formatPhone(u.phone) },
     {
       // Note #42 — test-phase internal app wallet balance (IQD). Guests
       // never have one (nothing credits/spends it for them).

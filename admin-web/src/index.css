@@ -1844,6 +1844,18 @@ nav .nav-group-header:hover { background: var(--panel-2); color: var(--text-h); 
 .form-row input:focus,
 .form-row select:focus,
 .form-row textarea:focus { box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.12); }
+/* H10 — the sentence under a field the operator may not see or edit
+   (EditModal's `readOnly`). Muted rather than red: this is not their mistake
+   and not an error, it is a permission they can be granted. Start-aligned and
+   in the base text size scale so it flips with the Arabic layout. */
+.form-hint {
+  font-size: var(--text-xs);
+  color: var(--muted);
+  line-height: 1.45;
+}
+.form-row input:disabled,
+.form-row textarea:disabled,
+.form-row select:disabled { opacity: 0.65; cursor: not-allowed; }
 @media (max-width: 560px) {
   .form-grid { grid-template-columns: 1fr; }
 }

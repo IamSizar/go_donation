@@ -1029,6 +1029,11 @@ const ckb: DeepPartial<typeof en> = {
     // بووەتە بڕوانامەی هەژمار، بۆیە گۆڕینی یاسایەکی دەسەڵاتە.
     protected_account: 'ئەم هەژمارە ئاستی دەسەڵاتی لە هی تۆ بەرزترە، بۆیە لێرەوە دەستکاری ناکرێت. لەگەڵ بەڕێوەبەری سەرەکی بدوێ.',
     staff_phone_super_admin_only: 'ژمارەی چوونەژوورەوەی هەژماری کارمەند تەنها بەڕێوەبەری سەرەکی دەیگۆڕێت، چونکە بەو ژمارەیە دەچێتە ژوورەوە.',
+    // H10 — NOT translated. The project's standing rule (TERMINOLOGY.md
+    // #21431) is that invented Kurdish is worse than a visible English
+    // fallback, and both Kurdish locales are written in Arabic script, so
+    // "it looks right" proves nothing. Logged in TRANSLATION_REQUEST.md.
+    redacted_contact_write: 'This contact detail is hidden from you, so it cannot be saved. Leave the field as it is, or ask the Primary Administrator for the "Sensitive contact data" permission.',
   },
 
   noun: {

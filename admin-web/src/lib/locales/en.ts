@@ -1142,6 +1142,9 @@ const en = {
     // number is the credential now, so who may rewrite it is an access rule.
     protected_account: 'This account has a higher access level than yours, so it cannot be edited from here. Ask the Primary Administrator.',
     staff_phone_super_admin_only: 'The sign-in number of a staff account can only be changed by the Primary Administrator, because it is what that person signs in with.',
+    // H10 — a redacted value was sent back to the server. Says what to do
+    // instead, because the operator cannot correct a number they cannot see.
+    redacted_contact_write: 'This contact detail is hidden from you, so it cannot be saved. Leave the field as it is, or ask the Primary Administrator for the "Sensitive contact data" permission.',
     // Support reply — the handler sends these as a stable `code` so the
     // operator never sees the store's raw English.
     reply_empty: 'Write a reply before sending it.',
@@ -1511,6 +1514,10 @@ const en = {
   // `placeholder` literals because there is nothing in them to translate.
   hint: {
     leave_blank_unchanged: 'Leave blank to keep unchanged',
+    // H10 — shown under a contact field the operator may not see. Names the
+    // permission by the same words the الصلاحيات page uses, so they can ask
+    // for the right thing.
+    contact_hidden: 'Hidden — needs the "Sensitive contact data" permission',
     rating_1_5_or_0: '1-5, or 0 to clear',
     eg_50_families: 'e.g. 50 families',
     one_key_value_per_line: 'One "Key: Value" per line',
