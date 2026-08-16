@@ -12,6 +12,8 @@ import (
 
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
 	"github.com/karam-flutter/humanitarian-backend/internal/notify"
+	"github.com/karam-flutter/humanitarian-backend/internal/permissions"
+	"github.com/karam-flutter/humanitarian-backend/internal/sensitive"
 	"github.com/karam-flutter/humanitarian-backend/internal/staffchat"
 )
 
@@ -25,6 +27,9 @@ type StaffChatHandler struct {
 	Store    *staffchat.Store
 	Notifier *notify.Notifier
 	Pool     *pgxpool.Pool
+	// Perms — H10. The directory hands every staff account's own sign-in
+	// number to every other staff account. Set from main.go; nil masks.
+	Perms *permissions.Store
 }
 
 func NewStaffChatHandler(s *staffchat.Store, n *notify.Notifier, pool *pgxpool.Pool) *StaffChatHandler {
@@ -69,6 +74,16 @@ func (h *StaffChatHandler) Directory(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
 		return
+	}
+	// H10 — a staff member's number is that PERSON'S, not the organisation's,
+	// and it is the number their own dashboard sign-in code is sent to. This
+	// route carries no perm() gate at all (main.go: internal staff chat is open
+	// to every tier by design), so the `sensitive_data` check here is the only
+	// thing standing between an employee and the whole staff phone list.
+	if !canViewContact(c, h.Perms) {
+		for i := range items {
+			items[i].Phone = sensitive.Mask(items[i].Phone)
+		}
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "items": items})
 }

@@ -15,7 +15,9 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
 	"github.com/karam-flutter/humanitarian-backend/internal/chat"
 	"github.com/karam-flutter/humanitarian-backend/internal/notify"
+	"github.com/karam-flutter/humanitarian-backend/internal/permissions"
 	"github.com/karam-flutter/humanitarian-backend/internal/privacy"
+	"github.com/karam-flutter/humanitarian-backend/internal/sensitive"
 )
 
 // ChatHandler exposes the donor ↔ campaign-owner chat endpoints (Phase 28).
@@ -23,6 +25,9 @@ type ChatHandler struct {
 	Store    *chat.Store
 	Notifier *notify.Notifier
 	Pool     *pgxpool.Pool
+	// Perms — H10. The oversight list carries BOTH parties' numbers, and the
+	// dashboard exports them to CSV. Set from main.go; nil masks.
+	Perms *permissions.Store
 }
 
 func NewChatHandler(s *chat.Store, n *notify.Notifier, pool *pgxpool.Pool) *ChatHandler {
@@ -414,6 +419,15 @@ func (h *ChatHandler) AdminList(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
 		return
+	}
+	// H10 — a donor and a project owner, both app users. Neither number is
+	// visible on this screen today; both travel in the JSON and both land in
+	// the page's CSV export.
+	if !canViewContact(c, h.Perms) {
+		for i := range items {
+			items[i].DonorPhone = sensitive.MaskPtr(items[i].DonorPhone)
+			items[i].OwnerPhone = sensitive.MaskPtr(items[i].OwnerPhone)
+		}
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "items": items})
 }

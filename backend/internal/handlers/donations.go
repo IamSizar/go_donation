@@ -15,7 +15,9 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
 	"github.com/karam-flutter/humanitarian-backend/internal/donations"
 	"github.com/karam-flutter/humanitarian-backend/internal/notify"
+	"github.com/karam-flutter/humanitarian-backend/internal/permissions"
 	"github.com/karam-flutter/humanitarian-backend/internal/privacy"
+	"github.com/karam-flutter/humanitarian-backend/internal/sensitive"
 	"github.com/karam-flutter/humanitarian-backend/internal/wallet"
 )
 
@@ -26,6 +28,9 @@ type DonationsHandler struct {
 	// Wallet — Note #42, lets payment_method=="app_wallet" debit the donor's
 	// internal test-phase wallet instead of just recording a manual method.
 	Wallet *wallet.Store
+	// Perms — H10, for AdminList's donor_phone column. Set from main.go; nil
+	// masks (canViewContact fails closed).
+	Perms *permissions.Store
 }
 
 func NewDonationsHandler(s *donations.Store, n *notify.Notifier, w *wallet.Store) *DonationsHandler {
@@ -468,6 +473,13 @@ func (h *DonationsHandler) AdminList(c *gin.Context) {
 			"error":   "Could not load contributions.",
 		})
 		return
+	}
+	// H10 — the donor is a person. Their number is on every row of the
+	// contributions table and in its CSV export.
+	if !canViewContact(c, h.Perms) {
+		for i := range res.Items {
+			res.Items[i].DonorPhone = sensitive.Mask(res.Items[i].DonorPhone)
+		}
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"success":     true,

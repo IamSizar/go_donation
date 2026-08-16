@@ -13,6 +13,8 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
 	"github.com/karam-flutter/humanitarian-backend/internal/marriagechat"
 	"github.com/karam-flutter/humanitarian-backend/internal/notify"
+	"github.com/karam-flutter/humanitarian-backend/internal/permissions"
+	"github.com/karam-flutter/humanitarian-backend/internal/sensitive"
 )
 
 // MarriageChatHandler exposes Note #35's staff-mediated Marriage chat: the
@@ -23,6 +25,10 @@ type MarriageChatHandler struct {
 	Store    *marriagechat.Store
 	Notifier *notify.Notifier
 	Pool     *pgxpool.Pool
+	// Perms — H10. This section is identity-masked for the PARTICIPANTS by
+	// design (Note #35); the staff oversight lists hand out both real numbers.
+	// Set from main.go; nil masks.
+	Perms *permissions.Store
 }
 
 func NewMarriageChatHandler(s *marriagechat.Store, n *notify.Notifier, pool *pgxpool.Pool) *MarriageChatHandler {
@@ -58,6 +64,13 @@ func (h *MarriageChatHandler) AdminListMeetingRequests(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
 		return
+	}
+	// H10 — the requester and the profile owner, both app users.
+	if !canViewContact(c, h.Perms) {
+		for i := range items {
+			items[i].FromPhone = sensitive.MaskPtr(items[i].FromPhone)
+			items[i].OwnerPhone = sensitive.MaskPtr(items[i].OwnerPhone)
+		}
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "items": items})
 }
@@ -260,6 +273,13 @@ func (h *MarriageChatHandler) AdminList(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
 		return
+	}
+	// H10 — same two people as the meeting request above, once it is approved.
+	if !canViewContact(c, h.Perms) {
+		for i := range items {
+			items[i].RequesterPhone = sensitive.MaskPtr(items[i].RequesterPhone)
+			items[i].OwnerPhone = sensitive.MaskPtr(items[i].OwnerPhone)
+		}
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "items": items})
 }

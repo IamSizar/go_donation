@@ -19,6 +19,7 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/notify"
 	"github.com/karam-flutter/humanitarian-backend/internal/permissions"
 	"github.com/karam-flutter/humanitarian-backend/internal/reports"
+	"github.com/karam-flutter/humanitarian-backend/internal/sensitive"
 	"github.com/karam-flutter/humanitarian-backend/internal/sponsorships"
 	"github.com/karam-flutter/humanitarian-backend/internal/support"
 	"github.com/karam-flutter/humanitarian-backend/internal/users"
@@ -32,6 +33,10 @@ import (
 
 type UsersAdminHandler struct {
 	Users *users.Store
+	// Perms — H10. `users.phone` is both the person's contact number AND the
+	// string sign-in resolves accounts by, so this list is the most sensitive
+	// of the twenty. Set from main.go; nil masks (canViewContact fails closed).
+	Perms *permissions.Store
 }
 
 func NewUsersAdminHandler(u *users.Store) *UsersAdminHandler {
@@ -47,6 +52,14 @@ func (h *UsersAdminHandler) List(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch users."})
 		return
+	}
+	// H10 — until now the dashboard masked this column in the browser while the
+	// real number still travelled in the JSON behind it. The mask belongs here,
+	// where the caller's permission is actually known.
+	if !canViewContact(c, h.Perms) {
+		for i := range res.Items {
+			res.Items[i].Phone = sensitive.Mask(res.Items[i].Phone)
+		}
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"status":     "success",
@@ -627,6 +640,10 @@ func (h *MarriageHandler) Post(c *gin.Context) {
 type SponsorshipsHandler struct {
 	Store    *sponsorships.Store
 	Notifier *notify.Notifier
+	// Perms — H10. This route is in the `authed` group, not `admin`: it is the
+	// mobile app's sponsorship directory AND the dashboard's sponsorships list.
+	// Set from main.go; nil masks for staff.
+	Perms *permissions.Store
 }
 
 func NewSponsorshipsHandler(s *sponsorships.Store, n *notify.Notifier) *SponsorshipsHandler {
@@ -691,6 +708,16 @@ func (h *SponsorshipsHandler) Get(c *gin.Context) {
 	// purpose (#53). Applied unconditionally because it is a no-op on the
 	// filtered path: those rows are the caller's own and are left untouched.
 	sponsorships.MaskAmountsForViewer(items, viewerID)
+	// H10 — the donor is a person. Applied only to STAFF callers who lack
+	// `sensitive_data`: what one APP USER may see of another is already decided
+	// by that donor's own Privacy Settings, inside the store's List above
+	// (K8, internal/privacy), and answering the same question twice in two
+	// packages is how the two answers end up disagreeing.
+	if staffMustNotSeeContact(c, h.Perms) {
+		for i := range items {
+			items[i].DonorPhone = sensitive.MaskPtr(items[i].DonorPhone)
+		}
+	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "items": items})
 }
 

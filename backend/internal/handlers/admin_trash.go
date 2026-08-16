@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
+	"github.com/karam-flutter/humanitarian-backend/internal/permissions"
 )
 
 // AdminTrashHandler backs the Phase 7 Trash container (G-06 / A-16): listing
@@ -22,6 +24,10 @@ import (
 // which the catalogue, task and comment handlers now call as well.
 type AdminTrashHandler struct {
 	Pool *pgxpool.Pool
+	// Perms — H10. `payload` is a whole-row snapshot, so the trash re-serves
+	// every column of every table it holds — including the phone numbers the
+	// live lists redact. Set from main.go; nil masks.
+	Perms *permissions.Store
 }
 
 func NewAdminTrashHandler(pool *pgxpool.Pool) *AdminTrashHandler {
@@ -100,6 +106,9 @@ func (h *AdminTrashHandler) List(c *gin.Context) {
 	}
 	defer rows.Close()
 
+	// H10 — asked once, outside the loop (it is a database round-trip).
+	canSeeContact := canViewContact(c, h.Perms)
+
 	items := []gin.H{}
 	for rows.Next() {
 		var (
@@ -113,6 +122,17 @@ func (h *AdminTrashHandler) List(c *gin.Context) {
 		if err := rows.Scan(&id, &table, &rowID, &deletedBy, &deletedAt, &deletedByName, &payload); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
 			return
+		}
+		// H10 — the payload is `to_jsonb(row.*)` of whatever was deleted, so a
+		// deleted user row re-serves the exact phone number the users list
+		// redacts, to anyone holding `trash view`. Masked per source table, so
+		// a deleted City Guide place keeps its public office number.
+		//
+		// This rewrites only the RESPONSE. Restore re-reads `payload` straight
+		// from the database (see Restore below), so a masked preview can never
+		// put a redaction back into a live table.
+		if !canSeeContact && tableHoldsPersonalContact(table) {
+			payload = maskPayloadContact(table, payload)
 		}
 		items = append(items, gin.H{
 			"id":              id,
@@ -287,4 +307,31 @@ func (h *AdminTrashHandler) Purge(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "id": id, "purged": true})
+}
+
+// maskPayloadContact redacts the contact-shaped keys of a trash payload for a
+// caller without `sensitive_data` (H10).
+//
+// The payload is `to_jsonb(row.*)` — a whole deleted row, whose columns differ
+// per source table and are not known at compile time, which is why this works
+// on a decoded map rather than on a struct like the typed lists do.
+//
+// If the snapshot cannot be decoded or re-encoded, the ORIGINAL bytes are NOT
+// returned: an undecodable payload is replaced with an empty object. Handing
+// back the raw row because the redaction failed would turn every parse bug into
+// the leak this function exists to prevent. The preview loses a label; the
+// record itself is untouched and still restorable.
+func maskPayloadContact(table string, payload []byte) []byte {
+	var row map[string]any
+	if err := json.Unmarshal(payload, &row); err != nil {
+		log.Printf("[h10] trash payload for %s could not be decoded, withholding it: %v", table, err)
+		return []byte(`{}`)
+	}
+	maskContactColumns(table, row)
+	out, err := json.Marshal(row)
+	if err != nil {
+		log.Printf("[h10] trash payload for %s could not be re-encoded, withholding it: %v", table, err)
+		return []byte(`{}`)
+	}
+	return out
 }

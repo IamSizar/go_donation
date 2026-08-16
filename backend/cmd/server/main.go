@@ -318,6 +318,44 @@ func main() {
 	// somebody else's timeline. See internal/handlers/history_code.go.
 	historyH := handlers.NewHistoryHandler(historyStore, userStore, permStore)
 
+	// ── H10 — who may see a raw phone number or email ───────────────────
+	//
+	// Every handler below returns somebody's personal contact details, so each
+	// one has to ask whether THIS caller holds `sensitive_data` before sending
+	// them. The permission has existed since §24 and was consulted in exactly
+	// one place (the detail view) while ~20 endpoints shipped raw numbers,
+	// because only two handlers carried a permissions.Store and the rest had no
+	// way to ask.
+	//
+	// Wired here, in one block, rather than through twenty constructor
+	// signatures — the same pattern the other optional collaborators use
+	// (adminCreateH.Codes, adminStatusH.Schedule, donationStore.Types). The
+	// field is nil until this runs, and canViewContact reads nil as "no", so a
+	// handler nobody wired MASKS rather than leaks. That is the failure mode
+	// this shape was chosen for: forgetting a line here costs a masked column,
+	// not a data leak.
+	//
+	// NOT in this list, deliberately: the endpoints that serve the
+	// ORGANISATION'S OWN published contact details — partners, City Guide
+	// places, payment methods, the support WhatsApp number, donation-code
+	// notify numbers. Those are handed to the public on purpose (GET
+	// /api/partners needs no auth at all); hiding them from staff would break
+	// the screen without protecting anybody. See personalContactTables in
+	// internal/handlers/admin_contact_view.go for the full classification.
+	adminListsH.Perms = permStore // in-kind · support · volunteer apps · signups · board · campaigns
+	usersAdminH.Perms = permStore // /admin/users — also the sign-in identity
+	registrationAdminH.Perms = permStore
+	donationsH.Perms = permStore    // donor_phone
+	beneficiaryH.Perms = permStore  // case phone
+	chatH.Perms = permStore         // both parties of a donor↔owner thread
+	caseVolChatH.Perms = permStore  // volunteer + beneficiary
+	marriageChatH.Perms = permStore // requester + profile owner
+	staffChatH.Perms = permStore    // the staff directory's own numbers
+	profileChangesH.Perms = permStore
+	eventsH.Perms = permStore       // the activity feed's actor phone
+	adminTrashH.Perms = permStore   // whole-row payloads of deleted records
+	sponsorshipsH.Perms = permStore // donor_phone, on a route the app shares
+
 	r := gin.Default()
 
 	// CORS — the admin dashboard is served from a different origin in production

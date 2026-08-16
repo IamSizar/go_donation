@@ -3,32 +3,14 @@ package handlers
 import (
 	"log"
 	"net/http"
-	"regexp"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/karam-flutter/humanitarian-backend/internal/auth"
 	"github.com/karam-flutter/humanitarian-backend/internal/permissions"
 )
-
-// contactKeyRe matches column names that hold sensitive contact info, so the
-// detail view can redact them for staff without the sensitive_data permission.
-var contactKeyRe = regexp.MustCompile(`(?i)(phone|mobile|email|whatsapp|contact_number|tel)`)
-
-// maskContact redacts a value, keeping only the last 2 chars for a hint.
-func maskContact(v any) any {
-	s, ok := v.(string)
-	if !ok || s == "" {
-		return v
-	}
-	if len(s) <= 2 {
-		return "••"
-	}
-	return "••••" + s[len(s)-2:]
-}
 
 // AdminDetailHandler exposes Phase 16's GET /api/admin/detail/:resource/:id
 // endpoint. It returns the full row from any allowlisted admin resource so
@@ -347,21 +329,28 @@ func (h *AdminDetailHandler) Detail(c *gin.Context) {
 		}
 	}
 
-	// §24 — redact sensitive contact fields (phone/email/…) unless this staff
-	// member's tier is granted the `sensitive_data` view permission. Enforced
-	// server-side so the raw value never leaves the backend for the ungranted.
-	if h.Perms != nil {
-		if actor, ok := auth.UserFromGin(c); ok && actor != nil {
-			tier := permissions.TierFrom(actor.StaffTier)
-			canSee, _ := h.Perms.Allowed(c.Request.Context(), tier, "sensitive_data", "view")
-			if !canSee {
-				for k, v := range row {
-					if contactKeyRe.MatchString(strings.ToLower(k)) {
-						row[k] = maskContact(v)
-					}
-				}
-			}
-		}
+	// §24 / H10 — redact contact fields unless this caller holds
+	// `sensitive_data`. This was the ONE place in the backend that asked the
+	// question; it now asks it the same way as the other twenty endpoints
+	// (admin_contact_view.go), which changed two things here on purpose:
+	//
+	//   - The answer honours a per-EMPLOYEE override, not just the tier. It
+	//     used to disagree with GET /api/admin/permissions/me — the endpoint
+	//     the dashboard asks about itself — so revoking the permission for one
+	//     named employee hid the column on screen while this route kept sending
+	//     the real value underneath it.
+	//
+	//   - Partners and City Guide places are NO LONGER masked. Their numbers
+	//     are the organisations' own published office lines, served to the
+	//     PUBLIC at GET /api/partners; hiding from an employee what any visitor
+	//     can read is a broken screen, not privacy. The classification lives in
+	//     personalContactTables, shared with the trash preview.
+	//
+	// The `sponsorships` detail merges in a donor phone above under the key
+	// `donor_phone`; `table` is "sponsorships", which is classified personal,
+	// so that merged column is covered by the same pass.
+	if !canViewContact(c, h.Perms) {
+		maskContactColumns(table, row)
 	}
 
 	c.JSON(http.StatusOK, gin.H{"success": true, "resource": slug, "item": row})

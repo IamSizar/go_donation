@@ -12,6 +12,8 @@ import (
 
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
 	"github.com/karam-flutter/humanitarian-backend/internal/events"
+	"github.com/karam-flutter/humanitarian-backend/internal/permissions"
+	"github.com/karam-flutter/humanitarian-backend/internal/sensitive"
 )
 
 // EventsHandler is the activity-event log endpoint set: the mobile app POSTs
@@ -20,6 +22,9 @@ import (
 type EventsHandler struct {
 	Store *events.Store
 	Pool  *pgxpool.Pool
+	// Perms — H10. Every activity line carries the actor's phone, denormalised
+	// onto app_events at write time. Set from main.go; nil masks.
+	Perms *permissions.Store
 }
 
 func NewEventsHandler(store *events.Store, pool *pgxpool.Pool) *EventsHandler {
@@ -95,6 +100,19 @@ func (h *EventsHandler) AdminList(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Could not load events."})
 		return
+	}
+	// H10 — the activity feed prints "<name> · <phone>" for the person who did
+	// the thing. The number is denormalised onto app_events at write time
+	// (admin_status_events.go), and metadata.actor_phone carries a second copy,
+	// so both have to go — a redaction with a spare copy beside it is not one.
+	if !canViewContact(c, h.Perms) {
+		for i := range items {
+			items[i].Number = sensitive.Mask(items[i].Number)
+			items[i].NumberDigits = sensitive.Mask(items[i].NumberDigits)
+			if v, ok := items[i].Metadata["actor_phone"].(string); ok {
+				items[i].Metadata["actor_phone"] = sensitive.Mask(v)
+			}
+		}
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "items": items})
 }

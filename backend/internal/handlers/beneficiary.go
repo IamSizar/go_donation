@@ -13,6 +13,8 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
 	"github.com/karam-flutter/humanitarian-backend/internal/beneficiary"
 	"github.com/karam-flutter/humanitarian-backend/internal/notify"
+	"github.com/karam-flutter/humanitarian-backend/internal/permissions"
+	"github.com/karam-flutter/humanitarian-backend/internal/sensitive"
 	"github.com/karam-flutter/humanitarian-backend/internal/users"
 	"github.com/karam-flutter/humanitarian-backend/internal/volunteers"
 )
@@ -39,6 +41,9 @@ type BeneficiaryHandler struct {
 	Store    *beneficiary.Store
 	Users    *users.Store
 	Notifier *notify.Notifier
+	// Perms — H10, for AdminCases' phone column (the case's own contact
+	// number, not the charity's). Set from main.go; nil masks.
+	Perms *permissions.Store
 }
 
 func NewBeneficiaryHandler(s *beneficiary.Store, u *users.Store, n *notify.Notifier) *BeneficiaryHandler {
@@ -307,6 +312,13 @@ func (h *BeneficiaryHandler) AdminCases(c *gin.Context) {
 		log.Printf("[admin] AdminListCases failed: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
 		return
+	}
+	// H10 — the applicant's contact number, on a list every tier with the
+	// beneficiary module can open.
+	if !canViewContact(c, h.Perms) {
+		for i := range res.Items {
+			res.Items[i].Phone = sensitive.MaskPtr(res.Items[i].Phone)
+		}
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"success":     true,

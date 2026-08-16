@@ -8,6 +8,8 @@ import (
 
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
 	"github.com/karam-flutter/humanitarian-backend/internal/notify"
+	"github.com/karam-flutter/humanitarian-backend/internal/permissions"
+	"github.com/karam-flutter/humanitarian-backend/internal/sensitive"
 	"github.com/karam-flutter/humanitarian-backend/internal/users"
 )
 
@@ -17,6 +19,9 @@ import (
 type RegistrationAdminHandler struct {
 	Users    *users.Store
 	Notifier *notify.Notifier
+	// Perms — H10. The queue lists the number each applicant signed up with.
+	// Set from main.go; nil masks (canViewContact fails closed).
+	Perms *permissions.Store
 }
 
 func NewRegistrationAdminHandler(u *users.Store, n *notify.Notifier) *RegistrationAdminHandler {
@@ -34,6 +39,12 @@ func (h *RegistrationAdminHandler) List(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "error": "Failed to list registrations."})
 		return
+	}
+	// H10 — an applicant's number, on a queue every staff tier can open.
+	if !canViewContact(c, h.Perms) {
+		for i := range res.Items {
+			res.Items[i].Phone = sensitive.Mask(res.Items[i].Phone)
+		}
 	}
 	// Flat envelope to match the SPA's AdminPageResp<T> (same shape the other
 	// admin list endpoints use).

@@ -12,6 +12,8 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
 	"github.com/karam-flutter/humanitarian-backend/internal/casevolchat"
 	"github.com/karam-flutter/humanitarian-backend/internal/notify"
+	"github.com/karam-flutter/humanitarian-backend/internal/permissions"
+	"github.com/karam-flutter/humanitarian-backend/internal/sensitive"
 )
 
 // CaseVolunteerChatHandler exposes Note #36's Staff↔Volunteer↔Beneficiary
@@ -21,6 +23,9 @@ import (
 type CaseVolunteerChatHandler struct {
 	Store    *casevolchat.Store
 	Notifier *notify.Notifier
+	// Perms — H10. Volunteer and beneficiary numbers, both exported to CSV by
+	// the dashboard. Set from main.go; nil masks.
+	Perms *permissions.Store
 }
 
 func NewCaseVolunteerChatHandler(s *casevolchat.Store, n *notify.Notifier) *CaseVolunteerChatHandler {
@@ -148,6 +153,13 @@ func (h *CaseVolunteerChatHandler) AdminList(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
 		return
+	}
+	// H10 — the volunteer and the beneficiary are both people.
+	if !canViewContact(c, h.Perms) {
+		for i := range items {
+			items[i].VolunteerPhone = sensitive.MaskPtr(items[i].VolunteerPhone)
+			items[i].BeneficiaryPhone = sensitive.MaskPtr(items[i].BeneficiaryPhone)
+		}
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "items": items})
 }

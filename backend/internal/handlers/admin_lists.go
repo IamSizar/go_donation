@@ -12,6 +12,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
+	"github.com/karam-flutter/humanitarian-backend/internal/permissions"
+	"github.com/karam-flutter/humanitarian-backend/internal/sensitive"
 )
 
 // AdminListsHandler aggregates the cross-user admin list endpoints that don't
@@ -19,6 +21,13 @@ import (
 // with the standard envelope used elsewhere.
 type AdminListsHandler struct {
 	Pool *pgxpool.Pool
+	// Perms — H10. Six of these lists carry somebody's phone number, so they
+	// need to ask whether THIS caller holds `sensitive_data`. Set from main.go
+	// alongside the other handlers rather than taken as a constructor argument,
+	// matching how the optional collaborators on the create/status handlers are
+	// wired. Nil means the question cannot be answered, and canViewContact
+	// reads that as "no" — a handler nobody wired masks rather than leaks.
+	Perms *permissions.Store
 }
 
 func NewAdminListsHandler(pool *pgxpool.Pool) *AdminListsHandler {
@@ -249,6 +258,12 @@ func (h *AdminListsHandler) InKindDonations(c *gin.Context) {
 		}
 		items = append(items, k)
 	}
+	// H10 — the donor is a person; their number is theirs, not the charity's.
+	if !canViewContact(c, h.Perms) {
+		for i := range items {
+			items[i].DonorPhone = sensitive.MaskPtr(items[i].DonorPhone)
+		}
+	}
 	c.JSON(http.StatusOK, envelopePage(items, pageMeta(p, pp, total)))
 }
 
@@ -333,6 +348,12 @@ func (h *AdminListsHandler) SupportTickets(c *gin.Context) {
 			return
 		}
 		items = append(items, t)
+	}
+	// H10 — the ticket's author is an app user, not the organisation.
+	if !canViewContact(c, h.Perms) {
+		for i := range items {
+			items[i].UserPhone = sensitive.MaskPtr(items[i].UserPhone)
+		}
 	}
 	c.JSON(http.StatusOK, envelopePage(items, pageMeta(p, pp, total)))
 }
@@ -473,6 +494,15 @@ func (h *AdminListsHandler) VolunteerApplications(c *gin.Context) {
 			a.AvailabilitySchedule = []scheduleRow{}
 		}
 		items = append(items, a)
+	}
+	// H10 — two numbers per row, both the applicant's: the one on their user
+	// account and the one they typed onto the application form. Masking only
+	// one of them would leak the same person through the other column.
+	if !canViewContact(c, h.Perms) {
+		for i := range items {
+			items[i].UserPhone = sensitive.MaskPtr(items[i].UserPhone)
+			items[i].Phone = sensitive.MaskPtr(items[i].Phone)
+		}
 	}
 	c.JSON(http.StatusOK, envelopePage(items, pageMeta(p, pp, total)))
 }
@@ -642,6 +672,12 @@ func (h *AdminListsHandler) Campaigns(c *gin.Context) {
 		}
 		items = append(items, cm)
 	}
+	// H10 — a campaign's owner is the app user who raised it, not the charity.
+	if !canViewContact(c, h.Perms) {
+		for i := range items {
+			items[i].OwnerPhone = sensitive.MaskPtr(items[i].OwnerPhone)
+		}
+	}
 	c.JSON(http.StatusOK, envelopePage(items, pageMeta(p, pp, total)))
 }
 
@@ -771,6 +807,12 @@ func (h *AdminListsHandler) VolunteerMissionSignups(c *gin.Context) {
 			return
 		}
 		items = append(items, r)
+	}
+	// H10 — the volunteer's own number, joined in from their user account.
+	if !canViewContact(c, h.Perms) {
+		for i := range items {
+			items[i].UserPhone = sensitive.MaskPtr(items[i].UserPhone)
+		}
 	}
 	c.JSON(http.StatusOK, envelopePage(items, pageMeta(p, pp, total)))
 }
@@ -1035,6 +1077,13 @@ func (h *AdminListsHandler) VolunteerBoard(c *gin.Context) {
 	}
 	defer srows.Close()
 
+	// H10 — asked ONCE, here, rather than per signup: it is a database
+	// round-trip, and the board renders every open mission's whole roster.
+	// Applied at scan time because the rows are then fanned out into four
+	// separate lanes — masking after the fan-out would mean walking all four
+	// and would leak the day somebody adds a fifth.
+	canSeeContact := canViewContact(c, h.Perms)
+
 	for srows.Next() {
 		var sg boardSignup
 		var missionID int64
@@ -1049,6 +1098,9 @@ func (h *AdminListsHandler) VolunteerBoard(c *gin.Context) {
 		); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
 			return
+		}
+		if !canSeeContact {
+			sg.Phone = sensitive.MaskPtr(sg.Phone)
 		}
 		m, ok := missionByID[missionID]
 		if !ok {

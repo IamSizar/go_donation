@@ -114,33 +114,21 @@ func IsMasked(v string) bool {
 	return strings.ContainsRune(v, mark)
 }
 
-// CanView reports whether a staff tier may see raw contact data.
+// CanViewForUser reports whether one named staff member may see raw contact
+// data.
 //
-// Resolution is the ordinary permissions one — a Super-Admin override, then the
-// stored (tier, module, action) row, then the module default — so a Super Admin
-// can grant `sensitive_data` to a supervisor or an employee from the الصلاحيات
-// matrix and it takes effect everywhere at once.
+// Resolution is Note 31's: the person's OWN override first, then their tier's
+// override, then the module default (admins only). It is deliberately the
+// per-user form rather than the tier-only one, because that is what
+// GET /api/admin/permissions/me answers and therefore what the dashboard
+// believes about itself. If the two disagreed, a Super-Admin revoking the
+// permission for a single employee would see the column disappear from the
+// screen while the server kept sending the real number in the JSON behind it.
 //
-// FAILURE IS CLOSED. A lookup that errors returns false: on a database blip the
-// dashboard shows masks, which is a cosmetic problem, rather than raw numbers,
-// which is the leak this whole package exists to stop. The error is returned
-// alongside so a caller that wants to log it can.
-func CanView(ctx context.Context, store *permissions.Store, tier permissions.Tier) (bool, error) {
-	if store == nil {
-		// No permission store wired means the question cannot be answered, and
-		// an unanswerable authorisation question is a "no".
-		return false, nil
-	}
-	allowed, err := store.Allowed(ctx, tier, Module, permissions.ActionView)
-	if err != nil {
-		return false, err
-	}
-	return allowed, nil
-}
-
-// CanViewForUser is CanView with Note 31's per-employee override applied: one
-// named staff member can be granted (or denied) raw contact data without moving
-// their whole tier. Falls back to the tier answer when no per-user row exists.
+// FAILURE IS CLOSED. A nil store — a handler that was never wired — answers
+// "no" rather than "yes", so a new endpoint that forgets this question masks
+// instead of leaking. A failed lookup returns the error alongside false so the
+// caller can log it and still fail safe.
 func CanViewForUser(ctx context.Context, store *permissions.Store, userID int64, tier permissions.Tier) (bool, error) {
 	if store == nil {
 		return false, nil
