@@ -268,6 +268,11 @@ func (s *Store) ListThreadsForUser(ctx context.Context, userID int64) ([]ThreadV
 		       CASE WHEN t.donor_user_id = $1 THEN 'donor' ELSE 'owner' END AS my_role,
 		       CASE WHEN t.donor_user_id = $1 THEN t.owner_user_id ELSE t.donor_user_id END AS other_id,
 		       op.full_name, ou.phone,
+		       -- K19: needed to decide whether this is a supervised PEER thread
+		       -- (both parties ordinary users) whose phone must be withheld.
+		       -- Selected here rather than looked up per row, which would be an
+		       -- N+1 across the whole list.
+		       ou.staff_tier,
 		       sp.full_name AS assigned_staff_name,
 		       lm.body, lm.created_at,
 		       COALESCE((
@@ -295,13 +300,25 @@ func (s *Store) ListThreadsForUser(ctx context.Context, userID int64) ([]ThreadV
 		return nil, err
 	}
 	defer rows.Close()
+	// K19 — is the VIEWER an ordinary user? Loaded once, not per row.
+	viewerIsPeer, err := s.isOrdinaryUser(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
 	out := []ThreadView{}
 	for rows.Next() {
 		var v ThreadView
+		var otherTier *string
 		if err := rows.Scan(&v.ID, &v.Status, &v.CampaignID, &v.CampaignTitle, &v.InitiatedBy, &v.UpdatedAt,
-			&v.MyRole, &v.OtherUserID, &v.OtherName, &v.OtherPhone, &v.AssignedStaffName,
+			&v.MyRole, &v.OtherUserID, &v.OtherName, &v.OtherPhone, &otherTier, &v.AssignedStaffName,
 			&v.LastMessage, &v.LastMessageAt, &v.UnreadCount); err != nil {
 			return nil, err
+		}
+		// K19 — withhold the counterpart's NUMBER on a supervised peer thread.
+		// See withholdPeerPhone in contactblocks.go for why the name stays.
+		if withholdPeerPhone(viewerIsPeer, otherTier) {
+			v.OtherPhone = nil
 		}
 		v.IncomingPending = v.Status == "pending" && v.InitiatedBy != userID
 		out = append(out, v)

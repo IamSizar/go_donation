@@ -1447,3 +1447,44 @@ language preference on the users row.
 The **SMS** carries no prose at all. It goes out through OTPIQ's `verification`
 flow, which renders the gateway's own template around the six digits, so there
 is nothing in it for this project to translate.
+
+---
+
+## K19 — the supervised chat refuses contact details (app, `humanitarian`)
+
+Same rule as every block above: **English and Arabic are written; ckb (سۆرانی)
+and kmr (بادینی) are NOT** — they fall back to English at runtime. No Kurdish
+was invented.
+
+The server refuses the message with HTTP **422** and a machine-readable
+`"code": "contact_details_blocked"` plus a `"kind"` of `phone`, `email` or
+`both`. The English `error` string it also sends is a **fallback for a client
+that does not know the code** — the app must switch on `code` + `kind` and render
+its own localized wording, exactly as it already does for `guest_restricted`.
+Nothing here should ever reach an Arabic screen in English.
+
+These three sentences are read by someone who has just had a message rejected,
+which is the moment a user is most likely to assume the app is broken. The tone
+has to make clear that (a) the message was **not** delivered, (b) this is a
+deliberate protection rather than a fault, and (c) there is a way to get what
+they wanted. The translation must keep all three; dropping the third turns a
+designed refusal into a dead end.
+
+| key | English | العربية | ckb / kmr |
+|---|---|---|---|
+| `chat.contact_blocked_phone` | Phone numbers cannot be shared in this chat. It is supervised for your safety — please keep the conversation here, and ask the responsible staff member if you need to arrange contact. | لا يمكن مشاركة أرقام الهاتف في هذه المحادثة. المحادثة تحت إشراف الموظف حمايةً لك — أبقِ الحديث هنا، وإن احتجت إلى ترتيب تواصل مباشر فاطلب ذلك من الموظف المسؤول. | **needed** |
+| `chat.contact_blocked_email` | Email addresses cannot be shared in this chat. It is supervised for your safety — please keep the conversation here, and ask the responsible staff member if you need to arrange contact. | لا يمكن مشاركة عناوين البريد الإلكتروني في هذه المحادثة. المحادثة تحت إشراف الموظف حمايةً لك — أبقِ الحديث هنا، وإن احتجت إلى ترتيب تواصل مباشر فاطلب ذلك من الموظف المسؤول. | **needed** |
+| `chat.contact_blocked_both` | Phone numbers and email addresses cannot be shared in this chat. It is supervised for your safety — please keep the conversation here, and ask the responsible staff member if you need to arrange contact. | لا يمكن مشاركة أرقام الهاتف أو عناوين البريد الإلكتروني في هذه المحادثة. المحادثة تحت إشراف الموظف حمايةً لك — أبقِ الحديث هنا، وإن احتجت إلى ترتيب تواصل مباشر فاطلب ذلك من الموظف المسؤول. | **needed** |
+
+### Dashboard side — the supervision list
+
+`GET /api/admin/chats/:id/contact-blocks` returns a `kind` of `phone` / `email` /
+`both` per refused attempt. Those three words need dashboard labels
+(`admin-web`), and the redacted body is served with the contact detail already
+replaced by `•••` server-side — that marker is not text and needs no translation.
+
+| key | English | العربية | ckb / kmr |
+|---|---|---|---|
+| `chat.blocked_kind_phone` | Phone number | رقم هاتف | **needed** |
+| `chat.blocked_kind_email` | Email address | بريد إلكتروني | **needed** |
+| `chat.blocked_kind_both` | Phone number and email | رقم هاتف وبريد إلكتروني | **needed** |

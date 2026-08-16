@@ -886,6 +886,10 @@ func main() {
 			admin.GET("/admin/chats/:id/messages", perm("messages", "view"), chatH.AdminMessages)
 			admin.POST("/admin/chats/:id/messages", perm("messages", "add"), chatH.AdminPostMessage)
 			// Note #36 — claim/release the "Responsible Staff Member" on a thread.
+			// K19 — the attempts this thread refused to carry (phone numbers /
+			// email addresses). Same permission as reading the thread itself:
+			// it is the same conversation, minus the part that was blocked.
+			admin.GET("/admin/chats/:id/contact-blocks", perm("messages", "view"), chatH.AdminContactBlocks)
 			admin.POST("/admin/chats/:id/claim", perm("messages", "edit"), chatH.AdminClaim)
 			admin.POST("/admin/chats/:id/release", perm("messages", "edit"), chatH.AdminRelease)
 

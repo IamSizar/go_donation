@@ -368,6 +368,12 @@ func (h *ChatHandler) PostMessage(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Message body is required."})
 		return
 	}
+	// K19 — refuse a message carrying a phone number or an email address before
+	// it is stored, because storing it also fans it out in a push preview
+	// below. Staff and support threads are exempt; see chat_contact_block.go.
+	if h.refuseContactDetails(c, thread, user, req.Body) {
+		return
+	}
 	msg, err := h.Store.PostMessage(c.Request.Context(), id, user.UserID, user.RoleID, req.Body)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
