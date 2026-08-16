@@ -908,12 +908,21 @@ class _SelectedDonationCard extends StatelessWidget {
                   'amount': formatAmount(selectedAmount),
                 }),
               ),
-              _DonationInfoPill(
-                icon: Icons.account_balance_wallet_rounded,
-                label: 'Payment: @method'.trParams({
-                  'method': paymentMethod.tr,
-                }),
-              ),
+              // Only once a method is actually chosen. `_selectedPaymentMethod`
+              // starts as '' and is reset to '' whenever the kind changes, so
+              // this pill spent most of its life rendering "الدفع:" — a label,
+              // a colon, and nothing after it, sitting beside a sibling pill
+              // that reads "المبلغ: 20,000 د.ع" and looking broken by
+              // comparison. The method is picked later at checkout; a summary
+              // of the donor's choices should not list a choice they have not
+              // made yet.
+              if (paymentMethod.trim().isNotEmpty)
+                _DonationInfoPill(
+                  icon: Icons.account_balance_wallet_rounded,
+                  label: 'Payment: @method'.trParams({
+                    'method': paymentMethod.tr,
+                  }),
+                ),
               const _DonationInfoPill(
                 icon: Icons.favorite_border_rounded,
                 label: 'Easy giving',
