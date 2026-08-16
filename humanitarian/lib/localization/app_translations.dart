@@ -2866,6 +2866,9 @@ class AppTranslations extends Translations {
     'Gender cannot be changed after sign-up.':
         'Gender cannot be changed after sign-up.',
     'Account type': 'Account type',
+    'Switch account type?': 'Switch account type?',
+    'You can switch to @type yourself, but only staff can switch you back.':
+        'You can switch to @type yourself, but only staff can switch you back.',
     'Account type updated.': 'Account type updated.',
     'Account type unchanged.': 'Account type unchanged.',
     'Nothing saved yet.': 'Nothing saved yet.',
@@ -5537,6 +5540,9 @@ class AppTranslations extends Translations {
     'Gender cannot be changed after sign-up.':
         'لا يمكن تغيير الجنس بعد إنشاء الحساب.',
     'Account type': 'نوع الحساب',
+    'Switch account type?': 'تغيير نوع الحساب؟',
+    'You can switch to @type yourself, but only staff can switch you back.':
+        'يمكنك التحويل إلى @type بنفسك، لكن لا يمكن إرجاعك إلا عن طريق الموظفين.',
     'Account type updated.': 'تم تحديث نوع الحساب.',
     'Account type unchanged.': 'لم يتغيّر نوع الحساب.',
     'Nothing saved yet.': 'لا توجد عناصر محفوظة بعد.',

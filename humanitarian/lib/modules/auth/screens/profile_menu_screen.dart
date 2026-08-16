@@ -40,6 +40,16 @@ import 'package:flutter_application_1/modules/support/screens/technical_support_
 /// staff — see selfSelectableRole in the backend's choose_role handler.
 const Map<String, int> _selfSelectableRoles = {'Marriage': 5, 'Guest': 0};
 
+/// The label for a self-selectable role id, for the confirmation sentence.
+/// Falls back to the generic word rather than printing a bare number, which is
+/// what a reader would otherwise see if the map above ever gains an entry.
+String _roleLabelFor(int roleId) {
+  for (final entry in _selfSelectableRoles.entries) {
+    if (entry.value == roleId) return entry.key;
+  }
+  return 'Account type';
+}
+
 Future<void> _chooseAccountType(BuildContext context) async {
   final picked = await showDialog<int>(
     context: context,
@@ -55,6 +65,42 @@ Future<void> _chooseAccountType(BuildContext context) async {
     ),
   );
   if (picked == null) return;
+
+  // Confirm first — this is a ONE-WAY door and the list row gave no sign of it.
+  //
+  // choose_role.go refuses a self-promotion into Recipient or Volunteer
+  // (`current > 0 && !selfSelectableRole`), but Guest and Marriage ARE
+  // self-selectable, so the guard does not fire for either option offered here:
+  // the write goes through. A recipient who taps ضيف becomes a guest, and
+  // because Recipient is NOT self-selectable they cannot undo it — only staff
+  // can put the role back, after vetting.
+  //
+  // So a single tap on an unlabelled row could cost someone the account type
+  // their aid is attached to, with no warning and nothing to cancel. Found by
+  // opening this sheet as a recipient — the role nobody had signed in as before.
+  if (!context.mounted) return;
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text('Switch account type?'.tr),
+      content: Text(
+        'You can switch to @type yourself, but only staff can switch you back.'
+            .trParams({'type': _roleLabelFor(picked).tr}),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: Text('Cancel'.tr),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          child: Text('Confirm'.tr),
+        ),
+      ],
+    ),
+  );
+  if (confirmed != true) return;
+
   try {
     final applied = await ModuleApi().chooseRole(picked);
     if (applied != picked) {
