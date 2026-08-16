@@ -505,8 +505,22 @@ class _FilterSection extends StatelessWidget {
       ('normal', 'Normal'),
     ];
 
+    // Compact by design. This block used to be three headed sections — a
+    // 3-chip row, a 7-chip grid that wrapped onto two lines, and a full-width
+    // dropdown, each under its own bold heading. On a 402pt screen that spent
+    // more than half the viewport on filters before a single notification was
+    // visible, which is backwards for a list you open to read the list.
+    //
+    // Now: one line of status chips, then category and type side by side.
+    //
+    // The headings are gone but nothing lost its name. The status chips show
+    // every option at once, so the group explains itself. The two dropdowns
+    // carry `labelText`, which floats above the selected value — that keeps
+    // the property B20 was about (a closed dropdown must say what it filters,
+    // not just show its current value) while costing no extra row, and the
+    // label is also the control's accessible name.
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: AppThemeConfig.surface(context),
         borderRadius: BorderRadius.circular(16),
@@ -514,18 +528,11 @@ class _FilterSection extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            'Filter by status'.tr,
-            style: TextStyle(
-              color: AppThemeConfig.text(context),
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 10),
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: 6,
+            runSpacing: 6,
             children: [
               for (final entry in const [
                 ('all', 'All'),
@@ -533,82 +540,131 @@ class _FilterSection extends StatelessWidget {
                 ('read', 'Read'),
               ])
                 ChoiceChip(
-                  label: Text(entry.$2.tr),
+                  label: Text(entry.$2.tr, style: const TextStyle(fontSize: 13)),
                   selected: controller.selectedReadStatus.value == entry.$1,
                   onSelected: (_) => controller.setReadStatus(entry.$1),
+                  visualDensity: VisualDensity.compact,
+                  labelPadding: const EdgeInsets.symmetric(horizontal: 6),
                 ),
             ],
           ),
-          const SizedBox(height: 16),
-          Text(
-            'Filter by category'.tr,
-            style: TextStyle(
-              color: AppThemeConfig.text(context),
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
+          const SizedBox(height: 8),
+          Row(
             children: [
-              for (final entry in categories)
-                ChoiceChip(
-                  label: Text(entry.$2.tr),
-                  selected: controller.selectedCategory.value == entry.$1,
-                  onSelected: (_) => controller.setCategory(entry.$1),
-                ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Filter by type'.tr,
-            style: TextStyle(
-              color: AppThemeConfig.text(context),
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 10),
-          DropdownButtonFormField<String>(
-            value: controller.selectedType.value,
-            decoration: InputDecoration(
-              filled: true,
-              fillColor: AppThemeConfig.softSurface(context),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: AppThemeConfig.border(context)),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: AppThemeConfig.border(context)),
-              ),
-            ),
-            items: [
-              DropdownMenuItem<String>(
-                value: 'all',
-                child: Text('All types'.tr),
-              ),
-              // The options are backend notification_type enums, built from
-              // whatever the API actually returned. They were rendered raw,
-              // one line below a sibling that uses `.tr`, so the Arabic UI
-              // listed `marketplace_order_approved` and `system_test`.
-              //
-              // localizedTag is the app's single mechanism for a backend tag:
-              // a translated label wins, and anything the server adds before
-              // it is translated degrades to readable words instead of
-              // snake_case. The VALUE stays the raw enum — it is what the
-              // filter sends back to the controller.
-              ...controller.availableTypes.map(
-                (type) => DropdownMenuItem<String>(
-                  value: type,
-                  child: Text(localizedTag(type)),
+              Expanded(
+                child: _CompactDropdown(
+                  label: 'Category'.tr,
+                  value: controller.selectedCategory.value,
+                  items: [
+                    for (final entry in categories)
+                      DropdownMenuItem<String>(
+                        value: entry.$1,
+                        child: Text(
+                          entry.$2.tr,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                  onChanged: (value) => controller.setCategory(value ?? 'all'),
                 ),
               ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _CompactDropdown(
+                  label: 'Type'.tr,
+                  value: controller.selectedType.value,
+                  items: [
+                    DropdownMenuItem<String>(
+                      value: 'all',
+                      child: Text(
+                        'All types'.tr,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    // The options are backend notification_type enums, built
+                    // from whatever the API actually returned. They were
+                    // rendered raw, one line below a sibling that uses `.tr`,
+                    // so the Arabic UI listed `marketplace_order_approved` and
+                    // `system_test`.
+                    //
+                    // localizedTag is the app's single mechanism for a backend
+                    // tag: a translated label wins, and anything the server
+                    // adds before it is translated degrades to readable words
+                    // instead of snake_case. The VALUE stays the raw enum — it
+                    // is what the filter sends back to the controller.
+                    ...controller.availableTypes.map(
+                      (type) => DropdownMenuItem<String>(
+                        value: type,
+                        child: Text(
+                          localizedTag(type),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  ],
+                  onChanged: (value) => controller.setType(value ?? 'all'),
+                ),
+              ),
             ],
-            onChanged: (value) => controller.setType(value ?? 'all'),
           ),
         ],
       ),
+    );
+  }
+}
+
+/// A dropdown sized for a filter row rather than a form.
+///
+/// Two of these sit side by side on a 402pt screen, so it is dense, its label
+/// floats instead of occupying its own line, and its selected value ellipsises
+/// rather than overflowing — notification type names are long and arrive from
+/// the server, so no fixed width can be assumed safe.
+class _CompactDropdown extends StatelessWidget {
+  const _CompactDropdown({
+    required this.label,
+    required this.value,
+    required this.items,
+    required this.onChanged,
+  });
+
+  final String label;
+  final String value;
+  final List<DropdownMenuItem<String>> items;
+  final ValueChanged<String?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final border = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(color: AppThemeConfig.border(context)),
+    );
+    return DropdownButtonFormField<String>(
+      value: value,
+      isExpanded: true,
+      isDense: true,
+      style: TextStyle(fontSize: 13, color: AppThemeConfig.text(context)),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: TextStyle(
+          fontSize: 13,
+          color: AppThemeConfig.mutedText(context),
+        ),
+        floatingLabelStyle: TextStyle(
+          fontSize: 12,
+          color: AppThemeConfig.mutedText(context),
+        ),
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 10,
+          vertical: 10,
+        ),
+        filled: true,
+        fillColor: AppThemeConfig.softSurface(context),
+        border: border,
+        enabledBorder: border,
+      ),
+      items: items,
+      onChanged: onChanged,
     );
   }
 }
