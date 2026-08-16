@@ -995,6 +995,9 @@ from data the API already returned, so it inherits the fix.
 the caller to re-enter their own password, and is a **backup** — an export with
 the auth columns stripped could not be restored. Left as designed; flagged here
 so the owner knows the backup file is as sensitive as the database.
+**Re-examined on 2026-08-16 while closing the same leak in المهملات, and
+deliberately still unchanged** — the reasoning is written out in full in the
+Trash section below.
 
 ### H10 — who may see a phone number, and the trap in fixing it (2026-08-16)
 
@@ -1049,15 +1052,15 @@ end-to-end.
    direction was the dangerous half. **Fixed** in its own change, with its own
    tests.
 
-2. **سلة المهملات still contains password hashes.** A deleted record is stored
-   as a complete copy of its row, so a deleted account's `password_hash` is
+2. **سلة المهملات still contained password hashes.** A deleted record is stored
+   as a complete copy of its row, so a deleted account's `password_hash` was
    inside it — the same credential the عرض page deliberately withholds (B7).
-   The phone numbers in those copies are now hidden; the credential column is
+   The phone numbers in those copies were hidden here; the credential column was
    **not**, because that is a different decision: the copy has to stay complete
    for استعادة to work, so the fix is to withhold the column when the Trash is
-   *displayed*, and it deserves its own change rather than being folded into
-   this one. The same is true of the JSON database export, already recorded
-   under B7.
+   *displayed*, and it deserved its own change rather than being folded into
+   this one. **Done on 2026-08-16 — see the section below.** The JSON database
+   export is a separate case and is recorded there too.
 
 **Still not done, and it is a decision rather than an oversight:** the second
 half of your note, "otherwise encrypted" (لحماية البيانات وتشفيرها). Nothing is
@@ -1065,6 +1068,52 @@ encrypted at rest today. That is a database migration plus a key-management
 choice (where the key lives, who can reach it, what happens on rotation), and it
 changes how every one of these numbers is searched. It needs your call before
 anyone starts it.
+
+### B7 — the Trash was the way around the عرض page's fix (2026-08-16)
+
+**What was wrong.** B7 took the password hash off the عرض page. المهملات handed
+it straight back. A deleted record is archived as a **complete copy of its row**,
+and the Trash page was showing that copy as it stood — so for a deleted account
+it included `password_hash` (the encrypted password the account signs in with)
+and `google_sub` (the identifier behind "sign in with Google"): the exact two
+fields the عرض page had just been taught to withhold.
+
+Who could see it matters. المهملات is opened with the "view" permission, and
+**view is granted by default to every rank down to موظف** — including ranks that
+were never granted «بيانات الاتصال الحسّاسة». So the credential B7 refused to
+print on one screen was one click away on another, for more people. Reproduced
+before the fix at all four ranks; the test printed the real hash for مدير عام as
+readily as for موظف.
+
+**Why the stored copy was NOT changed.** The obvious fix — leave the password
+out when the record is archived — would have been worse than the leak. استعادة
+rebuilds the account from that copy, so an archive without the password would
+restore accounts **nobody can sign in to**, silently, every time. Same trap as
+the phone numbers: a value that is hidden must never become a value that is
+stored. The archive therefore stays complete and the withholding happens when
+the Trash is **displayed**. Both halves are pinned by tests, and the wrong fix
+was tried on purpose to confirm the tests catch it: stripping the password at
+archive time left the screen looking correct while restore came back with no
+password at all.
+
+**What المهملات shows now.** Only what identifies the record — its name or title
+in every language it was written in, or its code (رمز الحالة, رقم العملية, رقم
+التبرع) for records that have no name. For a deleted account: username, phone
+and email, with the phone and email still hidden from ranks without «بيانات
+الاتصال الحسّاسة». Everything else a copy happened to contain — passwords,
+national ids, addresses, amounts, review notes — is no longer sent to the
+browser at all. Each of the 31 recoverable record types declares its own list,
+so a field added later is invisible until someone deliberately adds it.
+
+**The JSON database export was re-examined and deliberately left as it is.**
+`POST /api/admin/export/all` still contains the password hashes. That is correct
+for what it is: it is a **backup**, and a backup with the authentication columns
+removed cannot be restored — it would rebuild your database with every account
+locked out. It is also a different door: النسخة الاحتياطية is المدير الأساسي
+only, requires re-entering your own password, and is not reachable with the
+"view" permission the way المهملات is. The safeguard there is not to strip the
+file but to treat it as what it is: **the export file is as sensitive as the
+database itself** — anyone holding it holds your users' credentials.
 
 ## I. Global terminology & naming changes
 

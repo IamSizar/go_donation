@@ -24,9 +24,13 @@ import (
 // which the catalogue, task and comment handlers now call as well.
 type AdminTrashHandler struct {
 	Pool *pgxpool.Pool
-	// Perms — H10. `payload` is a whole-row snapshot, so the trash re-serves
-	// every column of every table it holds — including the phone numbers the
-	// live lists redact. Set from main.go; nil masks.
+	// Perms — H10. `payload` is a whole-row snapshot, so the trash used to
+	// re-serve every column of every table it holds — including the phone
+	// numbers the live lists redact. Set from main.go; nil masks.
+	//
+	// B7 — what the preview may contain at all is decided before that, by the
+	// per-table allow-list in admin_trash_preview.go. The permission governs
+	// whether the contact columns that survive it are readable.
 	Perms *permissions.Store
 }
 
@@ -86,7 +90,12 @@ var restorableTables = map[string]bool{
 }
 
 // List returns everything currently in the trash (not yet restored), newest
-// first, with who deleted it and the full JSON payload so the UI can preview.
+// first, with who deleted it and enough of the snapshot to name the record.
+//
+// "Enough" is the point: this used to be the WHOLE stored row. It is now the
+// columns that table declares for a preview (B7, admin_trash_preview.go), with
+// the contact ones among them masked for a caller without `sensitive_data`
+// (H10). The stored snapshot is untouched either way — Restore needs it whole.
 // GET /api/admin/trash
 func (h *AdminTrashHandler) List(c *gin.Context) {
 	ctx := c.Request.Context()
@@ -123,14 +132,23 @@ func (h *AdminTrashHandler) List(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
 			return
 		}
-		// H10 — the payload is `to_jsonb(row.*)` of whatever was deleted, so a
-		// deleted user row re-serves the exact phone number the users list
-		// redacts, to anyone holding `trash view`. Masked per source table, so
-		// a deleted City Guide place keeps its public office number.
+		// B7 — the payload is `to_jsonb(row.*)` of whatever was deleted, so a
+		// deleted ACCOUNT re-served its `password_hash` and `google_sub`: the
+		// two credentials the عرض page withholds by name (admin_detail.go), to
+		// anyone holding `trash view` — which every staff tier holds by default.
+		// Cut down to the columns that table declares for a preview.
+		payload = trashPreviewPayload(table, payload)
+
+		// H10 — of the columns that survived, the contact-shaped ones are masked
+		// unless this caller holds `sensitive_data`. Two passes on purpose: the
+		// allow-list decides which columns exist in the preview, the mask decides
+		// whether their values are readable, and a table that gains a contact
+		// column must fail both to be shown. Per source table, so a deleted City
+		// Guide place would keep its public office number.
 		//
-		// This rewrites only the RESPONSE. Restore re-reads `payload` straight
-		// from the database (see Restore below), so a masked preview can never
-		// put a redaction back into a live table.
+		// Both rewrite only the RESPONSE. Restore re-reads `payload` straight
+		// from the database (see Restore below), so neither a filtered nor a
+		// masked preview can put an incomplete row back into a live table.
 		if !canSeeContact && tableHoldsPersonalContact(table) {
 			payload = maskPayloadContact(table, payload)
 		}
