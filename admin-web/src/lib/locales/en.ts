@@ -1680,6 +1680,21 @@ const en = {
     passport_photo: 'Passport',
     graduation_cert_photo: 'Graduation certificate',
     cv_photo: 'Curriculum vitae (CV)',
+    // ─── Marriage / Engagement form, fields unique to it ─────────────────────
+    // Same sourcing rule as the block above: wording copied from
+    // marriage_form_screen.dart's own labels.
+    years_current_residence: 'Years at current residence',
+    previous_residence: 'Previous residence',
+    years_previous_residence: 'Years at previous residence',
+    skin_tone: 'Skin tone',
+    children_count: 'Number of children',
+    ethnicity: 'Ethnicity / national identity',
+    owns_house: 'Owns a house',
+    owns_shop: 'Owns a shop',
+    owns_company: 'Owns a company',
+    owns_land: 'Owns land',
+    other_assets: 'Other available assets',
+    partner_requirements: 'Requirements sought in a partner',
   },
   // Raw DB column names → labels for the read-only Detail view + Audit Logs.
   dbfield: {

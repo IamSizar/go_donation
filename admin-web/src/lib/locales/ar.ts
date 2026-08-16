@@ -1584,6 +1584,21 @@ const ar: DeepPartial<typeof en> = {
     passport_photo: 'جواز السفر',
     graduation_cert_photo: 'شهادة التخرج',
     cv_photo: 'السيرة الذاتية',
+    // ─── Marriage / Engagement form, fields unique to it ─────────────────────
+    // Same sourcing rule as the block above: wording copied from
+    // marriage_form_screen.dart's own labels.
+    years_current_residence: 'عدد سنوات السكن الحالي',
+    previous_residence: 'السكن السابق',
+    years_previous_residence: 'عدد سنوات السكن السابق',
+    skin_tone: 'لون البشرة',
+    children_count: 'عدد الأطفال',
+    ethnicity: 'القومية / الهوية الوطنية',
+    owns_house: 'يمتلك منزلاً',
+    owns_shop: 'يمتلك محلاً',
+    owns_company: 'يمتلك شركة',
+    owns_land: 'يمتلك أرضاً',
+    other_assets: 'ممتلكات أخرى متوفرة',
+    partner_requirements: 'المواصفات المطلوبة في شريك الحياة',
   },
 
   registrations: {

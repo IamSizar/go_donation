@@ -13,8 +13,8 @@ Updated 2026-08-16 once more with the 2 keys the L19 engagement-profile field
 privacy picker added.
 Updated 2026-08-16 again with the 6 keys the K12 content sub-section editor
 added, and the 9 keys the K13 contact-details editor added.
-Updated 2026-08-16 once more with the 82 keys that gave the grantor / eligible
-recipient / volunteer field-rule rows Arabic labels (NEW FINDING 9).
+Updated 2026-08-16 once more with the 94 keys that gave every field-rule row on
+قواعد الحقول an Arabic label (NEW FINDING 9).
 
 ## Why these are empty rather than wrong
 
@@ -27,7 +27,7 @@ made on this project once and had to be reverted.
 Every key below currently renders its **English** string to a Kurdish user.
 That is deliberate and safe. It is not a crash, and it is not Arabic text.
 
-## Count: 352 keys need Kurdish
+## Count: 364 keys need Kurdish
 
 | Client | Sorani (ckb) | Badini (kmr) | Distinct keys |
 |---|---|---|---|
@@ -44,8 +44,8 @@ That is deliberate and safe. It is not a crash, and it is not Arabic text.
 | Admin dashboard — B1 notification types (new) | 81 | 81 | *same 81 words as above* |
 | Admin dashboard — K12 content sub-sections (new) | 6 | 6 | 6 |
 | Admin dashboard — K13 contact details (new) | 9 | 9 | 9 |
-| Admin dashboard — Field Rules role-form labels (new) | 82 | 82 | 82 |
-| **Total distinct words to translate** | | | **352** |
+| Admin dashboard — Field Rules form labels (new) | 94 | 94 | 94 |
+| **Total distinct words to translate** | | | **364** |
 
 > **The dashboard figure above is a floor, not a ceiling — and it is the one
 > number in this file that was never fully measured.** Counting key paths in
@@ -939,14 +939,19 @@ wrong.
 > `info@example.com` and `facebook.com/yourpage` are EXAMPLES the reader copies
 > the shape of — leave them in Latin script exactly as they are.
 
-## Field Rules — grantor / recipient / volunteer form labels (82 keys)
+## Field Rules — registration form labels (94 keys)
 
 New vocabulary added while closing **NEW FINDING 9** in `VERIFICATION_REPORT.md`:
 179 of the 233 rows on **قواعد الحقول** (`admin-web/src/pages/FieldRulesPage.tsx`)
 printed a title-cased English column name — "Grantor National Id", "Recipient
 Tribe Clan" — because the `grantor_`/`recipient_`/`volunteer_` families had no
-label map. Each key below now labels one of those rows. English and Arabic are
-written; ckb/kmr fall back to English until these are filled in.
+label map at all, and the `marriage_` one covered 11 of its 67 keys. Every row
+is labelled now. English and Arabic are written; ckb/kmr fall back to English
+until these are filled in.
+
+**94 keys, 151 rows.** Most of these labels are shared by two or more of the
+five forms — `field.phone1` alone labels four rows — so the payoff per
+translated word is high.
 
 > **The Flutter app almost certainly already has these words in Kurdish.** Every
 > label here was copied from the wording the app shows the applicant for the same
@@ -1046,6 +1051,24 @@ words the dashboard already uses elsewhere (`registrations.role_*`).
 | `field.passport_photo` | Passport | جواز السفر | ckb + kmr |
 | `field.graduation_cert_photo` | Graduation certificate | شهادة التخرج | ckb + kmr |
 | `field.cv_photo` | Curriculum vitae (CV) | السيرة الذاتية | ckb + kmr |
+
+The last twelve rows are the fields only the Marriage/Engagement form asks
+about; their wording comes from `marriage_form_screen.dart`.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `field.years_current_residence` | Years at current residence | عدد سنوات السكن الحالي | ckb + kmr |
+| `field.previous_residence` | Previous residence | السكن السابق | ckb + kmr |
+| `field.years_previous_residence` | Years at previous residence | عدد سنوات السكن السابق | ckb + kmr |
+| `field.skin_tone` | Skin tone | لون البشرة | ckb + kmr |
+| `field.children_count` | Number of children | عدد الأطفال | ckb + kmr |
+| `field.ethnicity` | Ethnicity / national identity | القومية / الهوية الوطنية | ckb + kmr |
+| `field.owns_house` | Owns a house | يمتلك منزلاً | ckb + kmr |
+| `field.owns_shop` | Owns a shop | يمتلك محلاً | ckb + kmr |
+| `field.owns_company` | Owns a company | يمتلك شركة | ckb + kmr |
+| `field.owns_land` | Owns land | يمتلك أرضاً | ckb + kmr |
+| `field.other_assets` | Other available assets | ممتلكات أخرى متوفرة | ckb + kmr |
+| `field.partner_requirements` | Requirements sought in a partner | المواصفات المطلوبة في شريك الحياة | ckb + kmr |
 
 > `GPS` and `(CV)` are shown in Latin script on purpose — leave them as they are.
 > "Golden Square document" (`وثيقة المربع الذهبي`) is an Iraqi residence
