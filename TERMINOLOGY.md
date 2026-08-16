@@ -100,12 +100,37 @@ Not a pending rename. It is live:
 | Dashboard `en.ts` | `nav.donations` | `'Contributions'` |
 | Dashboard `ar.ts` | `nav.donations` | `'المساهمات'` |
 
-`المساهم*` now outnumbers `التبرع*` 35:4 in the app's `_ar` map and 14:4 in the
-dashboard's `ar.ts`. The Arabic form the client offered as the "internationally
-accepted alternative" is the one that shipped.
+`المساهم*` outnumbers `التبرع*` in both clients, but NOT by the margin this note
+originally claimed. **Re-measured 2026-08-16 while testing the running app:**
 
-**Residual work if the owner confirms T1 as final** — four label keys still carry
-the old word and should be finished in the same pass:
+| | `مساهم*` | `تبرع*` | this note previously said |
+|---|---|---|---|
+| App `_ar` | **74** | **52** | 35:4 |
+| Dashboard `ar.ts` | **40** | **19** | 14:4 |
+
+So the old word is not down to four stragglers in either client — it is 52 and 19.
+The Arabic form the client offered as the "internationally accepted alternative"
+did ship, but it landed *alongside* the old one rather than replacing it.
+
+**Residual work if the owner confirms T1 as final** — the list below was written
+as "four label keys". THAT COUNT IS WRONG: see the re-measurement above. These
+four are still real and still worth fixing, but they are a sample, not the set.
+
+Also found by reading the running app, and worth deciding first because it shows
+the two words are not merely coexisting but colliding inside single sentences:
+
+- App `_ar`: «ستظهر **مساهماتك** هنا بعد أول **تبرع**» — one string, both words.
+- The AI assistant's suggested questions ask «كيف أتبرع لحملة؟» and «سجل
+  **تبرعاتي**» while the Home screen beside them reads «قدم **مساهمةً**» and
+  «**المساهمات** المؤكدة».
+- Noun usages T1 covers that still say the old word include `تبرعاتك`,
+  `تبرّعاتي`, `تبرّعات الحملة`, `قيمة التبرعات`, `لا توجد تبرعات حديثة`,
+  `إجمالي المتبرع به`, `حالة التبرّع`, `ملخّص التبرّع`, `مبلغ التبرّع`.
+
+NOT RENAMED. Most of the 52 are the VERB, which is T16 and explicitly NEEDS
+OWNER — renaming them here would cross the same carve-out T16 already records as
+crossed. The noun cases are T1's to settle. Both want one decision, applied once,
+rather than another partial pass:
 
 - App `_en` L1752 / `_ar` L4097: `'Donation'` → `'Donation'` / `'تبرع'` (the
   singular record was missed while the plural was renamed).
