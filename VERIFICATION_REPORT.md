@@ -640,6 +640,55 @@ Found while verifying. **Nothing was fixed;** these are reported only.
 | 10 | **`go test ./...` is flaky against a fresh `TEST_DATABASE_URL`.** Three packages (`internal/auth`, `internal/handlers`, `internal/donations`) each call `db.RunMigrations` from their own harness, and `go test` runs packages in parallel, so they race to apply the same migrations to the same database: `duplicate key value violates unique constraint "schema_migrations_pkey"` and `pg_type_typname_nsp_index`. **Pre-existing, and confirmed not to be caused by the tests added this pass** — `go test ./internal/auth/ ./internal/handlers/` alone, with the new files excluded, failed 2 of 3 runs on a fresh database. It is invisible once the database has been migrated once, which is why it went unnoticed. Workaround today: `go test -p 1 ./...`, or point at an already-migrated database. Proper fix is to serialize the migration step (a `TestMain`, or an advisory lock around `RunMigrations`) | **Low** (test-only; no production impact) | `backend/internal/db/migrate.go` + the three `newTestPool`-style harnesses |
 | 11 | ~~**سلة المهملات hands every staff tier the same bcrypt hash finding 1 took off the detail page.**~~ **CONFIRMED AND FIXED (2026-08-16).** Surfaced while building H10 and deliberately not folded into it. A trashed row is stored as `to_jsonb(row.*)` — the whole row — and `GET /api/admin/trash` re-served that snapshot verbatim as `items[].payload`, so a deleted account carried `password_hash` **and** `google_sub`, the exact two columns `admin_detail.go` withholds by name. The route is gated on `perm("trash","view")` and `view` is allowed by default down to `employee` (`permissions.defaultAllowed`), so the Trash page was a **one-click bypass of finding 1's fix** for staff the matrix never granted `sensitive_data` either. **RED first, at all four tiers** — the test printed the live hash for `super_admin`, `admin`, `supervisor` and `employee` alike, plus the 17 other columns nobody had allow-listed. **Fixed with the same inversion finding 1 used**, applied to the preview rather than to a query: `trashPreviewColumns` declares, per source table, the columns a delete preview may show — the record's label in every language it is authored in, plus a code for rows with no name of their own. `users` keeps `username`, `phone`, `email`, and the phone/email are still masked on top by H10, so a column has to pass both. Everything else — credentials, national ids, addresses, amounts, review notes — is no longer sent. **The stored snapshot is untouched, and that is the load-bearing half:** استعادة rebuilds the row from it, so stripping the column at WRITE time would restore accounts with a blank password. A test pins the round-trip (the restored hash is byte-identical and still verifies the account's password); applying that write-time strip as an experiment made it fail with `THE RESTORED ACCOUNT HAS NO PASSWORD AT ALL` **while the display test passed** — the wrong fix passing its own check, which is why both halves are in one file. **The JSON export was re-examined and deliberately left alone** — see the CLIENT_NOTES B7 section: it is Super-Admin-only, PIN-gated, and a backup with the auth columns stripped cannot be restored | **High** | Fix: `backend/internal/handlers/admin_trash_preview.go` + `admin_trash.go`; test: `admin_trash_credentials_test.go` |
 
+
+---
+
+## NEW FINDINGS — the beneficiary and volunteer roles, rendered for the first time
+
+Everything above was verified as **one account, a donor**. That is stated in the
+Method section — "role-gated beneficiary and volunteer screens were not reachable" —
+and it left roughly **4,600 lines of role-gated UI with no execution of any kind**:
+
+| Where | Lines | Gate |
+|---|---|---|
+| `dashboard.dart` `_buildBeneficiaryDashboard` | ~170 | `role_id == '2'` |
+| `dashboard.dart` `_buildVolunteerDashboard` | ~150 | `role_id == '3'` |
+| `registration_form.dart` `if (_roleId == 2) ...[` | 2047–3742 | `role_id == 2` |
+| `registration_form.dart` `if (_roleId == 3) ...[` | 3742–4690 | `role_id == 3` |
+
+Both gates read `role_id` out of SharedPreferences, which a **widget test can set**.
+That does not need an account, so those subtrees were pumped in English and Arabic,
+at 402x874 and 320px, in both brightnesses, and walked for the defect classes this
+project has actually shipped. 51 tests, in
+`humanitarian/test/widgets/role_dashboard_render_test.dart` and
+`role_registration_fields_test.dart`, on the shared probe
+`test/support/rendered_tree.dart`.
+
+**Read the limits before the findings.** A widget test is not a beneficiary account.
+The network is faked, so a route that 403s for this role, a summary field the server
+never fills in, a permission the app assumes, or a flow that dead-ends all pass
+untouched. `flutter test` also renders one em per glyph against SF Pro's ~0.55, so
+line breaks and truncation points are not the device's. What this buys is that code
+with zero execution now has some, and six defects fell out of the first run.
+
+| # | Finding | Severity | Evidence |
+|---|---|---|---|
+| 12 | ~~**Section headings overflow the row instead of truncating.**~~ **FIXED.** `_SectionLabel` renders an 18px w800 heading in a Row with no `Flexible`, no `maxLines` and no overflow strategy, so it cannot give. The donor branch never showed it because its headings are the short ones — "Recent donations" fits where "Project request progress" and "My mission schedule" do not. The two header rows above it were wrong by construction as well: `Row([_SectionLabel, Spacer, 'See all'])` only works while the label is short, because a `Spacer` gets what is LEFT OVER and an unconstrained label leaves nothing. All three occurrences fixed together, donor included, as one pattern | **Medium** | Fix: `humanitarian/lib/widgets/dashboard.dart` (`_SectionLabel`, `_FeaturedCampaignsSection`, `_NewsStrip`, donor header); measured 96px and 79px over |
+| 13 | ~~**Three English strings on the volunteer's Arabic home.**~~ **FIXED.** `18h` — the Hours served figure hard-coded an English unit suffix under the label "ساعات الخدمة". `None` — `application_status` is empty for every volunteer *before they apply*, the commonest state this cell has, and the empty case printed a literal that is a key in no map. `inactive` — the cell humanised the token with `replaceAll('_',' ')` **before** looking it up, the exact mistake `_statusLabel` twenty lines above documents and fixes with `localizedTag`; switching to it exposed that `inactive`, a real value of `volunteer_applications.status`, had no entry in any language. None of the three fails anywhere: `.tr` returns its key unchanged, silently | **Medium** | Fix: `humanitarian/lib/widgets/dashboard.dart` + `app_translations.dart` (`inactive`, en/ar; ckb/kmr in TRANSLATION_REQUEST.md) |
+| 14 | ~~**The role tiles say nothing legible about which role is picked.**~~ **FIXED.** `AppThemeConfig.primary` is a constant `#2F5D4A` that does not flip with the theme, and it paints BOTH halves of the selected state — the 2px border and the checked radio. On the dark card that measures **2.41:1**, under WCAG 1.4.11's 3:1 floor for identifying a control's state. Also, each role hue is drawn on a 15% wash of itself: amber **1.39:1**, deep orange **2.20:1**, light blue **2.08:1** — the same pattern `core/design/contrast.dart` was written for, fixed with the `readableOn` helper it already provides. On the shared part of the screen, so not role-gated — but only a rendering walk found it | **Medium** | Fix: `humanitarian/lib/modules/auth/screens/registration_form.dart` (`_RoleTile`) |
+| 15 | ~~**Two beneficiary number fields opened the letter keyboard.**~~ **FIXED.** `reg_income` (a monthly amount) and `reg_recipient_national_id` had no `keyboardType`, while the same form already gives `TextInputType.number` to family size, rooms, families, certificates, working hours, wage, rental amount, housing area, height and weight. The ID is the sharper one: the **volunteer** branch asks for the number pad on the identical field, so the two branches disagreed about the same document, and neither had ever been opened | **Low** | Fix: `humanitarian/lib/modules/auth/screens/registration_form.dart` |
+| 16 | **The grantor's national-ID field is still on the letter keyboard.** The third of the three national-ID fields. Left alone deliberately: the grantor branch is the one role that HAS been filled in on a device, so changing it is a decision rather than a drive-by. Fixing it makes all three agree | **Low** | `humanitarian/lib/modules/auth/screens/registration_form.dart:1739` |
+| 17 | **Only 3 of ~28 dropdowns on the registration form pass `isExpanded: true`.** Without it a `DropdownButtonFormField` sizes to its widest item and overflows inside a bounded field. Today's items and hints are all short enough that none does on a device — every overflow measured under `flutter test` is the square test font, and it is reported at the same sites at 402px and at 320px, which is the tell. Recorded because the next long option or long translation lands on it | **Low** | `humanitarian/lib/modules/auth/screens/registration_form.dart` (dropdowns throughout) |
+
+**What was measured and came back clean.** Both role dashboards: 58 texts and 27
+icons per sweep, every pair clearing 4.5:1 (or 3.0 where WCAG calls the text large)
+and every meaningful icon clearing 3:1, in four language x brightness combinations,
+with each translucent layer composited onto what is really beneath it. Both
+registration branches likewise. No Latin letter in either Arabic tree after the
+finding-13 fix, no raw `snake_case` key in either English tree, and the summary
+region's four states present with the error branch checked **before** the empty one —
+so a failed load never tells a beneficiary they have no cases.
+
 ---
 
 ## Method
