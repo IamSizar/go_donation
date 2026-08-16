@@ -6,11 +6,12 @@ import 'package:flutter_application_1/core/app_haptics.dart';
 import 'package:flutter_application_1/core/app_sound.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/realtime_polling.dart';
-import 'package:flutter_application_1/localization/content_localizer.dart';
-import 'package:flutter_application_1/localization/locale_service.dart';
+import 'package:flutter_application_1/modules/marketplace/controllers/catalogue_facets.dart';
+import 'package:flutter_application_1/modules/marketplace/models/catalogue_query.dart';
 import 'package:get/get.dart';
 
-class MarketplaceController extends GetxController with RealtimePollingMixin {
+class MarketplaceController extends GetxController
+    with RealtimePollingMixin, CatalogueFacets {
   static const int _productsPerPage = 10;
   static const int _ordersPerPage = 100;
 
@@ -20,7 +21,6 @@ class MarketplaceController extends GetxController with RealtimePollingMixin {
   final isCheckingOut = false.obs;
   final hasMoreProducts = true.obs;
   final products = <Map<String, dynamic>>[].obs;
-  final categories = <Map<String, dynamic>>[].obs; // #28
   final orders = <Map<String, dynamic>>[].obs;
   final cartQuantities = <int, int>{}.obs;
   // Snapshot of every product ever added to the cart, keyed by id. `products`
@@ -42,10 +42,6 @@ class MarketplaceController extends GetxController with RealtimePollingMixin {
   /// product, which no local name match could do.
   final productSearch = ''.obs;
 
-  /// Whether a query is narrowing the catalogue right now. Drives the empty
-  /// copy: "no products available" is a claim about the shop.
-  bool get hasActiveSearch => productSearch.value.trim().isNotEmpty;
-
   /// Applies [query] and reloads the catalogue from page 1.
   ///
   /// The reset is load-bearing: keeping the page number would ask the server
@@ -56,6 +52,50 @@ class MarketplaceController extends GetxController with RealtimePollingMixin {
     final next = query.trim();
     if (next == productSearch.value) return;
     productSearch.value = next;
+    await fetchProducts(reset: true);
+  }
+
+  /// K15 — the six functional labels, as ONE server-side query.
+  ///
+  /// THE RANKING IS THE SERVER'S. Nothing in this controller sorts or filters
+  /// [products]: they arrive ten at a time, so a local "الأكثر مبيعاً" would
+  /// rank ten rows while claiming to rank the catalogue, which is exactly the
+  /// defect commit b59c357 removed server-side. Every chip changes this value
+  /// and re-asks.
+  final catalogueQuery = const CatalogueQuery().obs;
+
+  /// Whether the catalogue on screen is narrowed by a search or a filter.
+  ///
+  /// Drives the empty copy. "No approved products are available yet" is a claim
+  /// about the whole shop, and it is false when the shop is full and the
+  /// filters are simply strict.
+  bool get hasActiveSearch => productSearch.value.trim().isNotEmpty;
+
+  bool get isCatalogueNarrowed =>
+      hasActiveSearch || catalogueQuery.value.isNarrowed;
+
+  /// Whether any chip is lit, ordering included — drives the "clear" chip.
+  bool get isCatalogueFiltered =>
+      hasActiveSearch || catalogueQuery.value.isActive;
+
+  /// Applies [next] and reloads from page 1, for the same reason
+  /// [setProductSearch] resets: page 3 of the old result set is not page 3 of
+  /// the new one.
+  Future<void> setCatalogueQuery(CatalogueQuery next) async {
+    if (next == catalogueQuery.value) return;
+    catalogueQuery.value = next;
+    await fetchProducts(reset: true);
+  }
+
+  /// Clears every filter AND the search box's effect, in one request.
+  ///
+  /// The text in the box is cleared by the box itself; this clears what the
+  /// server was told, so "الكل" really does return the whole catalogue rather
+  /// than the whole catalogue still narrowed by a word the user forgot about.
+  Future<void> clearCatalogueFilters() async {
+    if (!isCatalogueFiltered) return;
+    productSearch.value = '';
+    catalogueQuery.value = const CatalogueQuery();
     await fetchProducts(reset: true);
   }
 
@@ -91,7 +131,8 @@ class MarketplaceController extends GetxController with RealtimePollingMixin {
   void onInit() {
     super.onInit();
     fetchProducts(reset: true);
-    fetchCategories(); // #28
+    fetchCategories(); // #28 — labels the cards, and K15's الفئات filter
+    fetchBrands(); // K15 — العلامات التجارية
     fetchOrders();
     loadWalletBalance();
     // Only orders need real-time updates; products refresh on manual
@@ -112,9 +153,9 @@ class MarketplaceController extends GetxController with RealtimePollingMixin {
     errorMessage.value = null;
 
     try {
-      final rows = await _fetchProductsPage(_productsPage);
-      products.assignAll(rows);
-      hasMoreProducts.value = rows.length == _productsPerPage;
+      final page = await _fetchProductsPage(_productsPage);
+      products.assignAll(page.items);
+      hasMoreProducts.value = page.hasMore;
     } catch (_) {
       products.clear();
       errorMessage.value = 'Unable to load products from the server.'.tr;
@@ -134,10 +175,10 @@ class MarketplaceController extends GetxController with RealtimePollingMixin {
     isLoadingMoreProducts.value = true;
     try {
       final nextPage = _productsPage + 1;
-      final rows = await _fetchProductsPage(nextPage);
+      final page = await _fetchProductsPage(nextPage);
       _productsPage = nextPage;
-      products.addAll(rows);
-      hasMoreProducts.value = rows.length == _productsPerPage;
+      products.addAll(page.items);
+      hasMoreProducts.value = page.hasMore;
     } catch (_) {
       Get.snackbar('Marketplace'.tr, 'Unable to load more products.'.tr);
     } finally {
@@ -145,7 +186,8 @@ class MarketplaceController extends GetxController with RealtimePollingMixin {
     }
   }
 
-  Future<List<Map<String, dynamic>>> _fetchProductsPage(int page) {
+  Future<({List<Map<String, dynamic>> items, bool hasMore, int totalItems})>
+  _fetchProductsPage(int page) {
     final uri = Uri.parse(marketplaceProductsUrl).replace(
       queryParameters: {
         'page': '$page',
@@ -155,13 +197,29 @@ class MarketplaceController extends GetxController with RealtimePollingMixin {
         // results, which is worse than no search at all.
         if (productSearch.value.trim().isNotEmpty)
           'q': productSearch.value.trim(),
+        // K15 — and so is every chip, for the same reason. A page 2 that
+        // dropped `sort=best_selling` would append the catalogue's default
+        // order under the best sellers, so the list would claim a ranking it
+        // stops honouring at row eleven.
+        ...catalogueQuery.value.toQueryParameters(),
       },
     );
-    return const ModuleApi().getItems(uri.toString());
+    return const ModuleApi().getListPage(
+      uri.toString(),
+      perPage: _productsPerPage,
+    );
   }
 
   Future<void> refreshMarketplace() async {
-    await Future.wait([fetchProducts(reset: true), fetchOrders()]);
+    await Future.wait([
+      fetchProducts(reset: true),
+      fetchOrders(),
+      // K15 — the facets are part of what the user sees, so a pull-to-refresh
+      // that left a failed brand list failed would make the retry unreachable
+      // from the gesture people actually use.
+      fetchCategories(),
+      fetchBrands(),
+    ]);
   }
 
   Future<void> fetchOrders({bool silent = false}) async {
@@ -356,49 +414,6 @@ class MarketplaceController extends GetxController with RealtimePollingMixin {
     } finally {
       isCheckingOut.value = false;
     }
-  }
-
-  // #28 — best-effort category load for name lookup; feed still works without.
-  Future<void> fetchCategories() async {
-    try {
-      categories.assignAll(await const ModuleApi().marketplaceCategories());
-    } catch (_) {
-      // Deliberate: categories are only a name lookup for the product cards.
-      // Products carry their own error state, and a missing category label is a
-      // smaller lie than a stale one.
-      categories.clear();
-    }
-  }
-
-  String localizedCategoryName(Map<String, dynamic> cat) {
-    const byLang = {
-      'en': 'name_en',
-      'ar': 'name_ar',
-      'ckb': 'name_ckb',
-      'kmr': 'name_kmr',
-    };
-    final key = byLang[AppLocaleService.assistantLang()] ?? 'name_en';
-    final v = (cat[key] ?? '').toString().trim();
-    if (v.isNotEmpty) return v;
-    return (cat['name_en'] ?? '').toString();
-  }
-
-  /// Localized category name for a product: prefers its category_slug (CMS),
-  /// falls back to the legacy free-text category.
-  String categoryLabel(Map<String, dynamic> product) {
-    final slug = (product['category_slug'] ?? '').toString();
-    if (slug.isNotEmpty) {
-      for (final cat in categories) {
-        if ((cat['slug'] ?? '').toString() == slug) {
-          return localizedCategoryName(cat);
-        }
-      }
-    }
-    // Legacy free-text fallback. Runs through localizedTag so a value like
-    // 'beauty_care' reaches the user as a translated label — or at worst as
-    // "Beauty care" — instead of raw snake_case. Products predating the CMS
-    // categories have no category_slug, so this path is the common one today.
-    return localizedTag(product['category']);
   }
 
   /// Looks up a cart line's full product record (for the cart screen's

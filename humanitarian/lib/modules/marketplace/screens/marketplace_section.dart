@@ -13,6 +13,8 @@ import 'package:intl/intl.dart';
 import 'package:flutter_application_1/core/design/motion.dart';
 import 'package:flutter_application_1/core/widgets/app_list_search_field.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
+import 'package:flutter_application_1/modules/marketplace/models/catalogue_query.dart';
+import 'package:flutter_application_1/modules/marketplace/widgets/catalogue_filter_bar.dart';
 
 class MarketplaceSection extends StatelessWidget {
   const MarketplaceSection({super.key});
@@ -77,6 +79,13 @@ class _MarketplaceList extends StatelessWidget {
                   // the product.
                   AppListSearchField(onChanged: controller.setProductSearch),
                   const SizedBox(height: 12),
+                  // K15 — the client's six functional labels. Every one of them
+                  // is a parameter on GET /api/marketplace, never a re-sort of
+                  // the ten rows below: `Store.ListCatalogue` ranks the whole
+                  // catalogue in SQL, and a chip that ranked this page would
+                  // reinstate the exact defect b59c357 removed.
+                  CatalogueFilterBar(controller: controller),
+                  const SizedBox(height: 12),
                   // Three stacked `if` blocks replaced by one state. Before,
                   // a failed load rendered the error tile AND whatever
                   // products were already cached beneath it, and the error
@@ -90,12 +99,20 @@ class _MarketplaceList extends StatelessWidget {
                     // J8 — a search that matched nothing is not an empty
                     // shop. "No approved products are available yet" would be
                     // a claim about the whole catalogue, made because one word
-                    // did not match.
-                    empty: controller.hasActiveSearch
-                        ? const AppEmpty(
+                    // did not match. K15 extends the same reasoning to the
+                    // filter chips, which can empty the list just as easily
+                    // and are just as much the user's own doing.
+                    empty: controller.isCatalogueNarrowed
+                        ? AppEmpty(
                             icon: Icons.search_off_rounded,
-                            title: 'search_title',
-                            message: 'search_no_results',
+                            title: controller.hasActiveSearch
+                                ? 'search_title'
+                                : 'catalogue_no_results',
+                            message: controller.hasActiveSearch
+                                ? 'search_no_results'
+                                : 'catalogue_no_results_desc',
+                            actionLabel: 'All',
+                            onAction: controller.clearCatalogueFilters,
                           )
                         : const AppEmpty(
                             title: 'Product Listings',
@@ -237,8 +254,9 @@ class _MarketplaceProductTileState extends State<_MarketplaceProductTile> {
     );
     final category = widget.controller.categoryLabel(widget.item); // #28
     final labels = _productLabels(widget.item['labels']); // #28
-    final price = _amountFrom(widget.item['price']);
-    final currency = (widget.item['currency'] ?? 'IQD').toString();
+    // Price and currency are read inside _ProductPrice now — it has to weigh
+    // `price` against `price_after_discount`, and pulling one of the pair out
+    // here is how the two could drift apart.
     final imageUrl = _marketplaceImageUrl(widget.item['image_path']);
 
     // Deliberately NOT AppPressable: this card's press IS a peek-preview
@@ -287,14 +305,16 @@ class _MarketplaceProductTileState extends State<_MarketplaceProductTile> {
                     _ProductLabelChips(labels: labels),
                   ],
                   const SizedBox(height: 10),
-                  Text(
-                    _formatMoney(price, currency),
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: AppThemeConfig.text(context),
-                    ),
-                  ),
+                  _ProductPrice(item: widget.item),
+                  // K15 — the figure الأكثر مبيعاً is actually ranked by,
+                  // shown only while that chip is lit. A claim of "best
+                  // selling" with nothing behind it is unverifiable by the
+                  // person reading it; off that sort the number is noise.
+                  if (widget.controller.catalogueQuery.value.sort ==
+                      CatalogueSort.bestSelling) ...[
+                    const SizedBox(height: 6),
+                    _SoldCount(item: widget.item),
+                  ],
                 ],
               ),
             ),
@@ -355,8 +375,6 @@ class _ProductDetailsSheet extends StatelessWidget {
     final sku = (item['sku'] ?? '').toString(); // #28
     final specs = _productSpecs(item['specs']); // #28
     final description = localizedContentFromMap(item, 'description');
-    final price = _amountFrom(item['price']);
-    final currency = (item['currency'] ?? 'IQD').toString();
     final imageUrl = _marketplaceImageUrl(item['image_path']);
 
     return SafeArea(
@@ -455,16 +473,10 @@ class _ProductDetailsSheet extends StatelessWidget {
                 const SizedBox(height: 14),
                 Row(
                   children: [
-                    Expanded(
-                      child: Text(
-                        _formatMoney(price, currency),
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                          color: AppThemeConfig.text(context),
-                        ),
-                      ),
-                    ),
+                    // The same discounted/original pair the card shows. Two
+                    // renderings of one price is how a sheet ends up quoting
+                    // the pre-discount figure under an العروض والخصومات chip.
+                    Expanded(child: _ProductPrice(item: item)),
                     Obx(
                       () => _QuantityControl(
                         quantity: controller.quantityFor(item['id']),
@@ -478,6 +490,88 @@ class _ProductDetailsSheet extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// K15 — the price a shopper actually pays, and the one they are saving from.
+///
+/// `price_after_discount` is computed by the server (price × (100 −
+/// discount_percent), already rounded) and equals `price` when there is no
+/// offer, so this has one field to print rather than a rounding rule to get
+/// wrong in a fourth place. The original is struck through ONLY when the two
+/// differ — showing a struck-through price identical to the live one would
+/// invent a discount.
+class _ProductPrice extends StatelessWidget {
+  const _ProductPrice({required this.item});
+
+  final Map<String, dynamic> item;
+
+  @override
+  Widget build(BuildContext context) {
+    final currency = (item['currency'] ?? 'IQD').toString();
+    final price = _amountFrom(item['price']);
+    final payable = item.containsKey('price_after_discount')
+        ? _amountFrom(item['price_after_discount'])
+        : price;
+    final discounted = payable > 0 && payable < price;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Flexible(
+          child: Text(
+            _formatMoney(discounted ? payable : price, currency),
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: discounted
+                  ? AppThemeConfig.consequence(context)
+                  : AppThemeConfig.text(context),
+            ),
+          ),
+        ),
+        if (discounted) ...[
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              _formatMoney(price, currency),
+              style: TextStyle(
+                fontSize: 12.5,
+                decoration: TextDecoration.lineThrough,
+                color: AppThemeConfig.mutedText(context),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// How many of this product have sold, under the الأكثر مبيعاً ranking.
+///
+/// `sold_count` is SUM(quantity) over approved/processing/completed orders —
+/// a cancelled order is not a sale. Absent (an older response) renders
+/// nothing rather than a confident zero.
+class _SoldCount extends StatelessWidget {
+  const _SoldCount({required this.item});
+
+  final Map<String, dynamic> item;
+
+  @override
+  Widget build(BuildContext context) {
+    final sold = int.tryParse((item['sold_count'] ?? '').toString());
+    if (sold == null) return const SizedBox.shrink();
+    return Text(
+      // The numeral is isolated LTR (U+2066 … U+2069) before it is dropped
+      // into an Arabic sentence, like every other number-in-text in this app.
+      'catalogue_sold_count'.trParams({'count': '\u2066$sold\u2069'}),
+      style: TextStyle(
+        color: AppThemeConfig.mutedText(context),
+        fontSize: 12,
+        fontWeight: FontWeight.w700,
       ),
     );
   }

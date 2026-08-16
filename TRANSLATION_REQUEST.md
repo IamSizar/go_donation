@@ -18,7 +18,8 @@ Updated 2026-08-16 once more with the 94 keys that gave every field-rule row on
 Updated 2026-08-16 again with the 2 keys H10's sensitive-contact redaction
 added to the dashboard.
 Updated 2026-08-16 again with the 20 keys the K14 خطوبتي owner self-management
-(edit / pause / resume / remove) added.
+(edit / pause / resume / remove) added, and the 27 keys the K15 product-list
+labels added.
 
 ## Why these are empty rather than wrong
 
@@ -31,7 +32,7 @@ made on this project once and had to be reverted.
 Every key below currently renders its **English** string to a Kurdish user.
 That is deliberate and safe. It is not a crash, and it is not Arabic text.
 
-## Count: 394 keys need Kurdish
+## Count: 421 keys need Kurdish
 
 | Client | Sorani (ckb) | Badini (kmr) | Distinct keys |
 |---|---|---|---|
@@ -55,7 +56,8 @@ That is deliberate and safe. It is not a crash, and it is not Arabic text.
 | App — City Guide map chip (place count) | 2 | 2 | 2 |
 | App — security page auth description (old Kurdish was FALSE) | 1 | 1 | 1 |
 | App — K14 خطوبتي owner self-management (new) | 20 | 20 | 20 |
-| **Total distinct words to translate** | | | **394** |
+| App — K15 product-list labels (new) | 27 | 27 | 27 |
+| **Total distinct words to translate** | | | **421** |
 
 > **The dashboard figure above is a floor, not a ceiling — and it is the one
 > number in this file that was never fully measured.** Counting key paths in
@@ -1270,3 +1272,55 @@ phrase.
 "Primary Administrator" is the Super Admin — the same person `error.protected_account`
 and `error.staff_phone_super_admin_only` already refer to, so please keep the
 wording consistent with those two.
+
+## marketplace · K15 product-list labels (27 keys)
+
+The product list gained the six functional labels the client's spec names —
+الأكثر مبيعاً, وصل حديثاً, العروض والخصومات, الفئات, العلامات التجارية, التصفية —
+against the catalogue-wide sorts and filters commit `b59c357` added. English and
+Arabic are written; ckb/kmr fall back to English.
+
+**Two of these carry a number and must keep their placeholder.**
+`catalogue_product_count` (`@count`) and `catalogue_sold_count` (`@count`) are
+substituted at runtime. The numeral is wrapped in a Unicode LTR isolate before
+substitution, so `@count` may sit anywhere in the sentence — but the token
+itself must survive translation exactly as written, `@` included.
+
+**`catalogue_sort_default` needs care.** It labels the catalogue's own ordering
+— the state where the shopper has chosen no ranking at all. It is NOT "no sort"
+as an error or an absence; the English reads "Featured order". Please pick
+whatever the app's other pickers use for a neutral, unchosen default.
+
+| Key | English | Arabic |
+|---|---|---|
+| `catalogue_sort_best_selling` | Best selling | الأكثر مبيعاً |
+| `catalogue_sort_newest` | New arrivals | وصل حديثاً |
+| `catalogue_sort_price_asc` | Price: low to high | السعر: من الأقل إلى الأعلى |
+| `catalogue_sort_price_desc` | Price: high to low | السعر: من الأعلى إلى الأقل |
+| `catalogue_sort_default` | Featured order | الترتيب المميّز |
+| `catalogue_sort_label` | Sort by | الترتيب حسب |
+| `catalogue_on_sale` | Offers & discounts | العروض والخصومات |
+| `catalogue_categories` | Categories | الفئات |
+| `catalogue_brands` | Brands | العلامات التجارية |
+| `catalogue_filters` | Refine | التصفية |
+| `catalogue_price_min` | Lowest price | أقل سعر |
+| `catalogue_price_max` | Highest price | أعلى سعر |
+| `catalogue_in_stock_only` | In stock only | المتوفر فقط |
+| `catalogue_in_stock_only_desc` | Hides products the seller has marked as sold out. | يخفي المنتجات التي حدّدها البائع كنافدة من المخزون. |
+| `catalogue_apply` | Show products | عرض المنتجات |
+| `catalogue_clear` | Clear | مسح |
+| `catalogue_price_invalid` | Enter a price as a number. | أدخل السعر كرقم. |
+| `catalogue_price_range_invalid` | The highest price cannot be lower than the lowest. | لا يمكن أن يكون أعلى سعر أقل من أدنى سعر. |
+| `catalogue_product_count` | @count products | @count منتجاً |
+| `catalogue_sold_count` | @count sold | تم بيع @count |
+| `catalogue_no_results` | Nothing matches these filters | لا شيء يطابق هذه الفلاتر |
+| `catalogue_no_results_desc` | Try removing a filter, or widening the price range. | جرّب إزالة فلتر، أو توسيع نطاق السعر. |
+| `catalogue_categories_empty` | No categories yet | لا توجد فئات بعد |
+| `catalogue_brands_empty` | No brands yet | لا توجد علامات تجارية بعد |
+| `catalogue_facet_empty_desc` | This list fills in as products are added to the shop. | تمتلئ هذه القائمة كلما أُضيفت منتجات إلى المتجر. |
+| `catalogue_categories_failed` | Could not load the categories. | تعذّر تحميل الفئات. |
+| `catalogue_brands_failed` | Could not load the brands. | تعذّر تحميل العلامات التجارية. |
+
+The Arabic for the six labels is the CLIENT'S OWN WORDING from the spec, not a
+translation of the English — so where the two read differently, the Arabic is
+the original and the English is the gloss.

@@ -725,6 +725,42 @@ class AppTranslations extends Translations {
     'Discover products from productive families and track orders.':
         'Discover products from productive families and track orders.',
     'Product Listings': 'Product Listings',
+    // K15 — the client's six functional product labels, every one of them a
+    // parameter on GET /api/marketplace rather than a re-sort of the loaded
+    // page. See modules/marketplace/models/catalogue_query.dart.
+    'catalogue_sort_best_selling': 'Best selling',
+    'catalogue_sort_newest': 'New arrivals',
+    'catalogue_sort_price_asc': 'Price: low to high',
+    'catalogue_sort_price_desc': 'Price: high to low',
+    'catalogue_sort_default': 'Featured order',
+    'catalogue_sort_label': 'Sort by',
+    'catalogue_on_sale': 'Offers & discounts',
+    'catalogue_categories': 'Categories',
+    'catalogue_brands': 'Brands',
+    'catalogue_filters': 'Refine',
+    'catalogue_price_min': 'Lowest price',
+    'catalogue_price_max': 'Highest price',
+    'catalogue_in_stock_only': 'In stock only',
+    'catalogue_in_stock_only_desc':
+        'Hides products the seller has marked as sold out.',
+    'catalogue_apply': 'Show products',
+    'catalogue_clear': 'Clear',
+    'catalogue_price_invalid': 'Enter a price as a number.',
+    'catalogue_price_range_invalid':
+        'The highest price cannot be lower than the lowest.',
+    'catalogue_product_count': '@count products',
+    'catalogue_sold_count': '@count sold',
+    // A filtered list that found nothing is not an empty shop, so it says so
+    // and offers the way back rather than reporting on the whole catalogue.
+    'catalogue_no_results': 'Nothing matches these filters',
+    'catalogue_no_results_desc':
+        'Try removing a filter, or widening the price range.',
+    'catalogue_categories_empty': 'No categories yet',
+    'catalogue_brands_empty': 'No brands yet',
+    'catalogue_facet_empty_desc':
+        'This list fills in as products are added to the shop.',
+    'catalogue_categories_failed': 'Could not load the categories.',
+    'catalogue_brands_failed': 'Could not load the brands.',
     'Browse curated products with a cleaner storefront experience.':
         'Browse curated products with a cleaner storefront experience.',
     'Order Tracking': 'Order Tracking',
@@ -3480,6 +3516,37 @@ class AppTranslations extends Translations {
     'Discover products from productive families and track orders.':
         'اكتشف منتجات الأسر المنتجة وتتبع الطلبات.',
     'Product Listings': 'قائمة المنتجات',
+    // K15 — الملصقات الوظيفية الستة لقائمة المنتجات.
+    'catalogue_sort_best_selling': 'الأكثر مبيعاً',
+    'catalogue_sort_newest': 'وصل حديثاً',
+    'catalogue_sort_price_asc': 'السعر: من الأقل إلى الأعلى',
+    'catalogue_sort_price_desc': 'السعر: من الأعلى إلى الأقل',
+    'catalogue_sort_default': 'الترتيب المميّز',
+    'catalogue_sort_label': 'الترتيب حسب',
+    'catalogue_on_sale': 'العروض والخصومات',
+    'catalogue_categories': 'الفئات',
+    'catalogue_brands': 'العلامات التجارية',
+    'catalogue_filters': 'التصفية',
+    'catalogue_price_min': 'أقل سعر',
+    'catalogue_price_max': 'أعلى سعر',
+    'catalogue_in_stock_only': 'المتوفر فقط',
+    'catalogue_in_stock_only_desc':
+        'يخفي المنتجات التي حدّدها البائع كنافدة من المخزون.',
+    'catalogue_apply': 'عرض المنتجات',
+    'catalogue_clear': 'مسح',
+    'catalogue_price_invalid': 'أدخل السعر كرقم.',
+    'catalogue_price_range_invalid':
+        'لا يمكن أن يكون أعلى سعر أقل من أدنى سعر.',
+    'catalogue_product_count': '@count منتجاً',
+    'catalogue_sold_count': 'تم بيع @count',
+    'catalogue_no_results': 'لا شيء يطابق هذه الفلاتر',
+    'catalogue_no_results_desc': 'جرّب إزالة فلتر، أو توسيع نطاق السعر.',
+    'catalogue_categories_empty': 'لا توجد فئات بعد',
+    'catalogue_brands_empty': 'لا توجد علامات تجارية بعد',
+    'catalogue_facet_empty_desc':
+        'تمتلئ هذه القائمة كلما أُضيفت منتجات إلى المتجر.',
+    'catalogue_categories_failed': 'تعذّر تحميل الفئات.',
+    'catalogue_brands_failed': 'تعذّر تحميل العلامات التجارية.',
     'Browse curated products with a cleaner storefront experience.':
         'تصفح منتجات مختارة بتجربة عرض أكثر أناقة.',
     'Order Tracking': 'تتبع الطلبات',

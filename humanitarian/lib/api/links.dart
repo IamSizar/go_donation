@@ -288,8 +288,18 @@ const String appShareUrl = '';
 /// GET: the current user's digital aid-delivery receipts (#50).
 const String aidReceiptsUrl = '${baseUrl}aid-receipts';
 
-/// GET: admin-managed marketplace product categories (#28).
+/// GET: admin-managed marketplace product categories (#28). Also الفئات, one
+/// of K15's six product-list labels — the slug goes back as `?category=`.
 const String marketplaceCategoriesUrl = '${baseUrl}marketplace/categories';
+
+/// GET: العلامات التجارية — the brands present in the PUBLIC catalogue, with a
+/// product count each, most-stocked first (K15, commit b59c357).
+///
+/// A facet rather than a taxonomy: it is computed from approved products, so a
+/// chip never promises rows the browse list will not show. The app picks a
+/// brand from here and sends it back as `?brand=`, exact match — which is why
+/// there is nothing for the app to guess at or normalise.
+const String marketplaceBrandsUrl = '${baseUrl}marketplace/brands';
 
 /// #27 — rate a partner (authed).
 String partnerRateUrl(int partnerId) => '${baseUrl}partners/$partnerId/rate';

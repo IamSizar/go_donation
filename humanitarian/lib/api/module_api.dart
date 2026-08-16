@@ -422,6 +422,42 @@ class ModuleApi {
   Future<List<Map<String, dynamic>>> marketplaceCategories() =>
       getItems(marketplaceCategoriesUrl);
 
+  /// K15 — العلامات التجارية, with each brand's product count.
+  Future<List<Map<String, dynamic>>> marketplaceBrands() =>
+      getItems(marketplaceBrandsUrl);
+
+  /// One page of a LIST endpoint, keeping the paging fields `getItems` drops.
+  ///
+  /// WHY (K15): the app decided "is there another page?" with
+  /// `rows.length == limit`, which is the same guess commit b59c357 removed
+  /// from the server — it claims another page every time the last one happens
+  /// to be exactly full, and a filtered catalogue lands on an exact multiple of
+  /// ten far more often than an unfiltered one. The server now answers
+  /// `has_more` as arithmetic over a real COUNT, so the app should read it
+  /// rather than re-derive it worse.
+  ///
+  /// `has_more` absent (an endpoint that has not been updated) falls back to
+  /// the old guess, so this is safe to point at any list.
+  Future<({List<Map<String, dynamic>> items, bool hasMore, int totalItems})>
+  getListPage(String url, {required int perPage}) async {
+    final decoded = await getObject(url);
+    final rawItems = decoded['items'];
+    final items = rawItems is List
+        ? rawItems
+              .whereType<Map>()
+              .map((item) => Map<String, dynamic>.from(item))
+              .toList(growable: false)
+        : const <Map<String, dynamic>>[];
+    final hasMore = decoded['has_more'] is bool
+        ? decoded['has_more'] as bool
+        : items.length >= perPage;
+    return (
+      items: items,
+      hasMore: hasMore,
+      totalItems: int.tryParse((decoded['total_items'] ?? '').toString()) ?? 0,
+    );
+  }
+
   Future<List<Map<String, dynamic>>> communityDirectory({String? q}) {
     // #33 — optional q so a single-entry lookup isn't capped by the default
     // page limit (see _fetchPlaceEntry in global_search_screen.dart).
