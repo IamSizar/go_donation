@@ -11,6 +11,7 @@
 // stays nested where it's actually used instead of adding another one.
 import { useEffect, useState } from 'react'
 import { api, describeError } from '../lib/api'
+import { askToConfirm } from '../lib/dialogs'
 import { useI18n } from '../lib/i18n'
 import { useToast } from '../lib/toast'
 import type { CaseCategory } from '../lib/api-types'
@@ -87,7 +88,7 @@ export default function CaseCategoriesManager({ open, onClose, onChanged }: Prop
   }
 
   const remove = async (id: number) => {
-    if (!window.confirm(t('caseCategories.confirm_delete'))) return
+    if (!(await askToConfirm({ message: t('caseCategories.confirm_delete'), destructive: true }))) return
     try {
       await api.delete(`/api/admin/case-categories/${id}`)
       toast.success(t('caseCategories.deleted'))

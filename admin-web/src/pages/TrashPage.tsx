@@ -6,6 +6,7 @@
 // PIN-gated (re-enter your password) and only offered to the Super-Admin.
 import { useCallback, useEffect, useState } from 'react'
 import { api, describeError, canExportData, isSuperAdmin } from '../lib/api'
+import { askForText } from '../lib/dialogs'
 import { useAuth } from '../lib/auth'
 import { useI18n } from '../lib/i18n'
 import { useToast } from '../lib/toast'
@@ -138,7 +139,11 @@ export default function TrashPage() {
   // admin's own password and let the backend verify it (A-16 pattern).
   const restore = async (it: TrashItem) => {
     if (busyId) return
-    const pin = window.prompt(t('page.trash.restore_prompt'))
+    const pin = await askForText({
+      title: t('auth.password'),
+      message: t('page.trash.restore_prompt'),
+      secret: true,
+    })
     if (pin == null) return
     if (!pin.trim()) { toast.error(t('export.pin_required')); return }
     setBusyId(it.id)
@@ -155,7 +160,15 @@ export default function TrashPage() {
 
   const purge = async (it: TrashItem) => {
     if (busyId) return
-    const pin = window.prompt(t('page.trash.purge_prompt'))
+    // Destructive: the record does not come back from this one, and the
+    // message says so. Red primary button rather than the neutral one the
+    // reversible Restore above gets.
+    const pin = await askForText({
+      title: t('auth.password'),
+      message: t('page.trash.purge_prompt'),
+      secret: true,
+      destructive: true,
+    })
     if (pin == null) return
     if (!pin.trim()) { toast.error(t('export.pin_required')); return }
     setBusyId(it.id)
@@ -183,7 +196,12 @@ export default function TrashPage() {
   // Bulk permanent purge (super-admin) — one PIN prompt, then purge each selected.
   const purgeSelected = async () => {
     if (selected.size === 0 || busyId) return
-    const pin = window.prompt(t('page.trash.purge_prompt'))
+    const pin = await askForText({
+      title: t('auth.password'),
+      message: t('page.trash.purge_prompt'),
+      secret: true,
+      destructive: true,
+    })
     if (pin == null) return
     if (!pin.trim()) { toast.error(t('export.pin_required')); return }
     const ids = [...selected]

@@ -6,6 +6,7 @@
 // but the super-admin, guarded here, and the backend enforces RequireSuperAdmin.
 import { useCallback, useEffect, useState } from 'react'
 import { api, describeError, isSuperAdmin } from '../lib/api'
+import { askForText } from '../lib/dialogs'
 import { useAuth } from '../lib/auth'
 import { useI18n } from '../lib/i18n'
 import { useToast } from '../lib/toast'
@@ -37,7 +38,11 @@ export default function GuestAccessPage() {
   const amSuper = isSuperAdmin(user)
 
   const verifyPin = async () => {
-    const pin = window.prompt(t('export.pin_prompt'))
+    const pin = await askForText({
+      title: t('auth.password'),
+      message: t('export.pin_prompt'),
+      secret: true,
+    })
     if (pin == null || !pin.trim()) throw new Error(t('export.pin_required'))
     const { data } = await api.post('/api/admin/verify-password', { password: pin })
     if (!data?.ok) throw new Error(data?.error || t('export.pin_incorrect'))

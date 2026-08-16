@@ -1,4 +1,5 @@
 import axios, { AxiosError } from 'axios'
+import { askForText } from './dialogs'
 import { translate } from './i18n'
 
 const TOKEN_KEY = 'humanitarian.admin.token'
@@ -196,12 +197,19 @@ export async function withMainAdminConfirmation<T>(
       | undefined
     if (data?.code !== 'main_admin_confirmation_required') throw e
 
-    const code = window.prompt(
-      translate('perm.main_admin_confirm_prompt', {
+    // askForText, not window.prompt: a browser that refuses prompt() used to
+    // take this whole path down with it — the change was refused 428 and the
+    // operator was never asked for the code that would have applied it.
+    const code = await askForText({
+      title: translate('auth.otp_label'),
+      message: translate('perm.main_admin_confirm_prompt', {
         phone: data.phone_hint ?? '',
         email: data.email_hint ?? '',
       }),
-    )
+      secret: true,
+      inputMode: 'numeric',
+      autoComplete: 'one-time-code',
+    })
     if (code == null || !code.trim()) {
       throw new Error(translate('perm.main_admin_confirm_required'))
     }
@@ -252,7 +260,13 @@ export async function withSectionUnlock<T>(send: () => Promise<T>): Promise<T> {
 
     const promptKey =
       data.code === 'perm_section_blocked_email' ? 'perm.unlock_prompt_email' : 'perm.unlock_prompt_sms'
-    const code = window.prompt(translate(promptKey))
+    const code = await askForText({
+      title: translate('auth.otp_label'),
+      message: translate(promptKey),
+      secret: true,
+      inputMode: 'numeric',
+      autoComplete: 'one-time-code',
+    })
     if (code == null || !code.trim()) throw new Error(translate('perm.unlock_required'))
 
     // A failure here is the server's refusal of the unlock code itself

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { api, canExportData } from '../lib/api'
 import { useAuth } from '../lib/auth'
+import { askForText } from '../lib/dialogs'
 import { useI18n } from '../lib/i18n'
 import { useToast } from '../lib/toast'
 import { useExportAllowed } from '../lib/permissions'
@@ -56,7 +57,15 @@ export default function ExportCsvButton<T>({
   if (multi ? !allowed : !canExportData(user)) return null
 
   async function verifyPin(): Promise<boolean> {
-    const pin = window.prompt(t('export.pin_prompt'))
+    // askForText keeps window.prompt's two outcomes: null when the operator
+    // backs out (silent abort) and '' when they submit an empty box (the
+    // "password is required" toast below). Both callers still depend on the
+    // difference.
+    const pin = await askForText({
+      title: t('auth.password'),
+      message: t('export.pin_prompt'),
+      secret: true,
+    })
     if (pin == null) return false
     if (!pin.trim()) {
       toast.error(t('export.pin_required'))

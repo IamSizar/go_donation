@@ -4,6 +4,7 @@
 // purchases. Same CRUD shape as Payment Methods.
 import { useEffect, useState } from 'react'
 import { api, describeError } from '../lib/api'
+import { askToConfirm } from '../lib/dialogs'
 import { useI18n, useStatusLabel } from '../lib/i18n'
 import { useToast } from '../lib/toast'
 import PageHead from '../components/PageHead'
@@ -175,7 +176,7 @@ export default function MarriageSubscriptionsPage() {
   }
 
   const remove = async (id: number) => {
-    if (!window.confirm(t('marriageSubscriptions.confirm_delete'))) return
+    if (!(await askToConfirm({ message: t('marriageSubscriptions.confirm_delete'), destructive: true }))) return
     try {
       await api.delete(`/api/admin/marriage/subscription-packages/${id}`)
       toast.success(t('marriageSubscriptions.deleted'))
@@ -234,7 +235,15 @@ export default function MarriageSubscriptionsPage() {
   }
 
   const rejectPurchase = async (id: number) => {
-    if (!window.confirm(t('marriageSubscriptions.confirm_reject'))) return
+    // Not a delete: the purchase stays on file, it is refused. Destructive
+    // styling with its own label, so it never reads as "Delete".
+    const approved = await askToConfirm({
+      title: t('marriageSubscriptions.reject_purchase'),
+      message: t('marriageSubscriptions.confirm_reject'),
+      destructive: true,
+      confirmLabel: t('marriageSubscriptions.reject_purchase'),
+    })
+    if (!approved) return
     setBusyPurchaseId(id)
     try {
       await api.post(`/api/admin/marriage/subscription-purchases/${id}/reject`, {})

@@ -4,6 +4,7 @@
 // GET/POST/DELETE /api/admin/tasks.
 import { useEffect, useMemo, useState } from 'react'
 import { api, describeError } from '../lib/api'
+import { askToConfirm } from '../lib/dialogs'
 import { useI18n } from '../lib/i18n'
 import { useToast } from '../lib/toast'
 import PageHead from '../components/PageHead'
@@ -123,7 +124,7 @@ export default function TasksPage() {
   // whole group removes it from everyone. Both are spelled out in the
   // confirmation so an admin can't mistake one for the other.
   const removeRows = async (rows: Task[], confirmKey: string) => {
-    if (!window.confirm(t(confirmKey, { count: rows.length }))) return
+    if (!(await askToConfirm({ message: t(confirmKey, { count: rows.length }), destructive: true }))) return
     try {
       await Promise.all(rows.map((r) => api.delete(`/api/admin/tasks/${r.id}`)))
       toast.success(t('tasks.deleted'))

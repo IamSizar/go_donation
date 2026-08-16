@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import ActionsMenu from '../components/ActionsMenu'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError, isSuperAdmin, withMainAdminConfirmation } from '../lib/api'
+import { askForText, askToConfirm } from '../lib/dialogs'
 import { useAuth } from '../lib/auth'
 import { roleLabel, type UsersListResp, type UserAccount } from '../lib/api-types'
 import Table, { type Column } from '../components/Table'
@@ -154,8 +155,16 @@ export default function UsersPage() {
   const canArchive = usePermission('users', 'archive', authUser)
 
   // PIN step-up used before sensitive user changes (role/tier/delete).
+  //
+  // This is the gate the client's report died at: it was a window.prompt, the
+  // operator's browser refused prompt() outright, and with no PIN there was no
+  // way to change a user's type at all. Now the dashboard draws the box itself.
   const verifyPin = async () => {
-    const pin = window.prompt(t('export.pin_prompt'))
+    const pin = await askForText({
+      title: t('auth.password'),
+      message: t('export.pin_prompt'),
+      secret: true,
+    })
     if (pin == null || !pin.trim()) throw new Error(t('export.pin_required'))
     const { data } = await api.post('/api/admin/verify-password', { password: pin })
     if (!data?.ok) throw new Error(data?.error || t('export.pin_incorrect'))
@@ -200,10 +209,21 @@ export default function UsersPage() {
   // A15 — "staff" is read from staff_tier, not the legacy is_admin flag: the
   // two had drifted, and an app user carrying is_admin=1 is precisely the
   // person this warning exists to protect.
+  //
+  // Now async because the warning is an in-app dialog rather than a native
+  // window.confirm — the answer arrives on a promise. Both callers await it;
+  // the meaning of the boolean is unchanged.
   const confirmPasswordSet = useCallback(
-    (u: UserAccount) => {
+    async (u: UserAccount): Promise<boolean> => {
       if (u.staff_tier && u.staff_tier !== 'user') return true
-      return window.confirm(t('page.users.password_non_staff_warning'))
+      // Destructive styling, but NOT the "Delete" label — what is at stake is
+      // locking a real person out of the app, not deleting a row.
+      return askToConfirm({
+        title: t('common.set_password'),
+        message: t('page.users.password_non_staff_warning'),
+        destructive: true,
+        confirmLabel: t('common.confirm'),
+      })
     },
     [t],
   )
@@ -212,7 +232,7 @@ export default function UsersPage() {
     async (u: UserAccount, patch: Record<string, unknown>) => {
       const { password, ...profilePatch } = patch
       const settingPassword = typeof password === 'string' && password.trim() !== ''
-      if (settingPassword && !confirmPasswordSet(u)) {
+      if (settingPassword && !(await confirmPasswordSet(u))) {
         throw new Error(t('page.users.password_cancelled'))
       }
       // Note #9 — PIN before saving any account edit, EXCEPT when this save
@@ -435,8 +455,17 @@ export default function UsersPage() {
                 key: 'password',
                 label: t('common.set_password'),
                 onClick: async () => {
-                  if (!confirmPasswordSet(u)) return
-                  const pw = window.prompt(t('common.set_password_prompt'))
+                  if (!(await confirmPasswordSet(u))) return
+                  // Empty is MEANINGFUL here — the prompt text says a blank
+                  // entry clears the password — so the dialog resolves '' for
+                  // a blank submit and null only for a cancel, exactly as
+                  // window.prompt did. The `=== null` test below is unchanged.
+                  const pw = await askForText({
+                    title: t('common.set_password'),
+                    message: t('common.set_password_prompt'),
+                    secret: true,
+                    autoComplete: 'new-password',
+                  })
                   if (pw === null) return
                   try {
                     // Note #9 — PIN before setting a password, EXCEPT when the
@@ -463,7 +492,13 @@ export default function UsersPage() {
                       key: 'wallet_topup',
                       label: t('page.users.wallet_topup'),
                       onClick: async () => {
-                        const raw = window.prompt(t('page.users.wallet_topup_prompt'))
+                        // Not secret — an amount, not a credential. Numeric
+                        // keyboard because the field only ever takes digits.
+                        const raw = await askForText({
+                          title: t('page.users.wallet_topup'),
+                          message: t('page.users.wallet_topup_prompt'),
+                          inputMode: 'numeric',
+                        })
                         if (raw === null) return
                         const amount = Math.round(Number(raw))
                         if (!Number.isFinite(amount) || amount <= 0) {

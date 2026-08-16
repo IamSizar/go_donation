@@ -3,6 +3,7 @@
 // GET/POST/PATCH/reorder/DELETE /api/admin/marketplace/categories.
 import { useEffect, useState } from 'react'
 import { api, describeError } from '../lib/api'
+import { askToConfirm } from '../lib/dialogs'
 import { useI18n } from '../lib/i18n'
 import { useToast } from '../lib/toast'
 import PageHead from '../components/PageHead'
@@ -79,7 +80,7 @@ export default function MarketplaceCategoriesPage() {
   }
 
   const remove = async (id: number) => {
-    if (!window.confirm(t('marketplaceCategories.confirm_delete'))) return
+    if (!(await askToConfirm({ message: t('marketplaceCategories.confirm_delete'), destructive: true }))) return
     try {
       await api.delete(`/api/admin/marketplace/categories/${id}`)
       toast.success(t('marketplaceCategories.deleted'))

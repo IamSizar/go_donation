@@ -1806,6 +1806,18 @@ nav .nav-group-header:hover { background: var(--panel-2); color: var(--text-h); 
   border-top: 1px solid var(--color-border);
   background: rgba(0, 0, 0, 0.15);
 }
+/* AskDialog — the in-app replacement for window.prompt() / window.confirm().
+   It reuses the modal look above and only changes the layer it sits on.
+
+   WHY ITS OWN LAYER. It is a STEP-UP in front of whatever asked for it, and
+   what asked is very often a modal that is still open behind it: saving the
+   Edit User form opens the PIN dialog while the EditModal is on screen. Both
+   draw .modal-overlay at z-index 200, so the winner would be whichever sits
+   later in the DOM — the page's modal, every time, hiding the dialog the
+   operator has to answer. Above the mobile sidebar (210) too, since a dialog
+   can be raised from a nav action. */
+.modal-overlay.ask-overlay { z-index: 300; }
+
 .form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

@@ -3,6 +3,7 @@
 // active / reorder / delete. GET/POST/PATCH/reorder/DELETE /api/admin/sponsorship-types.
 import { useEffect, useState } from 'react'
 import { api, describeError } from '../lib/api'
+import { askToConfirm } from '../lib/dialogs'
 import { useI18n } from '../lib/i18n'
 import { useToast } from '../lib/toast'
 import PageHead from '../components/PageHead'
@@ -91,7 +92,7 @@ export default function SponsorshipTypesPage() {
   }
 
   const remove = async (id: number) => {
-    if (!window.confirm(t('sponsorshipTypes.confirm_delete'))) return
+    if (!(await askToConfirm({ message: t('sponsorshipTypes.confirm_delete'), destructive: true }))) return
     try {
       await api.delete(`/api/admin/sponsorship-types/${id}`)
       toast.success(t('sponsorshipTypes.deleted'))

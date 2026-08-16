@@ -15,6 +15,7 @@
 // says their gift is; a section is where the system files it.
 import { useEffect, useState } from 'react'
 import { api, describeError } from '../lib/api'
+import { askToConfirm } from '../lib/dialogs'
 import { useI18n } from '../lib/i18n'
 import { useToast } from '../lib/toast'
 import PageHead from '../components/PageHead'
@@ -91,7 +92,7 @@ export default function DonationTypesPage() {
   }
 
   const remove = async (id: number) => {
-    if (!window.confirm(t('donationTypes.confirm_delete'))) return
+    if (!(await askToConfirm({ message: t('donationTypes.confirm_delete'), destructive: true }))) return
     try {
       await api.delete(`/api/admin/donation-types/${id}`)
       toast.success(t('donationTypes.deleted'))

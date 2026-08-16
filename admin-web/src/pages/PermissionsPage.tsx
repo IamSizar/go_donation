@@ -7,6 +7,7 @@
 // backend enforces RequireSuperAdmin).
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api, describeError, isSuperAdmin, withSectionUnlock } from '../lib/api'
+import { askForText } from '../lib/dialogs'
 import { useAuth } from '../lib/auth'
 import { useI18n } from '../lib/i18n'
 import { useToast } from '../lib/toast'
@@ -92,7 +93,13 @@ async function askForFactor(
   if (resp?.degraded && resp?.demo_code) {
     msg += `\n\n${t('perm.otp_degraded_warning', { code: resp.demo_code })}`
   }
-  const code = window.prompt(msg)
+  const code = await askForText({
+    title: t('auth.otp_label'),
+    message: msg,
+    secret: true,
+    inputMode: 'numeric',
+    autoComplete: 'one-time-code',
+  })
   if (code == null || !code.trim()) throw new Error(t('perm.otp_required'))
   return code.trim()
 }
@@ -289,7 +296,11 @@ export default function PermissionsPage() {
   // with the write, because the server now verifies it itself: a factor the
   // page alone enforces is skipped by anyone who does not use the page.
   const verifyPin = async (): Promise<string> => {
-    const pin = window.prompt(t('export.pin_prompt'))
+    const pin = await askForText({
+      title: t('auth.password'),
+      message: t('export.pin_prompt'),
+      secret: true,
+    })
     if (pin == null || !pin.trim()) throw new Error(t('export.pin_required'))
     const { data } = await api.post('/api/admin/verify-password', { password: pin })
     if (!data?.ok) throw new Error(data?.error || t('export.pin_incorrect'))

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { api, describeError, canExportData, isSuperAdmin } from '../lib/api'
+import { askForText } from '../lib/dialogs'
 import { useAuth } from '../lib/auth'
 import { useI18n, LOCALES } from '../lib/i18n'
 import { usePendingCounts } from '../lib/pendingCounts'
@@ -245,7 +246,11 @@ export default function AppShell() {
   // the backend verify it before it will dump the database.
   async function handleExport() {
     if (exporting) return
-    const pin = window.prompt(t('export.pin_prompt'))
+    const pin = await askForText({
+      title: t('auth.password'),
+      message: t('export.pin_prompt'),
+      secret: true,
+    })
     if (pin == null) return
     if (!pin.trim()) { toast.error(t('export.pin_required')); return }
     setExporting(true)

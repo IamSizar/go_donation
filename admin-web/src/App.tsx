@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider, RequireAuth } from './lib/auth'
+import { DialogHost } from './lib/dialogs'
 import { GlobalAlertsProvider } from './lib/globalAlerts'
 import { PendingCountsProvider } from './lib/pendingCounts'
 import { ToastProvider } from './lib/toast'
@@ -90,6 +91,12 @@ export default function App() {
   return (
     <BrowserRouter>
       <I18nProvider>
+      {/* DialogHost draws askForText() / askToConfirm() — the in-app PIN,
+          verification-code and delete dialogs that replaced window.prompt()
+          and window.confirm(). Mounted here because it needs only i18n (for
+          its own button labels) and because lib/api.ts raises dialogs from
+          plain async code, with no component of its own to render them. */}
+      <DialogHost />
       <AuthProvider>
         <ToastProvider>
         {/* PendingCountsProvider owns ONE 5-second poll timer shared by the
