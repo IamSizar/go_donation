@@ -81,12 +81,14 @@ const List<_KeyFamily> _families = [
       'marital_status_',
       ['single', 'engaged', 'married', 'separated', 'widowed', 'divorced',
         'separated_never_married', 'other'],
-      'marriage_form_screen.dart:1551, marriage_search_screen.dart:229'),
+      'marriage_form_screen.dart:1551, marriage_search_screen.dart:229, '
+      'marriage_profile_edit_screen.dart:43'),
   _KeyFamily('employment_status_',
       ['employed', 'unemployed', 'self_employed', 'student'],
-      'marriage_form_screen.dart:1585, marriage_search_screen.dart:261'),
+      'marriage_form_screen.dart:1585, marriage_search_screen.dart:261, '
+      'marriage_profile_edit_screen.dart:53'),
   _KeyFamily('vis_', ['private', 'employee_only', 'matched_summary'],
-      'marriage_form_screen.dart:1621'),
+      'marriage_form_screen.dart:1621, marriage_profile_edit_screen.dart:59'),
   // BACKEND: CHECK in migrations/058_marriage_mediated_chat.sql:24.
   _KeyFamily('marriage_chat_status_', ['pending', 'active', 'declined'],
       'DB CHECK 058_marriage_mediated_chat.sql:24'),

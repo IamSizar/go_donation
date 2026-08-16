@@ -7,6 +7,35 @@ import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/app_event_firestore.dart';
 import 'package:http/http.dart' as http;
 
+/// A failure the server NAMED, so the app can say what happened in the user's
+/// own language.
+///
+/// WHY THIS EXISTS (K14)
+/// The owner-scoped engagement-profile routes answer a failure with two
+/// things: a machine [code] (`not_owner`, `not_pausable`, `invalid_visibility`)
+/// and an English sentence. The commit that added them says so outright — the
+/// English string is a developer fallback and "must not reach an Arabic
+/// screen". Every other write in this file throws `Exception(error)`, which
+/// carries only that sentence, so a caller had nothing to localize FROM.
+///
+/// [code] is the empty string when the server named nothing, which is how a
+/// caller tells "a failure I have copy for" apart from "a failure I do not".
+/// [developerMessage] is for `debugPrint` and crash reports only — never for a
+/// widget.
+class ApiCodedException implements Exception {
+  const ApiCodedException({required this.code, required this.developerMessage});
+
+  /// The server's machine code, or '' when it sent none.
+  final String code;
+
+  /// The server's English sentence. LOG THIS, DO NOT RENDER IT.
+  final String developerMessage;
+
+  @override
+  String toString() =>
+      'ApiCodedException(${code.isEmpty ? "unnamed" : code}): $developerMessage';
+}
+
 class ModuleApi {
   const ModuleApi();
 
@@ -306,6 +335,85 @@ class ModuleApi {
     }
     return decoded;
   }
+
+  /// Sends a write whose FAILURES ARE NAMED, and reports them as an
+  /// [ApiCodedException] rather than as a bare English sentence.
+  ///
+  /// Deliberately separate from [postJson] instead of replacing it. postJson's
+  /// existing callers catch `Exception` and print `e.toString()`; changing what
+  /// it throws would change what a dozen unrelated screens show. This is the
+  /// same request with a richer failure, used by the calls whose codes the app
+  /// has copy for.
+  ///
+  /// [method] is a literal from this file ('PATCH', 'DELETE', 'POST'). The
+  /// access token rides in the JSON body exactly as [postJson] sends it, so a
+  /// DELETE still carries one — the routes are behind RequireNotGuest.
+  Future<Map<String, dynamic>> _sendCodedJson(
+    String method,
+    String url,
+    Map<String, dynamic> body,
+  ) async {
+    final request = http.Request(method, Uri.parse(url))
+      ..headers.addAll(withApiAuthHeaders(const {
+        'Content-Type': 'application/json',
+      }))
+      ..body = jsonEncode(withApiAuthJsonBody(body));
+
+    final streamed = await http.Client()
+        .send(request)
+        .timeout(_requestTimeout);
+    final response = await http.Response.fromStream(streamed);
+
+    final decoded = _decodeJson(response);
+    if (decoded is Map<String, dynamic> &&
+        response.statusCode >= 200 &&
+        response.statusCode < 300 &&
+        decoded['success'] == true) {
+      return decoded;
+    }
+
+    // A non-JSON body (a proxy's HTML error page) leaves both fields empty
+    // rather than putting markup in front of the user; the caller's default
+    // sentence covers it.
+    final map = decoded is Map ? decoded : const {};
+    throw ApiCodedException(
+      code: (map['code'] ?? '').toString().trim(),
+      developerMessage:
+          (map['error'] ?? 'Request failed (${response.statusCode})').toString(),
+    );
+  }
+
+  // ─── K14 — the owner's own engagement profile ─────────────────────────
+
+  /// PATCH /api/marriage/:id — the owner's edit.
+  ///
+  /// [patch] carries ONLY the keys the endpoint declares; a key it does not
+  /// know is not silently dropped by the server, it is simply not part of the
+  /// contract, so the caller must not send one. The response echoes the STORED
+  /// profile, which is what the caller should render — not what it hoped it
+  /// sent.
+  Future<Map<String, dynamic>> updateMyMarriageProfile(
+    int profileId,
+    Map<String, dynamic> patch,
+  ) => _sendCodedJson('PATCH', marriageOwnerProfileUrl(profileId), patch);
+
+  /// POST /api/marriage/:id/pause — stop showing the profile.
+  Future<Map<String, dynamic>> pauseMyMarriageProfile(int profileId) =>
+      _sendCodedJson('POST', marriageOwnerPauseUrl(profileId), const {});
+
+  /// POST /api/marriage/:id/resume — show it again, in the status it was
+  /// paused from.
+  Future<Map<String, dynamic>> resumeMyMarriageProfile(int profileId) =>
+      _sendCodedJson('POST', marriageOwnerResumeUrl(profileId), const {});
+
+  /// DELETE /api/marriage/:id — remove the profile from every surface.
+  ///
+  /// Recoverable by staff: the server answers `{"removed": true,
+  /// "recoverable": true}` and keeps the row, the mediated chat history and
+  /// the subscription purchase record. The UI must say that rather than
+  /// promise permanent deletion.
+  Future<Map<String, dynamic>> deleteMyMarriageProfile(int profileId) =>
+      _sendCodedJson('DELETE', marriageOwnerProfileUrl(profileId), const {});
 
   Future<List<Map<String, dynamic>>> marketplaceProducts() =>
       getItems(marketplaceProductsUrl);

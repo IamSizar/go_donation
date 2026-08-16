@@ -7,6 +7,8 @@ import 'package:intl/intl.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/core/widgets/app_row.dart';
 
+import 'package:flutter_application_1/modules/marriage/widgets/marriage_owner_actions.dart';
+
 import 'marriage_field_privacy_screen.dart';
 import 'marriage_form_screen.dart';
 
@@ -25,6 +27,13 @@ import 'marriage_form_screen.dart';
 // and "submit a new one" when there is. The form stays a separate screen —
 // it is ~1600 lines of field-rules-driven inputs and has nothing to gain
 // from being inlined here.
+//
+// K14 — and it is now the one place the owner can ACT on the profile, not
+// just look at it. Edit / stop showing / show again / remove live in
+// MarriageOwnerActions, against the four owner-scoped routes commit 9f6ec79
+// added. Until then this screen carried a written note that it deliberately
+// avoided the word "edit" because POST /api/marriage only inserts another
+// row; that note is gone because the reason for it is.
 class MarriageMyProfileScreen extends StatelessWidget {
   const MarriageMyProfileScreen({super.key});
 
@@ -67,6 +76,7 @@ class MarriageMyProfileScreen extends StatelessWidget {
                 for (final item in list) ...[
                   _ProfileStatusCard(
                     item: item,
+                    controller: controller,
                     onOpenPrivacy: () => _openFieldPrivacy(controller, item),
                   ),
                   const SizedBox(height: 14),
@@ -125,11 +135,12 @@ Future<void> _openSubmissionForm(MarriageMyProfileController controller) async {
 
 /// The "submit another profile" affordance shown under the existing cards.
 ///
-/// Deliberately worded as a NEW submission rather than an edit: there is no
-/// endpoint for changing your own profile (POST /api/marriage inserts a row
-/// with a freshly generated profile_code; only staff can PATCH an existing
-/// one), so calling it "edit" — as the old hub tile did — promised something
-/// the app cannot do. Changes go through staff, and the caption says so.
+/// Still a NEW submission and not an edit — POST /api/marriage inserts a row
+/// with a freshly generated profile_code, which is what this button does.
+/// What changed with K14 is the caption: it used to send the reader to staff
+/// for ANY change, because that was the only route there was. Editing is now
+/// on the card above, so the caption points there and reserves staff for the
+/// sections PATCH /api/marriage/:id does not accept.
 class _NewSubmissionCard extends StatelessWidget {
   const _NewSubmissionCard({required this.onTap});
 
@@ -151,9 +162,7 @@ class _NewSubmissionCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'Ask the staff team to update an existing profile, or submit a '
-                    'new one for review.'
-                .tr,
+            'marriage_owner_new_submission_desc'.tr,
             style: TextStyle(
               color: AppThemeConfig.mutedText(context),
               height: 1.5,
@@ -176,9 +185,16 @@ class _NewSubmissionCard extends StatelessWidget {
 }
 
 class _ProfileStatusCard extends StatelessWidget {
-  const _ProfileStatusCard({required this.item, required this.onOpenPrivacy});
+  const _ProfileStatusCard({
+    required this.item,
+    required this.controller,
+    required this.onOpenPrivacy,
+  });
 
   final Map<String, dynamic> item;
+
+  /// K14 — owns the four owner-scoped writes the action row fires.
+  final MarriageMyProfileController controller;
 
   /// L19 — opens the per-field privacy picker for THIS profile.
   final VoidCallback onOpenPrivacy;
@@ -270,6 +286,11 @@ class _ProfileStatusCard extends StatelessWidget {
               label: Text('Field privacy'.tr),
             ),
           ),
+          // K14 — the writes. Placed after the privacy door so the row reads
+          // in escalating order: what it says about you, then what you can
+          // change, then what removes it.
+          const SizedBox(height: 10),
+          MarriageOwnerActions(controller: controller, profile: item),
         ],
       ),
     );

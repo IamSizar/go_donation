@@ -233,6 +233,36 @@ String marriagePrivacyUrl(int profileId) =>
 /// rejected/closed/paused.
 const String myMarriageProfileUrl = '${baseUrl}marriage/mine';
 
+/// K14 — the owner's own engagement profile, for PATCH (edit) and DELETE.
+///
+/// PATCH accepts only the card's fields: gender, age, city, social_summary,
+/// marital_status, religion, employment_status, weight_kg, height_cm,
+/// photo_url, visibility_level. The deeper registration sections
+/// (identification, housing, assets, health) are NOT on this endpoint and
+/// still change through staff — see `marriage.OwnerProfilePatch`.
+///
+/// DELETE is recoverable: the server stamps `owner_deleted_at` and closes the
+/// profile rather than deleting the row, because marriage_profiles cascades to
+/// the mediated chat history and to the subscription purchase record. Staff
+/// restore it by making any status decision.
+///
+/// Ownership is checked INSIDE the server's UPDATE, so the id belongs in the
+/// path and "not yours" and "does not exist" answer identically.
+String marriageOwnerProfileUrl(int profileId) =>
+    '${baseUrl}marriage/$profileId';
+
+/// POST: take the owner's profile out of the browse feed (K14). The server
+/// records the status it was paused FROM in the same statement.
+String marriageOwnerPauseUrl(int profileId) =>
+    '${baseUrl}marriage/$profileId/pause';
+
+/// POST: put the profile back into the status it was paused from (K14).
+///
+/// Not "activate": resume restores the remembered status, so a profile paused
+/// while awaiting review comes back awaiting review rather than approved.
+String marriageOwnerResumeUrl(int profileId) =>
+    '${baseUrl}marriage/$profileId/resume';
+
 /// GET: admin-configured required registration fields (#43).
 const String fieldRulesUrl = '${baseUrl}registration/field-rules';
 

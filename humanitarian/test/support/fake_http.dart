@@ -59,6 +59,25 @@ class FakeHttpOverrides extends HttpOverrides {
   /// path is part of what has to be pinned.
   final List<Uri> requestUrls = <Uri>[];
 
+  /// Every request's METHOD, in the same order as [requestUrls].
+  ///
+  /// Added for K14, where the verb is the whole contract: the engagement
+  /// profile's four owner routes are PATCH /marriage/:id, POST .../pause,
+  /// POST .../resume and DELETE /marriage/:id. Sending the right body to the
+  /// right path with the wrong verb reaches a DIFFERENT handler — POST
+  /// /api/marriage inserts a SECOND profile — so a test that only pinned the
+  /// URL would pass while the app silently created rows.
+  final List<String> requestMethods = <String>[];
+
+  /// The method+path pairs seen so far, as `PATCH /api/marriage/7`.
+  ///
+  /// Convenience for the common assertion; the two lists stay separately
+  /// available for anything finer.
+  List<String> get requestSignatures => [
+    for (var i = 0; i < requestUrls.length; i++)
+      '${requestMethods[i]} ${requestUrls[i].path}',
+  ];
+
   @override
   HttpClient createHttpClient(SecurityContext? context) =>
       _FakeHttpClientImpl(this);
@@ -74,6 +93,7 @@ class _FakeHttpClientImpl implements HttpClient {
     // still a request it made, and a test asserting "it never called X" would
     // otherwise pass for the wrong reason when the socket is down.
     overrides.requestUrls.add(url);
+    overrides.requestMethods.add(method.toUpperCase());
     if (overrides.behaviour == HttpBehaviour.networkError) {
       // What an unreachable backend actually looks like to the caller.
       throw const SocketException('Network is unreachable');

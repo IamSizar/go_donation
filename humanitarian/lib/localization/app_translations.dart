@@ -1378,6 +1378,51 @@ class AppTranslations extends Translations {
     'marriage_now_rejected': 'Your profile was rejected.',
     'marriage_now_paused': 'Your profile was paused.',
     'marriage_now_closed': 'Your profile was closed.',
+    // K14 — what a profile's OWNER may now do to it. Until commit 9f6ec79
+    // there was no owner-scoped write at all, which is why this section did
+    // not exist and why the screen avoided the word "edit".
+    'marriage_owner_edit': 'Edit my profile',
+    'marriage_owner_pause': 'Stop showing my profile',
+    'marriage_owner_resume': 'Show my profile again',
+    'marriage_owner_delete': 'Remove my profile',
+    'marriage_owner_pause_unavailable':
+        'This profile cannot be shown or hidden in its current state. The '
+            'staff team decides what happens next.',
+    'marriage_owner_new_submission_desc':
+        'Edit the details above yourself. Submit a new profile only if you '
+            'need a second one reviewed.',
+    // The removal is recoverable by staff, so the wording describes what
+    // actually happens rather than promising permanent deletion the backend
+    // deliberately does not perform.
+    'marriage_owner_delete_title': 'Remove your profile?',
+    'marriage_owner_delete_body':
+        'It will disappear from the browse list and from your profiles here. '
+            'Your messages and your subscription record are kept, and the '
+            'staff team can bring it back.',
+    'marriage_owner_delete_confirm': 'Yes, remove it',
+    'marriage_owner_deleted_ok':
+        'Your profile was removed. The staff team can restore it.',
+    'marriage_owner_edit_title': 'Edit my profile',
+    'marriage_owner_edit_subtitle': 'Change what your profile shows.',
+    'marriage_owner_staff_fields_note':
+        'The identification, housing, assets and health sections are still '
+            'updated by the staff team. Ask them to change anything that is '
+            'not on this screen.',
+    'marriage_owner_number_invalid': 'Enter a whole number.',
+    'marriage_owner_number_range': 'Enter a number between @min and @max.',
+    'marriage_owner_photo_failed':
+        'Could not upload that photo. Please try again.',
+    // Written from the server's machine `code`, never from its English
+    // sentence — 9f6ec79 states that sentence is a developer fallback.
+    'marriage_owner_error_not_owner':
+        'This profile is no longer yours to change. Pull down to refresh and '
+            'check its status.',
+    'marriage_owner_error_not_pausable':
+        'This profile cannot be shown or hidden in its current state.',
+    'marriage_owner_error_invalid_visibility':
+        'Choose one of the offered privacy options.',
+    'marriage_owner_error_generic':
+        'Could not save that change. Please try again.',
     'request_meeting': 'Request meeting',
     'meeting_requested': 'Meeting request sent for review.',
     'meeting_request_failed': 'Could not send the request. Please try again.',
@@ -4042,6 +4087,39 @@ class AppTranslations extends Translations {
     'marriage_now_rejected': 'تم رفض ملفك.',
     'marriage_now_paused': 'تم إيقاف ملفك مؤقتًا.',
     'marriage_now_closed': 'تم إغلاق ملفك.',
+    // K14 — ما يستطيع صاحب الملف فعله بملفه.
+    'marriage_owner_edit': 'تعديل ملفي',
+    'marriage_owner_pause': 'إيقاف عرض ملفي',
+    'marriage_owner_resume': 'إعادة عرض ملفي',
+    'marriage_owner_delete': 'حذف ملفي',
+    'marriage_owner_pause_unavailable':
+        'لا يمكن إظهار هذا الملف أو إخفاؤه في حالته الحالية. فريق الموظفين هو '
+            'من يقرّر الخطوة التالية.',
+    'marriage_owner_new_submission_desc':
+        'عدّل التفاصيل أعلاه بنفسك. أرسل ملفًا جديدًا فقط إذا كنت تحتاج إلى '
+            'مراجعة ملف ثانٍ.',
+    'marriage_owner_delete_title': 'حذف ملفك؟',
+    'marriage_owner_delete_body':
+        'سيختفي من قائمة التصفح ومن ملفاتك هنا. تُحفظ رسائلك وسجل اشتراكك، '
+            'ويمكن لفريق الموظفين إعادته.',
+    'marriage_owner_delete_confirm': 'نعم، احذفه',
+    'marriage_owner_deleted_ok':
+        'تم حذف ملفك. يمكن لفريق الموظفين استعادته.',
+    'marriage_owner_edit_title': 'تعديل ملفي',
+    'marriage_owner_edit_subtitle': 'غيّر ما يعرضه ملفك.',
+    'marriage_owner_staff_fields_note':
+        'أقسام معلومات الهوية والسكن والممتلكات والصحة يحدّثها فريق الموظفين. '
+            'اطلب منهم تغيير أي شيء غير موجود في هذه الشاشة.',
+    'marriage_owner_number_invalid': 'أدخل رقمًا صحيحًا.',
+    'marriage_owner_number_range': 'أدخل رقمًا بين @min و@max.',
+    'marriage_owner_photo_failed': 'تعذّر رفع الصورة. حاول مرة أخرى.',
+    'marriage_owner_error_not_owner':
+        'لم يعد بإمكانك تعديل هذا الملف. اسحب للأسفل للتحديث وتحقّق من حالته.',
+    'marriage_owner_error_not_pausable':
+        'لا يمكن إظهار هذا الملف أو إخفاؤه في حالته الحالية.',
+    'marriage_owner_error_invalid_visibility':
+        'اختر أحد خيارات الخصوصية المتاحة.',
+    'marriage_owner_error_generic': 'تعذّر حفظ التغيير. حاول مرة أخرى.',
     'request_meeting': 'طلب لقاء',
     'meeting_requested': 'تم إرسال طلب اللقاء للمراجعة.',
     'meeting_request_failed': 'تعذّر إرسال الطلب. حاول مرة أخرى.',

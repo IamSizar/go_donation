@@ -15,6 +15,8 @@ Updated 2026-08-16 again with the 6 keys the K12 content sub-section editor
 added, and the 9 keys the K13 contact-details editor added.
 Updated 2026-08-16 once more with the 94 keys that gave every field-rule row on
 قواعد الحقول an Arabic label (NEW FINDING 9).
+Updated 2026-08-16 again with the 20 keys the K14 خطوبتي owner self-management
+(edit / pause / resume / remove) added.
 
 ## Why these are empty rather than wrong
 
@@ -27,7 +29,7 @@ made on this project once and had to be reverted.
 Every key below currently renders its **English** string to a Kurdish user.
 That is deliberate and safe. It is not a crash, and it is not Arabic text.
 
-## Count: 374 keys need Kurdish
+## Count: 394 keys need Kurdish
 
 | Client | Sorani (ckb) | Badini (kmr) | Distinct keys |
 |---|---|---|---|
@@ -49,7 +51,8 @@ That is deliberate and safe. It is not a crash, and it is not Arabic text.
 | Admin dashboard — delete confirmation bodies (were FALSE in Kurdish) | 5 | 5 | 5 |
 | App — City Guide map chip (place count) | 2 | 2 | 2 |
 | App — security page auth description (old Kurdish was FALSE) | 1 | 1 | 1 |
-| **Total distinct words to translate** | | | **374** |
+| App — K14 خطوبتي owner self-management (new) | 20 | 20 | 20 |
+| **Total distinct words to translate** | | | **394** |
 
 > **The dashboard figure above is a floor, not a ceiling — and it is the one
 > number in this file that was never fully measured.** Counting key paths in
@@ -1182,3 +1185,62 @@ Two keys rather than one so English stays correct at a single pin. Arabic uses
 the تمييز form after the numeral, following the existing `@count شخصا متأثرا`.
 The city name is part of the key because this guide is Mosul-specific — the
 sibling key `Mosul · Iraq` is already built the same way in all four locales.
+
+## marriage · K14 owner self-management (20 keys)
+
+The خطوبتي profile gained the four things its owner may now do to it — edit,
+stop showing it, show it again, and remove it — against the owner-scoped routes
+commit `9f6ec79` added. Until then the app had no owner write at all, so none of
+this vocabulary existed. English and Arabic are written; ckb/kmr fall back to
+English.
+
+**Four of these are ERROR SENTENCES built from the server's machine `code`**
+(`not_owner`, `not_pausable`, `invalid_visibility`, plus a catch-all). The
+server also sends an English sentence, and the backend commit records that it is
+a developer fallback which must not reach a user — so these four are the only
+thing standing between a Kurdish reader and raw English from the API. They are
+the ones to translate first.
+
+**`marriage_owner_delete_body` is the one to read carefully.** The removal is
+recoverable: the server stamps `owner_deleted_at` and closes the profile rather
+than deleting the row, because the table cascades to the mediated chat history
+and to the subscription purchase record — the row that says the user PAID. The
+sentence must NOT promise permanent deletion, for the same reason `11c7acb`
+removed that promise from the dashboard's dialogs. Please reuse whatever word
+the app already uses for a staff-restorable removal rather than a word meaning
+"completely" or "forever".
+
+| Key | English | Arabic |
+|---|---|---|
+| `marriage_owner_edit` | Edit my profile | تعديل ملفي |
+| `marriage_owner_pause` | Stop showing my profile | إيقاف عرض ملفي |
+| `marriage_owner_resume` | Show my profile again | إعادة عرض ملفي |
+| `marriage_owner_delete` | Remove my profile | حذف ملفي |
+| `marriage_owner_pause_unavailable` | This profile cannot be shown or hidden in its current state. The staff team decides what happens next. | لا يمكن إظهار هذا الملف أو إخفاؤه في حالته الحالية. فريق الموظفين هو من يقرّر الخطوة التالية. |
+| `marriage_owner_new_submission_desc` | Edit the details above yourself. Submit a new profile only if you need a second one reviewed. | عدّل التفاصيل أعلاه بنفسك. أرسل ملفًا جديدًا فقط إذا كنت تحتاج إلى مراجعة ملف ثانٍ. |
+| `marriage_owner_delete_title` | Remove your profile? | حذف ملفك؟ |
+| `marriage_owner_delete_body` | It will disappear from the browse list and from your profiles here. Your messages and your subscription record are kept, and the staff team can bring it back. | سيختفي من قائمة التصفح ومن ملفاتك هنا. تُحفظ رسائلك وسجل اشتراكك، ويمكن لفريق الموظفين إعادته. |
+| `marriage_owner_delete_confirm` | Yes, remove it | نعم، احذفه |
+| `marriage_owner_deleted_ok` | Your profile was removed. The staff team can restore it. | تم حذف ملفك. يمكن لفريق الموظفين استعادته. |
+| `marriage_owner_edit_title` | Edit my profile | تعديل ملفي |
+| `marriage_owner_edit_subtitle` | Change what your profile shows. | غيّر ما يعرضه ملفك. |
+| `marriage_owner_staff_fields_note` | The identification, housing, assets and health sections are still updated by the staff team. Ask them to change anything that is not on this screen. | أقسام معلومات الهوية والسكن والممتلكات والصحة يحدّثها فريق الموظفين. اطلب منهم تغيير أي شيء غير موجود في هذه الشاشة. |
+| `marriage_owner_number_invalid` | Enter a whole number. | أدخل رقمًا صحيحًا. |
+| `marriage_owner_number_range` | Enter a number between @min and @max. | أدخل رقمًا بين @min و@max. |
+| `marriage_owner_photo_failed` | Could not upload that photo. Please try again. | تعذّر رفع الصورة. حاول مرة أخرى. |
+| `marriage_owner_error_not_owner` | This profile is no longer yours to change. Pull down to refresh and check its status. | لم يعد بإمكانك تعديل هذا الملف. اسحب للأسفل للتحديث وتحقّق من حالته. |
+| `marriage_owner_error_not_pausable` | This profile cannot be shown or hidden in its current state. | لا يمكن إظهار هذا الملف أو إخفاؤه في حالته الحالية. |
+| `marriage_owner_error_invalid_visibility` | Choose one of the offered privacy options. | اختر أحد خيارات الخصوصية المتاحة. |
+| `marriage_owner_error_generic` | Could not save that change. Please try again. | تعذّر حفظ التغيير. حاول مرة أخرى. |
+
+`@min` and `@max` in `marriage_owner_number_range` are substituted at runtime and
+must survive translation exactly as written. Each number is wrapped in a Unicode
+LTR isolate before substitution, so the placeholder may sit anywhere in the
+sentence without the two bounds swapping on an RTL screen.
+
+Two pairs share an English string but are separate keys: `marriage_owner_edit` /
+`marriage_owner_edit_title` (a button label and a screen title), and
+`marriage_owner_pause_unavailable` / `marriage_owner_error_not_pausable` (a state
+explained in place, and the same refusal returned by the server after a tap). A
+translator may reasonably want different wording for each half, which is why they
+were not merged.
