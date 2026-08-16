@@ -27,7 +27,7 @@ made on this project once and had to be reverted.
 Every key below currently renders its **English** string to a Kurdish user.
 That is deliberate and safe. It is not a crash, and it is not Arabic text.
 
-## Count: 369 keys need Kurdish
+## Count: 371 keys need Kurdish
 
 | Client | Sorani (ckb) | Badini (kmr) | Distinct keys |
 |---|---|---|---|
@@ -46,8 +46,8 @@ That is deliberate and safe. It is not a crash, and it is not Arabic text.
 | Admin dashboard — K13 contact details (new) | 9 | 9 | 9 |
 | Admin dashboard — Field Rules form labels (new) | 94 | 94 | 94 |
 | Admin dashboard — content page save confirmation | 2 | 2 | 2 |
-| Admin dashboard — delete confirmation bodies (were FALSE in Kurdish) | 3 | 3 | 3 |
-| **Total distinct words to translate** | | | **369** |
+| Admin dashboard — delete confirmation bodies (were FALSE in Kurdish) | 5 | 5 | 5 |
+| **Total distinct words to translate** | | | **371** |
 
 > **The dashboard figure above is a floor, not a ceiling — and it is the one
 > number in this file that was never fully measured.** Counting key paths in
@@ -1158,6 +1158,8 @@ the correct English.
 | `common.confirm_delete_body` | "{name}" will be moved to the Trash. You can restore it from there. |
 | `common.confirm_delete_body_noun` | {noun} will be moved to the Trash. You can restore it from there. |
 | `common.confirm_delete_body_code` | {noun} {code} will be moved to the Trash. You can restore it from there. |
+| `page.users.delete_body` | {name} will be moved to the Trash. You can restore it from there. Contributions and other records linked to this user will block the delete (a clear error message will appear if so). |
+| `bulk.confirm_body` | The rows will be moved to the Trash. You can restore them from there. Records referenced by other tables will be skipped. |
 
 Note for the translator: "Trash" is the المهملات screen in the dashboard sidebar
 — please use whatever word that screen already uses in Kurdish, so the dialog

@@ -792,7 +792,7 @@ const en = {
                     force_logout: 'Force logout', force_logout_ok: 'All sessions revoked — the user is signed out.', force_logout_fail: 'Could not force logout.',
                     archive: 'Archive', unarchive: 'Un-archive',
                     archived_ok: '{noun} archived.', unarchived_ok: '{noun} restored from archive.',
-                    delete_body: '{name} will be permanently removed. Contributions and other records linked to this user will block the delete (a clear error message will appear if so).',
+                    delete_body: '{name} will be moved to the Trash. You can restore it from there. Contributions and other records linked to this user will block the delete (a clear error message will appear if so).',
                     password_non_staff_warning: 'This account is not a staff/admin account. The mobile app has no screen for a regular user to enter a password — setting one here will require a password on their NEXT phone login, and they will be locked out with no way back in through the app. Continue anyway?',
                     password_cancelled: 'Password change cancelled.' },
     donations:    { title: 'Contributions',      search_placeholder: 'search ref# / grantor / method', new: '+ New contribution' },
@@ -946,7 +946,7 @@ const en = {
 
   bulk: {
     confirm_title: 'Delete {count} {noun}?',
-    confirm_body: 'This cannot be undone. Records referenced by other tables will be skipped.',
+    confirm_body: 'The rows will be moved to the Trash. You can restore them from there. Records referenced by other tables will be skipped.',
     updated:   'Updated {ok} {noun} → {status}',
     deleted:   'Deleted {ok} {noun}',
     mixed:     '{ok} updated, {fail} failed',
