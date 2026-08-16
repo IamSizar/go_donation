@@ -11,6 +11,7 @@ import 'package:get/get.dart';
 import 'package:flutter_application_1/modules/legal/screens/content_page_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_application_1/core/widgets/app_pressable.dart';
+import 'package:flutter_application_1/core/design/contrast.dart';
 import 'package:flutter_application_1/core/design/motion.dart';
 import 'package:flutter_application_1/core/design/tokens.dart';
 import 'package:flutter_application_1/core/widgets/app_list_search_field.dart';
@@ -1148,7 +1149,13 @@ class _MapChip extends StatelessWidget {
 /// A place card in the horizontal strip beneath the map.
 // #29 — soft, eye-friendly accent colour per service category (was a single
 // harsh indigo for everything). Muted tones so a long list stays calm to read.
-Color _categoryColor(String category) {
+//
+// These hues are the CARD'S IDENTITY COLOUR, not a text colour. They are fine
+// as the icon wash and the pill fill; they are not all readable as the pill's
+// label, which is why the label goes through [categoryPillInk] rather than
+// using the raw hue. See test/design/category_pill_contrast_test.dart.
+@visibleForTesting
+Color categoryColor(String category) {
   final c = category.toLowerCase();
   if (c.contains('health') ||
       c.contains('clinic') ||
@@ -1180,6 +1187,33 @@ Color _categoryColor(String category) {
   return const Color(0xFF6D79C4); // soft indigo (default)
 }
 
+/// How much of the category hue tints the pill and the icon tile.
+const double _kCategoryWash = 0.12;
+
+/// The pill's opaque fill: the category hue washed over the card beneath it.
+///
+/// Opaque on purpose — contrast is only defined between opaque colours, and
+/// measuring the translucent wash instead of the composite is how a pill can
+/// look measured without being measured.
+@visibleForTesting
+Color categoryPillFill(Color tint, Color card) =>
+    Color.alphaBlend(tint.withValues(alpha: _kCategoryWash), card);
+
+/// The pill's LABEL colour — the hue, made readable on its own wash.
+///
+/// The label was previously drawn in the raw category hue. At 11.5px/w700 it is
+/// ordinary body text (WCAG's large-text exemption starts at 18.66px bold), so
+/// the 4.5:1 floor applies, and measured on the simulator the raw hue missed it
+/// in five of eight categories in dark mode and in ALL EIGHT in light mode —
+/// food amber at 2.22:1, water teal at 2.45:1, health green at 2.58:1.
+///
+/// The FILL and the icon keep the raw hue: those are decoration, they carry no
+/// information the label does not repeat, and holding them steady is what keeps
+/// the category still recognisable at a glance.
+@visibleForTesting
+Color categoryPillInk(Color tint, Color card, Color ink) =>
+    readableOn(tint: tint, background: categoryPillFill(tint, card), ink: ink);
+
 // #29 — City Guide service card: soft category colour, a category chip, the
 // address, and a city · phone line. Replaces the old flat indigo tile.
 class _CityServiceCard extends StatelessWidget {
@@ -1195,11 +1229,14 @@ class _CityServiceCard extends StatelessWidget {
     final city = (entry['city'] ?? '').toString().trim();
     final phone = (entry['phone'] ?? '').toString().trim();
     final address = (entry['address'] ?? '').toString().trim();
-    final accent = _categoryColor(category);
+    final accent = categoryColor(category);
+    // The surface the pill is washed over, so its label can be measured
+    // against what it is actually drawn on rather than against the hue alone.
+    final card = AppThemeConfig.elevatedSurface(context);
     final meta = [city, phone].where((s) => s.isNotEmpty).join('   ·   ');
 
     return Material(
-      color: AppThemeConfig.elevatedSurface(context),
+      color: card,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
@@ -1249,13 +1286,19 @@ class _CityServiceCard extends StatelessWidget {
                           vertical: 3,
                         ),
                         decoration: BoxDecoration(
-                          color: accent.withValues(alpha: 0.12),
+                          color: categoryPillFill(accent, card),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
                           category,
                           style: TextStyle(
-                            color: accent,
+                            // Not `accent`: the raw hue is unreadable on its
+                            // own wash in most categories. See [categoryPillInk].
+                            color: categoryPillInk(
+                              accent,
+                              card,
+                              AppThemeConfig.text(context),
+                            ),
                             fontWeight: FontWeight.w700,
                             fontSize: 11.5,
                           ),
