@@ -648,13 +648,24 @@ func main() {
 
 			// Donor ↔ campaign-owner chat (Phase 28).
 			authed.POST("/chats/request", auth.RequireNotGuest(), chatH.Request)
-			authed.POST("/chats/support", auth.RequireNotGuest(), chatH.SupportThread) // #45 — direct chat with support/tech
+			// K20 — NO RequireNotGuest here, deliberately. A زائر must be able
+			// to ask support for help: Section 27 already ships the `support`
+			// guest screen enabled by default, and refusing the only channel
+			// behind it made that promise a dead end. The thread opens
+			// 'pending' and a staff member has to accept it, so this is not an
+			// open door — see internal/handlers/chat_guest_support.go.
+			authed.POST("/chats/support", chatH.SupportThread) // #45 — direct chat with support/tech
 			authed.GET("/chats", chatH.List)
 			authed.GET("/chats/", chatH.List)
 			authed.POST("/chats/:id/accept", auth.RequireNotGuest(), chatH.Accept)
 			authed.POST("/chats/:id/decline", auth.RequireNotGuest(), chatH.Decline)
 			authed.GET("/chats/:id/messages", chatH.Messages)
-			authed.POST("/chats/:id/messages", auth.RequireNotGuest(), chatH.PostMessage)
+			// K20 — the blanket guest gate is replaced by a narrower one INSIDE
+			// the handler: a guest may post where the counterpart is staff (the
+			// support thread) and nowhere else. A route-level gate could only
+			// say yes or no to every thread at once, and "no" is what left
+			// visitors with no way to ask a question at all.
+			authed.POST("/chats/:id/messages", chatH.PostMessage)
 
 			// AI Support Assistant (Phase 29).
 			authed.POST("/assistant/chat", auth.RequireNotGuest(), assistantH.Chat)

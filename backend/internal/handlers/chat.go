@@ -363,6 +363,12 @@ func (h *ChatHandler) PostMessage(c *gin.Context) {
 		c.JSON(http.StatusConflict, gin.H{"success": false, "error": "This chat is not active yet."})
 		return
 	}
+	// K20 — this route no longer carries a blanket RequireNotGuest(), so that a
+	// visitor can reach support. This keeps them there: staff only, never a
+	// peer. See chat_guest_support.go.
+	if h.refuseGuestPeerMessage(c, thread, user) {
+		return
+	}
 	var req chatMessageReq
 	if err := c.ShouldBindJSON(&req); err != nil || strings.TrimSpace(req.Body) == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Message body is required."})

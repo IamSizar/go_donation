@@ -1488,3 +1488,35 @@ replaced by `•••` server-side — that marker is not text and needs no tra
 | `chat.blocked_kind_phone` | Phone number | رقم هاتف | **needed** |
 | `chat.blocked_kind_email` | Email address | بريد إلكتروني | **needed** |
 | `chat.blocked_kind_both` | Phone number and email | رقم هاتف وبريد إلكتروني | **needed** |
+
+---
+
+## K20 — a زائر (visitor) may now reach support, and only support (app, `humanitarian`)
+
+Same rule: **English and Arabic written; ckb (سۆرانی) and kmr (بادینی) NOT** —
+they fall back to English. No Kurdish invented.
+
+One new sentence. It is returned as **403** with the existing
+`"code": "guest_restricted"`, which the app already renders as its Upgrade
+Account prompt — so the app may reuse that whole screen and only needs this
+wording for the case where a guest aimed a message at another member rather
+than at support. The distinction matters: the generic guest message
+("This action requires a full account") is true but unhelpful here, because the
+visitor CAN chat — just not with that person.
+
+| key | English | العربية | ckb / kmr |
+|---|---|---|---|
+| `chat.guest_support_only` | Guest accounts can message support only. Please upgrade your account to chat with other members. | حسابات الزوار يمكنها مراسلة الدعم فقط. رقّ حسابك لتتمكن من محادثة بقية الأعضاء. | **needed** |
+
+### Not an error — the waiting state the guest support screen needs
+
+`POST /api/chats/support` answers `{"status":"pending"}`: the thread exists but a
+staff member has not accepted it yet, and until they do the guest cannot send a
+message (the server answers 409). That wait is the moderation, so the app must
+show it as a normal, expected state rather than a failure — a visitor who sees
+nothing will assume the app is broken and try again.
+
+| key | English | العربية | ckb / kmr |
+|---|---|---|---|
+| `chat.support_pending_title` | Your request has been sent | تم إرسال طلبك | **needed** |
+| `chat.support_pending_body` | A staff member will open the conversation shortly. You will be able to write as soon as they do. | سيفتح أحد الموظفين المحادثة قريباً، وسيمكنك الكتابة فور قيامه بذلك. | **needed** |
