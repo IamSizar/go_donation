@@ -657,8 +657,13 @@ class DashboardHomeSection extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: _DashboardHeroStat(
-                value:
-                    '${_doubleValue(stats, 'hours_served').toStringAsFixed(0)}h',
+                // The number alone. This carried an "h" suffix — "18h" — which
+                // is an English abbreviation printed unconditionally, so the
+                // Arabic home read "18h" beside the label "ساعات الخدمة". The
+                // unit is what the label directly under it already states, in
+                // whatever language the reader chose, and every other hero stat
+                // on every role is a bare figure.
+                value: _doubleValue(stats, 'hours_served').toStringAsFixed(0),
                 label: 'Hours served',
                 icon: Icons.timer_rounded,
                 onTap: () => Get.to(() => const SupportSection()),
@@ -688,9 +693,24 @@ class DashboardHomeSection extends StatelessWidget {
               color: AppThemeConfig.accent(context),
             ),
             _StatItem(
+              // localizedTag, not a hand-rolled underscore swap.
+              //
+              // This read `applicationStatus.replaceAll('_', ' ')`, which
+              // humanises the token BEFORE anything looks it up — the exact
+              // mistake _statusLabel above already documents and fixes. The
+              // damage here is plainer than there: `volunteerAppStatuses` is
+              // submitted / approved / rejected / inactive, and 'inactive' had
+              // no entry at all, so a deactivated volunteer's Arabic home read
+              // the English word "inactive".
+              //
+              // The empty case is the em dash the Application city cell beside
+              // it already uses for "we have no value", rather than the literal
+              // 'None' that was here — 'None' is not a key in any map, so it
+              // rendered as English to every Arabic and Kurdish reader, and it
+              // is the state of EVERY volunteer who has not applied yet.
               value: applicationStatus.isEmpty
-                  ? 'None'
-                  : applicationStatus.replaceAll('_', ' '),
+                  ? '—'
+                  : localizedTag(applicationStatus),
               label: 'Application status'.tr,
               icon: Icons.person_add_alt_1_rounded,
               color: AppThemeConfig.accent(context),

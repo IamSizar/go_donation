@@ -1520,3 +1520,19 @@ nothing will assume the app is broken and try again.
 |---|---|---|---|
 | `chat.support_pending_title` | Your request has been sent | تم إرسال طلبك | **needed** |
 | `chat.support_pending_body` | A staff member will open the conversation shortly. You will be able to write as soon as they do. | سيفتح أحد الموظفين المحادثة قريباً، وسيمكنك الكتابة فور قيامه بذلك. | **needed** |
+
+## The volunteer home's application status (app, `humanitarian`)
+
+Same rule: **English and Arabic written; ckb (سۆرانی) and kmr (بادینی) NOT** —
+they fall back to English. No Kurdish invented.
+
+One key, found by rendering the volunteer dashboard for the first time. The
+"Application status" cell prints `volunteer_applications.status`, whose enum is
+`submitted | approved | rejected | inactive` (backend/internal/handlers/
+admin_status.go). The first three already had entries; `inactive` had none in
+any language, so a deactivated volunteer read the English word **inactive** on
+an Arabic screen.
+
+| key | English | العربية | ckb / kmr |
+|---|---|---|---|
+| `inactive` | Inactive | غير نشط | **needed** |

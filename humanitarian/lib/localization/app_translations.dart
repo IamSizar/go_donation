@@ -481,6 +481,13 @@ class AppTranslations extends Translations {
     'delivered': 'Delivered',
     'paused': 'Paused',
     'suspended': 'Suspended',
+    // volunteer_applications.status, per the enum in
+    // backend/internal/handlers/admin_status.go: submitted / approved /
+    // rejected / inactive. The first three were already above and shared;
+    // 'inactive' was the only one with no entry anywhere, so the volunteer
+    // home's "Application status" cell printed the English word to an Arabic
+    // reader for every deactivated application.
+    'inactive': 'Inactive',
     'Delivery status': 'Delivery status',
     'Payment status': 'Payment status',
     // The My Contributions counter beside "Awaiting confirmation" counted
@@ -3305,6 +3312,8 @@ class AppTranslations extends Translations {
     'delivered': 'تم التسليم',
     'paused': 'موقوف مؤقتاً',
     'suspended': 'معلّق',
+    // حالة طلب التطوع المعطَّل.
+    'inactive': 'غير نشط',
     'Delivery status': 'حالة التسليم',
     'Payment status': 'حالة الدفع',
     'Confirmed': 'مؤكَّد',
