@@ -9,6 +9,7 @@ import 'package:flutter_application_1/modules/proposal/screens/partners_screen.d
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:flutter_application_1/shared/utils/social_links.dart';
+import 'package:flutter_application_1/shared/utils/upload_urls.dart';
 
 /// Client spec, "Eleventh: Partners Section" — the dedicated Partner Page.
 ///
@@ -101,7 +102,7 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
     final website = (item['website'] ?? '').toString();
     final location = localizedContentFromMap(item, 'location');
     final socials = socialLinksFrom(item['social_links']);
-    final logoUrl = partnerLogoUrl(item['logo_path']);
+    final logoUrl = uploadedImageUrl(item['logo_path']);
 
     return SectionScaffold(
       title: name,

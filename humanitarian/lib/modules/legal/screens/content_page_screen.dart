@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/content_api.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/localization/content_localizer.dart';
+import 'package:flutter_application_1/modules/legal/widgets/content_contact_card.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
@@ -152,9 +153,16 @@ class _ContentBody extends StatelessWidget {
         ? localizedAppContent(page.content, 'body')
         : '';
 
+    // K13 — the Contact page's own logo, phone, WhatsApp, email, socials and
+    // address. Empty on every page today, and empty on every page that is not a
+    // Contact page ever, so this is normally nothing at all.
+    final contact = ContentContact.from(page.content);
+
     // The heading alone is NOT content: the top bar already names the page, so
-    // a lone repeat of it is a blank sheet with a title on it. Prose decides.
-    if (blocks.isEmpty && fallbackBody.isEmpty) {
+    // a lone repeat of it is a blank sheet with a title on it. Prose decides —
+    // and so do contact details, because an owner may fill those in and leave
+    // the sentence above them blank.
+    if (blocks.isEmpty && fallbackBody.isEmpty && contact.isEmpty) {
       return AppEmpty(
         icon: Icons.article_outlined,
         title: emptyTitleKey,
@@ -190,6 +198,10 @@ class _ContentBody extends StatelessWidget {
           for (var i = 0; i < blocks.length; i++) ...[
             if (i > 0) const SizedBox(height: 12),
             _SectionBlock(key: Key('content_section_$i'), block: blocks[i]),
+          ],
+          if (!contact.isEmpty) ...[
+            const SizedBox(height: 18),
+            ContentContactCard(contact: contact),
           ],
         ],
       ),

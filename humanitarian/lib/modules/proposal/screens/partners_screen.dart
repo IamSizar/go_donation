@@ -1,6 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/api/links.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/modules/proposal/controllers/partners_controller.dart';
@@ -8,6 +7,7 @@ import 'package:flutter_application_1/modules/proposal/screens/partner_detail_sc
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:flutter_application_1/shared/utils/social_links.dart';
+import 'package:flutter_application_1/shared/utils/upload_urls.dart';
 import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_application_1/core/widgets/app_list_search_field.dart';
@@ -199,7 +199,7 @@ class _PartnerCard extends StatelessWidget {
     final website = (item['website'] ?? '').toString();
     final location = localizedContentFromMap(item, 'location'); // #26
     final socials = socialLinksFrom(item['social_links']); // #26
-    final logoUrl = partnerLogoUrl(item['logo_path']);
+    final logoUrl = uploadedImageUrl(item['logo_path']);
 
     // "Eleventh: Partners Section" — the whole card opens the dedicated
     // Partner Page. The partner map goes straight across, so the page has
@@ -690,15 +690,11 @@ Future<void> openPartnerMaps(String location) async {
   );
 }
 
-String? partnerLogoUrl(dynamic value) {
-  final path = (value ?? '').toString().trim();
-  if (path.isEmpty) return null;
-  final uri = Uri.tryParse(path);
-  if (uri != null && uri.hasScheme) return path;
-  return Uri.parse(
-    publicBaseUrl,
-  ).resolve(path.replaceFirst(RegExp(r'^/+'), '')).toString();
-}
+// K13 — `partnerLogoUrl` used to be defined here too. `app_content.logo_path`
+// (migration 112) is a path into the SAME upload store as `partners.logo_path`
+// (035), so the Contact page needs the same resolution; it moved to
+// shared/utils/upload_urls.dart as `uploadedImageUrl` for the same reason the
+// social-links parser did, and both screens now read one definition.
 
 Future<void> openPartnerWebsite(String rawWebsite) async {
   final trimmed = rawWebsite.trim();

@@ -25,7 +25,7 @@ made on this project once and had to be reverted.
 Every key below currently renders its **English** string to a Kurdish user.
 That is deliberate and safe. It is not a crash, and it is not Arabic text.
 
-## Count: 264 keys need Kurdish
+## Count: 265 keys need Kurdish
 
 | Client | Sorani (ckb) | Badini (kmr) | Distinct keys |
 |---|---|---|---|
@@ -36,11 +36,12 @@ That is deliberate and safe. It is not a crash, and it is not Arabic text.
 | Flutter app — K7 alert categories (new) | 8 | 8 | 8 |
 | Flutter app — L19 engagement field privacy (new) | 2 | 2 | 2 |
 | Flutter app — K12 content page states (new) | 1 | 1 | 1 |
+| Flutter app — K13 contact details (new) | 0 | 1 | 1 |
 | Admin dashboard — audited `status.*` | 20 | 20 | 20 |
 | Admin dashboard — B1 notification types (new) | 81 | 81 | *same 81 words as above* |
 | Admin dashboard — K12 content sub-sections (new) | 6 | 6 | 6 |
 | Admin dashboard — K13 contact details (new) | 9 | 9 | 9 |
-| **Total distinct words to translate** | | | **264** |
+| **Total distinct words to translate** | | | **265** |
 
 > **The dashboard figure above is a floor, not a ceiling — and it is the one
 > number in this file that was never fully measured.** Counting key paths in
@@ -148,6 +149,22 @@ broken app.
 | Key | English | Arabic | Needs |
 |---|---|---|---|
 | `content_page_empty` | There is nothing on this page yet. Please check back soon. | لا يوجد محتوى في هذه الصفحة بعد. يرجى العودة قريباً. | ckb + kmr |
+
+## legal · K13 contact details  (1 key, Badini only)
+
+Added 2026-08-16. `اتصل بنا` now draws the phone, WhatsApp, email, address,
+social accounts and logo the dashboard has been able to store since migration
+112. **No new key was written for it** — every label reuses one that already
+exists: `Contact information`, `Phone`, `whatsapp_open`, `Address` and
+`Social media accounts` all already carry Sorani and Badini.
+
+One gap surfaced rather than being created: `Email` has Sorani but no Badini, so
+a Badini reader sees the English word on this screen. It is listed here because
+K13 is what put it in front of them.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `Email` | Email | البريد الإلكتروني | kmr only (ckb already present) |
 
 ## community, widgets · C2 filter-row error states  (2 keys)
 
