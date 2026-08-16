@@ -106,7 +106,10 @@ class SettingsSection extends StatelessWidget {
             icon: Icons.ios_share_rounded,
             label: 'share_app',
             color: AppThemeConfig.accent(context),
-            onTap: shareApp,
+            // The context anchors the iOS share popover — a bare `shareApp`
+            // sends no origin rect and the sheet refuses to open. See
+            // [shareAnchor].
+            onTap: () => shareApp(context),
           ),
           const DrawerDivider(),
           DrawerTile(

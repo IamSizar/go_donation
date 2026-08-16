@@ -339,7 +339,8 @@ class _ProfileSectionState extends State<ProfileSection> {
                     title: 'share_app',
                     subtitle: 'share_app_desc',
                     color: AppThemeConfig.accent(context),
-                    onTap: shareApp,
+                    // Anchors the iOS share popover — see [shareAnchor].
+                    onTap: () => shareApp(context),
                   ),
                   // Note #41 — Marriage moved to its own bottom-nav tab
                   // (browse/my-profile/chats all live there now), so the 4

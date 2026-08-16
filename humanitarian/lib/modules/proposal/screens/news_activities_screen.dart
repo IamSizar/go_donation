@@ -475,7 +475,7 @@ class _EngagementBar extends StatelessWidget {
           child: _EngageButton(
             icon: Icons.share_outlined,
             label: shareCount > 0 ? '$shareCount' : 'Share'.tr,
-            onTap: () => _sharePost(item, controller),
+            onTap: () => _sharePost(context, item, controller),
           ),
         ),
         Expanded(
@@ -540,6 +540,7 @@ class _EngageButton extends StatelessWidget {
 }
 
 Future<void> _sharePost(
+  BuildContext context,
   Map<String, dynamic> item,
   MediaPostsController controller,
 ) async {
@@ -549,7 +550,15 @@ Future<void> _sharePost(
   final parts = <String>[title];
   if (body.trim().isNotEmpty) parts.add(body);
   // #49 — include the app link so recipients can find the app.
-  await Share.share(withAppLink(parts.join('\n\n')));
+  //
+  // sharePositionOrigin is required, not cosmetic: without it iOS throws
+  // "sharePositionOrigin: argument must be set" and this function never
+  // reaches the shareMediaPost call below, so the share count went unrecorded
+  // as well as the sheet never opening. See [shareAnchor].
+  await Share.share(
+    withAppLink(parts.join('\n\n')),
+    sharePositionOrigin: shareAnchor(context),
+  );
   if (id > 0) {
     try {
       await const ModuleApi().shareMediaPost(id);
