@@ -100,13 +100,34 @@ func New(pool *pgxpool.Pool) *Store { return &Store{Pool: pool} }
 
 // Allowed reports whether a tier may perform action on module, honoring any
 // stored override and falling back to the tier default.
+//
+// The `AND user_id IS NULL` is load-bearing, not tidiness. role_permissions
+// holds BOTH kinds of row: a tier-wide override has user_id NULL, and Note 31's
+// per-employee override has user_id set AND carries that person's tier
+// alongside — SetUserOverride's own comment says the tier is stored "for the
+// audit trail only; resolution never reads it back". This query read it back.
+// Matching on tier alone made one employee's personal override indistinguish-
+// able from a tier-wide one, in both directions:
+//
+//   - deny ONE employee → every colleague on that tier lost the permission;
+//   - grant ONE employee → every colleague on that tier GAINED it.
+//
+// The second is a privilege escalation, and it reached everything: this is the
+// query behind auth.RequirePermission, the gate on every admin route. Granting
+// one supervisor `users delete` granted it to all of them.
+//
+// Both partial unique indexes from migration 055 already draw this line
+// (role_permissions_tier_uniq is `(tier, module, action) WHERE user_id IS NULL`)
+// and SetOverride below already repeats the predicate for exactly this reason.
+// Only the read had been left matching on both.
 func (s *Store) Allowed(ctx context.Context, tier Tier, module, action string) (bool, error) {
 	if tier == TierSuperAdmin {
 		return true, nil
 	}
 	var override bool
 	err := s.Pool.QueryRow(ctx,
-		`SELECT allowed FROM role_permissions WHERE tier=$1 AND module=$2 AND action=$3`,
+		`SELECT allowed FROM role_permissions
+		  WHERE tier=$1 AND module=$2 AND action=$3 AND user_id IS NULL`,
 		string(tier), module, action,
 	).Scan(&override)
 	if err != nil {
@@ -161,10 +182,24 @@ type Override struct {
 // (e.g. the matrix API) can show which cells differ from the default.
 func DefaultAllowed(tier Tier, action string) bool { return defaultAllowed(tier, action) }
 
-// ListOverrides returns every stored override row.
+// ListOverrides returns every stored TIER-WIDE override row — the cells the
+// الصلاحيات matrix draws.
+//
+// Same `user_id IS NULL` as Allowed above, for the same reason and with one
+// more: this feeds a SCREEN. Without it, a per-employee override rendered as a
+// tier-wide tick, so a Super-Admin who granted one supervisor a permission saw
+// the box ticked for the whole supervisor row. That was consistent with the old
+// (wrong) enforcement and would now be a lie about it — the matrix would show a
+// tick the server does not honour, which is worse than the original bug because
+// nobody would go looking.
+//
+// The per-employee rows have their own reader (ListUserOverrides) and their own
+// screen (GET /api/admin/permissions/user/:id).
 func (s *Store) ListOverrides(ctx context.Context) ([]Override, error) {
 	rows, err := s.Pool.Query(ctx,
-		`SELECT tier, module, action, allowed FROM role_permissions ORDER BY tier, module, action`)
+		`SELECT tier, module, action, allowed FROM role_permissions
+		  WHERE user_id IS NULL
+		  ORDER BY tier, module, action`)
 	if err != nil {
 		return nil, err
 	}
