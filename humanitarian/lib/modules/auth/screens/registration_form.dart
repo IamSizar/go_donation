@@ -7,6 +7,7 @@ import 'package:flutter_application_1/api/registration_api.dart';
 import 'package:flutter_application_1/core/app_haptics.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/auth_navigation.dart';
+import 'package:flutter_application_1/core/design/contrast.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/data/iraq_governorates.dart';
 import 'package:flutter_application_1/data/nineveh_districts.dart';
@@ -4739,6 +4740,28 @@ class _RoleTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The role hue drawn on a 15% wash OF ITSELF is the pattern
+    // core/design/contrast.dart was written for, and it fails the same way
+    // here: amber measured 1.39:1, deep orange 2.20:1 and light blue 2.08:1 on
+    // their own washes, all under WCAG's 3:1 floor for non-text content. Each
+    // colour is fine somewhere — none of them is fine there.
+    //
+    // readableOn keeps the hue and walks it toward the theme's own ink only as
+    // far as the floor demands, so the tile still reads as amber / orange /
+    // blue and a fourth role added later is compliant without anyone measuring
+    // it. The wash is left alone: it is the tile's identity.
+    final wash = Color.alphaBlend(
+      color.withValues(alpha: 0.15),
+      AppThemeConfig.surface(context),
+    );
+    final glyph = readableOn(
+      tint: color,
+      background: wash,
+      ink: AppThemeConfig.text(context),
+      // 3.0, not 4.5 — this is an icon beside its own label, so WCAG 1.4.11's
+      // non-text floor applies rather than the text floor.
+      minRatio: 3.0,
+    );
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -4750,8 +4773,15 @@ class _RoleTile extends StatelessWidget {
             color: AppThemeConfig.surface(context),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
+              // accent(context), not the fixed `primary`. Which role you have
+              // chosen is carried by this border and by the radio below, and
+              // `primary` is a constant #2F5D4A that does not flip with the
+              // theme — on the dark card it measured 2.41:1, under WCAG
+              // 1.4.11's 3:1 floor for a control's state. The accent token IS
+              // #2F5D4A in light, so nothing changes there, and a light mint in
+              // dark, where it clears the floor comfortably.
               color: selected
-                  ? AppThemeConfig.primary
+                  ? AppThemeConfig.accent(context)
                   : AppThemeConfig.border(context),
               width: selected ? 2 : 1,
             ),
@@ -4762,10 +4792,10 @@ class _RoleTile extends StatelessWidget {
                 width: 46,
                 height: 46,
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.15),
+                  color: wash,
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: Icon(icon, color: color, size: 26),
+                child: Icon(icon, color: glyph, size: 26),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -4795,8 +4825,10 @@ class _RoleTile extends StatelessWidget {
                 selected
                     ? Icons.radio_button_checked_rounded
                     : Icons.radio_button_unchecked_rounded,
+                // accent(context) for the same reason as the border above —
+                // this radio is the other half of "which role is chosen".
                 color: selected
-                    ? AppThemeConfig.primary
+                    ? AppThemeConfig.accent(context)
                     : AppThemeConfig.mutedText(context),
               ),
             ],
