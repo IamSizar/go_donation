@@ -838,9 +838,20 @@ func (h *AdminEditHandler) BeneficiaryCase(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid JSON body."})
 		return
 	}
-	// H10 — the case list masks this phone for staff without `sensitive_data`,
-	// and the edit modal is prefilled from that list row.
-	if rejectMaskedContactWrite(c, contactWrite{"phone", req.Phone}) {
+	// H10 — the case list masks these for staff without `sensitive_data`, and
+	// the edit modal is prefilled from that list row.
+	//
+	// national_id joins phone here in the same change that started masking it
+	// in AdminCases. Masking a field on the way out is what makes it dangerous
+	// on the way back in: the form now shows `••` where the ID was, and saving
+	// an unrelated field would otherwise store those dots as the applicant's
+	// identity number. A phone can at least be re-collected by calling the
+	// person; a national ID overwritten with a redaction is gone, and it is the
+	// field their aid eligibility is checked against.
+	if rejectMaskedContactWrite(c,
+		contactWrite{"phone", req.Phone},
+		contactWrite{"national_id", req.NationalID},
+	) {
 		return
 	}
 	b := setBuilder{}

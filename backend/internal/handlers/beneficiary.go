@@ -315,9 +315,23 @@ func (h *BeneficiaryHandler) AdminCases(c *gin.Context) {
 	}
 	// H10 — the applicant's contact number, on a list every tier with the
 	// beneficiary module can open.
+	//
+	// The national ID is masked by the same gate. It was not, and the result
+	// was the protection running backwards: a supervisor without "Sensitive
+	// contact data" saw `••` where the phone should be and a full twelve-digit
+	// national ID in the very next column. The ID is the more dangerous of the
+	// two — a phone can be changed after a leak, an identity document cannot,
+	// and it is the number an impersonator needs to claim someone else's aid.
+	//
+	// This is a typed endpoint, so masking has to name its fields; the generic
+	// contactColumnRe in admin_contact_view.go never sees this response, and
+	// its pattern (phone|mobile|email|whatsapp|tel) would not match
+	// `national_id` even where it does apply. Found by diffing what a live
+	// supervisor session actually receives against what it should.
 	if !canViewContact(c, h.Perms) {
 		for i := range res.Items {
 			res.Items[i].Phone = sensitive.MaskPtr(res.Items[i].Phone)
+			res.Items[i].NationalID = sensitive.MaskPtr(res.Items[i].NationalID)
 		}
 	}
 	c.JSON(http.StatusOK, gin.H{
