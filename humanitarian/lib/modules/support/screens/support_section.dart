@@ -1050,16 +1050,30 @@ String _missionCapacityLabel(Map<String, dynamic> mission) {
         ? 'mission_pending_only'.trParams({'pending': '$pending'})
         : '';
   }
+  // The templates read "@accepted / @needed متطوع". Those are two numeric runs
+  // separated by " / ", which is bidi-neutral: in an RTL paragraph the neutral
+  // takes the paragraph direction and the runs lay out right-to-left, so a
+  // mission needing 8 volunteers with 1 accepted rendered as «8 / 1» — reading
+  // as oversubscribed when it is nearly empty. It INVERTS recruitment status,
+  // which is the one thing this label exists to convey.
+  //
+  // Same defect as the campaign funding line (fundingAmountsLine) and the
+  // dashboard's phone numbers (E1). The fix here opens the isolate before
+  // `accepted` and closes it after `needed`, so the LRI…PDI span covers the
+  // slash between them and the pair is placed as a single left-to-right unit.
+  // Doing it in the interpolation rather than the template means no translation
+  // changes and no new keys — the Arabic, Sorani and Badini strings are already
+  // correct and stay untouched.
   if (pending > 0) {
     return 'mission_capacity_label_pending'.trParams({
-      'accepted': '$accepted',
-      'needed': '$needed',
+      'accepted': '\u2066$accepted',
+      'needed': '$needed\u2069',
       'pending': '$pending',
     });
   }
   return 'mission_capacity_label'.trParams({
-    'accepted': '$accepted',
-    'needed': '$needed',
+    'accepted': '\u2066$accepted',
+    'needed': '$needed\u2069',
   });
 }
 
