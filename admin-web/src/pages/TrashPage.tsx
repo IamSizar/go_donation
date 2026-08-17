@@ -5,7 +5,8 @@
 // record (re-inserted from that snapshot) or permanently Purge it — purge is
 // PIN-gated (re-enter your password) and only offered to the Super-Admin.
 import { useCallback, useEffect, useState } from 'react'
-import { api, describeError, canExportData, isSuperAdmin } from '../lib/api'
+import { api, describeError, isAdminLevel, isSuperAdmin } from '../lib/api'
+import { usePermission } from '../lib/permissions'
 import { askForText } from '../lib/dialogs'
 import { useAuth } from '../lib/auth'
 import { useI18n } from '../lib/i18n'
@@ -113,7 +114,24 @@ export default function TrashPage() {
   const [busyId, setBusyId] = useState<number | null>(null)
   const [selected, setSelected] = useState<Set<number>>(new Set())
 
-  const allowed = canExportData(user)
+  // Whether this screen opens is the permission matrix's decision, not the
+  // export helper's.
+  //
+  // It used to be canExportData(user) — an unrelated gate — and the two
+  // disagreed: a supervisor was shown "You do not have access to the trash"
+  // while GET /api/admin/trash answered 200 for that same session. `trash` is
+  // an ordinary module whose `view` is allowed by default, so the server was
+  // right and the screen was inventing a restriction nobody had configured.
+  //
+  // This grants no new access — the data was already reachable — it stops the
+  // dashboard lying about what the account can do. A Super Admin who does not
+  // want a tier in here turns trash/view off in الصلاحيات, which is the
+  // control built for exactly this and which the old gate ignored.
+  const allowed = usePermission('trash', 'view', user)
+  // Restore is a RequireAdminTier route (auth/middleware.go IsAdminLevel).
+  // Now that supervisors can reach this page, an ungated Restore button would
+  // be a control whose only possible outcome is a 403.
+  const canRestore = isAdminLevel(user)
   // Permanent deletion is restricted to the Primary Administrator only
   // (Section 25) — the backend also enforces RequireSuperAdmin on purge.
   const canPurge = isSuperAdmin(user)
@@ -262,9 +280,11 @@ export default function TrashPage() {
       // match where the data actually renders.
       key: 'actions', header: t('common.actions'), align: 'right', cell: (it) => (
       <div className="row" style={{ gap: 6, justifyContent: 'flex-end' }}>
-        <button className="secondary" disabled={busyId === it.id} onClick={() => restore(it)}>
-          {t('action.restore')}
-        </button>
+        {canRestore && (
+          <button className="secondary" disabled={busyId === it.id} onClick={() => restore(it)}>
+            {t('action.restore')}
+          </button>
+        )}
         {canPurge && (
           <button className="danger" disabled={busyId === it.id} onClick={() => purge(it)}>
             {t('action.purge')}

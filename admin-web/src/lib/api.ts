@@ -34,6 +34,20 @@ export function canExportData(user: StoredUser | null): boolean {
 
 // isSuperAdmin gates the most sensitive tools (raw DB export, permissions
 // management) to the root Super-Admin tier (Phase 7 · M-60).
+/**
+ * isAdminLevel — the client mirror of the backend's `IsAdminLevel`, which gates
+ * `RequireAdminTier` routes (trash restore among them).
+ *
+ * Exists so a screen can hide an action the server will refuse instead of
+ * rendering a button whose only outcome is a 403. It decides nothing on its
+ * own — the middleware is still the authority; this only keeps the UI honest
+ * about what it is offering.
+ */
+export function isAdminLevel(user: StoredUser | null): boolean {
+  const tier = user?.staff_tier
+  return tier === 'admin' || tier === 'super_admin'
+}
+
 export function isSuperAdmin(user: StoredUser | null): boolean {
   return !!user && user.staff_tier === 'super_admin'
 }
