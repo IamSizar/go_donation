@@ -14,7 +14,9 @@
 // (lib/data/skill_catalogue.dart) doesn't have to import flutter/material.
 
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/core/design/contrast.dart';
 import 'package:flutter_application_1/core/design/directional_icons.dart';
+import 'package:flutter_application_1/core/design/tokens.dart';
 import 'package:flutter_application_1/data/skill_catalogue.dart';
 import 'package:get/get.dart';
 import 'package:flutter_application_1/core/design/motion.dart';
@@ -61,8 +63,14 @@ const Map<String, IconData> _skillIcons = {
 };
 
 /// Per-category styling — icon + accent color used for the card tint,
-/// chip outline, and selected-state fill. Colors are tuned so all seven
-/// categories sit visually distinct without screaming on a light theme.
+/// chip outline, and selected-state fill.
+///
+/// These seven hues are the category's IDENTITY, not a text colour. They are
+/// what makes النقل readable-at-a-glance as a different thing from طبي, so
+/// they are never adjusted — every fill, wash, and border below uses the raw
+/// hue. What IS adjusted is the ink drawn on top of them, via
+/// [skillCategoryInk] and friends. See
+/// test/design/skill_chip_contrast_test.dart.
 class _CategoryStyle {
   const _CategoryStyle({required this.icon, required this.color});
   final IconData icon;
@@ -99,6 +107,119 @@ const Map<String, _CategoryStyle> _categoryStyle = {
     color: Color(0xFF92400E),
   ), // brown
 };
+
+// ─── Readable ink on the category hues ──────────────────────────────────────
+//
+// WHY THIS BLOCK EXISTS
+// Every label in this file used to be drawn in the raw category hue on a 6%
+// wash of that same hue. Measured against the real composite, 8 of 14
+// hue×theme pairs missed WCAG's 4.5:1 text floor — brand green at 2.33:1 and
+// indigo at 2.79:1 in dark, orange at 3.03:1 and green at 2.82:1 in light.
+// The white-on-solid selected pill missed it too, on orange (3.56:1) and
+// green (3.30:1).
+//
+// The fix mirrors the community-services category pills: hold every hue byte
+// identical and derive the INK from the maths, so an eighth category added
+// later is compliant by construction rather than by luck.
+
+/// How much of the category hue tints a category card.
+const double _kCategoryWash = 0.06;
+
+/// The header icon's rounded tile, washed ON TOP of the card wash.
+const double _kIconTileWash = 0.14;
+
+/// How much of the hue tints an inline preview chip on the form.
+const double _kPreviewWash = 0.10;
+
+/// The seven category accents, keyed by catalogue category key.
+///
+/// Exposed so the contrast guard measures the hues the screen actually draws
+/// rather than a copy that can drift out of step with them.
+@visibleForTesting
+Map<String, Color> get skillCategoryAccents => {
+  for (final entry in _categoryStyle.entries) entry.key: entry.value.color,
+};
+
+/// A category card's opaque fill: the hue washed over [surface] beneath it.
+///
+/// Opaque on purpose — contrast is only defined between opaque colours, and
+/// measuring the translucent wash instead of the composite is exactly how a
+/// chip can look measured without being measured.
+@visibleForTesting
+Color skillCategoryFill(Color accent, Color surface) =>
+    Color.alphaBlend(accent.withValues(alpha: _kCategoryWash), surface);
+
+/// TEXT colour for the category heading and for an UNSELECTED chip's label —
+/// the hue, made readable on the card fill both of them sit on.
+///
+/// 13px w500 (chip) and 15px w700 (heading) are both ordinary body text —
+/// WCAG's large-text exemption starts at 18.66px bold — so 4.5:1 is the bar.
+@visibleForTesting
+Color skillCategoryInk(Color accent, Color surface, Color ink) => readableOn(
+  tint: accent,
+  background: skillCategoryFill(accent, surface),
+  ink: ink,
+);
+
+/// ICON colour for the category header glyph inside its 14% tile.
+///
+/// Held to 3.0:1, not 4.5:1: the glyph sits immediately beside the category
+/// name and says the same thing, so it is decoration over text that already
+/// carries the meaning. Raw hue measured as low as 2.13:1 there, below even
+/// that floor, which is why it is corrected at all.
+@visibleForTesting
+Color skillCategoryIconInk(Color accent, Color surface, Color ink) =>
+    readableOn(
+      tint: accent,
+      background: Color.alphaBlend(
+        accent.withValues(alpha: _kIconTileWash),
+        skillCategoryFill(accent, surface),
+      ),
+      ink: ink,
+      minRatio: 3.0,
+    );
+
+/// Ink for anything drawn ON a solid accent: a SELECTED chip, the count badge.
+///
+/// Was hardcoded white, which fails on the two brightest hues — 3.56:1 on
+/// orange and 3.30:1 on green. [inkOn] keeps white on the five hues where it
+/// already wins and flips to the near-black ink on those two (5.02:1, 5.42:1).
+/// The FILL stays the raw hue, so the category still reads as itself.
+@visibleForTesting
+Color skillSelectedInk(Color accent) => inkOn(accent);
+
+/// An inline preview chip's opaque fill on the form's card surface.
+@visibleForTesting
+Color skillPreviewFill(Color accent, Color card) =>
+    Color.alphaBlend(accent.withValues(alpha: _kPreviewWash), card);
+
+/// TEXT colour for an inline preview chip's label. 12px w600 — body text.
+@visibleForTesting
+Color skillPreviewInk(Color accent, Color card, Color ink) => readableOn(
+  tint: accent,
+  background: skillPreviewFill(accent, card),
+  ink: ink,
+);
+
+/// Colour of a preview chip's ✕ button.
+///
+/// 3.0:1, the floor for meaningful non-text UI: unlike the header glyph this
+/// one is not decorative — it is the only affordance that says "tap here to
+/// drop this skill", and no adjacent text repeats it.
+///
+/// The 70% fade is kept as the starting point rather than discarded, so a hue
+/// whose faded ✕ already clears the floor keeps the lighter weight the design
+/// intended; only the ones that miss get nudged.
+@visibleForTesting
+Color skillPreviewRemoveInk(Color accent, Color card, Color ink) {
+  final fill = skillPreviewFill(accent, card);
+  return readableOn(
+    tint: Color.alphaBlend(accent.withValues(alpha: 0.70), fill),
+    background: fill,
+    ink: ink,
+    minRatio: 3.0,
+  );
+}
 
 class SkillChipPicker extends StatelessWidget {
   const SkillChipPicker({
@@ -199,6 +320,12 @@ class _CategoryCard extends StatelessWidget {
           color: Theme.of(context).colorScheme.primary,
         );
     final accent = style.color;
+    // The inline picker is embedded in a GlassPanel, which paints `card`;
+    // that is the opaque colour the 6% wash actually composites over.
+    final colors = AppColors.of(context);
+    final surface = colors.card;
+    final headingInk = skillCategoryInk(accent, surface, colors.ink);
+    final iconInk = skillCategoryIconInk(accent, surface, colors.ink);
     final pickedCount = category.skills
         .where((s) => selectedKeys.contains(s.key))
         .length;
@@ -207,7 +334,7 @@ class _CategoryCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
       decoration: BoxDecoration(
-        color: accent.withValues(alpha: 0.06),
+        color: accent.withValues(alpha: _kCategoryWash),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: accent.withValues(alpha: 0.20)),
       ),
@@ -219,10 +346,10 @@ class _CategoryCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.14),
+                  color: accent.withValues(alpha: _kIconTileWash),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(style.icon, size: 18, color: accent),
+                child: Icon(style.icon, size: 18, color: iconInk),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -231,7 +358,7 @@ class _CategoryCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: accent,
+                    color: headingInk,
                   ),
                 ),
               ),
@@ -247,8 +374,8 @@ class _CategoryCard extends StatelessWidget {
                   ),
                   child: Text(
                     '$pickedCount',
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: skillSelectedInk(accent),
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                     ),
@@ -269,6 +396,7 @@ class _CategoryCard extends StatelessWidget {
                     label: skill.labelFor(locale),
                     icon: icon,
                     accent: accent,
+                    ink: headingInk,
                     selected: isSelected,
                     onTap: () {
                       final next = Set<String>.from(selectedKeys);
@@ -297,19 +425,32 @@ class _SkillPill extends StatelessWidget {
     required this.label,
     required this.icon,
     required this.accent,
+    required this.ink,
     required this.selected,
     required this.onTap,
   });
 
   final String label;
   final IconData icon;
+
+  /// The category hue. Drives the fill and border only — never the text.
   final Color accent;
+
+  /// Label colour while UNSELECTED: [accent] made readable on the category
+  /// card behind this chip, computed by the parent because only the parent
+  /// knows which opaque surface that card composites over.
+  final Color ink;
+
   final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final fg = selected ? Colors.white : accent;
+    // Selected: ink chosen against the solid accent (white loses on the two
+    // brightest hues). Unselected: the pre-corrected category ink. The chip
+    // icon repeats the label beside it, so it simply shares the label's
+    // colour rather than being measured separately.
+    final fg = selected ? skillSelectedInk(accent) : ink;
     final bg = selected ? accent : Colors.transparent;
     final border = selected ? accent : accent.withValues(alpha: 0.40);
 
@@ -533,22 +674,28 @@ class _RemovableChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // These chips render under the picker trigger inside the form's
+    // GlassPanel, so the 10% wash composites over `card`.
+    final colors = AppColors.of(context);
+    final labelInk = skillPreviewInk(accent, colors.card, colors.ink);
+    final removeInk = skillPreviewRemoveInk(accent, colors.card, colors.ink);
+
     return Container(
       padding: const EdgeInsetsDirectional.fromSTEB(10, 6, 6, 6),
       decoration: BoxDecoration(
-        color: accent.withValues(alpha: 0.10),
+        color: accent.withValues(alpha: _kPreviewWash),
         borderRadius: BorderRadius.circular(99),
         border: Border.all(color: accent.withValues(alpha: 0.35)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: accent),
+          Icon(icon, size: 14, color: labelInk),
           const SizedBox(width: 6),
           Text(
             label,
             style: TextStyle(
-              color: accent,
+              color: labelInk,
               fontWeight: FontWeight.w600,
               fontSize: 12,
             ),
@@ -559,11 +706,7 @@ class _RemovableChip extends StatelessWidget {
             borderRadius: BorderRadius.circular(99),
             child: Padding(
               padding: const EdgeInsets.all(3),
-              child: Icon(
-                Icons.close_rounded,
-                size: 14,
-                color: accent.withValues(alpha: 0.70),
-              ),
+              child: Icon(Icons.close_rounded, size: 14, color: removeInk),
             ),
           ),
         ],
@@ -839,6 +982,13 @@ class _SheetCategoryBlock extends StatelessWidget {
           color: Theme.of(context).colorScheme.primary,
         );
     final accent = style.color;
+    // The sheet paints `theme.scaffoldBackgroundColor` (= ground) behind these
+    // blocks, so that — not the page card — is what the 6% wash sits on.
+    final theme = Theme.of(context);
+    final colors = AppColors.of(context);
+    final surface = theme.scaffoldBackgroundColor;
+    final headingInk = skillCategoryInk(accent, surface, colors.ink);
+    final iconInk = skillCategoryIconInk(accent, surface, colors.ink);
     final pickedCount = skills
         .where((s) => selectedKeys.contains(s.key))
         .length;
@@ -847,7 +997,7 @@ class _SheetCategoryBlock extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
       decoration: BoxDecoration(
-        color: accent.withValues(alpha: 0.06),
+        color: accent.withValues(alpha: _kCategoryWash),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: accent.withValues(alpha: 0.20)),
       ),
@@ -859,10 +1009,10 @@ class _SheetCategoryBlock extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.14),
+                  color: accent.withValues(alpha: _kIconTileWash),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(style.icon, size: 18, color: accent),
+                child: Icon(style.icon, size: 18, color: iconInk),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -871,7 +1021,7 @@ class _SheetCategoryBlock extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: accent,
+                    color: headingInk,
                   ),
                 ),
               ),
@@ -887,8 +1037,8 @@ class _SheetCategoryBlock extends StatelessWidget {
                   ),
                   child: Text(
                     '$pickedCount',
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: skillSelectedInk(accent),
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                     ),
@@ -909,6 +1059,7 @@ class _SheetCategoryBlock extends StatelessWidget {
                     label: skill.labelFor(locale),
                     icon: icon,
                     accent: accent,
+                    ink: headingInk,
                     selected: isSelected,
                     onTap: () => onToggle(skill.key),
                   );
