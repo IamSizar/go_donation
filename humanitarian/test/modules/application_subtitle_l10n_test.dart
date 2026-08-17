@@ -70,6 +70,31 @@ void main() {
     }
   });
 
+  test('the eight mission signup statuses all resolve in Arabic', () {
+    // A second code path with the same omission: the «مهامي» card printed
+    // "pending" in English beside fully Arabic text. Every value the backend
+    // allows already had copy — only the .tr was missing.
+    Get.updateLocale(const Locale('ar', 'SA'));
+    for (final status in [
+      'pending',
+      'approved',
+      'rejected',
+      'joined',
+      'completion_requested',
+      'cancelled',
+      'completed',
+      'no_show',
+    ]) {
+      final label = status.tr;
+      expect(
+        label,
+        isNot(status),
+        reason: '"$status" would render untranslated on the missions card',
+      );
+      expect(RegExp(r'[A-Za-z]').hasMatch(label), isFalse);
+    }
+  });
+
   test('a missing or malformed schedule yields nothing, so the caller can '
       'fall back to the stored text', () {
     Get.updateLocale(const Locale('ar', 'SA'));

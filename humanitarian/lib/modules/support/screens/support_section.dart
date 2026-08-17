@@ -1030,8 +1030,14 @@ String _missionSubtitle(Map<String, dynamic> mission) {
     (mission['city'] ?? '').toString(),
     missionDate.isEmpty ? 'Flexible'.tr : missionDate,
     missionCapacityLabel(mission),
+    // Translated, not printed raw: this rendered "pending" in English on the
+    // Arabic «مهامي» card. All eight values the backend allows (pending,
+    // approved, rejected, joined, completion_requested, cancelled, completed,
+    // no_show) are already keys in every locale, so this was a missing `.tr`
+    // and not missing copy — the same omission as the application status two
+    // functions below, in a second code path that had to be found separately.
     if ((mission['signup_status'] ?? '').toString().isNotEmpty)
-      (mission['signup_status'] ?? '').toString(),
+      (mission['signup_status'] ?? '').toString().tr,
   ].where((value) => value.trim().isNotEmpty).join(' - ');
 }
 
