@@ -246,6 +246,13 @@ func (s *Store) ListPublicCases(ctx context.Context, status string, limit int) (
 // date_of_birth, address. Case-specific fields (needs, housing, income) are
 // not personal-profile fields and have no switch.
 //
+// A case with user_id NULL has no owner and so skips that loop entirely. It is
+// NOT therefore published in full: publishing those five columns is a consent
+// decision, and an ownerless row is precisely the row where no one could have
+// made it, so stripOwnerlessPersonalDetails withholds them by default. Its
+// case-facing columns are untouched — an anonymous donor still gets a real,
+// identifiable case to give to.
+//
 // national_id is NOT one of them and is never served here at all. It has no
 // catalogue key, so no privacy switch could ever govern it — and a government
 // ID number is not something an anonymous reader browsing aid cases has any
@@ -263,6 +270,10 @@ func (s *Store) ListPublicCasesForViewer(ctx context.Context, status string, lim
 	}
 	// Strip before anything else, so no later early-return can leak it.
 	stripNationalIDs(items)
+	// Same reasoning, and likewise before the privacy load that can fail: an
+	// ownerless case never reaches the per-owner loop below, so its personal
+	// columns are decided here or nowhere.
+	stripOwnerlessPersonalDetails(items)
 	owners := make([]int64, 0, len(items))
 	for _, c := range items {
 		if c.UserID != nil {
@@ -298,6 +309,47 @@ func (s *Store) ListPublicCasesForViewer(ctx context.Context, status string, lim
 func stripNationalIDs(items []Case) {
 	for i := range items {
 		items[i].NationalID = nil
+	}
+}
+
+// stripOwnerlessPersonalDetails withholds the personal columns of every case
+// that has NO owner.
+//
+// WHY THIS EXISTS. The per-owner loop in ListPublicCasesForViewer is a consent
+// mechanism: it publishes a person's name, phone and address only because the
+// owner of that case left the corresponding switch on in their Privacy
+// Settings. A case with user_id NULL has no owner, so the loop skips it — and
+// what it was skipping was not "a row with nothing to protect" but a row whose
+// contact details reached anonymous callers WITHOUT any consent decision
+// having been made, because there was nobody in a position to make one.
+//
+// Absent consent, the conservative default is to withhold. Staff who need the
+// contact details of an ownerless case have the authenticated admin endpoints,
+// which are governed by staff_tier; the public list is not that surface.
+//
+// The set covered here is exactly the set the per-owner loop governs — the
+// five columns that ARE a consent decision. Covering a subset would leave an
+// ownerless case more exposed than an owned one on some columns and not
+// others, with no principle to explain which.
+//
+// The case-facing columns (public_title*, case_code, city, district, category,
+// actual_needs, the situation fields) are deliberately untouched. They are not
+// personal-profile fields, they have no privacy switch, and they are the whole
+// reason the endpoint exists: blanking them would close the leak by removing
+// the feature.
+//
+// Kept as its own function, next to stripNationalIDs and for the same reason:
+// a rule this important should be provable without a database.
+func stripOwnerlessPersonalDetails(items []Case) {
+	for i := range items {
+		if items[i].UserID != nil {
+			continue // has an owner — their Privacy Settings decide, not this
+		}
+		items[i].FullName = nil
+		items[i].Phone = nil
+		items[i].Gender = nil
+		items[i].DateOfBirth = nil
+		items[i].Address = nil
 	}
 }
 

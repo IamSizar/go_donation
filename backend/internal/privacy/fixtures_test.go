@@ -96,6 +96,34 @@ func makeCase(t *testing.T, pool *pgxpool.Pool, ownerID int64) int64 {
 	return id
 }
 
+// makeOwnerlessCase inserts an approved, publicly visible case with user_id
+// NULL — the row shape production is actually serving. beneficiary_cases.user_id
+// has always been nullable (migration 001): a case can be entered by staff on
+// behalf of someone who has no account in the app at all.
+//
+// It carries the same contact details as makeCase so a test can assert that the
+// ONLY difference in what is published is the absence of an owner.
+func makeOwnerlessCase(t *testing.T, pool *pgxpool.Pool) int64 {
+	t.Helper()
+	ctx := context.Background()
+	seq++
+	var id int64
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO beneficiary_cases
+		   (user_id, case_code, public_title, full_name, phone, address, city,
+		    verification_status, public_visibility)
+		 VALUES (NULL, $1, 'Ownerless test case', 'Nobody Consented',
+		         '9647998888888', 'Domiz Block 9', 'Kirkuk', 'approved', 'summary')
+		 RETURNING id`, fmt.Sprintf("K8-ORPHAN-%d-%d", runTag, seq),
+	).Scan(&id); err != nil {
+		t.Fatalf("insert ownerless beneficiary case: %v", err)
+	}
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `DELETE FROM beneficiary_cases WHERE id = $1`, id)
+	})
+	return id
+}
+
 func findCase(t *testing.T, items []beneficiary.Case, caseID int64) beneficiary.Case {
 	t.Helper()
 	for _, c := range items {

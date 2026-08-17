@@ -317,6 +317,54 @@ func TestPublicCaseOwnerStillSeesTheirOwnCase(t *testing.T) {
 	}
 }
 
+// TestPublicCaseWithNoOwnerPublishesNoContactDetails is the end-to-end version
+// of the ownerless rule, driven through the same store method the HTTP handler
+// calls, against a real row.
+//
+// The per-owner privacy loop can only consult an owner's settings, so a case
+// with user_id NULL reaches the response having passed through no consent
+// decision at all. viewerID 0 here is the anonymous caller the endpoint's
+// optional bearer allows.
+func TestPublicCaseWithNoOwnerPublishesNoContactDetails(t *testing.T) {
+	pool := newPool(t)
+	ctx := context.Background()
+
+	caseID := makeOwnerlessCase(t, pool)
+
+	items, err := beneficiary.NewStore(pool).ListPublicCasesForViewer(ctx, "approved", 200, 0)
+	if err != nil {
+		t.Fatalf("ListPublicCasesForViewer: %v", err)
+	}
+	c := findCase(t, items, caseID)
+
+	if c.UserID != nil {
+		t.Fatalf("fixture problem: case %d has an owner, so it is not testing the ownerless path", caseID)
+	}
+	if c.FullName != nil {
+		t.Errorf("full_name = %q to an anonymous caller on an OWNERLESS case — no owner exists who could have consented", deref(c.FullName))
+	}
+	if c.Phone != nil {
+		t.Errorf("phone = %q to an anonymous caller on an OWNERLESS case", deref(c.Phone))
+	}
+	if c.Address != nil {
+		t.Errorf("address = %q to an anonymous caller on an OWNERLESS case", deref(c.Address))
+	}
+	if c.NationalID != nil {
+		t.Errorf("national_id = %q — stripped unconditionally since 73a20f3", deref(c.NationalID))
+	}
+	// The case must remain a usable listing, or the fix has broken the feature
+	// it was protecting.
+	if c.City == nil || *c.City != "Kirkuk" {
+		t.Errorf("city = %q, want Kirkuk — donors pick a case by where it is", deref(c.City))
+	}
+	if c.PublicTitle != "Ownerless test case" {
+		t.Errorf("public_title = %q, want it intact — the card has nothing to show without it", c.PublicTitle)
+	}
+	if c.CaseCode == "" {
+		t.Error("case_code was cleared; it is how a donor refers to the case")
+	}
+}
+
 // ─── Sponsorships (GET /api/sponsorships) ───────────────────────────────
 
 func TestSponsorshipListHidesDonorIdentity(t *testing.T) {
