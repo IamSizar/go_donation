@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -475,16 +476,44 @@ func (s *Store) GetByUsername(ctx context.Context, username string) (id int64, p
 	if username == "" {
 		return 0, "", 0, false, nil
 	}
+	// Matched case-insensitively. A sign-in name is typed by a person, often on
+	// a phone keyboard that capitalises the first letter unasked, and an exact
+	// match turned that into "Invalid username or password" with nothing on
+	// screen to suggest the case was the problem.
+	//
+	// New names are stored folded (normalizeUsername in the admin handler), so
+	// a case-only pair cannot be created — but rows predating that are not
+	// covered by the partial UNIQUE index, which is over the raw column. So ask
+	// for two and refuse to guess if two come back: picking either would decide
+	// whose password is being checked by row order. Fail closed; the operator
+	// sees the same message as a wrong password, and the log line below says
+	// which name was ambiguous.
 	var hash *string
 	var admin *int
-	err = s.Pool.QueryRow(ctx,
-		`SELECT id, password_hash, is_admin, is_guest FROM users WHERE username = $1 LIMIT 1`, username,
-	).Scan(&id, &hash, &admin, &isGuest)
+	rows, err := s.Pool.Query(ctx,
+		`SELECT id, password_hash, is_admin, is_guest FROM users
+		 WHERE LOWER(username) = LOWER($1) ORDER BY id LIMIT 2`, username,
+	)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		return 0, "", 0, false, err
+	}
+	defer rows.Close()
+	matches := 0
+	for rows.Next() {
+		matches++
+		if matches > 1 {
+			log.Printf("[authz] username %q matches %d accounts case-insensitively; refusing to guess", username, matches)
 			return 0, "", 0, false, nil
 		}
+		if scanErr := rows.Scan(&id, &hash, &admin, &isGuest); scanErr != nil {
+			return 0, "", 0, false, scanErr
+		}
+	}
+	if err := rows.Err(); err != nil {
 		return 0, "", 0, false, err
+	}
+	if matches == 0 {
+		return 0, "", 0, false, nil
 	}
 	if hash != nil {
 		passwordHash = *hash

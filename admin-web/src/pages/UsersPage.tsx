@@ -68,6 +68,19 @@ function buildNewUserFields(state: Record<string, FieldRuleState>): FieldSpec[] 
   const fields: FieldSpec[] = [
     { key: 'phone',           label: 'Phone', labelKey: 'field.phone',           type: 'text', required: true, phone: 'login' },
     { key: 'role',            label: 'Role', labelKey: 'col.role',              type: 'select', options: ['donor', 'beneficiary', 'volunteer', 'employee'] },
+    // Dashboard sign-in credentials — optional, and only meaningful for an
+    // account that will be given a staff tier.
+    //
+    // Without these the window could not produce an account able to sign into
+    // the dashboard at all: login matches on `username`, and this was the only
+    // screen that creates users while no screen wrote that column. A new
+    // Supervisor appeared in the list and then failed login permanently.
+    //
+    // Reusing auth.username / auth.password rather than minting field.* keys —
+    // they are the same two words the login box uses, already translated in all
+    // four locales, and the operator has just read them there.
+    { key: 'username',        label: 'Username', labelKey: 'auth.username',     type: 'text', placeholder: 'supervisor' },
+    { key: 'password',        label: 'Password', labelKey: 'auth.password',     type: 'password' },
     { key: 'full_name',       label: 'Full name', labelKey: 'field.full_name',       type: 'text', required: isRequired('full_name') },
     { key: 'gender',          label: 'Gender', labelKey: 'field.gender',          type: 'select', options: GENDER_OPTIONS, required: isRequired('gender') },
     { key: 'date_of_birth',   label: 'Date of birth', labelKey: 'field.date_of_birth', type: 'date', required: isRequired('date_of_birth') },
@@ -82,7 +95,11 @@ function buildNewUserFields(state: Record<string, FieldRuleState>): FieldSpec[] 
     { key: 'skills',          label: 'Skills', labelKey: 'field.skills',          type: 'textarea', rows: 2, full: true, required: isRequired('skills') },
     { key: 'profile_picture', label: 'Profile picture', labelKey: 'field.profile_picture', type: 'file', full: true, required: isRequired('profile_picture') },
   ]
-  return fields.filter((f) => f.key === 'phone' || f.key === 'role' || !isHidden(f.key))
+  // Field Rules (migration 057) govern the `user_` profile prefix only; phone,
+  // role and the sign-in pair are account-level and always shown.
+  return fields.filter(
+    (f) => f.key === 'phone' || f.key === 'role' || f.key === 'username' || f.key === 'password' || !isHidden(f.key),
+  )
 }
 
 const USER_CSV_COLUMNS: CsvColumn<UserAccount>[] = [
@@ -577,12 +594,20 @@ export default function UsersPage() {
     // Note #34 — everything besides phone/role passes through as-is; EditModal
     // already omits untouched optional fields and converts family_size to a
     // number, matching what POST /api/admin/users now accepts.
-    const { phone: _phone, role: _role, ...profileFields } = patch
+    const { phone: _phone, role: _role, username: _username, password: _password, ...profileFields } = patch
+    // Sent only when actually filled. An untouched pair must arrive as absent
+    // rather than as two empty strings, because the backend reads "" as "this
+    // account gets no dashboard access" and would otherwise reject the whole
+    // creation for setting one half of a credential pair it never asked for.
+    const username = String(patch.username ?? '').trim()
+    const password = String(patch.password ?? '')
     try {
       await api.post('/api/admin/users', {
         phone,
         full_name: String(patch.full_name ?? ''),
         role_id: roleSel ? roleLabelToId(roleSel) : undefined,
+        ...(username ? { username } : {}),
+        ...(password ? { password } : {}),
         ...profileFields,
       })
       toast.success(t('toast.created', { noun: t('noun.user') }))

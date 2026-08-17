@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -129,13 +130,61 @@ func tierRank(t string) int {
 	}
 }
 
+// usernamePattern is what a dashboard sign-in name may contain once folded to
+// lower case: letters, digits, dot, underscore, hyphen. No spaces (they are
+// invisible at both ends of a login box and unresolvable when one is typed by
+// hand), and no upper case — see normalizeUsername for why folding matters.
+//
+// The 3..64 bound is not arbitrary at the top: users.username is VARCHAR(64),
+// so a longer name would be a database error rather than a message anyone
+// could act on.
+var usernamePattern = regexp.MustCompile(`^[a-z0-9._-]{3,64}$`)
+
+// normalizeUsername folds a submitted sign-in name to its stored form, or
+// explains why it cannot be stored.
+//
+// Case folding is the substantive decision. The UNIQUE index added in
+// migration 014 is over the raw column, so "Supervisor" and "supervisor" can
+// both exist, and GetByUsername matches case-insensitively — two rows differing
+// only in case would make it ambiguous which account a password is checked
+// against. Storing one canonical case makes that pair impossible to create, so
+// the case-insensitive lookup stays single-valued by construction.
+//
+// Returns ("", nil) for an absent or blank name: the credential pair is
+// optional, and a blank box means "no dashboard access", not an error.
+func normalizeUsername(raw *string) (string, error) {
+	if raw == nil {
+		return "", nil
+	}
+	name := strings.ToLower(strings.TrimSpace(*raw))
+	if name == "" {
+		return "", nil
+	}
+	if !usernamePattern.MatchString(name) {
+		return "", errors.New("Username must be 3-64 characters, using only letters, digits, dot, underscore or hyphen.")
+	}
+	return name, nil
+}
+
 // Note #34 — the "Add New User" window used to only take phone/role/full_name;
 // the rest of user_profiles (already editable via PATCH .../:id, admin_edit.go
 // User()) is now collectible at creation time too, gated per-field by the
 // "user_" Field Rules prefix (migration 057) same as the Edit form's fields
 // mirror the mobile app's own registration fields.
 type createUserReq struct {
-	Phone          string          `json:"phone"`
+	Phone string `json:"phone"`
+	// Dashboard sign-in credentials. Both optional — a plain app user needs
+	// neither, and every account created before this existed has neither.
+	//
+	// They are here because without them the dashboard could not create an
+	// account able to sign into the dashboard. AdminLogin looks a staff member
+	// up by `username` (users.go GetByUsername) and compares against
+	// `password_hash`; the New User window collected neither, and no other
+	// screen writes `username` at all, so a freshly created Supervisor landed
+	// in the list looking like staff and failed login with "Invalid username
+	// or password" forever. Found by trying to create one.
+	Username       *string         `json:"username"`
+	Password       *string         `json:"password"`
 	RoleID         *int            `json:"role_id"`
 	FullName       string          `json:"full_name"`
 	Gender         *string         `json:"gender"`
@@ -171,17 +220,72 @@ func (h *AdminStatusHandler) CreateUser(c *gin.Context) {
 	if rejectMaskedContactWrite(c, contactWrite{"phone", &phone}) {
 		return
 	}
+	// Sign-in credentials, both optional and validated before anything is
+	// written so a rejected pair cannot leave a half-made account behind.
+	//
+	// These do NOT grant dashboard access on their own. `staff_tier` is NOT
+	// NULL DEFAULT 'user' (migration 015) and is deliberately not set here, so
+	// a created account still fails AdminLogin's CanAccessDashboard check until
+	// someone raises its tier through the separate staff_tier endpoint. Adding
+	// a credential pair here therefore widens no privilege — it only makes the
+	// tier that endpoint grants reachable.
+	username, err := normalizeUsername(req.Username)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+		return
+	}
+	var passwordHash any = nil
+	if req.Password != nil {
+		pw := *req.Password
+		if pw != "" {
+			// Same floor as UserPassword below — one rule for one concept, so
+			// a password acceptable at creation cannot be rejected on change.
+			if len(pw) < 4 {
+				c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Password must be at least 4 characters."})
+				return
+			}
+			hash, hErr := bcrypt.GenerateFromPassword([]byte(pw), bcrypt.DefaultCost)
+			if hErr != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to hash password."})
+				return
+			}
+			passwordHash = string(hash)
+		}
+	}
+	// Half a credential pair signs in nowhere: AdminLogin needs the username to
+	// find the row AND a non-empty hash to compare against, and rejects with
+	// the same "Invalid username or password" either way. Refusing the pair up
+	// front costs one message; allowing it costs an account that looks correct
+	// in the list and fails login with nothing on screen explaining why. That
+	// silence is the whole reason this field exists.
+	if (username == "") != (passwordHash == nil) {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false,
+			"error": "Username and password must be set together, or both left empty."})
+		return
+	}
 	ctx := c.Request.Context()
 	var roleArg any = nil
 	if req.RoleID != nil && *req.RoleID > 0 {
 		roleArg = *req.RoleID
 	}
+	var usernameArg any = nil
+	if username != "" {
+		usernameArg = username
+	}
 	var id int64
-	err := h.Pool.QueryRow(ctx,
-		`INSERT INTO users (phone, role_id, registration_status)
-		 VALUES ($1, $2, 'approved') RETURNING id`, phone, roleArg).Scan(&id)
+	err = h.Pool.QueryRow(ctx,
+		`INSERT INTO users (phone, role_id, registration_status, username, password_hash)
+		 VALUES ($1, $2, 'approved', $3, $4) RETURNING id`, phone, roleArg, usernameArg, passwordHash).Scan(&id)
 	if err != nil {
 		if strings.Contains(err.Error(), "23505") || strings.Contains(strings.ToLower(err.Error()), "duplicate") {
+			// Two unique constraints can fire here now, and "phone already
+			// exists" pointing at a username collision would send the operator
+			// hunting the wrong field. idx_users_username is the partial index
+			// from migration 014.
+			if strings.Contains(err.Error(), "idx_users_username") {
+				c.JSON(http.StatusConflict, gin.H{"success": false, "error": "This username is already taken."})
+				return
+			}
 			c.JSON(http.StatusConflict, gin.H{"success": false, "error": "A user with this phone already exists."})
 			return
 		}
