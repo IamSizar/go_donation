@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_application_1/localization/item_count.dart';
 import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/api/links.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
@@ -280,7 +281,7 @@ class _CartCheckoutPanel extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '${controller.totalQuantity} ${'items'.tr}',
+                        itemCountLabel(controller.totalQuantity),
                         style: TextStyle(
                           color: AppThemeConfig.mutedText(context),
                         ),

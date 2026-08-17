@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/localization/item_count.dart';
 import 'package:flutter_application_1/core/design/directional_icons.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_application_1/api/links.dart';
@@ -901,7 +902,7 @@ class _CartTeaserBar extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '${controller.totalQuantity} ${'items'.tr}',
+                        itemCountLabel(controller.totalQuantity),
                         style: TextStyle(
                           fontWeight: FontWeight.w800,
                           color: AppThemeConfig.text(context),

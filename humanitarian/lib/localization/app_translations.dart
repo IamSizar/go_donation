@@ -2026,6 +2026,13 @@ class AppTranslations extends Translations {
     'Loading more products': 'Loading more products',
     'You reached the end.': 'You reached the end.',
     'items': 'items',
+    // Count-agreeing forms — see localization/item_count.dart. English needs
+    // only singular/plural, but all four keys exist so the lookup resolves
+    // here rather than falling back to the uncounted word.
+    'items_one': 'item',
+    'items_two': 'items',
+    'items_few': 'items',
+    'items_many': 'items',
     'orders': 'orders',
     'Track your marketplace order status.':
         'Track your marketplace order status.',
@@ -4800,6 +4807,12 @@ class AppTranslations extends Translations {
     'Loading more products': 'جار تحميل المزيد من المنتجات',
     'You reached the end.': 'وصلت إلى النهاية.',
     'items': 'عناصر',
+    // العدد في العربية أربع صيغ لا صيغتان: مفرد، مثنّى، جمع قلّة (٣–١٠)، ثم
+    // تمييز مفرد منصوب (١١ فأكثر). كان المعروض «عناصر» دائمًا، وهو جمع القلّة.
+    'items_one': 'عنصر',
+    'items_two': 'عنصران',
+    'items_few': 'عناصر',
+    'items_many': 'عنصرًا',
     'orders': 'طلبات',
     'Track your marketplace order status.': 'تابع حالة طلبات السوق.',
     'Order request saved.': 'تم حفظ طلب الشراء.',
