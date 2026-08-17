@@ -28,6 +28,22 @@
 // `DashboardTopBar` lost its underscore for that second group; nothing else
 // about it changed. A private class cannot be pumped from a test, and the
 // alternative was to leave the riskiest part of J9 unexecuted.
+//
+// WHAT CHANGED, AND WHAT THIS FILE NOW PINS
+// The owner later asked for the bar's six controls to collapse behind a single
+// button, because six tap targets and two badges above every tab is more
+// chrome than content. That is a direct instruction and it wins — but it costs
+// exactly the thing J9 bought: support is now ONE TAP away rather than zero.
+//
+// So this file no longer claims "no tap". It pins the strongest guarantee the
+// two requirements can both have:
+//   * the route to support lives in the TOP BAR's own code, not in Settings —
+//     which is the half of J9 that the client was actually complaining about
+//     (الملف الشخصي → الدعم الفني is *two* taps and a menu to read);
+//   * it is reachable from every tab in one tap, with no navigation;
+//   * and the expanded row still fits on a 320dp screen.
+// If a future change buries support behind a second tap, or moves it out of
+// the bar, these tests fail — which is the line worth holding.
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -64,8 +80,34 @@ String _topBarBody() {
       'was renamed or moved, and this test needs following, not deleting',
     );
   }
-  final next = src.indexOf('\nclass ', start + 1);
-  return next < 0 ? src.substring(start) : src.substring(start, next);
+  // Through the State class too: the bar became stateful when the cluster
+  // learned to collapse, so `class DashboardTopBar` is now just the widget
+  // shell and `_DashboardTopBarState` holds the build method with the title.
+  // Stopping at the first `\nclass ` would scope this test to the shell and
+  // report the title as missing when it had only moved.
+  final afterState = src.indexOf('class _DashboardTopBarState');
+  final searchFrom = afterState < 0 ? start : afterState;
+  final next = src.indexOf('\nclass ', searchFrom + 1);
+  final bar = next < 0 ? src.substring(start) : src.substring(start, next);
+
+  // The trailing controls moved into _TopBarActions when the row was collapsed
+  // behind one button. They are still the top bar — same file, same widget
+  // subtree, rendered by the same bar — so the scope follows them. Scoping to
+  // DashboardTopBar alone would now report "support left the bar" for a change
+  // that only moved it one class down, which is a false alarm, and scoping to
+  // the whole file is what this helper exists to avoid.
+  final actionsStart = src.indexOf('class _TopBarActions');
+  if (actionsStart < 0) {
+    fail(
+      'class _TopBarActions is gone from $_dashboardScreen — the collapsed '
+      'action cluster was renamed or moved, and this test needs following',
+    );
+  }
+  final actionsEnd = src.indexOf('\nclass ', actionsStart + 1);
+  final actions = actionsEnd < 0
+      ? src.substring(actionsStart)
+      : src.substring(actionsStart, actionsEnd);
+  return '$bar\n$actions';
 }
 
 void main() {
@@ -81,11 +123,12 @@ void main() {
       );
     });
 
-    test('it sits beside the other persistent controls, not in a menu', () {
+    test('it sits beside the other controls, in the bar, not in Settings', () {
       final body = _topBarBody();
-      // The support control has to live in the same trailing row as the four
-      // that were already there, or it is not "at the top of the app" in the
-      // sense J9 means — it is one more thing behind a tap.
+      // The five below share the collapsed cluster with support. What matters
+      // is that they are all in the BAR: if support were pushed back into a
+      // menu while these stayed, that is J9 regressing, and this list is how
+      // that shows up.
       for (final sibling in const [
         'AssistantHintButton',
         'GlobalSearchScreen',
@@ -145,7 +188,9 @@ void main() {
       Get.delete<ChatController>(force: true);
     });
 
-    testWidgets('six controls lay out on a 320dp screen', (tester) async {
+    testWidgets('the six controls open in one tap and fit a 320dp screen', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(320, 640);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
@@ -165,12 +210,29 @@ void main() {
         await tester.pump();
       });
 
+      // Collapsed, the bar shows one button. This is the tap J9 now costs, and
+      // it is the whole reason the assertions below are still worth making:
+      // one tap, no navigation, from whichever tab the user is standing on.
+      expect(
+        find.byIcon(Icons.more_horiz_rounded),
+        findsOneWidget,
+        reason: 'the collapsed cluster should offer exactly one control',
+      );
+      expect(
+        find.byIcon(Icons.support_agent_rounded),
+        findsNothing,
+        reason: 'collapsed means collapsed — nothing else should be drawn yet',
+      );
+
+      await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+      await tester.pumpAndSettle();
+
       expect(
         tester.takeException(),
         isNull,
         reason:
-            'a RenderFlex overflow here means the sixth control does not fit '
-            'and the bar paints the yellow-and-black stripes',
+            'a RenderFlex overflow here means the expanded cluster does not '
+            'fit and the bar paints the yellow-and-black stripes',
       );
       // The support glyph, plus the four that were already there. The avatar
       // is an image widget, not an Icon, so it is not in this list.
@@ -178,10 +240,20 @@ void main() {
       expect(find.byIcon(Icons.search_rounded), findsOneWidget);
       expect(find.byIcon(Icons.notifications_none_rounded), findsOneWidget);
       expect(find.byIcon(Icons.forum_outlined), findsOneWidget);
-      // The title survives too. It is narrower than it was — six controls take
-      // more room than five, and an Expanded ellipsised title is what absorbs
-      // that — but it is still laid out, not dropped.
+      // The title steps aside while the cluster is open, rather than being
+      // ellipsised to a broken word by controls that only borrowed its width.
+      expect(
+        find.text('السوق'),
+        findsNothing,
+        reason: 'an expanded cluster should not leave a truncated heading',
+      );
+
+      // ...and comes back when the cluster closes, which is what makes the
+      // collapse a toggle rather than a one-way trade of title for controls.
+      await tester.tap(find.byIcon(Icons.close_rounded));
+      await tester.pumpAndSettle();
       expect(find.text('السوق'), findsOneWidget);
+      expect(find.byIcon(Icons.support_agent_rounded), findsNothing);
 
       // Inside the body, not in tearDown: flutter_test checks for pending
       // timers as the test body returns, which is before tearDown runs. Both

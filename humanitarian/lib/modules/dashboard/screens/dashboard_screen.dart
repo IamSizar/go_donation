@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/core/app_haptics.dart';
+import 'package:flutter_application_1/core/design/motion.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/modules/chat/controllers/chat_controller.dart';
@@ -429,7 +430,7 @@ class _CompactNavItem extends StatelessWidget {
 /// and a Messages icon (unread badge). Each tab's own in-page header no
 /// longer repeats the title (see each tab's `title: ''` in its
 /// SectionScaffold call). Kept intentionally minimal.
-class DashboardTopBar extends StatelessWidget {
+class DashboardTopBar extends StatefulWidget {
   const DashboardTopBar({super.key, required this.tabIndex});
 
   final int tabIndex;
@@ -468,9 +469,25 @@ class DashboardTopBar extends StatelessWidget {
   };
 
   @override
+  State<DashboardTopBar> createState() => _DashboardTopBarState();
+}
+
+class _DashboardTopBarState extends State<DashboardTopBar> {
+  /// Whether the action cluster is open.
+  ///
+  /// Lives here rather than inside _TopBarActions because the TITLE has to
+  /// react to it too: expanded, the six controls take the width the title was
+  /// using, and an Expanded title simply ellipsised to "لوحة…". A truncated
+  /// heading is worse than none — it is the same clutter the collapse was
+  /// meant to remove, with a broken word on top. The title steps aside while
+  /// the cluster is open and comes back when it closes.
+  bool _actionsExpanded = false;
+
+  @override
   Widget build(BuildContext context) {
-    final notifications = Get.find<NotificationsController>();
-    final chats = Get.find<ChatController>();
+    final tabIndex = widget.tabIndex;
+    // The unread counts moved with the buttons into _TopBarActions, which is
+    // the only thing that reads them now.
     return SafeArea(
       bottom: false,
       child: Padding(
@@ -478,7 +495,11 @@ class DashboardTopBar extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            if (tabIndex == _homeIndex)
+            if (_actionsExpanded)
+              // No Spacer while open: the cluster is entitled to the whole bar,
+              // and a Spacer would hold width it needs on a narrow screen.
+              const SizedBox.shrink()
+            else if (tabIndex == DashboardTopBar._homeIndex)
               Expanded(
                 child: Obx(() {
                   final controller = Get.find<RoleDashboardController>();
@@ -493,85 +514,27 @@ class DashboardTopBar extends StatelessWidget {
                   return _TopBarTitle(dashboardTitleForRole(roleKey));
                 }),
               )
-            else if (tabIndex == _storeIndex)
+            else if (tabIndex == DashboardTopBar._storeIndex)
               const Expanded(child: _TopBarTitle('Marketplace'))
-            else if (tabIndex == _marriageIndex)
+            else if (tabIndex == DashboardTopBar._marriageIndex)
               const Expanded(child: _TopBarTitle('Events'))
-            else if (tabIndex == _cityGuideIndex)
+            else if (tabIndex == DashboardTopBar._cityGuideIndex)
               const Expanded(child: _TopBarTitle('City Guide'))
-            else if (tabIndex == _settingsIndex)
+            else if (tabIndex == DashboardTopBar._settingsIndex)
               const Expanded(child: _TopBarTitle('Settings'))
             else
               const Spacer(),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // K28 — "an AI icon beside each menu". These five tabs pass
-                // `title: ''` to their own SectionScaffold because their title
-                // lives in this bar, so this bar is where their icon belongs:
-                // putting it in the page header would draw a second, empty
-                // header row underneath this one. The route key is the same
-                // one BotNavigation uses, so the assistant opens already
-                // asking about the tab the user is standing on.
-                AssistantHintButton(route: _assistantRouteForTab(tabIndex)),
-                const SizedBox(width: _gap),
-                // J9 — "إضافة زر الدعم في أعلى التطبيق".
-                //
-                // There was a support button here before the Note #41
-                // restructure; it was removed on the reasoning that support is
-                // reachable from Settings. It is — الملف الشخصي → الدعم الفني,
-                // and the Services hub — but both are two taps in, and "at the
-                // top of the app" is a request that asking for help should not
-                // itself need navigating to. This bar is the only chrome drawn
-                // above every tab, so it is the only place where "at the top"
-                // is true everywhere.
-                //
-                // Next to the assistant deliberately: the AI answers the
-                // section's FAQ, this one reaches a human, and a user who
-                // cannot find what they need in the first should see the
-                // second without hunting. No badge — support replies arrive as
-                // notifications and in the ticket list, and a second unread
-                // count beside two real ones would be noise.
-                _TopBarIconButton(
-                  icon: Icons.support_agent_rounded,
-                  badgeCount: 0,
-                  tooltip: 'Technical Support'.tr,
-                  onTap: () => Get.to(() => const TechnicalSupportScreen()),
-                ),
-                const SizedBox(width: _gap),
-                // Note #43 — grouped with Notifications/Messages at the top,
-                // matching the client's requested layout (was inside the side
-                // drawer only). The profile avatar sits at the end of this row
-                // and opens the account hub — see _TopBarProfileAvatar.
-                _TopBarIconButton(
-                  icon: Icons.search_rounded,
-                  badgeCount: 0,
-                  tooltip: 'search_title'.tr,
-                  onTap: () => Get.to(() => const GlobalSearchScreen()),
-                ),
-                const SizedBox(width: _gap),
-                Obx(
-                  () => _TopBarIconButton(
-                    icon: Icons.notifications_none_rounded,
-                    badgeCount: notifications.unreadCount,
-                    tooltip: 'Notifications'.tr,
-                    onTap: () => Get.to(() => const NotificationsScreen()),
-                  ),
-                ),
-                const SizedBox(width: _gap),
-                Obx(
-                  () => _TopBarIconButton(
-                    icon: Icons.forum_outlined,
-                    badgeCount: chats.totalUnread,
-                    tooltip: 'Messages'.tr,
-                    onTap: () => Get.to(() => const MessagesScreen()),
-                  ),
-                ),
-                const SizedBox(width: _gap),
-                // "Ninth: Improve the Home Interface Design" — the profile photo
-                // sits top-right and opens the account hub.
-                const _TopBarProfileAvatar(),
-              ],
+            // Flexible, not a bare child: seven controls (six plus the toggle)
+            // are 27px wider than a 320dp bar, which a fixed-width Row answers
+            // with a RenderFlex overflow. Bounded here and scrollable inside,
+            // so the cluster degrades to a swipe instead of striped paint.
+            Flexible(
+              child: _TopBarActions(
+                tabIndex: tabIndex,
+                expanded: _actionsExpanded,
+                onToggle: () =>
+                    setState(() => _actionsExpanded = !_actionsExpanded),
+              ),
             ),
           ],
         ),
@@ -712,6 +675,169 @@ class _TopBarProfileAvatar extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// The top bar's actions, collapsed behind one button.
+///
+/// WHY THIS EXISTS
+/// This row had grown to six controls — assistant, support, search,
+/// notifications, messages, profile — drawn above every tab, next to the
+/// screen title. Six tap targets and two badges is more chrome than content on
+/// a narrow phone, and it competes with the thing the user actually came to
+/// read.
+///
+/// Collapsed, it is a single button. Expanded, the six unfurl beside it.
+///
+/// DIRECTION
+/// The toggle is the FIRST child, so it keeps the position nearest the title
+/// and the group grows away from it: leftwards in Arabic, rightwards in
+/// English, with no `Platform`/`isRTL` branch anywhere. `Row` lays children
+/// start-to-end and `AlignmentDirectional.centerStart` pins the growing box by
+/// its start edge, so both come from the ambient `Directionality` and mirror
+/// on their own.
+///
+/// THE BADGE IS THE POINT
+/// Notifications and messages carry unread counts. Hiding them behind a
+/// collapsed button would hide the one thing in this bar that is time-
+/// sensitive, so the toggle carries their SUM while collapsed and drops it
+/// once expanded, where the real per-item badges are visible again.
+class _TopBarActions extends StatelessWidget {
+  const _TopBarActions({
+    required this.tabIndex,
+    required this.expanded,
+    required this.onToggle,
+  });
+
+  final int tabIndex;
+
+  /// Owned by _DashboardTopBarState, because the title reacts to it too.
+  final bool expanded;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final notifications = Get.find<NotificationsController>();
+    final chats = Get.find<ChatController>();
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Obx(() {
+          // Summed, not "any unread": a single dot would say something is
+          // waiting without saying how much, and both counts are already
+          // rendered as numbers when expanded.
+          final pending = notifications.unreadCount + chats.totalUnread;
+          return _TopBarIconButton(
+            icon: expanded ? Icons.close_rounded : Icons.more_horiz_rounded,
+            badgeCount: expanded ? 0 : pending,
+            tooltip: expanded ? 'Close'.tr : 'Quick actions'.tr,
+            onTap: () {
+              AppHaptics.gentle();
+              onToggle();
+            },
+          );
+        }),
+        // Flexible so the scrollable half receives a BOUNDED width. Without
+        // it the AnimatedSize hands its child unbounded constraints, the row
+        // inside takes its full intrinsic width, and this Row overflows by the
+        // 27px the toggle added — a scroll view cannot scroll if nothing ever
+        // told it how much room it has.
+        Flexible(
+          child: ClipRect(
+            child: AnimatedSize(
+              duration: AppMotion.resolve(context, AppMotion.settleDuration),
+              curve: AppMotion.resolveCurve(context, Curves.easeOutCubic),
+              alignment: AlignmentDirectional.centerStart,
+              child: expanded
+                  ? SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      physics: const ClampingScrollPhysics(),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const SizedBox(width: DashboardTopBar._gap),
+
+                          // K28 — "an AI icon beside each menu". These five tabs pass
+                          // `title: ''` to their own SectionScaffold because their title
+                          // lives in this bar, so this bar is where their icon belongs:
+                          // putting it in the page header would draw a second, empty
+                          // header row underneath this one. The route key is the same
+                          // one BotNavigation uses, so the assistant opens already
+                          // asking about the tab the user is standing on.
+                          AssistantHintButton(
+                            route: DashboardTopBar._assistantRouteForTab(
+                              tabIndex,
+                            ),
+                          ),
+                          const SizedBox(width: DashboardTopBar._gap),
+                          // J9 — "إضافة زر الدعم في أعلى التطبيق".
+                          //
+                          // There was a support button here before the Note #41
+                          // restructure; it was removed on the reasoning that support is
+                          // reachable from Settings. It is — الملف الشخصي → الدعم الفني,
+                          // and the Services hub — but both are two taps in, and "at the
+                          // top of the app" is a request that asking for help should not
+                          // itself need navigating to. This bar is the only chrome drawn
+                          // above every tab, so it is the only place where "at the top"
+                          // is true everywhere.
+                          //
+                          // Next to the assistant deliberately: the AI answers the
+                          // section's FAQ, this one reaches a human, and a user who
+                          // cannot find what they need in the first should see the
+                          // second without hunting. No badge — support replies arrive as
+                          // notifications and in the ticket list, and a second unread
+                          // count beside two real ones would be noise.
+                          _TopBarIconButton(
+                            icon: Icons.support_agent_rounded,
+                            badgeCount: 0,
+                            tooltip: 'Technical Support'.tr,
+                            onTap: () =>
+                                Get.to(() => const TechnicalSupportScreen()),
+                          ),
+                          const SizedBox(width: DashboardTopBar._gap),
+                          // Note #43 — grouped with Notifications/Messages at the top,
+                          // matching the client's requested layout (was inside the side
+                          // drawer only). The profile avatar sits at the end of this row
+                          // and opens the account hub — see _TopBarProfileAvatar.
+                          _TopBarIconButton(
+                            icon: Icons.search_rounded,
+                            badgeCount: 0,
+                            tooltip: 'search_title'.tr,
+                            onTap: () =>
+                                Get.to(() => const GlobalSearchScreen()),
+                          ),
+                          const SizedBox(width: DashboardTopBar._gap),
+                          Obx(
+                            () => _TopBarIconButton(
+                              icon: Icons.notifications_none_rounded,
+                              badgeCount: notifications.unreadCount,
+                              tooltip: 'Notifications'.tr,
+                              onTap: () =>
+                                  Get.to(() => const NotificationsScreen()),
+                            ),
+                          ),
+                          const SizedBox(width: DashboardTopBar._gap),
+                          Obx(
+                            () => _TopBarIconButton(
+                              icon: Icons.forum_outlined,
+                              badgeCount: chats.totalUnread,
+                              tooltip: 'Messages'.tr,
+                              onTap: () => Get.to(() => const MessagesScreen()),
+                            ),
+                          ),
+                          const SizedBox(width: DashboardTopBar._gap),
+                          // "Ninth: Improve the Home Interface Design" — the profile photo
+                          // sits top-right and opens the account hub.
+                          const _TopBarProfileAvatar(),
+                        ],
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
