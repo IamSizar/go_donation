@@ -1185,6 +1185,17 @@ const en = {
     // that promises the delete is recoverable. The server refuses instead, and
     // names the two actions that clear the row without touching a message.
     signup_has_chat_history: 'This signup has a chat conversation, so it cannot be deleted — the messages would be lost permanently and could not be restored from the Trash. Use Reject or Withdraw to take it off the list instead.',
+    // The account delete, refused. Deleting a user cascades every conversation
+    // they were part of, their wallet ledger and their subscription payments,
+    // and the Trash archives only the users row — so a restore hands back the
+    // account with all of it gone. Archive does what the operator wanted (the
+    // account leaves the list and every session ends) and keeps the records.
+    user_has_records: 'This account holds chat messages, wallet transactions or subscription payments, so it cannot be deleted — all of them would be lost permanently and could not be restored from the Trash. Use Archive instead: the account leaves the list, is signed out everywhere, and can be brought back at any time.',
+    // The engagement-profile delete, refused. The profile cascades to its
+    // mediated chat and to the record that the user paid for a subscription,
+    // and the Trash keeps only the profile row. The owner's own delete has
+    // refused this since K14; the staff route does now too.
+    marriage_profile_has_records: 'This engagement profile has chat messages or a subscription payment, so it cannot be deleted — the conversation and the payment record would be lost permanently and could not be restored from the Trash. Set its status to Closed or Rejected instead.',
     // H20 — the main-admin account is only changed with a code delivered to
     // BOTH that account's phone and its email. These are the refusals when one
     // of the two channels cannot carry it; each names the thing to fix.

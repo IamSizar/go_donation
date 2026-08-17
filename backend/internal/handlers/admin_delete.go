@@ -11,6 +11,7 @@ import (
 
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
 	"github.com/karam-flutter/humanitarian-backend/internal/casevolchat"
+	"github.com/karam-flutter/humanitarian-backend/internal/deleteguard"
 )
 
 // AdminDeleteHandler exposes the delete endpoints for Phase 13.
@@ -134,12 +135,64 @@ func trashRow(c *gin.Context, pool *pgxpool.Pool, table string, id int64) bool {
 func (h *AdminDeleteHandler) Partner(c *gin.Context)   { h.deleteRow(c, "partners") }
 func (h *AdminDeleteHandler) Media(c *gin.Context)     { h.deleteRow(c, "media_posts") }
 func (h *AdminDeleteHandler) Community(c *gin.Context) { h.deleteRow(c, "city_directory_entries") }
-func (h *AdminDeleteHandler) Marriage(c *gin.Context)  { h.deleteRow(c, "marriage_profiles") }
+
+// Marriage deletes an engagement profile from the staff dashboard.
+//
+// K14 WAS ONLY HALF-APPLIED, AND THIS IS THE OTHER HALF. Commit 9f6ec79
+// deliberately kept the OWNER's own حذف out of trashRow —
+// internal/marriage/owner.go stamps owner_deleted_at instead and explains why
+// at length: marriage_profiles cascades to marriage_chat_threads (→ messages,
+// reads) AND to marriage_subscription_purchases, the record that the user PAID.
+// But that reasoning was applied only to the owner's route. The staff route
+// still put the same table through trashRow, so the hazard K14 documents was
+// live on the admin side, and a protection reported as shipped was half
+// missing.
+//
+// WHY A REFUSAL HERE AND A STAMP THERE. K14 needed a stamp because the profile
+// had to vanish from a PUBLIC browse feed and from the owner's own list while
+// the row stayed; only a column can do that. Staff need nothing of the kind —
+// POST /api/admin/marriage/:id/status already moves a profile to 'closed' or
+// 'rejected', which takes it out of the working list — so a refusal costs the
+// operator nothing they cannot get another way, and adds no column and no
+// migration. The two halves now agree on the outcome (the messages and the
+// payment survive) by the means each side actually needs.
+//
+// Messages, not threads, for the reason ee50aae gives: staff approving a
+// meeting request opens the thread before anyone has typed.
+func (h *AdminDeleteHandler) Marriage(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	records, err := deleteguard.New(h.Pool).ForMarriageProfile(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   "Database error: " + err.Error(),
+		})
+		return
+	}
+	if records.Any() {
+		c.JSON(http.StatusConflict, gin.H{
+			"success":                false,
+			"code":                   "marriage_profile_has_records",
+			"messages":               records.Messages,
+			"subscription_purchases": records.SubscriptionPurchases,
+			"error": "Cannot delete: this engagement profile has chat messages or a subscription " +
+				"payment, and deleting it would permanently destroy them. Set its status to " +
+				"closed or rejected instead.",
+		})
+		return
+	}
+	trashRow(c, h.Pool, "marriage_profiles", id)
+}
+
 func (h *AdminDeleteHandler) MarketplaceProduct(c *gin.Context) {
 	h.deleteRow(c, "marketplace_products")
 }
 func (h *AdminDeleteHandler) MarketplaceOrder(c *gin.Context) { h.deleteRow(c, "marketplace_orders") }
-func (h *AdminDeleteHandler) BeneficiaryCase(c *gin.Context)  { h.deleteRow(c, "beneficiary_cases") }
+
+func (h *AdminDeleteHandler) BeneficiaryCase(c *gin.Context) { h.deleteRow(c, "beneficiary_cases") }
 func (h *AdminDeleteHandler) ProjectRequest(c *gin.Context) {
 	h.deleteRow(c, "beneficiary_project_requests")
 }
@@ -147,11 +200,95 @@ func (h *AdminDeleteHandler) Sponsorship(c *gin.Context)    { h.deleteRow(c, "sp
 func (h *AdminDeleteHandler) InKindDonation(c *gin.Context) { h.deleteRow(c, "in_kind_donations") }
 func (h *AdminDeleteHandler) SupportTicket(c *gin.Context)  { h.deleteRow(c, "support_tickets") }
 func (h *AdminDeleteHandler) Donation(c *gin.Context)       { h.deleteRow(c, "donations") }
+
 func (h *AdminDeleteHandler) VolunteerApplication(c *gin.Context) {
 	h.deleteRow(c, "volunteer_applications")
 }
 func (h *AdminDeleteHandler) Campaign(c *gin.Context) { h.deleteRow(c, "campaigns") }
-func (h *AdminDeleteHandler) User(c *gin.Context)     { h.deleteRow(c, "users") }
+
+// User deletes an account — the widest cascade in the codebase, and the reason
+// this route no longer goes straight to trashRow.
+//
+// THE CASCADE. Read out of the live database (pg_constraint, confdeltype='c'),
+// not guessed from the migration files:
+//
+//	users
+//	  ├─ chat_threads (donor_user_id / owner_user_id / initiated_by)
+//	  │    └─ chat_messages, chat_reads
+//	  ├─ marriage_chat_threads / staff_chat_threads / case_volunteer_chat_threads
+//	  │    └─ …_messages, …_reads
+//	  ├─ wallet_transactions               ← the money the account holds
+//	  ├─ marriage_subscription_purchases   ← the record that they PAID
+//	  └─ user_profiles, notification_preferences, role_permissions, …
+//
+// trashRow archives only the row it deletes, so all of that was destroyed
+// outright and المهملات handed back the `users` row alone. One mis-click
+// removed every conversation the person was part of and their whole wallet
+// ledger, unrecoverably, while telling the operator the action was undoable.
+//
+// THE REMEDY, AND WHY IT IS A REFUSAL RATHER THAN A NEW SOFT-DELETE COLUMN.
+// The soft delete already exists and is already in the dashboard:
+// POST /api/admin/users/:id/archive flips account_status to 'archived',
+// force-logs the account out, drops it out of every list the Users page shows
+// by default, and can be undone by any tier holding users/archive without a
+// Super-Admin. main.go describes it in those words — "the non-destructive
+// alternative to Delete". So there is nothing to build and no column to add:
+// the operator is told what would be lost and pointed at Archive, which is
+// what they wanted in the first place.
+//
+// THE GUARD COUNTS RECORDS, NOT CHILDREN, and that distinction is the whole
+// design — the same one ee50aae made when it counted messages instead of
+// threads. Every account that has ever been used owns a user_profiles row and
+// notification_preferences rows; refusing on the existence of a cascade child
+// would have made every account permanently undeletable. What is counted is
+// what cannot be reconstructed: messages, money, and payment.
+//
+// WHAT THIS DOES NOT DO. It does not change any foreign key. Making
+// wallet_transactions and marriage_subscription_purchases RESTRICT rather than
+// CASCADE would be a stronger, delete-strategy-independent guarantee, and it is
+// argued in VERIFICATION_REPORT.md — but it is a destructive migration
+// (drop-and-recreate of a live constraint) and is an owner decision, not a bug
+// fix. Note that marriage_profiles.user_id is ALREADY ON DELETE RESTRICT, which
+// is why in practice a user holding a subscription purchase is refused by
+// Postgres before this guard is even relevant; the count is kept anyway, so the
+// operator reads a sentence about the payment instead of an FK detail string.
+func (h *AdminDeleteHandler) User(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+
+	// deleteguard.Store is a stateless wrapper over the pool, so it is built
+	// here rather than injected: there is no lifecycle to share, and a nil
+	// field on this handler would be a silent way to lose the guard.
+	records, err := deleteguard.New(h.Pool).ForUser(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   "Database error: " + err.Error(),
+		})
+		return
+	}
+	if records.Any() {
+		// `code` is the stable key the dashboard translates through its
+		// `error.*` namespace, so an Arabic operator reads Arabic; `error` is
+		// the fallback for a client without that mapping. The three counts say
+		// how much is at stake, which is what makes the refusal actionable.
+		c.JSON(http.StatusConflict, gin.H{
+			"success":                false,
+			"code":                   "user_has_records",
+			"messages":               records.Messages,
+			"wallet_transactions":    records.WalletTransactions,
+			"subscription_purchases": records.SubscriptionPurchases,
+			"error": "Cannot delete: this account holds chat messages, wallet transactions or " +
+				"subscription payments, and deleting it would permanently destroy them. " +
+				"Archive the account instead.",
+		})
+		return
+	}
+
+	trashRow(c, h.Pool, "users", id)
+}
 
 // Phase 22 — mission delete CASCADEs signups via the FK (volunteer_mission_signups
 // fk_volunteer_mission_signups_mission ON DELETE CASCADE). Volunteers who had
