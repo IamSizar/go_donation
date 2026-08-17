@@ -95,6 +95,16 @@ void main() {
     }
   });
 
+  test('a governorate on the missions card is translated', () {
+    // The card said "Erbil" while the detail screen one tap away said أربيل.
+    Get.updateLocale(const Locale('ar', 'SA'));
+    expect('Erbil'.tr, 'أربيل');
+    expect('Duhok'.tr, isNot('Duhok'));
+    // Free text someone typed is not a key and must survive untouched rather
+    // than being mangled into something else.
+    expect('duhok'.tr, 'duhok');
+  });
+
   test('a missing or malformed schedule yields nothing, so the caller can '
       'fall back to the stored text', () {
     Get.updateLocale(const Locale('ar', 'SA'));

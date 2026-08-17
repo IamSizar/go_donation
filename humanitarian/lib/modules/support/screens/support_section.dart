@@ -1027,7 +1027,12 @@ String _missionSubtitle(Map<String, dynamic> mission) {
   // fallback word is ordinary translated text and needs none.
   final missionDate = isolatedDate(mission['mission_date']);
   return [
-    (mission['city'] ?? '').toString(),
+    // The governorate names in data/iraq_governorates.dart are keys with
+    // entries in all four locales, so a mission in Erbil said "Erbil" on the
+    // card while the detail screen one tap away said «أربيل». A city the user
+    // typed themselves is not a key and falls through unchanged, which is the
+    // correct outcome for free text.
+    (mission['city'] ?? '').toString().tr,
     missionDate.isEmpty ? 'Flexible'.tr : missionDate,
     missionCapacityLabel(mission),
     // Translated, not printed raw: this rendered "pending" in English on the
