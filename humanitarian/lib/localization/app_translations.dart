@@ -527,6 +527,19 @@ class AppTranslations extends Translations {
     // home's "Application status" cell printed the English word to an Arabic
     // reader for every deactivated application.
     'inactive': 'Inactive',
+    // volunteer_mission_signups.signup_status. 'pending', 'approved',
+    // 'rejected', 'cancelled' and 'completed' are already above and shared;
+    // these three had no entry anywhere, so the assistant's volunteer card
+    // showed an Arabic reader the raw tokens `joined`, `completion_requested`
+    // and `no_show`.
+    //
+    // The wording is taken from the sentences support_section.dart already
+    // shows for the same transitions, so the card and the snackbar agree:
+    // 'joined' is the state the app announces as "Your attendance ... was
+    // recorded", which is why it reads Attended rather than Joined.
+    'joined': 'Attended',
+    'completion_requested': 'Completion under review',
+    'no_show': 'Marked absent',
     'Delivery status': 'Delivery status',
     'Payment status': 'Payment status',
     // The My Contributions counter beside "Awaiting confirmation" counted
@@ -1939,6 +1952,11 @@ class AppTranslations extends Translations {
     'Completed volunteer work': 'Completed volunteer work',
     '@count completed signups, @hours hours':
         '@count completed signups, @hours hours',
+    // An hours count standing on its own, for the assistant's volunteer card.
+    // The sentence above cannot be reused there — it also counts signups —
+    // and its Arabic already fixes the تمييز form after the numeral (@hours
+    // ساعة), which this follows.
+    '@count hours': '@count hours',
     'Completed donations': 'Completed contributions',
     'Pending donations': 'Pending contributions',
     'Project request groups': 'Project request groups',
@@ -3375,6 +3393,10 @@ class AppTranslations extends Translations {
     'suspended': 'معلّق',
     // حالة طلب التطوع المعطَّل.
     'inactive': 'غير نشط',
+    // حالات تسجيل التطوّع في المهمة — بنفس صياغة الإشعارات في شاشة الدعم.
+    'joined': 'تم الحضور',
+    'completion_requested': 'الإتمام قيد المراجعة',
+    'no_show': 'تم تسجيل الغياب',
     'Delivery status': 'حالة التسليم',
     'Payment status': 'حالة الدفع',
     'Confirmed': 'مؤكَّد',
@@ -4681,6 +4703,7 @@ class AppTranslations extends Translations {
     '@count attended signups': '@count حضور مسجل',
     'Completed volunteer work': 'عمل تطوعي مكتمل',
     '@count completed signups, @hours hours': '@count مهام مكتملة، @hours ساعة',
+    '@count hours': '@count ساعة',
     'Completed donations': 'المساهمات المكتملة',
     'Pending donations': 'المساهمات المعلقة',
     'Project request groups': 'مجموعات طلبات المشاريع',

@@ -1027,9 +1027,26 @@ class _ToolResultCard extends StatelessWidget {
         final rows = <(String, String)>[];
         for (final m in missions.take(3)) {
           if (m is Map) {
+            // Two things were reaching the user raw here.
+            //
+            // `signup_status` is a backend enum — 'approved', 'no_show',
+            // 'completion_requested' — and was printed verbatim, so the
+            // assistant answered an Arabic reader in English snake_case.
+            // localizedTag translates the ones we know and humanises anything
+            // the server adds later, instead of leaking the token.
+            //
+            // The hours carried a Latin "h" for a unit. The count itself is
+            // isolated (U+2066/U+2069) before it goes into the phrase because
+            // it lands between a bidi-neutral '·' and an Arabic word, which is
+            // exactly the run the bidi algorithm reorders.
+            final status = localizedTag(m['signup_status']);
+            final hours = '@count hours'.trParams({
+              // Written as escapes: the literal marks are invisible in a diff.
+              'count': '\u2066${m['hours_served'] ?? 0}\u2069',
+            });
             rows.add((
               '${m['title'] ?? ''}',
-              '${m['signup_status'] ?? ''} · ${m['hours_served'] ?? 0}h',
+              status.isEmpty ? hours : '$status · $hours',
             ));
           }
         }

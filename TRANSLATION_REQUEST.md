@@ -1596,3 +1596,33 @@ advice because that failure never touches the network — it is used alone.
 | `error_mission_checkout_failed` | Could not record your check-out. | تعذّر تسجيل انصرافك. | **needed** |
 | `error_join_mission_failed` | Could not send your join request. | تعذّر إرسال طلب انضمامك. | **needed** |
 | `error_volunteer_application_failed` | Could not save your volunteer application. | تعذّر حفظ طلب التطوّع. | **needed** |
+
+## Volunteer signup statuses and an hours count (app, `humanitarian`)
+
+Same rule: **English and Arabic written; ckb (سۆرانی) and kmr (بادینی) NOT** —
+they fall back to English. No Kurdish invented.
+
+The AI assistant's "Your volunteer status" card printed
+`volunteer_mission_signups.signup_status` with no localization at all, so an
+Arabic reader was answered with the raw tokens `joined`,
+`completion_requested` and `no_show`. The card now routes the field through
+`localizedTag`, which needs an entry per token. The other five values that
+column can hold (`pending`, `approved`, `rejected`, `cancelled`, `completed`)
+were already translated and are shared.
+
+One note for the translator: `joined` is the state the app announces as "Your
+attendance was recorded" (`support_section.dart`), not a pending join request —
+hence "Attended" / «تم الحضور» rather than "Joined". Please keep whatever the
+Kurdish locales already use for attendance in
+`@count attended signups` rather than translating it afresh.
+
+`@count hours` replaces a Latin "h" suffix on the same card. Its Arabic follows
+the app's existing precedent in `@count completed signups, @hours hours` — the
+تمييز form «ساعة» in the singular after the numeral.
+
+| key | English | العربية | ckb / kmr |
+|---|---|---|---|
+| `joined` | Attended | تم الحضور | **needed** |
+| `completion_requested` | Completion under review | الإتمام قيد المراجعة | **needed** |
+| `no_show` | Marked absent | تم تسجيل الغياب | **needed** |
+| `@count hours` | @count hours | @count ساعة | **needed** |

@@ -250,6 +250,47 @@ void main() {
       }
     });
 
+    // volunteer_mission_signups.signup_status — the set the app itself
+    // switches on in support_section.dart:150-167 (`_messageForTransition`)
+    // and :1126, cross-checked against the `volunteer_mission_<status>`
+    // notification family listed above. The assistant's "Your volunteer
+    // status" card printed this field with no localization at all, so an
+    // Arabic reader was shown `completion_requested` and `no_show`.
+    const signupStatuses = [
+      'pending',
+      'approved',
+      'rejected',
+      'cancelled',
+      'joined',
+      'completion_requested',
+      'completed',
+      'no_show',
+    ];
+
+    test('volunteer signup statuses all have real labels in en and ar', () {
+      for (final locale in const [Locale('en', 'US'), Locale('ar', 'SA')]) {
+        Get.locale = locale;
+        for (final s in signupStatuses) {
+          final label = localizedTag(s);
+          expect(label, isNotEmpty);
+          expect(label, isNot(s),
+              reason: '$s rendered as the raw token in $locale');
+        }
+      }
+    });
+
+    test('no volunteer signup status reaches an Arabic screen in Latin', () {
+      // Humanising `completion_requested` into "Completion requested" would
+      // satisfy the test above while still putting English on an Arabic
+      // card. Latin letters are the assertion that matters.
+      Get.locale = const Locale('ar', 'SA');
+      for (final s in signupStatuses) {
+        final label = localizedTag(s);
+        expect(RegExp(r'[A-Za-z]').hasMatch(label), isFalse,
+            reason: '$s rendered as "$label" in Arabic');
+      }
+    });
+
     test('support ticket statuses render as words, never as tokens', () {
       // technical_support_screen builds `status_<value>`; localizedTag is the
       // fallback when that key is absent. Either way no underscore may show.
