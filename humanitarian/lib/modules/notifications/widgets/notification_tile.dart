@@ -156,16 +156,26 @@ class NotificationTile extends StatelessWidget {
                                   ],
                                   const Spacer(),
                                   if (notification.createdAt != null)
-                                    Text(
-                                      _relativeTime(
-                                        notification.createdAt!.toLocal(),
-                                      ),
-                                      style: TextStyle(
-                                        color: AppThemeConfig.mutedText(
-                                          context,
+                                    // Flexible because the stamp is a word now
+                                    // and not two characters: with three chips
+                                    // beside it on a narrow phone the Row can
+                                    // run out of room, and ellipsizing is the
+                                    // correct answer there rather than a
+                                    // yellow overflow stripe.
+                                    Flexible(
+                                      child: Text(
+                                        _relativeTime(
+                                          notification.createdAt!.toLocal(),
                                         ),
-                                        fontSize: 11.5,
-                                        fontWeight: FontWeight.w700,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: AppThemeConfig.mutedText(
+                                            context,
+                                          ),
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.w700,
+                                        ),
                                       ),
                                     ),
                                 ],
@@ -222,14 +232,46 @@ class NotificationTile extends StatelessWidget {
   }
 }
 
-/// Compact relative time. Language-neutral short units so it works in every
-/// locale without extra translation keys; falls back to an absolute date.
+/// Compact relative time, in the reader's language; falls back to an absolute
+/// date.
+///
+/// WHY THE UNITS ARE NO LONGER "m" / "h" / "d"
+/// This used to read "Language-neutral short units so it works in every locale
+/// without extra translation keys". That argument was worth taking seriously —
+/// a timestamp is glanced at, not read, and short is a real virtue in a Row
+/// that already carries two or three chips. It was wrong on both halves.
+///
+///   • Not neutral. m/h/d are abbreviations of ENGLISH words. Arabic has no
+///     convention in which a bare Latin "h" means ساعة, so an Arabic reader
+///     had to know English to read the stamp. A client walking the app found
+///     «5h» sitting in an otherwise fully Arabic list.
+///   • Not "without extra keys". The first branch of this very function
+///     already returns `'now'.tr`, translated in all four locales, and the
+///     last already returns Arabic month names — `DateFormat` with no locale
+///     argument reads `Intl.defaultLocale`, which AppLocaleService pins to
+///     'ar' for Arabic and both Kurdish variants on startup and on every
+///     language switch. The function was locale-aware at both ends; the three
+///     middle lines were the only English left in it.
+///
+/// The cost paid for that is three keys (one of which already existed) and a
+/// slightly wider stamp — «٥ ساعة» against "5h". The Row absorbs it: the
+/// `Text` is Flexible, so it ellipsizes instead of overflowing when the chips
+/// beside it are long.
+///
+/// Kurdish is deliberately not invented and falls back to English, which is
+/// what those readers already had. The keys are in TRANSLATION_REQUEST.md.
 String _relativeTime(DateTime dt) {
   final diff = DateTime.now().difference(dt);
   if (diff.isNegative || diff.inSeconds < 45) return 'now'.tr;
-  if (diff.inMinutes < 60) return '${diff.inMinutes}m';
-  if (diff.inHours < 24) return '${diff.inHours}h';
-  if (diff.inDays < 7) return '${diff.inDays}d';
+  if (diff.inMinutes < 60) {
+    return '@count minutes'.trParams({'count': '${diff.inMinutes}'});
+  }
+  if (diff.inHours < 24) {
+    return '@count hours'.trParams({'count': '${diff.inHours}'});
+  }
+  if (diff.inDays < 7) {
+    return '@count days'.trParams({'count': '${diff.inDays}'});
+  }
   return DateFormat('MMM d').format(dt);
 }
 

@@ -1952,11 +1952,13 @@ class AppTranslations extends Translations {
     'Completed volunteer work': 'Completed volunteer work',
     '@count completed signups, @hours hours':
         '@count completed signups, @hours hours',
-    // An hours count standing on its own, for the assistant's volunteer card.
-    // The sentence above cannot be reused there — it also counts signups —
-    // and its Arabic already fixes the تمييز form after the numeral (@hours
-    // ساعة), which this follows.
+    // A bare count of time, used by the assistant's volunteer card and by the
+    // notification list's relative timestamp. The sentence above cannot be
+    // reused — it also counts signups — but its Arabic already settles the
+    // تمييز form after the numeral («@hours ساعة»), which these follow.
+    '@count minutes': '@count minutes',
     '@count hours': '@count hours',
+    '@count days': '@count days',
     'Completed donations': 'Completed contributions',
     'Pending donations': 'Pending contributions',
     'Project request groups': 'Project request groups',
@@ -4703,7 +4705,9 @@ class AppTranslations extends Translations {
     '@count attended signups': '@count حضور مسجل',
     'Completed volunteer work': 'عمل تطوعي مكتمل',
     '@count completed signups, @hours hours': '@count مهام مكتملة، @hours ساعة',
+    '@count minutes': '@count دقيقة',
     '@count hours': '@count ساعة',
+    '@count days': '@count يوم',
     'Completed donations': 'المساهمات المكتملة',
     'Pending donations': 'المساهمات المعلقة',
     'Project request groups': 'مجموعات طلبات المشاريع',

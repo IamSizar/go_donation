@@ -1616,13 +1616,18 @@ hence "Attended" / «تم الحضور» rather than "Joined". Please keep whate
 Kurdish locales already use for attendance in
 `@count attended signups` rather than translating it afresh.
 
-`@count hours` replaces a Latin "h" suffix on the same card. Its Arabic follows
-the app's existing precedent in `@count completed signups, @hours hours` — the
-تمييز form «ساعة» in the singular after the numeral.
+`@count hours` replaces a Latin "h" suffix on the same card, and `@count
+minutes` / `@count days` join it for the notification list's relative
+timestamp, which used to read "5m" / "3h" / "2d". Their Arabic follows the
+app's existing precedent in `@count completed signups, @hours hours` — the
+تمييز form in the SINGULAR after the numeral («٥ ساعة», not «٥ ساعات») —
+rather than a plural rule invented for these keys.
 
 | key | English | العربية | ckb / kmr |
 |---|---|---|---|
 | `joined` | Attended | تم الحضور | **needed** |
 | `completion_requested` | Completion under review | الإتمام قيد المراجعة | **needed** |
 | `no_show` | Marked absent | تم تسجيل الغياب | **needed** |
+| `@count minutes` | @count minutes | @count دقيقة | **needed** |
 | `@count hours` | @count hours | @count ساعة | **needed** |
+| `@count days` | @count days | @count يوم | **needed** |
