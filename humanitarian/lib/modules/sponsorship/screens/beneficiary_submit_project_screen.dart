@@ -279,502 +279,528 @@ class _BeneficiarySubmitProjectScreenState
           'Describe your initiative in your own language. Admin can add the other translations later.',
       child: Form(
         key: _formKey,
-        child: ListView(
+        // Every field is built at once, deliberately — this was a ListView.
+        //
+        // A ListView builds its children lazily, and a FormField registers
+        // itself with its Form in initState and unregisters in dispose. So a
+        // field scrolled out of the viewport did not exist, and
+        // _formKey.currentState.validate() never asked it anything.
+        //
+        // The layout made that certain rather than occasional: the submit
+        // button is the LAST child, so reaching it required scrolling the
+        // first fields off the top. Title, category, summary, description and
+        // requested amount went unvalidated on every real submission — a
+        // project request could be filed with none of them. Measured at
+        // 390x600: the tree ended at "Full description", with the budget,
+        // location, contact fields and the button absent entirely.
+        //
+        // Eighteen fields is well within what a form should build eagerly; the
+        // laziness bought nothing here and cost the validation.
+        child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
-          children: [
-            GlassPanel(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Example: “Clean water for Al-Mafraq village” — state the goal, who benefits, and the total budget you need.'
-                        .tr,
-                    style: TextStyle(
-                      color: AppThemeConfig.mutedText(context),
-                      height: 1.45,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            const SectionLabel(title: 'Project'),
-            const SizedBox(height: 12),
-            GlassPanel(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _LabeledField(
-                    label: 'Project title',
-                    child: TextFormField(
-                      controller: _titleController,
-                      textInputAction: TextInputAction.next,
-                      style: TextStyle(color: AppThemeConfig.text(context)),
-                      decoration: _fieldDecoration(
-                        context,
-                        hintText: 'e.g. Water for all — community wells'.tr,
-                        icon: Icons.title_rounded,
-                      ),
-                      validator: (v) {
-                        if (v == null || v.trim().isEmpty) {
-                          return 'Enter a project title'.tr;
-                        }
-                        return null;
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  _LabeledField(
-                    label: 'Category / type',
-                    child: _buildCategoryField(context),
-                  ),
-                  const SizedBox(height: 14),
-                  _LabeledField(
-                    label: 'Short summary (one or two sentences)',
-                    child: TextFormField(
-                      controller: _summaryController,
-                      textInputAction: TextInputAction.next,
-                      maxLines: 2,
-                      style: TextStyle(color: AppThemeConfig.text(context)),
-                      decoration: _fieldDecoration(
-                        context,
-                        hintText: 'What you want to achieve in brief'.tr,
-                        icon: Icons.short_text_rounded,
-                      ),
-                      validator: (v) {
-                        if (v == null || v.trim().isEmpty) {
-                          return 'Enter a short summary'.tr;
-                        }
-                        return null;
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  _LabeledField(
-                    label: 'Full description — how the money will be used',
-                    child: TextFormField(
-                      controller: _descriptionController,
-                      textInputAction: TextInputAction.newline,
-                      minLines: 4,
-                      maxLines: 8,
-                      style: TextStyle(color: AppThemeConfig.text(context)),
-                      decoration: _fieldDecoration(
-                        context,
-                        hintText:
-                            'Materials, labor, partners, timeline steps, transparency…'
-                                .tr,
-                        icon: Icons.description_rounded,
-                      ),
-                      validator: (v) {
-                        if (v == null || v.trim().isEmpty) {
-                          return 'Describe the project in detail'.tr;
-                        }
-                        return null;
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            const SectionLabel(title: 'Budget'),
-            const SizedBox(height: 12),
-            GlassPanel(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        flex: 3,
-                        child: _LabeledField(
-                          label: 'Amount needed (number)',
-                          child: TextFormField(
-                            controller: _amountController,
-                            keyboardType: TextInputType.number,
-                            textInputAction: TextInputAction.next,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.allow(
-                                RegExp(r'[0-9.]'),
-                              ),
-                            ],
-                            style: TextStyle(
-                              color: AppThemeConfig.text(context),
-                            ),
-                            decoration: _fieldDecoration(
-                              context,
-                              hintText: 'e.g. 5000',
-                              icon: Icons.payments_rounded,
-                            ),
-                            validator: (v) {
-                              if (v == null || v.trim().isEmpty) {
-                                return 'Enter the amount needed'.tr;
-                              }
-                              final n = double.tryParse(v.trim());
-                              if (n == null || n <= 0) {
-                                return 'Enter a valid amount'.tr;
-                              }
-                              return null;
-                            },
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        flex: 2,
-                        child: _LabeledField(
-                          label: 'Currency',
-                          // The currency is not a choice: `_currencyController`
-                          // is created with 'IQD' and reset to 'IQD' on clear,
-                          // and nothing anywhere writes another value into it.
-                          // It was a `readOnly` text field, which read as an
-                          // input the user could correct — so it is now a
-                          // locked value chip, with the reason spelled out
-                          // under the row.
-                          child: _LockedCurrencyBox(
-                            currency: _currencyController.text,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  const _FieldNote(
-                    text:
-                        'Projects are funded in Iraqi dinar (IQD), so the '
-                        'currency is fixed.',
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            const SectionLabel(title: 'Where & who'),
-            const SizedBox(height: 12),
-            GlassPanel(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _LabeledField(
-                    label: 'Location / area served',
-                    child: TextFormField(
-                      controller: _locationController,
-                      textInputAction: TextInputAction.next,
-                      style: TextStyle(color: AppThemeConfig.text(context)),
-                      decoration: _fieldDecoration(
-                        context,
-                        hintText: 'Village, city, region'.tr,
-                        icon: Icons.place_rounded,
-                      ),
-                      validator: (v) {
-                        if (v == null || v.trim().isEmpty) {
-                          return 'Enter the location'.tr;
-                        }
-                        return null;
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  _LabeledField(
-                    label: 'Beneficiary or community name'.tr,
-                    child: TextFormField(
-                      controller: _beneficiaryNameController,
-                      textInputAction: TextInputAction.next,
-                      style: TextStyle(color: AppThemeConfig.text(context)),
-                      decoration: _fieldDecoration(
-                        context,
-                        hintText: 'Who will benefit from this project'.tr,
-                        icon: Icons.groups_rounded,
-                      ),
-                      validator: (v) {
-                        if (v == null || v.trim().isEmpty) {
-                          return 'Enter beneficiary or community'.tr;
-                        }
-                        return null;
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  _LabeledField(
-                    label: 'Approx. number of people affected (optional)',
-                    child: TextFormField(
-                      controller: _peopleAffectedController,
-                      keyboardType: TextInputType.number,
-                      textInputAction: TextInputAction.next,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      style: TextStyle(color: AppThemeConfig.text(context)),
-                      decoration: _fieldDecoration(
-                        context,
-                        hintText: 'e.g. 250',
-                        icon: Icons.people_outline_rounded,
-                      ),
-                    ),
-                  ),
-                  if (_showPeopleDetailFields) ...[
-                    const SizedBox(height: 18),
+          // The keyboard closes on drag, per the app-wide input rules — a
+          // ListView gave this for free and SingleChildScrollView must ask.
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              GlassPanel(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      'You entered a headcount — add a gender split, volunteer profile, and skills in free text so coordinators can plan teams (all optional below).'
+                      'Example: “Clean water for Al-Mafraq village” — state the goal, who benefits, and the total budget you need.'
                           .tr,
                       style: TextStyle(
                         color: AppThemeConfig.mutedText(context),
                         height: 1.45,
-                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              const SectionLabel(title: 'Project'),
+              const SizedBox(height: 12),
+              GlassPanel(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _LabeledField(
+                      label: 'Project title',
+                      child: TextFormField(
+                        controller: _titleController,
+                        textInputAction: TextInputAction.next,
+                        style: TextStyle(color: AppThemeConfig.text(context)),
+                        decoration: _fieldDecoration(
+                          context,
+                          hintText: 'e.g. Water for all — community wells'.tr,
+                          icon: Icons.title_rounded,
+                        ),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) {
+                            return 'Enter a project title'.tr;
+                          }
+                          return null;
+                        },
                       ),
                     ),
                     const SizedBox(height: 14),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: _LabeledField(
-                            label: 'Male (count, optional)',
-                            child: TextFormField(
-                              controller: _maleCountController,
-                              keyboardType: TextInputType.number,
-                              textInputAction: TextInputAction.next,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.digitsOnly,
-                              ],
-                              style: TextStyle(
-                                color: AppThemeConfig.text(context),
-                              ),
-                              decoration: _fieldDecoration(
-                                context,
-                                hintText: 'e.g. 120',
-                                icon: Icons.man_2_outlined,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _LabeledField(
-                            label: 'Female (count, optional)',
-                            child: TextFormField(
-                              controller: _femaleCountController,
-                              keyboardType: TextInputType.number,
-                              textInputAction: TextInputAction.next,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.digitsOnly,
-                              ],
-                              style: TextStyle(
-                                color: AppThemeConfig.text(context),
-                              ),
-                              decoration: _fieldDecoration(
-                                context,
-                                hintText: 'e.g. 130',
-                                icon: Icons.woman_2_outlined,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
+                    _LabeledField(
+                      label: 'Category / type',
+                      child: _buildCategoryField(context),
                     ),
                     const SizedBox(height: 14),
                     _LabeledField(
-                      label:
-                          'Volunteer age profile (type freely — e.g. mostly 20 years old, mixed ages 18–45)',
+                      label: 'Short summary (one or two sentences)',
                       child: TextFormField(
-                        controller: _volunteerAgeProfileController,
+                        controller: _summaryController,
                         textInputAction: TextInputAction.next,
                         maxLines: 2,
                         style: TextStyle(color: AppThemeConfig.text(context)),
                         decoration: _fieldDecoration(
                           context,
-                          hintText:
-                              'Describe typical ages of people who can volunteer'
-                                  .tr,
-                          icon: Icons.cake_outlined,
+                          hintText: 'What you want to achieve in brief'.tr,
+                          icon: Icons.short_text_rounded,
                         ),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) {
+                            return 'Enter a short summary'.tr;
+                          }
+                          return null;
+                        },
                       ),
                     ),
                     const SizedBox(height: 14),
                     _LabeledField(
-                      label:
-                          'Skills & what volunteers know (e.g. computers, Arabic/English, construction)',
+                      label: 'Full description — how the money will be used',
                       child: TextFormField(
-                        controller: _volunteerSkillsController,
-                        textInputAction: TextInputAction.next,
-                        minLines: 2,
-                        maxLines: 4,
-                        style: TextStyle(color: AppThemeConfig.text(context)),
-                        decoration: _fieldDecoration(
-                          context,
-                          hintText:
-                              'List literacy, languages, tools, certifications…'
-                                  .tr,
-                          icon: Icons.psychology_outlined,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    _LabeledField(
-                      label:
-                          'Extra description — people, volunteers, or any typed data',
-                      child: TextFormField(
-                        controller: _peopleVolunteerDescriptionController,
+                        controller: _descriptionController,
                         textInputAction: TextInputAction.newline,
-                        minLines: 3,
-                        maxLines: 6,
+                        minLines: 4,
+                        maxLines: 8,
                         style: TextStyle(color: AppThemeConfig.text(context)),
                         decoration: _fieldDecoration(
                           context,
                           hintText:
-                              'Anything else: roles needed, availability, special needs, education level…'
+                              'Materials, labor, partners, timeline steps, transparency…'
                                   .tr,
-                          icon: Icons.notes_rounded,
+                          icon: Icons.description_rounded,
+                        ),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) {
+                            return 'Describe the project in detail'.tr;
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              const SectionLabel(title: 'Budget'),
+              const SizedBox(height: 12),
+              GlassPanel(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: _LabeledField(
+                            label: 'Amount needed (number)',
+                            child: TextFormField(
+                              controller: _amountController,
+                              keyboardType: TextInputType.number,
+                              textInputAction: TextInputAction.next,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.allow(
+                                  RegExp(r'[0-9.]'),
+                                ),
+                              ],
+                              style: TextStyle(
+                                color: AppThemeConfig.text(context),
+                              ),
+                              decoration: _fieldDecoration(
+                                context,
+                                hintText: 'e.g. 5000',
+                                icon: Icons.payments_rounded,
+                              ),
+                              validator: (v) {
+                                if (v == null || v.trim().isEmpty) {
+                                  return 'Enter the amount needed'.tr;
+                                }
+                                final n = double.tryParse(v.trim());
+                                if (n == null || n <= 0) {
+                                  return 'Enter a valid amount'.tr;
+                                }
+                                return null;
+                              },
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          flex: 2,
+                          child: _LabeledField(
+                            label: 'Currency',
+                            // The currency is not a choice: `_currencyController`
+                            // is created with 'IQD' and reset to 'IQD' on clear,
+                            // and nothing anywhere writes another value into it.
+                            // It was a `readOnly` text field, which read as an
+                            // input the user could correct — so it is now a
+                            // locked value chip, with the reason spelled out
+                            // under the row.
+                            child: _LockedCurrencyBox(
+                              currency: _currencyController.text,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    const _FieldNote(
+                      text:
+                          'Projects are funded in Iraqi dinar (IQD), so the '
+                          'currency is fixed.',
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              const SectionLabel(title: 'Where & who'),
+              const SizedBox(height: 12),
+              GlassPanel(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _LabeledField(
+                      label: 'Location / area served',
+                      child: TextFormField(
+                        controller: _locationController,
+                        textInputAction: TextInputAction.next,
+                        style: TextStyle(color: AppThemeConfig.text(context)),
+                        decoration: _fieldDecoration(
+                          context,
+                          hintText: 'Village, city, region'.tr,
+                          icon: Icons.place_rounded,
+                        ),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) {
+                            return 'Enter the location'.tr;
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    _LabeledField(
+                      label: 'Beneficiary or community name'.tr,
+                      child: TextFormField(
+                        controller: _beneficiaryNameController,
+                        textInputAction: TextInputAction.next,
+                        style: TextStyle(color: AppThemeConfig.text(context)),
+                        decoration: _fieldDecoration(
+                          context,
+                          hintText: 'Who will benefit from this project'.tr,
+                          icon: Icons.groups_rounded,
+                        ),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) {
+                            return 'Enter beneficiary or community'.tr;
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    _LabeledField(
+                      label: 'Approx. number of people affected (optional)',
+                      child: TextFormField(
+                        controller: _peopleAffectedController,
+                        keyboardType: TextInputType.number,
+                        textInputAction: TextInputAction.next,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        style: TextStyle(color: AppThemeConfig.text(context)),
+                        decoration: _fieldDecoration(
+                          context,
+                          hintText: 'e.g. 250',
+                          icon: Icons.people_outline_rounded,
+                        ),
+                      ),
+                    ),
+                    if (_showPeopleDetailFields) ...[
+                      const SizedBox(height: 18),
+                      Text(
+                        'You entered a headcount — add a gender split, volunteer profile, and skills in free text so coordinators can plan teams (all optional below).'
+                            .tr,
+                        style: TextStyle(
+                          color: AppThemeConfig.mutedText(context),
+                          height: 1.45,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: _LabeledField(
+                              label: 'Male (count, optional)',
+                              child: TextFormField(
+                                controller: _maleCountController,
+                                keyboardType: TextInputType.number,
+                                textInputAction: TextInputAction.next,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly,
+                                ],
+                                style: TextStyle(
+                                  color: AppThemeConfig.text(context),
+                                ),
+                                decoration: _fieldDecoration(
+                                  context,
+                                  hintText: 'e.g. 120',
+                                  icon: Icons.man_2_outlined,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _LabeledField(
+                              label: 'Female (count, optional)',
+                              child: TextFormField(
+                                controller: _femaleCountController,
+                                keyboardType: TextInputType.number,
+                                textInputAction: TextInputAction.next,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly,
+                                ],
+                                style: TextStyle(
+                                  color: AppThemeConfig.text(context),
+                                ),
+                                decoration: _fieldDecoration(
+                                  context,
+                                  hintText: 'e.g. 130',
+                                  icon: Icons.woman_2_outlined,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      _LabeledField(
+                        label:
+                            'Volunteer age profile (type freely — e.g. mostly 20 years old, mixed ages 18–45)',
+                        child: TextFormField(
+                          controller: _volunteerAgeProfileController,
+                          textInputAction: TextInputAction.next,
+                          maxLines: 2,
+                          style: TextStyle(color: AppThemeConfig.text(context)),
+                          decoration: _fieldDecoration(
+                            context,
+                            hintText:
+                                'Describe typical ages of people who can volunteer'
+                                    .tr,
+                            icon: Icons.cake_outlined,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      _LabeledField(
+                        label:
+                            'Skills & what volunteers know (e.g. computers, Arabic/English, construction)',
+                        child: TextFormField(
+                          controller: _volunteerSkillsController,
+                          textInputAction: TextInputAction.next,
+                          minLines: 2,
+                          maxLines: 4,
+                          style: TextStyle(color: AppThemeConfig.text(context)),
+                          decoration: _fieldDecoration(
+                            context,
+                            hintText:
+                                'List literacy, languages, tools, certifications…'
+                                    .tr,
+                            icon: Icons.psychology_outlined,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      _LabeledField(
+                        label:
+                            'Extra description — people, volunteers, or any typed data',
+                        child: TextFormField(
+                          controller: _peopleVolunteerDescriptionController,
+                          textInputAction: TextInputAction.newline,
+                          minLines: 3,
+                          maxLines: 6,
+                          style: TextStyle(color: AppThemeConfig.text(context)),
+                          decoration: _fieldDecoration(
+                            context,
+                            hintText:
+                                'Anything else: roles needed, availability, special needs, education level…'
+                                    .tr,
+                            icon: Icons.notes_rounded,
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 14),
+                    _LabeledField(
+                      label: 'Timeline or target date (optional)',
+                      child: TextFormField(
+                        controller: _timelineController,
+                        textInputAction: TextInputAction.next,
+                        style: TextStyle(color: AppThemeConfig.text(context)),
+                        decoration: _fieldDecoration(
+                          context,
+                          hintText: 'e.g. Complete before winter 2026'.tr,
+                          icon: Icons.event_note_rounded,
                         ),
                       ),
                     ),
                   ],
-                  const SizedBox(height: 14),
-                  _LabeledField(
-                    label: 'Timeline or target date (optional)',
-                    child: TextFormField(
-                      controller: _timelineController,
-                      textInputAction: TextInputAction.next,
-                      style: TextStyle(color: AppThemeConfig.text(context)),
-                      decoration: _fieldDecoration(
-                        context,
-                        hintText: 'e.g. Complete before winter 2026'.tr,
-                        icon: Icons.event_note_rounded,
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
-            const SizedBox(height: 20),
-            const SectionLabel(title: 'Contact (for coordinators)'),
-            const SizedBox(height: 12),
-            GlassPanel(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _LabeledField(
-                    label: 'Contact person name (optional)',
-                    child: TextFormField(
-                      controller: _contactNameController,
-                      textInputAction: TextInputAction.next,
-                      style: TextStyle(color: AppThemeConfig.text(context)),
-                      decoration: _fieldDecoration(
-                        context,
-                        hintText: 'Your name or organization representative'.tr,
-                        icon: Icons.person_outline_rounded,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  _LabeledField(
-                    label: 'Phone (optional)',
-                    child: TextFormField(
-                      controller: _contactPhoneController,
-                      keyboardType: TextInputType.phone,
-                      textInputAction: TextInputAction.next,
-                      style: TextStyle(color: AppThemeConfig.text(context)),
-                      decoration: _fieldDecoration(
-                        context,
-                        // +964 is Iraq. This read '+962', which is JORDAN —
-                        // the only place in the app that did. Every other
-                        // phone surface uses 964: the sign-in country picker
-                        // defaults to it (login.dart:89), profiles render
-                        // +9647…, and registration validates Iraqi 07XX.
-                        //
-                        // A hint is not decoration on this field: it is the
-                        // only thing telling a recipient what shape to type,
-                        // and the validator below accepts anything ≥8 digits,
-                        // so a number entered in the suggested foreign format
-                        // would be stored and later dialled by a coordinator.
-                        // Not localized because a dialling code is the same in
-                        // every language — the same reason the sign-in picker
-                        // shows a bare "+964".
-                        hintText: '+964 …',
-                        icon: Icons.phone_rounded,
-                      ),
-                      validator: (v) {
-                        if (v == null || v.trim().isEmpty) return null;
-                        final t = v.replaceAll(RegExp(r'[\s()-]'), '');
-                        if (t.length < 8) {
-                          return 'Enter a valid phone or leave empty'.tr;
-                        }
-                        return null;
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  _LabeledField(
-                    label: 'Email (optional)',
-                    child: TextFormField(
-                      controller: _contactEmailController,
-                      keyboardType: TextInputType.emailAddress,
-                      textInputAction: TextInputAction.next,
-                      style: TextStyle(color: AppThemeConfig.text(context)),
-                      decoration: _fieldDecoration(
-                        context,
-                        hintText: 'name@example.com'.tr,
-                        icon: Icons.email_outlined,
-                      ),
-                      validator: (v) {
-                        if (v == null || v.trim().isEmpty) return null;
-                        if (!v.contains('@') || v.trim().length < 5) {
-                          return 'Enter a valid email or leave empty'.tr;
-                        }
-                        return null;
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  _LabeledField(
-                    label: 'Other notes (optional)',
-                    child: TextFormField(
-                      controller: _notesController,
-                      minLines: 2,
-                      maxLines: 4,
-                      textInputAction: TextInputAction.next,
-                      style: TextStyle(color: AppThemeConfig.text(context)),
-                      decoration: _fieldDecoration(
-                        context,
-                        hintText: 'Partners, documents, risks, links…'.tr,
-                        icon: Icons.note_alt_outlined,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: Obx(() {
-                final loading = _submitController.isSubmitting.value;
-                return FilledButton(
-                  onPressed: loading ? null : _submit,
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                  ),
-                  child: loading
-                      ? SizedBox(
-                          height: 22,
-                          width: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Theme.of(context).colorScheme.onPrimary,
-                          ),
-                        )
-                      : Text(
-                          'Submit project request'.tr,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 16,
-                          ),
+              const SizedBox(height: 20),
+              const SectionLabel(title: 'Contact (for coordinators)'),
+              const SizedBox(height: 12),
+              GlassPanel(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _LabeledField(
+                      label: 'Contact person name (optional)',
+                      child: TextFormField(
+                        controller: _contactNameController,
+                        textInputAction: TextInputAction.next,
+                        style: TextStyle(color: AppThemeConfig.text(context)),
+                        decoration: _fieldDecoration(
+                          context,
+                          hintText:
+                              'Your name or organization representative'.tr,
+                          icon: Icons.person_outline_rounded,
                         ),
-                );
-              }),
-            ),
-          ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    _LabeledField(
+                      label: 'Phone (optional)',
+                      child: TextFormField(
+                        controller: _contactPhoneController,
+                        keyboardType: TextInputType.phone,
+                        textInputAction: TextInputAction.next,
+                        style: TextStyle(color: AppThemeConfig.text(context)),
+                        decoration: _fieldDecoration(
+                          context,
+                          // +964 is Iraq. This read '+962', which is JORDAN —
+                          // the only place in the app that did. Every other
+                          // phone surface uses 964: the sign-in country picker
+                          // defaults to it (login.dart:89), profiles render
+                          // +9647…, and registration validates Iraqi 07XX.
+                          //
+                          // A hint is not decoration on this field: it is the
+                          // only thing telling a recipient what shape to type,
+                          // and the validator below accepts anything ≥8 digits,
+                          // so a number entered in the suggested foreign format
+                          // would be stored and later dialled by a coordinator.
+                          // Not localized because a dialling code is the same in
+                          // every language — the same reason the sign-in picker
+                          // shows a bare "+964".
+                          hintText: '+964 …',
+                          icon: Icons.phone_rounded,
+                        ),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) return null;
+                          final t = v.replaceAll(RegExp(r'[\s()-]'), '');
+                          if (t.length < 8) {
+                            return 'Enter a valid phone or leave empty'.tr;
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    _LabeledField(
+                      label: 'Email (optional)',
+                      child: TextFormField(
+                        controller: _contactEmailController,
+                        keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
+                        style: TextStyle(color: AppThemeConfig.text(context)),
+                        decoration: _fieldDecoration(
+                          context,
+                          hintText: 'name@example.com'.tr,
+                          icon: Icons.email_outlined,
+                        ),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) return null;
+                          if (!v.contains('@') || v.trim().length < 5) {
+                            return 'Enter a valid email or leave empty'.tr;
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    _LabeledField(
+                      label: 'Other notes (optional)',
+                      child: TextFormField(
+                        controller: _notesController,
+                        minLines: 2,
+                        maxLines: 4,
+                        textInputAction: TextInputAction.next,
+                        style: TextStyle(color: AppThemeConfig.text(context)),
+                        decoration: _fieldDecoration(
+                          context,
+                          hintText: 'Partners, documents, risks, links…'.tr,
+                          icon: Icons.note_alt_outlined,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: Obx(() {
+                  final loading = _submitController.isSubmitting.value;
+                  return FilledButton(
+                    onPressed: loading ? null : _submit,
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                    ),
+                    child: loading
+                        ? SizedBox(
+                            height: 22,
+                            width: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Theme.of(context).colorScheme.onPrimary,
+                            ),
+                          )
+                        : Text(
+                            'Submit project request'.tr,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 16,
+                            ),
+                          ),
+                  );
+                }),
+              ),
+            ],
+          ),
         ),
       ),
     );
