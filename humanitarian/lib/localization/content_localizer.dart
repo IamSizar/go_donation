@@ -124,9 +124,63 @@ String localizedTag(Object? raw) {
 String localizedDate(Object? raw) {
   final value = (raw ?? '').toString().trim();
   if (value.isEmpty) return '';
-  final parsed = DateTime.tryParse(value);
+  // Two shapes reach this. Go's `time.Time` marshals to RFC 3339
+  // ("2026-05-25T12:15:35Z"), which `DateTime.tryParse` reads; a few handlers
+  // send a Postgres timestamp with a SPACE instead of the T, which it does
+  // not. The second attempt is that case, and was the reason the donation
+  // history kept its own parser.
+  final parsed =
+      DateTime.tryParse(value) ??
+      DateTime.tryParse(value.replaceFirst(' ', 'T'));
   // Unparseable is better shown than swallowed — it means the server sent a
   // shape we do not know, and hiding it would hide the bug too.
   if (parsed == null) return value;
   return DateFormat('dd MMM yyyy').format(parsed.toLocal());
+}
+
+/// [localizedDate], with a translated word for the places where "no date" is
+/// itself a value the user should read.
+///
+/// A volunteer mission with no fixed day is "Flexible", and the chip that says
+/// so was written as `(mission['mission_date'] ?? 'Flexible').toString()` — a
+/// bare English literal, so an Arabic reader got the English word even though
+/// «مرن» has been in the map all along. [emptyKey] is a translation KEY for
+/// that reason, and is only consulted when there is no value at all.
+///
+/// An unparseable date is NOT replaced by [emptyKey]: [localizedDate] returns
+/// it verbatim on purpose, because a shape the app does not recognise means
+/// the server sent something unexpected and hiding it would hide the bug.
+String localizedDateOr(Object? raw, String emptyKey) {
+  final shown = localizedDate(raw);
+  return shown.isEmpty ? emptyKey.tr : shown;
+}
+
+/// [localizedDate] wrapped in a bidi isolate, for a date rendered INSIDE a
+/// mixed sentence.
+///
+/// WHY THIS IS NOT PARANOIA
+/// A date standing alone in its own `Text` needs nothing. A date joined to
+/// other fields — `'$city - $date - $capacity'`, `'${'Next support due'.tr}:
+/// $date'` — sits between bidi-neutral characters (the separator, the colon,
+/// the spaces), and the Unicode bidi algorithm resolves a neutral run from
+/// whatever is on either side of it. In an Arabic paragraph that can pull the
+/// date's digits across the separator and print the parts of the line in an
+/// order nobody wrote. Three defects of exactly this shape have been found in
+/// this app already; the fix each time was an isolate.
+///
+/// U+2068 FIRST STRONG ISOLATE rather than U+2066 LEFT-TO-RIGHT ISOLATE,
+/// because unlike the phone numbers and counts elsewhere in this codebase a
+/// formatted date is not always LTR: it is "25 May 2026" in English and
+/// «٢٥ مايو ٢٠٢٦» in Arabic. FSI takes its direction from the first strong
+/// character of the content, so it is right in both. U+2069 POP DIRECTIONAL
+/// ISOLATE closes it.
+///
+/// Returns '' for an empty date, so a caller's `isNotEmpty` guard still works
+/// rather than seeing two invisible control characters.
+String isolatedDate(Object? raw) {
+  final shown = localizedDate(raw);
+  if (shown.isEmpty) return '';
+  // Written as escapes: the literal marks are invisible in a diff, and the
+  // analyzer flags them.
+  return '\u2068$shown\u2069';
 }

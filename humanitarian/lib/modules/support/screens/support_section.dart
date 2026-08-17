@@ -14,6 +14,7 @@ import 'package:flutter_application_1/modules/support/widgets/skill_chip_picker.
 import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:flutter_application_1/localization/failure_message.dart';
+import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
@@ -601,8 +602,13 @@ class _VolunteerMissionDetailScreenState
                     ),
                     InfoChip(
                       icon: Icons.event_rounded,
-                      label: (widget.mission['mission_date'] ?? 'Flexible')
-                          .toString(),
+                      // This chip is what the defect was reported on: it read
+                      // "2026-05-25" on an Arabic screen. Alone in its own
+                      // label, so no bidi isolate is needed here.
+                      label: localizedDateOr(
+                        widget.mission['mission_date'],
+                        'Flexible',
+                      ),
                     ),
                     InfoChip(
                       icon: Icons.groups_rounded,
@@ -1016,9 +1022,13 @@ String _localizedMissionDescription(Map<String, dynamic> mission) {
 }
 
 String _missionSubtitle(Map<String, dynamic> mission) {
+  // The date is joined to city/capacity/status by a neutral " - ", which the
+  // bidi algorithm resolves from its neighbours — hence the isolate. The
+  // fallback word is ordinary translated text and needs none.
+  final missionDate = isolatedDate(mission['mission_date']);
   return [
     (mission['city'] ?? '').toString(),
-    (mission['mission_date'] ?? 'Flexible').toString(),
+    missionDate.isEmpty ? 'Flexible'.tr : missionDate,
     _missionCapacityLabel(mission),
     if ((mission['signup_status'] ?? '').toString().isNotEmpty)
       (mission['signup_status'] ?? '').toString(),

@@ -55,12 +55,15 @@ class _BeneficiaryEntitlementsScreenState
     }
     final count = '${controller.activeCount}';
     final due = controller.nextDue;
-    final date = (due?['next_due_date'] ?? '').toString();
-    final shortDate = date.length >= 10 ? date.substring(0, 10) : date;
-    if (shortDate.isNotEmpty) {
+    // Spoken, not drawn: a screen reader would have read out "2026-05-25"
+    // digit by digit in Latin. No isolate here — the bidi marks are invisible
+    // control characters that belong in text being laid out, not in text
+    // being sent to a speech engine.
+    final spokenDate = localizedDate(due?['next_due_date']);
+    if (spokenDate.isNotEmpty) {
       return 'entitlements_voice_summary'.trParams({
         'count': count,
-        'date': shortDate,
+        'date': spokenDate,
       });
     }
     return 'entitlements_voice_count'.trParams({'count': count});
@@ -192,8 +195,7 @@ class _EntitlementCard extends StatelessWidget {
     final currency = (item['currency'] ?? '').toString();
     final interval = (item['schedule_interval'] ?? 'monthly').toString();
     final status = (item['status'] ?? '').toString();
-    final due = (item['next_due_date'] ?? '').toString();
-    final shortDue = due.length >= 10 ? due.substring(0, 10) : due;
+    final dueLabel = isolatedDate(item['next_due_date']);
 
     return GlassPanel(
       child: Column(
@@ -228,10 +230,12 @@ class _EntitlementCard extends StatelessWidget {
                 icon: Icons.event_repeat_rounded,
                 label: ('sponsorship_$interval').tr,
               ),
-              if (shortDue.isNotEmpty)
+              if (dueLabel.isNotEmpty)
                 InfoChip(
                   icon: Icons.event_available_rounded,
-                  label: '${'Next support due'.tr}: $shortDue',
+                  // Isolated: the date follows a label and a colon, both
+                  // bidi-neutral.
+                  label: '${'Next support due'.tr}: $dueLabel',
                 ),
             ],
           ),

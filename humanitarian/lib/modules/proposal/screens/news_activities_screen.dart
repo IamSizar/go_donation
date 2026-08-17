@@ -362,7 +362,10 @@ class MediaPostCard extends StatelessWidget {
                       ),
                     _PostPill(icon: Icons.local_activity_rounded, label: type),
                     if (date.trim().isNotEmpty)
-                      _PostPill(icon: Icons.event_rounded, label: date),
+                      _PostPill(
+                        icon: Icons.event_rounded,
+                        label: localizedDate(date),
+                      ),
                     if (location.trim().isNotEmpty)
                       _PostPill(icon: Icons.place_rounded, label: location),
                     if (activityCode.isNotEmpty)
@@ -1019,9 +1022,9 @@ class _CommentTile extends StatelessWidget {
                 ),
               ),
             ),
-            if (date.length >= 10)
+            if (date.trim().isNotEmpty)
               Text(
-                date.substring(0, 10),
+                localizedDate(date),
                 style: TextStyle(
                   fontSize: 11,
                   color: AppThemeConfig.mutedText(context),

@@ -453,10 +453,10 @@ class _TicketCard extends StatelessWidget {
               ),
             ],
           ),
-          if (created.length >= 10) ...[
+          if (created.trim().isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(
-              created.substring(0, 10),
+              localizedDate(created),
               style: TextStyle(
                 color: AppThemeConfig.mutedText(context),
                 fontSize: 12,

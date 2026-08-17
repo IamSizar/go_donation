@@ -129,7 +129,9 @@ class _MarketplaceOrderCard extends StatelessWidget {
                   // Was the raw RFC 3339 string Go marshals — the card read
                   // "Submitted: 2026-08-15T12:15:35.660229Z". The money on the
                   // line above was already locale-formatted; the date was not.
-                  Text('${'Submitted'.tr}: ${localizedDate(createdAt)}'),
+                  // Isolated: the date follows a label and a colon, both
+                  // bidi-neutral, so an Arabic paragraph could reorder them.
+                  Text('${'Submitted'.tr}: ${isolatedDate(createdAt)}'),
                 ],
               ],
             ),

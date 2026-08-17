@@ -141,7 +141,9 @@ class _SavedTile extends StatelessWidget {
                 if (date.trim().isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Text(
-                    date.length >= 10 ? date.substring(0, 10) : date,
+                    // Was `date.substring(0, 10)` — an ISO day, truncated so
+                    // deliberately that it read as intentional.
+                    localizedDate(date),
                     style: TextStyle(
                       color: AppThemeConfig.mutedText(context),
                       fontSize: 12,

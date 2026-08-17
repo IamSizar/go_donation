@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/localization/content_localizer.dart';
 
 /// Matches PHP `summary` / `stats` object.
 class DonationHistorySummary {
@@ -229,32 +230,17 @@ extension DonationRecordStatusUi on DonationRecordStatus {
   };
 }
 
+/// A donation's date, as the user should read it.
+///
+/// Was built from a hardcoded `['Jan','Feb',…]` array, so every donation in the
+/// Arabic history list carried a Latin English month. [localizedDate] uses the
+/// locale's own calendar data, which is what the rest of the app does.
+///
+/// Keeps the em dash for "no date": this list has a fixed-width meta line and
+/// an empty string there would collapse it.
 String formatDonationHistoryDate(dynamic raw) {
-  if (raw == null) return '—';
-  final s = raw.toString().trim();
-  if (s.isEmpty) return '—';
-
-  DateTime? dt = DateTime.tryParse(s.replaceFirst(' ', 'T'));
-  dt ??= DateTime.tryParse(s);
-  if (dt == null) return s;
-
-  const months = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ];
-  final d = dt.day.toString().padLeft(2, '0');
-  final m = months[dt.month - 1];
-  return '$d $m ${dt.year}';
+  final shown = localizedDate(raw);
+  return shown.isEmpty ? '\u2014' : shown;
 }
 
 class DonationHistoryEntry {

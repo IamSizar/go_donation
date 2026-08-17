@@ -217,7 +217,10 @@ class _DonationRow extends StatelessWidget {
 
     return AppRow(
       title: item.campaignName,
-      meta: '${item.reference} · ${item.dateLabel}',
+      // Isolated: the date shares this line with the reference across a
+      // neutral bullet, which the bidi algorithm resolves from whatever is
+      // beside it.
+      meta: '${item.reference} · \u2068${item.dateLabel}\u2069',
       showDivider: !isLast,
       onTap: () => _openDetails(context),
       progress: deliveryProgress,

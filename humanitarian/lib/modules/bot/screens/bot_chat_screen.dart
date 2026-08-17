@@ -20,6 +20,7 @@ import '../models/bot_qa.dart';
 import '../widgets/assistant_hint_button.dart' show AssistantTopic;
 import 'package:flutter_application_1/core/widgets/app_pressable.dart';
 import 'package:flutter_application_1/core/design/motion.dart';
+import 'package:flutter_application_1/localization/content_localizer.dart';
 
 /// A role-aware AI Support Assistant. Typed questions and chip taps are sent to
 /// the backend `/assistant/chat` endpoint (Claude-backed when configured, a
@@ -943,7 +944,9 @@ class _ToolResultCard extends StatelessWidget {
           for (final t in recent.take(3)) {
             if (t is Map) {
               rows.add((
-                '${t['type'] ?? ''} · ${t['date'] ?? ''}',
+                // Isolated: the date follows the transaction type across a
+                // neutral bullet.
+                '${t['type'] ?? ''} · ${isolatedDate(t['date'])}',
                 _money(t['amount_iqd']),
               ));
             }

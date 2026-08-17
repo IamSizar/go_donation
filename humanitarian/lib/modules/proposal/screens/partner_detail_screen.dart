@@ -480,7 +480,9 @@ class _ActivityTile extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   [
-                    if (date.trim().isNotEmpty) date,
+                    // Isolated: the date shares this line with the activity
+                    // code across a neutral bullet separator.
+                    if (date.trim().isNotEmpty) isolatedDate(date),
                     if (code.trim().isNotEmpty) code,
                   ].join('  •  '),
                   style: TextStyle(

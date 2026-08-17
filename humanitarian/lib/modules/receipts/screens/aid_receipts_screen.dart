@@ -6,6 +6,7 @@ import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:flutter_application_1/core/widgets/app_pressable.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
+import 'package:flutter_application_1/localization/content_localizer.dart';
 
 // #50 — resolve a stored photo path to a full URL. Uploads are saved as
 // relative paths (e.g. images/uploads/x.png); Image.network needs an absolute
@@ -116,7 +117,7 @@ class _ReceiptCard extends StatelessWidget {
               ),
               if (deliveredAt.isNotEmpty)
                 Text(
-                  deliveredAt,
+                  localizedDate(deliveredAt),
                   style: const TextStyle(color: Colors.grey, fontSize: 12),
                 ),
             ],
