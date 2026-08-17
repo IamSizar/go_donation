@@ -5,6 +5,7 @@ import 'package:flutter_application_1/api/auth_session.dart';
 import 'package:flutter_application_1/api/links.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/app_event_firestore.dart';
+import 'package:flutter_application_1/core/session_expiry.dart';
 import 'package:http/http.dart' as http;
 
 /// A failure the server NAMED, so the app can say what happened in the user's
@@ -219,6 +220,30 @@ class ModuleApi {
     }
   }
 
+  /// Ends the session when the server says this token is not one.
+  ///
+  /// WHY IT LIVES HERE. Every authed call in the app funnels through the four
+  /// status checks in this file — [getItems], [getObject], the two post paths
+  /// and [_sendCodedJson] — so this is the one place where "the token is dead"
+  /// can be recognised for all of them at once. The alternative was a 401
+  /// branch in each of the dozens of controllers that catch these exceptions,
+  /// which is how the app ended up with none at all.
+  ///
+  /// It is a SIDE EFFECT, not a substitute for throwing: the caller still
+  /// throws its usual exception immediately afterwards, so the screen's
+  /// designed error state still fires and nothing depends on the navigation
+  /// having completed. The sign-out is awaited rather than fired and forgotten
+  /// only so that a burst of simultaneous 401s meets an already-raised
+  /// re-entrancy guard (see core/session_expiry.dart) instead of racing it.
+  ///
+  /// Sign-in and OTP are NOT affected: they use their own Dio client in
+  /// controllers/login.dart and never reach this file, so a wrong password
+  /// still shows its own inline message rather than signing anyone out.
+  Future<void> _endSessionIfTokenRejected(int statusCode) async {
+    if (!isSessionExpiredStatus(statusCode)) return;
+    await handleExpiredSession();
+  }
+
   /// Authed GET.
   ///
   /// 27.2 added a "self-heal" retry here: on a 401/403 it re-derived a token
@@ -246,6 +271,7 @@ class ModuleApi {
   Future<List<Map<String, dynamic>>> getItems(String url) async {
     final response = await _authedGet(url);
     if (response.statusCode < 200 || response.statusCode >= 300) {
+      await _endSessionIfTokenRejected(response.statusCode);
       throw Exception('Request failed (${response.statusCode})');
     }
     final decoded = _decodeJson(response);
@@ -267,6 +293,7 @@ class ModuleApi {
   Future<Map<String, dynamic>> getObject(String url) async {
     final response = await _authedGet(url);
     if (response.statusCode < 200 || response.statusCode >= 300) {
+      await _endSessionIfTokenRejected(response.statusCode);
       throw Exception('Request failed (${response.statusCode})');
     }
     final decoded = _decodeJson(response);
@@ -294,6 +321,11 @@ class ModuleApi {
           body: jsonEncode(enrichedBody),
         )
         .timeout(_requestTimeout);
+    // Before the decode, deliberately: a rejected token can come back as a
+    // proxy's HTML error page, and `_decodeJson` throws on that — so a guard
+    // placed after it would miss exactly the deployments where the session
+    // ends most confusingly.
+    await _endSessionIfTokenRejected(response.statusCode);
     final decoded = _decodeJson(response);
     if (decoded is! Map<String, dynamic>) {
       throw Exception('Request failed');
@@ -324,6 +356,8 @@ class ModuleApi {
           body: jsonEncode(enrichedBody),
         )
         .timeout(_requestTimeout);
+    // Same reasoning as [postJson]: the session check goes before the decode.
+    await _endSessionIfTokenRejected(response.statusCode);
     final decoded = _decodeJson(response);
     if (decoded is! Map<String, dynamic>) {
       throw Exception('Request failed');
@@ -362,6 +396,8 @@ class ModuleApi {
     final streamed = await http.Client().send(request).timeout(_requestTimeout);
     final response = await http.Response.fromStream(streamed);
 
+    // Same reasoning as [postJson]: the session check goes before the decode.
+    await _endSessionIfTokenRejected(response.statusCode);
     final decoded = _decodeJson(response);
     if (decoded is Map<String, dynamic> &&
         response.statusCode >= 200 &&
@@ -807,6 +843,8 @@ class ModuleApi {
     request.files.add(await http.MultipartFile.fromPath('file', file.path));
     final streamed = await request.send();
     final response = await http.Response.fromStream(streamed);
+    // Same reasoning as [postJson]: the session check goes before the decode.
+    await _endSessionIfTokenRejected(response.statusCode);
     final decoded = _decodeJson(response);
     if (response.statusCode < 200 ||
         response.statusCode >= 300 ||

@@ -63,6 +63,25 @@ Future<void> completeSignInAndRoute(Map<String, dynamic> user) async {
   );
   await sharedPreferences.setString('name_user', user['name'].toString());
 
+  // WHY `includeRoleId: false` SURVIVES HERE, AND IS NOT THE ROLE DRIFT.
+  //
+  // Both this map and the GET below are followed by the `has_role` block at the
+  // bottom of this function, which writes the sign-in response's ROOT
+  // `role_id` — and, crucially, REMOVES the stored role when `has_role` is
+  // false. `applyUserAccountToSharedPreferences` cannot express that removal:
+  // it only ever writes a positive role. So the root block is strictly the
+  // better-informed writer, it runs last, and it always runs —
+  // `LoginController._buildUserFromLoginResponse` sets `user['has_role']`
+  // unconditionally on every path that reaches here (password sign-in, first
+  // password after OTP, Google). Flipping these flags to true would therefore
+  // be harmless and also pointless: the root block would overwrite the result a
+  // few lines later, and both values came out of the same response anyway.
+  //
+  // The drift that was actually observed — role_id "1" stored for an account
+  // the server reports as 2 — happens AFTER sign-in, when staff grant a role,
+  // and no flag on this call could have caught it. It is fixed where the app
+  // does learn the new role: see applyServerRoleKeyToSharedPreferences, called
+  // from the dashboard summary in RoleDashboardController.
   final rawAcc = user['account'];
   if (rawAcc is Map) {
     await applyUserAccountToSharedPreferences(

@@ -415,6 +415,16 @@ class AppTranslations extends Translations {
     'error_title': 'Something went wrong',
     'retry': 'Try again',
     'Could not load your dashboard.': 'Could not load your dashboard.',
+    // ─── The session ended while the app was open ───
+    // Shown once, on the sign-in screen, after an authed request came back 401
+    // and core/session_expiry.dart signed the user out. Not an error state:
+    // nothing broke and there is nothing to retry, so the copy explains what
+    // happened and names the one action that helps. It deliberately does not
+    // blame the user or mention a status code — see rule 5.7.
+    'session_expired_title': 'Session expired',
+    'session_expired_message':
+        'You were signed out because your session expired. Please sign in '
+        'again to continue.',
     // ─── Write failures: what happened, and what to do next ───
     // The seventeen `Get.snackbar('Error'.tr, e.toString())` sites used to put
     // the raw Dart exception — often the backend's English sentence, once a
@@ -3350,6 +3360,12 @@ class AppTranslations extends Translations {
     'error_title': 'حدث خطأ ما',
     'retry': 'إعادة المحاولة',
     'Could not load your dashboard.': 'تعذّر تحميل لوحتك.',
+    // ─── انتهاء الجلسة أثناء استخدام التطبيق ───
+    // انظر شرح المفتاحين في كتلة الإنجليزية أعلاه.
+    'session_expired_title': 'انتهت الجلسة',
+    'session_expired_message':
+        'تم تسجيل خروجك لانتهاء صلاحية جلستك. يرجى تسجيل الدخول مرة أخرى '
+        'للمتابعة.',
     // ─── أخطاء الحفظ والإرسال — ماذا حدث وماذا تفعل الآن ───
     // انظر شرح المفاتيح نفسها في كتلة الإنجليزية أعلاه.
     'error_next_offline': 'تحقّق من اتصالك ثم حاول مرة أخرى.',

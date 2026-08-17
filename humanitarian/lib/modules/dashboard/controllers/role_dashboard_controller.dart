@@ -1,4 +1,5 @@
 import 'package:flutter_application_1/api/module_api.dart';
+import 'package:flutter_application_1/api/profile_api.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/realtime_polling.dart';
 import 'package:flutter/foundation.dart';
@@ -50,6 +51,20 @@ class RoleDashboardController extends GetxController with RealtimePollingMixin {
     try {
       final response = await _api.dashboardSummary(userId: userId);
       roleKey.value = (response['role_key'] ?? 'guest').toString();
+      // The summary's `role_key` is the server's answer to "what is this
+      // account", and until now it lived only in the observable above — which
+      // this screen's body reads and nothing else does. Every other role gate
+      // in the app reads `role_id` out of SharedPreferences, and that copy was
+      // only ever written when the USER acted (registration, sign-in, choosing
+      // a type). A role granted by staff therefore never reached it: a device
+      // was found holding role_id "1" for an account the server reports as 2,
+      // so Services, Kafala, Settings and the assistant all behaved as donor
+      // for a beneficiary.
+      //
+      // Writing it back here is not a new source of truth, it is the same one
+      // reaching further: this runs on the load AND on the silent 10s poll, so
+      // a role change lands within one poll of the home screen being open.
+      await applyServerRoleKeyToSharedPreferences(roleKey.value);
       final nextSummary = response['summary'];
       summary.assignAll(
         nextSummary is Map

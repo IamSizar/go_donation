@@ -158,7 +158,18 @@ dynamic _firstNonEmptyAccountValue(
 }
 
 /// Persists fields from [account] (shape from `getUserAccountForClient`) into prefs.
-/// Set [includeRoleId] false when role already came from the login JSON root.
+///
+/// [includeRoleId] false means "somebody else is writing the role for this
+/// response, and they know something I do not". Exactly one caller is entitled
+/// to say that: `completeSignInAndRoute`, where the sign-in JSON's ROOT carries
+/// `has_role` alongside `role_id` — and `has_role: false` is a statement this
+/// function cannot make, because it only ever writes a positive role and never
+/// removes one. See the note at that call site (core/auth_navigation.dart).
+///
+/// Everywhere else the default applies and the server's role is written. The
+/// role is written only when it is present and positive: a response that omits
+/// the field is a server too old to report it, not an account with no role, and
+/// the identity_code block below documents why those two must not be conflated.
 Future<void> applyUserAccountToSharedPreferences(
   Map<String, dynamic> rawAccount, {
   bool includeRoleId = true,
@@ -250,6 +261,63 @@ Future<void> applyUserAccountToSharedPreferences(
 
   final missingFields = missingProfileFieldsFromAccount(account);
   await syncProfileCompletionPreference(missingFields: missingFields);
+}
+
+/// The numeric `role_id` that the server's `role_key` names, or null when the
+/// key is not one the app can turn into a role.
+///
+/// The numbers are the ones the rest of the app already switches on —
+/// `proposal_services_section` ('2' beneficiary, '3' volunteer, else donor),
+/// `sponsorship_section` ('2'), `settings_section` ('3'), `widgets/dashboard`
+/// — and 5 is the marriage service, named as such in `ModuleApi.chooseRole`
+/// ("a switch INTO the marriage service (5) or back to guest (0)").
+///
+/// 'guest' MAPS TO NOTHING ON PURPOSE, and this is the part that would be easy
+/// to get wrong. `RoleDashboardController.roleKey` is seeded with 'guest' and
+/// falls back to 'guest' whenever the summary cannot be read, so 'guest' is
+/// this app's "I do not know" as much as it is a role. Writing it back would
+/// let one failed poll demote a real account. Anything unrecognised — a role
+/// key added server-side after this build shipped, 'employee' — is left alone
+/// for the same reason: silence is not a statement.
+String? roleIdForServerRoleKey(String roleKey) => switch (roleKey.trim()) {
+  'donor' => '1',
+  'beneficiary' => '2',
+  'volunteer' => '3',
+  'marriage' => '5',
+  _ => null,
+};
+
+/// Makes the locally stored `role_id` follow the role the server just reported.
+///
+/// WHY THIS EXISTS (the drift it fixes)
+/// SharedPreferences held `flutter.role_id = "1"` (donor) for an account the
+/// server reports as `role_id: 2` (beneficiary), confirmed against the
+/// simulator's plist and `GET /api/admin/users`. The local copy is written when
+/// the account registers (`registration_api.dart`), when it signs in
+/// (`core/auth_navigation.dart`) and when the user changes it themselves
+/// (`ModuleApi.chooseRole`) — that is, at the moments the USER acts. Nothing
+/// wrote it when the SERVER acted, which is the common case: staff grant the
+/// Recipient and Volunteer roles after vetting, and `chooseRole` refuses those
+/// outright ("Recipient/Volunteer are granted by staff"). So a promoted account
+/// kept behaving as a donor on every screen gated on the local value —
+/// Services, Kafala, Settings, the assistant, notification filters — until the
+/// app was cold-started or the profile tab happened to be opened.
+///
+/// The app was already being told the truth and discarding it. Every dashboard
+/// summary carries `role_key`, the profile menu's own comment says outright
+/// that "the backend is the source of truth for the role", and
+/// `widgets/dashboard._roleKey` already prefers that value over the stored one
+/// — a local workaround that fixed the home screen's body and nothing else.
+/// This writes the same answer back to the one place every other screen reads.
+///
+/// Returns true when the stored value actually changed, so a caller can react
+/// (and so the fix is observable in a test rather than inferred).
+Future<bool> applyServerRoleKeyToSharedPreferences(String roleKey) async {
+  final roleId = roleIdForServerRoleKey(roleKey);
+  if (roleId == null) return false;
+  if (sharedPreferences.getString('role_id') == roleId) return false;
+  await sharedPreferences.setString('role_id', roleId);
+  return true;
 }
 
 Map<String, dynamic>? _parseAccountGetResponse(Response<dynamic> response) {
