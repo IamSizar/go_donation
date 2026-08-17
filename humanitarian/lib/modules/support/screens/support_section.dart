@@ -612,7 +612,7 @@ class _VolunteerMissionDetailScreenState
                     ),
                     InfoChip(
                       icon: Icons.groups_rounded,
-                      label: _missionCapacityLabel(widget.mission),
+                      label: missionCapacityLabel(widget.mission),
                     ),
                   ],
                 ),
@@ -1029,7 +1029,7 @@ String _missionSubtitle(Map<String, dynamic> mission) {
   return [
     (mission['city'] ?? '').toString(),
     missionDate.isEmpty ? 'Flexible'.tr : missionDate,
-    _missionCapacityLabel(mission),
+    missionCapacityLabel(mission),
     if ((mission['signup_status'] ?? '').toString().isNotEmpty)
       (mission['signup_status'] ?? '').toString(),
   ].where((value) => value.trim().isNotEmpty).join(' - ');
@@ -1081,7 +1081,12 @@ int? _signupIdFor(
   return null;
 }
 
-String _missionCapacityLabel(Map<String, dynamic> mission) {
+/// The "1 / 8 volunteers" line under a mission.
+///
+/// Public only so a test can reach it: this is the second site of the bidi
+/// defect described below, and unlike the campaign funding line it shipped
+/// without one.
+String missionCapacityLabel(Map<String, dynamic> mission) {
   final needed =
       int.tryParse((mission['needed_volunteers'] ?? '').toString()) ?? 0;
   final accepted =
