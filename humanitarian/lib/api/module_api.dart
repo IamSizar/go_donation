@@ -1005,11 +1005,21 @@ class ModuleApi {
     return getObject(uri.toString());
   }
 
-  Future<Map<String, dynamic>> roleHistory({required int userId}) {
-    final uri = Uri.parse(
-      roleHistoryUrl,
-    ).replace(queryParameters: {'user_id': '$userId'});
-    return getObject(uri.toString());
+  /// The signed-in account's own history.
+  ///
+  /// Deliberately sends NO `user_id`. GET /api/history already defaults to the
+  /// bearer's own account (extras.go: `uid := tokenUser.UserID`), and naming
+  /// yourself in a request you are already authenticated for adds nothing but
+  /// a way to be wrong: the handler answers 401 when the two disagree, so a
+  /// local id that is stale — after an account switch, or a role change that
+  /// rewrote the profile — turns "my record" into a permission error the user
+  /// cannot act on.
+  ///
+  /// The id came from SharedPreferences, which is exactly the kind of state
+  /// that drifts: `role_id` in the same store was observed holding 1 for an
+  /// account the server reports as role 2.
+  Future<Map<String, dynamic>> roleHistory() {
+    return getObject(roleHistoryUrl);
   }
 
   Future<List<Map<String, dynamic>>> sponsorships({int? userId}) {

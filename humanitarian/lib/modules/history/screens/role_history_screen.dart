@@ -107,9 +107,15 @@ class _RoleHistoryScreenState extends State<RoleHistoryScreen> {
                 onRetry: _controller.fetchHistory,
                 data: filtered,
                 isEmpty: (list) => list.isEmpty,
+                // Two different empty states, because they ask the reader to do
+                // two different things. With every filter on "all", blaming the
+                // filters is simply untrue — and it points at controls that are
+                // not excluding anything.
                 empty: AppEmpty(
                   title: _controller.title.tr,
-                  message: 'No history records match the selected filters.'.tr,
+                  message: _controller.hasActiveFilters
+                      ? 'No history records match the selected filters.'.tr
+                      : 'history_empty_no_records'.tr,
                 ),
                 builder: (list) => Column(
                   children: [

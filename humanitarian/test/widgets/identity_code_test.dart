@@ -339,7 +339,26 @@ void main() {
 
       final asked = recorder.requestUrls.last;
       expect(asked.queryParameters.containsKey('code'), isFalse);
-      expect(asked.queryParameters['user_id'], '7');
+      // The absence of BOTH parameters is what "my own history" now means.
+      //
+      // This used to assert user_id == '7', reading the id out of
+      // SharedPreferences and naming the caller in their own request. GET
+      // /api/history already defaults to the bearer's account and answers 401
+      // when a supplied user_id disagrees with the token — so sending it added
+      // no capability and one way to fail, against a local value that does
+      // drift (role_id in the same store was seen holding 1 for an account the
+      // server reports as role 2).
+      //
+      // The test's intent is unchanged: clearing the code goes back to the
+      // caller's own history. Only the mechanism it pins has moved, from
+      // "names itself" to "asks as itself".
+      expect(
+        asked.queryParameters.containsKey('user_id'),
+        isFalse,
+        reason:
+            'the caller must not name itself; the bearer already identifies it, '
+            'and a stale local id would turn "my record" into a 401',
+      );
     });
   });
 }

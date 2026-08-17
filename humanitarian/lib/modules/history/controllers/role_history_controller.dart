@@ -18,6 +18,20 @@ class RoleHistoryController extends GetxController with RealtimePollingMixin {
   final selectedStatus = 'all'.obs;
   final selectedDateRange = 'all'.obs;
 
+  /// Whether any filter is actually narrowing the list.
+  ///
+  /// The empty state needs this to tell two different situations apart. An
+  /// account with nothing in it and a filter combination that excludes
+  /// everything look identical in the data and are opposite problems for the
+  /// reader: one is "you have not done anything yet", the other is "change the
+  /// filter". Saying "nothing matches the selected filters" while all three
+  /// read الكل blames a choice the user did not make and sends them to adjust
+  /// controls that are not filtering anything.
+  bool get hasActiveFilters =>
+      selectedKind.value != 'all' ||
+      selectedStatus.value != 'all' ||
+      selectedDateRange.value != 'all';
+
   /// K21 — the identity code being looked up, or '' for the caller's own
   /// history.
   ///
@@ -67,7 +81,7 @@ class RoleHistoryController extends GetxController with RealtimePollingMixin {
       // K21 — a code names WHOSE history is wanted; without one this is the
       // caller's own, exactly as before.
       final data = code.isEmpty
-          ? await const ModuleApi().roleHistory(userId: _userId)
+          ? await const ModuleApi().roleHistory()
           : await _historyForCode(code, silent: silent);
       if (data == null) return; // _historyForCode has set the message
       role.value = (data['role'] ?? '').toString();

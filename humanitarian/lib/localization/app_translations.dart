@@ -2495,6 +2495,11 @@ class AppTranslations extends Translations {
         'Follow your role-specific records with quick filters and clear details.',
     'No history records match the selected filters.':
         'No history records match the selected filters.',
+    // The same list with NO filter applied. Distinct copy because the two say
+    // opposite things to the reader: one asks them to change a filter, the
+    // other tells them the account is simply new.
+    'history_empty_no_records':
+        'Nothing here yet. Your requests and support will appear here once they start.',
     'Record': 'Record',
     'Total given': 'Total given',
     'Our impact': 'Our impact',
@@ -5240,6 +5245,9 @@ class AppTranslations extends Translations {
         'تابع سجلات دورك بفلاتر سريعة وتفاصيل واضحة.',
     'No history records match the selected filters.':
         'لا توجد سجلات مطابقة للفلاتر المحددة.',
+    // نفس القائمة بدون أي مرشّح — انظر التعليق في الخريطة الإنجليزية.
+    'history_empty_no_records':
+        'لا يوجد شيء هنا بعد. ستظهر طلباتك والدعم المقدَّم لك هنا عند بدئها.',
     'Record': 'سجل',
     'Total given': 'إجمالي ما تم تقديمه',
     'Our impact': 'أثرنا',
