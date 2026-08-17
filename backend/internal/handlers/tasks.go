@@ -113,7 +113,7 @@ func (h *TasksHandler) AdminCreate(c *gin.Context) {
 
 	created, err := h.Tasks.AdminCreateGroup(c.Request.Context(), ids, req.Title, req.Description, adminID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "error": clientMessage(err)})
 		return
 	}
 

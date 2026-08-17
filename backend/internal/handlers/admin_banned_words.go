@@ -46,7 +46,7 @@ func (h *BannedWordsHandler) Add(c *gin.Context) {
 	}
 	saved, err := h.Store.Add(c.Request.Context(), req.Word, actorID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": clientMessage(err)})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "word": saved})
@@ -60,7 +60,7 @@ func (h *BannedWordsHandler) Delete(c *gin.Context) {
 		return
 	}
 	if err := h.Store.Delete(c.Request.Context(), id); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": clientMessage(err)})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true})

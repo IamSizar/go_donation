@@ -231,7 +231,7 @@ func (h *AdminStatusHandler) CreateUser(c *gin.Context) {
 	// tier that endpoint grants reachable.
 	username, err := normalizeUsername(req.Username)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": clientMessage(err)})
 		return
 	}
 	var passwordHash any = nil

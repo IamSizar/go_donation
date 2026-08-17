@@ -56,7 +56,7 @@ func (h *GuestHandler) Set(c *gin.Context) {
 		return
 	}
 	if err := h.Store.SetScreen(c.Request.Context(), req.Screen, req.Enabled); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": clientMessage(err)})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "screen": req.Screen, "enabled": req.Enabled})

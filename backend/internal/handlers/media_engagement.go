@@ -151,7 +151,7 @@ func (h *MediaEngagementHandler) Comment(c *gin.Context) {
 
 	cmt, err := h.Store.AddComment(c.Request.Context(), postID, user.UserID, body, status, flagged)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": clientMessage(err)})
 		return
 	}
 

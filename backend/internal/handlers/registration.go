@@ -3,6 +3,7 @@ package handlers
 import (
 	"errors"
 	"fmt"
+	"log"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -382,7 +383,12 @@ func (h *RegistrationHandler) UploadPhotos(c *gin.Context) {
 	if fh, _ := c.FormFile("personal_photo"); fh != nil {
 		p, err := h.savePhoto(tokenUser.UserID, "personal", fh)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"status": "error", "error": "Failed to save personal photo: " + err.Error()})
+			// savePhoto fails on filesystem and decode errors, whose text names
+			// server paths ("open /var/uploads/...: permission denied"). This is
+			// the app-facing endpoint, so that would go to a person registering
+			// on their phone, who can act on none of it.
+			log.Printf("[registration] personal photo save failed for user %d: %v", tokenUser.UserID, err)
+			c.JSON(http.StatusBadRequest, gin.H{"status": "error", "error": "Could not save the personal photo. Please try another image."})
 			return
 		}
 		personalPath = p
@@ -390,7 +396,8 @@ func (h *RegistrationHandler) UploadPhotos(c *gin.Context) {
 	if fh, _ := c.FormFile("id_photo"); fh != nil {
 		p, err := h.savePhoto(tokenUser.UserID, "idcard", fh)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"status": "error", "error": "Failed to save ID card photo: " + err.Error()})
+			log.Printf("[registration] ID card photo save failed for user %d: %v", tokenUser.UserID, err)
+			c.JSON(http.StatusBadRequest, gin.H{"status": "error", "error": "Could not save the ID card photo. Please try another image."})
 			return
 		}
 		idPath = p
@@ -431,7 +438,11 @@ func (h *RegistrationHandler) UploadPhotos(c *gin.Context) {
 		}
 		p, err := h.savePhoto(tokenUser.UserID, f.kind, fh)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"status": "error", "error": "Failed to save " + f.formKey + ": " + err.Error()})
+			// f.formKey stays in the log, not the response: it is a form field
+			// name ("id_photo_back"), which is no more meaningful to the person
+			// uploading than the driver error beside it was.
+			log.Printf("[registration] %s save failed for user %d: %v", f.formKey, tokenUser.UserID, err)
+			c.JSON(http.StatusBadRequest, gin.H{"status": "error", "error": "Could not save the attached photo. Please try another image."})
 			return
 		}
 		*f.dest = p

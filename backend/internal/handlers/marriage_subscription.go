@@ -170,7 +170,7 @@ func (h *MarriageHandler) AdminAddSubscriptionPackage(c *gin.Context) {
 	}
 	id, err := h.Store.AddPackage(c.Request.Context(), body)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": clientMessage(err)})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "id": id})
@@ -257,7 +257,7 @@ func (h *MarriageHandler) AdminConfirmSubscriptionPurchase(c *gin.Context) {
 		if errors.Is(err, marriage.ErrPurchaseNotFound) || errors.Is(err, marriage.ErrPackageNotFound) {
 			status = http.StatusNotFound
 		}
-		c.JSON(status, gin.H{"success": false, "error": err.Error()})
+		c.JSON(status, gin.H{"success": false, "error": clientMessage(err)})
 		return
 	}
 	h.notifySubscriptionInBackground(userID, notify.MarriageSubscriptionActivatedMsg(packageName))

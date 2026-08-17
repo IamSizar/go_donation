@@ -44,7 +44,7 @@ func (h *PartnerEngagementHandler) Rate(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Partner not found."})
 			return
 		}
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": clientMessage(err)})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{

@@ -60,7 +60,7 @@ func (h *SponsorshipTypesHandler) Add(c *gin.Context) {
 	}
 	saved, err := h.Store.Add(c.Request.Context(), req, actorID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": clientMessage(err)})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "type": saved})
@@ -80,7 +80,7 @@ func (h *SponsorshipTypesHandler) Update(c *gin.Context) {
 	}
 	saved, err := h.Store.Update(c.Request.Context(), id, req)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": clientMessage(err)})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "type": saved})

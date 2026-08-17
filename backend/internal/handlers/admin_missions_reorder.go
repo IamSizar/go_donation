@@ -78,7 +78,7 @@ func (h *AdminEditHandler) MissionsReorder(c *gin.Context) {
 		// The message names the mission that broke it, and says plainly that
 		// nothing moved, so the operator knows to refresh rather than wonder
 		// which half applied.
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": clientMessage(err)})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true})

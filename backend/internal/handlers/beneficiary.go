@@ -146,7 +146,7 @@ func (h *BeneficiaryHandler) PostCase(c *gin.Context) {
 
 	id, code, err := h.Store.InsertCase(c.Request.Context(), in)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": clientMessage(err)})
 		return
 	}
 	// Phase 18 — uses the centralised 4-language template. The old EN+AR

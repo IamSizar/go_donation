@@ -1047,7 +1047,7 @@ func (h *VolunteersHandler) Post(c *gin.Context) {
 		Schedule:     schedule,
 	})
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": clientMessage(err)})
 		return
 	}
 	// Phase 21b — fire the "we received your application" acknowledgement
