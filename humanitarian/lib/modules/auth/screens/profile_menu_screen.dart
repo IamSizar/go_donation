@@ -19,6 +19,7 @@ import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/modules/dashboard/controllers/role_dashboard_controller.dart';
 import 'package:get/get.dart';
 import 'package:flutter_application_1/modules/support/screens/technical_support_screen.dart';
+import 'package:flutter_application_1/localization/failure_message.dart';
 
 /// Client spec, "Ninth: Improve the Home Interface Design" — the account hub
 /// opened by the circular profile photo in the top-right of every tab.
@@ -114,7 +115,11 @@ Future<void> _chooseAccountType(BuildContext context) async {
     }
     Get.snackbar('Account type'.tr, 'Account type updated.'.tr);
   } catch (e) {
-    Get.snackbar('Error'.tr, e.toString().replaceFirst('Exception: ', ''));
+    // The server's sentence is English and unlocalizable — chooseRole goes
+    // through postJson, which carries no machine code — so it goes to the log
+    // and the user gets copy in their own language.
+    debugPrint('chooseRole($picked) failed: $e');
+    Get.snackbar('Error'.tr, failureMessage(e, 'error_role_change_failed'));
   }
 }
 

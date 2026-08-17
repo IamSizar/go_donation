@@ -971,7 +971,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
         _gpsLng = position.longitude;
       });
     } catch (e) {
-      Get.snackbar('Error'.tr, e.toString());
+      // Nothing here crosses the network — a Geolocator failure is the phone
+      // refusing or failing to fix a position — so the advice names the
+      // location service rather than the connection.
+      debugPrint('registration GPS capture failed: $e');
+      Get.snackbar('Error'.tr, 'error_gps_capture_failed'.tr);
     } finally {
       if (mounted) setState(() => _gpsLoading = false);
     }

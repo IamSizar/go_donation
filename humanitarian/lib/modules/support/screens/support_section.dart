@@ -13,6 +13,7 @@ import 'package:flutter_application_1/modules/support/widgets/availability_sched
 import 'package:flutter_application_1/modules/support/widgets/skill_chip_picker.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
+import 'package:flutter_application_1/localization/failure_message.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
@@ -438,7 +439,15 @@ class _VolunteerMissionDetailScreenState
       final path = await const ModuleApi().uploadPhoto(File(picked.path));
       return (lat: position.latitude, lng: position.longitude, photoPath: path);
     } catch (e) {
-      Get.snackbar('Error'.tr, e.toString());
+      // This one block covers three different failures — a GPS fix, the
+      // camera, and the photo UPLOAD — so it keeps the network branch: the
+      // upload is the only step that can fail for being offline, and the two
+      // permission refusals already returned above with their own copy.
+      debugPrint('mission evidence capture failed: $e');
+      Get.snackbar(
+        'Error'.tr,
+        failureMessage(e, 'error_evidence_capture_failed'),
+      );
       return null;
     }
   }
@@ -459,7 +468,13 @@ class _VolunteerMissionDetailScreenState
       setState(() => _signupStatus = 'joined');
       Get.snackbar('Submitted'.tr, 'checkin_recorded'.tr);
     } catch (e) {
-      if (mounted) Get.snackbar('Error'.tr, e.toString());
+      // backend/internal/handlers/volunteer_checkin.go answers a failed insert
+      // with "Database error: " + err.Error() — a literal Postgres message
+      // that used to be rendered verbatim on an Arabic screen.
+      debugPrint('mission check-in failed: $e');
+      if (mounted) {
+        Get.snackbar('Error'.tr, failureMessage(e, 'error_checkin_failed'));
+      }
     } finally {
       if (mounted) setState(() => _checkingInOut = false);
     }
@@ -484,7 +499,13 @@ class _VolunteerMissionDetailScreenState
       setState(() => _signupStatus = 'completion_requested');
       Get.snackbar('Submitted'.tr, 'checkout_recorded'.tr);
     } catch (e) {
-      if (mounted) Get.snackbar('Error'.tr, e.toString());
+      debugPrint('mission check-out failed: $e');
+      if (mounted) {
+        Get.snackbar(
+          'Error'.tr,
+          failureMessage(e, 'error_mission_checkout_failed'),
+        );
+      }
     } finally {
       if (mounted) setState(() => _checkingInOut = false);
     }
@@ -545,7 +566,13 @@ class _VolunteerMissionDetailScreenState
       };
       Get.snackbar('Submitted'.tr, message);
     } catch (e) {
-      if (mounted) Get.snackbar('Error'.tr, e.toString());
+      debugPrint('join mission failed: $e');
+      if (mounted) {
+        Get.snackbar(
+          'Error'.tr,
+          failureMessage(e, 'error_join_mission_failed'),
+        );
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -769,7 +796,13 @@ class _VolunteerApplicationFormScreenState
       Get.back<bool>(result: true);
       Get.snackbar('Submitted'.tr, 'Volunteer application saved.'.tr);
     } catch (e) {
-      if (mounted) Get.snackbar('Error'.tr, e.toString());
+      debugPrint('volunteer application submit failed: $e');
+      if (mounted) {
+        Get.snackbar(
+          'Error'.tr,
+          failureMessage(e, 'error_volunteer_application_failed'),
+        );
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }

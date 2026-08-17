@@ -1557,3 +1557,42 @@ for those same two actions rather than translating them afresh.
 | key | English | العربية | ckb / kmr |
 |---|---|---|---|
 | `error.signup_has_chat_history` | This signup has a chat conversation, so it cannot be deleted — the messages would be lost permanently and could not be restored from the Trash. Use Reject or Withdraw to take it off the list instead. | هذا التسجيل يحتوي على محادثة، لذلك لا يمكن حذفه — ستضيع الرسائل نهائياً ولن يمكن استرجاعها من المهملات. استخدم «رفض» أو «تراجع» لإزالته من القائمة بدلاً من ذلك. | **needed** |
+
+## Write failures: what happened, and what to do next (app, `humanitarian`)
+
+Same rule: **English and Arabic written; ckb (سۆرانی) and kmr (بادینی) NOT** —
+they fall back to English. No Kurdish invented.
+
+Seventeen `catch` blocks in the app ended in
+`Get.snackbar('Error'.tr, e.toString())`, i.e. the raw Dart exception in front
+of the user — on the volunteer check-in path that meant a literal Postgres
+message, since `backend/internal/handlers/volunteer_checkin.go` answers a failed
+insert with `"Database error: " + err.Error()`. Each site now names its own
+operation, and `lib/localization/failure_message.dart` appends one of the two
+recovery clauses, chosen from the exception type.
+
+Two notes for the translator. The two `error_next_*` clauses are appended after
+the sentence above them, so they must read as a **second sentence**, not as a
+clause continuing the first. And `error_gps_capture_failed` carries its own
+advice because that failure never touches the network — it is used alone.
+
+| key | English | العربية | ckb / kmr |
+|---|---|---|---|
+| `error_next_offline` | Check your connection and try again. | تحقّق من اتصالك ثم حاول مرة أخرى. | **needed** |
+| `error_next_retry` | Please try again. If it keeps happening, contact support. | حاول مرة أخرى. وإن تكرّر الأمر، تواصل مع الدعم. | **needed** |
+| `error_gps_capture_failed` | Could not read your location. Make sure location is turned on for this app, then try again. | تعذّر تحديد موقعك. تأكّد من تفعيل خدمة الموقع لهذا التطبيق ثم حاول مرة أخرى. | **needed** |
+| `error_role_change_failed` | Could not change your account type. | تعذّر تغيير نوع حسابك. | **needed** |
+| `error_privacy_settings_save_failed` | Could not save your privacy settings. | تعذّر حفظ إعدادات الخصوصية. | **needed** |
+| `error_service_request_failed` | Could not send your service request. | تعذّر إرسال طلب الخدمة. | **needed** |
+| `error_subscription_failed` | Could not complete your subscription. | تعذّر إتمام اشتراكك. | **needed** |
+| `error_photo_upload_failed` | Could not upload your photo. | تعذّر رفع صورتك. | **needed** |
+| `error_attachment_upload_failed` | Could not upload that document. | تعذّر رفع هذا المستند. | **needed** |
+| `error_order_checkout_failed` | Could not place your order. | تعذّر تسجيل طلبك. | **needed** |
+| `error_case_submit_failed` | Could not submit your case. | تعذّر إرسال حالتك. | **needed** |
+| `error_sponsorship_submit_failed` | Could not save your sponsorship request. | تعذّر حفظ طلب الكفالة. | **needed** |
+| `error_in_kind_submit_failed` | Could not submit your in-kind donation. | تعذّر إرسال تبرّعك العيني. | **needed** |
+| `error_evidence_capture_failed` | Could not capture your location and photo. | تعذّر التقاط موقعك وصورتك. | **needed** |
+| `error_checkin_failed` | Could not record your check-in. | تعذّر تسجيل حضورك. | **needed** |
+| `error_mission_checkout_failed` | Could not record your check-out. | تعذّر تسجيل انصرافك. | **needed** |
+| `error_join_mission_failed` | Could not send your join request. | تعذّر إرسال طلب انضمامك. | **needed** |
+| `error_volunteer_application_failed` | Could not save your volunteer application. | تعذّر حفظ طلب التطوّع. | **needed** |

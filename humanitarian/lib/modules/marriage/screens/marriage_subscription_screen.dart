@@ -6,6 +6,7 @@ import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/localization/locale_service.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
+import 'package:flutter_application_1/localization/failure_message.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
@@ -203,8 +204,12 @@ class _MarriageSubscriptionScreenState
       );
       if (paid) await _load();
     } catch (e) {
+      debugPrint('marriage subscription purchase failed: $e');
       if (mounted) {
-        Get.snackbar('Error'.tr, e.toString());
+        Get.snackbar(
+          'Error'.tr,
+          failureMessage(e, 'error_subscription_failed'),
+        );
       }
     } finally {
       if (mounted) setState(() => _busyPackageIds.remove(packageId));

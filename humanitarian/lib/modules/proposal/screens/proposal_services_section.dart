@@ -17,6 +17,7 @@ import 'package:flutter_application_1/modules/support/screens/technical_support_
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
+import 'package:flutter_application_1/localization/failure_message.dart';
 
 class ProposalServicesSection extends StatelessWidget {
   const ProposalServicesSection({super.key});
@@ -620,7 +621,10 @@ class _BeneficiaryCaseFormScreenState extends State<BeneficiaryCaseFormScreen> {
       Get.back<void>();
       Get.snackbar('Submitted'.tr, 'Beneficiary case saved for review.'.tr);
     } catch (e) {
-      if (mounted) Get.snackbar('Error'.tr, e.toString());
+      debugPrint('beneficiary case submit failed: $e');
+      if (mounted) {
+        Get.snackbar('Error'.tr, failureMessage(e, 'error_case_submit_failed'));
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -735,7 +739,13 @@ class _SponsorshipFormScreenState extends State<SponsorshipFormScreen> {
         'Sponsorship request saved for admin review.'.tr,
       );
     } catch (e) {
-      if (mounted) Get.snackbar('Error'.tr, e.toString());
+      debugPrint('sponsorship submit failed: $e');
+      if (mounted) {
+        Get.snackbar(
+          'Error'.tr,
+          failureMessage(e, 'error_sponsorship_submit_failed'),
+        );
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -874,7 +884,13 @@ class _InKindDonationFormScreenState extends State<InKindDonationFormScreen> {
       Get.back<void>();
       Get.snackbar('Submitted'.tr, 'In-kind donation saved.'.tr);
     } catch (e) {
-      if (mounted) Get.snackbar('Error'.tr, e.toString());
+      debugPrint('in-kind donation submit failed: $e');
+      if (mounted) {
+        Get.snackbar(
+          'Error'.tr,
+          failureMessage(e, 'error_in_kind_submit_failed'),
+        );
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }

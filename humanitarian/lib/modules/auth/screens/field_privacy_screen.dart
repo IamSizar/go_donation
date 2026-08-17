@@ -3,6 +3,7 @@ import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
+import 'package:flutter_application_1/localization/failure_message.dart';
 import 'package:get/get.dart';
 
 /// Placeholder bones shaped like one privacy switch row: a label line, a
@@ -215,7 +216,11 @@ class _FieldPrivacyScreenState extends State<FieldPrivacyScreen> {
       );
       Get.snackbar('Saved'.tr, 'privacy_extras_saved'.tr);
     } catch (e) {
-      Get.snackbar('Error'.tr, e.toString());
+      debugPrint('setPrivacyExtras failed: $e');
+      Get.snackbar(
+        'Error'.tr,
+        failureMessage(e, 'error_privacy_settings_save_failed'),
+      );
     } finally {
       if (mounted) setState(() => _savingExtras = false);
     }

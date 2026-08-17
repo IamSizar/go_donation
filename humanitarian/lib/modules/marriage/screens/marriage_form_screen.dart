@@ -14,6 +14,7 @@ import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:flutter_application_1/shared/utils/image_pick.dart';
 import 'package:flutter_application_1/core/widgets/app_pressable.dart';
+import 'package:flutter_application_1/localization/failure_message.dart';
 
 // Marriage Posts — resolve a stored photo path to a full URL for preview.
 // Uploads are saved as relative paths (e.g. images/uploads/x.png);
@@ -256,7 +257,9 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
         _gpsLng = position.longitude;
       });
     } catch (e) {
-      Get.snackbar('Error'.tr, e.toString());
+      // Device-side, like the registration form's copy of this flow.
+      debugPrint('marriage form GPS capture failed: $e');
+      Get.snackbar('Error'.tr, 'error_gps_capture_failed'.tr);
     } finally {
       if (mounted) setState(() => _gpsLoading = false);
     }
@@ -450,7 +453,13 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
       final path = await const ModuleApi().uploadPhoto(File(picked));
       if (mounted) setState(() => _photoUrl = path);
     } catch (e) {
-      if (mounted) Get.snackbar('Error'.tr, e.toString());
+      debugPrint('marriage profile photo upload failed: $e');
+      if (mounted) {
+        Get.snackbar(
+          'Error'.tr,
+          failureMessage(e, 'error_photo_upload_failed'),
+        );
+      }
     } finally {
       if (mounted) setState(() => _uploadingPhoto = false);
     }
@@ -476,7 +485,13 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
       final path = await const ModuleApi().uploadPhoto(File(picked));
       if (mounted) setState(() => assign(path));
     } catch (e) {
-      if (mounted) Get.snackbar('Error'.tr, e.toString());
+      debugPrint('marriage attachment upload ($ruleKey) failed: $e');
+      if (mounted) {
+        Get.snackbar(
+          'Error'.tr,
+          failureMessage(e, 'error_attachment_upload_failed'),
+        );
+      }
     } finally {
       if (mounted) setState(() => _uploadingAttachment = null);
     }

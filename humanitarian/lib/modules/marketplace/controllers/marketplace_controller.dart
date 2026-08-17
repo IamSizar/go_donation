@@ -8,6 +8,7 @@ import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/realtime_polling.dart';
 import 'package:flutter_application_1/modules/marketplace/controllers/catalogue_facets.dart';
 import 'package:flutter_application_1/modules/marketplace/models/catalogue_query.dart';
+import 'package:flutter_application_1/localization/failure_message.dart';
 import 'package:get/get.dart';
 
 class MarketplaceController extends GetxController
@@ -410,7 +411,11 @@ class MarketplaceController extends GetxController
       if (wallet) await loadWalletBalance();
       Get.snackbar('Submitted'.tr, 'Order request saved.'.tr);
     } catch (e) {
-      Get.snackbar('Error'.tr, e.toString());
+      debugPrint('marketplace checkout failed: $e');
+      Get.snackbar(
+        'Error'.tr,
+        failureMessage(e, 'error_order_checkout_failed'),
+      );
     } finally {
       isCheckingOut.value = false;
     }

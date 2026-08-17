@@ -415,6 +415,45 @@ class AppTranslations extends Translations {
     'error_title': 'Something went wrong',
     'retry': 'Try again',
     'Could not load your dashboard.': 'Could not load your dashboard.',
+    // ─── Write failures: what happened, and what to do next ───
+    // The seventeen `Get.snackbar('Error'.tr, e.toString())` sites used to put
+    // the raw Dart exception — often the backend's English sentence, once a
+    // literal Postgres error — in front of the user. Each site now names its
+    // own operation from this list, and `failureMessage` (see
+    // localization/failure_message.dart) appends one of the two recovery
+    // clauses below, chosen from the exception type.
+    //
+    // The clauses are split because the advice is genuinely different: a
+    // phone with no signal should retry the connection, while a server that
+    // answered "no" will answer the same way however good the signal is.
+    'error_next_offline': 'Check your connection and try again.',
+    'error_next_retry':
+        'Please try again. If it keeps happening, contact support.',
+    // Device-side capture. No network is involved, so these two carry their
+    // own advice and are used without a recovery clause.
+    'error_gps_capture_failed':
+        'Could not read your location. Make sure location is turned on for '
+        'this app, then try again.',
+    // Everything below crosses the network and takes a recovery clause.
+    'error_role_change_failed': 'Could not change your account type.',
+    'error_privacy_settings_save_failed':
+        'Could not save your privacy settings.',
+    'error_service_request_failed': 'Could not send your service request.',
+    'error_subscription_failed': 'Could not complete your subscription.',
+    'error_photo_upload_failed': 'Could not upload your photo.',
+    'error_attachment_upload_failed': 'Could not upload that document.',
+    'error_order_checkout_failed': 'Could not place your order.',
+    'error_case_submit_failed': 'Could not submit your case.',
+    'error_sponsorship_submit_failed':
+        'Could not save your sponsorship request.',
+    'error_in_kind_submit_failed': 'Could not submit your in-kind donation.',
+    'error_evidence_capture_failed':
+        'Could not capture your location and photo.',
+    'error_checkin_failed': 'Could not record your check-in.',
+    'error_mission_checkout_failed': 'Could not record your check-out.',
+    'error_join_mission_failed': 'Could not send your join request.',
+    'error_volunteer_application_failed':
+        'Could not save your volunteer application.',
     'We could not check for new notifications.':
         'We could not check for new notifications.',
     // ─── Backend tags rendered to users ───
@@ -795,16 +834,16 @@ class AppTranslations extends Translations {
     'Alert categories': 'Alert categories',
     'notif_cat_desc':
         'Choose which kinds of alert you receive. Switching one off stops it '
-            'being sent to you, not just hidden after it arrives.',
+        'being sent to you, not just hidden after it arrives.',
     'notif_cat_on': 'You receive these',
     'notif_cat_off': 'You will not receive these',
     'notif_cat_master_off':
         'All notifications are switched off, so none of these will reach you '
-            'until you turn the switch above back on.',
+        'until you turn the switch above back on.',
     'notif_cat_empty': 'No alert categories yet',
     'notif_cat_empty_desc':
         'There is nothing to switch on or off right now. Your notifications '
-            'still arrive as usual.',
+        'still arrive as usual.',
     'Could not load your notification settings.':
         'Could not load your notification settings.',
     'Field privacy': 'Field privacy',
@@ -815,7 +854,7 @@ class AppTranslations extends Translations {
     'marriage_privacy_empty': 'Nothing to hide yet',
     'marriage_privacy_empty_desc':
         'There are no details you can hide on this profile right now. It '
-            'shows what it shows today.',
+        'shows what it shows today.',
     'privacy_desc': 'Choose which profile details other people can see.',
     'privacy_visible': 'Visible to others',
     'privacy_hidden': 'Hidden',
@@ -1430,18 +1469,18 @@ class AppTranslations extends Translations {
     'marriage_owner_delete': 'Remove my profile',
     'marriage_owner_pause_unavailable':
         'This profile cannot be shown or hidden in its current state. The '
-            'staff team decides what happens next.',
+        'staff team decides what happens next.',
     'marriage_owner_new_submission_desc':
         'Edit the details above yourself. Submit a new profile only if you '
-            'need a second one reviewed.',
+        'need a second one reviewed.',
     // The removal is recoverable by staff, so the wording describes what
     // actually happens rather than promising permanent deletion the backend
     // deliberately does not perform.
     'marriage_owner_delete_title': 'Remove your profile?',
     'marriage_owner_delete_body':
         'It will disappear from the browse list and from your profiles here. '
-            'Your messages and your subscription record are kept, and the '
-            'staff team can bring it back.',
+        'Your messages and your subscription record are kept, and the '
+        'staff team can bring it back.',
     'marriage_owner_delete_confirm': 'Yes, remove it',
     'marriage_owner_deleted_ok':
         'Your profile was removed. The staff team can restore it.',
@@ -1449,8 +1488,8 @@ class AppTranslations extends Translations {
     'marriage_owner_edit_subtitle': 'Change what your profile shows.',
     'marriage_owner_staff_fields_note':
         'The identification, housing, assets and health sections are still '
-            'updated by the staff team. Ask them to change anything that is '
-            'not on this screen.',
+        'updated by the staff team. Ask them to change anything that is '
+        'not on this screen.',
     'marriage_owner_number_invalid': 'Enter a whole number.',
     'marriage_owner_number_range': 'Enter a number between @min and @max.',
     'marriage_owner_photo_failed':
@@ -1459,7 +1498,7 @@ class AppTranslations extends Translations {
     // sentence — 9f6ec79 states that sentence is a developer fallback.
     'marriage_owner_error_not_owner':
         'This profile is no longer yours to change. Pull down to refresh and '
-            'check its status.',
+        'check its status.',
     'marriage_owner_error_not_pausable':
         'This profile cannot be shown or hidden in its current state.',
     'marriage_owner_error_invalid_visibility':
@@ -3267,6 +3306,28 @@ class AppTranslations extends Translations {
     'error_title': 'حدث خطأ ما',
     'retry': 'إعادة المحاولة',
     'Could not load your dashboard.': 'تعذّر تحميل لوحتك.',
+    // ─── أخطاء الحفظ والإرسال — ماذا حدث وماذا تفعل الآن ───
+    // انظر شرح المفاتيح نفسها في كتلة الإنجليزية أعلاه.
+    'error_next_offline': 'تحقّق من اتصالك ثم حاول مرة أخرى.',
+    'error_next_retry': 'حاول مرة أخرى. وإن تكرّر الأمر، تواصل مع الدعم.',
+    'error_gps_capture_failed':
+        'تعذّر تحديد موقعك. تأكّد من تفعيل خدمة الموقع لهذا التطبيق ثم حاول '
+        'مرة أخرى.',
+    'error_role_change_failed': 'تعذّر تغيير نوع حسابك.',
+    'error_privacy_settings_save_failed': 'تعذّر حفظ إعدادات الخصوصية.',
+    'error_service_request_failed': 'تعذّر إرسال طلب الخدمة.',
+    'error_subscription_failed': 'تعذّر إتمام اشتراكك.',
+    'error_photo_upload_failed': 'تعذّر رفع صورتك.',
+    'error_attachment_upload_failed': 'تعذّر رفع هذا المستند.',
+    'error_order_checkout_failed': 'تعذّر تسجيل طلبك.',
+    'error_case_submit_failed': 'تعذّر إرسال حالتك.',
+    'error_sponsorship_submit_failed': 'تعذّر حفظ طلب الكفالة.',
+    'error_in_kind_submit_failed': 'تعذّر إرسال تبرّعك العيني.',
+    'error_evidence_capture_failed': 'تعذّر التقاط موقعك وصورتك.',
+    'error_checkin_failed': 'تعذّر تسجيل حضورك.',
+    'error_mission_checkout_failed': 'تعذّر تسجيل انصرافك.',
+    'error_join_mission_failed': 'تعذّر إرسال طلب انضمامك.',
+    'error_volunteer_application_failed': 'تعذّر حفظ طلب التطوّع.',
     'We could not check for new notifications.':
         'تعذّر التحقق من وجود إشعارات جديدة.',
     // ─── وسوم قادمة من الخادم ───
@@ -3583,12 +3644,12 @@ class AppTranslations extends Translations {
     'Alert categories': 'فئات التنبيهات',
     'notif_cat_desc':
         'اختر أنواع التنبيهات التي تصلك. إيقاف أي نوع يمنع إرساله إليك، وليس '
-            'مجرد إخفائه بعد وصوله.',
+        'مجرد إخفائه بعد وصوله.',
     'notif_cat_on': 'تصلك هذه التنبيهات',
     'notif_cat_off': 'لن تصلك هذه التنبيهات',
     'notif_cat_master_off':
         'جميع الإشعارات متوقّفة، لذا لن يصلك أي منها حتى تعيد تشغيل المفتاح '
-            'أعلاه.',
+        'أعلاه.',
     'notif_cat_empty': 'لا توجد فئات تنبيهات بعد',
     'notif_cat_empty_desc':
         'لا يوجد شيء لتشغيله أو إيقافه الآن. لا تزال إشعاراتك تصلك كالمعتاد.',
@@ -3654,11 +3715,13 @@ class AppTranslations extends Translations {
     'history_code_help':
         'أدخل الرمز التعريفي لعرض سجل التبرعات وحالة الدعم الخاص به. يمكنك الاستعلام برمزك الخاص، ويستطيع الموظفون الاستعلام برموز الآخرين. امسح الحقل للعودة إلى سجلك.',
     'history_code_not_found': 'لا يوجد سجل متاح لهذا الرمز.',
-    'history_code_not_permitted': 'حسابك غير مخوّل بالاستعلام عن سجلات الآخرين.',
+    'history_code_not_permitted':
+        'حسابك غير مخوّل بالاستعلام عن سجلات الآخرين.',
     'history_code_failed':
         'تعذّر الاستعلام عن هذا الرمز. تحقّق من اتصالك وحاول مرة أخرى.',
     'content_load_failed': 'تعذّر تحميل هذه الصفحة.',
-    'content_page_empty': 'لا يوجد محتوى في هذه الصفحة بعد. يرجى العودة قريباً.',
+    'content_page_empty':
+        'لا يوجد محتوى في هذه الصفحة بعد. يرجى العودة قريباً.',
     'whatsapp_offer': 'تحتاج مزيدًا من المساعدة؟ راسلنا على واتساب.',
     'whatsapp_open': 'واتساب',
     'mute_all': 'كتم الأصوات والاهتزاز',
@@ -4173,22 +4236,21 @@ class AppTranslations extends Translations {
     'marriage_owner_delete': 'حذف ملفي',
     'marriage_owner_pause_unavailable':
         'لا يمكن إظهار هذا الملف أو إخفاؤه في حالته الحالية. فريق الموظفين هو '
-            'من يقرّر الخطوة التالية.',
+        'من يقرّر الخطوة التالية.',
     'marriage_owner_new_submission_desc':
         'عدّل التفاصيل أعلاه بنفسك. أرسل ملفًا جديدًا فقط إذا كنت تحتاج إلى '
-            'مراجعة ملف ثانٍ.',
+        'مراجعة ملف ثانٍ.',
     'marriage_owner_delete_title': 'حذف ملفك؟',
     'marriage_owner_delete_body':
         'سيختفي من قائمة التصفح ومن ملفاتك هنا. تُحفظ رسائلك وسجل اشتراكك، '
-            'ويمكن لفريق الموظفين إعادته.',
+        'ويمكن لفريق الموظفين إعادته.',
     'marriage_owner_delete_confirm': 'نعم، احذفه',
-    'marriage_owner_deleted_ok':
-        'تم حذف ملفك. يمكن لفريق الموظفين استعادته.',
+    'marriage_owner_deleted_ok': 'تم حذف ملفك. يمكن لفريق الموظفين استعادته.',
     'marriage_owner_edit_title': 'تعديل ملفي',
     'marriage_owner_edit_subtitle': 'غيّر ما يعرضه ملفك.',
     'marriage_owner_staff_fields_note':
         'أقسام معلومات الهوية والسكن والممتلكات والصحة يحدّثها فريق الموظفين. '
-            'اطلب منهم تغيير أي شيء غير موجود في هذه الشاشة.',
+        'اطلب منهم تغيير أي شيء غير موجود في هذه الشاشة.',
     'marriage_owner_number_invalid': 'أدخل رقمًا صحيحًا.',
     'marriage_owner_number_range': 'أدخل رقمًا بين @min و@max.',
     'marriage_owner_photo_failed': 'تعذّر رفع الصورة. حاول مرة أخرى.',

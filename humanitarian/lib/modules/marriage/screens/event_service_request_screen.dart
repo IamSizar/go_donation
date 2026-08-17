@@ -3,6 +3,7 @@ import 'package:flutter_application_1/api/links.dart';
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
+import 'package:flutter_application_1/localization/failure_message.dart';
 import 'package:get/get.dart';
 
 /// Simple request form for the event-services tiles on the Events hub (Hall
@@ -83,7 +84,13 @@ class _EventServiceRequestScreenState extends State<EventServiceRequestScreen> {
       Get.back<void>();
       Get.snackbar('Submitted'.tr, 'Your request was sent to our team.'.tr);
     } catch (e) {
-      if (mounted) Get.snackbar('Error'.tr, e.toString());
+      debugPrint('event service request failed: $e');
+      if (mounted) {
+        Get.snackbar(
+          'Error'.tr,
+          failureMessage(e, 'error_service_request_failed'),
+        );
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
