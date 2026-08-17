@@ -1035,11 +1035,33 @@ String _missionSubtitle(Map<String, dynamic> mission) {
   ].where((value) => value.trim().isNotEmpty).join(' - ');
 }
 
+/// The one-line summary under "My volunteer application".
+///
+/// Both halves of this used to reach an Arabic screen in English.
+///
+/// STATUS was the raw column with underscores swapped for spaces, so the card
+/// read "submitted" rather than «تم الإرسال». The four values the backend
+/// allows (submitted/approved/rejected/inactive) are already keys in every
+/// locale, so this needed no new copy — only the `.tr` that was missing.
+///
+/// AVAILABILITY is the harder half: the `availability` column stores the
+/// free-text summary the FORM built, and the form built it with English day
+/// names. The English was already in the data, so no display-time `.tr` could
+/// have repaired it. The structured `availability_schedule` is stored beside
+/// it and holds day KEYS, which do localize — so the summary is rendered from
+/// that, and the stored text is kept only as the fallback for rows saved
+/// before the structured column existed.
 String _applicationSubtitle(Map<String, dynamic> application) {
+  final status = (application['status'] ?? 'submitted').toString();
+  final schedule = localizedScheduleSummary(
+    application['availability_schedule'],
+  );
   return [
-    (application['status'] ?? 'submitted').toString().replaceAll('_', ' '),
+    status.tr,
     (application['city'] ?? '').toString(),
-    (application['availability'] ?? '').toString(),
+    schedule.isNotEmpty
+        ? schedule
+        : (application['availability'] ?? '').toString(),
   ].where((value) => value.trim().isNotEmpty).join(' - ');
 }
 

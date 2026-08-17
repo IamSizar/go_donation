@@ -43,6 +43,52 @@ class DayAvailability {
 const List<String> _dayKeys = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
 /// Short (3-char) day labels per locale. Used inside the day pills.
+/// A localized, comma-separated summary of a stored availability schedule.
+///
+/// WHY THIS EXISTS
+/// The application card printed the `availability` column verbatim, and that
+/// column holds the free-text summary the FORM produced — which was built with
+/// English day names. So an Arabic screen showed "Mon 09:00-17:00, Tue …", and
+/// no display-time `.tr` could fix it: the English was already in the data.
+///
+/// The structured `availability_schedule` is stored alongside it and holds day
+/// KEYS, which do localize. Rendering from that instead means the card follows
+/// the reader's language rather than the language whoever filled the form was
+/// using.
+///
+/// Returns '' when the schedule is missing or unusable, so the caller can fall
+/// back to the stored text rather than show nothing.
+/// Which column of [_dayShort] this reader gets.
+///
+/// Kurdish cannot be told from the language code alone — both variants ride on
+/// Arabic locales and are separated by script — so this is the one place that
+/// decision is made, shared by the picker and the summary below. Duplicating it
+/// is how the two would drift into disagreeing about what language a Badini
+/// reader is using.
+String resolveScheduleLocale() {
+  final code = Get.locale?.languageCode ?? 'en';
+  final script = Get.locale?.scriptCode;
+  if (script == 'Arab') return 'ckb';
+  if (script == 'Latn' && code == 'ku') return 'kmr';
+  return code;
+}
+
+String localizedScheduleSummary(Object? schedule, [String? locale]) {
+  final lang = locale ?? resolveScheduleLocale();
+  if (schedule is! List) return '';
+  final parts = <String>[];
+  for (final entry in schedule) {
+    if (entry is! Map) continue;
+    final day = (entry['day'] ?? '').toString();
+    final label = _dayShort[day]?[lang] ?? _dayShort[day]?['en'];
+    if (label == null) continue;
+    final from = (entry['from'] ?? '').toString();
+    final to = (entry['to'] ?? '').toString();
+    parts.add(from.isEmpty || to.isEmpty ? label : '$label $from-$to');
+  }
+  return parts.join('، ');
+}
+
 const Map<String, Map<String, String>> _dayShort = {
   'mon': {'en': 'Mon', 'ar': 'إثن', 'ckb': 'دوو', 'kmr': 'دوو'},
   'tue': {'en': 'Tue', 'ar': 'ثلا', 'ckb': 'سێش', 'kmr': 'سێش'},
@@ -85,13 +131,7 @@ class AvailabilitySchedulePicker extends StatelessWidget {
   final Map<String, DayAvailability> schedule;
   final ValueChanged<Map<String, DayAvailability>> onChanged;
 
-  String _resolveLocale() {
-    final code = Get.locale?.languageCode ?? 'en';
-    final script = Get.locale?.scriptCode;
-    if (script == 'Arab') return 'ckb';
-    if (script == 'Latn' && code == 'ku') return 'kmr';
-    return code;
-  }
+  String _resolveLocale() => resolveScheduleLocale();
 
   // Default work day used by all presets + first-time toggles.
   static const _defaultFrom = TimeOfDay(hour: 9, minute: 0);

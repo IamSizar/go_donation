@@ -22,10 +22,10 @@ import 'package:flutter_application_1/localization/app_translations.dart';
 import 'package:flutter_application_1/modules/support/screens/support_section.dart';
 
 /// U+2066 LEFT-TO-RIGHT ISOLATE.
-const lri = '⁦';
+const lri = '\u2066';
 
 /// U+2069 POP DIRECTIONAL ISOLATE.
-const pdi = '⁩';
+const pdi = '\u2069';
 
 Map<String, dynamic> mission({
   required int needed,
