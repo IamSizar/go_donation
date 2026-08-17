@@ -1558,6 +1558,30 @@ for those same two actions rather than translating them afresh.
 |---|---|---|---|
 | `error.signup_has_chat_history` | This signup has a chat conversation, so it cannot be deleted — the messages would be lost permanently and could not be restored from the Trash. Use Reject or Withdraw to take it off the list instead. | هذا التسجيل يحتوي على محادثة، لذلك لا يمكن حذفه — ستضيع الرسائل نهائياً ولن يمكن استرجاعها من المهملات. استخدم «رفض» أو «تراجع» لإزالته من القائمة بدلاً من ذلك. | **needed** |
 
+## The other five delete refusals (dashboard, `admin-web`)
+
+Same rule: **English and Arabic written; ckb (سۆرانی) and kmr (بادینی) NOT** —
+they fall back to English. No Kurdish invented.
+
+Five keys, and they are the same idea as the signup key above, applied to the
+five other admin deletes that cascaded children the Trash never archived. Each
+refusal names what would be lost and the action to take instead, and each is
+keyed off a machine `code` the server sends, resolved by `describeError` in
+`admin-web/src/lib/api.ts` through the `error.*` namespace.
+
+Please reuse the words the dashboard already uses for the actions each message
+redirects to, rather than translating them afresh: «أرشفة» (Archive, `ar.ts`
+line 1020) for the account and the case, and the profile's own status words
+«مغلق» / «مرفوض».
+
+| key | English | العربية | ckb / kmr |
+|---|---|---|---|
+| `error.user_has_records` | This account holds chat messages, wallet transactions or subscription payments, so it cannot be deleted — all of them would be lost permanently and could not be restored from the Trash. Use Archive instead: the account leaves the list, is signed out everywhere, and can be brought back at any time. | هذا الحساب يحتوي على رسائل محادثة أو حركات محفظة أو مدفوعات اشتراك، لذلك لا يمكن حذفه — ستضيع جميعها نهائياً ولن يمكن استرجاعها من المهملات. استخدم «أرشفة» بدلاً من ذلك: يخرج الحساب من القائمة وتُنهى جلساته، ويمكن إعادته في أي وقت. | **needed** |
+| `error.marriage_profile_has_records` | This engagement profile has chat messages or a subscription payment, so it cannot be deleted — the conversation and the payment record would be lost permanently and could not be restored from the Trash. Set its status to Closed or Rejected instead. | ملف الخطوبة هذا يحتوي على رسائل محادثة أو دفعة اشتراك، لذلك لا يمكن حذفه — ستضيع المحادثة وسجلّ الدفع نهائياً ولن يمكن استرجاعهما من المهملات. غيّر حالته إلى «مغلق» أو «مرفوض» بدلاً من ذلك. | **needed** |
+| `error.case_has_records` | This case has a chat conversation or uploaded documents, so it cannot be deleted — the messages and the documents would be lost permanently and could not be restored from the Trash. Archive the case instead. | هذه الحالة تحتوي على محادثة أو مستندات مرفوعة، لذلك لا يمكن حذفها — ستضيع الرسائل والمستندات نهائياً ولن يمكن استرجاعها من المهملات. استخدم «أرشفة» للحالة بدلاً من ذلك. | **needed** |
+| `error.sponsorship_has_settled_schedule` | This sponsorship has schedule dates that were already paid or skipped, so it cannot be deleted — that payment history would be lost permanently and could not be restored from the Trash. Change its status instead. | هذه الكفالة تحتوي على مواعيد جرى دفعها أو تخطّيها، لذلك لا يمكن حذفها — سيضيع سجلّ الدفع هذا نهائياً ولن يمكن استرجاعه من المهملات. غيّر حالتها بدلاً من ذلك. | **needed** |
+| `error.project_request_has_comments` | People have commented on this request, so it cannot be deleted — their comments would be lost permanently and could not be restored from the Trash. Change its status instead. | كتب أشخاص تعليقات على هذا الطلب، لذلك لا يمكن حذفه — ستضيع تعليقاتهم نهائياً ولن يمكن استرجاعها من المهملات. غيّر حالته بدلاً من ذلك. | **needed** |
+
 ## Write failures: what happened, and what to do next (app, `humanitarian`)
 
 Same rule: **English and Arabic written; ckb (سۆرانی) and kmr (بادینی) NOT** —

@@ -720,6 +720,72 @@ so a failed load never tells a beneficiary they have no cases.
 
 ---
 
+## trashRow cascade audit — CLOSED (2026-08-17)
+
+The six routes listed in the audit below were re-derived from the live
+`pg_constraint` rather than trusted from the list, and all six now have a
+decision. Five refuse the delete with a stable machine `code`; the sixth is
+judged disposable, with the argument in `admin_delete.go`. No migration was
+needed — nothing here required a new column, so 117 is still the next free
+number.
+
+| # | Route | Remedy | Refuses on | Deliberately ignored |
+|---|---|---|---|---|
+| C1 | `users` | refuse · `user_has_records` | chat messages (all four chat systems, including the other party's half of a thread that would cascade), `wallet_transactions`, `marriage_subscription_purchases` | `user_profiles`, `notification_preferences`, `role_permissions` and the rest of the rows every account gets automatically — refusing on those would have made every account undeletable |
+| C2 | `marriage_profiles` (admin) | refuse · `marriage_profile_has_records` | `marriage_chat_messages`, `marriage_subscription_purchases` | an EMPTY mediated thread — staff open it when they approve a meeting request, before anyone types |
+| C3 | `beneficiary_cases` | refuse · `case_has_records` | `case_volunteer_chat_messages`, `beneficiary_case_documents` | an empty thread, for the same reason |
+| C4 | `sponsorships` | refuse · `sponsorship_has_settled_schedule` | schedule rows that are `paid`/`skipped` or carry `paid_at` | **unsettled occurrences** — `sponsorshipschedule.Generate` materialises them from the sponsorship's own recurrence rule, idempotently, so they come back by themselves |
+| C5 | `beneficiary_project_requests` | refuse · `project_request_has_comments` | live comments (`is_deleted = 0`) | **likes**, and already-withdrawn comments |
+| C6 | `volunteer_applications` | **none — judged disposable** | — | `volunteer_application_availability`: see below |
+
+**Why C1 is a refusal and not a new soft-delete column.** The soft delete
+already exists and is already in the dashboard —
+`POST /api/admin/users/:id/archive` flips `account_status` to `archived`,
+force-logs the account out, drops it from the Users list by default and can be
+undone by any tier holding `users/archive`. `main.go` calls it "the
+non-destructive alternative to Delete" in those words. The refusal points the
+operator at it.
+
+**One correction to the inventory below.** C1 claimed
+`marriage_subscription_purchases` among the records a user delete destroys. In
+practice it cannot: `marriage_profiles.user_id` is `ON DELETE RESTRICT`, and a
+purchase requires a profile, so Postgres refuses the user delete first — proved
+over real HTTP (`409 … still referenced from table "marriage_profiles"`). The
+count is still reported so the operator reads a sentence instead of an FK detail
+string. Every other item in C1 was confirmed exactly as written: 3 of 3 chat
+messages and 2 of 2 wallet transactions were destroyed by one `200 {"trashed":
+true}` before the fix, and survive the `409` after it.
+
+**C6, and why it did not get the same remedy.** `volunteer_application_availability`
+is one row per day the applicant said they were free. It is not in the trash
+payload, so a restore returns the application with that field blank — a real,
+if small, loss. It is still not guarded, and the reason is the one ee50aae
+wrote down: the per-day picker
+(`humanitarian/lib/modules/support/widgets/availability_schedule_picker.dart`)
+is the form's primary availability input, so practically every modern
+application carries these rows, and refusing on them would have made
+practically every application permanently undeletable. What is at stake is four
+columns of the applicant's own restatable preference — no authored prose, no
+money, no evidence — re-collected in full by their next application. The
+faithful fix is to capture the child rows into the trash payload, which is the
+third remedy `admin_trash.go`'s `Restore` makes expensive today; it stays open.
+
+**Not done, and deliberately.** Making `wallet_transactions` and
+`marriage_subscription_purchases` `ON DELETE RESTRICT` instead of `CASCADE`
+would guarantee the money is never cascaded away regardless of what any delete
+route does, and it is the stronger answer. It is not applied here because it
+means dropping and recreating a live constraint — not an additive migration —
+and it would change the behaviour of every other path that deletes a user. It
+is an owner decision.
+
+**Bulk delete still reports counts only.** `applyBulkDelete` on the Marriage,
+Beneficiary and Sponsorships pages uses `Promise.allSettled` and surfaces
+`{ok, fail}` without the per-row reason, so a refused row inside a multi-select
+is counted as a failure with no explanation. That is pre-existing behaviour, it
+is unchanged by this work, and it is worth its own change.
+
+---
+
 ## trashRow cascade audit — what else deletes children it never archived
 
 Recorded while fixing the volunteer-signup delete (`DELETE /api/admin/
@@ -729,7 +795,9 @@ deletes** into `trash_items` and then runs a real `DELETE FROM`; every
 المهملات brings back the parent alone.
 
 The signup route is fixed (it now refuses while messages exist). The cascades
-below are **unfixed and out of that change's scope**. They were not guessed from
+below were **unfixed when this was written** and are all decided now — see
+"trashRow cascade audit — CLOSED" above, which supersedes the "suggested order"
+and "two remedies" notes at the end of this section. They were not guessed from
 the migration files — they were read out of the local database's live
 constraints:
 
