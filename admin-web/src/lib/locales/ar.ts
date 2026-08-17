@@ -575,9 +575,11 @@ const ar: DeepPartial<typeof en> = {
   },
 
   export: {
-    pin_prompt: 'أدخل كلمة المرور لتأكيد عملية التصدير:',
-    pin_required: 'كلمة المرور مطلوبة للتصدير.',
-    pin_incorrect: 'كلمة مرور غير صحيحة — تم إلغاء التصدير.',
+    // Neutral wording — see the note on the English side; this dialog guards
+    // eight actions, of which the export is only one.
+    pin_prompt: 'أدخل كلمة المرور لتأكيد هذا الإجراء:',
+    pin_required: 'كلمة المرور مطلوبة للمتابعة.',
+    pin_incorrect: 'كلمة مرور غير صحيحة — تم الإلغاء.',
     export: 'تصدير',
     csv: 'CSV',
     excel: 'Excel',

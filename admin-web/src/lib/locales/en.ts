@@ -588,9 +588,20 @@ const en = {
   },
 
   export: {
-    pin_prompt: 'Enter your password to confirm this export:',
-    pin_required: 'Password is required to export.',
-    pin_incorrect: 'Incorrect password — export cancelled.',
+    // Worded for any step-up, not just the export these keys are named after.
+    // verifyPin() raises this same dialog before eight different actions —
+    // saving a user edit, archiving, changing a role or a staff tier, forcing a
+    // logout, setting a password, deleting — and every one of them told the
+    // operator they were confirming "this export". Saving a name edit and being
+    // asked to confirm an export you did not start reads as the dashboard
+    // having lost track of what you clicked.
+    //
+    // The keys keep their `export.` names: renaming them touches four locale
+    // files and every call site for no user-visible gain, and "this action"
+    // describes an export perfectly well.
+    pin_prompt: 'Enter your password to confirm this action:',
+    pin_required: 'Password is required to continue.',
+    pin_incorrect: 'Incorrect password — cancelled.',
     export: 'Export',
     csv: 'CSV',
     excel: 'Excel',
