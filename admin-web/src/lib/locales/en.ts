@@ -1196,6 +1196,17 @@ const en = {
     // and the Trash keeps only the profile row. The owner's own delete has
     // refused this since K14; the staff route does now too.
     marriage_profile_has_records: 'This engagement profile has chat messages or a subscription payment, so it cannot be deleted — the conversation and the payment record would be lost permanently and could not be restored from the Trash. Set its status to Closed or Rejected instead.',
+    // The case delete, refused. A case carries the same volunteer conversation
+    // a mission signup does, plus the documents it was verified on.
+    case_has_records: 'This case has a chat conversation or uploaded documents, so it cannot be deleted — the messages and the documents would be lost permanently and could not be restored from the Trash. Archive the case instead.',
+    // The sponsorship delete, refused. Only SETTLED dates block it: upcoming
+    // dates are regenerated from the sponsorship’s own schedule, but a paid
+    // or skipped date is a decision about money that nothing rebuilds.
+    sponsorship_has_settled_schedule: 'This sponsorship has schedule dates that were already paid or skipped, so it cannot be deleted — that payment history would be lost permanently and could not be restored from the Trash. Change its status instead.',
+    // The project-request delete, refused. The comments were written by other
+    // people, and deleting the request would destroy them without their
+    // authors doing anything.
+    project_request_has_comments: 'People have commented on this request, so it cannot be deleted — their comments would be lost permanently and could not be restored from the Trash. Change its status instead.',
     // H20 — the main-admin account is only changed with a code delivered to
     // BOTH that account's phone and its email. These are the refusals when one
     // of the two channels cannot carry it; each names the thing to fix.

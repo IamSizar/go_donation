@@ -192,15 +192,163 @@ func (h *AdminDeleteHandler) MarketplaceProduct(c *gin.Context) {
 }
 func (h *AdminDeleteHandler) MarketplaceOrder(c *gin.Context) { h.deleteRow(c, "marketplace_orders") }
 
-func (h *AdminDeleteHandler) BeneficiaryCase(c *gin.Context) { h.deleteRow(c, "beneficiary_cases") }
-func (h *AdminDeleteHandler) ProjectRequest(c *gin.Context) {
-	h.deleteRow(c, "beneficiary_project_requests")
+// BeneficiaryCase deletes a case — the SECOND DOOR onto the conversation
+// ee50aae protected on the signup route.
+//
+// case_volunteer_chat_threads hangs off the case as well as off the signup
+// (both FKs cascade), so an operator refused at تسجيلات المهام could delete the
+// case from الحالات and destroy exactly the same messages. Guarding one door
+// and not the other is not a guard.
+//
+// beneficiary_case_documents is the second loss and it is specific to this
+// route: the files a beneficiary uploaded as proof. The file itself stays on
+// disk, but the row saying what it is, who uploaded it and which case it
+// belongs to is destroyed, and there is nothing left to rebuild it from — an
+// approved case would be restored from المهملات with its evidence gone.
+//
+// The operator's way out is POST /api/admin/beneficiary_cases/:id/status,
+// whose allowed set already includes 'archived'.
+func (h *AdminDeleteHandler) BeneficiaryCase(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	records, err := deleteguard.New(h.Pool).ForCase(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   "Database error: " + err.Error(),
+		})
+		return
+	}
+	if records.Any() {
+		c.JSON(http.StatusConflict, gin.H{
+			"success":   false,
+			"code":      "case_has_records",
+			"messages":  records.Messages,
+			"documents": records.Documents,
+			"error": "Cannot delete: this case has a chat conversation or uploaded documents, " +
+				"and deleting it would permanently destroy them. Archive the case instead.",
+		})
+		return
+	}
+	trashRow(c, h.Pool, "beneficiary_cases", id)
 }
-func (h *AdminDeleteHandler) Sponsorship(c *gin.Context)    { h.deleteRow(c, "sponsorships") }
+
+// ProjectRequest deletes a beneficiary project request.
+//
+// The cascade takes beneficiary_project_request_comments and _likes. The
+// comments are the loss worth refusing over: prose OTHER PEOPLE wrote on
+// somebody else's request, destroyed without their authors doing anything.
+//
+// The likes are judged disposable and the guard deliberately ignores them — a
+// like carries no authored content, no money and no evidence, it is one tap the
+// same person can make again, and it is only ever shown as a total. Refusing
+// over one would cost the operator the ability to remove a popular request
+// while protecting nothing anybody could miss. See deleteguard.ProjectRequestRecords.
+//
+// The way out is POST /api/admin/beneficiary_project_requests/:id/status.
+func (h *AdminDeleteHandler) ProjectRequest(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	records, err := deleteguard.New(h.Pool).ForProjectRequest(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   "Database error: " + err.Error(),
+		})
+		return
+	}
+	if records.Any() {
+		c.JSON(http.StatusConflict, gin.H{
+			"success":  false,
+			"code":     "project_request_has_comments",
+			"comments": records.Comments,
+			"error": "Cannot delete: people have commented on this request, and deleting it " +
+				"would permanently destroy their comments. Change its status instead.",
+		})
+		return
+	}
+	trashRow(c, h.Pool, "beneficiary_project_requests", id)
+}
+
+// Sponsorship deletes a sponsorship, refusing only when the schedule holds a
+// SETTLED occurrence.
+//
+// This is the one route where most of the cascade is genuinely disposable, and
+// the reasoning is the same shape as ee50aae's "messages, not threads":
+// sponsorshipschedule.Generate materialises upcoming rows from the
+// sponsorship's own recurrence rule, idempotently, so an unsettled occurrence
+// is a projection that comes back by itself. A 'paid' or 'skipped' row is a
+// decision somebody made about money on a date, and Generate never recreates
+// it. Refusing on every schedule row would have blocked practically every
+// active sponsorship for nothing; refusing on the settled ones protects the
+// only part that cannot be rebuilt.
+//
+// The way out is POST /api/admin/sponsorships/:id/status ('cancelled',
+// 'stopped', 'completed').
+func (h *AdminDeleteHandler) Sponsorship(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	records, err := deleteguard.New(h.Pool).ForSponsorship(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   "Database error: " + err.Error(),
+		})
+		return
+	}
+	if records.Any() {
+		c.JSON(http.StatusConflict, gin.H{
+			"success":             false,
+			"code":                "sponsorship_has_settled_schedule",
+			"settled_occurrences": records.SettledOccurrences,
+			"error": "Cannot delete: this sponsorship has settled schedule dates (paid or skipped), " +
+				"and deleting it would permanently destroy that payment history. " +
+				"Change its status instead.",
+		})
+		return
+	}
+	trashRow(c, h.Pool, "sponsorships", id)
+}
+
 func (h *AdminDeleteHandler) InKindDonation(c *gin.Context) { h.deleteRow(c, "in_kind_donations") }
 func (h *AdminDeleteHandler) SupportTicket(c *gin.Context)  { h.deleteRow(c, "support_tickets") }
 func (h *AdminDeleteHandler) Donation(c *gin.Context)       { h.deleteRow(c, "donations") }
 
+// VolunteerApplication deletes a volunteer application — UNGUARDED, and that
+// is a decision, not an oversight.
+//
+// The cascade is volunteer_application_availability: one row per day the
+// applicant said they were free (day_of_week, time_from, time_to). It is not in
+// the trash payload, so a restore returns the application with its per-day
+// availability blank.
+//
+// WHY NO GUARD. A refusal here would have cost far more than it protected, and
+// in exactly the way ee50aae warned about. The application form's primary
+// availability input is the per-day picker (humanitarian's
+// availability_schedule_picker.dart, posted as `availability_schedule`), so
+// practically every modern application carries these rows — refusing on them
+// would have made practically every application permanently undeletable, which
+// is the "refuse on the mere existence of a child" mistake that fix was written
+// to avoid.
+//
+// And what is at stake is not of that order. These four columns are the
+// applicant's own restatable preference, entered on the same form as the parent
+// row, belonging to nobody but them, carrying no authored prose, no money and
+// no evidence — and re-collected in full by the next application they submit.
+// That is a different kind of thing from a conversation, a wallet ledger or a
+// payment record, and the remedy is deliberately not applied uniformly to all
+// six cascades just because one remedy was available.
+//
+// It is not nothing, either. Capturing the child rows into the trash payload
+// would make the restore faithful, and that is the option left open: it is the
+// third remedy admin_trash.go's Restore makes expensive today, and it is
+// recorded in VERIFICATION_REPORT.md rather than hidden here.
 func (h *AdminDeleteHandler) VolunteerApplication(c *gin.Context) {
 	h.deleteRow(c, "volunteer_applications")
 }

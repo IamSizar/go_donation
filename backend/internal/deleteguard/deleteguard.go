@@ -168,3 +168,133 @@ func (s *Store) ForMarriageProfile(ctx context.Context, profileID int64) (Marria
 	}
 	return r, nil
 }
+
+// ─── beneficiary_cases ──────────────────────────────────────────────────
+
+// CaseRecords is what DELETE /api/admin/beneficiary_cases/:id would destroy.
+//
+// It is the second door onto the conversation ee50aae protected on the signup
+// route: case_volunteer_chat_threads hangs off the CASE as well as the signup,
+// so deleting the case walked straight around that guard.
+//
+// Documents are the files a beneficiary uploaded as proof — the evidence the
+// case was verified on. The uploaded file survives on disk, but the row that
+// says what it is, who uploaded it and which case it belongs to does not, and
+// nothing can rebuild that.
+type CaseRecords struct {
+	Messages  int `json:"messages"`
+	Documents int `json:"documents"`
+}
+
+// Any reports whether anything irreplaceable would be lost.
+func (r CaseRecords) Any() bool { return r.Messages > 0 || r.Documents > 0 }
+
+// ForCase counts what deleting one beneficiary case would destroy.
+func (s *Store) ForCase(ctx context.Context, caseID int64) (CaseRecords, error) {
+	var r CaseRecords
+	if caseID <= 0 {
+		return r, errors.New("caseID is required")
+	}
+	err := s.Pool.QueryRow(ctx, `
+		SELECT
+		  (SELECT COUNT(*) FROM case_volunteer_chat_messages m
+		     JOIN case_volunteer_chat_threads t ON t.id = m.thread_id
+		    WHERE t.case_id = $1)                                      AS messages,
+		  (SELECT COUNT(*) FROM beneficiary_case_documents
+		    WHERE case_id = $1)                                        AS documents`,
+		caseID,
+	).Scan(&r.Messages, &r.Documents)
+	if err != nil {
+		return r, fmt.Errorf("count records for beneficiary case %d: %w", caseID, err)
+	}
+	return r, nil
+}
+
+// ─── sponsorships ───────────────────────────────────────────────────────
+
+// SponsorshipRecords is what DELETE /api/admin/sponsorships/:id would destroy
+// that cannot be rebuilt.
+//
+// THIS ONE COUNTS PART OF THE CHILD TABLE, NOT ALL OF IT, and that is the
+// point. sponsorship_schedule holds one row per due date, and
+// sponsorshipschedule.Generate materialises those rows from the sponsorship's
+// own recurrence rule (schedule_interval + next_due_date), is UNIQUE-guarded on
+// (sponsorship_id, due_date) and is explicitly idempotent — "calling this
+// repeatedly is safe … it simply tops the schedule back up". An unsettled
+// occurrence is therefore a projection, not a record: it comes back by itself.
+//
+// A SETTLED occurrence is the opposite. 'paid' (with its paid_at) and
+// 'skipped' record a decision somebody made about money on a date, and Generate
+// will never recreate it — it only ever writes 'upcoming' rows forward from
+// next_due_date. That is the row worth refusing over, and it is the same
+// distinction ee50aae drew between a thread the system opens and a message a
+// person wrote.
+type SponsorshipRecords struct {
+	SettledOccurrences int `json:"settled_occurrences"`
+}
+
+// Any reports whether anything irreplaceable would be lost.
+func (r SponsorshipRecords) Any() bool { return r.SettledOccurrences > 0 }
+
+// ForSponsorship counts the settled schedule occurrences a delete would take.
+func (s *Store) ForSponsorship(ctx context.Context, sponsorshipID int64) (SponsorshipRecords, error) {
+	var r SponsorshipRecords
+	if sponsorshipID <= 0 {
+		return r, errors.New("sponsorshipID is required")
+	}
+	// paid_at is checked alongside the status because a row can carry a
+	// settlement timestamp while its status is being moved; either one is
+	// evidence that money was accounted for on that date.
+	err := s.Pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM sponsorship_schedule
+		 WHERE sponsorship_id = $1
+		   AND (status IN ('paid', 'skipped') OR paid_at IS NOT NULL)`,
+		sponsorshipID,
+	).Scan(&r.SettledOccurrences)
+	if err != nil {
+		return r, fmt.Errorf("count settled occurrences for sponsorship %d: %w", sponsorshipID, err)
+	}
+	return r, nil
+}
+
+// ─── beneficiary_project_requests ───────────────────────────────────────
+
+// ProjectRequestRecords is what DELETE /api/admin/beneficiary_project_requests/:id
+// would destroy that cannot be rebuilt.
+//
+// Comments are prose other people wrote, on somebody else's request, and
+// deleting the request destroys them without their author ever acting. Already
+// soft-deleted comments (is_deleted = 1) are not counted: they have already
+// been withdrawn from view by their author or by staff, so nothing visible is
+// lost with them.
+//
+// LIKES ARE DELIBERATELY NOT COUNTED. A like is one row of
+// (request, user, created_at) with no authored content, no money and no
+// evidentiary weight; it is a single tap that the same person can make again,
+// and it is never shown as history — only as a total. Refusing a delete over a
+// like would cost the operator the ability to remove a popular request while
+// protecting nothing anyone could miss. This is a judgement, and it is recorded
+// here rather than left implicit.
+type ProjectRequestRecords struct {
+	Comments int `json:"comments"`
+}
+
+// Any reports whether anything irreplaceable would be lost.
+func (r ProjectRequestRecords) Any() bool { return r.Comments > 0 }
+
+// ForProjectRequest counts the live comments a delete would take.
+func (s *Store) ForProjectRequest(ctx context.Context, requestID int64) (ProjectRequestRecords, error) {
+	var r ProjectRequestRecords
+	if requestID <= 0 {
+		return r, errors.New("requestID is required")
+	}
+	err := s.Pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM beneficiary_project_request_comments
+		 WHERE project_request_id = $1 AND is_deleted = 0`,
+		requestID,
+	).Scan(&r.Comments)
+	if err != nil {
+		return r, fmt.Errorf("count comments for project request %d: %w", requestID, err)
+	}
+	return r, nil
+}
