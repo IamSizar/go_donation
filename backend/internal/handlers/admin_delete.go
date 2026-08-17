@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
+	"github.com/karam-flutter/humanitarian-backend/internal/casevolchat"
 )
 
 // AdminDeleteHandler exposes the delete endpoints for Phase 13.
@@ -171,10 +172,89 @@ func (h *AdminDeleteHandler) VolunteerMission(c *gin.Context) { h.deleteRow(c, "
 // volunteer's own completion note and the hours they served — so pressing حذف on
 // the wrong row has to be undoable from المهملات (H15's rule).
 //
-// Cascade note, same shape as VolunteerMission above: deleting a signup cascades
-// its case_volunteer_chat_threads (signup_id ... ON DELETE CASCADE). Those child
-// rows are not trashed individually, so restoring the signup brings back the
-// signup only — trashRow documents this, and it is unchanged here.
+// THE CASCADE, AND WHY THIS ROUTE REFUSES INSTEAD OF DELETING.
+//
+// Deleting a signup cascades its conversation (migration 061):
+//
+//	volunteer_mission_signups
+//	  └─ case_volunteer_chat_threads   (signup_id ... ON DELETE CASCADE)
+//	       ├─ case_volunteer_chat_messages
+//	       └─ case_volunteer_chat_reads
+//
+// trashRow snapshots only the row it deletes, so those children were destroyed
+// outright and المهملات handed back the signup alone. That is worse than an
+// unrecoverable delete with no Trash entry, because the operator has been told
+// the action is undoable — they press حذف believing the conversation is safe.
+//
+// TWO WAYS TO FIX IT, AND WHY THIS ONE.
+//
+// (a) Archive the cascaded children into the trash payload so restore is
+// faithful. Rejected. It turns trash_items from a flat row snapshot into a
+// nested tree, and Restore — which admin_trash.go already flags as the place a
+// mistake becomes "a worse bug than the one being fixed" — would have to
+// re-insert three tables in FK order, remap identity keys, and cope with
+// senders who were themselves deleted in the meantime. That is a new mechanism
+// carrying the repo's most dangerous operation, built to make a rare admin
+// action tidier.
+//
+// (b) Refuse the delete while there is a conversation to lose. Taken. It is
+// the repo's existing vocabulary — trashRow already answers 409 when a row is
+// still referenced — and it satisfies the actual requirement outright: a
+// delete never silently destroys messages, because it never destroys them at
+// all.
+//
+// THE TRADE-OFF. (b) buys safety with capability: a signup that has been
+// talked about cannot be removed from تسجيلات المهام at all. That is a real
+// cost and it is accepted deliberately, because the operator is not left
+// stuck — رفض and تراجع are status transitions that already exist on this row
+// and take it out of the working list without touching a message. What is
+// lost is tidying; what is kept is the conversation. (a) remains open if the
+// Trash ever grows a general tree-restore, and this refusal is forward
+// compatible with it.
+//
+// This follows K14 (marriage/owner.go), which refused to route
+// marriage_profiles through trashRow for the same reason — its cascade reaches
+// chat threads and the record that the user PAID. The difference is the remedy:
+// K14 needed the profile to disappear from a public browse feed, so it stamped
+// a soft-delete. Nothing here needs to disappear, so no new column is needed.
+//
+// The guard counts MESSAGES, not threads, and that distinction is the whole
+// design: casevolchat.EnsureThreadForSignup opens a thread the moment a signup
+// with a linked case is approved, so refusing on thread existence would have
+// made nearly every approved signup undeletable — a far bigger regression than
+// the bug. An empty thread has no conversation to protect and re-opens by
+// itself; see MessageCountForSignup.
 func (h *AdminDeleteHandler) VolunteerMissionSignup(c *gin.Context) {
-	h.deleteRow(c, "volunteer_mission_signups")
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+
+	// casevolchat.Store is a stateless wrapper over the pool, so it is built
+	// here rather than injected: there is no lifecycle to share, and a nil
+	// field on this handler would be a silent way to lose the guard.
+	messages, err := casevolchat.New(h.Pool).MessageCountForSignup(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   "Database error: " + err.Error(),
+		})
+		return
+	}
+	if messages > 0 {
+		// `code` is the stable key the dashboard translates through its
+		// `error.*` namespace, so an Arabic operator reads Arabic; `error` is
+		// the fallback for a client without that mapping. `messages` says how
+		// much is at stake, which is what makes the refusal actionable.
+		c.JSON(http.StatusConflict, gin.H{
+			"success":  false,
+			"code":     "signup_has_chat_history",
+			"messages": messages,
+			"error": "Cannot delete: this signup has a chat conversation, and deleting it " +
+				"would permanently destroy those messages. Use reject or withdraw instead.",
+		})
+		return
+	}
+
+	trashRow(c, h.Pool, "volunteer_mission_signups", id)
 }

@@ -1179,6 +1179,12 @@ const en = {
     invalid_social_links: 'One link per line, each with a website address — for example facebook.com/yourpage.',
     invalid_logo_path: 'That logo could not be used. Upload the image again.',
     value_too_long: 'This is too long. Please shorten it.',
+    // The volunteer-signup delete, refused. Deleting the signup would cascade
+    // its chat thread and every message in it, and the Trash archives only the
+    // signup row — so the conversation would be gone for good behind a screen
+    // that promises the delete is recoverable. The server refuses instead, and
+    // names the two actions that clear the row without touching a message.
+    signup_has_chat_history: 'This signup has a chat conversation, so it cannot be deleted — the messages would be lost permanently and could not be restored from the Trash. Use Reject or Withdraw to take it off the list instead.',
     // H20 — the main-admin account is only changed with a code delivered to
     // BOTH that account's phone and its email. These are the refusals when one
     // of the two channels cannot carry it; each names the thing to fix.

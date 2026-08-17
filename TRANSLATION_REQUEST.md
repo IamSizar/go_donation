@@ -1536,3 +1536,24 @@ an Arabic screen.
 | key | English | العربية | ckb / kmr |
 |---|---|---|---|
 | `inactive` | Inactive | غير نشط | **needed** |
+
+## The signup-delete refusal (dashboard, `admin-web`)
+
+Same rule: **English and Arabic written; ckb (سۆرانی) and kmr (بادینی) NOT** —
+they fall back to English. No Kurdish invented.
+
+One key. Deleting a volunteer mission signup cascades its chat thread and every
+message in it, while the Trash archives the signup row alone — so the delete is
+now refused whenever the conversation has at least one message, instead of
+destroying it behind a screen that promises the delete is recoverable. The
+server sends `code: "signup_has_chat_history"`, which `describeError` in
+`admin-web/src/lib/api.ts` resolves through the `error.*` namespace.
+
+The Arabic wording deliberately reuses the list's own two action words, «رفض»
+and «تراجع» (`ar.ts` lines 1024–1025), because those are the buttons the
+operator is being redirected to. Please keep whatever the Kurdish locales use
+for those same two actions rather than translating them afresh.
+
+| key | English | العربية | ckb / kmr |
+|---|---|---|---|
+| `error.signup_has_chat_history` | This signup has a chat conversation, so it cannot be deleted — the messages would be lost permanently and could not be restored from the Trash. Use Reject or Withdraw to take it off the list instead. | هذا التسجيل يحتوي على محادثة، لذلك لا يمكن حذفه — ستضيع الرسائل نهائياً ولن يمكن استرجاعها من المهملات. استخدم «رفض» أو «تراجع» لإزالته من القائمة بدلاً من ذلك. | **needed** |

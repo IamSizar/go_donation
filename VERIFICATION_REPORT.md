@@ -717,3 +717,64 @@ so a failed load never tells a beneficiary they have no cases.
   NEW FINDING 6.
 
 
+
+---
+
+## trashRow cascade audit — what else deletes children it never archived
+
+Recorded while fixing the volunteer-signup delete (`DELETE /api/admin/
+volunteer_mission_signups/:id`). `handlers.trashRow` snapshots **only the row it
+deletes** into `trash_items` and then runs a real `DELETE FROM`; every
+`ON DELETE CASCADE` child goes with it and is never archived, so a restore from
+المهملات brings back the parent alone.
+
+The signup route is fixed (it now refuses while messages exist). The cascades
+below are **unfixed and out of that change's scope**. They were not guessed from
+the migration files — they were read out of the local database's live
+constraints:
+
+```sql
+SELECT c.confrelid::regclass AS parent, c.conrelid::regclass AS child
+  FROM pg_constraint c
+ WHERE c.contype = 'f' AND c.confdeltype = 'c';
+```
+
+| # | Route (all `AdminDeleteHandler`, all via `trashRow`) | Cascade children never archived | Why it matters |
+|---|---|---|---|
+| C1 | `DELETE /api/admin/users/:id` (`User`, Super-Admin only) | `chat_threads` + `chat_messages` + `chat_reads`, `marriage_chat_*`, `staff_chat_*`, `case_volunteer_chat_*`, **`wallet_transactions`**, **`marriage_subscription_purchases`**, `user_profiles`, `role_permissions`, `permission_section_blocks`, `notification_preferences`, `profile_change_requests`, `user_profile_audit_logs`, `volunteer_mission_signups`, `api_access_tokens`, and more | **The widest exposure in the codebase, and worse than the bug just fixed.** One delete destroys every conversation the person was part of, their wallet ledger, and the record that they PAID for a subscription — the exact two categories K14 (`marriage/owner.go`, commit `9f6ec79`) refused to let a cascade touch. The Trash then offers the operator a restore that returns the `users` row alone. |
+| C2 | `DELETE /api/admin/marriage/:id` (`Marriage`) | `marriage_chat_threads` (→ messages, reads), `marriage_subscription_purchases` | **K14 is only half-applied.** `marriage/owner.go` deliberately does NOT use `trashRow` for exactly this cascade, and documents why at length — but that reasoning was applied only to the OWNER's self-delete. The ADMIN route still routes `marriage_profiles` through `trashRow`, so the hazard K14 describes is still live on the staff side. |
+| C3 | `DELETE /api/admin/beneficiary_cases/:id` (`BeneficiaryCase`) | `case_volunteer_chat_threads` (→ messages, reads), `beneficiary_case_documents` | Same conversation loss as the signup fix, reached by deleting the case instead of the signup — so the signup guard can be walked around from the Cases screen. The documents are the evidence the case was verified. |
+| C4 | `DELETE /api/admin/sponsorships/:id` (`Sponsorship`) | `sponsorship_schedule` | The payment schedule of a sponsorship; not messages, but not reconstructable either. |
+| C5 | `DELETE /api/admin/beneficiary_project_requests/:id` (`ProjectRequest`) | `beneficiary_project_request_comments`, `_likes` | User-authored comments, destroyed and not archived. |
+| C6 | `DELETE /api/admin/volunteer_applications/:id` (`VolunteerApplication`) | `volunteer_application_availability` | The applicant's stated availability. |
+
+`volunteer_missions → volunteer_mission_signups` also cascades; that one is
+already documented in `admin_delete.go` and is a deliberate, understood
+behaviour, so it is not listed as an exposure.
+
+**Suggested order if these are taken up:** C1 and C2 first (they destroy payment
+records, which is the category K14 singled out as unacceptable to lose), then C3
+(it is a second door onto the conversation the signup fix just protected), then
+C4–C6.
+
+**Two remedies are available, and the choice is per-route** — the signup fix
+argues both in `admin_delete.go`:
+- refuse the delete while irreplaceable children exist (small, uses the existing
+  409 vocabulary, costs the ability to delete at all); or
+- stamp a soft-delete and keep the row, as K14 did for `marriage_profiles`
+  (needed when something must disappear from a user-facing feed).
+
+Capturing the cascade into the trash payload is the third option and the most
+expensive: it turns `trash_items` into a nested tree and puts the burden on
+`Restore`, which `admin_trash.go` already flags as the place where a mistake
+becomes "a worse bug than the one being fixed".
+
+### App-side follow-up from the signup fix
+
+None required. `admin-web` already renders this refusal correctly: the delete
+call in `VolunteersPage.tsx` passes failures through `describeError`, which
+resolves the server's `code` via the `error.*` namespace, and
+`error.signup_has_chat_history` is written in `en.ts` and `ar.ts`. ckb/kmr fall
+back to English by the project's standing rule and are logged in
+`TRANSLATION_REQUEST.md`. The Flutter app has no volunteer-signup delete and is
+untouched.

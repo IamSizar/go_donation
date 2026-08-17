@@ -122,6 +122,38 @@ func (t Thread) CounterpartIDs(senderID int64) []int64 {
 	return out
 }
 
+// MessageCountForSignup reports how many chat messages hang off a signup, via
+// its thread. It returns 0 when the signup has no thread at all, and 0 when
+// the thread exists but nobody has spoken in it.
+//
+// It exists for the admin delete guard. volunteer_mission_signups cascades to
+// case_volunteer_chat_threads (migration 061), which cascades on to its
+// messages and reads — and handlers.trashRow archives only the row it deletes,
+// so a delete would take the conversation with it and المهملات would hand back
+// the signup alone. The caller uses this to refuse rather than destroy.
+//
+// WHY MESSAGES AND NOT THE THREAD. EnsureThreadForSignup opens a thread
+// automatically the moment a signup with a linked case is approved, before
+// anyone has typed anything. Refusing on the mere existence of a thread would
+// have made nearly every approved signup permanently undeletable. An empty
+// thread holds no conversation and re-opens by itself, so it is not worth
+// blocking an operator over; a single message is.
+func (s *Store) MessageCountForSignup(ctx context.Context, signupID int64) (int, error) {
+	if signupID <= 0 {
+		return 0, errors.New("signupID is required")
+	}
+	var n int
+	if err := s.Pool.QueryRow(ctx, `
+		SELECT COUNT(m.id)
+		  FROM case_volunteer_chat_threads t
+		  JOIN case_volunteer_chat_messages m ON m.thread_id = t.id
+		 WHERE t.signup_id = $1`, signupID,
+	).Scan(&n); err != nil {
+		return 0, fmt.Errorf("count chat messages for signup %d: %w", signupID, err)
+	}
+	return n, nil
+}
+
 func (s *Store) GetThread(ctx context.Context, threadID int64) (Thread, error) {
 	var t Thread
 	err := s.Pool.QueryRow(ctx, `
