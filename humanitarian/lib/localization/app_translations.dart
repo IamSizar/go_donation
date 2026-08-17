@@ -436,6 +436,12 @@ class AppTranslations extends Translations {
         'this app, then try again.',
     // Everything below crosses the network and takes a recovery clause.
     'error_role_change_failed': 'Could not change your account type.',
+    'error_history_load_failed': 'Could not load your record.',
+    'error_otp_send_failed': 'Could not send the verification code.',
+    'error_otp_verify_failed': 'Could not verify that code.',
+    'error_password_setup_failed': 'Could not set your password.',
+    'error_message_send_failed': 'Could not send your message.',
+    'error_messages_load_failed': 'Could not load this conversation.',
     'error_privacy_settings_save_failed':
         'Could not save your privacy settings.',
     'error_service_request_failed': 'Could not send your service request.',
@@ -3347,6 +3353,12 @@ class AppTranslations extends Translations {
         'تعذّر تحديد موقعك. تأكّد من تفعيل خدمة الموقع لهذا التطبيق ثم حاول '
         'مرة أخرى.',
     'error_role_change_failed': 'تعذّر تغيير نوع حسابك.',
+    'error_history_load_failed': 'تعذّر تحميل سجلك.',
+    'error_otp_send_failed': 'تعذّر إرسال رمز التحقق.',
+    'error_otp_verify_failed': 'تعذّر التحقق من الرمز.',
+    'error_password_setup_failed': 'تعذّر تعيين كلمة المرور.',
+    'error_message_send_failed': 'تعذّر إرسال رسالتك.',
+    'error_messages_load_failed': 'تعذّر تحميل هذه المحادثة.',
     'error_privacy_settings_save_failed': 'تعذّر حفظ إعدادات الخصوصية.',
     'error_service_request_failed': 'تعذّر إرسال طلب الخدمة.',
     'error_subscription_failed': 'تعذّر إتمام اشتراكك.',

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter_application_1/localization/failure_message.dart';
 import 'package:flutter_application_1/api/links.dart';
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/core/app_sound.dart';
@@ -192,7 +193,7 @@ class ChatThreadController extends GetxController {
       }
       return true;
     } catch (e) {
-      errorMessage.value = e.toString().replaceFirst('Exception: ', '');
+      errorMessage.value = failureMessage(e, 'error_messages_load_failed');
       return false;
     } finally {
       isSending.value = false;

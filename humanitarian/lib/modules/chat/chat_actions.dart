@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/localization/failure_message.dart';
 import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/modules/chat/controllers/chat_controller.dart';
 import 'package:flutter_application_1/modules/chat/screens/chat_conversation_screen.dart';
@@ -82,7 +83,7 @@ abstract final class ChatActions {
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        SnackBar(content: Text(failureMessage(e, 'error_message_send_failed'))),
       );
     }
   }
@@ -124,7 +125,7 @@ abstract final class ChatActions {
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        SnackBar(content: Text(failureMessage(e, 'error_message_send_failed'))),
       );
     }
   }

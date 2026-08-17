@@ -368,11 +368,7 @@ class _SocialChip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.public_rounded,
-              size: 17,
-              color: AppThemeConfig.primary,
-            ),
+            Icon(Icons.public_rounded, size: 17, color: AppThemeConfig.primary),
             const SizedBox(width: 8),
             Text(
               label,

@@ -354,14 +354,12 @@ class ModuleApi {
     Map<String, dynamic> body,
   ) async {
     final request = http.Request(method, Uri.parse(url))
-      ..headers.addAll(withApiAuthHeaders(const {
-        'Content-Type': 'application/json',
-      }))
+      ..headers.addAll(
+        withApiAuthHeaders(const {'Content-Type': 'application/json'}),
+      )
       ..body = jsonEncode(withApiAuthJsonBody(body));
 
-    final streamed = await http.Client()
-        .send(request)
-        .timeout(_requestTimeout);
+    final streamed = await http.Client().send(request).timeout(_requestTimeout);
     final response = await http.Response.fromStream(streamed);
 
     final decoded = _decodeJson(response);
@@ -379,7 +377,8 @@ class ModuleApi {
     throw ApiCodedException(
       code: (map['code'] ?? '').toString().trim(),
       developerMessage:
-          (map['error'] ?? 'Request failed (${response.statusCode})').toString(),
+          (map['error'] ?? 'Request failed (${response.statusCode})')
+              .toString(),
     );
   }
 

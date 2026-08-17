@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_application_1/api/history_api.dart';
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/realtime_polling.dart';
+import 'package:flutter_application_1/localization/failure_message.dart';
 import 'package:get/get.dart';
 
 class RoleHistoryController extends GetxController with RealtimePollingMixin {
@@ -99,7 +101,18 @@ class RoleHistoryController extends GetxController with RealtimePollingMixin {
       if (!silent) {
         items.clear();
         summary.clear();
-        errorMessage.value = e.toString();
+        // Was e.toString(), which printed the raw Dart exception into the error
+        // card — "Exception: Request failed (401)". Three faults in one line:
+        // a status code the reader cannot act on, an English sentence on an
+        // Arabic screen, and the implication that the app broke rather than a
+        // request failing. The same file already resolves a message key two
+        // branches below, so the leak was local, not a missing convention.
+        //
+        // failureMessage adds "what to do next" and distinguishes offline from
+        // a server refusal; the technical text goes to the log, where it is
+        // still available to whoever gets the report.
+        debugPrint('RoleHistory: load failed: $e');
+        errorMessage.value = failureMessage(e, 'error_history_load_failed');
       }
       // Silent polls preserve the previous history view on transient errors.
     } finally {

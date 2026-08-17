@@ -540,7 +540,10 @@ class _FilterSection extends StatelessWidget {
                 ('read', 'Read'),
               ])
                 ChoiceChip(
-                  label: Text(entry.$2.tr, style: const TextStyle(fontSize: 13)),
+                  label: Text(
+                    entry.$2.tr,
+                    style: const TextStyle(fontSize: 13),
+                  ),
                   selected: controller.selectedReadStatus.value == entry.$1,
                   onSelected: (_) => controller.setReadStatus(entry.$1),
                   visualDensity: VisualDensity.compact,

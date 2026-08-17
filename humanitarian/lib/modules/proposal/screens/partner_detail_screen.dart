@@ -51,11 +51,12 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
   /// list uses. This page is handed its partner map by whoever opened it (the
   /// list, or a Home logo card), and both of those already read
   /// [PartnersController], so there is no second copy of the policy to drift.
-  bool _ratingsVisible() => (Get.isRegistered<PartnersController>()
-          ? Get.find<PartnersController>()
-          : Get.put(PartnersController()))
-      .ratingsVisible
-      .value;
+  bool _ratingsVisible() =>
+      (Get.isRegistered<PartnersController>()
+              ? Get.find<PartnersController>()
+              : Get.put(PartnersController()))
+          .ratingsVisible
+          .value;
 
   @override
   void initState() {

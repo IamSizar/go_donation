@@ -52,8 +52,11 @@ void main() {
       for (final s in orderStatuses) {
         final label = localizedTag(s);
         expect(label, isNotEmpty);
-        expect(RegExp(r'[A-Za-z]').hasMatch(label), isFalse,
-            reason: '$s rendered as "$label" in Arabic');
+        expect(
+          RegExp(r'[A-Za-z]').hasMatch(label),
+          isFalse,
+          reason: '$s rendered as "$label" in Arabic',
+        );
       }
     });
 
@@ -65,8 +68,11 @@ void main() {
       Get.locale = const Locale('ar', 'SA');
       for (final s in orderStatuses) {
         final rendered = localizedTag(s).tr.toUpperCase();
-        expect(RegExp(r'[A-Za-z]').hasMatch(rendered), isFalse,
-            reason: '$s survived as "$rendered" after the tag re-translated it');
+        expect(
+          RegExp(r'[A-Za-z]').hasMatch(rendered),
+          isFalse,
+          reason: '$s survived as "$rendered" after the tag re-translated it',
+        );
       }
     });
 
@@ -109,8 +115,11 @@ void main() {
 
       Get.locale = const Locale('en', 'US');
       final english = localizedDate(raw);
-      expect(RegExp(r'[A-Za-z]').hasMatch(english), isTrue,
-          reason: 'English should render a Latin month name');
+      expect(
+        RegExp(r'[A-Za-z]').hasMatch(english),
+        isTrue,
+        reason: 'English should render a Latin month name',
+      );
 
       Get.locale = const Locale('ar', 'SA');
       final arabic = localizedDate(raw);

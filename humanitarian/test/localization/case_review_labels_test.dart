@@ -54,8 +54,11 @@ void main() {
     test('every status has a real English label, not the raw token', () {
       for (final s in caseStatuses) {
         expect(localizedTag(s), isNot(s), reason: '$s rendered as its token');
-        expect(localizedTag(s), isNot(contains('_')),
-            reason: '$s leaked snake_case');
+        expect(
+          localizedTag(s),
+          isNot(contains('_')),
+          reason: '$s leaked snake_case',
+        );
       }
     });
 
@@ -66,8 +69,11 @@ void main() {
       for (final s in caseStatuses) {
         final label = localizedTag(s);
         expect(label, isNotEmpty);
-        expect(RegExp(r'[A-Za-z]').hasMatch(label), isFalse,
-            reason: '$s rendered as "$label" in Arabic');
+        expect(
+          RegExp(r'[A-Za-z]').hasMatch(label),
+          isFalse,
+          reason: '$s rendered as "$label" in Arabic',
+        );
       }
     });
 
@@ -76,8 +82,11 @@ void main() {
       for (final p in priorities) {
         final label = localizedTag(p);
         expect(label, isNotEmpty);
-        expect(RegExp(r'[A-Za-z]').hasMatch(label), isFalse,
-            reason: '$p rendered as "$label" in Arabic');
+        expect(
+          RegExp(r'[A-Za-z]').hasMatch(label),
+          isFalse,
+          reason: '$p rendered as "$label" in Arabic',
+        );
       }
     });
 
@@ -92,8 +101,11 @@ void main() {
       ]) {
         Get.locale = locale;
         for (final s in caseStatuses) {
-          expect(localizedTag(s), isNot(contains('_')),
-              reason: '$s leaked its token in $locale');
+          expect(
+            localizedTag(s),
+            isNot(contains('_')),
+            reason: '$s leaked its token in $locale',
+          );
         }
       }
     });
@@ -120,8 +132,11 @@ void main() {
     test('the Arabic labels are Arabic, not English left in place', () {
       Get.locale = const Locale('ar', 'SA');
       for (final k in labels) {
-        expect(RegExp(r'[A-Za-z]').hasMatch(k.tr), isFalse,
-            reason: '$k reads "${k.tr}" in Arabic');
+        expect(
+          RegExp(r'[A-Za-z]').hasMatch(k.tr),
+          isFalse,
+          reason: '$k reads "${k.tr}" in Arabic',
+        );
       }
     });
 
@@ -142,8 +157,11 @@ void main() {
           Get.locale = const Locale('en', 'US');
           final english = k.tr;
           Get.locale = const Locale('ar', 'IQ');
-          expect(k.tr, english,
-              reason: 'no Sorani entry, so English is the required fallback');
+          expect(
+            k.tr,
+            english,
+            reason: 'no Sorani entry, so English is the required fallback',
+          );
         }
       }
     });

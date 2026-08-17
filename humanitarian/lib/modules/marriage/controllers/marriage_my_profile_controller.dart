@@ -47,7 +47,10 @@ class MarriageMyProfileController extends GetxController
   /// paused, and an alert shaped like a staff decision would misreport who
   /// made it. The snapshot still moves, so the next poll does not report the
   /// change late.
-  Future<void> fetchProfiles({bool silent = false, bool announce = true}) async {
+  Future<void> fetchProfiles({
+    bool silent = false,
+    bool announce = true,
+  }) async {
     if (!silent) {
       isLoading.value = true;
       errorMessage.value = null;

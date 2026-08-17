@@ -59,17 +59,21 @@ void main() {
       expect(profileSaveMessage(result).title, 'Profile updated');
     });
 
-    test('name queued — the message says so and does not claim it is saved', () {
-      final message = profileSaveMessage(resultWithPending([fieldFullName]));
-      expect(message.title, 'Saved — waiting for approval');
-      expect(message.body, contains('name'));
-      // The exact regression: the old sentence must not be what is shown.
-      expect(message.body, isNot('Your profile details have been saved.'));
-    });
+    test(
+      'name queued — the message says so and does not claim it is saved',
+      () {
+        final message = profileSaveMessage(resultWithPending([fieldFullName]));
+        expect(message.title, 'Saved — waiting for approval');
+        expect(message.body, contains('name'));
+        // The exact regression: the old sentence must not be what is shown.
+        expect(message.body, isNot('Your profile details have been saved.'));
+      },
+    );
 
     test('photo queued — names the photo, not the name', () {
-      final message =
-          profileSaveMessage(resultWithPending([fieldProfilePicture]));
+      final message = profileSaveMessage(
+        resultWithPending([fieldProfilePicture]),
+      );
       expect(message.title, 'Saved — waiting for approval');
       expect(message.body, contains('photo'));
       expect(message.body, isNot(contains('name')));

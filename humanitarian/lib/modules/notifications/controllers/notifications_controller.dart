@@ -334,7 +334,8 @@ class NotificationsController extends GetxController {
     // and when it did fire it opened a blank compose form rather than the
     // ticket whose reply the user was being told about.
     final type = notification.notificationType;
-    if (type.startsWith('support_ticket') || type.startsWith('support_request')) {
+    if (type.startsWith('support_ticket') ||
+        type.startsWith('support_request')) {
       return () => Get.to(() => const TechnicalSupportScreen());
     }
     switch (type) {

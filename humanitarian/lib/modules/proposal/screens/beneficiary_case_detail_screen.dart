@@ -26,7 +26,9 @@ class BeneficiaryCaseDetailScreen extends StatelessWidget {
     final reviewedBy = (caseItem['reviewed_by_name'] ?? '').toString().trim();
     final reviewedAt = localizedDate(caseItem['reviewed_at']);
     final hasReview =
-        reviewNotes.isNotEmpty || reviewedBy.isNotEmpty || reviewedAt.isNotEmpty;
+        reviewNotes.isNotEmpty ||
+        reviewedBy.isNotEmpty ||
+        reviewedAt.isNotEmpty;
 
     return GradientScreen(
       child: SafeArea(

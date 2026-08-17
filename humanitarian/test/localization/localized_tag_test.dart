@@ -121,9 +121,7 @@ const notificationTypes = <String>[
 /// translations to resolve. Mirrors `test/widgets/app_states_test.dart`.
 Widget _host(Widget child, {TextDirection direction = TextDirection.rtl}) {
   return MaterialApp(
-    theme: ThemeData(
-      extensions: <ThemeExtension<dynamic>>[AppColors.light],
-    ),
+    theme: ThemeData(extensions: <ThemeExtension<dynamic>>[AppColors.light]),
     home: Directionality(
       textDirection: direction,
       child: Scaffold(body: child),
@@ -189,8 +187,7 @@ void main() {
       expect(RegExp(r'[A-Za-z]').hasMatch(label), isFalse);
     });
 
-    test('a snake_case token never survives to the screen, in any language',
-        () {
+    test('a snake_case token never survives to the screen, in any language', () {
       // The humanising branch must run for EVERY locale, not just English.
       // A Kurdish reader seeing "garden_tools" is the same defect as an Arabic
       // one seeing it.
@@ -201,31 +198,39 @@ void main() {
         Locale('ar', 'TR'),
       ]) {
         Get.locale = locale;
-        expect(localizedTag('garden_tools'), isNot(contains('_')),
-            reason: 'raw token leaked in $locale');
+        expect(
+          localizedTag('garden_tools'),
+          isNot(contains('_')),
+          reason: 'raw token leaked in $locale',
+        );
       }
     });
 
-    test('a tag translated only in English degrades to English, not Kurdish',
-        () {
-      // Kurdish is deliberately incomplete. `beauty_care` has no Sorani entry,
-      // so a Sorani reader must get the ENGLISH label — not the Badini one,
-      // which is what GetX's language-only fallback used to hand back.
-      Get.locale = const Locale('ar', 'IQ');
-      final sorani = localizedTag('beauty_care');
-      Get.locale = const Locale('en', 'US');
-      final english = localizedTag('beauty_care');
+    test(
+      'a tag translated only in English degrades to English, not Kurdish',
+      () {
+        // Kurdish is deliberately incomplete. `beauty_care` has no Sorani entry,
+        // so a Sorani reader must get the ENGLISH label — not the Badini one,
+        // which is what GetX's language-only fallback used to hand back.
+        Get.locale = const Locale('ar', 'IQ');
+        final sorani = localizedTag('beauty_care');
+        Get.locale = const Locale('en', 'US');
+        final english = localizedTag('beauty_care');
 
-      expect(sorani, isNotEmpty);
-      expect(sorani, isNot('beauty_care'));
-      // Either a real Sorani label exists, or it falls back to English. What
-      // it must NEVER be is Arabic or Badini text picked up by accident.
-      final soraniEntry = AppTranslations.soraniForTest['beauty_care'];
-      if (soraniEntry == null) {
-        expect(sorani, english,
-            reason: 'no Sorani entry, so English is the required fallback');
-      }
-    });
+        expect(sorani, isNotEmpty);
+        expect(sorani, isNot('beauty_care'));
+        // Either a real Sorani label exists, or it falls back to English. What
+        // it must NEVER be is Arabic or Badini text picked up by accident.
+        final soraniEntry = AppTranslations.soraniForTest['beauty_care'];
+        if (soraniEntry == null) {
+          expect(
+            sorani,
+            english,
+            reason: 'no Sorani entry, so English is the required fallback',
+          );
+        }
+      },
+    );
   });
 
   group('the backend tags actually rendered by the app', () {
@@ -244,8 +249,11 @@ void main() {
         for (final t in postTypes) {
           final label = localizedTag(t);
           expect(label, isNotEmpty);
-          expect(label, isNot(t),
-              reason: '$t rendered as the raw token in $locale');
+          expect(
+            label,
+            isNot(t),
+            reason: '$t rendered as the raw token in $locale',
+          );
         }
       }
     });
@@ -273,8 +281,11 @@ void main() {
         for (final s in signupStatuses) {
           final label = localizedTag(s);
           expect(label, isNotEmpty);
-          expect(label, isNot(s),
-              reason: '$s rendered as the raw token in $locale');
+          expect(
+            label,
+            isNot(s),
+            reason: '$s rendered as the raw token in $locale',
+          );
         }
       }
     });
@@ -286,8 +297,11 @@ void main() {
       Get.locale = const Locale('ar', 'SA');
       for (final s in signupStatuses) {
         final label = localizedTag(s);
-        expect(RegExp(r'[A-Za-z]').hasMatch(label), isFalse,
-            reason: '$s rendered as "$label" in Arabic');
+        expect(
+          RegExp(r'[A-Za-z]').hasMatch(label),
+          isFalse,
+          reason: '$s rendered as "$label" in Arabic',
+        );
       }
     });
 
@@ -296,8 +310,11 @@ void main() {
       // fallback when that key is absent. Either way no underscore may show.
       Get.locale = const Locale('ar', 'SA');
       for (final s in supportStatuses) {
-        expect('status_$s'.tr, isNot('status_$s'),
-            reason: 'status_$s has no Arabic entry');
+        expect(
+          'status_$s'.tr,
+          isNot('status_$s'),
+          reason: 'status_$s has no Arabic entry',
+        );
         expect(localizedTag(s), isNot(contains('_')));
       }
     });
@@ -331,8 +348,11 @@ void main() {
       for (final t in notificationTypes) {
         final label = localizedTag(t);
         expect(label, isNotEmpty);
-        expect(RegExp(r'[A-Za-z]').hasMatch(label), isFalse,
-            reason: '$t rendered as "$label" in Arabic');
+        expect(
+          RegExp(r'[A-Za-z]').hasMatch(label),
+          isFalse,
+          reason: '$t rendered as "$label" in Arabic',
+        );
       }
     });
 
@@ -349,7 +369,11 @@ void main() {
         Get.locale = locale;
         final label = localizedTag('some_future_backend_type');
         expect(label, isNotEmpty);
-        expect(label, isNot(contains('_')), reason: 'raw token leaked in $locale');
+        expect(
+          label,
+          isNot(contains('_')),
+          reason: 'raw token leaked in $locale',
+        );
       }
     });
   });
@@ -362,19 +386,22 @@ void main() {
   // Arabic entry already existed and a map-coverage test would have passed
   // while the defect was on screen. Only pumping the dialog catches it.
   group('notification detail dialog', () {
-    testWidgets('the category badge is Arabic, like the card behind it',
-        (tester) async {
+    testWidgets('the category badge is Arabic, like the card behind it', (
+      tester,
+    ) async {
       Get.locale = const Locale('ar', 'SA');
       final n = _urgentNotification();
 
-      await tester.pumpWidget(_host(
-        Builder(
-          builder: (context) => TextButton(
-            onPressed: () => showNotificationDetail(context, n),
-            child: const Text('open'),
+      await tester.pumpWidget(
+        _host(
+          Builder(
+            builder: (context) => TextButton(
+              onPressed: () => showNotificationDetail(context, n),
+              child: const Text('open'),
+            ),
           ),
         ),
-      ));
+      );
       await tester.tap(find.text('open'));
       await tester.pumpAndSettle();
 
@@ -382,10 +409,16 @@ void main() {
       final cardLabel = n.categoryLabel.tr;
       expect(cardLabel, 'عاجل');
       // The dialog must agree with it.
-      expect(find.text(cardLabel), findsOneWidget,
-          reason: 'the dialog badge disagrees with the list card badge');
-      expect(find.text('Urgent'), findsNothing,
-          reason: 'the English category label reached the Arabic dialog');
+      expect(
+        find.text(cardLabel),
+        findsOneWidget,
+        reason: 'the dialog badge disagrees with the list card badge',
+      );
+      expect(
+        find.text('Urgent'),
+        findsNothing,
+        reason: 'the English category label reached the Arabic dialog',
+      );
     });
 
     test('every category label has an Arabic entry to resolve to', () {
@@ -400,8 +433,11 @@ void main() {
         'Reminder',
         'Normal',
       ]) {
-        expect(RegExp(r'[A-Za-z]').hasMatch(label.tr), isFalse,
-            reason: '$label has no Arabic entry');
+        expect(
+          RegExp(r'[A-Za-z]').hasMatch(label.tr),
+          isFalse,
+          reason: '$label has no Arabic entry',
+        );
       }
     });
   });
@@ -465,8 +501,11 @@ void main() {
       // invisible to the whole mechanism, including the Kurdish layering that
       // reads `_en` as its base.
       for (final s in untranslated) {
-        expect(AppTranslations.englishForTest.containsKey(s), isTrue,
-            reason: 'no _en entry for "$s"');
+        expect(
+          AppTranslations.englishForTest.containsKey(s),
+          isTrue,
+          reason: 'no _en entry for "$s"',
+        );
       }
     });
 
@@ -475,8 +514,11 @@ void main() {
       for (final s in untranslated) {
         final label = s.tr;
         expect(label, isNot(s), reason: '"$s" rendered verbatim in Arabic');
-        expect(RegExp(r'[A-Za-z]').hasMatch(label), isFalse,
-            reason: '"$s" rendered as "$label" in Arabic');
+        expect(
+          RegExp(r'[A-Za-z]').hasMatch(label),
+          isFalse,
+          reason: '"$s" rendered as "$label" in Arabic',
+        );
       }
     });
   });
@@ -493,8 +535,11 @@ void main() {
         for (final t in notificationTypes) {
           final label = localizedTag(t);
           expect(label, isNotEmpty, reason: '$t vanished in $locale');
-          expect(label, isNot(contains('_')),
-              reason: '$t leaked as a token in $locale');
+          expect(
+            label,
+            isNot(contains('_')),
+            reason: '$t leaked as a token in $locale',
+          );
         }
       }
     });

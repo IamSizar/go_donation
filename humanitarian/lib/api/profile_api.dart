@@ -391,7 +391,10 @@ const String fieldProfilePicture = 'profile_picture';
   final picture = result.isPicturePending;
 
   if (!name && !picture) {
-    return (title: 'Profile updated', body: 'Your profile details have been saved.');
+    return (
+      title: 'Profile updated',
+      body: 'Your profile details have been saved.',
+    );
   }
   // "Your other details are saved" is load-bearing: address and gender DO
   // apply immediately, so a message that only mentioned the review would be
@@ -400,18 +403,21 @@ const String fieldProfilePicture = 'profile_picture';
   if (name && picture) {
     return (
       title: title,
-      body: 'Your other details are saved. Your new name and photo need staff approval before they appear.',
+      body:
+          'Your other details are saved. Your new name and photo need staff approval before they appear.',
     );
   }
   if (name) {
     return (
       title: title,
-      body: 'Your other details are saved. Your new name needs staff approval before it appears.',
+      body:
+          'Your other details are saved. Your new name needs staff approval before it appears.',
     );
   }
   return (
     title: title,
-    body: 'Your other details are saved. Your new photo needs staff approval before it appears.',
+    body:
+        'Your other details are saved. Your new photo needs staff approval before it appears.',
   );
 }
 

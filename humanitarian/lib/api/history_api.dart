@@ -85,9 +85,9 @@ Future<HistoryLookup> fetchHistoryByCode(String code) async {
     return const HistoryLookup(HistoryLookupOutcome.notFound);
   }
 
-  final uri = Uri.parse(roleHistoryUrl).replace(
-    queryParameters: withApiAuthQueryParameters({'code': trimmed}),
-  );
+  final uri = Uri.parse(
+    roleHistoryUrl,
+  ).replace(queryParameters: withApiAuthQueryParameters({'code': trimmed}));
 
   try {
     final response = await http

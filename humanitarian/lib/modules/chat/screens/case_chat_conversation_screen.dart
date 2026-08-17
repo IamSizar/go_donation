@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter_application_1/localization/failure_message.dart';
 import 'package:flutter_application_1/core/widgets/app_main_menu_button.dart';
 
 import 'package:flutter/material.dart';
@@ -121,9 +122,11 @@ class _CaseChatConversationScreenState
       await _load(silent: true);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.toString())));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(failureMessage(e, 'error_message_send_failed')),
+          ),
+        );
         _input.text = text;
       }
     } finally {

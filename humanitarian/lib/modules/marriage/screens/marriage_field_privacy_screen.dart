@@ -117,7 +117,9 @@ class _MarriageFieldPrivacyScreenState
       if (!mounted) return;
       // Reuses the user-profile privacy screen's wording — it is the same
       // sentence about the same kind of list, and it already has Arabic.
-      setState(() => _error = 'Could not refresh the list of fields you can hide.');
+      setState(
+        () => _error = 'Could not refresh the list of fields you can hide.',
+      );
       debugPrint('getMarriagePrivacyOptions failed: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -216,9 +218,7 @@ class _MarriageFieldPrivacyScreenState
                     key: Key('marriage_privacy_${o.fieldKey}'),
                     contentPadding: EdgeInsets.zero,
                     value: !_hidden.contains(o.fieldKey),
-                    onChanged: _saving
-                        ? null
-                        : (v) => _toggle(o.fieldKey, v),
+                    onChanged: _saving ? null : (v) => _toggle(o.fieldKey, v),
                     title: Text(
                       // Server data, so localizedTag rather than `.tr`, which
                       // hands the key back when there is no entry.

@@ -51,7 +51,8 @@ void main() {
     expect(
       key,
       isNotEmpty,
-      reason: 'Expected at least one English key with no Kurdish translation; '
+      reason:
+          'Expected at least one English key with no Kurdish translation; '
           'without one this test proves nothing.',
     );
     return key;
@@ -65,7 +66,8 @@ void main() {
       expect(
         key.tr,
         english[key],
-        reason: 'A key with no Sorani translation must show the English '
+        reason:
+            'A key with no Sorani translation must show the English '
             'string. Showing Badini would be wrong-language text, which never '
             'falls back and is worse than a missing translation.',
       );
@@ -86,34 +88,30 @@ void main() {
       expect(key.tr, isNot(arabic[key]));
     });
 
-    test(
-      'REMOVING a contaminated Kurdish value yields English, not the other '
-      'Kurdish map',
-      () {
-        // The exact shape of the contamination fix: a key translated in both
-        // Kurdish maps has its Sorani value removed. Sorani users must then
-        // read English — not the Badini string, which carries the same
-        // untranslated Arabic word the removal was meant to eliminate.
-        const key = 'Eligibles';
-        expect(english.containsKey(key), isTrue);
+    test('REMOVING a contaminated Kurdish value yields English, not the other '
+        'Kurdish map', () {
+      // The exact shape of the contamination fix: a key translated in both
+      // Kurdish maps has its Sorani value removed. Sorani users must then
+      // read English — not the Badini string, which carries the same
+      // untranslated Arabic word the removal was meant to eliminate.
+      const key = 'Eligibles';
+      expect(english.containsKey(key), isTrue);
 
-        // Remove from the RAW Sorani map and republish it the way
-        // AppTranslations does — English underneath. This is exactly what
-        // deleting the entry from the source file produces.
-        final rawSoraniMinusOne = Map<String, String>.from(sorani)
-          ..remove(key);
-        Get.clearTranslations();
-        Get.addTranslations({
-          'en_US': english,
-          'ar_IQ': {...english, ...rawSoraniMinusOne},
-          'ar_TR': {...english, ...badini},
-          'ar_SA': arabic,
-        });
-        Get.locale = const Locale('ar', 'IQ');
+      // Remove from the RAW Sorani map and republish it the way
+      // AppTranslations does — English underneath. This is exactly what
+      // deleting the entry from the source file produces.
+      final rawSoraniMinusOne = Map<String, String>.from(sorani)..remove(key);
+      Get.clearTranslations();
+      Get.addTranslations({
+        'en_US': english,
+        'ar_IQ': {...english, ...rawSoraniMinusOne},
+        'ar_TR': {...english, ...badini},
+        'ar_SA': arabic,
+      });
+      Get.locale = const Locale('ar', 'IQ');
 
-        expect(key.tr, english[key]);
-      },
-    );
+      expect(key.tr, english[key]);
+    });
   });
 
   group('Arabic is never served Kurdish', () {

@@ -38,89 +38,197 @@ class _KeyFamily {
 
 const List<_KeyFamily> _families = [
   // ─── registration_form.dart — hardcoded const option lists ───
-  _KeyFamily('education_',
-      ['none', 'primary', 'secondary', 'diploma', 'bachelor', 'master', 'phd'],
-      'registration_form.dart:1852/2523/4140 and marriage_form_screen.dart:1181'),
-  _KeyFamily('nationality_', ['iraqi', 'syrian', 'egyptian', 'gulf', 'other'],
-      'registration_form.dart:2125/3769, marriage_form_screen.dart:949'),
   _KeyFamily(
-      'marital_',
-      ['single', 'engaged', 'married', 'separated', 'widowed', 'divorced', 'other'],
-      'registration_form.dart:2156/4092'),
-  _KeyFamily('residency_', ['local', 'returnee', 'displaced', 'refugee', 'other'],
-      'registration_form.dart:2190, marriage_form_screen.dart:971'),
-  _KeyFamily('housing_side_', ['right', 'left', 'other'],
-      'registration_form.dart:2256/3887, marriage_form_screen.dart:1018'),
+    'education_',
+    ['none', 'primary', 'secondary', 'diploma', 'bachelor', 'master', 'phd'],
+    'registration_form.dart:1852/2523/4140 and marriage_form_screen.dart:1181',
+  ),
+  _KeyFamily(
+    'nationality_',
+    ['iraqi', 'syrian', 'egyptian', 'gulf', 'other'],
+    'registration_form.dart:2125/3769, marriage_form_screen.dart:949',
+  ),
+  _KeyFamily('marital_', [
+    'single',
+    'engaged',
+    'married',
+    'separated',
+    'widowed',
+    'divorced',
+    'other',
+  ], 'registration_form.dart:2156/4092'),
+  _KeyFamily('residency_', [
+    'local',
+    'returnee',
+    'displaced',
+    'refugee',
+    'other',
+  ], 'registration_form.dart:2190, marriage_form_screen.dart:971'),
+  _KeyFamily(
+    'housing_side_',
+    ['right', 'left', 'other'],
+    'registration_form.dart:2256/3887, marriage_form_screen.dart:1018',
+  ),
   // Union of both sites: the volunteer variant drops `usage`, the eligible one
   // includes it, so the union is what must be backed.
-  _KeyFamily('housing_type_',
-      ['owned', 'rented', 'inherited', 'shared', 'usage', 'other'],
-      'registration_form.dart:2377 (with usage) + 3986, marriage_form_screen.dart:1113'),
-  _KeyFamily('floors_', ['one', 'one_half', 'two', 'three_plus'],
-      'registration_form.dart:2442, marriage_form_screen.dart:1149'),
-  _KeyFamily('yesno_', ['yes', 'no'], 'registration_form.dart (7 sites), marriage_form_screen.dart (6 sites)'),
-  _KeyFamily('smoking_', ['non_smoker', 'smoker', 'former'],
-      'registration_form.dart:2975, marriage_form_screen.dart:1285'),
-  _KeyFamily('eyesight_', ['normal', 'glasses', 'weak', 'blind'],
-      'registration_form.dart:3005, marriage_form_screen.dart:1301'),
-  // Distinct family from housing_type_ — different prefix AND different set.
-  _KeyFamily('housing_', ['owned', 'rented', 'hosted', 'displaced'],
-      'registration_form.dart:3528'),
   _KeyFamily(
-      'language_',
-      ['arabic', 'english', 'kurdish', 'turkish', 'german', 'french',
-        'chinese_japanese', 'other'],
-      'data/nineveh_districts.dart:22 volunteerLanguages'),
-  _KeyFamily('exp_', ['none', 'lt1', 'y1to3', 'gt3'], 'registration_form.dart:4424'),
+    'housing_type_',
+    ['owned', 'rented', 'inherited', 'shared', 'usage', 'other'],
+    'registration_form.dart:2377 (with usage) + 3986, marriage_form_screen.dart:1113',
+  ),
+  _KeyFamily('floors_', [
+    'one',
+    'one_half',
+    'two',
+    'three_plus',
+  ], 'registration_form.dart:2442, marriage_form_screen.dart:1149'),
+  _KeyFamily(
+    'yesno_',
+    ['yes', 'no'],
+    'registration_form.dart (7 sites), marriage_form_screen.dart (6 sites)',
+  ),
+  _KeyFamily('smoking_', [
+    'non_smoker',
+    'smoker',
+    'former',
+  ], 'registration_form.dart:2975, marriage_form_screen.dart:1285'),
+  _KeyFamily('eyesight_', [
+    'normal',
+    'glasses',
+    'weak',
+    'blind',
+  ], 'registration_form.dart:3005, marriage_form_screen.dart:1301'),
+  // Distinct family from housing_type_ — different prefix AND different set.
+  _KeyFamily('housing_', [
+    'owned',
+    'rented',
+    'hosted',
+    'displaced',
+  ], 'registration_form.dart:3528'),
+  _KeyFamily('language_', [
+    'arabic',
+    'english',
+    'kurdish',
+    'turkish',
+    'german',
+    'french',
+    'chinese_japanese',
+    'other',
+  ], 'data/nineveh_districts.dart:22 volunteerLanguages'),
+  _KeyFamily('exp_', [
+    'none',
+    'lt1',
+    'y1to3',
+    'gt3',
+  ], 'registration_form.dart:4424'),
 
   // ─── marriage screens ───
-  _KeyFamily('skin_tone_', ['fair', 'medium', 'olive', 'brown', 'dark'],
-      'marriage_form_screen.dart:1249'),
+  _KeyFamily('skin_tone_', [
+    'fair',
+    'medium',
+    'olive',
+    'brown',
+    'dark',
+  ], 'marriage_form_screen.dart:1249'),
   // 8 values — a different family from `marital_` above, which has 7.
   _KeyFamily(
-      'marital_status_',
-      ['single', 'engaged', 'married', 'separated', 'widowed', 'divorced',
-        'separated_never_married', 'other'],
-      'marriage_form_screen.dart:1551, marriage_search_screen.dart:229, '
-      'marriage_profile_edit_screen.dart:43'),
-  _KeyFamily('employment_status_',
-      ['employed', 'unemployed', 'self_employed', 'student'],
-      'marriage_form_screen.dart:1585, marriage_search_screen.dart:261, '
-      'marriage_profile_edit_screen.dart:53'),
-  _KeyFamily('vis_', ['private', 'employee_only', 'matched_summary'],
-      'marriage_form_screen.dart:1621, marriage_profile_edit_screen.dart:59'),
+    'marital_status_',
+    [
+      'single',
+      'engaged',
+      'married',
+      'separated',
+      'widowed',
+      'divorced',
+      'separated_never_married',
+      'other',
+    ],
+    'marriage_form_screen.dart:1551, marriage_search_screen.dart:229, '
+        'marriage_profile_edit_screen.dart:43',
+  ),
+  _KeyFamily(
+    'employment_status_',
+    ['employed', 'unemployed', 'self_employed', 'student'],
+    'marriage_form_screen.dart:1585, marriage_search_screen.dart:261, '
+        'marriage_profile_edit_screen.dart:53',
+  ),
+  _KeyFamily(
+    'vis_',
+    ['private', 'employee_only', 'matched_summary'],
+    'marriage_form_screen.dart:1621, marriage_profile_edit_screen.dart:59',
+  ),
   // BACKEND: CHECK in migrations/058_marriage_mediated_chat.sql:24.
-  _KeyFamily('marriage_chat_status_', ['pending', 'active', 'declined'],
-      'DB CHECK 058_marriage_mediated_chat.sql:24'),
+  _KeyFamily('marriage_chat_status_', [
+    'pending',
+    'active',
+    'declined',
+  ], 'DB CHECK 058_marriage_mediated_chat.sql:24'),
 
   // ─── marketplace ───
   // BACKEND, application-enforced only: marketplaceLabels in
   // backend/internal/handlers/admin_edit.go:597. No DB CHECK exists.
-  _KeyFamily('label_', ['new', 'sale', 'featured', 'used', 'in_stock'],
-      'Go allowlist admin_edit.go:597'),
+  _KeyFamily('label_', [
+    'new',
+    'sale',
+    'featured',
+    'used',
+    'in_stock',
+  ], 'Go allowlist admin_edit.go:597'),
 
   // ─── sponsorship ───
-  _KeyFamily('sched_empty_', ['upcoming', 'due', 'overdue', 'history'],
-      'sponsorship_schedule_screen.dart:28 _filters'),
-  _KeyFamily('sched_status_', ['upcoming', 'due', 'overdue', 'paid', 'skipped'],
-      'DB CHECK 086_sponsorship_schedule.sql:52'),
-  _KeyFamily('sponsorship_', ['weekly', 'monthly', 'quarterly', 'yearly'],
-      'DB CHECK 001_full_v2.sql:592 schedule_interval'),
+  _KeyFamily('sched_empty_', [
+    'upcoming',
+    'due',
+    'overdue',
+    'history',
+  ], 'sponsorship_schedule_screen.dart:28 _filters'),
+  _KeyFamily('sched_status_', [
+    'upcoming',
+    'due',
+    'overdue',
+    'paid',
+    'skipped',
+  ], 'DB CHECK 086_sponsorship_schedule.sql:52'),
+  _KeyFamily('sponsorship_', [
+    'weekly',
+    'monthly',
+    'quarterly',
+    'yearly',
+  ], 'DB CHECK 001_full_v2.sql:592 schedule_interval'),
   // ALL SEVEN. The overview screen (sponsorship_overview_screen.dart:175)
   // applies no status filter, so every DB value reaches a chip — this is the
   // family that shipped `sponsorship_status_cancelled` to users.
   _KeyFamily(
-      'sponsorship_status_',
-      ['pending', 'active', 'paused', 'delayed', 'stopped', 'completed', 'cancelled'],
-      'DB CHECK 001_full_v2.sql:595, unfiltered by sponsorships.go:44'),
+    'sponsorship_status_',
+    [
+      'pending',
+      'active',
+      'paused',
+      'delayed',
+      'stopped',
+      'completed',
+      'cancelled',
+    ],
+    'DB CHECK 001_full_v2.sql:595, unfiltered by sponsorships.go:44',
+  ),
 
   // ─── self-guarded sites (they humanise on miss) — pinned anyway so the
   // translated path stays the one users get ───
-  _KeyFamily('marriage_status_',
-      ['submitted', 'under_review', 'active', 'paused', 'matched', 'rejected', 'closed'],
-      'DB CHECK 001_full_v2.sql:504'),
-  _KeyFamily('status_', ['open', 'in_progress', 'resolved', 'closed'],
-      'DB CHECK 001_full_v2.sql:615 support tickets'),
+  _KeyFamily('marriage_status_', [
+    'submitted',
+    'under_review',
+    'active',
+    'paused',
+    'matched',
+    'rejected',
+    'closed',
+  ], 'DB CHECK 001_full_v2.sql:504'),
+  _KeyFamily('status_', [
+    'open',
+    'in_progress',
+    'resolved',
+    'closed',
+  ], 'DB CHECK 001_full_v2.sql:615 support tickets'),
 ];
 
 void main() {
@@ -153,12 +261,20 @@ void main() {
           }
         }
 
-        expect(missing, isEmpty,
-            reason: 'No English entry — GetX renders these keys verbatim to '
-                'the user. Values come from ${family.source}.');
-        expect(selfReferencing, isEmpty,
-            reason: 'Entry exists but its value is the key itself, so the raw '
-                'token still reaches the user. Values come from ${family.source}.');
+        expect(
+          missing,
+          isEmpty,
+          reason:
+              'No English entry — GetX renders these keys verbatim to '
+              'the user. Values come from ${family.source}.',
+        );
+        expect(
+          selfReferencing,
+          isEmpty,
+          reason:
+              'Entry exists but its value is the key itself, so the raw '
+              'token still reaches the user. Values come from ${family.source}.',
+        );
       });
     }
 
@@ -169,13 +285,18 @@ void main() {
         for (final value in family.values) {
           final key = '${family.prefix}$value';
           final label = arabic[key];
-          if (label == null || label == key || RegExp(r'[A-Za-z]').hasMatch(label)) {
+          if (label == null ||
+              label == key ||
+              RegExp(r'[A-Za-z]').hasMatch(label)) {
             untranslated.add('$key -> ${label ?? "(absent)"}');
           }
         }
       }
-      expect(untranslated, isEmpty,
-          reason: 'The Arabic interface must contain no English (project rule).');
+      expect(
+        untranslated,
+        isEmpty,
+        reason: 'The Arabic interface must contain no English (project rule).',
+      );
     });
   });
 
@@ -189,9 +310,13 @@ void main() {
           .map((e) => e.key)
           .toList();
 
-      expect(offenders, isEmpty,
-          reason: 'These render as raw machine tokens in English, Sorani and '
-              'Badini (the Kurdish buckets merge over English).');
+      expect(
+        offenders,
+        isEmpty,
+        reason:
+            'These render as raw machine tokens in English, Sorani and '
+            'Badini (the Kurdish buckets merge over English).',
+      );
     });
   });
 }

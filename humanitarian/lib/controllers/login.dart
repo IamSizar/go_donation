@@ -7,6 +7,7 @@ import 'package:dio/dio.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 import 'package:flutter_application_1/api/auth_session.dart';
 import 'package:flutter_application_1/api/links.dart';
+import 'package:flutter_application_1/localization/failure_message.dart';
 import 'package:flutter_application_1/api/profile_api.dart';
 import 'package:flutter_application_1/core/app_event_firestore.dart';
 import 'package:flutter_application_1/core/app_haptics.dart';
@@ -268,9 +269,10 @@ class LoginController extends GetxController {
       return true;
     } catch (e, stack) {
       log('OTP send error: $e', stackTrace: stack);
-      errorMessage.value = 'An error occurred: @error'.trParams({
-        'error': e.toString(),
-      });
+      // The raw exception used to be interpolated into this line, so the
+      // user read "Exception: Request failed (401)" inside an otherwise
+      // localized sentence. It is already logged above; the screen gets copy.
+      errorMessage.value = failureMessage(e, 'error_otp_send_failed');
     } finally {
       isLoading.value = false;
     }
@@ -354,9 +356,10 @@ class LoginController extends GetxController {
       return OtpVerifyOutcome.setPassword;
     } catch (e, stack) {
       log('OTP verification error: $e', stackTrace: stack);
-      errorMessage.value = 'An error occurred: @error'.trParams({
-        'error': e.toString(),
-      });
+      // The raw exception used to be interpolated into this line, so the
+      // user read "Exception: Request failed (401)" inside an otherwise
+      // localized sentence. It is already logged above; the screen gets copy.
+      errorMessage.value = failureMessage(e, 'error_otp_verify_failed');
     } finally {
       isLoading.value = false;
     }
@@ -436,9 +439,10 @@ class LoginController extends GetxController {
       return user;
     } catch (e, stack) {
       log('Password setup error: $e', stackTrace: stack);
-      errorMessage.value = 'An error occurred: @error'.trParams({
-        'error': e.toString(),
-      });
+      // The raw exception used to be interpolated into this line, so the
+      // user read "Exception: Request failed (401)" inside an otherwise
+      // localized sentence. It is already logged above; the screen gets copy.
+      errorMessage.value = failureMessage(e, 'error_password_setup_failed');
     } finally {
       isLoading.value = false;
     }
