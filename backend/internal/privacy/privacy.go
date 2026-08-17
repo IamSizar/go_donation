@@ -32,11 +32,15 @@
 //   - This is for USER-FACING paths only. Staff dashboards are governed by a
 //     different, already-implemented mechanism (the `sensitive_data`
 //     permission, admin_detail.go), so admin queries must not use this.
-//   - Only choices the user actually SAVED are enforced. The catalogue's
-//     `default_hidden` column is NOT applied to users who never opened the
-//     screen: honouring it would retroactively hide every user's phone number
-//     app-wide, which is a product decision, not a bug fix. See the K8 row in
-//     VERIFICATION_REPORT.md.
+//   - For a SIGNED-IN reader, only choices the user actually SAVED are
+//     enforced. The catalogue's `default_hidden` column is still NOT applied to
+//     users who never opened the screen: honouring it there would retroactively
+//     hide every user's phone number app-wide, which is a product decision, not
+//     a bug fix. See the K8 row in VERIFICATION_REPORT.md.
+//   - For an ANONYMOUS reader (viewerID 0), `default_hidden` IS applied on top
+//     of the saved choices. The two readers are asking different questions, and
+//     the second one was answered by publishing an applicant's phone and street
+//     address to the open internet. See hiddenFor for the full reasoning.
 package privacy
 
 import (
@@ -112,6 +116,43 @@ func (set Set) AsSeenBy(viewerID int64) Viewer {
 type Viewer struct {
 	set      Set
 	viewerID int64
+	// publicDefaults is the catalogue's `default_hidden` map, loaded only when
+	// viewerID is 0. See hiddenFor.
+	publicDefaults map[string]bool
+}
+
+// hiddenFor decides whether one owner's field is withheld from this viewer.
+//
+// A saved choice always wins. What changes for an anonymous reader is the
+// answer when there is no saved choice, because "no choice" is not the same
+// question in the two cases:
+//
+//   - Signed in: the reader is a known person inside the app, and showing a
+//     field its owner never objected to is the behaviour the app was built on.
+//   - Signed out: the reader is the open internet. A public beneficiary case
+//     was serving a named applicant's phone and street address next to a
+//     description of their hardship, to anyone who fetched the URL, because
+//     the applicant had never opened the Privacy Settings screen.
+//
+// The fallback is the catalogue's own `default_hidden` — the product's stated
+// intent for each field, already recorded in privacy_field_options (phone and
+// address ship true). It was previously applied to nobody, since the comment
+// at the top of this file rightly refused to apply it retroactively app-wide:
+// that is a product decision. Applying it only to unauthenticated readers is
+// the narrow half of that decision that needs no debate — nothing an existing
+// user sees changes.
+//
+// Note this also overrides an owner who deliberately unhid a field, for
+// anonymous readers only. The storage cannot tell that case apart: field_privacy
+// is an array of hidden keys, so "chose to show" and "never opened the screen"
+// are the same empty array. Given the two are indistinguishable, withholding is
+// the direction whose failure mode is a missing phone number rather than a
+// published one.
+func (v Viewer) hiddenFor(ownerID int64, key string) bool {
+	if v.set[ownerID].Hides(key) {
+		return true
+	}
+	return v.viewerID == 0 && v.publicDefaults[key]
 }
 
 // Field returns val unless ownerID asked for that field to be hidden, in
@@ -120,7 +161,7 @@ func (v Viewer) Field(ownerID int64, key string, val *string) *string {
 	if ownerID == 0 || ownerID == v.viewerID {
 		return val
 	}
-	if v.set[ownerID].Hides(key) {
+	if v.hiddenFor(ownerID, key) {
 		return nil
 	}
 	return val
@@ -146,7 +187,7 @@ func (v Viewer) Name(ownerID int64, real *string) *string {
 		out := alias
 		return &out
 	}
-	if s.Hides(FieldFullName) {
+	if v.hiddenFor(ownerID, FieldFullName) {
 		return nil
 	}
 	return real
@@ -226,7 +267,48 @@ func LoadFor(ctx context.Context, pool *pgxpool.Pool, viewerID int64, ownerIDs [
 	if err != nil {
 		return Set{}.AsSeenBy(viewerID), err
 	}
-	return set.AsSeenBy(viewerID), nil
+	v := set.AsSeenBy(viewerID)
+	// Only an anonymous response needs the catalogue, so a signed-in request
+	// pays nothing for this. See hiddenFor.
+	if viewerID == 0 {
+		defaults, dErr := loadPublicDefaults(ctx, pool)
+		if dErr != nil {
+			// Fail closed. Returning the error costs the caller a 500 and the
+			// reader an error state; carrying on without the defaults would
+			// publish the very fields this lookup exists to withhold.
+			return Set{}.AsSeenBy(viewerID), dErr
+		}
+		v.publicDefaults = defaults
+	}
+	return v, nil
+}
+
+// loadPublicDefaults reads the field catalogue's `default_hidden` flags.
+//
+// Read live rather than cached or hardcoded: privacy_field_options is an
+// admin-editable table, and a stale copy would keep publishing a field after
+// someone ticked it hidden. It holds ten rows.
+func loadPublicDefaults(ctx context.Context, pool *pgxpool.Pool) (map[string]bool, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT field_key FROM privacy_field_options WHERE default_hidden = TRUE`)
+	if err != nil {
+		return nil, fmt.Errorf("load public privacy defaults: %w", err)
+	}
+	defer rows.Close()
+	out := map[string]bool{}
+	for rows.Next() {
+		var key string
+		if err := rows.Scan(&key); err != nil {
+			return nil, fmt.Errorf("scan public privacy default: %w", err)
+		}
+		if key = strings.TrimSpace(key); key != "" {
+			out[key] = true
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("read public privacy defaults: %w", err)
+	}
+	return out, nil
 }
 
 // dedupe drops zeroes and repeats so the IN-list stays small on a page where
