@@ -1499,7 +1499,8 @@ class _TopShortcutsRow extends StatelessWidget {
               label: 'Our Products',
               color: AppThemeConfig.accent(context),
               compact: true,
-              onTap: () => Get.to(() => const MarketplaceSection()),
+              onTap: () =>
+                  Get.to(() => const MarketplaceSection(title: 'Our Products')),
             ),
           ),
           const SizedBox(width: 8),

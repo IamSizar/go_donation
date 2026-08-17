@@ -17,15 +17,31 @@ import 'package:flutter_application_1/modules/marketplace/models/catalogue_query
 import 'package:flutter_application_1/modules/marketplace/widgets/catalogue_filter_bar.dart';
 
 class MarketplaceSection extends StatelessWidget {
-  const MarketplaceSection({super.key});
+  const MarketplaceSection({super.key, this.title = ''});
+
+  /// The heading this screen draws for itself, or '' to draw none.
+  ///
+  /// Empty is right in exactly one place: inside the dashboard's المتجر tab,
+  /// where dashboard_screen.dart's persistent top bar already names the screen
+  /// and a second heading would repeat it.
+  ///
+  /// It was hardcoded to '' for that case, but three of the four call sites
+  /// PUSH this widget as its own route — the Home quick action
+  /// (dashboard.dart) and both global-search results — and a pushed route has
+  /// no persistent bar to inherit from. Tapping "منتجاتنا" therefore opened a
+  /// screen with an empty app bar: no name, no context, and a back chevron as
+  /// the only clue to where you were.
+  ///
+  /// Defaulting to '' keeps the embedded case correct without the tab having
+  /// to say so, while letting the pushed callers name themselves.
+  final String title;
 
   @override
   Widget build(BuildContext context) {
-    // Title moved to the persistent top bar (dashboard_screen.dart).
-    return const SectionScaffold(
-      title: '',
+    return SectionScaffold(
+      title: title,
       subtitle: '',
-      child: _MarketplaceList(),
+      child: const _MarketplaceList(),
     );
   }
 }

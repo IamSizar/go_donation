@@ -36,7 +36,7 @@ Future<void> _openSearchResult(Map<String, dynamic> result) async {
       Get.to(() => const NewsActivitiesScreen());
       break;
     case 'product':
-      Get.to(() => const MarketplaceSection());
+      Get.to(() => const MarketplaceSection(title: 'Our Products'));
       break;
     case 'campaign':
       final campaign = await _fetchCampaignEntry(result);
@@ -103,7 +103,7 @@ void _openSection(String type) {
       Get.to(() => const NewsActivitiesScreen());
       break;
     case 'product':
-      Get.to(() => const MarketplaceSection());
+      Get.to(() => const MarketplaceSection(title: 'Our Products'));
       break;
     case 'partner':
       Get.to(() => const PartnersScreen());
