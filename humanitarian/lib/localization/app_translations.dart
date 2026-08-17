@@ -614,7 +614,16 @@ class AppTranslations extends Translations {
     'No places in this sector': 'No places in this sector',
     'Nothing in the guide matches this sector yet. Clear the filter to see every place.':
         'Nothing in the guide matches this sector yet. Clear the filter to see every place.',
+    // The sub-category empty state, one level below the sector one above. Both
+    // strings existed in the widget and in neither map, so AppEmpty — which
+    // runs title and message through .tr — printed English into the Arabic UI.
+    'No places in this sub-category': 'No places in this sub-category',
+    'Nothing here has been tagged with this sub-category yet. Clear it to see the whole sector.':
+        'Nothing here has been tagged with this sub-category yet. Clear it to see the whole sector.',
     'Show all places': 'Show all places',
+    // The sub-category empty state's button, beside the two strings above.
+    // AppEmpty renders it as `actionLabel!.tr`.
+    'Show the whole sector': 'Show the whole sector',
     'These places have no map location yet.\nBrowse them in the row below.':
         'These places have no map location yet.\nBrowse them in the row below.',
     // Locked fields: each says WHY it is locked and, where useful, where the
@@ -2892,6 +2901,10 @@ class AppTranslations extends Translations {
     // J1 — the guest sign-up sheet's name box. The label reuses
     // `pf_full_name`; only the example and the length rule are new here.
     'guest_full_name_hint': 'e.g. Zaid Ahmed',
+    // The username box beside it. It previously passed the bare string
+    // 'guest_name', which was in no map, so the placeholder rendered as the
+    // literal key. A username stays Latin, so the example does too.
+    'guest_name_hint': 'e.g. zaid_ahmed',
     'guest_full_name_too_long':
         'That name is too long. Use 200 characters or fewer.',
     'Use a different number': 'Use a different number',
@@ -3447,7 +3460,12 @@ class AppTranslations extends Translations {
     'No places in this sector': 'لا توجد أماكن في هذا القطاع',
     'Nothing in the guide matches this sector yet. Clear the filter to see every place.':
         'لا يوجد في الدليل ما يطابق هذا القطاع بعد. امسح المرشّح لعرض كل الأماكن.',
+    // حالة الفراغ للتصنيف الفرعي — نظيرة حالة القطاع أعلاه.
+    'No places in this sub-category': 'لا توجد أماكن في هذا التصنيف الفرعي',
+    'Nothing here has been tagged with this sub-category yet. Clear it to see the whole sector.':
+        'لم يُصنَّف أي مكان ضمن هذا التصنيف الفرعي بعد. امسح المرشّح لعرض القطاع بالكامل.',
     'Show all places': 'عرض كل الأماكن',
+    'Show the whole sector': 'عرض القطاع بالكامل',
     'These places have no map location yet.\nBrowse them in the row below.':
         'هذه الأماكن ليس لها موقع على الخريطة بعد.\nتصفّحها في الصف أدناه.',
     'Name and phone come from your verified account. Change them in Profile > Edit profile.':
@@ -5598,6 +5616,8 @@ class AppTranslations extends Translations {
         'استخدم من ٣ إلى ٣٢ حرفًا أو رقمًا أو شرطة سفلية',
     // J1 — انظر التعليق نفسه في الخريطة الإنجليزية.
     'guest_full_name_hint': 'مثال: زيد أحمد',
+    // اسم المستخدم يُكتب بحروف لاتينية، لذلك بقي المثال كما هو.
+    'guest_name_hint': 'مثال: zaid_ahmed',
     'guest_full_name_too_long': 'الاسم طويل جدًا. استخدم ٢٠٠ حرف أو أقل.',
     'Use a different number': 'استخدم رقمًا مختلفًا',
     'User': 'مستخدم',

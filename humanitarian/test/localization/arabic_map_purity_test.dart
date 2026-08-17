@@ -51,6 +51,7 @@ const latinIsIntended = <String>[
   'VIP', // marriage subscription tier, kept as the Latin initialism
   'Sign-In', // part of the Google Sign-In product name
   'name@example.com', // an email FORMAT example, not prose
+  'zaid_ahmed', // a username FORMAT example — usernames are Latin, like the above
 ];
 
 /// Entries whose Arabic is legitimately identical to the English.
@@ -113,10 +114,13 @@ void main() {
     });
 
     test('no Arabic value is still the English string', () {
-      final untranslated = en.keys
-          .where((k) => ar[k] == en[k] && !arabicMayEqualEnglish.contains(k))
-          .toList()
-        ..sort();
+      final untranslated =
+          en.keys
+              .where(
+                (k) => ar[k] == en[k] && !arabicMayEqualEnglish.contains(k),
+              )
+              .toList()
+            ..sort();
       expect(
         untranslated,
         isEmpty,

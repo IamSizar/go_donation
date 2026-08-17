@@ -1125,7 +1125,12 @@ class _GuestAccessSheetState extends State<GuestAccessSheet> {
                   decoration: authInputDecoration(
                     context,
                     label: 'Username'.tr,
-                    hintText: 'guest_name',
+                    // Was 'guest_name', which is not a key in either map.
+                    // authInputDecoration runs hintText through .tr, and GetX
+                    // returns the key unchanged when it misses — so this box
+                    // showed the literal text "guest_name" to every user, in
+                    // every language. Named to match its sibling above.
+                    hintText: 'guest_name_hint',
                     icon: Icons.person_outline_rounded,
                   ),
                   validator: (v) {
