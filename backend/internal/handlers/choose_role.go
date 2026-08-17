@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -100,6 +101,33 @@ func (h *ChooseRoleHandler) Post(c *gin.Context) {
 			"error":   "Failed to update user role.",
 		})
 		return
+	}
+	// The chosen role's identity code, minted here for the same reason it is
+	// minted after the admin role write (admin_status.go, UserRole): until now
+	// every code was assigned on the registration path only, keyed on the role
+	// the account had at that moment, so an account whose role changed
+	// afterwards reported the new role while carrying only the old role's code.
+	// pickIdentityCode then shows the stale one and no search for the new
+	// role's prefix can find the person, because that column is empty.
+	//
+	// In practice this path assigns a code far less often than the admin one:
+	// the gate above means the roles reachable here are a FIRST role (any of
+	// 1/2/3, from role 0), or a self-selectable switch to marriage (5) or back
+	// to guest (0). Neither 5 nor 0 has a code scheme, so those are no-ops by
+	// construction — see identityCodePrefixForRole. It is wired anyway because
+	// the first-role case is real and because leaving one of the two role
+	// writers unwired is exactly how the original gap survived.
+	//
+	// Assign-once: the helpers behind this carry `AND <col> = ''`, so a code
+	// already written on paperwork is never overwritten and a user who has held
+	// two roles keeps both.
+	//
+	// Logged rather than returned: the role write above already succeeded, and
+	// failing the response now would tell the user their role did not change
+	// when it did. A missing code is recoverable; a confusing refusal is not.
+	if err := h.Users.EnsureIdentityCodeForRole(ctx, req.UserID, req.RoleID); err != nil {
+		log.Printf("[identity-code] choose_role to %d for user %d: code not assigned: %v",
+			req.RoleID, req.UserID, err)
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"success":        true,

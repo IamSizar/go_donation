@@ -23,6 +23,7 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/permissions"
 	"github.com/karam-flutter/humanitarian-backend/internal/sponsorships"
 	"github.com/karam-flutter/humanitarian-backend/internal/sponsorshipschedule"
+	"github.com/karam-flutter/humanitarian-backend/internal/users"
 )
 
 // blockIfProtectedTarget enforces A-14: an account may only be modified by
@@ -1415,6 +1416,38 @@ func (h *AdminStatusHandler) UserRole(c *gin.Context) {
 	if ct.RowsAffected() == 0 {
 		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Not found."})
 		return
+	}
+	// The new role's identity code, minted here because until now nothing
+	// minted one outside registration.
+	//
+	// Every code was assigned on the registration path, keyed on the role the
+	// account had at that moment — ER- inline in SubmitRegistration, GR- and
+	// VL- in registration.go's two branches. This endpoint changed role_id and
+	// nothing else, so an account moved here reported a new role while its
+	// profile still carried only the old role's code. Found on user 58
+	// ("said"): registered as a donor (GR-000058), moved to role 2 by staff,
+	// and now shows a donor's code to a recipient (pickIdentityCode's
+	// deliberate fallback) and cannot be found by any ER- search, because
+	// recipient_code is empty for them.
+	//
+	// Assign-once and never destructive: EnsureIdentityCodeForRole delegates to
+	// helpers guarded by `AND <col> = ''`, so a code already on paperwork
+	// survives and an account that has held two roles keeps both. Roles 0, 4
+	// and 5 (guest, employee, marriage) have no code scheme and are a no-op.
+	//
+	// The failure is logged, not returned: the role change itself is already
+	// committed above, and reporting a 500 after a successful write would tell
+	// the operator the change did not happen when it did. A missing code is
+	// recoverable — the next role write, or a backfill, mints it.
+	//
+	// users.NewStore over the handler's own pool rather than a new injected
+	// dependency: this handler holds a *pgxpool.Pool and no user store, and a
+	// users.Store is nothing but that pool, so borrowing it here keeps
+	// NewAdminStatusHandler's signature (and every test that calls it)
+	// untouched while the assign-once SQL stays in one place.
+	if err := users.NewStore(h.Pool).EnsureIdentityCodeForRole(c.Request.Context(), id, req.RoleID); err != nil {
+		log.Printf("[identity-code] role change to %d for user %d: code not assigned: %v",
+			req.RoleID, id, err)
 	}
 	h.logAdminUserEvent(c, id, "role", roleName(req.RoleID))
 	c.JSON(http.StatusOK, gin.H{"success": true, "id": id, "role_id": req.RoleID})

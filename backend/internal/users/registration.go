@@ -522,6 +522,42 @@ func (s *Store) EnsureGrantorCode(ctx context.Context, userID int64) error {
 	return err
 }
 
+// EnsureRecipientCode assigns the Eligible Recipient spec's auto-generated
+// identification code (ER-%06d) to a profile that has none.
+//
+// The code itself is not new — SubmitRegistration mints it inline, at line 128,
+// for anybody whose registration form said role 2. That inline assignment is
+// the whole of it, which is why this function had to exist: it is the only one
+// of the three codes with no Ensure* helper, so the only moment in the entire
+// server that could ever produce an ER- code was a registration submitted as a
+// recipient. An account that BECAME a recipient afterwards got nothing.
+//
+// Found on user 58 ("said") in production: registered as a donor, so the
+// profile carries GR-000058; staff later moved the account to role 2. The
+// server reports role_id 2 with an empty recipient_code, so pickIdentityCode
+// (identity_code.go) falls back and shows this recipient a donor's code, and
+// staff searching an ER- code (users.go, the recipient_code ILIKE) can never
+// find them — the column they are searching is empty.
+//
+// `AND recipient_code = ”` is what makes it assign-once, for the same reason
+// EnsureGrantorCode above carries the same clause: an identity code is quoted
+// in conversation and written on paperwork, so re-minting it on a later role
+// change would stop it identifying anybody, and would also overwrite a code an
+// operator set by hand. A user who has held two roles therefore keeps both
+// codes, and pickIdentityCode decides which one is shown.
+func (s *Store) EnsureRecipientCode(ctx context.Context, userID int64) error {
+	if userID <= 0 {
+		return errors.New("invalid userID")
+	}
+	_, err := s.Pool.Exec(ctx,
+		`UPDATE user_profiles
+		    SET recipient_code = $2
+		  WHERE user_id = $1 AND recipient_code = ''`,
+		userID, "ER-"+pad6(userID),
+	)
+	return err
+}
+
 // VolunteerProfileExtras carries the Volunteer/Employee spec's Personal,
 // Housing, and Social Media sections. Everything else that section asks for
 // (gender, nationality, governorate, marital status, education level, skills,

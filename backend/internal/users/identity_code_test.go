@@ -101,6 +101,186 @@ func TestPickIdentityCode(t *testing.T) {
 	}
 }
 
+// ─── Minting the code a CHANGED role implies ────────────────────────────
+
+// TestIdentityCodePrefixForRole pins which roles have a code scheme and which
+// deliberately have none.
+//
+// This is the decision the fix turns on, so it is tested without a database —
+// the DB-backed tests below skip themselves on a bare checkout, and the rule
+// "role 4 gets nothing, and that is not a failure" must be provable anyway.
+// Same reason normalizeUsername in internal/handlers/admin_status.go is a plain
+// function.
+func TestIdentityCodePrefixForRole(t *testing.T) {
+	tests := []struct {
+		name   string
+		roleID int
+		want   string
+	}{
+		{name: "a donor is minted a GR- code", roleID: 1, want: "GR-"},
+		{name: "an eligible recipient is minted an ER- code", roleID: 2, want: "ER-"},
+		{name: "a volunteer is minted a VL- code", roleID: 3, want: "VL-"},
+		{
+			// Role 0 is the unassigned/browsing state, before a role is picked
+			// and after stepping back to it. There is no column, no prefix and
+			// no migration minting one, so there is nothing honest to assign.
+			name: "a guest has no code scheme", roleID: 0, want: "",
+		},
+		{
+			// Employees are staff, not one of the three roles the client asked
+			// for codes for.
+			name: "an employee has no code scheme", roleID: 4, want: "",
+		},
+		{
+			// The marriage/engagement account type is self-selectable
+			// (choose_role.go) and likewise carries no code column.
+			name: "a marriage account has no code scheme", roleID: 5, want: "",
+		},
+		{name: "an unknown role has no code scheme", roleID: 99, want: ""},
+		{name: "a negative role has no code scheme", roleID: -1, want: ""},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := identityCodePrefixForRole(tc.roleID); got != tc.want {
+				t.Errorf("identityCodePrefixForRole(%d) = %q, want %q", tc.roleID, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestEnsureIdentityCodeForRoleRejectsInvalidUser is the guard clause, the same
+// one every Ensure* helper carries. Silently succeeding on a bad id would hide
+// a caller bug at exactly the layer that is supposed to be forgiving about
+// failures.
+func TestEnsureIdentityCodeForRoleRejectsInvalidUser(t *testing.T) {
+	s := &Store{} // no pool needed: the guard returns before any query
+	if err := s.EnsureIdentityCodeForRole(context.Background(), 0, 2); err == nil {
+		t.Fatal("EnsureIdentityCodeForRole(0, 2) returned nil; want an error")
+	}
+}
+
+// codesOf reads all three identity columns at once, so the assign-once tests
+// can assert both what was written AND what was left alone.
+func codesOf(t *testing.T, pool *pgxpool.Pool, userID int64) (recipient, volunteer, grantor string) {
+	t.Helper()
+	if err := pool.QueryRow(context.Background(),
+		`SELECT recipient_code, volunteer_code, grantor_code
+		   FROM user_profiles WHERE user_id = $1`, userID,
+	).Scan(&recipient, &volunteer, &grantor); err != nil {
+		t.Fatalf("read identity codes for %d: %v", userID, err)
+	}
+	return recipient, volunteer, grantor
+}
+
+// TestRecipientCodeIsAssignedOnce is the missing helper's own row. ER- was the
+// one code with no Ensure* function: it was minted inline in SubmitRegistration
+// and nowhere else, so the only moment the server could ever produce one was a
+// registration form submitted as role 2.
+func TestRecipientCodeIsAssignedOnce(t *testing.T) {
+	pool := newGrantorTestPool(t)
+	s := &Store{Pool: pool}
+	uid := makeUser(t, pool, 2)
+
+	if err := s.EnsureRecipientCode(context.Background(), uid); err != nil {
+		t.Fatalf("EnsureRecipientCode: %v", err)
+	}
+	recipient, _, _ := codesOf(t, pool, uid)
+	want := "ER-" + pad6(uid)
+	if recipient != want {
+		t.Fatalf("recipient got no identity code: recipient_code = %q, want %q", recipient, want)
+	}
+}
+
+// TestRecipientCodeIsStableOnceAssigned pins the assign-once half, mirroring
+// TestGrantorCodeIsStableOnceAssigned. A code is quoted in conversation and
+// printed on paperwork; re-minting it on a later role change would stop it
+// identifying anybody, and would discard a code an operator set by hand.
+func TestRecipientCodeIsStableOnceAssigned(t *testing.T) {
+	pool := newGrantorTestPool(t)
+	s := &Store{Pool: pool}
+	ctx := context.Background()
+	uid := makeUser(t, pool, 2)
+
+	if _, err := pool.Exec(ctx,
+		`UPDATE user_profiles SET recipient_code = 'ER-CUSTOM' WHERE user_id = $1`, uid); err != nil {
+		t.Fatalf("seed custom code: %v", err)
+	}
+	if err := s.EnsureRecipientCode(ctx, uid); err != nil {
+		t.Fatalf("EnsureRecipientCode: %v", err)
+	}
+	if recipient, _, _ := codesOf(t, pool, uid); recipient != "ER-CUSTOM" {
+		t.Fatalf("an existing identity code was overwritten: got %q, want %q", recipient, "ER-CUSTOM")
+	}
+}
+
+// TestEnsureIdentityCodeForRoleMintsTheNewRolesCode is user 58's case, the one
+// observed in production: registered as a donor, so the profile carries
+// GR-000058; staff later moved the account to role 2. Before the fix the
+// account reported role_id 2 with an empty recipient_code, so pickIdentityCode
+// fell back to showing a recipient a DONOR's code, and staff searching an ER-
+// code could never find them because the searched column was empty.
+//
+// The old code is kept, not replaced — somebody who has held two roles holds
+// two codes, and pickIdentityCode is what decides which one is shown.
+func TestEnsureIdentityCodeForRoleMintsTheNewRolesCode(t *testing.T) {
+	pool := newGrantorTestPool(t)
+	s := &Store{Pool: pool}
+	ctx := context.Background()
+	uid := makeUser(t, pool, 1)
+
+	// They registered as a donor and were given the donor's code.
+	if err := s.EnsureGrantorCode(ctx, uid); err != nil {
+		t.Fatalf("EnsureGrantorCode: %v", err)
+	}
+	// Staff move the account to eligible recipient.
+	if _, err := pool.Exec(ctx, `UPDATE users SET role_id = 2 WHERE id = $1`, uid); err != nil {
+		t.Fatalf("change role: %v", err)
+	}
+	if err := s.EnsureIdentityCodeForRole(ctx, uid, 2); err != nil {
+		t.Fatalf("EnsureIdentityCodeForRole: %v", err)
+	}
+
+	recipient, _, grantor := codesOf(t, pool, uid)
+	wantRecipient := "ER-" + pad6(uid)
+	if recipient != wantRecipient {
+		t.Errorf("recipient_code = %q, want %q — no ER- search will ever find this recipient",
+			recipient, wantRecipient)
+	}
+	if wantGrantor := "GR-" + pad6(uid); grantor != wantGrantor {
+		t.Errorf("grantor_code = %q, want %q — the code already on their paperwork was destroyed",
+			grantor, wantGrantor)
+	}
+	// And the account now reports the code its CURRENT role implies.
+	if got := pickIdentityCode(2, recipient, "", grantor); got != wantRecipient {
+		t.Errorf("pickIdentityCode(role 2) = %q, want %q — a recipient is still shown a donor's code",
+			got, wantRecipient)
+	}
+}
+
+// TestEnsureIdentityCodeForRoleLeavesSchemelessRolesAlone covers roles 0, 4 and
+// 5 (guest, employee, marriage). None has a code column, so the call must be a
+// silent no-op rather than an error: moving somebody to employee is an ordinary
+// thing to do and must not look like a failure to the role endpoints, which log
+// what this returns.
+func TestEnsureIdentityCodeForRoleLeavesSchemelessRolesAlone(t *testing.T) {
+	pool := newGrantorTestPool(t)
+	s := &Store{Pool: pool}
+	ctx := context.Background()
+	uid := makeUser(t, pool, 1)
+
+	for _, roleID := range []int{0, 4, 5} {
+		if err := s.EnsureIdentityCodeForRole(ctx, uid, roleID); err != nil {
+			t.Fatalf("EnsureIdentityCodeForRole(role %d) = %v, want nil", roleID, err)
+		}
+		recipient, volunteer, grantor := codesOf(t, pool, uid)
+		if recipient != "" || volunteer != "" || grantor != "" {
+			t.Errorf("role %d invented a code: recipient=%q volunteer=%q grantor=%q",
+				roleID, recipient, volunteer, grantor)
+		}
+	}
+}
+
 // ─── The account carries its code ───────────────────────────────────────
 
 // TestAccountCarriesIdentityCode is the first half of K21: the app cannot ask
