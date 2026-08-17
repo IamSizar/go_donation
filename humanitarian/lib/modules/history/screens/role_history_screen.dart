@@ -252,9 +252,17 @@ class _HistoryHero extends StatelessWidget {
           value: '${_historyInt(summary['completed_missions'])}',
         ),
         _HeroMetric(
+          // No unit suffix on the value. The tile's own label already says
+          // which unit this is — «ساعات الخدمة» in Arabic — so the "h" that
+          // used to be glued to the number added nothing except a Latin
+          // letter standing among Arabic labels on سجلي. Every sibling metric
+          // here already prints a bare number for the same reason; only the
+          // donor's total carries a suffix, and that one is a currency code
+          // its label does not name.
           label: 'Hours served',
-          value:
-              '${_historyNumberFormat.format(_historyNum(summary['hours_served']).round())}h',
+          value: _historyNumberFormat.format(
+            _historyNum(summary['hours_served']).round(),
+          ),
         ),
         _HeroMetric(
           label: 'Application',
