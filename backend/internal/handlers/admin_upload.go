@@ -63,16 +63,26 @@ func NewAdminUploadHandler(store storage.Storage) *AdminUploadHandler {
 	return &AdminUploadHandler{
 		Store:    store,
 		MaxBytes: 5 * 1024 * 1024, // 5 MB
-		// extension → mime (mime is informational; we don't sniff content
-		// since we serve as static files only — Gin will set the response
-		// Content-Type from the filename when served back).
+		// extension → mime. The mime is informational: content is NOT sniffed,
+		// so the extension is trusted to describe the bytes.
+		//
+		// That trade was defensible while these files were served from our own
+		// /images route. It is weaker now that uploads go to the R2 public
+		// bucket domain, where objects are reachable by anyone holding the URL
+		// with no auth in front of them.
+		//
+		// .svg is deliberately ABSENT. An SVG is XML and can carry <script>, so
+		// with extension-only validation a stored .svg is a script-capable
+		// document on a public origin. Neither client uploads or renders one,
+		// so the format is removed outright rather than sanitised — a missing
+		// format cannot be exploited, whereas a sanitiser has to stay correct
+		// forever. Do not re-add it without content verification.
 		allowedExts: map[string]string{
 			".png":  "image/png",
 			".jpg":  "image/jpeg",
 			".jpeg": "image/jpeg",
 			".gif":  "image/gif",
 			".webp": "image/webp",
-			".svg":  "image/svg+xml",
 			".pdf":  "application/pdf",
 		},
 	}
@@ -104,7 +114,7 @@ func (h *AdminUploadHandler) Upload(c *gin.Context) {
 	if !ok {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
-			"error":   "Unsupported file type. Allowed: png, jpg, jpeg, gif, webp, svg, pdf.",
+			"error":   "Unsupported file type. Allowed: png, jpg, jpeg, gif, webp, pdf.",
 		})
 		return
 	}
@@ -132,7 +142,7 @@ func (h *AdminUploadHandler) Upload(c *gin.Context) {
 	// profile images) to cut storage + speed up loading, UNLESS the caller
 	// flags the file as sensitive (medical reports, case documents, house /
 	// property images, official documents) — those keep their original bytes
-	// for inspection/verification. PNG/GIF/WEBP/SVG/PDF are stored untouched
+	// for inspection/verification. PNG/GIF/WEBP/PDF are stored untouched
 	// (transparency / vector / document integrity). Any compression failure
 	// falls back to storing the original file, so uploads never break.
 	//
