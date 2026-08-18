@@ -2,6 +2,8 @@ import 'dart:io';
 import 'package:flutter_application_1/core/widgets/app_main_menu_button.dart';
 
 import 'package:flutter/material.dart';
+
+import 'package:flutter_application_1/modules/auth/widgets/gender_choice_chip.dart';
 import 'package:flutter_application_1/api/profile_api.dart';
 import 'package:flutter_application_1/core/app_haptics.dart';
 import 'package:flutter_application_1/core/app_state.dart';
@@ -466,35 +468,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         spacing: 10,
                         runSpacing: 10,
                         children: _genderOptions.map((option) {
-                          final isSelected = option == _selectedGender;
-                          return ChoiceChip(
-                            label: Text(option.tr),
-                            selected: isSelected,
-                            onSelected: _genderLocked
-                                ? null
-                                : (_) {
-                                    setState(() => _selectedGender = option);
-                                  },
-                            labelStyle: TextStyle(
-                              color: isSelected
-                                  ? Colors.white
-                                  : AppThemeConfig.text(context),
-                              fontWeight: FontWeight.w700,
-                            ),
-                            selectedColor: AppThemeConfig.accent(context),
-                            backgroundColor: AppThemeConfig.softSurface(
-                              context,
-                            ),
-                            side: BorderSide(
-                              color: isSelected
-                                  ? AppThemeConfig.accent(context)
-                                  : AppThemeConfig.border(context),
-                            ),
-                            showCheckmark: false,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 8,
-                            ),
+                          return GenderChoiceChip(
+                            label: option.tr,
+                            selected: option == _selectedGender,
+                            locked: _genderLocked,
+                            onSelected: () =>
+                                setState(() => _selectedGender = option),
                           );
                         }).toList(),
                       ),
