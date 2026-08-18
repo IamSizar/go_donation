@@ -22,6 +22,8 @@ import type { AdminBoardMission, AdminBoardSignup, AdminVolunteerBoard, Benefici
 import { useToast } from '../lib/toast'
 import { usePendingCounts } from '../lib/pendingCounts'
 import { localizedField } from '../lib/localizedContent'
+import PhotoViewer from '../components/PhotoViewer'
+import { formatEvidenceTimestamp } from '../lib/dates'
 import { useI18n, useStatusLabel } from '../lib/i18n'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { type CsvColumn } from '../lib/csv'
@@ -406,19 +408,39 @@ function SignupCard({
 // rather than taking the volunteer's word for it.
 function CheckinEvidence({ signup }: { signup: AdminBoardSignup }) {
   const { t } = useI18n()
+  // The photo opens IN PLACE. It used to be an <a target="_blank">, which threw
+  // the operator into a bare tab holding nothing but an image — no close
+  // control, no dashboard, and in an embedded browser view no tab chrome to
+  // escape with either. It also broke the photo's one job: verifying a
+  // completion request means seeing the picture and the row together.
+  const [viewing, setViewing] = useState<{ src: string; label: string } | null>(null)
   const hasCheckin = signup.checkin_photo_path || (signup.checkin_lat != null && signup.checkin_lng != null)
   const hasCheckout = signup.checkout_photo_path || (signup.checkout_lat != null && signup.checkout_lng != null)
   if (!hasCheckin && !hasCheckout) return null
 
-  const Evidence = ({ label, photo, lat, lng }: { label: string; photo: string | null; lat: number | null; lng: number | null }) => (
+  const Evidence = ({ label, photo, lat, lng, at }: { label: string; photo: string | null; lat: number | null; lng: number | null; at: string | null }) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
       {photo && (
-        <a href={assetUrl(photo)} target="_blank" rel="noreferrer">
+        <button
+          type="button"
+          onClick={() => setViewing({ src: assetUrl(photo), label })}
+          aria-label={label}
+          style={{ padding: 0, border: 'none', background: 'none', cursor: 'pointer', lineHeight: 0 }}
+        >
           <img src={assetUrl(photo)} alt={label} style={{ width: 32, height: 32, borderRadius: 6, objectFit: 'cover' }} />
-        </a>
+        </button>
       )}
       <div className="cell-stack" style={{ gap: 0 }}>
         <span style={{ fontSize: 10.5, fontWeight: 700 }}>{label}</span>
+        {/* WHEN it happened, beside what happened. An evidence row that shows a
+            photo and a map pin but not the moment is missing the half a
+            reviewer is actually checking. dd/mm/yyyy hh:mm:ss, 12-hour, pinned
+            in every locale — see formatEvidenceTimestamp. */}
+        {at && (
+          <span style={{ fontSize: 10.5, opacity: 0.85 }} dir="ltr">
+            {formatEvidenceTimestamp(at)}
+          </span>
+        )}
         {lat != null && lng != null && (
           <a
             href={`https://www.google.com/maps?q=${lat},${lng}`}
@@ -436,10 +458,13 @@ function CheckinEvidence({ signup }: { signup: AdminBoardSignup }) {
   return (
     <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
       {hasCheckin && (
-        <Evidence label={t('board.checkin_evidence')} photo={signup.checkin_photo_path} lat={signup.checkin_lat} lng={signup.checkin_lng} />
+        <Evidence label={t('board.checkin_evidence')} photo={signup.checkin_photo_path} lat={signup.checkin_lat} lng={signup.checkin_lng} at={signup.checked_in_at} />
       )}
       {hasCheckout && (
-        <Evidence label={t('board.checkout_evidence')} photo={signup.checkout_photo_path} lat={signup.checkout_lat} lng={signup.checkout_lng} />
+        <Evidence label={t('board.checkout_evidence')} photo={signup.checkout_photo_path} lat={signup.checkout_lat} lng={signup.checkout_lng} at={signup.completion_requested_at ?? signup.completed_at} />
+      )}
+      {viewing && (
+        <PhotoViewer src={viewing.src} label={viewing.label} onClose={() => setViewing(null)} />
       )}
     </div>
   )
