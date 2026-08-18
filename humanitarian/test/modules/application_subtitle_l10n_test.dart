@@ -105,6 +105,29 @@ void main() {
     expect('duhok'.tr, 'duhok');
   });
 
+  test('case priority and household size are translated', () {
+    Get.updateLocale(const Locale('ar', 'SA'));
+
+    // priority_level is a backend token printed on the case card.
+    for (final p in ['low', 'medium', 'high', 'urgent']) {
+      expect(p.tr, isNot(p), reason: '"$p" would print as a bare token');
+      expect(RegExp(r'[A-Za-z]').hasMatch(p.tr), isFalse);
+    }
+
+    // The household label was two hardcoded English literals.
+    expect('household_individual'.tr, isNot('household_individual'));
+    expect(RegExp(r'[A-Za-z]').hasMatch('household_individual'.tr), isFalse);
+
+    final family = 'household_family_of'.trParams({'count': '3'});
+    expect(family.contains('3'), isTrue, reason: 'the count must survive');
+    expect(family.contains('Family'), isFalse);
+    expect(
+      family,
+      isNot(contains('@count')),
+      reason: 'the placeholder was left unsubstituted',
+    );
+  });
+
   test('a missing or malformed schedule yields nothing, so the caller can '
       'fall back to the stored text', () {
     Get.updateLocale(const Locale('ar', 'SA'));

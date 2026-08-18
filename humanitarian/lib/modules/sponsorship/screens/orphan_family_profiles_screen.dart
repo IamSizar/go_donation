@@ -227,9 +227,16 @@ class _ProfileCard extends StatelessWidget {
 
 String _profileSubtitle(Map<String, dynamic> item) {
   final familyCount = item['family_members_count'];
+  // Was two bare English literals — 'Individual' and 'Family of $familyCount'
+  // — with no translation keys behind them, so an Arabic profile card read
+  // "Family of 3". The interpolated one could not have been a plain key even
+  // if someone had added it: the count sits inside the sentence, which is what
+  // trParams is for.
   final familyLabel = familyCount == null
       ? ''
-      : (familyCount == 1 ? 'Individual' : 'Family of $familyCount');
+      : (familyCount == 1
+            ? 'household_individual'.tr
+            : 'household_family_of'.trParams({'count': '$familyCount'}));
   final city = (item['city'] ?? '').toString().trim();
   return [familyLabel, city].where((value) => value.isNotEmpty).join(' • ');
 }

@@ -382,10 +382,22 @@ String _localizedCaseTitle(Map<String, dynamic> item) {
 }
 
 String _caseSubtitle(Map<String, dynamic> item) {
-  return ['case_code', 'city', 'priority_level']
-      .map((key) => (item[key] ?? '').toString())
-      .where((value) => value.trim().isNotEmpty)
-      .join(' - ');
+  // Each field gets the treatment its CONTENT needs, which is why this is no
+  // longer one map over three keys:
+  //   • case_code is an identifier (CSE-000123) and must not be touched.
+  //   • city is a governorate name, and those are keys in all four locales —
+  //     printed raw it said "Erbil" on an Arabic card, the same defect the
+  //     missions card had.
+  //   • priority_level is a backend token (low/medium/high/urgent), all four
+  //     already translated. localizedTag is the app's single mechanism for
+  //     turning a token into a word, and it humanises as a last resort, so a
+  //     value added server-side later still degrades to readable text rather
+  //     than a bare token.
+  return [
+    (item['case_code'] ?? '').toString(),
+    (item['city'] ?? '').toString().tr,
+    localizedTag(item['priority_level']),
+  ].where((value) => value.trim().isNotEmpty).join(' - ');
 }
 
 String _myCaseSubtitle(Map<String, dynamic> item) {

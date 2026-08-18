@@ -2029,6 +2029,11 @@ class AppTranslations extends Translations {
     // Count-agreeing forms — see localization/item_count.dart. English needs
     // only singular/plural, but all four keys exist so the lookup resolves
     // here rather than falling back to the uncounted word.
+    // Household size on an orphan/family profile card. Was two hardcoded
+    // English literals with no keys at all — "Individual" and "Family of 3"
+    // rendered verbatim on the Arabic screen.
+    'household_individual': 'Individual',
+    'household_family_of': 'Family of @count',
     'items_one': 'item',
     'items_two': 'items',
     'items_few': 'items',
@@ -4809,6 +4814,8 @@ class AppTranslations extends Translations {
     'items': 'عناصر',
     // العدد في العربية أربع صيغ لا صيغتان: مفرد، مثنّى، جمع قلّة (٣–١٠)، ثم
     // تمييز مفرد منصوب (١١ فأكثر). كان المعروض «عناصر» دائمًا، وهو جمع القلّة.
+    'household_individual': 'فرد واحد',
+    'household_family_of': 'أسرة من @count أفراد',
     'items_one': 'عنصر',
     'items_two': 'عنصران',
     'items_few': 'عناصر',
