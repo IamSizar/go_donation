@@ -168,7 +168,28 @@ func main() {
 	}
 
 	// Where uploaded files live on disk; served back at /images/*.
-	uploadDir := "./images"
+	//
+	// MUST point at a PERSISTENT volume in production, and this is not a
+	// tidiness note — it was hardcoded to "./images", the container's own
+	// working directory, and container filesystems are replaced on every
+	// deploy. So each release silently deleted every file any user had ever
+	// uploaded — profile photos, case documents, partner logos, volunteer
+	// check-in evidence — while the database kept the paths pointing at them.
+	// The result is a row that says a photo exists and a URL that answers 404,
+	// which reads as a broken viewer rather than as data that is simply gone.
+	//
+	// Found when a volunteer's check-in photo 404'd minutes after it uploaded
+	// successfully: a backend deploy in between had taken the directory with
+	// it.
+	//
+	// The default is unchanged so local development still just works. In
+	// production set UPLOAD_DIR to a mounted volume's path — the env var is
+	// only half the fix, the volume has to exist.
+	uploadDir := strings.TrimSpace(os.Getenv("UPLOAD_DIR"))
+	if uploadDir == "" {
+		uploadDir = "./images"
+	}
+	log.Printf("[uploads] serving /images from %s", uploadDir)
 
 	healthH := handlers.NewHealthHandler(pool)
 	// Phase 19 — OTPIQ delivery for real-mode OTP. Returns nil when
