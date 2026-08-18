@@ -1477,6 +1477,10 @@ class AppTranslations extends Translations {
     // changing a setting cannot.
     'location_timed_out':
         'Could not get your location. Move somewhere with a clearer view of the sky and try again.',
+    // The step AFTER the location, and the advice is the opposite: standing
+    // still on a better signal is what helps, and moving may not.
+    'photo_upload_timed_out':
+        'The photo could not be sent. Check your connection and try again — your check-in was not recorded.',
     'marriage_search': 'Search profiles',
     'marriage_search_desc':
         'Find marriage profiles, save them, and request a meeting.',
@@ -4300,6 +4304,8 @@ class AppTranslations extends Translations {
         'الرجاء تفعيل خدمة الموقع لتسجيل الحضور/الانصراف.',
     'location_timed_out':
         'تعذّر تحديد موقعك. انتقل إلى مكان أوضح للسماء ثم حاول مرة أخرى.',
+    'photo_upload_timed_out':
+        'تعذّر إرسال الصورة. تحقّق من اتصالك وحاول مرة أخرى — لم يُسجَّل حضورك.',
     'marriage_search': 'البحث عن ملفات',
     'marriage_search_desc': 'ابحث عن ملفات الزواج واحفظها واطلب لقاءً.',
     'marriage_search_hint': 'ابحث بالمدينة أو التفاصيل…',

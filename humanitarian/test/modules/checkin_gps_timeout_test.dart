@@ -91,6 +91,36 @@ void main() {
     }
   });
 
+  test('the photo is downscaled before it is sent', () {
+    // The single biggest thing that makes check-in usable on a camp
+    // connection. Full sensor resolution at quality 85 is 2-4MB from a current
+    // iPhone, for a photo whose only job is to show a reviewer the volunteer
+    // was where they said they were.
+    final body = _evidenceCapture();
+    expect(
+      body.contains('maxWidth:') && body.contains('maxHeight:'),
+      isTrue,
+      reason:
+          'the camera returns full sensor resolution, so a check-in uploads '
+          'megabytes over a connection that can barely carry it',
+    );
+  });
+
+  test('an upload timeout does not give location advice', () {
+    // Both steps can time out and the answers are opposite: moving helps a GPS
+    // fix and cannot help an upload. Sharing one message would send a
+    // volunteer walking around to fix their signal strength.
+    final body = _evidenceCapture();
+    expect(body.contains('photo_upload_timed_out'), isTrue);
+
+    Get.updateLocale(const Locale('ar', 'SA'));
+    expect('photo_upload_timed_out'.tr, isNot('location_timed_out'.tr));
+    expect(RegExp(r'[A-Za-z]').hasMatch('photo_upload_timed_out'.tr), isFalse);
+    // It must say the check-in did NOT happen: a volunteer who thinks they
+    // checked in walks away, and the record never existed.
+    expect('photo_upload_timed_out'.tr, contains('لم يُسجَّل'));
+  });
+
   test('the Arabic copy is Arabic', () {
     Get.updateLocale(const Locale('ar', 'SA'));
     expect(RegExp(r'[A-Za-z]').hasMatch('location_timed_out'.tr), isFalse);

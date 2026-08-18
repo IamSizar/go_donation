@@ -837,12 +837,28 @@ class ModuleApi {
   // used everywhere else — e.g. profile pictures). Reuses the exact same
   // handler the admin dashboard's uploader hits, just without the admin
   // gate on this route.
+  /// How long an upload may take before it is treated as failed.
+  ///
+  /// Deliberately far longer than [_requestTimeout], because the two are not
+  /// the same kind of wait. A JSON call that has not answered in 12 seconds is
+  /// broken; a photo still uploading at 12 seconds is simply on a slow
+  /// connection, which is the normal condition where this app is used. Cutting
+  /// it off at the API timeout would fail check-ins for the exact volunteers
+  /// the feature exists for.
+  ///
+  /// Bounded all the same: before this, `request.send()` had no timeout at
+  /// all, so a stalled upload left the check-in button spinning forever — the
+  /// same defect the GPS fix had, one step further down the same flow.
+  static const Duration _uploadTimeout = Duration(seconds: 90);
+
   Future<String> uploadPhoto(File file) async {
     final request = http.MultipartRequest('POST', Uri.parse(uploadsUrl));
     request.headers.addAll(withApiAuthHeaders());
     request.files.add(await http.MultipartFile.fromPath('file', file.path));
-    final streamed = await request.send();
-    final response = await http.Response.fromStream(streamed);
+    final streamed = await request.send().timeout(_uploadTimeout);
+    final response = await http.Response.fromStream(
+      streamed,
+    ).timeout(_uploadTimeout);
     // Same reasoning as [postJson]: the session check goes before the decode.
     await _endSessionIfTokenRejected(response.statusCode);
     final decoded = _decodeJson(response);

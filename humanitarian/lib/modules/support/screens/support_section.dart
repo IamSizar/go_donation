@@ -450,13 +450,42 @@ class _VolunteerMissionDetailScreenState
         ),
       );
 
+      // Downscaled AT CAPTURE, which is the single biggest thing that makes
+      // this usable in the field.
+      //
+      // This asked for full sensor resolution at quality 85. A current iPhone
+      // returns roughly 12MP, so the file heading up a camp's mobile
+      // connection was two to four megabytes — for a photo whose entire job is
+      // to show a human reviewer that the volunteer was where they said they
+      // were. 1600px on the long edge at quality 70 is comfortably enough to
+      // recognise a place and a face, and lands around 200–400KB: an upload
+      // measured in seconds rather than minutes, and one far likelier to
+      // survive a connection that comes and goes.
+      //
+      // It is also kinder to a weak device: the picker resizes before the file
+      // is written, so a low-memory phone never has to hold the full-size
+      // image in memory to send it.
       final picked = await ImagePicker().pickImage(
         source: ImageSource.camera,
-        imageQuality: 85,
+        maxWidth: 1600,
+        maxHeight: 1600,
+        imageQuality: 70,
       );
       if (picked == null) return null; // volunteer cancelled the camera
 
-      final path = await const ModuleApi().uploadPhoto(File(picked.path));
+      // The upload gets its OWN try, because a TimeoutException from here and
+      // one from the GPS fix above mean opposite things. Left to the shared
+      // catch below, a slow upload would tell the volunteer to "move somewhere
+      // with a clearer view of the sky" — advice that cannot help, for a step
+      // that already has their location.
+      final String path;
+      try {
+        path = await const ModuleApi().uploadPhoto(File(picked.path));
+      } on TimeoutException catch (e) {
+        debugPrint('check-in photo upload timed out: $e');
+        Get.snackbar('Error'.tr, 'photo_upload_timed_out'.tr);
+        return null;
+      }
       return (lat: position.latitude, lng: position.longitude, photoPath: path);
     } catch (e) {
       // This one block covers three different failures — a GPS fix, the
