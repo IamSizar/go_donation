@@ -14,7 +14,7 @@ class AppTranslations extends Translations {
     'admin_announcement': 'Admin announcement',
     'admin_new_beneficiary_case': 'New beneficiary case',
     'admin_new_guest_account': 'New guest account',
-    'admin_new_marriage_profile': 'New marriage profile',
+    'admin_new_marriage_profile': 'New event profile',
     'admin_new_project_request': 'New project request',
     'beneficiary_case_approved': 'Beneficiary case approved',
     'beneficiary_case_rejected': 'Beneficiary case rejected',
@@ -40,14 +40,14 @@ class AppTranslations extends Translations {
     'marketplace_order_cancelled': 'Order cancelled',
     'marketplace_order_completed': 'Order completed',
     'marketplace_order_submitted': 'Order submitted',
-    'marriage_approved': 'Marriage profile approved',
-    'marriage_chat_accepted': 'Marriage chat accepted',
-    'marriage_chat_message': 'Marriage chat message',
-    'marriage_chat_request': 'Marriage chat request',
+    'marriage_approved': 'Event profile approved',
+    'marriage_chat_accepted': 'Event chat accepted',
+    'marriage_chat_message': 'Event chat message',
+    'marriage_chat_request': 'Event chat request',
     'marriage_meeting_declined': 'Meeting request declined',
-    'marriage_profile_submitted': 'Marriage profile submitted',
-    'marriage_rejected': 'Marriage profile rejected',
-    'marriage_status_changed': 'Marriage status changed',
+    'marriage_profile_submitted': 'Event profile submitted',
+    'marriage_rejected': 'Event profile rejected',
+    'marriage_status_changed': 'Event status changed',
     'marriage_subscription_activated': 'Subscription activated',
     'marriage_subscription_pending': 'Subscription pending',
     'marriage_subscription_pending_admin': 'Subscription awaiting review',
@@ -658,9 +658,9 @@ class AppTranslations extends Translations {
     'Request': 'Request',
     'Programs, stories, and private requests.':
         'Programs, stories, and private requests.',
-    'Marriage posts': 'Marriage posts',
+    'Marriage posts': 'Event posts',
     'No marriage posts have been published yet.':
-        'No marriage posts have been published yet.',
+        'No event posts have been published yet.',
     'Could not load posts. Pull to retry.':
         'Could not load posts. Pull to retry.',
     // --- Registration & admin-approval flow ---
@@ -1402,8 +1402,8 @@ class AppTranslations extends Translations {
     'Maysan': 'Maysan',
     'Muthanna': 'Muthanna',
     'Al-Qadisiyyah': 'Al-Qadisiyyah',
-    'marriage_title': 'Marriage profile',
-    'marriage_subtitle': 'Create your marriage/engagement profile.',
+    'marriage_title': 'Event profile',
+    'marriage_subtitle': 'Create your event profile.',
     'marriage_photo': 'Photo (optional)',
     'marriage_gender': 'Gender',
     'marriage_gender_hint': 'Select gender',
@@ -1451,12 +1451,12 @@ class AppTranslations extends Translations {
     'chat_support_desc': 'Chat directly with our support / tech team.',
     'chat_support_failed': 'Could not open support chat. Please try again.',
     'helped_by': 'Helped by @name',
-    'marriage_posts_title': 'Marriage posts',
+    'marriage_posts_title': 'Event posts',
     'marriage_posts_subtitle':
-        'Programs, stories, and updates from the Marriage section.',
+        'Programs, stories, and updates from the Events section.',
     'marriage_posts_services_subtitle':
-        'Programs and stories from the Marriage section.',
-    'marriage_posts_empty': 'No marriage posts have been published yet.',
+        'Programs and stories from the Events section.',
+    'marriage_posts_empty': 'No event posts have been published yet.',
     'marriage_posts_load_failed': 'Could not load posts. Pull to retry.',
     'case_chats_label': 'Case chats',
     'Confirm': 'Confirm',
@@ -1483,12 +1483,12 @@ class AppTranslations extends Translations {
         'The photo could not be sent. Check your connection and try again — your check-in was not recorded.',
     'marriage_search': 'Search profiles',
     'marriage_search_desc':
-        'Find marriage profiles, save them, and request a meeting.',
+        'Find event profiles, save them, and request a meeting.',
     'marriage_search_hint': 'Search by city or details…',
     'marriage_no_results': 'No profiles found.',
     'marriage_my_profile': 'My profile',
     'marriage_my_profile_desc':
-        'Track your submitted marriage profile and its review status.',
+        'Track your submitted event profile and its review status.',
     'marriage_my_profile_empty': 'No profile submitted yet.',
     'marriage_my_profile_empty_desc':
         'Submit a profile to see its status here.',
@@ -1556,7 +1556,7 @@ class AppTranslations extends Translations {
     'meeting_requested': 'Meeting request sent for review.',
     'meeting_request_failed': 'Could not send the request. Please try again.',
     // Note #35 — staff-mediated marriage chat.
-    'marriage_chats_title': 'Marriage chats',
+    'marriage_chats_title': 'Event chats',
     'marriage_chats_subtitle':
         'Approved meeting requests you can chat about, mediated by staff.',
     'marriage_chats_empty':
@@ -1947,9 +1947,9 @@ class AppTranslations extends Translations {
     'Submit beneficiary case': 'Submit eligible case',
     'Send personal, housing, income, and needs details.':
         'Send personal, housing, income, and needs details.',
-    'Marriage service': 'Marriage service',
+    'Marriage service': 'Event service',
     'Create or review private marriage service requests.':
-        'Create or review private marriage service requests.',
+        'Create or review private event service requests.',
     'Partners': 'Partners',
     'Browse partner and supporting entities.':
         'Browse partner and supporting entities.',
@@ -2008,7 +2008,7 @@ class AppTranslations extends Translations {
     'Campaigns could not load. Tap to retry.':
         'Campaigns could not load. Tap to retry.',
     'In-kind donation saved.': 'In-kind contribution saved.',
-    'Marriage service profile saved.': 'Marriage service profile saved.',
+    'Marriage service profile saved.': 'Event service profile saved.',
     'Support ticket saved.': 'Support ticket saved.',
     'Actual needs': 'Actual needs',
     'Description': 'Description',
@@ -2236,7 +2236,7 @@ class AppTranslations extends Translations {
         'Upgrade your profile with a subscription package',
     'Message the staff team': 'Message the staff team',
     'Questions or issues about the marriage section':
-        'Questions or issues about the marriage section',
+        'Questions or issues about the events section',
     'Staff support': 'Staff support',
     'Your message request is still waiting to be accepted.':
         'Your message request is still waiting to be accepted.',
@@ -2248,8 +2248,8 @@ class AppTranslations extends Translations {
     'Your donations': 'Your donations',
     'Total donated': 'Total donated',
     'No recent donations.': 'No recent donations.',
-    'Your marriage profile': 'Your marriage profile',
-    'No marriage profile yet.': 'No marriage profile yet.',
+    'Your marriage profile': 'Your event profile',
+    'No marriage profile yet.': 'No event profile yet.',
     'Your case & project': 'Your case & project',
     'No case or project found.': 'No case or project found.',
     'Your volunteer status': 'Your volunteer status',
@@ -2856,10 +2856,10 @@ class AppTranslations extends Translations {
     'Verification failed. (@code)': 'Verification failed. (@code)',
     // i18n audit follow-up — dangling .tr keys with no map entry (nav labels, Marriage hub tiles, donation/support/auth strings) that were showing raw English regardless of language.
     'Store': 'Store',
-    'Marriage': 'Marriage',
+    'Marriage': 'Events',
     'Events': 'Events',
     'Event services': 'Event services',
-    'Marriage section': 'Marriage section',
+    'Marriage section': 'Events section',
     'Events section': 'Events section',
     'Event posts': 'Event posts',
     'Search event profiles by name or gender':
@@ -2900,12 +2900,12 @@ class AppTranslations extends Translations {
     'Browse profiles, manage yours, and chat once a meeting is accepted.':
         'Browse profiles, manage yours, and chat once a meeting is accepted.',
     'Search marriage profiles by name or gender':
-        'Search marriage profiles by name or gender',
+        'Search event profiles by name or gender',
     'News and stories from the marriage section':
-        'News and stories from the marriage section',
+        'News and stories from the events section',
     'Create / edit my profile': 'Create / edit my profile',
     'Submit or update your marriage profile':
-        'Submit or update your marriage profile',
+        'Submit or update your event profile',
     'My profile': 'My profile',
     'View your submitted profile and its status':
         'View your submitted profile and its status',
@@ -2983,7 +2983,7 @@ class AppTranslations extends Translations {
     'No details': 'No details',
     'Open': 'Open',
     'Close': 'Close',
-    'Marriage dashboard': 'Marriage dashboard',
+    'Marriage dashboard': 'Events dashboard',
     'Gender cannot be changed after sign-up.':
         'Gender cannot be changed after sign-up.',
     'Account type': 'Account type',
@@ -3035,14 +3035,14 @@ class AppTranslations extends Translations {
     'marketplace_order_cancelled': 'إلغاء طلب من المتجر',
     'marketplace_order_completed': 'إكمال طلب من المتجر',
     'marketplace_order_submitted': 'تقديم طلب من المتجر',
-    'marriage_approved': 'قبول ملف الزواج',
-    'marriage_chat_accepted': 'قبول محادثة الزواج',
-    'marriage_chat_message': 'رسالة محادثة الزواج',
-    'marriage_chat_request': 'طلب محادثة الزواج',
+    'marriage_approved': 'قبول ملف الفعاليات',
+    'marriage_chat_accepted': 'قبول محادثة الفعاليات',
+    'marriage_chat_message': 'رسالة محادثة الفعاليات',
+    'marriage_chat_request': 'طلب محادثة الفعاليات',
     'marriage_meeting_declined': 'رفض طلب اللقاء',
     'marriage_profile_submitted': 'تقديم ملف زواج',
-    'marriage_rejected': 'رفض ملف الزواج',
-    'marriage_status_changed': 'تغيير حالة ملف الزواج',
+    'marriage_rejected': 'رفض ملف الفعاليات',
+    'marriage_status_changed': 'تغيير حالة ملف الفعاليات',
     'marriage_subscription_activated': 'تفعيل الاشتراك',
     'marriage_subscription_pending': 'اشتراك قيد المراجعة',
     'marriage_subscription_pending_admin': 'اشتراك بانتظار الإدارة',
@@ -3535,7 +3535,7 @@ class AppTranslations extends Translations {
     'Request': 'طلب',
     'Programs, stories, and private requests.':
         'البرامج والقصص والطلبات الخاصة.',
-    'Marriage posts': 'منشورات الزواج',
+    'Marriage posts': 'منشورات الفعاليات',
     'No marriage posts have been published yet.':
         'لا توجد منشورات زواج منشورة بعد.',
     'Could not load posts. Pull to retry.':
@@ -4233,8 +4233,8 @@ class AppTranslations extends Translations {
     'Maysan': 'ميسان',
     'Muthanna': 'المثنى',
     'Al-Qadisiyyah': 'القادسية',
-    'marriage_title': 'ملف الزواج',
-    'marriage_subtitle': 'أنشئ ملف الزواج/الخطوبة الخاص بك.',
+    'marriage_title': 'ملف الفعاليات',
+    'marriage_subtitle': 'أنشئ ملفك الخاص بالفعاليات.',
     'marriage_photo': 'صورة (اختياري)',
     'marriage_gender': 'الجنس',
     'marriage_gender_hint': 'اختر الجنس',
@@ -4282,9 +4282,9 @@ class AppTranslations extends Translations {
     'chat_support_desc': 'تحدّث مباشرة مع فريق الدعم / الفني.',
     'chat_support_failed': 'تعذّر فتح محادثة الدعم. حاول مرة أخرى.',
     'helped_by': 'يساعدك @name',
-    'marriage_posts_title': 'منشورات الزواج',
-    'marriage_posts_subtitle': 'برامج وقصص وتحديثات من قسم الزواج.',
-    'marriage_posts_services_subtitle': 'برامج وقصص من قسم الزواج.',
+    'marriage_posts_title': 'منشورات الفعاليات',
+    'marriage_posts_subtitle': 'برامج وقصص وتحديثات من قسم الفعاليات.',
+    'marriage_posts_services_subtitle': 'برامج وقصص من قسم الفعاليات.',
     'marriage_posts_empty': 'لم يتم نشر أي منشورات زواج بعد.',
     'marriage_posts_load_failed':
         'تعذّر تحميل المنشورات. اسحب لإعادة المحاولة.',
@@ -4307,11 +4307,11 @@ class AppTranslations extends Translations {
     'photo_upload_timed_out':
         'تعذّر إرسال الصورة. تحقّق من اتصالك وحاول مرة أخرى — لم يُسجَّل حضورك.',
     'marriage_search': 'البحث عن ملفات',
-    'marriage_search_desc': 'ابحث عن ملفات الزواج واحفظها واطلب لقاءً.',
+    'marriage_search_desc': 'ابحث عن ملفات الفعاليات واحفظها واطلب لقاءً.',
     'marriage_search_hint': 'ابحث بالمدينة أو التفاصيل…',
     'marriage_no_results': 'لا توجد ملفات.',
     'marriage_my_profile': 'ملفي',
-    'marriage_my_profile_desc': 'تابع ملف الزواج الذي قدّمته وحالة مراجعته.',
+    'marriage_my_profile_desc': 'تابع ملف الفعاليات الذي قدّمته وحالة مراجعته.',
     'marriage_my_profile_empty': 'لم يتم تقديم أي ملف بعد.',
     'marriage_my_profile_empty_desc': 'قدّم ملفًا لترى حالته هنا.',
     'marriage_my_profile_load_failed': 'تعذّر تحميل ملفك.',
@@ -4364,7 +4364,7 @@ class AppTranslations extends Translations {
     'request_meeting': 'طلب لقاء',
     'meeting_requested': 'تم إرسال طلب اللقاء للمراجعة.',
     'meeting_request_failed': 'تعذّر إرسال الطلب. حاول مرة أخرى.',
-    'marriage_chats_title': 'محادثات الزواج',
+    'marriage_chats_title': 'محادثات الفعاليات',
     'marriage_chats_subtitle':
         'طلبات اللقاء الموافق عليها التي يمكنك التحدث بشأنها، بوساطة الموظفين.',
     'marriage_chats_empty':
@@ -4747,9 +4747,9 @@ class AppTranslations extends Translations {
     'Submit beneficiary case': 'إرسال حالة مستحق',
     'Send personal, housing, income, and needs details.':
         'أرسل بياناتك الشخصية والسكن والدخل والاحتياجات.',
-    'Marriage service': 'خدمة الزواج',
+    'Marriage service': 'خدمة الفعاليات',
     'Create or review private marriage service requests.':
-        'أنشئ أو راجع طلبات خدمة الزواج الخاصة.',
+        'أنشئ أو راجع طلبات خدمة الفعاليات الخاصة.',
     'Partners': 'الشركاء',
     'Browse partner and supporting entities.': 'تصفح الشركاء والجهات الداعمة.',
     'News and activities': 'الأخبار والنشاطات',
@@ -4799,7 +4799,7 @@ class AppTranslations extends Translations {
     'Campaigns could not load. Tap to retry.':
         'تعذر تحميل الحملات. اضغط لإعادة المحاولة.',
     'In-kind donation saved.': 'تم حفظ المساهمة العينية.',
-    'Marriage service profile saved.': 'تم حفظ ملف خدمة الزواج.',
+    'Marriage service profile saved.': 'تم حفظ ملف خدمة الفعاليات.',
     'Support ticket saved.': 'تم حفظ تذكرة الدعم.',
     'Actual needs': 'الاحتياجات الفعلية',
     'Description': 'الوصف',
@@ -5017,7 +5017,7 @@ class AppTranslations extends Translations {
         'رقّ ملفك الشخصي بباقة اشتراك',
     'Message the staff team': 'مراسلة فريق الدعم',
     'Questions or issues about the marriage section':
-        'أسئلة أو مشاكل بخصوص قسم الزواج',
+        'أسئلة أو مشاكل بخصوص قسم الفعاليات',
     'Staff support': 'دعم الموظفين',
     'Your message request is still waiting to be accepted.':
         'طلب رسالتك لا يزال بانتظار القبول.',
@@ -5029,7 +5029,7 @@ class AppTranslations extends Translations {
     'Your donations': 'تبرعاتك',
     'Total donated': 'إجمالي المتبرع به',
     'No recent donations.': 'لا توجد تبرعات حديثة.',
-    'Your marriage profile': 'ملف الزواج الخاص بك',
+    'Your marriage profile': 'ملفك الخاص بالفعاليات',
     'No marriage profile yet.': 'لا يوجد ملف زواج بعد.',
     'Your case & project': 'حالتك ومشروعك',
     'No case or project found.': 'لم يتم العثور على حالة أو مشروع.',
@@ -5606,10 +5606,10 @@ class AppTranslations extends Translations {
     'Verification failed. (@code)': 'فشل التحقق. (@code)',
     // i18n audit follow-up — dangling .tr keys with no map entry (nav labels, Marriage hub tiles, donation/support/auth strings) that were showing raw English regardless of language.
     'Store': 'المتجر',
-    'Marriage': 'الزواج',
+    'Marriage': 'الفعاليات',
     'Events': 'الفعاليات',
     'Event services': 'خدمات الفعاليات',
-    'Marriage section': 'قسم الزواج',
+    'Marriage section': 'قسم الفعاليات',
     'Events section': 'قسم الفعاليات',
     'Event posts': 'منشورات الفعاليات',
     'Search event profiles by name or gender':
@@ -5644,11 +5644,11 @@ class AppTranslations extends Translations {
     'Browse profiles, manage yours, and chat once a meeting is accepted.':
         'تصفح الملفات الشخصية، وأدر ملفك الخاص، وتحدث بعد قبول اللقاء.',
     'Search marriage profiles by name or gender':
-        'ابحث عن ملفات الزواج بالاسم أو الجنس',
-    'News and stories from the marriage section': 'أخبار وقصص من قسم الزواج',
+        'ابحث عن ملفات الفعاليات بالاسم أو الجنس',
+    'News and stories from the marriage section': 'أخبار وقصص من قسم الفعاليات',
     'Create / edit my profile': 'إنشاء / تعديل ملفي الشخصي',
     'Submit or update your marriage profile':
-        'أرسل أو حدّث ملف الزواج الخاص بك',
+        'أرسل أو حدّث ملفك الخاص بالفعاليات',
     'My profile': 'ملفي الشخصي',
     'View your submitted profile and its status':
         'اطّلع على الملف الذي أرسلته وحالته',
@@ -5723,7 +5723,7 @@ class AppTranslations extends Translations {
     'No details': 'لا توجد تفاصيل',
     'Open': 'فتح',
     'Close': 'إغلاق',
-    'Marriage dashboard': 'لوحة الزواج',
+    'Marriage dashboard': 'لوحة الفعاليات',
     'Gender cannot be changed after sign-up.':
         'لا يمكن تغيير الجنس بعد إنشاء الحساب.',
     'Account type': 'نوع الحساب',
