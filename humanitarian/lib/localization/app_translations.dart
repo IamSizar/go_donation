@@ -2858,6 +2858,7 @@ class AppTranslations extends Translations {
     'Store': 'Store',
     'Marriage': 'Events',
     'Events': 'Events',
+    'Social': 'Social',
     'Event services': 'Event services',
     'Marriage section': 'Events section',
     'Events section': 'Events section',
@@ -5607,6 +5608,7 @@ class AppTranslations extends Translations {
     // i18n audit follow-up — dangling .tr keys with no map entry (nav labels, Marriage hub tiles, donation/support/auth strings) that were showing raw English regardless of language.
     'Store': 'المتجر',
     'Marriage': 'الفعاليات',
+    'Social': 'تواصل اجتماعي',
     'Events': 'الفعاليات',
     'Event services': 'خدمات الفعاليات',
     'Marriage section': 'قسم الفعاليات',

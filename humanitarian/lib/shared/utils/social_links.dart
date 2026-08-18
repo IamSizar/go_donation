@@ -18,6 +18,7 @@
 // pasted a semicolon-separated list into one of them.
 
 import 'package:flutter/foundation.dart';
+import 'package:get/get.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Splits the stored value into individual links.
@@ -52,7 +53,11 @@ String socialNetworkLabel(String url) {
   if (u.contains('tiktok')) return 'TikTok';
   if (u.contains('twitter') || u.contains('x.com')) return 'X';
   if (u.contains('linkedin')) return 'LinkedIn';
-  return 'Social';
+  // Only the fallback is translated. The names above are proper nouns and stay
+  // as they are in every language; running them through .tr would invite a
+  // 'Facebook' key later and "translate" a brand, which is how one screen ends
+  // up saying «فيسبوك» while another says «Facebook».
+  return 'Social'.tr;
 }
 
 /// Opens [url] in the platform's browser or the network's own app.
