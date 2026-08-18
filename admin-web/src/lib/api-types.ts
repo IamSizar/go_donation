@@ -207,7 +207,11 @@ export type BeneficiaryCase = {
   user_id: number | null
   case_code: string
   public_title: string
+  // All four are sent (backend caseColumns) — the type declared only two, so
+  // the Kurdish titles were invisible to every screen that wanted them.
   public_title_ar: string | null
+  public_title_sorani: string | null
+  public_title_badini: string | null
   full_name: string | null
   national_id: string | null
   phone: string | null

@@ -8,6 +8,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, describeError } from '../lib/api'
+import { caseLabel } from '../lib/localizedContent'
 import { useI18n } from '../lib/i18n'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { type CsvColumn } from '../lib/csv'
@@ -18,6 +19,11 @@ type AdminThread = {
   case_id: number
   case_code: string
   case_title: string
+  // Sent alongside case_title so the header can name the case in the reader's
+  // language; nullable because a translation column is usually filled later.
+  public_title_ar: string | null
+  public_title_sorani: string | null
+  public_title_badini: string | null
   volunteer_user_id: number
   volunteer_name: string | null
   volunteer_phone: string | null
@@ -63,7 +69,7 @@ const THREAD_CSV_COLUMNS: CsvColumn<AdminThread>[] = [
 ]
 
 export default function CaseVolunteerChatsPage() {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const [threads, setThreads] = useState<AdminThread[]>([])
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -235,7 +241,7 @@ export default function CaseVolunteerChatsPage() {
                   {name(selected.beneficiary_name, selected.beneficiary_user_id, t)} {t('page.case_volunteer_chats.beneficiary_paren')}
                 </strong>
                 <div>
-                  <span className="muted" style={{ fontSize: 12.5 }}>{t('col.profile_code')}: {selected.case_code} — {selected.case_title}</span>
+                  <span className="muted" style={{ fontSize: 12.5 }}>{t('col.profile_code')}: {caseLabel({ ...selected, public_title: selected.case_title }, locale)}</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
                   {selected.assigned_staff_user_id ? (

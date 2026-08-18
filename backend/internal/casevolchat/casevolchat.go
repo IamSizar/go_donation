@@ -200,12 +200,23 @@ func (s *Store) ReleaseThread(ctx context.Context, threadID int64) (Thread, erro
 
 // ThreadView is a thread enriched for one viewing (non-staff) user — real
 // identities, unlike the marriage chat.
+// All four title columns, not just the English one.
+//
+// beneficiary_cases keeps a title per language and the dashboard has an
+// operator working entirely in Arabic; selecting `public_title` alone meant
+// the case picker and the thread header listed cases in English while the
+// Arabic title sat unread in the same row. The SPA picks the reader's
+// language (lib/localizedContent.ts) and falls back through Arabic to
+// English, so a case titled in only one language still identifies itself.
 type ThreadView struct {
 	ID                int64      `json:"id"`
 	MyRole            string     `json:"my_role"` // "volunteer" | "beneficiary"
 	CaseID            int64      `json:"case_id"`
 	CaseCode          string     `json:"case_code"`
 	CaseTitle         string     `json:"case_title"`
+	CaseTitleAr       *string    `json:"public_title_ar"`
+	CaseTitleSorani   *string    `json:"public_title_sorani"`
+	CaseTitleBadini   *string    `json:"public_title_badini"`
 	OtherUserID       int64      `json:"other_user_id"`
 	OtherName         *string    `json:"other_name"`
 	AssignedStaffName *string    `json:"assigned_staff_name"`
@@ -220,6 +231,7 @@ func (s *Store) ListThreadsForUser(ctx context.Context, userID int64) ([]ThreadV
 		SELECT t.id,
 		       CASE WHEN t.volunteer_user_id = $1 THEN 'volunteer' ELSE 'beneficiary' END AS my_role,
 		       t.case_id, bc.case_code, bc.public_title,
+		       bc.public_title_ar, bc.public_title_sorani, bc.public_title_badini,
 		       CASE WHEN t.volunteer_user_id = $1 THEN t.beneficiary_user_id ELSE t.volunteer_user_id END AS other_id,
 		       op.full_name,
 		       sp.full_name AS assigned_staff_name,
@@ -252,6 +264,7 @@ func (s *Store) ListThreadsForUser(ctx context.Context, userID int64) ([]ThreadV
 	for rows.Next() {
 		var v ThreadView
 		if err := rows.Scan(&v.ID, &v.MyRole, &v.CaseID, &v.CaseCode, &v.CaseTitle,
+			&v.CaseTitleAr, &v.CaseTitleSorani, &v.CaseTitleBadini,
 			&v.OtherUserID, &v.OtherName, &v.AssignedStaffName,
 			&v.LastMessage, &v.LastMessageAt, &v.UnreadCount, &v.UpdatedAt); err != nil {
 			return nil, err
@@ -394,6 +407,9 @@ type AdminThreadView struct {
 	CaseID              int64      `json:"case_id"`
 	CaseCode            string     `json:"case_code"`
 	CaseTitle           string     `json:"case_title"`
+	CaseTitleAr         *string    `json:"public_title_ar"`
+	CaseTitleSorani     *string    `json:"public_title_sorani"`
+	CaseTitleBadini     *string    `json:"public_title_badini"`
 	VolunteerUserID     int64      `json:"volunteer_user_id"`
 	VolunteerName       *string    `json:"volunteer_name"`
 	VolunteerPhone      *string    `json:"volunteer_phone"`
@@ -418,6 +434,7 @@ func (s *Store) ListAllThreads(ctx context.Context, q string) ([]AdminThreadView
 	}
 	rows, err := s.Pool.Query(ctx, `
 		SELECT t.id, t.case_id, bc.case_code, bc.public_title,
+		       bc.public_title_ar, bc.public_title_sorani, bc.public_title_badini,
 		       t.volunteer_user_id, vp.full_name, vu.phone,
 		       t.beneficiary_user_id, bp.full_name, bu.phone,
 		       t.assigned_staff_user_id, sp.full_name,
@@ -447,6 +464,7 @@ func (s *Store) ListAllThreads(ctx context.Context, q string) ([]AdminThreadView
 	for rows.Next() {
 		var v AdminThreadView
 		if err := rows.Scan(&v.ID, &v.CaseID, &v.CaseCode, &v.CaseTitle,
+			&v.CaseTitleAr, &v.CaseTitleSorani, &v.CaseTitleBadini,
 			&v.VolunteerUserID, &v.VolunteerName, &v.VolunteerPhone,
 			&v.BeneficiaryUserID, &v.BeneficiaryName, &v.BeneficiaryPhone,
 			&v.AssignedStaffUserID, &v.AssignedStaffName,

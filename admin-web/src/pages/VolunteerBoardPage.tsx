@@ -21,6 +21,7 @@ import { api, assetUrl, describeError } from '../lib/api'
 import type { AdminBoardMission, AdminBoardSignup, AdminVolunteerBoard, BeneficiaryCase } from '../lib/api-types'
 import { useToast } from '../lib/toast'
 import { usePendingCounts } from '../lib/pendingCounts'
+import { localizedField } from '../lib/localizedContent'
 import { useI18n, useStatusLabel } from '../lib/i18n'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { type CsvColumn } from '../lib/csv'
@@ -451,7 +452,7 @@ function CaseLinkControl({
   signup: AdminBoardSignup
   onAssignCase: (signupID: number, caseId: number | null) => void
 }) {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
   const [results, setResults] = useState<BeneficiaryCase[]>([])
@@ -531,7 +532,7 @@ function CaseLinkControl({
           onClick={() => { onAssignCase(signup.id, rc.id); setOpen(false); setQ('') }}
           style={{ textAlign: 'start', border: 'none', cursor: 'pointer', padding: '4px 6px', borderRadius: 6, fontSize: 12 }}
         >
-          <strong>{rc.case_code}</strong> — {rc.public_title}
+          <strong>{rc.case_code}</strong> — {localizedField(rc as unknown as Record<string, unknown>, 'public_title', locale)}
         </button>
       ))}
     </div>
