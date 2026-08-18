@@ -184,3 +184,116 @@ String isolatedDate(Object? raw) {
   // analyzer flags them.
   return '\u2068$shown\u2069';
 }
+
+/// Renders a stored `HH:MM` CLOCK TIME as a 12-hour time a human should read.
+///
+/// WHY THIS EXISTS
+/// The volunteer availability picker had exactly one time formatter,
+/// `DayAvailability.fmt`, and it produced 24-hour `HH:MM`. That single function
+/// was doing two unrelated jobs: building the value SENT TO THE BACKEND and
+/// building the label PAINTED ON THE SCREEN. So every surface that showed a
+/// volunteer's hours showed them as "09:00-17:00" \u2014 the wire format, leaked
+/// onto the screen. The owner asked for "9:00 AM \u2013 5:00 PM"; a 24-hour clock
+/// is not what people here read a schedule in.
+///
+/// WHY THE WIRE FORMAT MUST NOT FOLLOW
+/// `DayAvailability.toJson` writes the same field, and that value is stored by
+/// the Go backend and read back by the admin dashboard, whose `scheduleSummary`
+/// in `admin-web/src/lib/skillCatalogue.ts` renders the `from`/`to` strings
+/// VERBATIM into its own summary. So the stored value is not private to this
+/// app: whatever is written into it is what a caseworker in the dashboard
+/// reads. Formatting for display at save time would mean the column's contents
+/// depended on the language the volunteer's phone happened to be in \u2014 an
+/// application filed from an Arabic handset would show \u00ab9:00 \u0635\u00bb to an English
+/// dashboard user, and the column would stop being a single comparable shape.
+/// Keeping it 24-hour keeps one canonical value that each end formats for its
+/// own reader. The display format is therefore a SEPARATE function, and this is
+/// the one callers reach for; `fmt` stays 24-hour and stays pointed at
+/// `toJson`.
+///
+/// WHY `intl` AND NOT A HAND-BUILT STRING
+/// The AM/PM marker is a translated word \u2014 \u00ab\u0635\u00bb/\u00ab\u0645\u00bb in Arabic \u2014 and so is its
+/// position relative to the digits. [AppLocaleService.syncDateFormatLocale]
+/// already pins `Intl.defaultLocale` at startup and on every language switch
+/// (both Kurdish variants fall back to Arabic, which `intl` has data for), so a
+/// bare `DateFormat.jm()` here is already locale-correct and needs no argument
+/// \u2014 the same arrangement [localizedDate] relies on one function up.
+///
+/// The date is a throwaway: `jm` is a TIME-only skeleton, so only the hour and
+/// minute of the [DateTime] handed to it are ever read.
+///
+/// A NOTE ON DIGITS, because it looks like a bug and is not: under Arabic this
+/// returns "9:00 \u0635" with ASCII digits rather than \u00ab\u0669:\u0660\u0660 \u0635\u00bb. That is what this
+/// app already does everywhere else \u2014 `localizedDate` renders "25 \u0645\u0627\u064a\u0648 2026"
+/// under the same locale \u2014 and matching the surrounding dates matters more
+/// than the Arabic-Indic numerals, which would otherwise appear on the time
+/// and nowhere else on the same card.
+///
+/// A SECOND NOTE ON INVISIBLE CHARACTERS, because this one costs an hour if
+/// you meet it without warning: under English, CLDR separates the time from
+/// the AM/PM marker with U+202F NARROW NO-BREAK SPACE, not an ordinary space —
+/// so the result is "9:00 AM", which looks exactly like "9:00 AM" in a
+/// diff, a terminal and a test failure message but is not equal to it. That is
+/// deliberate upstream (it stops a line breaking between the digits and the
+/// marker) and is left alone here. Arabic uses an ordinary space before «ص».
+/// Anything comparing this output to a literal has to spell the escape out;
+/// the tests in test/localization/clock_time_12h_test.dart do.
+///
+/// Falls back to the raw string when it will not parse and to '' for empty
+/// input, so a caller's `isNotEmpty` guard keeps working. Unparseable is shown
+/// rather than swallowed, for the reason [localizedDate] gives: a shape we do
+/// not recognise means the server sent something unexpected, and hiding it
+/// would hide the bug too.
+String localizedClockTime(Object? raw) {
+  final value = (raw ?? '').toString().trim();
+  if (value.isEmpty) return '';
+  // Deliberately anchored and tolerant of a single-digit hour: the picker
+  // always writes a zero-padded "09:00", but rows predating it \u2014 and anything
+  // hand-edited in the database \u2014 can carry "9:00". Seconds are matched and
+  // discarded because Postgres `time` columns serialise as "09:00:00".
+  final match = RegExp(r'^(\d{1,2}):(\d{2})(?::\d{2})?$').firstMatch(value);
+  if (match == null) return value;
+  final hour = int.parse(match.group(1)!);
+  final minute = int.parse(match.group(2)!);
+  // A regex cannot express "0-23", so the range is checked here. "25:00" is
+  // as unusable as "banana" and takes the same path.
+  if (hour > 23 || minute > 59) return value;
+  return DateFormat.jm().format(DateTime(2000, 1, 1, hour, minute));
+}
+
+/// A "from \u2013 to" pair of clock times, formatted for display and wrapped in a
+/// single bidi isolate.
+///
+/// WHY THE ISOLATE, AND WHY AROUND THE WHOLE RANGE
+/// This is the argument [isolatedDate] makes, and a formatted time is a
+/// stronger case than a date. Under Arabic the result mixes ASCII digits
+/// (bidi class EN) with an Arabic AM/PM marker (strong RTL) \u2014 genuinely
+/// bidirectional text \u2014 and it is then joined into a longer subtitle by
+/// bidi-NEUTRAL separators (the "\u060c " between days, the " - " between the
+/// status, city and schedule). The Unicode bidi algorithm resolves a neutral
+/// run from whatever sits either side of it, which is how three defects
+/// already found in this app printed the parts of a line in an order nobody
+/// wrote.
+///
+/// The isolate goes around the PAIR rather than around each time because the
+/// two times and the dash between them are one unit of meaning: isolating them
+/// separately would leave that dash neutral and free to be re-resolved,
+/// which is the same bug one level down.
+///
+/// U+2068 FIRST STRONG ISOLATE, not U+2066 LEFT-TO-RIGHT ISOLATE, for
+/// [isolatedDate]'s reason: the content is not always LTR. "9:00 AM \u2013 5:00 PM"
+/// begins with a digit and resolves LTR; \u00ab9:00 \u0635 \u2013 5:00 \u0645\u00bb has \u00ab\u0635\u00bb as its first
+/// strong character and resolves RTL, putting the start time at the Arabic
+/// reading start. FSI is correct in both; a hardcoded LRI would be wrong in
+/// Arabic. U+2069 POP DIRECTIONAL ISOLATE closes it.
+///
+/// Returns '' unless BOTH ends are present, so a half-written row degrades to
+/// the day name alone rather than to a dangling dash.
+String isolatedClockRange(Object? from, Object? to) {
+  final start = localizedClockTime(from);
+  final end = localizedClockTime(to);
+  if (start.isEmpty || end.isEmpty) return '';
+  // An EN DASH with spaces, matching the "Weekdays 9\u20135" preset chip beside it.
+  // Punctuation, not a word, so it is the same in every locale.
+  return '\u2068$start \u2013 $end\u2069';
+}

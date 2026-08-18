@@ -10,6 +10,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/core/design/directional_icons.dart';
+import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:get/get.dart';
 import 'package:flutter_application_1/core/design/motion.dart';
 
@@ -35,9 +36,39 @@ class DayAvailability {
     'to': fmt(to),
   };
 
-  /// HH:MM (24h) — used by toJson + the picker UI.
+  // ─── The wire/display boundary ───
+  //
+  // These two functions look like duplicates and are not. They format the same
+  // TimeOfDay for two audiences that must not be given the same string, and
+  // the whole point of keeping them adjacent is that the next person to reach
+  // for one is shown the other.
+  //
+  // [fmt] is the STORED value. It is 24-hour, zero-padded, locale-independent
+  // and must stay that way: `toJson` writes it, the Go backend stores it, and
+  // the admin dashboard's `scheduleSummary`
+  // (admin-web/src/lib/skillCatalogue.ts) prints the `from`/`to` strings
+  // verbatim into what a caseworker reads. So the column is shared, not ours.
+  // A 12-hour string — or an Arabic AM/PM marker — written into it would make
+  // the stored data depend on the language of the phone that saved it, and
+  // would surface untranslated on the other end. Nothing that renders to a
+  // screen should call it.
+  //
+  // [display] is the SHOWN value — 12-hour and localized. Everything the user
+  // reads goes through it. Originally there was only [fmt], used for both, and
+  // that is precisely why the app painted the wire format ("09:00-17:00") onto
+  // the volunteer's card and into the picker's own buttons.
+
+  /// HH:MM (24h) — the STORED format. `toJson` only; never rendered.
+  /// See the boundary note above before using this in UI code.
   static String fmt(TimeOfDay t) =>
       '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
+  /// The same time as the reader should see it — "9:00 AM", «9:00 ص».
+  ///
+  /// Routed through [fmt] rather than reading `t.hour`/`t.minute` a second
+  /// time so that there is exactly one description of what a TimeOfDay means
+  /// in this app, and the display can never disagree with what was stored.
+  static String display(TimeOfDay t) => localizedClockTime(fmt(t));
 }
 
 const List<String> _dayKeys = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
@@ -82,9 +113,13 @@ String localizedScheduleSummary(Object? schedule, [String? locale]) {
     final day = (entry['day'] ?? '').toString();
     final label = _dayShort[day]?[lang] ?? _dayShort[day]?['en'];
     if (label == null) continue;
-    final from = (entry['from'] ?? '').toString();
-    final to = (entry['to'] ?? '').toString();
-    parts.add(from.isEmpty || to.isEmpty ? label : '$label $from-$to');
+    // The stored ends are 24-hour "HH:MM" — the wire format. They are
+    // reformatted for reading here rather than interpolated raw, which is what
+    // put "Mon 09:00-17:00" on the card. `isolatedClockRange` also returns ''
+    // when either end is missing, which is the same degrade-to-the-day-name
+    // behaviour the raw version had to spell out with an isEmpty check.
+    final hours = isolatedClockRange(entry['from'], entry['to']);
+    parts.add(hours.isEmpty ? label : '$label $hours');
   }
   return parts.join('، ');
 }
@@ -389,7 +424,11 @@ class _DayPill extends StatelessWidget {
   }
 }
 
-/// One row in the active-days list: "Monday  [09:00] → [17:00]  ✕".
+/// One row in the active-days list: "Monday  [9:00 AM] → [5:00 PM]  ✕".
+///
+/// The bracketed labels used to read "09:00" and "17:00" — this row rendered
+/// the stored 24-hour value directly. They now go through
+/// [DayAvailability.display]; the times the row WRITES are unchanged.
 class _TimeRow extends StatelessWidget {
   const _TimeRow({
     required this.dayName,
@@ -426,8 +465,12 @@ class _TimeRow extends StatelessWidget {
             ),
           ),
           Expanded(
+            // `display`, not `fmt`: this is a label the volunteer reads, and
+            // it was showing them the value the backend stores. Each button is
+            // its own Text with nothing bidi-neutral beside it, so it needs no
+            // isolate — only the joined summary does.
             child: _TimeButton(
-              label: DayAvailability.fmt(from),
+              label: DayAvailability.display(from),
               accent: accent,
               onTap: onFromTap,
             ),
@@ -442,7 +485,7 @@ class _TimeRow extends StatelessWidget {
           ),
           Expanded(
             child: _TimeButton(
-              label: DayAvailability.fmt(to),
+              label: DayAvailability.display(to),
               accent: accent,
               onTap: onToTap,
             ),

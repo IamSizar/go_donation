@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'dart:io';
 
+// `material.dart` already re-exports `@visibleForTesting`, so no separate
+// `foundation.dart` import is needed for it (the analyzer flags one as
+// unnecessary_import).
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/api/links.dart';
@@ -274,7 +277,7 @@ class _SupportSectionState extends State<SupportSection>
                     : 'My volunteer application',
                 subtitle: latestApplication == null
                     ? 'Submit your skills and availability to the institution.'
-                    : _applicationSubtitle(latestApplication),
+                    : applicationSubtitle(latestApplication),
                 color: _applicationColor(
                   context,
                   (latestApplication?['status'] ?? '').toString(),
@@ -296,7 +299,7 @@ class _SupportSectionState extends State<SupportSection>
                   SectionTile(
                     icon: Icons.task_alt_rounded,
                     title: _localizedMissionTitle(mission),
-                    subtitle: _missionSubtitle(mission),
+                    subtitle: missionSubtitle(mission),
                     color: AppThemeConfig.accent(context),
                     onTap: () async {
                       final changed = await Get.to<bool>(
@@ -343,7 +346,7 @@ class _SupportSectionState extends State<SupportSection>
                 SectionTile(
                   icon: Icons.assignment_turned_in_rounded,
                   title: _localizedMissionTitle(mission),
-                  subtitle: _missionSubtitle(mission),
+                  subtitle: missionSubtitle(mission),
                   color: AppThemeConfig.accent(context),
                   onTap: () async {
                     final signupStatus = _signupStatusFor(
@@ -584,7 +587,7 @@ class _VolunteerMissionDetailScreenState
     final description = _localizedMissionDescription(widget.mission);
     return SectionScaffold(
       title: _localizedMissionTitle(widget.mission),
-      subtitle: _missionSubtitle(widget.mission),
+      subtitle: missionSubtitle(widget.mission),
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
         children: [
@@ -1021,7 +1024,20 @@ String _localizedMissionDescription(Map<String, dynamic> mission) {
       .trim();
 }
 
-String _missionSubtitle(Map<String, dynamic> mission) {
+// WHY THESE TWO ARE NO LONGER PRIVATE
+// Both subtitle builders were `_`-prefixed, so nothing outside this file could
+// call them and no test ever had. What the suite pinned instead were the
+// INGREDIENTS — that `'submitted'.tr` is Arabic, that `localizedScheduleSummary`
+// localizes a day key — on the assumption that a line assembled from correct
+// parts is itself correct. That assumption is exactly what failed: the city
+// was being joined in raw while every ingredient around it was translated, and
+// no ingredient-level test could see it because no test saw the JOIN.
+//
+// `@visibleForTesting` rather than a plain rename: the annotation makes the
+// analyzer complain if production code outside this library starts calling
+// them, so widening the visibility does not quietly widen the API.
+@visibleForTesting
+String missionSubtitle(Map<String, dynamic> mission) {
   // The date is joined to city/capacity/status by a neutral " - ", which the
   // bidi algorithm resolves from its neighbours — hence the isolate. The
   // fallback word is ordinary translated text and needs none.
@@ -1062,14 +1078,27 @@ String _missionSubtitle(Map<String, dynamic> mission) {
 /// it and holds day KEYS, which do localize — so the summary is rendered from
 /// that, and the stored text is kept only as the fallback for rows saved
 /// before the structured column existed.
-String _applicationSubtitle(Map<String, dynamic> application) {
+@visibleForTesting
+String applicationSubtitle(Map<String, dynamic> application) {
   final status = (application['status'] ?? 'submitted').toString();
   final schedule = localizedScheduleSummary(
     application['availability_schedule'],
   );
   return [
     status.tr,
-    (application['city'] ?? '').toString(),
+    // Translated for the reason the missions card two functions above already
+    // gives: the governorate names in data/iraq_governorates.dart are keys with
+    // entries in all four locales. This card was the one site that still
+    // printed the column raw, so an application filed in Erbil said "Erbil"
+    // beside a fully Arabic status.
+    //
+    // This only reaches the cases where the value IS a key. `city` here is a
+    // free-text field the volunteer types (prefilled from the `city_user`
+    // preference), so a hand-typed "duhok" — lower case, and therefore not the
+    // key 'Duhok' — still falls through unchanged. That is the correct
+    // outcome for free text, and it is also why the owner may keep seeing a
+    // Latin city on this card: the fix is at the point of ENTRY, not here.
+    (application['city'] ?? '').toString().tr,
     schedule.isNotEmpty
         ? schedule
         : (application['availability'] ?? '').toString(),
