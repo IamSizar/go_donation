@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+
+import 'package:flutter_application_1/shared/widgets/adaptive_dialog.dart';
 import 'package:flutter_application_1/core/design/directional_icons.dart';
 import 'package:flutter_application_1/api/auth_session.dart';
 import 'package:flutter_application_1/api/guest_session.dart';
@@ -136,26 +138,15 @@ class SettingsSection extends StatelessWidget {
 }
 
 Future<void> confirmLogout(BuildContext context) async {
-  final confirmed =
-      await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: Text('Log out?'.tr),
-          content: Text('Are you sure you want to log out?'.tr),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: Text('Cancel'.tr),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              style: TextButton.styleFrom(foregroundColor: drawerDanger),
-              child: Text('Log out'.tr),
-            ),
-          ],
-        ),
-      ) ??
-      false;
+  final confirmed = await showAdaptiveConfirm(
+    context,
+    title: 'Log out?'.tr,
+    message: 'Are you sure you want to log out?'.tr,
+    confirmLabel: 'Log out'.tr,
+    cancelLabel: 'Cancel'.tr,
+    isDestructive: true,
+    destructiveColor: drawerDanger,
+  );
   if (!confirmed) return;
   // Navigate to login FIRST so the authenticated tree is torn down before the
   // session is cleared (mirrors the old flow — avoids a black screen from
@@ -168,25 +159,16 @@ Future<void> confirmLogout(BuildContext context) async {
 // (where cached_network_image stores its disk cache). Deliberately does NOT
 // touch SharedPreferences, so the session/login stays intact.
 Future<void> _clearCache(BuildContext context) async {
-  final confirmed =
-      await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: Text('clear_cache'.tr),
-          content: Text('cache_clear_confirm'.tr),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: Text('Cancel'.tr),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child: Text('clear_cache'.tr),
-            ),
-          ],
-        ),
-      ) ??
-      false;
+  // Not destructive in the dangerous sense — the cache refills itself and the
+  // session is untouched — so the affirmative action is the default one rather
+  // than a red warning.
+  final confirmed = await showAdaptiveConfirm(
+    context,
+    title: 'clear_cache'.tr,
+    message: 'cache_clear_confirm'.tr,
+    confirmLabel: 'clear_cache'.tr,
+    cancelLabel: 'Cancel'.tr,
+  );
   if (!confirmed) return;
   try {
     PaintingBinding.instance.imageCache.clear();
