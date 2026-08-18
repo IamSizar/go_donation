@@ -224,10 +224,22 @@ func compressJPEG(file *multipart.FileHeader) ([]byte, error) {
 		return nil, err
 	}
 	defer src.Close()
+	// Read the EXIF orientation before decoding, because re-encoding discards
+	// it: image/jpeg writes no EXIF, so a phone photo's "rotate me" tag would
+	// be lost and its sideways pixels made permanent. Reading first, then
+	// rewinding, costs one extra pass over the file's opening bytes.
+	orientation := readEXIFOrientation(src)
+	if _, err := src.Seek(0, io.SeekStart); err != nil {
+		return nil, err
+	}
 	img, err := jpeg.Decode(src)
 	if err != nil {
 		return nil, err
 	}
+	// Bake the rotation into the pixels while we still know about it. This
+	// happens before downscaling so that maxImageDim bounds the longest side
+	// of the image as it will actually be displayed.
+	img = applyEXIFOrientation(img, orientation)
 	// Downscale oversized photos so the longest side is at most maxImageDim.
 	// Profile/gallery photos from phones are often 3000–4000px; 1600px is ample
 	// for any dashboard/app display and cuts storage + load time further. Images
