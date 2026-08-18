@@ -37,6 +37,25 @@ class ContentPageScreen extends StatefulWidget {
 /// heading is `title_*` and repeating it here would double it.
 typedef _Block = ({String title, String body});
 
+/// Whether the page's stored heading should be drawn above its content.
+///
+/// THE BUG THIS PREVENTS
+/// The top bar already names the page, and app_content.title_* usually holds
+/// that same name — so drawing both put «عملنا الإنساني» on screen twice, once
+/// in the bar and again as a heading directly beneath it.
+///
+/// The empty-state branch below already reasoned this way ("a lone repeat of it
+/// is a blank sheet with a title on it"); it simply was not applied when the
+/// page HAD content. A stored heading that genuinely differs from the page name
+/// is still shown, because then it is telling the reader something new.
+@visibleForTesting
+bool shouldShowStoredHeading(String heading, String topBarTitle) {
+  final h = heading.trim();
+  if (h.isEmpty) return false;
+  return h != topBarTitle.trim();
+}
+
+
 class _ContentPageScreenState extends State<ContentPageScreen> {
   late Future<ContentPage?> _future;
 
@@ -175,7 +194,7 @@ class _ContentBody extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (heading.isNotEmpty) ...[
+          if (shouldShowStoredHeading(heading, emptyTitleKey.tr)) ...[
             Text(
               heading,
               style: TextStyle(
