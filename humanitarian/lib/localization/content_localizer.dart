@@ -2,7 +2,9 @@ import 'package:flutter_application_1/data/iraq_governorates.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_application_1/localization/locale_service.dart';
 import 'package:get/get.dart';
-import 'package:intl/intl.dart';
+// intl exports its own TextDirection, which would shadow the Flutter one that
+// widgets actually take. Bidi is the only thing needed from it here.
+import 'package:intl/intl.dart' hide TextDirection;
 
 String currentContentLocaleTag([Locale? locale]) {
   return AppLocaleService.contentLocaleTag(locale ?? Get.locale);
@@ -311,4 +313,34 @@ String localizedCity(Object? raw) {
   if (value.isEmpty) return '';
   final key = governorateKeyFor(value);
   return key == null ? value : key.tr;
+}
+
+/// The direction a piece of USER-WRITTEN content should be laid out in,
+/// decided by the content itself rather than by the app's current locale.
+///
+/// WHY THIS IS NOT THE SAME AS THE UI DIRECTION
+/// A marriage/events profile bio is whatever the person typed. Rendering an
+/// English bio inside an Arabic screen lays the paragraph out right-to-left,
+/// which moves its trailing punctuation to the far end: "life's journey."
+/// arrives on screen as ".life's journey". The sentence is intact in the data
+/// and wrong on the glass — the paragraph simply needs its own direction.
+///
+/// An isolate character (see [isolatedDate]) is the right tool for a short run
+/// sitting INSIDE a sentence. It is the wrong tool for a whole paragraph that
+/// is its own sentence; that wants a real text direction, so wrapping and
+/// alignment follow the content too.
+///
+/// Falls back to the reader's own direction for content with no strong
+/// character either way — digits, spaces and punctuation — which is the least
+/// surprising result: a bare "33" should sit the way the rest of the UI does.
+/// Note that intl counts emoji as strong LTR, so emoji-only content is laid
+/// out left-to-right rather than following the reader. That is left alone
+/// deliberately: an emoji-only bio reads identically either way, and
+/// special-casing it would add a branch no user can perceive.
+TextDirection contentDirection(String text, {required TextDirection fallback}) {
+  final trimmed = text.trim();
+  if (trimmed.isEmpty) return fallback;
+  if (Bidi.hasAnyRtl(trimmed)) return TextDirection.rtl;
+  if (Bidi.hasAnyLtr(trimmed)) return TextDirection.ltr;
+  return fallback;
 }

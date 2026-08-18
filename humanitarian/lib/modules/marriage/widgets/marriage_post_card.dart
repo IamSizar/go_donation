@@ -48,7 +48,10 @@ class MarriagePostCard extends StatelessWidget {
     final sub = [
       if (gender.isNotEmpty) gender.tr,
       if (age.isNotEmpty && age != '0') age,
-      if (city.isNotEmpty) city,
+      // Localised like the gender beside it; a governorate must not be the
+      // one English word in an otherwise Arabic line. Anything that is not a
+      // known governorate comes back unchanged, so free-text places survive.
+      if (city.isNotEmpty) localizedCity(city),
     ].join(' · ');
 
     return GlassPanel(
@@ -104,7 +107,19 @@ class MarriagePostCard extends StatelessWidget {
                   ),
                 if (summary.trim().isNotEmpty) ...[
                   const SizedBox(height: 8),
-                  Text(summary, maxLines: 3, overflow: TextOverflow.ellipsis),
+                  // The bio is whatever the person typed, so it is laid out in
+                  // its OWN direction rather than the screen's. An English bio
+                  // on an Arabic screen otherwise renders its full stop at the
+                  // wrong end: ".life's journey".
+                  Text(
+                    summary,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    textDirection: contentDirection(
+                      summary,
+                      fallback: Directionality.of(context),
+                    ),
+                  ),
                 ],
                 const SizedBox(height: 12),
                 SizedBox(
