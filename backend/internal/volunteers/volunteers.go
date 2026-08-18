@@ -6,6 +6,7 @@ package volunteers
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"time"
@@ -32,18 +33,37 @@ type Mission struct {
 	PendingVolunteers  int     `json:"pending_volunteers"`
 }
 
+// ScheduleRow is one day of a volunteer's declared availability.
+type ScheduleRow struct {
+	Day      string `json:"day"`
+	TimeFrom string `json:"from"`
+	TimeTo   string `json:"to"`
+}
+
 type Application struct {
-	ID           int64     `json:"id"`
-	UserID       int       `json:"user_id"`
-	FullName     string    `json:"full_name"`
-	Phone        *string   `json:"phone"`
-	City         *string   `json:"city"`
-	Skills       *string   `json:"skills"`
-	Experience   *string   `json:"experience"`
-	Availability *string   `json:"availability"`
-	Status       string    `json:"status"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID           int64   `json:"id"`
+	UserID       int     `json:"user_id"`
+	FullName     string  `json:"full_name"`
+	Phone        *string `json:"phone"`
+	City         *string `json:"city"`
+	Skills       *string `json:"skills"`
+	Experience   *string `json:"experience"`
+	Availability *string `json:"availability"`
+	// The structured schedule, as day KEYS the reader's device can localize.
+	//
+	// `Availability` above is the free-text summary the FORM produced, and the
+	// form produced it with English day names — so the app's own card rendered
+	// "Mon 09:00-17:00" to a reader working entirely in Arabic, and no
+	// display-time translation could repair it, because the English is in the
+	// data. This column holds `mon`/`tue`/… and the times as HH:MM, which the
+	// app turns into «الإثنين ٩:٠٠ ص – ٥:٠٠ م».
+	//
+	// Same JSON shape the dashboard already receives from admin_lists.go, so
+	// both clients localize from one source rather than two.
+	AvailabilitySchedule []ScheduleRow `json:"availability_schedule"`
+	Status               string        `json:"status"`
+	CreatedAt            time.Time     `json:"created_at"`
+	UpdatedAt            time.Time     `json:"updated_at"`
 }
 
 type JoinedMission struct {
@@ -153,11 +173,29 @@ func (s *Store) ApplicationsForUser(ctx context.Context, userID int64) ([]Applic
 		return nil, nil
 	}
 	rows, err := s.Pool.Query(ctx, `
-		SELECT id, user_id, full_name, phone, city, skills, experience, availability,
-		       status, created_at, updated_at
-		  FROM volunteer_applications
-		 WHERE user_id = $1
-		 ORDER BY id DESC
+		SELECT a.id, a.user_id, a.full_name, a.phone, a.city, a.skills, a.experience,
+		       a.availability,
+		       COALESCE(sched.schedule_json, '[]'::json),
+		       a.status, a.created_at, a.updated_at
+		  FROM volunteer_applications a
+		  LEFT JOIN (
+		    SELECT application_id,
+		           json_agg(json_build_object(
+		             'day', day_of_week,
+		             'from', time_from,
+		             'to', time_to
+		           ) ORDER BY
+		             CASE day_of_week
+		               WHEN 'mon' THEN 1 WHEN 'tue' THEN 2 WHEN 'wed' THEN 3
+		               WHEN 'thu' THEN 4 WHEN 'fri' THEN 5 WHEN 'sat' THEN 6
+		               WHEN 'sun' THEN 7
+		             END
+		           ) AS schedule_json
+		      FROM volunteer_application_availability
+		     GROUP BY application_id
+		  ) sched ON sched.application_id = a.id
+		 WHERE a.user_id = $1
+		 ORDER BY a.id DESC
 		 LIMIT 20`, userID)
 	if err != nil {
 		return nil, err
@@ -166,9 +204,17 @@ func (s *Store) ApplicationsForUser(ctx context.Context, userID int64) ([]Applic
 	items := []Application{}
 	for rows.Next() {
 		var a Application
+		var scheduleJSON []byte
 		if err := rows.Scan(&a.ID, &a.UserID, &a.FullName, &a.Phone, &a.City, &a.Skills,
-			&a.Experience, &a.Availability, &a.Status, &a.CreatedAt, &a.UpdatedAt); err != nil {
+			&a.Experience, &a.Availability, &scheduleJSON,
+			&a.Status, &a.CreatedAt, &a.UpdatedAt); err != nil {
 			return nil, err
+		}
+		// A malformed row must not lose the whole application: the card falls
+		// back to the free-text summary, which is what it did before this
+		// column existed.
+		if len(scheduleJSON) > 0 {
+			_ = json.Unmarshal(scheduleJSON, &a.AvailabilitySchedule)
 		}
 		items = append(items, a)
 	}
