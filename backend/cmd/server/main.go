@@ -325,6 +325,11 @@ func main() {
 	adminDeleteH := handlers.NewAdminDeleteHandler(pool)
 	adminTrashH := handlers.NewAdminTrashHandler(pool)
 	adminUploadH := handlers.NewAdminUploadHandler(mediaStore)
+	// Serves stored media back as a downloadable file. It needs the same public
+	// base the storage layer uses, because that prefix is the allowlist deciding
+	// which URLs it is willing to re-fetch.
+	mediaDownloadH := handlers.NewMediaDownloadHandler(
+		os.Getenv("R2_PUBLIC_BASE_URL"), uploadDir)
 	permStore := permissions.New(pool)
 	adminDetailH := handlers.NewAdminDetailHandler(pool, permStore)
 	adminExportH := handlers.NewAdminExportHandler(pool)
@@ -923,6 +928,10 @@ func main() {
 			// Phase 24 — per-mission Kanban "Volunteer board" view.
 			// Groups signups into 4 lanes (pending/approved/on_mission/
 			// completed-30d) per mission for the admin overview screen.
+			// Download a stored photo/document as a file. Gated on being a
+			// signed-in admin only: it relays nothing that is not already
+			// readable at its public URL, so no per-module permission applies.
+			admin.GET("/admin/media/download", mediaDownloadH.Download)
 			admin.GET("/admin/volunteer_board", perm("volunteers", "view"), adminListsH.VolunteerBoard)
 			admin.GET("/admin/volunteer_board/", perm("volunteers", "view"), adminListsH.VolunteerBoard)
 
