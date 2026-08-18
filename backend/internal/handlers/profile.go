@@ -1,11 +1,10 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
-	"io"
 	"mime/multipart"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -15,20 +14,26 @@ import (
 
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
 	"github.com/karam-flutter/humanitarian-backend/internal/profilechanges"
+	"github.com/karam-flutter/humanitarian-backend/internal/storage"
 	"github.com/karam-flutter/humanitarian-backend/internal/users"
 )
 
 // ProfileHandler ports percentage/api/profile/{get,set}/index.php.
 type ProfileHandler struct {
-	Users     *users.Store
-	UploadDir string // absolute path on disk; files are served at /images/*
+	Users *users.Store
+	// Store is where an uploaded profile picture's bytes go. It replaces an
+	// UploadDir that pointed at the container's own filesystem, which the
+	// platform replaces on every deploy — so a user's avatar survived exactly
+	// until the next release and then became a 404 behind a row that still
+	// named it. See internal/storage.
+	Store storage.Storage
 	// Name and photo changes are reviewed by staff before they apply
 	// (migration 093); nil disables review and writes straight through.
 	Changes *profilechanges.Store
 }
 
-func NewProfileHandler(u *users.Store, uploadDir string, ch *profilechanges.Store) *ProfileHandler {
-	return &ProfileHandler{Users: u, UploadDir: uploadDir, Changes: ch}
+func NewProfileHandler(u *users.Store, store storage.Storage, ch *profilechanges.Store) *ProfileHandler {
+	return &ProfileHandler{Users: u, Store: store, Changes: ch}
 }
 
 // GET /api/profile/notifications (#31) — the current user's notification switch.
@@ -324,7 +329,7 @@ func (h *ProfileHandler) Set(c *gin.Context) {
 	if !upd.RemovePicture {
 		fileHeader, _ := c.FormFile("profile_picture")
 		if fileHeader != nil {
-			path, err := h.savePicture(uid, fileHeader)
+			path, err := h.savePicture(c.Request.Context(), uid, fileHeader)
 			if err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{
 					"success": false,
@@ -382,34 +387,39 @@ func (h *ProfileHandler) Set(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
-// savePicture writes the uploaded file to UploadDir using the
-// "profile_<userID>_<unix>.<ext>" convention from PHP, and returns the
-// relative path stored in the DB (e.g. "images/profile_3_1776...jpg").
-func (h *ProfileHandler) savePicture(userID int64, fh *multipart.FileHeader) (string, error) {
-	if err := os.MkdirAll(h.UploadDir, 0o755); err != nil {
-		return "", err
-	}
+// savePicture stores the uploaded file under the
+// "profile_<userID>_<unix>.<ext>" convention inherited from PHP, and returns
+// the string written into the DB column — "images/profile_3_1776….jpg" on
+// local disk, an absolute R2 URL when R2 is configured.
+//
+// The filename convention is unchanged on purpose: rows written by the PHP
+// implementation, by this handler before the storage migration, and by this
+// handler after it all share one shape, and the profile-change review queue
+// (h.Changes) stores the old and new values side by side, so a convention
+// change here would make a pending review compare two different vocabularies.
+//
+// The <unix> component is what keeps a re-upload from colliding with the
+// previous picture, and it is also why nothing here deletes the old object:
+// a picture change can be sitting in the review queue, still referencing the
+// path it is replacing.
+func (h *ProfileHandler) savePicture(ctx context.Context, userID int64, fh *multipart.FileHeader) (string, error) {
 	ext := strings.ToLower(strings.TrimPrefix(filepath.Ext(fh.Filename), "."))
 	if ext == "" {
+		// Some pickers submit a part with no filename. jpg matches the
+		// pre-existing behaviour and keeps the object from landing in the
+		// bucket with no extension, which would leave it with no usable
+		// Content-Type and make the app download the avatar rather than draw
+		// it.
 		ext = "jpg"
 	}
-	unique := fmt.Sprintf("profile_%d_%d.%s", userID, time.Now().Unix(), ext)
-	abs := filepath.Join(h.UploadDir, unique)
+	key := fmt.Sprintf("profile_%d_%d.%s", userID, time.Now().Unix(), ext)
 
 	src, err := fh.Open()
 	if err != nil {
 		return "", err
 	}
 	defer src.Close()
-	dst, err := os.OpenFile(abs, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
-	if err != nil {
-		return "", err
-	}
-	defer dst.Close()
-	if _, err := io.Copy(dst, src); err != nil {
-		return "", err
-	}
-	return "images/" + unique, nil
+	return h.Store.Put(ctx, key, "", src)
 }
 
 // getOptionalForm returns (value, true) if the form actually included the field,

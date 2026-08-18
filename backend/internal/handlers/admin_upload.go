@@ -1,49 +1,68 @@
 package handlers
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/hex"
 	"image"
 	"image/jpeg"
+	"io"
+	"log"
 	"mime/multipart"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 	xdraw "golang.org/x/image/draw"
+
+	"github.com/karam-flutter/humanitarian-backend/internal/storage"
 )
 
-// AdminUploadHandler serves Phase 15's POST /api/admin/upload endpoint.
+// AdminUploadHandler serves Phase 15's POST /api/admin/upload endpoint. The
+// mobile app's volunteer check-in photo also arrives here, via POST
+// /api/uploads, so this one handler is the destination for both the dashboard's
+// uploads and the app's evidence photos.
 //
 // Flow:
 //  1. Read the multipart "file" field.
 //  2. Validate the extension (only images + PDF for case documents).
 //  3. Validate the size (configurable; defaults to 5 MB).
 //  4. Generate a random 32-hex name, preserve original extension.
-//  5. Save to <uploadDir>/uploads/<name><ext>.
+//  5. Hand the bytes to the configured storage backend under "uploads/<name>".
 //  6. Return {success, path, size, mime} where `path` is what the SPA
 //     stores back into the corresponding column (e.g. partners.logo_path).
 //
-// Storage layout matches the Gin static handler in main.go:
+// Step 5 used to be "write to <uploadDir>/uploads/<name>", and that is what
+// this handler is being changed away from. The container filesystem it wrote
+// to is replaced on every Railway deploy, so every release silently deleted
+// every file this endpoint had ever accepted while the database went on
+// holding the paths — including the volunteer check-in photo whose 404,
+// minutes after a successful upload, is how the whole problem was found. See
+// internal/storage for the full account.
 //
-//	./images                  ← uploadDir, served at GET /images/*
-//	./images/uploads          ← where this handler writes
-//	./images/seed/...         ← pre-existing seed files (not touched)
+// What the caller does with `path` is unchanged and needs no client change,
+// because `path` is now whatever the backend returned rather than a string
+// this handler builds:
 //
-// So after a successful upload the SPA can render the new image via
-// `<img src={`/${path}`} />` immediately.
+//	local disk → "images/uploads/<name>", relative, served by
+//	             r.Static("/images", uploadDir) exactly as before
+//	R2         → "https://<public base>/uploads/<name>", absolute
+//
+// Both clients already pass an absolute URL through untouched and prefix their
+// API origin onto anything else, so the two shapes coexist in one column.
 type AdminUploadHandler struct {
-	UploadDir   string
+	// Store is where the bytes go. Never nil — main.go builds one backend at
+	// startup and every upload path in the process shares it.
+	Store       storage.Storage
 	MaxBytes    int64
 	allowedExts map[string]string
 }
 
-func NewAdminUploadHandler(uploadDir string) *AdminUploadHandler {
+func NewAdminUploadHandler(store storage.Storage) *AdminUploadHandler {
 	return &AdminUploadHandler{
-		UploadDir: uploadDir,
-		MaxBytes:  5 * 1024 * 1024, // 5 MB
+		Store:    store,
+		MaxBytes: 5 * 1024 * 1024, // 5 MB
 		// extension → mime (mime is informational; we don't sniff content
 		// since we serve as static files only — Gin will set the response
 		// Content-Type from the filename when served back).
@@ -102,9 +121,12 @@ func (h *AdminUploadHandler) Upload(c *gin.Context) {
 	}
 	name := hex.EncodeToString(rnd) + ext
 
-	// Save under <UploadDir>/uploads. The directory is created by the
-	// startup code in main.go (or manually); we don't mkdir on every upload.
-	dest := filepath.Join(h.UploadDir, "uploads", name)
+	// The object key. "uploads/" is a prefix inside the storage backend, not a
+	// directory this handler has to create: the local backend makes the parent
+	// directory itself, and on R2 a prefix is just part of the key. The old
+	// code depended on main.go (or a human) having created ./images/uploads
+	// beforehand, which is a dependency that fails silently on a fresh volume.
+	key := "uploads/" + name
 
 	// Section 27 — automatically compress JPEG uploads (typical phone photos /
 	// profile images) to cut storage + speed up loading, UNLESS the caller
@@ -112,35 +134,58 @@ func (h *AdminUploadHandler) Upload(c *gin.Context) {
 	// property images, official documents) — those keep their original bytes
 	// for inspection/verification. PNG/GIF/WEBP/SVG/PDF are stored untouched
 	// (transparency / vector / document integrity). Any compression failure
-	// falls back to saving the original file, so uploads never break.
-	saved := false
+	// falls back to storing the original file, so uploads never break.
+	//
+	// The compressor now returns the re-encoded bytes instead of writing them
+	// to a path, because the destination is no longer necessarily a path. That
+	// also removes the os.Stat that used to measure the result: the size we
+	// report is the length of what we actually stored, which is knowable
+	// without asking a filesystem that may not be involved.
+	var body io.ReadSeeker
+	size := file.Size
 	if (ext == ".jpg" || ext == ".jpeg") && !isSensitiveUpload(c) {
-		if err := saveCompressedJPEG(file, dest); err == nil {
-			saved = true
+		if compressed, err := compressJPEG(file); err == nil {
+			body = bytes.NewReader(compressed)
+			size = int64(len(compressed))
 		}
 	}
-	if !saved {
-		if err := c.SaveUploadedFile(file, dest); err != nil {
+	if body == nil {
+		src, err := file.Open()
+		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"success": false,
 				"error":   "Failed to save file: " + err.Error(),
 			})
 			return
 		}
+		defer src.Close()
+		body = src
 	}
 
-	// Report the actual on-disk size (compression may have shrunk it).
-	size := file.Size
-	if fi, statErr := os.Stat(dest); statErr == nil {
-		size = fi.Size()
+	// Path the SPA stores back into the row. Whatever the backend hands back
+	// goes into the response verbatim — a relative "images/uploads/<name>" on
+	// local disk, matching how existing seed paths look
+	// (e.g. "images/seed/foo.png"), or an absolute R2 URL. Rebuilding it here
+	// would defeat the whole arrangement.
+	storedPath, err := h.Store.Put(c.Request.Context(), key, mime, body)
+	if err != nil {
+		// The driver error names a bucket, a filesystem path, or an S3 status
+		// code, none of which is actionable by the person who pressed Upload.
+		// It goes to the log; they get a sentence they can act on. (The old
+		// code appended err.Error() to the response — kept for the
+		// file.Open failure above, which is a local decode-level problem, but
+		// not for a storage backend that can name infrastructure.)
+		log.Printf("[upload] storing %q failed: %v", key, err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   "Could not save the file. Please try again.",
+		})
+		return
 	}
 
-	// Path the SPA stores back into the row: relative, no leading slash, so
-	// it matches how existing seed paths look (e.g. "images/seed/foo.png").
-	relPath := "images/uploads/" + name
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"path":    relPath,
+		"path":    storedPath,
 		"size":    size,
 		"mime":    mime,
 	})
@@ -162,19 +207,26 @@ func isSensitiveUpload(c *gin.Context) bool {
 	return false
 }
 
-// saveCompressedJPEG decodes an uploaded JPEG and re-encodes it at a reduced
-// quality to the destination path. Returns an error (without writing a partial
-// file the caller would keep) if the input can't be decoded, so the caller can
-// fall back to storing the original bytes verbatim.
-func saveCompressedJPEG(file *multipart.FileHeader, dest string) error {
+// compressJPEG decodes an uploaded JPEG and re-encodes it at a reduced quality,
+// returning the new bytes. Returns an error if the input can't be decoded, so
+// the caller can fall back to storing the original bytes verbatim.
+//
+// This used to be saveCompressedJPEG and wrote straight to a destination path.
+// It returns bytes now because the destination is a storage backend that may
+// not be a filesystem at all — and returning bytes is strictly safer than the
+// old shape besides: the previous version could create the destination file
+// and only then fail inside jpeg.Encode, leaving a truncated image at a path
+// the caller had already decided to keep. Nothing partial can escape a
+// function that hands back a finished buffer or an error.
+func compressJPEG(file *multipart.FileHeader) ([]byte, error) {
 	src, err := file.Open()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer src.Close()
 	img, err := jpeg.Decode(src)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	// Downscale oversized photos so the longest side is at most maxImageDim.
 	// Profile/gallery photos from phones are often 3000–4000px; 1600px is ample
@@ -182,14 +234,13 @@ func saveCompressedJPEG(file *multipart.FileHeader, dest string) error {
 	// already within the limit are left at their native size. (Sensitive uploads
 	// never reach this function — the caller skips compression for them.)
 	img = downscaleToMax(img, maxImageDim)
-	out, err := os.Create(dest)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
 	// Quality 82 is visually near-lossless for photos but typically 40–60%
 	// smaller than a phone camera's default ~95.
-	return jpeg.Encode(out, img, &jpeg.Options{Quality: 82})
+	var out bytes.Buffer
+	if err := jpeg.Encode(&out, img, &jpeg.Options{Quality: 82}); err != nil {
+		return nil, err
+	}
+	return out.Bytes(), nil
 }
 
 // maxImageDim is the longest-side cap (px) applied to compressible uploads.

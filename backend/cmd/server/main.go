@@ -57,6 +57,7 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/sponsorshipschedule"
 	"github.com/karam-flutter/humanitarian-backend/internal/sponsorshiptypes"
 	"github.com/karam-flutter/humanitarian-backend/internal/staffchat"
+	"github.com/karam-flutter/humanitarian-backend/internal/storage"
 	"github.com/karam-flutter/humanitarian-backend/internal/support"
 	"github.com/karam-flutter/humanitarian-backend/internal/tasks"
 	"github.com/karam-flutter/humanitarian-backend/internal/users"
@@ -167,29 +168,51 @@ func main() {
 		log.Printf("[scheduler] disabled (set RUN_SCHEDULER=1 to enable reminders)")
 	}
 
-	// Where uploaded files live on disk; served back at /images/*.
+	// Where uploaded files live on disk; still served back at /images/*.
 	//
-	// MUST point at a PERSISTENT volume in production, and this is not a
-	// tidiness note — it was hardcoded to "./images", the container's own
-	// working directory, and container filesystems are replaced on every
-	// deploy. So each release silently deleted every file any user had ever
-	// uploaded — profile photos, case documents, partner logos, volunteer
-	// check-in evidence — while the database kept the paths pointing at them.
-	// The result is a row that says a photo exists and a URL that answers 404,
-	// which reads as a broken viewer rather than as data that is simply gone.
+	// This was hardcoded to "./images", the container's own working directory,
+	// and container filesystems are replaced on every deploy. So each release
+	// silently deleted every file any user had ever uploaded — profile photos,
+	// case documents, partner logos, volunteer check-in evidence — while the
+	// database kept the paths pointing at them. The result is a row that says a
+	// photo exists and a URL that answers 404, which reads as a broken viewer
+	// rather than as data that is simply gone. Found when a volunteer's
+	// check-in photo 404'd minutes after it uploaded successfully: a backend
+	// deploy in between had taken the directory with it.
 	//
-	// Found when a volunteer's check-in photo 404'd minutes after it uploaded
-	// successfully: a backend deploy in between had taken the directory with
-	// it.
-	//
-	// The default is unchanged so local development still just works. In
-	// production set UPLOAD_DIR to a mounted volume's path — the env var is
-	// only half the fix, the volume has to exist.
+	// UPLOAD_DIR was the stopgap and object storage (below) is the fix, but
+	// this directory does not go away, for one reason that outlives the
+	// migration: every row written before the switch holds a RELATIVE path
+	// ("images/uploads/….png", "images/profile_7_….jpg") that only resolves
+	// through the static route on the next line. Those rows are not rewritten,
+	// so the route stays as long as the files behind it do. New uploads write
+	// absolute URLs and never touch it.
 	uploadDir := strings.TrimSpace(os.Getenv("UPLOAD_DIR"))
 	if uploadDir == "" {
 		uploadDir = "./images"
 	}
-	log.Printf("[uploads] serving /images from %s", uploadDir)
+
+	// Which storage backend is live is decided here, once, from the
+	// environment, and it is logged for exactly the reason the original bug
+	// happened: nothing about a misconfigured upload destination is visible
+	// until a user opens a file that is already gone. An operator reading the
+	// boot log must be able to see where uploads are going without uploading
+	// something and hunting for it.
+	//
+	// storage.New refuses to return a backend for a HALF-configured R2 (some of
+	// R2_ACCOUNT_ID / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / R2_BUCKET /
+	// R2_PUBLIC_BASE_URL set, others not), and this fails the boot rather than
+	// falling back to disk. Falling back would be the original data-loss bug
+	// wearing a new hat: a typo'd variable name, a green deploy, uploads that
+	// keep succeeding, and files that keep disappearing on every release. One
+	// refused start is cheaper than one week of unnoticed loss. Describe()
+	// never contains a credential.
+	mediaStore, err := storage.New(ctx, os.Getenv, uploadDir)
+	if err != nil {
+		log.Fatalf("storage: %v", err)
+	}
+	log.Printf("[uploads] new uploads -> %s", mediaStore.Describe())
+	log.Printf("[uploads] serving legacy /images from %s", uploadDir)
 
 	healthH := handlers.NewHealthHandler(pool)
 	// Phase 19 — OTPIQ delivery for real-mode OTP. Returns nil when
@@ -262,10 +285,10 @@ func main() {
 	authH.Mail = mailer
 	// #22 — staff review of a user's own name / photo change (migration 093).
 	profileChangesStore := profilechanges.New(pool)
-	profileH := handlers.NewProfileHandler(userStore, uploadDir, profileChangesStore)
+	profileH := handlers.NewProfileHandler(userStore, mediaStore, profileChangesStore)
 	profileChangesH := handlers.NewProfileChangesHandler(profileChangesStore)
 	chooseRoleH := handlers.NewChooseRoleHandler(userStore)
-	registrationH := handlers.NewRegistrationHandler(userStore, uploadDir)
+	registrationH := handlers.NewRegistrationHandler(userStore, mediaStore)
 	registrationAdminH := handlers.NewRegistrationAdminHandler(userStore, notifier)
 	campaignsH := handlers.NewCampaignsHandler(campaignStore)
 	donationsH := handlers.NewDonationsHandler(donationStore, notifier, walletStore)
@@ -301,7 +324,7 @@ func main() {
 	adminCreateH.MediaCategories = mediaCatStore
 	adminDeleteH := handlers.NewAdminDeleteHandler(pool)
 	adminTrashH := handlers.NewAdminTrashHandler(pool)
-	adminUploadH := handlers.NewAdminUploadHandler(uploadDir)
+	adminUploadH := handlers.NewAdminUploadHandler(mediaStore)
 	permStore := permissions.New(pool)
 	adminDetailH := handlers.NewAdminDetailHandler(pool, permStore)
 	adminExportH := handlers.NewAdminExportHandler(pool)
@@ -432,6 +455,13 @@ func main() {
 	r.GET("/health", healthH.Get)
 
 	// Serve uploaded profile pictures (and any other image assets).
+	// Legacy media only. Every path stored before the move to object storage is
+	// relative and resolves through here; nothing written after it does. The two
+	// shapes coexist in the same database columns and a reader tells them apart
+	// by one test — does the stored string start with http:// or https:// — which
+	// both clients already apply (admin-web's assetUrl, the Flutter photo-URL
+	// helpers), which is why this migration needed no client change. Removing
+	// this route would 404 every pre-migration photo at once.
 	r.Static("/images", uploadDir)
 
 	api := r.Group("/api")

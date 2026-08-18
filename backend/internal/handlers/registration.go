@@ -1,12 +1,12 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
 	"mime/multipart"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -14,6 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
+	"github.com/karam-flutter/humanitarian-backend/internal/storage"
 	"github.com/karam-flutter/humanitarian-backend/internal/users"
 )
 
@@ -21,12 +22,18 @@ import (
 // mounted under a Bearer-only group (NOT the approval gate), so an
 // 'incomplete' or 'rejected' user can still submit/check their registration.
 type RegistrationHandler struct {
-	Users     *users.Store
-	UploadDir string // absolute path on disk; files are served at /images/*
+	Users *users.Store
+	// Store is where the ID cards, personal photos, medical reports, property
+	// proofs and house photos this endpoint collects are written. These are the
+	// most consequential uploads in the system — a rejected registration cannot
+	// be re-reviewed without the documents — and they were the ones being
+	// deleted on every deploy, because UploadDir pointed at the container's own
+	// filesystem. See internal/storage.
+	Store storage.Storage
 }
 
-func NewRegistrationHandler(u *users.Store, uploadDir string) *RegistrationHandler {
-	return &RegistrationHandler{Users: u, UploadDir: uploadDir}
+func NewRegistrationHandler(u *users.Store, store storage.Storage) *RegistrationHandler {
+	return &RegistrationHandler{Users: u, Store: store}
 }
 
 type registrationSubmitReq struct {
@@ -381,7 +388,7 @@ func (h *RegistrationHandler) UploadPhotos(c *gin.Context) {
 
 	var personalPath, idPath string
 	if fh, _ := c.FormFile("personal_photo"); fh != nil {
-		p, err := h.savePhoto(tokenUser.UserID, "personal", fh)
+		p, err := h.savePhoto(c.Request.Context(), tokenUser.UserID, "personal", fh)
 		if err != nil {
 			// savePhoto fails on filesystem and decode errors, whose text names
 			// server paths ("open /var/uploads/...: permission denied"). This is
@@ -394,7 +401,7 @@ func (h *RegistrationHandler) UploadPhotos(c *gin.Context) {
 		personalPath = p
 	}
 	if fh, _ := c.FormFile("id_photo"); fh != nil {
-		p, err := h.savePhoto(tokenUser.UserID, "idcard", fh)
+		p, err := h.savePhoto(c.Request.Context(), tokenUser.UserID, "idcard", fh)
 		if err != nil {
 			log.Printf("[registration] ID card photo save failed for user %d: %v", tokenUser.UserID, err)
 			c.JSON(http.StatusBadRequest, gin.H{"status": "error", "error": "Could not save the ID card photo. Please try another image."})
@@ -436,7 +443,7 @@ func (h *RegistrationHandler) UploadPhotos(c *gin.Context) {
 		if fh == nil {
 			continue
 		}
-		p, err := h.savePhoto(tokenUser.UserID, f.kind, fh)
+		p, err := h.savePhoto(c.Request.Context(), tokenUser.UserID, f.kind, fh)
 		if err != nil {
 			// f.formKey stays in the log, not the response: it is a form field
 			// name ("id_photo_back"), which is no more meaningful to the person
@@ -476,32 +483,44 @@ func (h *RegistrationHandler) UploadPhotos(c *gin.Context) {
 	})
 }
 
-// savePhoto writes an uploaded file to UploadDir using a
-// "<kind>_<userID>_<unix>.<ext>" convention and returns the relative path
-// stored in the DB (served at /images/<name>).
-func (h *RegistrationHandler) savePhoto(userID int64, kind string, fh *multipart.FileHeader) (string, error) {
-	if err := os.MkdirAll(h.UploadDir, 0o755); err != nil {
-		return "", err
-	}
+// savePhoto stores an uploaded file under the
+// "<kind>_<userID>_<unix>.<ext>" convention and returns the string written
+// into the DB column.
+//
+// The naming convention is deliberately unchanged. It is inherited from the PHP
+// implementation this backend replaced, rows produced by both spellings sit in
+// the same columns today, and a storage migration is not the moment to
+// introduce a third. What changed is only the destination: the function used to
+// MkdirAll + OpenFile under UploadDir and hand back "images/<name>", and now it
+// hands the bytes to the configured backend and returns whatever that backend
+// says the file is reachable at — still "images/<name>" on local disk, an
+// absolute R2 URL otherwise.
+//
+// A registration photo carries no compression or resizing pass (unlike the
+// admin upload endpoint) because these are identity and evidence documents:
+// re-encoding an ID card to save bandwidth is how a national ID number becomes
+// unreadable at the exact moment someone needs to read it.
+func (h *RegistrationHandler) savePhoto(ctx context.Context, userID int64, kind string, fh *multipart.FileHeader) (string, error) {
 	ext := strings.ToLower(strings.TrimPrefix(filepath.Ext(fh.Filename), "."))
 	if ext == "" {
+		// Phone cameras and some app-side pickers submit a part with no
+		// filename at all. Defaulting to jpg preserves the pre-existing
+		// behaviour; it also keeps the stored object from having no extension,
+		// which on R2 would mean no usable Content-Type and a photo the
+		// dashboard offers to download instead of showing.
 		ext = "jpg"
 	}
-	unique := fmt.Sprintf("%s_%d_%d.%s", kind, userID, time.Now().Unix(), ext)
-	abs := filepath.Join(h.UploadDir, unique)
+	key := fmt.Sprintf("%s_%d_%d.%s", kind, userID, time.Now().Unix(), ext)
 
 	src, err := fh.Open()
 	if err != nil {
 		return "", err
 	}
 	defer src.Close()
-	dst, err := os.OpenFile(abs, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
-	if err != nil {
-		return "", err
-	}
-	defer dst.Close()
-	if _, err := dst.ReadFrom(src); err != nil {
-		return "", err
-	}
-	return "images/" + unique, nil
+
+	// Content type is left to the backend to infer from the key's extension:
+	// this handler never had a validated MIME type to pass on, and inventing
+	// one from a client-supplied filename would be no more trustworthy than
+	// the extension the backend reads off the same filename.
+	return h.Store.Put(ctx, key, "", src)
 }
