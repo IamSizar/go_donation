@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import 'package:flutter_application_1/localization/money.dart';
 import 'package:flutter_application_1/core/app_voice.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/localization/content_localizer.dart';
@@ -224,7 +226,7 @@ class _EntitlementCard extends StatelessWidget {
               if (amount.isNotEmpty)
                 InfoChip(
                   icon: Icons.payments_rounded,
-                  label: '$amount $currency',
+                  label: '$amount ${localizedCurrency(currency)}',
                 ),
               InfoChip(
                 icon: Icons.event_repeat_rounded,

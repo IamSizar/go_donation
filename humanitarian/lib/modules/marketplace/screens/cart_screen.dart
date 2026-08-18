@@ -8,7 +8,8 @@ import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/modules/marketplace/controllers/marketplace_controller.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
-import 'package:intl/intl.dart';
+
+import 'package:flutter_application_1/localization/money.dart';
 import 'package:flutter_application_1/core/design/motion.dart';
 
 /// The cart, as its own screen. Previously a floating panel over the
@@ -156,7 +157,7 @@ class _CartLineItem extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  _formatMoney(price, currency),
+                  formatMoney(price, currency),
                   style: TextStyle(color: AppThemeConfig.mutedText(context)),
                 ),
               ],
@@ -288,7 +289,7 @@ class _CartCheckoutPanel extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        _formatMoney(
+                        formatMoney(
                           controller.totalAmount,
                           controller.currency,
                         ),
@@ -446,8 +447,4 @@ String? _cartImageUrl(dynamic value) {
   return Uri.parse(publicBaseUrl).resolve(path).toString();
 }
 
-String _formatMoney(double amount, String currency) {
-  final locale = Get.locale?.toLanguageTag() ?? 'en';
-  final formatter = NumberFormat.decimalPattern(locale);
-  return '${formatter.format(amount)} $currency';
-}
+

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import 'package:flutter_application_1/localization/money.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/modules/history/controllers/role_history_controller.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
@@ -699,7 +701,7 @@ class _HistoryCard extends StatelessWidget {
                   InfoChip(
                     icon: Icons.payments_rounded,
                     label:
-                        '${_historyNumberFormat.format((amount as num).round())} $currency',
+                        '${_historyNumberFormat.format((amount as num).round())} ${localizedCurrency(currency)}',
                   ),
                 InfoChip(
                   icon: Icons.schedule_rounded,

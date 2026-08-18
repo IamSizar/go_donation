@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import 'package:flutter_application_1/localization/money.dart';
 import 'package:flutter_application_1/core/app_haptics.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
@@ -72,12 +74,12 @@ class CampaignDetailScreen extends StatelessWidget {
                         _DetailRow(
                           label: 'Goal',
                           value:
-                              '${c.displayAmountNeeded} ${c.currency.trim().isEmpty ? 'IQD' : c.currency.trim()}',
+                              '${c.displayAmountNeeded} ${localizedCurrency(c.currency.trim().isEmpty ? 'IQD' : c.currency)}',
                         ),
                         _DetailRow(
                           label: 'Raised',
                           value:
-                              '${c.displayRaisedAmount} ${c.currency.trim().isEmpty ? 'IQD' : c.currency.trim()}',
+                              '${c.displayRaisedAmount} ${localizedCurrency(c.currency.trim().isEmpty ? 'IQD' : c.currency)}',
                         ),
                         if (c.fundingAmountsLine.isNotEmpty)
                           Padding(

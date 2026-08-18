@@ -6,6 +6,8 @@ import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
+
+import 'package:flutter_application_1/localization/money.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
 /// Client note — "Payment Methods and Payment Gateways" (piece 2 of the
@@ -233,7 +235,7 @@ class _WalletBalanceCard extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           Text(
-            _formatMoney(wallet.balanceIQD.toDouble(), wallet.currency),
+            formatMoney(wallet.balanceIQD.toDouble(), wallet.currency),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
@@ -355,7 +357,7 @@ class _TransactionRow extends StatelessWidget {
             ),
           ),
           Text(
-            '$sign${_formatMoney(tx.amountIQD.toDouble(), currency)}',
+            '$sign${formatMoney(tx.amountIQD.toDouble(), currency)}',
             style: TextStyle(
               fontWeight: FontWeight.w800,
               color: v.isCredit
@@ -462,8 +464,4 @@ class _EmptyNote extends StatelessWidget {
   }
 }
 
-String _formatMoney(double amount, String currency) {
-  final locale = Get.locale?.toLanguageTag() ?? 'en';
-  final formatter = NumberFormat.decimalPattern(locale);
-  return '${formatter.format(amount)} $currency';
-}
+

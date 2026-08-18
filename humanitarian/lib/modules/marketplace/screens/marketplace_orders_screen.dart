@@ -4,7 +4,8 @@ import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/modules/marketplace/controllers/marketplace_controller.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
-import 'package:intl/intl.dart';
+
+import 'package:flutter_application_1/localization/money.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/core/widgets/app_row.dart';
 
@@ -123,7 +124,7 @@ class _MarketplaceOrderCard extends StatelessWidget {
                 const SizedBox(height: 10),
                 Text('${'Quantity'.tr}: $quantity'),
                 const SizedBox(height: 4),
-                Text('${'Total'.tr}: ${_formatMoney(total, currency)}'),
+                Text('${'Total'.tr}: ${formatMoney(total, currency)}'),
                 if (createdAt.isNotEmpty) ...[
                   const SizedBox(height: 4),
                   // Was the raw RFC 3339 string Go marshals — the card read
@@ -161,8 +162,4 @@ double _amountFrom(dynamic value) {
   return double.tryParse((value ?? '0').toString()) ?? 0;
 }
 
-String _formatMoney(double amount, String currency) {
-  final locale = Get.locale?.toLanguageTag() ?? 'en';
-  final formatter = NumberFormat.decimalPattern(locale);
-  return '${formatter.format(amount)} $currency';
-}
+

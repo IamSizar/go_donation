@@ -10,7 +10,8 @@ import 'package:flutter_application_1/modules/marketplace/screens/cart_screen.da
 import 'package:flutter_application_1/modules/marketplace/screens/marketplace_orders_screen.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
-import 'package:intl/intl.dart';
+
+import 'package:flutter_application_1/localization/money.dart';
 import 'package:flutter_application_1/core/design/motion.dart';
 import 'package:flutter_application_1/core/widgets/app_list_search_field.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
@@ -539,7 +540,7 @@ class _ProductPrice extends StatelessWidget {
       children: [
         Flexible(
           child: Text(
-            _formatMoney(discounted ? payable : price, currency),
+            formatMoney(discounted ? payable : price, currency),
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w800,
@@ -553,7 +554,7 @@ class _ProductPrice extends StatelessWidget {
           const SizedBox(width: 8),
           Flexible(
             child: Text(
-              _formatMoney(price, currency),
+              formatMoney(price, currency),
               style: TextStyle(
                 fontSize: 12.5,
                 decoration: TextDecoration.lineThrough,
@@ -910,7 +911,7 @@ class _CartTeaserBar extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        _formatMoney(
+                        formatMoney(
                           controller.totalAmount,
                           controller.currency,
                         ),
@@ -1064,8 +1065,4 @@ double _amountFrom(dynamic value) {
   return double.tryParse((value ?? '0').toString()) ?? 0;
 }
 
-String _formatMoney(double amount, String currency) {
-  final locale = Get.locale?.toLanguageTag() ?? 'en';
-  final formatter = NumberFormat.decimalPattern(locale);
-  return '${formatter.format(amount)} $currency';
-}
+
