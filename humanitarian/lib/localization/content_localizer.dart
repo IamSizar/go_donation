@@ -1,3 +1,4 @@
+import 'package:flutter_application_1/data/iraq_governorates.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_application_1/localization/locale_service.dart';
 import 'package:get/get.dart';
@@ -296,4 +297,18 @@ String isolatedClockRange(Object? from, Object? to) {
   // An EN DASH with spaces, matching the "Weekdays 9\u20135" preset chip beside it.
   // Punctuation, not a word, so it is the same in every locale.
   return '\u2068$start \u2013 $end\u2069';
+}
+
+/// A city as the reader should see it.
+///
+/// One of Iraq's eighteen governorates is a translation key and becomes
+/// «أربيل»; anything else — a village, a district, a typo — is text the person
+/// typed and is returned untouched. See governorateKeyFor for why the match is
+/// case-insensitive: `city` is free text on several forms, so what is stored is
+/// whatever was written, and a card calling `.tr` on `duhok` got `duhok` back.
+String localizedCity(Object? raw) {
+  final value = (raw ?? '').toString().trim();
+  if (value.isEmpty) return '';
+  final key = governorateKeyFor(value);
+  return key == null ? value : key.tr;
 }

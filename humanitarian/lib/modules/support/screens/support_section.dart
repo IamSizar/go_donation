@@ -1048,7 +1048,7 @@ String missionSubtitle(Map<String, dynamic> mission) {
     // card while the detail screen one tap away said «أربيل». A city the user
     // typed themselves is not a key and falls through unchanged, which is the
     // correct outcome for free text.
-    (mission['city'] ?? '').toString().tr,
+    localizedCity(mission['city']),
     missionDate.isEmpty ? 'Flexible'.tr : missionDate,
     missionCapacityLabel(mission),
     // Translated, not printed raw: this rendered "pending" in English on the
@@ -1098,7 +1098,7 @@ String applicationSubtitle(Map<String, dynamic> application) {
     // key 'Duhok' — still falls through unchanged. That is the correct
     // outcome for free text, and it is also why the owner may keep seeing a
     // Latin city on this card: the fix is at the point of ENTRY, not here.
-    (application['city'] ?? '').toString().tr,
+    localizedCity(application['city']),
     schedule.isNotEmpty
         ? schedule
         : (application['availability'] ?? '').toString(),

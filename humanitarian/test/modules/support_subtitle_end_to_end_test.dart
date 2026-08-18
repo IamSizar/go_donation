@@ -126,15 +126,34 @@ void main() {
       expect(line, contains('Mon 09:00-17:00'));
     });
 
-    test('a hand-typed city is passed through untouched', () async {
+    test('a governorate is translated whatever case it was typed in', () async {
       await useLocale(const Locale('ar', 'SA'));
       final line = applicationSubtitle(const {
         'status': 'submitted',
-        'city': 'duhok', // lower case — free text, not the key 'Duhok'
+        'city': 'duhok', // lower case — what a volunteer actually types
       });
-      // Exactly what the owner reported, and it is correct behaviour: `.tr`
-      // must not invent a translation for text someone typed.
-      expect(line, contains('duhok'));
+      // This test used to assert the opposite, on the reasoning that `.tr`
+      // must not invent a translation for text someone typed. That reasoning
+      // is still right, and the conclusion was still wrong: the governorate
+      // keys are capitalised because they double as the English labels, so
+      // `duhok` failed to match a name it plainly IS. Matching case-
+      // insensitively against a closed list of eighteen is a normalisation,
+      // not an invention — see localized_city_test.dart.
+      expect(line, contains('دهوك'));
+      expect(line.contains('duhok'), isFalse);
+    });
+
+    test('a place that is NOT a governorate survives exactly as written', () {
+      // The half that must not regress. A village, a district or a typo is the
+      // person's own words about where they live, and a looser match would
+      // start rewriting them.
+      for (final typed in ['Sumel', 'حي الجامعة', 'Duhok District']) {
+        final line = applicationSubtitle({
+          'status': 'submitted',
+          'city': typed,
+        });
+        expect(line, contains(typed), reason: typed);
+      }
     });
 
     test('missing fields collapse rather than leaving empty separators', () {
