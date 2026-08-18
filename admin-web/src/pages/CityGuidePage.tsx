@@ -170,29 +170,35 @@ export default function CityGuidePage() {
   const handleSave = useCallback(
     async (id: number, patch: Record<string, unknown>) => {
       await api.patch(`/api/admin/community/${id}`, buildSectorsPatch(patch))
-      toast.success(`Place #${id} saved.`)
+      // These three toasts were the only hardcoded English strings left in
+      // src/: `Place #12 saved.` appeared in Arabic, Sorani and Badini alike.
+      // Every sibling page (PartnersPage.tsx:103-153 is the closest twin) says
+      // it as t('toast.saved', { noun: `${t('noun.x')} #id` }), and both keys
+      // this needs — toast.saved/created/deleted and noun.place — already exist
+      // in all four locales, so nothing new had to be written.
+      toast.success(t('toast.saved', { noun: `${t('noun.place')} #${id}` }))
       setRefreshTick((n) => n + 1)
     },
-    [toast],
+    [toast, t],
   )
 
   const handleCreate = useCallback(
     async (data: Record<string, unknown>) => {
       const res = await api.post<{ id: number }>('/api/admin/community', buildSectorsPatch(data))
-      toast.success(`Place #${res.data.id} created.`)
+      toast.success(t('toast.created', { noun: `${t('noun.place')} #${res.data.id}` }))
       setRefreshTick((n) => n + 1)
     },
-    [toast],
+    [toast, t],
   )
 
   const handleDelete = useCallback(
     async (id: number) => {
       await api.delete(`/api/admin/community/${id}`)
-      toast.success(`Place #${id} deleted.`)
+      toast.success(t('toast.deleted', { noun: `${t('noun.place')} #${id}` }))
       setDeleting(null)
       setRefreshTick((n) => n + 1)
     },
-    [toast],
+    [toast, t],
   )
 
   // #30 — approve / reject a pending user-submitted place.

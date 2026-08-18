@@ -131,7 +131,8 @@ export default function DashboardPage() {
         />
         <TrendCard
           label={t('page.dashboard.completed_month')}
-          value={loading ? '…' : kpis ? `${formatMoney(kpis.donations_amount.this_month)} IQD` : '—'}
+          // Currency through common.iqd — see the note in CampaignsPage.tsx.
+          value={loading ? '…' : kpis ? `${formatMoney(kpis.donations_amount.this_month)} ${t('common.iqd')}` : '—'}
           pctChange={kpis?.donations_amount.pct_change}
           sublabel={
             kpis

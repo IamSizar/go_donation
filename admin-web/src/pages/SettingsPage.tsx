@@ -12,7 +12,7 @@
 import { useEffect, useState } from 'react'
 import { api, describeError, isSuperAdmin } from '../lib/api'
 import { useAuth } from '../lib/auth'
-import { useI18n } from '../lib/i18n'
+import { useI18n, useStatusLabel } from '../lib/i18n'
 import { useToast } from '../lib/toast'
 import SidebarLayoutEditor from '../components/SidebarLayoutEditor'
 import PageHead from '../components/PageHead'
@@ -35,6 +35,7 @@ type AssistantStats = {
 
 export default function SettingsPage() {
   const { t } = useI18n()
+  const statusLabel = useStatusLabel()
   const { user } = useAuth()
   const toast = useToast()
   const amSuper = isSuperAdmin(user)
@@ -290,7 +291,12 @@ export default function SettingsPage() {
                 <option value="">{t('settings.support_user_none')}</option>
                 {staffDirectory.map((s) => (
                   <option key={s.user_id} value={s.user_id}>
-                    {s.full_name || s.phone} ({s.staff_tier})
+                    {/* Same defect as StaffChatPage's picker: the tier is a
+                        backend enum and was printed raw, so the support-user
+                        dropdown read "Sizar Ahmed (supervisor)" in Arabic. The
+                        labels exist; statusLabel is how every other list on the
+                        dashboard reaches them. */}
+                    {s.full_name || s.phone} ({statusLabel(s.staff_tier)})
                   </option>
                 ))}
               </select>

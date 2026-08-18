@@ -18,6 +18,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, describeError, assetUrl } from '../lib/api'
 import { formatDateOnly, formatDateTime } from '../lib/dates'
 import { useI18n, useFieldLabel, useStatusLabel } from '../lib/i18n'
+import { skillLabelFor, scheduleSummary } from '../lib/skillCatalogue'
 import { RESOURCE_LABELS } from '../lib/resourceLabels'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
@@ -148,11 +149,24 @@ function orderFields(entries: [string, unknown][]): [string, unknown][] {
 // `donor_phone`, `notify_phone`.
 const PHONE_FIELD = /(^|_)phone$/
 
+/// Columns whose values are keys from the 28-entry skill catalogue.
+///
+/// `skill_tags` is the structured array; `skills` is the legacy free-text
+/// column, which for anything submitted by the app holds the same key.
+const SKILL_FIELD = /^(skill_tags|skills)$/
+
+/// Columns holding the availability summary the APP produced, which it built
+/// with English day names. The structured `availability_schedule` beside it
+/// holds day keys, so that one localizes and this one cannot.
+const AVAILABILITY_TEXT_FIELD = /^availability$/
+
 function renderValue(
   key: string,
   val: unknown,
   t: (k: string) => string,
   statusLabel: (v: string) => string,
+  locale?: string,
+  row?: Record<string, unknown>,
 ) {
   if (typeof val === 'string' && val !== '' && PHONE_FIELD.test(key)) {
     return <span>{formatPhone(val)}</span>
@@ -174,8 +188,15 @@ function renderValue(
   // renders correctly in both directions.
   if (Array.isArray(val)) {
     if (val.length === 0) return <span className="muted">—</span>
+    // Skill keys have their own 4-language catalogue — the same one the app
+    // draws its chips from. statusLabel does not know them, so `first_aid`
+    // reached an Arabic reader as `first_aid`.
     const parts = val.map((x) =>
-      x !== null && typeof x === 'object' ? JSON.stringify(x) : statusLabel(String(x)),
+      x !== null && typeof x === 'object'
+        ? JSON.stringify(x)
+        : SKILL_FIELD.test(key)
+          ? skillLabelFor(String(x), locale)
+          : statusLabel(String(x)),
     )
     return <span dir={dirFor(key)}>{parts.join('، ')}</span>
   }
@@ -191,6 +212,20 @@ function renderValue(
     if (ISO_DATETIME.test(val)) return <span>{formatDateTime(val)}</span>
     if (ISO_DATE.test(val)) return <span>{formatDateOnly(val)}</span>
   }
+  if (typeof val === 'string' && SKILL_FIELD.test(key)) {
+    // The legacy free-text column holds catalogue keys for anything the app
+    // submitted; a value that is not a key falls through unchanged, which is
+    // right for a skill somebody typed themselves.
+    return <span dir={dirFor(key)}>{skillLabelFor(val, locale)}</span>
+  }
+  if (typeof val === 'string' && AVAILABILITY_TEXT_FIELD.test(key)) {
+    // "Mon 09:00-17:00, Tue …" — the English is IN THE DATA, written by the
+    // form. It cannot be translated here, but the structured schedule stored
+    // beside it can be, so prefer that and keep this as the fallback for rows
+    // saved before that column existed.
+    const localized = scheduleSummary(row?.availability_schedule, locale)
+    if (localized) return <span dir={dirFor(key)}>{localized}</span>
+  }
   // Localize controlled-vocabulary values (status/priority enums). statusLabel
   // returns the raw string when there's no matching status.* key, so free data
   // (names, cities) is left untouched.
@@ -200,7 +235,7 @@ function renderValue(
 export default function DetailPage() {
   const { resource = '', id = '' } = useParams<{ resource: string; id: string }>()
   const nav = useNavigate()
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const fieldLabel = useFieldLabel()
   const statusLabel = useStatusLabel()
   const [resp, setResp] = useState<DetailResp | null>(null)
@@ -311,7 +346,7 @@ export default function DetailPage() {
                     ? <span>{roleLabel(v)}</span>
                     : (USER_REF.test(k) || k === 'user_id')
                       ? <span>{userName(v)}</span>
-                      : renderValue(k, v, t, statusLabel)
+                      : renderValue(k, v, t, statusLabel, locale, resp.item as Record<string, unknown>)
               }</div>
             </div>
           ))}

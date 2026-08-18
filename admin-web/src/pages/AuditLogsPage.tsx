@@ -4,10 +4,11 @@ import ExportCsvButton from '../components/ExportCsvButton'
 import type { AdminAuditLog, AdminPageResp } from '../lib/api-types'
 import Table, { type Column } from '../components/Table'
 import Pagination from '../components/Pagination'
-import { useI18n, useFieldLabel } from '../lib/i18n'
+import { useI18n, useFieldLabel, useStatusLabel } from '../lib/i18n'
 import { type CsvColumn } from '../lib/csv'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
+import { formatDateOnly } from '../lib/dates'
 
 const PER_PAGE = 30
 
@@ -36,6 +37,35 @@ function actorClass(src: string): string {
   }
 }
 
+// Audit values that are a controlled vocabulary rather than something a person
+// typed.
+//
+// WHAT WAS WRONG: the التغيير column printed `old_value` and `new_value`
+// verbatim, and the rows in user_profile_audit_logs are written by
+// backend/internal/users/profile.go:211-231 for exactly five fields —
+// full_name, address, gender, date_of_birth and profile_picture. Four of those
+// are free text or a path, but `gender` is an enum, so an Arabic operator read
+// "male → female" in a row whose field name, actor badge and timestamp were all
+// Arabic. The labels for it already existed (status.male / status.female, and
+// the capitalised `Male`/`Female` the older app builds sent); this column simply
+// never asked for them.
+//
+// WHY A LIST AND NOT statusLabel ON EVERYTHING: statusLabel returns unknown
+// input unchanged, so running it over every value would be harmless almost
+// always — but `address` and `full_name` are free text, and a person whose
+// address happens to read "Other" or whose name matches a status key would have
+// their own data rewritten in front of the reviewer. An audit trail is the one
+// screen where a value must be shown as it was recorded, so only fields that
+// are genuinely controlled are translated. Add to this set when a new field
+// starts being audited — the set is next to the writer's field list on purpose.
+const CONTROLLED_AUDIT_FIELDS = new Set(['gender'])
+
+// date_of_birth is stored as a bare `YYYY-MM-DD`, which is not a raw token but
+// is still an unlocalized rendering; the same formatter the detail page uses
+// turns it into the reviewer's locale. Matched on the value, like DetailPage's
+// ISO_DATE, because the field name alone is not a reliable signal.
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
+
 export default function AuditLogsPage() {
   const [page, setPage] = useState(1)
   const [userIDFilter, setUserIDFilter] = useState('')
@@ -47,10 +77,23 @@ export default function AuditLogsPage() {
   const [expanded, setExpanded] = useState<number | null>(null)
   const { t } = useI18n()
   const fieldLabel = useFieldLabel()
+  const statusLabel = useStatusLabel()
   const actorLabel = (s: string) => {
     const k = `common.actor_${s}`
     const v = t(k)
     return v === k ? s : v
+  }
+  // See CONTROLLED_AUDIT_FIELDS above. Returns null exactly where the previous
+  // code did (a NULL value, which the cell renders as "—/لا شيء"), so an empty
+  // string still renders as an empty string and nothing about the diff's shape
+  // changes.
+  // Parameter is `changedField`, not `field`: `field` is already this
+  // component's filter state, and shadowing it here would read as the filter.
+  const auditValue = (changedField: string, value: string | null): string | null => {
+    if (value === null) return null
+    if (CONTROLLED_AUDIT_FIELDS.has(changedField)) return statusLabel(value)
+    if (ISO_DATE.test(value)) return formatDateOnly(value)
+    return value
   }
 
   useEffect(() => {
@@ -98,9 +141,9 @@ export default function AuditLogsPage() {
       key: 'diff', header: t('col.change'),
       cell: (a) => (
         <div className="audit-diff">
-          <span className="audit-old">{a.old_value ?? <em className="muted">{t('status.none')}</em>}</span>
+          <span className="audit-old">{auditValue(a.changed_field, a.old_value) ?? <em className="muted">{t('status.none')}</em>}</span>
           <span className="audit-arrow">→</span>
-          <span className="audit-new">{a.new_value ?? <em className="muted">{t('status.none')}</em>}</span>
+          <span className="audit-new">{auditValue(a.changed_field, a.new_value) ?? <em className="muted">{t('status.none')}</em>}</span>
         </div>
       ),
     },

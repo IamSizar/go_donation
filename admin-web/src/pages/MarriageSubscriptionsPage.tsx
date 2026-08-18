@@ -281,7 +281,8 @@ export default function MarriageSubscriptionsPage() {
             </div>
             <p className="muted">
               {t('marriageSubscriptions.purchase_user')}: {fmtId(p.user_id)} · {t('marriageSubscriptions.purchase_price')}:{' '}
-              {p.price_iqd.toLocaleString()} IQD · {new Date(p.created_at).toLocaleString()}
+              {/* Currency through common.iqd — see the note in CampaignsPage.tsx. */}
+              {p.price_iqd.toLocaleString()} {t('common.iqd')} · {new Date(p.created_at).toLocaleString()}
             </p>
             <div style={{ display: 'flex', gap: 8 }}>
               <button

@@ -7,7 +7,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, describeError } from '../lib/api'
-import { useI18n } from '../lib/i18n'
+import { useI18n, useStatusLabel } from '../lib/i18n'
 import PageHead from '../components/PageHead'
 
 type StaffThread = {
@@ -43,6 +43,7 @@ function name(n: string | null, id: number): string {
 
 export default function StaffChatPage() {
   const { t } = useI18n()
+  const statusLabel = useStatusLabel()
   const [threads, setThreads] = useState<StaffThread[]>([])
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -163,7 +164,14 @@ export default function StaffChatPage() {
                   style={{ textAlign: 'start', border: 'none', cursor: 'pointer', padding: '8px 10px', borderRadius: 8 }}
                 >
                   <strong>{name(d.full_name, d.user_id)}</strong>{' '}
-                  <span className="muted" style={{ fontSize: 12 }}>· {d.staff_tier} · {d.phone}</span>
+                  {/* staff_tier is a backend enum (super_admin / supervisor /
+                      employee), and it was printed verbatim — so the staff
+                      picker offered "· super_admin ·" on a screen that is
+                      otherwise fully Arabic. status.super_admin,
+                      status.supervisor and status.employee already existed in
+                      all four locales; this line simply never asked for
+                      them. */}
+                  <span className="muted" style={{ fontSize: 12 }}>· {statusLabel(d.staff_tier)} · {d.phone}</span>
                 </button>
               ))}
             </div>

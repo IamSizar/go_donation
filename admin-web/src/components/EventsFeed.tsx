@@ -310,9 +310,19 @@ function timestampMs(row: EventRow): number {
   return 0
 }
 
-function formatWhen(row: EventRow): string {
+// The feed's timestamp column. The "no usable timestamp" case returned the
+// hardcoded English 'just now', which is the one untranslated string in a row
+// whose badge, body and route label are all localized — and it is not a rare
+// case, because a Firestore row read back before its serverTimestamp resolves
+// has no millis yet.
+//
+// `board.just_now` is the same phrase already translated in all four locales
+// for the volunteer board's relative times, so this reuses it rather than
+// adding a second wording for one moment in time. t is passed in for the same
+// reason bodyFor takes it: this is a module-level helper, not a hook.
+function formatWhen(row: EventRow, t: (key: string) => string): string {
   const ms = timestampMs(row)
-  if (ms <= 0) return 'just now'
+  if (ms <= 0) return t('board.just_now')
   return new Date(ms).toLocaleString()
 }
 
@@ -520,7 +530,7 @@ export default function EventsFeed() {
                 </div>
                 <span className="muted">{actorFor(r, t)} · {bodyFor(r, campaignMap, t, statusLabel)}</span>
               </div>
-              <span className="muted" style={{ whiteSpace: 'nowrap' }}>{formatWhen(r)}</span>
+              <span className="muted" style={{ whiteSpace: 'nowrap' }}>{formatWhen(r, t)}</span>
               {route && <span className="event-chevron" aria-hidden="true">›</span>}
               {canPurge && (
                 <button

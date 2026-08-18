@@ -993,7 +993,12 @@ function MissionSignupsTab() {
         <span className="muted" style={{ fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>
           {s.checked_in_at && <>{t('col.progress_in')} {formatDateTime(s.checked_in_at)}<br /></>}
           {s.completed_at && <>{t('col.progress_done')} {formatDateTime(s.completed_at)}<br /></>}
-          {s.hours_served !== '0.00' && s.hours_served !== '0' && <>{s.hours_served} h</>}
+          {/* The unit was the bare English "h". Unlike the currency there was no
+              key for it, so common.hours_short was added to en/ar beside iqd —
+              ckb/kmr fall back to the English "h", which is the same policy the
+              rest of this file's vocabulary follows rather than inventing
+              Kurdish. */}
+          {s.hours_served !== '0.00' && s.hours_served !== '0' && <>{s.hours_served} {t('common.hours_short')}</>}
           {!s.checked_in_at && !s.completed_at && (s.hours_served === '0.00' || s.hours_served === '0') && '—'}
         </span>
       ),

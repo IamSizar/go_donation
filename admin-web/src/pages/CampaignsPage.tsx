@@ -238,7 +238,13 @@ export default function CampaignsPage() {
           <div className="cell-stack" style={{ alignItems: 'flex-end' }}>
             <strong>
               {formatAmount(c.raised_amount)} / {formatAmount(c.goal_amount)}{' '}
-              <span className="muted">IQD</span>
+              {/* The currency was the literal "IQD" — English sitting beside an
+                  Arabic-formatted amount. `common.iqd` exists in all four
+                  locales (ar/ckb/kmr render "د.ع") and UsersPage.tsx:368 already
+                  prints the wallet balance through it; this column, the
+                  dashboard KPI and the subscription ledger simply never used
+                  it. */}
+              <span className="muted">{t('common.iqd')}</span>
             </strong>
             <Progress raised={raised} goal={goal} />
           </div>

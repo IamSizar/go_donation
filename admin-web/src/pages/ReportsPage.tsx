@@ -126,7 +126,13 @@ export default function ReportsPage() {
                     {/* expense_type is a backend enum; printed raw it read
                         e.g. "beneficiary_assistance" in every language. */}
                     <span>{statusLabel(e.expense_type)}</span>
-                    <strong>{fmt(e.amount)} IQD</strong>
+                    {/* The currency was the literal "IQD" — the one English
+                        word left on this card once the expense types were
+                        labelled, sitting beside an Arabic amount. `common.iqd`
+                        already exists in all four locales (ar/ckb/kmr render
+                        "د.ع") and UsersPage.tsx:368 already prints the wallet
+                        balance through it; this line simply never used it. */}
+                    <strong>{fmt(e.amount)} {t('common.iqd')}</strong>
                   </li>
                 ))}
               </ul>

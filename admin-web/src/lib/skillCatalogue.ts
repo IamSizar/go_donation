@@ -206,3 +206,31 @@ export function dayLabelFor(day: string, locale: string | undefined): string {
   if (!row) return day
   return row[(locale ?? 'en').toLowerCase()] ?? row.en
 }
+
+/// A localized summary of a stored `availability_schedule`.
+///
+/// WHY THIS EXISTS
+/// The `availability` column holds the free-text summary the mobile form
+/// produced, and the form produced it with English day names — so an Arabic
+/// dashboard showed "Mon 09:00-17:00, Tue …" and no amount of translating at
+/// render time could fix it, because the English is already in the data.
+///
+/// The structured column beside it holds day KEYS, which do localize. Returns
+/// '' when the schedule is missing or unusable so the caller can fall back to
+/// the stored text rather than render nothing.
+export function scheduleSummary(schedule: unknown, locale: string | undefined): string {
+  if (!Array.isArray(schedule)) return ''
+  const parts: string[] = []
+  for (const entry of schedule) {
+    if (!entry || typeof entry !== 'object') continue
+    const row = entry as Record<string, unknown>
+    const day = String(row.day ?? '')
+    if (!day) continue
+    const label = dayLabelFor(day, locale)
+    if (label === day && !DAY_KEYS.includes(day as DayKey)) continue
+    const from = String(row.from ?? '')
+    const to = String(row.to ?? '')
+    parts.push(from && to ? `${label} ${from}-${to}` : label)
+  }
+  return parts.join('، ')
+}

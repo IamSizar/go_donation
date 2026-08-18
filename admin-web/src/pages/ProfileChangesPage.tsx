@@ -4,7 +4,7 @@ import Table, { type Column } from '../components/Table'
 import PageHead from '../components/PageHead'
 import ActionsMenu from '../components/ActionsMenu'
 import { useToast } from '../lib/toast'
-import { useI18n } from '../lib/i18n'
+import { useI18n, useStatusLabel } from '../lib/i18n'
 import { fmtId } from '../lib/formatId'
 import { formatDateTime } from '../lib/dates'
 
@@ -30,6 +30,7 @@ type ChangeRequest = {
 
 export default function ProfileChangesPage() {
   const { t } = useI18n()
+  const statusLabel = useStatusLabel()
   const toast = useToast()
   const [items, setItems] = useState<ChangeRequest[]>([])
   const [loading, setLoading] = useState(true)
@@ -84,11 +85,39 @@ export default function ProfileChangesPage() {
         </div>
       ),
     },
-    { key: 'field', header: t('col.field'), cell: (r) => t(`profileChanges.field_${r.field}`) },
+    {
+      key: 'field',
+      header: t('col.field'),
+      // Same unguarded template lookup the status column below had. The backend
+      // submits exactly two fields today (profilechanges.FieldFullName and
+      // FieldPicture, handlers/profile.go:297-338) and both are keyed, so this
+      // is correct right now — but a third field would print the literal
+      // "profileChanges.field_occupation", so it degrades to the field name the
+      // way fieldLabel does everywhere else.
+      cell: (r) => {
+        const key = `profileChanges.field_${r.field}`
+        const label = t(key)
+        return label === key ? r.field : label
+      },
+    },
     { key: 'old', header: t('profileChanges.old'), cell: (r) => renderValue(r.field, r.old_value) },
     { key: 'new', header: t('profileChanges.new'), cell: (r) => renderValue(r.field, r.new_value) },
     { key: 'created', header: t('col.created'), cell: (r) => <span className="muted">{formatDateTime(r.created_at)}</span> },
-    { key: 'status', header: t('col.status'), cell: (r) => <span className="muted">{t(`status.${r.status}`)}</span> },
+    {
+      key: 'status',
+      header: t('col.status'),
+      // Was `t(\`status.${r.status}\`)`. Every value the column holds today
+      // (pending / approved / rejected — internal/profilechanges) does have a
+      // status.* key, so nothing is visibly wrong right now; the problem is the
+      // failure mode. translate() returns THE KEY ITSELF when it finds no entry
+      // (src/lib/i18n.tsx:92), so a fourth state added on the server would print
+      // the string "status.withdrawn" in the cell — worse than the raw token,
+      // because it does not even look like data. statusLabel is the same lookup
+      // with the fallback every other list page relies on: unknown values come
+      // back verbatim, and scripts/check-labels.mjs is what stops them from
+      // staying unknown.
+      cell: (r) => <span className="muted">{statusLabel(r.status)}</span>,
+    },
     {
       key: 'review',
       header: t('profileChanges.reviewed_by'),

@@ -550,6 +550,20 @@ const en = {
     audit_title: 'Permissions audit log',
     audit_empty: 'No permission changes recorded yet.',
     audit_set: 'Permission changed',
+    // The other four `action` values the permission audit trail can hold. Only
+    // `permission_set` had a label, so the per-employee override rows and the
+    // H14 section-freeze rows printed raw tokens like `user_permission_cleared`
+    // in the الإجراء column. Wording says WHO the change was scoped to, because
+    // that is the difference between these and audit_set: a tier-wide default
+    // versus one employee, and the freeze that stops a burst of either.
+    audit_user_set: 'Employee permission changed',
+    audit_user_cleared: 'Employee permission reset to tier default',
+    audit_section_blocked: 'Permissions section frozen',
+    audit_section_unblocked: 'Permissions section unfrozen',
+    // boolWord() in admin_permissions.go:527 — the before/after of every
+    // permission row, previously printed as the English "allowed"/"denied".
+    value_allowed: 'Allowed',
+    value_denied: 'Denied',
     col_module: 'Module',
     col_actor: 'Administrator',
     col_action: 'Action',
@@ -693,6 +707,9 @@ const en = {
     set_password_ok: 'Password updated.',
     set_password_fail: 'Could not update password.',
     iqd: 'IQD',
+    // Short hour unit for the volunteer signup progress cell, which printed a
+    // bare English "h" beside a localized number.
+    hours_short: 'h',
     save: 'Save',
     save_changes: 'Save changes',
     cancel: 'Cancel',
@@ -1389,12 +1406,34 @@ const en = {
     weekly: 'Weekly', monthly: 'Monthly', quarterly: 'Quarterly', yearly: 'Yearly',
     private: 'Private', employee_only: 'Employee only', matched_summary: 'Matched summary',
     free: 'Free', paid: 'Paid', waived: 'Waived',
+    // Values the database can hold that had no label, so the dashboard printed
+    // the raw token — `topup`, `overdue` — beside fully translated neighbours.
+    // Sourced from the CHECK constraints in backend/migrations, not guessed.
+    due: 'Due', overdue: 'Overdue', refund: 'Refund', topup: 'Top-up',
+    skipped: 'Skipped', critical: 'Critical', upcoming: 'Upcoming',
     // Note #17 — Marriage subscription package tiers (replaced the
     // misleading "Free" single value).
     bronze: 'Bronze', silver: 'Silver', gold: 'Gold', diamond: 'Diamond', vip: 'VIP',
     news: 'News', activity: 'Activity', event: 'Event', article: 'Article', video: 'Video', marriage: 'Marriage',
     code_only: 'Code only', summary: 'Summary',
     general: 'General', sponsorship: 'Assistance', in_kind: 'In-kind', operational: 'Operational', campaign: 'Campaign',
+    // financial_expenses.expense_type — the five values of the CHECK constraint
+    // in 001_full_v2.sql:407. Three of them (`operational`, `campaign`, `other`)
+    // already had labels above because those words are also donation_kind
+    // values, so the "المصروفات حسب النوع" card on the Reports page looked
+    // translated while the two values that belong to NO other vocabulary —
+    // `beneficiary_assistance` and `administrative` — printed as raw English
+    // tokens in the same list, in all four languages. ReportsPage.tsx:128
+    // hands expense_type straight to statusLabel, which returns its input when
+    // it finds no key; that is the correct fallback for free text and the wrong
+    // one here, and it fails silently. Found by scripts/check-labels.mjs, which
+    // reads the constraint rather than the screen.
+    //
+    // Wording: "Recipient assistance" rather than "Beneficiary assistance" —
+    // `beneficiary` is already 'Recipient' in this same section (the shipped
+    // vocabulary recorded in HANDOFF.md §3.5 and TERMINOLOGY.md), and one
+    // concept must not read two ways on one page.
+    beneficiary_assistance: 'Recipient assistance', administrative: 'Administrative',
     normal: 'Normal', payment: 'Payment', reminder: 'Reminder', system: 'System',
     unread: 'Unread', read: 'Read',
     employee: 'Employee',

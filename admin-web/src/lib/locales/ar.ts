@@ -539,6 +539,20 @@ const ar: DeepPartial<typeof en> = {
     audit_title: 'سجل تدقيق الصلاحيات',
     audit_empty: 'لا توجد تغييرات صلاحيات مسجّلة بعد.',
     audit_set: 'تغيير صلاحية',
+    // القيم الأربع الأخرى لعمود action في سجل تدقيق الصلاحيات. كان
+    // permission_set وحده مترجمًا، فكانت صفوف صلاحيات الموظف الواحد وصفوف
+    // تجميد القسم (H14) تظهر برموز إنجليزية خام مثل user_permission_cleared
+    // داخل عمود «الإجراء». الصياغة تحدد نطاق التغيير، لأنه الفارق عن
+    // audit_set: صلاحية رتبة كاملة مقابل موظف بعينه، ثم التجميد الذي يوقف
+    // تدفقًا سريعًا من أيٍّ منهما.
+    audit_user_set: 'تغيير صلاحية موظف',
+    audit_user_cleared: 'إعادة صلاحية موظف إلى إعداد رتبته',
+    audit_section_blocked: 'تجميد قسم الصلاحيات',
+    audit_section_unblocked: 'رفع تجميد قسم الصلاحيات',
+    // boolWord في admin_permissions.go:527 — قيمة الصلاحية قبل التغيير وبعده،
+    // وكانت تُطبع بالإنجليزية «allowed»/«denied».
+    value_allowed: 'مسموح',
+    value_denied: 'ممنوع',
     col_module: 'الوحدة',
     col_actor: 'المسؤول',
     col_action: 'الإجراء',
@@ -671,6 +685,9 @@ const ar: DeepPartial<typeof en> = {
     set_password_ok: 'تم تحديث كلمة المرور.',
     set_password_fail: 'تعذّر تحديث كلمة المرور.',
     iqd: 'د.ع',
+    // وحدة الساعة المختصرة في عمود تقدّم تسجيل المتطوع، وكانت تُطبع حرف "h"
+    // الإنجليزي بجانب رقم مُنسَّق بالعربية.
+    hours_short: 'ساعة',
     save: 'حفظ',
     save_changes: 'حفظ التغييرات',
     cancel: 'إلغاء',
@@ -1294,10 +1311,27 @@ const ar: DeepPartial<typeof en> = {
     weekly: 'أسبوعي', monthly: 'شهري', quarterly: 'ربع سنوي', yearly: 'سنوي',
     private: 'خاص', employee_only: 'الموظفون فقط', matched_summary: 'ملخص التوفيق',
     free: 'مجاني', paid: 'مدفوع', waived: 'مُعفى',
+    // قيم تحفظها قاعدة البيانات ولم يكن لها نص، فكان يظهر الرمز الخام.
+    due: 'مستحق', overdue: 'متأخر', refund: 'استرداد', topup: 'شحن رصيد',
+    skipped: 'متخطّى', critical: 'حرجة', upcoming: 'قادم',
     bronze: 'برونزي', silver: 'فضي', gold: 'ذهبي', diamond: 'ماسي', vip: 'VIP',
     news: 'أخبار', activity: 'نشاط', event: 'فعالية', article: 'مقال', video: 'فيديو', marriage: 'زواج',
     code_only: 'الرمز فقط', summary: 'ملخص',
     general: 'عام', sponsorship: 'دعم', in_kind: 'عيني', operational: 'تشغيلي', campaign: 'حملة',
+    // financial_expenses.expense_type — القيم الخمس لقيد CHECK في
+    // 001_full_v2.sql:407. ثلاث منها (operational / campaign / other) لها نص
+    // أصلًا لأنها كلمات مشتركة مع donation_kind، فكانت بطاقة «المصروفات حسب
+    // النوع» في صفحة التقارير تبدو مترجمة بينما تظهر القيمتان اللتان لا
+    // تنتميان إلى أي مفردات أخرى — beneficiary_assistance و administrative —
+    // بالرمز الإنجليزي الخام داخل القائمة نفسها. السطر 128 من ReportsPage.tsx
+    // يمرّر expense_type إلى statusLabel، وهي تُعيد القيمة كما هي عند عدم وجود
+    // مفتاح، فيمرّ الخطأ بلا استثناء ولا سجل. اكتُشف عبر scripts/check-labels.mjs
+    // الذي يقرأ قيد قاعدة البيانات لا الشاشة.
+    //
+    // الصياغة: «مساعدة المستحقين» لا «مساعدة المستفيدين» — لأن beneficiary
+    // مترجمة «مستحق» في القسم نفسه (المفردات المعتمدة في HANDOFF.md §3.5
+    // وTERMINOLOGY.md)، ولا يصح أن يُقرأ المفهوم الواحد بكلمتين في صفحة واحدة.
+    beneficiary_assistance: 'مساعدة المستحقين', administrative: 'إداري',
     normal: 'عادي', payment: 'دفع', reminder: 'تذكير', system: 'النظام',
     unread: 'غير مقروء', read: 'مقروء',
     employee: 'موظف',

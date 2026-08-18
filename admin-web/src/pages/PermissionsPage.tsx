@@ -34,6 +34,42 @@ type AuditRow = {
   created_at: string
 }
 
+// Audit `action` → i18n key.
+//
+// WHAT WAS WRONG: the audit table localized ONE of the five actions the backend
+// writes — `auditActionLabel` read `a === 'permission_set' ? t('perm.audit_set')
+// : a`, so the other four reached the Arabic screen as raw snake_case English.
+// They are not rare: `user_permission_set` and `user_permission_cleared` are
+// written by every per-employee override (admin_permissions.go:465,483), and
+// `permission_section_blocked` / `permission_section_unblocked` by the H14
+// burst freeze (admin_permissions_block.go:124-125). Traced by reading every
+// LogAudit call site in backend/internal/handlers rather than by reading rows,
+// so a value that has not happened yet is covered too.
+const AUDIT_ACTION_LABEL: Record<string, string> = {
+  permission_set: 'perm.audit_set',
+  user_permission_set: 'perm.audit_user_set',
+  user_permission_cleared: 'perm.audit_user_cleared',
+  permission_section_blocked: 'perm.audit_section_blocked',
+  permission_section_unblocked: 'perm.audit_section_unblocked',
+}
+
+// Audit `old_value` / `new_value` → i18n key.
+//
+// For every permission change both columns are boolWord() —
+// admin_permissions.go:527 returns exactly "allowed" or "denied" — and the diff
+// cell printed them verbatim, so an operator read "denied → allowed" in Arabic.
+//
+// The two H14 block rows are the deliberate exception: their values are English
+// sentences the SERVER composes ("blocked for 1h0m0s (unlock=email)",
+// "5 changes/10m0s"), so they cannot be localized from here at all. They fall
+// through unchanged rather than being mangled into a half-translated string;
+// localizing them means changing what the backend writes, which is a data
+// change to an immutable audit trail and not a label fix.
+const AUDIT_VALUE_LABEL: Record<string, string> = {
+  allowed: 'perm.value_allowed',
+  denied: 'perm.value_denied',
+}
+
 // Module slug → existing nav.* i18n key, so the matrix labels stay localized
 // without a second translation set.
 const MODULE_LABEL: Record<string, string> = {
@@ -44,6 +80,11 @@ const MODULE_LABEL: Record<string, string> = {
   city: 'nav.city_guide', marriage: 'nav.marriage', missions: 'nav.missions',
   volunteers: 'nav.volunteers', messages: 'nav.messages', notifications: 'nav.notifications',
   push: 'nav.push', reports: 'nav.reports', audit: 'nav.audit_logs', support: 'nav.support',
+  // `tasks` was missing, so the permissions matrix printed the raw slug
+  // "tasks" in a column of Arabic module names. The backend's Modules list is
+  // the source of truth and this map has to cover it — see the test that pins
+  // the two together.
+  tasks: 'nav.tasks',
   trash: 'nav.trash', sensitive_data: 'perm.sensitive_data',
 }
 
@@ -373,10 +414,26 @@ export default function PermissionsPage() {
     }
   }
 
-  const tierLabel = (tier: string) => t(`perm.tier.${tier}`)
-  const actionLabel = (action: string) => t(`perm.action.${action}`)
+  // The three matrix headers. `moduleLabel` already degraded to the slug when a
+  // module was unmapped; tierLabel and actionLabel did not, and the difference
+  // matters: translate() returns THE KEY ITSELF when it finds no entry
+  // (src/lib/i18n.tsx:92), so a tier or action added to permissions.AllTiers /
+  // AllActions server-side would have printed the literal `perm.tier.auditor`
+  // as a column header — a string that does not even look like data. Both now
+  // fall back to the raw slug, which is the same honest failure the module
+  // column has always had, and check-labels.mjs is what keeps the fallback from
+  // ever being reached for modules.
+  const guarded = (key: string, raw: string) => {
+    const v = t(key)
+    return v === key ? raw : v
+  }
+  const tierLabel = (tier: string) => guarded(`perm.tier.${tier}`, tier)
+  const actionLabel = (action: string) => guarded(`perm.action.${action}`, action)
   const moduleLabel = (module: string) => (MODULE_LABEL[module] ? t(MODULE_LABEL[module]) : module)
-  const auditActionLabel = (a: string) => (a === 'permission_set' ? t('perm.audit_set') : a)
+  const auditActionLabel = (a: string) => (AUDIT_ACTION_LABEL[a] ? t(AUDIT_ACTION_LABEL[a]) : a)
+  // See AUDIT_VALUE_LABEL. A NULL keeps rendering as the em dash it always did.
+  const auditValueLabel = (v: string | null) =>
+    v === null ? '—' : AUDIT_VALUE_LABEL[v] ? t(AUDIT_VALUE_LABEL[v]) : v
 
   const auditRows = useMemo(() => audit, [audit])
 
@@ -474,7 +531,7 @@ export default function PermissionsPage() {
                 <td>{r.actor_name ?? '—'}</td>
                 <td>{auditActionLabel(r.action)}</td>
                 <td><code style={{ background: 'transparent', padding: 0 }}>{r.target ?? '—'}</code></td>
-                <td className="muted">{r.old_value ?? '—'} → {r.new_value ?? '—'}</td>
+                <td className="muted">{auditValueLabel(r.old_value)} → {auditValueLabel(r.new_value)}</td>
                 <td className="muted">{r.ip_address ?? '—'}</td>
               </tr>
             ))}

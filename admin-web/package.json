@@ -10,6 +10,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "check:labels": "node scripts/check-labels.mjs",
     "preview": "vite preview",
     "start": "serve -s dist -l ${PORT:-3000}"
   },
