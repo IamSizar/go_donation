@@ -1472,6 +1472,11 @@ class AppTranslations extends Translations {
         'Location access is required to check in/out.',
     'location_services_disabled':
         'Please turn on location services to check in/out.',
+    // The fix has no signal yet. Distinct from the two refusals above because
+    // the answer is different: waiting or stepping outside can fix this, and
+    // changing a setting cannot.
+    'location_timed_out':
+        'Could not get your location. Move somewhere with a clearer view of the sky and try again.',
     'marriage_search': 'Search profiles',
     'marriage_search_desc':
         'Find marriage profiles, save them, and request a meeting.',
@@ -4293,6 +4298,8 @@ class AppTranslations extends Translations {
         'إذن الوصول للموقع مطلوب لتسجيل الحضور/الانصراف.',
     'location_services_disabled':
         'الرجاء تفعيل خدمة الموقع لتسجيل الحضور/الانصراف.',
+    'location_timed_out':
+        'تعذّر تحديد موقعك. انتقل إلى مكان أوضح للسماء ثم حاول مرة أخرى.',
     'marriage_search': 'البحث عن ملفات',
     'marriage_search_desc': 'ابحث عن ملفات الزواج واحفظها واطلب لقاءً.',
     'marriage_search_hint': 'ابحث بالمدينة أو التفاصيل…',

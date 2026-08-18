@@ -428,9 +428,25 @@ class _VolunteerMissionDetailScreenState
         Get.snackbar('Error'.tr, 'location_services_disabled'.tr);
         return null;
       }
+      // BOUNDED, because an unbounded GPS fix is not a slow success — it is a
+      // screen that never finishes. There was no timeLimit here, so a
+      // volunteer who taps check-in where the sky is not visible — inside a
+      // distribution tent, between camp buildings, which is precisely where
+      // this feature is used — sat on a spinning, disabled button with no
+      // error and no way out but killing the app.
+      //
+      // The same reasoning ModuleApi's _requestTimeout is documented with: a
+      // call that never returns never runs its caller's `finally`, so
+      // `_checkingInOut` stays true forever.
+      //
+      // 20s is long enough for a cold fix outdoors and short enough that
+      // nobody assumes the app has frozen. On expiry Geolocator throws
+      // TimeoutException, which the catch below turns into copy that says
+      // what to do — move, and try again — rather than a setting to change.
       final position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 20),
         ),
       );
 
@@ -448,6 +464,14 @@ class _VolunteerMissionDetailScreenState
       // upload is the only step that can fail for being offline, and the two
       // permission refusals already returned above with their own copy.
       debugPrint('mission evidence capture failed: $e');
+      if (e is TimeoutException) {
+        // Distinct copy: waiting or stepping outside fixes this, and the two
+        // permission refusals above are fixed by changing a setting. Telling
+        // someone to enable a permission they already granted is worse than
+        // saying nothing.
+        Get.snackbar('Error'.tr, 'location_timed_out'.tr);
+        return null;
+      }
       Get.snackbar(
         'Error'.tr,
         failureMessage(e, 'error_evidence_capture_failed'),
