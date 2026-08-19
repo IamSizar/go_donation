@@ -1443,6 +1443,14 @@ class AppTranslations extends Translations {
     'marriage_submitted': 'Your profile was submitted for review.',
     'marriage_submit_failed': 'Could not submit. Please try again.',
     'reg_required_missing': 'this field is required',
+    // The MESSAGE lines of the guest gate popup. Both were missing from every
+    // map including this one, so `.tr` echoed the key — and because the keys
+    // read as English prose, the popup looked translated except for the one
+    // line silently printing itself. Reported from an Arabic guest session.
+    'Create a full account to use this feature.':
+        'Create a full account to use this feature.',
+    'Full registration is required to view the City Directory.':
+        'Full registration is required to view the City Directory.',
     'Sign in required': 'Sign in required',
     'Please sign in to use this feature.':
         'Please sign in to use this feature.',
@@ -4295,6 +4303,10 @@ class AppTranslations extends Translations {
     'marriage_submitted': 'تم إرسال ملفك للمراجعة.',
     'marriage_submit_failed': 'تعذّر الإرسال. حاول مرة أخرى.',
     'reg_required_missing': 'هذا الحقل مطلوب',
+    'Create a full account to use this feature.':
+        'أنشئ حساباً كاملاً لاستخدام هذه الميزة.',
+    'Full registration is required to view the City Directory.':
+        'يتطلب عرض دليل المدينة إكمال التسجيل.',
     'Sign in required': 'تسجيل الدخول مطلوب',
     'Please sign in to use this feature.':
         'يرجى تسجيل الدخول لاستخدام هذه الميزة.',
