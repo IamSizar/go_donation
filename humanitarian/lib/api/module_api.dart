@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_application_1/api/auth_session.dart';
 import 'package:flutter_application_1/api/links.dart';
+import 'package:flutter_application_1/api/support_chat_result.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/app_event_firestore.dart';
 import 'package:flutter_application_1/core/session_expiry.dart';
@@ -38,7 +39,17 @@ class ApiCodedException implements Exception {
 }
 
 class ModuleApi {
-  const ModuleApi();
+  const ModuleApi({this.httpClient});
+
+  /// An HTTP client to use instead of the package-level functions.
+  ///
+  /// A SEAM FOR TESTS, and narrow on purpose: only [openSupportThread] honours
+  /// it. That method's whole job is to tell three server responses apart, and
+  /// there is no way to assert it does so without being able to produce those
+  /// responses. Everything else in this class still goes through the
+  /// package-level helpers, so nothing about production behaviour changes —
+  /// `const ModuleApi()` keeps meaning exactly what it did.
+  final http.Client? httpClient;
 
   /// How long any single request may hang before it is treated as a failure.
   ///
@@ -914,6 +925,71 @@ class ModuleApi {
     final res = await postJson(chatSupportUrl, {});
     final id = res['thread_id'];
     return id is int ? id : int.tryParse('$id');
+  }
+
+  /// Opens a support thread, distinguishing a temporary failure from the
+  /// permanent one.
+  ///
+  /// WHY THIS EXISTS ALONGSIDE [startSupportChat]
+  /// The two failures need opposite treatment and used to be indistinguishable.
+  /// When no staff account is nominated as the support recipient the server
+  /// answers 503 and will answer 503 to every retry until someone configures
+  /// one — so offering the user a Retry button is offering a button that
+  /// cannot work. A dropped connection is the opposite: retrying is exactly
+  /// right.
+  ///
+  /// The status code is read from the response directly rather than parsed
+  /// back out of an exception message. [postJson] collapses every failure into
+  /// `Exception('Request failed (503)')`, and matching on that string would
+  /// break the first time anyone reworded it.
+  Future<SupportChatResult> openSupportThread() async {
+    final http.Response response;
+    try {
+      final uri = Uri.parse(chatSupportUrl);
+      final headers = withApiAuthHeaders(const {
+        'Content-Type': 'application/json',
+      });
+      final body = jsonEncode(withApiAuthJsonBody(const {}));
+      response =
+          await (httpClient?.post(uri, headers: headers, body: body) ??
+                  http.post(uri, headers: headers, body: body))
+              .timeout(_requestTimeout);
+    } catch (e) {
+      return SupportChatResult.failed('$e');
+    }
+
+    // Same ordering as postJson, and for the same reason: a rejected token can
+    // come back as a proxy's HTML page, which the decode below would throw on.
+    await _endSessionIfTokenRejected(response.statusCode);
+
+    // 503 is the server's word for "no support account is configured". It is
+    // the only status where retrying is pointless.
+    if (response.statusCode == 503) {
+      return const SupportChatResult.unavailable();
+    }
+
+    Object? decoded;
+    try {
+      decoded = _decodeJson(response);
+    } catch (e) {
+      return SupportChatResult.failed('undecodable response: $e');
+    }
+    if (decoded is! Map<String, dynamic>) {
+      return SupportChatResult.failed('unexpected response shape');
+    }
+    if (response.statusCode < 200 ||
+        response.statusCode >= 300 ||
+        decoded['success'] != true) {
+      return SupportChatResult.failed(
+        '${response.statusCode}: ${decoded['error'] ?? 'no error given'}',
+      );
+    }
+    final raw = decoded['thread_id'];
+    final id = raw is int ? raw : int.tryParse('$raw');
+    // A 200 carrying no usable thread id is a failure too. It used to return
+    // null and be read as "nothing happened".
+    if (id == null) return SupportChatResult.failed('200 without a thread_id');
+    return SupportChatResult.opened(id);
   }
 
   // #36 — support WhatsApp number (null when disabled/unset).

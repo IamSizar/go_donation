@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/core/design/directional_icons.dart';
 import 'package:flutter_application_1/api/module_api.dart';
+import 'package:flutter_application_1/api/support_chat_result.dart';
+import 'package:flutter_application_1/modules/support/screens/technical_support_screen.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/modules/bot/screens/bot_chat_screen.dart';
 import 'package:flutter_application_1/modules/chat/controllers/chat_controller.dart';
@@ -30,44 +32,60 @@ import 'package:flutter_application_1/core/widgets/app_states.dart';
 /// and does not depend on an overlay host at all.
 final ValueNotifier<String?> supportChatError = ValueNotifier<String?>(null);
 
-Future<void> openSupportChat(BuildContext context) async {
+/// True when the server has told us no staff account is set to receive support
+/// chats. Kept apart from [supportChatError] because the two need opposite
+/// treatment on screen — see [SupportChatResult].
+final ValueNotifier<bool> supportChatUnavailable = ValueNotifier<bool>(false);
+
+Future<void> openSupportChat(
+  BuildContext context, {
+  // A seam for tests, defaulted so every call site is unchanged. The two
+  // failure branches set different notifiers and that difference is the whole
+  // fix, so it needs asserting.
+  ModuleApi api = const ModuleApi(),
+}) async {
   supportChatError.value = null;
-  int? id;
-  Object? failure;
-  try {
-    id = await const ModuleApi().startSupportChat();
-  } catch (e) {
-    failure = e;
+  supportChatUnavailable.value = false;
+
+  final result = await api.openSupportThread();
+
+  switch (result) {
+    case SupportChatOpened(:final threadId):
+      Get.to(
+        () => ChatConversationScreen(
+          threadId: threadId,
+          title: 'chat_support'.tr,
+        ),
+      );
+
+    case SupportChatUnavailable():
+      // Deliberately NOT an error with a Retry. No staff account is nominated
+      // to receive support chats, so every retry returns the same 503 until
+      // someone picks one in the dashboard — a button the user presses and
+      // presses that cannot work is worse than no button, because it implies
+      // the fault is theirs.
+      //
+      // The user's actual intent was "reach support", and two channels that
+      // work are one screen away: the ticket form and the WhatsApp handoff,
+      // both on TechnicalSupportScreen. So they are offered that instead.
+      debugPrint(
+        '[support-chat] no support account configured (503). '
+        'Set it in the dashboard: Settings -> support user.',
+      );
+      supportChatUnavailable.value = true;
+
+    case SupportChatFailed(:final detail):
+      // The USER gets the translated message; the SERVER's own sentence goes
+      // to the log only. Showing the server text was tried and reverted after
+      // seeing it: "Support chat is not configured." rendered in English on an
+      // Arabic screen, which is precisely the leak this app has been fixing.
+      //
+      // This call previously left no trace anywhere, which is the only reason
+      // the underlying 503 went unnoticed for so long.
+      debugPrint('[support-chat] could not open a thread: $detail');
+      supportChatError.value = 'chat_support_failed';
   }
-
-  if (id != null) {
-    Get.to(() => ChatConversationScreen(threadId: id!, title: 'chat_support'.tr));
-    return;
-  }
-
-  // Logged as well as shown: this call previously left no trace anywhere,
-  // which is the only reason the underlying 503 went unnoticed for so long.
-  debugPrint(
-    '[support-chat] could not open a thread: '
-    '${failure ?? 'no thread id in response'}',
-  );
-
-  // The USER gets the translated message; the SERVER's own sentence goes to
-  // the log only.
-  //
-  // Showing the server text was tried and reverted after seeing it: "Support
-  // chat is not configured." rendered in English on an Arabic screen, which is
-  // precisely the leak this app has been fixing all week. Its specificity
-  // helps whoever reads the log; it helps an Arabic reader not at all, and a
-  // volunteer can do nothing with it either way — configuring support is a
-  // staff action.
-  //
-  // AppErrorState applies .tr itself, so this is the key rather than the
-  // translation.
-  supportChatError.value = 'chat_support_failed';
 }
-
-
 
 class MessagesScreen extends StatelessWidget {
   const MessagesScreen({super.key});
@@ -122,6 +140,19 @@ class MessagesScreen extends StatelessWidget {
                       message: message,
                       onRetry: () => openSupportChat(context),
                     ),
+                  );
+                },
+              ),
+              // The PERMANENT case, which deliberately looks nothing like the
+              // error above: no Retry, because retrying cannot work, and a
+              // route to the two support channels that do.
+              ValueListenableBuilder<bool>(
+                valueListenable: supportChatUnavailable,
+                builder: (context, unavailable, _) {
+                  if (!unavailable) return const SizedBox.shrink();
+                  return const Padding(
+                    padding: EdgeInsets.only(top: 10),
+                    child: _SupportChatUnavailableNotice(),
                   );
                 },
               ),
@@ -770,6 +801,61 @@ class _BotAssistantCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Shown when no staff account is configured to receive support chats.
+///
+/// Says what happened, then hands over the channels that work. It is not an
+/// error state: nothing has gone wrong from the user's side, there is nothing
+/// for them to retry, and the thing they actually wanted — to reach support —
+/// is still entirely possible.
+class _SupportChatUnavailableNotice extends StatelessWidget {
+  const _SupportChatUnavailableNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsetsDirectional.all(14),
+      decoration: BoxDecoration(
+        color: AppThemeConfig.softSurface(context),
+        border: Border.all(color: AppThemeConfig.border(context)),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'chat_support_unavailable_title'.tr,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: AppThemeConfig.text(context),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'chat_support_unavailable_body'.tr,
+            style: TextStyle(
+              fontSize: 13,
+              height: 1.45,
+              color: AppThemeConfig.mutedText(context),
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Full-width so it reads as the way forward rather than a footnote.
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => Get.to(() => const TechnicalSupportScreen()),
+              child: Text('chat_support_unavailable_action'.tr),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -1450,6 +1450,14 @@ class AppTranslations extends Translations {
     'chat_support': 'Contact support',
     'chat_support_desc': 'Chat directly with our support / tech team.',
     'chat_support_failed': 'Could not open support chat. Please try again.',
+    // The PERMANENT counterpart of chat_support_failed. Worded for a user who
+    // cannot fix it and should not be asked to try again — it says what is
+    // missing, then points at the channels that work.
+    'chat_support_unavailable_title': 'Support chat is not set up yet',
+    'chat_support_unavailable_body':
+        'No one is assigned to receive chat messages right now. You can still '
+        'reach the team through the support form or on WhatsApp.',
+    'chat_support_unavailable_action': 'Open technical support',
     'helped_by': 'Helped by @name',
     'marriage_posts_title': 'Event posts',
     'marriage_posts_subtitle':
@@ -4282,6 +4290,11 @@ class AppTranslations extends Translations {
     'chat_support': 'التواصل مع الدعم',
     'chat_support_desc': 'تحدّث مباشرة مع فريق الدعم / الفني.',
     'chat_support_failed': 'تعذّر فتح محادثة الدعم. حاول مرة أخرى.',
+    'chat_support_unavailable_title': 'محادثة الدعم غير مفعّلة بعد',
+    'chat_support_unavailable_body':
+        'لا يوجد حاليًا من يستقبل رسائل المحادثة. ما زال بإمكانك الوصول إلى '
+        'الفريق عبر نموذج الدعم أو عبر واتساب.',
+    'chat_support_unavailable_action': 'فتح الدعم الفني',
     'helped_by': 'يساعدك @name',
     'marriage_posts_title': 'منشورات الفعاليات',
     'marriage_posts_subtitle': 'برامج وقصص وتحديثات من قسم الفعاليات.',
@@ -6581,6 +6594,10 @@ class AppTranslations extends Translations {
     'chat_support': 'پەیوەندی بە پشتگیری',
     'chat_support_desc': 'ڕاستەوخۆ لەگەڵ تیمی پشتگیری / تەکنیکی گفتوگۆ بکە.',
     'chat_support_failed': 'نەتوانرا چاتی پشتگیری بکرێتەوە. دووبارە هەوڵ بدە.',
+    // Copied VERBATIM from 'Technical Support' in this same map. The title and
+    // body are deliberately absent: Kurdish is merged over English, so they
+    // degrade to English rather than to invented Kurdish.
+    'chat_support_unavailable_action': 'پشتیوانی تەکنیکی',
     'helped_by': '@name یارمەتیت دەدات',
     'marriage_posts_title': 'بابەتەکانی هاوسەرگیری',
     'marriage_posts_subtitle':
@@ -9826,6 +9843,9 @@ class AppTranslations extends Translations {
     'chat_support': 'پەیوەندی ب پشتەڤانیێ',
     'chat_support_desc': 'ڕاستەرێک لەگەل تیما پشتەڤانی / تەکنیکی ئاخڤتنێ بکە.',
     'chat_support_failed': 'نەشیا چاتێ پشتەڤانیێ ڤەبیت. دیسا هەوڵ بدە.',
+    // Copied VERBATIM from 'Technical Support' in this same map; see the note
+    // in the Sorani map.
+    'chat_support_unavailable_action': 'پشتەڤانیا تەکنیکی',
     'helped_by': '@name یارمەتیا تە دکەت',
     'marriage_posts_title': 'نڤیسێن هەڤسەریێ',
     'marriage_posts_subtitle':
