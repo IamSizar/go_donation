@@ -30,6 +30,10 @@ class BeneficiaryCampaignDonationsScreen extends StatelessWidget {
         // used for navigation elsewhere, with an unlabelled onTap standing in
         // for a retry button.
         return AppAsync<List<dynamic>>(
+          // The gutter lives inside this screen's own list, so the skeleton
+          // and the error banner would otherwise sit edge-to-edge while the
+          // content that replaces them sits in a 20pt margin.
+          gutter: const EdgeInsets.symmetric(horizontal: 20),
           loading: ctrl.isLoading.value,
           error: ctrl.errorMessage.value,
           onRetry: ctrl.fetch,

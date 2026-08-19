@@ -132,6 +132,10 @@ class _PartnersScreenState extends State<PartnersScreen> {
               // whose retry was an unlabelled onTap - nothing told the user it
               // could be tapped.
               return AppAsync<List<Map<String, dynamic>>>(
+                // The gutter lives inside this screen's own list, so the skeleton
+                // and the error banner would otherwise sit edge-to-edge while the
+                // content that replaces them sits in a 20pt margin.
+                gutter: const EdgeInsets.symmetric(horizontal: 20),
                 loading: controller.isLoading.value,
                 error: controller.errorMessage.value,
                 onRetry: controller.fetchPartners,

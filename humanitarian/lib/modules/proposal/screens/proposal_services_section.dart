@@ -245,6 +245,10 @@ class BeneficiaryCasesScreen extends StatelessWidget {
         // the same card used for the cases themselves - so an error looked
         // like just another tappable row.
         return AppAsync<List<Map<String, dynamic>>>(
+          // The gutter lives inside this screen's own list, so the skeleton
+          // and the error banner would otherwise sit edge-to-edge while the
+          // content that replaces them sits in a 20pt margin.
+          gutter: const EdgeInsets.symmetric(horizontal: 20),
           loading: controller.isLoading.value,
           error: controller.errorMessage.value,
           onRetry: controller.fetchCases,
@@ -298,6 +302,10 @@ class MyBeneficiaryCasesScreen extends StatelessWidget {
         // rendering a zeroed summary while the fetch is still in flight
         // states something not yet known.
         return AppAsync<List<Map<String, dynamic>>>(
+          // The gutter lives inside this screen's own list, so the skeleton
+          // and the error banner would otherwise sit edge-to-edge while the
+          // content that replaces them sits in a 20pt margin.
+          gutter: const EdgeInsets.symmetric(horizontal: 20),
           loading: controller.isLoading.value,
           error: controller.errorMessage.value,
           onRetry: controller.fetchCases,

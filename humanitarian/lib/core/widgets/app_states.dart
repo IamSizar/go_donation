@@ -347,6 +347,7 @@ class AppErrorState extends StatelessWidget {
     this.title = 'error_title',
     this.retryLabel = 'retry',
     this.staleContent,
+    this.gutter,
   });
 
   /// What went wrong and what to do, in plain language. Translated via `.tr`.
@@ -381,6 +382,20 @@ class AppErrorState extends StatelessWidget {
   /// based on a balance we had already admitted was stale. Reading stale data
   /// is fine; spending against it is not.
   final Widget? staleContent;
+
+  /// Horizontal inset for the BANNER only.
+  ///
+  /// Deliberately not defaulted. Most callers sit inside a parent that already
+  /// supplies the screen gutter, and giving this a default would push those to
+  /// 40pt — the whole reason the alignment was inconsistent in the first place.
+  /// It is set by [AppAsync.gutter], which is where the decision belongs,
+  /// because that is the widget that knows whether the gutter lives in the
+  /// parent or inside the content's own ListView.
+  ///
+  /// [staleContent] is NOT inset by this: it is the caller's own list, padding
+  /// included, and insetting it here would indent it past where it sits when
+  /// the load succeeds.
+  final EdgeInsetsGeometry? gutter;
 
   @override
   Widget build(BuildContext context) {
@@ -452,14 +467,21 @@ class AppErrorState extends StatelessWidget {
     //
     // Align gives it its natural height and leaves the space below empty,
     // which also reads correctly: the region genuinely has no content.
+    final insetBanner = gutter == null
+        ? banner
+        : Padding(padding: gutter!, child: banner);
+
     if (staleContent == null) {
-      return Align(alignment: AlignmentDirectional.topCenter, child: banner);
+      return Align(
+        alignment: AlignmentDirectional.topCenter,
+        child: insetBanner,
+      );
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        banner,
+        insetBanner,
         const SizedBox(height: AppSpace.md),
         // Dimmed, not hidden: the data is real, just possibly out of date.
         Expanded(child: Opacity(opacity: 0.55, child: staleContent!)),
@@ -498,6 +520,7 @@ class AppAsync<T> extends StatelessWidget {
     required this.empty,
     required this.builder,
     this.skeleton,
+    this.gutter,
   });
 
   /// True only for the FIRST load. A background refresh should leave this
@@ -522,6 +545,32 @@ class AppAsync<T> extends StatelessWidget {
   /// real content where the default does not.
   final Widget? skeleton;
 
+  /// The screen gutter, for screens that keep theirs INSIDE the content.
+  ///
+  /// WHY THIS IS NEEDED AT ALL
+  /// A screen whose list carries `padding: fromLTRB(20, 0, 20, 28)` on its own
+  /// ListView gives that gutter to the content and to nothing else, so the
+  /// skeleton and the error banner render edge-to-edge while the rows that
+  /// replace them sit in a 20pt margin. Screens that instead wrap the whole
+  /// AppAsync in a Padding never had the problem. Both spellings are otherwise
+  /// reasonable, which is why the app ended up with a mix of them.
+  ///
+  /// Pass this ONLY in the first case. Setting it on a screen that already
+  /// wraps AppAsync in a Padding double-pads to 40.
+  ///
+  /// WHAT IT DOES AND DOES NOT TOUCH — measured, not assumed:
+  ///   * the DEFAULT skeleton — inset. Renders at x=0 without this.
+  ///   * a skeleton passed by the caller — NOT inset. [AppSkeleton.bubbles]
+  ///     and [AppSkeleton.paragraphs] carry their own padding, matched to the
+  ///     content they stand in for, so insetting them would double it. If you
+  ///     pass a skeleton, you own its padding.
+  ///   * error banner — inset. Renders at x=0 without this.
+  ///   * empty — NOT inset. [AppEmpty] already carries [AppSpace.lg] of its
+  ///     own, so insetting it here would make it the one state at 40.
+  ///   * content — NOT inset. It owns the padding this parameter exists to
+  ///     mirror; insetting it too would double it.
+  final EdgeInsetsGeometry? gutter;
+
   @override
   Widget build(BuildContext context) {
     final value = data;
@@ -530,6 +579,7 @@ class AppAsync<T> extends StatelessWidget {
       return AppErrorState(
         message: error!,
         onRetry: onRetry,
+        gutter: gutter,
         // Keep whatever we already had on screen, dimmed.
         staleContent: value != null && !isEmpty(value) ? builder(value) : null,
       );
@@ -547,7 +597,13 @@ class AppAsync<T> extends StatelessWidget {
     // Safe against the silent-refresh case: `loading` is true only for a first
     // load, and a refresh holding real rows keeps them via the branch below.
     if (loading && (value == null || isEmpty(value))) {
-      return skeleton ?? AppSkeleton.rows();
+      // A caller-supplied skeleton is left exactly as given: the ones in this
+      // file that are worth passing (bubbles, paragraphs) already carry the
+      // padding of the content they imitate, and the point of passing one is
+      // that the caller knows the shape better than this widget does.
+      if (skeleton != null) return skeleton!;
+      final bones = AppSkeleton.rows();
+      return gutter == null ? bones : Padding(padding: gutter!, child: bones);
     }
 
     if (value == null || isEmpty(value)) return empty;

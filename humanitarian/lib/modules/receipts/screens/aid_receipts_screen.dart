@@ -56,6 +56,10 @@ class _AidReceiptsScreenState extends State<AidReceiptsScreen> {
           // user their aid receipts did not exist when the request had simply
           // failed — on a screen whose whole purpose is proving they do.
           return AppAsync<List<Map<String, dynamic>>>(
+            // The gutter lives inside this screen's own list, so the skeleton
+            // and the error banner would otherwise sit edge-to-edge while the
+            // content that replaces them sits in a 20pt margin.
+            gutter: const EdgeInsets.symmetric(horizontal: 20),
             loading: snap.connectionState != ConnectionState.done,
             error: snap.hasError ? 'receipts_load_failed'.tr : null,
             onRetry: _reload,

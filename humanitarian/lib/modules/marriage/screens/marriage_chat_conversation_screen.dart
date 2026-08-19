@@ -238,6 +238,10 @@ class _MarriageChatConversationScreenState
             // a dead end with no way back. AppAsync gives the same four
             // states with a retry that re-runs the fetch.
             child: AppAsync<List<Map<String, dynamic>>>(
+              // The gutter lives inside this screen's own list, so the skeleton
+              // and the error banner would otherwise sit edge-to-edge while the
+              // content that replaces them sits in a 14pt margin.
+              gutter: const EdgeInsets.symmetric(horizontal: 14),
               loading: _loading,
               error: _error,
               onRetry: _load,

@@ -145,6 +145,10 @@ class _SponsorshipScheduleScreenState extends State<SponsorshipScheduleScreen> {
           const SizedBox(height: 12),
           Expanded(
             child: AppAsync<List<ScheduleOccurrence>>(
+              // The gutter lives inside this screen's own list, so the skeleton
+              // and the error banner would otherwise sit edge-to-edge while the
+              // content that replaces them sits in a 20pt margin.
+              gutter: const EdgeInsets.symmetric(horizontal: 20),
               loading: _loading,
               error: _error,
               onRetry: _load,

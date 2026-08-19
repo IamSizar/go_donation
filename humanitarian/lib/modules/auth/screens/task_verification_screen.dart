@@ -80,6 +80,10 @@ class _TaskVerificationScreenState extends State<TaskVerificationScreen> {
       title: 'Task Verification',
       subtitle: 'Tasks assigned to you — mark them done when finished.',
       child: AppAsync<List<AppTask>>(
+        // The gutter lives inside this screen's own list, so the skeleton
+        // and the error banner would otherwise sit edge-to-edge while the
+        // content that replaces them sits in a 20pt margin.
+        gutter: const EdgeInsets.symmetric(horizontal: 20),
         loading: _loading,
         error: _error,
         onRetry: _load,

@@ -99,6 +99,10 @@ class _BeneficiaryMyProjectsScreenState
               // COUNTS: showing "0 pending" while the fetch is still in
               // flight states something that is not yet known.
               return AppAsync<List<Map<String, dynamic>>>(
+                // The gutter lives inside this screen's own list, so the skeleton
+                // and the error banner would otherwise sit edge-to-edge while the
+                // content that replaces them sits in a 20pt margin.
+                gutter: const EdgeInsets.symmetric(horizontal: 20),
                 loading: _controller.isLoading.value,
                 error: _controller.errorMessage.value,
                 onRetry: _controller.fetchProjects,
