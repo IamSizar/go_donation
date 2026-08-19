@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -267,13 +268,57 @@ func (s *Store) GetFieldPrivacy(ctx context.Context, userID int64) ([]string, er
 }
 
 // SetFieldPrivacy stores the profile field keys the user hides (#32).
+//
+// AUDITED, and this is the field where the audit matters most. field_privacy
+// decides what other people can see; a wrong or unauthorised change is
+// invisible to its victim, because nothing about their own screen looks
+// different. When the fail-open bug raised "did this already happen to
+// anyone?", current state could show that nothing is wrong NOW and could not
+// show that nothing had ever been wiped. These rows are what answer that.
 func (s *Store) SetFieldPrivacy(ctx context.Context, userID int64, hidden []string) error {
 	if hidden == nil {
 		hidden = []string{}
 	}
-	_, err := s.Pool.Exec(ctx,
-		`UPDATE user_profiles SET field_privacy = $2 WHERE user_id = $1`, userID, hidden)
-	return err
+
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// Read the previous value inside the transaction, so a concurrent write
+	// cannot leave the audit row describing a transition that never happened.
+	var before []string
+	if err := tx.QueryRow(ctx,
+		`SELECT COALESCE(field_privacy, '{}') FROM user_profiles WHERE user_id = $1`,
+		userID).Scan(&before); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+
+	if _, err := tx.Exec(ctx,
+		`UPDATE user_profiles SET field_privacy = $2 WHERE user_id = $1`,
+		userID, hidden); err != nil {
+		return err
+	}
+
+	// Sorted on both sides so that reordering the same set is not recorded as
+	// a change — recordAudit skips writes where old equals new, and a spurious
+	// row is worse than none: it teaches the reader to distrust the log.
+	s.recordAudit(ctx, tx, userID, "user", userID, nil,
+		"field_privacy", sortedCSV(before), sortedCSV(hidden))
+
+	return tx.Commit(ctx)
+}
+
+// sortedCSV renders a field-key set for the audit log: order-independent, and
+// readable by a human reading the row rather than a program parsing it.
+func sortedCSV(keys []string) string {
+	if len(keys) == 0 {
+		return ""
+	}
+	cp := append([]string(nil), keys...)
+	sort.Strings(cp)
+	return strings.Join(cp, ",")
 }
 
 // PrivacyExtras — Privacy Settings spec: real name vs. alias display choice
@@ -314,15 +359,44 @@ func (s *Store) SetPrivacyExtras(ctx context.Context, userID int64, p PrivacyExt
 	if mode != "alias" {
 		mode = "real"
 	}
-	_, err := s.Pool.Exec(ctx,
+	alias := strings.TrimSpace(p.AliasName)
+
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// Previous values, read in-transaction for the same reason as above.
+	var beforeMode, beforeAlias string
+	if err := tx.QueryRow(ctx,
+		`SELECT COALESCE(display_name_mode, ''), COALESCE(alias_name, '')
+		   FROM user_profiles WHERE user_id = $1`,
+		userID).Scan(&beforeMode, &beforeAlias); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+
+	if _, err := tx.Exec(ctx,
 		`UPDATE user_profiles
 		    SET display_name_mode = $2, alias_name = $3,
 		        social_facebook = $4, social_instagram = $5, social_telegram = $6
 		  WHERE user_id = $1`,
-		userID, mode, strings.TrimSpace(p.AliasName),
+		userID, mode, alias,
 		strings.TrimSpace(p.Facebook), strings.TrimSpace(p.Instagram), strings.TrimSpace(p.Telegram),
-	)
-	return err
+	); err != nil {
+		return err
+	}
+
+	// display_name_mode decides whether other people see a real name or an
+	// alias, so it belongs in the same audit as field_privacy.
+	s.recordAudit(ctx, tx, userID, "user", userID, nil,
+		"display_name_mode", beforeMode, mode)
+	// alias_name too: a CLEARED alias is otherwise indistinguishable from one
+	// that was never set, which is exactly the question an investigation asks.
+	s.recordAudit(ctx, tx, userID, "user", userID, nil,
+		"alias_name", beforeAlias, alias)
+
+	return tx.Commit(ctx)
 }
 
 // GetIDByPhone returns the user id for a phone, or 0 if not found.
