@@ -14,7 +14,24 @@ import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 /// The "Messages" tab — lists all of a user's chat threads.
 // #45 — open (or reuse) a direct chat with support/tech and jump into it.
+/// The reason the last support-chat attempt failed, or null when it has not
+/// failed. Rendered INLINE by [MessagesScreen] rather than shown as a toast.
+///
+/// WHY INLINE AND NOT A SNACKBAR
+/// Three toast mechanisms were tried here and none rendered: ScaffoldMessenger
+/// (this route has no Scaffold whose messenger is on screen), the same without
+/// a context.mounted guard, and Get.snackbar — which is CALLED and returns
+/// normally, yet paints nothing, verified with six consecutive frame captures.
+/// The overlay problem is real and unexplained.
+///
+/// Chasing it further was the wrong trade. A transient toast is the weaker
+/// answer regardless: rule 5.7 asks for an in-content error state for a failed
+/// action, and an inline message cannot be missed, cannot race a screenshot,
+/// and does not depend on an overlay host at all.
+final ValueNotifier<String?> supportChatError = ValueNotifier<String?>(null);
+
 Future<void> openSupportChat(BuildContext context) async {
+  supportChatError.value = null;
   int? id;
   Object? failure;
   try {
@@ -28,33 +45,28 @@ Future<void> openSupportChat(BuildContext context) async {
     return;
   }
 
-  // Logged as well as shown: this call previously left NO trace anywhere, which
-  // is why a dead end on the support path was hard to characterise at all.
+  // Logged as well as shown: this call previously left no trace anywhere,
+  // which is the only reason the underlying 503 went unnoticed for so long.
   debugPrint(
     '[support-chat] could not open a thread: '
     '${failure ?? 'no thread id in response'}',
   );
 
-  // NO `context.mounted` guard, and that is the actual bug this function had.
+  // The USER gets the translated message; the SERVER's own sentence goes to
+  // the log only.
   //
-  // The old code awaited, then checked context.mounted before reporting. The
-  // tile's Element is disposed while the await is in flight — the list is
-  // reactive and rebuilds underneath it — so the guard was true, the function
-  // returned, and the user saw nothing at all. The debugPrint above fired every
-  // time, which is how this was finally pinned down: the branch ran, the report
-  // did not.
+  // Showing the server text was tried and reverted after seeing it: "Support
+  // chat is not configured." rendered in English on an Arabic screen, which is
+  // precisely the leak this app has been fixing all week. Its specificity
+  // helps whoever reads the log; it helps an Arabic reader not at all, and a
+  // volunteer can do nothing with it either way — configuring support is a
+  // staff action.
   //
-  // Neither Get.snackbar nor Get.to needs a BuildContext, so nothing here has
-  // to survive the rebuild. The parameter is kept for call-site compatibility.
-  final serverMessage = failure is Exception
-      ? failure.toString().replaceFirst('Exception: ', '').trim()
-      : '';
-  Get.snackbar(
-    'chat_support'.tr,
-    serverMessage.isEmpty ? 'chat_support_failed'.tr : serverMessage,
-    snackPosition: SnackPosition.BOTTOM,
-  );
+  // AppErrorState applies .tr itself, so this is the key rather than the
+  // translation.
+  supportChatError.value = 'chat_support_failed';
 }
+
 
 
 class MessagesScreen extends StatelessWidget {
@@ -97,6 +109,21 @@ class MessagesScreen extends StatelessWidget {
                 subtitle: 'chat_support_desc'.tr,
                 color: AppThemeConfig.accent(context),
                 onTap: () => openSupportChat(context),
+              ),
+              // Sits directly beneath the control that failed, so the message
+              // is attached to the thing the user just pressed.
+              ValueListenableBuilder<String?>(
+                valueListenable: supportChatError,
+                builder: (context, message, _) {
+                  if (message == null) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: AppErrorState(
+                      message: message,
+                      onRetry: () => openSupportChat(context),
+                    ),
+                  );
+                },
               ),
               const SizedBox(height: 10),
               const _CaseChatsSection(),
