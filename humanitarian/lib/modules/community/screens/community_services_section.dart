@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/localization/content_localizer.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:flutter_application_1/modules/community/controllers/community_controller.dart';
 import 'package:flutter_application_1/modules/community/screens/add_activity_screen.dart';
 import 'package:flutter_application_1/modules/community/screens/community_detail_screen.dart';
@@ -23,6 +24,94 @@ double? _parseCoord(dynamic v) {
   if (v is int) return v.toDouble();
   if (v is String) return double.tryParse(v);
   return null;
+}
+
+/// Whether a coordinate pair names a point that can actually be drawn.
+///
+/// THE BUG THIS EXISTS FOR
+/// The City Guide map rendered blank — no tiles, no pins — and it was not the
+/// tile server, the network or the widget: one directory row carried
+/// latitude 500, longitude 700. Those are not places; the Earth stops at 90
+/// and 180. The map centred on the AVERAGE of its pins, so that single row
+/// dragged the centre to 90.39N / 127.98E — past the North Pole, where no
+/// tiles exist — and stretched the span to 495 degrees, forcing the zoom out
+/// to 6. Every user saw an empty grey rectangle because of one typo in one
+/// row.
+///
+/// (0, 0) is rejected too. It is in the Gulf of Guinea, and essentially every
+/// occurrence of it in a directory of Iraqi places is a coordinate that failed
+/// to parse somewhere upstream and defaulted to zero rather than a place
+/// anyone means to pin.
+///
+/// The app cannot assume the data is clean — this is a public directory that
+/// staff type into — so it validates at the point of USE rather than trusting
+/// the server. The server should reject these on write as well; that does not
+/// help the rows already stored.
+bool isPlottableCoordinate(double lat, double lng) {
+  if (lat.isNaN || lng.isNaN || lat.isInfinite || lng.isInfinite) return false;
+  if (lat < -90 || lat > 90) return false;
+  if (lng < -180 || lng > 180) return false;
+  if (lat == 0 && lng == 0) return false;
+  return true;
+}
+
+/// The map chip's text: a place count, and the city ONLY when there is one.
+///
+/// WHY IT IS COMPUTED RATHER THAN WRITTEN DOWN
+/// This chip used to read "· Mosul" literally, whatever was on the map. An
+/// earlier fix corrected the TRANSLATION of that string and left the hardcoded
+/// city inside it, so the map went on asserting Mosul over places in every
+/// other governorate — which is part of what "the map shows wrong" meant.
+///
+/// Returns no city when the visible places span MORE THAN ONE, because then
+/// there is no single true answer, and naming one of them would be the same
+/// defect again in a quieter form.
+///
+/// [source] is the entries the count refers to — the pinned ones when any
+/// place has coordinates, otherwise every entry, so the chip can still name
+/// the city of a list that simply has not been geocoded.
+String cityMapChipLabel({
+  required int pinCount,
+  required Iterable<Map<String, dynamic>> source,
+}) {
+  // Singular and plural are separate keys so English stays correct at one pin;
+  // Arabic uses the تمييز form after the numeral either way, following
+  // '@count شخصا متأثرا'.
+  final count = (pinCount == 1 ? '@count place' : '@count places').trParams({
+    'count': '$pinCount',
+  });
+
+  // Localised as they are collected, not afterwards. Two raw spellings that
+  // name the same governorate collapse to one entry this way, which is
+  // correct — and it keeps the read and the localisation on one line, which
+  // is what the display-helpers guard checks for. That guard exists because
+  // two earlier city fixes were shipped incomplete.
+  final cities = <String>{};
+  for (final e in source) {
+    final city = localizedCity(e['city']).trim();
+    if (city.isNotEmpty) cities.add(city);
+  }
+  if (cities.length != 1) return count;
+  return '$count · ${cities.first}';
+}
+
+/// Whether two entry lists put pins in the same places, in the same order.
+///
+/// Compared by COORDINATES, not by list identity: the parent rebuilds the map
+/// for reasons that move no pin, and re-centring on those would fight a user
+/// who has just panned somewhere.
+bool cityMapPinsUnchanged(
+  List<Map<String, dynamic>> a,
+  List<Map<String, dynamic>> b,
+) {
+  if (a.length != b.length) return false;
+  for (var i = 0; i < a.length; i++) {
+    if (a[i]['latitude'] != b[i]['latitude'] ||
+        a[i]['longitude'] != b[i]['longitude']) {
+      return false;
+    }
+  }
+  return true;
 }
 
 /// How the City Guide map responds to touch.
@@ -511,7 +600,13 @@ class _CityGuideScreenState extends State<CityGuideScreen> {
                         ),
                   builder: (list) => Column(
                     children: [
-                      Expanded(child: _CityMap(entries: list)),
+                      Expanded(
+                        child: _CityMap(
+                          entries: list,
+                          onExpand: () =>
+                              Get.to(() => _FullscreenCityMap(entries: list)),
+                        ),
+                      ),
                       const SizedBox(height: 14),
                       // The strip is NOT a second copy of the pins: a place
                       // with no latitude/longitude gets no pin at all, so for
@@ -821,8 +916,12 @@ class _GalleryViewer extends StatelessWidget {
 // ── Redesigned map ────────────────────────────────────────────────────────────
 
 class _CityMap extends StatefulWidget {
-  const _CityMap({required this.entries});
+  const _CityMap({required this.entries, this.onExpand});
   final List<Map<String, dynamic>> entries;
+
+  /// Opens the fullscreen map. Null on the fullscreen map itself, which hides
+  /// the expand control rather than offering a button that does nothing.
+  final VoidCallback? onExpand;
 
   @override
   State<_CityMap> createState() => _CityMapState();
@@ -832,33 +931,154 @@ class _CityMapState extends State<_CityMap> {
   final MapController _map = MapController();
   int _selected = -1;
 
+  /// The device's last known position, once the user has asked for it.
+  ///
+  /// Null until then — the map does NOT ask on open. Requesting location the
+  /// moment a directory screen appears is a permission prompt the user has no
+  /// context for, and iOS only lets you ask once.
+  LatLng? _me;
+
+  /// True while a fix is being taken, so the control can show it is working.
+  /// A GPS fix can take several seconds and a button that looks inert for
+  /// that long reads as broken — which is how this screen was reported.
+  bool _locating = false;
+
+  /// Why the last location attempt failed, already translated, or null.
+  String? _locationError;
+
   List<({LatLng pos, Map<String, dynamic> entry})> get _pins {
     final result = <({LatLng pos, Map<String, dynamic> entry})>[];
     for (final e in widget.entries) {
       final lat = _parseCoord(e['latitude']);
       final lng = _parseCoord(e['longitude']);
-      if (lat != null && lng != null) {
-        result.add((pos: LatLng(lat, lng), entry: e));
-      }
+      if (lat == null || lng == null) continue;
+      if (!isPlottableCoordinate(lat, lng)) continue;
+      result.add((pos: LatLng(lat, lng), entry: e));
     }
     return result;
   }
 
+  /// Where to look when there is nothing to fit: the city the guide is about.
+  static const LatLng _fallbackCentre = LatLng(36.3489, 43.1489); // Mosul
+
+  /// Only meaningful for 0 or 1 pins — two or more are FITTED, not averaged.
+  /// The averaging this used to do for the many-pin case is what let one bad
+  /// row drag the camera off the map entirely.
   LatLng _center(List<({LatLng pos, Map<String, dynamic> entry})> pins) {
-    if (pins.isEmpty) return const LatLng(36.3489, 43.1489); // Mosul
-    if (pins.length == 1) return pins.first.pos;
-    final avgLat =
-        pins.map((p) => p.pos.latitude).reduce((a, b) => a + b) / pins.length;
-    final avgLng =
-        pins.map((p) => p.pos.longitude).reduce((a, b) => a + b) / pins.length;
-    return LatLng(avgLat, avgLng);
+    if (pins.isEmpty) return _fallbackCentre;
+    return pins.first.pos;
   }
 
+  @override
+  void didUpdateWidget(covariant _CityMap old) {
+    super.didUpdateWidget(old);
+    // MapOptions.initialCenter and initialZoom are ONE-SHOT — flutter_map
+    // reads them when the map is created and ignores them on every rebuild
+    // after that. Without this, filtering by sector, sub-category or search
+    // changed the list underneath while the camera stayed where it was, so
+    // the visible area stopped matching the places it claimed to show.
+    //
+    // Compared by identity of the coordinates, not of the list: the parent
+    // rebuilds this widget for reasons that do not move any pin, and
+    // re-centring on those would fight a user who has just panned somewhere.
+    if (!cityMapPinsUnchanged(old.entries, widget.entries)) _recenter();
+  }
+
+  /// "8 places · أربيل", or just "8 places" when the city is not one thing.
+  String _chipLabel(List<({LatLng pos, Map<String, dynamic> entry})> pins) =>
+      cityMapChipLabel(
+        pinCount: pins.length,
+        source: pins.isEmpty
+            ? widget.entries
+            : pins.map((p) => p.entry).toList(),
+      );
+
+  /// Moves the map to the user's own position.
+  ///
+  /// This screen HAD no such control. The only button was "fit all pins",
+  /// which re-centres on the average of the markers — so tapping it expecting
+  /// "find me" moved the map somewhere unrelated. That is what was reported as
+  /// "it goes to the top of the map".
+  ///
+  /// Every failure is reported. A location button that silently does nothing
+  /// is indistinguishable from a broken one, which is the whole complaint.
+  Future<void> _goToMyLocation() async {
+    if (_locating) return; // a second tap must not start a second fix
+    setState(() {
+      _locating = true;
+      _locationError = null;
+    });
+    try {
+      // Service check FIRST: with location switched off at the OS level, the
+      // permission prompt never appears and the request just hangs, which
+      // would look exactly like the bug being fixed here.
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        if (mounted) {
+          setState(() => _locationError = 'location_services_disabled'.tr);
+        }
+        return;
+      }
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          setState(() => _locationError = 'location_permission_required'.tr);
+        }
+        return;
+      }
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          // Bounded so a phone that cannot get a fix indoors fails and says
+          // so, rather than leaving the control spinning indefinitely.
+          timeLimit: Duration(seconds: 12),
+        ),
+      );
+      if (!mounted) return;
+      final me = LatLng(position.latitude, position.longitude);
+      setState(() {
+        _me = me;
+        _selected = -1;
+      });
+      // 15 is close enough to read street names around the user, which is
+      // what "where am I" actually means on a directory map.
+      _map.move(me, 15);
+    } catch (e) {
+      debugPrint('[city-map] location failed: $e');
+      if (mounted) setState(() => _locationError = 'location_failed'.tr);
+    } finally {
+      if (mounted) setState(() => _locating = false);
+    }
+  }
+
+  /// Frames every pin, whatever their spread.
+  ///
+  /// Uses flutter_map's own bounds fitting rather than the average-position
+  /// and bucketed-zoom pair this used to compute by hand. An AVERAGE is not a
+  /// centre: it is pulled by whichever point is furthest away, which is how a
+  /// single bad row put the camera past the North Pole. Bounds fitting is
+  /// defined by the extremes, so every pin is on screen by construction.
   void _recenter() {
     final pins = _pins;
-    final z = pins.isEmpty ? 12.0 : (pins.length == 1 ? 14.0 : _fitZoom(pins));
-    _map.move(_center(pins), z);
     setState(() => _selected = -1);
+    if (pins.isEmpty) {
+      _map.move(_fallbackCentre, 12);
+      return;
+    }
+    if (pins.length == 1) {
+      _map.move(pins.first.pos, 14);
+      return;
+    }
+    _map.fitCamera(
+      CameraFit.bounds(
+        bounds: LatLngBounds.fromPoints([for (final p in pins) p.pos]),
+        // Room for the chip and the controls, which sit over the map's edges.
+        padding: const EdgeInsets.all(48),
+      ),
+    );
   }
 
   void _select(int i, LatLng pos, Map<String, dynamic> entry) {
@@ -896,6 +1116,16 @@ class _CityMapState extends State<_CityMap> {
               options: MapOptions(
                 initialCenter: center,
                 initialZoom: zoom,
+                // For two or more pins the camera is FITTED to them rather
+                // than centred on an average — see [_recenter].
+                initialCameraFit: pins.length < 2
+                    ? null
+                    : CameraFit.bounds(
+                        bounds: LatLngBounds.fromPoints([
+                          for (final p in pins) p.pos,
+                        ]),
+                        padding: const EdgeInsets.all(48),
+                      ),
                 maxZoom: 18.0,
                 minZoom: 3.0,
                 interactionOptions: cityMapInteraction,
@@ -914,6 +1144,15 @@ class _CityMapState extends State<_CityMap> {
                 ),
                 MarkerLayer(
                   markers: [
+                    // The user's own position, drawn distinctly from the
+                    // places so it cannot be mistaken for one of them.
+                    if (_me != null)
+                      Marker(
+                        point: _me!,
+                        width: 22,
+                        height: 22,
+                        child: const _MeDot(),
+                      ),
                     for (var i = 0; i < pins.length; i++)
                       Marker(
                         point: pins[i].pos,
@@ -951,27 +1190,58 @@ class _CityMapState extends State<_CityMap> {
               // codebase leaks English.
               child: _MapChip(
                 icon: Icons.place_rounded,
-                label: pins.isEmpty
-                    ? 'Mosul · Iraq'.tr
-                    // Singular and plural are separate keys so English stays
-                    // correct at one pin; Arabic uses the تمييز form after the
-                    // numeral either way, following '@count شخصا متأثرا'.
-                    : (pins.length == 1
-                              ? '@count place · Mosul'
-                              : '@count places · Mosul')
-                          .trParams({'count': '${pins.length}'}),
+                label: _chipLabel(pins),
               ),
             ),
 
-            // Recenter / fit-all control.
+            // Controls, bottom-right, in the order they are reached for.
+            //
+            // MY LOCATION IS SEPARATE FROM FIT-ALL. There used to be one
+            // button — fit-all — and tapping it expecting "find me" moved the
+            // map to the average of the pins instead. Two intentions need two
+            // controls; overloading one was the defect.
             Positioned(
               right: 12,
               bottom: 12,
-              child: _MapButton(
-                icon: Icons.center_focus_strong_rounded,
-                onTap: _recenter,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (widget.onExpand != null)
+                    _MapButton(
+                      icon: Icons.open_in_full_rounded,
+                      onTap: widget.onExpand!,
+                      semanticLabel: 'map_fullscreen'.tr,
+                    ),
+                  if (widget.onExpand != null) const SizedBox(height: 8),
+                  _MapButton(
+                    icon: Icons.my_location_rounded,
+                    onTap: _goToMyLocation,
+                    busy: _locating,
+                    semanticLabel: 'map_my_location'.tr,
+                  ),
+                  const SizedBox(height: 8),
+                  _MapButton(
+                    icon: Icons.center_focus_strong_rounded,
+                    onTap: _recenter,
+                    semanticLabel: 'map_fit_all'.tr,
+                  ),
+                ],
               ),
             ),
+
+            // A location failure is reported HERE rather than as a toast: the
+            // overlay host on this route has been unreliable (see the note in
+            // messages_screen.dart), and an inline message cannot be missed.
+            if (_locationError != null)
+              Positioned(
+                left: 12,
+                right: 68,
+                bottom: 12,
+                child: _MapNotice(
+                  message: _locationError!,
+                  onDismiss: () => setState(() => _locationError = null),
+                ),
+              ),
 
             // "We have places, but none of them can be drawn." The screen-level
             // empty/error states are handled by AppAsync above, so by the time
@@ -1109,22 +1379,125 @@ class _CityPin extends StatelessWidget {
 
 /// Floating circular control on the map (e.g. recenter).
 class _MapButton extends StatelessWidget {
-  const _MapButton({required this.icon, required this.onTap});
+  const _MapButton({
+    required this.icon,
+    required this.onTap,
+    this.busy = false,
+    this.semanticLabel,
+  });
   final IconData icon;
   final VoidCallback onTap;
+
+  /// Swaps the icon for a spinner and refuses taps.
+  ///
+  /// A GPS fix can take several seconds. Without this the button looked inert
+  /// for the whole wait, which is indistinguishable from a broken one — and
+  /// "I tap it and nothing happens" is exactly how this screen was reported.
+  final bool busy;
+
+  /// These controls are icon-only, so VoiceOver and TalkBack have nothing to
+  /// read without it.
+  final String? semanticLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = AppThemeConfig.accent(context);
+    return Semantics(
+      button: true,
+      enabled: !busy,
+      label: semanticLabel,
+      child: Material(
+        color: Colors.white,
+        shape: const CircleBorder(),
+        elevation: 3,
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: busy ? null : onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(10),
+            child: busy
+                ? SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: Padding(
+                      padding: const EdgeInsets.all(2),
+                      child: CircularProgressIndicator.adaptive(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(accent),
+                      ),
+                    ),
+                  )
+                : Icon(icon, color: accent, size: 22),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The user's own position: a filled dot inside a white ring.
+///
+/// Deliberately unlike [_CityPin] — a place and "you" must not be confusable.
+class _MeDot extends StatelessWidget {
+  const _MeDot();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: AppThemeConfig.accent(context),
+        border: Border.all(color: Colors.white, width: 3),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.25),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A dismissible message laid over the map — used when locating fails.
+///
+/// Says what went wrong and leaves a way to clear it. Not a toast: the
+/// overlay host on this route has proven unreliable, and a message the user
+/// might miss is no better than the silence this replaces.
+class _MapNotice extends StatelessWidget {
+  const _MapNotice({required this.message, required this.onDismiss});
+  final String message;
+  final VoidCallback onDismiss;
 
   @override
   Widget build(BuildContext context) {
     return Material(
       color: Colors.white,
-      shape: const CircleBorder(),
+      borderRadius: BorderRadius.circular(12),
       elevation: 3,
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Icon(icon, color: AppThemeConfig.accent(context), size: 22),
+      child: Padding(
+        padding: const EdgeInsetsDirectional.only(
+          start: 12,
+          top: 8,
+          bottom: 8,
+          end: 4,
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(fontSize: 12.5, height: 1.35),
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.close_rounded, size: 18),
+              onPressed: onDismiss,
+              tooltip: 'Close'.tr,
+              visualDensity: VisualDensity.compact,
+            ),
+          ],
         ),
       ),
     );
@@ -1792,6 +2165,54 @@ class _SheetRow extends StatelessWidget {
                   ),
                 ),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The City Guide map, given the whole screen.
+///
+/// WHY IT EXISTS
+/// The inline map sits in an Expanded above the place strip, which on a phone
+/// leaves it a letterbox — too small to read street names or to tell nearby
+/// pins apart. There was no way to enlarge it, which is half of why the map
+/// was reported as not working.
+///
+/// It reuses [_CityMap] rather than reimplementing it, so the pins, the chip,
+/// my-location and fit-all all behave identically in both places. The expand
+/// control is hidden here by passing no [_CityMap.onExpand] — a button that
+/// expands an already-expanded map would do nothing, and a control that does
+/// nothing is the thing this whole ticket is about.
+class _FullscreenCityMap extends StatelessWidget {
+  const _FullscreenCityMap({required this.entries});
+
+  final List<Map<String, dynamic>> entries;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppThemeConfig.backgroundTop(context),
+      body: SafeArea(
+        child: Stack(
+          children: [
+            Padding(
+              // A little breathing room so the map's rounded corners and its
+              // controls are not flush against the screen edge.
+              padding: const EdgeInsets.all(12),
+              child: _CityMap(entries: entries),
+            ),
+            // Close sits opposite the map's own controls, which are bottom-end.
+            PositionedDirectional(
+              top: 20,
+              start: 20,
+              child: _MapButton(
+                icon: Icons.close_rounded,
+                onTap: () => Get.back<void>(),
+                semanticLabel: 'Close'.tr,
+              ),
+            ),
           ],
         ),
       ),

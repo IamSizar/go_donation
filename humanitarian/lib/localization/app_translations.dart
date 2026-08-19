@@ -2649,6 +2649,18 @@ class AppTranslations extends Translations {
     'City Guide': 'City Guide',
     'Our Products': 'Our Products',
     'My Engagement': 'My Engagement',
+    // City-AGNOSTIC place counts. The old keys read "@count places · Mosul"
+    // and were used on every city's map, so the chip asserted Mosul over
+    // places anywhere in Iraq. The city is now appended separately, from the
+    // data, and omitted entirely when the visible places span more than one.
+    '@count place': '@count place',
+    '@count places': '@count places',
+    'location_failed':
+        'Could not find your location. Try again outdoors or '
+        'check that location is on for this app.',
+    'map_my_location': 'Go to my location',
+    'map_fit_all': 'Show all places',
+    'map_fullscreen': 'Open the map full screen',
     'Mosul · Iraq': 'Mosul · Iraq',
     '@count place · Mosul': '@count place · Mosul',
     '@count places · Mosul': '@count places · Mosul',
@@ -5420,6 +5432,15 @@ class AppTranslations extends Translations {
     'City Guide': 'دليل المدينة',
     'Our Products': 'منتجاتنا',
     'My Engagement': 'مشاركتي',
+    '@count place': '@count مكان',
+    // تمييز after a numeral, matching '@count شخصا متأثرا'.
+    '@count places': '@count مكانا',
+    'location_failed':
+        'تعذّر تحديد موقعك. حاول في الخارج أو تأكد من تفعيل '
+        'الموقع لهذا التطبيق.',
+    'map_my_location': 'الذهاب إلى موقعي',
+    'map_fit_all': 'عرض كل الأماكن',
+    'map_fullscreen': 'فتح الخريطة بملء الشاشة',
     'Mosul · Iraq': 'الموصل · العراق',
     '@count place · Mosul': '@count مكان · الموصل',
     '@count places · Mosul': '@count مكانا · الموصل',

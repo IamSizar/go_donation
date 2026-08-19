@@ -101,12 +101,20 @@ void main() {
       for (var i = 0; i < file.lines.length; i++) {
         if (!accentFill.hasMatch(file.lines[i])) continue;
         // Look forward over the widget this fill decorates. 30 code lines is
-        // enough for a card's contents and short enough not to reach the next
-        // unrelated widget.
+        // enough for a card's contents.
+        //
+        // The scan STOPS at the next class declaration. Without that it read
+        // into the following widget and flagged an unrelated literal there:
+        // a map pin filled with the accent sat immediately above a notice card
+        // that is deliberately white, because it floats over a basemap that is
+        // light in both themes. Two different widgets, one window, one false
+        // finding — and a guard that cries wolf gets deleted, which costs the
+        // findings that are real.
         var seen = 0;
         for (var j = i + 1; j < file.lines.length && seen < 30; j++) {
           final t = file.lines[j].trim();
           if (t.isEmpty || t.startsWith('//')) continue;
+          if (file.lines[j].startsWith('class ')) break; // next widget
           seen++;
           if (!literalWhite.hasMatch(file.lines[j])) continue;
           // Only FOREGROUND colours matter for contrast. A translucent overlay

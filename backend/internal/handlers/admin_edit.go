@@ -440,6 +440,37 @@ func (h *AdminEditHandler) Community(c *gin.Context) {
 	addOptString(&b, "description_ar", req.DescriptionAr)
 	addOptString(&b, "description_sorani", req.DescriptionSorani)
 	addOptString(&b, "description_badini", req.DescriptionBadini)
+	// Validated together, and only when at least one side is being changed.
+	// A PATCH may touch neither, and demanding both then would block every
+	// unrelated edit to a place that has no coordinates.
+	if req.Latitude != nil || req.Longitude != nil {
+		lat, lng := "", ""
+		if req.Latitude != nil {
+			lat = *req.Latitude
+		}
+		if req.Longitude != nil {
+			lng = *req.Longitude
+		}
+		// Only one side supplied: the other has to come from the stored row,
+		// or a valid pair could be rejected for a field the caller never sent.
+		if req.Latitude == nil || req.Longitude == nil {
+			var storedLat, storedLng string
+			_ = h.Pool.QueryRow(c.Request.Context(),
+				`SELECT COALESCE(latitude, ''), COALESCE(longitude, '')
+				   FROM city_directory_entries WHERE id = $1`, id).
+				Scan(&storedLat, &storedLng)
+			if req.Latitude == nil {
+				lat = storedLat
+			}
+			if req.Longitude == nil {
+				lng = storedLng
+			}
+		}
+		if msg := validateCoordinate(lat, lng); msg != "" {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": msg})
+			return
+		}
+	}
 	addOptString(&b, "latitude", req.Latitude)
 	addOptString(&b, "longitude", req.Longitude)
 	// #29 — sectors + 4-language opening hours + gallery.

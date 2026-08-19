@@ -173,6 +173,13 @@ func (h *ListingsHandler) SubmitCommunity(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "category is required."})
 		return
 	}
+	// A coordinate off the Earth is not a place. Rejected here so it never
+	// reaches the map, which centres on the average of its pins and was
+	// blanked entirely by one row carrying latitude 500, longitude 700.
+	if msg := validateCoordinate(req.Latitude, req.Longitude); msg != "" {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": msg})
+		return
+	}
 	var submittedBy *int64
 	if user, ok := auth.UserFromGin(c); ok && user != nil {
 		id := user.UserID
