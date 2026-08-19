@@ -15,22 +15,32 @@ import 'package:flutter_application_1/core/widgets/app_states.dart';
 /// The "Messages" tab — lists all of a user's chat threads.
 // #45 — open (or reuse) a direct chat with support/tech and jump into it.
 Future<void> openSupportChat(BuildContext context) async {
+  int? id;
   try {
-    final id = await const ModuleApi().startSupportChat();
-    if (id == null || !context.mounted) return;
-    Get.to(
-      () => ChatConversationScreen(threadId: id, title: 'chat_support'.tr),
-    );
+    id = await const ModuleApi().startSupportChat();
   } catch (_) {
-    // Deliberate: this is a one-shot ACTION, not a data load, and the failure
-    // is already surfaced to the user by the snackbar below — nothing is being
-    // hidden behind a false "you have nothing" state.
-    if (context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('chat_support_failed'.tr)));
-    }
+    id = null;
   }
+  if (!context.mounted) return;
+
+  // A NULL id is a failure too, and it used to return silently: only the
+  // thrown-exception path reached the snackbar. startSupportChat returns int?,
+  // so a 200 carrying no usable thread_id left the user tapping a card that
+  // did nothing at all — no screen, no message, no way to tell whether the tap
+  // had even registered. Found by tapping it twice on the simulator and
+  // watching nothing happen.
+  //
+  // Both failure modes now share one path: this is a one-shot ACTION, so the
+  // only honest outcomes are "you are in the conversation" or "it did not
+  // work, here is why".
+  if (id == null) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('chat_support_failed'.tr)));
+    return;
+  }
+
+  Get.to(() => ChatConversationScreen(threadId: id!, title: 'chat_support'.tr));
 }
 
 class MessagesScreen extends StatelessWidget {
