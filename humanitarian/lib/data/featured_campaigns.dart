@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import 'package:flutter_application_1/localization/money.dart';
 import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:get/get.dart';
 
@@ -258,10 +260,10 @@ class FeaturedCampaignData {
   /// Shown after raised/goal numbers; defaults to IQD, maps legacy USD to IQD.
   String get _fundingCurrencySuffix {
     final raw = currency.trim();
-    if (raw.isEmpty) return ' IQD';
+    if (raw.isEmpty) return ' ${localizedCurrency('IQD')}';
     final u = raw.toUpperCase();
-    if (u == 'USD' || u == r'US$') return ' IQD';
-    return ' $raw';
+    if (u == 'USD' || u == r'US$') return ' ${localizedCurrency('IQD')}';
+    return ' ${localizedCurrency(raw)}';
   }
 
   /// e.g. `1,200 / 5,000 IQD` when amounts exist.

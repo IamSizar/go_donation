@@ -1,6 +1,8 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import 'package:flutter_application_1/localization/money.dart';
+
 import 'package:flutter_application_1/shared/widgets/adaptive_dialog.dart';
 import 'package:flutter_application_1/core/design/directional_icons.dart';
 import 'package:flutter_application_1/api/links.dart';
@@ -78,7 +80,7 @@ class DashboardHomeSection extends StatelessWidget {
   }
 
   String _moneyLabel(num amount) {
-    return '${NumberFormat.decimalPattern().format(amount.round())} IQD';
+    return '${NumberFormat.decimalPattern().format(amount.round())} ${localizedCurrency('IQD')}';
   }
 
   String _paymentStatusLabel(dynamic value) {
@@ -718,7 +720,9 @@ class DashboardHomeSection extends StatelessWidget {
               color: AppThemeConfig.accent(context),
             ),
             _StatItem(
-              value: (application['city'] ?? '—').toString(),
+              value: localizedCity(application['city']).isEmpty
+                  ? '—'
+                  : localizedCity(application['city']),
               label: 'Application city'.tr,
               icon: Icons.location_city_rounded,
               color: AppThemeConfig.accent(context),
@@ -774,10 +778,18 @@ class DashboardHomeSection extends StatelessWidget {
                   _DashboardActivityTile(
                     icon: Icons.task_alt_rounded,
                     color: AppThemeConfig.accent(context),
-                    title: (upcomingMissions[i]['title'] ?? 'Mission')
-                        .toString(),
+                    // The mission carries title_ar/_ckb alongside title_en, and
+                    // the Events screen already reads the localised one. This
+                    // card read title directly, so the same mission appeared as
+                    // «توزيع بطانيات الشتاء» in one place and "Winter Blankets
+                    // Distribution" in the other, one tab apart.
+                    title: localizedContentFromMap(
+                      Map<String, dynamic>.from(upcomingMissions[i] as Map),
+                      'title',
+                      fallback: 'Mission'.tr,
+                    ),
                     subtitle:
-                        '${_statusLabel(upcomingMissions[i]['signup_status'])} · ${(upcomingMissions[i]['city'] ?? '').toString()}',
+                        '${_statusLabel(upcomingMissions[i]['signup_status'])} · ${localizedCity(upcomingMissions[i]['city'])}',
                     time: _dateLabel(upcomingMissions[i]['mission_date']),
                     onTap: () => Get.to(() => const RoleHistoryScreen()),
                   ),
@@ -998,7 +1010,7 @@ class _WalletCardState extends State<_WalletCard> {
                         ? '—'
                         : balance == null
                         ? '···'
-                        : '${NumberFormat('#,##0').format(balance)} IQD',
+                        : '${NumberFormat('#,##0').format(balance)} ${localizedCurrency('IQD')}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(

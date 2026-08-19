@@ -485,7 +485,7 @@ class _ProfileCard extends StatelessWidget {
     final code = maskId((profile['profile_code'] ?? '').toString()); // #54
     final gender = (profile['gender'] ?? '').toString();
     final age = (profile['age'] ?? '').toString();
-    final city = (profile['city'] ?? '').toString();
+    final city = localizedCity(profile['city']);
     final summary = localizedContentFromMap(profile, 'social_summary');
     final sub = [
       if (gender.isNotEmpty) gender.tr,

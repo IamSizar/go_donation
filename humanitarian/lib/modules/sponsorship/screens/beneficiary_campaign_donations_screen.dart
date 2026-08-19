@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import 'package:flutter_application_1/localization/money.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/modules/chat/chat_actions.dart';
@@ -85,7 +87,7 @@ class _SummaryBand extends StatelessWidget {
           ),
           InfoChip(
             icon: Icons.savings_rounded,
-            label: '${_fmtMoney(totalRaised)} IQD ${'raised'.tr}',
+            label: '${_fmtMoney(totalRaised)} ${localizedCurrency('IQD')} ${'raised'.tr}',
           ),
         ],
       ),
@@ -199,7 +201,7 @@ class _CampaignDonationsCardState extends State<_CampaignDonationsCard> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
-                                  '${_fmtMoney(raised)} IQD ${'raised'.tr}',
+                                  '${_fmtMoney(raised)} ${localizedCurrency('IQD')} ${'raised'.tr}',
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w800,
@@ -207,7 +209,7 @@ class _CampaignDonationsCardState extends State<_CampaignDonationsCard> {
                                   ),
                                 ),
                                 Text(
-                                  '${'goal'.tr}: ${_fmtMoney(goal)} IQD',
+                                  '${'goal'.tr}: ${_fmtMoney(goal)} ${localizedCurrency('IQD')}',
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: AppThemeConfig.mutedText(context),
@@ -380,7 +382,7 @@ class _DonationRow extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        '${_fmtMoney(amount)} IQD',
+                        '${_fmtMoney(amount)} ${localizedCurrency('IQD')}',
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w900,

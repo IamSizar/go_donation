@@ -235,7 +235,7 @@ class _HistoryHero extends StatelessWidget {
         _HeroMetric(
           label: 'Total given',
           value:
-              '${_historyNumberFormat.format(_historyNum(summary['donation_total']).round())} IQD',
+              '${_historyNumberFormat.format(_historyNum(summary['donation_total']).round())} ${localizedCurrency('IQD')}',
         ),
         _HeroMetric(
           label: 'Successful donations',

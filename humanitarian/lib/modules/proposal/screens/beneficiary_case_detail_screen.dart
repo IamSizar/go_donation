@@ -62,7 +62,7 @@ class BeneficiaryCaseDetailScreen extends StatelessWidget {
                         _DetailLine(
                           icon: Icons.location_city_rounded,
                           label: 'City',
-                          value: (caseItem['city'] ?? '').toString(),
+                          value: localizedCity(caseItem['city']),
                         ),
                         _DetailLine(
                           icon: Icons.map_rounded,

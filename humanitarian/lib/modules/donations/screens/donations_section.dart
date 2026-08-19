@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import 'package:flutter_application_1/localization/money.dart';
 import 'package:flutter_application_1/core/design/directional_icons.dart';
 import 'package:flutter_application_1/core/app_haptics.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
@@ -308,7 +310,7 @@ class _DonationsSectionBodyState extends State<_DonationsSectionBody> {
                   children: DonationsSection._quickAmounts.map((amount) {
                     final isSelected = amount == _selectedAmount;
                     return _DonationAmountChip(
-                      label: '${formatAmount(amount)} IQD',
+                      label: '${formatAmount(amount)} ${localizedCurrency('IQD')}',
                       isSelected: isSelected,
                       onTap: () {
                         AppHaptics.selection();

@@ -11,6 +11,8 @@ import 'package:flutter_application_1/modules/marketplace/models/catalogue_query
 import 'package:flutter_application_1/localization/failure_message.dart';
 import 'package:get/get.dart';
 
+import 'package:flutter_application_1/localization/money.dart';
+
 class MarketplaceController extends GetxController
     with RealtimePollingMixin, CatalogueFacets {
   static const int _productsPerPage = 10;
@@ -122,7 +124,7 @@ class MarketplaceController extends GetxController
     // Same wording as the donation checkout deliberately — one sentence, one
     // translation key, rather than two that differ only by a full stop.
     if (balance == null) return 'Balance unavailable right now'.tr;
-    return '${'Balance'.tr}: $balance IQD';
+    return '${'Balance'.tr}: $balance ${localizedCurrency('IQD')}';
   }
 
   // Status snapshot per order id, for diff detection between polls.

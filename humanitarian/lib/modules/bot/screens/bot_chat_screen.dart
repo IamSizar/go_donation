@@ -2,6 +2,8 @@ import 'dart:math' as math;
 import 'package:flutter_application_1/core/widgets/app_main_menu_button.dart';
 
 import 'package:flutter/material.dart';
+
+import 'package:flutter_application_1/localization/money.dart';
 import 'package:flutter_application_1/core/design/directional_icons.dart';
 import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
@@ -1059,6 +1061,6 @@ class _ToolResultCard extends StatelessWidget {
 
   String _money(dynamic v) {
     final n = num.tryParse('${v ?? 0}') ?? 0;
-    return '${NumberFormat.decimalPattern().format(n)} IQD';
+    return '${NumberFormat.decimalPattern().format(n)} ${localizedCurrency('IQD')}';
   }
 }

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import 'package:flutter_application_1/localization/money.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/modules/chat/chat_actions.dart';
 import 'package:flutter_application_1/modules/donations/controllers/my_donations_controller.dart';
@@ -83,7 +85,7 @@ class _MyDonationsPageState extends State<MyDonationsPage> {
               AppFigure(
                 label: 'Given so far',
                 value: _numFormat.format(s.totalAmount.round()),
-                unit: 'IQD',
+                unit: localizedCurrency('IQD'),
                 caption: '${s.totalCount} ${'contributions'.tr}',
               ),
               // K5 — this counter reads summary.success_count, which the
@@ -298,7 +300,7 @@ class _DonationDetailSheet extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                '${_numFormat.format(item.amount)} IQD',
+                '${_numFormat.format(item.amount)} ${localizedCurrency('IQD')}',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w800,

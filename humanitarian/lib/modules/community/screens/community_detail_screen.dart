@@ -145,7 +145,7 @@ class CommunityDetailScreen extends StatelessWidget {
                         _DetailLine(
                           icon: Icons.location_city_rounded,
                           label: 'City',
-                          value: (entry['city'] ?? '').toString(),
+                          value: localizedCity(entry['city']),
                         ),
                         _DetailLine(
                           icon: Icons.place_rounded,

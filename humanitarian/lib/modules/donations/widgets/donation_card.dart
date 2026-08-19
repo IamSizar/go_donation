@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import 'package:flutter_application_1/localization/money.dart';
 import 'package:get/get.dart';
 
 import '../models/donation_model.dart';
@@ -13,7 +15,9 @@ class DonationCard extends StatelessWidget {
     return Card(
       child: ListTile(
         title: Text(donation.title.tr),
-        subtitle: Text('${donation.amount.toStringAsFixed(2)} IQD'),
+        subtitle: Text(
+        '${donation.amount.toStringAsFixed(2)} ${localizedCurrency('IQD')}',
+      ),
       ),
     );
   }

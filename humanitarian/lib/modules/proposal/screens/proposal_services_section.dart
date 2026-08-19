@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import 'package:flutter_application_1/localization/money.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/api/links.dart';
 import 'package:flutter_application_1/api/module_api.dart';
@@ -395,7 +397,7 @@ String _caseSubtitle(Map<String, dynamic> item) {
   //     than a bare token.
   return [
     (item['case_code'] ?? '').toString(),
-    (item['city'] ?? '').toString().tr,
+    localizedCity(item['city']),
     localizedTag(item['priority_level']),
   ].where((value) => value.trim().isNotEmpty).join(' - ');
 }
@@ -1020,14 +1022,14 @@ class ReportsScreen extends StatelessWidget {
                   SectionTile(
                     icon: Icons.payments_rounded,
                     title: 'Completed donations',
-                    subtitle: '${donations['completed_amount'] ?? '0'} IQD',
+                    subtitle: '${donations['completed_amount'] ?? '0'} ${localizedCurrency('IQD')}',
                     color: AppThemeConfig.accent(context),
                   ),
                   const SizedBox(height: 12),
                   SectionTile(
                     icon: Icons.hourglass_bottom_rounded,
                     title: 'Pending donations',
-                    subtitle: '${donations['pending_amount'] ?? '0'} IQD',
+                    subtitle: '${donations['pending_amount'] ?? '0'} ${localizedCurrency('IQD')}',
                     color: AppThemeConfig.pending(context),
                   ),
                   const SizedBox(height: 12),

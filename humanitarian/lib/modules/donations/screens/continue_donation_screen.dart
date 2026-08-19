@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'package:flutter_application_1/localization/money.dart';
+
 import 'package:flutter_application_1/shared/widgets/adaptive_dialog.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_application_1/api/guest_session.dart';
@@ -135,7 +137,7 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
     title: 'App Wallet',
     subtitle: _walletBalanceIQD == null
         ? 'Balance unavailable right now'.tr
-        : '${'Balance'.tr}: ${_formatIQD(_walletBalanceIQD!)} IQD',
+        : '${'Balance'.tr}: ${_formatIQD(_walletBalanceIQD!)} ${localizedCurrency('IQD')}',
     icon: Icons.account_balance_wallet_rounded,
     // A stored electronic balance, so it belongs to the electronic family.
     methodType: 'wallet',
@@ -638,7 +640,7 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
                             const SizedBox(height: 18),
                             _SummaryLine(
                               label: 'Contribution amount',
-                              value: '$donationAmount IQD',
+                              value: '$donationAmount ${localizedCurrency('IQD')}',
                             ),
                             const Padding(
                               padding: EdgeInsets.symmetric(vertical: 14),
@@ -646,7 +648,7 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
                             ),
                             _SummaryLine(
                               label: 'Total',
-                              value: '$donationAmount IQD',
+                              value: '$donationAmount ${localizedCurrency('IQD')}',
                               isEmphasized: true,
                             ),
                           ],

@@ -237,7 +237,7 @@ String _profileSubtitle(Map<String, dynamic> item) {
       : (familyCount == 1
             ? 'household_individual'.tr
             : 'household_family_of'.trParams({'count': '$familyCount'}));
-  final city = (item['city'] ?? '').toString().trim();
+  final city = localizedCity(item['city']);
   return [familyLabel, city].where((value) => value.isNotEmpty).join(' • ');
 }
 

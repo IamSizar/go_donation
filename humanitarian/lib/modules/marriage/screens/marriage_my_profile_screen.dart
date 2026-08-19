@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/modules/marriage/controllers/marriage_my_profile_controller.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
@@ -203,7 +205,7 @@ class _ProfileStatusCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final code = (item['profile_code'] ?? '').toString();
     final status = (item['status'] ?? 'submitted').toString();
-    final city = (item['city'] ?? '').toString();
+    final city = localizedCity(item['city']);
     final summary = (item['social_summary'] ?? '').toString();
     final createdAt = _dateLabel(item['created_at']);
 

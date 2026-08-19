@@ -42,7 +42,7 @@ class MarriagePostCard extends StatelessWidget {
     final code = maskId((profile['profile_code'] ?? '').toString());
     final gender = (profile['gender'] ?? '').toString();
     final age = (profile['age'] ?? '').toString();
-    final city = (profile['city'] ?? '').toString();
+    final city = localizedCity(profile['city']);
     final summary = localizedContentFromMap(profile, 'social_summary');
     final photoUrl = (profile['photo_url'] ?? '').toString();
     final sub = [
@@ -51,7 +51,7 @@ class MarriagePostCard extends StatelessWidget {
       // Localised like the gender beside it; a governorate must not be the
       // one English word in an otherwise Arabic line. Anything that is not a
       // known governorate comes back unchanged, so free-text places survive.
-      if (city.isNotEmpty) localizedCity(city),
+      if (city.isNotEmpty) city,
     ].join(' · ');
 
     return GlassPanel(

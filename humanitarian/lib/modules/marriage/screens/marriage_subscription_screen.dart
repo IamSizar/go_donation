@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:flutter_application_1/localization/money.dart';
+
 import 'package:flutter_application_1/shared/widgets/adaptive_dialog.dart';
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/api/payment_methods_api.dart';
@@ -143,7 +145,7 @@ class _MarriageSubscriptionScreenState
                 _PaymentOptionTile(
                   icon: Icons.account_balance_wallet_rounded,
                   title: 'App Wallet'.tr,
-                  subtitle: '${'Balance'.tr}: $_walletBalanceIQD IQD',
+                  subtitle: '${'Balance'.tr}: $_walletBalanceIQD ${localizedCurrency('IQD')}',
                   enabled: _walletBalanceIQD >= priceIQD,
                   onTap: () => Navigator.of(sheetContext).pop('app_wallet'),
                 ),
@@ -365,7 +367,7 @@ class _PackageCard extends StatelessWidget {
                 ),
               ),
               Text(
-                '$formattedPrice IQD',
+                '$formattedPrice ${localizedCurrency('IQD')}',
                 style: TextStyle(
                   fontWeight: FontWeight.w900,
                   fontSize: 15,

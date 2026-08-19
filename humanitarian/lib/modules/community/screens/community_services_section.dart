@@ -1226,7 +1226,7 @@ class _CityServiceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final name = localizedContentFromMap(entry, 'name', fallback: 'Service');
     final category = (entry['category'] ?? '').toString().trim();
-    final city = (entry['city'] ?? '').toString().trim();
+    final city = localizedCity(entry['city']);
     final phone = (entry['phone'] ?? '').toString().trim();
     final address = (entry['address'] ?? '').toString().trim();
     final accent = categoryColor(category);
@@ -1364,7 +1364,7 @@ class _PlaceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final name = localizedContentFromMap(entry, 'name', fallback: 'Place');
     final category = (entry['category'] ?? '').toString();
-    final city = (entry['city'] ?? '').toString();
+    final city = localizedCity(entry['city']);
     final sub = [category, city].where((s) => s.isNotEmpty).join(' · ');
 
     return AppPressable(
@@ -1451,7 +1451,7 @@ class _EntrySheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final name = localizedContentFromMap(entry, 'name', fallback: 'Place');
     final category = (entry['category'] ?? '').toString();
-    final city = (entry['city'] ?? '').toString();
+    final city = localizedCity(entry['city']);
     final phone = (entry['phone'] ?? '').toString().trim();
     final website = (entry['website'] ?? '').toString().trim();
     final lat = _parseCoord(entry['latitude']);

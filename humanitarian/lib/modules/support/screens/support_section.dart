@@ -638,7 +638,9 @@ class _VolunteerMissionDetailScreenState
                   children: [
                     InfoChip(
                       icon: Icons.location_on_rounded,
-                      label: (widget.mission['city'] ?? 'Flexible').toString(),
+                      label: localizedCity(widget.mission['city']).isEmpty
+                          ? 'Flexible'.tr
+                          : localizedCity(widget.mission['city']),
                     ),
                     InfoChip(
                       icon: Icons.event_rounded,
