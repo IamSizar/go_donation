@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/core/design/directional_icons.dart';
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
@@ -273,24 +275,29 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
           ),
           Expanded(
             child: _errorMessage != null && !_loading
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(_errorMessage!, textAlign: TextAlign.center),
-                          const SizedBox(height: 12),
-                          ElevatedButton(
-                            onPressed: () => _run(_ctrl.text.trim()),
-                            child: Text('Retry'.tr),
-                          ),
-                        ],
-                      ),
-                    ),
+                // AppErrorState rather than a bare Text and ElevatedButton, so
+                // a failed search looks like every other failure in the app.
+                ? AppErrorState(
+                    message: _errorMessage!,
+                    onRetry: () => _run(_ctrl.text.trim()),
+                  )
+                // BEFORE the first search this screen rendered a ListView with
+                // zero items — a blank page under the field. Rule 5.8 asks for
+                // a designed state in every async region, and "you have not
+                // searched yet" is a state, not an absence: it is the moment to
+                // say what is searchable.
+                : !_searched && !_loading
+                ? AppEmpty(
+                    icon: Icons.search_rounded,
+                    title: 'search_title',
+                    message: 'search_hint',
                   )
                 : _searched && _results.isEmpty && !_loading
-                ? Center(child: Text('search_no_results'.tr))
+                ? AppEmpty(
+                    icon: Icons.search_off_rounded,
+                    title: 'search_title',
+                    message: 'search_no_results',
+                  )
                 : ListView.separated(
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
                     itemCount: displayItems.length,
