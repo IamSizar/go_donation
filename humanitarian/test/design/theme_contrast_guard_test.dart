@@ -82,4 +82,59 @@ void main() {
           'so the pair is obviously deliberate.',
     );
   });
+
+  test('a literal white does not sit inside a themed accent surface', () {
+    // The SECOND shape of the same defect, and the one the button rule misses.
+    // The wallet card filled a Container with accent(context) and put
+    // `color: Colors.white` on the icon and both labels — 2.19:1 in dark.
+    //
+    // Scoped to accent/primary-style FILLS specifically. A themed surface(),
+    // ground() or card() is dark in dark mode and light in light mode, so a
+    // literal on those is a different question and not flagged here.
+    final accentFill = RegExp(
+      r'color:\s*AppThemeConfig\.(accent|pending|consequence)\(context\)',
+    );
+    final literalWhite = RegExp(r'color:\s*Colors\.(white|black)\b');
+
+    final offenders = <String>[];
+    for (final file in _libSources()) {
+      for (var i = 0; i < file.lines.length; i++) {
+        if (!accentFill.hasMatch(file.lines[i])) continue;
+        // Look forward over the widget this fill decorates. 30 code lines is
+        // enough for a card's contents and short enough not to reach the next
+        // unrelated widget.
+        var seen = 0;
+        for (var j = i + 1; j < file.lines.length && seen < 30; j++) {
+          final t = file.lines[j].trim();
+          if (t.isEmpty || t.startsWith('//')) continue;
+          seen++;
+          if (!literalWhite.hasMatch(file.lines[j])) continue;
+          // Only FOREGROUND colours matter for contrast. A translucent overlay
+          // tint, a border and a shadow are decoration, and flagging them
+          // would bury the real findings.
+          if (t.contains('withValues') ||
+              t.contains('withOpacity') ||
+              t.contains('Border') ||
+              t.contains('border') ||
+              t.contains('Shadow') ||
+              t.contains('shadow')) {
+            continue;
+          }
+          offenders.add(
+            '${file.path}:${j + 1}  $t   (accent fill at line ${i + 1})',
+          );
+        }
+      }
+    }
+
+    expect(
+      offenders,
+      isEmpty,
+      reason:
+          'A literal colour inside an accent-filled surface is wrong in one of '
+          'the two themes — the dark accent is a LIGHT mint:\n'
+          '${offenders.join('\n')}\n\n'
+          'Use AppThemeConfig.onAccent(context).',
+    );
+  });
 }

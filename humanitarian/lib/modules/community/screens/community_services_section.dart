@@ -1073,7 +1073,7 @@ class _CityPin extends StatelessWidget {
           ),
           child: Icon(
             Icons.location_city_rounded,
-            color: Colors.white,
+            color: AppThemeConfig.onAccent(context),
             size: selected ? 19 : 15,
           ),
         ),

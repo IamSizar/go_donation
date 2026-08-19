@@ -682,9 +682,9 @@ class _BotAssistantCard extends StatelessWidget {
                   color: AppThemeConfig.accent(context),
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.smart_toy_rounded,
-                  color: Colors.white,
+                  color: AppThemeConfig.onAccent(context),
                   size: 24,
                 ),
               ),

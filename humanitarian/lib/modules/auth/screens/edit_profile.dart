@@ -697,9 +697,9 @@ class _ProfileCompletionAvatar extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.priority_high_rounded,
-                  color: Colors.white,
+                  color: AppThemeConfig.onAccent(context),
                   size: 18,
                 ),
               ),

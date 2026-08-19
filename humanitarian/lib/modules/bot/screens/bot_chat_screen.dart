@@ -667,7 +667,7 @@ class _BotAvatar extends StatelessWidget {
         color: AppThemeConfig.accent(context),
         borderRadius: BorderRadius.circular(radius),
       ),
-      child: Icon(Icons.smart_toy_rounded, color: Colors.white, size: iconSize),
+      child: Icon(Icons.smart_toy_rounded, color: AppThemeConfig.onAccent(context), size: iconSize),
     );
   }
 }
@@ -795,16 +795,16 @@ class _Composer extends StatelessWidget {
                     shape: BoxShape.circle,
                   ),
                   child: isSending.value
-                      ? const Padding(
-                          padding: EdgeInsets.all(13),
+                      ? Padding(
+                          padding: const EdgeInsets.all(13),
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: Colors.white,
+                            color: AppThemeConfig.onAccent(context),
                           ),
                         )
-                      : const Icon(
+                      : Icon(
                           Icons.send_rounded,
-                          color: Colors.white,
+                          color: AppThemeConfig.onAccent(context),
                           size: 20,
                         ),
                 ),

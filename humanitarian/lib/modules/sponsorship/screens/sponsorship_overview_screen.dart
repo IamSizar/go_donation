@@ -248,7 +248,7 @@ class _OverviewHeroCard extends StatelessWidget {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: Colors.white,
+              color: AppThemeConfig.onAccent(context),
               fontSize: 18,
               fontWeight: FontWeight.w800,
               height: 1.15,

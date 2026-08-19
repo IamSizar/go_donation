@@ -213,21 +213,24 @@ class _WalletBalanceCard extends StatelessWidget {
         color: AppThemeConfig.accent(context),
         borderRadius: BorderRadius.circular(28),
       ),
+      // Everything in here sits ON the accent, so it takes onAccent rather than
+      // a literal white: the dark accent is a light mint, and white on it
+      // measured 2.19:1.
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.account_balance_wallet_rounded,
-                color: Colors.white,
+                color: AppThemeConfig.onAccent(context),
                 size: 20,
               ),
               const SizedBox(width: 8),
               Text(
                 'My wallet'.tr,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: AppThemeConfig.onAccent(context),
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -238,8 +241,8 @@ class _WalletBalanceCard extends StatelessWidget {
             formatMoney(wallet.balanceIQD.toDouble(), wallet.currency),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: AppThemeConfig.onAccent(context),
               fontSize: 24,
               fontWeight: FontWeight.w900,
             ),
