@@ -5,6 +5,8 @@ import 'dart:io';
 // `foundation.dart` import is needed for it (the analyzer flags one as
 // unnecessary_import).
 import 'package:flutter/material.dart';
+
+import 'package:flutter_application_1/shared/widgets/adaptive_dialog.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/api/links.dart';
 import 'package:flutter_application_1/api/module_api.dart';
@@ -568,32 +570,14 @@ class _VolunteerMissionDetailScreenState
     }
   }
 
-  Future<String?> _promptCheckoutNotes() async {
-    final controller = TextEditingController();
-    final result = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text('checkout_notes_title'.tr),
-        content: TextField(
-          controller: controller,
-          maxLines: 3,
-          decoration: InputDecoration(hintText: 'checkout_notes_hint'.tr),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text('Cancel'.tr),
-          ),
-          FilledButton(
-            onPressed: () =>
-                Navigator.of(dialogContext).pop(controller.text.trim()),
-            child: Text('Confirm'.tr),
-          ),
-        ],
-      ),
-    );
-    return result;
-  }
+  Future<String?> _promptCheckoutNotes() => showAdaptivePrompt(
+    context,
+    title: 'checkout_notes_title'.tr,
+    hint: 'checkout_notes_hint'.tr,
+    confirmLabel: 'Confirm'.tr,
+    cancelLabel: 'Cancel'.tr,
+    maxLines: 3,
+  );
 
   Future<void> _joinMission() async {
     final userId = int.tryParse(sharedPreferences.getString('id_user') ?? '');

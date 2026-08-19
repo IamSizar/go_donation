@@ -124,4 +124,122 @@ void main() {
 
     expect(answer, isFalse);
   });
+
+  testWidgets('a message dialog adapts its frame and its single action',
+      (tester) async {
+    Future<void> openMessage(TargetPlatform platform) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(platform: platform),
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: ElevatedButton(
+                  onPressed: () => showAdaptiveMessage(
+                    context,
+                    title: 'Subscription activated',
+                    message: 'Your subscription is now active.',
+                    buttonLabel: 'OK',
+                  ),
+                  child: const Text('open'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+    }
+
+    await openMessage(TargetPlatform.iOS);
+    expect(find.byType(CupertinoAlertDialog), findsOneWidget);
+    expect(find.byType(CupertinoDialogAction), findsOneWidget);
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+
+    await openMessage(TargetPlatform.android);
+    expect(find.byType(CupertinoAlertDialog), findsNothing);
+    expect(find.byType(TextButton), findsOneWidget);
+  });
+
+  /// Opens a prompt on [platform] and leaves it on screen.
+  Future<void> openPrompt(WidgetTester tester, TargetPlatform platform) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(platform: platform),
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: ElevatedButton(
+                onPressed: () => showAdaptivePrompt(
+                  context,
+                  title: 'Notes',
+                  hint: 'Anything to add?',
+                  confirmLabel: 'Confirm',
+                  cancelLabel: 'Cancel',
+                ),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+  }
+
+  // The whole point of the prompt helper: a Material TextField inside a
+  // Cupertino alert is the same mistake as a Material button there. Split per
+  // platform rather than looping, so a failure names which one broke.
+  testWidgets('iOS prompt uses a Cupertino field', (tester) async {
+    await openPrompt(tester, TargetPlatform.iOS);
+    expect(find.byType(CupertinoTextField), findsOneWidget);
+    // CupertinoTextField builds on EditableText, not TextField, so a Material
+    // field really is absent rather than merely wrapped.
+    expect(find.byType(TextField), findsNothing);
+  });
+
+  testWidgets('Android prompt uses a Material field', (tester) async {
+    await openPrompt(tester, TargetPlatform.android);
+    expect(find.byType(TextField), findsOneWidget);
+    expect(find.byType(CupertinoTextField), findsNothing);
+  });
+
+  testWidgets('a cancelled prompt returns null, not an empty answer',
+      (tester) async {
+    // null and '' mean different things to callers: "did not answer" versus
+    // "answered with nothing".
+    String? answer = 'untouched';
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(platform: TargetPlatform.iOS),
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: ElevatedButton(
+                onPressed: () async {
+                  answer = await showAdaptivePrompt(
+                    context,
+                    title: 'Notes',
+                    hint: 'hint',
+                    confirmLabel: 'Confirm',
+                    cancelLabel: 'Cancel',
+                  );
+                },
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    expect(answer, isNull);
+  });
 }

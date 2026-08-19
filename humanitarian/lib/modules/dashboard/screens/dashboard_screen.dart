@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import 'package:flutter_application_1/shared/widgets/adaptive_dialog.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/core/app_haptics.dart';
@@ -140,24 +142,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<bool> _confirmExit() async {
-    return await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: Text('Exit App?'.tr),
-            content: Text('Do you want to close the app?'.tr),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: Text('Cancel'.tr),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: Text('Exit'.tr),
-              ),
-            ],
-          ),
-        ) ??
-        false;
+    return showAdaptiveConfirm(
+      context,
+      title: 'Exit App?'.tr,
+      message: 'Do you want to close the app?'.tr,
+      confirmLabel: 'Exit'.tr,
+      cancelLabel: 'Cancel'.tr,
+    );
   }
 
   // 27.3 — the phone Back button on the main screen must NOT log the user out

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import 'package:flutter_application_1/shared/widgets/adaptive_dialog.dart';
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/api/payment_methods_api.dart';
 import 'package:flutter_application_1/api/wallet_api.dart';
@@ -175,31 +177,17 @@ class _MarriageSubscriptionScreenState
       );
       if (!mounted) return;
       final paid = res['status'] == 'paid';
-      await showDialog<void>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          icon: Icon(
-            paid ? Icons.check_circle_rounded : Icons.pending_actions_rounded,
-            size: 48,
-            color: paid ? Colors.green : Colors.orange,
-          ),
-          title: Text(
-            (paid ? 'Subscription activated'.tr : 'Subscription pending'.tr),
-            textAlign: TextAlign.center,
-          ),
-          content: Text(
-            paid
-                ? 'Your subscription is now active.'.tr
-                : 'Your payment is pending staff confirmation.'.tr,
-            textAlign: TextAlign.center,
-          ),
-          actionsAlignment: MainAxisAlignment.center,
-          actions: [
-            FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: Text('OK'.tr),
-            ),
-          ],
+      await showAdaptiveMessage(
+        context,
+        title: paid ? 'Subscription activated'.tr : 'Subscription pending'.tr,
+        message: paid
+            ? 'Your subscription is now active.'.tr
+            : 'Your payment is pending staff confirmation.'.tr,
+        buttonLabel: 'OK'.tr,
+        icon: Icon(
+          paid ? Icons.check_circle_rounded : Icons.pending_actions_rounded,
+          size: 48,
+          color: paid ? Colors.green : Colors.orange,
         ),
       );
       if (paid) await _load();

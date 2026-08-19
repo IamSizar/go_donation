@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import 'package:flutter_application_1/shared/widgets/adaptive_dialog.dart';
 import 'package:flutter_application_1/localization/failure_message.dart';
 import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/modules/chat/controllers/chat_controller.dart';
@@ -26,27 +28,16 @@ abstract final class ChatActions {
     // Note #40 — "assistance-related conversations" are restricted for guests.
     if (!await requireUpgrade(context)) return;
     if (!context.mounted) return;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Start a chat?'.tr),
-        content: Text(
+    final confirmed = await showAdaptiveConfirm(
+      context,
+      title: 'Start a chat?'.tr,
+      message:
           'You are about to start a conversation with @who. They will be notified and must accept before you can message. Support can also view this chat.'
               .trParams({'who': otherPartyLabel}),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text('Cancel'.tr),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text('Yes, start chat'.tr),
-          ),
-        ],
-      ),
+      confirmLabel: 'Yes, start chat'.tr,
+      cancelLabel: 'Cancel'.tr,
     );
-    if (confirmed != true) return;
+    if (!confirmed) return;
     if (!context.mounted) return;
 
     final ctrl = _controller();

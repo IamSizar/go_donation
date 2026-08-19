@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+
+import 'package:flutter_application_1/shared/widgets/adaptive_dialog.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_application_1/core/design/directional_icons.dart';
 import 'package:flutter_application_1/api/auth_session.dart';
@@ -62,32 +64,19 @@ class _ProfileSectionState extends State<ProfileSection> {
   }
 
   Future<void> _handleLogout(BuildContext context) async {
-    final bool confirmed =
-        await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: Text('Log out?'.tr),
-            content: Text('Are you sure you want to log out?'.tr),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: Text('Cancel'.tr),
-              ),
-              TextButton(
-                // 27.4 — DON'T clear prefs here: doing it while the dashboard
-                // tree is still mounted made every section rebuild against wiped
-                // storage and the app went black/frozen. Just confirm; the
-                // clearing happens after we've navigated away.
-                onPressed: () => Navigator.of(context).pop(true),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppThemeConfig.consequence(context),
-                ),
-                child: Text('Log out'.tr),
-              ),
-            ],
-          ),
-        ) ??
-        false;
+    // 27.4 — DON'T clear prefs here: doing it while the dashboard tree is still
+    // mounted made every section rebuild against wiped storage and the app went
+    // black/frozen. Just confirm; the clearing happens after we've navigated
+    // away.
+    final bool confirmed = await showAdaptiveConfirm(
+      context,
+      title: 'Log out?'.tr,
+      message: 'Are you sure you want to log out?'.tr,
+      confirmLabel: 'Log out'.tr,
+      cancelLabel: 'Cancel'.tr,
+      isDestructive: true,
+      destructiveColor: AppThemeConfig.consequence(context),
+    );
 
     if (confirmed) {
       // 27.4 — navigate to login FIRST so the authenticated dashboard tree is
@@ -104,25 +93,13 @@ class _ProfileSectionState extends State<ProfileSection> {
   // (where cached_network_image stores its disk cache). Deliberately does NOT
   // touch SharedPreferences, so the session/login stays intact.
   Future<void> _clearCache(BuildContext context) async {
-    final confirmed =
-        await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: Text('clear_cache'.tr),
-            content: Text('cache_clear_confirm'.tr),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(false),
-                child: Text('Cancel'.tr),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(true),
-                child: Text('clear_cache'.tr),
-              ),
-            ],
-          ),
-        ) ??
-        false;
+    final confirmed = await showAdaptiveConfirm(
+      context,
+      title: 'clear_cache'.tr,
+      message: 'cache_clear_confirm'.tr,
+      confirmLabel: 'clear_cache'.tr,
+      cancelLabel: 'Cancel'.tr,
+    );
     if (!confirmed) return;
     try {
       PaintingBinding.instance.imageCache.clear();

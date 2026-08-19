@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+
+import 'package:flutter_application_1/shared/widgets/adaptive_dialog.dart';
 import 'package:flutter_application_1/api/auth_session.dart';
 import 'package:flutter_application_1/api/links.dart';
 import 'package:flutter_application_1/api/profile_api.dart';
@@ -201,24 +203,14 @@ Map<String, dynamic> _decodeGuestBody(String s) {
 /// caller aborts; for a signed-in user it returns true immediately.
 Future<bool> requireSignIn(BuildContext context) async {
   if (!isGuestMode()) return true;
-  final go = await showDialog<bool>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: Text('Sign in required'.tr),
-      content: Text('Please sign in to use this feature.'.tr),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(ctx).pop(false),
-          child: Text('Not now'.tr),
-        ),
-        TextButton(
-          onPressed: () => Navigator.of(ctx).pop(true),
-          child: Text('Sign in'.tr),
-        ),
-      ],
-    ),
+  final go = await showAdaptiveConfirm(
+    context,
+    title: 'Sign in required'.tr,
+    message: 'Please sign in to use this feature.'.tr,
+    confirmLabel: 'Sign in'.tr,
+    cancelLabel: 'Not now'.tr,
   );
-  if (go == true) {
+  if (go) {
     await exitGuestMode();
     Get.offAllNamed(AppRoutes.authLogin);
   }
@@ -233,26 +225,14 @@ Future<bool> requireSignIn(BuildContext context) async {
 /// [requireSignIn].
 Future<bool> requireUpgrade(BuildContext context, {String? reason}) async {
   if (!isGuestMode()) return true;
-  final go = await showDialog<bool>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: Text('Upgrade Account'.tr),
-      content: Text(
-        (reason ?? 'Create a full account to use this feature.').tr,
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(ctx).pop(false),
-          child: Text('Not now'.tr),
-        ),
-        TextButton(
-          onPressed: () => Navigator.of(ctx).pop(true),
-          child: Text('Upgrade Account'.tr),
-        ),
-      ],
-    ),
+  final go = await showAdaptiveConfirm(
+    context,
+    title: 'Upgrade Account'.tr,
+    message: (reason ?? 'Create a full account to use this feature.').tr,
+    confirmLabel: 'Upgrade Account'.tr,
+    cancelLabel: 'Not now'.tr,
   );
-  if (go == true) {
+  if (go) {
     Get.toNamed(AppRoutes.guestUpgrade);
   }
   return false;

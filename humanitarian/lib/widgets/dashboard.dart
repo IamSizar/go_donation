@@ -1,5 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+
+import 'package:flutter_application_1/shared/widgets/adaptive_dialog.dart';
 import 'package:flutter_application_1/core/design/directional_icons.dart';
 import 'package:flutter_application_1/api/links.dart';
 import 'package:flutter_application_1/api/wallet_api.dart';
@@ -1018,24 +1020,18 @@ class _WalletCardState extends State<_WalletCard> {
                 Icons.info_outline_rounded,
                 color: AppThemeConfig.onAccent(context),
               ),
-              onPressed: () => Get.dialog(
-                AlertDialog(
-                  title: Text('My wallet'.tr),
-                  // Kept the original, already-fully-translated (en/ar/ckb/
-                  // kmr) copy rather than the spec's suggested new sentence,
-                  // which has no non-English translation yet — swapping
-                  // would silently show English to Arabic/Kurdish users.
-                  content: Text(
+              // Kept the original, already-fully-translated (en/ar/ckb/kmr)
+              // copy rather than the spec's suggested new sentence, which has
+              // no non-English translation yet — swapping would silently show
+              // English to Arabic/Kurdish users.
+              onPressed: () => showAdaptiveMessage(
+                context,
+                title: 'My wallet'.tr,
+                message:
                     'Wallet top-ups are added by our team for now. Contact support to add funds, then use "App Wallet" as a payment option when donating or buying.'
                         .tr,
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Get.back(),
-                      child: Text('OK'.tr),
-                    ),
-                  ],
-                ),
+                buttonLabel: 'OK'.tr,
+                textAlign: TextAlign.start,
               ),
             ),
           ),

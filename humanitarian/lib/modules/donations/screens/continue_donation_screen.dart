@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
+import 'package:flutter_application_1/shared/widgets/adaptive_dialog.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/core/app_haptics.dart';
@@ -346,45 +348,20 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
 
     AppHaptics.success();
 
-    await showDialog<void>(
-      context: context,
+    // barrierDismissible stays false: the screen behind this pops when the
+    // message is acknowledged, so the user must actually see it first.
+    await showAdaptiveMessage(
+      context,
+      title: 'Pending successfully'.tr,
+      message: 'Your donation was submitted and is pending. Thank you.'.tr,
+      buttonLabel: 'OK'.tr,
+      icon: Icon(
+        Icons.pending_actions_rounded,
+        size: 48,
+        color: widget.optionColor,
+      ),
       barrierDismissible: false,
-      builder: (dialogContext) {
-        return AlertDialog(
-          icon: Icon(
-            Icons.pending_actions_rounded,
-            size: 48,
-            color: widget.optionColor,
-          ),
-          title: Text(
-            'Pending successfully'.tr,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontWeight: FontWeight.w800),
-          ),
-          content: Text(
-            'Your donation was submitted and is pending. Thank you.'.tr,
-            textAlign: TextAlign.center,
-          ),
-          actionsAlignment: MainAxisAlignment.center,
-          actions: [
-            FilledButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-                Get.back(result: true);
-              },
-              style: FilledButton.styleFrom(
-                backgroundColor: widget.optionColor,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 28,
-                  vertical: 14,
-                ),
-              ),
-              child: Text('OK'.tr),
-            ),
-          ],
-        );
-      },
+      onDismissed: () => Get.back(result: true),
     );
   }
 

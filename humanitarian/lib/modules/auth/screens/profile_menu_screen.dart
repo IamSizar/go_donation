@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import 'package:flutter_application_1/shared/widgets/adaptive_dialog.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/core/app_state.dart';
@@ -80,27 +82,16 @@ Future<void> _chooseAccountType(BuildContext context) async {
   // their aid is attached to, with no warning and nothing to cancel. Found by
   // opening this sheet as a recipient — the role nobody had signed in as before.
   if (!context.mounted) return;
-  final confirmed = await showDialog<bool>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: Text('Switch account type?'.tr),
-      content: Text(
+  final confirmed = await showAdaptiveConfirm(
+    context,
+    title: 'Switch account type?'.tr,
+    message:
         'You can switch to @type yourself, but only staff can switch you back.'
             .trParams({'type': _roleLabelFor(picked).tr}),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
-          child: Text('Cancel'.tr),
-        ),
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(true),
-          child: Text('Confirm'.tr),
-        ),
-      ],
-    ),
+    confirmLabel: 'Confirm'.tr,
+    cancelLabel: 'Cancel'.tr,
   );
-  if (confirmed != true) return;
+  if (!confirmed) return;
 
   try {
     final applied = await ModuleApi().chooseRole(picked);

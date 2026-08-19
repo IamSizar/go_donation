@@ -99,3 +99,120 @@ Future<bool> showAdaptiveConfirm(
   );
   return result ?? false;
 }
+
+/// Tells the user something and waits for them to acknowledge it.
+///
+/// The one-button counterpart to [showAdaptiveConfirm], for outcomes rather
+/// than decisions — "your donation is pending", "your subscription is active".
+///
+/// [icon] is drawn on Material only. CupertinoAlertDialog has no icon slot,
+/// and that is a convention rather than a gap: iOS alerts carry their meaning
+/// in the title. Passing one is therefore a Material enhancement, not something
+/// the iOS path silently loses.
+///
+/// [barrierDismissible] defaults to true. Pass false where the message reports
+/// something the user must actually see before the screen behind it changes.
+///
+/// [textAlign] affects Material only — Cupertino centres its alerts whatever we
+/// ask for. Centre a short outcome ("Subscription activated"); leave a longer
+/// explanatory paragraph start-aligned, because centred prose is harder to read
+/// and wrong in both scripts.
+Future<void> showAdaptiveMessage(
+  BuildContext context, {
+  required String title,
+  required String message,
+  required String buttonLabel,
+  Widget? icon,
+  TextAlign textAlign = TextAlign.center,
+  bool barrierDismissible = true,
+  VoidCallback? onDismissed,
+}) async {
+  await showAdaptiveDialog<void>(
+    context: context,
+    barrierDismissible: barrierDismissible,
+    builder: (ctx) => AlertDialog.adaptive(
+      icon: icon,
+      title: Text(title, textAlign: textAlign),
+      content: Text(message, textAlign: textAlign),
+      actionsAlignment: MainAxisAlignment.center,
+      actions: [
+        adaptiveDialogAction(
+          ctx,
+          label: buttonLabel,
+          onPressed: () => Navigator.of(ctx).pop(),
+          isDefault: true,
+        ),
+      ],
+    ),
+  );
+  onDismissed?.call();
+}
+
+/// Asks the user to type something, in the idiom of their platform.
+///
+/// Returns the trimmed text, or null if they cancelled — null and empty string
+/// mean different things here ("didn't answer" vs "answered with nothing"), and
+/// callers rely on the distinction.
+///
+/// The FIELD adapts too, not just the frame. A Material TextField inside a
+/// Cupertino alert is the same mistake as a Material button there: correct
+/// shape, wrong contents.
+Future<String?> showAdaptivePrompt(
+  BuildContext context, {
+  required String title,
+  required String hint,
+  required String confirmLabel,
+  required String cancelLabel,
+  int maxLines = 1,
+}) async {
+  final controller = TextEditingController();
+  final isApple = switch (Theme.of(context).platform) {
+    TargetPlatform.iOS || TargetPlatform.macOS => true,
+    _ => false,
+  };
+
+  try {
+    return await showAdaptiveDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog.adaptive(
+        title: Text(title),
+        content: isApple
+            ? Padding(
+                // Cupertino alerts have no padding of their own around content,
+                // so a bare field sits flush against the title.
+                padding: const EdgeInsets.only(top: 12),
+                child: CupertinoTextField(
+                  controller: controller,
+                  placeholder: hint,
+                  maxLines: maxLines,
+                  autofocus: true,
+                ),
+              )
+            : TextField(
+                controller: controller,
+                maxLines: maxLines,
+                autofocus: true,
+                decoration: InputDecoration(hintText: hint),
+              ),
+        actions: [
+          adaptiveDialogAction(
+            ctx,
+            label: cancelLabel,
+            onPressed: () => Navigator.of(ctx).pop(),
+          ),
+          adaptiveDialogAction(
+            ctx,
+            label: confirmLabel,
+            isDefault: true,
+            onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
+          ),
+        ],
+      ),
+    );
+  } finally {
+    // Disposed here rather than by the caller: the controller is created and
+    // owned entirely inside this function, and the previous inline version
+    // leaked one per invocation.
+    controller.dispose();
+  }
+}
