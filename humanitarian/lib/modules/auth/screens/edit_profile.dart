@@ -485,7 +485,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   onPressed: _isSaving ? null : _saveProfile,
                   style: FilledButton.styleFrom(
                     backgroundColor: AppThemeConfig.accent(context),
-                    foregroundColor: Colors.white,
+                    // NOT Colors.white: the dark accent is a light mint, so white
+                    // text on it measures 2.19:1. onAccent is the contrast
+                    // partner that flips with the theme.
+                    foregroundColor: AppThemeConfig.onAccent(context),
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(18),

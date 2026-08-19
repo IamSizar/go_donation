@@ -45,8 +45,12 @@ class GenderChoiceChip extends StatelessWidget {
   Widget build(BuildContext context) {
     // Unavailable options are muted; the recorded value is not, so it stays
     // readable at full contrast.
+    // onAccent rather than a literal white: in dark mode the accent is a
+    // light mint and white on it fails contrast. (The chip theme happened to
+    // override the literal, so this rendered correctly by accident — which is
+    // not a thing to rely on.)
     final labelColor = selected
-        ? Colors.white
+        ? AppThemeConfig.onAccent(context)
         : locked
         ? AppThemeConfig.mutedText(context)
         : AppThemeConfig.text(context);

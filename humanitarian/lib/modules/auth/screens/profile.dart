@@ -809,7 +809,10 @@ class _ProfileCompletionReminder extends StatelessWidget {
             onPressed: onEdit,
             style: FilledButton.styleFrom(
               backgroundColor: AppThemeConfig.pending(context),
-              foregroundColor: Colors.white,
+              // pending is a dark gold in light mode and a LIGHT gold in dark, so
+              // a fixed foreground fails one of them. onAccent flips with the
+              // theme and is the correct partner for any filled brand surface.
+              foregroundColor: AppThemeConfig.onAccent(context),
             ),
             icon: const Icon(Icons.edit_rounded),
             label: Text('Finish now'.tr),

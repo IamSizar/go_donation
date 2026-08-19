@@ -261,7 +261,7 @@ class CampaignDetailScreen extends StatelessWidget {
                   },
                   style: FilledButton.styleFrom(
                     backgroundColor: accent,
-                    foregroundColor: Colors.white,
+                    foregroundColor: AppThemeConfig.onAccent(context),
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(18),
