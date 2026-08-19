@@ -25,6 +25,41 @@ double? _parseCoord(dynamic v) {
   return null;
 }
 
+/// How the City Guide map responds to touch.
+///
+/// ONE FINGER PANS. This was previously restricted to two fingers because a
+/// single-finger drag was being swallowed by the map instead of scrolling the
+/// page behind it — reported then as a "scroll bug".
+///
+/// That premise no longer holds, and the restriction was left protecting
+/// nothing while costing the map its primary gesture: everyone tries one
+/// finger first, and a map that ignores it reads as broken rather than as
+/// restricted, which is exactly how it came back.
+///
+/// Checked rather than assumed — there is nothing behind this map to scroll.
+/// Its ancestors are Column > Expanded > Column > Padding > Obx >
+/// SectionScaffold, and none of them scrolls: AppScreen defaults
+/// `scrollable: false` and SectionScaffold does not override it, and an
+/// Expanded could not survive inside a scrollable Column in any case. The
+/// screen is pushed as its own route, so there is no swipeable tab to steal a
+/// horizontal drag from either. The place strip below is a SIBLING with its
+/// own horizontal scroll, not an ancestor.
+///
+/// ROTATION STAYS OFF deliberately: an accidental two-finger twist has no
+/// reset control on this screen, so it would leave the user in a state they
+/// cannot get out of.
+///
+/// Named rather than inlined so the decision is assertable — see
+/// test/widgets/city_map_interaction_test.dart.
+const InteractionOptions cityMapInteraction = InteractionOptions(
+  flags:
+      InteractiveFlag.drag |
+      InteractiveFlag.flingAnimation |
+      InteractiveFlag.pinchZoom |
+      InteractiveFlag.doubleTapZoom |
+      InteractiveFlag.pinchMove,
+);
+
 double _fitZoom(List<({LatLng pos, Map<String, dynamic> entry})> pins) {
   if (pins.length < 2) return 13.0;
   final lats = pins.map((p) => p.pos.latitude);
@@ -863,17 +898,7 @@ class _CityMapState extends State<_CityMap> {
                 initialZoom: zoom,
                 maxZoom: 18.0,
                 minZoom: 3.0,
-                // A single-finger drag used to pan the map — since the map
-                // fills nearly the whole screen, that meant any swipe over it
-                // got swallowed as a map pan instead of reaching the page
-                // (reported as a "scroll bug"). Panning now needs two
-                // fingers; pinch-zoom and double-tap-zoom still work with one.
-                interactionOptions: const InteractionOptions(
-                  flags:
-                      InteractiveFlag.pinchZoom |
-                      InteractiveFlag.doubleTapZoom |
-                      InteractiveFlag.pinchMove,
-                ),
+                interactionOptions: cityMapInteraction,
                 onTap: (_, __) {
                   if (_selected != -1) setState(() => _selected = -1);
                 },
