@@ -159,3 +159,32 @@ void main() {
     );
   });
 }
+
+// ─── Why content FIELDS are not guarded here ───────────────────────────────
+//
+// The same "one site fixed, N sites unfixed" risk applies to translatable
+// content (mission titles, category names, notification bodies). It was
+// audited by hand rather than mechanised, deliberately.
+//
+// A rule over base keys like ['title'] cannot be made precise. The same key is
+// read legitimately for a PERSON's name, a chat message body, and nested JSON
+// objects — none of which are translatable content. The rule would fire
+// constantly on correct code, and a guard that cries wolf gets deleted, which
+// is worse than no guard because it also removes the ones that work.
+//
+// The audit behind that decision (2026-08-19), so it is not repeated blindly:
+//   - api/ parses all four language columns into typed models exposing a
+//     localised getter — correct.
+//   - Screens reading name_en/_ar/_ckb/_kmr pass ALL FOUR into a localising
+//     helper — correct.
+//   - catalogue_facets and media_posts_controller select the reader's language
+//     first and fall back to English only when it is empty — correct.
+//   - Notifications parse every variant into a model with localizedTitle —
+//     correct.
+//   - Five sites read a base key directly and were fixed: the mission title in
+//     the dashboard card and in the status-change snackbar, two history record
+//     titles, and two bot listings.
+//
+// If this class does recur, the tractable rule is probably at the API boundary
+// (assert that a payload carrying title_ar is never read as title) rather than
+// over every call site.

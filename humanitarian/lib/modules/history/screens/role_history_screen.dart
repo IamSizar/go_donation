@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:flutter_application_1/localization/content_localizer.dart';
+
 import 'package:flutter_application_1/localization/money.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/modules/history/controllers/role_history_controller.dart';
@@ -161,7 +163,7 @@ class _RoleHistoryScreenState extends State<RoleHistoryScreen> {
                       children: [
                         Expanded(
                           child: Text(
-                            (item['title'] ?? 'Record').toString(),
+                            localizedContentFromMap(item, 'title', fallback: 'Record'.tr),
                             style: TextStyle(
                               color: AppThemeConfig.text(context),
                               fontSize: 20,
@@ -667,7 +669,7 @@ class _HistoryCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        (item['title'] ?? 'Record').toString(),
+                        localizedContentFromMap(item, 'title', fallback: 'Record'.tr),
                         style: TextStyle(
                           color: AppThemeConfig.text(context),
                           fontWeight: FontWeight.w900,

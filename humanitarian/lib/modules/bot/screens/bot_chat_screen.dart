@@ -1014,7 +1014,7 @@ class _ToolResultCard extends StatelessWidget {
         for (final r in requests.take(2)) {
           if (r is Map) {
             rows.add((
-              '${r['title'] ?? ''}',
+              localizedContentFromMap(Map<String, dynamic>.from(r), 'title'),
               '${r['status'] ?? ''} · ${r['raised_amount'] ?? 0}/${r['amount_needed'] ?? 0}',
             ));
           }
@@ -1047,7 +1047,7 @@ class _ToolResultCard extends StatelessWidget {
               'count': '\u2066${m['hours_served'] ?? 0}\u2069',
             });
             rows.add((
-              '${m['title'] ?? ''}',
+              localizedContentFromMap(Map<String, dynamic>.from(m), 'title'),
               status.isEmpty ? hours : '$status · $hours',
             ));
           }

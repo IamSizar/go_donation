@@ -128,7 +128,10 @@ class _SupportSectionState extends State<SupportSection>
 
       final prev = _lastSignupStatus[id];
       if (prev != null && prev != status) {
-        final missionTitle = (raw['title'] ?? '').toString();
+        final missionTitle = localizedContentFromMap(
+          Map<String, dynamic>.from(raw),
+          'title',
+        );
         final message = _messageForTransition(prev, status, missionTitle);
         if (message != null) {
           AppSound.notification();
