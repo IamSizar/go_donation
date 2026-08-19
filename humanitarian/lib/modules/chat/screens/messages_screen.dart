@@ -16,32 +16,46 @@ import 'package:flutter_application_1/core/widgets/app_states.dart';
 // #45 — open (or reuse) a direct chat with support/tech and jump into it.
 Future<void> openSupportChat(BuildContext context) async {
   int? id;
+  Object? failure;
   try {
     id = await const ModuleApi().startSupportChat();
-  } catch (_) {
-    id = null;
+  } catch (e) {
+    failure = e;
   }
-  if (!context.mounted) return;
 
-  // A NULL id is a failure too, and it used to return silently: only the
-  // thrown-exception path reached the snackbar. startSupportChat returns int?,
-  // so a 200 carrying no usable thread_id left the user tapping a card that
-  // did nothing at all — no screen, no message, no way to tell whether the tap
-  // had even registered. Found by tapping it twice on the simulator and
-  // watching nothing happen.
-  //
-  // Both failure modes now share one path: this is a one-shot ACTION, so the
-  // only honest outcomes are "you are in the conversation" or "it did not
-  // work, here is why".
-  if (id == null) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('chat_support_failed'.tr)));
+  if (id != null) {
+    Get.to(() => ChatConversationScreen(threadId: id!, title: 'chat_support'.tr));
     return;
   }
 
-  Get.to(() => ChatConversationScreen(threadId: id!, title: 'chat_support'.tr));
+  // Logged as well as shown: this call previously left NO trace anywhere, which
+  // is why a dead end on the support path was hard to characterise at all.
+  debugPrint(
+    '[support-chat] could not open a thread: '
+    '${failure ?? 'no thread id in response'}',
+  );
+
+  // NO `context.mounted` guard, and that is the actual bug this function had.
+  //
+  // The old code awaited, then checked context.mounted before reporting. The
+  // tile's Element is disposed while the await is in flight — the list is
+  // reactive and rebuilds underneath it — so the guard was true, the function
+  // returned, and the user saw nothing at all. The debugPrint above fired every
+  // time, which is how this was finally pinned down: the branch ran, the report
+  // did not.
+  //
+  // Neither Get.snackbar nor Get.to needs a BuildContext, so nothing here has
+  // to survive the rebuild. The parameter is kept for call-site compatibility.
+  final serverMessage = failure is Exception
+      ? failure.toString().replaceFirst('Exception: ', '').trim()
+      : '';
+  Get.snackbar(
+    'chat_support'.tr,
+    serverMessage.isEmpty ? 'chat_support_failed'.tr : serverMessage,
+    snackPosition: SnackPosition.BOTTOM,
+  );
 }
+
 
 class MessagesScreen extends StatelessWidget {
   const MessagesScreen({super.key});
