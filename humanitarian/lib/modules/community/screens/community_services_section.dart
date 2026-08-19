@@ -55,6 +55,42 @@ bool isPlottableCoordinate(double lat, double lng) {
   return true;
 }
 
+/// How far from the guide's own city a pin may sit and still shape the
+/// opening view.
+///
+/// 120km comfortably covers Nineveh and its neighbours, so every genuine
+/// entry in a Mosul city guide is inside it, while a pin on another continent
+/// is not.
+const double _framingRadiusKm = 120;
+
+/// The pins the camera should FRAME, which is not always all of them.
+///
+/// WHY THIS IS NOT SIMPLY EVERY PIN
+/// A directory row sits at (5, 65) — the Indian Ocean. It is wrong, but it is
+/// a real point on Earth, so it passes [isPlottableCoordinate] and, when the
+/// camera was fitted to every pin, it pulled the opening view out to the whole
+/// Middle East. A city guide that opens on the wrong continent is broken for
+/// every user, every time.
+///
+/// The outliers are still DRAWN. Pan or zoom out and they are there, which is
+/// how anyone maintaining the directory would spot them. They simply do not
+/// get to decide where the map opens.
+///
+/// Falls back to ALL pins when none are near the city, so a directory that
+/// legitimately moves elsewhere is not left staring at an empty Mosul.
+List<({LatLng pos, Map<String, dynamic> entry})> framingPins(
+  List<({LatLng pos, Map<String, dynamic> entry})> pins,
+  LatLng city,
+) {
+  if (pins.length < 2) return pins;
+  const metres = Distance();
+  final near = [
+    for (final p in pins)
+      if (metres.as(LengthUnit.Kilometer, city, p.pos) <= _framingRadiusKm) p,
+  ];
+  return near.isEmpty ? pins : near;
+}
+
 /// The map chip's text: a place count, and the city ONLY when there is one.
 ///
 /// WHY IT IS COMPUTED RATHER THAN WRITTEN DOWN
@@ -1072,12 +1108,37 @@ class _CityMapState extends State<_CityMap> {
       _map.move(pins.first.pos, 14);
       return;
     }
-    _map.fitCamera(
-      CameraFit.bounds(
-        bounds: LatLngBounds.fromPoints([for (final p in pins) p.pos]),
-        // Room for the chip and the controls, which sit over the map's edges.
+    final fit = _cameraFit(pins);
+    if (fit == null) {
+      _map.move(_fallbackCentre, 12);
+      return;
+    }
+    _map.fitCamera(fit);
+  }
+
+  /// The camera framing for these pins, or null when there is nothing to fit.
+  ///
+  /// Frames the pins near the guide's city rather than all of them — see
+  /// [framingPins] for why.
+  CameraFit? _cameraFit(List<({LatLng pos, Map<String, dynamic> entry})> pins) {
+    final framing = framingPins(pins, _fallbackCentre);
+    if (framing.isEmpty) return null;
+    if (framing.length == 1) {
+      // A single point has no extent, so bounds fitting would zoom to the
+      // maximum. Give it a readable street-level zoom instead.
+      return CameraFit.coordinates(
+        coordinates: [framing.first.pos],
+        maxZoom: 14,
         padding: const EdgeInsets.all(48),
-      ),
+      );
+    }
+    return CameraFit.bounds(
+      bounds: LatLngBounds.fromPoints([for (final p in framing) p.pos]),
+      // Room for the chip and the controls, which sit over the map's edges.
+      padding: const EdgeInsets.all(48),
+      // Without a ceiling, a tight cluster fills the frame at maximum zoom
+      // and the user lands inside one building.
+      maxZoom: 16,
     );
   }
 
@@ -1118,14 +1179,7 @@ class _CityMapState extends State<_CityMap> {
                 initialZoom: zoom,
                 // For two or more pins the camera is FITTED to them rather
                 // than centred on an average — see [_recenter].
-                initialCameraFit: pins.length < 2
-                    ? null
-                    : CameraFit.bounds(
-                        bounds: LatLngBounds.fromPoints([
-                          for (final p in pins) p.pos,
-                        ]),
-                        padding: const EdgeInsets.all(48),
-                      ),
+                initialCameraFit: _cameraFit(pins),
                 maxZoom: 18.0,
                 minZoom: 3.0,
                 interactionOptions: cityMapInteraction,
