@@ -1,35 +1,69 @@
-# Donations App Sizar
+# BalanceNex — donations & community platform
 
-This repository contains the source for the donations platform in three parts:
+Three deployables in one repository:
 
-- `percentage/`: PHP web app, admin panel, and API endpoints
-- `humanitarian/`: Flutter mobile application
-- `humanitarianApp.sql`: MySQL database dump for the platform
+| Path | What it is |
+|---|---|
+| `backend/` | Go API (Gin) on PostgreSQL. Deployed to Railway. |
+| `admin-web/` | Staff dashboard — React + TypeScript + Vite. |
+| `humanitarian/` | The Flutter mobile app (iOS + Android). |
 
-## Project layout
+Supporting docs: [RAILWAY.md](RAILWAY.md) for deploy, [HANDOFF.md](HANDOFF.md)
+for working agreements, [TERMINOLOGY.md](TERMINOLOGY.md) for naming,
+[DEPLOYMENT_NOTES.md](DEPLOYMENT_NOTES.md).
 
-```text
-.
-|-- percentage/
-|-- humanitarian/
-|-- humanitarianApp.sql
-|-- DEPLOYMENT_NOTES.md
-`-- humanitarian/sql/
+## Run the backend
+
+```bash
+cd backend
+cp .env.example .env      # then set DATABASE_URL
+go run ./cmd/server
 ```
 
-## Backend setup
+`DATABASE_URL` is the only variable required to boot — everything else degrades
+to a documented default. It listens on `PORT` (8080 by default).
 
-1. Upload the `percentage/` folder to your PHP hosting environment.
-2. Import `humanitarianApp.sql` into MySQL.
-3. Configure database credentials with environment variables:
-   - `DB_HOST`
-   - `DB_NAME`
-   - `DB_USER`
-   - `DB_PASS`
-   - `DB_PORT`
-   - `DB_CHARSET`
+Apply migrations by setting `RUN_MIGRATIONS=1` on first boot; they are tracked
+in `schema_migrations`, so later boots are no-ops.
 
-The backend connection file is [percentage/database/connection.php](/Volumes/Sizar/easy_tech/test/run/r2/perccentage/percentage/database/connection.php).
+### Configuration that changes behaviour
+
+| Variable | Effect when unset |
+|---|---|
+| `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_PUBLIC_BASE_URL` | Uploads go to local disk under `UPLOAD_DIR` instead of Cloudflare R2. **A container filesystem is ephemeral — every deploy destroys local uploads.** Setting these five is what makes uploads survive. Partial configuration is a boot failure, deliberately, so a typo cannot look like success. |
+| `OTPIQ_API_KEY` | No real SMS. Sign-in OTP falls back to `OTP_DEMO_CODE` when `OTP_DEMO_ENABLED=1`. |
+| `SMTP_HOST`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM` | No email. Main-admin change confirmation refuses (503, fails closed); the permission-change second factor degrades to returning its code in-band. |
+| `SUPPORT_USER_ID` | Support chat returns 503 — the in-app «التواصل مع الدعم» cannot open. An `app_settings` row `support_user_id` takes priority and needs no redeploy. |
+| `ANTHROPIC_API_KEY` | The in-app assistant has no model to call. |
+| `CORS_ALLOWED_ORIGINS` | The dashboard's origin must be listed here to call the API. |
+| `RUN_SCHEDULER` | Background jobs do not run. |
+
+## Run the dashboard
+
+```bash
+cd admin-web
+npm install
+npm run dev          # Vite; proxies /api to the target in .env
+npm run build        # tsc -b && vite build — the real typecheck
+npm run check:labels # every controlled value has a human label
+```
+
+`tsc --noEmit` is **vacuous** in this repo: the root tsconfig has `"files": []`
+with project references, so it type-checks nothing. Use `npm run build`, or
+`tsc -b`.
+
+## Run the mobile app
+
+```bash
+cd humanitarian
+flutter pub get
+flutter run
+flutter analyze && flutter test
+```
+
+The backend it talks to is `baseUrl` in
+[lib/api/links.dart](humanitarian/lib/api/links.dart) — one constant, changed in
+one place, which is how you point the app at a local server.
 
 ## Testing the Go backend
 
@@ -57,17 +91,17 @@ through to `go test`:
 Hand the tests an EMPTY database — each package applies the migrations itself,
 so pre-migrating makes the run fail with "relation already exists".
 
-## Admin credentials
+## Secrets
 
-Do not commit local admin credentials. Use [percentage/admin/config/auth.local.example.php](/Volumes/Sizar/easy_tech/test/run/r2/perccentage/percentage/admin/config/auth.local.example.php) as the template for a local `auth.local.php` file.
+No secrets in the repository, ever — including history, comments and test
+files. `backend/.env.example` lists the keys with no values; real values live in
+the Railway service variables.
 
-## Flutter app setup
+## Deployment
 
-1. Open `humanitarian/` with Flutter.
-2. Run `flutter pub get`.
-3. Set the production API base URL in [humanitarian/lib/api/links.dart](/Volumes/Sizar/easy_tech/test/run/r2/perccentage/humanitarian/lib/api/links.dart).
-4. Build the app for your target platform.
+Railway builds from `main`. Both services deploy from this repository — see
+[RAILWAY.md](RAILWAY.md), and [DEPLOYMENT_NOTES.md](DEPLOYMENT_NOTES.md) for the
+current hosting notes.
 
-## Deployment notes
-
-See [DEPLOYMENT_NOTES.md](/Volumes/Sizar/easy_tech/test/run/r2/perccentage/DEPLOYMENT_NOTES.md) for the current hosting and API notes.
+Migrations run in the pipeline via `RUN_MIGRATIONS=1` and are expected to stay
+backward-compatible for one release, so a rollback does not strand the schema.
