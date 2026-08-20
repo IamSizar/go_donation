@@ -2971,6 +2971,11 @@ class AppTranslations extends Translations {
         'Use 3-32 letters, numbers or underscore',
     // J1 — the guest sign-up sheet's name box. The label reuses
     // `pf_full_name`; only the example and the length rule are new here.
+    // The sheet asks for a name and nothing else now — the username and
+    // password it used to collect are generated, so copy naming them would
+    // describe fields that are no longer on screen.
+    'guest_sheet_subtitle': 'Just your name, and you can start browsing.',
+    'guest_full_name_required': 'Please enter your name',
     'guest_full_name_hint': 'e.g. Zaid Ahmed',
     // The username box beside it. It previously passed the bare string
     // 'guest_name', which was in no map, so the placeholder rendered as the
@@ -5732,6 +5737,8 @@ class AppTranslations extends Translations {
     'Use 3-32 letters, numbers or underscore':
         'استخدم من ٣ إلى ٣٢ حرفًا أو رقمًا أو شرطة سفلية',
     // J1 — انظر التعليق نفسه في الخريطة الإنجليزية.
+    'guest_sheet_subtitle': 'اسمك فقط، ويمكنك بدء التصفح.',
+    'guest_full_name_required': 'الرجاء إدخال اسمك',
     'guest_full_name_hint': 'مثال: زيد أحمد',
     // اسم المستخدم يُكتب بحروف لاتينية، لذلك بقي المثال كما هو.
     'guest_name_hint': 'مثال: zaid_ahmed',

@@ -1,35 +1,38 @@
-// Pins that the guest sign-up sheet collects a name, and that the name it
-// collects actually reaches the server (J1).
+// Pins that the guest sheet asks for a NAME and nothing else, and that the
+// name reaches the server (J1).
 //
 // WHY THIS FILE EXISTS
 // J1 asks for an "الاسم" box on the guest sign-up sheet. The box could not be
 // added honestly until backend 792ded3, because `InsertGuest` wrote a `users`
 // row and no `user_profiles` row at all — every `UPDATE user_profiles … WHERE
 // user_id` was a silent no-op for a guest, so a name posted there had nowhere
-// to land. That commit creates both rows and teaches
-// POST /api/auth/guest/register to read the name from either `full_name` (the
-// canonical key across this API) or `name`.
+// to land.
+//
+// WHAT CHANGED, and why these tests were rewritten
+// The sheet used to collect a username and a password too — two secrets a
+// browsing guest invents once and never uses again. The owner asked for a
+// name and nothing else. The server still REQUIRES both (guestUsernameRE is
+// ^[A-Za-z0-9_]{3,32}$ and the password floor is 6), so the app generates
+// them instead of asking.
 //
 // THE PART THAT NEEDS PINNING
-// Not "is there a third text box" — that is visible. What a test has to hold
-// is WHICH KEY the box posts under and ON WHICH CALL. Read the handlers:
-//
-//   • handlers/auth.go GuestRegister  → reads req.guestFullName() and passes
-//     it to InsertGuest. The name is stored here and only here.
-//   • handlers/auth.go GuestLogin     → parses the same struct and NEVER
-//     reads the name. Sending one would be posting a value the server drops.
-//
-// So the sheet's primary action (register) must carry the name, and its
-// "log in instead" recovery path must not pretend to. Both directions are
-// asserted below, because a box that posts under a key nobody reads looks
-// exactly like a box that works.
+// Not "is there a text box" — that is visible. What a test has to hold is:
+//   • the generated username satisfies the server's rule, because a
+//     malformed one is a 400 the user can neither see nor fix;
+//   • the typed name still posts under `full_name`, the key GuestRegister
+//     actually reads;
+//   • a taken username RETRIES rather than surfacing, since the user did not
+//     choose it and cannot do anything about it;
+//   • nothing on the sheet asks for a credential any more.
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/localization/app_translations.dart';
@@ -38,13 +41,27 @@ import 'package:flutter_application_1/modules/auth/screens/login.dart';
 import '../support/fake_http.dart';
 
 /// A successful guest register/login response, shaped like the real one.
-const _guestOk = '{"status":"success","user_id":42,"registration_status":'
+const _guestOk =
+    '{"status":"success","user_id":42,"registration_status":'
     '"approved","account":{},"access_token":"t","token_type":"Bearer"}';
 
-/// The taken-username failure that reveals the "log in instead" button.
+/// The taken-username failure. The user never sees this now — the app retries.
 const _usernameTaken =
     '{"status":"error","error":"That username is taken.","code":'
     '"username_taken"}';
+
+/// The server's own rule, copied from handlers/auth.go guestUsernameRE. A
+/// generated name that misses it is a 400 nobody can see or fix.
+final _serverUsernameRule = RegExp(r'^[A-Za-z0-9_]{3,32}$');
+
+/// The session token is written through flutter_secure_storage, a platform
+/// channel with no implementation in a VM test. Unmocked it throws, and
+/// _guestAuthCall catches everything — so registration would silently report
+/// failure and every assertion about what happens AFTER a successful register
+/// would quietly test nothing. Answering null is what success looks like.
+const MethodChannel _secureStorageChannel = MethodChannel(
+  'plugins.it_nomads.com/flutter_secure_storage',
+);
 
 Widget _sheet() => GetMaterialApp(
   theme: AppThemeConfig.buildTheme(Brightness.light),
@@ -74,22 +91,9 @@ List<Map<String, dynamic>> _guestPosts(FakeHttpOverrides recorder) => recorder
     .where((b) => b.containsKey('username'))
     .toList();
 
-Future<void> _fillSheet(
-  WidgetTester tester, {
-  required String name,
-  String username = 'zaid_guest',
-  String password = 'secret123',
-}) async {
-  await tester.enterText(find.byKey(const Key('guest_full_name_field')), name);
-  await tester.enterText(
-    find.byKey(const Key('guest_username_field')),
-    username,
-  );
-  await tester.enterText(
-    find.byKey(const Key('guest_password_field')),
-    password,
-  );
-}
+/// The sheet has ONE field now.
+Future<void> _fillSheet(WidgetTester tester, {required String name}) =>
+    tester.enterText(find.byKey(const Key('guest_full_name_field')), name);
 
 /// Taps [button] and lets the request finish.
 ///
@@ -106,12 +110,18 @@ Future<void> _tapAndLetItFinish(WidgetTester tester, Key button) async {
 void main() {
   setUp(() async {
     Get.reset();
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(_secureStorageChannel, (call) async => null);
     SharedPreferences.setMockInitialValues({});
     sharedPreferences = await SharedPreferences.getInstance();
   });
-  tearDown(Get.reset);
+  tearDown(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(_secureStorageChannel, null);
+    Get.reset();
+  });
 
-  group('the sheet asks for a name', () {
+  group('the sheet asks for a name, and only a name', () {
     testWidgets('a name box is on the sign-up sheet', (tester) async {
       await tester.pumpWidget(_sheet());
       await tester.pumpAndSettle();
@@ -124,6 +134,19 @@ void main() {
       // Labelled with a key that exists in all four locales (pf_full_name),
       // so the Arabic sheet shows Arabic rather than a bare English word.
       expect(find.text('pf_full_name'.tr), findsWidgets);
+    });
+
+    testWidgets('no credential is asked for', (tester) async {
+      await tester.pumpWidget(_sheet());
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('guest_username_field')), findsNothing);
+      expect(find.byKey(const Key('guest_password_field')), findsNothing);
+      expect(
+        find.byType(TextFormField),
+        findsOneWidget,
+        reason: 'the owner asked for a name and nothing else',
+      );
     });
 
     testWidgets('an over-long name is refused before it is sent', (
@@ -147,6 +170,108 @@ void main() {
         reason: 'a doomed request must never fire',
       );
     });
+
+    testWidgets('an empty name is refused', (tester) async {
+      // It used to be optional, because the sheet promised "just a username
+      // and password". That promise is gone: the name is now the only thing
+      // asked for, and a nameless guest is the blank J1 was raised about.
+      final recorder = FakeHttpOverrides(HttpBehaviour.ok, body: _guestOk);
+      await tester.pumpWidget(_sheet());
+      await tester.pumpAndSettle();
+
+      await withHttp(recorder, () async {
+        await _fillSheet(tester, name: '   ');
+        await _tapAndLetItFinish(tester, const Key('guest_submit_button'));
+      });
+
+      expect(_guestPosts(recorder), isEmpty);
+      expect(find.text('guest_full_name_required'.tr), findsOneWidget);
+    });
+  });
+
+  group('the credentials are generated, not asked for', () {
+    testWidgets('the generated username satisfies the server rule', (
+      tester,
+    ) async {
+      final recorder = FakeHttpOverrides(HttpBehaviour.ok, body: _guestOk);
+      await tester.pumpWidget(_sheet());
+      await tester.pumpAndSettle();
+
+      await withHttp(recorder, () async {
+        await _fillSheet(tester, name: 'زيد');
+        await _tapAndLetItFinish(tester, const Key('guest_submit_button'));
+      });
+
+      final posts = _guestPosts(recorder);
+      expect(posts, hasLength(1));
+      final username = posts.single['username'] as String;
+      expect(
+        _serverUsernameRule.hasMatch(username),
+        isTrue,
+        reason:
+            'a generated username that misses guestUsernameRE is a 400 the '
+            'user can neither see nor fix: got "\$username"',
+      );
+      expect(
+        (posts.single['password'] as String).length,
+        greaterThanOrEqualTo(6),
+        reason: "the server's floor",
+      );
+    });
+
+    testWidgets('a taken username is retried, never shown', (tester) async {
+      // The user did not choose the name, so a collision is the app's problem.
+      // Previously this surfaced as an error plus a "log in instead" button.
+      final recorder = FakeHttpOverrides(
+        HttpBehaviour.ok,
+        body: _usernameTaken,
+      );
+      await tester.pumpWidget(_sheet());
+      await tester.pumpAndSettle();
+
+      await withHttp(recorder, () async {
+        await _fillSheet(tester, name: 'زيد');
+        await _tapAndLetItFinish(tester, const Key('guest_submit_button'));
+      });
+
+      final posts = _guestPosts(recorder);
+      expect(
+        posts.length,
+        greaterThan(1),
+        reason: 'a collision must be retried rather than reported',
+      );
+      final tried = posts.map((p) => p['username']).toSet();
+      expect(
+        tried.length,
+        posts.length,
+        reason: 'retrying with the SAME username would fail identically',
+      );
+    });
+
+    testWidgets('the credentials are remembered for this device', (
+      tester,
+    ) async {
+      // Preserves what the user used to be able to do by retyping the pair
+      // they chose: get back into the SAME guest account rather than silently
+      // becoming a different person.
+      final recorder = FakeHttpOverrides(HttpBehaviour.ok, body: _guestOk);
+      await tester.pumpWidget(_sheet());
+      await tester.pumpAndSettle();
+
+      await withHttp(recorder, () async {
+        await _fillSheet(tester, name: 'زيد');
+        await _tapAndLetItFinish(tester, const Key('guest_submit_button'));
+      });
+
+      // The prefs write is awaited inside registerGuestAccount, but it lands
+      // in a later microtask than the tap's own frames — pump until it does.
+      await tester.pump(const Duration(milliseconds: 200));
+
+      final saved = sharedPreferences.getString(kGuestUsernamePrefsKey);
+      expect(saved, isNotNull);
+      expect(saved, _guestPosts(recorder).single['username']);
+      expect(sharedPreferences.getString(kGuestPasswordPrefsKey), isNotNull);
+    });
   });
 
   group('the name reaches the server', () {
@@ -169,62 +294,6 @@ void main() {
             'GuestRegister reads guestFullName(), which prefers full_name; '
             'and it trims, so the client sends trimmed rather than relying '
             'on it',
-      );
-    });
-
-    testWidgets('an empty name is left out rather than sent blank', (
-      tester,
-    ) async {
-      final recorder = FakeHttpOverrides(HttpBehaviour.ok, body: _guestOk);
-      await tester.pumpWidget(_sheet());
-      await tester.pumpAndSettle();
-
-      await withHttp(recorder, () async {
-        await _fillSheet(tester, name: '   ');
-        await _tapAndLetItFinish(tester, const Key('guest_submit_button'));
-      });
-
-      final posts = _guestPosts(recorder);
-      expect(posts, hasLength(1));
-      expect(
-        posts.single.containsKey('full_name'),
-        isFalse,
-        reason:
-            'the box is optional; an omitted key is what "no name given" '
-            'looks like on the wire, and the handler treats it as valid',
-      );
-    });
-
-    testWidgets('logging in does not pretend the name is used', (tester) async {
-      // First call fails with username_taken, revealing the login button.
-      final taken = FakeHttpOverrides(
-        HttpBehaviour.ok,
-        body: _usernameTaken,
-      );
-      await tester.pumpWidget(_sheet());
-      await tester.pumpAndSettle();
-
-      await withHttp(taken, () async {
-        await _fillSheet(tester, name: 'زيد');
-        await _tapAndLetItFinish(tester, const Key('guest_submit_button'));
-      });
-
-      final login = FakeHttpOverrides(HttpBehaviour.ok, body: _guestOk);
-      await withHttp(login, () async {
-        await _tapAndLetItFinish(
-          tester,
-          const Key('guest_login_instead_button'),
-        );
-      });
-
-      final posts = _guestPosts(login);
-      expect(posts, hasLength(1));
-      expect(
-        posts.single.containsKey('full_name'),
-        isFalse,
-        reason:
-            'GuestLogin parses the name and never reads it — sending one '
-            'would be a field the user believes they changed and did not',
       );
     });
   });

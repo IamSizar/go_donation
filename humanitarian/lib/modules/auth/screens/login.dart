@@ -951,11 +951,17 @@ class GuestAccessSheet extends StatefulWidget {
 class _GuestAccessSheetState extends State<GuestAccessSheet> {
   final _formKey = GlobalKey<FormState>();
 
-  /// J1 — the name box. Optional, matching the server: `guestFullName()`
-  /// treats an absent name as "this client collected none", not as an error.
+  /// J1 — the name box, and now the ONLY box.
+  ///
+  /// It used to sit above a username and a password, which is two secrets a
+  /// browsing guest invents once and never uses again. Those are generated
+  /// now (api/guest_credentials.dart), so this is all that is asked.
+  ///
+  /// REQUIRED, where it used to be optional. It was optional because the
+  /// sheet promised "just a username and password"; that promise is gone. And
+  /// a blank name is the exact thing J1 was raised about — staff saw an empty
+  /// where every other account shows one.
   final _fullNameController = TextEditingController();
-  final _usernameController = TextEditingController();
-  final _passwordController = TextEditingController();
 
   /// Mirrors `guestFullNameMaxRunes` in handlers/auth.go, which mirrors
   /// user_profiles.full_name VARCHAR(200). Checked here so an over-long name
@@ -963,19 +969,15 @@ class _GuestAccessSheetState extends State<GuestAccessSheet> {
   static const int _fullNameMaxRunes = 200;
 
   bool _loading = false;
-  bool _obscure = true;
   String _error = '';
-  bool _usernameTaken = false;
 
   @override
   void dispose() {
     _fullNameController.dispose();
-    _usernameController.dispose();
-    _passwordController.dispose();
     super.dispose();
   }
 
-  Future<void> _submit({required bool asLogin}) async {
+  Future<void> _submit() async {
     // The keyboard is dismissed before the request so it never hangs over the
     // error line the submit may produce, nor over the screen we navigate to.
     FocusScope.of(context).unfocus();
@@ -984,22 +986,12 @@ class _GuestAccessSheetState extends State<GuestAccessSheet> {
       _loading = true;
       _error = '';
     });
-    final username = _usernameController.text.trim();
-    final password = _passwordController.text;
-    // Deliberately NOT passed to loginGuest. GuestLogin parses the name and
-    // never reads it (handlers/auth.go), so sending it there would be a value
-    // the user believes they set and the server drops.
-    final result = asLogin
-        ? await loginGuest(username, password)
-        : await registerGuest(
-            username,
-            password,
-            fullName: _fullNameController.text.trim(),
-          );
+    final result = await registerGuestAccount(
+      fullName: _fullNameController.text.trim(),
+    );
     if (!mounted) return;
     setState(() {
       _loading = false;
-      _usernameTaken = result.code == 'username_taken';
       _error = result.ok ? '' : (result.error ?? 'Something went wrong.');
     });
     if (result.ok) {
@@ -1061,7 +1053,7 @@ class _GuestAccessSheetState extends State<GuestAccessSheet> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Just a username and password to quickly browse.'.tr,
+                  'guest_sheet_subtitle'.tr,
                   style: TextStyle(
                     color: AppThemeConfig.onAccent(
                       context,
@@ -1108,73 +1100,22 @@ class _GuestAccessSheetState extends State<GuestAccessSheet> {
                   ),
                   validator: (v) {
                     final s = (v ?? '').trim();
-                    // Empty is valid — see above.
+                    // Required now that it is the only thing asked for.
+                    if (s.isEmpty) return 'guest_full_name_required'.tr;
                     if (s.runes.length > _fullNameMaxRunes) {
                       return 'guest_full_name_too_long'.tr;
                     }
                     return null;
                   },
-                ),
-                const SizedBox(height: 14),
-                TextFormField(
-                  key: const Key('guest_username_field'),
-                  controller: _usernameController,
-                  style: TextStyle(color: AppThemeConfig.text(context)),
-                  cursorColor: AppThemeConfig.primary,
-                  textInputAction: TextInputAction.next,
-                  decoration: authInputDecoration(
-                    context,
-                    label: 'Username'.tr,
-                    // Was 'guest_name', which is not a key in either map.
-                    // authInputDecoration runs hintText through .tr, and GetX
-                    // returns the key unchanged when it misses — so this box
-                    // showed the literal text "guest_name" to every user, in
-                    // every language. Named to match its sibling above.
-                    hintText: 'guest_name_hint',
-                    icon: Icons.person_outline_rounded,
-                  ),
-                  validator: (v) {
-                    final s = (v ?? '').trim();
-                    if (s.length < 3 || s.length > 32) {
-                      return 'Use 3-32 letters, numbers or underscore'.tr;
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 14),
-                TextFormField(
-                  key: const Key('guest_password_field'),
-                  controller: _passwordController,
-                  style: TextStyle(color: AppThemeConfig.text(context)),
-                  cursorColor: AppThemeConfig.primary,
-                  obscureText: _obscure,
-                  decoration:
-                      authInputDecoration(
-                        context,
-                        label: 'Password'.tr,
-                        hintText: '••••••',
-                        icon: Icons.lock_outline_rounded,
-                      ).copyWith(
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscure
-                                ? Icons.visibility_outlined
-                                : Icons.visibility_off_outlined,
-                            color: AppThemeConfig.mutedText(context),
-                          ),
-                          onPressed: () => setState(() => _obscure = !_obscure),
-                        ),
-                      ),
-                  validator: (v) =>
-                      (v ?? '').length < 6 ? 'At least 6 characters'.tr : null,
-                  onFieldSubmitted: (_) => _submit(asLogin: false),
+                  // The only field, so the return key finishes the job.
+                  onFieldSubmitted: (_) => _submit(),
                 ),
                 const SizedBox(height: 18),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
                     key: const Key('guest_submit_button'),
-                    onPressed: _loading ? null : () => _submit(asLogin: false),
+                    onPressed: _loading ? null : _submit,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppThemeConfig.onAccent(context),
                       foregroundColor: AppThemeConfig.accent(context),
@@ -1199,28 +1140,6 @@ class _GuestAccessSheetState extends State<GuestAccessSheet> {
                           ),
                   ),
                 ),
-                if (_usernameTaken) ...[
-                  const SizedBox(height: 10),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton(
-                      key: const Key('guest_login_instead_button'),
-                      onPressed: _loading ? null : () => _submit(asLogin: true),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppThemeConfig.primary,
-                        side: BorderSide(color: AppThemeConfig.border(context)),
-                        padding: const EdgeInsets.symmetric(vertical: 15),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                      ),
-                      child: Text(
-                        'That\'s me — log in instead'.tr,
-                        style: const TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                  ),
-                ],
               ],
             ),
           ),

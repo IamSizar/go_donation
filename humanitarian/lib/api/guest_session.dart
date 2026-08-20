@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
+import 'guest_credentials.dart';
+
 import 'package:flutter_application_1/shared/widgets/adaptive_dialog.dart';
 import 'package:flutter_application_1/api/auth_session.dart';
 import 'package:flutter_application_1/api/links.dart';
@@ -21,6 +23,20 @@ import 'package:http/http.dart' as http;
 /// that's independent of and unrelated to the hard-coded restrictions above.
 
 const String kGuestModePrefsKey = 'is_guest';
+
+/// The generated credentials of the guest account on THIS device.
+///
+/// Stored so a guest can get back into the SAME account when a session ends,
+/// rather than silently becoming a different person. Before these were
+/// generated the user chose them and could retype them; keeping them here
+/// preserves that, it does not add a new capability.
+///
+/// They sit beside the access token, which is at least as sensitive, so this
+/// introduces no new class of exposure. The account itself is browse-only —
+/// the server blocks a guest from the City Directory, messaging and purchases
+/// (auth.RequireNotGuest) — so the value of the credential is low by design.
+const String kGuestUsernamePrefsKey = 'guest_username';
+const String kGuestPasswordPrefsKey = 'guest_password';
 
 /// In-memory whitelist fetched from the backend: screen slug -> visible.
 /// Empty (everything hidden) until [fetchGuestConfig] populates it.
@@ -79,6 +95,38 @@ class GuestAuthResult {
   // when present, so the UI can react specifically instead of just showing
   // the generic message.
   final String? code;
+}
+
+/// Creates a guest account, asking the user for nothing but their name.
+///
+/// The username and password are GENERATED — see api/guest_credentials.dart
+/// for why — and remembered on this device so the same account can be
+/// re-entered later.
+///
+/// A taken username is retried rather than reported. It was the user's
+/// problem to solve when they chose the name; now that the app chooses it, a
+/// collision is the app's problem, and showing it to someone who did not pick
+/// the name would be asking them to fix something they cannot see.
+Future<GuestAuthResult> registerGuestAccount({required String fullName}) async {
+  // Three attempts. Each username is 40 bits of randomness, so a single
+  // collision already means something is badly wrong; looping further would
+  // just make a real outage look like a hang.
+  GuestAuthResult result = const GuestAuthResult(ok: false);
+  for (var attempt = 0; attempt < 3; attempt++) {
+    final username = generateGuestUsername();
+    final password = generateGuestPassword();
+    result = await registerGuest(username, password, fullName: fullName);
+    if (result.ok) {
+      await sharedPreferences.setString(kGuestUsernamePrefsKey, username);
+      await sharedPreferences.setString(kGuestPasswordPrefsKey, password);
+      return result;
+    }
+    if (result.code != 'username_taken') return result;
+    debugPrint(
+      '[guest] username collision on attempt ${attempt + 1}, retrying',
+    );
+  }
+  return result;
 }
 
 /// #40 — create a new guest account (username + password) and enter guest
