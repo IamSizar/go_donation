@@ -1,32 +1,6 @@
-// chat_guest_support_test.go — K20: can a زائر (visitor/guest) reach anyone,
-// and can they reach anyone they SHOULDN'T?
-//
-// # THE DECISION THESE TESTS ENCODE
-//
-// K20 asks for a general chat platform reaching "مستفيدين، متبرعين، وزوار".
-// Signed-in users already have donor↔owner, case-volunteer, marriage and
-// support chats. Guests had NOTHING: every write route carried
-// auth.RequireNotGuest(), including /chats/support — while Section 27's guest
-// screen list ships `support` enabled by DEFAULT. The product was already
-// promising visitors a way to ask for help and then refusing it.
-//
-// The answer built here is deliberately NOT "guests get the general chat":
-//
-//   - A guest account is a username and a six-character password. No phone, no
-//     OTP, no verification of any kind (handlers.GuestRegister). They are
-//     free and unlimited, so any channel a guest can point at another USER is
-//     an unmoderated spam and harassment surface aimed squarely at the
-//     beneficiaries this product exists to protect.
-//   - So a guest may open exactly one conversation, with SUPPORT, and may
-//     reach no other user at all. That is the only shape of "reaching زوار"
-//     that is not an abuse surface, and it is the one Section 27 already
-//     promised.
-//
-// The moderation is structural rather than bolted on: RequestThread creates the
-// support thread as 'pending', and PostMessage requires 'active', so a STAFF
-// MEMBER MUST ACCEPT BEFORE A GUEST CAN SAY ANYTHING. That is the same flow
-// every other user's support chat already follows — no new mechanism, and
-// nothing a guest can do unilaterally except ask.
+// chat_guest_support_test.go proves that a lightweight guest account cannot
+// open or post in any chat, including support. Support messaging requires a
+// full signed-in account.
 //
 // Needs a throwaway Postgres; skipped unless TEST_DATABASE_URL is set:
 //
@@ -103,9 +77,9 @@ func newGuestChatRouter(pool *pgxpool.Pool) *gin.Engine {
 	h := NewChatHandler(chat.New(pool), notify.New(pool), pool)
 	bearer := auth.RequireBearer(auth.NewTokenStore(pool))
 	r := gin.New()
-	r.POST("/api/chats/support", bearer, h.SupportThread)
+	r.POST("/api/chats/support", bearer, auth.RequireNotGuest(), h.SupportThread)
 	r.POST("/api/chats/request", bearer, auth.RequireNotGuest(), h.Request)
-	r.POST("/api/chats/:id/messages", bearer, h.PostMessage)
+	r.POST("/api/chats/:id/messages", bearer, auth.RequireNotGuest(), h.PostMessage)
 	return r
 }
 
@@ -128,9 +102,9 @@ func guestPost(t *testing.T, pool *pgxpool.Pool, r *gin.Engine, userID int64, pa
 	return w.Code, out
 }
 
-// ─── What a guest MAY do ────────────────────────────────────────────────
+// ─── Support is account-only ────────────────────────────────────────────
 
-func TestGuestSupport_GuestCanOpenASupportThread(t *testing.T) {
+func TestGuestSupport_GuestCannotOpenASupportThread(t *testing.T) {
 	pool := newContactBlockPool(t)
 	r := newGuestChatRouter(pool)
 	support := makeContactUser(t, pool, "employee")
@@ -138,24 +112,15 @@ func TestGuestSupport_GuestCanOpenASupportThread(t *testing.T) {
 	guest := makeGuestUser(t, pool)
 
 	code, body := guestPost(t, pool, r, guest, "/api/chats/support", `{}`)
-	if code != http.StatusOK {
-		t.Fatalf("status = %d, want 200 — a visitor must be able to ask support for help (body %v)", code, body)
+	if code != http.StatusForbidden {
+		t.Fatalf("status = %d, want 403 — a guest must sign in before contacting support (body %v)", code, body)
 	}
-	// It opens PENDING: staff must accept before the guest can say anything.
-	// That is the moderation, and it must not quietly become 'active'.
-	if body["status"] != "pending" {
-		t.Fatalf("thread status = %v, want \"pending\" — staff acceptance is the moderation gate", body["status"])
+	if body["code"] != "guest_restricted" {
+		t.Fatalf("code = %v, want guest_restricted", body["code"])
 	}
-	threadID := int64(body["thread_id"].(float64))
-	t.Cleanup(func() {
-		ctx := context.Background()
-		_, _ = pool.Exec(ctx, `DELETE FROM chat_reads WHERE thread_id = $1`, threadID)
-		_, _ = pool.Exec(ctx, `DELETE FROM chat_messages WHERE thread_id = $1`, threadID)
-		_, _ = pool.Exec(ctx, `DELETE FROM chat_threads WHERE id = $1`, threadID)
-	})
 }
 
-func TestGuestSupport_GuestCanPostOnceSupportAccepts(t *testing.T) {
+func TestGuestSupport_GuestCannotPostToSupport(t *testing.T) {
 	pool := newContactBlockPool(t)
 	r := newGuestChatRouter(pool)
 	support := makeContactUser(t, pool, "employee")
@@ -164,8 +129,19 @@ func TestGuestSupport_GuestCanPostOnceSupportAccepts(t *testing.T) {
 
 	code, body := guestPost(t, pool, r, guest,
 		fmt.Sprintf("/api/chats/%d/messages", thread), `{"body":"How do I register for aid?"}`)
-	if code != http.StatusOK {
-		t.Fatalf("status = %d, want 200 — a guest must be able to talk to support (body %v)", code, body)
+	if code != http.StatusForbidden {
+		t.Fatalf("status = %d, want 403 — a guest must sign in before messaging support (body %v)", code, body)
+	}
+	if body["code"] != "guest_restricted" {
+		t.Fatalf("code = %v, want guest_restricted", body["code"])
+	}
+	var n int
+	if err := pool.QueryRow(context.Background(),
+		`SELECT COUNT(*) FROM chat_messages WHERE thread_id = $1`, thread).Scan(&n); err != nil {
+		t.Fatalf("count: %v", err)
+	}
+	if n != 0 {
+		t.Fatalf("chat_messages has %d rows; the refused guest message must not be stored", n)
 	}
 }
 
