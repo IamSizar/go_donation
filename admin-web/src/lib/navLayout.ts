@@ -70,6 +70,7 @@ export const NAV: NavItem[] = [
   { to: '/reports',       tKey: 'nav.reports',        module: 'reports' },
   { to: '/audit-logs',    tKey: 'nav.audit_logs',     module: 'audit' },
   { to: '/trash',         tKey: 'nav.trash', adminOnly: true, module: 'trash' },
+  { to: '/staff',         tKey: 'nav.staff',       superAdminOnly: true },
   { to: '/permissions',   tKey: 'nav.permissions', superAdminOnly: true },
   { to: '/guest-access',  tKey: 'nav.guest_access', superAdminOnly: true },
   { to: '/terms',         tKey: 'nav.terms',        superAdminOnly: true },
@@ -159,7 +160,7 @@ export const DEFAULT_NAV_SECTIONS: NavSection[] = [
     kind: 'group', key: 'system_settings', tKey: 'nav_group.system_settings',
     items: [
       '/payment-methods', '/donation-types', '/donation-codes', '/field-rules',
-      '/permissions', '/terms', '/about', '/humanitarian-work',
+      '/staff', '/permissions', '/terms', '/about', '/humanitarian-work',
       '/marriage-about', '/marriage-contact', '/city-guide-about', '/city-guide-contact',
       '/trash', '/settings',
     ],
