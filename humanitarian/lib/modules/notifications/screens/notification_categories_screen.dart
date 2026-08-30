@@ -28,15 +28,61 @@
 // would be showing six controls that govern nothing, so the master switch is
 // here — the existing NotificationsRow, which owns the value, not a second
 // copy of it — and the note below it says what its position means.
+//
+// GROUPED INTO COLLAPSIBLE SECTIONS (owner request, chunk 2)
+// Six switches in one flat column read as a spreadsheet, same complaint the
+// migration-108 comment above already made about 81 raw types. The six
+// categories collapse into three PRIORITY TIERS — `_tierOf` mirrors
+// `defaultPriority` in backend/internal/notify/notify.go (urgent=80,
+// payment=60 → high; campaign=35, system=20 → medium; reminder=15, normal=0
+// → low) — a boundary that already exists for another reason (send
+// priority), not one invented for this screen. Groups start EXPANDED so the
+// existing pinned widget test (notification_categories_test.dart, which taps
+// `notif_cat_urgent` without expanding anything first) keeps working; a user
+// who collapses a group still sees "N of M on" in its header, so they never
+// have to open a group just to check whether anything inside it is live.
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/core/app_haptics.dart';
+import 'package:flutter_application_1/core/design/motion.dart';
+import 'package:flutter_application_1/core/design/tokens.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
+import 'package:flutter_application_1/core/widgets/app_pressable.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:flutter_application_1/widgets/settings_section.dart';
 import 'package:get/get.dart';
+
+/// The three priority tiers a category collapses into, in display order.
+/// Kept as an ordered list (not a Set) so the sections always render in the
+/// same high → medium → low sequence regardless of item order.
+const _kTierOrder = ['high', 'medium', 'low'];
+
+/// Section header label keys, one per tier — see `_tierOf` for the mapping
+/// and `app_translations.dart` for `en`/`ar` (Kurdish inherits `en` via the
+/// documented `{..._en, ..._sorani}` merge).
+const _kTierLabelKeys = {
+  'high': 'notif_cat_tier_high',
+  'medium': 'notif_cat_tier_medium',
+  'low': 'notif_cat_tier_low',
+};
+
+/// Maps a server category to the priority tier its section belongs to.
+/// Mirrors `defaultPriority` in backend/internal/notify/notify.go — see the
+/// file header for why this boundary rather than an invented one.
+String _tierOf(String category) {
+  switch (category) {
+    case 'urgent':
+    case 'payment':
+      return 'high';
+    case 'campaign':
+    case 'system':
+      return 'medium';
+    default: // reminder, normal, and any future category default to 'low'.
+      return 'low';
+  }
+}
 
 /// Placeholder bones shaped like one category row — a label line, a state
 /// line, and the block the switch occupies — so the controls fill in rather
@@ -108,6 +154,18 @@ class _NotificationCategoriesScreenState
   /// Starts true so the "everything is off" note is never shown on a guess;
   /// the row corrects it as soon as it knows.
   bool _masterEnabled = true;
+
+  /// Tiers currently collapsed. Empty by default — every section starts
+  /// expanded (see the file header for why).
+  final _collapsedTiers = <String>{};
+
+  /// Flips one section's expanded/collapsed state.
+  void _toggleTier(String tier) {
+    AppHaptics.selection();
+    setState(() {
+      if (!_collapsedTiers.add(tier)) _collapsedTiers.remove(tier);
+    });
+  }
 
   @override
   void initState() {
@@ -260,43 +318,172 @@ class _NotificationCategoriesScreenState
                 message: 'notif_cat_empty_desc'.tr,
                 icon: Icons.notifications_off_outlined,
               ),
-              builder: (items) => ListView(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
-                children: [
-                  for (final c in items)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: GlassPanel(
-                        child: SwitchListTile.adaptive(
-                          key: Key('notif_cat_${c.category}'),
-                          contentPadding: EdgeInsets.zero,
-                          value: !_disabled.contains(c.category),
-                          onChanged: _saving
-                              ? null
-                              : (v) => _toggle(c.category, v),
-                          title: Text(
-                            // Server data, so localizedTag rather than `.tr`:
-                            // GetX hands back the key itself when there is no
-                            // entry, which is how a raw token reaches a screen.
-                            localizedTag(c.labelKey),
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 15,
-                            ),
-                          ),
-                          subtitle: Text(
-                            _disabled.contains(c.category)
-                                ? 'notif_cat_off'.tr
-                                : 'notif_cat_on'.tr,
-                          ),
+              builder: (items) {
+                // Bucket the catalogue into its three tiers, preserving the
+                // server's display_order within each bucket.
+                final byTier = <String, List<NotificationCategoryPref>>{
+                  for (final tier in _kTierOrder) tier: [],
+                };
+                for (final c in items) {
+                  byTier[_tierOf(c.category)]!.add(c);
+                }
+                return ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+                  children: [
+                    for (final tier in _kTierOrder)
+                      if (byTier[tier]!.isNotEmpty)
+                        _CategoryTierSection(
+                          tier: tier,
+                          items: byTier[tier]!,
+                          collapsed: _collapsedTiers.contains(tier),
+                          disabled: _disabled,
+                          saving: _saving,
+                          onToggleSection: () => _toggleTier(tier),
+                          onToggleCategory: _toggle,
                         ),
-                      ),
-                    ),
-                ],
-              ),
+                  ],
+                );
+              },
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// One collapsible priority-tier section: a tappable header (title + an
+/// "N of M on" summary that stays correct whether the section is open or
+/// closed) over an [AnimatedSize]-wrapped column of that tier's switches.
+///
+/// `AnimatedSize` is the same primitive `aid_target_field.dart` uses for its
+/// conditional picker (rule 5.4: appear/disappear must animate, never jump) —
+/// reused rather than a second collapsible pattern invented for this screen.
+class _CategoryTierSection extends StatelessWidget {
+  const _CategoryTierSection({
+    required this.tier,
+    required this.items,
+    required this.collapsed,
+    required this.disabled,
+    required this.saving,
+    required this.onToggleSection,
+    required this.onToggleCategory,
+  });
+
+  final String tier;
+  final List<NotificationCategoryPref> items;
+
+  /// Whether THIS section is currently collapsed.
+  final bool collapsed;
+
+  /// Categories the user has switched off, read from the parent so a toggle
+  /// inside this section is reflected everywhere without this widget owning
+  /// any state of its own.
+  final Set<String> disabled;
+  final bool saving;
+  final VoidCallback onToggleSection;
+  final void Function(String category, bool receive) onToggleCategory;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    final onCount = items.where((i) => !disabled.contains(i.category)).length;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: GlassPanel(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AppPressable(
+              haptic: AppPressHaptic.none, // onToggleSection fires its own.
+              onTap: onToggleSection,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _kTierLabelKeys[tier]!.tr,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 15,
+                            color: AppThemeConfig.text(context),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        // Visible with the section collapsed OR expanded, so
+                        // closing a section never hides whether anything
+                        // inside it is switched on.
+                        Text(
+                          'notif_cat_group_summary'.trParams({
+                            'on': '$onCount',
+                            'total': '${items.length}',
+                          }),
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: colors.inkTertiary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  AnimatedRotation(
+                    turns: collapsed ? -0.25 : 0,
+                    duration: AppMotion.resolve(
+                      context,
+                      AppMotion.snapDuration,
+                    ),
+                    child: Icon(
+                      Icons.expand_more_rounded,
+                      color: colors.inkTertiary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            AnimatedSize(
+              duration: AppMotion.resolve(context, AppMotion.settleDuration),
+              alignment: Alignment.topCenter,
+              child: collapsed
+                  ? const SizedBox(width: double.infinity)
+                  : Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          for (final item in items)
+                            SwitchListTile.adaptive(
+                              key: Key('notif_cat_${item.category}'),
+                              contentPadding: EdgeInsets.zero,
+                              value: !disabled.contains(item.category),
+                              onChanged: saving
+                                  ? null
+                                  : (v) => onToggleCategory(item.category, v),
+                              title: Text(
+                                // Server data, so localizedTag rather than
+                                // `.tr`: GetX hands back the key itself when
+                                // there is no entry, which is how a raw
+                                // token would otherwise reach the screen.
+                                localizedTag(item.labelKey),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 15,
+                                ),
+                              ),
+                              subtitle: Text(
+                                disabled.contains(item.category)
+                                    ? 'notif_cat_off'.tr
+                                    : 'notif_cat_on'.tr,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -882,6 +882,14 @@ class AppTranslations extends Translations {
     'notif_cat_empty_desc':
         'There is nothing to switch on or off right now. Your notifications '
         'still arrive as usual.',
+    // Chunk 2 — collapsible priority-tier sections on this same screen (see
+    // notification_categories_screen.dart's `_tierOf`). Three headings plus
+    // one parametrized "N of M on" summary shown whether a section is open
+    // or collapsed.
+    'notif_cat_tier_high': 'High priority',
+    'notif_cat_tier_medium': 'Standard',
+    'notif_cat_tier_low': 'Low priority',
+    'notif_cat_group_summary': '@on of @total on',
     'Could not load your notification settings.':
         'Could not load your notification settings.',
     'Field privacy': 'Field privacy',
@@ -3776,6 +3784,11 @@ class AppTranslations extends Translations {
     'notif_cat_empty': 'لا توجد فئات تنبيهات بعد',
     'notif_cat_empty_desc':
         'لا يوجد شيء لتشغيله أو إيقافه الآن. لا تزال إشعاراتك تصلك كالمعتاد.',
+    // الجزء الثاني — أقسام قابلة للطي حسب الأولوية في هذه الشاشة نفسها.
+    'notif_cat_tier_high': 'أولوية عالية',
+    'notif_cat_tier_medium': 'قياسي',
+    'notif_cat_tier_low': 'أولوية منخفضة',
+    'notif_cat_group_summary': '@on من @total مفعّلة',
     'Could not load your notification settings.':
         'تعذّر تحميل إعدادات الإشعارات.',
     'Field privacy': 'خصوصية الحقول',
