@@ -299,6 +299,11 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
                     message: 'search_no_results',
                   )
                 : ListView.separated(
+                    // Rule 5.6 — scrolling the results puts the keyboard
+                    // away, matching every other search-backed list in the
+                    // app (see AppListSearchField's header comment).
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
                     itemCount: displayItems.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 10),
