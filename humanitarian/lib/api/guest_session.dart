@@ -97,17 +97,21 @@ class GuestAuthResult {
   final String? code;
 }
 
-/// Creates a guest account, asking the user for nothing but their name.
+/// Creates a guest account, asking the user for nothing at all.
 ///
 /// The username and password are GENERATED — see api/guest_credentials.dart
 /// for why — and remembered on this device so the same account can be
 /// re-entered later.
 ///
-/// A taken username is retried rather than reported. It was the user's
-/// problem to solve when they chose the name; now that the app chooses it, a
-/// collision is the app's problem, and showing it to someone who did not pick
-/// the name would be asking them to fix something they cannot see.
-Future<GuestAuthResult> registerGuestAccount({required String fullName}) async {
+/// NO NAME IS COLLECTED. The sign-up sheet that asked for one is gone: the
+/// owner asked for "Continue as guest" to be a single tap into the app. A
+/// guest who later upgrades (requireUpgrade → phone + OTP) fills in the
+/// normal registration form, which is where a real name is captured.
+///
+/// A taken username is retried rather than reported. The user did not choose
+/// the name, so a collision is the app's problem — showing it would be asking
+/// somebody to fix something they cannot even see.
+Future<GuestAuthResult> registerGuestAccount() async {
   // Three attempts. Each username is 40 bits of randomness, so a single
   // collision already means something is badly wrong; looping further would
   // just make a real outage look like a hang.
@@ -115,7 +119,7 @@ Future<GuestAuthResult> registerGuestAccount({required String fullName}) async {
   for (var attempt = 0; attempt < 3; attempt++) {
     final username = generateGuestUsername();
     final password = generateGuestPassword();
-    result = await registerGuest(username, password, fullName: fullName);
+    result = await registerGuest(username, password);
     if (result.ok) {
       await sharedPreferences.setString(kGuestUsernamePrefsKey, username);
       await sharedPreferences.setString(kGuestPasswordPrefsKey, password);
@@ -132,20 +136,11 @@ Future<GuestAuthResult> registerGuestAccount({required String fullName}) async {
 /// #40 — create a new guest account (username + password) and enter guest
 /// mode with a real, server-issued session.
 ///
-/// J1 — [fullName] is the "الاسم" box on the sign-up sheet. Optional: an empty
-/// name is omitted from the body entirely, which is what POST
-/// /api/auth/guest/register treats as "this client collected no name".
-Future<GuestAuthResult> registerGuest(
-  String username,
-  String password, {
-  String fullName = '',
-}) => _guestAuthCall(
-  guestRegisterUrl,
-  username,
-  password,
-  isLogin: false,
-  fullName: fullName,
-);
+/// Sends no name. POST /api/auth/guest/register treats a body without
+/// `full_name` as "this client collected no name" and writes an empty
+/// user_profiles.full_name, which is exactly what a nameless guest is.
+Future<GuestAuthResult> registerGuest(String username, String password) =>
+    _guestAuthCall(guestRegisterUrl, username, password, isLogin: false);
 
 /// #40 — sign back into an existing guest account.
 ///
@@ -160,16 +155,14 @@ Future<GuestAuthResult> _guestAuthCall(
   String username,
   String password, {
   required bool isLogin,
-  String fullName = '',
 }) async {
   try {
-    // `full_name` is the canonical key across this API; the handler also
-    // accepts `name`, but sending the canonical one keeps this call the same
-    // shape as every other place the app writes a profile name.
+    // Credentials and nothing else. The endpoint also accepts `full_name`,
+    // but the app has no name to send: guest entry is one tap and asks for
+    // nothing (see registerGuestAccount).
     final payload = <String, dynamic>{
       'username': username,
       'password': password,
-      if (fullName.trim().isNotEmpty) 'full_name': fullName.trim(),
     };
     final resp = await http
         .post(

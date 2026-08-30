@@ -103,17 +103,9 @@ void main() {
     },
   );
 
-  // The two that shipped, named so a regression is unmistakable rather than
-  // one line in a list.
-  test('the guest sign-in username hint is real copy, not a key', () {
-    expect(en.containsKey('guest_name_hint'), isTrue);
-    expect(ar.containsKey('guest_name_hint'), isTrue);
-    expect(
-      en['guest_name_hint'],
-      isNot('guest_name_hint'),
-      reason: 'an entry whose value is its own key renders as the key anyway',
-    );
-  });
+  // The guest sign-up sheet used to be pinned here too — it had a username
+  // hint that rendered as its own key. Entering as a guest is a single tap
+  // now: no sheet, no fields, no hints, so there is nothing left to pin.
 
   test('the City Guide sub-category empty state is translated', () {
     const title = 'No places in this sub-category';

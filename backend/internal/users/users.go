@@ -731,6 +731,17 @@ func (s *Store) UpsertGoogleUser(ctx context.Context, sub, email, _name string) 
 	return id, false, nil
 }
 
+// DefaultGuestFullName is the profile name written for a guest who supplied
+// none, which since the one-tap guest entry is every guest.
+//
+// Deliberately a fixed, neutral English word rather than a localized one: it
+// is DATA, written once at sign-up, and the operator reading it later may not
+// share the locale of the phone that created the row. Surfaces that know what
+// a guest is should prefer their own localized label — the dashboard's user
+// list does exactly that, keyed on `is_guest`, and treats this value as the
+// placeholder it is.
+const DefaultGuestFullName = "Guest"
+
 // ErrUsernameTaken is returned by InsertGuest when the chosen username
 // already belongs to another account (guest or otherwise — username is a
 // single shared namespace, see migration 014).
@@ -772,6 +783,15 @@ func (s *Store) InsertGuest(ctx context.Context, username, passwordHash, fullNam
 	fullName = strings.TrimSpace(fullName)
 	if username == "" || passwordHash == "" {
 		return 0, errors.New("username and password_hash are required")
+	}
+	// The app no longer asks a guest for anything at all — "Continue as guest"
+	// is a single tap — so every new guest arrives nameless. Stored blank, a
+	// guest showed up as an empty cell wherever staff read a name, which is
+	// indistinguishable from a real account whose name failed to save. The
+	// placeholder makes the row self-describing to EVERY consumer, including
+	// the ones that print full_name with no idea what is_guest means.
+	if fullName == "" {
+		fullName = DefaultGuestFullName
 	}
 
 	tx, err := s.Pool.Begin(ctx)

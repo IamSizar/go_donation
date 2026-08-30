@@ -2961,28 +2961,15 @@ class AppTranslations extends Translations {
     'Enter your phone number': 'Enter your phone number',
     'Explore freely': 'Explore freely',
     'Google sign-in failed.': 'Google sign-in failed.',
-    'Just a username and password to quickly browse.':
-        'Just a username and password to quickly browse.',
     'Send code': 'Send code',
     'Sign in to continue.': 'Sign in to continue.',
-    'That\'s me — log in instead': 'That\'s me — log in instead',
     'Upgrade Account': 'Upgrade Account',
-    'Use 3-32 letters, numbers or underscore':
-        'Use 3-32 letters, numbers or underscore',
-    // J1 — the guest sign-up sheet's name box. The label reuses
-    // `pf_full_name`; only the example and the length rule are new here.
-    // The sheet asks for a name and nothing else now — the username and
-    // password it used to collect are generated, so copy naming them would
-    // describe fields that are no longer on screen.
-    'guest_sheet_subtitle': 'Just your name, and you can start browsing.',
-    'guest_full_name_required': 'Please enter your name',
-    'guest_full_name_hint': 'e.g. Zaid Ahmed',
-    // The username box beside it. It previously passed the bare string
-    // 'guest_name', which was in no map, so the placeholder rendered as the
-    // literal key. A username stays Latin, so the example does too.
-    'guest_name_hint': 'e.g. zaid_ahmed',
-    'guest_full_name_too_long':
-        'That name is too long. Use 200 characters or fewer.',
+    // The only guest copy left. Entry is a single tap that asks for nothing,
+    // so the sheet's subtitle and its name-field messages went with the sheet.
+    // 5.7 — says what happened and what to do; the server's own wording goes
+    // to the log, not to the user.
+    'guest_start_failed':
+        "Couldn't start guest browsing. Check your connection and try again.",
     'Use a different number': 'Use a different number',
     'User': 'User',
     'Verify & Continue': 'Verify & Continue',
@@ -5728,21 +5715,12 @@ class AppTranslations extends Translations {
     'Enter your phone number': 'أدخل رقم هاتفك',
     'Explore freely': 'تصفح بحرية',
     'Google sign-in failed.': 'فشل تسجيل الدخول عبر Google.',
-    'Just a username and password to quickly browse.':
-        'فقط اسم مستخدم وكلمة مرور للتصفح السريع.',
     'Send code': 'إرسال الرمز',
     'Sign in to continue.': 'سجّل الدخول للمتابعة.',
-    'That\'s me — log in instead': 'هذا أنا — سجّل الدخول بدلاً من ذلك',
     'Upgrade Account': 'ترقية الحساب',
-    'Use 3-32 letters, numbers or underscore':
-        'استخدم من ٣ إلى ٣٢ حرفًا أو رقمًا أو شرطة سفلية',
-    // J1 — انظر التعليق نفسه في الخريطة الإنجليزية.
-    'guest_sheet_subtitle': 'اسمك فقط، ويمكنك بدء التصفح.',
-    'guest_full_name_required': 'الرجاء إدخال اسمك',
-    'guest_full_name_hint': 'مثال: زيد أحمد',
-    // اسم المستخدم يُكتب بحروف لاتينية، لذلك بقي المثال كما هو.
-    'guest_name_hint': 'مثال: zaid_ahmed',
-    'guest_full_name_too_long': 'الاسم طويل جدًا. استخدم ٢٠٠ حرف أو أقل.',
+    // انظر التعليق نفسه في الخريطة الإنجليزية.
+    'guest_start_failed':
+        'تعذّر بدء التصفح كزائر. تحقّق من اتصالك وحاول مرة أخرى.',
     'Use a different number': 'استخدم رقمًا مختلفًا',
     'User': 'مستخدم',
     'Verify & Continue': 'تحقّق وتابع',
@@ -8009,14 +7987,9 @@ class AppTranslations extends Translations {
     'Enter your phone number': 'ژمارەی مۆبایلەکەت بنووسە',
     'Explore freely': 'بە ئازادی بگەڕێ',
     'Google sign-in failed.': 'چوونەژوورەوە بە گووگڵ سەرکەوتوو نەبوو.',
-    'Just a username and password to quickly browse.':
-        'تەنها ناوی بەکارهێنەر و وشەی تێپەڕ بۆ گەڕانێکی خێرا.',
     'Send code': 'کۆدەکە بنێرە',
     'Sign in to continue.': 'بۆ بەردەوامبوون بچۆرە ژوورەوە.',
-    'That\'s me — log in instead': 'ئەوە منم — لەبری ئەوە بچۆرە ژوورەوە',
     'Upgrade Account': 'هەژمار بەرزبکەرەوە',
-    'Use 3-32 letters, numbers or underscore':
-        '٣ بۆ ٣٢ پیت، ژمارە یان هێڵی ژێر بەکاربێنە',
     'Use a different number': 'ژمارەیەکی جیاواز بەکاربێنە',
     'User': 'بەکارهێنەر',
     'Verify & Continue': 'پشکنین و بەردەوامبوون',
@@ -10255,14 +10228,9 @@ class AppTranslations extends Translations {
     'Enter your phone number': 'ژمارا تەلەفۆنا خۆ بنڤیسە',
     'Explore freely': 'ب ئازادی بگەڕە',
     'Google sign-in failed.': 'چوونا ژوور ب گووگڵێ سەرکەفتی نەبوو.',
-    'Just a username and password to quickly browse.':
-        'تنێ ناڤێ بکارئینەر و پەیڤا نهێنی بۆ گەڕانەکا لەز.',
     'Send code': 'کۆدی بشینە',
     'Sign in to continue.': 'بۆ بەردەوامیێ چۆرە ژوور.',
-    'That\'s me — log in instead': 'ئەڤ ئەز م — د جهێ وێ دا چۆرە ژوور',
     'Upgrade Account': 'ئەکاونتێ بەرزکە',
-    'Use 3-32 letters, numbers or underscore':
-        '٣ هەتا ٣٢ پیت، ژمارە یان هێلا ژێرین بکاربینە',
     'Use a different number': 'ژمارەکا دی بکاربینە',
     'User': 'بکارئینەر',
     'Verify & Continue': 'پشکنین و بەردەوامی',

@@ -22,6 +22,13 @@ import { formatDateTime } from '../lib/dates'
 
 const PER_PAGE = 20
 
+/// The name the API writes for a guest who supplied none — every guest, since
+/// entering as one is a single tap. Mirrors users.DefaultGuestFullName in the
+/// Go backend; it is a fixed English word there on purpose (it is data, and
+/// the operator reading it need not share the phone's locale), so surfaces
+/// that know what a guest is show their own label instead.
+const GUEST_PLACEHOLDER_NAME = 'Guest'
+
 const ROLE_LABELS = ['donor', 'beneficiary', 'volunteer', 'employee', 'marriage', 'none']
 const GENDER_OPTIONS = ['', 'Male', 'Female', 'Other']
 
@@ -335,18 +342,27 @@ export default function UsersPage() {
     {
       key: 'name',
       header: t('col.name'),
-      // Note #40 — guests have no user_profiles row, so fall back to their
-      // username with a "Guest" badge so they read as distinct from a
-      // normal account with a missing name.
-      cell: (u) =>
-        u.profile?.full_name ?? (u.is_guest ? (
-          <span>
-            {u.username ?? <span className="muted">—</span>}{' '}
-            <span className="badge" style={{ opacity: 0.75 }}>{t('page.users.guest_badge')}</span>
-          </span>
-        ) : (
-          <span className="muted">—</span>
-        )),
+      // Note #40 — a guest names themselves nothing (entering the app is one
+      // tap), so show their username with a localized "Guest" badge, which
+      // reads as distinct from a normal account with a missing name.
+      //
+      // Two values mean "this guest has no name of their own": empty, for
+      // rows created before the server started filling it, and the server's
+      // GUEST_PLACEHOLDER_NAME. The placeholder is a fixed English word by
+      // design — it is data — so this column, which knows what a guest is,
+      // shows the operator's own language instead of printing it.
+      cell: (u) => {
+        const named = u.profile?.full_name?.trim()
+        if (u.is_guest && (!named || named === GUEST_PLACEHOLDER_NAME)) {
+          return (
+            <span>
+              {u.username ?? <span className="muted">—</span>}{' '}
+              <span className="badge" style={{ opacity: 0.75 }}>{t('page.users.guest_badge')}</span>
+            </span>
+          )
+        }
+        return named || <span className="muted">—</span>
+      },
     },
     // H10 — no client-side masking here any more. The SERVER decides what this
     // column contains: a caller without `sensitive_data` receives "••••03" in

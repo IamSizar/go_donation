@@ -87,11 +87,16 @@ func TestGuestProfileStoresName(t *testing.T) {
 	}
 }
 
-// An older app build that posts no name must still get a profile row — the
-// row is what the UPDATE writers need, and the name is optional. It must be
-// stored blank rather than as the legacy "1" placeholder, which would render
-// as if the user were literally called "1".
-func TestGuestProfileWithoutNameIsStillCreated(t *testing.T) {
+// A guest who supplied no name — since one-tap guest entry, that is every
+// guest — must still get a profile row, and that row must carry the
+// placeholder rather than a blank.
+//
+// Blank was the previous behaviour and it is what this test used to assert.
+// It was wrong in the same way the legacy "1" placeholder was wrong, just
+// quieter: staff read an empty cell, which says "this account's name failed
+// to save", not "this is a guest". gender and address stay blank — those are
+// genuinely unknown, and nothing renders them as an identity.
+func TestGuestProfileWithoutNameGetsThePlaceholder(t *testing.T) {
 	pool := newGrantorTestPool(t)
 	id := makeGuest(t, pool, "j1noname", "")
 
@@ -101,8 +106,28 @@ func TestGuestProfileWithoutNameIsStillCreated(t *testing.T) {
 	).Scan(&name, &gender, &address); err != nil {
 		t.Fatalf("read profile: %v", err)
 	}
-	if name != "" || gender != "" || address != "" {
-		t.Fatalf("blank-name guest got full_name=%q gender=%q address=%q, want all empty", name, gender, address)
+	if name != DefaultGuestFullName {
+		t.Fatalf("nameless guest got full_name=%q, want %q", name, DefaultGuestFullName)
+	}
+	if gender != "" || address != "" {
+		t.Fatalf("nameless guest got gender=%q address=%q, want both empty", gender, address)
+	}
+}
+
+// Whitespace is not a name. A client that posts "   " must be treated exactly
+// like one that posts nothing, rather than storing a blank-looking name that
+// defeats the placeholder.
+func TestGuestProfileWhitespaceNameGetsThePlaceholder(t *testing.T) {
+	pool := newGrantorTestPool(t)
+	id := makeGuest(t, pool, "j1blankname", "   ")
+
+	var name string
+	if err := pool.QueryRow(context.Background(),
+		`SELECT full_name FROM user_profiles WHERE user_id = $1`, id).Scan(&name); err != nil {
+		t.Fatalf("read full_name: %v", err)
+	}
+	if name != DefaultGuestFullName {
+		t.Fatalf("whitespace-name guest got full_name=%q, want %q", name, DefaultGuestFullName)
 	}
 }
 

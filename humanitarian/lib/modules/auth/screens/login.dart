@@ -88,6 +88,11 @@ class _LoginFormState extends State<_LoginForm> {
   // (no "+"), defaulting to Iraq. Changed via the CountryCodePicker.
   String _dialCode = '964';
 
+  /// Guest entry is a single tap, so its loading and failure states live on
+  /// this screen rather than on the sheet that used to own them.
+  bool _guestLoading = false;
+  String _guestError = '';
+
   // Validation message for the phone control. Held here rather than left to
   // the TextFormField's own errorText because the visible field is the
   // surrounding container, not the inner borderless input.
@@ -241,19 +246,39 @@ class _LoginFormState extends State<_LoginForm> {
     }
   }
 
-  /// Note #40 — Guest Registration Process. Opens a lightweight
-  /// username+password sheet; on success the guest lands straight in Home
-  /// (no sub-page detour), same as the old anonymous guest mode did.
+  /// Note #40 — Guest Registration Process. ONE TAP: the account is created
+  /// and the guest lands straight in Home.
+  ///
+  /// There is no sheet any more. It asked for a username and a password (two
+  /// secrets a browsing guest invents once and never uses again), then just a
+  /// name — and the owner asked for the tap itself to be the whole flow. The
+  /// credentials are generated on the device (api/guest_credentials.dart) and
+  /// nothing is collected, so there is nothing left to put on a sheet.
+  ///
+  /// The keyboard is dismissed first: the phone field above may still hold
+  /// focus, and a keyboard hanging over Home is the ghosting 5.6 forbids.
   Future<void> _continueAsGuest() async {
-    final ok = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => const GuestAccessSheet(),
-    );
-    if (ok == true) {
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _guestLoading = true;
+      _guestError = '';
+    });
+    final result = await registerGuestAccount();
+    if (!mounted) return;
+    if (result.ok) {
+      // Deliberately no setState back to false: the screen is being replaced,
+      // and rebuilding a widget that is about to be disposed is pointless.
       Get.offAllNamed(AppRoutes.home);
+      return;
     }
+    // 5.7 — the user sees one calm, localized, actionable line; the server's
+    // own wording (English, and about accounts rather than about what to do)
+    // goes to the log where support can find it.
+    debugPrint('[guest] register failed: ${result.error} (${result.code})');
+    setState(() {
+      _guestLoading = false;
+      _guestError = 'guest_start_failed'.tr;
+    });
   }
 
   @override
@@ -689,18 +714,33 @@ class _LoginFormState extends State<_LoginForm> {
             ),
           ),
           const SizedBox(height: 10),
-          // Section 27 — Guest Mode: browse without an account.
+          // Section 27 — Guest Mode: browse without an account. One tap: no
+          // sheet, no fields, no credentials (see _continueAsGuest).
           SizedBox(
             width: double.infinity,
             child: TextButton.icon(
-              onPressed: _loginController.isLoading.value
+              key: const Key('guest_continue_button'),
+              // 5.8 — disabled while the account is being created, so the tap
+              // cannot fire twice and create two guests.
+              onPressed: _guestLoading || _loginController.isLoading.value
                   ? null
                   : _continueAsGuest,
-              icon: Icon(
-                Icons.person_outline_rounded,
-                color: AppThemeConfig.mutedText(context),
-                size: 20,
-              ),
+              icon: _guestLoading
+                  ? SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator.adaptive(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          AppThemeConfig.mutedText(context),
+                        ),
+                      ),
+                    )
+                  : Icon(
+                      Icons.person_outline_rounded,
+                      color: AppThemeConfig.mutedText(context),
+                      size: 20,
+                    ),
               label: Text(
                 'Continue as guest'.tr,
                 style: TextStyle(
@@ -710,6 +750,13 @@ class _LoginFormState extends State<_LoginForm> {
                 ),
               ),
             ),
+          ),
+          // The failure the sheet used to render. It sits under the button it
+          // belongs to and collapses to nothing when there is no error.
+          AuthInlineError(
+            key: const Key('guest_error'),
+            padding: const EdgeInsets.only(top: 8),
+            message: _guestError,
           ),
           const SizedBox(height: 18),
           // The switch between the screen's two jobs. This screen IS the
@@ -926,222 +973,6 @@ class _ModeLink extends StatelessWidget {
                 : AppThemeConfig.mutedText(context),
             decoration: selected ? TextDecoration.underline : null,
             decorationColor: AppThemeConfig.primary,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// access" the app: the primary action always tries to REGISTER a new guest
-/// account first; if that username is already taken, a secondary "Log in
-/// instead" action appears using the same fields. Pops `true` on success
-/// so the caller knows to navigate to Home.
-///
-/// J1 — the client asked for an "الاسم" box here. It is public (it was
-/// `_GuestAccessSheet`) only so a widget test can pump it directly and assert
-/// what the sheet actually posts; nothing else constructs it.
-class GuestAccessSheet extends StatefulWidget {
-  const GuestAccessSheet({super.key});
-
-  @override
-  State<GuestAccessSheet> createState() => _GuestAccessSheetState();
-}
-
-class _GuestAccessSheetState extends State<GuestAccessSheet> {
-  final _formKey = GlobalKey<FormState>();
-
-  /// J1 — the name box, and now the ONLY box.
-  ///
-  /// It used to sit above a username and a password, which is two secrets a
-  /// browsing guest invents once and never uses again. Those are generated
-  /// now (api/guest_credentials.dart), so this is all that is asked.
-  ///
-  /// REQUIRED, where it used to be optional. It was optional because the
-  /// sheet promised "just a username and password"; that promise is gone. And
-  /// a blank name is the exact thing J1 was raised about — staff saw an empty
-  /// where every other account shows one.
-  final _fullNameController = TextEditingController();
-
-  /// Mirrors `guestFullNameMaxRunes` in handlers/auth.go, which mirrors
-  /// user_profiles.full_name VARCHAR(200). Checked here so an over-long name
-  /// is caught at the field rather than by a 400 after a round trip.
-  static const int _fullNameMaxRunes = 200;
-
-  bool _loading = false;
-  String _error = '';
-
-  @override
-  void dispose() {
-    _fullNameController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submit() async {
-    // The keyboard is dismissed before the request so it never hangs over the
-    // error line the submit may produce, nor over the screen we navigate to.
-    FocusScope.of(context).unfocus();
-    if (!_formKey.currentState!.validate()) return;
-    setState(() {
-      _loading = true;
-      _error = '';
-    });
-    final result = await registerGuestAccount(
-      fullName: _fullNameController.text.trim(),
-    );
-    if (!mounted) return;
-    setState(() {
-      _loading = false;
-      _error = result.ok ? '' : (result.error ?? 'Something went wrong.');
-    });
-    if (result.ok) {
-      Navigator.of(context).pop(true);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
-      child: ClipRRect(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-        child: Container(
-          padding: EdgeInsets.fromLTRB(
-            24,
-            22,
-            24,
-            24 + MediaQuery.of(context).padding.bottom,
-          ),
-          decoration: BoxDecoration(color: AppThemeConfig.accent(context)),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    margin: const EdgeInsets.only(bottom: 18),
-                    decoration: BoxDecoration(
-                      color: AppThemeConfig.border(context),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                  ),
-                ),
-                // This sheet paints its background with accent(), so its text
-                // has to come from the onAccent family. It was using ink and
-                // inkSecondary — the tokens for the app's light ground — which
-                // measured 2.25:1 for the title and 1.04:1 for the subtitle
-                // against the green. The subtitle was effectively invisible on
-                // a real device; that is how this was found.
-                //
-                // The alpha is 0.8, not the 0.6 used for muted-on-accent text
-                // elsewhere in the app: 0.6 measures 3.83:1 here, which is
-                // still under the 4.5:1 floor. 0.8 gives 5.46:1 in light and
-                // 5.18:1 in dark, so both themes pass.
-                Text(
-                  'Continue as guest'.tr,
-                  style: TextStyle(
-                    color: AppThemeConfig.onAccent(context),
-                    fontWeight: FontWeight.w800,
-                    fontSize: 20,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'guest_sheet_subtitle'.tr,
-                  style: TextStyle(
-                    color: AppThemeConfig.onAccent(
-                      context,
-                    ).withValues(alpha: 0.8),
-                  ),
-                ),
-                const SizedBox(height: 18),
-                if (_error.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Text(
-                      _error,
-                      style: TextStyle(
-                        color: AppThemeConfig.consequence(context),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                // J1 — the name box the client asked for. A guest's username
-                // is a handle (`guest_name`, letters/digits/underscore), so
-                // before this the account had no human-readable name at all
-                // and staff saw a blank where every other account shows one.
-                //
-                // Optional on purpose: the sheet's promise is "just a username
-                // and password to quickly browse", and the server accepts a
-                // registration with no name. `pf_full_name` is used for the
-                // label because it is the same field the profile screens
-                // label, and it exists in all four locales.
-                TextFormField(
-                  key: const Key('guest_full_name_field'),
-                  controller: _fullNameController,
-                  style: TextStyle(color: AppThemeConfig.text(context)),
-                  cursorColor: AppThemeConfig.primary,
-                  // A name is words, not sentences: the name keyboard, with
-                  // word capitalisation for Latin scripts (a no-op in Arabic).
-                  keyboardType: TextInputType.name,
-                  textCapitalization: TextCapitalization.words,
-                  textInputAction: TextInputAction.next,
-                  decoration: authInputDecoration(
-                    context,
-                    label: 'pf_full_name'.tr,
-                    hintText: 'guest_full_name_hint',
-                    icon: Icons.badge_outlined,
-                  ),
-                  validator: (v) {
-                    final s = (v ?? '').trim();
-                    // Required now that it is the only thing asked for.
-                    if (s.isEmpty) return 'guest_full_name_required'.tr;
-                    if (s.runes.length > _fullNameMaxRunes) {
-                      return 'guest_full_name_too_long'.tr;
-                    }
-                    return null;
-                  },
-                  // The only field, so the return key finishes the job.
-                  onFieldSubmitted: (_) => _submit(),
-                ),
-                const SizedBox(height: 18),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    key: const Key('guest_submit_button'),
-                    onPressed: _loading ? null : _submit,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppThemeConfig.onAccent(context),
-                      foregroundColor: AppThemeConfig.accent(context),
-                      padding: const EdgeInsets.symmetric(vertical: 15),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      elevation: 0,
-                    ),
-                    child: _loading
-                        ? SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              color: AppThemeConfig.accent(context),
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : Text(
-                            'Continue as guest'.tr,
-                            style: const TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                  ),
-                ),
-              ],
-            ),
           ),
         ),
       ),
