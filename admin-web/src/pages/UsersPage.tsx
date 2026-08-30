@@ -29,7 +29,14 @@ const PER_PAGE = 20
 /// that know what a guest is show their own label instead.
 const GUEST_PLACEHOLDER_NAME = 'Guest'
 
-const ROLE_LABELS = ['donor', 'beneficiary', 'volunteer', 'employee', 'marriage', 'none']
+// 'none' (no role / role_id 0) is deliberately excluded here: staff must not
+// be able to assign "no role" from this picker — it's a system/guest state,
+// not something to hand out. Accounts that already have no role (every guest,
+// plus D1 "no role yet" accounts) still display correctly: StatusCell injects
+// the current value as an extra <option> whenever it isn't in `allowed`, so
+// the dropdown falls back to showing 'none' (بلا) for those rows without it
+// being a selectable target for anyone else.
+const ROLE_LABELS = ['donor', 'beneficiary', 'volunteer', 'employee', 'marriage']
 const GENDER_OPTIONS = ['', 'Male', 'Female', 'Other']
 
 // Phase 18: editable fields. role / active / is_admin live in their own
