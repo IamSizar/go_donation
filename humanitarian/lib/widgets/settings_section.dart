@@ -5,137 +5,33 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/shared/widgets/adaptive_dialog.dart';
 import 'package:flutter_application_1/core/design/directional_icons.dart';
 import 'package:flutter_application_1/api/auth_session.dart';
-import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/api/profile_api.dart';
 import 'package:flutter_application_1/core/app_haptics.dart';
-import 'package:flutter_application_1/core/app_share.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/localization/locale_service.dart';
-import 'package:flutter_application_1/modules/auth/screens/control_settings_screen.dart';
 import 'package:flutter_application_1/modules/auth/screens/edit_profile.dart';
-import 'package:flutter_application_1/modules/legal/screens/content_page_screen.dart';
-import 'package:flutter_application_1/modules/proposal/screens/partners_screen.dart';
-import 'package:flutter_application_1/modules/receipts/screens/aid_receipts_screen.dart';
-import 'package:flutter_application_1/modules/auth/screens/task_verification_screen.dart';
-import 'package:flutter_application_1/modules/support/screens/support_section.dart';
-import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:flutter_application_1/widgets/cached_profile_avatar.dart';
 import 'package:get/get.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_application_1/core/widgets/app_theme_mode_picker.dart';
 
-/// Client note — "Settings and Profile Interface": its own bottom-nav tab
-/// (previously a side drawer opened by tapping the profile avatar).
+/// Shared account/settings widgets used by ProfileMenuScreen.
 ///
-/// Per the client's later split, the account and public-facing items
-/// (profile header, Language, Dark Mode, Our Work, Services, About/Contact/
-/// Terms, Log out) now live in ProfileMenuScreen, reached from the top-right
-/// avatar. What remains here is the operational content: preferences,
-/// volunteer tools, Task Verification, partners, receipts, share and cache.
+/// Previously this file also defined `SettingsSection`, its own bottom-nav
+/// tab (before that, a side drawer opened by tapping the profile avatar).
+/// The owner asked to remove the Settings tab and fold everything it offered
+/// into Profile — see profile_menu_screen.dart, which now owns every
+/// destination that used to live in that tab's ListView (Control Settings
+/// and Preferences, Volunteer With Us, Task Verification, Our Partners,
+/// receipts, share, Our Humanitarian Work, clear cache) alongside the
+/// account items it already had. What remains in this file is the widget
+/// toolkit both screens draw from: DrawerTile/DrawerDivider, AccountHeader,
+/// LanguageRow, DarkModeRow, NotificationsRow, confirmLogout and
+/// clearCache.
 const Color drawerPrimaryDark = Color(0xFF115E59);
 const Color drawerDanger = Color(0xFFEF4444);
-
-class SettingsSection extends StatelessWidget {
-  const SettingsSection({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final guest = isGuestMode();
-    return SectionScaffold(
-      title: '',
-      subtitle: '',
-      child: ListView(
-        // Scaffold already reserves space above the bottom nav bar — this
-        // only needs a small resting margin, not extra clearance for it.
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
-        children: [
-          // Guests have no phone/wallet/field-privacy to manage — matches
-          // the old flow, which hid Edit profile for guests the same way.
-          if (!guest)
-            DrawerTile(
-              icon: Icons.tune_rounded,
-              label: 'Control Settings and Preferences',
-              color: AppThemeConfig.accent(context),
-              onTap: () => Get.to(() => const ControlSettingsScreen()),
-            ),
-          const DrawerDivider(),
-          // Volunteer entry, kept role-segmented, matching how the rest of the
-          // app keeps each role's own dashboard/tools separate rather than
-          // surfacing them to every role.
-          //
-          // Redesign de-duplication — this used to be TWO rows ("Volunteer
-          // With Us" and "Volunteer Attendance and Absence System") pushing
-          // the identical `SupportSection()` with no argument to tell them
-          // apart, so the second row was a pure duplicate. Attendance is not
-          // a separate destination: SupportSection's mission cards are where
-          // check-in / check-out is recorded, so one row reaches all of it.
-          if (sharedPreferences.getString('role_id') == '3')
-            DrawerTile(
-              icon: Icons.volunteer_activism_rounded,
-              label: 'Volunteer With Us',
-              color: AppThemeConfig.pending(context),
-              onTap: () => Get.to(() => const SupportSection()),
-            ),
-          DrawerTile(
-            icon: Icons.checklist_rounded,
-            label: 'Task Verification',
-            color: AppThemeConfig.pending(context),
-            onTap: () => Get.to(() => const TaskVerificationScreen()),
-          ),
-          // Redesign de-duplication — "Supporting Organizations" was a second
-          // row onto the same PartnersScreen, differing only by
-          // `onlySupporting: true`, which client-side-filters the very same
-          // list by keywords in the free-text `partner_type` field. That is a
-          // *view* of one list, not a second destination, so it belongs as a
-          // control inside the screen rather than as its own menu entry.
-          // Nothing is hidden by collapsing the pair: the unfiltered list is a
-          // superset that already contains every supporting organization.
-          DrawerTile(
-            icon: Icons.handshake_rounded,
-            label: 'Our Partners',
-            color: AppThemeConfig.pending(context),
-            onTap: () => Get.to(() => const PartnersScreen()),
-          ),
-          DrawerTile(
-            icon: Icons.receipt_long_rounded,
-            label: 'receipts_title',
-            color: AppThemeConfig.accent(context),
-            onTap: () => Get.to(() => const AidReceiptsScreen()),
-          ),
-          DrawerTile(
-            icon: Icons.ios_share_rounded,
-            label: 'share_app',
-            color: AppThemeConfig.accent(context),
-            // The context anchors the iOS share popover — a bare `shareApp`
-            // sends no origin rect and the sheet refuses to open. See
-            // [shareAnchor].
-            onTap: () => shareApp(context),
-          ),
-          const DrawerDivider(),
-          DrawerTile(
-            icon: Icons.volunteer_activism_outlined,
-            label: 'Our Humanitarian Work',
-            color: AppThemeConfig.accent(context),
-            onTap: () => Get.to(
-              () => const ContentPageScreen(
-                slug: 'humanitarian-work',
-                titleKey: 'Our Humanitarian Work',
-              ),
-            ),
-          ),
-          DrawerTile(
-            icon: Icons.cleaning_services_rounded,
-            label: 'clear_cache',
-            color: Colors.brown,
-            onTap: () => _clearCache(context),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 Future<void> confirmLogout(BuildContext context) async {
   final confirmed = await showAdaptiveConfirm(
@@ -158,7 +54,11 @@ Future<void> confirmLogout(BuildContext context) async {
 // #34 — clear cached data: the in-memory image cache + the temp directory
 // (where cached_network_image stores its disk cache). Deliberately does NOT
 // touch SharedPreferences, so the session/login stays intact.
-Future<void> _clearCache(BuildContext context) async {
+//
+// Public (not `_clearCache`) because the "clear_cache" DrawerTile that used
+// to call this from the Settings tab now lives in profile_menu_screen.dart,
+// a different file — see this file's header.
+Future<void> clearCache(BuildContext context) async {
   // Not destructive in the dangerous sense — the cache refills itself and the
   // session is untouched — so the affirmative action is the default one rather
   // than a red warning.

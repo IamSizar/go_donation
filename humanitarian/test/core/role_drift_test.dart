@@ -7,8 +7,10 @@
 // simulator's plist and confirmed against `GET /api/admin/users?q=said`. Every
 // screen gated on the local value therefore behaved as the wrong role:
 // Services (`proposal_services_section` switches on '2'/'3'), Kafala
-// (`sponsorship_section` on '2'), Settings (`settings_section` on '3'), the
-// assistant, and the notification filters.
+// (`sponsorship_section` on '2'), the profile menu's "Volunteer With Us" row
+// (`profile_menu_screen` on '3' — formerly `settings_section`'s Settings
+// tab, before that content moved into Profile), the assistant, and the
+// notification filters.
 //
 // WHERE THE DRIFT COMES FROM
 // The local copy is written when the USER acts — at registration

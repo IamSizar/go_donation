@@ -25,26 +25,30 @@ import 'package:flutter_application_1/api/profile_api.dart';
 import 'dart:io';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:flutter_application_1/widgets/dashboard.dart';
-import 'package:flutter_application_1/widgets/settings_section.dart';
 import 'package:get/get.dart';
 
 /// Note #41 — "Complete Restructuring and Distribution of the Application
-/// Interfaces". The bottom nav is now fixed at 5 tabs, identical for every
+/// Interfaces". The bottom nav was fixed at 5 tabs, identical for every
 /// role (no scrolling, no per-role tab set): Home, Store, Marriage, City
 /// Guide, Settings. Everything that used to be a separate tab (Kafala,
-/// Contribute, Volunteer, Services) is now reached from Home's existing
-/// quick-action tiles/hero buttons (widgets/dashboard.dart), which now push
+/// Contribute, Volunteer, Services) is reached from Home's existing
+/// quick-action tiles/hero buttons (widgets/dashboard.dart), which push
 /// those screens directly instead of switching to a tab index that no
 /// longer exists. Alerts and Messages moved to a persistent top bar shown on
-/// every tab. Settings — previously a side drawer opened by tapping the
-/// profile avatar — is its own tab (widgets/settings_section.dart).
+/// every tab.
 ///
 /// "Ninth: Improve the Home Interface Design" then reinstated a profile
-/// photo in the top-right, but it now opens the account hub
-/// (ProfileMenuScreen) rather than switching to the Settings tab. The two
-/// don't overlap: the hub owns the account items (profile, notifications,
-/// community services, language, dark mode, support, legal/contact, log
-/// out) and the Settings tab keeps the organizational content.
+/// photo in the top-right, opening the account hub (ProfileMenuScreen)
+/// rather than a tab.
+///
+/// The owner's later ask — "remove settings tab and move them to profile" —
+/// removed the 5th tab entirely: the bottom nav is now 4 tabs (Home, Store,
+/// Marriage, City Guide) and every destination the Settings tab offered
+/// (Control Settings and Preferences, Volunteer With Us, Task Verification,
+/// Our Partners, receipts, share, Our Humanitarian Work, clear cache) moved
+/// into ProfileMenuScreen alongside the account items it already owned. See
+/// profile_menu_screen.dart and widgets/settings_section.dart (now a shared
+/// widget toolkit, not a tab) for the destinations themselves.
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
@@ -80,12 +84,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       activeIcon: Icons.map_rounded,
       color: Colors.indigo,
     ),
-    NavDestination(
-      label: 'Settings',
-      icon: Icons.settings_outlined,
-      activeIcon: Icons.settings_rounded,
-      color: Colors.blueGrey,
-    ),
   ];
 
   static const int _cityGuideIndex = 3;
@@ -97,7 +95,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     const MarketplaceSection(),
     const MarriageHubScreen(),
     const CityGuideScreen(),
-    const SettingsSection(),
   ];
 
   @override
@@ -443,7 +440,6 @@ class DashboardTopBar extends StatefulWidget {
   static const int _storeIndex = 1;
   static const int _marriageIndex = 2;
   static const int _cityGuideIndex = 3;
-  static const int _settingsIndex = 4;
 
   /// Space between the trailing controls.
   ///
@@ -508,8 +504,6 @@ class _DashboardTopBarState extends State<DashboardTopBar> {
               const Expanded(child: _TopBarTitle('Events'))
             else if (tabIndex == DashboardTopBar._cityGuideIndex)
               const Expanded(child: _TopBarTitle('City Guide'))
-            else if (tabIndex == DashboardTopBar._settingsIndex)
-              const Expanded(child: _TopBarTitle('Settings'))
             else
               const Spacer(),
             // Flexible, not a bare child: seven controls (six plus the toggle)
