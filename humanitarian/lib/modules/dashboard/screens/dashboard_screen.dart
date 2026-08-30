@@ -215,11 +215,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
               //   bar. This only started mattering when the nav moved out of
               //   Scaffold's bottomNavigationBar slot and into this Column —
               //   the slot used to consume that inset on the body's behalf.
-              child: MediaQuery.removePadding(
-                context: context,
-                removeTop: true,
-                removeBottom: true,
-                child: IndexedStack(index: _currentIndex, children: _sections),
+              //
+              //   Wrapped in a Builder so `MediaQuery.removePadding` reads
+              //   the MediaQuery from INSIDE this Scaffold's body, not the
+              //   outer `context` this whole method was called with (which
+              //   sits ABOVE the Scaffold being built here). That distinction
+              //   only shows up once the keyboard opens: this Scaffold's
+              //   `resizeToAvoidBottomInset` (default true) already strips
+              //   `viewInsets.bottom` for its own body — but only for
+              //   descendants that read it through a context inside that
+              //   body. The outer `context` still resolves to the app-root
+              //   MediaQuery, where the keyboard inset was never stripped.
+              //   `removePadding` copies THAT raw inset — padding is all it
+              //   touches — straight through to every tab, so the active
+              //   section's own Scaffold (every tab section keeps its own,
+              //   for standalone-route reuse) subtracted the same keyboard
+              //   height a second time and was crushed to a sliver: on
+              //   Marketplace, search field and results included, which read
+              //   as a blank box covering the screen the moment the keyboard
+              //   opened.
+              child: Builder(
+                builder: (innerContext) => MediaQuery.removePadding(
+                  context: innerContext,
+                  removeTop: true,
+                  removeBottom: true,
+                  child: IndexedStack(
+                    index: _currentIndex,
+                    children: _sections,
+                  ),
+                ),
               ),
             ),
             // The nav bar lives in the BODY, not in Scaffold's
