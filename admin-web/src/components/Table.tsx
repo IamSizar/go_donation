@@ -8,6 +8,12 @@ export type Column<T> = {
   cell: (row: T) => ReactNode
   align?: 'left' | 'right' | 'center'
   width?: string
+  /** Explicit override for columns whose key doesn't match the numeric
+   *  heuristic below (e.g. a renamed field) but should still end-align, or
+   *  the reverse — a key that LOOKS numeric ('discount_percent') but the
+   *  page wants left as text. `true` forces end-alignment, `false` forces
+   *  start, `undefined` defers to the heuristic. */
+  numeric?: boolean
 }
 
 // Selection support (Phase 12). When `selectable` is provided, Table renders a
@@ -51,15 +57,33 @@ type Props<T> = {
   onRetry?: () => void
 }
 
+// Columns whose KEY names a page never bothered to mark `align`/`numeric`
+// used to silently fall through to start-alignment — indistinguishable from
+// text — which is exactly how "some numeric columns are right-aligned, some
+// aren't" crept in table-to-table. Detecting numeric intent from the key
+// itself, centrally, means a page can no longer opt out by omission; it can
+// only opt out explicitly via `numeric: false`.
+// Segment-bounded (each word must sit between '_'/start/end) so a key like
+// 'account_status' does NOT false-match on the 'count' inside 'account'.
+const NUMERIC_KEY_RE = /(?:^|_)(amount|total|wallet|balance|count|qty|quantity|price|paid|iqd)(?:_|$)/i
+function looksNumeric(key: string): boolean {
+  return NUMERIC_KEY_RE.test(key)
+}
+
 // Map a column's (physical) align to a LOGICAL one so headers + cells flip
 // correctly under RTL (Arabic/Kurdish). 'left'→'start', 'right'→'end' — both
 // track the reading direction, so a numeric column right-aligned in English
 // becomes left-aligned (the row's end) in Arabic instead of staying stuck on
-// the physical right. Default is 'start'. (Global notice #6.1)
-function logicalAlign(a?: 'left' | 'right' | 'center'): 'start' | 'end' | 'center' {
-  if (a === 'left') return 'start'
-  if (a === 'right') return 'end'
-  if (a === 'center') return 'center'
+// the physical right. Default is 'start', EXCEPT a column whose key matches
+// the numeric heuristic above (or sets `numeric: true`) defaults to 'end'
+// unless the page explicitly overrides `align` or sets `numeric: false`.
+// (Global notice #6.1)
+function logicalAlign<T>(c: Column<T>): 'start' | 'end' | 'center' {
+  if (c.align === 'left') return 'start'
+  if (c.align === 'right') return 'end'
+  if (c.align === 'center') return 'center'
+  if (c.numeric === false) return 'start'
+  if (c.numeric === true || looksNumeric(c.key)) return 'end'
   return 'start'
 }
 
@@ -82,7 +106,7 @@ export default function Table<T>({ rows, columns, rowKey, empty, loading, select
               </th>
             )}
             {columns.map((c) => (
-              <th key={c.key} style={{ textAlign: logicalAlign(c.align), width: c.width }}>
+              <th key={c.key} style={{ textAlign: logicalAlign(c), width: c.width }}>
                 {c.header}
               </th>
             ))}
@@ -172,7 +196,7 @@ export default function Table<T>({ rows, columns, rowKey, empty, loading, select
                     // (index.css, max-width:720px) — each cell shows its own
                     // column header inline via `content: attr(data-label)`
                     // once the table stops being a table on narrow screens.
-                    <td key={c.key} data-label={c.header} style={{ textAlign: logicalAlign(c.align) }}>
+                    <td key={c.key} data-label={c.header} style={{ textAlign: logicalAlign(c) }}>
                       {c.cell(row)}
                     </td>
                   ))}
