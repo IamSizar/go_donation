@@ -184,6 +184,21 @@ void main() {
     final texts = _visibleDialogText(tester);
     expect(texts, isNotEmpty, reason: 'the dialog should be open and listing countries');
 
+    // F5 — the country NAMES were already localized before this fix; what
+    // shipped broken was the dialog's own chrome, which the package
+    // renders from a hardcoded English string unless `headerText` is
+    // passed through `.tr`. A key-presence check can't catch this — it
+    // has to read the literal Arabic heading off the rendered dialog, the
+    // same way the country-name checks below do.
+    expect(
+      texts,
+      contains(AppTranslations().keys['ar_SA']!['Select your country · 200+ available']),
+      reason:
+          'the country-picker dialog heading must be localized to Arabic '
+          'on the login screen, not the package\'s hardcoded English '
+          '"Select Country"',
+    );
+
     // F4 — a non-empty list alone would also pass if the picker rendered
     // only its favourites ("+964 العراق") and silently failed to load the
     // other ~240 entries. Requiring more than 50 real country rows (see
@@ -222,6 +237,20 @@ void main() {
         texts,
         isNotEmpty,
         reason: 'the dialog should be open and listing countries',
+      );
+
+      // F5 — this screen is the one that actually shipped the bug: it
+      // built `CountryCodePicker` with only `key`/`countryList`, so the
+      // dialog fell back to the package's hardcoded English "Select
+      // Country" heading on an otherwise fully Arabic screen, even though
+      // the country names inside were already correct.
+      expect(
+        texts,
+        contains(AppTranslations().keys['ar_SA']!['Select your country · 200+ available']),
+        reason:
+            'the country-picker dialog heading must be localized to '
+            'Arabic on the guest-upgrade screen too, not the package\'s '
+            'hardcoded English "Select Country"',
       );
 
       final countryNames = await _collectAllCountryNames(tester);

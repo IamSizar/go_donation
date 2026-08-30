@@ -27,9 +27,11 @@
 import 'dart:convert'; // jsonDecode for the country picker's i18n files
 
 import 'package:country_code_picker/country_code_picker.dart';
+import 'package:flutter/material.dart'; // Icon/Icons/Colors/BoxDecoration for the shared dialog chrome
 import 'package:flutter/services.dart'; // rootBundle
-import 'package:flutter/widgets.dart';
+import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/localization/locale_service.dart';
+import 'package:flutter_application_1/widgets/auth_ui.dart'; // authFieldBorder
 import 'package:get/get.dart';
 
 /// Mixin for any `State` that shows a `CountryCodePicker` and needs its
@@ -147,5 +149,86 @@ mixin LocalizedCountryList<T extends StatefulWidget> on State<T> {
         'to the package default list: $e',
       );
     }
+  }
+
+  /// Builds the `CountryCodePicker` with the dialog CHROME every screen
+  /// must share — the header text (localized), header/dialog/search text
+  /// styles, dialog box decoration, barrier, and close icon — so it can
+  /// never again be forgotten by a caller the way guest_upgrade.dart
+  /// forgot it (F5): that screen passed only `key`/`countryList` and fell
+  /// back to the package's own hardcoded English "Select Country" heading
+  /// on an otherwise-Arabic screen, even though the country NAMES were
+  /// already fixed by [countryList] above. The list of names being shared
+  /// did nothing to guarantee the dialog's own chrome was shared too — so
+  /// that chrome now lives in exactly one place, and every caller that
+  /// wants a country picker goes through this method instead of
+  /// constructing `CountryCodePicker` directly.
+  ///
+  /// Only the handful of properties that legitimately differ per-screen
+  /// (row size, padding, chip text style, favourites) are parameters;
+  /// everything else — including `headerText`, which MUST resolve through
+  /// `.tr` — is fixed here.
+  Widget buildLocalizedCountryCodePicker(
+    BuildContext context, {
+    required ValueChanged<CountryCode> onChanged,
+    String initialSelection = 'IQ',
+    List<String> favorite = const ['+964', 'IQ'],
+    EdgeInsetsGeometry padding = const EdgeInsetsDirectional.only(
+      start: 12,
+      end: 2,
+    ),
+    double flagWidth = 24,
+    required TextStyle textStyle,
+    bool showCountryOnly = false,
+    bool showOnlyCountryWhenClosed = false,
+    bool alignLeft = false,
+  }) {
+    return CountryCodePicker(
+      // See [countryPickerKey] — forces a rebuild once the localized
+      // names resolve, since the package never recomputes them on its own.
+      key: countryPickerKey,
+      countryList: countryListOrDefault,
+      onChanged: onChanged,
+      initialSelection: initialSelection,
+      favorite: favorite,
+      showCountryOnly: showCountryOnly,
+      showOnlyCountryWhenClosed: showOnlyCountryWhenClosed,
+      alignLeft: alignLeft,
+      padding: padding,
+      flagWidth: flagWidth,
+      showDropDownButton: true,
+      textStyle: textStyle,
+      flagDecoration: BoxDecoration(borderRadius: BorderRadius.circular(3)),
+      dialogSize: const Size(360, 520),
+      boxDecoration: BoxDecoration(
+        color: AppThemeConfig.elevatedSurface(context),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: authFieldBorder(context)),
+      ),
+      barrierColor: Colors.black.withValues(alpha: 0.45),
+      closeIcon: Icon(
+        Icons.close_rounded,
+        color: AppThemeConfig.mutedText(context),
+      ),
+      // Reuses the ONE existing translation key (both `_en` and `_ar` maps
+      // in app_translations.dart) rather than inventing a second — this
+      // heading must always resolve through `.tr` so it matches the
+      // screen's language instead of the package's hardcoded English.
+      headerText: 'Select your country · 200+ available'.tr,
+      headerTextStyle: TextStyle(
+        color: AppThemeConfig.text(context),
+        fontWeight: FontWeight.w700,
+        fontSize: 15,
+      ),
+      dialogTextStyle: TextStyle(
+        color: AppThemeConfig.text(context),
+        fontWeight: FontWeight.w500,
+      ),
+      searchStyle: TextStyle(color: AppThemeConfig.text(context)),
+      dialogItemPadding: const EdgeInsets.symmetric(
+        horizontal: 20,
+        vertical: 12,
+      ),
+    );
   }
 }

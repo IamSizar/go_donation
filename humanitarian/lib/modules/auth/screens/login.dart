@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:country_code_picker/country_code_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter/services.dart'; // LengthLimitingTextInputFormatter
@@ -417,72 +416,29 @@ class _LoginFormState extends State<_LoginForm>
               ),
               child: Row(
                 children: [
-                  CountryCodePicker(
-                    // `CountryCodePickerState` builds its `elements` (and
-                    // the favourites shown in the dialog) once, inside
-                    // `createState()`, from whatever `countryList` the
-                    // widget was FIRST created with — it never recomputes
-                    // them on `didUpdateWidget`. So swapping `countryList`
-                    // in a later build (once [_loadCountryList] resolves)
-                    // would silently do nothing without a key: a keyed
-                    // widget that changes key is torn down and rebuilt
-                    // fresh, which is what actually gets the localized
-                    // names into `elements`.
-                    key: countryPickerKey,
-                    // See "Country picker language" above: overlaid onto the
-                    // app's current language so the dialog never mixes
-                    // languages, regardless of where it mounts.
-                    countryList: countryListOrDefault,
+                  // `CountryCodePickerState` builds its `elements` (and the
+                  // favourites shown in the dialog) once, inside
+                  // `createState()`, from whatever `countryList` the widget
+                  // was FIRST created with — it never recomputes them on
+                  // `didUpdateWidget`. Swapping `countryList` in a later
+                  // build (once [_loadCountryList] resolves) would silently
+                  // do nothing without a key; that key, plus every other
+                  // piece of shared dialog chrome (localized header,
+                  // themed text/box/barrier), lives in
+                  // [buildLocalizedCountryCodePicker] so this screen and
+                  // guest_upgrade.dart can't drift apart on it again.
+                  buildLocalizedCountryCodePicker(
+                    context,
                     onChanged: (code) => setState(
                       () => _dialCode = (code.dialCode ?? '+964').replaceFirst(
                         '+',
                         '',
                       ),
                     ),
-                    initialSelection: 'IQ',
-                    favorite: const ['+964', 'IQ'],
-                    showCountryOnly: false,
-                    showOnlyCountryWhenClosed: false,
-                    alignLeft: false,
-                    padding: const EdgeInsetsDirectional.only(
-                      start: 12,
-                      end: 2,
-                    ),
-                    flagWidth: 24,
-                    showDropDownButton: true,
                     textStyle: TextStyle(
                       color: AppThemeConfig.text(context),
                       fontWeight: FontWeight.w700,
                       fontSize: 16,
-                    ),
-                    flagDecoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(3),
-                    ),
-                    dialogSize: const Size(360, 520),
-                    boxDecoration: BoxDecoration(
-                      color: AppThemeConfig.elevatedSurface(context),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: authFieldBorder(context)),
-                    ),
-                    barrierColor: Colors.black.withValues(alpha: 0.45),
-                    closeIcon: Icon(
-                      Icons.close_rounded,
-                      color: AppThemeConfig.mutedText(context),
-                    ),
-                    headerText: 'Select your country · 200+ available'.tr,
-                    headerTextStyle: TextStyle(
-                      color: AppThemeConfig.text(context),
-                      fontWeight: FontWeight.w700,
-                      fontSize: 15,
-                    ),
-                    dialogTextStyle: TextStyle(
-                      color: AppThemeConfig.text(context),
-                      fontWeight: FontWeight.w500,
-                    ),
-                    searchStyle: TextStyle(color: AppThemeConfig.text(context)),
-                    dialogItemPadding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 12,
                     ),
                   ),
                   // Divider between the dial code and the number, so the two

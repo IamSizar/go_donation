@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:country_code_picker/country_code_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter/services.dart';
@@ -225,27 +224,25 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen>
                     hintText: '750 858 2031',
                     icon: Icons.phone_outlined,
                   ).copyWith(
-                    prefixIcon: CountryCodePicker(
-                      // See LocalizedCountryList.countryPickerKey — forces a
-                      // rebuild once the localized names resolve, since the
-                      // package never recomputes them on its own.
-                      key: countryPickerKey,
-                      // Overlaid onto the app's current language so the
-                      // dialog never mixes languages — see
-                      // localized_country_list.dart.
-                      countryList: countryListOrDefault,
+                    // Was previously built with only `key`/`countryList` —
+                    // missing the dialog's own chrome (header/text/box/
+                    // barrier), which left it falling back to the
+                    // package's hardcoded English "Select Country" heading
+                    // even on an Arabic screen (F5). Routed through
+                    // [buildLocalizedCountryCodePicker] so this screen and
+                    // login.dart share one definition of that chrome and
+                    // can't drift apart on it again.
+                    prefixIcon: buildLocalizedCountryCodePicker(
+                      context,
                       onChanged: (code) => setState(
                         () => _dialCode = (code.dialCode ?? '+964')
                             .replaceFirst('+', ''),
                       ),
-                      initialSelection: 'IQ',
-                      favorite: const ['+964', 'IQ'],
                       padding: const EdgeInsetsDirectional.only(
                         start: 14,
                         end: 4,
                       ),
                       flagWidth: 22,
-                      showDropDownButton: true,
                       textStyle: TextStyle(
                         color: AppThemeConfig.text(context),
                         fontWeight: FontWeight.w700,
