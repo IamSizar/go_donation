@@ -84,24 +84,37 @@ void main() {
     });
   });
 
-  group('a partner logo on Home opens that partner', () {
-    test('the logo card navigates to the detail screen, not the list', () {
+  group('Home carries no partners section at all', () {
+    // The owner asked for the "شركاؤنا" strip to come off the Home screen.
+    // What used to be pinned here was that a logo on that strip opened THAT
+    // partner rather than the undifferentiated list (C1). There is no strip
+    // to mis-wire any more, so the guard becomes the stronger one: Home does
+    // not reach the partners section by any route.
+    //
+    // The section itself is NOT retired — settings_section.dart still offers
+    // the one door the group above pins, and the dashboard's PartnersPage
+    // still manages the content.
+    test('the home tab has no door and no partner widgets', () {
       final source = _read('lib/widgets/dashboard.dart');
 
       expect(
-        source.contains('PartnerDetailScreen(partner: partner)'),
-        isTrue,
-        reason:
-            'tapping a named, pictured organisation and landing on an '
-            'undifferentiated list is a mis-wired path, not a redundant one — '
-            'PartnerDetailScreen already exists and takes exactly this map',
+        _partnersScreenDoors(source),
+        0,
+        reason: 'the Home strip and its "See all" were removed together',
       );
       expect(
-        _partnersScreenDoors(source),
-        1,
+        source.contains('PartnerDetailScreen'),
+        isFalse,
         reason:
-            'the strip should keep its "See all" and nothing else: the logo '
-            'now has a destination of its own',
+            'the logo cards went with the strip; a lone card with no strip to '
+            'sit in is dead code, not a feature',
+      );
+      expect(
+        source.contains('PartnersController'),
+        isFalse,
+        reason:
+            'nothing on Home should still be fetching partners — the request '
+            'would run on every home build and render nowhere',
       );
     });
   });
