@@ -13,6 +13,7 @@ import 'package:flutter_application_1/modules/community/screens/community_servic
 import 'package:flutter_application_1/modules/dashboard/controllers/featured_campaigns_controller.dart';
 import 'package:flutter_application_1/modules/dashboard/controllers/role_dashboard_controller.dart';
 import 'package:flutter_application_1/modules/dashboard/screens/guest_sections.dart';
+import 'package:flutter_application_1/modules/dashboard/screens/keyboard_safe_tab_body.dart';
 import 'package:flutter_application_1/modules/marketplace/screens/marketplace_section.dart';
 import 'package:flutter_application_1/modules/marriage/screens/marriage_hub_screen.dart';
 import 'package:flutter_application_1/modules/notifications/controllers/notifications_controller.dart';
@@ -216,33 +217,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
               //   Scaffold's bottomNavigationBar slot and into this Column —
               //   the slot used to consume that inset on the body's behalf.
               //
-              //   Wrapped in a Builder so `MediaQuery.removePadding` reads
-              //   the MediaQuery from INSIDE this Scaffold's body, not the
-              //   outer `context` this whole method was called with (which
-              //   sits ABOVE the Scaffold being built here). That distinction
-              //   only shows up once the keyboard opens: this Scaffold's
-              //   `resizeToAvoidBottomInset` (default true) already strips
-              //   `viewInsets.bottom` for its own body — but only for
-              //   descendants that read it through a context inside that
-              //   body. The outer `context` still resolves to the app-root
-              //   MediaQuery, where the keyboard inset was never stripped.
-              //   `removePadding` copies THAT raw inset — padding is all it
-              //   touches — straight through to every tab, so the active
-              //   section's own Scaffold (every tab section keeps its own,
-              //   for standalone-route reuse) subtracted the same keyboard
-              //   height a second time and was crushed to a sliver: on
-              //   Marketplace, search field and results included, which read
-              //   as a blank box covering the screen the moment the keyboard
-              //   opened.
-              child: Builder(
-                builder: (innerContext) => MediaQuery.removePadding(
-                  context: innerContext,
-                  removeTop: true,
-                  removeBottom: true,
-                  child: IndexedStack(
-                    index: _currentIndex,
-                    children: _sections,
-                  ),
+              //   Delegated to KeyboardSafeTabBody rather than an inline
+              //   `MediaQuery.removePadding(context: context, ...)`: that
+              //   inline form used to read `context` from THIS build
+              //   method — which sits ABOVE the Scaffold being built here —
+              //   so `MediaQuery.of` resolved to the app-root MediaQuery
+              //   instead of this Scaffold body's own (already
+              //   `viewInsets`-stripped) one. The raw, un-stripped keyboard
+              //   inset then rode through to every tab, whose own nested
+              //   Scaffold (kept for standalone-route reuse) subtracted it a
+              //   SECOND time — crushing the active tab to a sliver the
+              //   moment its keyboard opened. On Marketplace this read as a
+              //   blank box covering the screen. See
+              //   keyboard_safe_tab_body.dart for the full account.
+              child: KeyboardSafeTabBody(
+                child: IndexedStack(
+                  index: _currentIndex,
+                  children: _sections,
                 ),
               ),
             ),
