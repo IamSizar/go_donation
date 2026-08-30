@@ -1466,6 +1466,12 @@ class AppTranslations extends Translations {
         'No one is assigned to receive chat messages right now. You can still '
         'reach the team through the support form or on WhatsApp.',
     'chat_support_unavailable_action': 'Open technical support',
+    // The standing (not error-triggered) route to the ticket form, offered
+    // next to chat_support so the two read as different things: one is a
+    // live conversation, the other files a tracked request.
+    'support_request_form': 'Submit a support request',
+    'support_request_form_desc':
+        'File a ticket and track its status — no live chat required.',
     'helped_by': 'Helped by @name',
     'marriage_posts_title': 'Event posts',
     'marriage_posts_subtitle':
@@ -4311,6 +4317,9 @@ class AppTranslations extends Translations {
         'لا يوجد حاليًا من يستقبل رسائل المحادثة. ما زال بإمكانك الوصول إلى '
         'الفريق عبر نموذج الدعم أو عبر واتساب.',
     'chat_support_unavailable_action': 'فتح الدعم الفني',
+    'support_request_form': 'إرسال طلب دعم',
+    'support_request_form_desc':
+        'قدّم تذكرة وتابع حالتها — دون الحاجة لمحادثة مباشرة.',
     'helped_by': 'يساعدك @name',
     'marriage_posts_title': 'منشورات الفعاليات',
     'marriage_posts_subtitle': 'برامج وقصص وتحديثات من قسم الفعاليات.',
