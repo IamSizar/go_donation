@@ -1,18 +1,17 @@
 import 'dart:async';
-import 'dart:convert'; // jsonDecode for the country picker's i18n files
 
 import 'package:country_code_picker/country_code_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
-import 'package:flutter/services.dart'; // LengthLimitingTextInputFormatter, rootBundle
+import 'package:flutter/services.dart'; // LengthLimitingTextInputFormatter
 import 'package:flutter_application_1/core/app_haptics.dart';
 import 'package:flutter_application_1/core/phone_format.dart';
 import 'package:get/get.dart';
 
 import 'package:flutter_application_1/core/auth_navigation.dart';
 import 'package:flutter_application_1/api/guest_session.dart';
-import 'package:flutter_application_1/localization/locale_service.dart';
 import 'package:flutter_application_1/modules/auth/widgets/auth_inline_error.dart';
+import 'package:flutter_application_1/modules/auth/widgets/localized_country_list.dart';
 import 'package:flutter_application_1/routes/app_routes.dart';
 
 import '../../../widgets/auth_ui.dart';
@@ -70,7 +69,8 @@ class _LoginForm extends StatefulWidget {
   State<_LoginForm> createState() => _LoginFormState();
 }
 
-class _LoginFormState extends State<_LoginForm> {
+class _LoginFormState extends State<_LoginForm>
+    with LocalizedCountryList<_LoginForm> {
   final _formKey = GlobalKey<FormState>();
   final LoginController _loginController = Get.isRegistered<LoginController>()
       ? Get.find<LoginController>()
@@ -88,7 +88,8 @@ class _LoginFormState extends State<_LoginForm> {
 
   // #39 — international phone support: the selected country's dial code
   // (no "+"), defaulting to Iraq. Changed via the CountryCodePicker.
-  String _dialCode = '964';
+  static const String _defaultDialCode = '964';
+  String _dialCode = _defaultDialCode;
 
   /// Guest entry is a single tap, so its loading and failure states live on
   /// this screen rather than on the sheet that used to own them.
@@ -102,87 +103,12 @@ class _LoginFormState extends State<_LoginForm> {
 
   // ─── Country picker language ───
   //
-  // `CountryCodePicker` resolves each entry's name through its own
-  // `CountryLocalizations`, which reads the ambient `Localizations` locale
-  // in its BuildContext. Two things break that here: (1) this app never
-  // registers `CountryLocalizations.delegate` in `main.dart`, so the lookup
-  // always misses; and (2) even if it were registered, the picker opens its
-  // list via `showDialog(useRootNavigator: true)`, which mounts the dialog
-  // on the app's root Overlay — a sibling of this widget's position, not a
-  // descendant — so a local `Localizations.override` around the picker
-  // would never reach it. With the lookup missing, every name falls back to
-  // the package's raw data, which stores each country's own endonym
-  // ("Österreich", "中国大陆", "افغانستان", "Deutschland") rather than one
-  // consistent language — a mixed list in every locale, not just Arabic.
-  //
-  // The fix builds the list ourselves instead of trusting the ambient
-  // locale: start from the package's default `codes` and overlay every
-  // name from the ONE i18n file matching the app's current language, so
-  // the dialog always renders in a single language regardless of where it
-  // mounts. Resolved once per language and cached in
-  // [_localizedCountryListCache], so re-opening the picker never re-reads
-  // the asset.
-  static final Map<String, List<Map<String, String>>>
-  _localizedCountryListCache = {};
-
-  /// The country list overlaid onto the app's current language. Null until
-  /// [_loadCountryList] resolves at least once, in which case the picker
-  /// falls back to the package's own (mixed-language) default for the one
-  /// frame before it's ready.
-  List<Map<String, String>>? _countryList;
-
-  /// Maps the app's own language (see [AppLocaleService.contentVariant]) to
-  /// the closest locale file `country_code_picker` ships. Kurdish has no
-  /// dedicated file for either dialect the app distinguishes: the
-  /// package's only Kurdish set is `ku.json` (Kurmanji, Latin script), so
-  /// both Sorani (`ar_IQ`) and Badini (`ar_TR`) map to it — the closest
-  /// available option, rather than leaving Kurdish users reading Arabic or
-  /// English country names.
-  String _countryPickerLangCode() {
-    return switch (AppLocaleService.contentVariant(Get.locale)) {
-      'ar' => 'ar',
-      'sorani' || 'badini' => 'ku',
-      _ => 'en',
-    };
-  }
-
-  Future<void> _loadCountryList() async {
-    final lang = _countryPickerLangCode();
-    final cached = _localizedCountryListCache[lang];
-    if (cached != null) {
-      if (mounted) setState(() => _countryList = cached);
-      return;
-    }
-    try {
-      final jsonString = await rootBundle.loadString(
-        'packages/country_code_picker/src/i18n/$lang.json',
-      );
-      final Map<String, dynamic> rawNames = jsonDecode(jsonString);
-      // A handful of entries (US, GB, RU, PS…) map to a JSON array of
-      // aliases ("United States of America", "USA") instead of one string;
-      // the first alias is the country's ordinary name.
-      final names = rawNames.map(
-        (code, value) => MapEntry(
-          code,
-          value is List ? value.first as String : value as String,
-        ),
-      );
-      final localized = codes
-          .map((entry) {
-            final name = names[entry['code']];
-            return name == null
-                ? entry
-                : <String, String>{...entry, 'name': name};
-          })
-          .toList(growable: false);
-      _localizedCountryListCache[lang] = localized;
-      if (mounted) setState(() => _countryList = localized);
-    } catch (_) {
-      // The asset ships inside the package itself, so this should never
-      // fail — but a missing/renamed file on a future package upgrade
-      // should degrade to the package's default list, never crash sign-in.
-    }
-  }
+  // The localized-name-cache/loader/lang-code logic used to live here, but
+  // guest_upgrade.dart's CountryCodePicker had the identical mixed-language
+  // bug with no fix at all, so it moved to the shared
+  // `LocalizedCountryList` mixin (widgets/localized_country_list.dart) —
+  // see that file for the full explanation. This State mixes it in above
+  // and calls [loadCountryList] from [initState].
 
   String? _validatePhone(String? value) {
     final msg = _phoneMessage(value);
@@ -249,7 +175,7 @@ class _LoginFormState extends State<_LoginForm> {
         pendingDigits.startsWith('964') && pendingDigits.length > 3
         ? pendingDigits.substring(3)
         : pending;
-    _loadCountryList();
+    loadCountryList();
   }
 
   /// Sign-in: phone + password. The ordinary way in for anyone who has finished
@@ -322,6 +248,13 @@ class _LoginFormState extends State<_LoginForm> {
     final national = digits.startsWith('0') ? digits.substring(1) : digits;
     return '+$_dialCode$national';
   }
+
+  // F3 fix — see LocalizedCountryList.onCountryListLoaded: the picker's key
+  // flip rebuilds it at 'IQ' once the localized list resolves, so _dialCode
+  // has to be reset back to Iraq's in the same setState or a country picked
+  // in the intervening frame silently keeps the wrong dial code.
+  @override
+  void onCountryListLoaded() => _dialCode = _defaultDialCode;
 
   Future<void> _handleGoogleLogin() async {
     final result = await _loginController.signInWithGoogle();
@@ -495,13 +428,11 @@ class _LoginFormState extends State<_LoginForm> {
                     // widget that changes key is torn down and rebuilt
                     // fresh, which is what actually gets the localized
                     // names into `elements`.
-                    key: ValueKey(
-                      'country_picker_${_countryList == null ? 'loading' : _countryPickerLangCode()}',
-                    ),
+                    key: countryPickerKey,
                     // See "Country picker language" above: overlaid onto the
                     // app's current language so the dialog never mixes
                     // languages, regardless of where it mounts.
-                    countryList: _countryList ?? codes,
+                    countryList: countryListOrDefault,
                     onChanged: (code) => setState(
                       () => _dialCode = (code.dialCode ?? '+964').replaceFirst(
                         '+',

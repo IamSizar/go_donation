@@ -13,6 +13,7 @@ import '../../../api/links.dart';
 import '../../../core/auth_navigation.dart';
 import '../../../core/phone_format.dart';
 import '../../../widgets/auth_ui.dart';
+import '../widgets/localized_country_list.dart';
 
 /// Note #40 — "Account Upgrade and Conversion". A guest enters their phone,
 /// verifies it via OTP (reusing the existing public otp/request endpoint),
@@ -29,9 +30,11 @@ class GuestUpgradeScreen extends StatefulWidget {
 
 enum _Step { phone, otp }
 
-class _GuestUpgradeScreenState extends State<GuestUpgradeScreen> {
+class _GuestUpgradeScreenState extends State<GuestUpgradeScreen>
+    with LocalizedCountryList<GuestUpgradeScreen> {
   _Step _step = _Step.phone;
-  String _dialCode = '964';
+  static const String _defaultDialCode = '964';
+  String _dialCode = _defaultDialCode;
   String _normalizedPhone = '';
   bool _loading = false;
   String _error = '';
@@ -40,6 +43,22 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen> {
   final _otpFormKey = GlobalKey<FormState>();
   final _phoneController = TextEditingController();
   final _otpController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    // See LocalizedCountryList: without this, the picker below shows every
+    // country's own endonym mixed together instead of one language.
+    loadCountryList();
+  }
+
+  // F3 fix (same race as login.dart) — see
+  // LocalizedCountryList.onCountryListLoaded: the picker's key flip
+  // rebuilds it at 'IQ' once the localized list resolves, so _dialCode has
+  // to be reset back to Iraq's in the same setState or a country picked in
+  // the intervening frame silently keeps the wrong dial code.
+  @override
+  void onCountryListLoaded() => _dialCode = _defaultDialCode;
 
   @override
   void dispose() {
@@ -207,6 +226,14 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen> {
                     icon: Icons.phone_outlined,
                   ).copyWith(
                     prefixIcon: CountryCodePicker(
+                      // See LocalizedCountryList.countryPickerKey — forces a
+                      // rebuild once the localized names resolve, since the
+                      // package never recomputes them on its own.
+                      key: countryPickerKey,
+                      // Overlaid onto the app's current language so the
+                      // dialog never mixes languages — see
+                      // localized_country_list.dart.
+                      countryList: countryListOrDefault,
                       onChanged: (code) => setState(
                         () => _dialCode = (code.dialCode ?? '+964')
                             .replaceFirst('+', ''),
