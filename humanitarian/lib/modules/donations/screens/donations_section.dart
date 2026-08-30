@@ -268,7 +268,7 @@ class _DonationsSectionBodyState extends State<_DonationsSectionBody> {
                       .map(
                         (campaign) => Padding(
                           padding: const EdgeInsets.only(bottom: 14),
-                          child: _DonationFeaturedCampaignCard(
+                          child: DonationFeaturedCampaignCard(
                             campaign: campaign,
                             isSelected: campaign.id == _selectedCampaignId,
                             onCardTap: () {
@@ -527,8 +527,9 @@ class _DonationOptionData {
 Color _featuredCardSoftMist(BuildContext context) =>
     AppThemeConfig.borderStrong(context);
 
-class _DonationFeaturedCampaignCard extends StatelessWidget {
-  const _DonationFeaturedCampaignCard({
+class DonationFeaturedCampaignCard extends StatelessWidget {
+  const DonationFeaturedCampaignCard({
+    super.key,
     required this.campaign,
     required this.isSelected,
     required this.onCardTap,
@@ -587,27 +588,17 @@ class _DonationFeaturedCampaignCard extends StatelessWidget {
                           color: AppThemeConfig.accent(context),
                         ),
                         const SizedBox(width: 12),
+                        // Card shows only the headline; the summary/description
+                        // moved to CampaignDetailScreen (opened on tap) so the
+                        // list stays scannable — see task-3-brief.md.
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                campaign.title,
-                                style: TextStyle(
-                                  color: AppThemeConfig.text(context),
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 20,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                campaign.summary,
-                                style: TextStyle(
-                                  color: AppThemeConfig.mutedText(context),
-                                  height: 1.5,
-                                ),
-                              ),
-                            ],
+                          child: Text(
+                            campaign.title,
+                            style: TextStyle(
+                              color: AppThemeConfig.text(context),
+                              fontWeight: FontWeight.w800,
+                              fontSize: 20,
+                            ),
                           ),
                         ),
                         _DonationTypeBadge(
