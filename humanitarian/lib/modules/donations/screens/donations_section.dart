@@ -527,6 +527,10 @@ class _DonationOptionData {
 Color _featuredCardSoftMist(BuildContext context) =>
     AppThemeConfig.borderStrong(context);
 
+// task-3 — public (it was `_DonationFeaturedCampaignCard`) only so a
+// widget test can pump it directly and assert what it renders, without
+// standing up the network-backed DonationsSection screen; nothing else
+// constructs it.
 class DonationFeaturedCampaignCard extends StatelessWidget {
   const DonationFeaturedCampaignCard({
     super.key,
