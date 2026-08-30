@@ -23,33 +23,28 @@
 // instead of inlining the removePadding call. THIS TEST IMPORTS AND PUMPS
 // THAT SAME WIDGET — not a hand-copied stand-in.
 //
-// One important subtlety, found while proving this guard actually guards
-// anything: `KeyboardSafeTabBody`'s own internal `Builder` turns out to be
-// inert once the wrapper is its own widget class — a widget's own `build`
-// context is ALWAYS positioned as a genuine descendant of whatever Scaffold
-// contains it, so `MediaQuery.removePadding(context: context, ...)` inside
-// `KeyboardSafeTabBody.build` would already read the correctly-stripped
-// MediaQuery even without the Builder. The ORIGINAL bug only existed
-// because `_DashboardScreenState.build`'s own `context` sits ABOVE the
-// Scaffold it builds — a State reusing its own incoming context to read
-// something its own return value is about to introduce. That means the
-// widget-level test below, on its own, would NOT fail if someone deleted
-// KeyboardSafeTabBody's Builder — it verifies the wrapper behaves correctly
-// under a real keyboard inset, but the specific failure mode this task
-// fixed can only be reintroduced at the CALL SITE, by dashboard_screen.dart
-// going back to inlining the removePadding call with its own outer
-// context. Pumping the full `DashboardScreen` to catch that directly was
-// tried and rejected: it drags in five tabs' worth of controllers
-// (Marketplace, Marriage, City Guide, Settings, Home) each with their own
-// polling timers, several of which never quiesce within a test even after
-// `Get.reset()`, unrelated to this defect. The second test below instead
-// pins the call site directly, by reading dashboard_screen.dart's own
-// source and asserting it still delegates to `KeyboardSafeTabBody` — the
-// same technique this codebase already uses for cross-cutting invariants
-// (see in_list_search_test.dart's "every searchable list mounts the
-// field"). Together the two tests cover both halves: the wrapper behaves
-// correctly (below), and dashboard_screen.dart still uses it (second
-// test).
+// IMPORTANT: this file's own test, on its own, does NOT pin the fix.
+// `KeyboardSafeTabBody`'s internal `Builder` turns out to be inert once the
+// wrapper is its own widget class — a widget's own `build` context is
+// ALWAYS a genuine descendant of whatever Scaffold contains it, so
+// `MediaQuery.removePadding(context: context, ...)` inside
+// `KeyboardSafeTabBody.build` reads the correctly-stripped MediaQuery even
+// without the Builder. The ORIGINAL bug only existed because
+// `_DashboardScreenState.build`'s own `context` sits ABOVE the Scaffold it
+// builds — a State reusing its own incoming context to read something its
+// own return value is about to introduce. That means this test would NOT
+// fail if someone deleted KeyboardSafeTabBody's Builder, or if
+// dashboard_screen.dart stopped delegating to KeyboardSafeTabBody at all —
+// it only pins that the WRAPPER behaves correctly in isolation (field stays
+// above the keyboard, results list stays scrollable, rendered height stays
+// sane), which is still worth having.
+//
+// The actual regression guard — pumping the real `DashboardScreen`, which
+// is the only widget that can get the context wrong in the first place — is
+// test/widgets/dashboard_screen_keyboard_test.dart. See that file's header
+// for why a widget-level test alone cannot catch this defect, and for the
+// harness this repo already provides for pumping DashboardScreen (an
+// earlier attempt to state that as impossible was wrong).
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -222,43 +217,6 @@ void main() {
       final controller = Get.find<MarketplaceController>();
       controller.stopPolling();
       await tester.pump();
-    },
-  );
-
-  // Pins the CALL SITE, since the widget-level test above cannot: see the
-  // file header for why KeyboardSafeTabBody's own Builder is inert once
-  // extracted, so the only way this exact regression can return is
-  // dashboard_screen.dart no longer delegating to it.
-  test(
-    'dashboard_screen.dart still delegates each tab to KeyboardSafeTabBody',
-    () {
-      final file = File(
-        'lib/modules/dashboard/screens/dashboard_screen.dart',
-      );
-      if (!file.existsSync()) {
-        fail('${file.path} is missing — this test needs updating');
-      }
-      final source = file.readAsStringSync();
-
-      expect(
-        source,
-        contains('child: KeyboardSafeTabBody('),
-        reason:
-            'each dashboard tab must be wrapped in KeyboardSafeTabBody, or '
-            'the keyboard-inset it strips gets read from the wrong context '
-            'again and every tab is crushed the moment its keyboard opens '
-            '— see keyboard_safe_tab_body.dart',
-      );
-      // Collapse whitespace so formatting drift can't hide the pattern.
-      final collapsed = source.replaceAll(RegExp(r'\s+'), ' ');
-      expect(
-        collapsed,
-        isNot(contains('MediaQuery.removePadding( context: context,')),
-        reason:
-            'the original defect: removePadding called with the '
-            "State's own outer build context instead of a context "
-            'inside the Scaffold body',
-      );
     },
   );
 }
