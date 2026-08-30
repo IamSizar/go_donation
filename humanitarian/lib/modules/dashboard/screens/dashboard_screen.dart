@@ -19,7 +19,6 @@ import 'package:flutter_application_1/modules/notifications/controllers/notifica
 import 'package:flutter_application_1/modules/notifications/screens/notifications_screen.dart';
 import 'package:flutter_application_1/modules/auth/screens/profile_menu_screen.dart';
 import 'package:flutter_application_1/modules/search/screens/global_search_screen.dart';
-import 'package:flutter_application_1/modules/support/screens/technical_support_screen.dart';
 import 'package:flutter_application_1/widgets/cached_profile_avatar.dart';
 import 'package:flutter_application_1/api/profile_api.dart';
 import 'dart:io';
@@ -27,7 +26,6 @@ import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:flutter_application_1/widgets/dashboard.dart';
 import 'package:flutter_application_1/widgets/settings_section.dart';
 import 'package:get/get.dart';
-import 'package:flutter_application_1/modules/bot/widgets/assistant_hint_button.dart';
 
 /// Note #41 — "Complete Restructuring and Distribution of the Application
 /// Interfaces". The bottom nav is now fixed at 5 tabs, identical for every
@@ -443,22 +441,6 @@ class DashboardTopBar extends StatefulWidget {
   /// the layout.
   static const double _gap = 6;
 
-  /// The BotNavigation route key for a tab, so the assistant knows which
-  /// section it was asked about (K28).
-  ///
-  /// The Settings tab maps to 'profile': it is where account and preference
-  /// items live, and it is the nearest thing the assistant's FAQ tables
-  /// describe. A key with no matching FAQ for the user's role is not a
-  /// failure — `assistantTopicFor` returns null and the assistant opens on its
-  /// welcome and this role's own suggestion chips.
-  static String _assistantRouteForTab(int index) => switch (index) {
-    _storeIndex => 'market',
-    _marriageIndex => 'marriage',
-    _cityGuideIndex => 'city_guide',
-    _settingsIndex => 'profile',
-    _ => 'home',
-  };
-
   @override
   State<DashboardTopBar> createState() => _DashboardTopBarState();
 }
@@ -749,44 +731,20 @@ class _TopBarActions extends StatelessWidget {
                         children: [
                           const SizedBox(width: DashboardTopBar._gap),
 
-                          // K28 — "an AI icon beside each menu". These five tabs pass
-                          // `title: ''` to their own SectionScaffold because their title
-                          // lives in this bar, so this bar is where their icon belongs:
-                          // putting it in the page header would draw a second, empty
-                          // header row underneath this one. The route key is the same
-                          // one BotNavigation uses, so the assistant opens already
-                          // asking about the tab the user is standing on.
-                          AssistantHintButton(
-                            route: DashboardTopBar._assistantRouteForTab(
-                              tabIndex,
-                            ),
-                          ),
-                          const SizedBox(width: DashboardTopBar._gap),
-                          // J9 — "إضافة زر الدعم في أعلى التطبيق".
+                          // K28's per-section AI icon and J9's support
+                          // button both used to live here. The owner asked for
+                          // both to come off this bar and be reached from
+                          // الرسائل instead, which already carries the
+                          // assistant card and the support-chat tile and now
+                          // carries the technical-support form as well.
                           //
-                          // There was a support button here before the Note #41
-                          // restructure; it was removed on the reasoning that support is
-                          // reachable from Settings. It is — الملف الشخصي → الدعم الفني,
-                          // and the Services hub — but both are two taps in, and "at the
-                          // top of the app" is a request that asking for help should not
-                          // itself need navigating to. This bar is the only chrome drawn
-                          // above every tab, so it is the only place where "at the top"
-                          // is true everywhere.
-                          //
-                          // Next to the assistant deliberately: the AI answers the
-                          // section's FAQ, this one reaches a human, and a user who
-                          // cannot find what they need in the first should see the
-                          // second without hunting. No badge — support replies arrive as
-                          // notifications and in the ticket list, and a second unread
-                          // count beside two real ones would be noise.
-                          _TopBarIconButton(
-                            icon: Icons.support_agent_rounded,
-                            badgeCount: 0,
-                            tooltip: 'Technical Support'.tr,
-                            onTap: () =>
-                                Get.to(() => const TechnicalSupportScreen()),
-                          ),
-                          const SizedBox(width: DashboardTopBar._gap),
+                          // What that trades away, recorded so it is a
+                          // decision and not an accident: the assistant no
+                          // longer opens pre-asking about the tab the user is
+                          // standing on (AssistantHintButton seeded it from
+                          // the tab's route). From الرسائل it opens on its
+                          // normal welcome, whose suggestion chips are the
+                          // role's real FAQs.
                           // Note #43 — grouped with Notifications/Messages at the top,
                           // matching the client's requested layout (was inside the side
                           // drawer only). The profile avatar sits at the end of this row
