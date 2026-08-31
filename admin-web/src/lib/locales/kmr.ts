@@ -860,6 +860,8 @@ const kmr: DeepPartial<typeof en> = {
     notifications: {
       title: 'ئاگه‌هداری', broadcast: 'بەلاڤکری',
       read_all: 'هەمی', read_unread: 'نەخواندی', read_read: 'خواندی',
+      tier_high: 'Pêşenggiya bilind', tier_medium: 'Pêşenggiya navîn', tier_low: 'Pêşenggiya nizm',
+      filter_all_priorities: 'Hemû pêşenggî',
     },
     reports: {
       title: 'ڕاپۆرت', subtitle: 'کورتیا ئامارا گشتی یا سیستەمی.',
@@ -1003,6 +1005,8 @@ const kmr: DeepPartial<typeof en> = {
     language: 'زمان',
     pending_aria: '{label} — {count} چاڤەڕوان',
     pending_count: '{count} چاڤەڕوان',
+    unread_aria: '{label} — {count} nexwendî',
+    unread_count: '{count} nexwendî',
     admin_word: 'بەڕێڤەبەر',
   },
 

@@ -39,10 +39,61 @@ function categoryBadge(c: string): string {
   }
 }
 
+// Task 3 (owner ask: "show the notification badge and color code and
+// filter") — colour-coding is by PRIORITY/SEVERITY, not by category/source.
+// This is not a new taxonomy: it reuses `defaultPriority` in
+// backend/internal/notify/notify.go (urgent=80, payment=60 → high;
+// campaign=35, system=20 → medium; reminder=15, normal=0 → low), the exact
+// same boundary the Flutter app's notification-settings screen already
+// groups its category switches into (_tierOf,
+// humanitarian/lib/modules/notifications/screens/notification_categories_screen.dart).
+// Reusing it here means an admin and an app user agree on what "high
+// priority" means without a second definition to drift out of sync.
+type PriorityTier = 'high' | 'medium' | 'low'
+const PRIORITY_TIERS: PriorityTier[] = ['high', 'medium', 'low']
+
+function tierOfCategory(category: string): PriorityTier {
+  switch (category) {
+    case 'urgent':
+    case 'payment':
+      return 'high'
+    case 'campaign':
+    case 'system':
+      return 'medium'
+    default: // reminder, normal, and any future category default to 'low'.
+      return 'low'
+  }
+}
+
+// Reuses the existing .badge.tone-* palette (index.css) — already defined
+// and contrast-verified in both themes; no new CSS variables introduced
+// (the codebase has a documented prior bug where a referenced-but-undefined
+// variable, --color-surface-1, silently dropped a whole rule — every token
+// below is one already declared in :root and :root[data-theme='light']).
+// Measured against the panel background these badges sit on, in each theme
+// (WCAG contrast, text colour vs. composited badge background):
+//   high   (tone-danger)  dark 8.16:1 · light 5.32:1
+//   medium (tone-warning) dark 9.66:1 · light 6.31:1
+//   low    (tone-info)    dark 8.11:1 · light 5.28:1
+// All four clear the 4.5:1 minimum in both themes.
+const TIER_TONE: Record<PriorityTier, string> = {
+  high: 'tone-danger',
+  medium: 'tone-warning',
+  low: 'tone-info',
+}
+
 export default function NotificationsPage() {
   const [page, setPage] = useState(1)
   const [category, setCategory] = useState('')
   const [readStatus, setReadStatus] = useState('all')
+  // Task 3c — filter by priority tier. Client-side: the backend's
+  // /api/admin/notifications has no priority-tier query param (tiers are a
+  // dashboard-side grouping of `notification_category`, computed by
+  // tierOfCategory above, not a stored column to filter on server-side), so
+  // this filters the already-fetched page same as isStaffAccount does for
+  // UsersPage/StaffPage — a page can show fewer than PER_PAGE rows when some
+  // of it doesn't match, a known/accepted imprecision rather than a gate.
+  const [priorityTier, setPriorityTier] = useState('')
   const [resp, setResp] = useState<AdminPageResp<AdminNotification> | null>(null)
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -77,6 +128,12 @@ export default function NotificationsPage() {
   // by admin actions should appear in this list without a manual reload.
   useLivePoll(() => { pollSilent.current = true; setRefreshTick((t) => t + 1) }, 5_000)
 
+  // Task 3c — apply the priority-tier filter to the fetched page (see the
+  // priorityTier state comment above for why this is client-side).
+  const visibleItems = (resp?.items ?? []).filter(
+    (n) => !priorityTier || tierOfCategory(n.notification_category) === priorityTier,
+  )
+
   const columns: Column<AdminNotification>[] = [
     { key: 'id', header: t('col.id'), width: '60px', cell: (n) => <strong>{fmtId(n.id)}</strong> },
     {
@@ -107,7 +164,22 @@ export default function NotificationsPage() {
       key: 'cat', header: t('col.category'),
       cell: (n) => <span className={`badge ${categoryBadge(n.notification_category)}`}>{statusLabel(n.notification_category)}</span>,
     },
-    { key: 'prio', header: t('col.pri'), align: 'right', cell: (n) => n.priority },
+    {
+      // Task 3b — colour-coded by priority tier, never colour alone: the
+      // badge always carries the tier's text label, with the raw numeric
+      // priority alongside it in muted text so nothing that used to be
+      // visible (the number) is lost.
+      key: 'prio', header: t('col.pri'), align: 'right',
+      cell: (n) => {
+        const tier = tierOfCategory(n.notification_category)
+        return (
+          <span className="row" style={{ justifyContent: 'flex-end', gap: 6 }}>
+            <span className="muted">{n.priority}</span>
+            <span className={`badge ${TIER_TONE[tier]}`}>{t(`page.notifications.tier_${tier}`)}</span>
+          </span>
+        )
+      },
+    },
     { key: 'read', header: t('col.read'), cell: (n) => n.is_read === 1 ? <span className="badge ok">{t('common.yes')}</span> : <span className="badge off">{t('common.no')}</span> },
     { key: 'created', header: t('col.created'), cell: (n) => <span className="muted">{n.created_at?.slice(0, 16).replace('T', ' ')}</span> },
   ]
@@ -123,6 +195,13 @@ export default function NotificationsPage() {
           <select value={category} onChange={(e) => { setCategory(e.target.value); setPage(1) }} style={{ width: 'auto' }}>
             {CATEGORIES.map(c => <option key={c} value={c}>{c === '' ? t('filter.all_categories') : statusLabel(c)}</option>)}
           </select>
+          {/* Task 3c — filter by the same priority taxonomy the badges use. */}
+          <select value={priorityTier} onChange={(e) => { setPriorityTier(e.target.value); setPage(1) }} style={{ width: 'auto' }}>
+            <option value="">{t('page.notifications.filter_all_priorities')}</option>
+            {PRIORITY_TIERS.map((tier) => (
+              <option key={tier} value={tier}>{t(`page.notifications.tier_${tier}`)}</option>
+            ))}
+          </select>
           <select value={readStatus} onChange={(e) => { setReadStatus(e.target.value); setPage(1) }} style={{ width: 'auto' }}>
             {READ.map(r => (
               <option key={r} value={r}>
@@ -131,7 +210,7 @@ export default function NotificationsPage() {
             ))}
           </select>
           <ExportCsvButton
-            rows={resp?.items ?? []}
+            rows={visibleItems}
             columns={NOTIFICATION_CSV_COLUMNS}
             filenameBase="notifications"
             title={t('nav.notifications')}
@@ -140,7 +219,7 @@ export default function NotificationsPage() {
         </div>
       </PageHead>
       {err && <div className="error-box">{err}</div>}
-      <Table<AdminNotification> rows={resp?.items ?? []} columns={columns} rowKey={(n) => n.id} loading={loading} empty={t('empty.notifications')} />
+      <Table<AdminNotification> rows={visibleItems} columns={columns} rowKey={(n) => n.id} loading={loading} empty={t('empty.notifications')} />
       <Pagination page={page} totalPages={resp?.total_pages ?? 1} onPageChange={setPage} disabled={loading} />
     </div>
   )

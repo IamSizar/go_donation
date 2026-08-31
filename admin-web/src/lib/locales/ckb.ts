@@ -859,6 +859,8 @@ const ckb: DeepPartial<typeof en> = {
     notifications: {
       title: 'ئاگادارییەکان', broadcast: 'بڵاوکراوە',
       read_all: 'هەموو', read_unread: 'نەخوێنراوە', read_read: 'خوێنراوە',
+      tier_high: 'گرنگی بەرز', tier_medium: 'گرنگی مامناوەند', tier_low: 'گرنگی نزم',
+      filter_all_priorities: 'هەموو گرنگییەکان',
     },
     reports: {
       title: 'ڕاپۆرتەکان', subtitle: 'کورتەی ئاماری گشتی سیستەم.',
@@ -1002,6 +1004,8 @@ const ckb: DeepPartial<typeof en> = {
     language: 'زمان',
     pending_aria: '{label} — {count} چاوەڕوان',
     pending_count: '{count} چاوەڕوان',
+    unread_aria: '{label} — {count} نەخوێندراوە',
+    unread_count: '{count} نەخوێندراوە',
     admin_word: 'بەڕێوەبەر',
   },
 
