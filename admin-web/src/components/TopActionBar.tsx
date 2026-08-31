@@ -15,6 +15,17 @@ import { useSaveAction } from '../lib/saveAction'
 // its row modal, so there is genuinely nothing here for this button to do.
 //
 // The page's own header renders into the slot between Refresh and Save.
+//
+// BUTTON ORDER (owner request): Back sits at the inline-START of the bar and
+// Next at the inline-END, at opposite edges, rather than as an adjacent pair.
+// "Opposite edges" is expressed by DOM ORDER inside a flex row, not by `left`
+// and `right` — the dashboard renders RTL in Arabic, where the start edge is
+// the right one, and a hardcoded side would put Back and Next on the wrong
+// ends for every Arabic operator. Save stays immediately before Next, so it
+// keeps its filled-primary prominence and its place at the action end of the
+// bar while Next takes the outer edge.
+//
+//   [Back] [Refresh]  …page header…  [page actions] [Save] [Next]
 export default function TopActionBar({
   slotRef,
   actionsRef,
@@ -25,20 +36,26 @@ export default function TopActionBar({
   secondaryRef: (el: HTMLDivElement | null) => void
 }) {
   const navigate = useNavigate()
-  const { t } = useI18n()
+  const { t, dir } = useI18n()
   const { save, canSave, busy } = useSaveAction()
 
   const refresh = () => window.location.reload()
 
   return (
     <div className="top-action-bar" role="toolbar" aria-label={t('common.actions')}>
-      <button className="secondary" onClick={() => navigate(-1)} title={t('toolbar.back')}>
-        <ArrowLeft size={15} strokeWidth={2.2} />
+      {/* Inline-START edge. `Icons.adaptive`-style mirroring: the arrow is a
+          directional glyph, so it must point at the start edge in BOTH
+          directions — ArrowLeft in English, ArrowRight in Arabic. Driven by
+          the i18n `dir` rather than a CSS transform so the icon stays crisp
+          and the DOM stays honest about what it is showing. */}
+      <button
+        className="secondary nav-history-btn"
+        onClick={() => navigate(-1)}
+        title={t('toolbar.back')}
+        aria-label={t('toolbar.back')}
+      >
+        {dir === 'rtl' ? <ArrowRight size={15} strokeWidth={2.2} /> : <ArrowLeft size={15} strokeWidth={2.2} />}
         <span>{t('toolbar.back')}</span>
-      </button>
-      <button className="secondary" onClick={() => navigate(1)} title={t('toolbar.next')}>
-        <span>{t('toolbar.next')}</span>
-        <ArrowRight size={15} strokeWidth={2.2} />
       </button>
       <button className="secondary" onClick={refresh} title={t('toolbar.refresh')}>
         <RotateCw size={15} strokeWidth={2.2} />
@@ -62,6 +79,18 @@ export default function TopActionBar({
       >
         <Save size={15} strokeWidth={2.2} />
         <span>{busy ? t('common.saving') : t('toolbar.save')}</span>
+      </button>
+      {/* Inline-END edge — the far side of the bar from Back. Same directional
+          mirroring: Next points at the end edge, which is the left one in
+          Arabic. */}
+      <button
+        className="secondary nav-history-btn nav-next-btn"
+        onClick={() => navigate(1)}
+        title={t('toolbar.next')}
+        aria-label={t('toolbar.next')}
+      >
+        <span>{t('toolbar.next')}</span>
+        {dir === 'rtl' ? <ArrowLeft size={15} strokeWidth={2.2} /> : <ArrowRight size={15} strokeWidth={2.2} />}
       </button>
       {/* Full-width second line, so whatever a page puts here starts under
           Back rather than indented under the middle strip. Collapses to

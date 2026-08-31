@@ -1181,6 +1181,23 @@ const en = {
     unread_aria: '{label} — {count} unread',
     unread_count: '{count} unread',
     admin_word: 'admin',
+    // Accessible name for the <aside> navigation landmark, and for the
+    // hamburger that opens it as a drawer on a phone.
+    menu: 'Menu',
+    menu_open: 'Open menu',
+    menu_close: 'Close menu',
+  },
+
+  // PWA — install prompt and offline notice. Kept in their own namespace
+  // because they belong to the app-container, not to any screen.
+  pwa: {
+    install: 'Install app',
+    install_title: 'Install BalanceNex Admin on this device for a home-screen icon and full-screen use',
+    // Deliberately says what the admin is looking at, not just that the
+    // network is down: the danger of an offline PWA is an empty table reading
+    // as "there are no records".
+    offline_title: "You're offline",
+    offline_body: 'Showing the last screen loaded. Lists may be empty or out of date until the connection returns.',
   },
 
   // Table empty states, keyed by resource.

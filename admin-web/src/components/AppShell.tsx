@@ -11,6 +11,7 @@ import { formatPhone } from '../lib/phone'
 import { RESOURCE_LABELS } from '../lib/resourceLabels'
 import { useToast } from '../lib/toast'
 import { navByTo, DEFAULT_NAV_SECTIONS, reconcileNavSections, isNavPathActive, type NavItem, type NavSection } from '../lib/navLayout'
+import InstallAppButton from './InstallAppButton'
 import SoundMenu from './SoundMenu'
 import ConfirmDialog from './ConfirmDialog'
 import ThemeToggle from './ThemeToggle'
@@ -133,6 +134,20 @@ export default function AppShell() {
   useEffect(() => {
     setMobileNavOpen(false)
   }, [location.pathname])
+
+  // PWA/mobile pass — an overlay that traps the eye must be dismissible the
+  // way every other overlay in this app is. The scrim already handles a tap;
+  // this handles the hardware/soft keyboard, which is the only exit an admin
+  // on a tablet with a keyboard case has. Registered only while open so it
+  // never competes with a page's own Escape handling (dialogs, menus).
+  useEffect(() => {
+    if (!mobileNavOpen) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileNavOpen(false)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [mobileNavOpen])
 
   // Note #29 — which nav groups the admin has manually opened, persisted the
   // same way sidebarCollapsed is. Whichever group contains the CURRENT page
@@ -322,7 +337,17 @@ export default function AppShell() {
           aria-hidden="true"
         />
       )}
-      <aside className="sidebar" aria-hidden={sidebarCollapsed && !mobileNavOpen}>
+      {/* id + aria-label so the hamburger below can point at this region with
+          aria-controls and a screen reader announces it as the navigation
+          drawer rather than an unnamed landmark. Note the closed mobile drawer
+          is taken out of the tab order by `visibility: hidden` in the CSS, not
+          here — aria-hidden alone would still leave its links focusable. */}
+      <aside
+        id="app-sidebar"
+        className="sidebar"
+        aria-label={t('shell.menu')}
+        aria-hidden={sidebarCollapsed && !mobileNavOpen}
+      >
         <div className="brand" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <img
             src="/et-logo.png"
@@ -435,8 +460,12 @@ export default function AppShell() {
               type="button"
               className="mobile-nav-toggle-btn"
               onClick={() => setMobileNavOpen((o) => !o)}
-              title={t('shell.sidebar_show')}
-              aria-label={t('shell.sidebar_show')}
+              title={mobileNavOpen ? t('shell.menu_close') : t('shell.menu_open')}
+              aria-label={mobileNavOpen ? t('shell.menu_close') : t('shell.menu_open')}
+              // The pair a screen reader needs to describe a disclosure: what
+              // this controls, and whether it is currently showing.
+              aria-expanded={mobileNavOpen}
+              aria-controls="app-sidebar"
             >
               <Menu size={19} strokeWidth={2.3} />
             </button>
@@ -470,6 +499,9 @@ export default function AppShell() {
             {/* Speaker icon — opens a dropdown with sound on/off, test
                 chime, and OS-notification opt-in. Always available so an
                 admin can mute/unmute from any page. */}
+            {/* Renders nothing unless the browser has offered an install
+                prompt — see InstallAppButton. */}
+            <InstallAppButton />
             <SoundMenu />
             <ThemeToggle />
             <select
