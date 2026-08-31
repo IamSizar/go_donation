@@ -89,6 +89,14 @@
   --space-7: 48px;
   --space-8: 64px;
 
+  /* -------- Touch target --------
+     The minimum hit area for a finger, in both axes: WCAG 2.5.5 AAA and the
+     same 44pt floor Apple's HIG and Material both land on. A token rather
+     than a repeated literal because it is a fixed accessibility constant with
+     a name, not a spacing choice — it must not drift, and it must not be
+     mistaken for a value on the 4/8/12/16/24/32 scale below. */
+  --touch-target: 44px;
+
   /* -------- Type scale (1.125 modular) -------- */
   --text-xs:   11px;
   --text-sm:   12.5px;
@@ -1214,25 +1222,46 @@ nav .nav-group-header:hover { background: var(--panel-2); color: var(--text-h); 
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  /* Note #28 — table-wrap always had `overflow: auto` (needed on the x-axis
-     for wide tables — Note #1/#2) plus `.data-table thead th`'s
-     `position: sticky; top: 0` below, but table-wrap had no height cap, so
-     it always grew to fit its content and never actually scrolled
-     vertically itself — the sticky rule had nothing to stick against.
-     (Tried excluding table-wrap from the y-axis via overflow-y: hidden/
-     visible so the header would stick against `.content` instead, but ANY
-     non-`visible` overflow-y — even `hidden` — still makes an element a
-     valid sticky containing block even when it never scrolls, so the
-     header just rode along 1:1 with the page instead of clamping — visible
-     as it sailing straight off the top on any table taller than a
-     screenful. And `overflow-y: visible` gets silently forced back to
-     `auto` by browsers whenever overflow-x isn't also `visible`.) The
-     robust fix: give table-wrap an actual height cap (max-height below) so
-     it becomes a genuine internally-scrolling pane, and let the header
-     stick to ITS OWN top edge (top: 0, unchanged) rather than trying to
-     coordinate offsets with `.content` and the sticky toolbar above it. */
-  max-height: calc(100vh - 320px);
-  overflow: auto;
+  /* ─── Scrolling: horizontal only, and no height cap ───────────────────
+     HISTORY. Note #28 gave this element `max-height: calc(100vh - 320px)`
+     specifically so that `.data-table thead th`'s `position: sticky` would
+     have a scrollport to clamp against. It worked, and it cost more than it
+     bought: every table became a fixed-height pane inside a scrolling page,
+     so the last row was sliced off at an arbitrary line and a second
+     scrollbar appeared inside the card. The `320px` was a guess at the
+     surrounding chrome, so the slice landed somewhere different on every
+     page. That is the "cut off at the bottom … I need to scroll in an ugly
+     way" the owner reported, and a nested scroll region fighting the page
+     scroll is against the project's own design rules.
+
+     WHAT WAS TRIED. `overflow-y: clip` was the obvious candidate the old
+     comment never considered — unlike `hidden`, `clip` does not create a
+     scroll container, so a sticky descendant should escape to the page
+     scroller. It does not work here, and this was measured rather than
+     assumed (Chrome 148, computed values read back off a live probe):
+
+         overflow  auto / clip     computes to   auto / hidden
+         overflow  auto / visible  computes to   auto / auto
+         overflow  clip / clip     computes to   clip / clip
+
+     The CSS Overflow spec forces `clip` to `hidden` (and `visible` to
+     `auto`) on one axis as soon as the other axis is a scrolling value. So
+     the moment we keep `overflow-x: auto` — which we must, or a wide table
+     pushes the whole page sideways — this element is a scroll container,
+     and it captures the sticky header. `clip / clip` survives, but throws
+     away the horizontal scroll with it.
+
+     THE TRADE-OFF, STATED PLAINLY. Page-level vertical scrolling, a
+     contained horizontal scroll, and a sticky header cannot all three hold
+     on one subtree. Two are requirements — the page must scroll as one
+     (owner), and the body must never scroll sideways (brief). So the sticky
+     header is the one that goes; see the note on .data-table thead th
+     below, which explains what replaces it. */
+  overflow-x: auto;
+  /* No cap, and `hidden` on the block axis: with height driven by content
+     there is nothing to clip, and saying `hidden` rather than `auto` makes
+     it explicit that a vertical scrollbar must never appear here again. */
+  overflow-y: hidden;
   box-shadow: var(--shadow-sm);
   /* Firefox: the site-wide thin/subtle scrollbar is too faint to notice on
      a wide table where it's the ONLY hint more columns exist off-screen. */
@@ -1264,8 +1293,17 @@ nav .nav-group-header:hover { background: var(--panel-2); color: var(--text-h); 
   background: var(--color-surface-2);
   padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--color-border);
-  position: sticky;
-  top: 0;
+  /* `position: sticky` was removed with the wrapper's height cap — see the
+     measured explanation on .table-wrap above. It is not silently dropped:
+     with no cap there is no vertical scrollport for it to clamp against, so
+     the declaration would have been dead code that only *looked* like a
+     feature. What carries the header's job instead is that it is now a
+     visibly framed row — its own tinted ground, a full grid of column rules
+     and a stronger bottom border (see the "Data tables" section at the end of
+     this file) — and that every list here paginates at 20 rows, so the header
+     is rarely more than a screen away.
+     z-index is kept: the row is still painted above the cells beneath it,
+     which matters for the hover tint and for any popover a cell opens. */
   z-index: 2;
   font-size: var(--text-xs);
   text-transform: uppercase;
@@ -1277,8 +1315,30 @@ nav .nav-group-header:hover { background: var(--panel-2); color: var(--text-h); 
   color: var(--text);
   vertical-align: middle;
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+  /* Pinned rather than inherited from .data-table, so a cell can never pick
+     up a larger size from something a page wraps around it — the "some have
+     big size for text and the table becomes compressed" report. */
+  font-size: var(--text-sm);
+  /* `white-space: nowrap` used to be here unconditionally, and it is half of
+     what made a table feel compressed: no cell could ever give width back, so
+     every column fought for the same space and the whole grid squeezed. Text
+     may now wrap (browsers only wrap when the table genuinely cannot fit, so
+     nothing changes on a roomy screen); figures may not — see the
+     [data-align="end"] rule below. */
+  white-space: normal;
+  /* A pasted URL or a 40-character username is one "word" and would push a
+     column past the viewport on its own. */
+  overflow-wrap: break-word;
 }
+/* End-aligned columns are the numeric ones (Table.tsx's logicalAlign marks
+   them, and stamps data-align on the cell). A wrapped amount or reference
+   number is unreadable, so these keep the old nowrap behaviour. */
+.data-table tbody td[data-align='end'] { white-space: nowrap; }
+/* Form controls do not inherit typography from their surroundings — a bare
+   <select> in a cell renders in the UA's own 13.33px system font, larger than
+   and different from the 12.5px around it. Zero-specificity :where() so any
+   component with its own size (the .status-cell pill's 11px) still wins. */
+:where(.data-table) :where(input, select, textarea) { font-size: var(--text-sm); }
 .data-table tbody tr:last-child td { border-bottom: none; }
 .data-table tbody tr {
   transition: background 100ms ease;
@@ -1299,64 +1359,23 @@ nav .nav-group-header:hover { background: var(--panel-2); color: var(--text-h); 
   color: var(--tone-danger-fg-strong);
 }
 
-/* Responsive pass — below tablet width a <table> stops reading as rows of
-   columns (the sideways scroll the client specifically complained about) and
-   becomes a stack of self-labelled cards instead: `thead` is hidden and each
-   `<td>` prints its own column header via `content: attr(data-label)` (see
-   Table.tsx's data-label prop). `!important` on text-align/white-space is
-   deliberate — both are set as inline styles per-cell in Table.tsx
-   (alignment, nowrap-for-tabular-numbers) which a plain class rule can't
-   outrank without it. */
-@media (max-width: 720px) {
-  .table-wrap {
-    max-height: none;
-    overflow: visible;
-    border: none;
-    background: transparent;
-    box-shadow: none;
-  }
-  .data-table thead { display: none; }
-  .data-table, .data-table tbody, .data-table tr {
-    display: block;
-    width: 100%;
-  }
-  .data-table tbody tr {
-    margin-bottom: var(--space-3);
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
-    overflow: hidden;
-    box-shadow: var(--shadow-sm);
-  }
-  .data-table tbody tr:last-child { margin-bottom: 0; }
-  .data-table td {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-3);
-    width: auto;
-    white-space: normal !important;
-    text-align: end !important;
-  }
-  .data-table td::before {
-    content: attr(data-label);
-    flex-shrink: 0;
-    font-weight: 600;
-    color: var(--muted);
-    font-size: var(--text-xs);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    text-align: start;
-  }
-  /* The selection checkbox has no column header to print — show it as a
-     small leading control instead of a labelled row. */
-  .data-table td.select-cell {
-    justify-content: flex-start;
-    background: var(--color-surface-2);
-    border-bottom-color: var(--color-border);
-  }
-  .data-table td.select-cell::before { content: none; }
-}
+/* A previous responsive pass turned every table below 720px into a stack of
+   self-labelled cards: `thead` hidden, each `<td>` printing its own column
+   header through `content: attr(data-label)`. That block has been REMOVED
+   rather than overridden.
+
+   Why it was removed, on purpose and against a decision taken earlier: the
+   owner, looking at this dashboard on a phone, asked for tables that are
+   "table shaped with borders" with "all columns perfectly aligned". A card
+   stack has no columns to align — it answers a different question. The reason
+   the card mode existed (a complaint about sideways scrolling) is now handled
+   structurally instead: `.main`/`.content` get `min-width: 0` so overflow can
+   no longer escape into the page, and `.table-wrap` is a real internally
+   scrolling pane. The table scrolls; the screen does not.
+   See the "Data tables — a real bordered grid" section at the end of this file
+   for the replacement, including the narrower phone gutters.
+   `data-label` is still emitted by Table.tsx and is still worth keeping: it is
+   what a future compact/stacked view would read, and it costs nothing. */
 
 /* ===== Pagination ===== */
 .pagination {
@@ -3127,4 +3146,301 @@ html[dir='rtl'] .data-table th {
 .field input[aria-invalid='true'],
 .field textarea[aria-invalid='true'] {
   border-color: var(--color-danger);
+}
+
+/* ============================================================
+   PWA + phone shell
+   ============================================================
+   Appended last on purpose: several rules here override earlier ones of equal
+   specificity (the drawer, the nav rows), and winning by source order is
+   cheaper to read than winning by a stacked selector.
+
+   The owner runs this dashboard from a phone. Everything below serves the
+   360–430px range: a drawer that is genuinely dismissible, nav rows a thumb
+   can hit, and a page body that never scrolls sideways.
+   ============================================================ */
+
+/* ---------- No horizontal page scroll, ever ----------
+   `.main` is a grid item and `.content` is a flex item, and BOTH default to
+   `min-width: auto` — meaning neither will shrink below the width of its
+   widest child. One over-wide table was therefore enough to push the whole
+   column past the viewport, and because `.content` is itself `overflow: auto`
+   the sideways scroll landed on the page body instead of on the table.
+   `min-width: 0` lets them shrink to the grid track, which forces the overflow
+   back down into `.table-wrap` — the container that is *supposed* to scroll. */
+.main { min-width: 0; }
+.content { min-width: 0; }
+/* Belt and braces for anything that still manages to overflow (a long unbroken
+   URL in a card, a third-party embed): the page clips rather than scrolls, and
+   the element's own scroll container keeps working. */
+.app-shell { max-width: 100vw; overflow-x: hidden; }
+
+/* ---------- Wide tables scroll inside themselves ----------
+   Between the card breakpoint (720px) and the desktop layout, `.table-wrap` is
+   the scroll container. It is the shared wrapper every page's <Table/> renders
+   through, which is why this is one rule here rather than a pass over ~40
+   pages. `-webkit-overflow-scrolling` keeps the momentum flick iOS users
+   expect; `overscroll-behavior-inline: contain` stops a horizontal flick that
+   reaches the end of the table from being handed to the browser as a
+   back-navigation gesture. */
+.table-wrap {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-inline: contain;
+  max-width: 100%;
+}
+
+/* ---------- Offline banner ----------
+   Fixed to the BOTTOM, not the top: the topbar is where the admin's own
+   controls live and a bar that pushes them down moves the thing they were
+   about to tap. Bottom is also nearer the thumb and clear of the notch.
+   `env(safe-area-inset-bottom)` keeps it off the iPhone home indicator. */
+.offline-banner {
+  position: fixed;
+  inset-inline: var(--space-3);
+  bottom: calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
+  z-index: 300;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  /* Warning amber, not danger red: being offline is a condition to work
+     around, not a fault. --tone-warning-fg-strong (#FDE68A) on
+     --color-surface-2 (#1A2238) measures 13.4:1, and the body text at
+     --color-text (#C5CCDA) measures 9.9:1 — both far past the 4.5:1 floor. */
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-warning);
+  box-shadow: var(--shadow-lg);
+  color: var(--tone-warning-fg-strong);
+  /* Centred and width-capped so it reads as a notice on a desktop monitor
+     rather than a full-bleed bar across 2000px. */
+  max-width: 30rem;
+  margin-inline: auto;
+}
+.offline-banner svg { flex-shrink: 0; margin-top: 2px; }
+.offline-banner-text { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.offline-banner-text strong { font-size: var(--text-base); font-weight: 600; }
+.offline-banner-text span {
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+/* ---------- Install button ----------
+   Collapses to icon-only at the same 640px the topbar starts wrapping at, so
+   it never costs the topbar a second row. The button keeps its aria-label. */
+.install-app-btn { flex-shrink: 0; }
+@media (max-width: 640px) {
+  .install-app-btn span { display: none; }
+  .install-app-btn { padding: 0 var(--space-3); }
+}
+
+/* ---------- Safe areas ----------
+   viewport-fit=cover (index.html) lets the page paint under the notch and the
+   home indicator; these pay that back, so the topbar's controls and the
+   drawer's sign-out button are never under the bezel. Zero on every device
+   without insets, so nothing changes on desktop. */
+.topbar {
+  padding-inline-start: max(var(--space-5), env(safe-area-inset-left, 0px));
+  padding-inline-end: max(var(--space-5), env(safe-area-inset-right, 0px));
+  padding-top: max(var(--space-3), env(safe-area-inset-top, 0px));
+}
+
+/* ---------- Phone shell ---------- */
+@media (max-width: 768px) {
+  /* The closed drawer sits off-screen via `transform`, which does NOT remove
+     it from the tab order — every nav link stayed focusable, so tabbing from
+     the hamburger walked invisibly through ~60 links before reaching the page.
+     `visibility: hidden` takes the subtree out of the tree for focus and
+     assistive tech; it animates as a discrete step at the END of the transition
+     when hiding and the START when showing, so the slide is still seen. */
+  .sidebar {
+    visibility: hidden;
+    transition: transform 220ms ease, visibility 220ms;
+    /* Under the notch/home indicator on a phone in landscape or with gesture
+       navigation — the drawer is full-height, so it owns all four insets. */
+    padding-top: max(var(--space-4), env(safe-area-inset-top, 0px)) !important;
+    padding-bottom: max(var(--space-4), env(safe-area-inset-bottom, 0px)) !important;
+  }
+  .mobile-nav-open .sidebar { visibility: visible; }
+
+  /* Thumb-sized nav rows. The desktop rows are ~30px tall with a 2px gap —
+     built for a mouse pointer, and below the 44x44px touch minimum with
+     nothing like 8px of separation. Height comes from min-height rather than
+     more padding so a two-line group name still centres in its row. */
+  .sidebar nav { gap: var(--space-2); }
+  .nav-group-items { gap: var(--space-2); margin-top: var(--space-2); }
+  .nav-item,
+  .nav-group-header {
+    min-height: var(--touch-target);
+    display: flex;
+    align-items: center;
+    padding-block: var(--space-2);
+    font-size: var(--text-base);
+  }
+  /* Flex lets a long localized label shrink and wrap inside the row instead
+     of pushing the badge past the drawer edge. */
+  .nav-item .nav-item-label { flex: 1; min-width: 0; }
+
+  /* Same floor for the drawer's own footer actions. */
+  .sidebar-foot .export-btn,
+  .sidebar-foot .logout-btn { min-height: var(--touch-target); }
+
+  /* Every topbar control — hamburger, install, sound, theme, language — is
+     30–36px tall on desktop, which is a comfortable mouse target and an
+     uncomfortable thumb one. 44px in both axes here. The two `.row` groups
+     that hold them already carry 12px and 8px inline gaps, so the 8px
+     minimum separation is met without touching them. */
+  .topbar button,
+  .topbar select,
+  .mobile-nav-toggle-btn {
+    min-width: var(--touch-target);
+    min-height: var(--touch-target);
+  }
+}
+
+/* ---------- Reduced motion ----------
+   Scoped to the drawer and the scrim rather than a blanket `* { animation:
+   none }`: this is the one motion in the shell that moves a full-height
+   surface across the screen, which is exactly the kind a vestibular-sensitive
+   admin asked not to see. The drawer still appears and disappears — it just
+   does so instantly, and `visibility` must switch instantly with it or the
+   closed drawer would stay focusable for 220ms. */
+@media (prefers-reduced-motion: reduce) {
+  .sidebar { transition: none !important; }
+  .app-shell { transition: none; }
+}
+
+/* ============================================================
+   Data tables — a real bordered grid
+   ============================================================
+   Owner request: "make them all table shaped with borders and please make all
+   columns perfectly aligned."
+
+   WHAT WAS ACTUALLY WRONG
+   Measured on the Users table before this change: every header and its body
+   cells already resolved to the SAME text-align (Table.tsx applies one
+   logicalAlign() to both the <th> and the <td>), and every column's header box
+   and cell box shared the same start edge to the pixel. So the columns were
+   mathematically aligned and still read as misaligned — because the table drew
+   only horizontal rules. With no vertical separators the eye has nothing to
+   track a value back to its heading with, and on a row carrying a mix of plain
+   text, a pill-shaped <select> and an actions menu, "which column is this in?"
+   genuinely becomes guesswork.
+
+   So: draw the grid, and close the one real optical gap that was left.
+   ============================================================ */
+
+/* `separate` rather than the inherited `collapse`. With border-collapse:
+   collapse a *sticky* <th>'s borders are painted by the table rather than by
+   the cell, and they drop out the moment the header detaches and scrolls — the
+   header would lose its underline exactly when it is doing its job.
+   `separate` + zero spacing gives each cell its own border, which sticks with
+   it, and is visually identical otherwise. */
+.data-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  /* Digits line up between rows AND between a column and its header. This was
+     already set on tbody td; the header row was left on proportional figures,
+     so a numeric heading never quite tracked the column under it. */
+  font-variant-numeric: tabular-nums;
+}
+
+/* The grid itself. --color-border-strong (rgba(255,255,255,0.14)) rather than
+   --color-border (0.08): a separator the eye cannot find is not a separator.
+   Both are existing tokens — no new colour or px value enters the file.
+   Borders are UI boundaries, not text, so the 4.5:1 text-contrast rule does
+   not apply to them; they sit well below the text tones on purpose, so the
+   grid frames the data instead of competing with it. */
+.data-table th,
+.data-table td {
+  border-bottom: 1px solid var(--color-border-strong);
+  /* Logical, so the column rules sit on the correct side under Arabic RTL. */
+  border-inline-end: 1px solid var(--color-border-strong);
+}
+/* The last column's rule would land directly on .table-wrap's own border —
+   two 1px lines in one place read as a single thick, uneven edge. */
+.data-table tr > :last-child { border-inline-end: none; }
+/* Same argument on the bottom edge: the wrapper already closes the box. */
+.data-table tbody tr:last-child td { border-bottom: none; }
+
+/* The sticky header now carries a border on a cell that scrolls independently
+   of the rows beneath it; background-clip keeps its own ground from painting
+   over that border as it moves. */
+.data-table thead th {
+  background-clip: padding-box;
+  /* Header text was --color-muted (#7C8694) on --color-surface-2 (#1A2238):
+     measured 4.28:1, under the 4.5:1 floor, and it is 11px uppercase so the
+     large-text exemption does not apply. Mixing the muted tone toward the body
+     tone lifts it to 5.6:1 while keeping the header quieter than the data
+     beneath it — the point of the muted colour in the first place. Expressed
+     as a mix of two existing tokens so no new colour literal enters the file
+     and both themes follow their own tokens. */
+  color: color-mix(in srgb, var(--color-muted) 55%, var(--color-text));
+}
+
+/* ---------- Optical alignment of in-cell controls ----------
+   The one real gap. A cell holding plain text starts its text at the cell's
+   padding edge; a cell holding a <select> pill starts the *pill* there, so the
+   pill's LABEL began one pill-padding further in — a visible step between a
+   heading and the value under it, on exactly the columns (User type, Account
+   status) the owner was looking at.
+
+   Pulling the control back by its own inline padding puts its label precisely
+   on the column's text line. The pill's box then bleeds into the cell's
+   padding and still keeps clearance from the grid rule — which is why the pull
+   is the size of the control's padding, not the cell's. */
+.data-table td > .status-cell {
+  margin-inline-start: calc(-1 * var(--space-3));
+  /* The pull alone would cost the pill 12px of its own width, truncating
+     "Grantor" a character earlier than before. Growing by exactly what was
+     pulled hands that space straight back: the pill now spans from 12px
+     before the cell's content box to the end of it, so its label lands on the
+     column's text line AND it is no narrower than it was. */
+  width: calc(100% + var(--space-3));
+  max-width: none;
+}
+
+/* ---------- Phone gutters ----------
+   The table stays a real table at every width now (the card mode it used to
+   collapse into was removed — see the note where that block was, around the
+   "Data tables" section above). It scrolls inside .table-wrap, and the
+   `min-width: 0` rules further up keep that overflow from escaping into the
+   page, so the SCREEN still never scrolls sideways — only the table does.
+
+   All that is left to do for a phone is tighten the cell gutters from 16px to
+   12px, which fits roughly one more column before the scroll begins. */
+@media (max-width: 720px) {
+  .data-table thead th,
+  .data-table tbody td { padding: var(--space-3); }
+
+  /* Wrapping is switched back OFF here, which is not a contradiction of the
+     rule above — it is the same goal at a different width. On a desktop,
+     letting text wrap is what makes every column fit inside the viewport, so
+     nothing scrolls at all. On a 360px phone no amount of wrapping will fit
+     eight columns; the table scrolls horizontally regardless, so wrapping buys
+     nothing and costs legibility — a phone number broken across three lines,
+     a name across two. Let each value keep its own line and let the reader
+     swipe. */
+  .data-table tbody td { white-space: nowrap; }
+}
+
+/* Toolbar buttons are 36px tall by default — a fine mouse target and a poor
+   thumb one. Same 44px floor the rest of the shell's controls got. */
+@media (max-width: 768px) {
+  .top-action-bar button { min-height: var(--touch-target); min-width: var(--touch-target); }
+}
+
+/* On a wide screen the flex:1 page-head slot sitting between them already
+   drives Back and Next to opposite edges. Below 900px that slot wraps onto its
+   own line (see the rule above), leaving the buttons bunched together in
+   source order — Back and Next adjacent again, which is the arrangement the
+   owner asked us to move away from. An auto start-margin pins Next to the
+   bar's inline-END, and because it is a LOGICAL margin it pins to the left
+   edge in Arabic and the right edge in English without a second rule.
+   Scoped to the wrapped case on purpose: an auto margin consumes free space
+   BEFORE flex-grow does, so applying it unconditionally would collapse the
+   page-head slot to its content width and undo the single-row header. */
+@media (max-width: 900px) {
+  .top-action-bar > .nav-next-btn { margin-inline-start: auto; }
 }

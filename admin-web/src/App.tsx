@@ -8,6 +8,7 @@ import { ToastProvider } from './lib/toast'
 import { I18nProvider, useI18n } from './lib/i18n'
 import LoginPage from './pages/LoginPage'
 import AppShell from './components/AppShell'
+import OfflineBanner from './components/OfflineBanner'
 import PasswordGate from './components/PasswordGate'
 
 // Route-level code-splitting (Phase 10 · 10d). Each page becomes its own chunk
@@ -98,6 +99,11 @@ export default function App() {
           its own button labels) and because lib/api.ts raises dialogs from
           plain async code, with no component of its own to render them. */}
       <DialogHost />
+      {/* Offline notice. Mounted at the root, beside DialogHost and for the
+          same reason: it must be able to appear over ANY screen, including the
+          login page and a page still suspended on its lazy chunk. It needs only
+          i18n, so it sits inside I18nProvider and outside everything else. */}
+      <OfflineBanner />
       <AuthProvider>
         <ToastProvider>
         {/* PendingCountsProvider owns ONE 5-second poll timer shared by the

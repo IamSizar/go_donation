@@ -1104,6 +1104,16 @@ const ar: DeepPartial<typeof en> = {
     unread_aria: '{label} — {count} غير مقروءة',
     unread_count: '{count} غير مقروءة',
     admin_word: 'مسؤول',
+    menu: 'القائمة',
+    menu_open: 'فتح القائمة',
+    menu_close: 'إغلاق القائمة',
+  },
+
+  pwa: {
+    install: 'تثبيت التطبيق',
+    install_title: 'ثبّت لوحة تحكم BalanceNex على هذا الجهاز للحصول على أيقونة على الشاشة الرئيسية وعرض بملء الشاشة',
+    offline_title: 'أنت غير متصل بالإنترنت',
+    offline_body: 'يتم عرض آخر شاشة تم تحميلها. قد تكون القوائم فارغة أو غير محدَّثة حتى تعود الشبكة.',
   },
 
   empty: {

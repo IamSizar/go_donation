@@ -1,0 +1,19 @@
+{
+  "id": "/",
+  "name": "BalanceNex Admin",
+  "short_name": "BalanceNex",
+  "description": "Admin dashboard for BalanceNex — review registrations, donations, cases and staff activity from anywhere.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "dir": "auto",
+  "theme_color": "#1B37C9",
+  "background_color": "#0A0F1A",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
