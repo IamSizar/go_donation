@@ -604,8 +604,12 @@ class AppTranslations extends Translations {
         'Requests the admins approve will appear here.',
     'Requests the admins turn down will appear here.':
         'Requests the admins turn down will appear here.',
+    // Chunk 14 — shortened from "View your profile and its status, or
+    // create one" so it fits the 2-line reserved subtitle box (see
+    // event_hub_cards.dart) at 360dp width in English without truncating.
+    // The Arabic/Kurdish translations below are untouched and already fit.
     'View your profile and its status, or create one':
-        'View your profile and its status, or create one',
+        'View or create your profile',
     'Create my profile': 'Create my profile',
     'Need to change something?': 'Need to change something?',
     // Worded as "submit", never "edit": the backend has no user-facing update
@@ -2262,8 +2266,12 @@ class AppTranslations extends Translations {
     'Your subscription is now active.': 'Your subscription is now active.',
     'Your payment is pending staff confirmation.':
         'Your payment is pending staff confirmation.',
+    // Chunk 14 — shortened from "Upgrade your profile with a subscription
+    // package" so it fits the 2-line reserved subtitle box (see
+    // event_hub_cards.dart) at 360dp width in English without truncating.
+    // The Arabic/Kurdish translations below are untouched and already fit.
     'Upgrade your profile with a subscription package':
-        'Upgrade your profile with a subscription package',
+        'Upgrade your profile subscription',
     'Message the staff team': 'Message the staff team',
     'Questions or issues about the marriage section':
         'Questions or issues about the events section',
@@ -2906,19 +2914,36 @@ class AppTranslations extends Translations {
     'Events section': 'Events section',
     // Chunk 5 — the two top-level group cards on the Events hub, collapsing
     // what used to be two flat lists of tiles.
+    //
+    // Chunk 14 — "Book halls, photographers, and everything your event
+    // needs" was long enough in English (unlike the shorter Arabic copy)
+    // that it overflowed the 3-line reserved subtitle box (see
+    // event_hub_cards.dart) at 360dp width and rendered with a truncating
+    // ellipsis on a physical device. Shortened below to fit; the Arabic/
+    // Kurdish translations are untouched — they already fit. The sibling
+    // "Profiles, posts, and support for the events community" was already
+    // observed fitting fine on a physical device, but a font-accurate
+    // truncation check (event_hub_subtitle_truncation_test.dart) found it
+    // right at the edge of the reserved 3-line box, so it is trimmed here
+    // too for margin rather than left exactly on the boundary.
     'Book halls, photographers, and everything your event needs':
-        'Book halls, photographers, and everything your event needs',
+        'Book halls, photographers, decor, and more',
     'Profiles, posts, and support for the events community':
-        'Profiles, posts, and support for the events community',
+        'Profiles, posts, and community support',
     'Event posts': 'Event posts',
     'Search event profiles by name or gender':
         'Search event profiles by name or gender',
+    // Chunk 14 — shortened from "News and stories from the events
+    // section" for the same reserved-line-margin reason as above.
     'News and stories from the events section':
-        'News and stories from the events section',
+        'News and stories from this section',
     'Submit or update your event profile':
         'Submit or update your event profile',
+    // Chunk 14 — shortened from "Questions or issues about the events
+    // section" so it fits the 2-line reserved subtitle box in English at
+    // 360dp width. Arabic/Kurdish untouched.
     'Questions or issues about the events section':
-        'Questions or issues about the events section',
+        'Questions about the events section',
     'Hall booking': 'Hall booking',
     'Photographer booking': 'Photographer booking',
     'Wedding stage setup': 'Wedding stage setup',
@@ -2927,8 +2952,10 @@ class AppTranslations extends Translations {
     'Add another service': 'Add another service',
     'Other service': 'Other service',
     'Request a hall for your event': 'Request a hall for your event',
-    'Request a photographer for your event':
-        'Request a photographer for your event',
+    // Chunk 14 — shortened from "Request a photographer for your event" so
+    // it fits the 2-line reserved subtitle box in English at 360dp width.
+    // Arabic/Kurdish untouched.
+    'Request a photographer for your event': 'Request a photographer',
     'Request a stage setup for your event':
         'Request a stage setup for your event',
     'Request decorations for your event': 'Request decorations for your event',
@@ -2959,8 +2986,11 @@ class AppTranslations extends Translations {
     'View your submitted profile and its status':
         'View your submitted profile and its status',
     'Chats': 'Chats',
+    // Chunk 14 — shortened from "Staff-mediated conversations for accepted
+    // meetings" so it fits the 2-line reserved subtitle box in English at
+    // 360dp width. Arabic/Kurdish untouched.
     'Staff-mediated conversations for accepted meetings':
-        'Staff-mediated conversations for accepted meetings',
+        'Staff chats for accepted meetings',
     'Browse by category': 'Browse by category',
     'Contribute': 'Contribute',
     'Contribution amount': 'Contribution amount',
