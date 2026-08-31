@@ -635,6 +635,20 @@ const en = {
     refresh: 'Refresh',
     save: 'Save',
   },
+  chat_lifecycle: {
+    pause: 'Pause',
+    resume: 'Resume',
+    end: 'End chat',
+    archive: 'Archive',
+    unarchive: 'Un-archive',
+    delete: 'Delete chat',
+    reason_prompt: 'Why? Both participants will be shown this in place of their message box. You can leave it blank.',
+    reason_placeholder: 'e.g. Under review by our team',
+    reason_shown: 'Participants are being shown: {reason}',
+    end_confirm: 'Ending is final — the chat becomes read-only for everyone and cannot be reopened. The history is kept.',
+    delete_confirm: 'Move this chat and all of its messages to the Trash? A Super-Admin can restore it, or delete it permanently.',
+    archived_hint: 'Hidden from the participants. Staff can still see it here.',
+  },
   common: {
     breadcrumb: 'Breadcrumb',
     // --- Arabic i18n completeness pass: strings that were hardcoded in JSX ---
@@ -1485,6 +1499,7 @@ const en = {
     refunded: 'Refunded',
     declined: 'Declined',
     closed: 'Closed',
+    ended: 'Ended',
     archived: 'Archived',
     expired: 'Expired',
     inactive: 'Inactive',

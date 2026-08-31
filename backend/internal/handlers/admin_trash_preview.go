@@ -129,6 +129,18 @@ var trashPreviewColumns = map[string][]string{
 	"sponsorships":              {"sponsorship_type", "notes"},
 	"volunteer_applications":    {"full_name"},
 
+	// ─── Chat threads (migration 117) ────────────────────────────────────
+	// A chat is identified by WHO is in it, and the ids are what the operator
+	// can actually resolve — the participants' names are not columns of the
+	// thread row, and the messages travel in the payload but are the private
+	// conversation itself, so none of them belong in a delete preview. The
+	// lifecycle comes along because "was this chat already ended?" is the one
+	// thing worth knowing before pressing restore.
+	"chat_threads":                {"donor_user_id", "owner_user_id", "status", "lifecycle"},
+	"marriage_chat_threads":       {"requester_user_id", "owner_user_id", "status", "lifecycle"},
+	"staff_chat_threads":          {"user_a_id", "user_b_id", "lifecycle"},
+	"case_volunteer_chat_threads": {"volunteer_user_id", "beneficiary_user_id", "case_id", "lifecycle"},
+
 	// ─── Catalogue rows (H15 / M7) ───────────────────────────────────────
 	// Authored in four languages, so all four names stay: the Trash reads the
 	// operator's own language first and falls back through Arabic to English.

@@ -21,6 +21,7 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/casecategories"
 	"github.com/karam-flutter/humanitarian-backend/internal/casevolchat"
 	"github.com/karam-flutter/humanitarian-backend/internal/chat"
+	"github.com/karam-flutter/humanitarian-backend/internal/chatlifecycle"
 	"github.com/karam-flutter/humanitarian-backend/internal/citycategories"
 	"github.com/karam-flutter/humanitarian-backend/internal/citysectors"
 	"github.com/karam-flutter/humanitarian-backend/internal/config"
@@ -299,6 +300,9 @@ func main() {
 	chatH := handlers.NewChatHandler(chatStore, notifier, pool)
 	staffChatH := handlers.NewStaffChatHandler(staffChatStore, notifier, pool)
 	caseVolChatH := handlers.NewCaseVolunteerChatHandler(caseVolChatStore, notifier)
+	// Chat lifecycle (migration 117) — one handler serving end/pause/resume/
+	// archive/unarchive/delete for ALL FOUR chat systems.
+	chatLifecycleH := handlers.NewChatLifecycleHandler(pool)
 	volunteerCheckinH := handlers.NewVolunteerCheckinHandler(pool, notifier, caseVolChatStore)
 	eventsH := handlers.NewEventsHandler(eventsStore, pool)
 	assistantH := handlers.NewAssistantHandler(assistantSvc, pool)
@@ -968,6 +972,29 @@ func main() {
 			admin.GET("/admin/chats/:id/contact-blocks", perm("messages", "view"), chatH.AdminContactBlocks)
 			admin.POST("/admin/chats/:id/claim", perm("messages", "edit"), chatH.AdminClaim)
 			admin.POST("/admin/chats/:id/release", perm("messages", "edit"), chatH.AdminRelease)
+
+			// ─── Chat lifecycle (migration 117) ─────────────────────────
+			// END / PAUSE / RESUME / ARCHIVE / UNARCHIVE and DELETE, for every
+			// one of the four chat systems. STAFF ONLY by construction: these
+			// live on the `admin` group, so a participant's mobile token never
+			// reaches them, and there is no mobile equivalent. Each carries the
+			// same module permission that already governs its own chat.
+			//
+			// The DELETEs are registered here rather than in their own group so
+			// they inherit the dashboard-wide delete-password middleware that is
+			// mounted on `admin` and filtered to DELETE — there is exactly one
+			// password check in the product, and it is not written here.
+			//
+			// The chat kind is passed as a compile-time constant, never parsed
+			// from the URL, so no request value can ever choose a table.
+			admin.POST("/admin/chats/:id/lifecycle", perm("messages", "edit"), chatLifecycleH.Apply(chatlifecycle.KindDonor))
+			admin.DELETE("/admin/chats/:id", perm("messages", "delete"), chatLifecycleH.Delete(chatlifecycle.KindDonor))
+			admin.POST("/admin/staff-chats/:id/lifecycle", perm("messages", "edit"), chatLifecycleH.Apply(chatlifecycle.KindStaff))
+			admin.DELETE("/admin/staff-chats/:id", perm("messages", "delete"), chatLifecycleH.Delete(chatlifecycle.KindStaff))
+			admin.POST("/admin/case-chats/:id/lifecycle", perm("volunteers", "edit"), chatLifecycleH.Apply(chatlifecycle.KindCase))
+			admin.DELETE("/admin/case-chats/:id", perm("volunteers", "delete"), chatLifecycleH.Delete(chatlifecycle.KindCase))
+			admin.POST("/admin/marriage/chats/:id/lifecycle", perm("marriage", "edit"), chatLifecycleH.Apply(chatlifecycle.KindMarriage))
+			admin.DELETE("/admin/marriage/chats/:id", perm("marriage", "delete"), chatLifecycleH.Delete(chatlifecycle.KindMarriage))
 
 			// Note #36 — internal staff-to-staff chat. Not perm()-gated: every
 			// dashboard tier (employee and up) can use it regardless of assigned

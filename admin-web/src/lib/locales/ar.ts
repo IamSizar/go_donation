@@ -613,6 +613,20 @@ const ar: DeepPartial<typeof en> = {
     refresh: 'تحديث',
     save: 'حفظ',
   },
+  chat_lifecycle: {
+    pause: 'إيقاف مؤقت',
+    resume: 'استئناف',
+    end: 'إنهاء المحادثة',
+    archive: 'أرشفة',
+    unarchive: 'إلغاء الأرشفة',
+    delete: 'حذف المحادثة',
+    reason_prompt: 'لماذا؟ سيظهر هذا للطرفين مكان صندوق الكتابة. يمكن تركه فارغًا.',
+    reason_placeholder: 'مثال: قيد المراجعة من فريقنا',
+    reason_shown: 'يظهر للطرفين: {reason}',
+    end_confirm: 'الإنهاء نهائي — تصبح المحادثة للقراءة فقط للجميع ولا يمكن إعادة فتحها. يُحفظ السجل كاملًا.',
+    delete_confirm: 'نقل هذه المحادثة وكل رسائلها إلى سلة المحذوفات؟ يمكن لمدير عام استعادتها أو حذفها نهائيًا.',
+    archived_hint: 'مخفية عن الطرفين. لا يزال الموظفون يرونها هنا.',
+  },
   common: {
     breadcrumb: 'مسار التنقل',
     // --- Arabic i18n completeness pass: strings that were hardcoded in JSX ---
@@ -1382,6 +1396,7 @@ const ar: DeepPartial<typeof en> = {
     refunded: 'مُسترد',
     declined: 'مُستبعَد',
     closed: 'مغلق',
+    ended: 'منتهية',
     archived: 'مؤرشف',
     expired: 'منتهٍ',
     inactive: 'غير نشط',

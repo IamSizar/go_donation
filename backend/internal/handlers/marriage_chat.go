@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
+	"github.com/karam-flutter/humanitarian-backend/internal/chatlifecycle"
 	"github.com/karam-flutter/humanitarian-backend/internal/marriagechat"
 	"github.com/karam-flutter/humanitarian-backend/internal/notify"
 	"github.com/karam-flutter/humanitarian-backend/internal/permissions"
@@ -207,13 +208,19 @@ func (h *MarriageChatHandler) Messages(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"success": false, "error": "You are not a participant in this chat."})
 		return
 	}
+	// Migration 117 — an ARCHIVED thread does not exist as far as its
+	// participants are concerned, so the read path closes too, not just the list.
+	if refuseIfArchivedForParticipant(c, h.Pool, chatlifecycle.KindMarriage, id) {
+		return
+	}
 	msgs, err := h.Store.ListMessages(c.Request.Context(), id, user.UserID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
 		return
 	}
 	_ = h.Store.MarkRead(c.Request.Context(), id, user.UserID)
-	c.JSON(http.StatusOK, gin.H{"success": true, "status": thread.Status, "items": msgs})
+	c.JSON(http.StatusOK, mergeChatLifecycle(c, h.Pool, chatlifecycle.KindMarriage, id, gin.H{
+		"success": true, "status": thread.Status, "items": msgs}))
 }
 
 type marriageChatMessageReq struct {
@@ -242,6 +249,12 @@ func (h *MarriageChatHandler) PostMessage(c *gin.Context) {
 	}
 	if thread.Status != "active" {
 		c.JSON(http.StatusConflict, gin.H{"success": false, "error": "This chat is not active yet."})
+		return
+	}
+	// Migration 117 — a PAUSED or ENDED chat refuses new messages, server-side.
+	// The pause holds for STAFF too: a pause staff could talk through would not
+	// be a pause, so they resume it first, deliberately.
+	if refuseIfNotSendable(c, h.Pool, chatlifecycle.KindMarriage, id) {
 		return
 	}
 	var req marriageChatMessageReq
@@ -321,6 +334,12 @@ func (h *MarriageChatHandler) AdminPostMessage(c *gin.Context) {
 	}
 	if thread.Status != "active" {
 		c.JSON(http.StatusConflict, gin.H{"success": false, "error": "This chat is not active yet."})
+		return
+	}
+	// Migration 117 — a PAUSED or ENDED chat refuses new messages, server-side.
+	// The pause holds for STAFF too: a pause staff could talk through would not
+	// be a pause, so they resume it first, deliberately.
+	if refuseIfNotSendable(c, h.Pool, chatlifecycle.KindMarriage, id) {
 		return
 	}
 	var req marriageChatMessageReq

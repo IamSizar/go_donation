@@ -8,6 +8,7 @@ import 'package:flutter_application_1/core/app_haptics.dart';
 import 'package:get/get.dart';
 
 import '../models/chat_models.dart';
+import '../widgets/chat_lifecycle_notice.dart';
 
 /// Owns the thread list (the Messages tab). Polls every 5s so accepted
 /// requests and new messages surface without a manual refresh.
@@ -127,6 +128,14 @@ class ChatThreadController extends GetxController {
   final isLoading = false.obs;
   final isSending = false.obs;
   final status = 'active'.obs;
+  /// Migration 117 — the staff-controlled lifecycle: open | paused | ended.
+  /// Defaults to `open` so an older server, or a response we could not read,
+  /// leaves the chat working rather than silently locking a healthy one.
+  final lifecycle = ChatLifecycle.open.obs;
+
+  /// The staff member's own words for WHY, shown verbatim in place of the
+  /// composer. Null when they did not give one.
+  final lifecycleReason = RxnString();
   final errorMessage = RxnString();
 
   Timer? _poll;
@@ -156,6 +165,9 @@ class ChatThreadController extends GetxController {
     try {
       final res = await const ModuleApi().getObject(chatMessagesUrl(threadId));
       status.value = (res['status'] ?? 'active').toString();
+      lifecycle.value = (res['lifecycle'] ?? ChatLifecycle.open).toString();
+      final reason = res['lifecycle_reason']?.toString().trim();
+      lifecycleReason.value = (reason == null || reason.isEmpty) ? null : reason;
       final items = res['items'];
       final list = items is List
           ? items

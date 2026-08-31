@@ -13,6 +13,7 @@ import { useI18n, useStatusLabel } from '../lib/i18n'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { type CsvColumn } from '../lib/csv'
 import PageHead from '../components/PageHead'
+import ChatLifecycleControls from '../components/ChatLifecycleControls'
 
 type AdminThread = {
   id: number
@@ -31,6 +32,11 @@ type AdminThread = {
   message_count: number
   last_message: string | null
   last_message_at: string | null
+  // Migration 117 — the staff-controlled lifecycle, driving the moderation
+  // strip below the conversation header.
+  lifecycle?: 'open' | 'paused' | 'ended'
+  lifecycle_reason?: string | null
+  is_archived?: boolean
   created_at: string
   updated_at: string
 }
@@ -286,6 +292,21 @@ export default function MessagesPage() {
                       {t('common.msg_claim')}
                     </button>
                   )}
+                </div>
+                {/* Chat lifecycle (migration 117) — end / pause / resume /
+                    archive / delete, staff only. */}
+                <div style={{ marginTop: 8 }}>
+                  <ChatLifecycleControls
+                    basePath={`/api/admin/chats/${selected.id}`}
+                    thread={selected}
+                    onChanged={async () => {
+                      const items = await loadThreads()
+                      // Re-point at the SAME thread's fresh row: the strip
+                      // renders from `selected`, so a stale copy would show
+                      // the old state until the next poll.
+                      if (items) setSelected((s) => (s ? items.find((x) => x.id === s.id) ?? null : null))
+                    }}
+                  />
                 </div>
               </div>
 
