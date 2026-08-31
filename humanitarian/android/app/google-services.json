@@ -7,12 +7,33 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:463997425388:android:c7351976243aa4657ff7c9",
+        "mobilesdk_app_id": "1:463997425388:android:51663ed598c7e7087ff7c9",
         "android_client_info": {
-          "package_name": "com.example.humanitarian"
+          "package_name": "com.easytech.humanitarian"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "463997425388-322sk4130d58n99qv6s9f0tslsvqd62b.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.easytech.humanitarian",
+            "certificate_hash": "5a7cca4ab617aea135d1992b8103607780abcdc7"
+          }
+        },
+        {
+          "client_id": "463997425388-c6pfhtese4am3i4hsqh6tpms9an3hbks.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.easytech.humanitarian",
+            "certificate_hash": "fc1f2f3cace828f41f4b101534475249e9e75862"
+          }
+        },
+        {
+          "client_id": "463997425388-cerds8ttj89atmq0s3t72tvi8jij0aqj.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAaRrGWR1CsQDY4VGfFaY4OQd22kG2ossE"
@@ -20,7 +41,63 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "463997425388-cerds8ttj89atmq0s3t72tvi8jij0aqj.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "463997425388-knnvisnn3vrkakiveu87osodnvv4cc9k.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.easytech.humanitarianApp"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:463997425388:android:c7351976243aa4657ff7c9",
+        "android_client_info": {
+          "package_name": "com.example.humanitarian"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "463997425388-55210abm3i3su7mrm83m75aib9fha0d7.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.humanitarian",
+            "certificate_hash": "fc1f2f3cace828f41f4b101534475249e9e75862"
+          }
+        },
+        {
+          "client_id": "463997425388-cerds8ttj89atmq0s3t72tvi8jij0aqj.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAaRrGWR1CsQDY4VGfFaY4OQd22kG2ossE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "463997425388-cerds8ttj89atmq0s3t72tvi8jij0aqj.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "463997425388-knnvisnn3vrkakiveu87osodnvv4cc9k.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.easytech.humanitarianApp"
+              }
+            }
+          ]
         }
       }
     }
