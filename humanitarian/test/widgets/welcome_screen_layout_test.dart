@@ -231,4 +231,71 @@ void main() {
       );
     },
   );
+
+  // chunk13 regression coverage — pins the fix for the defect the previous
+  // pass left behind: the header/button anchors were correct, but the brand
+  // block (logo + wordmark + headline) still sat top-aligned within the
+  // middle region, dumping all the slack into one band above the button.
+  testWidgets(
+    'the brand block is vertically centred within its own region, not '
+    'top-aligned',
+    (tester) async {
+      // Same reproduction viewport as the anchor tests above, so this
+      // exercises the same geometry the real-device measurement used.
+      tester.view.physicalSize = const Size(720, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(_welcomeApp(brightness: Brightness.light));
+      await tester.pumpAndSettle();
+
+      final languageControl = find.byWidgetPredicate(
+        (widget) => widget.runtimeType.toString().startsWith('PopupMenuButton'),
+      );
+      final headline = find.text('Balance and Stability for a Better Life!');
+      final button = find.widgetWithText(ElevatedButton, 'Continue with phone');
+
+      // The region the brand block owns runs from just below the header to
+      // just above the button — approximate its bounds with those two
+      // anchors, which are themselves pinned by the tests above.
+      final regionTop = tester.getBottomLeft(languageControl).dy;
+      final regionBottom = tester.getTopLeft(button).dy;
+      final regionMid = (regionTop + regionBottom) / 2;
+
+      // The brand block spans from the top of the logo to the bottom of
+      // the headline; its own centre should land near the region's centre
+      // rather than hugging the top of it. Measure the actual painted
+      // content — the brand-mark image and the headline text — not a
+      // wrapping `Center`'s own box: `Center` fills all the space its
+      // `ConstrainedBox(minHeight: ...)` parent offers it (that's exactly
+      // what makes the fill-and-centre trick work at large text scales),
+      // so the wrapper's bounds always span the whole region regardless
+      // of where its content actually sits — asserting on it would pass
+      // even if the layout regressed back to top-aligned.
+      final brandImage = find.byWidgetPredicate(
+        (widget) =>
+            widget is Image &&
+            widget.image is AssetImage &&
+            (widget.image as AssetImage).assetName ==
+                'assets/branding/balancenex_icon.png',
+      );
+      final blockTop = tester.getTopLeft(brandImage).dy;
+      final blockBottom = tester.getBottomLeft(headline).dy;
+      final blockCenter = (blockTop + blockBottom) / 2;
+
+      // Generous tolerance (10% of the region's height): this is a "not
+      // pinned to the top" guard, not a pixel-exact centring assertion —
+      // internal padding/rhythm can shift the true centre slightly without
+      // the layout having regressed to top-aligned.
+      final regionHeight = regionBottom - regionTop;
+      expect(
+        (blockCenter - regionMid).abs(),
+        lessThan(regionHeight * 0.15),
+        reason:
+            'the brand block must be centred in the space between the '
+            'header and the button, not stuck at the top of it',
+      );
+    },
+  );
 }

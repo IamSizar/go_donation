@@ -86,43 +86,83 @@ class WelcomeScreen extends StatelessWidget {
                 child: _LanguageSelector(),
               ),
             ),
-            // ── Brand + promise: scrolls internally under large Dynamic
-            // Type instead of overflowing or pushing the CTA off screen,
-            // while staying visually anchored under the header.
+            // ── Brand + promise: centred *within its own region* (between
+            // the pinned header and the pinned action), not top-aligned
+            // inside it.
+            //
+            // chunk13 defect: the previous pass anchored the outer regions
+            // correctly, but this middle `Expanded` still laid its content
+            // out top-down — brand block first, then whatever slack was
+            // left. On a tall screen (measured on the 402x874pt simulator)
+            // that put ~770px of dead space in one band directly above the
+            // button, while the logo/wordmark/headline clung to the header.
+            // The fix is to give the block's *position* the same treatment
+            // its rhythm already had: centre it on the region's cross-axis
+            // so leftover space splits above and below it instead of
+            // collecting in one place.
+            //
+            // `Center` alone inside a `SingleChildScrollView` is the classic
+            // way to reintroduce clipping at large text scales — a scroll
+            // view sizes its child to its intrinsic size, and `Center`
+            // would happily report a size *larger* than the viewport
+            // without complaint, then get vertically centred and clipped
+            // top/bottom with no way to scroll to the clipped edges.
+            // `LayoutBuilder` + `ConstrainedBox(minHeight: viewport height)`
+            // avoids that: the child is *at least* as tall as the region,
+            // so `Center` centres it when it fits and simply stops
+            // affecting layout (the column becomes exactly as tall as its
+            // content, top-aligned within the now-taller-than-viewport
+            // constraint) once large Dynamic Type makes it not fit — at
+            // which point the scroll view scrolls normally, top to bottom,
+            // with nothing lost off either edge.
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Padding(
-                  padding: const EdgeInsetsDirectional.symmetric(
-                    horizontal: _gutter,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Tight within-group gap: logo and badge read as one
-                      // brand unit.
-                      const Center(child: _BrandMark()),
-                      const SizedBox(height: 16),
-                      Center(
-                        child: AuthBadge(
-                          icon: Icons.volunteer_activism_rounded,
-                          label: 'Humanitarian platform',
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight,
+                      ),
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsetsDirectional.symmetric(
+                            horizontal: _gutter,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Tight within-group gap: logo and badge read
+                              // as one brand unit.
+                              const Center(child: _BrandMark()),
+                              const SizedBox(height: 16),
+                              Center(
+                                child: AuthBadge(
+                                  icon: Icons.volunteer_activism_rounded,
+                                  label: 'Humanitarian platform',
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              // #38 — approved verbal identity: short
+                              // heading, no tagline. Start-aligned (4.3:
+                              // left-aligned by default) so its edge
+                              // matches the button's below — not centred,
+                              // which is what made the two look like
+                              // different gutters.
+                              Text(
+                                'Balance and Stability for a Better Life!'
+                                    .tr,
+                                textAlign: TextAlign.start,
+                                style: headingStyle,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      // #38 — approved verbal identity: short heading, no
-                      // tagline. Start-aligned (4.3: left-aligned by
-                      // default) so its edge matches the button's below —
-                      // not centred, which is what made the two look like
-                      // different gutters.
-                      Text(
-                        'Balance and Stability for a Better Life!'.tr,
-                        textAlign: TextAlign.start,
-                        style: headingStyle,
-                      ),
-                    ],
-                  ),
-                ),
+                    ),
+                  );
+                },
               ),
             ),
             // ── Action: anchored toward the bottom, in thumb reach ──────
