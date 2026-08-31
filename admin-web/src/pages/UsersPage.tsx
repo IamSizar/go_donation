@@ -482,39 +482,18 @@ export default function UsersPage() {
           <ActionsMenu
             items={[
               { key: 'view', label: t('common.view'), href: `/detail/users/${u.user_id}`, onClick: () => {} },
+              // Task 1 (owner ask: "password change button collapse into one
+              // instead of 2") — this used to also carry a standalone "Set
+              // Password" action item alongside "Edit". Both called the exact
+              // same endpoint (POST .../password) with the exact same PIN/H20
+              // gates and the exact same non-staff lockout warning
+              // (confirmPasswordSet) — two buttons for one action, not two
+              // different actions. Removed; the Edit modal's "New password"
+              // field (USER_FIELDS below, wired through handleSave) is the
+              // only surface for it now. All step-up behavior is unchanged —
+              // handleSave runs the identical confirmPasswordSet/verifyPin/
+              // withMainAdminConfirmation sequence this action used to.
               { key: 'edit', label: t('common.edit'), onClick: () => setEditing(u) },
-              {
-                key: 'password',
-                label: t('common.set_password'),
-                onClick: async () => {
-                  if (!(await confirmPasswordSet(u))) return
-                  // Empty is MEANINGFUL here — the prompt text says a blank
-                  // entry clears the password — so the dialog resolves '' for
-                  // a blank submit and null only for a cancel, exactly as
-                  // window.prompt did. The `=== null` test below is unchanged.
-                  const pw = await askForText({
-                    title: t('common.set_password'),
-                    message: t('common.set_password_prompt'),
-                    secret: true,
-                    autoComplete: 'new-password',
-                  })
-                  if (pw === null) return
-                  try {
-                    // Note #9 — PIN before setting a password, EXCEPT when the
-                    // account has no password yet: verify-password checks the
-                    // CALLER's own password_hash, which would 403 forever on
-                    // any account's very first password (a bootstrap deadlock
-                    // with no password to ever confirm against).
-                    if (u.has_password) await verifyPin()
-                    await withMainAdminConfirmation((extra) =>
-                      api.post(`/api/admin/users/${u.user_id}/password`, { password: pw, ...extra }),
-                    )
-                    toast.success(t('common.set_password_ok'))
-                  } catch (e) {
-                    toast.error(describeError(e))
-                  }
-                },
-              },
               // Note #42 — test-phase wallet top-up. Real users only (a
               // guest account has no use for a balance it can never spend
               // meaningfully — Note #40's browsing-only scope).

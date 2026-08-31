@@ -279,34 +279,15 @@ export default function StaffPage() {
           <ActionsMenu
             items={[
               { key: 'view', label: t('common.view'), href: `/detail/users/${u.user_id}`, onClick: () => {} },
+              // Task 1 (owner ask: "password change button collapse into one
+              // instead of 2") — removed the standalone "Set Password" action
+              // that used to sit next to "Edit" here. It hit the identical
+              // endpoint (POST .../password) with the identical PIN gate as
+              // the Edit modal's "New password" field (USER_FIELDS, wired
+              // through handleSave above) — same action, two buttons. The
+              // Edit modal is now the only surface; handleSave's PIN/H20
+              // sequence is unchanged.
               { key: 'edit', label: t('common.edit'), onClick: () => setEditing(u) },
-              {
-                key: 'password',
-                label: t('common.set_password'),
-                onClick: async () => {
-                  // A15 — staff accounts skip the "this locks a real app user
-                  // out" warning UsersPage shows for non-staff (this IS the
-                  // dashboard-login credential staff use), so no confirm gate
-                  // before the prompt here, matching confirmPasswordSet's own
-                  // early `if (staff) return true`.
-                  const pw = await askForText({
-                    title: t('common.set_password'),
-                    message: t('common.set_password_prompt'),
-                    secret: true,
-                    autoComplete: 'new-password',
-                  })
-                  if (pw === null) return
-                  try {
-                    if (u.has_password) await verifyPin()
-                    await withMainAdminConfirmation((extra) =>
-                      api.post(`/api/admin/users/${u.user_id}/password`, { password: pw, ...extra }),
-                    )
-                    toast.success(t('common.set_password_ok'))
-                  } catch (e) {
-                    toast.error(describeError(e))
-                  }
-                },
-              },
               ...(canArchive
                 ? [
                     {
