@@ -35,11 +35,16 @@ FeaturedCampaignData _campaign() {
 Widget _harness(FeaturedCampaignData campaign) => GetMaterialApp(
   theme: AppThemeConfig.buildTheme(Brightness.light),
   home: Scaffold(
-    body: DonationFeaturedCampaignCard(
-      campaign: campaign,
-      isSelected: false,
-      onCardTap: () {},
-      onDonatePressed: () {},
+    // A SingleChildScrollView gives the card's Column unbounded height, so
+    // it sizes to its content instead of stretching to fill the Scaffold
+    // body — required for the height measurement below to mean anything.
+    body: SingleChildScrollView(
+      child: DonationFeaturedCampaignCard(
+        campaign: campaign,
+        isSelected: false,
+        onCardTap: () {},
+        onDonatePressed: () {},
+      ),
     ),
   ),
 );
@@ -63,5 +68,35 @@ void main() {
     await tester.pumpWidget(_harness(campaign));
 
     expect(find.text(campaign.summary), findsNothing);
+  });
+
+  testWidgets('card height stays compact now the description is gone', (
+    tester,
+  ) async {
+    // Regression guard for the chunk8 compaction fix: once the description
+    // paragraph moved to CampaignDetailScreen, the card's spacers/padding
+    // were still sized for the paragraph that used to fill that space,
+    // leaving dead vertical bands between the title/location and the
+    // funded-line/CTA. This measures the rendered card on a 402pt-wide
+    // surface (iPhone 16 Pro logical width) and pins the height well below
+    // the ~250pt it used to be before the spacers were tightened.
+    final campaign = _campaign();
+    await tester.pumpWidget(_harness(campaign));
+    await tester.pumpAndSettle();
+
+    final cardSize = tester.getSize(
+      find.byType(DonationFeaturedCampaignCard),
+    );
+
+    expect(
+      cardSize.height,
+      // Measured 202pt after the chunk8 compaction fix, down from 262pt
+      // before it (a ~5.7% margin above 202 catches regressions without
+      // being brittle to sub-pixel layout noise).
+      lessThan(213),
+      reason:
+          'Card should be driven by its content height, not leftover '
+          'spacers sized for the removed description paragraph.',
+    );
   });
 }
