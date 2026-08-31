@@ -92,9 +92,23 @@ type ThreadView struct {
 	LastMessageAt *time.Time `json:"last_message_at"`
 	UnreadCount   int        `json:"unread_count"`
 	UpdatedAt     time.Time  `json:"updated_at"`
+	// Migration 117 — the staff-controlled lifecycle: open | paused | ended,
+	// plus whether this thread has been archived away from its participants.
+	Lifecycle       string  `json:"lifecycle"`
+	LifecycleReason *string `json:"lifecycle_reason"`
+	IsArchived      bool    `json:"is_archived"`
 }
 
-func (s *Store) ListThreadsForUser(ctx context.Context, userID int64) ([]ThreadView, error) {
+// ListThreadsForUser returns the caller's own staff threads.
+//
+// includeArchived is the ONE difference between the two audiences of this
+// list. An archived thread is hidden from the people in it (migration 118),
+// exactly as in the other three chat systems — but staff moderating internal
+// chat still need to find it in order to un-archive it, so the dashboard's
+// moderation view passes true. Nothing a participant calls does.
+func (s *Store) ListThreadsForUser(ctx context.Context, userID int64, includeArchived bool) ([]ThreadView, error) {
+	// Not string-built from the flag: a bound parameter, so the query plan and
+	// the injection surface are identical for both callers.
 	rows, err := s.Pool.Query(ctx, `
 		SELECT t.id,
 		       CASE WHEN t.user_a_id = $1 THEN t.user_b_id ELSE t.user_a_id END AS other_id,
@@ -107,7 +121,8 @@ func (s *Store) ListThreadsForUser(ctx context.Context, userID int64) ([]ThreadV
 		            AND m.id > COALESCE((SELECT last_read_msg_id FROM staff_chat_reads r
 		                                  WHERE r.thread_id = t.id AND r.user_id = $1), 0)
 		       ), 0) AS unread,
-		       t.updated_at
+		       t.updated_at,
+		       t.lifecycle, t.lifecycle_reason, (t.archived_at IS NOT NULL)
 		  FROM staff_chat_threads t
 		  LEFT JOIN users ou ON ou.id = (CASE WHEN t.user_a_id = $1 THEN t.user_b_id ELSE t.user_a_id END)
 		  LEFT JOIN user_profiles op ON op.user_id = (CASE WHEN t.user_a_id = $1 THEN t.user_b_id ELSE t.user_a_id END)
@@ -116,8 +131,9 @@ func (s *Store) ListThreadsForUser(ctx context.Context, userID int64) ([]ThreadV
 		       WHERE m.thread_id = t.id ORDER BY m.id DESC LIMIT 1
 		  ) lm ON TRUE
 		 WHERE (t.user_a_id = $1 OR t.user_b_id = $1)
+		   AND ($2 OR t.archived_at IS NULL)
 		 ORDER BY t.updated_at DESC`,
-		userID,
+		userID, includeArchived,
 	)
 	if err != nil {
 		return nil, err
@@ -127,7 +143,8 @@ func (s *Store) ListThreadsForUser(ctx context.Context, userID int64) ([]ThreadV
 	for rows.Next() {
 		var v ThreadView
 		if err := rows.Scan(&v.ID, &v.OtherUserID, &v.OtherName, &v.OtherTier,
-			&v.LastMessage, &v.LastMessageAt, &v.UnreadCount, &v.UpdatedAt); err != nil {
+			&v.LastMessage, &v.LastMessageAt, &v.UnreadCount, &v.UpdatedAt,
+			&v.Lifecycle, &v.LifecycleReason, &v.IsArchived); err != nil {
 			return nil, err
 		}
 		out = append(out, v)

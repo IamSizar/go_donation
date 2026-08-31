@@ -7,6 +7,7 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_application_1/core/widgets/app_pressable.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
+import 'package:flutter_application_1/modules/chat/widgets/chat_lifecycle_notice.dart';
 
 class ChatConversationScreen extends StatefulWidget {
   const ChatConversationScreen({
@@ -162,7 +163,17 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
               );
             }),
           ),
-          _Composer(input: _input, onSend: _send, controller: ctrl),
+          // Migration 117 — a paused or ended chat gets an explanation
+          // instead of a message box. Typing into a composer whose send the
+          // server will refuse is a dead end; this says what happened and why.
+          Obx(
+            () => ChatLifecycle.isClosed(ctrl.lifecycle.value)
+                ? ChatLifecycleNotice(
+                    lifecycle: ctrl.lifecycle.value,
+                    reason: ctrl.lifecycleReason.value,
+                  )
+                : _Composer(input: _input, onSend: _send, controller: ctrl),
+          ),
         ],
       ),
     );

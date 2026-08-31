@@ -51,7 +51,7 @@ type Product struct {
 	// CreatedAt backs وصل حديثاً. The column always existed; the public query
 	// did not select it, so the app had no date to sort or label by.
 	CreatedAt time.Time `json:"created_at"`
-	// Gallery is the product's ADDITIONAL photos (migration 117), in the order
+	// Gallery is the product's ADDITIONAL photos (migration 118), in the order
 	// staff arranged them. ImagePath above remains the cover.
 	//
 	// Never nil: the column is NOT NULL DEFAULT '{}' and every SELECT wraps it

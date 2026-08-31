@@ -2817,6 +2817,15 @@ class AppTranslations extends Translations {
     'Submit profile': 'Submit profile',
     'Submit request': 'Submit request',
     'Successful': 'Successful',
+    'This conversation has been paused by our team.':
+        'This conversation has been paused by our team.',
+    'This conversation has been closed by our team.':
+        'This conversation has been closed by our team.',
+    'You can still read it. New messages can\'t be sent while it is paused.':
+        'You can still read it. New messages can\'t be sent while it is paused.',
+    'You can still read the whole conversation, but no new messages can be sent.':
+        'You can still read the whole conversation, but no new messages can be sent.',
+    'Reason': 'Reason',
     'Support can view and help in this chat':
         'Support can view and help in this chat',
     'Tap a day above to set when you\'re available.':
@@ -5631,6 +5640,15 @@ class AppTranslations extends Translations {
     'Submit profile': 'إرسال الملف',
     'Submit request': 'إرسال الطلب',
     'Successful': 'ناجح',
+    'This conversation has been paused by our team.':
+        'تم إيقاف هذه المحادثة مؤقتًا من قِبل فريقنا.',
+    'This conversation has been closed by our team.':
+        'تم إغلاق هذه المحادثة من قِبل فريقنا.',
+    'You can still read it. New messages can\'t be sent while it is paused.':
+        'لا يزال بإمكانك قراءتها. لا يمكن إرسال رسائل جديدة أثناء الإيقاف المؤقت.',
+    'You can still read the whole conversation, but no new messages can be sent.':
+        'لا يزال بإمكانك قراءة المحادثة كاملة، لكن لا يمكن إرسال رسائل جديدة.',
+    'Reason': 'السبب',
     'Support can view and help in this chat':
         'يمكن للدعم المشاهدة والمساعدة في هذه الدردشة',
     'Tap a day above to set when you\'re available.':
@@ -7650,6 +7668,15 @@ class AppTranslations extends Translations {
     'Submit profile': 'پڕۆفایل بنێرە',
     'Submit request': 'داواکاری بنێرە',
     'Successful': 'سەرکەوتوو',
+    'This conversation has been paused by our team.':
+        'ئەم گفتوگۆیە لەلایەن تیمەکەمانەوە بۆ ماوەیەک ڕاگیراوە.',
+    'This conversation has been closed by our team.':
+        'ئەم گفتوگۆیە لەلایەن تیمەکەمانەوە داخراوە.',
+    'You can still read it. New messages can\'t be sent while it is paused.':
+        'هێشتا دەتوانیت بیخوێنیتەوە. لە ماوەی ڕاگرتندا ناتوانیت نامەی نوێ بنێریت.',
+    'You can still read the whole conversation, but no new messages can be sent.':
+        'هێشتا دەتوانیت هەموو گفتوگۆکە بخوێنیتەوە، بەڵام ناتوانیت نامەی نوێ بنێریت.',
+    'Reason': 'هۆکار',
     'Support can view and help in this chat':
         'پشتیوانی دەتوانێت ئەم چاتە ببینێت و یارمەتی بدات',
     'Tap a day above to set when you\'re available.':
@@ -10155,6 +10182,15 @@ class AppTranslations extends Translations {
     'Submit profile': 'پرۆفایلێ ڤەرێکە',
     'Submit request': 'داخوازێ ڤەرێکە',
     'Successful': 'سەرکەفتی',
+    'This conversation has been paused by our team.':
+        'ئەڤ گفتوگۆیە ژ لایێ تیما مە ڤە بۆ دەمەکێ هاتیە ڕاوەستاندن.',
+    'This conversation has been closed by our team.':
+        'ئەڤ گفتوگۆیە ژ لایێ تیما مە ڤە هاتیە گرتن.',
+    'You can still read it. New messages can\'t be sent while it is paused.':
+        'هێژ دشێی بخوینی. د دەمێ ڕاوەستاندنێ دا ناشێی نامەیێن نوی بهنێری.',
+    'You can still read the whole conversation, but no new messages can be sent.':
+        'هێژ دشێی هەمی گفتوگۆیێ بخوینی، بەلێ ناشێی نامەیێن نوی بهنێری.',
+    'Reason': 'ئەگەر',
     'Support can view and help in this chat':
         'پشتەڤانی دشێت ڤێ چاتێ ببینیت و هاریکاریێ بکەت',
     'Tap a day above to set when you\'re available.':

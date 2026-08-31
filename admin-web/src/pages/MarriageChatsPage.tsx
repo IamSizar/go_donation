@@ -11,6 +11,7 @@ import { useI18n, useStatusLabel } from '../lib/i18n'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { type CsvColumn } from '../lib/csv'
 import PageHead from '../components/PageHead'
+import ChatLifecycleControls from '../components/ChatLifecycleControls'
 
 type AdminThread = {
   id: number
@@ -28,6 +29,11 @@ type AdminThread = {
   last_message_at: string | null
   created_at: string
   updated_at: string
+  // Migration 117 — the staff-controlled lifecycle, driving the moderation
+  // strip below the conversation header.
+  lifecycle?: 'open' | 'paused' | 'ended'
+  lifecycle_reason?: string | null
+  is_archived?: boolean
 }
 
 type ChatMessage = {
@@ -89,10 +95,15 @@ export default function MarriageChatsPage() {
       const res = await api.get<{ items: AdminThread[] }>('/api/admin/marriage/chats', {
         params: { q: q || undefined },
       })
-      setThreads(res.data.items ?? [])
+      const items = res.data.items ?? []
+      setThreads(items)
       setErr(null)
+      // Returned so a caller that just changed a thread can re-point at its
+      // fresh row instead of waiting for the next poll.
+      return items
     } catch (e) {
       setErr(describeError(e))
+      return null
     }
   }, [q])
 
@@ -215,6 +226,21 @@ export default function MarriageChatsPage() {
                   <StatusBadge status={selected.status} />
                 </div>
                 <span className="muted" style={{ fontSize: 12.5 }}>{t('col.profile_code')}: {selected.profile_code}</span>
+                {/* Chat lifecycle (migration 117) — end / pause / resume /
+                    archive / delete, staff only. */}
+                <div style={{ marginTop: 8 }}>
+                  <ChatLifecycleControls
+                    basePath={`/api/admin/marriage/chats/${selected.id}`}
+                    thread={selected}
+                    onChanged={async () => {
+                      const items = await loadThreads()
+                      // Re-point at the SAME thread's fresh row — the strip
+                      // renders from `selected`, so a stale copy would keep
+                      // showing the old state until the next poll.
+                      if (items) setSelected((s) => (s ? items.find((x) => x.id === s.id) ?? null : null))
+                    }}
+                  />
+                </div>
               </div>
 
               <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10, paddingInlineEnd: 4 }}>

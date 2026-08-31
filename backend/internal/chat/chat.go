@@ -293,6 +293,10 @@ func (s *Store) ListThreadsForUser(ctx context.Context, userID int64) ([]ThreadV
 		  ) lm ON TRUE
 		 WHERE (t.donor_user_id = $1 OR t.owner_user_id = $1)
 		   AND t.status <> 'declined'
+		   -- Migration 117: ARCHIVE is a staff moderation action that HIDES the
+		   -- thread from the participants (staff keep seeing it on the
+		   -- dashboard). Filtered here, in the participant-facing list only.
+		   AND t.archived_at IS NULL
 		 ORDER BY t.updated_at DESC`,
 		userID,
 	)
@@ -486,13 +490,18 @@ type AdminThreadView struct {
 	OwnerName     *string `json:"owner_name"`
 	OwnerPhone    *string `json:"owner_phone"`
 	// Note #36 — the claimed "Responsible Staff Member," if any.
-	AssignedStaffUserID *int64     `json:"assigned_staff_user_id"`
-	AssignedStaffName   *string    `json:"assigned_staff_name"`
-	MessageCount        int        `json:"message_count"`
-	LastMessage         *string    `json:"last_message"`
-	LastMessageAt       *time.Time `json:"last_message_at"`
-	CreatedAt           time.Time  `json:"created_at"`
-	UpdatedAt           time.Time  `json:"updated_at"`
+	AssignedStaffUserID *int64  `json:"assigned_staff_user_id"`
+	AssignedStaffName   *string `json:"assigned_staff_name"`
+	// Migration 117 — the staff-controlled lifecycle. open | paused | ended,
+	// plus whether staff have archived it away from the participants.
+	Lifecycle       string     `json:"lifecycle"`
+	LifecycleReason *string    `json:"lifecycle_reason"`
+	IsArchived      bool       `json:"is_archived"`
+	MessageCount    int        `json:"message_count"`
+	LastMessage     *string    `json:"last_message"`
+	LastMessageAt   *time.Time `json:"last_message_at"`
+	CreatedAt       time.Time  `json:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at"`
 }
 
 // ListAllThreads returns every thread for the admin Messages page.
@@ -508,6 +517,7 @@ func (s *Store) ListAllThreads(ctx context.Context, q string) ([]AdminThreadView
 		       t.donor_user_id, dp.full_name, du.phone,
 		       t.owner_user_id, opf.full_name, ou.phone,
 		       t.assigned_staff_user_id, sp.full_name,
+		       t.lifecycle, t.lifecycle_reason, (t.archived_at IS NOT NULL),
 		       COALESCE((SELECT COUNT(*) FROM chat_messages m WHERE m.thread_id = t.id), 0),
 		       lm.body, lm.created_at,
 		       t.created_at, t.updated_at
@@ -537,6 +547,7 @@ func (s *Store) ListAllThreads(ctx context.Context, q string) ([]AdminThreadView
 			&v.DonorUserID, &v.DonorName, &v.DonorPhone,
 			&v.OwnerUserID, &v.OwnerName, &v.OwnerPhone,
 			&v.AssignedStaffUserID, &v.AssignedStaffName,
+			&v.Lifecycle, &v.LifecycleReason, &v.IsArchived,
 			&v.MessageCount, &v.LastMessage, &v.LastMessageAt,
 			&v.CreatedAt, &v.UpdatedAt); err != nil {
 			return nil, err

@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
+	"github.com/karam-flutter/humanitarian-backend/internal/chatlifecycle"
 	"github.com/karam-flutter/humanitarian-backend/internal/notify"
 	"github.com/karam-flutter/humanitarian-backend/internal/permissions"
 	"github.com/karam-flutter/humanitarian-backend/internal/sensitive"
@@ -95,7 +96,13 @@ func (h *StaffChatHandler) List(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
 		return
 	}
-	items, err := h.Store.ListThreadsForUser(c.Request.Context(), user.UserID)
+	// Migration 117 — archived threads are hidden from the people in them.
+	// `?include_archived=1` is the staff MODERATION view: it exists so an
+	// archived internal chat can still be found and un-archived. Internal
+	// staff chat has no separate oversight endpoint (every route here is
+	// already dashboard-only), so the flag lives on this one list.
+	includeArchived := c.Query("include_archived") == "1"
+	items, err := h.Store.ListThreadsForUser(c.Request.Context(), user.UserID, includeArchived)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
 		return
@@ -153,7 +160,13 @@ func (h *StaffChatHandler) Messages(c *gin.Context) {
 		return
 	}
 	_ = h.Store.MarkRead(c.Request.Context(), id, user.UserID)
-	c.JSON(http.StatusOK, gin.H{"success": true, "items": msgs})
+	// An archived staff thread is still READABLE by its participants — it is
+	// hidden from their inbox, not sealed. Unlike the three user-facing chats
+	// both parties here are staff, and hiding a colleague's own conversation
+	// from them entirely would obstruct the internal record rather than
+	// moderate it.
+	c.JSON(http.StatusOK, mergeChatLifecycle(c, h.Pool, chatlifecycle.KindStaff, id, gin.H{
+		"success": true, "items": msgs}))
 }
 
 type staffChatMessageReq struct {
@@ -178,6 +191,12 @@ func (h *StaffChatHandler) PostMessage(c *gin.Context) {
 	}
 	if !thread.IsParticipant(user.UserID) {
 		c.JSON(http.StatusForbidden, gin.H{"success": false, "error": "You are not a participant in this chat."})
+		return
+	}
+	// Migration 117 — a PAUSED or ENDED chat refuses new messages, server-side.
+	// The pause holds for STAFF too: a pause staff could talk through would not
+	// be a pause, so they resume it first, deliberately.
+	if refuseIfNotSendable(c, h.Pool, chatlifecycle.KindStaff, id) {
 		return
 	}
 	var req staffChatMessageReq

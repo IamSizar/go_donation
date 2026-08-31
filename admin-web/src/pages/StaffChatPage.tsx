@@ -9,6 +9,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, describeError } from '../lib/api'
 import { useI18n, useStatusLabel } from '../lib/i18n'
 import PageHead from '../components/PageHead'
+import ChatLifecycleControls from '../components/ChatLifecycleControls'
 
 type StaffThread = {
   id: number
@@ -19,6 +20,11 @@ type StaffThread = {
   last_message_at: string | null
   unread_count: number
   updated_at: string
+  // Migration 117 — the staff-controlled lifecycle, driving the moderation
+  // strip below the conversation header.
+  lifecycle?: 'open' | 'paused' | 'ended'
+  lifecycle_reason?: string | null
+  is_archived?: boolean
 }
 
 type StaffMessage = {
@@ -59,7 +65,9 @@ export default function StaffChatPage() {
 
   const loadThreads = useCallback(async () => {
     try {
-      const res = await api.get<{ items: StaffThread[] }>('/api/admin/staff-chats')
+      const res = await api.get<{ items: StaffThread[] }>('/api/admin/staff-chats', {
+        params: { include_archived: '1' },
+      })
       setThreads(res.data.items ?? [])
       setErr(null)
     } catch (e) {
@@ -220,6 +228,15 @@ export default function StaffChatPage() {
               <div style={{ borderBottom: '1px solid var(--color-border, rgba(127,127,127,0.18))', paddingBottom: 10, marginBottom: 10 }}>
                 <strong>{name(selected.other_name, selected.other_user_id)}</strong>{' '}
                 <span className="muted" style={{ fontSize: 12.5 }}>· {selected.other_staff_tier}</span>
+                {/* Chat lifecycle (migration 117) — end / pause / resume /
+                    archive / delete, staff only. */}
+                <div style={{ marginTop: 8 }}>
+                  <ChatLifecycleControls
+                    basePath={`/api/admin/staff-chats/${selected.id}`}
+                    thread={selected}
+                    onChanged={loadThreads}
+                  />
+                </div>
               </div>
 
               <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10, paddingInlineEnd: 4 }}>

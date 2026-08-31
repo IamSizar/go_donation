@@ -103,6 +103,15 @@ var restorableTables = map[string]bool{
 	// back in — see AdminTrashHandler.BannedWords.
 	"app_events":   true,
 	"banned_words": true,
+	// Chat lifecycle (migration 118) — the four chat systems' thread tables,
+	// deleted through trashChatThread (admin_chat_lifecycle.go). Their
+	// messages travel in the same payload and are re-inserted by
+	// restoreChatChildren below, so a restore brings back a conversation and
+	// not an empty shell.
+	"chat_threads":                true,
+	"marriage_chat_threads":       true,
+	"staff_chat_threads":          true,
+	"case_volunteer_chat_threads": true,
 }
 
 // List returns everything currently in the trash (not yet restored), newest
@@ -246,6 +255,14 @@ func (h *AdminTrashHandler) Restore(c *gin.Context) {
 				"error": "A record with this id already exists — can't restore."})
 			return
 		}
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Restore failed: " + err.Error()})
+		return
+	}
+
+	// A chat thread's messages and read cursors were snapshotted alongside it
+	// (they cascade, so they would otherwise be gone for good) — put them back
+	// now that their parent row exists again. No-op for every other table.
+	if err = restoreChatChildren(ctx, tx, table, payload); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Restore failed: " + err.Error()})
 		return
 	}

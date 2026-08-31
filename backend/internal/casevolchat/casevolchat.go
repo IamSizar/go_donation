@@ -253,6 +253,9 @@ func (s *Store) ListThreadsForUser(ctx context.Context, userID int64) ([]ThreadV
 		       WHERE m.thread_id = t.id ORDER BY m.id DESC LIMIT 1
 		  ) lm ON TRUE
 		 WHERE (t.volunteer_user_id = $1 OR t.beneficiary_user_id = $1)
+		   -- Migration 117: ARCHIVE is a staff moderation action that HIDES
+		   -- the thread from its participants; staff keep seeing it.
+		   AND t.archived_at IS NULL
 		 ORDER BY t.updated_at DESC`,
 		userID,
 	)
@@ -403,26 +406,31 @@ func (s *Store) MarkRead(ctx context.Context, threadID, userID int64) error {
 // ===== Admin =====
 
 type AdminThreadView struct {
-	ID                  int64      `json:"id"`
-	CaseID              int64      `json:"case_id"`
-	CaseCode            string     `json:"case_code"`
-	CaseTitle           string     `json:"case_title"`
-	CaseTitleAr         *string    `json:"public_title_ar"`
-	CaseTitleSorani     *string    `json:"public_title_sorani"`
-	CaseTitleBadini     *string    `json:"public_title_badini"`
-	VolunteerUserID     int64      `json:"volunteer_user_id"`
-	VolunteerName       *string    `json:"volunteer_name"`
-	VolunteerPhone      *string    `json:"volunteer_phone"`
-	BeneficiaryUserID   int64      `json:"beneficiary_user_id"`
-	BeneficiaryName     *string    `json:"beneficiary_name"`
-	BeneficiaryPhone    *string    `json:"beneficiary_phone"`
-	AssignedStaffUserID *int64     `json:"assigned_staff_user_id"`
-	AssignedStaffName   *string    `json:"assigned_staff_name"`
-	MessageCount        int        `json:"message_count"`
-	LastMessage         *string    `json:"last_message"`
-	LastMessageAt       *time.Time `json:"last_message_at"`
-	CreatedAt           time.Time  `json:"created_at"`
-	UpdatedAt           time.Time  `json:"updated_at"`
+	ID                  int64   `json:"id"`
+	CaseID              int64   `json:"case_id"`
+	CaseCode            string  `json:"case_code"`
+	CaseTitle           string  `json:"case_title"`
+	CaseTitleAr         *string `json:"public_title_ar"`
+	CaseTitleSorani     *string `json:"public_title_sorani"`
+	CaseTitleBadini     *string `json:"public_title_badini"`
+	VolunteerUserID     int64   `json:"volunteer_user_id"`
+	VolunteerName       *string `json:"volunteer_name"`
+	VolunteerPhone      *string `json:"volunteer_phone"`
+	BeneficiaryUserID   int64   `json:"beneficiary_user_id"`
+	BeneficiaryName     *string `json:"beneficiary_name"`
+	BeneficiaryPhone    *string `json:"beneficiary_phone"`
+	AssignedStaffUserID *int64  `json:"assigned_staff_user_id"`
+	AssignedStaffName   *string `json:"assigned_staff_name"`
+	// Migration 117 — the staff-controlled lifecycle: open | paused | ended,
+	// plus whether staff have archived it away from the participants.
+	Lifecycle       string     `json:"lifecycle"`
+	LifecycleReason *string    `json:"lifecycle_reason"`
+	IsArchived      bool       `json:"is_archived"`
+	MessageCount    int        `json:"message_count"`
+	LastMessage     *string    `json:"last_message"`
+	LastMessageAt   *time.Time `json:"last_message_at"`
+	CreatedAt       time.Time  `json:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at"`
 }
 
 func (s *Store) ListAllThreads(ctx context.Context, q string) ([]AdminThreadView, error) {
@@ -438,6 +446,7 @@ func (s *Store) ListAllThreads(ctx context.Context, q string) ([]AdminThreadView
 		       t.volunteer_user_id, vp.full_name, vu.phone,
 		       t.beneficiary_user_id, bp.full_name, bu.phone,
 		       t.assigned_staff_user_id, sp.full_name,
+		       t.lifecycle, t.lifecycle_reason, (t.archived_at IS NOT NULL),
 		       COALESCE((SELECT COUNT(*) FROM case_volunteer_chat_messages m WHERE m.thread_id = t.id), 0),
 		       lm.body, lm.created_at,
 		       t.created_at, t.updated_at
@@ -468,6 +477,7 @@ func (s *Store) ListAllThreads(ctx context.Context, q string) ([]AdminThreadView
 			&v.VolunteerUserID, &v.VolunteerName, &v.VolunteerPhone,
 			&v.BeneficiaryUserID, &v.BeneficiaryName, &v.BeneficiaryPhone,
 			&v.AssignedStaffUserID, &v.AssignedStaffName,
+			&v.Lifecycle, &v.LifecycleReason, &v.IsArchived,
 			&v.MessageCount, &v.LastMessage, &v.LastMessageAt,
 			&v.CreatedAt, &v.UpdatedAt); err != nil {
 			return nil, err
