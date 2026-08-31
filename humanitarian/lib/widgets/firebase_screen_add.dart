@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/core/widgets/app_main_menu_button.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -80,7 +79,6 @@ class _FirebaseScreenAddState extends State<FirebaseScreenAdd> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Add to Firebase Firestore'.tr),
-        actions: const [AppMainMenuButton()],
       ),
       body: Padding(
         padding: const EdgeInsets.all(20.0),

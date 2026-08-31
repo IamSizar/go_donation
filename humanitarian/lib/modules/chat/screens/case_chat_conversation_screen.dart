@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter_application_1/localization/failure_message.dart';
-import 'package:flutter_application_1/core/widgets/app_main_menu_button.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/module_api.dart';
@@ -155,9 +154,6 @@ class _CaseChatConversationScreenState
               ),
           ],
         ),
-        // J7 — see chat_conversation_screen: `actions` rather than beside the
-        // back arrow, because this AppBar's `leading` slot is Material's.
-        actions: const [AppMainMenuButton()],
       ),
       body: Column(
         children: [

@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter_application_1/localization/failure_message.dart';
-import 'package:flutter_application_1/core/widgets/app_main_menu_button.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/module_api.dart';
@@ -171,7 +170,6 @@ class _MarriageChatConversationScreenState
           widget.otherLabel,
           style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
         ),
-        actions: const [AppMainMenuButton()],
       ),
       body: Column(
         children: [

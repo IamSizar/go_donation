@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/core/widgets/app_main_menu_button.dart';
 import 'package:get/get.dart';
 
 import '../controllers/donations_controller.dart';
@@ -13,7 +12,6 @@ class DonationsScreen extends GetView<DonationsController> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Contributions'.tr),
-        actions: const [AppMainMenuButton()],
       ),
       body: Obx(
         () => ListView.builder(

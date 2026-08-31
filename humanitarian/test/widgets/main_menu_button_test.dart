@@ -1,44 +1,31 @@
-// Pins the Menu button the client asked for on every page (J7).
+// Guards the removal of the "Main menu" hamburger button (J7 follow-up).
 //
 // WHY THIS FILE EXISTS
-// J7: "a Menu button on every app page and a Back button on every page and
-// section — بحيث يمكن للمستخدم الوصول إلى القائمة الرئيسية في أي وقت", so the
-// user can reach the main menu at any time.
+// J7 originally asked for a hamburger button beside Back on every screen,
+// unwinding the stack to the dashboard. The owner later looked at a header
+// showing "≡" next to ">" and reported it as two controls that both "just go
+// back" — and he was right: `AppMainMenuButton` popped the navigation stack
+// to its root, the same direction as the back chevron, just further. It never
+// opened a drawer or a menu (this app has none — see the removed widget's own
+// header comment). So it was deleted from `AppScreen`'s shared header and
+// from every screen that built its own `AppBar` with it in `actions`.
 //
-// Back was largely unified already: AppScreen draws one whenever the route can
-// pop, and 46 screens reach that frame through SectionScaffold. The menu half
-// did not exist anywhere — `openDrawer`, `endDrawer` and `Drawer(` returned
-// zero hits across the whole app, so from a screen three pushes deep the only
-// way back to the main menu was pressing Back three times.
-//
-// WHAT "THE MAIN MENU" IS HERE
-// This app has no drawer. Its main menu is the dashboard: AppRoutes.home, the
-// five-tab screen everything else is pushed on top of. So the button pops back
-// to it rather than sliding a panel out — and it lands on the Home tab, because
-// arriving at the main menu on whichever tab you last touched is not "the main
-// menu", it is where you were.
-//
-// WHY BOTH A WIDGET TEST AND A SOURCE TEST
-// The widget group proves the behaviour: the button appears exactly where Back
-// appears, and pressing it really does unwind the stack. The source group
-// covers the screens that build their own AppBar instead of using the shared
-// frame — a widget test cannot tell you which files forgot to opt in, and
-// "eleven files never picked up the shared chrome" was the actual defect.
+// This file used to prove the button was everywhere; it now proves the
+// opposite — that it is nowhere — so an accidental re-add fails a test
+// instead of silently reintroducing the duplicate control.
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 
-import 'package:flutter_application_1/core/app_state.dart';
-import 'package:flutter_application_1/core/widgets/app_main_menu_button.dart';
 import 'package:flutter_application_1/core/widgets/app_screen.dart';
 import 'package:flutter_application_1/localization/app_translations.dart';
 
-/// Screens that build their own `AppBar` and are PAGES — somewhere the user
-/// navigates to, reads, and may want to leave. Every one of these needs the
-/// button, because none of them goes through AppScreen.
-const _ownAppBarPages = <String>[
+/// Screens that used to build their own `AppBar` with the button in
+/// `actions`. Kept as a named list so the guard states exactly which files
+/// must stay clean, rather than a vague "search everywhere".
+const _formerOwnAppBarPages = <String>[
   'lib/modules/auth/screens/edit_profile.dart',
   'lib/modules/bot/screens/bot_chat_screen.dart',
   'lib/modules/chat/screens/case_chat_conversation_screen.dart',
@@ -47,18 +34,6 @@ const _ownAppBarPages = <String>[
   'lib/modules/donations/screens/donations_screen.dart',
   'lib/modules/marriage/screens/marriage_chat_conversation_screen.dart',
   'lib/widgets/firebase_screen_add.dart',
-];
-
-/// The other three `AppBar` users are full-screen IMAGE VIEWERS — a transparent
-/// bar over a pinch-to-zoom gallery, opened on top of the page you were already
-/// reading. They are deliberately excluded: a menu jump from a lightbox would
-/// throw the user out of the gallery AND off the page underneath it, which is
-/// not what "reach the main menu" asks for. Listed here so the exclusion is a
-/// recorded decision rather than three files someone forgot.
-const _lightboxes = <String>[
-  'lib/modules/community/screens/community_detail_screen.dart',
-  'lib/modules/community/screens/community_services_section.dart',
-  'lib/modules/receipts/screens/aid_receipts_screen.dart',
 ];
 
 String _read(String path) {
@@ -70,9 +45,7 @@ String _read(String path) {
 }
 
 void main() {
-  group('the shared frame carries the menu button', () {
-    setUp(() => dashboardTabNotifier.value = 3);
-
+  group('the shared frame no longer carries a menu button', () {
     Widget harness() => GetMaterialApp(
       translations: AppTranslations(),
       locale: const Locale('en', 'US'),
@@ -93,93 +66,62 @@ void main() {
       ),
     );
 
-    testWidgets('it is not shown on the main menu itself', (tester) async {
-      await tester.pumpWidget(harness());
-      await tester.pump();
-
-      // The root route cannot pop, so there is neither a Back nor a Menu
-      // button — you are already there.
-      expect(find.byType(AppMainMenuButton), findsNothing);
-    });
-
-    testWidgets('it appears on a pushed page, beside Back', (tester) async {
+    testWidgets('a pushed page shows Back but not a hamburger', (
+      tester,
+    ) async {
       await tester.pumpWidget(harness());
       await tester.tap(find.text('open inner page'));
       await tester.pumpAndSettle();
 
       expect(find.text('Inner'), findsOneWidget);
-      expect(find.byType(AppMainMenuButton), findsOneWidget);
-      // The glyph matters as much as the widget: ☰ is what "زر القائمة" means
-      // to the person holding the phone.
-      expect(find.byIcon(Icons.menu_rounded), findsOneWidget);
+      // Back must still work — this is the header's only exit now.
+      expect(find.byIcon(Icons.arrow_back_ios_new_rounded), findsOneWidget);
+      // The hamburger duplicated Back; it must not still be drawn.
+      expect(find.byIcon(Icons.menu_rounded), findsNothing);
     });
 
-    testWidgets('pressing it returns to the main menu', (tester) async {
+    testWidgets('tapping Back on the pushed page returns to the root', (
+      tester,
+    ) async {
       await tester.pumpWidget(harness());
       await tester.tap(find.text('open inner page'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byIcon(Icons.menu_rounded));
+      await tester.tap(find.byIcon(Icons.arrow_back_ios_new_rounded));
       await tester.pumpAndSettle();
 
       expect(
         find.text('open inner page'),
         findsOneWidget,
-        reason:
-            'the stack must be unwound to the root — a menu button that only '
-            'pops one route is a second Back button',
-      );
-      expect(
-        dashboardTabNotifier.value,
-        0,
-        reason:
-            'arriving at the main menu on whichever tab you last opened is '
-            'not the main menu, it is where you already were',
+        reason: 'Back must remain the sole, working way out of the screen',
       );
     });
   });
 
-  group('the screens with their own AppBar opted in', () {
-    test('every page that builds its own AppBar offers the button', () {
-      final missing = _ownAppBarPages
-          .where((p) => !_read(p).contains('AppMainMenuButton'))
+  group('the screens that used to build their own AppBar stayed clean', () {
+    test('none of them reference the removed widget any more', () {
+      final stillReferencing = _formerOwnAppBarPages
+          .where((p) => _read(p).contains('AppMainMenuButton'))
           .toList();
       expect(
-        missing,
+        stillReferencing,
         isEmpty,
         reason:
-            'these screens never go through AppScreen, so they inherit '
-            'nothing — J7 reproduced precisely because eleven files were in '
-            'this position',
+            'these screens used to opt a duplicate "goes back" button into '
+            'their own AppBar; none of them should reference the removed '
+            'widget any more — each already has its own back affordance '
+            '(a Material AppBar auto-back, or an explicit leading back '
+            'button on bot_chat_screen)',
       );
     });
 
-    test('the image viewers are left out on purpose', () {
-      for (final path in _lightboxes) {
-        expect(
-          _read(path).contains('AppMainMenuButton'),
-          isFalse,
-          reason:
-              '$path is a full-screen image viewer opened over a page. A menu '
-              'jump from a lightbox drops the user out of the gallery and off '
-              'the page beneath it. If this is ever reconsidered, change the '
-              'decision here first.',
-        );
-      }
-    });
-  });
-
-  group('the label is real in Arabic', () {
-    test('it does not render English on an Arabic screen', () {
-      final keys = AppTranslations().keys;
-      const key = 'Main menu';
-      expect(keys['en_US']![key], isNotNull);
-      final ar = keys['ar_SA']![key];
-      expect(ar, isNotNull, reason: 'no Arabic entry for the menu button');
+    test('the widget file itself is gone', () {
       expect(
-        ar,
-        isNot(key),
-        reason: '`.tr` returns the key when the entry is missing',
+        File(
+          'lib/core/widgets/app_main_menu_button.dart',
+        ).existsSync(),
+        isFalse,
+        reason: 'dead code left behind after the button was removed',
       );
     });
   });
