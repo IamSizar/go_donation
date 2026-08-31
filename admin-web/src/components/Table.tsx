@@ -196,7 +196,18 @@ export default function Table<T>({ rows, columns, rowKey, empty, loading, select
                     // (index.css, max-width:720px) — each cell shows its own
                     // column header inline via `content: attr(data-label)`
                     // once the table stops being a table on narrow screens.
-                    <td key={c.key} data-label={c.header} style={{ textAlign: logicalAlign(c) }}>
+                    // data-align carries the column's resolved alignment into
+                    // CSS. index.css uses it to keep numeric columns on one
+                    // line (a wrapped amount is unreadable) while letting text
+                    // columns wrap — the blanket `white-space: nowrap` that
+                    // used to apply to every cell is what made wide tables
+                    // feel compressed, because no column could give width back.
+                    <td
+                      key={c.key}
+                      data-label={c.header}
+                      data-align={logicalAlign(c)}
+                      style={{ textAlign: logicalAlign(c) }}
+                    >
                       {c.cell(row)}
                     </td>
                   ))}

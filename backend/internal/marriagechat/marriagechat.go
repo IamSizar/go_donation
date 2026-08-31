@@ -282,6 +282,9 @@ func (s *Store) ListThreadsForUser(ctx context.Context, userID int64) ([]ThreadV
 		  ) lm ON TRUE
 		 WHERE (t.requester_user_id = $1 OR t.owner_user_id = $1)
 		   AND t.status <> 'declined'
+		   -- Migration 117: ARCHIVE is a staff moderation action that HIDES
+		   -- the thread from its participants; staff keep seeing it.
+		   AND t.archived_at IS NULL
 		 ORDER BY t.updated_at DESC`,
 		userID,
 	)
@@ -419,16 +422,21 @@ func (t Thread) CounterpartIDs(senderID int64) []int64 {
 
 // AdminThreadView is the admin list row: both real parties + counts.
 type AdminThreadView struct {
-	ID              int64      `json:"id"`
-	Status          string     `json:"status"`
-	ProfileID       int64      `json:"profile_id"`
-	ProfileCode     string     `json:"profile_code"`
-	RequesterUserID int64      `json:"requester_user_id"`
-	RequesterName   *string    `json:"requester_name"`
-	RequesterPhone  *string    `json:"requester_phone"`
-	OwnerUserID     int64      `json:"owner_user_id"`
-	OwnerName       *string    `json:"owner_name"`
-	OwnerPhone      *string    `json:"owner_phone"`
+	ID              int64   `json:"id"`
+	Status          string  `json:"status"`
+	ProfileID       int64   `json:"profile_id"`
+	ProfileCode     string  `json:"profile_code"`
+	RequesterUserID int64   `json:"requester_user_id"`
+	RequesterName   *string `json:"requester_name"`
+	RequesterPhone  *string `json:"requester_phone"`
+	OwnerUserID     int64   `json:"owner_user_id"`
+	OwnerName       *string `json:"owner_name"`
+	OwnerPhone      *string `json:"owner_phone"`
+	// Migration 117 — the staff-controlled lifecycle: open | paused | ended,
+	// plus whether staff have archived it away from the participants.
+	Lifecycle       string     `json:"lifecycle"`
+	LifecycleReason *string    `json:"lifecycle_reason"`
+	IsArchived      bool       `json:"is_archived"`
 	MessageCount    int        `json:"message_count"`
 	LastMessage     *string    `json:"last_message"`
 	LastMessageAt   *time.Time `json:"last_message_at"`
@@ -448,6 +456,7 @@ func (s *Store) ListAllThreads(ctx context.Context, q string) ([]AdminThreadView
 		SELECT t.id, t.status, t.profile_id, mp.profile_code,
 		       t.requester_user_id, rp.full_name, ru.phone,
 		       t.owner_user_id, op.full_name, ou.phone,
+		       t.lifecycle, t.lifecycle_reason, (t.archived_at IS NOT NULL),
 		       COALESCE((SELECT COUNT(*) FROM marriage_chat_messages m WHERE m.thread_id = t.id), 0),
 		       lm.body, lm.created_at,
 		       t.created_at, t.updated_at
@@ -475,6 +484,7 @@ func (s *Store) ListAllThreads(ctx context.Context, q string) ([]AdminThreadView
 		if err := rows.Scan(&v.ID, &v.Status, &v.ProfileID, &v.ProfileCode,
 			&v.RequesterUserID, &v.RequesterName, &v.RequesterPhone,
 			&v.OwnerUserID, &v.OwnerName, &v.OwnerPhone,
+			&v.Lifecycle, &v.LifecycleReason, &v.IsArchived,
 			&v.MessageCount, &v.LastMessage, &v.LastMessageAt,
 			&v.CreatedAt, &v.UpdatedAt); err != nil {
 			return nil, err

@@ -29,7 +29,9 @@ import { usePermission } from '../lib/permissions'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
 import { formatDateTime } from '../lib/dates'
-import { USER_FIELDS, flattenForEdit, isStaffAccount } from './UsersPage'
+import { isStaffAccount } from './UsersPage'
+import { USER_FIELDS, flattenForEdit } from '../lib/userEditFields'
+import { useUserEditProfile } from '../lib/useUserEditProfile'
 
 // Every tier the "Access Permission" column offered on Users before the move
 // — unchanged, including 'super_admin' being a selectable target. This is a
@@ -51,6 +53,15 @@ export default function StaffPage() {
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [editing, setEditing] = useState<UserAccount | null>(null)
+  // Same modal as the Users page, so the same on-demand profile load — see
+  // lib/useUserEditProfile.ts. Sharing the hook is what keeps the two screens
+  // from drifting apart again.
+  const {
+    profile: editProfile,
+    loading: editLoading,
+    error: editError,
+    reload: reloadEditProfile,
+  } = useUserEditProfile(editing?.user_id ?? null)
   const [deleting, setDeleting] = useState<UserAccount | null>(null)
   const [refreshTick, setRefreshTick] = useState(0)
   const toast = useToast()
@@ -404,8 +415,11 @@ export default function StaffPage() {
       <EditModal
         open={editing !== null}
         title={editing ? t('common.modal_edit', { noun: t('noun.staff'), id: editing.user_id }) : ''}
-        initial={editing ? flattenForEdit(editing) : {}}
+        initial={editing ? flattenForEdit(editing.phone, editProfile) : {}}
         fields={USER_FIELDS}
+        loading={editLoading}
+        loadError={editError}
+        onRetry={reloadEditProfile}
         onSave={(patch) => handleSave(editing!, patch)}
         onClose={() => setEditing(null)}
       />

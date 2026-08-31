@@ -11,6 +11,7 @@ import (
 
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
 	"github.com/karam-flutter/humanitarian-backend/internal/casevolchat"
+	"github.com/karam-flutter/humanitarian-backend/internal/chatlifecycle"
 	"github.com/karam-flutter/humanitarian-backend/internal/notify"
 	"github.com/karam-flutter/humanitarian-backend/internal/permissions"
 	"github.com/karam-flutter/humanitarian-backend/internal/sensitive"
@@ -86,6 +87,11 @@ func (h *CaseVolunteerChatHandler) Messages(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"success": false, "error": "You are not a participant in this chat."})
 		return
 	}
+	// Migration 117 — an ARCHIVED thread does not exist as far as its
+	// participants are concerned, so the read path closes too, not just the list.
+	if refuseIfArchivedForParticipant(c, h.Store.Pool, chatlifecycle.KindCase, id) {
+		return
+	}
 	// K8 — each sender's name passes through their own Privacy Settings.
 	msgs, err := h.Store.ListMessagesForViewer(c.Request.Context(), id, user.UserID)
 	if err != nil {
@@ -93,7 +99,8 @@ func (h *CaseVolunteerChatHandler) Messages(c *gin.Context) {
 		return
 	}
 	_ = h.Store.MarkRead(c.Request.Context(), id, user.UserID)
-	c.JSON(http.StatusOK, gin.H{"success": true, "items": msgs})
+	c.JSON(http.StatusOK, mergeChatLifecycle(c, h.Store.Pool, chatlifecycle.KindCase, id, gin.H{
+		"success": true, "items": msgs}))
 }
 
 type caseVolChatMessageReq struct {
@@ -118,6 +125,12 @@ func (h *CaseVolunteerChatHandler) PostMessage(c *gin.Context) {
 	}
 	if !thread.IsParticipant(user.UserID) {
 		c.JSON(http.StatusForbidden, gin.H{"success": false, "error": "You are not a participant in this chat."})
+		return
+	}
+	// Migration 117 — a PAUSED or ENDED chat refuses new messages, server-side.
+	// The pause holds for STAFF too: a pause staff could talk through would not
+	// be a pause, so they resume it first, deliberately.
+	if refuseIfNotSendable(c, h.Store.Pool, chatlifecycle.KindCase, id) {
 		return
 	}
 	var req caseVolChatMessageReq
@@ -197,6 +210,12 @@ func (h *CaseVolunteerChatHandler) AdminPostMessage(c *gin.Context) {
 	thread, err := h.Store.GetThread(c.Request.Context(), id)
 	if err != nil {
 		h.chatErr(c, err)
+		return
+	}
+	// Migration 117 — a PAUSED or ENDED chat refuses new messages, server-side.
+	// The pause holds for STAFF too: a pause staff could talk through would not
+	// be a pause, so they resume it first, deliberately.
+	if refuseIfNotSendable(c, h.Store.Pool, chatlifecycle.KindCase, id) {
 		return
 	}
 	var req caseVolChatMessageReq

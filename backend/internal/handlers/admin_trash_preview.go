@@ -129,6 +129,18 @@ var trashPreviewColumns = map[string][]string{
 	"sponsorships":              {"sponsorship_type", "notes"},
 	"volunteer_applications":    {"full_name"},
 
+	// ─── Chat threads (migration 118) ────────────────────────────────────
+	// A chat is identified by WHO is in it, and the ids are what the operator
+	// can actually resolve — the participants' names are not columns of the
+	// thread row, and the messages travel in the payload but are the private
+	// conversation itself, so none of them belong in a delete preview. The
+	// lifecycle comes along because "was this chat already ended?" is the one
+	// thing worth knowing before pressing restore.
+	"chat_threads":                {"donor_user_id", "owner_user_id", "status", "lifecycle"},
+	"marriage_chat_threads":       {"requester_user_id", "owner_user_id", "status", "lifecycle"},
+	"staff_chat_threads":          {"user_a_id", "user_b_id", "lifecycle"},
+	"case_volunteer_chat_threads": {"volunteer_user_id", "beneficiary_user_id", "case_id", "lifecycle"},
+
 	// ─── Catalogue rows (H15 / M7) ───────────────────────────────────────
 	// Authored in four languages, so all four names stay: the Trash reads the
 	// operator's own language first and falls back through Arabic to English.
@@ -148,6 +160,16 @@ var trashPreviewColumns = map[string][]string{
 	"payment_methods": catalogueLabelColumns,
 	// custom_professions labels its rows `label_*` rather than `name_*`.
 	"custom_professions": {"skill_key", "label_en", "label_ar", "label_ckb", "label_kmr"},
+
+	// ─── N3 · the last two hard deletes, now trashed ─────────────────────
+	// An activity-log line. Enough to recognise WHICH line before restoring it,
+	// and deliberately no more: app_events also carries the actor's `name`,
+	// `number` and `number_digits`, denormalised at write time. Those are the
+	// columns H10 masks in the live feed, so they are simply not on this list —
+	// a preview that cannot show a phone number cannot leak one.
+	"app_events": {"event_type", "event_label", "module", "action", "status"},
+	// The blocklist entry IS its word; there is nothing else to show.
+	"banned_words": {"word"},
 }
 
 // trashPreviewPayload rewrites one stored snapshot into the preview the Trash

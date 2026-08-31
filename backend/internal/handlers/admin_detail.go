@@ -146,12 +146,15 @@ var detailColumns = map[string][]string{
 		"id", "product_id", "buyer_user_id", "quantity", "total_amount", "currency", "status",
 		"buyer_note", "created_at", "updated_at", "transaction_code",
 	},
-	// marketplace_products — 24 columns
+	// marketplace_products — 25 columns
 	"products": {
 		"id", "seller_user_id", "beneficiary_case_id", "name", "name_ar", "description",
 		"description_ar", "category", "price", "currency", "image_path", "stock_quantity",
 		"status", "created_at", "updated_at", "name_sorani", "name_badini", "description_sorani",
 		"description_badini", "category_slug", "sku", "specs", "labels", "brand",
+		// Migration 117 — the product's additional photos, so the View page
+		// reads the same set of columns the edit form writes.
+		"gallery",
 	},
 	// marriage_profiles — 79 columns
 	"marriage": {
@@ -222,16 +225,6 @@ var detailColumns = map[string][]string{
 	},
 }
 
-// userDetailProfileColumns are the registration-profile fields merged onto the
-// `users` resource, so the عرض page shows what the person actually submitted at
-// sign-up and not just their account row. Named here rather than inline so the
-// allow-list and the merge cannot drift apart.
-var userDetailProfileColumns = []string{
-	"full_name", "date_of_birth", "address", "gender", "city", "occupation",
-	"family_size", "housing_status", "monthly_income",
-	"skills", "availability", "experience", "profile_picture",
-}
-
 // selectList renders an allow-listed column set as a quoted SELECT list. The
 // names come from the map above — never from the request — but they are quoted
 // anyway so a column that collides with a reserved word cannot break the query.
@@ -288,23 +281,12 @@ func (h *AdminDetailHandler) Detail(c *gin.Context) {
 		return
 	}
 
-	// For a user, merge in the registration profile (name, DOB, address, gender,
-	// city, occupation + role-specific fields) so the admin detail view shows
-	// what the person actually submitted at sign-up — not just the account row.
+	// For a user, merge in everything the person actually submitted: the full
+	// registration profile, the privacy flags they set on it, and the documents
+	// they uploaded. See admin_detail_user_profile.go for the allow-list and
+	// for what is deliberately left out of it.
 	if table == "users" {
-		if prows, perr := h.Pool.Query(c.Request.Context(),
-			"SELECT "+selectList(userDetailProfileColumns)+
-				" FROM user_profiles WHERE user_id = $1", id); perr == nil {
-			prof, e := pgx.CollectOneRow(prows, pgx.RowToMap)
-			prows.Close()
-			if e == nil {
-				for k, v := range prof {
-					if _, exists := row[k]; !exists {
-						row[k] = v
-					}
-				}
-			}
-		}
+		mergeUserProfile(c.Request.Context(), h.Pool, id, row)
 	}
 
 	// Note #22 — a sponsorship's own row has no phone/name column; merge in the

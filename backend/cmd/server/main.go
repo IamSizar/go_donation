@@ -21,6 +21,7 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/casecategories"
 	"github.com/karam-flutter/humanitarian-backend/internal/casevolchat"
 	"github.com/karam-flutter/humanitarian-backend/internal/chat"
+	"github.com/karam-flutter/humanitarian-backend/internal/chatlifecycle"
 	"github.com/karam-flutter/humanitarian-backend/internal/citycategories"
 	"github.com/karam-flutter/humanitarian-backend/internal/citysectors"
 	"github.com/karam-flutter/humanitarian-backend/internal/config"
@@ -299,6 +300,9 @@ func main() {
 	chatH := handlers.NewChatHandler(chatStore, notifier, pool)
 	staffChatH := handlers.NewStaffChatHandler(staffChatStore, notifier, pool)
 	caseVolChatH := handlers.NewCaseVolunteerChatHandler(caseVolChatStore, notifier)
+	// Chat lifecycle (migration 118) — one handler serving end/pause/resume/
+	// archive/unarchive/delete for ALL FOUR chat systems.
+	chatLifecycleH := handlers.NewChatLifecycleHandler(pool)
 	volunteerCheckinH := handlers.NewVolunteerCheckinHandler(pool, notifier, caseVolChatStore)
 	eventsH := handlers.NewEventsHandler(eventsStore, pool)
 	assistantH := handlers.NewAssistantHandler(assistantSvc, pool)
@@ -324,6 +328,9 @@ func main() {
 	adminCreateH.MediaCategories = mediaCatStore
 	adminDeleteH := handlers.NewAdminDeleteHandler(pool)
 	adminTrashH := handlers.NewAdminTrashHandler(pool)
+	// N3 — restoring a banned word has to refresh the moderation cache, or the
+	// word comes back in المهملات while comments containing it stay unfiltered.
+	adminTrashH.BannedWords = bannedWordsStore
 	adminUploadH := handlers.NewAdminUploadHandler(mediaStore)
 	// Serves stored media back as a downloadable file. It needs the same public
 	// base the storage layer uses, because that prefix is the allowlist deciding
@@ -386,7 +393,7 @@ func main() {
 	mediaCategoriesH := handlers.NewMediaCategoriesHandler(mediaCatStore)                                        // #22
 	caseCategoriesH := handlers.NewCaseCategoriesHandler(caseCatStore)                                           // Quick Filter Capsules
 	mediaEngageH := handlers.NewMediaEngagementHandler(postEngageStore, bannedWordsStore, notifier, eventsStore) // #24/#25
-	bannedWordsH := handlers.NewBannedWordsHandler(bannedWordsStore)                                             // #25
+	bannedWordsH := handlers.NewBannedWordsHandler(bannedWordsStore, pool)                                           // #25
 	partnerEngageH := handlers.NewPartnerEngagementHandler(partnerRatingStore)                                   // #27
 	marketplaceCategoriesH := handlers.NewMarketplaceCategoriesHandler(marketplaceCatStore)                      // #28
 	paymentMethodsH := handlers.NewPaymentMethodsHandler(paymentMethodStore)
@@ -841,6 +848,12 @@ func main() {
 		// mobile app issues the very same kind of Bearer token.
 		admin := api.Group("/")
 		admin.Use(auth.RequireAdmin(tokenStore))
+		// N3 — "any delete requires entering the password". Mounted on the
+		// whole group and filtered to DELETE inside, so every admin delete
+		// route — including any added later — is confirmed by default. See
+		// handlers/delete_password.go for what the password is and why the
+		// confirmation is per action rather than per session.
+		admin.Use(handlers.RequireDeletePassword(pool))
 		{
 			// 24-a — per-route permission enforcement. Every admin resource
 			// route below is gated by the (module, action) matrix via
@@ -968,6 +981,29 @@ func main() {
 			admin.GET("/admin/chats/:id/contact-blocks", perm("messages", "view"), chatH.AdminContactBlocks)
 			admin.POST("/admin/chats/:id/claim", perm("messages", "edit"), chatH.AdminClaim)
 			admin.POST("/admin/chats/:id/release", perm("messages", "edit"), chatH.AdminRelease)
+
+			// ─── Chat lifecycle (migration 118) ─────────────────────────
+			// END / PAUSE / RESUME / ARCHIVE / UNARCHIVE and DELETE, for every
+			// one of the four chat systems. STAFF ONLY by construction: these
+			// live on the `admin` group, so a participant's mobile token never
+			// reaches them, and there is no mobile equivalent. Each carries the
+			// same module permission that already governs its own chat.
+			//
+			// The DELETEs are registered here rather than in their own group so
+			// they inherit the dashboard-wide delete-password middleware that is
+			// mounted on `admin` and filtered to DELETE — there is exactly one
+			// password check in the product, and it is not written here.
+			//
+			// The chat kind is passed as a compile-time constant, never parsed
+			// from the URL, so no request value can ever choose a table.
+			admin.POST("/admin/chats/:id/lifecycle", perm("messages", "edit"), chatLifecycleH.Apply(chatlifecycle.KindDonor))
+			admin.DELETE("/admin/chats/:id", perm("messages", "delete"), chatLifecycleH.Delete(chatlifecycle.KindDonor))
+			admin.POST("/admin/staff-chats/:id/lifecycle", perm("messages", "edit"), chatLifecycleH.Apply(chatlifecycle.KindStaff))
+			admin.DELETE("/admin/staff-chats/:id", perm("messages", "delete"), chatLifecycleH.Delete(chatlifecycle.KindStaff))
+			admin.POST("/admin/case-chats/:id/lifecycle", perm("volunteers", "edit"), chatLifecycleH.Apply(chatlifecycle.KindCase))
+			admin.DELETE("/admin/case-chats/:id", perm("volunteers", "delete"), chatLifecycleH.Delete(chatlifecycle.KindCase))
+			admin.POST("/admin/marriage/chats/:id/lifecycle", perm("marriage", "edit"), chatLifecycleH.Apply(chatlifecycle.KindMarriage))
+			admin.DELETE("/admin/marriage/chats/:id", perm("marriage", "delete"), chatLifecycleH.Delete(chatlifecycle.KindMarriage))
 
 			// Note #36 — internal staff-to-staff chat. Not perm()-gated: every
 			// dashboard tier (employee and up) can use it regardless of assigned

@@ -51,6 +51,16 @@ type Product struct {
 	// CreatedAt backs وصل حديثاً. The column always existed; the public query
 	// did not select it, so the app had no date to sort or label by.
 	CreatedAt time.Time `json:"created_at"`
+	// Gallery is the product's ADDITIONAL photos (migration 117), in the order
+	// staff arranged them. ImagePath above remains the cover.
+	//
+	// Never nil: the column is NOT NULL DEFAULT '{}' and every SELECT wraps it
+	// in COALESCE anyway, so a product with no extra photos serialises as `[]`
+	// rather than `null`. The app can then treat "gallery" as a list it may
+	// find empty instead of a field it must null-check — which is what keeps a
+	// product with no gallery rendering exactly as it did before this column
+	// existed.
+	Gallery []string `json:"gallery"`
 }
 
 // Order is the row shape returned by ?view=orders.
@@ -188,7 +198,8 @@ func (s *Store) AdminListProducts(ctx context.Context, page, perPage int, status
 		       description, description_ar, description_sorani, description_badini,
 		       category, price::text, currency, image_path, stock_quantity, status,
 		       category_slug, sku, specs, COALESCE(labels, '{}'),
-		       brand, discount_percent, created_at
+		       brand, discount_percent, created_at,
+		       COALESCE(gallery, '{}')
 		  FROM marketplace_products`+where+`
 		 ORDER BY id DESC
 		 LIMIT $`+itoa(limitIdx)+` OFFSET $`+itoa(offsetIdx),
@@ -211,6 +222,11 @@ func (s *Store) AdminListProducts(ctx context.Context, page, perPage int, status
 			// along; without brand in this SELECT the field came back empty
 			// every time the row was reopened, whatever had been typed in it.
 			&p.Brand, &p.DiscountPercent, &p.CreatedAt,
+			// Migration 117 — the extra product photos. Selected here as well
+			// as in the public catalogue because the dashboard's edit form is
+			// populated from this list: without it, opening a product would
+			// show an empty gallery box and saving would wipe the real one.
+			&p.Gallery,
 		); err != nil {
 			return nil, err
 		}

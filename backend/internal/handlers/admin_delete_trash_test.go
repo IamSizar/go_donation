@@ -12,20 +12,20 @@
 // handlers — which live in their own files with their own stores — could not
 // call it even if they wanted to. It is a package-level function now.
 //
-// Thirteen of the fifteen are routed through the Trash here. The two that are
-// NOT are a deliberate decision, and this file pins that too so the exception
-// is visible rather than forgotten:
+// Thirteen of the fifteen are routed through the Trash here. Two were held back
+// as deliberate exceptions — app_events, an append-only activity log whose feed
+// rows would bury the records staff actually need to recover, and banned_words,
+// whose in-process cache had no TTL and was refreshed only by the very
+// Store.Delete that routing around it would skip.
 //
-//   - app_events    — an append-only activity/analytics log. A log line is not
-//     an authored record, its delete is already Super-Admin-only by the
-//     client's own rule, and filling the Trash with feed rows would bury the
-//     records staff actually need to recover.
-//   - banned_words  — the moderation blocklist is cached in-process with NO TTL,
-//     and only moderation.Store.Delete invalidates that cache. Routing the
-//     delete around the store would leave a removed word still being enforced
-//     until the next restart, and the restore path (a raw INSERT in another
-//     package) could not invalidate it either. Re-typing a word takes seconds;
-//     silently enforcing one the operator removed is the worse failure.
+// N3 CLOSED BOTH. The client restated the rule with no exceptions — "all delete
+// should go to trash bin, and any delete requires entering the password" — so
+// the reasoning above stopped being a licence to skip the Trash and became two
+// problems to solve. The cache is refreshed on delete AND on restore (see
+// moderation.Store.Invalidate and AdminTrashHandler.BannedWords), and both
+// tables are now in restorableTables and in the preview allow-list. Their
+// end-to-end coverage lives in delete_password_test.go, alongside the password
+// confirmation that N3 added to every admin delete route.
 //
 // The integration tests need a throwaway Postgres and are skipped unless
 // TEST_DATABASE_URL is set, so `go test ./...` stays green on a bare checkout
@@ -237,6 +237,10 @@ func TestTrashedTablesAreRestorable(t *testing.T) {
 		// languages and past donations still reference its slug, which makes
 		// an unrecoverable delete here especially expensive.
 		"donation_types",
+
+		// N3 — the last two, converted from hard deletes. Same guard as every
+		// entry above: they trash, so they must restore.
+		"app_events", "banned_words",
 	} {
 		if !restorableTables[table] {
 			t.Errorf("%s can be trashed but not restored — Restore would refuse it", table)

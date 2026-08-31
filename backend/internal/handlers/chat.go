@@ -14,6 +14,7 @@ import (
 
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
 	"github.com/karam-flutter/humanitarian-backend/internal/chat"
+	"github.com/karam-flutter/humanitarian-backend/internal/chatlifecycle"
 	"github.com/karam-flutter/humanitarian-backend/internal/notify"
 	"github.com/karam-flutter/humanitarian-backend/internal/permissions"
 	"github.com/karam-flutter/humanitarian-backend/internal/privacy"
@@ -320,6 +321,11 @@ func (h *ChatHandler) Messages(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"success": false, "error": "You are not a participant in this chat."})
 		return
 	}
+	// Migration 117 — an ARCHIVED thread does not exist as far as its
+	// participants are concerned, so the read path closes too, not just the list.
+	if refuseIfArchivedForParticipant(c, h.Pool, chatlifecycle.KindDonor, id) {
+		return
+	}
 	// K8 — ...ForViewer applies each sender's own Privacy Settings. The admin
 	// view below deliberately keeps the unmasked ListMessages.
 	msgs, err := h.Store.ListMessagesForViewer(c.Request.Context(), id, user.UserID)
@@ -328,11 +334,14 @@ func (h *ChatHandler) Messages(c *gin.Context) {
 		return
 	}
 	_ = h.Store.MarkRead(c.Request.Context(), id, user.UserID)
-	c.JSON(http.StatusOK, gin.H{
+	// The lifecycle travels with the history so the app can replace its
+	// composer with an explanation instead of letting the user type into a
+	// chat the server will refuse.
+	c.JSON(http.StatusOK, mergeChatLifecycle(c, h.Pool, chatlifecycle.KindDonor, id, gin.H{
 		"success": true,
 		"status":  thread.Status,
 		"items":   msgs,
-	})
+	}))
 }
 
 type chatMessageReq struct {
@@ -361,6 +370,10 @@ func (h *ChatHandler) PostMessage(c *gin.Context) {
 	}
 	if thread.Status != "active" {
 		c.JSON(http.StatusConflict, gin.H{"success": false, "error": "This chat is not active yet."})
+		return
+	}
+	// Migration 117 — a PAUSED or ENDED chat refuses new messages, server-side.
+	if refuseIfNotSendable(c, h.Pool, chatlifecycle.KindDonor, id) {
 		return
 	}
 	var req chatMessageReq
@@ -479,6 +492,11 @@ func (h *ChatHandler) AdminPostMessage(c *gin.Context) {
 	}
 	if thread.Status != "active" {
 		c.JSON(http.StatusConflict, gin.H{"success": false, "error": "This chat is not active yet."})
+		return
+	}
+	// Migration 117 — the pause holds for STAFF too. A pause staff could talk
+	// through would not be a pause; resume it first, deliberately.
+	if refuseIfNotSendable(c, h.Pool, chatlifecycle.KindDonor, id) {
 		return
 	}
 	var req chatMessageReq

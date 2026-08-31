@@ -102,6 +102,79 @@ api.interceptors.request.use((config) => {
   return config
 })
 
+// ─── N3 · every admin delete is password-confirmed ──────────────────────
+//
+// The server refuses any DELETE under /api/admin/ that does not carry the
+// acting staff member's own password (handlers/delete_password.go). This is the
+// client half: ask for it, and attach it to the request.
+//
+// WHY AN INTERCEPTOR AND NOT 46 EDITED CALL SITES. There are ~46 `api.delete`
+// calls across 30 pages. A prompt threaded through ConfirmDialog's props would
+// have to be remembered at each one, and the one that was forgotten would look
+// fine — it would just fail with a 400 in front of an operator who had done
+// nothing wrong. Here it is impossible to miss, it mirrors the server's single
+// middleware exactly, and it sits beside the Bearer-token interceptor that
+// solves the same shape of problem.
+//
+// CANCELLING. If the operator dismisses the dialog the request is never sent —
+// it rejects with DELETE_CANCELLED, which describeError renders as a plain
+// "Delete cancelled." rather than an error the operator has to decode.
+//
+// NO CACHING. The password is held only for the life of the request and is
+// never stored, logged, or written to state — every delete asks again, which is
+// what "any delete requires entering the password" says.
+export const DELETE_CANCELLED = 'delete_cancelled'
+
+// A single in-flight ask, shared by the deletes of ONE bulk action.
+//
+// WHY: a "delete selected" button fires its rows through Promise.all, so all of
+// them are in the air before the first answer arrives. Without this they would
+// stack up N password dialogs for what the operator did as one gesture. This is
+// NOT an unlock window — nothing is remembered once the dialog closes and the
+// queued requests have taken their answer; a second click asks again.
+let pendingDeletePassword: Promise<string | null> | null = null
+
+function askForDeletePassword(): Promise<string | null> {
+  if (!pendingDeletePassword) {
+    pendingDeletePassword = askForText({
+      title: translate('auth.password'),
+      message: translate('common.delete_password_prompt'),
+      secret: true,
+      destructive: true,
+      confirmLabel: translate('common.delete'),
+    }).finally(() => {
+      // Cleared on the microtask after every queued caller has attached, so a
+      // later click starts a fresh ask.
+      queueMicrotask(() => { pendingDeletePassword = null })
+    })
+  }
+  return pendingDeletePassword
+}
+
+api.interceptors.request.use(async (config) => {
+  const url = config.url ?? ''
+  const isAdminDelete =
+    (config.method ?? '').toLowerCase() === 'delete' && url.includes('/api/admin/')
+  if (!isAdminDelete) return config
+
+  // A caller that already supplied a password (none today, but the escape
+  // hatch keeps this from becoming a wall) is passed through untouched.
+  const existing = config.data as { password?: string } | undefined
+  if (existing && typeof existing.password === 'string' && existing.password.trim()) {
+    return config
+  }
+
+  const password = await askForDeletePassword()
+  if (password == null || !password.trim()) {
+    // Refuse locally rather than sending a request we know the server will
+    // reject: the operator cancelled, so nothing should reach the API at all.
+    throw new axios.Cancel(DELETE_CANCELLED)
+  }
+  // axios sends `data` as the body for DELETE just as it does for POST.
+  config.data = { ...(existing ?? {}), password: password.trim() }
+  return config
+})
+
 // Auto-logout on 401 (except for the login/OTP endpoints themselves).
 api.interceptors.response.use(
   (res) => res,
@@ -154,6 +227,11 @@ api.interceptors.response.use(
 // builders use), so this stays a plain function and its ~30 call sites keep
 // working untouched.
 export function describeError(err: unknown): string {
+  // N3 — the operator dismissed the delete-password dialog. That is a choice,
+  // not a fault: say so plainly instead of showing them a cancellation object.
+  if (axios.isCancel(err) && (err as { message?: string }).message === DELETE_CANCELLED) {
+    return translate('common.delete_cancelled')
+  }
   if (axios.isAxiosError(err)) {
     if (!err.response) return translate('error.network')
     const data = err.response.data as

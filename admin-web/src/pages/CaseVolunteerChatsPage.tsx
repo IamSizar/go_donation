@@ -13,6 +13,7 @@ import { useI18n } from '../lib/i18n'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { type CsvColumn } from '../lib/csv'
 import PageHead from '../components/PageHead'
+import ChatLifecycleControls from '../components/ChatLifecycleControls'
 
 type AdminThread = {
   id: number
@@ -37,6 +38,11 @@ type AdminThread = {
   last_message_at: string | null
   created_at: string
   updated_at: string
+  // Migration 117 — the staff-controlled lifecycle, driving the moderation
+  // strip below the conversation header.
+  lifecycle?: 'open' | 'paused' | 'ended'
+  lifecycle_reason?: string | null
+  is_archived?: boolean
 }
 
 type ChatMessage = {
@@ -258,6 +264,18 @@ export default function CaseVolunteerChatsPage() {
                       {t('common.msg_claim')}
                     </button>
                   )}
+                </div>
+                {/* Chat lifecycle (migration 117) — end / pause / resume /
+                    archive / delete, staff only. */}
+                <div style={{ marginTop: 8 }}>
+                  <ChatLifecycleControls
+                    basePath={`/api/admin/case-chats/${selected.id}`}
+                    thread={selected}
+                    onChanged={async () => {
+                      const items = await loadThreads()
+                      if (items) setSelected((s) => (s ? items.find((x) => x.id === s.id) ?? null : null))
+                    }}
+                  />
                 </div>
               </div>
 

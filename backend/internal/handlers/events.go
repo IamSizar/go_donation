@@ -117,30 +117,29 @@ func (h *EventsHandler) AdminList(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "items": items})
 }
 
-// AdminDelete permanently removes one Notification Center entry.
+// AdminDelete removes one Notification Center entry — into the Trash.
 //
 // DELETE /api/admin/events/:id   (Super-Admin only — enforced by the route's
 // RequireSuperAdmin middleware, matching "deletable only by the Primary
-// Administrator").
+// Administrator"; the password confirmation is enforced by the admin group's
+// RequireDeletePassword middleware).
+//
+// WHY IT GOES TO THE TRASH NOW. This route used to hard-delete, and that was a
+// deliberate exception recorded in admin_delete_trash_test.go: app_events is an
+// append-only activity log, not an authored record, and filling المهملات with
+// feed rows buries the records staff actually need to recover. The client has
+// since restated the rule with no exceptions — "all delete should go to trash
+// bin" — which overrides that reasoning. A feed row in the Trash is noise; a
+// feed row deleted by a mis-click is evidence nobody can get back.
 func (h *EventsHandler) AdminDelete(c *gin.Context) {
 	id, err := strconv.ParseInt(strings.TrimSpace(c.Param("id")), 10, 64)
 	if err != nil || id <= 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid id."})
 		return
 	}
-	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
-	defer cancel()
-
-	ok, err := h.Store.Delete(ctx, id)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Could not delete event."})
-		return
-	}
-	if !ok {
-		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Not found."})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "id": id})
+	// "app_events" is a package literal, never request input — trashRow
+	// interpolates the table name into its SQL.
+	trashRow(c, h.Pool, "app_events", id)
 }
 
 func digitsOnly(s string) string {

@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/mail"
 	"strconv"
@@ -639,6 +640,13 @@ type productEditReq struct {
 	// it. Discount is new in migration 109 and backs العروض والخصومات.
 	Brand           *string `json:"brand"`
 	DiscountPercent *int    `json:"discount_percent"`
+	// Migration 117 — the product's additional photos, alongside the single
+	// image_path cover above. Pointer-to-slice for the same reason every other
+	// gallery uses it: nil means "the request did not mention the gallery,
+	// leave it alone", while a present-but-empty array means "clear it". A
+	// plain []string cannot tell those two apart, and the dashboard PATCHes
+	// only the fields that changed.
+	Gallery *[]string `json:"gallery"`
 }
 
 // marketplaceLabels is the fixed set of allowed product badges (#28).
@@ -724,6 +732,15 @@ func (h *AdminEditHandler) MarketplaceProduct(c *gin.Context) {
 	}
 	if req.Labels != nil {
 		b.add("labels", sanitizeLabels(*req.Labels))
+	}
+	// Migration 117 — replace the whole gallery array, exactly as the media
+	// post and city place handlers do. Whole-array replace rather than
+	// append/remove because the dashboard's GalleryInput sends the finished
+	// list: reorder and delete are then ordinary saves instead of two more
+	// endpoints. cleanStringSlice drops blank entries so a stray empty row in
+	// the form cannot store a path that resolves to nothing.
+	if req.Gallery != nil {
+		b.add("gallery", cleanStringSlice(*req.Gallery))
 	}
 	if req.Price != nil {
 		if *req.Price < 0 {
@@ -1625,11 +1642,22 @@ func (h *AdminEditHandler) User(c *gin.Context) {
 	if !ok {
 		return
 	}
+	// The body is read ONCE and decoded twice: into the typed request for the
+	// fourteen columns with per-field rules, and into the allow-listed extras
+	// map for the ninety plain-text profile columns (admin_edit_user_profile.go).
+	// io.ReadAll rather than a second ShouldBind because gin's body cache is
+	// opt-in per call site and this is clearer about there being one read.
+	rawBody, readErr := io.ReadAll(c.Request.Body)
+	if readErr != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Could not read the request body."})
+		return
+	}
 	var req userEditReq
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := json.Unmarshal(rawBody, &req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid JSON body."})
 		return
 	}
+	profileExtras := parseUserProfileExtras(rawBody)
 
 	// H10 — a phone or email that came back redacted was never seen by whoever
 	// is saving it. Storing it would replace the account's sign-in identity
@@ -1676,7 +1704,7 @@ func (h *AdminEditHandler) User(c *gin.Context) {
 	profileHasChange := req.FullName != nil || req.Gender != nil || req.Address != nil || req.ProfilePicture != nil ||
 		req.DateOfBirth != nil || req.City != nil || req.Occupation != nil || req.FamilySize.Set ||
 		req.HousingStatus != nil || req.MonthlyIncome != nil || req.Skills != nil || req.Availability != nil ||
-		req.Experience != nil
+		req.Experience != nil || len(profileExtras) > 0
 	if !usersHasChange && !profileHasChange {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "No fields to update."})
 		return
@@ -1779,6 +1807,10 @@ func (h *AdminEditHandler) User(c *gin.Context) {
 			addNullableString("skills", req.Skills)
 			addNullableString("availability", req.Availability)
 			addNullableString("experience", req.Experience)
+			// The ninety allow-listed plain-text columns. Same builder, same
+			// $n binding — see admin_edit_user_profile.go for why they are not
+			// ninety more struct fields.
+			profileExtras.appendSets(&b)
 			if req.FamilySize.Set {
 				if req.FamilySize.Valid {
 					b.add("family_size", req.FamilySize.Value)
@@ -1827,17 +1859,33 @@ func (h *AdminEditHandler) User(c *gin.Context) {
 				}
 				return &s
 			}
-			_, err := tx.Exec(c.Request.Context(), `
-				INSERT INTO user_profiles
-				  (user_id, full_name, gender, address, profile_picture,
-				   date_of_birth, city, occupation, family_size, housing_status,
-				   monthly_income, skills, availability, experience)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+			// The fourteen typed columns, then the allow-listed extras appended
+			// as further ($n) placeholders, so an account with no profile row
+			// yet can be filled in from the Edit modal in one save.
+			cols := []string{
+				"user_id", "full_name", "gender", "address", "profile_picture",
+				"date_of_birth", "city", "occupation", "family_size",
+				"housing_status", "monthly_income", "skills", "availability",
+				"experience",
+			}
+			vals := []any{
 				id, pick(req.FullName), pick(req.Gender), pick(req.Address), pick(req.ProfilePicture),
 				pickNull(req.DateOfBirth), pickNull(req.City), pickNull(req.Occupation), req.FamilySize.IntPtr(),
 				pickNull(req.HousingStatus), pickNull(req.MonthlyIncome), pickNull(req.Skills),
 				pickNull(req.Availability), pickNull(req.Experience),
-			)
+			}
+			extraCols, extraVals := profileExtras.insertColumns()
+			cols = append(cols, extraCols...)
+			vals = append(vals, extraVals...)
+			placeholders := make([]string, len(vals))
+			for i := range vals {
+				placeholders[i] = "$" + strconv.Itoa(i+1)
+			}
+			// Every name in `cols` is a literal from this function or a key of
+			// the allow-list — never request text. Values are all bound.
+			_, err := tx.Exec(c.Request.Context(),
+				"INSERT INTO user_profiles ("+strings.Join(cols, ", ")+") VALUES ("+
+					strings.Join(placeholders, ", ")+")", vals...)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
 				return

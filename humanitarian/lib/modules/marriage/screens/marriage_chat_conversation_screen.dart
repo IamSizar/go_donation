@@ -7,6 +7,7 @@ import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_application_1/core/widgets/app_pressable.dart';
+import 'package:flutter_application_1/modules/chat/widgets/chat_lifecycle_notice.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 /// Note #35 — one staff-mediated marriage chat thread. Every bubble is
@@ -48,6 +49,12 @@ class _MarriageChatConversationScreenState
   /// A user-facing failure message, or null when the last load succeeded.
   String? _error;
 
+  /// Migration 117 — the staff-controlled lifecycle of this thread, and the
+  /// reason staff gave. Separate from `_status`, which is the ACCEPT
+  /// handshake (pending/active/declined) and means something else entirely.
+  String _lifecycle = ChatLifecycle.open;
+  String? _lifecycleReason;
+
   @override
   void initState() {
     super.initState();
@@ -84,9 +91,12 @@ class _MarriageChatConversationScreenState
           .map((m) => Map<String, dynamic>.from(m))
           .toList();
       if (!mounted) return;
+      final reason = res['lifecycle_reason']?.toString().trim();
       setState(() {
         _messages = items;
         _status = (res['status'] ?? _status).toString();
+        _lifecycle = (res['lifecycle'] ?? ChatLifecycle.open).toString();
+        _lifecycleReason = (reason == null || reason.isEmpty) ? null : reason;
         _error = null;
       });
       _scrollToBottom();
@@ -267,7 +277,12 @@ class _MarriageChatConversationScreenState
               ),
             ),
           ),
-          if (_status == 'active')
+          // Migration 117 — the lifecycle is checked BEFORE the accept
+          // handshake, because a paused or ended chat is closed regardless of
+          // whether the two sides ever accepted each other.
+          if (ChatLifecycle.isClosed(_lifecycle))
+            ChatLifecycleNotice(lifecycle: _lifecycle, reason: _lifecycleReason)
+          else if (_status == 'active')
             _Composer(input: _input, sending: _sending, onSend: _send)
           else if (_status == 'declined')
             Padding(

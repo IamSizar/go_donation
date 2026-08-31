@@ -1,0 +1,28 @@
+-- 117 — Marketplace product photo gallery.
+--
+-- A product had exactly one photo (image_path), so a seller could not show a
+-- second angle, the back of a garment, or what is actually in the box. This
+-- adds the same gallery column media_posts has carried since migration 033,
+-- deliberately reusing that shape rather than inventing a second one: TEXT[],
+-- NOT NULL DEFAULT '{}', each entry a relative upload path
+-- (images/uploads/<x>.jpg) or an absolute URL — the app resolves both.
+--
+-- image_path is NOT touched, migrated, or deprecated. It stays the cover
+-- image — the one photo the list tile, the cart, and the order history show —
+-- and gallery holds the ADDITIONAL photos shown on the product detail sheet.
+-- Folding the cover into the array would have rewritten how four existing
+-- screens find their thumbnail in order to add one feature to a fifth.
+--
+-- NOT NULL DEFAULT '{}' means every existing row already has a gallery: an
+-- empty one. Nothing has to be backfilled, and no reader has to branch on NULL.
+--
+-- No index: gallery is never filtered or sorted on. It is read as part of a row
+-- the query already located by id/status, exactly like media_posts.gallery.
+--
+-- Idempotent: ADD COLUMN IF NOT EXISTS.
+--
+-- Reverse (verified by hand against a local copy of the production data before
+-- this shipped; not run automatically — the repo has no down-migration runner):
+--   ALTER TABLE marketplace_products DROP COLUMN IF EXISTS gallery;
+ALTER TABLE marketplace_products
+  ADD COLUMN IF NOT EXISTS gallery TEXT[] NOT NULL DEFAULT '{}';

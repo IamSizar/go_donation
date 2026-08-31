@@ -90,7 +90,14 @@ const PRODUCT_FIELDS: FieldSpec[] = [
   { key: 'stock_quantity',      label: 'Stock quantity', labelKey: 'field.stock_quantity',     type: 'number' },
   { key: 'labels',              label: 'Labels', labelKey: 'field.labels',             type: 'multiselect', full: true, options: PRODUCT_LABELS },
   { key: 'specs',               label: 'Specs', labelKey: 'field.specs',              type: 'textarea', rows: 3, full: true, placeholder: 'One "Key: Value" per line', placeholderKey: 'hint.one_key_value_per_line' },
+  // The cover image — the single photo the app's product list, the cart, and
+  // the order history show. Unchanged by migration 117.
   { key: 'image_path',          label: 'Image', labelKey: 'field.image',              type: 'file', full: true },
+  // Migration 117 — the product's ADDITIONAL photos, shown on the app's product
+  // detail sheet. Same `type: 'gallery'` control (and therefore the same upload,
+  // reorder and remove behaviour) the media, city guide and receipts forms use;
+  // leaving it empty is the ordinary case and changes nothing about the product.
+  { key: 'gallery',             label: 'Gallery', labelKey: 'field.gallery',            type: 'gallery', full: true },
   { key: 'description',         label: 'Description (EN)', labelKey: 'field.description_en',   type: 'textarea', rows: 3 },
   { key: 'description_ar',      label: 'Description (AR)', labelKey: 'field.description_ar',   type: 'textarea', rows: 3, dir: 'rtl' },
   { key: 'description_sorani',  label: 'Description (Sorani)', labelKey: 'field.description_sorani', type: 'textarea', rows: 3, dir: 'rtl' },

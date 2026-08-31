@@ -799,6 +799,14 @@ func (h *AdminCreateHandler) MarketplaceProduct(c *gin.Context) {
 		}
 		discount = v
 	}
+	// Migration 117 — an empty array (never NULL) when the create form did not
+	// supply a gallery. The column is NOT NULL, and this also means a product
+	// is born with `"gallery": []` rather than a null the app would have to
+	// branch on.
+	gallery := []string{}
+	if req.Gallery != nil {
+		gallery = cleanStringSlice(*req.Gallery)
+	}
 	var id int64
 	err := h.Pool.QueryRow(c.Request.Context(), `
 		INSERT INTO marketplace_products
@@ -806,8 +814,8 @@ func (h *AdminCreateHandler) MarketplaceProduct(c *gin.Context) {
 		   name, name_ar, name_sorani, name_badini,
 		   description, description_ar, description_sorani, description_badini,
 		   category, price, currency, image_path, stock_quantity, status,
-		   category_slug, sku, specs, labels, brand, discount_percent)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
+		   category_slug, sku, specs, labels, brand, discount_percent, gallery)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
 		RETURNING id`,
 		sellerID, caseID,
 		name, optStringOrNil(req.NameAr), optStringOrNil(req.NameSorani), optStringOrNil(req.NameBadini),
@@ -818,6 +826,7 @@ func (h *AdminCreateHandler) MarketplaceProduct(c *gin.Context) {
 		optStringOrNil(req.CategorySlug), optStringOrNil(req.SKU), // #28
 		optStringOrNil(req.Specs), productLabels(req.Labels),
 		brand, discount, // K15
+		gallery, // migration 117
 	).Scan(&id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})

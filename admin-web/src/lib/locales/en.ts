@@ -635,6 +635,20 @@ const en = {
     refresh: 'Refresh',
     save: 'Save',
   },
+  chat_lifecycle: {
+    pause: 'Pause',
+    resume: 'Resume',
+    end: 'End chat',
+    archive: 'Archive',
+    unarchive: 'Un-archive',
+    delete: 'Delete chat',
+    reason_prompt: 'Why? Both participants will be shown this in place of their message box. You can leave it blank.',
+    reason_placeholder: 'e.g. Under review by our team',
+    reason_shown: 'Participants are being shown: {reason}',
+    end_confirm: 'Ending is final — the chat becomes read-only for everyone and cannot be reopened. The history is kept.',
+    delete_confirm: 'Move this chat and all of its messages to the Trash? A Super-Admin can restore it, or delete it permanently.',
+    archived_hint: 'Hidden from the participants. Staff can still see it here.',
+  },
   common: {
     breadcrumb: 'Breadcrumb',
     // --- Arabic i18n completeness pass: strings that were hardcoded in JSX ---
@@ -726,6 +740,11 @@ const en = {
     move_up: 'Move up',
     move_down: 'Move down',
     deleting: 'Deleting…',
+    // N3 — every delete asks for the operator's OWN account password, once per
+    // action. The prompt names whose password and what it is for, so nobody
+    // types the target record's owner's password into it by mistake.
+    delete_password_prompt: 'Enter your account password to delete this record. It will move to the Trash.',
+    delete_cancelled: 'Delete cancelled — nothing was deleted.',
     create: 'Create',
     new: 'New',
     saving: 'Saving…',
@@ -1162,6 +1181,23 @@ const en = {
     unread_aria: '{label} — {count} unread',
     unread_count: '{count} unread',
     admin_word: 'admin',
+    // Accessible name for the <aside> navigation landmark, and for the
+    // hamburger that opens it as a drawer on a phone.
+    menu: 'Menu',
+    menu_open: 'Open menu',
+    menu_close: 'Close menu',
+  },
+
+  // PWA — install prompt and offline notice. Kept in their own namespace
+  // because they belong to the app-container, not to any screen.
+  pwa: {
+    install: 'Install app',
+    install_title: 'Install BalanceNex Admin on this device for a home-screen icon and full-screen use',
+    // Deliberately says what the admin is looking at, not just that the
+    // network is down: the danger of an offline PWA is an empty table reading
+    // as "there are no records".
+    offline_title: "You're offline",
+    offline_body: 'Showing the last screen loaded. Lists may be empty or out of date until the connection returns.',
   },
 
   // Table empty states, keyed by resource.
@@ -1485,6 +1521,7 @@ const en = {
     refunded: 'Refunded',
     declined: 'Declined',
     closed: 'Closed',
+    ended: 'Ended',
     archived: 'Archived',
     expired: 'Expired',
     inactive: 'Inactive',
@@ -1856,7 +1893,65 @@ const en = {
     partner_requirements: 'Requirements sought in a partner',
   },
   // Raw DB column names → labels for the read-only Detail view + Audit Logs.
+  // Account detail page — the grouped registration profile
+  // (components/UserProfileSections.tsx).
+  profile: {
+    group: {
+      account: 'Account',
+      identity: 'Identity',
+      contact: 'Contact',
+      location: 'Location',
+      housing: 'Housing',
+      work: 'Work and income',
+      education: 'Education',
+      household: 'Household members',
+      health: 'Health',
+      volunteering: 'Volunteering',
+      needs: 'Needs and consent',
+      documents: 'Photos and documents',
+      uploaded_documents: 'Uploaded documents',
+    },
+    // The distinction the old screen could not draw: a bare "—" meant both
+    // "they left it blank" and "we never asked them", which read as broken data.
+    blank: 'Not filled in',
+    not_collected: 'Not collected for this role',
+    // The user's own Privacy Settings choice. Staff still see the value —
+    // their access is a separate permission — but a value the person asked
+    // other users not to see must not look like one they chose to share.
+    private_badge: 'Private',
+    private_hint: 'The user hid this field from other users in the app.',
+    privacy_note: 'Fields marked Private were hidden by the user from other app users. They are shown to staff, but treat them accordingly.',
+    open_photo: 'Open {name} full size',
+    open_file: 'Open file',
+    document: 'Document',
+    no_documents: 'This account has not uploaded any documents.',
+  },
+
   dbfield: {
+    // ─── Registration profile (the person's own submitted details) ───────
+    // Wording copied from the app's own registration form so an operator and
+    // an applicant read the same words for the same box.
+    name_first: 'First name', name_father: "Father's name",
+    name_grandfather: "Grandfather's name", name_family: 'Family name',
+    alias_name: 'Alias / nickname',
+    grantor_code: 'Grantor code', recipient_code: 'Recipient code',
+    volunteer_code: 'Volunteer code',
+    gps_lat: 'GPS latitude', gps_lng: 'GPS longitude',
+    household_employees_count: 'Employees in the household',
+    working_members_count: 'Working household members',
+    household_disabled_count: 'Persons with a disability in the household',
+    id_photo_path: 'National Card / ID photo',
+    ration_card_photo_path: 'Ration Card',
+    residence_card_photo_path: 'Residence Card',
+    passport_photo_path: 'Passport',
+    golden_square_photo_path: 'Golden Square document',
+    graduation_cert_photo_path: 'Graduation certificate',
+    cv_photo_path: 'Curriculum vitae (CV)',
+    property_proof_photo_path: 'Proof of property ownership or rental agreement',
+    medical_report_photo_path: 'Medical reports',
+    house_facade_photo_path: 'House photo — exterior façade',
+    house_inside_photo_path: 'House photo — inside the house',
+    house_outside_photo_path: 'House photo — outside the house',
     donor_full_name: 'Grantor name', donor_phone: 'Grantor phone',
     approx_location: 'Approximate location', category_slug: 'Category code', date_of_birth: 'Date of birth',
     family_size: 'Family size', google_sub: 'Google account ID', last_reminder_due_date: 'Last reminder due',

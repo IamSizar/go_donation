@@ -3,9 +3,27 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/favicon.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover lets the page paint under an iPhone's notch and home
+         indicator; the CSS then pays the safe-area insets back with padding, so
+         the topbar and the drawer's sign-out button are never under the bezel. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#1B37C9" />
     <meta name="color-scheme" content="dark" />
+
+    <!-- PWA. The manifest carries the name, icons, colours and display mode
+         that make the dashboard installable; see public/manifest.webmanifest
+         and public/sw.js (the latter's header explains what is and is not
+         cached, which is the security-relevant part). -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <!-- iOS ignores the manifest's icon array entirely and looks only at these. -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-180.png" />
+    <link rel="apple-touch-icon" sizes="167x167" href="/icons/icon-167.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152.png" />
+    <!-- iOS equivalents of `display: standalone` + `theme_color`. "black-translucent"
+         is what makes viewport-fit=cover meaningful on iOS. -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="BalanceNex" />
 
     <!-- Inter — variable font, optimized for UI at small sizes.
          Preconnect hints shave ~80ms off cold loads. -->

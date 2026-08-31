@@ -8,6 +8,7 @@ import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_application_1/core/widgets/app_pressable.dart';
+import 'package:flutter_application_1/modules/chat/widgets/chat_lifecycle_notice.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
 
 /// Note #36 — one Staff↔Volunteer↔Beneficiary chat thread. Unlike the
@@ -40,6 +41,12 @@ class _CaseChatConversationScreenState
   bool _loading = true;
   bool _sending = false;
   String? _error;
+
+  /// Migration 117 — the staff-controlled lifecycle of this thread, and the
+  /// reason staff gave. `open` until the server says otherwise, so a failed
+  /// read never locks a working conversation.
+  String _lifecycle = ChatLifecycle.open;
+  String? _lifecycleReason;
 
   int get _myUserId =>
       int.tryParse(sharedPreferences.getString('id_user') ?? '') ?? 0;
@@ -79,8 +86,11 @@ class _CaseChatConversationScreenState
           .map((m) => Map<String, dynamic>.from(m))
           .toList();
       if (!mounted) return;
+      final reason = res['lifecycle_reason']?.toString().trim();
       setState(() {
         _messages = items;
+        _lifecycle = (res['lifecycle'] ?? ChatLifecycle.open).toString();
+        _lifecycleReason = (reason == null || reason.isEmpty) ? null : reason;
         _error = null;
       });
       _scrollToBottom();
@@ -208,7 +218,12 @@ class _CaseChatConversationScreenState
                         _Bubble(message: _messages[i], myUserId: _myUserId),
                   ),
           ),
-          _Composer(input: _input, sending: _sending, onSend: _send),
+          // Migration 117 — explanation instead of a composer the server
+          // would refuse.
+          if (ChatLifecycle.isClosed(_lifecycle))
+            ChatLifecycleNotice(lifecycle: _lifecycle, reason: _lifecycleReason)
+          else
+            _Composer(input: _input, sending: _sending, onSend: _send),
         ],
       ),
     );

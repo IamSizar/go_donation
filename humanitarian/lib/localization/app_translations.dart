@@ -1491,7 +1491,16 @@ class AppTranslations extends Translations {
     'marriage_posts_services_subtitle':
         'Programs and stories from the Events section.',
     'marriage_posts_empty': 'No event posts have been published yet.',
+    'feed_load_older': 'Load older posts',
     'marriage_posts_load_failed': 'Could not load posts. Pull to retry.',
+    'marriage_saved_empty':
+        'Nothing saved yet. Tap the bookmark on a profile to keep it here.',
+    'marriage_saved_load_failed':
+        'Could not load your saved profiles. Pull to retry.',
+    'marriage_saved_toggle_failed':
+        'Could not save that just now. Please try again.',
+    'marriage_saved_unsave_failed':
+        'Could not remove that just now. Please try again.',
     'case_chats_label': 'Case chats',
     'Confirm': 'Confirm',
     'check_in_action': 'Check in (photo + location)',
@@ -2702,6 +2711,12 @@ class AppTranslations extends Translations {
     'Call': 'Call',
     'city_all': 'All',
     'city_photos': 'Photos',
+    // Migration 117 — heading over a product's extra photos on the
+    // marketplace detail sheet. Deliberately its own key rather than a
+    // reuse of 'city_photos': the two happen to read alike in English and
+    // are free to diverge in any of the four languages without one screen
+    // silently renaming the other.
+    'product_photos': 'Photos',
     'city_opening_hours': 'Opening Hours',
     'add_activity': 'Add an Activity',
     'activity_subtitle':
@@ -2802,6 +2817,15 @@ class AppTranslations extends Translations {
     'Submit profile': 'Submit profile',
     'Submit request': 'Submit request',
     'Successful': 'Successful',
+    'This conversation has been paused by our team.':
+        'This conversation has been paused by our team.',
+    'This conversation has been closed by our team.':
+        'This conversation has been closed by our team.',
+    'You can still read it. New messages can\'t be sent while it is paused.':
+        'You can still read it. New messages can\'t be sent while it is paused.',
+    'You can still read the whole conversation, but no new messages can be sent.':
+        'You can still read the whole conversation, but no new messages can be sent.',
+    'Reason': 'Reason',
     'Support can view and help in this chat':
         'Support can view and help in this chat',
     'Tap a day above to set when you\'re available.':
@@ -4374,8 +4398,16 @@ class AppTranslations extends Translations {
     'marriage_posts_subtitle': 'برامج وقصص وتحديثات من قسم الفعاليات.',
     'marriage_posts_services_subtitle': 'برامج وقصص من قسم الفعاليات.',
     'marriage_posts_empty': 'لم يتم نشر أي منشورات زواج بعد.',
+    'feed_load_older': 'تحميل منشورات أقدم',
     'marriage_posts_load_failed':
         'تعذّر تحميل المنشورات. اسحب لإعادة المحاولة.',
+    'marriage_saved_empty':
+        'لا توجد عناصر محفوظة بعد. اضغط على علامة الحفظ في أي ملف لتجده هنا.',
+    'marriage_saved_load_failed':
+        'تعذّر تحميل الملفات المحفوظة. اسحب لإعادة المحاولة.',
+    'marriage_saved_toggle_failed': 'تعذّر الحفظ الآن. يرجى المحاولة مرة أخرى.',
+    'marriage_saved_unsave_failed':
+        'تعذّر الإزالة الآن. يرجى المحاولة مرة أخرى.',
     'case_chats_label': 'محادثات الحالات',
     'Confirm': 'تأكيد',
     'check_in_action': 'تسجيل حضور (صورة + موقع)',
@@ -5514,6 +5546,7 @@ class AppTranslations extends Translations {
     'Call': 'اتصال',
     'city_all': 'الكل',
     'city_photos': 'الصور',
+    'product_photos': 'الصور',
     'city_opening_hours': 'أوقات العمل',
     'add_activity': 'إضافة نشاط',
     'activity_subtitle': 'اقترح مكانًا — يراجعه المشرف قبل ظهوره.',
@@ -5607,6 +5640,15 @@ class AppTranslations extends Translations {
     'Submit profile': 'إرسال الملف',
     'Submit request': 'إرسال الطلب',
     'Successful': 'ناجح',
+    'This conversation has been paused by our team.':
+        'تم إيقاف هذه المحادثة مؤقتًا من قِبل فريقنا.',
+    'This conversation has been closed by our team.':
+        'تم إغلاق هذه المحادثة من قِبل فريقنا.',
+    'You can still read it. New messages can\'t be sent while it is paused.':
+        'لا يزال بإمكانك قراءتها. لا يمكن إرسال رسائل جديدة أثناء الإيقاف المؤقت.',
+    'You can still read the whole conversation, but no new messages can be sent.':
+        'لا يزال بإمكانك قراءة المحادثة كاملة، لكن لا يمكن إرسال رسائل جديدة.',
+    'Reason': 'السبب',
     'Support can view and help in this chat':
         'يمكن للدعم المشاهدة والمساعدة في هذه الدردشة',
     'Tap a day above to set when you\'re available.':
@@ -6684,8 +6726,17 @@ class AppTranslations extends Translations {
         'بەرنامە و چیرۆک و نوێترین هەواڵەکانی بەشی هاوسەرگیری.',
     'marriage_posts_services_subtitle': 'بەرنامە و چیرۆکەکانی بەشی هاوسەرگیری.',
     'marriage_posts_empty': 'هێشتا هیچ بابەتێکی هاوسەرگیری بڵاو نەکراوەتەوە.',
+    'feed_load_older': 'بابەتە کۆنەکان باربکە',
     'marriage_posts_load_failed':
         'نەتوانرا بابەتەکان بار بکرێن. بۆ دووبارە هەوڵدانەوە ڕایبکێشە.',
+    'marriage_saved_empty':
+        'هێشتا هیچ شتێک پاشەکەوت نەکراوە. نیشانەی پاشەکەوت لەسەر پرۆفایلێک دابگرە بۆ ئەوەی لێرە بمێنێتەوە.',
+    'marriage_saved_load_failed':
+        'نەتوانرا پرۆفایلە پاشەکەوتکراوەکان بار بکرێن. بۆ دووبارە هەوڵدانەوە ڕایبکێشە.',
+    'marriage_saved_toggle_failed':
+        'ئێستا نەتوانرا پاشەکەوت بکرێت. تکایە دووبارە هەوڵ بدەرەوە.',
+    'marriage_saved_unsave_failed':
+        'ئێستا نەتوانرا لابردرێت. تکایە دووبارە هەوڵ بدەرەوە.',
     'case_chats_label': 'گفتوگۆکانی دۆسیە',
     'Confirm': 'دڵنیاکردنەوە',
     'check_in_action': 'تۆمارکردنی هاتن (وێنە + شوێن)',
@@ -7520,6 +7571,7 @@ class AppTranslations extends Translations {
     'Call': 'پەیوەندی',
     'city_all': 'هەموو',
     'city_photos': 'وێنەکان',
+    'product_photos': 'وێنەکان',
     'city_opening_hours': 'کاتی کردنەوە',
     'add_activity': 'زیادکردنی چالاکی',
     'activity_subtitle':
@@ -7616,6 +7668,15 @@ class AppTranslations extends Translations {
     'Submit profile': 'پڕۆفایل بنێرە',
     'Submit request': 'داواکاری بنێرە',
     'Successful': 'سەرکەوتوو',
+    'This conversation has been paused by our team.':
+        'ئەم گفتوگۆیە لەلایەن تیمەکەمانەوە بۆ ماوەیەک ڕاگیراوە.',
+    'This conversation has been closed by our team.':
+        'ئەم گفتوگۆیە لەلایەن تیمەکەمانەوە داخراوە.',
+    'You can still read it. New messages can\'t be sent while it is paused.':
+        'هێشتا دەتوانیت بیخوێنیتەوە. لە ماوەی ڕاگرتندا ناتوانیت نامەی نوێ بنێریت.',
+    'You can still read the whole conversation, but no new messages can be sent.':
+        'هێشتا دەتوانیت هەموو گفتوگۆکە بخوێنیتەوە، بەڵام ناتوانیت نامەی نوێ بنێریت.',
+    'Reason': 'هۆکار',
     'Support can view and help in this chat':
         'پشتیوانی دەتوانێت ئەم چاتە ببینێت و یارمەتی بدات',
     'Tap a day above to set when you\'re available.':
@@ -9927,8 +9988,17 @@ class AppTranslations extends Translations {
         'پرۆگرام و چیروک و نویترین هەڤالێن ژ بەشێ هەڤسەریێ.',
     'marriage_posts_services_subtitle': 'پرۆگرام و چیروکێن بەشێ هەڤسەریێ.',
     'marriage_posts_empty': 'هێشتا چ نڤیسا هەڤسەریێ نەهاتیە بەلاڤکرن.',
+    'feed_load_older': 'پۆستێن کەڤنتر بار بکە',
     'marriage_posts_load_failed':
         'نەشیا نڤیس بێنە بارکرن. بۆ دیسا هەوڵدانێ ڕابکێشە.',
+    'marriage_saved_empty':
+        'هێشتا چ تشت نەهاتیە پاراستن. نیشانا پاراستنێ ل سەر پروفایلەکێ بتکە دا ل ڤێرێ بمینیت.',
+    'marriage_saved_load_failed':
+        'نەشیان پروفایلێن پاراستی بێنە بارکرن. بۆ دیسا هەوڵدانێ ڕابکێشە.',
+    'marriage_saved_toggle_failed':
+        'نوکە نەشیا بهێتە پاراستن. ژ کەرەما خۆ دیسا هەوڵ بدە.',
+    'marriage_saved_unsave_failed':
+        'نوکە نەشیا بهێتە ژێبرن. ژ کەرەما خۆ دیسا هەوڵ بدە.',
     'case_chats_label': 'گفتوگۆیێن دۆسیێ',
     'Confirm': 'پشتراستکرن',
     'check_in_action': 'تۆمارکرنا هاتنێ (وێنە + جهـ)',
@@ -10016,6 +10086,7 @@ class AppTranslations extends Translations {
     'Call': 'پەیوەندی',
     'city_all': 'هەمی',
     'city_photos': 'وێنە',
+    'product_photos': 'وێنە',
     'city_opening_hours': 'دەمێن ڤەکرنێ',
     'add_activity': 'چالاکیەکێ زێدەکە',
     'activity_subtitle':
@@ -10111,6 +10182,15 @@ class AppTranslations extends Translations {
     'Submit profile': 'پرۆفایلێ ڤەرێکە',
     'Submit request': 'داخوازێ ڤەرێکە',
     'Successful': 'سەرکەفتی',
+    'This conversation has been paused by our team.':
+        'ئەڤ گفتوگۆیە ژ لایێ تیما مە ڤە بۆ دەمەکێ هاتیە ڕاوەستاندن.',
+    'This conversation has been closed by our team.':
+        'ئەڤ گفتوگۆیە ژ لایێ تیما مە ڤە هاتیە گرتن.',
+    'You can still read it. New messages can\'t be sent while it is paused.':
+        'هێژ دشێی بخوینی. د دەمێ ڕاوەستاندنێ دا ناشێی نامەیێن نوی بهنێری.',
+    'You can still read the whole conversation, but no new messages can be sent.':
+        'هێژ دشێی هەمی گفتوگۆیێ بخوینی، بەلێ ناشێی نامەیێن نوی بهنێری.',
+    'Reason': 'ئەگەر',
     'Support can view and help in this chat':
         'پشتەڤانی دشێت ڤێ چاتێ ببینیت و هاریکاریێ بکەت',
     'Tap a day above to set when you\'re available.':
