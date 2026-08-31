@@ -63,11 +63,68 @@ class EventHubCard extends StatelessWidget {
   /// full-size — they are the only two things on that screen).
   final bool dense;
 
+  /// Reserves the height that [maxLines] of [style] occupies at the current
+  /// text scale, so the title/subtitle boxes below are always exactly that
+  /// tall — even when the actual copy is shorter and would otherwise wrap
+  /// to fewer lines.
+  ///
+  /// WHY THIS EXISTS
+  /// [Column] with `mainAxisSize: MainAxisSize.min` (this card's layout)
+  /// sizes each Text to however many lines its *own* copy actually needs,
+  /// not to `maxLines`. Two cards side by side in the same [CardGrid] row
+  /// can have subtitles that wrap to 2 lines and 3 lines respectively —
+  /// that difference is exactly the owner-reported bug (three-line "قسم
+  /// الفعاليات" taller than two-line "خدمات الفعاليات"). Reserving
+  /// `maxLines` worth of space unconditionally makes every card of the
+  /// same [dense]-ness the same height, in the row and across the whole
+  /// grid, regardless of which subtitle happens to be shorter.
+  ///
+  /// A [TextPainter] (not a hand-picked pixel constant) is used so the
+  /// reserved height tracks the real font metrics and grows with Dynamic
+  /// Type via [MediaQuery.textScalerOf] — cards stay equal at every text
+  /// scale instead of a fixed height that would either clip or leave a
+  /// gap once the system font size changes.
+  double _reservedTextHeight(
+    BuildContext context,
+    TextStyle style,
+    int maxLines,
+  ) {
+    final painter = TextPainter(
+      // Explicit newlines force `maxLines` physical lines regardless of
+      // width — an unconstrained single line under `maxWidth: infinity`
+      // would otherwise never wrap and would report a 1-line height.
+      text: TextSpan(text: List.filled(maxLines, 'M').join('\n'), style: style),
+      maxLines: maxLines,
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout(maxWidth: double.infinity);
+    return painter.height;
+  }
+
   @override
   Widget build(BuildContext context) {
     final badgeSize = dense ? 44.0 : 56.0;
     final iconSize = dense ? 22.0 : 28.0;
     final padding = dense ? 16.0 : 20.0;
+
+    // Same maxLines the Text widgets below already use — reserving exactly
+    // that many lines matches the space these subtitles were already
+    // proven to fit within (no copy in the app currently truncates at
+    // these limits; see the CardGrid/EventHubCard header comments for the
+    // audited subtitle set).
+    final titleMaxLines = 2;
+    final subtitleMaxLines = dense ? 2 : 3;
+
+    final titleStyle = TextStyle(
+      fontWeight: FontWeight.w800,
+      fontSize: dense ? 14 : 17,
+      color: AppThemeConfig.text(context),
+    );
+    final subtitleStyle = TextStyle(
+      fontSize: dense ? 11.5 : 12.5,
+      height: 1.3,
+      color: AppThemeConfig.mutedText(context),
+    );
 
     final badge = Container(
       width: badgeSize,
@@ -100,25 +157,39 @@ class EventHubCard extends StatelessWidget {
             children: [
               heroTag == null ? badge : Hero(tag: heroTag!, child: badge),
               SizedBox(height: dense ? 12 : 16),
-              Text(
-                title.tr,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: dense ? 14 : 17,
-                  color: AppThemeConfig.text(context),
+              // Fixed-height box (see _reservedTextHeight) so a one-line
+              // title never leaves this card shorter than a sibling whose
+              // title actually wraps to two lines.
+              SizedBox(
+                height: _reservedTextHeight(context, titleStyle, titleMaxLines),
+                child: Align(
+                  alignment: AlignmentDirectional.topStart,
+                  child: Text(
+                    title.tr,
+                    maxLines: titleMaxLines,
+                    overflow: TextOverflow.ellipsis,
+                    style: titleStyle,
+                  ),
                 ),
               ),
               const SizedBox(height: 4),
-              Text(
-                subtitle.tr,
-                maxLines: dense ? 2 : 3,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: dense ? 11.5 : 12.5,
-                  height: 1.3,
-                  color: AppThemeConfig.mutedText(context),
+              // Same fixed-height reservation for the subtitle — this is
+              // the box that produced the owner's reported bug (a 3-line
+              // subtitle sizing its card taller than a 2-line sibling).
+              SizedBox(
+                height: _reservedTextHeight(
+                  context,
+                  subtitleStyle,
+                  subtitleMaxLines,
+                ),
+                child: Align(
+                  alignment: AlignmentDirectional.topStart,
+                  child: Text(
+                    subtitle.tr,
+                    maxLines: subtitleMaxLines,
+                    overflow: TextOverflow.ellipsis,
+                    style: subtitleStyle,
+                  ),
                 ),
               ),
             ],
