@@ -639,6 +639,13 @@ type productEditReq struct {
 	// it. Discount is new in migration 109 and backs العروض والخصومات.
 	Brand           *string `json:"brand"`
 	DiscountPercent *int    `json:"discount_percent"`
+	// Migration 117 — the product's additional photos, alongside the single
+	// image_path cover above. Pointer-to-slice for the same reason every other
+	// gallery uses it: nil means "the request did not mention the gallery,
+	// leave it alone", while a present-but-empty array means "clear it". A
+	// plain []string cannot tell those two apart, and the dashboard PATCHes
+	// only the fields that changed.
+	Gallery *[]string `json:"gallery"`
 }
 
 // marketplaceLabels is the fixed set of allowed product badges (#28).
@@ -724,6 +731,15 @@ func (h *AdminEditHandler) MarketplaceProduct(c *gin.Context) {
 	}
 	if req.Labels != nil {
 		b.add("labels", sanitizeLabels(*req.Labels))
+	}
+	// Migration 117 — replace the whole gallery array, exactly as the media
+	// post and city place handlers do. Whole-array replace rather than
+	// append/remove because the dashboard's GalleryInput sends the finished
+	// list: reorder and delete are then ordinary saves instead of two more
+	// endpoints. cleanStringSlice drops blank entries so a stray empty row in
+	// the form cannot store a path that resolves to nothing.
+	if req.Gallery != nil {
+		b.add("gallery", cleanStringSlice(*req.Gallery))
 	}
 	if req.Price != nil {
 		if *req.Price < 0 {

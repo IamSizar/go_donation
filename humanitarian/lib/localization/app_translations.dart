@@ -2702,6 +2702,12 @@ class AppTranslations extends Translations {
     'Call': 'Call',
     'city_all': 'All',
     'city_photos': 'Photos',
+    // Migration 117 — heading over a product's extra photos on the
+    // marketplace detail sheet. Deliberately its own key rather than a
+    // reuse of 'city_photos': the two happen to read alike in English and
+    // are free to diverge in any of the four languages without one screen
+    // silently renaming the other.
+    'product_photos': 'Photos',
     'city_opening_hours': 'Opening Hours',
     'add_activity': 'Add an Activity',
     'activity_subtitle':
@@ -5514,6 +5520,7 @@ class AppTranslations extends Translations {
     'Call': 'اتصال',
     'city_all': 'الكل',
     'city_photos': 'الصور',
+    'product_photos': 'الصور',
     'city_opening_hours': 'أوقات العمل',
     'add_activity': 'إضافة نشاط',
     'activity_subtitle': 'اقترح مكانًا — يراجعه المشرف قبل ظهوره.',
@@ -7520,6 +7527,7 @@ class AppTranslations extends Translations {
     'Call': 'پەیوەندی',
     'city_all': 'هەموو',
     'city_photos': 'وێنەکان',
+    'product_photos': 'وێنەکان',
     'city_opening_hours': 'کاتی کردنەوە',
     'add_activity': 'زیادکردنی چالاکی',
     'activity_subtitle':
@@ -10016,6 +10024,7 @@ class AppTranslations extends Translations {
     'Call': 'پەیوەندی',
     'city_all': 'هەمی',
     'city_photos': 'وێنە',
+    'product_photos': 'وێنە',
     'city_opening_hours': 'دەمێن ڤەکرنێ',
     'add_activity': 'چالاکیەکێ زێدەکە',
     'activity_subtitle':
