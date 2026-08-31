@@ -129,6 +129,10 @@ class MarriageHubScreen extends StatelessWidget {
                       const SizedBox(height: 14),
                       MediaPostCard(
                         item: item,
+                        // Without this the engagement bar would refresh the
+                        // untagged controller instead of this one, and like /
+                        // save would silently do nothing on screen.
+                        controller: feed,
                         categoryLabel: feed.categoryLabelForSlug(
                           (item['category_slug'] ?? '').toString(),
                         ),
