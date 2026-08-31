@@ -640,6 +640,8 @@ const kmr: DeepPartial<typeof en> = {
     move_up: 'بلندکرن',
     move_down: 'نزمکرن',
     deleting: 'ژێبرن…',
+    delete_password_prompt: 'Ji bo jêbirina vê tomarê şîfreya hesabê xwe binivîse. Ew ê biçe Çopê.',
+    delete_cancelled: 'Jêbirin hate betalkirin — tiştek nehate jêbirin.',
     create: 'دروستکرن',
     new: 'نوو',
     saving: 'پاراستن…',

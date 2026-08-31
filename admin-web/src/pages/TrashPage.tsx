@@ -71,6 +71,12 @@ const MODULE_TKEY: Record<string, string> = {
   // token on an Arabic screen — which is the exact defect the block above
   // exists to prevent.
   volunteer_mission_signups: 'nav.volunteers',
+
+  // N3 — the last two hard deletes, now recoverable like everything else. Both
+  // need a label for exactly the reason the blocks above do: without one the
+  // Trash prints `app_events` / `banned_words` at an Arabic-reading operator.
+  app_events: 'nav.notifications',
+  banned_words: 'nav.banned_words',
 }
 
 // Pull a human-readable label out of the snapshot to help identify the record.
@@ -88,6 +94,11 @@ function previewOf(payload: Record<string, unknown>, locale: string): string {
     'full_name', ...localized, 'title', 'name', 'product_name',
     'reference', 'ref', 'username', 'phone', 'email',
     'body', 'word', // a moderated comment; a blocked word
+    // N3 — an activity-log line names itself in `event_label`, falling back to
+    // its `event_type`. Without these the Notification Center rows in the Trash
+    // would all read as a bare id, which is no help at all when choosing which
+    // one to restore.
+    'event_label', 'event_type',
     // E15 — a mission signup carries no name/title of its own; `notes` is the
     // only free text on the row. Last in the list on purpose: it exists on
     // several other tables too, and must never win over a real name there.

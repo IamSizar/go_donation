@@ -639,6 +639,8 @@ const ckb: DeepPartial<typeof en> = {
     move_up: 'بردنە سەرەوە',
     move_down: 'بردنە خوارەوە',
     deleting: 'سڕینەوە…',
+    delete_password_prompt: 'وشەی نهێنی هەژمارەکەت بنووسە بۆ سڕینەوەی ئەم تۆمارە. دەچێتە ناو تەنەکەی خۆڵ.',
+    delete_cancelled: 'سڕینەوە هەڵوەشێنرایەوە — هیچ نەسڕایەوە.',
     create: 'دروستکردن',
     new: 'نوێ',
     saving: 'پاشەکەوتکردن…',
