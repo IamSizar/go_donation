@@ -1492,6 +1492,14 @@ class AppTranslations extends Translations {
         'Programs and stories from the Events section.',
     'marriage_posts_empty': 'No event posts have been published yet.',
     'marriage_posts_load_failed': 'Could not load posts. Pull to retry.',
+    'marriage_saved_empty':
+        'Nothing saved yet. Tap the bookmark on a profile to keep it here.',
+    'marriage_saved_load_failed':
+        'Could not load your saved profiles. Pull to retry.',
+    'marriage_saved_toggle_failed':
+        'Could not save that just now. Please try again.',
+    'marriage_saved_unsave_failed':
+        'Could not remove that just now. Please try again.',
     'case_chats_label': 'Case chats',
     'Confirm': 'Confirm',
     'check_in_action': 'Check in (photo + location)',
@@ -4382,6 +4390,13 @@ class AppTranslations extends Translations {
     'marriage_posts_empty': 'لم يتم نشر أي منشورات زواج بعد.',
     'marriage_posts_load_failed':
         'تعذّر تحميل المنشورات. اسحب لإعادة المحاولة.',
+    'marriage_saved_empty':
+        'لا توجد عناصر محفوظة بعد. اضغط على علامة الحفظ في أي ملف لتجده هنا.',
+    'marriage_saved_load_failed':
+        'تعذّر تحميل الملفات المحفوظة. اسحب لإعادة المحاولة.',
+    'marriage_saved_toggle_failed': 'تعذّر الحفظ الآن. يرجى المحاولة مرة أخرى.',
+    'marriage_saved_unsave_failed':
+        'تعذّر الإزالة الآن. يرجى المحاولة مرة أخرى.',
     'case_chats_label': 'محادثات الحالات',
     'Confirm': 'تأكيد',
     'check_in_action': 'تسجيل حضور (صورة + موقع)',
@@ -6693,6 +6708,14 @@ class AppTranslations extends Translations {
     'marriage_posts_empty': 'هێشتا هیچ بابەتێکی هاوسەرگیری بڵاو نەکراوەتەوە.',
     'marriage_posts_load_failed':
         'نەتوانرا بابەتەکان بار بکرێن. بۆ دووبارە هەوڵدانەوە ڕایبکێشە.',
+    'marriage_saved_empty':
+        'هێشتا هیچ شتێک پاشەکەوت نەکراوە. نیشانەی پاشەکەوت لەسەر پرۆفایلێک دابگرە بۆ ئەوەی لێرە بمێنێتەوە.',
+    'marriage_saved_load_failed':
+        'نەتوانرا پرۆفایلە پاشەکەوتکراوەکان بار بکرێن. بۆ دووبارە هەوڵدانەوە ڕایبکێشە.',
+    'marriage_saved_toggle_failed':
+        'ئێستا نەتوانرا پاشەکەوت بکرێت. تکایە دووبارە هەوڵ بدەرەوە.',
+    'marriage_saved_unsave_failed':
+        'ئێستا نەتوانرا لابردرێت. تکایە دووبارە هەوڵ بدەرەوە.',
     'case_chats_label': 'گفتوگۆکانی دۆسیە',
     'Confirm': 'دڵنیاکردنەوە',
     'check_in_action': 'تۆمارکردنی هاتن (وێنە + شوێن)',
@@ -9937,6 +9960,14 @@ class AppTranslations extends Translations {
     'marriage_posts_empty': 'هێشتا چ نڤیسا هەڤسەریێ نەهاتیە بەلاڤکرن.',
     'marriage_posts_load_failed':
         'نەشیا نڤیس بێنە بارکرن. بۆ دیسا هەوڵدانێ ڕابکێشە.',
+    'marriage_saved_empty':
+        'هێشتا چ تشت نەهاتیە پاراستن. نیشانا پاراستنێ ل سەر پروفایلەکێ بتکە دا ل ڤێرێ بمینیت.',
+    'marriage_saved_load_failed':
+        'نەشیان پروفایلێن پاراستی بێنە بارکرن. بۆ دیسا هەوڵدانێ ڕابکێشە.',
+    'marriage_saved_toggle_failed':
+        'نوکە نەشیا بهێتە پاراستن. ژ کەرەما خۆ دیسا هەوڵ بدە.',
+    'marriage_saved_unsave_failed':
+        'نوکە نەشیا بهێتە ژێبرن. ژ کەرەما خۆ دیسا هەوڵ بدە.',
     'case_chats_label': 'گفتوگۆیێن دۆسیێ',
     'Confirm': 'پشتراستکرن',
     'check_in_action': 'تۆمارکرنا هاتنێ (وێنە + جهـ)',

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/api/guest_session.dart';
+import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:get/get.dart';
 
@@ -55,4 +57,29 @@ Future<String?> pickMarriageRequestType(BuildContext context) {
       ),
     ),
   );
+}
+
+/// The whole "ask to be put in touch" flow for one profile: upgrade gate →
+/// type sheet → POST → snackbar.
+///
+/// It lives here rather than inside a screen because two surfaces now offer
+/// the button — the Marriage Posts feed and the Saved list — and a second copy
+/// of the flow is exactly how the two would drift apart (one gated, one not).
+Future<void> startMarriageMeetingRequest(
+  BuildContext context,
+  int profileId, {
+  // A seam for tests, defaulted so no call site has to know about it.
+  ModuleApi api = const ModuleApi(),
+}) async {
+  if (!await requireUpgrade(context)) return;
+  // requireUpgrade awaits, so the caller's element may be gone by now.
+  if (!context.mounted) return;
+  try {
+    final type = await pickMarriageRequestType(context);
+    if (type == null) return;
+    await api.requestMarriageMeeting(profileId, '', requestType: type);
+    Get.snackbar('marriage_posts_title'.tr, 'meeting_requested'.tr);
+  } catch (_) {
+    Get.snackbar('marriage_posts_title'.tr, 'meeting_request_failed'.tr);
+  }
 }
