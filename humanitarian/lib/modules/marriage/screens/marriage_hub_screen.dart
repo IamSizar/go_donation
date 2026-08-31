@@ -39,39 +39,38 @@ class MarriageHubScreen extends StatelessWidget {
     return SectionScaffold(
       title: '',
       subtitle: '',
-      child: GridView.count(
+      child: SingleChildScrollView(
         // Scaffold already reserves space above the bottom nav bar — this
         // only needs a small resting margin, not extra clearance for it.
         padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
-        crossAxisCount: 2,
-        mainAxisSpacing: 16,
-        crossAxisSpacing: 16,
-        childAspectRatio: 0.72,
-        children: [
-          StaggeredEntrance(
-            index: 0,
-            child: EventHubCard(
-              heroTag: 'events-hub-services',
-              icon: Icons.celebration_outlined,
-              color: AppThemeConfig.accent(context),
-              title: 'Event services',
-              subtitle:
-                  'Book halls, photographers, and everything your event needs',
-              onTap: () => Get.to(() => const EventServicesGroupScreen()),
+        child: CardGrid(
+          children: [
+            StaggeredEntrance(
+              index: 0,
+              child: EventHubCard(
+                heroTag: 'events-hub-services',
+                icon: Icons.celebration_outlined,
+                color: AppThemeConfig.accent(context),
+                title: 'Event services',
+                subtitle:
+                    'Book halls, photographers, and everything your event needs',
+                onTap: () => Get.to(() => const EventServicesGroupScreen()),
+              ),
             ),
-          ),
-          StaggeredEntrance(
-            index: 1,
-            child: EventHubCard(
-              heroTag: 'events-hub-section',
-              icon: Icons.groups_outlined,
-              color: AppThemeConfig.accent(context),
-              title: 'Events section',
-              subtitle: 'Profiles, posts, and support for the events community',
-              onTap: () => Get.to(() => const EventsSectionGroupScreen()),
+            StaggeredEntrance(
+              index: 1,
+              child: EventHubCard(
+                heroTag: 'events-hub-section',
+                icon: Icons.groups_outlined,
+                color: AppThemeConfig.accent(context),
+                title: 'Events section',
+                subtitle:
+                    'Profiles, posts, and support for the events community',
+                onTap: () => Get.to(() => const EventsSectionGroupScreen()),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

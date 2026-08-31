@@ -63,29 +63,29 @@ class _EventGroupScreen extends StatelessWidget {
     return SectionScaffold(
       title: title,
       subtitle: subtitle,
-      child: GridView.builder(
+      // CardGrid over GridView — see its header comment. Item count here
+      // varies (2 for a guest, up to 6 signed-in), and a content-sized row
+      // is what keeps that from ever stretching two cards to fill the
+      // screen or leaving dead space under six short ones.
+      child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: 0.72,
+        child: CardGrid(
+          spacing: 12,
+          children: [
+            for (var index = 0; index < items.length; index++)
+              StaggeredEntrance(
+                index: index,
+                child: EventHubCard(
+                  icon: items[index].icon,
+                  color: items[index].color,
+                  title: items[index].title,
+                  subtitle: items[index].subtitle,
+                  onTap: items[index].onTap,
+                  dense: true,
+                ),
+              ),
+          ],
         ),
-        itemCount: items.length,
-        itemBuilder: (context, index) {
-          final item = items[index];
-          return StaggeredEntrance(
-            index: index,
-            child: EventHubCard(
-              icon: item.icon,
-              color: item.color,
-              title: item.title,
-              subtitle: item.subtitle,
-              onTap: item.onTap,
-              dense: true,
-            ),
-          );
-        },
       ),
     );
   }

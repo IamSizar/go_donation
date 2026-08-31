@@ -129,6 +129,64 @@ class EventHubCard extends StatelessWidget {
   }
 }
 
+/// A two-column grid whose ROW HEIGHT follows its content.
+///
+/// WHY THIS EXISTS (and why it replaced a `GridView.count`/`.builder` with a
+/// fixed `childAspectRatio`)
+/// A fixed aspect ratio sizes every CELL to a uniform height derived from
+/// the grid's width, independent of what is actually inside it. These cards
+/// use `mainAxisSize: MainAxisSize.min` — they size to their own content —
+/// so a card noticeably shorter than its cell just sits top-aligned inside
+/// it, and the unused cell height reads as a dead gap between rows. On a
+/// 402pt-wide screen with 6 real (non-placeholder) service cards, that gap
+/// measured roughly as tall as the cards themselves — the grid looked
+/// broken, not spacious.
+///
+/// [Wrap] has no such cell: each row is exactly as tall as its tallest
+/// child, so the layout hugs real content at any item count (2, 3, or 6
+/// here) and any text scale, including the largest Dynamic Type step —
+/// there is no fixed ratio left to overflow. That is also why this was
+/// chosen over "stretch the cards to fill a tuned aspect ratio": a tuned
+/// ratio is tuned to ONE text size, and the brief requires no clipping as
+/// text grows.
+///
+/// Implementation: [LayoutBuilder] supplies the available width so each
+/// child can be given an explicit half-width `SizedBox` — [Wrap] does not
+/// stretch its children itself, so without this every card would size to
+/// its own intrinsic (icon + text) width instead of splitting the row
+/// evenly, which is what "two columns" actually requires.
+class CardGrid extends StatelessWidget {
+  const CardGrid({super.key, required this.children, this.spacing = 16});
+
+  final List<Widget> children;
+
+  /// Gap between cards, both directions. 16 is the app's standard card gap
+  /// (the same value the old `GridView`s used for `mainAxisSpacing`/
+  /// `crossAxisSpacing`) — kept on the 4/8/12/16/24/32 scale.
+  final double spacing;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columnWidth = (constraints.maxWidth - spacing) / 2;
+        return Wrap(
+          // Ambient Directionality (from the active locale) decides which
+          // physical side a Wrap's first child starts on — this is what
+          // keeps the grid flowing right-to-left under Arabic without any
+          // manual left/right branching here.
+          spacing: spacing,
+          runSpacing: spacing,
+          children: [
+            for (final child in children)
+              SizedBox(width: columnWidth, child: child),
+          ],
+        );
+      },
+    );
+  }
+}
+
 /// Fades and rises [child] in, delayed by `40ms * index` — the "stagger the
 /// grid items in" requirement from the redesign brief.
 ///

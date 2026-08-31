@@ -140,6 +140,46 @@ void main() {
       }
       expect(find.byType(EventHubCard), findsNWidgets(6));
     });
+
+    testWidgets(
+      'row gap follows the card height, not a fixed aspect-ratio cell '
+      '(regression for the dead-space defect)',
+      (tester) async {
+        // The bug this guards: a fixed `childAspectRatio` grid cell sized
+        // roughly TWICE the card's real (content-sized) height, so the gap
+        // between row 1 and row 2 read as almost another whole card's worth
+        // of empty space. CardGrid (a Wrap) makes each row hug its tallest
+        // child, so the gap between rows should be exactly the configured
+        // spacing (12 in this grid) — nowhere close to the card's own
+        // height.
+        await tester.pumpWidget(
+          _app(home: const EventServicesGroupScreen()),
+        );
+        await _settle(tester);
+
+        final cards = find.byType(EventHubCard);
+        // Items are laid out in DOM/list order; under LTR (this test's
+        // locale) that is also left-to-right, top-to-bottom reading order,
+        // so index 0/1 are row 1 and index 2/3 are row 2.
+        final row1Bottom = tester.getBottomLeft(cards.at(0)).dy;
+        final row2Top = tester.getTopLeft(cards.at(2)).dy;
+        final cardHeight = tester.getSize(cards.at(0)).height;
+        final rowGap = row2Top - row1Bottom;
+
+        expect(
+          rowGap,
+          closeTo(12, 1),
+          reason:
+              'row gap should be exactly CardGrid\'s 12pt spacing, not a '
+              'stretched grid-cell remainder',
+        );
+        // The regression signature: with the old GridView, the gap was
+        // roughly as tall as the card itself (~1x cardHeight). Asserting
+        // well under half of that catches the defect returning even if the
+        // exact spacing constant above ever changes.
+        expect(rowGap, lessThan(cardHeight * 0.5));
+      },
+    );
   });
 
   group('events section grid', () {
