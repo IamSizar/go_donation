@@ -274,8 +274,12 @@ class ModuleApi {
         Uri.parse(url).queryParameters,
       ),
     );
-    return http
-        .get(buildUri(), headers: withApiAuthHeaders())
+    // `httpClient ?? http` mirrors what the POST path already does (see
+    // postJsonNoTrack). In production [httpClient] is null and this is the
+    // bare `http.get` it always was; in tests it lets a MockClient observe
+    // the URL a GET endpoint actually builds.
+    return (httpClient?.get(buildUri(), headers: withApiAuthHeaders()) ??
+            http.get(buildUri(), headers: withApiAuthHeaders()))
         .timeout(_requestTimeout);
   }
 
@@ -1081,11 +1085,22 @@ class ModuleApi {
   /// title_ar and the post BODY in the database (`listings.go:233-236`), so it
   /// finds an activity by a word inside the write-up, not only by its headline
   /// — and it searches every published post, not the 50 the feed is capped to.
-  Future<List<Map<String, dynamic>>> mediaPosts({int? userId, String? q}) {
+  ///
+  /// [type] narrows the feed to one or more `post_type` values, passed as the
+  /// comma-separated `?type=` the API accepts ("activity,news"). The Events hub
+  /// uses it to show only the activity posts and news the admin panel
+  /// publishes. Omit it for the general feed, which the server then serves
+  /// minus `marriage` posts.
+  Future<List<Map<String, dynamic>>> mediaPosts({
+    int? userId,
+    String? q,
+    String? type,
+  }) {
     // #24 — pass user_id when logged in so the feed flags liked posts.
     final params = <String, String>{
       if (userId != null && userId > 0) 'user_id': '$userId',
       if (q != null && q.trim().isNotEmpty) 'q': q.trim(),
+      if (type != null && type.trim().isNotEmpty) 'type': type.trim(),
     };
     if (params.isEmpty) return getItems(mediaPostsUrl);
     final uri = Uri.parse(mediaPostsUrl).replace(queryParameters: params);

@@ -3,17 +3,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/shared/widgets/adaptive_dialog.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/api/guest_session.dart';
+import 'package:flutter_application_1/core/app_share.dart';
 import 'package:flutter_application_1/core/app_state.dart';
+import 'package:flutter_application_1/modules/auth/screens/control_settings_screen.dart';
 import 'package:flutter_application_1/modules/auth/screens/edit_profile.dart';
+import 'package:flutter_application_1/modules/auth/screens/task_verification_screen.dart';
 import 'package:flutter_application_1/modules/community/screens/community_services_section.dart';
 import 'package:flutter_application_1/modules/dashboard/screens/games_screen.dart';
 import 'package:flutter_application_1/modules/notifications/screens/notification_categories_screen.dart';
 import 'package:flutter_application_1/modules/notifications/screens/notifications_screen.dart';
 import 'package:flutter_application_1/modules/legal/screens/content_page_screen.dart';
 import 'package:flutter_application_1/modules/proposal/screens/our_work_screen.dart';
+import 'package:flutter_application_1/modules/proposal/screens/partners_screen.dart';
 import 'package:flutter_application_1/modules/proposal/screens/saved_posts_screen.dart';
 import 'package:flutter_application_1/modules/proposal/screens/proposal_services_section.dart';
 import 'package:flutter_application_1/modules/legal/screens/terms_screen.dart';
+import 'package:flutter_application_1/modules/receipts/screens/aid_receipts_screen.dart';
+import 'package:flutter_application_1/modules/support/screens/support_section.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:flutter_application_1/widgets/settings_section.dart';
 import 'package:flutter_application_1/widgets/sound_vibration_row.dart';
@@ -26,14 +32,18 @@ import 'package:flutter_application_1/localization/failure_message.dart';
 /// Client spec, "Ninth: Improve the Home Interface Design" — the account hub
 /// opened by the circular profile photo in the top-right of every tab.
 ///
-/// Scope split (agreed with the client): this screen owns the account and
-/// public-facing items — profile, Our Work, Services, Community Services,
-/// language, dark mode, support, and the legal/contact pages.
+/// Originally split with the client: this screen owned the account and
+/// public-facing items (profile, Our Work, Services, Community Services,
+/// language, dark mode, support, legal/contact) while a separate Settings
+/// bottom-nav tab (widgets/settings_section.dart) kept the operational
+/// content (Control Settings and Preferences, Volunteer With Us, Task
+/// Verification, Our Partners, receipts, share, Our Humanitarian Work, clear
+/// cache), reachable from here via a "Settings" row.
 ///
-/// The Settings tab keeps the remaining operational content (Our Partners,
-/// Supporting Organizations, Volunteer tools, Task Verification, receipts,
-/// share, clear cache) and is reachable from here via the Settings row, so
-/// nothing becomes a dead end.
+/// The owner later asked to remove the Settings tab and move everything it
+/// held into Profile, so that operational content now lives directly in this
+/// screen's list too (see the "Operational" section below) — there is no
+/// longer a second screen to hand off to, and no destination was dropped.
 ///
 /// The notification *list* is deliberately NOT here: the client asked for a
 /// single entry point and the top-bar bell (with its unread badge) is the one
@@ -117,10 +127,6 @@ Future<void> _chooseAccountType(BuildContext context) async {
 class ProfileMenuScreen extends StatelessWidget {
   const ProfileMenuScreen({super.key});
 
-  /// Bottom-nav index of the Settings tab, so the Settings row can hand off
-  /// to it rather than duplicating its contents here.
-  static const int _settingsTabIndex = 4;
-
   @override
   Widget build(BuildContext context) {
     final guest = isGuestMode();
@@ -138,16 +144,6 @@ class ProfileMenuScreen extends StatelessWidget {
               label: 'Profile',
               onTap: () => Get.to(() => const EditProfilePage()),
             ),
-          DrawerTile(
-            icon: Icons.settings_outlined,
-            label: 'Settings',
-            color: AppThemeConfig.subtleText(context),
-            onTap: () {
-              // Hand off to the Settings tab instead of repeating it here.
-              dashboardTabNotifier.value = _settingsTabIndex;
-              Get.back();
-            },
-          ),
           // Client spec item 4 — "Our Work" gets its own entry inside the
           // Profile area, showing every activity and programme the
           // organization has run.
@@ -237,6 +233,75 @@ class ProfileMenuScreen extends StatelessWidget {
           // the other preference switches, and next to Notifications in
           // particular, because the chime it silences is a notification cue.
           const SoundVibrationRow(),
+          const DrawerDivider(),
+          // Operational group — moved here wholesale from the Settings
+          // bottom-nav tab (formerly widgets/settings_section.dart's
+          // SettingsSection) when the owner asked to remove that tab. Order
+          // preserved from the old tab so nothing reads as reshuffled for no
+          // reason.
+          //
+          // Guests have no phone/wallet/field-privacy to manage — matches
+          // the old flow, which hid this row for guests the same way.
+          if (!guest)
+            DrawerTile(
+              icon: Icons.tune_rounded,
+              label: 'Control Settings and Preferences',
+              color: AppThemeConfig.accent(context),
+              onTap: () => Get.to(() => const ControlSettingsScreen()),
+            ),
+          // Volunteer entry, kept role-segmented, matching how the rest of
+          // the app keeps each role's own dashboard/tools separate rather
+          // than surfacing them to every role.
+          if (sharedPreferences.getString('role_id') == '3')
+            DrawerTile(
+              icon: Icons.volunteer_activism_rounded,
+              label: 'Volunteer With Us',
+              color: AppThemeConfig.pending(context),
+              onTap: () => Get.to(() => const SupportSection()),
+            ),
+          DrawerTile(
+            icon: Icons.checklist_rounded,
+            label: 'Task Verification',
+            color: AppThemeConfig.pending(context),
+            onTap: () => Get.to(() => const TaskVerificationScreen()),
+          ),
+          DrawerTile(
+            icon: Icons.handshake_rounded,
+            label: 'Our Partners',
+            color: AppThemeConfig.pending(context),
+            onTap: () => Get.to(() => const PartnersScreen()),
+          ),
+          DrawerTile(
+            icon: Icons.receipt_long_rounded,
+            label: 'receipts_title',
+            color: AppThemeConfig.accent(context),
+            onTap: () => Get.to(() => const AidReceiptsScreen()),
+          ),
+          DrawerTile(
+            icon: Icons.ios_share_rounded,
+            label: 'share_app',
+            color: AppThemeConfig.accent(context),
+            // The context anchors the iOS share popover — a bare `shareApp`
+            // sends no origin rect and the sheet refuses to open.
+            onTap: () => shareApp(context),
+          ),
+          DrawerTile(
+            icon: Icons.volunteer_activism_outlined,
+            label: 'Our Humanitarian Work',
+            color: AppThemeConfig.accent(context),
+            onTap: () => Get.to(
+              () => const ContentPageScreen(
+                slug: 'humanitarian-work',
+                titleKey: 'Our Humanitarian Work',
+              ),
+            ),
+          ),
+          DrawerTile(
+            icon: Icons.cleaning_services_rounded,
+            label: 'clear_cache',
+            color: Colors.brown,
+            onTap: () => clearCache(context),
+          ),
           const DrawerDivider(),
           DrawerTile(
             icon: Icons.support_agent_rounded,

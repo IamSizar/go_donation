@@ -18,6 +18,13 @@ import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/modules/marketplace/models/catalogue_query.dart';
 import 'package:flutter_application_1/modules/marketplace/widgets/catalogue_filter_bar.dart';
 
+/// Identifies the catalogue's own scrollable — the search field, filter
+/// bar, and product list all live inside this one `ListView`. Exposed so
+/// tests can target it directly rather than `find.byType(ListView).first`,
+/// which would silently start matching the wrong list the day a second
+/// `ListView` is added anywhere in this screen's subtree.
+const marketplaceResultsListKey = Key('marketplace-results-list');
+
 class MarketplaceSection extends StatelessWidget {
   const MarketplaceSection({super.key, this.title = ''});
 
@@ -74,6 +81,7 @@ class _MarketplaceList extends StatelessWidget {
             child: RefreshIndicator(
               onRefresh: controller.refreshMarketplace,
               child: ListView(
+                key: marketplaceResultsListKey,
                 // Scrolling the catalogue puts the keyboard away, so it never
                 // covers the products the search just found.
                 keyboardDismissBehavior:

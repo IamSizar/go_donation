@@ -46,6 +46,7 @@ const TrashPage = lazy(() => import('./pages/TrashPage'))
 const PermissionsPage = lazy(() => import('./pages/PermissionsPage'))
 const GuestAccessPage = lazy(() => import('./pages/GuestAccessPage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
+const StaffPage = lazy(() => import('./pages/StaffPage'))
 const TermsPage = lazy(() => import('./pages/TermsPage'))
 const AboutPage = lazy(() => import('./pages/AboutPage'))
 const HumanitarianWorkPage = lazy(() => import('./pages/HumanitarianWorkPage'))
@@ -178,6 +179,17 @@ export default function App() {
               element={
                 <PasswordGate>
                   <SettingsPage />
+                </PasswordGate>
+              }
+            />
+            {/* Staff relocation — same second-factor gate as System Settings
+                (superAdminOnly nav + PasswordGate + backend RequireSuperAdmin
+                on the write routes it calls). */}
+            <Route
+              path="staff"
+              element={
+                <PasswordGate>
+                  <StaffPage />
                 </PasswordGate>
               }
             />

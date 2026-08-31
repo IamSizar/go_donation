@@ -208,6 +208,21 @@ type MediaPost struct {
 	SavedByMe bool `json:"saved_by_me"`
 }
 
+// parsePostTypes splits a `?type=` value into post_type names. It accepts a
+// single name ("activity") or a comma-separated list ("activity,news"), and
+// drops blanks so a trailing comma or "a,,b" cannot produce an empty name that
+// would match no row and silently empty the feed. An empty result means "no
+// type filter" and leaves the caller's default in charge.
+func parsePostTypes(raw string) []string {
+	out := []string{}
+	for _, part := range strings.Split(raw, ",") {
+		if part = strings.TrimSpace(part); part != "" {
+			out = append(out, part)
+		}
+	}
+	return out
+}
+
 // ListMediaPosts returns media posts. status="" → no filter. Public default is
 // "published". q is an optional free-text search across title/title_ar/body.
 // savedOnly narrows the list to posts this user saved — the query behind the
@@ -220,10 +235,13 @@ func (s *Store) ListMediaPosts(ctx context.Context, status, postType, q string, 
 		args = append(args, status)
 		where = append(where, "status = $"+itoa(len(args)))
 	}
-	postType = strings.TrimSpace(postType)
-	if postType != "" {
-		args = append(args, postType)
-		where = append(where, "post_type = $"+itoa(len(args)))
+	// `?type=` accepts one post_type or a comma-separated list ("activity,news"),
+	// so a screen scoped to a subset of the feed — the Events hub shows activity
+	// posts and news together — asks for exactly that subset in one round trip
+	// instead of over-fetching and filtering in the client.
+	if types := parsePostTypes(postType); len(types) > 0 {
+		args = append(args, types)
+		where = append(where, "post_type = ANY($"+itoa(len(args))+")")
 	} else {
 		// No explicit type → the general news/activities feed. Keep
 		// 'marriage' posts out of it; they're only shown when the marriage

@@ -13,39 +13,42 @@ import 'package:flutter_application_1/modules/community/screens/community_servic
 import 'package:flutter_application_1/modules/dashboard/controllers/featured_campaigns_controller.dart';
 import 'package:flutter_application_1/modules/dashboard/controllers/role_dashboard_controller.dart';
 import 'package:flutter_application_1/modules/dashboard/screens/guest_sections.dart';
+import 'package:flutter_application_1/modules/dashboard/screens/keyboard_safe_tab_body.dart';
 import 'package:flutter_application_1/modules/marketplace/screens/marketplace_section.dart';
 import 'package:flutter_application_1/modules/marriage/screens/marriage_hub_screen.dart';
 import 'package:flutter_application_1/modules/notifications/controllers/notifications_controller.dart';
 import 'package:flutter_application_1/modules/notifications/screens/notifications_screen.dart';
 import 'package:flutter_application_1/modules/auth/screens/profile_menu_screen.dart';
 import 'package:flutter_application_1/modules/search/screens/global_search_screen.dart';
-import 'package:flutter_application_1/modules/support/screens/technical_support_screen.dart';
 import 'package:flutter_application_1/widgets/cached_profile_avatar.dart';
 import 'package:flutter_application_1/api/profile_api.dart';
 import 'dart:io';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:flutter_application_1/widgets/dashboard.dart';
-import 'package:flutter_application_1/widgets/settings_section.dart';
 import 'package:get/get.dart';
-import 'package:flutter_application_1/modules/bot/widgets/assistant_hint_button.dart';
 
 /// Note #41 — "Complete Restructuring and Distribution of the Application
-/// Interfaces". The bottom nav is now fixed at 5 tabs, identical for every
+/// Interfaces". The bottom nav was fixed at 5 tabs, identical for every
 /// role (no scrolling, no per-role tab set): Home, Store, Marriage, City
 /// Guide, Settings. Everything that used to be a separate tab (Kafala,
-/// Contribute, Volunteer, Services) is now reached from Home's existing
-/// quick-action tiles/hero buttons (widgets/dashboard.dart), which now push
+/// Contribute, Volunteer, Services) is reached from Home's existing
+/// quick-action tiles/hero buttons (widgets/dashboard.dart), which push
 /// those screens directly instead of switching to a tab index that no
 /// longer exists. Alerts and Messages moved to a persistent top bar shown on
-/// every tab. Settings — previously a side drawer opened by tapping the
-/// profile avatar — is its own tab (widgets/settings_section.dart).
+/// every tab.
 ///
 /// "Ninth: Improve the Home Interface Design" then reinstated a profile
-/// photo in the top-right, but it now opens the account hub
-/// (ProfileMenuScreen) rather than switching to the Settings tab. The two
-/// don't overlap: the hub owns the account items (profile, notifications,
-/// community services, language, dark mode, support, legal/contact, log
-/// out) and the Settings tab keeps the organizational content.
+/// photo in the top-right, opening the account hub (ProfileMenuScreen)
+/// rather than a tab.
+///
+/// The owner's later ask — "remove settings tab and move them to profile" —
+/// removed the 5th tab entirely: the bottom nav is now 4 tabs (Home, Store,
+/// Marriage, City Guide) and every destination the Settings tab offered
+/// (Control Settings and Preferences, Volunteer With Us, Task Verification,
+/// Our Partners, receipts, share, Our Humanitarian Work, clear cache) moved
+/// into ProfileMenuScreen alongside the account items it already owned. See
+/// profile_menu_screen.dart and widgets/settings_section.dart (now a shared
+/// widget toolkit, not a tab) for the destinations themselves.
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
@@ -81,12 +84,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       activeIcon: Icons.map_rounded,
       color: Colors.indigo,
     ),
-    NavDestination(
-      label: 'Settings',
-      icon: Icons.settings_outlined,
-      activeIcon: Icons.settings_rounded,
-      color: Colors.blueGrey,
-    ),
   ];
 
   static const int _cityGuideIndex = 3;
@@ -98,7 +95,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     const MarketplaceSection(),
     const MarriageHubScreen(),
     const CityGuideScreen(),
-    const SettingsSection(),
   ];
 
   @override
@@ -217,11 +213,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
               //   bar. This only started mattering when the nav moved out of
               //   Scaffold's bottomNavigationBar slot and into this Column —
               //   the slot used to consume that inset on the body's behalf.
-              child: MediaQuery.removePadding(
-                context: context,
-                removeTop: true,
-                removeBottom: true,
-                child: IndexedStack(index: _currentIndex, children: _sections),
+              //
+              //   Delegated to KeyboardSafeTabBody rather than an inline
+              //   `MediaQuery.removePadding(context: context, ...)`: that
+              //   inline form used to read `context` from THIS build
+              //   method — which sits ABOVE the Scaffold being built here —
+              //   so `MediaQuery.of` resolved to the app-root MediaQuery
+              //   instead of this Scaffold body's own (already
+              //   `viewInsets`-stripped) one. The raw, un-stripped keyboard
+              //   inset then rode through to every tab, whose own nested
+              //   Scaffold (kept for standalone-route reuse) subtracted it a
+              //   SECOND time — crushing the active tab to a sliver the
+              //   moment its keyboard opened. On Marketplace this read as a
+              //   blank box covering the screen. See
+              //   keyboard_safe_tab_body.dart for the full account.
+              child: KeyboardSafeTabBody(
+                child: IndexedStack(
+                  index: _currentIndex,
+                  children: _sections,
+                ),
               ),
             ),
             // The nav bar lives in the BODY, not in Scaffold's
@@ -430,7 +440,6 @@ class DashboardTopBar extends StatefulWidget {
   static const int _storeIndex = 1;
   static const int _marriageIndex = 2;
   static const int _cityGuideIndex = 3;
-  static const int _settingsIndex = 4;
 
   /// Space between the trailing controls.
   ///
@@ -442,22 +451,6 @@ class DashboardTopBar extends StatefulWidget {
   /// (see _TopBarTitle): a crowded bar truncates the title, it never breaks
   /// the layout.
   static const double _gap = 6;
-
-  /// The BotNavigation route key for a tab, so the assistant knows which
-  /// section it was asked about (K28).
-  ///
-  /// The Settings tab maps to 'profile': it is where account and preference
-  /// items live, and it is the nearest thing the assistant's FAQ tables
-  /// describe. A key with no matching FAQ for the user's role is not a
-  /// failure — `assistantTopicFor` returns null and the assistant opens on its
-  /// welcome and this role's own suggestion chips.
-  static String _assistantRouteForTab(int index) => switch (index) {
-    _storeIndex => 'market',
-    _marriageIndex => 'marriage',
-    _cityGuideIndex => 'city_guide',
-    _settingsIndex => 'profile',
-    _ => 'home',
-  };
 
   @override
   State<DashboardTopBar> createState() => _DashboardTopBarState();
@@ -511,8 +504,6 @@ class _DashboardTopBarState extends State<DashboardTopBar> {
               const Expanded(child: _TopBarTitle('Events'))
             else if (tabIndex == DashboardTopBar._cityGuideIndex)
               const Expanded(child: _TopBarTitle('City Guide'))
-            else if (tabIndex == DashboardTopBar._settingsIndex)
-              const Expanded(child: _TopBarTitle('Settings'))
             else
               const Spacer(),
             // Flexible, not a bare child: seven controls (six plus the toggle)
@@ -749,44 +740,20 @@ class _TopBarActions extends StatelessWidget {
                         children: [
                           const SizedBox(width: DashboardTopBar._gap),
 
-                          // K28 — "an AI icon beside each menu". These five tabs pass
-                          // `title: ''` to their own SectionScaffold because their title
-                          // lives in this bar, so this bar is where their icon belongs:
-                          // putting it in the page header would draw a second, empty
-                          // header row underneath this one. The route key is the same
-                          // one BotNavigation uses, so the assistant opens already
-                          // asking about the tab the user is standing on.
-                          AssistantHintButton(
-                            route: DashboardTopBar._assistantRouteForTab(
-                              tabIndex,
-                            ),
-                          ),
-                          const SizedBox(width: DashboardTopBar._gap),
-                          // J9 — "إضافة زر الدعم في أعلى التطبيق".
+                          // K28's per-section AI icon and J9's support
+                          // button both used to live here. The owner asked for
+                          // both to come off this bar and be reached from
+                          // الرسائل instead, which already carries the
+                          // assistant card and the support-chat tile and now
+                          // carries the technical-support form as well.
                           //
-                          // There was a support button here before the Note #41
-                          // restructure; it was removed on the reasoning that support is
-                          // reachable from Settings. It is — الملف الشخصي → الدعم الفني,
-                          // and the Services hub — but both are two taps in, and "at the
-                          // top of the app" is a request that asking for help should not
-                          // itself need navigating to. This bar is the only chrome drawn
-                          // above every tab, so it is the only place where "at the top"
-                          // is true everywhere.
-                          //
-                          // Next to the assistant deliberately: the AI answers the
-                          // section's FAQ, this one reaches a human, and a user who
-                          // cannot find what they need in the first should see the
-                          // second without hunting. No badge — support replies arrive as
-                          // notifications and in the ticket list, and a second unread
-                          // count beside two real ones would be noise.
-                          _TopBarIconButton(
-                            icon: Icons.support_agent_rounded,
-                            badgeCount: 0,
-                            tooltip: 'Technical Support'.tr,
-                            onTap: () =>
-                                Get.to(() => const TechnicalSupportScreen()),
-                          ),
-                          const SizedBox(width: DashboardTopBar._gap),
+                          // What that trades away, recorded so it is a
+                          // decision and not an accident: the assistant no
+                          // longer opens pre-asking about the tab the user is
+                          // standing on (AssistantHintButton seeded it from
+                          // the tab's route). From الرسائل it opens on its
+                          // normal welcome, whose suggestion chips are the
+                          // role's real FAQs.
                           // Note #43 — grouped with Notifications/Messages at the top,
                           // matching the client's requested layout (was inside the side
                           // drawer only). The profile avatar sits at the end of this row

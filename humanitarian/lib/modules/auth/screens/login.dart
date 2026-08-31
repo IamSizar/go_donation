@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:country_code_picker/country_code_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter/services.dart'; // LengthLimitingTextInputFormatter
@@ -11,6 +10,7 @@ import 'package:get/get.dart';
 import 'package:flutter_application_1/core/auth_navigation.dart';
 import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/modules/auth/widgets/auth_inline_error.dart';
+import 'package:flutter_application_1/modules/auth/widgets/localized_country_list.dart';
 import 'package:flutter_application_1/routes/app_routes.dart';
 
 import '../../../widgets/auth_ui.dart';
@@ -68,7 +68,8 @@ class _LoginForm extends StatefulWidget {
   State<_LoginForm> createState() => _LoginFormState();
 }
 
-class _LoginFormState extends State<_LoginForm> {
+class _LoginFormState extends State<_LoginForm>
+    with LocalizedCountryList<_LoginForm> {
   final _formKey = GlobalKey<FormState>();
   final LoginController _loginController = Get.isRegistered<LoginController>()
       ? Get.find<LoginController>()
@@ -86,7 +87,8 @@ class _LoginFormState extends State<_LoginForm> {
 
   // #39 — international phone support: the selected country's dial code
   // (no "+"), defaulting to Iraq. Changed via the CountryCodePicker.
-  String _dialCode = '964';
+  static const String _defaultDialCode = '964';
+  String _dialCode = _defaultDialCode;
 
   /// Guest entry is a single tap, so its loading and failure states live on
   /// this screen rather than on the sheet that used to own them.
@@ -97,6 +99,15 @@ class _LoginFormState extends State<_LoginForm> {
   // the TextFormField's own errorText because the visible field is the
   // surrounding container, not the inner borderless input.
   String? _phoneError;
+
+  // ─── Country picker language ───
+  //
+  // The localized-name-cache/loader/lang-code logic used to live here, but
+  // guest_upgrade.dart's CountryCodePicker had the identical mixed-language
+  // bug with no fix at all, so it moved to the shared
+  // `LocalizedCountryList` mixin (widgets/localized_country_list.dart) —
+  // see that file for the full explanation. This State mixes it in above
+  // and calls [loadCountryList] from [initState].
 
   String? _validatePhone(String? value) {
     final msg = _phoneMessage(value);
@@ -163,6 +174,7 @@ class _LoginFormState extends State<_LoginForm> {
         pendingDigits.startsWith('964') && pendingDigits.length > 3
         ? pendingDigits.substring(3)
         : pending;
+    loadCountryList();
   }
 
   /// Sign-in: phone + password. The ordinary way in for anyone who has finished
@@ -235,6 +247,13 @@ class _LoginFormState extends State<_LoginForm> {
     final national = digits.startsWith('0') ? digits.substring(1) : digits;
     return '+$_dialCode$national';
   }
+
+  // F3 fix — see LocalizedCountryList.onCountryListLoaded: the picker's key
+  // flip rebuilds it at 'IQ' once the localized list resolves, so _dialCode
+  // has to be reset back to Iraq's in the same setState or a country picked
+  // in the intervening frame silently keeps the wrong dial code.
+  @override
+  void onCountryListLoaded() => _dialCode = _defaultDialCode;
 
   Future<void> _handleGoogleLogin() async {
     final result = await _loginController.signInWithGoogle();
@@ -397,57 +416,29 @@ class _LoginFormState extends State<_LoginForm> {
               ),
               child: Row(
                 children: [
-                  CountryCodePicker(
+                  // `CountryCodePickerState` builds its `elements` (and the
+                  // favourites shown in the dialog) once, inside
+                  // `createState()`, from whatever `countryList` the widget
+                  // was FIRST created with — it never recomputes them on
+                  // `didUpdateWidget`. Swapping `countryList` in a later
+                  // build (once [_loadCountryList] resolves) would silently
+                  // do nothing without a key; that key, plus every other
+                  // piece of shared dialog chrome (localized header,
+                  // themed text/box/barrier), lives in
+                  // [buildLocalizedCountryCodePicker] so this screen and
+                  // guest_upgrade.dart can't drift apart on it again.
+                  buildLocalizedCountryCodePicker(
+                    context,
                     onChanged: (code) => setState(
                       () => _dialCode = (code.dialCode ?? '+964').replaceFirst(
                         '+',
                         '',
                       ),
                     ),
-                    initialSelection: 'IQ',
-                    favorite: const ['+964', 'IQ'],
-                    showCountryOnly: false,
-                    showOnlyCountryWhenClosed: false,
-                    alignLeft: false,
-                    padding: const EdgeInsetsDirectional.only(
-                      start: 12,
-                      end: 2,
-                    ),
-                    flagWidth: 24,
-                    showDropDownButton: true,
                     textStyle: TextStyle(
                       color: AppThemeConfig.text(context),
                       fontWeight: FontWeight.w700,
                       fontSize: 16,
-                    ),
-                    flagDecoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(3),
-                    ),
-                    dialogSize: const Size(360, 520),
-                    boxDecoration: BoxDecoration(
-                      color: AppThemeConfig.elevatedSurface(context),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: authFieldBorder(context)),
-                    ),
-                    barrierColor: Colors.black.withValues(alpha: 0.45),
-                    closeIcon: Icon(
-                      Icons.close_rounded,
-                      color: AppThemeConfig.mutedText(context),
-                    ),
-                    headerText: 'Select your country · 200+ available'.tr,
-                    headerTextStyle: TextStyle(
-                      color: AppThemeConfig.text(context),
-                      fontWeight: FontWeight.w700,
-                      fontSize: 15,
-                    ),
-                    dialogTextStyle: TextStyle(
-                      color: AppThemeConfig.text(context),
-                      fontWeight: FontWeight.w500,
-                    ),
-                    searchStyle: TextStyle(color: AppThemeConfig.text(context)),
-                    dialogItemPadding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 12,
                     ),
                   ),
                   // Divider between the dial code and the number, so the two

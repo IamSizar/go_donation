@@ -4,6 +4,18 @@ import 'package:flutter_application_1/localization/locale_service.dart';
 import 'package:get/get.dart';
 
 class MediaPostsController extends GetxController {
+  /// Optional `post_type` filter, passed straight through to `?type=` (which
+  /// accepts a comma-separated list, e.g. 'activity,news').
+  ///
+  /// null = the general News & Activities feed, which the server serves minus
+  /// `marriage` posts. A filtered instance MUST be registered under a GetX tag
+  /// so `Get.find<MediaPostsController>()` — the untagged lookup the News &
+  /// Activities screen does — cannot pick it up and silently inherit the
+  /// narrower feed.
+  MediaPostsController({this.postType});
+
+  final String? postType;
+
   final posts = <Map<String, dynamic>>[].obs;
   // #22 — "Our Work" categories + the active filter (null = All).
   final categories = <Map<String, dynamic>>[].obs;
@@ -48,6 +60,7 @@ class MediaPostsController extends GetxController {
       final rows = await const ModuleApi().mediaPosts(
         userId: _currentUserId,
         q: searchQuery.value,
+        type: postType,
       );
       posts.assignAll(rows);
     } catch (_) {

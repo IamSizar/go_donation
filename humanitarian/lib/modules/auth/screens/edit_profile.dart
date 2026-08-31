@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:flutter_application_1/core/widgets/app_main_menu_button.dart';
 
 import 'package:flutter/material.dart';
 
@@ -306,7 +305,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Edit profile'.tr),
-        actions: const [AppMainMenuButton()],
       ),
       body: Container(
         decoration: BoxDecoration(color: AppThemeConfig.backgroundTop(context)),

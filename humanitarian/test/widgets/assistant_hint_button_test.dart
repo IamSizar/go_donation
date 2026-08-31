@@ -23,6 +23,16 @@
 // That last case is why resolution returns null rather than a placeholder —
 // seeding a question no role table can answer would produce the assistant's
 // "I didn't understand" bubble as a greeting.
+//
+// UPDATED (d33b2d7): the owner later asked for the icon to come off the
+// persistent top bar (and off J9's support button alongside it) and be
+// reached from الرسائل instead. That only ever affected the four bottom-nav
+// tabs, whose icon lived in the top bar because their own SectionScaffold
+// gets `title: ''`. The eight pushed sections below still go through
+// AppScreen/SectionScaffold with a real `assistantRoute`, so the icon itself,
+// `assistantTopicFor`, and `AssistantHintButton` were not touched — only the
+// "bottom-nav tabs get one from the persistent top bar" group changed, to the
+// inverse guard: the top bar no longer offers it.
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -49,9 +59,6 @@ const _sectionsThatNeedAnIcon = <String, String>{
   'lib/modules/support/screens/support_section.dart': 'volunteer',
   'lib/modules/proposal/screens/proposal_services_section.dart': 'services',
 };
-
-/// The bottom-nav tabs, whose icon lives in the persistent top bar.
-const _tabRoutes = <String>['market', 'city_guide', 'marriage'];
 
 String _read(String path) {
   final file = File(path);
@@ -80,25 +87,44 @@ void main() {
       );
     });
 
-    test('the bottom-nav tabs get one from the persistent top bar', () {
+    // UPDATED (d33b2d7): this used to pin that the top bar carried its own
+    // AssistantHintButton, seeded per tab via `_assistantRouteForTab`, so the
+    // four bottom-nav tabs a user spends most of their time on had a way to
+    // ask. The owner has since asked for both the AI icon and the support
+    // button to come off the top bar entirely and be reached from الرسائل
+    // instead — a direct instruction, and it wins. `_assistantRouteForTab`
+    // was deleted along with the button, so there is no per-tab topic left to
+    // check either.
+    //
+    // The guard inverts rather than disappears: it now catches a future
+    // accidental re-add of the icon into this bar, the same way
+    // partners_doors_test.dart inverted when the Home partners strip went
+    // (commit 01e1342). The icon itself is not retired — it still lives on
+    // every pushed section via AppScreen/SectionScaffold, which is what the
+    // groups above and below this one continue to pin.
+    test('the top bar no longer carries its own assistant icon', () {
       final topBar = _read(
         'lib/modules/dashboard/screens/dashboard_screen.dart',
       );
+      // Checked as a constructor call, not a bare name: the removal comment
+      // in _TopBarActions still mentions AssistantHintButton by name to
+      // explain what used to sit there, and a plain `contains` on the name
+      // would false-fail on that prose forever.
       expect(
-        topBar.contains('AssistantHintButton'),
-        isTrue,
+        topBar.contains('AssistantHintButton('),
+        isFalse,
         reason:
-            'the tab screens pass title: \'\' because their title is in this '
-            'bar — the icon has to be here too, or the four tabs a user spends '
-            'most of their time on are the four with no way to ask',
+            'the AI icon was moved out of the persistent top bar and into '
+            'الرسائل; its reappearance here would mean the bar-collapse '
+            'redesign was accidentally reverted',
       );
-      for (final route in _tabRoutes) {
-        expect(
-          topBar.contains("'$route'"),
-          isTrue,
-          reason: 'the top bar has no assistant topic for the $route tab',
-        );
-      }
+      expect(
+        topBar.contains('_assistantRouteForTab'),
+        isFalse,
+        reason:
+            'this helper existed only to seed the top-bar icon with the '
+            'current tab; it has no reason to exist without the icon',
+      );
     });
 
     test('the shared page frame is what carries it', () {

@@ -29,8 +29,23 @@ const PER_PAGE = 20
 /// that know what a guest is show their own label instead.
 const GUEST_PLACEHOLDER_NAME = 'Guest'
 
-const ROLE_LABELS = ['donor', 'beneficiary', 'volunteer', 'employee', 'marriage', 'none']
+// 'none' (no role / role_id 0) is deliberately excluded here: staff must not
+// be able to assign "no role" from this picker — it's a system/guest state,
+// not something to hand out. Accounts that already have no role (every guest,
+// plus D1 "no role yet" accounts) still display correctly: StatusCell injects
+// the current value as an extra <option> whenever it isn't in `allowed`, so
+// the dropdown falls back to showing 'none' (بلا) for those rows without it
+// being a selectable target for anyone else.
+export const ROLE_LABELS = ['donor', 'beneficiary', 'volunteer', 'employee', 'marriage']
 const GENDER_OPTIONS = ['', 'Male', 'Female', 'Other']
+
+// Staff relocation — a row counts as "staff" the same way A15 defines it
+// everywhere else: staff_tier set to anything other than the default 'user'.
+// Shared here so UsersPage (which now excludes these rows) and StaffPage
+// (which shows only these rows) can never drift on the definition.
+export function isStaffAccount(u: UserAccount): boolean {
+  return !!u.staff_tier && u.staff_tier !== 'user'
+}
 
 // Phase 18: editable fields. role / active / is_admin live in their own
 // dedicated /status endpoints (Phase 9 inline dropdowns), so they're omitted
@@ -43,7 +58,7 @@ const GENDER_OPTIONS = ['', 'Male', 'Female', 'Other']
 // handleUserSave below — the backend keeps password changes on their own
 // endpoint, this just gives it a home in the same form instead of a
 // separate popup prompt).
-const USER_FIELDS: FieldSpec[] = [
+export const USER_FIELDS: FieldSpec[] = [
   { key: 'phone',           label: 'Phone', labelKey: 'field.phone',           type: 'text', required: true, phone: 'login' },
   { key: 'full_name',       label: 'Full name', labelKey: 'field.full_name',       type: 'text' },
   { key: 'gender',          label: 'Gender', labelKey: 'field.gender',          type: 'select', options: GENDER_OPTIONS },
@@ -120,7 +135,7 @@ const USER_CSV_COLUMNS: CsvColumn<UserAccount>[] = [
   { header: 'created_at', get: (u) => u.created_at },
 ]
 
-function roleLabelToId(label: string): number {
+export function roleLabelToId(label: string): number {
   if (label === 'donor') return 1
   if (label === 'beneficiary') return 2
   if (label === 'volunteer') return 3
@@ -132,7 +147,7 @@ function roleLabelToId(label: string): number {
 // Flatten the {users + nested profile} shape into the flat key/value object
 // the EditModal expects. Strips the nested `profile` so its keys can be
 // addressed directly by name.
-function flattenForEdit(u: UserAccount): Record<string, unknown> {
+export function flattenForEdit(u: UserAccount): Record<string, unknown> {
   return {
     phone:           u.phone,
     full_name:       u.profile?.full_name ?? '',
@@ -213,6 +228,16 @@ export default function UsersPage() {
       cancelled = true
     }
   }, [page, q, refreshTick, statusView])
+
+  // Staff relocation — staff accounts (staff_tier set to anything besides the
+  // default 'user') are now managed on the Staff page under System Settings
+  // (StaffPage.tsx) and must not also appear here. Filtered client-side
+  // because /api/admin/users has no staff/non-staff query param and the
+  // backend is out of scope for this change; staff accounts are a small
+  // fraction of total users, so a page can show fewer than PER_PAGE rows when
+  // some of that page's accounts are staff — a known, accepted imprecision
+  // rather than a gate.
+  const visibleRows = useMemo(() => (resp?.data ?? []).filter((u) => !isStaffAccount(u)), [resp])
 
   // Note #6 — the Edit form now includes a password field, but the backend
   // keeps password changes on its own endpoint (POST .../password) rather
@@ -405,38 +430,12 @@ export default function UsersPage() {
         />
       ),
     },
-    {
-      // Note #10 — was 3 separate columns (Admin, Access tier, and this one)
-      // showing overlapping Admin/User/Supervisor wording, so the standalone
-      // "Admin" column was dropped. This is now the single "Access Permission"
-      // column. Only the Super-Admin can change it; others see it read-only.
-      // PIN-confirmed.
-      //
-      // A15 corrects what this comment used to claim. `is_admin` DID gate
-      // things independently of `staff_tier`: migration 015 backfilled the tiers
-      // but left `is_admin != 1 && ...` short-circuits in RequireAdmin,
-      // RequireAdminTier and the dashboard login, and the two fields then
-      // drifted. Dropping the column was right; believing the flag was inert
-      // was not. It is inert NOW — every gate reads staff_tier alone.
-      key: 'tier',
-      header: t('col.tier'),
-      cell: (u) => (
-        <StatusCell
-          value={u.staff_tier ?? 'user'}
-          allowed={['super_admin', 'admin', 'supervisor', 'employee', 'user']}
-          disabled={!amSuper}
-          onSave={async (next) => {
-            await verifyPin()
-            // H20 — moving the Primary Administrator's own tier needs the
-            // two-channel confirmation too; every other tier is unaffected.
-            await withMainAdminConfirmation((extra) =>
-              api.post(`/api/admin/users/${u.user_id}/staff_tier`, { staff_tier: next, ...extra }),
-            )
-          }}
-          label={t('common.user_tier_ref', { id: u.user_id })}
-        />
-      ),
-    },
+    // Note #10's "Access Permission" (staff_tier) column used to live here.
+    // Staff relocation moved BOTH the column and the promotion action that
+    // used to sit in it to StaffPage.tsx under System Settings — a staff_tier
+    // change (including the very first promotion of a plain user into staff)
+    // now happens there instead, gated by the identical PIN + H20 flow this
+    // column used to run. See StaffPage.tsx's "Promote to staff" card.
     {
       // Note #10 — the old standalone "Active" (Yes/No) column is gone.
       // `account_status` is the field the auth layer actually enforces on
@@ -483,39 +482,18 @@ export default function UsersPage() {
           <ActionsMenu
             items={[
               { key: 'view', label: t('common.view'), href: `/detail/users/${u.user_id}`, onClick: () => {} },
+              // Task 1 (owner ask: "password change button collapse into one
+              // instead of 2") — this used to also carry a standalone "Set
+              // Password" action item alongside "Edit". Both called the exact
+              // same endpoint (POST .../password) with the exact same PIN/H20
+              // gates and the exact same non-staff lockout warning
+              // (confirmPasswordSet) — two buttons for one action, not two
+              // different actions. Removed; the Edit modal's "New password"
+              // field (USER_FIELDS below, wired through handleSave) is the
+              // only surface for it now. All step-up behavior is unchanged —
+              // handleSave runs the identical confirmPasswordSet/verifyPin/
+              // withMainAdminConfirmation sequence this action used to.
               { key: 'edit', label: t('common.edit'), onClick: () => setEditing(u) },
-              {
-                key: 'password',
-                label: t('common.set_password'),
-                onClick: async () => {
-                  if (!(await confirmPasswordSet(u))) return
-                  // Empty is MEANINGFUL here — the prompt text says a blank
-                  // entry clears the password — so the dialog resolves '' for
-                  // a blank submit and null only for a cancel, exactly as
-                  // window.prompt did. The `=== null` test below is unchanged.
-                  const pw = await askForText({
-                    title: t('common.set_password'),
-                    message: t('common.set_password_prompt'),
-                    secret: true,
-                    autoComplete: 'new-password',
-                  })
-                  if (pw === null) return
-                  try {
-                    // Note #9 — PIN before setting a password, EXCEPT when the
-                    // account has no password yet: verify-password checks the
-                    // CALLER's own password_hash, which would 403 forever on
-                    // any account's very first password (a bootstrap deadlock
-                    // with no password to ever confirm against).
-                    if (u.has_password) await verifyPin()
-                    await withMainAdminConfirmation((extra) =>
-                      api.post(`/api/admin/users/${u.user_id}/password`, { password: pw, ...extra }),
-                    )
-                    toast.success(t('common.set_password_ok'))
-                  } catch (e) {
-                    toast.error(describeError(e))
-                  }
-                },
-              },
               // Note #42 — test-phase wallet top-up. Real users only (a
               // guest account has no use for a balance it can never spend
               // meaningfully — Note #40's browsing-only scope).
@@ -665,7 +643,7 @@ export default function UsersPage() {
             {t('page.users.new_user')}
           </button>
           <ExportCsvButton
-            rows={resp?.data ?? []}
+            rows={visibleRows}
             columns={USER_CSV_COLUMNS}
             filenameBase="users"
             title={t('nav.users')}
@@ -675,7 +653,7 @@ export default function UsersPage() {
       </PageHead>
       {err && <div className="error-box">{err}</div>}
       <Table<UserAccount>
-        rows={resp?.data ?? []}
+        rows={visibleRows}
         columns={columns}
         rowKey={(u) => u.user_id}
         loading={loading}

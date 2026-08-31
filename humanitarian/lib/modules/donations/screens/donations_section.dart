@@ -268,7 +268,7 @@ class _DonationsSectionBodyState extends State<_DonationsSectionBody> {
                       .map(
                         (campaign) => Padding(
                           padding: const EdgeInsets.only(bottom: 14),
-                          child: _DonationFeaturedCampaignCard(
+                          child: DonationFeaturedCampaignCard(
                             campaign: campaign,
                             isSelected: campaign.id == _selectedCampaignId,
                             onCardTap: () {
@@ -527,8 +527,13 @@ class _DonationOptionData {
 Color _featuredCardSoftMist(BuildContext context) =>
     AppThemeConfig.borderStrong(context);
 
-class _DonationFeaturedCampaignCard extends StatelessWidget {
-  const _DonationFeaturedCampaignCard({
+// task-3 — public (it was `_DonationFeaturedCampaignCard`) only so a
+// widget test can pump it directly and assert what it renders, without
+// standing up the network-backed DonationsSection screen; nothing else
+// constructs it.
+class DonationFeaturedCampaignCard extends StatelessWidget {
+  const DonationFeaturedCampaignCard({
+    super.key,
     required this.campaign,
     required this.isSelected,
     required this.onCardTap,
@@ -575,7 +580,7 @@ class _DonationFeaturedCampaignCard extends StatelessWidget {
               behavior: HitTestBehavior.opaque,
               onTap: onCardTap,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(22, 22, 22, 0),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -587,27 +592,17 @@ class _DonationFeaturedCampaignCard extends StatelessWidget {
                           color: AppThemeConfig.accent(context),
                         ),
                         const SizedBox(width: 12),
+                        // Card shows only the headline; the summary/description
+                        // moved to CampaignDetailScreen (opened on tap) so the
+                        // list stays scannable — see task-3-brief.md.
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                campaign.title,
-                                style: TextStyle(
-                                  color: AppThemeConfig.text(context),
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 20,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                campaign.summary,
-                                style: TextStyle(
-                                  color: AppThemeConfig.mutedText(context),
-                                  height: 1.5,
-                                ),
-                              ),
-                            ],
+                          child: Text(
+                            campaign.title,
+                            style: TextStyle(
+                              color: AppThemeConfig.text(context),
+                              fontWeight: FontWeight.w800,
+                              fontSize: 20,
+                            ),
                           ),
                         ),
                         _DonationTypeBadge(
@@ -618,9 +613,14 @@ class _DonationFeaturedCampaignCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 14),
-                    // Likes/comments row removed
-                    const SizedBox(height: 16),
+                    // A likes/comments row used to sit here; it's gone, but this
+                    // single gap is what's left between the title and the
+                    // location line — collapsed from two stacked spacers (14 +
+                    // 16) that were sized to bracket a row which no longer
+                    // exists, leaving a 30pt dead band for four short lines of
+                    // content. 8 is the smallest step on the 4/8/12/16/24/32
+                    // scale that still reads as a distinct gap between rows.
+                    const SizedBox(height: 8),
                     Column(
                       children: [
                         _CampaignDetailLine(
@@ -642,7 +642,12 @@ class _DonationFeaturedCampaignCard extends StatelessWidget {
                         ],
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    // Gap before the progress bar, tightened from 16 to the
+                    // 8pt floor used above the location line — the card is
+                    // compact now, so every internal gap uses the smallest
+                    // step on the 4/8/12/16/24/32 scale that still reads as a
+                    // distinct section break.
+                    const SizedBox(height: 8),
                     // The fill is the accent and the track a wash of it, which
                     // is what the identical bar on the Home card already does
                     // (widgets/dashboard.dart:1819). This one was drawing both
@@ -701,9 +706,13 @@ class _DonationFeaturedCampaignCard extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 18),
+            // Gap before the CTA, tightened from 18 (not on the spacing
+            // scale) down to the 8pt floor — still a clear break from the
+            // funded line above, without the extra dead band a
+            // description-era card needed.
+            const SizedBox(height: 8),
             Padding(
-              padding: const EdgeInsets.fromLTRB(22, 0, 22, 22),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
               child: SizedBox(
                 width: double.infinity,
                 child: FilledButton(
@@ -715,7 +724,9 @@ class _DonationFeaturedCampaignCard extends StatelessWidget {
                     foregroundColor: isSelected
                         ? AppThemeConfig.onAccent(context)
                         : AppThemeConfig.text(context),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    // 12pt vertical padding keeps the button's touch target
+                    // at/above the 44pt minimum (12 + 12 + ~20pt text line).
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),

@@ -6,6 +6,7 @@ import { askForText } from '../lib/dialogs'
 import { useAuth } from '../lib/auth'
 import { useI18n, LOCALES } from '../lib/i18n'
 import { usePendingCounts } from '../lib/pendingCounts'
+import { useUnreadNotificationsCount } from '../lib/useUnreadNotifications'
 import { formatPhone } from '../lib/phone'
 import { RESOURCE_LABELS } from '../lib/resourceLabels'
 import { useToast } from '../lib/toast'
@@ -35,18 +36,37 @@ function NavItemLink({ n, nested }: { n: NavItem; nested?: boolean }) {
   const { t } = useI18n()
   const location = useLocation()
   const { counts } = usePendingCounts()
+  // Task 3a (owner ask: "show the notification badge") — the Notifications
+  // nav item has no countKey in navLayout.ts (it isn't part of the backend's
+  // fixed pending-counts struct — see useUnreadNotifications.ts for why),
+  // so its badge comes from a dedicated small poll instead. `enabled` is
+  // gated to this one row so the extra request runs once for the whole
+  // sidebar, not once per rendered NavItemLink.
+  const isNotifications = n.to === '/notifications'
+  const unreadNotifications = useUnreadNotificationsCount(isNotifications)
   const sectionMatchPath = location.pathname.startsWith('/detail/')
     ? RESOURCE_LABELS[location.pathname.split('/')[2]]?.list ?? location.pathname
     : location.pathname
   const isActive = isNavPathActive(sectionMatchPath, n.to)
-  const rawCount = n.countKey ? counts[n.countKey] : 0
+  const rawCount = isNotifications ? unreadNotifications : n.countKey ? counts[n.countKey] : 0
   const badge = formatBadge(rawCount)
+  // "N pending" reads wrong for a notification row (nothing there is
+  // "pending" — it's unread), so this row gets its own aria/title copy
+  // rather than reusing the generic pending-count strings.
+  const ariaLabel = badge
+    ? isNotifications
+      ? t('shell.unread_aria', { label: t(n.tKey), count: rawCount })
+      : t('shell.pending_aria', { label: t(n.tKey), count: rawCount })
+    : undefined
+  const badgeTitle = isNotifications
+    ? t('shell.unread_count', { count: rawCount })
+    : t('shell.pending_count', { count: rawCount })
   return (
     <NavLink
       to={n.to}
       end={n.to === '/'}
       className={`nav-item${nested ? ' nav-item-nested' : ''}`}
-      aria-label={badge ? t('shell.pending_aria', { label: t(n.tKey), count: rawCount }) : undefined}
+      aria-label={ariaLabel}
     >
       {/* Animated active pill — layoutId="nav-active" makes framer move the
           same physical element between siblings, producing a smooth slide
@@ -59,10 +79,10 @@ function NavItemLink({ n, nested }: { n: NavItem; nested?: boolean }) {
         />
       )}
       <span className="nav-item-label">{t(n.tKey)}</span>
-      {/* Pending-count badge. Hidden via CSS when count is 0 so we don't
-          render a stack of empty pills on a fresh database. */}
+      {/* Pending/unread-count badge. Hidden via CSS when count is 0 so we
+          don't render a stack of empty pills on a fresh database. */}
       {badge && (
-        <span className="nav-badge" title={t('shell.pending_count', { count: rawCount })} aria-hidden="true">
+        <span className="nav-badge" title={badgeTitle} aria-hidden="true">
           {badge}
         </span>
       )}

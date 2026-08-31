@@ -36,9 +36,11 @@ import 'package:flutter_application_1/widgets/sound_vibration_row.dart';
 ///
 /// `profile_menu_screen.dart` is the account hub behind the top-right avatar —
 /// it already holds the Language, Dark mode and Notifications switches.
-/// `settings_section.dart` is the الإعدادات bottom-nav tab. A sound switch
-/// belongs in one of them; `profile.dart` (assistant-only) does not count,
-/// which is the whole point.
+/// `settings_section.dart` was the الإعدادات bottom-nav tab and is now a
+/// shared widget toolkit with no screen of its own (that tab was removed and
+/// folded into Profile), kept in the list in case a sound door is ever added
+/// there directly. A sound switch belongs in one of them; `profile.dart`
+/// (assistant-only) does not count, which is the whole point.
 const _settingsHubs = <String>[
   'lib/modules/auth/screens/profile_menu_screen.dart',
   'lib/widgets/settings_section.dart',

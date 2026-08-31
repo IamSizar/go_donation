@@ -128,6 +128,20 @@ class MessagesScreen extends StatelessWidget {
                 color: AppThemeConfig.accent(context),
                 onTap: () => openSupportChat(context),
               ),
+              const SizedBox(height: 10),
+              // A standing (not error-gated) route to the ticket form. This
+              // is not a duplicate of chat_support above: that is a live
+              // conversation with a human, this files a tracked request that
+              // survives no one being online to answer chat — which, in
+              // production today, is the common case (support chat returns
+              // 503 until a staff account is configured).
+              SectionTile(
+                icon: Icons.contact_support_outlined,
+                title: 'support_request_form'.tr,
+                subtitle: 'support_request_form_desc'.tr,
+                color: AppThemeConfig.accent(context),
+                onTap: () => Get.to(() => const TechnicalSupportScreen()),
+              ),
               // Sits directly beneath the control that failed, so the message
               // is attached to the thing the user just pressed.
               ValueListenableBuilder<String?>(

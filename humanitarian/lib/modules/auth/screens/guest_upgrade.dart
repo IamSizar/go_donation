@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:country_code_picker/country_code_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter/services.dart';
@@ -13,6 +12,7 @@ import '../../../api/links.dart';
 import '../../../core/auth_navigation.dart';
 import '../../../core/phone_format.dart';
 import '../../../widgets/auth_ui.dart';
+import '../widgets/localized_country_list.dart';
 
 /// Note #40 — "Account Upgrade and Conversion". A guest enters their phone,
 /// verifies it via OTP (reusing the existing public otp/request endpoint),
@@ -29,9 +29,11 @@ class GuestUpgradeScreen extends StatefulWidget {
 
 enum _Step { phone, otp }
 
-class _GuestUpgradeScreenState extends State<GuestUpgradeScreen> {
+class _GuestUpgradeScreenState extends State<GuestUpgradeScreen>
+    with LocalizedCountryList<GuestUpgradeScreen> {
   _Step _step = _Step.phone;
-  String _dialCode = '964';
+  static const String _defaultDialCode = '964';
+  String _dialCode = _defaultDialCode;
   String _normalizedPhone = '';
   bool _loading = false;
   String _error = '';
@@ -40,6 +42,22 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen> {
   final _otpFormKey = GlobalKey<FormState>();
   final _phoneController = TextEditingController();
   final _otpController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    // See LocalizedCountryList: without this, the picker below shows every
+    // country's own endonym mixed together instead of one language.
+    loadCountryList();
+  }
+
+  // F3 fix (same race as login.dart) — see
+  // LocalizedCountryList.onCountryListLoaded: the picker's key flip
+  // rebuilds it at 'IQ' once the localized list resolves, so _dialCode has
+  // to be reset back to Iraq's in the same setState or a country picked in
+  // the intervening frame silently keeps the wrong dial code.
+  @override
+  void onCountryListLoaded() => _dialCode = _defaultDialCode;
 
   @override
   void dispose() {
@@ -206,19 +224,25 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen> {
                     hintText: '750 858 2031',
                     icon: Icons.phone_outlined,
                   ).copyWith(
-                    prefixIcon: CountryCodePicker(
+                    // Was previously built with only `key`/`countryList` —
+                    // missing the dialog's own chrome (header/text/box/
+                    // barrier), which left it falling back to the
+                    // package's hardcoded English "Select Country" heading
+                    // even on an Arabic screen (F5). Routed through
+                    // [buildLocalizedCountryCodePicker] so this screen and
+                    // login.dart share one definition of that chrome and
+                    // can't drift apart on it again.
+                    prefixIcon: buildLocalizedCountryCodePicker(
+                      context,
                       onChanged: (code) => setState(
                         () => _dialCode = (code.dialCode ?? '+964')
                             .replaceFirst('+', ''),
                       ),
-                      initialSelection: 'IQ',
-                      favorite: const ['+964', 'IQ'],
                       padding: const EdgeInsetsDirectional.only(
                         start: 14,
                         end: 4,
                       ),
                       flagWidth: 22,
-                      showDropDownButton: true,
                       textStyle: TextStyle(
                         color: AppThemeConfig.text(context),
                         fontWeight: FontWeight.w700,
