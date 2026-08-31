@@ -3176,6 +3176,8 @@ html[dir='rtl'] .data-table th {
 
 @media (prefers-reduced-motion: reduce) {
   .skeleton-line { animation: none; }
+}
+
 /* ============================================================
    PWA + phone shell
    ============================================================
