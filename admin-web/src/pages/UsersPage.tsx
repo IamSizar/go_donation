@@ -8,14 +8,16 @@ import { roleLabel, type UsersListResp, type UserAccount } from '../lib/api-type
 import Table, { type Column } from '../components/Table'
 import Pagination from '../components/Pagination'
 import StatusCell from '../components/StatusCell'
-import EditModal, { type FieldSpec } from '../components/EditModal'
+import EditModal from '../components/EditModal'
+import { USER_FIELDS, buildNewUserFields, flattenForEdit } from '../lib/userEditFields'
+import { useUserEditProfile } from '../lib/useUserEditProfile'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../lib/toast'
 import { useI18n } from '../lib/i18n'
 import { type CsvColumn } from '../lib/csv'
 import { formatPhone } from '../lib/phone'
 import { usePermission } from '../lib/permissions'
-import { useFieldRules, type FieldRuleState } from '../lib/fieldRules'
+import { useFieldRules } from '../lib/fieldRules'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
 import { formatDateTime } from '../lib/dates'
@@ -37,7 +39,6 @@ const GUEST_PLACEHOLDER_NAME = 'Guest'
 // the dropdown falls back to showing 'none' (بلا) for those rows without it
 // being a selectable target for anyone else.
 export const ROLE_LABELS = ['donor', 'beneficiary', 'volunteer', 'employee', 'marriage']
-const GENDER_OPTIONS = ['', 'Male', 'Female', 'Other']
 
 // Staff relocation — a row counts as "staff" the same way A15 defines it
 // everywhere else: staff_tier set to anything other than the default 'user'.
@@ -47,82 +48,10 @@ export function isStaffAccount(u: UserAccount): boolean {
   return !!u.staff_tier && u.staff_tier !== 'user'
 }
 
-// Phase 18: editable fields. role / active / is_admin live in their own
-// dedicated /status endpoints (Phase 9 inline dropdowns), so they're omitted
-// from this form to avoid two ways to set the same column.
-//
-// Note #6 — this used to be only 5 of the 16 columns user_profiles actually
-// has; the other 8 (collected at registration) were only ever viewable
-// read-only on the Detail page, never editable. Extended to the full set,
-// plus a password field (routed to the separate password endpoint in
-// handleUserSave below — the backend keeps password changes on their own
-// endpoint, this just gives it a home in the same form instead of a
-// separate popup prompt).
-export const USER_FIELDS: FieldSpec[] = [
-  { key: 'phone',           label: 'Phone', labelKey: 'field.phone',           type: 'text', required: true, phone: 'login' },
-  { key: 'full_name',       label: 'Full name', labelKey: 'field.full_name',       type: 'text' },
-  { key: 'gender',          label: 'Gender', labelKey: 'field.gender',          type: 'select', options: GENDER_OPTIONS },
-  { key: 'date_of_birth',   label: 'Date of birth', labelKey: 'field.date_of_birth', type: 'date' },
-  { key: 'address',         label: 'Address', labelKey: 'field.address',         type: 'textarea', rows: 2 },
-  { key: 'city',            label: 'City', labelKey: 'field.city',            type: 'text' },
-  { key: 'occupation',      label: 'Occupation', labelKey: 'field.occupation',      type: 'text' },
-  { key: 'housing_status',  label: 'Housing status', labelKey: 'field.housing_status',  type: 'text' },
-  { key: 'family_size',     label: 'Family size', labelKey: 'field.family_size',     type: 'number' },
-  { key: 'monthly_income',  label: 'Monthly income', labelKey: 'field.monthly_income',  type: 'text' },
-  { key: 'availability',    label: 'Availability', labelKey: 'field.availability',    type: 'text' },
-  { key: 'experience',      label: 'Experience', labelKey: 'field.experience',      type: 'text' },
-  { key: 'skills',          label: 'Skills', labelKey: 'field.skills',          type: 'textarea', rows: 2, full: true },
-  { key: 'profile_picture', label: 'Profile picture', labelKey: 'field.profile_picture', type: 'file', full: true },
-  { key: 'password',        label: 'New password', labelKey: 'field.new_password',    type: 'password', placeholder: 'Leave blank to keep unchanged', placeholderKey: 'hint.leave_blank_unchanged', full: true },
-]
-
-// Note #34 — the New-User form used to only have phone/full_name/role; the
-// rest of user_profiles (already collected by the Edit form above) is now
-// available here too, gated per-field by Field Rules under a "user_" prefix
-// (migration 057) — same mechanism as buildCaseFields/buildMarriageFields,
-// kept independent from the public sign-up form's own rules since this is a
-// separate, admin-only data-entry screen. phone/role stay fixed: phone is
-// the required login identifier, role is an admin classification choice,
-// neither is applicant data collected about the person.
-function buildNewUserFields(state: Record<string, FieldRuleState>): FieldSpec[] {
-  const isRequired = (key: string) => state[key] === 'required'
-  const isHidden = (key: string) => state[key] === 'hidden'
-  const fields: FieldSpec[] = [
-    { key: 'phone',           label: 'Phone', labelKey: 'field.phone',           type: 'text', required: true, phone: 'login' },
-    { key: 'role',            label: 'Role', labelKey: 'col.role',              type: 'select', options: ['donor', 'beneficiary', 'volunteer', 'employee'] },
-    // Dashboard sign-in credentials — optional, and only meaningful for an
-    // account that will be given a staff tier.
-    //
-    // Without these the window could not produce an account able to sign into
-    // the dashboard at all: login matches on `username`, and this was the only
-    // screen that creates users while no screen wrote that column. A new
-    // Supervisor appeared in the list and then failed login permanently.
-    //
-    // Reusing auth.username / auth.password rather than minting field.* keys —
-    // they are the same two words the login box uses, already translated in all
-    // four locales, and the operator has just read them there.
-    { key: 'username',        label: 'Username', labelKey: 'auth.username',     type: 'text', placeholder: 'supervisor' },
-    { key: 'password',        label: 'Password', labelKey: 'auth.password',     type: 'password' },
-    { key: 'full_name',       label: 'Full name', labelKey: 'field.full_name',       type: 'text', required: isRequired('full_name') },
-    { key: 'gender',          label: 'Gender', labelKey: 'field.gender',          type: 'select', options: GENDER_OPTIONS, required: isRequired('gender') },
-    { key: 'date_of_birth',   label: 'Date of birth', labelKey: 'field.date_of_birth', type: 'date', required: isRequired('date_of_birth') },
-    { key: 'address',         label: 'Address', labelKey: 'field.address',         type: 'textarea', rows: 2, required: isRequired('address') },
-    { key: 'city',            label: 'City', labelKey: 'field.city',            type: 'text', required: isRequired('city') },
-    { key: 'occupation',      label: 'Occupation', labelKey: 'field.occupation',      type: 'text', required: isRequired('occupation') },
-    { key: 'housing_status',  label: 'Housing status', labelKey: 'field.housing_status',  type: 'text', required: isRequired('housing_status') },
-    { key: 'family_size',     label: 'Family size', labelKey: 'field.family_size',     type: 'number', required: isRequired('family_size') },
-    { key: 'monthly_income',  label: 'Monthly income', labelKey: 'field.monthly_income',  type: 'text', required: isRequired('monthly_income') },
-    { key: 'availability',    label: 'Availability', labelKey: 'field.availability',    type: 'text', required: isRequired('availability') },
-    { key: 'experience',      label: 'Experience', labelKey: 'field.experience',      type: 'text', required: isRequired('experience') },
-    { key: 'skills',          label: 'Skills', labelKey: 'field.skills',          type: 'textarea', rows: 2, full: true, required: isRequired('skills') },
-    { key: 'profile_picture', label: 'Profile picture', labelKey: 'field.profile_picture', type: 'file', full: true, required: isRequired('profile_picture') },
-  ]
-  // Field Rules (migration 057) govern the `user_` profile prefix only; phone,
-  // role and the sign-in pair are account-level and always shown.
-  return fields.filter(
-    (f) => f.key === 'phone' || f.key === 'role' || f.key === 'username' || f.key === 'password' || !isHidden(f.key),
-  )
-}
+// Phase 18's field lists moved to lib/userEditFields.ts when the Edit form
+// grew from 15 boxes to the whole registration profile — this file was already
+// near the 500-line limit, and ninety more declarations belong beside the
+// declaration they are derived from, not here.
 
 const USER_CSV_COLUMNS: CsvColumn<UserAccount>[] = [
   { header: 'user_id', get: (u) => u.user_id },
@@ -144,30 +73,6 @@ export function roleLabelToId(label: string): number {
   return 0
 }
 
-// Flatten the {users + nested profile} shape into the flat key/value object
-// the EditModal expects. Strips the nested `profile` so its keys can be
-// addressed directly by name.
-export function flattenForEdit(u: UserAccount): Record<string, unknown> {
-  return {
-    phone:           u.phone,
-    full_name:       u.profile?.full_name ?? '',
-    gender:          u.profile?.gender ?? '',
-    date_of_birth:   u.profile?.date_of_birth ?? '',
-    address:         u.profile?.address ?? '',
-    city:            u.profile?.city ?? '',
-    occupation:      u.profile?.occupation ?? '',
-    housing_status:  u.profile?.housing_status ?? '',
-    family_size:     u.profile?.family_size != null ? String(u.profile.family_size) : '',
-    monthly_income:  u.profile?.monthly_income ?? '',
-    availability:    u.profile?.availability ?? '',
-    experience:      u.profile?.experience ?? '',
-    skills:          u.profile?.skills ?? '',
-    profile_picture: u.profile?.profile_picture ?? '',
-    // password is intentionally never pre-filled — blank means "unchanged".
-    password: '',
-  }
-}
-
 export default function UsersPage() {
   const [page, setPage] = useState(1)
   // #2 — archived accounts leave the main list; this switches to the
@@ -178,6 +83,16 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [editing, setEditing] = useState<UserAccount | null>(null)
+  // The Edit form covers all 104 profile columns and the LIST endpoint carries
+  // only the thirteen legacy ones, so the modal loads the row it needs on
+  // demand. See lib/useUserEditProfile.ts for why it is a fetch.
+  const {
+    profile: editProfile,
+    loading: editLoading,
+    error: editError,
+    reload: reloadEditProfile,
+  } = useUserEditProfile(editing?.user_id ?? null)
+
   const [deleting, setDeleting] = useState<UserAccount | null>(null)
   const [creating, setCreating] = useState(false)
   const [refreshTick, setRefreshTick] = useState(0)
@@ -230,13 +145,11 @@ export default function UsersPage() {
   }, [page, q, refreshTick, statusView])
 
   // Staff relocation — staff accounts (staff_tier set to anything besides the
-  // default 'user') are now managed on the Staff page under System Settings
+  // default 'user') are managed on the Staff page under System Settings
   // (StaffPage.tsx) and must not also appear here. Filtered client-side
-  // because /api/admin/users has no staff/non-staff query param and the
-  // backend is out of scope for this change; staff accounts are a small
-  // fraction of total users, so a page can show fewer than PER_PAGE rows when
-  // some of that page's accounts are staff — a known, accepted imprecision
-  // rather than a gate.
+  // because /api/admin/users has no staff/non-staff query param; staff are a
+  // small fraction of total users, so a page can show fewer than PER_PAGE rows
+  // — a known, accepted imprecision rather than a gate.
   const visibleRows = useMemo(() => (resp?.data ?? []).filter((u) => !isStaffAccount(u)), [resp])
 
   // Note #6 — the Edit form now includes a password field, but the backend
@@ -668,8 +581,11 @@ export default function UsersPage() {
       <EditModal
         open={editing !== null}
         title={editing ? t('common.modal_edit', { noun: t('noun.user'), id: editing.user_id }) : ''}
-        initial={editing ? flattenForEdit(editing) : {}}
+        initial={editing ? flattenForEdit(editing.phone, editProfile) : {}}
         fields={USER_FIELDS}
+        loading={editLoading}
+        loadError={editError}
+        onRetry={reloadEditProfile}
         onSave={(patch) => handleSave(editing!, patch)}
         onClose={() => setEditing(null)}
       />

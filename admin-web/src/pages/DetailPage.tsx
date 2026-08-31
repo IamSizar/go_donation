@@ -23,6 +23,8 @@ import { RESOURCE_LABELS } from '../lib/resourceLabels'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
 import { formatPhone } from '../lib/phone'
+import UserProfileSections, { type UserDocument } from '../components/UserProfileSections'
+import { USER_PROFILE_FIELD_BY_KEY } from '../lib/userProfileFields'
 
 type DetailResp = {
   success: true
@@ -57,23 +59,24 @@ function dirFor(key: string): 'rtl' | 'ltr' {
 const ISO_DATETIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 
-// Note #7 — several user_profiles fields are only ever COLLECTED for one
-// specific role's registration form (mobile app: registration_form.dart) —
-// e.g. a Grantor is never even asked for "skills" or "family size". An empty
-// value there isn't missing/broken data, it's a field that doesn't apply to
-// this account's role. Rather than showing a bare "—" that reads as "this is
-// broken," show WHY it's empty. Only meaningful on the `users` resource,
-// where `role_id` is present on the row (1=grantor, 2=beneficiary,
-// 3=volunteer — see RegistrationsPage.tsx's roleKey for the same mapping).
-const VOLUNTEER_ONLY_FIELDS = new Set(['availability', 'experience', 'skills'])
-const BENEFICIARY_ONLY_FIELDS = new Set(['family_size', 'housing_status', 'monthly_income'])
-
-function emptyFieldHint(key: string, roleId: number | undefined, t: (k: string) => string): string | null {
-  if (VOLUNTEER_ONLY_FIELDS.has(key) && roleId !== 3) return t('detail.field_volunteer_only')
-  if (BENEFICIARY_ONLY_FIELDS.has(key) && roleId !== 2) return t('detail.field_beneficiary_only')
+// Note #7, generalised — the "why is this empty" hint.
+//
+// It used to be three hard-coded key sets covering nine columns. The `users`
+// resource now carries all 104 profile columns, and which role is asked for
+// which of them is declared once in lib/userProfileFields.ts (read off
+// `registration_field_rules`), so the users page routes through
+// UserProfileSections and this helper is left for the ONE hint that is not
+// role-derived.
+function emptyFieldHint(key: string, t: (k: string) => string): string | null {
   if (key === 'email') return t('detail.field_email_hint')
   return null
 }
+
+// META_KEYS — the underscore-prefixed keys the backend adds to a users row that
+// are NOT columns and must never be rendered as a field: the privacy flags and
+// the uploaded-documents list. No database column starts with an underscore,
+// which is why the prefix is a safe marker.
+const META_KEYS = new Set(['_privacy_hidden', '_documents'])
 
 // G8 — the client's note was that this page's field order "follows the English
 // layout" and needs re-ordering. It was worse than that: there was no layout at
@@ -327,31 +330,65 @@ export default function DetailPage() {
       </PageHead>
       {err && <div className="error-box">{err}</div>}
       {loading && <p className="muted">{t('common.loading')}</p>}
-      {resp && (
-        <div className="detail-grid">
-          {orderFields(Object.entries(resp.item)).map(([k, v]) => (
-            <div key={k} className="detail-row">
-              <div className="detail-key" title={k}>{fieldLabel(k)}</div>
-              <div className="detail-value">{
-                v === null || v === undefined || v === ''
-                  ? (() => {
-                      const hint = resource === 'users'
-                        ? emptyFieldHint(k, Number(resp.item.role_id), t)
-                        : null
-                      return hint
-                        ? <span className="muted" title={hint}>— <em style={{ fontStyle: 'normal', fontSize: '0.9em' }}>({hint})</em></span>
-                        : <span className="muted">—</span>
-                    })()
-                  : k === 'role_id'
-                    ? <span>{roleLabel(v)}</span>
-                    : (USER_REF.test(k) || k === 'user_id')
-                      ? <span>{userName(v)}</span>
-                      : renderValue(k, v, t, statusLabel, locale, resp.item as Record<string, unknown>)
-              }</div>
-            </div>
-          ))}
-        </div>
-      )}
+      {resp && (() => {
+        const isUser = resource === 'users'
+        // One value renderer, shared with UserProfileSections, so the grouped
+        // page and the generic one can never format the same column differently.
+        const renderOne = (k: string, v: unknown) => {
+          if (k === 'role_id') return <span>{roleLabel(v)}</span>
+          if (USER_REF.test(k) || k === 'user_id') return <span>{userName(v)}</span>
+          return renderValue(k, v, t, statusLabel, locale, resp.item as Record<string, unknown>)
+        }
+        // On the users page the profile columns are rendered by their own
+        // grouped section below, so the flat list keeps only the ACCOUNT row —
+        // who this login is, what state it is in, and its audit trail.
+        const flatEntries = orderFields(
+          Object.entries(resp.item).filter(
+            ([k]) => !META_KEYS.has(k) && !(isUser && USER_PROFILE_FIELD_BY_KEY[k]),
+          ),
+        )
+        const flat = (
+          <div className="detail-grid">
+            {flatEntries.map(([k, v]) => (
+              <div key={k} className="detail-row">
+                <div className="detail-key" title={k}>{fieldLabel(k)}</div>
+                <div className="detail-value">{
+                  v === null || v === undefined || v === ''
+                    ? (() => {
+                        const hint = isUser ? emptyFieldHint(k, t) : null
+                        return hint
+                          ? <span className="muted" title={hint}>— <em style={{ fontStyle: 'normal', fontSize: '0.9em' }}>({hint})</em></span>
+                          : <span className="muted">—</span>
+                      })()
+                    : renderOne(k, v)
+                }</div>
+              </div>
+            ))}
+          </div>
+        )
+        if (!isUser) return flat
+        const privacyHidden = Array.isArray(resp.item._privacy_hidden)
+          ? (resp.item._privacy_hidden as unknown[]).map(String)
+          : []
+        const documents = Array.isArray(resp.item._documents)
+          ? (resp.item._documents as UserDocument[])
+          : []
+        return (
+          <div className="stack" style={{ gap: 24 }}>
+            <section className="stack" style={{ gap: 12 }}>
+              <h2 style={{ margin: 0, fontSize: '1.05rem' }}>{t('profile.group.account')}</h2>
+              {flat}
+            </section>
+            <UserProfileSections
+              item={resp.item}
+              privacyHidden={privacyHidden}
+              documents={documents}
+              renderValue={renderOne}
+              roleId={resp.item.role_id != null ? Number(resp.item.role_id) : undefined}
+            />
+          </div>
+        )
+      })()}
     </div>
   )
 }
