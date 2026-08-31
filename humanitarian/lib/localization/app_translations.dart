@@ -2904,6 +2904,12 @@ class AppTranslations extends Translations {
     'Event services': 'Event services',
     'Marriage section': 'Events section',
     'Events section': 'Events section',
+    // Chunk 5 — the two top-level group cards on the Events hub, collapsing
+    // what used to be two flat lists of tiles.
+    'Book halls, photographers, and everything your event needs':
+        'Book halls, photographers, and everything your event needs',
+    'Profiles, posts, and support for the events community':
+        'Profiles, posts, and support for the events community',
     'Event posts': 'Event posts',
     'Search event profiles by name or gender':
         'Search event profiles by name or gender',
@@ -5673,6 +5679,10 @@ class AppTranslations extends Translations {
     'Event services': 'خدمات الفعاليات',
     'Marriage section': 'قسم الفعاليات',
     'Events section': 'قسم الفعاليات',
+    'Book halls, photographers, and everything your event needs':
+        'احجز قاعة أو مصورًا وكل ما تحتاجه فعاليتك',
+    'Profiles, posts, and support for the events community':
+        'الملفات الشخصية والمنشورات والدعم لمجتمع الفعاليات',
     'Event posts': 'منشورات الفعاليات',
     'Search event profiles by name or gender':
         'ابحث عن ملفات الفعاليات بالاسم أو الجنس',
