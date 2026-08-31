@@ -4,136 +4,194 @@ import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:get/get.dart';
 
 import '../../../localization/locale_service.dart';
+import '../../../shared/widgets/glass_ui.dart';
 import '../../../widgets/auth_ui.dart';
 
 /// The very first screen the app shows, before sign-in.
 ///
-/// REDESIGN RATIONALE (apple-design skill: Purpose, Simplicity-not-minimalism,
-/// Craft; ui-ux-pro-max: onboarding/welcome pattern guidance — mobile-first,
-/// one clear call to action).
+/// SECOND-PASS RATIONALE (chunk 12 — the first redesign centred the whole
+/// block and that was the bug, not a finished layout).
 ///
-/// The previous layout put every element inside `AuthGlassCard` — the same
-/// bordered/shadowed panel used for the phone-number *form* on Login. A
-/// first-run screen with a single action is not a form, so wrapping it in
-/// form chrome (Craft: "nothing is random — every choice is deliberate")
-/// made a one-tap screen look like it required filling something in, and
-/// centring that small card left large empty bands above and below it with
-/// no purpose (Simplicity: "burying everything in one place looks minimal
-/// but isn't simple" — the emptiness here wasn't a choice, it was leftover
-/// space).
+/// A real device screenshot (Motorola Defy, 720x1600, English/LTR) measured
+/// four defects the first pass didn't fix, all rooted in the same cause:
+/// wrapping everything in `AuthScaffold`, whose `Center` + `SingleChildScrollView`
+/// treats a first-run screen like a form dialog — sized to its content and
+/// centred in whatever space is left. That produced ~350px of dead space
+/// above the header and ~300px below the subtitle (nothing anchored to
+/// anything), a language pill floating alone ~350px down instead of living
+/// in a header, and a heading whose size dominated the screen instead of
+/// sitting below the brand in hierarchy.
 ///
-/// This version removes the card and paints the three ideas — brand,
-/// promise, action — directly on the page in one continuous vertical
-/// rhythm, in the order a first-time visitor actually needs them:
-///   1. Brand mark, given real presence (a soft tonal backdrop, not a small
-///      circle in a box) — Purpose: a first-run screen's job is to say what
-///      this is before it asks for anything.
-///   2. The promise (badge + heading) — hierarchy built from weight + size
-///      + leading together, per the size-specific typography guidance:
-///      the heading is large and tight (negative-ish leading, heavier
-///      weight), not just "the same style, bigger."
-///   3. One primary action and the sentence explaining what it does.
-/// The language control moves out of the card into its own top bar row —
-/// a considered home instead of an orphaned pill — and keeps the exact
-/// same `PopupMenuButton` implementation from #38 (glass-pill trigger, its
-/// own rounded popup), only relocated.
+/// This version stops delegating to `AuthScaffold` (which is still right
+/// for the login/register forms it was built for) and lays the screen out
+/// itself with three pinned regions instead of one centred block:
+///   1. A top header (language control), pinned under the safe area.
+///   2. A middle block (brand + promise) that scrolls internally if a large
+///      Dynamic Type scale can't fit it, instead of pushing the CTA off
+///      screen or letting the whole page overflow.
+///   3. A bottom-pinned action (button + supporting line), anchored in
+///      thumb reach above the safe-area/gesture-bar inset — not centred.
+/// Deliberate empty space is left *between* the middle and bottom blocks
+/// (an `Expanded` in the outer Column), so on a tall screen it reads as
+/// breathing room between "what this is" and "what to do", not as slack
+/// nobody accounted for.
+///
+/// Every region shares exactly one horizontal gutter (`_gutter`) — the
+/// header, heading, button and subtitle all start at the same logical
+/// (start/end) edge, fixing the two-different-insets defect. The heading
+/// is also now left/start-aligned rather than centred: centred short text
+/// inside a full-width container is what produced the illusion of a
+/// narrower inset than the full-width button sitting beside it.
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
 
+  /// The single horizontal inset shared by every piece of content on this
+  /// screen (header, heading, button, subtitle) — on the 4/8/12/16/24/32
+  /// spacing scale. Picking one value and applying it once, at the outer
+  /// edge of each pinned region, is what guarantees defect 2 (two
+  /// different gutters) can't recur: there is nowhere else a second inset
+  /// could be introduced.
+  static const double _gutter = 24;
+
   @override
   Widget build(BuildContext context) {
-    // Large display heading: apple-design's size-specific tracking rule —
-    // tighten large text, loosen leading is not needed here since it's
-    // short (max 2 lines), but tight line-height keeps a 2-line heading
-    // from reading as two disconnected sentences.
-    final headingStyle = Theme.of(context).textTheme.headlineLarge?.copyWith(
+    // Reduced relative to the first pass: the heading now sits below the
+    // brand in hierarchy instead of dominating the screen (titleLarge, not
+    // headlineLarge). Large display text still wants slightly negative
+    // tracking; body-sized text (the subtitle) is left near 0 untouched.
+    final headingStyle = Theme.of(context).textTheme.headlineSmall?.copyWith(
       color: AppThemeConfig.text(context),
       fontWeight: FontWeight.w800,
-      height: 1.08,
-      letterSpacing: -0.3,
+      height: 1.15,
+      letterSpacing: -0.2,
     );
 
-    return AuthScaffold(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // ── Top bar: language control's considered home ────────────────
-          // A real bar, not a pill floating loose above the card. Kept at
-          // the physical trailing edge per #38 (Align uses centerEnd, which
-          // is directional and correctly flips for RTL).
-          const Align(
-            alignment: AlignmentDirectional.centerEnd,
-            child: _LanguageSelector(),
-          ),
-          const SizedBox(height: 32),
-          // ── Brand: presence appropriate to a first-run screen ──────────
-          const Center(child: _BrandMark()),
-          const SizedBox(height: 24),
-          Center(
-            child: AuthBadge(
-              icon: Icons.volunteer_activism_rounded,
-              label: 'Humanitarian platform',
-            ),
-          ),
-          const SizedBox(height: 16),
-          // #38 — approved verbal identity: short heading, no tagline.
-          Text(
-            'Balance and Stability for a Better Life!'.tr,
-            textAlign: TextAlign.center,
-            style: headingStyle,
-          ),
-          // Deliberate breathing room between the promise and the action —
-          // large enough to read as a section break, not leftover space.
-          const SizedBox(height: 40),
-          // ── Action ───────────────────────────────────────────────────
-          // One entry action, not two. This screen used to show a filled
-          // "Sign in" button and an outlined "Create account" button, but
-          // both navigated to '/login' — the outlined one only existed
-          // because a dedicated email/password RegisterPage was planned.
-          // That page never called an API (it faked a delay and jumped to
-          // '/verify'), so it was deleted; the phone/OTP flow on Login is
-          // the single path that both signs in existing users and registers
-          // new ones. Two buttons for one destination was a false choice,
-          // so the copy names the mechanism ("Continue with phone") instead
-          // of picking a side — "Sign in" would under-describe it and
-          // "Create account" would mislead returning users.
-          ElevatedButton(
-            // #39 — push, not offAllNamed, so Login keeps a back target.
-            onPressed: () => Get.toNamed('/login'),
-            style: ElevatedButton.styleFrom(
-              // Prefer the theme-adaptive accent over the deprecated
-              // constant `primary` (fixed colour, doesn't shift with
-              // brightness) — see AppThemeConfig's own migration note.
-              // `accent`/`onAccent` are the pair measured >=4.5:1 in both
-              // themes (6.87:1 / 8.33:1 light-dark for the fill; 7.54:1 /
-              // 7.72:1 for the text on it).
-              backgroundColor: AppThemeConfig.accent(context),
-              foregroundColor: AppThemeConfig.onAccent(context),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18),
+    return GradientScreen(
+      child: SafeArea(
+        child: Column(
+          children: [
+            // ── Header: language control's considered home ─────────────
+            // Pinned to the top, respecting the safe area — not floating
+            // mid-body. `centerEnd` is directional and correctly flips
+            // sides for RTL, keeping it on the same logical side in both.
+            Padding(
+              padding: const EdgeInsetsDirectional.fromSTEB(
+                _gutter,
+                16,
+                _gutter,
+                0,
               ),
-              padding: const EdgeInsets.symmetric(vertical: 18),
-              textStyle: const TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
+              child: const Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: _LanguageSelector(),
               ),
-              elevation: 0,
-              minimumSize: const Size.fromHeight(52), // clears the 44pt target
             ),
-            child: Text('Continue with phone'.tr),
-          ),
-          const SizedBox(height: 12),
-          // Says out loud what the single button covers, so a returning
-          // user isn't left wondering where "Sign in" went.
-          Text(
-            'Sign in or create an account with your phone number.'.tr,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppThemeConfig.mutedText(context),
+            // ── Brand + promise: scrolls internally under large Dynamic
+            // Type instead of overflowing or pushing the CTA off screen,
+            // while staying visually anchored under the header.
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Padding(
+                  padding: const EdgeInsetsDirectional.symmetric(
+                    horizontal: _gutter,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Tight within-group gap: logo and badge read as one
+                      // brand unit.
+                      const Center(child: _BrandMark()),
+                      const SizedBox(height: 16),
+                      Center(
+                        child: AuthBadge(
+                          icon: Icons.volunteer_activism_rounded,
+                          label: 'Humanitarian platform',
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      // #38 — approved verbal identity: short heading, no
+                      // tagline. Start-aligned (4.3: left-aligned by
+                      // default) so its edge matches the button's below —
+                      // not centred, which is what made the two look like
+                      // different gutters.
+                      Text(
+                        'Balance and Stability for a Better Life!'.tr,
+                        textAlign: TextAlign.start,
+                        style: headingStyle,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
-          ),
-        ],
+            // ── Action: anchored toward the bottom, in thumb reach ──────
+            // One entry action, not two. This screen used to show a filled
+            // "Sign in" button and an outlined "Create account" button, but
+            // both navigated to '/login' — the outlined one only existed
+            // because a dedicated email/password RegisterPage was planned.
+            // That page never called an API (it faked a delay and jumped
+            // to '/verify'), so it was deleted; the phone/OTP flow on
+            // Login is the single path that both signs in existing users
+            // and registers new ones. Two buttons for one destination was
+            // a false choice, so the copy names the mechanism ("Continue
+            // with phone") instead of picking a side.
+            Padding(
+              padding: const EdgeInsetsDirectional.fromSTEB(
+                _gutter,
+                0,
+                _gutter,
+                20,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ElevatedButton(
+                    // #39 — push, not offAllNamed, so Login keeps a back
+                    // target.
+                    onPressed: () => Get.toNamed('/login'),
+                    style: ElevatedButton.styleFrom(
+                      // Prefer the theme-adaptive accent over the
+                      // deprecated constant `primary` (fixed colour,
+                      // doesn't shift with brightness) — see
+                      // AppThemeConfig's own migration note. `accent`/
+                      // `onAccent` are the pair measured >=4.5:1 in both
+                      // themes (6.87:1 / 8.33:1 light-dark for the fill;
+                      // 7.54:1 / 7.72:1 for the text on it).
+                      backgroundColor: AppThemeConfig.accent(context),
+                      foregroundColor: AppThemeConfig.onAccent(context),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 18),
+                      textStyle: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      elevation: 0,
+                      minimumSize: const Size.fromHeight(
+                        52,
+                      ), // clears the 44pt target
+                    ),
+                    child: Text('Continue with phone'.tr),
+                  ),
+                  const SizedBox(height: 12),
+                  // Says out loud what the single button covers, so a
+                  // returning user isn't left wondering where "Sign in"
+                  // went. Start-aligned to match the gutter, not centred.
+                  Text(
+                    'Sign in or create an account with your phone number.'
+                        .tr,
+                    textAlign: TextAlign.start,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppThemeConfig.mutedText(context),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

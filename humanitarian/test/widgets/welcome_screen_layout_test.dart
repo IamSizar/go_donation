@@ -132,4 +132,103 @@ void main() {
       expect(Get.currentRoute, '/login');
     },
   );
+
+  // Second-pass regression coverage (chunk 12) — pins the two measured
+  // defects from the real-device screenshot that the first redesign missed.
+  testWidgets(
+    'header, headline, button and subtitle all share one horizontal gutter',
+    (tester) async {
+      // Defect 2 was measured on a real 720x1600 Motorola Defy screenshot:
+      // the headline sat ~35px from the edge while the button sat at a
+      // visibly wider inset. Reproduce that exact viewport so the assertion
+      // actually exercises the same geometry, not an incidental match at
+      // the default 800x600 test window.
+      tester.view.physicalSize = const Size(720, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(_welcomeApp(brightness: Brightness.light));
+      await tester.pumpAndSettle();
+
+      final languageControl = find.byWidgetPredicate(
+        (widget) => widget.runtimeType.toString().startsWith('PopupMenuButton'),
+      );
+      final headline = find.text('Balance and Stability for a Better Life!');
+      final button = find.widgetWithText(ElevatedButton, 'Continue with phone');
+      final subtitle = find.text(
+        'Sign in or create an account with your phone number.',
+      );
+
+      final headlineLeft = tester.getTopLeft(headline).dx;
+      final buttonLeft = tester.getTopLeft(button).dx;
+      final subtitleLeft = tester.getTopLeft(subtitle).dx;
+
+      // The language control is trailing-aligned (centerEnd) rather than
+      // leading, so it's checked against the mirrored (right) edge instead.
+      final languageRight = tester.getTopRight(languageControl).dx;
+      final buttonRight = tester.getTopRight(button).dx;
+
+      const tolerance = 1.0;
+      expect(
+        (headlineLeft - buttonLeft).abs(),
+        lessThanOrEqualTo(tolerance),
+        reason: 'headline and button must share the same leading gutter',
+      );
+      expect(
+        (subtitleLeft - buttonLeft).abs(),
+        lessThanOrEqualTo(tolerance),
+        reason: 'subtitle and button must share the same leading gutter',
+      );
+      expect(
+        (languageRight - buttonRight).abs(),
+        lessThanOrEqualTo(tolerance),
+        reason: 'header control and button must share the same trailing gutter',
+      );
+    },
+  );
+
+  testWidgets(
+    "the primary button's vertical centre sits in the screen's lower portion",
+    (tester) async {
+      // Defect 1: the whole block was vertically centred, leaving ~350px of
+      // empty space above the header and ~300px below the subtitle. The
+      // primary action must anchor toward the bottom (thumb reach), not
+      // float in the middle of the screen. Same reproduction viewport as
+      // the gutter test above.
+      tester.view.physicalSize = const Size(720, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(_welcomeApp(brightness: Brightness.light));
+      await tester.pumpAndSettle();
+
+      final languageControl = find.byWidgetPredicate(
+        (widget) => widget.runtimeType.toString().startsWith('PopupMenuButton'),
+      );
+      final button = find.widgetWithText(ElevatedButton, 'Continue with phone');
+      final screenHeight =
+          tester.view.physicalSize.height / tester.view.devicePixelRatio;
+      final headerTop = tester.getTopLeft(languageControl).dy;
+      final buttonCenterY = tester.getCenter(button).dy;
+
+      // The header must anchor to the top of the safe area, not float
+      // ~350px down as it did when the whole block was vertically centred.
+      expect(
+        headerTop,
+        lessThan(100),
+        reason: 'the header control must anchor near the top of the screen',
+      );
+      // The button must anchor toward the bottom (thumb reach), not sit
+      // near the vertical middle of the screen.
+      expect(
+        buttonCenterY,
+        greaterThan(screenHeight * 0.6),
+        reason:
+            'the primary CTA must sit in the lower ~40% of the screen, '
+            'not vertically centred',
+      );
+    },
+  );
 }
