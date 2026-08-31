@@ -5,16 +5,14 @@ import (
 	"errors"
 	"log"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"golang.org/x/crypto/bcrypt"
 
-	"github.com/karam-flutter/humanitarian-backend/internal/auth"
+	"github.com/karam-flutter/humanitarian-backend/internal/moderation"
 	"github.com/karam-flutter/humanitarian-backend/internal/permissions"
 )
 
@@ -32,6 +30,14 @@ type AdminTrashHandler struct {
 	// per-table allow-list in admin_trash_preview.go. The permission governs
 	// whether the contact columns that survive it are readable.
 	Perms *permissions.Store
+
+	// BannedWords — the moderation blocklist keeps its words in an in-process
+	// cache with NO TTL, refreshed only when its Store is told to. Restore puts
+	// a row back with a raw INSERT that the Store never sees, so without this
+	// the restored word would NOT be enforced again until the next restart:
+	// المهملات would report the word back while comments containing it sailed
+	// through. Set from main.go; nil disables the refresh (tests).
+	BannedWords *moderation.Store
 }
 
 func NewAdminTrashHandler(pool *pgxpool.Pool) *AdminTrashHandler {
@@ -87,6 +93,16 @@ var restorableTables = map[string]bool{
 	// M7 — donation types (migration 103). Same reason again: the admin route
 	// deletes through trashRow, so Restore has to accept it back.
 	"donation_types": true,
+
+	// N3 — the last two hard deletes, converted when the client restated the
+	// rule as "ALL delete should go to trash bin". Both were previously listed
+	// as deliberate exceptions; both now trash, so both must restore, or the
+	// operator is told a record is recoverable and then refused.
+	//
+	// banned_words additionally needs the in-process cache refreshed on the way
+	// back in — see AdminTrashHandler.BannedWords.
+	"app_events":   true,
+	"banned_words": true,
 }
 
 // List returns everything currently in the trash (not yet restored), newest
@@ -180,41 +196,14 @@ func (h *AdminTrashHandler) Restore(c *gin.Context) {
 	if !ok {
 		return
 	}
-	user, ok := auth.UserFromGin(c)
-	if !ok || user == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Not authenticated."})
-		return
-	}
-	var req struct {
-		Password string `json:"password"`
-	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid JSON body."})
-		return
-	}
-	if strings.TrimSpace(req.Password) == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Password required to restore."})
+	// PIN check — the acting admin's own password, verified server-side and
+	// failing closed. Shared with delete and purge (delete_password.go) so
+	// there is exactly ONE implementation of this check in the codebase.
+	if !requireOwnPassword(c, h.Pool, "restore") {
 		return
 	}
 
 	ctx := c.Request.Context()
-
-	// PIN check — verify the acting admin's own password (fails closed).
-	var hash *string
-	if err := h.Pool.QueryRow(ctx,
-		"SELECT password_hash FROM users WHERE id = $1", user.UserID).Scan(&hash); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
-		return
-	}
-	if hash == nil || *hash == "" {
-		c.JSON(http.StatusForbidden, gin.H{"success": false,
-			"error": "No password is set on your account; ask a Super-Admin to set one."})
-		return
-	}
-	if bcrypt.CompareHashAndPassword([]byte(*hash), []byte(strings.TrimSpace(req.Password))) != nil {
-		c.JSON(http.StatusForbidden, gin.H{"success": false, "error": "Incorrect password."})
-		return
-	}
 
 	tx, err := h.Pool.Begin(ctx)
 	if err != nil {
@@ -269,6 +258,14 @@ func (h *AdminTrashHandler) Restore(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
 		return
 	}
+	// The row is back in its table. Anything holding a cached copy of that
+	// table has to be told, or the restore is only half-real. Today that is the
+	// moderation blocklist; the switch keeps the list explicit and auditable
+	// rather than refreshing everything on every restore.
+	if table == "banned_words" && h.BannedWords != nil {
+		h.BannedWords.Invalidate()
+	}
+
 	c.JSON(http.StatusOK, gin.H{"success": true, "id": id, "restored_to": table, "row_id": rowID})
 }
 
@@ -280,41 +277,12 @@ func (h *AdminTrashHandler) Purge(c *gin.Context) {
 	if !ok {
 		return
 	}
-	user, ok := auth.UserFromGin(c)
-	if !ok || user == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Not authenticated."})
-		return
-	}
-	var req struct {
-		Password string `json:"password"`
-	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid JSON body."})
-		return
-	}
-	if strings.TrimSpace(req.Password) == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Password required to purge."})
+	// PIN check — same single implementation as delete and restore.
+	if !requireOwnPassword(c, h.Pool, "purge") {
 		return
 	}
 
-	// PIN check — verify the acting admin's own password (fails closed).
 	ctx := c.Request.Context()
-	var hash *string
-	if err := h.Pool.QueryRow(ctx,
-		"SELECT password_hash FROM users WHERE id = $1", user.UserID).Scan(&hash); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
-		return
-	}
-	if hash == nil || *hash == "" {
-		c.JSON(http.StatusForbidden, gin.H{"success": false,
-			"error": "No password is set on your account; ask a Super-Admin to set one."})
-		return
-	}
-	if bcrypt.CompareHashAndPassword([]byte(*hash), []byte(strings.TrimSpace(req.Password))) != nil {
-		c.JSON(http.StatusForbidden, gin.H{"success": false, "error": "Incorrect password."})
-		return
-	}
-
 	ct, err := h.Pool.Exec(ctx, `DELETE FROM trash_items WHERE id = $1`, id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})

@@ -148,6 +148,16 @@ var trashPreviewColumns = map[string][]string{
 	"payment_methods": catalogueLabelColumns,
 	// custom_professions labels its rows `label_*` rather than `name_*`.
 	"custom_professions": {"skill_key", "label_en", "label_ar", "label_ckb", "label_kmr"},
+
+	// ─── N3 · the last two hard deletes, now trashed ─────────────────────
+	// An activity-log line. Enough to recognise WHICH line before restoring it,
+	// and deliberately no more: app_events also carries the actor's `name`,
+	// `number` and `number_digits`, denormalised at write time. Those are the
+	// columns H10 masks in the live feed, so they are simply not on this list —
+	// a preview that cannot show a phone number cannot leak one.
+	"app_events": {"event_type", "event_label", "module", "action", "status"},
+	// The blocklist entry IS its word; there is nothing else to show.
+	"banned_words": {"word"},
 }
 
 // trashPreviewPayload rewrites one stored snapshot into the preview the Trash

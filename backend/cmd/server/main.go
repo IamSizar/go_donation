@@ -324,6 +324,9 @@ func main() {
 	adminCreateH.MediaCategories = mediaCatStore
 	adminDeleteH := handlers.NewAdminDeleteHandler(pool)
 	adminTrashH := handlers.NewAdminTrashHandler(pool)
+	// N3 — restoring a banned word has to refresh the moderation cache, or the
+	// word comes back in المهملات while comments containing it stay unfiltered.
+	adminTrashH.BannedWords = bannedWordsStore
 	adminUploadH := handlers.NewAdminUploadHandler(mediaStore)
 	// Serves stored media back as a downloadable file. It needs the same public
 	// base the storage layer uses, because that prefix is the allowlist deciding
@@ -386,7 +389,7 @@ func main() {
 	mediaCategoriesH := handlers.NewMediaCategoriesHandler(mediaCatStore)                                        // #22
 	caseCategoriesH := handlers.NewCaseCategoriesHandler(caseCatStore)                                           // Quick Filter Capsules
 	mediaEngageH := handlers.NewMediaEngagementHandler(postEngageStore, bannedWordsStore, notifier, eventsStore) // #24/#25
-	bannedWordsH := handlers.NewBannedWordsHandler(bannedWordsStore)                                             // #25
+	bannedWordsH := handlers.NewBannedWordsHandler(bannedWordsStore, pool)                                           // #25
 	partnerEngageH := handlers.NewPartnerEngagementHandler(partnerRatingStore)                                   // #27
 	marketplaceCategoriesH := handlers.NewMarketplaceCategoriesHandler(marketplaceCatStore)                      // #28
 	paymentMethodsH := handlers.NewPaymentMethodsHandler(paymentMethodStore)
@@ -841,6 +844,12 @@ func main() {
 		// mobile app issues the very same kind of Bearer token.
 		admin := api.Group("/")
 		admin.Use(auth.RequireAdmin(tokenStore))
+		// N3 — "any delete requires entering the password". Mounted on the
+		// whole group and filtered to DELETE inside, so every admin delete
+		// route — including any added later — is confirmed by default. See
+		// handlers/delete_password.go for what the password is and why the
+		// confirmation is per action rather than per session.
+		admin.Use(handlers.RequireDeletePassword(pool))
 		{
 			// 24-a — per-route permission enforcement. Every admin resource
 			// route below is gated by the (module, action) matrix via

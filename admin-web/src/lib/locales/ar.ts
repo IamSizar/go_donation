@@ -704,6 +704,8 @@ const ar: DeepPartial<typeof en> = {
     move_up: 'تحريك لأعلى',
     move_down: 'تحريك لأسفل',
     deleting: 'جارٍ الحذف…',
+    delete_password_prompt: 'أدخل كلمة مرور حسابك لحذف هذا السجل. سينتقل إلى المهملات.',
+    delete_cancelled: 'تم إلغاء الحذف — لم يُحذف أي شيء.',
     create: 'إنشاء',
     new: 'جديد',
     saving: 'جارٍ الحفظ…',

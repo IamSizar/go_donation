@@ -726,6 +726,11 @@ const en = {
     move_up: 'Move up',
     move_down: 'Move down',
     deleting: 'Deleting…',
+    // N3 — every delete asks for the operator's OWN account password, once per
+    // action. The prompt names whose password and what it is for, so nobody
+    // types the target record's owner's password into it by mistake.
+    delete_password_prompt: 'Enter your account password to delete this record. It will move to the Trash.',
+    delete_cancelled: 'Delete cancelled — nothing was deleted.',
     create: 'Create',
     new: 'New',
     saving: 'Saving…',

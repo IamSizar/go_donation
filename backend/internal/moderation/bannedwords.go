@@ -74,18 +74,13 @@ func (s *Store) Add(ctx context.Context, word string, actorID *int64) (*Word, er
 	return &w, nil
 }
 
-// Delete removes a banned word by id.
-func (s *Store) Delete(ctx context.Context, id int64) error {
-	ct, err := s.Pool.Exec(ctx, `DELETE FROM banned_words WHERE id = $1`, id)
-	if err != nil {
-		return err
-	}
-	if ct.RowsAffected() == 0 {
-		return errors.New("word not found")
-	}
-	s.invalidate()
-	return nil
-}
+// NOTE — there is deliberately no Delete method here.
+//
+// N3 routed the admin delete through handlers.trashRow so a removed word lands
+// in المهملات and can be brought back. A Store.Delete sitting beside it would be
+// a hard delete that bypasses the Trash entirely, one call away from any future
+// caller, so it was removed rather than left as a trap. Anything that removes a
+// word must go through the trashing path and then call Invalidate.
 
 // Contains reports whether text contains any banned word (case-insensitive
 // substring match on word boundaries-agnostic — a blocked word matches even
@@ -138,6 +133,17 @@ func (s *Store) words(ctx context.Context) ([]string, error) {
 	s.mu.Unlock()
 	return list, nil
 }
+
+// Invalidate drops the cached word list so the next check re-reads the table.
+//
+// WHY IT IS EXPORTED. The blocklist is cached in-process with NO TTL, so the
+// cache is only ever correct because every mutation path calls this. Two of
+// those paths now live OUTSIDE this package: the admin delete routes the word
+// through handlers.trashRow (so the row lands in المهملات), and a Super-Admin
+// restore re-inserts it with a raw INSERT from the trash snapshot. Neither
+// touches this Store, and a restored word that is missing from the cache
+// silently stops being banned — the failure this export exists to prevent.
+func (s *Store) Invalidate() { s.invalidate() }
 
 func (s *Store) invalidate() {
 	s.mu.Lock()
