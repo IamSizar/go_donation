@@ -312,10 +312,26 @@ class _FilterChip extends StatelessWidget {
 }
 
 class MediaPostCard extends StatelessWidget {
-  const MediaPostCard({super.key, required this.item, this.categoryLabel = ''});
+  const MediaPostCard({
+    super.key,
+    required this.item,
+    this.categoryLabel = '',
+    this.controller,
+  });
 
   final Map<String, dynamic> item;
   final String categoryLabel;
+
+  /// The controller whose `posts` list contains [item].
+  ///
+  /// MUST be passed by any screen that registers its own MediaPostsController
+  /// under a GetX tag (the Events hub does). The engagement bar mutates the
+  /// post map and then calls `posts.refresh()` to redraw; refreshing a
+  /// DIFFERENT controller than the one the screen is observing updates nothing
+  /// on screen, so like/save appear completely dead even though the request
+  /// went out. Null falls back to the untagged instance, which is what the
+  /// News & Activities and Our Work screens share.
+  final MediaPostsController? controller;
 
   @override
   Widget build(BuildContext context) {
@@ -423,7 +439,7 @@ class MediaPostCard extends StatelessWidget {
                 const SizedBox(height: 10),
                 const Divider(height: 1),
                 const SizedBox(height: 4),
-                _EngagementBar(item: item),
+                _EngagementBar(item: item, controller: controller),
               ],
             ),
           ),
@@ -435,15 +451,23 @@ class MediaPostCard extends StatelessWidget {
 
 // #24 — like / comment / share bar at the bottom of each post card.
 class _EngagementBar extends StatelessWidget {
-  const _EngagementBar({required this.item});
+  const _EngagementBar({required this.item, this.controller});
 
   final Map<String, dynamic> item;
 
+  /// See [MediaPostCard.controller] — null means the shared untagged instance.
+  final MediaPostsController? controller;
+
   @override
   Widget build(BuildContext context) {
-    final controller = Get.isRegistered<MediaPostsController>()
-        ? Get.find<MediaPostsController>()
-        : Get.put(MediaPostsController());
+    // Named apart from the `controller` field on purpose: a local of the same
+    // name does not shadow the field inside the onTap closures below, so the
+    // nullable field would be the one they captured.
+    final MediaPostsController feed =
+        controller ??
+        (Get.isRegistered<MediaPostsController>()
+            ? Get.find<MediaPostsController>()
+            : Get.put(MediaPostsController()));
     final liked = item['liked_by_me'] == true;
     final likeCount = (item['like_count'] as num?)?.toInt() ?? 0;
     final commentCount = (item['comment_count'] as num?)?.toInt() ?? 0;
@@ -463,7 +487,7 @@ class _EngagementBar extends StatelessWidget {
             label: likeCount > 0 ? '$likeCount' : 'Like'.tr,
             // #44 — guests are prompted to sign in before acting.
             onTap: () async {
-              if (await requireSignIn(context)) controller.toggleLike(item);
+              if (await requireSignIn(context)) feed.toggleLike(item);
             },
           ),
         ),
@@ -471,14 +495,14 @@ class _EngagementBar extends StatelessWidget {
           child: _EngageButton(
             icon: Icons.mode_comment_outlined,
             label: commentCount > 0 ? '$commentCount' : 'Comment'.tr,
-            onTap: () => _openComments(context, item, controller),
+            onTap: () => _openComments(context, item, feed),
           ),
         ),
         Expanded(
           child: _EngageButton(
             icon: Icons.share_outlined,
             label: shareCount > 0 ? '$shareCount' : 'Share'.tr,
-            onTap: () => _sharePost(context, item, controller),
+            onTap: () => _sharePost(context, item, feed),
           ),
         ),
         Expanded(
@@ -489,7 +513,7 @@ class _EngagementBar extends StatelessWidget {
             color: saved ? AppThemeConfig.primary : null,
             label: 'Save'.tr,
             onTap: () async {
-              if (await requireSignIn(context)) controller.toggleSaved(item);
+              if (await requireSignIn(context)) feed.toggleSaved(item);
             },
           ),
         ),

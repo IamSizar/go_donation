@@ -27,6 +27,7 @@ import 'package:flutter_application_1/localization/app_translations.dart';
 import 'package:flutter_application_1/modules/marriage/screens/marriage_hub_screen.dart';
 import 'package:flutter_application_1/modules/marriage/widgets/event_hub_cards.dart';
 import 'package:flutter_application_1/modules/proposal/controllers/media_posts_controller.dart';
+import 'package:flutter_application_1/modules/proposal/screens/news_activities_screen.dart';
 
 Widget _app({Locale locale = const Locale('en', 'US')}) => GetMaterialApp(
   theme: AppThemeConfig.buildTheme(Brightness.light),
@@ -127,6 +128,52 @@ void main() {
     expect(
       Get.find<MediaPostsController>(tag: 'events-hub-feed').postType,
       'activity,news',
+    );
+  });
+
+  testWidgets('each card is wired to the hub feed, not the untagged one', (
+    tester,
+  ) async {
+    // THE BUG THIS PINS
+    // MediaPostCard's engagement bar used to resolve its controller with an
+    // untagged Get.find. On this screen the feed is a TAGGED instance, so a
+    // tap on Like/Save mutated the post map and then called posts.refresh()
+    // on a DIFFERENT controller than the one this screen observes — the Obx
+    // never rebuilt and both buttons looked completely dead, even though the
+    // request had gone out. Seeding a post here (rather than relying on the
+    // network, which a widget test has none of) is what makes a card exist to
+    // check.
+    final feed = Get.put(
+      MediaPostsController(postType: 'activity,news'),
+      tag: 'events-hub-feed',
+    );
+
+    await tester.pumpWidget(_app());
+    // Seed AFTER the first load settles: onInit fires a fetch that has no
+    // network here, and its failure path clears `posts` — seeding earlier
+    // would be wiped before a card ever built.
+    await _settle(tester);
+    feed.posts.assignAll([
+      {
+        'id': 1,
+        'title': 'Seeded post',
+        'body': 'Body',
+        'post_type': 'activity',
+        'like_count': 0,
+        'comment_count': 0,
+        'share_count': 0,
+        'liked_by_me': false,
+        'saved_by_me': false,
+      },
+    ]);
+    feed.errorMessage.value = null;
+    await tester.pump();
+
+    final card = tester.widget<MediaPostCard>(find.byType(MediaPostCard));
+    expect(
+      card.controller,
+      same(feed),
+      reason: 'an untagged lookup here makes like and save do nothing visible',
     );
   });
 }
