@@ -142,6 +142,7 @@ const catalogueColumns = `
 	p.category, p.price::text, p.currency, p.image_path, p.stock_quantity, p.status,
 	p.category_slug, p.sku, p.specs, COALESCE(p.labels, '{}'),
 	p.brand, p.discount_percent, p.created_at,
+	COALESCE(p.gallery, '{}'),
 	COALESCE(s.sold, 0) AS sold_count,
 	ROUND(p.price * (100 - COALESCE(p.discount_percent, 0)) / 100.0, 2)::text`
 
@@ -193,6 +194,10 @@ func (s *Store) ListCatalogue(ctx context.Context, f ProductFilters) (*Page[Cata
 			&p.Category, &p.Price, &p.Currency, &p.ImagePath, &p.StockQuantity, &p.Status,
 			&p.CategorySlug, &p.SKU, &p.Specs, &p.Labels,
 			&p.Brand, &p.DiscountPercent, &p.CreatedAt,
+			// Migration 117 — the extra product photos, for the app's detail
+			// sheet. Carried on every catalogue response rather than fetched
+			// per-product, so opening a product needs no second round trip.
+			&p.Gallery,
 			&p.SoldCount, &p.PriceAfterDiscount,
 		); err != nil {
 			return nil, fmt.Errorf("scan catalogue product: %w", err)

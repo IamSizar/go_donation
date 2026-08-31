@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/localization/item_count.dart';
 import 'package:flutter_application_1/core/design/directional_icons.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter_application_1/api/links.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/modules/marketplace/controllers/marketplace_controller.dart';
@@ -17,6 +16,7 @@ import 'package:flutter_application_1/core/widgets/app_list_search_field.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/modules/marketplace/models/catalogue_query.dart';
 import 'package:flutter_application_1/modules/marketplace/widgets/catalogue_filter_bar.dart';
+import 'package:flutter_application_1/modules/marketplace/widgets/product_gallery.dart';
 
 /// Identifies the catalogue's own scrollable — the search field, filter
 /// bar, and product list all live inside this one `ListView`. Exposed so
@@ -283,7 +283,7 @@ class _MarketplaceProductTileState extends State<_MarketplaceProductTile> {
     // Price and currency are read inside _ProductPrice now — it has to weigh
     // `price` against `price_after_discount`, and pulling one of the pair out
     // here is how the two could drift apart.
-    final imageUrl = _marketplaceImageUrl(widget.item['image_path']);
+    final imageUrl = marketplaceMediaUrl(widget.item['image_path']);
 
     // Deliberately NOT AppPressable: this card's press IS a peek-preview
     // (hold to open, release to close), so a press-scale would fight the
@@ -401,7 +401,11 @@ class _ProductDetailsSheet extends StatelessWidget {
     final sku = (item['sku'] ?? '').toString(); // #28
     final specs = _productSpecs(item['specs']); // #28
     final description = localizedContentFromMap(item, 'description');
-    final imageUrl = _marketplaceImageUrl(item['image_path']);
+    final imageUrl = marketplaceMediaUrl(item['image_path']);
+    // Migration 117 — the product's ADDITIONAL photos. Empty for almost every
+    // product, and empty is drawn as nothing at all, so a product without a
+    // gallery looks exactly as it did before this existed.
+    final gallery = marketplaceGalleryUrls(item['gallery']);
 
     return SafeArea(
       child: Padding(
@@ -427,92 +431,112 @@ class _ProductDetailsSheet extends StatelessWidget {
           },
           child: GlassPanel(
             padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Center(
-                  child: Container(
-                    width: 42,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: AppThemeConfig.mutedText(
-                        context,
-                      ).withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                _ProductLargeImage(imageUrl: imageUrl),
-                const SizedBox(height: 16),
-                Text(
-                  title.tr,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                    color: AppThemeConfig.text(context),
-                  ),
-                ),
-                if (category.trim().isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    category.tr,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: AppThemeConfig.mutedText(context)),
-                  ),
-                ],
-                if (labels.isNotEmpty) ...[
-                  const SizedBox(height: 10),
-                  _ProductLabelChips(labels: labels),
-                ],
-                if (description.trim().isNotEmpty) ...[
-                  const SizedBox(height: 10),
-                  Text(
-                    description.tr,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      height: 1.35,
-                      color: AppThemeConfig.mutedText(context),
-                    ),
-                  ),
-                ],
-                if (sku.trim().isNotEmpty) ...[
-                  const SizedBox(height: 10),
-                  Text(
-                    '${'SKU'.tr}: $sku',
-                    style: TextStyle(
-                      color: AppThemeConfig.mutedText(context),
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-                if (specs.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  _ProductSpecs(specs: specs),
-                ],
-                const SizedBox(height: 14),
-                Row(
+            // The sheet was an unscrollable Column sized to its contents: a
+            // product with a long description, specs AND a photo strip could
+            // grow past the screen and overflow. Capping it and letting it
+            // scroll means extra content is reachable rather than clipped,
+            // while a short product still gets a sheet only as tall as it
+            // needs — MainAxisSize.min below is what keeps that true.
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.8,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // The same discounted/original pair the card shows. Two
-                    // renderings of one price is how a sheet ends up quoting
-                    // the pre-discount figure under an العروض والخصومات chip.
-                    Expanded(child: _ProductPrice(item: item)),
-                    Obx(
-                      () => _QuantityControl(
-                        quantity: controller.quantityFor(item['id']),
-                        onAdd: () => controller.addProduct(item),
-                        onRemove: () => controller.removeProduct(item['id']),
+                    Center(
+                      child: Container(
+                        width: 42,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: AppThemeConfig.mutedText(
+                            context,
+                          ).withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
+                    ),
+                    const SizedBox(height: 14),
+                    _ProductLargeImage(imageUrl: imageUrl),
+                    if (gallery.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      ProductGallery(urls: gallery),
+                    ],
+                    const SizedBox(height: 16),
+                    Text(
+                      title.tr,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                        color: AppThemeConfig.text(context),
+                      ),
+                    ),
+                    if (category.trim().isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        category.tr,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: AppThemeConfig.mutedText(context),
+                        ),
+                      ),
+                    ],
+                    if (labels.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      _ProductLabelChips(labels: labels),
+                    ],
+                    if (description.trim().isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        description.tr,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          height: 1.35,
+                          color: AppThemeConfig.mutedText(context),
+                        ),
+                      ),
+                    ],
+                    if (sku.trim().isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        '${'SKU'.tr}: $sku',
+                        style: TextStyle(
+                          color: AppThemeConfig.mutedText(context),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                    if (specs.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      _ProductSpecs(specs: specs),
+                    ],
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        // The same discounted/original pair the card shows. Two
+                        // renderings of one price is how a sheet ends up quoting
+                        // the pre-discount figure under an العروض والخصومات chip.
+                        Expanded(child: _ProductPrice(item: item)),
+                        Obx(
+                          () => _QuantityControl(
+                            quantity: controller.quantityFor(item['id']),
+                            onAdd: () => controller.addProduct(item),
+                            onRemove: () =>
+                                controller.removeProduct(item['id']),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
+              ),
             ),
           ),
         ),
@@ -1059,18 +1083,6 @@ class _ProductImageFallback extends StatelessWidget {
   }
 }
 
-String? _marketplaceImageUrl(dynamic value) {
-  final path = (value ?? '').toString().trim();
-  if (path.isEmpty) return null;
-
-  final uri = Uri.tryParse(path);
-  if (uri != null && uri.hasScheme) return path;
-
-  return Uri.parse(publicBaseUrl).resolve(path).toString();
-}
-
 double _amountFrom(dynamic value) {
   return double.tryParse((value ?? '0').toString()) ?? 0;
 }
-
-

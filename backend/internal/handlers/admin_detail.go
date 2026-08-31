@@ -146,12 +146,15 @@ var detailColumns = map[string][]string{
 		"id", "product_id", "buyer_user_id", "quantity", "total_amount", "currency", "status",
 		"buyer_note", "created_at", "updated_at", "transaction_code",
 	},
-	// marketplace_products — 24 columns
+	// marketplace_products — 25 columns
 	"products": {
 		"id", "seller_user_id", "beneficiary_case_id", "name", "name_ar", "description",
 		"description_ar", "category", "price", "currency", "image_path", "stock_quantity",
 		"status", "created_at", "updated_at", "name_sorani", "name_badini", "description_sorani",
 		"description_badini", "category_slug", "sku", "specs", "labels", "brand",
+		// Migration 117 — the product's additional photos, so the View page
+		// reads the same set of columns the edit form writes.
+		"gallery",
 	},
 	// marriage_profiles — 79 columns
 	"marriage": {
