@@ -110,12 +110,24 @@ func (h *ListingsHandler) Media(c *gin.Context) {
 	userID, _ := strconv.ParseInt(strings.TrimSpace(c.Query("user_id")), 10, 64)
 	// ?saved=1 returns only what this user saved — the app's "Saved" screen.
 	saved := c.Query("saved") == "1" || strings.EqualFold(c.Query("saved"), "true")
-	items, err := h.Store.ListMediaPosts(c.Request.Context(), status, c.Query("type"), c.Query("q"), limit, userID, saved)
+	// ?cursor= is the opaque token from a previous page's `next_cursor`, and is
+	// how the archive is BROWSED rather than only searched: without it the feed
+	// stopped at the newest `limit` posts and everything older was unreachable.
+	// An absent or unreadable cursor serves page one, so every existing caller
+	// keeps its exact behaviour.
+	items, nextCursor, err := h.Store.ListMediaPosts(c.Request.Context(), status, c.Query("type"), c.Query("q"), limit, userID, saved, c.Query("cursor"))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "items": items})
+	resp := gin.H{"success": true, "items": items}
+	// Additive, and only when there IS another page: a client that never sends
+	// a cursor sees the response it has always seen, and one that does can stop
+	// asking the moment the key disappears rather than guessing from page size.
+	if nextCursor != "" {
+		resp["next_cursor"] = nextCursor
+	}
+	c.JSON(http.StatusOK, resp)
 }
 
 func (h *ListingsHandler) Community(c *gin.Context) {

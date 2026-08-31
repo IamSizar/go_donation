@@ -206,6 +206,11 @@ type MediaPost struct {
 	// "Save for later" (migration 092) — same shape as LikedByMe so the app
 	// renders the bookmark in the right state straight from the list.
 	SavedByMe bool `json:"saved_by_me"`
+	// sortDate is the row's position in the feed's ordering
+	// (COALESCE(event_date, created_at::date)). Unexported, so it stays out of
+	// the JSON the app already parses; it exists only so the last row of a page
+	// can be turned into a keyset cursor (see media_cursor.go).
+	sortDate time.Time
 }
 
 // parsePostTypes splits a `?type=` value into post_type names. It accepts a
@@ -223,11 +228,22 @@ func parsePostTypes(raw string) []string {
 	return out
 }
 
-// ListMediaPosts returns media posts. status="" → no filter. Public default is
-// "published". q is an optional free-text search across title/title_ar/body.
-// savedOnly narrows the list to posts this user saved — the query behind the
-// app's "Saved" screen. Ignored for an anonymous caller, who has none.
-func (s *Store) ListMediaPosts(ctx context.Context, status, postType, q string, limit int, userID int64, savedOnly bool) ([]MediaPost, error) {
+// ListMediaPosts returns ONE PAGE of media posts. status="" → no filter. Public
+// default is "published". q is an optional free-text search across
+// title/title_ar/body. savedOnly narrows the list to posts this user saved —
+// the query behind the app's "Saved" screen. Ignored for an anonymous caller,
+// who has none.
+//
+// cursor is an opaque token from a previous call (see media_cursor.go); empty
+// or unreadable means "start at the newest post", so an existing caller that
+// knows nothing about paging gets exactly the behaviour it always had.
+//
+// The second return value is the cursor for the NEXT page, or "" when this
+// page reached the end of the archive. It is derived from a real extra row
+// (the query asks for limit+1 and hands back limit), never guessed from "the
+// page came back full" — a page that happens to land exactly on the last post
+// would otherwise promise a page that does not exist.
+func (s *Store) ListMediaPosts(ctx context.Context, status, postType, q string, limit int, userID int64, savedOnly bool, cursor string) ([]MediaPost, string, error) {
 	limit = clampLimit(limit)
 	args := []any{}
 	where := []string{}
@@ -257,6 +273,19 @@ func (s *Store) ListMediaPosts(ctx context.Context, status, postType, q string, 
 		args = append(args, userID)
 		where = append(where, "id IN (SELECT item_id FROM saved_items WHERE item_type = 'media_post' AND user_id = $"+itoa(len(args))+")")
 	}
+	// Keyset page boundary: everything that sorts strictly AFTER the last row
+	// of the previous page. The row-wise comparison mirrors the ORDER BY
+	// exactly (both columns DESC), so the tuple ordering Postgres uses here is
+	// the same ordering the feed is sorted by — which is what makes the page
+	// break land between two adjacent rows and nowhere else. Both halves are
+	// bound parameters; nothing from the client is ever concatenated into SQL.
+	if cur, ok := decodeMediaCursor(cursor); ok {
+		args = append(args, cur.SortDate.Format(cursorDateLayout))
+		dateIdx := itoa(len(args))
+		args = append(args, cur.ID)
+		idIdx := itoa(len(args))
+		where = append(where, "(COALESCE(m.event_date, m.created_at::date), m.id) < ($"+dateIdx+"::date, $"+idIdx+"::bigint)")
+	}
 	whereSQL := ""
 	if len(where) > 0 {
 		whereSQL = " WHERE " + strings.Join(where, " AND ")
@@ -266,7 +295,10 @@ func (s *Store) ListMediaPosts(ctx context.Context, status, postType, q string, 
 	// unqualified column names, which still resolve against the sole `m` table.
 	uidIdx := itoa(len(args) + 1)
 	args = append(args, userID)
-	sql := `SELECT m.id, m.title, m.title_ar, m.title_sorani, m.title_badini,
+	// limit+1: the extra row is never returned to the caller, it only answers
+	// "is there another page?" truthfully.
+	sql := `SELECT COALESCE(m.event_date, m.created_at::date) AS sort_date,
+	               m.id, m.title, m.title_ar, m.title_sorani, m.title_badini,
 	               m.body, m.body_ar, m.body_sorani, m.body_badini,
 	               m.post_type, m.media_url, m.link_url, m.event_date, m.status, m.created_at,
 	               m.category_slug, m.activity_code,
@@ -280,17 +312,18 @@ func (s *Store) ListMediaPosts(ctx context.Context, status, postType, q string, 
 	                        AND sv.item_id = m.id AND sv.user_id = $` + uidIdx + `)
 	          FROM media_posts m` + whereSQL + `
 	         ORDER BY COALESCE(m.event_date, m.created_at::date) DESC, m.id DESC
-	         LIMIT ` + itoa(limit)
+	         LIMIT ` + itoa(limit+1)
 
 	rows, err := s.Pool.Query(ctx, sql, args...)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	defer rows.Close()
 	items := []MediaPost{}
 	for rows.Next() {
 		var m MediaPost
 		if err := rows.Scan(
+			&m.sortDate,
 			&m.ID, &m.Title, &m.TitleAr, &m.TitleSorani, &m.TitleBadini,
 			&m.Body, &m.BodyAr, &m.BodySorani, &m.BodyBadini,
 			&m.PostType, &m.MediaURL, &m.LinkURL, &m.EventDate, &m.Status, &m.CreatedAt,
@@ -299,11 +332,30 @@ func (s *Store) ListMediaPosts(ctx context.Context, status, postType, q string, 
 			&m.Gallery,
 			&m.LikeCount, &m.CommentCount, &m.ShareCount, &m.LikedByMe, &m.SavedByMe,
 		); err != nil {
-			return nil, err
+			return nil, "", err
 		}
 		items = append(items, m)
 	}
-	return items, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, "", err
+	}
+	return trimMediaPage(items, limit)
+}
+
+// trimMediaPage turns the limit+1 rows the query asked for into the limit rows
+// the caller gets, plus the cursor for the next page.
+//
+// Split out from the query so it can be unit-tested without a database: the
+// off-by-one here (handing back the probe row, or cursoring off the wrong row
+// and so skipping a post) is the whole risk of this scheme.
+func trimMediaPage(items []MediaPost, limit int) ([]MediaPost, string, error) {
+	if len(items) <= limit {
+		// Fewer rows than we asked for → this is the last page of the archive.
+		return items, "", nil
+	}
+	items = items[:limit]
+	last := items[len(items)-1]
+	return items, encodeMediaCursor(last.sortDate, last.ID), nil
 }
 
 // ----------------- city directory / community -----------------
