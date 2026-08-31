@@ -29,6 +29,11 @@ const ar: DeepPartial<typeof en> = {
     rejected: 'تم رفض التغيير.',
     field_full_name: 'الاسم الكامل',
     field_profile_picture: 'صورة الملف الشخصي',
+    tag: 'الوسم',
+    tag_identity: 'الهوية',
+    tag_contact: 'معلومات التواصل',
+    tag_media: 'الصورة',
+    tag_other: 'أخرى',
   },
   nav: {
     profile_changes: 'تغييرات الملف الشخصي',

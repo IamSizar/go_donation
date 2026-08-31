@@ -29,6 +29,11 @@ const ckb: DeepPartial<typeof en> = {
     rejected: 'گۆڕانکاری ڕەتکرایەوە.',
     field_full_name: 'ناوی تەواو',
     field_profile_picture: 'وێنەی پرۆفایل',
+    tag: 'تاگ',
+    tag_identity: 'ناسنامە',
+    tag_contact: 'زانیاری پەیوەندی',
+    tag_media: 'وێنە',
+    tag_other: 'هیتر',
   },
   nav: {
     profile_changes: 'گۆڕانکاری پرۆفایل',

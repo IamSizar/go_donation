@@ -30,6 +30,11 @@ const kmr: DeepPartial<typeof en> = {
     rejected: 'گهۆڕین هاتە رەتکرن.',
     field_full_name: 'ناڤێ تەمام',
     field_profile_picture: 'وێنەیا پرۆفایلی',
+    tag: 'Nîşan',
+    tag_identity: 'Nasname',
+    tag_contact: 'Agahiya têkiliyê',
+    tag_media: 'Wêne',
+    tag_other: 'Din',
   },
   nav: {
     profile_changes: 'گهۆڕینێن پرۆفایلی',

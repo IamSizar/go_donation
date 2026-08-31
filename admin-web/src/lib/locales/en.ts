@@ -29,6 +29,11 @@ const en = {
     rejected: 'Change rejected.',
     field_full_name: 'Full name',
     field_profile_picture: 'Profile photo',
+    tag: 'Tag',
+    tag_identity: 'Identity',
+    tag_contact: 'Contact info',
+    tag_media: 'Photo',
+    tag_other: 'Other',
   },
   nav: {
     profile_changes: 'Profile Changes',

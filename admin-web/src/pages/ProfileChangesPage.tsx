@@ -63,6 +63,39 @@ export default function ProfileChangesPage() {
     }
   }
 
+  // Task 2 (owner ask: "tags for profile changes") — the tag is DERIVED from
+  // r.field, never stored or hand-applied. A stored tag can drift out of sync
+  // with the actual diff (e.g. a request re-categorized after the fact still
+  // showing its old label); a value computed straight from the field name on
+  // every render can never disagree with the data it labels.
+  //
+  // Each request already carries exactly one `field` (backend note above:
+  // profilechanges.FieldFullName / FieldPicture, handlers/profile.go), so one
+  // row needs exactly one tag — there is no multi-field row to pick "most
+  // significant" from today. The categories below are intentionally broader
+  // than the two fields currently in use (contact/identity cover phone,
+  // national ID, and address too) so a future field lands in the right
+  // bucket without a code change, per the owner's own field list.
+  type ChangeTag = 'identity' | 'contact' | 'media' | 'other'
+  const CONTACT_FIELDS = new Set(['phone', 'address', 'city'])
+  const IDENTITY_FIELDS = new Set(['full_name', 'national_id', 'date_of_birth', 'gender'])
+  const categorizeField = (field: string): ChangeTag => {
+    if (field === 'profile_picture') return 'media'
+    if (IDENTITY_FIELDS.has(field)) return 'identity'
+    if (CONTACT_FIELDS.has(field)) return 'contact'
+    return 'other'
+  }
+  // Reusing the existing .badge.tone-* palette (index.css) rather than
+  // inventing new tokens — every one of these is already defined and
+  // verified in both light and dark themes elsewhere in the app.
+  const TAG_TONE: Record<ChangeTag, string> = {
+    identity: 'tone-primary',
+    contact: 'tone-info',
+    media: 'tone-warning',
+    other: '',
+  }
+  const tagLabel = (tag: ChangeTag) => t(`profileChanges.tag_${tag}`)
+
   // A photo change is a path, not text — show it as an image so the reviewer
   // is judging the actual picture rather than a filename.
   const renderValue = (field: string, value: string) => {
@@ -98,6 +131,18 @@ export default function ProfileChangesPage() {
         const key = `profileChanges.field_${r.field}`
         const label = t(key)
         return label === key ? r.field : label
+      },
+    },
+    {
+      // Task 2 — the tag pairs a colour-coded badge WITH its text label
+      // (tagLabel), so colour is never the only signal — see the class
+      // comment above categorizeField for why it's derived, not stored.
+      key: 'tag',
+      header: t('profileChanges.tag'),
+      cell: (r) => {
+        const tag = categorizeField(r.field)
+        const tone = TAG_TONE[tag]
+        return <span className={`badge${tone ? ` ${tone}` : ''}`}>{tagLabel(tag)}</span>
       },
     },
     { key: 'old', header: t('profileChanges.old'), cell: (r) => renderValue(r.field, r.old_value) },
