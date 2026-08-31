@@ -1491,6 +1491,7 @@ class AppTranslations extends Translations {
     'marriage_posts_services_subtitle':
         'Programs and stories from the Events section.',
     'marriage_posts_empty': 'No event posts have been published yet.',
+    'feed_load_older': 'Load older posts',
     'marriage_posts_load_failed': 'Could not load posts. Pull to retry.',
     'marriage_saved_empty':
         'Nothing saved yet. Tap the bookmark on a profile to keep it here.',
@@ -4388,6 +4389,7 @@ class AppTranslations extends Translations {
     'marriage_posts_subtitle': 'برامج وقصص وتحديثات من قسم الفعاليات.',
     'marriage_posts_services_subtitle': 'برامج وقصص من قسم الفعاليات.',
     'marriage_posts_empty': 'لم يتم نشر أي منشورات زواج بعد.',
+    'feed_load_older': 'تحميل منشورات أقدم',
     'marriage_posts_load_failed':
         'تعذّر تحميل المنشورات. اسحب لإعادة المحاولة.',
     'marriage_saved_empty':
@@ -6706,6 +6708,7 @@ class AppTranslations extends Translations {
         'بەرنامە و چیرۆک و نوێترین هەواڵەکانی بەشی هاوسەرگیری.',
     'marriage_posts_services_subtitle': 'بەرنامە و چیرۆکەکانی بەشی هاوسەرگیری.',
     'marriage_posts_empty': 'هێشتا هیچ بابەتێکی هاوسەرگیری بڵاو نەکراوەتەوە.',
+    'feed_load_older': 'بابەتە کۆنەکان باربکە',
     'marriage_posts_load_failed':
         'نەتوانرا بابەتەکان بار بکرێن. بۆ دووبارە هەوڵدانەوە ڕایبکێشە.',
     'marriage_saved_empty':
@@ -9958,6 +9961,7 @@ class AppTranslations extends Translations {
         'پرۆگرام و چیروک و نویترین هەڤالێن ژ بەشێ هەڤسەریێ.',
     'marriage_posts_services_subtitle': 'پرۆگرام و چیروکێن بەشێ هەڤسەریێ.',
     'marriage_posts_empty': 'هێشتا چ نڤیسا هەڤسەریێ نەهاتیە بەلاڤکرن.',
+    'feed_load_older': 'پۆستێن کەڤنتر بار بکە',
     'marriage_posts_load_failed':
         'نەشیا نڤیس بێنە بارکرن. بۆ دیسا هەوڵدانێ ڕابکێشە.',
     'marriage_saved_empty':

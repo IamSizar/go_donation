@@ -5,6 +5,7 @@ import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/modules/proposal/controllers/media_posts_controller.dart';
+import 'package:flutter_application_1/modules/proposal/widgets/feed_pagination_footer.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:flutter_application_1/api/guest_session.dart';
@@ -37,70 +38,107 @@ class NewsActivitiesScreen extends StatelessWidget {
             await controller.fetchPosts();
             await controller.fetchCategories();
           },
-          child: ListView(
-            // Scrolling the feed puts the keyboard away, so it never covers
-            // the posts the search just found.
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
-            children: [
-              // J8 — in-list search. Server-side (`?q=`): the feed is capped
-              // at 50 posts, and the server also matches the post BODY, so a
-              // word from inside a write-up finds the activity. A filter over
-              // the loaded posts could do neither.
-              AppListSearchField(onChanged: controller.setSearchQuery),
-              const SizedBox(height: 14),
-              // #22 — "Our Work" category filter chips. Kept OUTSIDE AppAsync:
-              // the empty state is usually "nothing in THIS category", so
-              // hiding the chips with the results would leave no way to undo
-              // the selection that emptied the screen.
-              if (cats.isNotEmpty) ...[
-                _CategoryChips(controller: controller),
+          // ARCHIVE BROWSING — WHY INFINITE SCROLL AND NOT A SEPARATE ARCHIVE
+          // SCREEN. The feed used to end at the newest 50 posts, so older work
+          // was reachable only by searching for a word inside it. Both a
+          // year/month archive view and endless scrolling fix that; scrolling
+          // wins here because the reader never has to leave the feed, learn a
+          // second navigation, or know WHEN something happened to find it —
+          // and because the app already does exactly this on
+          // marriage_posts_screen.dart, so this is one pattern rather than a
+          // second one. A grouped archive would also have to re-implement the
+          // search box and the category chips to stay useful.
+          //
+          // NotificationListener rather than a ScrollController: this screen is
+          // stateless and the controller lives in GetX, so there is nothing
+          // here that should own a disposable listener.
+          child: NotificationListener<ScrollNotification>(
+            onNotification: (notification) {
+              // 400px of runway, so the next page is usually already in when
+              // the reader arrives at the tail.
+              if (notification.metrics.pixels >
+                  notification.metrics.maxScrollExtent - 400) {
+                controller.loadMorePosts();
+              }
+              // false: this is an observer, not a consumer — RefreshIndicator
+              // and the scrollbar must keep seeing these notifications.
+              return false;
+            },
+            child: ListView(
+              // Scrolling the feed puts the keyboard away, so it never covers
+              // the posts the search just found.
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+              children: [
+                // J8 — in-list search. Server-side (`?q=`): it searches every
+                // published post rather than the pages loaded so far, and the
+                // server also matches the post BODY, so a word from inside a
+                // write-up finds the activity. A filter over the loaded posts
+                // could do neither. Changing it restarts paging from the
+                // newest post (see MediaPostsController.fetchPosts).
+                AppListSearchField(onChanged: controller.setSearchQuery),
                 const SizedBox(height: 14),
-              ],
-              // Three stacked `if` blocks replaced by one state. Previously a
-              // failed load drew the error tile AND the post list beneath it,
-              // and the error was a SectionTile whose retry was an unlabelled
-              // onTap on a card shaped like every nav row in the app.
-              AppAsync<List<Map<String, dynamic>>>(
-                loading: controller.isLoading.value,
-                error: controller.errorMessage.value,
-                onRetry: controller.fetchPosts,
-                data: items,
-                isEmpty: (list) => list.isEmpty,
-                // The default AppSkeleton.rows() was wrong for this screen: a
-                // MediaPostCard leads with a 16:9 image, so title/meta/progress
-                // text bones would have jumped into a big picture rather than
-                // filled into one.
-                skeleton: const _PostFeedSkeleton(),
-                // J8 — a search that matched nothing is not an empty feed.
-                // "No published posts are available yet" would be a false
-                // claim about the organization's work, made because the user
-                // typed a word that happens not to appear in it.
-                empty: controller.hasActiveSearch
-                    ? const AppEmpty(
-                        icon: Icons.search_off_rounded,
-                        title: 'search_title',
-                        message: 'search_no_results',
-                      )
-                    : const AppEmpty(
-                        title: 'News and activities',
-                        message: 'No published posts are available yet.',
-                      ),
-                builder: (list) => Column(
-                  children: [
-                    for (final item in list) ...[
-                      MediaPostCard(
-                        item: item,
-                        categoryLabel: controller.categoryLabelForSlug(
-                          (item['category_slug'] ?? '').toString(),
+                // #22 — "Our Work" category filter chips. Kept OUTSIDE AppAsync:
+                // the empty state is usually "nothing in THIS category", so
+                // hiding the chips with the results would leave no way to undo
+                // the selection that emptied the screen.
+                if (cats.isNotEmpty) ...[
+                  _CategoryChips(controller: controller),
+                  const SizedBox(height: 14),
+                ],
+                // Three stacked `if` blocks replaced by one state. Previously a
+                // failed load drew the error tile AND the post list beneath it,
+                // and the error was a SectionTile whose retry was an unlabelled
+                // onTap on a card shaped like every nav row in the app.
+                AppAsync<List<Map<String, dynamic>>>(
+                  loading: controller.isLoading.value,
+                  error: controller.errorMessage.value,
+                  onRetry: controller.fetchPosts,
+                  data: items,
+                  isEmpty: (list) => list.isEmpty,
+                  // The default AppSkeleton.rows() was wrong for this screen: a
+                  // MediaPostCard leads with a 16:9 image, so title/meta/progress
+                  // text bones would have jumped into a big picture rather than
+                  // filled into one.
+                  skeleton: const _PostFeedSkeleton(),
+                  // J8 — a search that matched nothing is not an empty feed.
+                  // "No published posts are available yet" would be a false
+                  // claim about the organization's work, made because the user
+                  // typed a word that happens not to appear in it.
+                  empty: controller.hasActiveSearch
+                      ? const AppEmpty(
+                          icon: Icons.search_off_rounded,
+                          title: 'search_title',
+                          message: 'search_no_results',
+                        )
+                      : const AppEmpty(
+                          title: 'News and activities',
+                          message: 'No published posts are available yet.',
                         ),
+                  builder: (list) => Column(
+                    children: [
+                      for (final item in list) ...[
+                        MediaPostCard(
+                          item: item,
+                          categoryLabel: controller.categoryLabelForSlug(
+                            (item['category_slug'] ?? '').toString(),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                      ],
+                      // The tail of the archive walk. Inside `builder`, so it
+                      // shows only under real content — never beside the
+                      // skeleton, the error state or the empty state.
+                      FeedPaginationFooter(
+                        isLoadingMore: controller.isLoadingMore.value,
+                        hasMore: controller.hasMorePosts.value,
+                        onLoadMore: controller.loadMorePosts,
                       ),
-                      const SizedBox(height: 14),
                     ],
-                  ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       }),

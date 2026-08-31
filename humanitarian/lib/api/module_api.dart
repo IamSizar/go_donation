@@ -1122,6 +1122,45 @@ class ModuleApi {
     return getItems(uri.toString());
   }
 
+  /// ONE PAGE of the news & activities feed, plus the cursor for the next one.
+  ///
+  /// WHY THIS EXISTS (archive browsing). [mediaPosts] returns whatever single
+  /// capped page the server gives (50 rows), so every post older than the
+  /// newest 50 was reachable only by typing a word that happens to appear in
+  /// it. `?cursor=` walks backwards through the whole archive: hand back the
+  /// `next_cursor` from the previous response and the server returns the posts
+  /// that sort strictly after the last one you were given.
+  ///
+  /// The cursor is OPAQUE — never parse or build one, only echo it back.
+  /// `next_cursor` absent means the end of the archive, which is the ONLY
+  /// signal the app should stop on: "the page came back full" is a guess that
+  /// asks forever whenever the archive divides evenly by the page size.
+  Future<({List<Map<String, dynamic>> items, String? nextCursor})>
+  mediaPostsPage({int? userId, String? q, String? type, String? cursor}) async {
+    final params = <String, String>{
+      if (userId != null && userId > 0) 'user_id': '$userId',
+      if (q != null && q.trim().isNotEmpty) 'q': q.trim(),
+      if (type != null && type.trim().isNotEmpty) 'type': type.trim(),
+      if (cursor != null && cursor.trim().isNotEmpty) 'cursor': cursor.trim(),
+    };
+    final url = params.isEmpty
+        ? mediaPostsUrl
+        : Uri.parse(mediaPostsUrl).replace(queryParameters: params).toString();
+    final decoded = await getObject(url);
+    final rawItems = decoded['items'];
+    final items = rawItems is List
+        ? rawItems
+              .whereType<Map>()
+              .map((item) => Map<String, dynamic>.from(item))
+              .toList(growable: false)
+        : const <Map<String, dynamic>>[];
+    final next = decoded['next_cursor'];
+    return (
+      items: items,
+      nextCursor: next is String && next.isNotEmpty ? next : null,
+    );
+  }
+
   /// #24 — toggle like on a post. Returns {liked, like_count}.
   Future<Map<String, dynamic>> likeMediaPost(int postId) =>
       postJsonNoTrack(mediaLikeUrl(postId), const {});
