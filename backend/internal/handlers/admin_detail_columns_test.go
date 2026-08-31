@@ -165,11 +165,40 @@ var wantUserDetailKeys = map[string]bool{
 	"registration_reject_reason": true, "username": true, "staff_tier": true,
 	"email": true, "account_status": true, "notifications_enabled": true,
 	"is_guest": true, "wallet_balance_iqd": true,
-	// merged from user_profiles
-	"full_name": true, "date_of_birth": true, "address": true, "gender": true,
-	"city": true, "occupation": true, "family_size": true, "housing_status": true,
-	"monthly_income": true, "skills": true, "availability": true, "experience": true,
-	"profile_picture": true,
+	// merged from user_profiles — every column of that table except its own
+	// primary key, its user_id (duplicated by the account's id) and
+	// field_privacy (a settings blob, re-emitted as the _privacy_hidden meta
+	// key below). Written out from `information_schema` rather than derived
+	// from userProfileDetailColumns, for the reason in the comment above.
+	"address": true, "age_0_5_count": true, "age_10_15_count": true, "age_15_25_count": true,
+	"age_25_40_count": true, "age_40_plus_count": true, "age_5_10_count": true, "alias_name": true,
+	"availability": true, "available_furniture": true, "certificates_count": true, "chronic_illnesses": true,
+	"city": true, "consent_share_info": true, "consent_show_real_name": true, "cv_photo_path": true,
+	"date_of_birth": true, "disability_type": true, "display_name_mode": true, "district": true,
+	"divorced_count": true, "education_level": true, "emergency_phone": true,
+	"experience": true, "eyesight_condition": true, "families_count": true, "family_size": true,
+	"female_children_count": true, "floors_count": true, "full_name": true, "gender": true,
+	"golden_square_photo_path": true, "governorate": true, "gps_lat": true, "gps_lng": true,
+	"graduation_cert_photo_path": true, "grantor_code": true, "has_disability": true, "height": true,
+	"house_facade_photo_path": true, "house_inside_photo_path": true, "house_outside_photo_path": true, "household_disabled_count": true,
+	"household_employees_count": true, "housing_area": true, "housing_side": true, "housing_status": true,
+	"housing_type": true, "id_photo_path": true, "is_employed": true, "job_description": true,
+	"languages": true, "male_children_count": true, "marital_status": true, "medical_conditions_count": true,
+	"medical_conditions_desc": true, "medical_report_photo_path": true, "men_count": true, "monthly_income": true,
+	"name_family": true, "name_father": true, "name_first": true, "name_grandfather": true,
+	"national_id": true, "nationality": true, "nearest_landmark": true, "needs_description": true,
+	"neighborhood": true, "occupation": true, "orphans_count": true, "other_certificate": true,
+	"owns_car": true, "passport_photo_path": true, "phone1": true, "phone2": true,
+	"previous_occupation": true, "profile_picture": true, "property_proof_photo_path": true, "ration_card_photo_path": true,
+	"recipient_code": true, "registered_social_welfare": true, "registered_unemployed": true, "rental_amount": true,
+	"residence_card_photo_path": true, "residency_status": true, "rooms_count": true, "skills": true,
+	"smoking_status": true, "social_facebook": true, "social_instagram": true, "social_other": true,
+	"social_telegram": true, "students_count": true, "title_surname": true, "tribe_clan": true,
+	"volunteer_code": true, "wage_amount": true, "weight": true, "widows_count": true,
+	"women_count": true, "working_hours": true, "working_members_count": true, "workplace": true,
+	// Meta keys — not columns. Underscore-prefixed so the SPA can tell them
+	// apart from fields it must render as rows.
+	"_privacy_hidden": true, "_documents": true,
 }
 
 // TestDetailColumnsIsDenyByDefault pins the MECHANISM, not just today's one

@@ -19,7 +19,7 @@
 // can render with a custom `render` field — but for Phase 10 these four cover
 // every column we care about.
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { describeError } from '../lib/api'
 import { useI18n, useStatusLabel } from '../lib/i18n'
@@ -89,6 +89,12 @@ export type FieldSpec = {
   // precondition for changing it; whoever needs to change it needs the
   // permission, which a Super-Admin grants on الصلاحيات.
   readOnly?: boolean
+  // The i18n key of the section this field belongs to. When a field carries
+  // one, the modal draws a full-width heading each time the value CHANGES down
+  // the list, so a long form reads as the sections of the form it mirrors
+  // rather than as one undifferentiated run of boxes. Optional: a page that
+  // declares no sections renders exactly as it did before.
+  section?: string
 }
 
 type Props = {
@@ -103,6 +109,15 @@ type Props = {
   mode?: 'edit' | 'create'
   // Override the primary button text. Defaults to "Save changes" / "Create".
   saveLabel?: string
+  // A caller that has to FETCH the row before the form can be filled in (the
+  // Users page reads the full 104-column profile from the detail endpoint)
+  // hands the wait to the modal, so the four async states live in one place
+  // instead of in each page: skeleton while `loading`, a friendly error with
+  // Retry while `loadError`, and the form otherwise. A caller that already has
+  // its values passes none of these and the modal behaves exactly as before.
+  loading?: boolean
+  loadError?: string | null
+  onRetry?: () => void
 }
 
 function toInputValue(v: unknown): string {
@@ -119,7 +134,7 @@ function cleanFieldValue(f: FieldSpec, raw: string): string {
   return canonicalPhone(raw) || stripped
 }
 
-export default function EditModal({ open, title, initial, fields: declaredFields, onSave, onClose, mode = 'edit', saveLabel }: Props) {
+export default function EditModal({ open, title, initial, fields: declaredFields, onSave, onClose, mode = 'edit', saveLabel, loading = false, loadError = null, onRetry }: Props) {
   const { t } = useI18n()
   const statusLabel = useStatusLabel()
 
@@ -311,8 +326,42 @@ export default function EditModal({ open, title, initial, fields: declaredFields
         </div>
         <div className="modal-body">
           {err && <div className="error-box" style={{ marginBottom: 12 }}>{err}</div>}
+          {loading ? (
+            /* Skeleton, not a spinner: it mirrors the form's own row shape, so
+               the boxes fill in rather than pop in. */
+            <div className="form-grid" aria-busy="true" aria-label={t('common.loading')}>
+              {[0, 1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="form-row">
+                  <span className="skeleton-line" style={{ width: '40%', height: 12, display: 'block', marginBottom: 8 }} />
+                  <span className="skeleton-line" style={{ width: '100%', height: 32, display: 'block' }} />
+                </div>
+              ))}
+            </div>
+          ) : loadError ? (
+            /* A dead-end error screen is a bug: always offer the way out. */
+            <div className="error-box">
+              <p style={{ margin: 0 }}>{loadError}</p>
+              {onRetry && (
+                <button className="secondary" style={{ marginBlockStart: 12 }} onClick={onRetry}>
+                  {t('common.retry')}
+                </button>
+              )}
+            </div>
+          ) : (
           <div className="form-grid">
             {fields.map((f, i) => {
+              // A heading is emitted whenever this field's section differs from
+              // the previous field's, so a caller declares its sections by the
+              // ORDER of its field list and never has to nest it.
+              const heading =
+                f.section && f.section !== fields[i - 1]?.section ? (
+                  <div className="form-row full">
+                    <h3 className="form-label" style={{ margin: 0, fontSize: '0.95rem' }}>
+                      {t(f.section)}
+                    </h3>
+                  </div>
+                ) : null
+              const body = (() => {
               const v = values[f.key] ?? ''
               const setV = (next: string) => setValues((m) => ({ ...m, [f.key]: next }))
               const label = f.labelKey ? t(f.labelKey) : f.label
@@ -429,12 +478,20 @@ export default function EditModal({ open, title, initial, fields: declaredFields
                   {f.readOnly && <span className="form-hint">{t('hint.contact_hidden')}</span>}
                 </label>
               )
+              })()
+              return (
+                <Fragment key={f.key}>
+                  {heading}
+                  {body}
+                </Fragment>
+              )
             })}
           </div>
+          )}
         </div>
         <div className="modal-foot">
           <button className="secondary" onClick={onClose} disabled={busy}>{t('common.cancel')}</button>
-          <button onClick={handleSave} disabled={busy}>
+          <button onClick={handleSave} disabled={busy || loading || !!loadError}>
             {busy ? t('common.saving') : (saveLabel ?? (mode === 'create' ? t('common.create') : t('common.save_changes')))}
           </button>
         </div>
