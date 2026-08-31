@@ -458,6 +458,17 @@ class _CategoryTierSection extends StatelessWidget {
                               key: Key('notif_cat_${item.category}'),
                               contentPadding: EdgeInsets.zero,
                               value: !disabled.contains(item.category),
+                              // `Switch.adaptive` (which this tile wraps on
+                              // iOS) falls back to the stock iOS system green
+                              // (#34C759) unless an active colour is set
+                              // explicitly. The master "الإشعارات" toggle
+                              // above (NotificationsRow in settings_section
+                              // .dart) already sets `activeThumbColor` to the
+                              // brand accent inline — matching that mechanism
+                              // here, rather than introducing a screen-level
+                              // or theme-level override, keeps every switch
+                              // on this screen the same green.
+                              activeThumbColor: AppThemeConfig.accent(context),
                               onChanged: saving
                                   ? null
                                   : (v) => onToggleCategory(item.category, v),
