@@ -327,15 +327,19 @@ class ModuleApi {
     Map<String, dynamic> body,
   ) async {
     final enrichedBody = withApiAuthJsonBody(body);
-    final response = await http
-        .post(
-          Uri.parse(url),
-          headers: withApiAuthHeaders(const {
-            'Content-Type': 'application/json',
-          }),
-          body: jsonEncode(enrichedBody),
-        )
-        .timeout(_requestTimeout);
+    final uri = Uri.parse(url);
+    final headers = withApiAuthHeaders(const {
+      'Content-Type': 'application/json',
+    });
+    final encoded = jsonEncode(enrichedBody);
+    // `httpClient ?? http` mirrors [getItems] and [openSupportThread]. In
+    // production [httpClient] is null and this is the plain package call;
+    // only a test ever passes one. Without it a POST could not be driven from
+    // a widget test at all, so a screen's save/toggle path was untestable.
+    final response =
+        await (httpClient?.post(uri, headers: headers, body: encoded) ??
+                http.post(uri, headers: headers, body: encoded))
+            .timeout(_requestTimeout);
     // Before the decode, deliberately: a rejected token can come back as a
     // proxy's HTML error page, and `_decodeJson` throws on that — so a guard
     // placed after it would miss exactly the deployments where the session
@@ -793,6 +797,17 @@ class ModuleApi {
     '$marriageSubmitUrl/subscription-packages/$packageId/purchase',
     {'payment_method': paymentMethod},
   );
+
+  /// #46 — the profiles the current user has bookmarked, newest first.
+  ///
+  /// GET /api/marriage/saved answers with the SAME row shape as
+  /// [searchMarriage] (handlers.MarriageHandler.SavedList calls the very same
+  /// store List with a SavedByUser filter), so a saved row carries every field
+  /// a feed card renders and the saved screen needs no endpoint or card of its
+  /// own. The search rows themselves carry no per-item `saved` flag, which is
+  /// why the feed loads this list once to know what to fill in.
+  Future<List<Map<String, dynamic>>> savedMarriageProfiles() =>
+      getItems('$marriageSubmitUrl/saved');
 
   // #46 — toggle-save a profile; returns the resulting saved state.
   Future<bool> toggleSaveMarriage(int profileId) async {
