@@ -562,7 +562,7 @@ export default function UsersPage() {
             <option value="archived">{t('page.users.view_archived')}</option>
             <option value="all">{t('filter.all_statuses')}</option>
           </select>
-          <label className="row" style={{ gap: 'var(--space-2)', alignItems: 'center', whiteSpace: 'nowrap' }}>
+          <label className="checkbox-field">
             <input
               type="checkbox"
               checked={hideGuests}

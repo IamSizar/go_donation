@@ -298,6 +298,41 @@ p { margin: 0; }
    caller that forgets the inline style still gets a content-sized box rather
    than one that swallows the row. */
 .filter-field > select, .filter-field > input { width: auto; }
+
+/* ---------- Checkbox filter ----------
+   A checkbox with its caption beside it, for a filter that is simply on or
+   off ("Hide guests").
+
+   It has its OWN class rather than reusing `.row` on purpose. `.row` is
+   `flex-wrap: wrap` and flips to a column inside `.page-head` below the
+   layout breakpoint, which turned this control into a 45px-wide checkbox
+   with its label stacked underneath — enormous, and nothing like the other
+   controls in the bar.
+
+   `flex-direction: row` is stated rather than left to the default so a
+   future `.row`-style responsive rule cannot fold it again, and the input is
+   given an explicit box because a flex item with no width stretches to the
+   line. */
+.checkbox-field {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2);
+  white-space: nowrap;
+  font-size: var(--text-sm);
+  color: var(--color-text);
+  cursor: pointer;
+}
+.checkbox-field > input[type='checkbox'] {
+  /* flex-shrink:0 so the box keeps its size when the bar is tight; the
+     explicit width/height overrides the `width: 100%` the base form rules
+     put on inputs. */
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  cursor: pointer;
+}
 @media (max-width: 720px) {
   /* Stacked controls go full width; the caption group must follow or the
      select would sit content-sized inside a full-width column. */
@@ -3470,6 +3505,17 @@ html[dir='rtl'] .data-table th {
      `max-content` rather than `auto` so the pull below cannot squeeze it. */
   width: max-content;
   max-width: 100%;
+  /* ...but never narrower than the longest option. Without this the pill
+     shrinks to whatever the column allows and Chrome ellipsizes the SELECTED
+     value inside the control — "مستحق" and "متطوع" both rendered as "م…",
+     i.e. the row stopped saying what kind of account it was. That is data
+     being hidden, which is worse than a slightly wider column, and it costs
+     two pixels here (type column 105 -> 107).
+
+     Note this cannot be caught by comparing scrollWidth to clientWidth: a
+     <select> renders its value in UA shadow DOM, so the element reports no
+     overflow while visibly showing an ellipsis. It has to be looked at. */
+  min-width: max-content;
 }
 
 /* ---------- Phone gutters ----------
