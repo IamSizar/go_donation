@@ -650,6 +650,10 @@ func main() {
 			authed.POST("/auth/guest/upgrade/verify", auth.RequireGuest(), authH.GuestUpgradeVerify)
 
 			// Profile + role
+			// #16 — the whole profile row, for the app's edit form. See
+			// internal/handlers/profile_full.go for why /profile/get's eight
+			// columns are not enough and why this is safe.
+			authed.GET("/profile/full", profileH.GetFull)
 			authed.GET("/profile/get", profileH.Get)
 			authed.GET("/profile/get/", profileH.Get)
 			authed.POST("/profile/set", profileH.Set)
