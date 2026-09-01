@@ -11,7 +11,7 @@ import 'package:flutter_application_1/core/app_haptics.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/localization/locale_service.dart';
-import 'package:flutter_application_1/modules/auth/screens/edit_profile.dart';
+import 'package:flutter_application_1/modules/auth/screens/registration_form.dart';
 import 'package:flutter_application_1/widgets/cached_profile_avatar.dart';
 import 'package:get/get.dart';
 import 'package:path_provider/path_provider.dart';
@@ -217,7 +217,7 @@ class AccountHeader extends StatelessWidget {
               child: InkWell(
                 customBorder: const CircleBorder(),
                 onTap: () async {
-                  await Get.to<bool>(() => const EditProfilePage());
+                  await Get.to<bool>(() => const RegistrationFormPage(editMode: true));
                 },
                 child: Padding(
                   padding: EdgeInsets.all(8),

@@ -17,7 +17,6 @@ import 'package:flutter_application_1/widgets/cached_profile_avatar.dart';
 import 'package:get/get.dart';
 import 'package:path_provider/path_provider.dart';
 
-import 'edit_profile.dart';
 import 'registration_form.dart';
 import 'field_privacy_screen.dart';
 import '../../proposal/screens/proposal_services_section.dart';
@@ -130,23 +129,12 @@ class _ProfileSectionState extends State<ProfileSection> {
   /// Same form, same field rules, prefilled from the server. See
   /// RegistrationFormPage.editMode for why one form rather than two.
   ///
-  /// The photo is the one thing that form does NOT take — registration
-  /// uploads attachments on a separate call — so EditProfilePage stays as the
-  /// avatar editor and gets its own way in: tapping the picture. Removing the
-  /// last route to it would have quietly taken away the ability to change a
-  /// profile photo at all, which the unused-import warning is what caught.
+  /// The avatar lives on that form too, so this is the only edit screen —
+  /// tapping the picture and pressing the edit pill both land here.
   Future<void> _openEditProfile() async {
     final result = await Get.to<bool>(
       () => const RegistrationFormPage(editMode: true),
     );
-    if (result == true && mounted) {
-      setState(() {});
-    }
-  }
-
-  /// The avatar editor — still EditProfilePage, which owns the upload.
-  Future<void> _openEditPhoto() async {
-    final result = await Get.to<bool>(() => const EditProfilePage());
     if (result == true && mounted) {
       setState(() {});
     }
@@ -251,12 +239,12 @@ class _ProfileSectionState extends State<ProfileSection> {
                             identityCode: _identityCode(),
                             isComplete: isComplete,
                             onEdit: _openEditProfile,
-                            // Tapping the picture opens the photo editor. The
-                            // edit pill beside it opens the DETAILS form —
-                            // two different jobs, and the avatar is the
-                            // obvious place to reach for to change a picture.
+                            // The picture and the edit pill go to the SAME
+                            // place now: one edit screen that holds the
+                            // avatar and every field the person's role asks
+                            // for. There is no second form to land on.
                             avatar: GestureDetector(
-                              onTap: _openEditPhoto,
+                              onTap: _openEditProfile,
                               child: CachedProfileAvatar(
                                 localPath: _localProfileImagePath(),
                                 imageUrl: _remoteProfileImageUrl(),

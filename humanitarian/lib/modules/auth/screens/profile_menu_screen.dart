@@ -6,7 +6,7 @@ import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/core/app_share.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/modules/auth/screens/control_settings_screen.dart';
-import 'package:flutter_application_1/modules/auth/screens/edit_profile.dart';
+import 'package:flutter_application_1/modules/auth/screens/registration_form.dart';
 import 'package:flutter_application_1/modules/auth/screens/task_verification_screen.dart';
 import 'package:flutter_application_1/modules/community/screens/community_services_section.dart';
 import 'package:flutter_application_1/modules/dashboard/screens/games_screen.dart';
@@ -142,7 +142,7 @@ class ProfileMenuScreen extends StatelessWidget {
             DrawerTile(
               icon: Icons.person_outline_rounded,
               label: 'Profile',
-              onTap: () => Get.to(() => const EditProfilePage()),
+              onTap: () => Get.to(() => const RegistrationFormPage(editMode: true)),
             ),
           // Client spec item 4 — "Our Work" gets its own entry inside the
           // Profile area, showing every activity and programme the

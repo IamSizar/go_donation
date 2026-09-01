@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/core/app_state.dart';
-import 'package:flutter_application_1/modules/auth/screens/edit_profile.dart';
+import 'package:flutter_application_1/modules/auth/screens/registration_form.dart';
 import 'package:flutter_application_1/modules/auth/screens/profile.dart';
 import 'package:flutter_application_1/modules/chat/screens/messages_screen.dart';
 import 'package:flutter_application_1/modules/community/screens/community_services_section.dart';
@@ -67,7 +67,7 @@ abstract final class BotNavigation {
 
     // Deep routes → push a specific screen on top of its base tab.
     'my_donations': BotNavSpec(0, () => const MyDonationsPage()),
-    'edit_profile': BotNavSpec(0, () => const EditProfilePage()),
+    'edit_profile': BotNavSpec(0, () => const RegistrationFormPage(editMode: true)),
     'submit_project': BotNavSpec(
       0,
       () => const BeneficiarySubmitProjectScreen(),

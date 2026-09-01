@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/core/design/directional_icons.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
-import 'package:flutter_application_1/modules/auth/screens/edit_profile.dart';
+import 'package:flutter_application_1/modules/auth/screens/registration_form.dart';
 import 'package:flutter_application_1/modules/auth/screens/payment_methods_screen.dart';
 import 'package:flutter_application_1/modules/auth/screens/privacy_security_screen.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
@@ -27,7 +27,7 @@ class ControlSettingsScreen extends StatelessWidget {
             title: 'Account Information and Editing',
             subtitle: 'Update your name, photo, and other account details.',
             color: Colors.teal,
-            onTap: () => Get.to<bool>(() => const EditProfilePage()),
+            onTap: () => Get.to<bool>(() => const RegistrationFormPage(editMode: true)),
           ),
           const SizedBox(height: 12),
           _ControlOptionTile(
