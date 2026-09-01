@@ -1167,6 +1167,10 @@ const kmr: DeepPartial<typeof en> = {
   },
 
   status: {
+    family_monthly: 'پشتەڤانیا مەهانە یا مالبەتێ',
+    orphan_monthly: 'سپۆنسەریا مەهانە یا سێوییان',
+    house_rent: 'کرێیا خانیێ',
+    widow_support: 'پشتەڤانیا بێوەژنان',
     beauty_care: 'جوانکاری و چاڤدێری',
     food_pantry: 'خوارن',
     home_textiles: 'رایەخێن مالێ',

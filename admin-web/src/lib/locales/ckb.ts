@@ -1166,6 +1166,10 @@ const ckb: DeepPartial<typeof en> = {
   },
 
   status: {
+    family_monthly: 'پاڵپشتی مانگانەی خێزان',
+    orphan_monthly: 'سپۆنسەری مانگانەی هەتیو',
+    house_rent: 'کرێی خانوو',
+    widow_support: 'پاڵپشتی بێوەژن',
     beauty_care: 'جوانکاری و چاودێری',
     food_pantry: 'خۆراک',
     home_textiles: 'ڕایەخی ماڵ',

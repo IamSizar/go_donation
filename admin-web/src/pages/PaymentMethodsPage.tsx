@@ -8,6 +8,7 @@ import { askToConfirm } from '../lib/dialogs'
 import { useI18n } from '../lib/i18n'
 import { useToast } from '../lib/toast'
 import PageHead from '../components/PageHead'
+import CmsItemCard from '../components/CmsItemCard'
 
 type Method = {
   id: number
@@ -241,9 +242,10 @@ export default function PaymentMethodsPage() {
 
       {!loading &&
         items.map((m, i) => (
-          <div className="card" key={m.id}>
-            <div className="page-head">
-              <h3>{m.name_en || m.slug}</h3>
+          <CmsItemCard
+            key={m.id}
+            title={m.name_en || m.slug}
+            actions={
               <div style={{ display: 'flex', gap: 6 }}>
                 <button className="btn" onClick={() => move(i, -1)} disabled={i === 0}>
                   ↑
@@ -256,7 +258,8 @@ export default function PaymentMethodsPage() {
                   ↓
                 </button>
               </div>
-            </div>
+            }
+          >
             <MethodFields value={m} onChange={(p) => patchItem(m.id, p)} />
             <label
               className="field"
@@ -281,7 +284,7 @@ export default function PaymentMethodsPage() {
                 {t('common.delete')}
               </button>
             </div>
-          </div>
+          </CmsItemCard>
         ))}
     </div>
   )
