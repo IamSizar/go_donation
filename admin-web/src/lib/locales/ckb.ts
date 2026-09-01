@@ -236,6 +236,8 @@ const ckb: DeepPartial<typeof en> = {
     manage_link: 'بەڕێوەبردنی کەرتەکان',
   },
   feed_event: {
+    guest_register: 'دروستکردنی هەژماری میوان',
+    guest_login: 'چوونەژوورەوەی میوان',
     comment_submit: 'لێدوانی نوێ',
     login: 'چوونەژوورەوە', register: 'تۆمارکردنی نوێ', role_select: 'هەڵبژاردنی ڕۆڵ',
     profile_update: 'نوێکردنەوەی پرۆفایل', donation_submit: 'ناردنی بەشداری',

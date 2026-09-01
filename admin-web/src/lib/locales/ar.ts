@@ -249,6 +249,8 @@ const ar: DeepPartial<typeof en> = {
     manage_link: 'إدارة القطاعات',
   },
   feed_event: {
+    guest_register: 'إنشاء حساب زائر',
+    guest_login: 'دخول زائر',
     comment_submit: 'تعليق جديد',
     login: 'تسجيل دخول', register: 'تسجيل جديد', role_select: 'اختيار الدور',
     profile_update: 'تحديث الملف الشخصي', donation_submit: 'تقديم مساهمة',
