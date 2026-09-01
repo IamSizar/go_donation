@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:flutter_application_1/shared/widgets/adaptive_dialog.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
+import 'package:flutter_application_1/widgets/menu_grid.dart';
 import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/core/app_share.dart';
 import 'package:flutter_application_1/core/app_state.dart';
@@ -134,210 +135,194 @@ class ProfileMenuScreen extends StatelessWidget {
       title: 'Profile'.tr,
       subtitle: '',
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
         children: [
           AccountHeader(guest: guest),
-          const SizedBox(height: 12),
-          if (!guest)
-            DrawerTile(
-              icon: Icons.person_outline_rounded,
-              label: 'Profile',
-              onTap: () => Get.to(() => const RegistrationFormPage(editMode: true)),
-            ),
-          // Client spec item 4 — "Our Work" gets its own entry inside the
-          // Profile area, showing every activity and programme the
-          // organization has run.
-          DrawerTile(
-            icon: Icons.emoji_events_outlined,
-            label: 'Our Work',
-            color: AppThemeConfig.accent(context),
-            onTap: () => Get.to(() => const OurWorkScreen()),
-          ),
-          // Client backlog #23 — posts the user bookmarked for later.
-          if (!guest)
-            DrawerTile(
-              icon: Icons.bookmark_rounded,
-              label: 'Saved',
-              color: AppThemeConfig.pending(context),
-              onTap: () => Get.to(() => const SavedPostsScreen()),
-            ),
-          DrawerTile(
-            icon: Icons.apps_rounded,
-            label: 'Services',
-            color: AppThemeConfig.accent(context),
-            onTap: () => Get.to(() => const ProposalServicesSection()),
-          ),
-          // Client backlog #4 — a user may switch their own account type, but
-          // only to the two that carry no granted privilege: the marriage
-          // service, or back to guest. Recipient/Volunteer stay staff-granted,
-          // and the backend enforces that regardless of what the app sends.
-          if (!guest)
-            DrawerTile(
-              icon: Icons.badge_outlined,
-              label: 'Account type',
-              color: Colors.brown,
-              onTap: () => _chooseAccountType(context),
-            ),
-          DrawerTile(
-            icon: Icons.diversity_3_rounded,
-            label: 'Community Services',
-            color: AppThemeConfig.accent(context),
-            onTap: () => Get.to(() => const CommunityServicesSection()),
-          ),
-          // J6 — "اللعبة". The wheel and the coupon were both finished, but
-          // their only door in the app was the donor Home quick-actions panel,
-          // which is not rendered for any other role. This entry is the
-          // role-neutral one the client's menu asks for; GamesScreen offers
-          // both games because the client asked for a single menu entry.
-          DrawerTile(
-            icon: Icons.casino_rounded,
-            label: 'Game',
-            color: AppThemeConfig.pending(context),
-            onTap: () => Get.to(() => const GamesScreen()),
-          ),
-          const DrawerDivider(),
-          // Language uses the existing picker row (a trailing arrow that
-          // opens the language list), and Dark mode its existing switch.
-          const LanguageRow(),
-          const DarkModeRow(),
-          // "Twelfth: General Settings" + J6 — one row doing both jobs.
-          //
-          // It used to be the on/off switch alone, on the reasoning that the
-          // list belonged behind the top-bar bell and repeating it here would
-          // be duplication. The client read it the other way: الاشعارات is one
-          // of the eleven ENTRIES this menu is supposed to hold, so tapping it
-          // should show your notifications. It flipped a preference instead.
-          //
-          // Tapping the label now opens the list; the switch beside it still
-          // changes the setting. The bell keeps its badge and stays the fast
-          // route — this is a second door to one screen, not a second screen.
-          NotificationsRow(
-            onOpenList: () => Get.to(() => const NotificationsScreen()),
-          ),
-          // K7 — the switch above is still all-or-nothing; this is the row
-          // that refines it. It is a separate entry rather than more controls
-          // stacked into NotificationsRow because six switches inside a menu
-          // row would bury the master switch they depend on, and because the
-          // categories screen has its own four states to render.
-          DrawerTile(
-            icon: Icons.tune_rounded,
-            label: 'Alert categories',
-            color: AppThemeConfig.pending(context),
-            onTap: () => Get.to(() => const NotificationCategoriesScreen()),
-          ),
-          // K26 — "full user control over sounds and vibration from an
-          // app-settings menu". AppMute has always worked; its only UI was a
-          // card on ProfileSection, and the sole route to that screen is the
-          // AI assistant's 'profile' deep link — so in practice the setting
-          // could only be found by asking the chatbot for it. It belongs with
-          // the other preference switches, and next to Notifications in
-          // particular, because the chime it silences is a notification cue.
-          const SoundVibrationRow(),
-          const DrawerDivider(),
-          // Operational group — moved here wholesale from the Settings
-          // bottom-nav tab (formerly widgets/settings_section.dart's
-          // SettingsSection) when the owner asked to remove that tab. Order
-          // preserved from the old tab so nothing reads as reshuffled for no
-          // reason.
-          //
-          // Guests have no phone/wallet/field-privacy to manage — matches
-          // the old flow, which hid this row for guests the same way.
-          if (!guest)
-            DrawerTile(
-              icon: Icons.tune_rounded,
-              label: 'Control Settings and Preferences',
-              color: AppThemeConfig.accent(context),
-              onTap: () => Get.to(() => const ControlSettingsScreen()),
-            ),
-          // Volunteer entry, kept role-segmented, matching how the rest of
-          // the app keeps each role's own dashboard/tools separate rather
-          // than surfacing them to every role.
-          if (sharedPreferences.getString('role_id') == '3')
-            DrawerTile(
-              icon: Icons.volunteer_activism_rounded,
-              label: 'Volunteer With Us',
-              color: AppThemeConfig.pending(context),
-              onTap: () => Get.to(() => const SupportSection()),
-            ),
-          DrawerTile(
-            icon: Icons.checklist_rounded,
-            label: 'Task Verification',
-            color: AppThemeConfig.pending(context),
-            onTap: () => Get.to(() => const TaskVerificationScreen()),
-          ),
-          DrawerTile(
-            icon: Icons.handshake_rounded,
-            label: 'Our Partners',
-            color: AppThemeConfig.pending(context),
-            onTap: () => Get.to(() => const PartnersScreen()),
-          ),
-          DrawerTile(
-            icon: Icons.receipt_long_rounded,
-            label: 'receipts_title',
-            color: AppThemeConfig.accent(context),
-            onTap: () => Get.to(() => const AidReceiptsScreen()),
-          ),
-          DrawerTile(
-            icon: Icons.ios_share_rounded,
-            label: 'share_app',
-            color: AppThemeConfig.accent(context),
-            // The context anchors the iOS share popover — a bare `shareApp`
-            // sends no origin rect and the sheet refuses to open.
-            onTap: () => shareApp(context),
-          ),
-          DrawerTile(
-            icon: Icons.volunteer_activism_outlined,
-            label: 'Our Humanitarian Work',
-            color: AppThemeConfig.accent(context),
-            onTap: () => Get.to(
-              () => const ContentPageScreen(
-                slug: 'humanitarian-work',
-                titleKey: 'Our Humanitarian Work',
+
+          // ─── DESTINATIONS AS A GRID, NOT TWELVE ROWS ─────────────────────
+          // Each of these is an icon and a word. A full-width row each made
+          // the screen about six screens long; three across makes it four
+          // rows. Nothing is hidden — collapsing them would have been shorter
+          // to LOOK at and longer to USE.
+          const MenuSectionLabel('My account'),
+          MenuGrid(
+            items: [
+              if (!guest)
+                MenuGridItem(
+                  icon: Icons.person_outline_rounded,
+                  label: 'Profile',
+                  onTap: () =>
+                      Get.to(() => const RegistrationFormPage(editMode: true)),
+                ),
+              if (!guest)
+                MenuGridItem(
+                  icon: Icons.badge_outlined,
+                  label: 'Account type',
+                  color: Colors.brown,
+                  onTap: () => _chooseAccountType(context),
+                ),
+              if (!guest)
+                MenuGridItem(
+                  icon: Icons.bookmark_rounded,
+                  label: 'Saved',
+                  color: AppThemeConfig.pending(context),
+                  onTap: () => Get.to(() => const SavedPostsScreen()),
+                ),
+              MenuGridItem(
+                icon: Icons.receipt_long_rounded,
+                label: 'receipts_title',
+                onTap: () => Get.to(() => const AidReceiptsScreen()),
               ),
-            ),
+            ],
           ),
-          DrawerTile(
-            icon: Icons.cleaning_services_rounded,
-            label: 'clear_cache',
-            color: Colors.brown,
-            onTap: () => clearCache(context),
-          ),
-          const DrawerDivider(),
-          DrawerTile(
-            icon: Icons.support_agent_rounded,
-            label: 'Technical Support',
-            color: AppThemeConfig.pending(context),
-            // Was opening SupportSection — the volunteer-missions screen — so
-            // "Technical Support" led to a list of volunteering opportunities.
-            onTap: () => Get.to(() => const TechnicalSupportScreen()),
-          ),
-          DrawerTile(
-            icon: Icons.info_outline_rounded,
-            label: 'About Us',
-            color: AppThemeConfig.accent(context),
-            onTap: () => Get.to(
-              () =>
-                  const ContentPageScreen(slug: 'about', titleKey: 'About Us'),
-            ),
-          ),
-          DrawerTile(
-            icon: Icons.mail_outline_rounded,
-            label: 'Contact Us',
-            color: AppThemeConfig.pending(context),
-            onTap: () => Get.to(
-              () => const ContentPageScreen(
-                slug: 'contact',
-                titleKey: 'Contact Us',
+
+          const MenuSectionLabel('Services'),
+          MenuGrid(
+            items: [
+              MenuGridItem(
+                icon: Icons.apps_rounded,
+                label: 'Services',
+                onTap: () => Get.to(() => const ProposalServicesSection()),
               ),
-            ),
+              MenuGridItem(
+                icon: Icons.diversity_3_rounded,
+                label: 'Community Services',
+                onTap: () => Get.to(() => const CommunityServicesSection()),
+              ),
+              // Role-segmented, exactly as before.
+              if (sharedPreferences.getString('role_id') == '3')
+                MenuGridItem(
+                  icon: Icons.volunteer_activism_rounded,
+                  label: 'Volunteer With Us',
+                  color: AppThemeConfig.pending(context),
+                  onTap: () => Get.to(() => const SupportSection()),
+                ),
+              MenuGridItem(
+                icon: Icons.checklist_rounded,
+                label: 'Task Verification',
+                color: AppThemeConfig.pending(context),
+                onTap: () => Get.to(() => const TaskVerificationScreen()),
+              ),
+              MenuGridItem(
+                icon: Icons.casino_rounded,
+                label: 'Game',
+                color: AppThemeConfig.pending(context),
+                onTap: () => Get.to(() => const GamesScreen()),
+              ),
+            ],
           ),
-          DrawerTile(
-            icon: Icons.description_rounded,
-            label: 'Terms & Conditions',
-            color: AppThemeConfig.subtleText(context),
-            onTap: () => Get.to(() => const TermsScreen()),
+
+          // ─── SETTINGS STAYS ROWS ─────────────────────────────────────────
+          // These carry switches and trailing values — a language row shows
+          // WHICH language, a dark-mode row shows a three-way choice. None of
+          // that survives being squeezed into a 96px tile, so the group keeps
+          // full-width rows and gets a card to hold them together.
+          //
+          // The settings entry the owner asked to be able to see leads the
+          // section it names; it used to sit mid-list between "Volunteer With
+          // Us" and "Task Verification".
+          const MenuSectionLabel('Settings'),
+          MenuCard(
+            children: [
+              // Guests have no phone/wallet/field-privacy to manage — the same
+              // gating this row has always had.
+              if (!guest)
+                DrawerTile(
+                  icon: Icons.tune_rounded,
+                  label: 'Control Settings and Preferences',
+                  color: AppThemeConfig.accent(context),
+                  onTap: () => Get.to(() => const ControlSettingsScreen()),
+                ),
+              const LanguageRow(),
+              const DarkModeRow(),
+              NotificationsRow(
+                onOpenList: () => Get.to(() => const NotificationsScreen()),
+              ),
+              DrawerTile(
+                icon: Icons.notifications_active_outlined,
+                label: 'Alert categories',
+                color: AppThemeConfig.pending(context),
+                onTap: () =>
+                    Get.to(() => const NotificationCategoriesScreen()),
+              ),
+              const SoundVibrationRow(),
+            ],
           ),
-          const DrawerDivider(),
+
+          const MenuSectionLabel('About & support'),
+          MenuGrid(
+            items: [
+              MenuGridItem(
+                icon: Icons.support_agent_rounded,
+                label: 'Technical Support',
+                color: AppThemeConfig.pending(context),
+                onTap: () => Get.to(() => const TechnicalSupportScreen()),
+              ),
+              MenuGridItem(
+                icon: Icons.emoji_events_outlined,
+                label: 'Our Work',
+                onTap: () => Get.to(() => const OurWorkScreen()),
+              ),
+              MenuGridItem(
+                icon: Icons.volunteer_activism_outlined,
+                label: 'Our Humanitarian Work',
+                onTap: () => Get.to(
+                  () => const ContentPageScreen(
+                    slug: 'humanitarian-work',
+                    titleKey: 'Our Humanitarian Work',
+                  ),
+                ),
+              ),
+              MenuGridItem(
+                icon: Icons.handshake_rounded,
+                label: 'Our Partners',
+                color: AppThemeConfig.pending(context),
+                onTap: () => Get.to(() => const PartnersScreen()),
+              ),
+              MenuGridItem(
+                icon: Icons.info_outline_rounded,
+                label: 'About Us',
+                onTap: () => Get.to(
+                  () => const ContentPageScreen(
+                      slug: 'about', titleKey: 'About Us'),
+                ),
+              ),
+              MenuGridItem(
+                icon: Icons.mail_outline_rounded,
+                label: 'Contact Us',
+                color: AppThemeConfig.pending(context),
+                onTap: () => Get.to(
+                  () => const ContentPageScreen(
+                    slug: 'contact',
+                    titleKey: 'Contact Us',
+                  ),
+                ),
+              ),
+              MenuGridItem(
+                icon: Icons.ios_share_rounded,
+                label: 'share_app',
+                // The context anchors the iOS share popover — a bare
+                // `shareApp` sends no origin rect and the sheet refuses.
+                onTap: () => shareApp(context),
+              ),
+              MenuGridItem(
+                icon: Icons.description_rounded,
+                label: 'Terms & Conditions',
+                color: AppThemeConfig.subtleText(context),
+                onTap: () => Get.to(() => const TermsScreen()),
+              ),
+              MenuGridItem(
+                icon: Icons.cleaning_services_rounded,
+                label: 'clear_cache',
+                color: Colors.brown,
+                onTap: () => clearCache(context),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 24),
+          // Sign out is the one destructive action here, so it is separated
+          // from everything else and never folded into a group.
           guest
               ? DrawerTile(
                   icon: Icons.login_rounded,
