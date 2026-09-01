@@ -38,6 +38,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../auth/screens/edit_profile.dart';
+
 import 'package:flutter_application_1/api/profile_api.dart';
 import 'package:flutter_application_1/api/registration_api.dart';
 import 'package:flutter_application_1/core/app_state.dart';
@@ -240,6 +242,21 @@ class _RequiredFieldsPromptState extends State<RequiredFieldsPrompt> {
     setState(() => _dismissed = true);
   }
 
+  /// Opens the screen where the missing fields can actually be filled in.
+  ///
+  /// It used to be `Get.toNamed('/profile')`, and there is NO SUCH ROUTE —
+  /// AppRoutes registers ten names and profile is not among them, so the
+  /// button did nothing even once it was visible. The profile screen reaches
+  /// the editor with `Get.to(() => const EditProfilePage())`, so this does the
+  /// same rather than inventing a route for one caller.
+  ///
+  /// EditProfilePage, not the profile menu: the prompt says details are
+  /// missing, so it should land on the form that takes them, not one screen
+  /// short of it.
+  void _openEditProfile() {
+    Get.to(() => const EditProfilePage());
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_dismissed || _missing.isEmpty) return const SizedBox.shrink();
@@ -287,10 +304,30 @@ class _RequiredFieldsPromptState extends State<RequiredFieldsPrompt> {
                       // 44x44 minimum touch targets on both actions — the
                       // dismiss especially, because a dismiss that is hard to
                       // hit is a prompt that blocks in practice.
+                      //
+                      // COLOURS ARE STATED, NOT INHERITED. Both were plain
+                      // TextButtons, which take their foreground from the
+                      // theme's PRIMARY colour — and this banner sets its own
+                      // background (secondaryContainer). On the device that
+                      // was dark green on dark green: the two actions were
+                      // rendered, occupied their space, and were invisible.
+                      // Anything drawn on a container this widget colours
+                      // itself has to take its foreground from the matching
+                      // `on-` role, which is what the title and body above
+                      // already do.
                       ConstrainedBox(
                         constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
-                        child: TextButton(
-                          onPressed: widget.onOpenProfile ?? () => Get.toNamed('/profile'),
+                        // Filled, because this is the call to action and the
+                        // reason the banner exists. A text link beside a text
+                        // link gives the operator no idea which one moves them
+                        // forward.
+                        child: FilledButton(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: theme.colorScheme.onSecondaryContainer,
+                            foregroundColor: theme.colorScheme.secondaryContainer,
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                          ),
+                          onPressed: widget.onOpenProfile ?? _openEditProfile,
                           child: Text('required_fields_prompt_action'.tr),
                         ),
                       ),
@@ -298,6 +335,9 @@ class _RequiredFieldsPromptState extends State<RequiredFieldsPrompt> {
                       ConstrainedBox(
                         constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
                         child: TextButton(
+                          style: TextButton.styleFrom(
+                            foregroundColor: theme.colorScheme.onSecondaryContainer,
+                          ),
                           onPressed: _dismiss,
                           child: Text('required_fields_prompt_dismiss'.tr),
                         ),
