@@ -96,8 +96,11 @@ void main() {
       sharedPreferences = await SharedPreferences.getInstance();
     });
 
-    test('the profile menu hands the row a destination', () {
-      final src = _read(_profileMenu);
+    // Reads control settings, not the profile menu: the row moved there with
+    // the rest of the preferences. The property is unchanged — wherever the
+    // row is drawn, it must be given somewhere to go.
+    test('the settings hub hands the row a destination', () {
+      final src = _read('lib/modules/auth/screens/control_settings_screen.dart');
       expect(
         RegExp(r'NotificationsRow\(\s*onOpenList:').hasMatch(src),
         isTrue,

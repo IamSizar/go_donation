@@ -10,12 +10,12 @@ import 'package:flutter_application_1/api/profile_api.dart';
 import 'package:flutter_application_1/core/app_haptics.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
+import 'package:flutter_application_1/core/widgets/app_pressable.dart';
 import 'package:flutter_application_1/localization/locale_service.dart';
 import 'package:flutter_application_1/modules/auth/screens/registration_form.dart';
 import 'package:flutter_application_1/widgets/cached_profile_avatar.dart';
 import 'package:get/get.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:flutter_application_1/core/widgets/app_theme_mode_picker.dart';
 
 /// Shared account/settings widgets used by ProfileMenuScreen.
 ///
@@ -563,26 +563,58 @@ class DarkModeRow extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(
-                Icons.contrast_rounded,
-                color: AppThemeConfig.accent(context),
-                size: 18,
-              ),
-              const SizedBox(width: 10),
-              Text(
-                'Dark mode'.tr,
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14.5,
-                  color: AppThemeConfig.text(context),
-                ),
-              ),
-            ],
+          // ONE SWITCH, NOT THREE BUTTONS.
+          //
+          // It was a three-way segmented picker — Dark / Light / System — on
+          // its own line under the label, so a binary preference took two rows
+          // and more vertical space than anything else in the group. The owner
+          // asked for a plain toggle.
+          //
+          // WHAT THIS COSTS, stated plainly: "System" is no longer selectable.
+          // The switch sets light or dark EXPLICITLY, and an install that has
+          // never been touched still follows the system, because that is the
+          // stored default — but once someone flips this there is no route
+          // back to following the system from here. That is the trade the
+          // simpler control makes; say the word and it can live on a long
+          // press or in Control Settings.
+          ValueListenableBuilder<ThemeMode>(
+            valueListenable: appThemeMode,
+            builder: (context, mode, _) {
+              // Which way the switch reads while the mode is still `system`:
+              // from the brightness actually on screen, so the control never
+              // contradicts what the user is looking at.
+              final isDark = mode == ThemeMode.dark ||
+                  (mode == ThemeMode.system &&
+                      MediaQuery.platformBrightnessOf(context) ==
+                          Brightness.dark);
+              return Row(
+                children: [
+                  Icon(
+                    Icons.contrast_rounded,
+                    color: AppThemeConfig.accent(context),
+                    size: 18,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Dark mode'.tr,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14.5,
+                        color: AppThemeConfig.text(context),
+                      ),
+                    ),
+                  ),
+                  Switch.adaptive(
+                    value: isDark,
+                    onChanged: (on) => setAppThemeMode(
+                      on ? ThemeMode.dark : ThemeMode.light,
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
-          const SizedBox(height: 10),
-          const AppThemeModePicker(),
         ],
       ),
     );
@@ -607,7 +639,21 @@ class DarkModeRow extends StatelessWidget {
 /// It stays optional because the switch is still legitimate on its own in any
 /// settings surface that has no list to open.
 class NotificationsRow extends StatefulWidget {
-  const NotificationsRow({super.key, this.onOpenList, this.onEnabledChanged});
+  const NotificationsRow({
+    super.key,
+    this.onOpenList,
+    this.onOpenCategories,
+    this.onEnabledChanged,
+  });
+
+  /// Where the per-category screen lives, rendered as a second line UNDER this
+  /// row rather than as its own entry in the list.
+  ///
+  /// They were two sibling rows: the master switch, then "Alert categories" a
+  /// row below it. That reads as two unrelated settings, when the second is a
+  /// refinement of the first and is moot while the first is off. Nesting it
+  /// says so without a sentence.
+  final VoidCallback? onOpenCategories;
 
   /// Where tapping the label goes. Null leaves the row switch-only.
   final VoidCallback? onOpenList;
@@ -725,7 +771,7 @@ class _NotificationsRowState extends State<NotificationsRow> {
       ],
     );
 
-    return Padding(
+    final Widget row = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: Row(
         children: [
@@ -764,6 +810,41 @@ class _NotificationsRowState extends State<NotificationsRow> {
             ),
         ],
       ),
+    );
+
+    if (widget.onOpenCategories == null) return row;
+    // The categories line is NESTED under the switch, indented and quieter,
+    // because it refines the setting above it rather than standing beside it.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        row,
+        Padding(
+          padding: const EdgeInsetsDirectional.only(start: 48, bottom: 6),
+          child: AppPressable(
+            onTap: widget.onOpenCategories,
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Alert categories'.tr,
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppThemeConfig.mutedText(context),
+                    ),
+                  ),
+                ),
+                Icon(
+                  AppIcons.chevronForward(context),
+                  size: 16,
+                  color: AppThemeConfig.mutedText(context),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

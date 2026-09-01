@@ -78,6 +78,8 @@ String _catalogue({
 /// The account hub behind the top-right avatar — where the client looked for
 /// this setting, and where the single on/off switch still lives.
 const _profileMenu = 'lib/modules/auth/screens/profile_menu_screen.dart';
+const _controlSettings = 'lib/modules/auth/screens/control_settings_screen.dart';
+const _settingsSection = 'lib/widgets/settings_section.dart';
 
 String _readSource(String path) {
   final file = File(path);
@@ -290,17 +292,27 @@ void main() {
   // test can only inspect the screen it was pointed at, and "nothing points at
   // it" is precisely the failure mode.
   group('the screen is reachable from where the client looked', () {
-    test('the profile menu opens it', () {
-      final source = _readSource(_profileMenu);
+    // The door moved one screen deeper when the loose preference rows were
+    // gathered into Settings & Preferences, so the reachable-ness is now a
+    // CHAIN: profile menu → control settings → categories. Both links are
+    // asserted, because either one breaking strands the screen exactly as K7
+    // described. The label moved too — it is drawn by the nested line inside
+    // NotificationsRow rather than by a menu entry of its own.
+    test('the settings hub opens it, and the profile menu opens the hub', () {
       expect(
-        source.contains('NotificationCategoriesScreen'),
+        _readSource(_profileMenu).contains('ControlSettingsScreen'),
+        isTrue,
+        reason: 'the profile menu is still where the client looks first',
+      );
+      expect(
+        _readSource(_controlSettings).contains('NotificationCategoriesScreen'),
         isTrue,
         reason:
             'the categories screen with no door is the same defect as no '
             'categories screen at all',
       );
       expect(
-        source.contains("label: 'Alert categories'"),
+        _readSource(_settingsSection).contains("'Alert categories'"),
         isTrue,
         reason: 'and the door needs a label that resolves in all four locales',
       );
