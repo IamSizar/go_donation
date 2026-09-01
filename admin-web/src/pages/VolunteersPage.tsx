@@ -33,7 +33,6 @@ import {
 } from '../lib/skillCatalogue'
 import { SKILL_ICON, colorForSkill } from '../lib/skillIcons'
 import PageHead from '../components/PageHead'
-import { fmtId } from '../lib/formatId'
 import RowActionsMenu from '../components/RowActionsMenu'
 import ActionsMenu from '../components/ActionsMenu'
 // E15 — the signups tab builds its own ActionsMenu (its entries are status
@@ -41,6 +40,7 @@ import ActionsMenu from '../components/ActionsMenu'
 // label from RowActionsMenu the way every other table does. Pulling the same
 // hook keeps one convention: Super-Admin reads حذف, everyone else أرشفة.
 import { useRowDeleteLabel } from '../components/RowDeleteButton'
+import IdWithNeedsAction from '../components/IdWithNeedsAction'
 
 const VOLUNTEER_CSV_COLUMNS: CsvColumn<AdminVolunteerApp>[] = [
   { header: 'id', get: (a) => a.id },
@@ -326,7 +326,8 @@ function ApplicationsTab() {
       // Note #20 — display-only change, same treatment as Donations (Note
       // #14): `#5` → `T5`. a.id itself is unchanged everywhere it's actually
       // used (API calls, links, row keys).
-      key: 'id', header: t('col.id'), width: '60px', cell: (a) => <strong>{fmtId(a.id)}</strong>,
+      key: 'id', header: t('col.id'), width: '110px',
+      cell: (a) => <IdWithNeedsAction id={a.id} row={a as unknown as Record<string, unknown>} table="volunteer_applications" />,
     },
     {
       key: 'who', header: t('col.applicant'),
@@ -939,7 +940,8 @@ function MissionSignupsTab() {
   }
 
   const columns: Column<AdminMissionSignup>[] = [
-    { key: 'id', header: t('col.id'), width: '60px', cell: (s) => <strong>{fmtId(s.id)}</strong> },
+    { key: 'id', header: t('col.id'), width: '110px',
+      cell: (s) => <IdWithNeedsAction id={s.id} row={s as unknown as Record<string, unknown>} table="volunteer_mission_signups" /> },
     {
       key: 'volunteer',
       header: t('col.volunteer'),

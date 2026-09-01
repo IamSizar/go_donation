@@ -13,9 +13,9 @@ import { useSelection } from '../lib/useSelection'
 import { type CsvColumn } from '../lib/csv'
 import { useFieldRules, type FieldRuleState } from '../lib/fieldRules'
 import PageHead from '../components/PageHead'
-import { fmtId } from '../lib/formatId'
 import { formatDateTime } from '../lib/dates'
 import RowActionsMenu from '../components/RowActionsMenu'
+import IdWithNeedsAction from '../components/IdWithNeedsAction'
 
 const MARRIAGE_CSV_COLUMNS: CsvColumn<MarriageProfile>[] = [
   { header: 'id', get: (p) => p.id },
@@ -156,7 +156,8 @@ export default function MarriagePage() {
 
 
   const columns: Column<MarriageProfile>[] = [
-    { key: 'id', header: t('col.id'), width: '60px', cell: (p) => <strong>{fmtId(p.id)}</strong> },
+    { key: 'id', header: t('col.id'), width: '110px',
+      cell: (p) => <IdWithNeedsAction id={p.id} row={p as unknown as Record<string, unknown>} table="marriage_profiles" /> },
     {
       key: 'code',
       header: t('col.profile_code'),

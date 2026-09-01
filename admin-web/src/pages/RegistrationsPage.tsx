@@ -13,6 +13,7 @@ import { type CsvColumn } from '../lib/csv'
 import PageHead from '../components/PageHead'
 import { formatDateTime } from '../lib/dates'
 import ActionsMenu from '../components/ActionsMenu'
+import { NeedsActionTag } from '../components/IdWithNeedsAction'
 
 const PER_PAGE = 20
 const STATUSES = ['pending', 'rejected', 'all'] as const
@@ -141,9 +142,14 @@ export default function RegistrationsPage() {
     {
       key: 'applicant',
       header: t('registrations.col_applicant'),
+      // This list has no id column, so the tag rides with the applicant's
+      // name — the first thing read on the row either way.
       cell: (r) => (
         <div className="cell-stack">
-          <strong>{r.full_name || t('common.user_ref_lc', { id: r.user_id })}</strong>
+          <span className="id-with-flag">
+            <strong>{r.full_name || t('common.user_ref_lc', { id: r.user_id })}</strong>
+            <NeedsActionTag row={r as unknown as Record<string, unknown>} table="users" />
+          </span>
           <span className="muted">{formatPhone(r.phone)}</span>
         </div>
       ),

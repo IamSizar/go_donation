@@ -17,7 +17,7 @@ import { useI18n, useStatusLabel } from '../lib/i18n'
 import { type CsvColumn } from '../lib/csv'
 import { HighlightBanner, useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForDonation } from '../lib/statusColors'
-import { donationNeedsAction } from '../lib/needsAction'
+import IdWithNeedsAction from '../components/IdWithNeedsAction'
 import { formatDateParts } from '../lib/dates'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
@@ -205,16 +205,7 @@ export default function DonationsPage() {
       // WHICH. A worded tag rather than a colour: the stripe already exists
       // and cannot do this job — see lib/needsAction.ts for the two reasons,
       // the sharper being that a failed payment paints a counted row RED.
-      cell: (d) => (
-        <span className="id-with-flag">
-          <strong>{fmtId(d.id)}</strong>
-          {donationNeedsAction(d) && (
-            <span className="needs-action-tag" title={t('badge.needs_action_hint')}>
-              {t('badge.needs_action')}
-            </span>
-          )}
-        </span>
-      ),
+      cell: (d) => <IdWithNeedsAction id={d.id} row={d as unknown as Record<string, unknown>} table="donations" />,
     },
     {
       key: 'ref',

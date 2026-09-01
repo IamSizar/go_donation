@@ -24,9 +24,9 @@ import { stripeForStatus } from '../lib/statusColors'
 import { IRAQ_GOVERNORATES } from '../lib/iraqGovernorates'
 import { useFieldRules, type FieldRuleState } from '../lib/fieldRules'
 import PageHead from '../components/PageHead'
-import { fmtId } from '../lib/formatId'
 import { formatDateTime } from '../lib/dates'
 import RowActionsMenu from '../components/RowActionsMenu'
+import IdWithNeedsAction from '../components/IdWithNeedsAction'
 
 const CASE_CSV_COLUMNS: CsvColumn<BeneficiaryCase>[] = [
   { header: 'id', get: (r) => r.id },
@@ -371,7 +371,8 @@ function CasesTab() {
   const closeModal = () => { setEditing(null); setCreating(false) }
 
   const columns: Column<BeneficiaryCase>[] = [
-    { key: 'id', header: t('col.id'), width: '60px', cell: (r) => <strong>{fmtId(r.id)}</strong> },
+    { key: 'id', header: t('col.id'), width: '110px',
+      cell: (r) => <IdWithNeedsAction id={r.id} row={r as unknown as Record<string, unknown>} table="beneficiary_cases" /> },
     {
       key: 'code',
       header: t('col.case_code'),
@@ -714,7 +715,8 @@ function RequestsTab() {
   const closeModal = () => { setEditing(null); setCreating(false) }
 
   const columns: Column<ProjectRequest>[] = [
-    { key: 'id', header: t('col.id'), width: '60px', cell: (r) => <strong>{fmtId(r.id)}</strong> },
+    { key: 'id', header: t('col.id'), width: '110px',
+      cell: (r) => <IdWithNeedsAction id={r.id} row={r as unknown as Record<string, unknown>} table="beneficiary_project_requests" /> },
     {
       key: 'title',
       header: t('col.project'),
