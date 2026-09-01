@@ -374,8 +374,15 @@ export default function UserProfileSections({
               {open ? <ChevronDown size={16} /> : <ChevronLeft size={16} />}
               <span className="profile-section-title">{t(group.titleKey)}</span>
               {/* Filled-of-total, so an empty section reads as empty from the
-                  outside instead of after opening it. */}
-              <span className="profile-section-count">
+                  outside instead of after opening it.
+
+                  dir="ltr" is REQUIRED, not cosmetic. "14 / 18" is a ratio,
+                  not a sentence: under the page's RTL direction the bidi
+                  algorithm reorders the two numbers around the slash and it
+                  renders as "18 / 14" — a section claiming more filled fields
+                  than it has. Pinning the direction on the span keeps the
+                  smaller number first, where it means what it says. */}
+              <span className="profile-section-count" dir="ltr">
                 {stats.filled} / {stats.total}
               </span>
             </button>
