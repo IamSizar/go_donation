@@ -1655,3 +1655,38 @@ rather than a plural rule invented for these keys.
 | `@count minutes` | @count minutes | @count دقيقة | **needed** |
 | `@count hours` | @count hours | @count ساعة | **needed** |
 | `@count days` | @count days | @count يوم | **needed** |
+
+---
+
+## Dashboard — the registration Field Rules control (`fieldrule.*`)
+
+**Status: written, NOT reviewed. Everything else on this page is now real
+Kurdish; this one block is not.**
+
+The Field Rules page (`قواعد حقول التسجيل` → `/field-rules`) lets staff set
+each registration field to required / optional / off. It shipped with English
+and Arabic only, so a Kurdish admin read the whole control — including the
+confirmation dialog — in English.
+
+The **87 field labels** on that page were fixed WITHOUT writing any Kurdish:
+every one was lifted from `humanitarian/lib/localization/app_translations.dart`,
+matching on the English, so the words an admin sees are the exact words the
+app already shows the applicant for that same field. Nothing there needs
+review.
+
+The strings below are different — the control is dashboard-only, so there was
+nothing to harvest and they were **written for this change**. They are in
+`admin-web/src/lib/locales/{ckb,kmr}.ts` under `fieldrule`. They were shipped
+rather than left as an English fallback because this control **changes
+registration for an entire role**, and nobody should be reading that
+confirmation in a language they did not pick. That makes reviewing them
+higher-priority than the usual translation backlog, not lower.
+
+Please check especially:
+- the three role words (`role.donors` / `beneficiaries` / `volunteers`) — they
+  appear inside every other sentence via `{role}`, so an error repeats
+  everywhere;
+- `confirm.existing_users`, which is the sentence that tells an admin nobody
+  gets locked out — the one that most needs to be unambiguous;
+- `scope.hidden` / `confirm.body.hidden`, where "off" must read as "this is
+  not asked at all", not as "this is hidden from view".
