@@ -3834,10 +3834,16 @@ html[dir='rtl'] .data-table th {
      ellipsizes before it reaches them instead of sliding underneath.
      LOGICAL, not the padding shorthand: the shorthand is physical, and on
      this RTL dashboard it would have put the reserved space on the wrong
-     side — under the title rather than under the buttons. */
+     side — under the title rather than under the buttons.
+
+     The width is DERIVED, not guessed. The buttons are absolutely placed, so
+     they contribute nothing to layout and the reservation has to match them
+     by hand: two --btn-h-md controls at their measured 49px each, plus the
+     6px gap between them and the --space-4 inset they are offset by. A first
+     attempt reserved a flat 96px and the title still ran 18px under them. */
   padding-block: var(--space-2);
   padding-inline-start: var(--space-4);
-  padding-inline-end: 96px;
+  padding-inline-end: calc(49px * 2 + 6px + var(--space-4) + var(--space-2));
   cursor: pointer;
   list-style: none;
   font-weight: 600;
