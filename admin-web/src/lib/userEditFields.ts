@@ -61,11 +61,15 @@ function toFieldSpec(field: ProfileField, group: ProfileGroup): FieldSpec | null
 
   const base: FieldSpec = {
     key: field.key,
-    // `label` is EditModal's English fallback; `labelKey` is what actually
+    // `label` is EditModal's English fallback; `labelField` is what actually
     // renders. fieldLabelFor's namespaces are tried in the same order the
     // read-only page uses, so the two screens print identical wording.
     label: field.key,
-    labelKey: `dbfield.${field.key}`,
+    // `labelField` (not `labelKey`) so the label resolves through
+    // fieldLabelFor's dbfield.* -> col.* -> field.* walk. A plain
+    // `dbfield.<key>` lookup renders the raw key for the 63 of these 98
+    // columns whose wording lives under `field.*` — see EditModal's FieldSpec.
+    labelField: field.key,
     type: 'text',
     section: group.titleKey,
   }

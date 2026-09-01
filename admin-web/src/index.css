@@ -1282,7 +1282,24 @@ nav .nav-group-header:hover { background: var(--panel-2); color: var(--text-h); 
 }
 .table-wrap::-webkit-scrollbar-thumb:hover { background: var(--color-text-h); background-clip: content-box; }
 .data-table {
-  width: 100%;
+  /* ─── Width: content, not 100% ────────────────────────────────────────
+     `width: 100%` + `table-layout: auto` distributes ALL surplus width
+     across the columns IN PROPORTION TO THEIR CONTENT. Nothing is sized by
+     what it needs: on the users table that gave "Account status" 213px to
+     show a select reading "نشط", and "Created" 194px for a formatted date,
+     purely because they held the longest strings.
+
+     The owner's decision, recorded verbatim: no column absorbs the slack —
+     including the name column — every column is content-sized, and the
+     leftover width is simply empty space at the inline-end. So the table
+     stops being stretched.
+
+     `max-width: 100%` keeps the other half of the promise: a table WIDER
+     than its card (Contributions has 14 columns) is still bounded, so it
+     scrolls inside .table-wrap instead of pushing the page sideways. Only
+     the stretching goes; the containment stays. */
+  width: auto;
+  max-width: 100%;
   border-collapse: collapse;
   font-size: var(--text-sm);
 }
@@ -1334,6 +1351,7 @@ nav .nav-group-header:hover { background: var(--panel-2); color: var(--text-h); 
    them, and stamps data-align on the cell). A wrapped amount or reference
    number is unreadable, so these keep the old nowrap behaviour. */
 .data-table tbody td[data-align='end'] { white-space: nowrap; }
+
 /* Form controls do not inherit typography from their surroundings — a bare
    <select> in a cell renders in the UA's own 13.33px system font, larger than
    and different from the 12.5px around it. Zero-specificity :where() so any
@@ -1733,7 +1751,11 @@ nav .nav-group-header:hover { background: var(--panel-2); color: var(--text-h); 
    surrounding read-only cells, while still being recognizably interactive. */
 .status-cell {
   height: 26px;
-  padding: 0 28px 0 var(--space-3);
+  /* 24px on the chevron side (12px icon sitting 8px in, plus a 4px gap) and
+     one step in on the text side. It was 28/12, which bought nothing but
+     width — and this control appears in a column on nearly every table, so
+     the padding was being paid for many times over. */
+  padding: 0 24px 0 var(--space-2);
   font-size: var(--text-xs);
   font-weight: 600;
   text-transform: uppercase;
@@ -1758,7 +1780,7 @@ nav .nav-group-header:hover { background: var(--panel-2); color: var(--text-h); 
 }
 .status-cell:hover { background-color: var(--color-surface-2); border-color: var(--color-border-strong); }
 .status-cell:focus { box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18); }
-[dir="rtl"] .status-cell { padding: 0 var(--space-3) 0 28px; background-position: left 8px center; }
+[dir="rtl"] .status-cell { padding: 0 var(--space-2) 0 24px; background-position: left 8px center; }
 
 /* EditModal — full-record edit form (Phase 10) */
 .modal-overlay {
@@ -2856,8 +2878,17 @@ code, pre { direction: ltr; unicode-bidi: bidi-override; }
   padding: 28px 0 14px;
   margin-bottom: 6px;
   border-bottom: 1px solid var(--color-border, rgba(255, 255, 255, 0.08));
-  position: sticky;
-  top: 0;
+  /* `position: relative`, NOT `sticky`.
+     It was sticky so the toolbar stayed reachable down a long table. What it
+     actually did was float an opaque 79px-tall strip over the rows: the table
+     header is not sticky (see the measured note on .table-wrap), so the bar
+     covered whichever row happened to be under it and that row was simply
+     gone — no clipping cue, nothing to scroll back to. On the users table the
+     row after the first was permanently hidden.
+     `relative` keeps this element a containing block, which the absolutely
+     positioned subtitle below depends on, and drops the overlay. The toolbar
+     now scrolls with the page, like every other page-level control. */
+  position: relative;
   z-index: 20;
   background: var(--color-bg, #0b0f1a);
 }
@@ -2918,7 +2949,7 @@ code, pre { direction: ltr; unicode-bidi: bidi-override; }
    bar — above the Back button. That leaves the <h1> alone in the title block,
    so the bar's align-items:center vertically centres it against Back / Next /
    Refresh instead of it riding high above a second line.
-   .top-action-bar is position:sticky, so it is the containing block here. */
+   .top-action-bar is positioned (relative), so it is the containing block. */
 .page-head-slot .page-head > div:first-child {
   display: block;
   min-width: 0;
@@ -3422,13 +3453,23 @@ html[dir='rtl'] .data-table th {
    is the size of the control's padding, not the cell's. */
 .data-table td > .status-cell {
   margin-inline-start: calc(-1 * var(--space-3));
-  /* The pull alone would cost the pill 12px of its own width, truncating
-     "Grantor" a character earlier than before. Growing by exactly what was
-     pulled hands that space straight back: the pill now spans from 12px
-     before the cell's content box to the end of it, so its label lands on the
-     column's text line AND it is no narrower than it was. */
-  width: calc(100% + var(--space-3));
-  max-width: none;
+  /* Width is INTRINSIC — the pill is as wide as it needs to be, no wider.
+     It used to be `calc(100% + var(--space-3))` with `max-width: none`, i.e.
+     stretched to fill its cell. In a content-sized table that is circular:
+     the cell is as wide as its content, the content insists on filling the
+     cell, and the column settled on the widest OPTION in the dropdown rather
+     than the value on screen — "Account status" took 213px to show "نشط"
+     because "موقوف مؤقتًا" exists somewhere in the list.
+
+     The base .status-cell rule above already had the right idea (min-width:0,
+     overflow hidden, text-overflow: ellipsis, "the native dropdown still
+     shows each option in full when opened"); `max-width: none` here was
+     overriding it. Restoring the clamp takes the pill from 140px to 82px and
+     the column from 213px to 127px.
+
+     `max-content` rather than `auto` so the pull below cannot squeeze it. */
+  width: max-content;
+  max-width: 100%;
 }
 
 /* ---------- Phone gutters ----------

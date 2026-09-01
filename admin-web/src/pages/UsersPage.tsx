@@ -20,7 +20,7 @@ import { usePermission } from '../lib/permissions'
 import { useFieldRules } from '../lib/fieldRules'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
-import { formatDateTime } from '../lib/dates'
+import { formatDateParts } from '../lib/dates'
 
 const PER_PAGE = 20
 
@@ -378,7 +378,18 @@ export default function UsersPage() {
     {
       key: 'created',
       header: t('col.created'),
-      cell: (u) => <span className="muted">{formatDateTime(u.created_at)}</span>,
+      // Stacked date over time rather than one long line, which is what made
+      // this the third-widest column. Same treatment, same helper and same
+      // .cell-stack class DonationsPage and VolunteersPage already use.
+      cell: (u) => {
+        const { date, time } = formatDateParts(u.created_at)
+        return (
+          <div className="cell-stack">
+            <span className="muted">{date}</span>
+            {time && <span className="muted" style={{ fontSize: '0.85em' }}>{time}</span>}
+          </div>
+        )
+      },
     },
     {
       // Note #4 — was 5 loose inline buttons (View/Edit/Password/Force
