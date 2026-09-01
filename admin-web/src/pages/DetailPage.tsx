@@ -18,7 +18,8 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, describeError, assetUrl, getStoredUser, isAdminLevel } from '../lib/api'
 import { formatDateOnly, formatDateTime } from '../lib/dates'
 import { useI18n, useFieldLabel, useStatusLabel } from '../lib/i18n'
-import { skillLabelFor, scheduleSummary } from '../lib/skillCatalogue'
+import { skillLabelFor, scheduleSummary, localizeAvailabilityText } from '../lib/skillCatalogue'
+import { governorateLabel } from '../lib/iraqGovernorates'
 import { RESOURCE_LABELS } from '../lib/resourceLabels'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
@@ -173,6 +174,11 @@ const SKILL_FIELD = /^(skill_tags|skills)$/
 /// holds day keys, so that one localizes and this one cannot.
 const AVAILABILITY_TEXT_FIELD = /^availability$/
 
+/// Columns holding a governorate slug. `city` is included because the app's
+/// registration form writes the governorate list into it — the value is
+/// 'duhok', not a free-typed city name.
+const GOVERNORATE_FIELD = /^(governorate|city)$/
+
 function renderValue(
   key: string,
   val: unknown,
@@ -238,6 +244,17 @@ function renderValue(
     // saved before that column existed.
     const localized = scheduleSummary(row?.availability_schedule, locale)
     if (localized) return <span dir={dirFor(key)}>{localized}</span>
+    // No structured column on this row — but the day names in the string ARE
+    // a closed set the app itself wrote, so they can be localized in place.
+    // Everything unrecognised passes through untouched.
+    return <span dir={dirFor(key)}>{localizeAvailabilityText(val, locale)}</span>
+  }
+  // A governorate slug ('duhok') printed raw at an Arabic operator. The list
+  // and its Arabic already exist for the pickers; this routes the read-only
+  // page through the same one, so the two cannot disagree. Unknown values are
+  // returned untouched by governorateLabel, so a free-text city is safe.
+  if (typeof val === 'string' && GOVERNORATE_FIELD.test(key)) {
+    return <span dir={dirFor(key)}>{governorateLabel(val, locale)}</span>
   }
   // Localize controlled-vocabulary values (status/priority enums). statusLabel
   // returns the raw string when there's no matching status.* key, so free data
