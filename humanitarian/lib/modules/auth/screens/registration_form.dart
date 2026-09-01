@@ -1680,7 +1680,9 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       PageTopBar(
-                        title: 'Complete your registration',
+                        title: widget.editMode
+                            ? 'Edit your details'
+                            : 'Complete your registration',
                         onBack: () {
                           // Reached via Get.offAllNamed right after OTP
                           // verification, so there's no previous route to
@@ -1692,7 +1694,9 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Tell us about yourself so an admin can review your account.'
+                        (widget.editMode
+                                ? 'Update the details on your account.'
+                                : 'Tell us about yourself so an admin can review your account.')
                             .tr,
                         style: TextStyle(
                           fontSize: 14.5,
@@ -1903,6 +1907,16 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                           ],
                         ),
                       ),
+                      // ROLE IS NOT RE-ASKED WHEN EDITING. It decides which
+                      // fields the rest of this form shows and which the
+                      // server validates against, and it is not a thing a
+                      // registered person changes about themselves — staff do
+                      // that from the dashboard. Worse, the tiles render
+                      // UNSELECTED until _roleId matches one, so an editor
+                      // would have been shown three empty radios inviting
+                      // them to pick, with a real chance of submitting under
+                      // a different role than they hold.
+                      if (!widget.editMode) ...[
                       const SizedBox(height: 18),
                       _label(context, 'Select your role'),
                       const SizedBox(height: 10),
@@ -1932,6 +1946,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                         selected: _roleId == 3,
                         onTap: () => setState(() => _roleId = 3),
                       ),
+                      ],
                       // Grantor registration spec — extra fields.
                       if (_roleId == 1) ...[
                         const SizedBox(height: 18),
