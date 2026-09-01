@@ -8,6 +8,7 @@ import { askToConfirm } from '../lib/dialogs'
 import { useI18n } from '../lib/i18n'
 import { useToast } from '../lib/toast'
 import PageHead from '../components/PageHead'
+import CmsItemCard from '../components/CmsItemCard'
 
 type Sector = {
   id: number
@@ -159,9 +160,10 @@ export default function CitySectorsPage() {
 
       {!loading &&
         items.map((c, i) => (
-          <div className="card" key={c.id}>
-            <div className="page-head">
-              <h3>{c.name_en || c.slug}</h3>
+          <CmsItemCard
+            key={c.id}
+            title={c.name_en || c.slug}
+            actions={
               <div style={{ display: 'flex', gap: 6 }}>
                 <button className="btn" onClick={() => move(i, -1)} disabled={i === 0}>
                   ↑
@@ -174,7 +176,8 @@ export default function CitySectorsPage() {
                   ↓
                 </button>
               </div>
-            </div>
+            }
+          >
             {LANGS.map(({ field, labelKey, rtl }) => (
               <label className="field" key={field}>
                 <span className="muted">{t(labelKey)}</span>
@@ -209,7 +212,7 @@ export default function CitySectorsPage() {
                 {t('common.delete')}
               </button>
             </div>
-          </div>
+          </CmsItemCard>
         ))}
     </div>
   )
