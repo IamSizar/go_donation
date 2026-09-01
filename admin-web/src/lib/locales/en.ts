@@ -251,6 +251,11 @@ const en = {
   },
   // Dashboard live-feed event-type titles (EventsFeed row headings)
   feed_event: {
+    // Guest events had no entry, so the feed printed their raw machine
+    // names — `guest_register` — at an operator. Note #40 added one-tap
+    // guest entry to the app; the feed was never told about it.
+    guest_register: 'Guest created',
+    guest_login: 'Guest sign-in',
     comment_submit: 'New comment',
     login: 'Login', register: 'Registration', role_select: 'Role selected',
     profile_update: 'Profile updated', donation_submit: 'Contribution submitted',

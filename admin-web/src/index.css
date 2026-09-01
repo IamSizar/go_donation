@@ -115,6 +115,24 @@
   --radius-xl:  20px;
   --radius-full: 9999px;
 
+  /* ─── Control height scale ────────────────────────────────────────────
+     An audit of all 57 routes found SEVEN hard-coded button heights — 22,
+     24, 26, 30, 32, 34 and 36px — every one a raw literal, and most pages
+     showing two or three of them side by side. Nothing was wrong with any
+     single value; there was simply no scale, so each new control picked a
+     number and the set drifted.
+
+     Three steps, because three is what the dashboard actually uses:
+       sm  in-row controls, many per screen (row actions, rule segments)
+       md  toolbar and secondary controls (tabs, pagination, top bar)
+       lg  primary actions and anything a finger aims at
+
+     `lg` is 36px, the existing base, so the common case is unchanged. Only
+     the four outliers move, each by 2-4px. */
+  --btn-h-sm: 26px;
+  --btn-h-md: 32px;
+  --btn-h-lg: 36px;
+
   /* -------- Elevation -------- */
   --shadow-sm: 0 1px 0 rgba(255, 255, 255, 0.04) inset,
                0 2px 6px rgba(0, 0, 0, 0.25);
@@ -347,7 +365,7 @@ button {
   background: var(--accent);
   color: white;
   border: 1px solid var(--accent);
-  height: 36px;
+  height: var(--btn-h-lg);
   padding: 0 var(--space-4);
   border-radius: var(--radius);
   cursor: pointer;
@@ -398,7 +416,7 @@ input, select, textarea {
   background: var(--color-surface-2);
   color: var(--text-h);
   border: 1px solid var(--color-border);
-  height: 36px;
+  height: var(--btn-h-lg);
   padding: 0 var(--space-3);
   border-radius: var(--radius);
   font: inherit;
@@ -636,7 +654,7 @@ label {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  height: 36px;
+  height: var(--btn-h-lg);
   padding: 0 14px;
   border-radius: 9px;
   border: 1px solid color-mix(in srgb, var(--color-primary) 45%, var(--color-border));
@@ -672,7 +690,7 @@ label {
   align-items: center;
   justify-content: center;
   width: 36px;
-  height: 36px;
+  height: var(--btn-h-lg);
   border-radius: 9px;
   border: 1px solid color-mix(in srgb, var(--color-primary) 45%, var(--color-border));
   background: var(--color-surface-2);
@@ -866,7 +884,7 @@ nav .nav-group-header:hover { background: var(--panel-2); color: var(--text-h); 
 /* === Sidebar Layout editor (Dashboard Settings, Note #29 follow-up) === */
 .icon-btn {
   border: 1px solid var(--color-border);
-  height: 24px;
+  height: var(--btn-h-sm);
   width: 24px;
   padding: 0;
   border-radius: 6px;
@@ -912,7 +930,7 @@ nav .nav-group-header:hover { background: var(--panel-2); color: var(--text-h); 
   padding: var(--space-1) 0;
 }
 .sidebar-layout-item span:not(.muted) { flex: 1; }
-.sidebar-layout-item select { height: 30px; font-size: var(--text-xs); max-width: 220px; }
+.sidebar-layout-item select { height: var(--btn-h-md); font-size: var(--text-xs); max-width: 220px; }
 
 /* === Row-highlight (Phase 16; restyled Phase 18d) ===
    Two-stage highlight applied to any list-page row when the user lands with
@@ -1038,11 +1056,11 @@ nav .nav-group-header:hover { background: var(--panel-2); color: var(--text-h); 
   font-size: var(--text-sm);
 }
 .topbar button {
-  height: 30px;
+  height: var(--btn-h-md);
   padding: 0 var(--space-3);
   font-size: var(--text-sm);
 }
-.topbar select { height: 30px; font-size: var(--text-sm); padding: 0 28px 0 var(--space-3); }
+.topbar select { height: var(--btn-h-md); font-size: var(--text-sm); padding: 0 28px 0 var(--space-3); }
 /* Responsive pass — the topbar's two `.row` groups (hamburger/toggle/user
    chip on one side, sound menu/language on the other) had no wrap fallback
    at all, so on a phone they simply overflowed off-screen edge to edge.
@@ -1434,7 +1452,7 @@ nav .nav-group-header:hover { background: var(--panel-2); color: var(--text-h); 
   padding-top: var(--space-1);
 }
 .pagination button {
-  height: 32px;
+  height: var(--btn-h-md);
   padding: 0 var(--space-3);
   font-size: var(--text-sm);
   display: inline-flex;
@@ -1547,7 +1565,7 @@ nav .nav-group-header:hover { background: var(--panel-2); color: var(--text-h); 
   border-radius: var(--radius-full);
 }
 .tab-row button {
-  height: 30px;
+  height: var(--btn-h-md);
   padding: 0 var(--space-3);
   font-size: var(--text-sm);
   background: transparent;
@@ -1678,7 +1696,7 @@ nav .nav-group-header:hover { background: var(--panel-2); color: var(--text-h); 
 .event-purge-btn {
   flex: none;
   width: 22px;
-  height: 22px;
+  height: var(--btn-h-sm);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1966,7 +1984,7 @@ nav .nav-group-header:hover { background: var(--panel-2); color: var(--text-h); 
   text-decoration: none;
   display: inline-flex;
   align-items: center;
-  height: 26px;
+  height: var(--btn-h-sm);
   transition: color 120ms, border-color 120ms, background 120ms;
 }
 .row-edit-btn:hover {
@@ -2177,7 +2195,7 @@ button.danger:disabled { background: var(--danger-disabled-bg); border-color: va
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
   padding: 0 var(--space-4);
-  height: 34px;
+  height: var(--btn-h-md);
   font-size: var(--text-sm);
   font-weight: 500;
   cursor: pointer;
@@ -2482,7 +2500,7 @@ code, pre { direction: ltr; unicode-bidi: bidi-override; }
 .sound-menu { position: relative; display: inline-flex; }
 .sound-btn {
   width: 36px;
-  height: 36px;
+  height: var(--btn-h-lg);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3090,7 +3108,7 @@ html[dir='rtl'] .data-table th {
    without a resize listener. */
 .crop-card { max-width: 720px; width: min(720px, 94vw); }
 .crop-shapes { gap: 6px; flex-wrap: wrap; margin-bottom: var(--space-3); }
-.crop-shapes button { height: 30px; padding: 0 12px; font-size: var(--text-sm); }
+.crop-shapes button { height: var(--btn-h-md); padding: 0 12px; font-size: var(--text-sm); }
 .crop-stage {
   position: relative;
   display: inline-block;
@@ -3655,7 +3673,7 @@ html[dir='rtl'] .data-table th {
      one of ~90 rows and dominated the values it was annotating. Overriding
      with an explicit height is the pattern this file already uses for the
      same reason (.topbar button 30px, .pagination button 32px). */
-  height: 26px;
+  height: var(--btn-h-sm);
   padding: 0 10px;
   cursor: pointer;
   white-space: nowrap;

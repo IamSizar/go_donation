@@ -237,6 +237,8 @@ const kmr: DeepPartial<typeof en> = {
     manage_link: 'ب رێڤەبرنا کەرتان',
   },
   feed_event: {
+    guest_register: 'دروستکرنا هەژمارا مێڤانی',
+    guest_login: 'چوونا ژۆرڤە یا مێڤانی',
     comment_submit: 'کۆمێنتا نی',
     login: 'چوونا ژوور', register: 'تۆمارکرنا نوو', role_select: 'هەلبژارتنا ڕۆلی',
     profile_update: 'نویکرنا پرۆفایلی', donation_submit: 'هنارتنا هەڤکاریێ',
