@@ -207,6 +207,51 @@ export function dayLabelFor(day: string, locale: string | undefined): string {
   return row[(locale ?? 'en').toLowerCase()] ?? row.en
 }
 
+/**
+ * Localizes the day names inside the free-text `availability` summary the
+ * mobile form produced — "Mon 09:00-17:00, Tue 09:00-17:00, …".
+ *
+ * WHY THIS EXISTS ALONGSIDE scheduleSummary()
+ * scheduleSummary reads the STRUCTURED `availability_schedule` column and is
+ * always the better answer, so callers try it first. But rows saved before
+ * that column existed have only this English string, and on those the
+ * dashboard was showing an Arabic operator seven English weekday
+ * abbreviations. The comment on the old fallback said the English "cannot be
+ * translated here" — that is true of arbitrary free text, and untrue of this
+ * string, whose day names are a closed set of seven tokens the app itself
+ * wrote.
+ *
+ * Only the DAY TOKENS are touched. The times are digits and separators and
+ * are left exactly as stored — this rewrites nothing it does not recognise,
+ * and a segment that does not match is passed through untouched rather than
+ * dropped, so an unexpected format degrades to today's behaviour instead of
+ * losing data.
+ */
+const EN_DAY_ABBREV: Record<string, DayKey> = {
+  mon: 'mon', tue: 'tue', wed: 'wed', thu: 'thu', fri: 'fri', sat: 'sat', sun: 'sun',
+  monday: 'mon', tuesday: 'tue', wednesday: 'wed', thursday: 'thu',
+  friday: 'fri', saturday: 'sat', sunday: 'sun',
+}
+
+export function localizeAvailabilityText(
+  text: string,
+  locale: string | undefined,
+): string {
+  if (!text.trim()) return text
+  let changed = false
+  const out = text.split(',').map((segment) => {
+    const m = /^(\s*)([A-Za-z]+)(\s.*)?$/.exec(segment)
+    if (!m) return segment
+    const key = EN_DAY_ABBREV[m[2].toLowerCase()]
+    if (!key) return segment
+    changed = true
+    return `${m[1]}${dayLabelFor(key, locale)}${m[3] ?? ''}`
+  })
+  // Unrecognised throughout: hand back the original string rather than a
+  // rebuilt copy, so nothing is subtly reformatted for no gain.
+  return changed ? out.join(',') : text
+}
+
 /// A localized summary of a stored `availability_schedule`.
 ///
 /// WHY THIS EXISTS
