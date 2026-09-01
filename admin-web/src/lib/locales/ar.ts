@@ -806,7 +806,7 @@ const ar: DeepPartial<typeof en> = {
                     completed_month: 'المبلغ المكتمل · هذا الشهر', active_campaigns: 'الحملات النشطة',
                     open_missions: 'المهام المفتوحة', open_tickets: 'التذاكر المفتوحة',
                     vs_last_month: 'مقابل {n} الشهر الماضي', donations_30d: 'المساهمات · آخر ٣٠ يومًا' },
-    users:        { view_active: 'الحسابات النشطة', view_archived: 'المؤرشفة', title: 'المستخدمون', new_user: '+ مستخدم جديد', search_placeholder: 'بحث بالهاتف / الاسم',
+    users:        { view_active: 'الحسابات النشطة', hide_guests: 'إخفاء الزوار', view_archived: 'المؤرشفة', title: 'المستخدمون', new_user: '+ مستخدم جديد', search_placeholder: 'بحث بالهاتف / الاسم',
                     guest_badge: 'زائر',
                     wallet_topup: 'شحن المحفظة',
                     wallet_topup_prompt: 'أدخل المبلغ لإضافته إلى محفظة هذا المستخدم (دينار عراقي):',
