@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/core/design/directional_icons.dart';
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/api/support_chat_result.dart';
+import 'package:flutter_application_1/modules/chat/widgets/support_chat_unavailable_notice.dart';
 import 'package:flutter_application_1/modules/support/screens/technical_support_screen.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/modules/bot/screens/bot_chat_screen.dart';
@@ -166,7 +167,7 @@ class MessagesScreen extends StatelessWidget {
                   if (!unavailable) return const SizedBox.shrink();
                   return const Padding(
                     padding: EdgeInsets.only(top: 10),
-                    child: _SupportChatUnavailableNotice(),
+                    child: SupportChatUnavailableNotice(),
                   );
                 },
               ),
@@ -815,61 +816,6 @@ class _BotAssistantCard extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// Shown when no staff account is configured to receive support chats.
-///
-/// Says what happened, then hands over the channels that work. It is not an
-/// error state: nothing has gone wrong from the user's side, there is nothing
-/// for them to retry, and the thing they actually wanted — to reach support —
-/// is still entirely possible.
-class _SupportChatUnavailableNotice extends StatelessWidget {
-  const _SupportChatUnavailableNotice();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsetsDirectional.all(14),
-      decoration: BoxDecoration(
-        color: AppThemeConfig.softSurface(context),
-        border: Border.all(color: AppThemeConfig.border(context)),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'chat_support_unavailable_title'.tr,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: AppThemeConfig.text(context),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'chat_support_unavailable_body'.tr,
-            style: TextStyle(
-              fontSize: 13,
-              height: 1.45,
-              color: AppThemeConfig.mutedText(context),
-            ),
-          ),
-          const SizedBox(height: 12),
-          // Full-width so it reads as the way forward rather than a footnote.
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () => Get.to(() => const TechnicalSupportScreen()),
-              child: Text('chat_support_unavailable_action'.tr),
-            ),
-          ),
-        ],
       ),
     );
   }

@@ -99,11 +99,17 @@ void main() {
       );
     });
 
-    test('_SupportChatUnavailableNotice is still present', () {
+    test('the unavailable notice is still present', () {
       // The brief is explicit: do not remove it. It stays as the guidance
       // shown specifically when chat is misconfigured.
+      //
+      // It lost its leading underscore when the events section's support door
+      // was given the same three-way handling: both doors hit the same
+      // endpoint and get the same 503, so they now share one notice, and a
+      // private class cannot be shared. The requirement is untouched — this
+      // screen must still show it.
       final source = _readMessagesScreen();
-      expect(source.contains('_SupportChatUnavailableNotice'), isTrue);
+      expect(source.contains('SupportChatUnavailableNotice'), isTrue);
     });
   });
 }

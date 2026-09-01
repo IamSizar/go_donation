@@ -27,7 +27,15 @@ sealed class SupportChatResult {
   /// [detail] is for the LOG only. It is the server's own sentence, in
   /// English, and putting it on an Arabic screen is the exact leak this app
   /// has spent the week removing.
-  const factory SupportChatResult.failed(String detail) = SupportChatFailed;
+  ///
+  /// [offline] separates "the request never reached a working server" from
+  /// "the server answered and refused", because the advice differs: "check
+  /// your connection" is useful in the first case and an outright lie in the
+  /// second. It is decided by [isOfflineFailure] at the point the exception is
+  /// still an exception — by the time this reaches a screen, only the string
+  /// is left and the distinction cannot be recovered.
+  const factory SupportChatResult.failed(String detail, {bool offline}) =
+      SupportChatFailed;
 }
 
 class SupportChatOpened extends SupportChatResult {
@@ -40,6 +48,10 @@ class SupportChatUnavailable extends SupportChatResult {
 }
 
 class SupportChatFailed extends SupportChatResult {
-  const SupportChatFailed(this.detail);
+  const SupportChatFailed(this.detail, {this.offline = false});
   final String detail;
+
+  /// True when the request never reached a working server (no connection,
+  /// TLS failure, or the 12s timeout) rather than being refused by one.
+  final bool offline;
 }

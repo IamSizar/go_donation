@@ -12,6 +12,7 @@
 // This was live in production — SUPPORT_USER_ID unset, no app_settings row —
 // and it is why «التواصل مع الدعم» appeared to do nothing at all.
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -138,5 +139,39 @@ void main() {
     // SupportChatUnavailable carries NO message at all, which is the point:
     // there is nothing for a caller to accidentally render.
     expect(result, isA<SupportChatUnavailable>());
+  });
+
+  // The advice differs and only one of them can be true: "check your
+  // connection" is useful when the phone is offline and an outright lie when
+  // the server answered and refused. By the time the result reaches a screen
+  // the exception is a string, so the distinction has to be decided here or
+  // not at all.
+  test('a transport failure is marked offline; a refusal is not', () async {
+    final dropped = _api((_) => throw const SocketException('no route'));
+    final refused = _api(
+      (_) => http.Response(
+        jsonEncode({'success': false, 'error': 'Database error'}),
+        500,
+        headers: {'content-type': 'application/json'},
+      ),
+    );
+
+    final droppedResult = await dropped.openSupportThread();
+    final refusedResult = await refused.openSupportThread();
+
+    expect(droppedResult, isA<SupportChatFailed>());
+    expect(
+      (droppedResult as SupportChatFailed).offline,
+      isTrue,
+      reason: 'a SocketException never reached a working server',
+    );
+    expect(refusedResult, isA<SupportChatFailed>());
+    expect(
+      (refusedResult as SupportChatFailed).offline,
+      isFalse,
+      reason:
+          'the server answered — telling this user to check their connection '
+          'sends them to fix something that is not broken',
+    );
   });
 }

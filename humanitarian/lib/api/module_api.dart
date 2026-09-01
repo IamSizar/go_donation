@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter_application_1/api/auth_session.dart';
 import 'package:flutter_application_1/api/links.dart';
 import 'package:flutter_application_1/api/support_chat_result.dart';
+import 'package:flutter_application_1/localization/failure_message.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/app_event_firestore.dart';
 import 'package:flutter_application_1/core/session_expiry.dart';
@@ -974,7 +975,9 @@ class ModuleApi {
                   http.post(uri, headers: headers, body: body))
               .timeout(_requestTimeout);
     } catch (e) {
-      return SupportChatResult.failed('$e');
+      // The only place the exception still has its TYPE. Past here it is a
+      // string, and offline can no longer be told from refused.
+      return SupportChatResult.failed('$e', offline: isOfflineFailure(e));
     }
 
     // Same ordering as postJson, and for the same reason: a rejected token can
