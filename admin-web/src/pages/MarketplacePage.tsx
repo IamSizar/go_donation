@@ -23,6 +23,7 @@ import { formatDateParts } from '../lib/dates'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
 import RowActionsMenu from '../components/RowActionsMenu'
+import IdWithNeedsAction from '../components/IdWithNeedsAction'
 
 const PRODUCT_CSV_COLUMNS: CsvColumn<Product>[] = [
   { header: 'id', get: (p) => p.id },
@@ -527,7 +528,8 @@ function OrdersTab() {
   }
 
   const columns: Column<MarketOrder>[] = [
-    { key: 'id', header: t('col.id'), width: '60px', cell: (o) => <strong>{fmtId(o.id)}</strong> },
+    { key: 'id', header: t('col.id'), width: '110px',
+      cell: (o) => <IdWithNeedsAction id={o.id} row={o as unknown as Record<string, unknown>} table="marketplace_orders" /> },
     {
       key: 'product',
       header: t('col.product'),

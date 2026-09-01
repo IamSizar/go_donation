@@ -17,9 +17,9 @@ import { type CsvColumn } from '../lib/csv'
 import { HighlightBanner, useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForStatus } from '../lib/statusColors'
 import PageHead from '../components/PageHead'
-import { fmtId } from '../lib/formatId'
 import { formatDateTime } from '../lib/dates'
 import RowActionsMenu from '../components/RowActionsMenu'
+import IdWithNeedsAction from '../components/IdWithNeedsAction'
 
 const TICKET_CSV_COLUMNS: CsvColumn<AdminTicket>[] = [
   { header: 'id', get: (t) => t.id },
@@ -169,7 +169,8 @@ export default function SupportPage() {
 
 
   const columns: Column<AdminTicket>[] = [
-    { key: 'id', header: tr('col.id'), width: '60px', cell: (t) => <strong>{fmtId(t.id)}</strong> },
+    { key: 'id', header: tr('col.id'), width: '110px',
+      cell: (t) => <IdWithNeedsAction id={t.id} row={t as unknown as Record<string, unknown>} table="support_tickets" /> },
     {
       key: 'user', header: tr('col.user'),
       cell: (t) => (

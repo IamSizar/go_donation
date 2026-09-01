@@ -17,6 +17,7 @@ import { stripeForStatus } from '../lib/statusColors'
 import { formatDateParts } from '../lib/dates'
 import PageHead from '../components/PageHead'
 import RowActionsMenu from '../components/RowActionsMenu'
+import { NeedsActionTag } from '../components/IdWithNeedsAction'
 
 const SPONSORSHIP_CSV_COLUMNS: CsvColumn<Sponsorship>[] = [
   { header: 'id', get: (s) => sponsorshipCode(s.id) },
@@ -188,8 +189,15 @@ export default function SponsorshipsPage() {
     {
       key: 'id',
       header: t('col.id'),
-      width: '70px',
-      cell: (s) => <code style={{ background: 'transparent', padding: 0 }}>{sponsorshipCode(s.id)}</code>,
+      width: '130px',
+      // Keeps sponsorshipCode()'s own rendering — the code is the identifier
+      // staff quote — and hangs the needs-action tag beside it.
+      cell: (s) => (
+        <span className="id-with-flag">
+          <code style={{ background: 'transparent', padding: 0 }}>{sponsorshipCode(s.id)}</code>
+          <NeedsActionTag row={s as unknown as Record<string, unknown>} table="sponsorships" />
+        </span>
+      ),
     },
     {
       key: 'donor',

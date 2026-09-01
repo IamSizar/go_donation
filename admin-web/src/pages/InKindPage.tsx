@@ -16,9 +16,9 @@ import { type CsvColumn } from '../lib/csv'
 import { HighlightBanner, useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForStatus } from '../lib/statusColors'
 import PageHead from '../components/PageHead'
-import { fmtId } from '../lib/formatId'
 import { formatDateTime } from '../lib/dates'
 import RowActionsMenu from '../components/RowActionsMenu'
+import IdWithNeedsAction from '../components/IdWithNeedsAction'
 
 const INKIND_CSV_COLUMNS: CsvColumn<AdminInKind>[] = [
   { header: 'id', get: (k) => k.id },
@@ -153,7 +153,8 @@ export default function InKindPage() {
 
 
   const columns: Column<AdminInKind>[] = [
-    { key: 'id', header: t('col.id'), width: '60px', cell: (k) => <strong>{fmtId(k.id)}</strong> },
+    { key: 'id', header: t('col.id'), width: '110px',
+      cell: (k) => <IdWithNeedsAction id={k.id} row={k as unknown as Record<string, unknown>} table="in_kind_donations" /> },
     {
       key: 'donor', header: t('col.donor'),
       cell: (k) => (
