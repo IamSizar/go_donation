@@ -1276,6 +1276,7 @@ const ckb: DeepPartial<typeof en> = {
   },
 
   detail: {
+    empty_fields: '{count} خانەی بەتاڵ',
     no_view: 'هیچ بینینی وردەکاری بۆ "{resource}" نییە.',
     field_volunteer_only: 'تەنها لە تۆمارکردنی خۆبەخشەکان کۆدەکرێتەوە',
     field_beneficiary_only: 'تەنها لە تۆمارکردنی مووستەحیقەکان کۆدەکرێتەوە',

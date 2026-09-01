@@ -1686,6 +1686,7 @@ const en = {
 
   // Read-only record detail page.
   detail: {
+    empty_fields: '{count} empty fields',
     no_view: 'No detail view for "{resource}".',
     field_volunteer_only: 'only collected for Volunteer registrations',
     field_beneficiary_only: 'only collected for Beneficiary registrations',

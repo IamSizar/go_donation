@@ -132,6 +132,16 @@ const FIELD_ORDER_TAIL = [
 
 // Stable: two keys in the same tier keep the order they arrived in, so an
 // unlisted column never jumps around between page loads.
+/**
+ * Suffix -> the `common.*` key naming that language. Mirrors the private
+ * LANG_TAG in lib/i18n.tsx, which uses it to append "(العربية)" to a label;
+ * here the same tag is shown as a chip instead, because the label is now
+ * shared by all four rows.
+ */
+const LANG_TAG_KEY: Record<string, string> = {
+  ar: 'lang_ar', sorani: 'lang_sorani', badini: 'lang_badini', en: 'lang_en',
+}
+
 function orderFields(entries: [string, unknown][]): [string, unknown][] {
   const rank = (key: string): number => {
     const head = FIELD_ORDER_HEAD.indexOf(key)
@@ -347,23 +357,91 @@ export default function DetailPage() {
             ([k]) => !META_KEYS.has(k) && !(isUser && USER_PROFILE_FIELD_BY_KEY[k]),
           ),
         )
+        // ─── One row per CONCEPT, not one per column ────────────────────
+        // A translated field arrives as four columns — `name`, `name_ar`,
+        // `name_sorani`, `name_badini` — and the page printed four rows for
+        // it. On a marketplace product that was 8 of 25 rows spent on two
+        // ideas, with the four versions of "the name" separated by whatever
+        // sorted between them.
+        //
+        // They are folded into a single row whose value stacks the languages,
+        // each behind a small tag. The grouping key is the same base that
+        // fieldLabelFor already derives when it strips the suffix to build
+        // the label, so nothing new decides what counts as a translation.
+        const LANG_SUFFIX = /^(.*)_(ar|sorani|badini|en)$/
+        const groups: { base: string; entries: [string, unknown][] }[] = []
+        const byBase = new Map<string, number>()
+        for (const [k, v] of flatEntries) {
+          const m = LANG_SUFFIX.exec(k)
+          // Only treat it as a translation when the BASE column is present
+          // too. Without that check a column that merely ends in `_en`
+          // ("children_en"? a future `signed_en`?) would be silently folded
+          // into a group of one and lose its own label.
+          const base = m && flatEntries.some(([kk]) => kk === m[1]) ? m[1] : k
+          const at = byBase.get(base)
+          if (at === undefined) {
+            byBase.set(base, groups.length)
+            groups.push({ base, entries: [[k, v]] })
+          } else {
+            groups[at].entries.push([k, v])
+          }
+        }
+
+        const isBlank = (v: unknown) => v === null || v === undefined || v === ''
+        const renderEmpty = (k: string) => {
+          const hint = isUser ? emptyFieldHint(k, t) : null
+          return hint
+            ? <span className="muted" title={hint}>— <em style={{ fontStyle: 'normal', fontSize: '0.9em' }}>({hint})</em></span>
+            : <span className="muted">—</span>
+        }
+
+        // A group is empty only when EVERY language of it is — an Arabic-only
+        // description is a filled field, not a blank one.
+        const filledGroups = groups.filter((g) => g.entries.some(([, v]) => !isBlank(v)))
+        const emptyGroups = groups.filter((g) => g.entries.every(([, v]) => isBlank(v)))
+
+        const renderGroup = (g: { base: string; entries: [string, unknown][] }) => (
+          <div key={g.base} className="detail-row">
+            <div className="detail-key" title={g.base}>{fieldLabel(g.base)}</div>
+            <div className="detail-value">
+              {g.entries.length === 1 ? (
+                isBlank(g.entries[0][1]) ? renderEmpty(g.entries[0][0]) : renderOne(g.entries[0][0], g.entries[0][1])
+              ) : (
+                <div className="lang-stack">
+                  {g.entries.map(([k, v]) => {
+                    const m = LANG_SUFFIX.exec(k)
+                    // The base column carries the English original, which has
+                    // no suffix to read a tag out of.
+                    const tag = m ? t('common.' + LANG_TAG_KEY[m[2]]) : t('common.lang_en')
+                    return (
+                      <div key={k} className="lang-line">
+                        <span className="lang-chip">{tag}</span>
+                        <span className="lang-text">{isBlank(v) ? renderEmpty(k) : renderOne(k, v)}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        )
+
         const flat = (
-          <div className="detail-grid">
-            {flatEntries.map(([k, v]) => (
-              <div key={k} className="detail-row">
-                <div className="detail-key" title={k}>{fieldLabel(k)}</div>
-                <div className="detail-value">{
-                  v === null || v === undefined || v === ''
-                    ? (() => {
-                        const hint = isUser ? emptyFieldHint(k, t) : null
-                        return hint
-                          ? <span className="muted" title={hint}>— <em style={{ fontStyle: 'normal', fontSize: '0.9em' }}>({hint})</em></span>
-                          : <span className="muted">—</span>
-                      })()
-                    : renderOne(k, v)
-                }</div>
-              </div>
-            ))}
+          <div className="stack" style={{ gap: 12 }}>
+            <div className="detail-grid">{filledGroups.map(renderGroup)}</div>
+            {/* ─── Empty fields, folded away ───────────────────────────────
+                A third of this page was "—". They are not DELETED: a blank
+                field is sometimes exactly what an operator is checking for,
+                and the count says how many there are so nothing is hidden
+                behind a guess. They are just not the first thing shown. */}
+            {emptyGroups.length > 0 && (
+              <details className="empty-fields">
+                <summary>
+                  {t('detail.empty_fields', { count: emptyGroups.length })}
+                </summary>
+                <div className="detail-grid">{emptyGroups.map(renderGroup)}</div>
+              </details>
+            )}
           </div>
         )
         if (!isUser) return flat

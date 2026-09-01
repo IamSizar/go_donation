@@ -1277,6 +1277,7 @@ const kmr: DeepPartial<typeof en> = {
   },
 
   detail: {
+    empty_fields: '{count} خانێن ڤالا',
     no_view: 'چ دیتنا وردەکاری بۆ "{resource}" نینە.',
     field_volunteer_only: 'تنێ د تۆمارکرنا خۆبەخشان دا تێتە کۆکرن',
     field_beneficiary_only: 'تنێ د تۆمارکرنا موستەحیقان دا تێتە کۆکرن',
