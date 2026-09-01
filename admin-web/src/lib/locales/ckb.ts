@@ -104,6 +104,7 @@ const ckb: DeepPartial<typeof en> = {
     communication_support: 'پەیوەندی و پشتگیری',
     comments_activities: 'لێدوان و چالاکییەکان',
     monitoring_reports: 'چاودێری و ڕاپۆرت',
+    access_control: 'دەستپێگەیشتن و ستاف',
     system_settings: 'ڕێکخستنی سیستەم',
     unsorted: 'ڕیزنەکراو',
   },
@@ -405,6 +406,7 @@ const ckb: DeepPartial<typeof en> = {
     sidebar_layout_item_count: '{n} ئایتم',
     sidebar_layout_reset: 'گەڕانەوە بۆ بنەڕەت',
     sidebar_layout_reset_ok: 'ڕووکاری لای لاڕێ گەڕایەوە بۆ بارودۆخی بنەڕەت.',
+    sidebar_layout_pinned: 'پێکەوە دەمێننەوە بۆ ئەوەی هەموو وەڵامی "کێ دەتوانێت بێتە ژوورەوە و چی بکات؟" لە یەک شوێندا بێت.',
   },
   gate: {
     title: 'بەشی پارێزراو',
