@@ -11,8 +11,6 @@ import 'package:flutter_application_1/modules/auth/screens/registration_form.dar
 import 'package:flutter_application_1/modules/auth/screens/task_verification_screen.dart';
 import 'package:flutter_application_1/modules/community/screens/community_services_section.dart';
 import 'package:flutter_application_1/modules/dashboard/screens/games_screen.dart';
-import 'package:flutter_application_1/modules/notifications/screens/notification_categories_screen.dart';
-import 'package:flutter_application_1/modules/notifications/screens/notifications_screen.dart';
 import 'package:flutter_application_1/modules/legal/screens/content_page_screen.dart';
 import 'package:flutter_application_1/modules/proposal/screens/our_work_screen.dart';
 import 'package:flutter_application_1/modules/proposal/screens/partners_screen.dart';
@@ -23,7 +21,6 @@ import 'package:flutter_application_1/modules/receipts/screens/aid_receipts_scre
 import 'package:flutter_application_1/modules/support/screens/support_section.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:flutter_application_1/widgets/settings_section.dart';
-import 'package:flutter_application_1/widgets/sound_vibration_row.dart';
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/modules/dashboard/controllers/role_dashboard_controller.dart';
 import 'package:get/get.dart';
@@ -221,6 +218,12 @@ class ProfileMenuScreen extends StatelessWidget {
           // The settings entry the owner asked to be able to see leads the
           // section it names; it used to sit mid-list between "Volunteer With
           // Us" and "Task Verification".
+          // ─── ONE ENTRY, NOT A SECOND SETTINGS SURFACE ────────────────────
+          // Language, appearance, notifications and sound used to sit loose
+          // here, directly under the tile that opens Control Settings — so the
+          // app had a settings SECTION and a settings SCREEN, and which
+          // preference lived where was arbitrary. They all live in the screen
+          // now; this is the door to it.
           const MenuSectionLabel('Settings'),
           MenuCard(
             children: [
@@ -233,19 +236,11 @@ class ProfileMenuScreen extends StatelessWidget {
                   color: AppThemeConfig.accent(context),
                   onTap: () => Get.to(() => const ControlSettingsScreen()),
                 ),
-              const LanguageRow(),
-              const DarkModeRow(),
-              NotificationsRow(
-                onOpenList: () => Get.to(() => const NotificationsScreen()),
-              ),
-              DrawerTile(
-                icon: Icons.notifications_active_outlined,
-                label: 'Alert categories',
-                color: AppThemeConfig.pending(context),
-                onTap: () =>
-                    Get.to(() => const NotificationCategoriesScreen()),
-              ),
-              const SoundVibrationRow(),
+              // A guest still needs the language switch, and Control Settings
+              // is closed to them — so for a guest ONLY, it stays here rather
+              // than becoming unreachable.
+              if (guest) const LanguageRow(),
+              if (guest) const DarkModeRow(),
             ],
           ),
 

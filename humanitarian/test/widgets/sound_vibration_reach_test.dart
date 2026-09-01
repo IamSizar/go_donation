@@ -41,8 +41,12 @@ import 'package:flutter_application_1/widgets/sound_vibration_row.dart';
 /// folded into Profile), kept in the list in case a sound door is ever added
 /// there directly. A sound switch belongs in one of them; `profile.dart`
 /// (assistant-only) does not count, which is the whole point.
+// control_settings_screen.dart joined the list — and profile_menu_screen left
+// it — when the loose preference rows moved off the profile menu and into
+// Settings & Preferences. The RULE this test enforces is unchanged: the
+// control must live in exactly one settings hub. Only the hub moved.
 const _settingsHubs = <String>[
-  'lib/modules/auth/screens/profile_menu_screen.dart',
+  'lib/modules/auth/screens/control_settings_screen.dart',
   'lib/widgets/settings_section.dart',
 ];
 

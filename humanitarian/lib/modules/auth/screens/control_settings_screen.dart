@@ -5,6 +5,11 @@ import 'package:flutter_application_1/modules/auth/screens/registration_form.dar
 import 'package:flutter_application_1/modules/auth/screens/payment_methods_screen.dart';
 import 'package:flutter_application_1/modules/auth/screens/privacy_security_screen.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
+import 'package:flutter_application_1/widgets/settings_section.dart';
+import 'package:flutter_application_1/widgets/sound_vibration_row.dart';
+import 'package:flutter_application_1/widgets/menu_grid.dart';
+import 'package:flutter_application_1/modules/notifications/screens/notifications_screen.dart';
+import 'package:flutter_application_1/modules/notifications/screens/notification_categories_screen.dart';
 import 'package:get/get.dart';
 
 /// Client note — "Control Settings and Preferences" (piece 2 of the
@@ -44,6 +49,41 @@ class ControlSettingsScreen extends StatelessWidget {
             subtitle: 'Control who can see your account details.',
             color: Colors.deepPurple,
             onTap: () => Get.to(() => const PrivacySecurityScreen()),
+          ),
+
+          // ─── THE PREFERENCES THEMSELVES ──────────────────────────────────
+          // Language, appearance, notifications and sound used to sit loose on
+          // the profile menu, under a "Settings" heading, immediately below
+          // the tile that opens THIS screen. So the menu had a settings
+          // section AND a settings screen, and which preference lived where
+          // was arbitrary — the owner's point: put them all in Settings and
+          // Preferences.
+          //
+          // The menu now carries one entry, and everything it names is here.
+          const SizedBox(height: 24),
+          Text(
+            'Preferences'.tr,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: AppThemeConfig.mutedText(context),
+            ),
+          ),
+          const SizedBox(height: 8),
+          MenuCard(
+            children: [
+              const LanguageRow(),
+              const DarkModeRow(),
+              // Notifications and its categories are ONE unit now, not two
+              // entries a row apart: the master switch, and the per-category
+              // refinement it governs, which is meaningless without it.
+              NotificationsRow(
+                onOpenList: () => Get.to(() => const NotificationsScreen()),
+                onOpenCategories: () =>
+                    Get.to(() => const NotificationCategoriesScreen()),
+              ),
+              const SoundVibrationRow(),
+            ],
           ),
         ],
       ),

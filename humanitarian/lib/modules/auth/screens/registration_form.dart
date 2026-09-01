@@ -87,16 +87,42 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
   /// registration field rules). Drives both rendering and submission.
   bool _isHidden(String ruleKey) => _hidden.contains(ruleKey);
 
+  /// One key per rule key, pointing at that field's first widget, so the form
+  /// can be scrolled to a field by name. Created lazily — a key is only ever
+  /// needed for a field that is actually rendered.
+  ///
+  /// The keys are attached by wrapping in [KeyedSubtree], which adds a node to
+  /// the element tree but no render object: the layout is byte-for-byte what
+  /// it was before, which is the whole reason for choosing it over a Padding
+  /// or a SizedBox with a key.
+  final Map<String, GlobalKey> _anchors = {};
+
+  GlobalKey _anchorFor(String ruleKey) =>
+      _anchors.putIfAbsent(ruleKey, GlobalKey.new);
+
+  /// Attaches [ruleKey]'s scroll anchor to the first widget of [children].
+  List<Widget> _anchored(String ruleKey, List<Widget> children) {
+    if (children.isEmpty) return children;
+    return [
+      KeyedSubtree(key: _anchorFor(ruleKey), child: children.first),
+      ...children.skip(1),
+    ];
+  }
+
   /// Renders [children] unless ANY of [ruleKeys] is hidden. Used for fields
   /// that live in a shared panel but also have a role-specific rule key, so
   /// the admin can switch them off either globally or for one role.
   List<Widget> _unlessHiddenAny(List<String> ruleKeys, List<Widget> children) =>
-      ruleKeys.any(_hidden.contains) ? const [] : children;
+      ruleKeys.any(_hidden.contains)
+      ? const []
+      // Anchored under the FIRST rule key: the others are the same field seen
+      // under a different role's name, so they share one place on screen.
+      : _anchored(ruleKeys.first, children);
 
   /// Renders [children] only when [ruleKey] isn't hidden. Spread into a
   /// Column's children: `..._unlessHidden('key', [...])`.
   List<Widget> _unlessHidden(String ruleKey, List<Widget> children) =>
-      _hidden.contains(ruleKey) ? const [] : children;
+      _hidden.contains(ruleKey) ? const [] : _anchored(ruleKey, children);
 
   /// Like [_valueOf] but for shared fields carrying a role-specific rule key.
   String _valueOfAny(List<String> ruleKeys, String value) =>
@@ -433,6 +459,25 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
         _prefillFrom(profile);
       }
     });
+    _prefillLoaded = true;
+    _maybeScrollToFirstMissing();
+  }
+
+  /// Both halves of "what is missing" have to be in before the form can jump
+  /// anywhere: the ANSWERS come from the profile, the QUESTIONS from the admin
+  /// rules, and they arrive on two independent futures. Whichever lands second
+  /// does the scrolling; whichever lands first does nothing.
+  bool _prefillLoaded = false;
+  bool _rulesLoaded = false;
+
+  void _maybeScrollToFirstMissing() {
+    if (!widget.editMode || !_prefillLoaded || !_rulesLoaded) return;
+    // One frame later, because the fields the anchors hang off have not been
+    // laid out yet at the moment setState is called — their positions, which
+    // is the whole basis for choosing a target, do not exist until they are.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _scrollToFirstMissing();
+    });
   }
 
   @override
@@ -464,6 +509,8 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
           _required = rules.required;
           _hidden = rules.hidden;
         });
+        _rulesLoaded = true;
+        _maybeScrollToFirstMissing();
       }
     });
   }
@@ -1093,6 +1140,8 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
         labelKey: 'reg_volunteer_social_other',
       ),
     };
+    _missingRuleKeys.clear();
+    String? firstLabel;
     // Client spec, "Future Development": every field's Required/Optional
     // state comes from the admin-configurable field rules
     // (registration_field_rules, editable from the Admin Panel) — there is
@@ -1105,9 +1154,60 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
       // not block submission even if it's also flagged required.
       if (_isHidden(key)) continue;
       final c = checks[key];
-      if (c != null && c.applies && !c.filled) return c.labelKey;
+      if (c != null && c.applies && !c.filled) {
+        _missingRuleKeys.add(key);
+        firstLabel ??= c.labelKey;
+      }
     }
-    return null;
+    return firstLabel;
+  }
+
+  /// Every required-but-empty rule key from the last [_firstMissingRequired]
+  /// run. Recomputed there rather than kept in sync, so it can never describe
+  /// a state the validator disagrees with.
+  final List<String> _missingRuleKeys = [];
+
+  /// Scrolls the form to the topmost field the user still has to fill in.
+  ///
+  /// WHY THE TOPMOST AND NOT `_required.first`: `_required` is the admin's
+  /// rule set, and nothing orders it by where the fields sit on screen. Jumping
+  /// to whichever one happened to come back first would scroll PAST earlier
+  /// gaps as often as not, so the person fixes one field and is left above
+  /// three more they never saw. The anchors' real y positions are the only
+  /// honest source of "first" here.
+  ///
+  /// Silent when nothing is missing, when the form is not laid out yet, or
+  /// when the missing field has no anchor (a baseline field validated in
+  /// _submit rather than by the rules) — in every one of those cases the form
+  /// simply opens at the top, which is the old behaviour.
+  void _scrollToFirstMissing() {
+    _firstMissingRequired();
+    if (_missingRuleKeys.isEmpty) return;
+
+    BuildContext? topmost;
+    double topmostY = double.infinity;
+    for (final key in _missingRuleKeys) {
+      final ctx = _anchors[key]?.currentContext;
+      if (ctx == null) continue;
+      final box = ctx.findRenderObject();
+      if (box is! RenderBox || !box.hasSize) continue;
+      final y = box.localToGlobal(Offset.zero).dy;
+      if (y < topmostY) {
+        topmostY = y;
+        topmost = ctx;
+      }
+    }
+    if (topmost == null) return;
+
+    Scrollable.ensureVisible(
+      topmost,
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeOutCubic,
+      // A tenth of the way down rather than flush to the top edge: the field's
+      // own label sits above it, and a field pinned to the very top reads as
+      // though the form starts there.
+      alignment: 0.1,
+    );
   }
 
   @override
