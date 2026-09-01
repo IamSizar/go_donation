@@ -88,17 +88,30 @@ dev_dependencies:
   # mark. Run: dart run flutter_launcher_icons
   flutter_launcher_icons: ^0.14.1
 
-# BalanceNex launcher-icon config. The gold/black balanced-leaves mark sits on
-# a near-white background; iOS/Android apply their own corner masking. The
-# Android adaptive icon uses the same near-white as the background so the mark
-# foreground stays centered within the safe zone.
+# BalanceNex launcher-icon config. The teal mark sits on a near-white plate;
+# iOS and Android apply their own corner masking, so the source stays square.
+#
+# THREE SOURCES, NOT ONE, because Android draws the icon three different ways
+# and one file cannot serve all of them:
+#   image_path      — the flat square icon (iOS, and Android pre-adaptive).
+#   ..._foreground  — transparent, and drawn SMALLER: a launcher may crop the
+#                     adaptive icon to a circle of roughly 66% of the canvas,
+#                     so a full-bleed foreground loses its edges on some
+#                     devices. It used to be handed the square icon, white
+#                     plate and all, which is why the plate showed through as
+#                     a visible box on round-icon launchers.
+#   ..._monochrome  — the same silhouette in flat white on transparency, for
+#                     Android 13+ themed icons. The launcher tints this to the
+#                     wallpaper palette, so the brand colour must NOT be baked
+#                     in; a coloured file here comes out as a tinted blob.
 flutter_launcher_icons:
   android: true
   ios: true
   remove_alpha_ios: true
   image_path: "assets/branding/balancenex_icon.png"
   adaptive_icon_background: "#FEFEFE"
-  adaptive_icon_foreground: "assets/branding/balancenex_icon.png"
+  adaptive_icon_foreground: "assets/branding/balancenex_icon_foreground.png"
+  adaptive_icon_monochrome: "assets/branding/balancenex_icon_monochrome.png"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
