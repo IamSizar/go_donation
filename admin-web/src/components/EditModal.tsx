@@ -22,7 +22,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { describeError } from '../lib/api'
-import { useI18n, useStatusLabel } from '../lib/i18n'
+import { useFieldLabel, useI18n, useStatusLabel } from '../lib/i18n'
 import FileInput from './FileInput'
 import type { ShapeKey } from './CropDialog'
 import GalleryInput from './GalleryInput'
@@ -34,6 +34,18 @@ export type FieldSpec = {
   key: string                  // JSON key sent to backend + initial values key
   label: string                // shown above the input (English fallback)
   labelKey?: string            // i18n key; when set, resolved via t() instead of `label`
+  // A raw DB column key (e.g. 'tribe_clan'), resolved through fieldLabelFor's
+  // dbfield.* -> col.* -> field.* walk — the SAME resolver the read-only detail
+  // page uses, so a column is worded identically wherever it appears.
+  //
+  // Why this exists rather than another `labelKey`: `labelKey` is a plain
+  // t() lookup, so it renders the key itself when that one namespace has no
+  // entry. Every profile column was pointed at `dbfield.<key>`, but 63 of the
+  // 98 are translated under `field.<key>` instead — so the New/Edit User modal
+  // printed raw keys like `DBFIELD.TRIBE_CLAN` at an Arabic operator while the
+  // correct Arabic sat one namespace away. Resolving through the shared walk
+  // finds it wherever it lives. `labelField` wins over `labelKey`.
+  labelField?: string
   type: FieldType
   options?: string[]           // for type='select'
   optionLabels?: Record<string, string> // for type='select': value → display label (else statusLabel(value))
@@ -137,6 +149,18 @@ function cleanFieldValue(f: FieldSpec, raw: string): string {
 export default function EditModal({ open, title, initial, fields: declaredFields, onSave, onClose, mode = 'edit', saveLabel, loading = false, loadError = null, onRetry }: Props) {
   const { t } = useI18n()
   const statusLabel = useStatusLabel()
+  const fieldLabel = useFieldLabel()
+
+  /**
+   * The words shown above one input.
+   *
+   * Order: `labelField` (namespace walk) -> `labelKey` (single lookup) ->
+   * `label` (the English literal every FieldSpec carries as a last resort).
+   * Both label sites below go through this, so the validation message names a
+   * box exactly as the box is labelled.
+   */
+  const labelOf = (f: FieldSpec): string =>
+    f.labelField ? fieldLabel(f.labelField) : f.labelKey ? t(f.labelKey) : f.label
 
   // H10 — a field whose CURRENT value arrived redacted is locked, wherever it
   // appears. Decided from the VALUE the server actually sent rather than from
@@ -275,7 +299,7 @@ export default function EditModal({ open, title, initial, fields: declaredFields
       if (f.required) {
         const v = (values[f.key] ?? '').trim()
         if (v === '') {
-          const lbl = f.labelKey ? t(f.labelKey) : f.label
+          const lbl = labelOf(f)
           setErr(`${lbl} ${t('common.required')}.`)
           return
         }
@@ -364,7 +388,7 @@ export default function EditModal({ open, title, initial, fields: declaredFields
               const body = (() => {
               const v = values[f.key] ?? ''
               const setV = (next: string) => setValues((m) => ({ ...m, [f.key]: next }))
-              const label = f.labelKey ? t(f.labelKey) : f.label
+              const label = labelOf(f)
               const placeholder = f.placeholderKey ? t(f.placeholderKey) : f.placeholder
               const dir = f.dir ?? 'auto'
               const ref = i === 0 ? firstRef : undefined
