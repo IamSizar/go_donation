@@ -3812,3 +3812,83 @@ html[dir='rtl'] .data-table th {
   color: #1b1200;
   background: var(--tone-warn-fg-strong, #f59e0b);
 }
+
+/* ═══ CMS list item — collapsed until edited ══════════════════════════════
+   Five pages (city/media/marketplace categories, city sectors, sponsorship
+   types) rendered every item's whole edit form at once. Measured live:
+   /city-categories was 14,608px, about twenty-one screens, on which every
+   row looked like every other row. See components/CmsItemCard.tsx. */
+.cms-item {
+  padding: 0;
+  overflow: hidden;
+}
+.cms-item-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  /* The whole strip is the hit target, not the marker: a disclosure triangle
+     is not something to ask anyone to aim at, and the name is what people go
+     for anyway. */
+  min-height: 44px;
+  /* Reserves the strip the reorder buttons are placed into, so a long name
+     ellipsizes before it reaches them instead of sliding underneath.
+     LOGICAL, not the padding shorthand: the shorthand is physical, and on
+     this RTL dashboard it would have put the reserved space on the wrong
+     side — under the title rather than under the buttons. */
+  padding-block: var(--space-2);
+  padding-inline-start: var(--space-4);
+  padding-inline-end: 96px;
+  cursor: pointer;
+  list-style: none;
+  font-weight: 600;
+  color: var(--color-text-h, var(--text-h));
+  transition: background 150ms ease;
+}
+.cms-item-head::-webkit-details-marker { display: none; }
+/* A chevron that rotates, rather than the UA triangle, so it matches the nav
+   groups and the empty-field fold elsewhere on the dashboard. */
+.cms-item-head::before {
+  content: '';
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border-inline-end: 2px solid var(--muted);
+  border-block-end: 2px solid var(--muted);
+  transform: rotate(-45deg);
+  transition: transform 150ms ease;
+}
+.cms-item[open] > .cms-item-head::before { transform: rotate(45deg); }
+.cms-item-head:hover { background: var(--color-surface-2); }
+.cms-item-head:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px rgba(16, 185, 129, 0.45);
+}
+.cms-item-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Reorder controls sit under the summary rather than inside it — a button
+   nested in a <summary> has its click fight the disclosure toggle. Absolutely
+   placed onto the header's line so they still read as part of that row. */
+.cms-item { position: relative; }
+.cms-item-actions {
+  position: absolute;
+  inset-block-start: var(--space-2);
+  inset-inline-end: var(--space-4);
+}
+.cms-item-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: 0 var(--space-4) var(--space-4);
+  border-block-start: 1px solid var(--color-border);
+  padding-block-start: var(--space-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cms-item-head,
+  .cms-item-head::before { transition: none; }
+}
