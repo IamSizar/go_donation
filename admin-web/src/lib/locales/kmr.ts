@@ -1288,6 +1288,9 @@ const kmr: DeepPartial<typeof en> = {
     route: 'رێچک: {path}',
   },
 
+  profile: {
+    rules_mode: 'رێزکێن خانان نیشا بدە',
+  },
   fieldrule: {
     // ─── NEWLY WRITTEN KURDISH — needs a native reviewer ─────────────────
     // See the note in ckb.ts: these have no counterpart in the Flutter app to
@@ -1299,6 +1302,7 @@ const kmr: DeepPartial<typeof en> = {
       volunteers: 'خۆبەخش',
       unknown: 'بکارئینەرێن ڤی رۆلی',
     },
+    short: { required: 'پێدڤی', optional: 'بژارتە', hidden: 'گرتی' },
     scope: {
       required: 'پێدڤی یە بۆ هەمی {role}',
       optional: 'بژارتەیە بۆ هەمی {role}',

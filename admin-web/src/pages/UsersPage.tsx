@@ -13,12 +13,14 @@ import { buildEditUserFields, buildNewUserFields, flattenForEdit } from '../lib/
 import { useUserEditProfile } from '../lib/useUserEditProfile'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../lib/toast'
-import { useI18n } from '../lib/i18n'
+import { useFieldLabel, useI18n } from '../lib/i18n'
 import { type CsvColumn } from '../lib/csv'
 import { formatPhone } from '../lib/phone'
 import { usePermission } from '../lib/permissions'
 import { useFieldRules } from '../lib/fieldRules'
 import { rulePrefixForRole, useUserFieldRules } from '../lib/fieldRuleColumns'
+import FieldRuleCell from '../components/FieldRuleCell'
+import type { FieldSpec } from '../components/EditModal'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
 import { formatDateParts } from '../lib/dates'
@@ -105,6 +107,7 @@ export default function UsersPage() {
   const [refreshTick, setRefreshTick] = useState(0)
   const toast = useToast()
   const { t } = useI18n()
+  const fieldLabel = useFieldLabel()
   const { user: authUser } = useAuth()
   const amSuper = isSuperAdmin(authUser)
   const { state: newUserFieldState } = useFieldRules('user_')
@@ -555,6 +558,46 @@ export default function UsersPage() {
     }
   }
 
+  /**
+   * The registration-rule control (required / optional / off) under each
+   * field of the New User and Edit User forms — the owner asked for it "on
+   * each field" here, as well as on the Field Rules page and the detail view.
+   *
+   * roleOf: the rule is per ROLE, and the two modals learn the role
+   * differently. Editing, it is the account's own role. Creating, the operator
+   * picks it inside the form — so the control has to follow the نوع المستخدم
+   * select as they change it, which is why this reads `values` rather than
+   * closing over a fixed id.
+   *
+   * Everything the control needs to be SAFE already lives in FieldRuleCell:
+   * it never says a bare "Required" (it says "Required for all volunteers"),
+   * and nothing applies until confirmed. This only decides WHERE it appears.
+   */
+  const renderRuleFor = (accountRoleId?: number) =>
+    (f: FieldSpec, values: Record<string, string>) => {
+      // The account-level boxes (phone, role, username, password) are not
+      // registration fields, so no rule row governs them.
+      if (!f.labelField) return null
+      // roleLabelToId returns 0 for "no role I know", which is not a role id
+      // — normalise it to undefined so rulePrefixForRole rejects it below.
+      const picked = roleLabelToId(values.role ?? '')
+      const roleId = accountRoleId ?? (picked === 0 ? undefined : picked)
+      // A role with no registration form of its own — staff — has no rules to
+      // show. rulePrefixForRole is the same guard the Edit form uses.
+      if (rulePrefixForRole(roleId) === null) return null
+      if (editFieldRules.loading || editFieldRules.error) return null
+      const rule = editFieldRules.ruleFor(f.key, roleId)
+      return (
+        <FieldRuleCell
+          rule={rule}
+          roleId={roleId}
+          fieldLabel={f.labelField ? fieldLabel(f.labelField) : f.label}
+          canEdit={amSuper}
+          onChanged={editFieldRules.reload}
+        />
+      )
+    }
+
   return (
     <div className="stack">
       <PageHead>
@@ -625,6 +668,9 @@ export default function UsersPage() {
         onRetry={reloadEditProfile}
         onSave={(patch) => handleSave(editing!, patch)}
         onClose={() => setEditing(null)}
+        renderFieldExtra={renderRuleFor(
+          editing?.role_id != null ? Number(editing.role_id) : undefined,
+        )}
       />
       <EditModal
         open={creating}
@@ -633,6 +679,7 @@ export default function UsersPage() {
         fields={newUserFields}
         onSave={handleCreate}
         onClose={() => setCreating(false)}
+        renderFieldExtra={renderRuleFor()}
       />
       <ConfirmDialog
         open={deleting !== null}

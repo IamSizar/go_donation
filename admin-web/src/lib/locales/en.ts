@@ -1898,6 +1898,7 @@ const en = {
   // Account detail page — the grouped registration profile
   // (components/UserProfileSections.tsx).
   profile: {
+    rules_mode: 'Show field rules',
     group: {
       account: 'Account',
       identity: 'Identity',
@@ -1942,6 +1943,9 @@ const en = {
       volunteers: 'volunteers',
       unknown: 'users of this role',
     },
+    // Short forms for the segmented control, where the role is carried by
+    // the group's aria-label and the confirmation rather than by each button.
+    short: { required: 'Required', optional: 'Optional', hidden: 'Off' },
     scope: {
       required: 'Required for all {role}',
       optional: 'Optional for all {role}',

@@ -26,7 +26,8 @@
 // shows one PERSON, so the control names the role in every label and confirms
 // before it writes.
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { ChevronDown, ChevronLeft } from 'lucide-react'
 import { assetUrl } from '../lib/api'
 import { useI18n, useFieldLabel } from '../lib/i18n'
 import FieldRuleCell from './FieldRuleCell'
@@ -281,6 +282,38 @@ export default function UserProfileSections({
   const fieldRules = useUserFieldRules()
   const columnRules = fieldRules.rulesFor(roleId)
 
+  // Which sections are open. The FIRST one starts open so the page does not
+  // greet the operator with thirteen closed boxes and nothing to read; every
+  // other section is a deliberate click.
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>(
+    () => ({ [USER_PROFILE_GROUPS[0].titleKey]: true }),
+  )
+  // Rule controls are opt-in — see the toggle below for why.
+  const [rulesMode, setRulesMode] = useState(false)
+
+  /**
+   * "9 / 14" per section: how many of its fields this person actually filled
+   * in. It is what makes a collapsed section honest — an operator can see
+   * there is nothing in `الصحة` without opening it, which is the whole reason
+   * collapsing is safe here.
+   *
+   * A field counts as filled when it holds something other than empty string,
+   * null or undefined. `0` and `false` COUNT: "0 children" is an answer, and
+   * treating it as blank would under-report a section that is complete.
+   */
+  const filledCounts = useMemo(() => {
+    const out: Record<string, { filled: number; total: number }> = {}
+    for (const group of USER_PROFILE_GROUPS) {
+      let filled = 0
+      for (const f of group.fields) {
+        const v = item[f.key]
+        if (v !== undefined && v !== null && String(v).trim() !== '') filled++
+      }
+      out[group.titleKey] = { filled, total: group.fields.length }
+    }
+    return out
+  }, [item])
+
   return (
     <div className="stack" style={{ gap: 24 }}>
       {fieldRules.error && (
@@ -298,27 +331,79 @@ export default function UserProfileSections({
         </p>
       )}
 
-      {USER_PROFILE_GROUPS.map((group) => (
-        <section key={group.titleKey} className="stack" style={{ gap: 12 }}>
-          <h2 style={{ margin: 0, fontSize: '1.05rem' }}>{t(group.titleKey)}</h2>
-          <div className="detail-grid">
-            {group.fields.map((field) => (
-              <ProfileFieldRow
-                key={field.key}
-                field={field}
-                value={item[field.key]}
-                roleId={roleId}
-                privacyHidden={privacyHidden}
-                renderValue={renderValue}
-                onOpenPhoto={(src, label) => setPhoto({ src, label })}
-                rule={fieldRules.loading || fieldRules.error ? undefined : columnRules[field.key]}
-                canEditFieldRules={canEditFieldRules}
-                onRuleChanged={fieldRules.reload}
-              />
-            ))}
-          </div>
-        </section>
-      ))}
+      {/* ─── Rules mode ────────────────────────────────────────────────────
+          The rule control repeats on ~90 rows. Showing all ninety at once
+          turned a profile into a configuration screen: an operator who opened
+          this page to READ somebody's details had to look past ninety
+          controls to do it. So they are off by default and revealed together.
+
+          It is a toggle rather than a separate screen because the rule
+          belongs to the field it sits on — the owner's whole point in asking
+          for it here — and because turning it on leaves every value in place
+          rather than navigating away from the person you were reading. */}
+      {canEditFieldRules && !fieldRules.error && (
+        <label className="checkbox-field">
+          <input
+            type="checkbox"
+            checked={rulesMode}
+            onChange={(e) => setRulesMode(e.target.checked)}
+          />
+          {t('profile.rules_mode')}
+        </label>
+      )}
+
+      {USER_PROFILE_GROUPS.map((group) => {
+        const open = openSections[group.titleKey] ?? false
+        const stats = filledCounts[group.titleKey]
+        return (
+          <section key={group.titleKey} className="profile-section">
+            {/* ─── Collapsed by default ────────────────────────────────────
+                Thirteen sections and 121 rows made this page 10,000px — about
+                fourteen screens — and every visit started at the top of all
+                of it. Collapsed, the same page is one screen of headings, and
+                the count on each says whether it is worth opening, so nothing
+                is hidden behind a guess. */}
+            <button
+              type="button"
+              className="profile-section-head"
+              aria-expanded={open}
+              onClick={() =>
+                setOpenSections((prev) => ({ ...prev, [group.titleKey]: !open }))
+              }
+            >
+              {open ? <ChevronDown size={16} /> : <ChevronLeft size={16} />}
+              <span className="profile-section-title">{t(group.titleKey)}</span>
+              {/* Filled-of-total, so an empty section reads as empty from the
+                  outside instead of after opening it. */}
+              <span className="profile-section-count">
+                {stats.filled} / {stats.total}
+              </span>
+            </button>
+            {open && (
+              <div className="detail-grid">
+                {group.fields.map((field) => (
+                  <ProfileFieldRow
+                    key={field.key}
+                    field={field}
+                    value={item[field.key]}
+                    roleId={roleId}
+                    privacyHidden={privacyHidden}
+                    renderValue={renderValue}
+                    onOpenPhoto={(src, label) => setPhoto({ src, label })}
+                    rule={
+                      !rulesMode || fieldRules.loading || fieldRules.error
+                        ? undefined
+                        : columnRules[field.key]
+                    }
+                    canEditFieldRules={canEditFieldRules}
+                    onRuleChanged={fieldRules.reload}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+        )
+      })}
 
       <DocumentsSection documents={documents} onOpenPhoto={(src, label) => setPhoto({ src, label })} />
 

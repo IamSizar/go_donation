@@ -19,7 +19,7 @@
 // can render with a custom `render` field — but for Phase 10 these four cover
 // every column we care about.
 
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { describeError } from '../lib/api'
 import { useFieldLabel, useI18n, useStatusLabel } from '../lib/i18n'
@@ -130,6 +130,20 @@ type Props = {
   loading?: boolean
   loadError?: string | null
   onRetry?: () => void
+  /**
+   * Extra content rendered directly under one field's control.
+   *
+   * Exists for the registration-rule control (required / optional / off) that
+   * the owner asked to have on every field of the New User form, without
+   * EditModal itself learning what a field rule is — it is the generic edit
+   * form for a dozen resources and most of them have none.
+   *
+   * `values` is handed over because a rule's SCOPE can depend on the form's
+   * own state: in the New User modal the role is picked inside the form, so
+   * which role a rule would apply to changes while the operator fills it in.
+   * Return null for a field that should carry nothing.
+   */
+  renderFieldExtra?: (field: FieldSpec, values: Record<string, string>) => ReactNode
 }
 
 function toInputValue(v: unknown): string {
@@ -146,7 +160,7 @@ function cleanFieldValue(f: FieldSpec, raw: string): string {
   return canonicalPhone(raw) || stripped
 }
 
-export default function EditModal({ open, title, initial, fields: declaredFields, onSave, onClose, mode = 'edit', saveLabel, loading = false, loadError = null, onRetry }: Props) {
+export default function EditModal({ open, title, initial, fields: declaredFields, onSave, onClose, mode = 'edit', saveLabel, loading = false, loadError = null, onRetry, renderFieldExtra }: Props) {
   const { t } = useI18n()
   const statusLabel = useStatusLabel()
   const fieldLabel = useFieldLabel()
@@ -503,10 +517,22 @@ export default function EditModal({ open, title, initial, fields: declaredFields
                 </label>
               )
               })()
+              // Anything the PAGE wants to hang off this field — today the
+              // registration-rule control (required / optional / off).
+              //
+              // A render prop rather than the control itself, so EditModal
+              // keeps knowing nothing about field rules: it is the generic
+              // edit form for a dozen resources, and most of them have no
+              // rules at all. `values` is passed because the rule's SCOPE can
+              // depend on the form's own state — in the New User modal the
+              // role is chosen inside the form, so which role a rule applies
+              // to changes as the operator picks one.
+              const extra = renderFieldExtra?.(f, values)
               return (
                 <Fragment key={f.key}>
                   {heading}
                   {body}
+                  {extra && <div className="form-row field-rule-row">{extra}</div>}
                 </Fragment>
               )
             })}

@@ -1794,6 +1794,7 @@ const ar: DeepPartial<typeof en> = {
   },
   // صفحة تفاصيل الحساب — ملف التسجيل مقسّمًا إلى أقسام.
   profile: {
+    rules_mode: 'إظهار قواعد الحقول',
     group: {
       account: 'الحساب',
       identity: 'الهوية',
@@ -1829,6 +1830,7 @@ const ar: DeepPartial<typeof en> = {
       volunteers: 'المتطوعين',
       unknown: 'مستخدمي هذا الدور',
     },
+    short: { required: 'مطلوب', optional: 'اختياري', hidden: 'مخفي' },
     scope: {
       required: 'إلزامي لكل {role}',
       optional: 'اختياري لكل {role}',
