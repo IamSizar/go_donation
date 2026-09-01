@@ -3,6 +3,8 @@ import 'package:get/get.dart';
 
 class AppTranslations extends Translations {
   static const Map<String, String> _en = {
+    'Your profile has been updated.': 'Your profile has been updated.',
+    'Could not load your profile. Please try again.': 'Could not load your profile. Please try again.',
     // ─── B1 · notification_type vocabulary ───
     // The filter dropdown in الإشعارات is built from the distinct
     // notification_type values on whatever rows the API returned, so the
@@ -3101,6 +3103,8 @@ class AppTranslations extends Translations {
   };
 
   static const Map<String, String> _ar = {
+    'Your profile has been updated.': 'تم تحديث ملفك الشخصي.',
+    'Could not load your profile. Please try again.': 'تعذّر تحميل ملفك الشخصي. حاول مرة أخرى.',
     // ─── B1 · notification_type vocabulary ───
     // The filter dropdown in الإشعارات is built from the distinct
     // notification_type values on whatever rows the API returned, so the
@@ -5888,6 +5892,8 @@ class AppTranslations extends Translations {
   };
 
   static final Map<String, String> _sorani = {
+    'Your profile has been updated.': 'پرۆفایلەکەت نوێ کرایەوە.',
+    'Could not load your profile. Please try again.': 'نەتوانرا پرۆفایلەکەت باربکرێت. دووبارە هەوڵ بدەرەوە.',
     'city_social_links': 'بەستەرەکانی سۆشیال',
     'city_closed_now': 'ئێستا داخراوە',
     'city_open_now': 'ئێستا کراوەیە',
@@ -8177,6 +8183,8 @@ class AppTranslations extends Translations {
   };
 
   static final Map<String, String> _badini = {
+    'Your profile has been updated.': 'پرۆفایلا تە هاتە نویکرن.',
+    'Could not load your profile. Please try again.': 'پرۆفایلا تە نەهاتە بارکرن. دیسا بجەربینە.',
     'city_social_links': 'گرێدانێن سۆشیال',
     'city_closed_now': 'نوکە گرتیە',
     'city_open_now': 'نوکە ڤەکریە',

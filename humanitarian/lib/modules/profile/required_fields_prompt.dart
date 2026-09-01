@@ -38,7 +38,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-import '../auth/screens/edit_profile.dart';
+import '../auth/screens/registration_form.dart';
 
 import 'package:flutter_application_1/api/profile_api.dart';
 import 'package:flutter_application_1/api/registration_api.dart';
@@ -253,8 +253,23 @@ class _RequiredFieldsPromptState extends State<RequiredFieldsPrompt> {
   /// EditProfilePage, not the profile menu: the prompt says details are
   /// missing, so it should land on the form that takes them, not one screen
   /// short of it.
-  void _openEditProfile() {
-    Get.to(() => const EditProfilePage());
+  /// It then pointed at EditProfilePage, which was closer but still a dead
+  /// end: that screen edits FOUR fields — name, address, gender, photo — and
+  /// this banner fires when a REGISTRATION field is missing. Sending somebody
+  /// to a form that cannot show what it is asking for is worse than offering
+  /// no button at all.
+  ///
+  /// So it opens the registration form in edit mode: the same form, driven by
+  /// the same field rules, prefilled with what they already entered. See
+  /// RegistrationFormPage.editMode for why that form and not a new one.
+  ///
+  /// The push is awaited so the banner can RE-CHECK afterwards — filling the
+  /// fields in should make it disappear, not leave it sitting there until the
+  /// next launch, which would read as "that did not work".
+  Future<void> _openEditProfile() async {
+    await Get.to<bool>(() => const RegistrationFormPage(editMode: true));
+    if (!mounted) return;
+    await _load();
   }
 
   @override
