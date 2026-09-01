@@ -25,6 +25,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
+import 'package:flutter_application_1/core/widgets/app_pressable.dart';
 
 /// A small heading above a group. Muted and light, so it organises the list
 /// without competing with the entries under it.
@@ -107,16 +108,34 @@ class _MenuTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tint = item.color ?? AppThemeConfig.accent(context);
-    return Material(
-      color: AppThemeConfig.softSurface(context),
-      borderRadius: BorderRadius.circular(16),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
+    // AppPressable, not InkWell.
+    //
+    // The house pressable already does the three things a tile like this
+    // needs and an InkWell does not: it presses on the RAW POINTER DOWN
+    // (Listener.onPointerDown) rather than GestureDetector.onTapDown, which
+    // TapGestureRecognizer can hold for up to kPressTimeout — 100ms of
+    // latency is exactly what makes a grid stop feeling direct; it scales on
+    // a SPRING started from the current value and velocity, so a press
+    // arriving mid-release continues instead of jumping; and it already
+    // honours Reduce Motion by dropping the scale and keeping an opacity
+    // change, so the feedback survives without the movement.
+    //
+    // Using it here also means these tiles feel identical to every other
+    // pressable surface in the app rather than being the one place with a
+    // Material ripple and no scale.
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppThemeConfig.softSurface(context),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: AppPressable(
         onTap: item.onTap,
-        child: Container(
+        semanticLabel: item.label.tr,
+        child: SizedBox(
           // 96 tall — comfortably past the 44pt floor, and enough for an icon
           // over two lines of Arabic without the label being clipped.
           height: 96,
+          child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -137,13 +156,19 @@ class _MenuTile extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 11.5,
+                  // 12, not 11.5: twelve is the floor for body-ish text, and
+                  // these labels are the only thing naming each destination.
+                  fontSize: 12,
                   height: 1.25,
+                  // Small text wants a touch MORE tracking, not less — the
+                  // opposite of a heading. Large type is what gets tightened.
+                  letterSpacing: 0.1,
                   fontWeight: FontWeight.w600,
                   color: AppThemeConfig.text(context),
                 ),
               ),
             ],
+          ),
           ),
         ),
       ),
