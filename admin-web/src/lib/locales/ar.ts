@@ -1573,6 +1573,7 @@ const ar: DeepPartial<typeof en> = {
   },
 
   detail: {
+    empty_fields: '{count} حقول فارغة',
     no_view: 'لا توجد صفحة تفاصيل لـ "{resource}".',
     field_volunteer_only: 'يُجمع فقط عند تسجيل المتطوعين',
     field_beneficiary_only: 'يُجمع فقط عند تسجيل المستحقين',
