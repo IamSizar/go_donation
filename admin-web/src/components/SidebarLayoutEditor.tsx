@@ -15,7 +15,7 @@ import { useI18n } from '../lib/i18n'
 import { useToast } from '../lib/toast'
 import {
   navByTo, GROUP_DEFS, DEFAULT_NAV_SECTIONS, reconcileNavSections,
-  ACCESS_GROUP_KEY, ACCESS_ITEMS, type NavSection,
+  ACCESS_ITEMS, type NavSection,
 } from '../lib/navLayout'
 
 // The Access & Staff pages are gathered by reconcileNavSections no matter what
@@ -162,7 +162,10 @@ export default function SidebarLayoutEditor() {
               )}
             </div>
 
-            {section.kind === 'group' && section.key === ACCESS_GROUP_KEY && (
+            {/* The access pages are pinned wherever they are, and they now
+                live inside System Settings rather than in a group of their
+                own — so the notice follows the ITEMS, not a group key. */}
+            {section.kind === 'group' && section.items.some((to) => PINNED.has(to)) && (
               <p className="muted" style={{ margin: '2px 0 0', fontSize: 12 }}>
                 {t('settings.sidebar_layout_pinned')}
               </p>
@@ -176,7 +179,12 @@ export default function SidebarLayoutEditor() {
                   // Pinned items keep the row (so the admin can still SEE
                   // what is in the group) but lose the controls that would
                   // not survive a reload.
-                  if (section.key === ACCESS_GROUP_KEY && PINNED.has(to)) {
+                  // Keyed on the ITEM alone. It used to also require the
+                  // old Access & Staff group key, which stopped matching the
+                  // moment these moved into System Settings — leaving an
+                  // admin free to move one, save, and watch reconcile snap it
+                  // straight back on reload.
+                  if (PINNED.has(to)) {
                     return (
                       <div key={to} className="sidebar-layout-row sidebar-layout-item">
                         <span>{t(item.tKey)}</span>

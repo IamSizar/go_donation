@@ -149,28 +149,47 @@ export default function AppShell() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [mobileNavOpen])
 
-  // Note #29 — which nav groups the admin has manually opened, persisted the
-  // same way sidebarCollapsed is. Whichever group contains the CURRENT page
-  // is always shown open on top of this (computed at render time below) —
-  // this state only remembers groups opened out of that context.
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => {
+  // Note #29 — the admin's explicit open/closed choice per nav group,
+  // persisted the same way sidebarCollapsed is.
+  //
+  // A SET OF OPEN KEYS IS NOT ENOUGH, and that was the bug. The group holding
+  // the current page defaults to open (landing on a page must never hide the
+  // item you are looking at), and that default was OR-ed over this state:
+  //     open = hasActiveItem || expandedGroups.has(key)
+  // So on the group you were actually inside — the one most likely to be
+  // tapped — the header did nothing. Toggling removed the key, the OR put it
+  // straight back, and the group never closed.
+  //
+  // A map of EXPLICIT overrides fixes it: absent means "follow the default",
+  // true/false means the admin has said otherwise about this group and that
+  // answer wins. Storing only overrides also keeps the default live — a group
+  // never opened by hand still opens when you navigate into it.
+  const [groupOverrides, setGroupOverrides] = useState<Record<string, boolean>>(() => {
     try {
       const raw = localStorage.getItem('humanitarian.admin.sidebar_open_groups')
-      return raw ? new Set(JSON.parse(raw)) : new Set()
+      if (!raw) return {}
+      const parsed = JSON.parse(raw)
+      // Migrate the previous shape (an array of open keys) so an admin who
+      // had groups open does not have them all snap shut on this deploy.
+      if (Array.isArray(parsed)) {
+        return Object.fromEntries(parsed.map((k: string) => [k, true]))
+      }
+      return parsed && typeof parsed === 'object' ? parsed : {}
     } catch {
-      return new Set()
+      return {}
     }
   })
   useEffect(() => {
-    localStorage.setItem('humanitarian.admin.sidebar_open_groups', JSON.stringify([...expandedGroups]))
-  }, [expandedGroups])
-  const toggleGroup = (key: string) =>
-    setExpandedGroups((prev) => {
-      const next = new Set(prev)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      return next
-    })
+    localStorage.setItem('humanitarian.admin.sidebar_open_groups', JSON.stringify(groupOverrides))
+  }, [groupOverrides])
+  /**
+   * Record the admin's explicit choice for one group.
+   * `currentlyOpen` is what they are looking at as they click, so the new
+   * value is simply its opposite — which is what makes a forced-open group
+   * closable.
+   */
+  const toggleGroup = (key: string, currentlyOpen: boolean) =>
+    setGroupOverrides((prev) => ({ ...prev, [key]: !currentlyOpen }))
 
   // Section 24 — effective per-module permissions for THIS user's tier. Drives
   // menu-access-control: a module the tier can't `view` is hidden entirely.
@@ -375,11 +394,13 @@ export default function AppShell() {
               .map((to) => navByTo.get(to))
               .filter((n): n is NavItem => !!n && isNavItemVisible(n))
             if (items.length === 0) return null
-            // The group containing the current page is always shown open,
-            // regardless of expandedGroups state — landing on a page should
-            // never hide the very item you're looking at.
+            // The group containing the current page DEFAULTS to open, so
+            // landing on a page never hides the very item you are looking at
+            // — but an explicit choice by the admin beats that default, which
+            // is what lets the group you are inside be closed at all.
             const hasActiveItem = items.some((n) => isItemActive(n))
-            const open = hasActiveItem || expandedGroups.has(section.key)
+            const override = groupOverrides[section.key]
+            const open = override ?? hasActiveItem
             const groupCount = items.reduce(
               (sum, n) => sum + (n.countKey ? counts[n.countKey] : 0), 0,
             )
@@ -389,7 +410,7 @@ export default function AppShell() {
                 <button
                   type="button"
                   className="nav-group-header"
-                  onClick={() => toggleGroup(section.key)}
+                  onClick={() => toggleGroup(section.key, open)}
                   aria-expanded={open}
                 >
                   {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}

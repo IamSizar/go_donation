@@ -104,16 +104,23 @@ test('gathering the access pages changes no item metadata', () => {
 
 // ─── 3 · The access pages are gathered, in the default AND after a save ──
 
-test('every access page sits in the Access & Staff group by default', () => {
-  const group = groupNamed(DEFAULT_NAV_SECTIONS, ACCESS_GROUP_KEY)
-  assert.ok(group, 'the default layout has an Access & Staff group')
-  for (const to of ACCESS_ITEMS) assert.ok(group.items.includes(to), `${to} is not in Access & Staff`)
+test('every access page sits inside System Settings by default', () => {
+  const system = groupNamed(DEFAULT_NAV_SECTIONS, 'system_settings')
+  assert.ok(system, 'the default layout has a System Settings group')
+  for (const to of ACCESS_ITEMS) {
+    assert.ok(system.items.includes(to), `${to} is not inside System Settings`)
+  }
+  // And nowhere else — a page in two groups would render twice.
+  assert.equal(groupNamed(DEFAULT_NAV_SECTIONS, ACCESS_GROUP_KEY), undefined,
+    'the separate Access & Staff group should no longer exist by default')
 })
 
-test('Access & Staff sits directly above System Settings, so the two read as one area', () => {
-  const access = DEFAULT_NAV_SECTIONS.findIndex((s) => s.kind === 'group' && s.key === ACCESS_GROUP_KEY)
-  const system = DEFAULT_NAV_SECTIONS.findIndex((s) => s.kind === 'group' && s.key === 'system_settings')
-  assert.equal(system, access + 1)
+test('the access pages come FIRST inside System Settings', () => {
+  // The point of putting them inside rather than beside: they must not be
+  // scattered through the ~15 content and payment pages. Order is what
+  // replaces the heading they used to have.
+  const system = groupNamed(DEFAULT_NAV_SECTIONS, 'system_settings')
+  assert.deepEqual(system.items.slice(0, ACCESS_ITEMS.length), ACCESS_ITEMS)
 })
 
 test('the non-access settings pages are still reachable and still in System Settings', () => {
@@ -123,7 +130,7 @@ test('the non-access settings pages are still reachable and still in System Sett
   }
 })
 
-test("an admin's saved layout is migrated: access pages gather, everything else survives", () => {
+test("an admin's saved layout is migrated: access pages move into System Settings, everything else survives", () => {
   // Arrange — a plausible pre-change customization: the owner had moved
   // Campaigns to the top as a standalone item, renamed nothing, and still had
   // Guest Access buried under Users & Members and Audit Logs under Monitoring.
@@ -137,48 +144,55 @@ test("an admin's saved layout is migrated: access pages gather, everything else 
   // Act
   const sections = reconcileNavSections(saved)
 
-  // Assert — all five access pages, one group.
+  // Assert — all five access pages, inside System Settings, at the front.
   for (const to of ACCESS_ITEMS) {
     const section = sectionOf(sections, to)
-    assert.equal(section?.key, ACCESS_GROUP_KEY, `${to} did not land in Access & Staff`)
+    assert.equal(section?.key, 'system_settings', `${to} did not land in System Settings`)
   }
+  const system = groupNamed(sections, 'system_settings')
+  assert.deepEqual(system.items.slice(0, ACCESS_ITEMS.length), ACCESS_ITEMS)
+  // Assert — no duplicates: /staff, /permissions and /settings were ALREADY
+  // in their saved System Settings group, and must not appear twice.
+  assert.equal(new Set(system.items).size, system.items.length, 'a page was duplicated')
+  assert.ok(system.items.includes('/trash'), 'their own System Settings page survived')
   // Assert — their other customizations are intact.
   assert.deepEqual(sections[0], { kind: 'item', to: '/campaigns' }, 'the standalone Campaigns item survived')
   assert.deepEqual(groupNamed(sections, 'users_members').items, ['/users', '/partners'])
   assert.deepEqual(groupNamed(sections, 'monitoring_reports').items, ['/reports'])
-  assert.deepEqual(groupNamed(sections, 'system_settings').items, ['/trash'])
   // Assert — and still nothing vanished.
   const routes = new Set(routesIn(sections))
   for (const item of NAV) assert.ok(routes.has(item.to), `${item.to} vanished from the sidebar`)
 })
 
-test('the gathered group lands directly above the admin\'s System Settings group', () => {
+test('an old saved layout with the Access & Staff group folds into System Settings', () => {
+  // The migration case that matters most: anyone who saved a layout while the
+  // separate group existed still has it stored.
   const sections = reconcileNavSections([
-    { kind: 'group', key: 'users_members', tKey: 'nav_group.users_members', items: ['/users', '/guest-access'] },
-    { kind: 'group', key: 'system_settings', tKey: 'nav_group.system_settings', items: ['/staff', '/trash'] },
+    { kind: 'group', key: ACCESS_GROUP_KEY, tKey: 'nav_group.access_control', items: ['/staff', '/permissions'] },
+    { kind: 'group', key: 'system_settings', tKey: 'nav_group.system_settings', items: ['/trash'] },
   ])
-  // Same relative position as the default layout, wherever the admin moved
-  // System Settings to — so every admin ends up with one Settings area.
-  const access = sections.findIndex((s) => s.key === ACCESS_GROUP_KEY)
-  const system = sections.findIndex((s) => s.key === 'system_settings')
-  assert.ok(access >= 0 && system === access + 1)
+  assert.equal(groupNamed(sections, ACCESS_GROUP_KEY), undefined, 'the old group should be gone')
+  const system = groupNamed(sections, 'system_settings')
+  for (const to of ACCESS_ITEMS) assert.ok(system.items.includes(to), `${to} was lost`)
+  assert.ok(system.items.includes('/trash'))
 })
 
-test('with no System Settings group, it lands where the first access page was', () => {
+test('with no System Settings group, one is created where the first access page was', () => {
   const sections = reconcileNavSections([
     { kind: 'group', key: 'users_members', tKey: 'nav_group.users_members', items: ['/users', '/guest-access'] },
     { kind: 'group', key: 'marriage', tKey: 'nav_group.marriage', items: ['/marriage'] },
   ])
-  assert.equal(sections[0].key, ACCESS_GROUP_KEY)
+  assert.equal(sections[0].key, 'system_settings')
+  for (const to of ACCESS_ITEMS) assert.ok(routesIn(sections).includes(to), `${to} was lost`)
 })
 
-test('a non-access page an admin deliberately filed under Access & Staff is kept', () => {
+test('a non-access page an admin filed under the old Access & Staff group is kept', () => {
   const sections = reconcileNavSections([
     { kind: 'group', key: ACCESS_GROUP_KEY, tKey: 'nav_group.access_control', items: ['/staff', '/field-rules'] },
   ])
-  const group = groupNamed(sections, ACCESS_GROUP_KEY)
-  assert.ok(group.items.includes('/field-rules'), 'their own addition was discarded')
-  for (const to of ACCESS_ITEMS) assert.ok(group.items.includes(to))
+  const system = groupNamed(sections, 'system_settings')
+  assert.ok(system.items.includes('/field-rules'), 'their own addition was discarded')
+  for (const to of ACCESS_ITEMS) assert.ok(system.items.includes(to))
 })
 
 test('reconciling is idempotent — running it on its own output changes nothing', () => {

@@ -111,13 +111,16 @@ export type NavSection =
 // The test they set is a question: "who can get into this system, and what
 // can they do?" Every answer must be findable in ONE place.
 //
-// Dropping these into `system_settings` would technically satisfy "in
-// settings" and fail the real test — that group is a grab-bag of ~15 content
-// and payment pages (Terms, About, payment methods, Trash), and the four
-// access pages would be scattered through it alphabetically-by-accident.
-// So access gets its own titled group, sitting directly above System
-// Settings: the two read as one Settings area, but the access answers are
-// gathered under a heading that says exactly what they are.
+// These pages live INSIDE the System Settings group, at the TOP of it.
+//
+// An earlier pass gave them their own titled group sitting directly above
+// System Settings, reasoning that dropping them INTO a grab-bag of ~15
+// content and payment pages (Terms, About, payment methods, Trash) would
+// scatter them. The owner has since been explicit — "move this section all
+// of it inside the system settings" — so that is what this does. The
+// scattering concern is answered by ORDER instead of by a heading: the
+// access pages are pinned to the front of the group, ahead of the content
+// pages, so they are the first thing under it rather than mixed through it.
 //
 // `/audit-logs` is included deliberately. It is not access CONTROL — it is
 // the record of what staff DID — so it could equally have stayed under
@@ -127,6 +130,11 @@ export type NavSection =
 // know which of two sections the dashboard filed it under. Note it is NOT
 // superAdminOnly (it is gated by the `audit` module) and moving it does not
 // change that — grouping is presentation, gating lives in NAV.
+//
+// ACCESS_GROUP_KEY is KEPT even though no default layout creates that group
+// any more: a Super Admin who saved a layout while it existed still has it
+// stored, and reconcileNavSections needs the key to find those items and
+// fold them into System Settings.
 export const ACCESS_GROUP_KEY = 'access_control'
 
 /** The routes that must always live together in the Access & Staff group,
@@ -190,15 +198,11 @@ export const DEFAULT_NAV_SECTIONS: NavSection[] = [
     kind: 'group', key: 'monitoring_reports', tKey: 'nav_group.monitoring_reports',
     items: ['/registrations', '/profile-changes', '/missions', '/reports', '/media', '/media-categories'],
   },
-  // Access & Staff sits immediately above System Settings so the two read as
-  // one Settings area, with the access answers under their own heading.
-  {
-    kind: 'group', key: ACCESS_GROUP_KEY, tKey: 'nav_group.access_control',
-    items: [...ACCESS_ITEMS],
-  },
   {
     kind: 'group', key: 'system_settings', tKey: 'nav_group.system_settings',
     items: [
+      // Access & staff first — see ACCESS_ITEMS above.
+      ...ACCESS_ITEMS,
       '/payment-methods', '/donation-types', '/donation-codes', '/field-rules',
       '/terms', '/about', '/humanitarian-work',
       '/marriage-about', '/marriage-contact', '/city-guide-about', '/city-guide-contact',
@@ -259,7 +263,7 @@ export function reconcileNavSections(custom: NavSection[] | null | undefined): N
 }
 
 /**
- * Gathers ACCESS_ITEMS into a single Access & Staff group, in place.
+ * Gathers ACCESS_ITEMS to the TOP of the System Settings group, in place.
  *
  * WHY THIS EXISTS — the thing that would otherwise make this whole change a
  * no-op for the one person who asked for it. The sidebar arrangement is saved
@@ -276,11 +280,12 @@ export function reconcileNavSections(custom: NavSection[] | null | undefined): N
  *     saved group and its saved order; every other group keeps its position.
  *   - Nothing is dropped. Items are moved, never removed, so the "no page can
  *     vanish from the sidebar" guarantee above still holds.
- *   - Any NON-access item an admin had deliberately filed under Access &
- *     Staff is kept, appended after the pinned five.
- *   - The group lands where the admin's own layout already had the first of
- *     these pages, so it inherits their sense of where settings-ish things
- *     belong rather than jumping to the bottom.
+ *   - Any NON-access item an admin had filed under the old Access & Staff
+ *     group is kept — it moves into System Settings with them rather than
+ *     being lost when that group disappears.
+ *   - They land at the FRONT of System Settings, ahead of the content and
+ *     payment pages, so "who can get in and what can they do" is the first
+ *     thing under the heading rather than mixed through fifteen others.
  *   - It is idempotent: running it on its own output changes nothing.
  *
  * KNOWN FAILURE MODE, accepted: a Super-Admin who deliberately filed, say,
@@ -324,15 +329,30 @@ function consolidateAccessGroup(sections: NavSection[]): NavSection[] {
     if (kept.length > 0) stripped.push({ ...section, items: kept })
   }
 
-  const sys = stripped.findIndex((s) => s.kind === 'group' && s.key === 'system_settings')
-  if (sys >= 0) insertAt = sys
-  else if (insertAt < 0) insertAt = stripped.length
+  // The access pages go to the FRONT of System Settings. `extras` — anything
+  // non-access the admin had filed under the old Access & Staff group — rides
+  // along behind them rather than being dropped with that group.
+  const pinned = [...ACCESS_ITEMS.filter((to) => navByTo.has(to)), ...extras]
 
+  const sys = stripped.findIndex((x) => x.kind === 'group' && x.key === 'system_settings')
+  if (sys >= 0) {
+    const group = stripped[sys] as Extract<NavSection, { kind: 'group' }>
+    // Filter first so re-running this cannot duplicate an entry: the pinned
+    // list is re-prepended every time, so any copy already inside must go.
+    const rest = group.items.filter((to) => !pinned.includes(to))
+    stripped[sys] = { ...group, items: [...pinned, ...rest] }
+    return stripped
+  }
+
+  // No System Settings group in this saved layout (an admin renamed or
+  // emptied it). Recreate it rather than dropping the pages on the floor,
+  // where the admin's own layout already had the first of them.
+  if (insertAt < 0) insertAt = stripped.length
   const group: NavSection = {
     kind: 'group',
-    key: ACCESS_GROUP_KEY,
-    tKey: 'nav_group.access_control',
-    items: [...ACCESS_ITEMS.filter((to) => navByTo.has(to)), ...extras],
+    key: 'system_settings',
+    tKey: 'nav_group.system_settings',
+    items: pinned,
   }
   stripped.splice(Math.min(insertAt, stripped.length), 0, group)
   return stripped
