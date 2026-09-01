@@ -48,7 +48,12 @@ func (h *UsersAdminHandler) List(c *gin.Context) {
 	perPage, _ := strconv.Atoi(strings.TrimSpace(c.DefaultQuery("per_page", "20")))
 	// ?status=archived is the Archived view; anything else (incl. empty)
 	// hides archived accounts so they leave the main list once archived.
-	res, err := h.Users.PaginatedList(c.Request.Context(), page, perPage, c.Query("q"), c.Query("status"))
+	// ?hide_guests=1 drops the one-tap guest accounts, which accumulate fast
+	// and crowd out the people staff are actually looking for. Absent or
+	// unrecognised means OFF (isTruthyQuery, shared with the marketplace
+	// filters), so a malformed value can never silently hide rows.
+	hideGuests := isTruthyQuery(c.Query("hide_guests"))
+	res, err := h.Users.PaginatedList(c.Request.Context(), page, perPage, c.Query("q"), c.Query("status"), hideGuests)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch users."})
 		return

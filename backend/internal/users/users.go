@@ -972,7 +972,15 @@ type Pagination struct {
 // so they leave the main list once archived; "archived" shows only those (the
 // dashboard's Archived view); "all" shows everything. Suspended and banned
 // accounts stay in the default list — they still need attention.
-func (s *Store) PaginatedList(ctx context.Context, page, perPage int, q, status string) (*PageUsers, error) {
+// PaginatedList returns one page of accounts for the dashboard's Users list.
+//
+// hideGuests drops guest accounts — the one-tap rows that name themselves
+// nothing. It is applied in SQL rather than in the browser ON PURPOSE: this
+// function also produces the total the page header prints and the page count
+// the pager walks, so a filter applied after the fact would leave staff
+// looking at eight rows on a "page" of twenty under a header still claiming
+// sixty-three. The predicate has to be in the same WHERE as the COUNT.
+func (s *Store) PaginatedList(ctx context.Context, page, perPage int, q, status string, hideGuests bool) (*PageUsers, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -1008,6 +1016,12 @@ func (s *Store) PaginatedList(ctx context.Context, page, perPage int, q, status 
 		conds = append(conds, "COALESCE(u.account_status, 'active') = 'archived'")
 	default:
 		conds = append(conds, "COALESCE(u.account_status, 'active') <> 'archived'")
+	}
+	// COALESCE because is_guest is nullable on rows that predate the column;
+	// a NULL there means "not a guest", not "unknown", so it must not be
+	// swept up by the filter.
+	if hideGuests {
+		conds = append(conds, "COALESCE(u.is_guest, FALSE) = FALSE")
 	}
 	where := ""
 	if len(conds) > 0 {

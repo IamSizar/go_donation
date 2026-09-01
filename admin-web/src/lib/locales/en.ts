@@ -860,7 +860,7 @@ const en = {
                     completed_month: 'Completed amount · this month', active_campaigns: 'Active campaigns',
                     open_missions: 'Open missions', open_tickets: 'Open tickets',
                     vs_last_month: 'vs {n} last month', donations_30d: 'Contributions · last 30 days' },
-    users:        { view_active: 'Active accounts', view_archived: 'Archived', title: 'Users',          new_user: '+ New user', search_placeholder: 'search phone / full name',
+    users:        { view_active: 'Active accounts', hide_guests: 'Hide guests', view_archived: 'Archived', title: 'Users',          new_user: '+ New user', search_placeholder: 'search phone / full name',
                     guest_badge: 'Guest',
     wallet_topup: 'Top up wallet',
     wallet_topup_prompt: 'Enter the amount to add to this user\'s wallet (IQD):',

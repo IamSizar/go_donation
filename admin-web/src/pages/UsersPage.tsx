@@ -78,6 +78,12 @@ export default function UsersPage() {
   // #2 — archived accounts leave the main list; this switches to the
   // Archived view rather than mixing them back in.
   const [statusView, setStatusView] = useState('')
+  // Hide the one-tap guest accounts. Server-side (?hide_guests=1), NOT a
+  // filter over the loaded page: this endpoint is paginated, so filtering
+  // after the fact would leave a "page" of 20 showing a handful of rows under
+  // a header still reporting the unfiltered total. Default off, so no
+  // existing view changes for anyone.
+  const [hideGuests, setHideGuests] = useState(false)
   const [q, setQ] = useState('')
   const [resp, setResp] = useState<UsersListResp | null>(null)
   const [loading, setLoading] = useState(false)
@@ -129,7 +135,7 @@ export default function UsersPage() {
     setLoading(true)
     setErr(null)
     api
-      .get<UsersListResp>('/api/admin/users', { params: { page, per_page: PER_PAGE, q: q || undefined, status: statusView || undefined } })
+      .get<UsersListResp>('/api/admin/users', { params: { page, per_page: PER_PAGE, q: q || undefined, status: statusView || undefined, hide_guests: hideGuests ? 1 : undefined } })
       .then((res) => {
         if (!cancelled) setResp(res.data)
       })
@@ -142,7 +148,7 @@ export default function UsersPage() {
     return () => {
       cancelled = true
     }
-  }, [page, q, refreshTick, statusView])
+  }, [page, q, refreshTick, statusView, hideGuests])
 
   // Staff relocation — staff accounts (staff_tier set to anything besides the
   // default 'user') are managed on the Staff page under System Settings
@@ -556,6 +562,14 @@ export default function UsersPage() {
             <option value="archived">{t('page.users.view_archived')}</option>
             <option value="all">{t('filter.all_statuses')}</option>
           </select>
+          <label className="row" style={{ gap: 'var(--space-2)', alignItems: 'center', whiteSpace: 'nowrap' }}>
+            <input
+              type="checkbox"
+              checked={hideGuests}
+              onChange={(e) => { setHideGuests(e.target.checked); setPage(1) }}
+            />
+            {t('page.users.hide_guests')}
+          </label>
           <input
             type="search"
             value={q}

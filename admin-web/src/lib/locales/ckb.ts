@@ -760,7 +760,7 @@ const ckb: DeepPartial<typeof en> = {
       open_missions: 'ئەرکە کراوەکان', open_tickets: 'تیکێتە کراوەکان',
       vs_last_month: 'بەراورد بە {n} مانگی ڕابردوو', donations_30d: 'بەشداری · ٣٠ ڕۆژی ڕابردوو',
     },
-    users: { view_active: 'هەژمارە چالاکەکان', view_archived: 'ئەرشیفکراوەکان',
+    users: { view_active: 'هەژمارە چالاکەکان', hide_guests: 'شاردنەوەی میوانەکان', view_archived: 'ئەرشیفکراوەکان',
       title: 'بەکارهێنەران', new_user: '+ بەکارهێنەری نوێ', search_placeholder: 'گەڕان بە مۆبایل / ناوی تەواو',
       guest_badge: 'میوان',
       wallet_topup: 'پڕکردنەوەی جزدان',

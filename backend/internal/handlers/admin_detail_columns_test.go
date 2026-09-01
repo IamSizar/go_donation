@@ -287,7 +287,7 @@ func TestUsersListWithholdsCredentials(t *testing.T) {
 	target := insertAccount(t, pool, "user", "")
 	givePassword(t, pool, target.id)
 
-	res, err := users.NewStore(pool).PaginatedList(context.Background(), 1, 200, "", "")
+	res, err := users.NewStore(pool).PaginatedList(context.Background(), 1, 200, "", "", false)
 	if err != nil {
 		t.Fatalf("paginated list: %v", err)
 	}
