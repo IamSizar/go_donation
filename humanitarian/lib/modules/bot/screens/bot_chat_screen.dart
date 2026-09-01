@@ -39,14 +39,21 @@ class BotChatScreen extends StatefulWidget {
   State<BotChatScreen> createState() => _BotChatScreenState();
 }
 
-class _BotChatScreenState extends State<BotChatScreen> {
+class _BotChatScreenState extends State<BotChatScreen>
+    with WidgetsBindingObserver {
   final AssistantController ctrl = Get.put(AssistantController());
   final ScrollController _scrollCtrl = ScrollController();
   final TextEditingController _inputCtrl = TextEditingController();
 
+  /// Owned by the screen rather than left to the TextField, because the back
+  /// button has to be able to ASK whether the input holds focus and to let it
+  /// go — see [_handlePop].
+  final FocusNode _inputFocus = FocusNode();
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // Auto-scroll whenever the conversation grows or typing toggles. Both
     // events route through a single coalesced scroll so rapid updates (user
     // message + typing indicator in the same frame) don't fight each other.
@@ -72,8 +79,10 @@ class _BotChatScreenState extends State<BotChatScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _scrollCtrl.dispose();
     _inputCtrl.dispose();
+    _inputFocus.dispose();
     super.dispose();
   }
 
@@ -97,6 +106,84 @@ class _BotChatScreenState extends State<BotChatScreen> {
         curve: Curves.easeOutCubic,
       );
     });
+  }
+
+  /// Was the keyboard up at the last check? Only the open→closed TRANSITION
+  /// is acted on, which is what keeps this from feeding itself.
+  bool _keyboardWasOpen = false;
+
+  /// One pending check at a time. didChangeMetrics fires many times over a
+  /// single keyboard animation.
+  bool _metricsCheckQueued = false;
+
+  /// When the keyboard goes, so does the focus.
+  ///
+  /// THIS IS THE HALF THAT ACTUALLY FIXES THE REPORT. Android's back closes
+  /// the IME itself and Flutter is never told, so the field stayed FOCUSED
+  /// with its input connection open and no keyboard on screen — the invisible
+  /// state where the next press summons the keyboard back instead of leaving.
+  ///
+  /// [_handlePop] alone could not fix it: the press that closes the keyboard
+  /// never reaches the app, so releasing focus there only moved the problem to
+  /// the NEXT press and made leaving take three. Measured on a Motorola.
+  ///
+  /// WHY THE TRANSITION AND THE QUEUE GUARD ARE BOTH LOAD-BEARING. The first
+  /// version of this unfocused whenever the inset read zero, and scheduled a
+  /// post-frame callback on every metrics event. Unfocusing CHANGES the
+  /// metrics, which schedules another check, which unfocuses again — the app
+  /// spun frames until Android put up "BalanceNex isn't responding". Acting
+  /// only on open→closed makes it fire once and then find nothing to do,
+  /// because after the keyboard is down the transition cannot repeat.
+  @override
+  void didChangeMetrics() {
+    if (_metricsCheckQueued) return;
+    _metricsCheckQueued = true;
+    // Read after the frame: the inset shrinks across the close animation, so
+    // the first of many metric changes does not yet mean "closed".
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _metricsCheckQueued = false;
+      if (!mounted) return;
+      // View, not MediaQuery: this runs outside build, and taking an
+      // inherited-widget dependency here would invite exactly the kind of
+      // rebuild churn the guards above exist to prevent.
+      final isOpen = View.of(context).viewInsets.bottom > 0;
+      final justClosed = _keyboardWasOpen && !isOpen;
+      _keyboardWasOpen = isOpen;
+      if (justClosed && _inputFocus.hasFocus) _inputFocus.unfocus();
+    });
+  }
+
+  /// Back button: close the keyboard first, leave the screen second.
+  ///
+  /// THE STATE THIS EXISTS TO PREVENT. Android's back closes the IME itself
+  /// and Flutter never sees that press, so afterwards the field is still
+  /// FOCUSED with its input connection open and no keyboard on screen. From
+  /// there the next thing that touches the field brings the keyboard back
+  /// instead of doing what the user asked — the client's report was pressing
+  /// back and watching the keyboard reappear rather than the screen close.
+  ///
+  /// Releasing focus here makes the sequence the one Android users expect and
+  /// the one every other screen in this app already gives them: one press
+  /// closes the keyboard, the next leaves. It costs a press only when the
+  /// keyboard is actually up, which is exactly when a press meant "dismiss
+  /// this", not "throw away what I was typing".
+  void _handlePop(bool didPop, Object? result) {
+    if (didPop) return;
+    // A safety net rather than the main path — [didChangeMetrics] normally
+    // clears focus the moment the keyboard closes, so by the time a press
+    // reaches here there is usually nothing to release. It still matters on
+    // any platform or path where the app DOES see that first press, where
+    // popping straight away would throw away what the user was typing.
+    if (_inputFocus.hasFocus) {
+      _inputFocus.unfocus();
+      return;
+    }
+    // pop(), NOT maybePop(). maybePop asks the route whether it may pop, which
+    // consults this very PopScope, whose canPop is false — so it comes back
+    // here instead of leaving, and the screen cannot be exited at all. Seen on
+    // the device: focus was already released and the second press still did
+    // nothing.
+    Navigator.of(context).pop();
   }
 
   // Note #40 — "assistance-related conversations" (the AI assistant chat)
@@ -124,66 +211,80 @@ class _BotChatScreenState extends State<BotChatScreen> {
   Widget build(BuildContext context) {
     // Canonical assistant locale (en / ar / ckb / kmr) for all bot UI strings.
     final lang = AppLocaleService.assistantLang();
-    return Scaffold(
-      backgroundColor: AppThemeConfig.backgroundTop(context),
-      appBar: _buildAppBar(context, lang),
-      body: Column(
-        children: [
-          Expanded(
-            child: Obx(() {
-              final msgs = ctrl.messages;
-              return ListView(
-                controller: _scrollCtrl,
-                padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
-                children: [
-                  _WelcomeBubble(lang: lang),
-                  const SizedBox(height: 18),
-                  // Suggestions stay visible; tapping one sends it as a turn.
-                  // Localised question text is shown AND sent, while the stable
-                  // id routes the backend to the right intent regardless of lang.
-                  _SuggestionsSection(
-                    qas: ctrl.suggestions,
-                    lang: lang,
-                    onTap: (qa) => _send(qa.questionFor(lang), intentID: qa.id),
-                  ),
-                  for (final m in msgs) ...[
-                    const SizedBox(height: 14),
-                    if (m.isUser)
-                      _UserBubble(text: m.text)
-                    else ...[
-                      _BotBubble(
-                        message: m,
-                        onAction: m.hasAction
-                            ? () => _navigate(m.actionRoute!)
-                            : null,
-                      ),
-                      for (final tr in m.toolResults) ...[
-                        const SizedBox(height: 8),
-                        _ToolResultCard(result: tr),
+    return PopScope(
+      // Never auto-pop: _handlePop decides between "close the keyboard" and
+      // "leave the screen", and it cannot make that choice after the fact.
+      canPop: false,
+      onPopInvokedWithResult: _handlePop,
+      child: Scaffold(
+        backgroundColor: AppThemeConfig.backgroundTop(context),
+        appBar: _buildAppBar(context, lang),
+        body: Column(
+          children: [
+            Expanded(
+              child: Obx(() {
+                final msgs = ctrl.messages;
+                return ListView(
+                  controller: _scrollCtrl,
+                  // Rule 5.6, which this screen was missing: dragging the
+                  // conversation puts the keyboard away. Reading what the
+                  // assistant answered is the commonest reason to touch this
+                  // list while typing, and the keyboard covers half of it.
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+                  children: [
+                    _WelcomeBubble(lang: lang),
+                    const SizedBox(height: 18),
+                    // Suggestions stay visible; tapping one sends it as a turn.
+                    // Localised question text is shown AND sent, while the stable
+                    // id routes the backend to the right intent regardless of lang.
+                    _SuggestionsSection(
+                      qas: ctrl.suggestions,
+                      lang: lang,
+                      onTap: (qa) =>
+                          _send(qa.questionFor(lang), intentID: qa.id),
+                    ),
+                    for (final m in msgs) ...[
+                      const SizedBox(height: 14),
+                      if (m.isUser)
+                        _UserBubble(text: m.text)
+                      else ...[
+                        _BotBubble(
+                          message: m,
+                          onAction: m.hasAction
+                              ? () => _navigate(m.actionRoute!)
+                              : null,
+                        ),
+                        for (final tr in m.toolResults) ...[
+                          const SizedBox(height: 8),
+                          _ToolResultCard(result: tr),
+                        ],
                       ],
                     ],
+                    if (ctrl.isTyping.value) ...[
+                      const SizedBox(height: 14),
+                      const _TypingBubble(),
+                    ],
+                    const SizedBox(height: 16),
                   ],
-                  if (ctrl.isTyping.value) ...[
-                    const SizedBox(height: 14),
-                    const _TypingBubble(),
-                  ],
-                  const SizedBox(height: 16),
-                ],
-              );
-            }),
-          ),
-          // #36 — after 3 user messages, offer to continue on WhatsApp.
-          Obx(
-            () => ctrl.showWhatsappOffer
-                ? _WhatsappOffer(number: ctrl.whatsappNumber.value!)
-                : const SizedBox.shrink(),
-          ),
-          _Composer(
-            controller: _inputCtrl,
-            onSend: _sendTyped,
-            isSending: ctrl.isTyping,
-          ),
-        ],
+                );
+              }),
+            ),
+            // #36 — after 3 user messages, offer to continue on WhatsApp.
+            Obx(
+              () => ctrl.showWhatsappOffer
+                  ? _WhatsappOffer(number: ctrl.whatsappNumber.value!)
+                  : const SizedBox.shrink(),
+            ),
+            _Composer(
+              focusNode: _inputFocus,
+              controller: _inputCtrl,
+              onSend: _sendTyped,
+              isSending: ctrl.isTyping,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -663,7 +764,11 @@ class _BotAvatar extends StatelessWidget {
         color: AppThemeConfig.accent(context),
         borderRadius: BorderRadius.circular(radius),
       ),
-      child: Icon(Icons.smart_toy_rounded, color: AppThemeConfig.onAccent(context), size: iconSize),
+      child: Icon(
+        Icons.smart_toy_rounded,
+        color: AppThemeConfig.onAccent(context),
+        size: iconSize,
+      ),
     );
   }
 }
@@ -723,11 +828,16 @@ class _WhatsappOffer extends StatelessWidget {
 class _Composer extends StatelessWidget {
   const _Composer({
     required this.controller,
+    required this.focusNode,
     required this.onSend,
     required this.isSending,
   });
 
   final TextEditingController controller;
+
+  /// Owned by the screen so the back button can release it — see
+  /// _BotChatScreenState._handlePop.
+  final FocusNode focusNode;
   final VoidCallback onSend;
   final RxBool isSending;
 
@@ -749,6 +859,7 @@ class _Composer extends StatelessWidget {
             Expanded(
               child: TextField(
                 controller: controller,
+                focusNode: focusNode,
                 minLines: 1,
                 maxLines: 5,
                 textInputAction: TextInputAction.send,
