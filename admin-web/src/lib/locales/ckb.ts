@@ -1287,6 +1287,9 @@ const ckb: DeepPartial<typeof en> = {
     route: 'ڕێڕەو: {path}',
   },
 
+  profile: {
+    rules_mode: 'پیشاندانی ڕێساکانی خانەکان',
+  },
   fieldrule: {
     // ─── NEWLY WRITTEN KURDISH — needs a native reviewer ─────────────────
     // Unlike the field labels above, these strings have no counterpart in the
@@ -1301,6 +1304,7 @@ const ckb: DeepPartial<typeof en> = {
       volunteers: 'خۆبەخشان',
       unknown: 'بەکارهێنەرانی ئەم ڕۆڵە',
     },
+    short: { required: 'پێویست', optional: 'ئارەزوومەندانە', hidden: 'کوژاوە' },
     scope: {
       required: 'پێویستە بۆ هەموو {role}',
       optional: 'ئارەزوومەندانەیە بۆ هەموو {role}',

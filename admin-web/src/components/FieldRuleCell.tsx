@@ -120,19 +120,51 @@ export default function FieldRuleCell({
     }
   }
 
+  // ─── A THREE-STATE SEGMENTED CONTROL, NOT A DROPDOWN ─────────────────────
+  // It replaced a <select> for two reasons the owner named:
+  //
+  //  1. DENSITY. This control repeats on ~90 rows of the profile page. A
+  //     select is a full-height form box; three small buttons are a third of
+  //     the height and read as one unit rather than as ninety form fields.
+  //
+  //  2. THE STATE IS VISIBLE WITHOUT OPENING ANYTHING. A closed select shows
+  //     only the current value, so telling which of ninety fields are required
+  //     meant reading ninety boxes one at a time. Here the whole scale is
+  //     always on screen and the active segment is highlighted, so a section
+  //     can be scanned in one pass.
+  //
+  // The safety properties are unchanged: the accessible name still carries the
+  // role, and nothing applies until `choose` has been confirmed. The visible
+  // segment labels are necessarily short — "Required", not "Required for all
+  // volunteers" — so the ROLE is carried by the group's aria-label and, at the
+  // moment it matters, by the confirmation sentence, which is the thing that
+  // actually stands between a click and four thousand people.
+  const STATES: FieldRuleState[] = ['required', 'optional', 'hidden']
   return (
-    <select
-      value={rule.state}
-      disabled={saving}
+    <div
+      className="rule-seg"
+      role="group"
       aria-label={t('fieldrule.control_label', { field: fieldLabel, role: roleName })}
-      onChange={(e) => void choose(e.target.value as FieldRuleState)}
-      style={{ width: 'auto' }}
     >
-      {/* Every option names the ROLE. There is deliberately no bare
-          "Required" anywhere in this control. */}
-      <option value="required">{t('fieldrule.scope.required', { role: roleName })}</option>
-      <option value="optional">{t('fieldrule.scope.optional', { role: roleName })}</option>
-      <option value="hidden">{t('fieldrule.scope.hidden', { role: roleName })}</option>
-    </select>
+      {STATES.map((state) => (
+        <button
+          key={state}
+          type="button"
+          className="rule-seg-btn"
+          // aria-pressed rather than a visual class alone: a screen reader has
+          // to be able to tell which of the three is active too.
+          aria-pressed={rule.state === state}
+          data-active={rule.state === state ? '' : undefined}
+          data-state={state}
+          disabled={saving}
+          // The full, role-naming sentence on hover/focus — the wording the
+          // select used to show in its options.
+          title={t(`fieldrule.scope.${state}`, { role: roleName })}
+          onClick={() => void choose(state)}
+        >
+          {t(`fieldrule.short.${state}`)}
+        </button>
+      ))}
+    </div>
   )
 }
