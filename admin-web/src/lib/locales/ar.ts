@@ -1337,6 +1337,10 @@ const ar: DeepPartial<typeof en> = {
   },
 
   status: {
+    family_monthly: 'كفالة عائلة شهرية',
+    orphan_monthly: 'كفالة يتيم شهرية',
+    house_rent: 'إيجار سكن',
+    widow_support: 'إعالة أرملة',
     beauty_care: 'العناية والتجميل',
     food_pantry: 'مواد غذائية',
     home_textiles: 'مفروشات منزلية',

@@ -1433,6 +1433,14 @@ const en = {
   // useStatusLabel(); the machine value sent to the backend is unchanged.
   // Unknown values fall back to the raw string.
   status: {
+    // Sponsorship type slugs (sponsorships.sponsorship_type,
+    // sponsorship_types.slug). Free text with no CHECK behind it, so
+    // check-labels cannot enumerate them — taken from the distinct
+    // values in the database. They were printing raw on /sponsorships.
+    family_monthly: 'Monthly family support',
+    orphan_monthly: 'Monthly orphan sponsorship',
+    house_rent: 'House rent',
+    widow_support: 'Widow support',
     // Legacy free-text category slugs (marketplace_products.category,
     // city_directory_entries.category, in_kind_donations.category). They are
     // NOT CHECK-constrained, which is why check-labels cannot find them and
