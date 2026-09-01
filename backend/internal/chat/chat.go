@@ -156,6 +156,75 @@ func (s *Store) RequestThread(ctx context.Context, donorID, ownerID int64, campa
 	return t, recipient, false, nil
 }
 
+// RequestSupportThread opens (or reuses) the thread between a user and the
+// nominated support account.
+//
+// It is deliberately NOT RequestThread with an extra argument. Two rules
+// differ, and both are about consent:
+//
+//   - It starts ACTIVE, not pending. A donor↔owner thread waits because the
+//     other party must agree to be contacted; support is the recipient by
+//     policy and has nothing to agree to. Left pending, the app opened a
+//     conversation the user could not post into — POST /chats/:id/messages
+//     answers 409 for anything but an active thread — so the message the user
+//     came to send simply could not be sent.
+//   - A previously declined thread is revived as ACTIVE too, for the same
+//     reason: whatever happened last time, this is a new request for help.
+//
+// Returns the thread and whether it was created by this call, so the caller
+// can notify staff once rather than on every reopen.
+func (s *Store) RequestSupportThread(ctx context.Context, userID, supportID int64) (Thread, bool, error) {
+	var t Thread
+
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return t, false, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	const cols = `id, donor_user_id, owner_user_id, campaign_id, status, initiated_by, assigned_staff_user_id, created_at, updated_at`
+
+	err = tx.QueryRow(ctx,
+		`SELECT `+cols+` FROM chat_threads
+		  WHERE donor_user_id = $1 AND owner_user_id = $2
+		  FOR UPDATE`, userID, supportID,
+	).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt)
+
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		if err := tx.QueryRow(ctx,
+			`INSERT INTO chat_threads (donor_user_id, owner_user_id, campaign_id, status, initiated_by, kind)
+			 VALUES ($1, $2, NULL, 'active', $1, 'support')
+			 RETURNING `+cols,
+			userID, supportID,
+		).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt); err != nil {
+			return t, false, err
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return t, false, err
+		}
+		return t, true, nil
+	case err != nil:
+		return t, false, err
+	}
+
+	// It already exists. Make sure it is usable and marked — a thread opened
+	// before this became a distinct kind, or one that was declined, would
+	// otherwise stay unusable and invisible to the support view forever.
+	if err := tx.QueryRow(ctx,
+		`UPDATE chat_threads
+		    SET status = 'active', kind = 'support', updated_at = CURRENT_TIMESTAMP
+		  WHERE id = $1
+		 RETURNING `+cols, t.ID,
+	).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt); err != nil {
+		return t, false, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return t, false, err
+	}
+	return t, false, nil
+}
+
 // AcceptThread flips a pending thread to active. Only the recipient (the party
 // who did NOT initiate) may accept. Returns the thread and the initiator id so
 // the caller can notify them.
@@ -505,12 +574,22 @@ type AdminThreadView struct {
 }
 
 // ListAllThreads returns every thread for the admin Messages page.
-func (s *Store) ListAllThreads(ctx context.Context, q string) ([]AdminThreadView, error) {
-	args := []any{}
-	where := "WHERE 1=1"
+// ListAllThreads returns the admin oversight rows for one KIND of thread.
+//
+// The kind is a required argument rather than an optional filter because the
+// two audiences are different screens with different jobs: the Messages page
+// watches donor↔owner conversations, the events section's support view answers
+// requests addressed to staff. Defaulting to "everything" is what put support
+// requests in the middle of the donor list with nothing marking them.
+func (s *Store) ListAllThreads(ctx context.Context, q, kind string) ([]AdminThreadView, error) {
+	if kind != "support" {
+		kind = "direct"
+	}
+	args := []any{kind}
+	where := "WHERE t.kind = $1"
 	if t := strings.TrimSpace(q); t != "" {
 		args = append(args, "%"+t+"%")
-		where += ` AND (dp.full_name ILIKE $1 OR opf.full_name ILIKE $1 OR c.title ILIKE $1)`
+		where += ` AND (dp.full_name ILIKE $2 OR opf.full_name ILIKE $2 OR c.title ILIKE $2)`
 	}
 	rows, err := s.Pool.Query(ctx, `
 		SELECT t.id, t.status, t.campaign_id, c.title,

@@ -225,7 +225,11 @@ func (h *ChatHandler) SupportThread(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "You cannot start a support chat with yourself."})
 		return
 	}
-	thread, recipient, isNew, err := h.Store.RequestThread(c.Request.Context(), user.UserID, supportID, nil, user.UserID)
+	// Opened ACTIVE and marked as support — see RequestSupportThread. The old
+	// call went through RequestThread, which left it 'pending' awaiting an
+	// accept that only happens inside the app, so the user's message could not
+	// be sent and no staff screen listed the request.
+	thread, isNew, err := h.Store.RequestSupportThread(c.Request.Context(), user.UserID, supportID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
 		return
@@ -236,7 +240,7 @@ func (h *ChatHandler) SupportThread(c *gin.Context) {
 		go func() {
 			ctx, cancel := h.bg()
 			defer cancel()
-			_, _ = h.Notifier.Send(ctx, recipient, notify.ChatRequestMsg(name, "", tid))
+			_, _ = h.Notifier.Send(ctx, supportID, notify.ChatRequestMsg(name, "", tid))
 		}()
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "thread_id": thread.ID, "status": thread.Status, "already": !isNew})
@@ -428,13 +432,19 @@ func (h *ChatHandler) chatErr(c *gin.Context, err error) {
 
 // ===== Admin endpoints =====
 
-// GET /api/admin/chats — all threads
+// GET /api/admin/chats — the donor ↔ campaign-owner threads, or with
+// ?kind=support the requests addressed to the staff team.
+//
+// Support requests used to appear in the unfiltered list with nothing marking
+// them, so the only page that could show them was also the page they made
+// harder to read. They are now their own view; this list is donor↔owner again
+// unless asked otherwise.
 func (h *ChatHandler) AdminList(c *gin.Context) {
 	if _, ok := auth.UserFromGin(c); !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
 		return
 	}
-	items, err := h.Store.ListAllThreads(c.Request.Context(), c.Query("q"))
+	items, err := h.Store.ListAllThreads(c.Request.Context(), c.Query("q"), c.Query("kind"))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
 		return
