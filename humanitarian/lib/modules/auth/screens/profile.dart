@@ -18,6 +18,7 @@ import 'package:get/get.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'edit_profile.dart';
+import 'registration_form.dart';
 import 'field_privacy_screen.dart';
 import '../../proposal/screens/proposal_services_section.dart';
 import '../../search/screens/global_search_screen.dart';
@@ -118,7 +119,33 @@ class _ProfileSectionState extends State<ProfileSection> {
     }
   }
 
+  /// Opens the full editor — the registration form in edit mode.
+  ///
+  /// EditProfilePage edits FOUR fields: name, address, gender, photo. The
+  /// person's role asks them for dozens, and this screen is where they come
+  /// to change what they told us — so sending them to a form that shows four
+  /// of a hundred meant their own details were simply unreachable from their
+  /// own profile.
+  ///
+  /// Same form, same field rules, prefilled from the server. See
+  /// RegistrationFormPage.editMode for why one form rather than two.
+  ///
+  /// The photo is the one thing that form does NOT take — registration
+  /// uploads attachments on a separate call — so EditProfilePage stays as the
+  /// avatar editor and gets its own way in: tapping the picture. Removing the
+  /// last route to it would have quietly taken away the ability to change a
+  /// profile photo at all, which the unused-import warning is what caught.
   Future<void> _openEditProfile() async {
+    final result = await Get.to<bool>(
+      () => const RegistrationFormPage(editMode: true),
+    );
+    if (result == true && mounted) {
+      setState(() {});
+    }
+  }
+
+  /// The avatar editor — still EditProfilePage, which owns the upload.
+  Future<void> _openEditPhoto() async {
     final result = await Get.to<bool>(() => const EditProfilePage());
     if (result == true && mounted) {
       setState(() {});
@@ -224,15 +251,22 @@ class _ProfileSectionState extends State<ProfileSection> {
                             identityCode: _identityCode(),
                             isComplete: isComplete,
                             onEdit: _openEditProfile,
-                            avatar: CachedProfileAvatar(
-                              localPath: _localProfileImagePath(),
-                              imageUrl: _remoteProfileImageUrl(),
-                              radius: 38,
-                              backgroundColor: AppThemeConfig.accent(context),
-                              placeholder: const Icon(
-                                Icons.person,
-                                color: Colors.white,
-                                size: 40,
+                            // Tapping the picture opens the photo editor. The
+                            // edit pill beside it opens the DETAILS form —
+                            // two different jobs, and the avatar is the
+                            // obvious place to reach for to change a picture.
+                            avatar: GestureDetector(
+                              onTap: _openEditPhoto,
+                              child: CachedProfileAvatar(
+                                localPath: _localProfileImagePath(),
+                                imageUrl: _remoteProfileImageUrl(),
+                                radius: 38,
+                                backgroundColor: AppThemeConfig.accent(context),
+                                placeholder: const Icon(
+                                  Icons.person,
+                                  color: Colors.white,
+                                  size: 40,
+                                ),
                               ),
                             ),
                           ),

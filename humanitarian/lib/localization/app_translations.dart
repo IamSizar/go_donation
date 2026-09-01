@@ -3,6 +3,10 @@ import 'package:get/get.dart';
 
 class AppTranslations extends Translations {
   static const Map<String, String> _en = {
+    'Edit your details': 'Edit your details',
+    'Update the details on your account.': 'Update the details on your account.',
+    'Your profile has been updated.': 'Your profile has been updated.',
+    'Could not load your profile. Please try again.': 'Could not load your profile. Please try again.',
     // ─── B1 · notification_type vocabulary ───
     // The filter dropdown in الإشعارات is built from the distinct
     // notification_type values on whatever rows the API returned, so the
@@ -3101,6 +3105,10 @@ class AppTranslations extends Translations {
   };
 
   static const Map<String, String> _ar = {
+    'Edit your details': 'تعديل بياناتك',
+    'Update the details on your account.': 'حدّث البيانات الموجودة على حسابك.',
+    'Your profile has been updated.': 'تم تحديث ملفك الشخصي.',
+    'Could not load your profile. Please try again.': 'تعذّر تحميل ملفك الشخصي. حاول مرة أخرى.',
     // ─── B1 · notification_type vocabulary ───
     // The filter dropdown in الإشعارات is built from the distinct
     // notification_type values on whatever rows the API returned, so the
@@ -5888,6 +5896,10 @@ class AppTranslations extends Translations {
   };
 
   static final Map<String, String> _sorani = {
+    'Edit your details': 'دەستکاری زانیارییەکانت',
+    'Update the details on your account.': 'زانیارییەکانی هەژمارەکەت نوێ بکەرەوە.',
+    'Your profile has been updated.': 'پرۆفایلەکەت نوێ کرایەوە.',
+    'Could not load your profile. Please try again.': 'نەتوانرا پرۆفایلەکەت باربکرێت. دووبارە هەوڵ بدەرەوە.',
     'city_social_links': 'بەستەرەکانی سۆشیال',
     'city_closed_now': 'ئێستا داخراوە',
     'city_open_now': 'ئێستا کراوەیە',
@@ -8177,6 +8189,10 @@ class AppTranslations extends Translations {
   };
 
   static final Map<String, String> _badini = {
+    'Edit your details': 'گهۆرینا زانیاریێن تە',
+    'Update the details on your account.': 'زانیاریێن هەژمارا خۆ نوی بکە.',
+    'Your profile has been updated.': 'پرۆفایلا تە هاتە نویکرن.',
+    'Could not load your profile. Please try again.': 'پرۆفایلا تە نەهاتە بارکرن. دیسا بجەربینە.',
     'city_social_links': 'گرێدانێن سۆشیال',
     'city_closed_now': 'نوکە گرتیە',
     'city_open_now': 'نوکە ڤەکریە',

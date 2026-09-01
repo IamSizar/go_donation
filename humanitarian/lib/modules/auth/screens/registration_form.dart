@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/auth_session.dart';
 import 'package:flutter_application_1/api/registration_api.dart';
+import 'package:flutter_application_1/api/profile_full_api.dart';
 import 'package:flutter_application_1/core/app_haptics.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/auth_navigation.dart';
@@ -25,7 +26,27 @@ import 'package:flutter_application_1/core/widgets/app_pressable.dart';
 /// collects name, date of birth, address and role, then submits the whole
 /// thing to the admin for approval.
 class RegistrationFormPage extends StatefulWidget {
-  const RegistrationFormPage({super.key});
+  const RegistrationFormPage({super.key, this.editMode = false});
+
+  /// Opens the SAME form as an editor for an already-registered user.
+  ///
+  /// WHY REUSE THIS SCREEN RATHER THAN BUILD AN EDIT FORM
+  /// The app's Edit Profile was four boxes — name, address, gender, photo —
+  /// while registration asks a volunteer or an eligible recipient for dozens.
+  /// So the "some details are still missing" prompt sent people to a screen
+  /// that could not show the details it was asking for. Two forms would have
+  /// to be kept in step field-for-field, and per role, forever; the dashboard
+  /// learned that lesson already (owner #15).
+  ///
+  /// One form, one definition. This one is already driven by
+  /// `registration_field_rules`, already validates, and already knows which
+  /// fields each role is asked for.
+  ///
+  /// The SUBMIT side needed nothing: SubmitRegistration upserts the profile
+  /// and preserves approval —
+  ///   registration_status = CASE WHEN 'approved' THEN 'approved' ELSE 'pending' END
+  /// — so an approved volunteer editing their address stays approved.
+  final bool editMode;
 
   @override
   State<RegistrationFormPage> createState() => _RegistrationFormPageState();
@@ -205,6 +226,167 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
   String? _graduationCertPhotoPath;
   String? _cvPhotoPath;
 
+
+  // ─── Edit mode: prefill ────────────────────────────────────────────────
+  //
+  // Maps a `user_profiles` COLUMN to the controller that edits it. Written
+  // out rather than derived from the controller names, because five of them
+  // do not follow the pattern and a clever camelCase→snake_case conversion
+  // would silently drop exactly those five:
+  //
+  //     _nameController              -> full_name        (not `name`)
+  //     _incomeController            -> monthly_income   (not `income`)
+  //     _householdEmployeesController-> household_employees_count
+  //     _age0To5Controller           -> age_0_5_count    (not `age0_to5`)
+  //     _maleChildrenController      -> male_children_count
+  //
+  // Every key here was checked against the real column list; a typo shows up
+  // as a field that silently stays empty when the user opens their profile,
+  // which is the worst failure this screen can have — it invites them to
+  // retype what they already gave, or to save a blank over it.
+  Map<String, TextEditingController> get _columnControllers => {
+      'address': _addressController,
+      'age_0_5_count': _age0To5Controller,
+      'age_10_15_count': _age10To15Controller,
+      'age_15_25_count': _age15To25Controller,
+      'age_25_40_count': _age25To40Controller,
+      'age_40_plus_count': _age40PlusController,
+      'age_5_10_count': _age5To10Controller,
+      'availability': _availabilityController,
+      'available_furniture': _availableFurnitureController,
+      'certificates_count': _certificatesCountController,
+      'chronic_illnesses': _chronicIllnessesController,
+      'city': _cityController,
+      'disability_type': _disabilityTypeController,
+      'divorced_count': _divorcedCountController,
+      'email': _emailController,
+      'emergency_phone': _emergencyPhoneController,
+      'families_count': _familiesCountController,
+      'family_size': _familySizeController,
+      'female_children_count': _femaleChildrenController,
+      'height': _heightController,
+      'household_disabled_count': _householdDisabledController,
+      'household_employees_count': _householdEmployeesController,
+      'housing_area': _housingAreaController,
+      'monthly_income': _incomeController,
+      'job_description': _jobDescriptionController,
+      'male_children_count': _maleChildrenController,
+      'medical_conditions_count': _medicalConditionsCountController,
+      'medical_conditions_desc': _medicalConditionsDescController,
+      'men_count': _menCountController,
+      'full_name': _nameController,
+      'name_family': _nameFamilyController,
+      'name_father': _nameFatherController,
+      'name_first': _nameFirstController,
+      'name_grandfather': _nameGrandfatherController,
+      'national_id': _nationalIdController,
+      'nearest_landmark': _nearestLandmarkController,
+      'needs_description': _needsDescriptionController,
+      'occupation': _occupationController,
+      'orphans_count': _orphansCountController,
+      'other_certificate': _otherCertificateController,
+      'phone1': _phone1Controller,
+      'phone2': _phone2Controller,
+      'previous_occupation': _previousOccupationController,
+      'rental_amount': _rentalAmountController,
+      'rooms_count': _roomsCountController,
+      'skills': _skillsController,
+      'social_facebook': _socialFacebookController,
+      'social_instagram': _socialInstagramController,
+      'social_other': _socialOtherController,
+      'social_telegram': _socialTelegramController,
+      'students_count': _studentsCountController,
+      'title_surname': _titleSurnameController,
+      'tribe_clan': _tribeClanController,
+      'wage_amount': _wageAmountController,
+      'weight': _weightController,
+      'widows_count': _widowsCountController,
+      'women_count': _womenCountController,
+      'working_hours': _workingHoursController,
+      'working_members_count': _workingMembersController,
+      'workplace': _workplaceController,
+  };
+
+  /// Fills the form from the profile the server returned.
+  ///
+  /// Only writes a control when the column HAS a value. A null or empty column
+  /// leaves the control at its default, which matters for the dropdowns:
+  /// assigning null to them is the same as the user clearing a choice, and on
+  /// a form whose submit overwrites the row that would turn "we did not ask
+  /// you this yet" into "they answered nothing".
+  void _prefillFrom(Map<String, dynamic> profile) {
+    String? textOf(String column) {
+      final v = profile[column];
+      if (v == null) return null;
+      final s = v.toString().trim();
+      return s.isEmpty ? null : s;
+    }
+
+    _columnControllers.forEach((column, controller) {
+      final v = textOf(column);
+      if (v != null) controller.text = v;
+    });
+
+    // Dropdowns and toggles, which are state rather than controllers.
+    _gender ??= textOf('gender');
+    _governorate ??= textOf('governorate');
+    _educationLevel ??= textOf('education_level');
+    _nationality ??= textOf('nationality');
+    _maritalStatus ??= textOf('marital_status');
+    _residencyStatus ??= textOf('residency_status');
+    _housingSide ??= textOf('housing_side');
+    _housingType ??= textOf('housing_type');
+    _housingStatus ??= textOf('housing_status');
+    _floorsCount ??= textOf('floors_count');
+    _isEmployed ??= textOf('is_employed');
+    _registeredSocialWelfare ??= textOf('registered_social_welfare');
+    _registeredUnemployed ??= textOf('registered_unemployed');
+    _smokingStatus ??= textOf('smoking_status');
+    _eyesightCondition ??= textOf('eyesight_condition');
+    _hasDisability ??= textOf('has_disability');
+    _ownsCar ??= textOf('owns_car');
+    _consentShowRealName ??= textOf('consent_show_real_name');
+    _consentShareInfo ??= textOf('consent_share_info');
+    _experience ??= textOf('experience');
+    _neighborhoodDropdown ??= textOf('neighborhood');
+    _district ??= textOf('district');
+
+    // Date of birth drives three dropdowns AND _dob; the stored value is
+    // YYYY-MM-DD, which is what _fmt writes on the way out.
+    final dob = textOf('date_of_birth');
+    if (dob != null && _dob == null) {
+      final parsed = DateTime.tryParse(dob);
+      if (parsed != null) {
+        _dob = parsed;
+        _dobYear = parsed.year;
+        _dobMonth = parsed.month;
+        _dobDay = parsed.day;
+      }
+    }
+  }
+
+  /// Loads the profile behind the edit form.
+  ///
+  /// A FAILED READ MUST NOT LOOK LIKE AN EMPTY PROFILE. The form's submit
+  /// overwrites the row, so showing blank boxes after a failed fetch would
+  /// invite the user to save nothing over everything they had entered. The
+  /// server distinguishes the two — `{}` for "nothing filled in yet", an error
+  /// for "could not read" — and so does this: on failure the form says so and
+  /// does not pretend the profile is empty.
+  Future<void> _loadProfileForEditing() async {
+    setState(() => _loading = true);
+    final profile = await fetchFullProfile();
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+      if (profile == null) {
+        _error = 'Could not load your profile. Please try again.'.tr;
+      } else {
+        _prefillFrom(profile);
+      }
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -218,6 +400,14 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
     _addressController.text = sharedPreferences.getString('address_user') ?? '';
     final rid = int.tryParse(sharedPreferences.getString('role_id') ?? '');
     if (rid != null && rid >= 1 && rid <= 3) _roleId = rid;
+    // Editing an existing profile: pull the whole row and fill the form in,
+    // so the person is looking at what they already gave rather than at a
+    // blank registration. The two lines above have already seeded name and
+    // address from local storage; _prefillFrom overwrites them with the
+    // server's copy, which is the authority.
+    if (widget.editMode) {
+      unawaited(_loadProfileForEditing());
+    }
     // #43 / Note 33 — load the admin-configured field rules: which optional
     // fields are required, and which are switched off entirely.
     fetchFieldRuleSets().then((rules) {
@@ -1448,8 +1638,22 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
           }),
         );
       }
-      // pending -> waiting screen; approved (grandfathered) -> home.
-      routeByRegistrationStatus(res.status);
+      if (widget.editMode) {
+        // Editing, not registering: go back where they came from. Routing by
+        // status here would be wrong twice over — an approved user would be
+        // bounced to the home screen out of nowhere, and a still-pending one
+        // would be dropped on the waiting screen as though they had just
+        // applied again.
+        Get.back<bool>(result: true);
+        Get.snackbar(
+          'Profile'.tr,
+          'Your profile has been updated.'.tr,
+          duration: const Duration(seconds: 4),
+        );
+      } else {
+        // pending -> waiting screen; approved (grandfathered) -> home.
+        routeByRegistrationStatus(res.status);
+      }
     } else {
       AppHaptics.error();
       setState(() {
@@ -1476,7 +1680,9 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       PageTopBar(
-                        title: 'Complete your registration',
+                        title: widget.editMode
+                            ? 'Edit your details'
+                            : 'Complete your registration',
                         onBack: () {
                           // Reached via Get.offAllNamed right after OTP
                           // verification, so there's no previous route to
@@ -1488,7 +1694,9 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Tell us about yourself so an admin can review your account.'
+                        (widget.editMode
+                                ? 'Update the details on your account.'
+                                : 'Tell us about yourself so an admin can review your account.')
                             .tr,
                         style: TextStyle(
                           fontSize: 14.5,
@@ -1699,6 +1907,16 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                           ],
                         ),
                       ),
+                      // ROLE IS NOT RE-ASKED WHEN EDITING. It decides which
+                      // fields the rest of this form shows and which the
+                      // server validates against, and it is not a thing a
+                      // registered person changes about themselves — staff do
+                      // that from the dashboard. Worse, the tiles render
+                      // UNSELECTED until _roleId matches one, so an editor
+                      // would have been shown three empty radios inviting
+                      // them to pick, with a real chance of submitting under
+                      // a different role than they hold.
+                      if (!widget.editMode) ...[
                       const SizedBox(height: 18),
                       _label(context, 'Select your role'),
                       const SizedBox(height: 10),
@@ -1728,6 +1946,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                         selected: _roleId == 3,
                         onTap: () => setState(() => _roleId = 3),
                       ),
+                      ],
                       // Grantor registration spec — extra fields.
                       if (_roleId == 1) ...[
                         const SizedBox(height: 18),
