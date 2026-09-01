@@ -1165,6 +1165,14 @@ const kmr: DeepPartial<typeof en> = {
   },
 
   status: {
+    beauty_care: 'جوانکاری و چاڤدێری',
+    food_pantry: 'خوارن',
+    home_textiles: 'رایەخێن مالێ',
+    cooperative: 'کۆمەلا هاریکاریێ',
+    training: 'راهێنان',
+    clothes: 'جل و بەرگ',
+    school_supplies: 'پێدڤیێن خواندنێ',
+    health: 'تەندروستی',
     all: 'هەمی',
     education: 'پەروەردە', government: 'نڤیسینگەه و خزمەت',
     exact: 'جهێ دیاری', approx: 'نێزیکی (~٥٠٠م)',
