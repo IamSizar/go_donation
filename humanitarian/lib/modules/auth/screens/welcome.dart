@@ -323,7 +323,18 @@ class _LanguageSelector extends StatelessWidget {
     return PopupMenuButton<_LangOption>(
       initialValue: current,
       offset: const Offset(0, 46),
-      color: const Color(0xFF0E3B5C),
+      // #38 follow-up — the surface must come from the THEME, not a literal.
+      // It was a hard-coded dark navy (0xFF0E3B5C) while every label inside it
+      // used AppThemeConfig.text(), which is DARK in light mode: on the
+      // Motorola, in light mode, "Arabic" / "Kurdish Sorani" / "Kurdish
+      // Badini" were dark grey on dark navy and effectively unreadable. Only
+      // the selected row escaped it, because its badge lightens the strip
+      // behind it — which is why this survived: the language you are already
+      // using is always the legible one.
+      //
+      // Pairing the surface with the text colour means the two cannot drift
+      // apart again, in either theme.
+      color: AppThemeConfig.surface(context),
       elevation: 12,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
