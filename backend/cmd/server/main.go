@@ -1250,9 +1250,22 @@ func main() {
 			admin.GET("/admin/aid-receipts", aidReceiptsH.AdminList)
 			admin.POST("/admin/aid-receipts", auth.RequireAdminTier(), aidReceiptsH.AdminCreate)
 			// #43 — registration field rules (required vs optional).
+			//
+			// ─── THE ARBAC SEAM (owner #8, not built) ──────────────────────
+			// Changing a rule reconfigures registration for EVERY account of a
+			// role, so today only the Super Admin tier may do it. The owner
+			// wants that delegable to named staff once ARBAC exists. This one
+			// variable is the whole authorization decision for the feature —
+			// every setter route below shares it, and the required/optional/
+			// off control now offered inside the user edit screen posts to
+			// these same routes rather than to a second, separately-gated one.
+			// Replacing the tier check with `perm("field_rules", "edit")` here
+			// is the entire migration; nothing else needs to change, and no
+			// handler decides authorization for itself.
+			fieldRuleWrite := auth.RequireAdminTier()
 			admin.GET("/admin/registration/field-rules", fieldRulesH.AdminList)
-			admin.POST("/admin/registration/field-rules/:key", auth.RequireAdminTier(), fieldRulesH.SetState)
-			admin.POST("/admin/registration/field-rules/:key/searchable", auth.RequireAdminTier(), fieldRulesH.SetSearchable)
+			admin.POST("/admin/registration/field-rules/:key", fieldRuleWrite, fieldRulesH.SetState)
+			admin.POST("/admin/registration/field-rules/:key/searchable", fieldRuleWrite, fieldRulesH.SetSearchable)
 			admin.GET("/admin/city-sectors", citySectorsH.AdminList)
 			admin.POST("/admin/city-sectors", auth.RequireAdminTier(), citySectorsH.Add)
 			admin.PATCH("/admin/city-sectors/:id", auth.RequireAdminTier(), citySectorsH.Update)

@@ -25,6 +25,7 @@
 
 import type { FieldSpec } from '../components/EditModal'
 import type { FieldRuleState } from './fieldRules'
+import type { ColumnRule } from './fieldRuleColumns'
 import {
   USER_PROFILE_GROUPS,
   type ProfileField,
@@ -142,6 +143,38 @@ export function buildNewUserFields(state: Record<string, FieldRuleState>): Field
     ...PROFILE_EDIT_FIELDS.map((f) => ({ ...f, required: isRequired(f.key) })),
   ]
   return fields.filter((f) => always.has(f.key) || !isHidden(f.key))
+}
+
+/**
+ * Edit User, gated by the rules that govern THIS account's role — owner #15,
+ * "the dashboard form must match the app".
+ *
+ * USER_FIELDS above is the ungated list and remains the fallback: it is what
+ * renders while the rules are still loading, for an account with no app role
+ * (staff), and if the rules fetch fails. Being wrongly lenient there costs a
+ * round trip, because the server refuses the save anyway
+ * (backend/internal/handlers/field_rule_enforcement.go); being wrongly strict
+ * would make an account uneditable over a config blip.
+ *
+ * `hidden` fields are dropped, not disabled — a switched-off field is one the
+ * role is never asked for, and greying out ninety boxes would be a worse
+ * screen than not showing them. The account-level boxes are never dropped for
+ * the same reason buildNewUserFields keeps them: without a phone there is no
+ * account, and password is how staff reset one.
+ */
+export function buildEditUserFields(
+  rules: Record<string, ColumnRule>,
+  hasRules: boolean,
+): FieldSpec[] {
+  if (!hasRules) return USER_FIELDS
+  const always = new Set(['phone', 'password'])
+  return USER_FIELDS.filter((f) => always.has(f.key) || rules[f.key]?.state !== 'hidden').map((f) => {
+    if (always.has(f.key)) return f
+    // `required` on a FieldSpec is what draws the asterisk and blocks Save;
+    // it is set from the rule rather than hardcoded, which is the whole point
+    // of #16 — staff decide, not the code.
+    return { ...f, required: rules[f.key]?.state === 'required' }
+  })
 }
 
 /**

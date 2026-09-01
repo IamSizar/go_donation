@@ -9,7 +9,7 @@ import Table, { type Column } from '../components/Table'
 import Pagination from '../components/Pagination'
 import StatusCell from '../components/StatusCell'
 import EditModal from '../components/EditModal'
-import { USER_FIELDS, buildNewUserFields, flattenForEdit } from '../lib/userEditFields'
+import { buildEditUserFields, buildNewUserFields, flattenForEdit } from '../lib/userEditFields'
 import { useUserEditProfile } from '../lib/useUserEditProfile'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../lib/toast'
@@ -18,6 +18,7 @@ import { type CsvColumn } from '../lib/csv'
 import { formatPhone } from '../lib/phone'
 import { usePermission } from '../lib/permissions'
 import { useFieldRules } from '../lib/fieldRules'
+import { rulePrefixForRole, useUserFieldRules } from '../lib/fieldRuleColumns'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
 import { formatDateTime } from '../lib/dates'
@@ -102,6 +103,17 @@ export default function UsersPage() {
   const amSuper = isSuperAdmin(authUser)
   const { state: newUserFieldState } = useFieldRules('user_')
   const newUserFields = useMemo(() => buildNewUserFields(newUserFieldState), [newUserFieldState])
+  // Owner #15 — the Edit form obeys the SAME rules the app's registration form
+  // obeys, resolved for the role of the account being edited. USER_FIELDS (the
+  // ungated list) is still what renders while the rules load, for an account
+  // with no app role, and if the fetch fails — see buildEditUserFields for why
+  // being lenient there is the right failure.
+  const editFieldRules = useUserFieldRules()
+  const editFields = useMemo(() => {
+    const roleId = editing?.role_id != null ? Number(editing.role_id) : undefined
+    const usable = !editFieldRules.loading && !editFieldRules.error && rulePrefixForRole(roleId) !== null
+    return buildEditUserFields(editFieldRules.rulesFor(roleId), usable)
+  }, [editing, editFieldRules])
   // Note #4 — Archive is the reversible, non-destructive alternative to
   // Delete; a Super Admin decides per-tier (Permissions page) who besides
   // admins gets it. Delete itself stays hard-restricted to amSuper below —
@@ -582,7 +594,7 @@ export default function UsersPage() {
         open={editing !== null}
         title={editing ? t('common.modal_edit', { noun: t('noun.user'), id: editing.user_id }) : ''}
         initial={editing ? flattenForEdit(editing.phone, editProfile) : {}}
-        fields={USER_FIELDS}
+        fields={editFields}
         loading={editLoading}
         loadError={editError}
         onRetry={reloadEditProfile}

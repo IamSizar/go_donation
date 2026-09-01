@@ -947,6 +947,14 @@ class AppTranslations extends Translations {
     'search_products': 'Product',
     'search_partners': 'Partner',
     'search_places': 'City place',
+    // Owner #16 - the banner shown to somebody who ALREADY registered when
+    // staff later make a field required. It prompts; it never blocks. See
+    // lib/modules/profile/required_fields_prompt.dart.
+    'required_fields_prompt_title': 'A few details are still missing',
+    'required_fields_prompt_body':
+        'Your registration now asks for some details your profile does not have yet. You can add them whenever you like - nothing here stops working in the meantime.',
+    'required_fields_prompt_action': 'Complete profile',
+    'required_fields_prompt_dismiss': 'Not now',
     'clear_cache': 'Clear cache',
     'About Us': 'About Us',
     'Our Work': 'Our Work',
@@ -3898,6 +3906,11 @@ class AppTranslations extends Translations {
     'search_products': 'منتج',
     'search_partners': 'شريك',
     'search_places': 'مكان في المدينة',
+    'required_fields_prompt_title': 'ما زالت بعض المعلومات ناقصة',
+    'required_fields_prompt_body':
+        'أصبح التسجيل يطلب معلومات لم تُضِفها إلى ملفك بعد. يمكنك إضافتها متى شئت، ولن يتوقف أي شيء في التطبيق حتى ذلك الحين.',
+    'required_fields_prompt_action': 'إكمال الملف',
+    'required_fields_prompt_dismiss': 'ليس الآن',
     'clear_cache': 'مسح الذاكرة المؤقتة',
     'About Us': 'من نحن',
     'Our Work': 'أعمالنا',
@@ -6237,6 +6250,11 @@ class AppTranslations extends Translations {
     'search_products': 'بەرهەم',
     'search_partners': 'هاوبەش',
     'search_places': 'شوێنی شار',
+    'required_fields_prompt_title': 'هێشتا چەند زانیارییەک نەماوە',
+    'required_fields_prompt_body':
+        'ئێستا تۆمارکردن داوای چەند زانیارییەک دەکات کە هێشتا لە پرۆفایلەکەت نین. هەر کاتێک بتەوێت دەتوانیت زیادیان بکەیت؛ هیچ شتێک لە ئەپەکە ناوەستێت.',
+    'required_fields_prompt_action': 'تەواوکردنی پرۆفایل',
+    'required_fields_prompt_dismiss': 'ئێستا نا',
     'clear_cache': 'پاککردنەوەی کاش',
     'About Us': 'دەربارەی ئێمە',
     'Our Work': 'کارەکانمان',
@@ -9503,6 +9521,11 @@ class AppTranslations extends Translations {
     'search_products': 'بەرهەم',
     'search_partners': 'هەڤبەش',
     'search_places': 'جهێ باژێری',
+    'required_fields_prompt_title': 'هێژ هندەک زانیاری کێم نە',
+    'required_fields_prompt_body':
+        'نوکە تۆمارکرن داخازا هندەک زانیاریان دکەت یێن هێژ د پرۆفایلا تە دا نەبوویین. دشێی هەر دەمێ بڤێت زێدە بکەی؛ چو تشت د ئەپێ دا ناوەستیت.',
+    'required_fields_prompt_action': 'تەمامکرنا پرۆفایلی',
+    'required_fields_prompt_dismiss': 'نوکە نە',
     'clear_cache': 'پاقژکرنا کاشێ',
     'About Us': 'دەربارەی مە',
     'Our Work': 'کارێن مە',

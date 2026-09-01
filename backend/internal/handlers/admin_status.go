@@ -2,8 +2,10 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"regexp"
@@ -206,9 +208,27 @@ type createUserReq struct {
 // Admin-created accounts skip the mobile approval flow (registration_status
 // 'approved'). Phone is required and unique.
 func (h *AdminStatusHandler) CreateUser(c *gin.Context) {
+	// The body is read ONCE and used twice: decoded into the typed request,
+	// and re-inspected key-by-key by the field-rule guard below (which has to
+	// tell "sent blank" from "not sent at all", a distinction a decoded struct
+	// with non-pointer fields has already thrown away).
+	rawBody, readErr := io.ReadAll(c.Request.Body)
+	if readErr != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Could not read the request body."})
+		return
+	}
 	var req createUserReq
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := json.Unmarshal(rawBody, &req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid JSON body."})
+		return
+	}
+	// Owner #15/#16 — the New User window's boxes are gated by the `user_`
+	// Field Rules namespace (migration 057) on the client; this is the same
+	// gate on the server, so a required box cannot be skipped and a switched-
+	// off box cannot be injected. includeShared is FALSE: the `user_`
+	// namespace already carries its own copy of every shared sign-up field,
+	// and reading both would let two rows disagree about one box.
+	if guardFieldRules(c, h.Pool, fieldRulePrefixNewUser, false, rawBody) {
 		return
 	}
 	phone := strings.TrimSpace(req.Phone)

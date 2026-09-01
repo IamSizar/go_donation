@@ -23,6 +23,7 @@ import 'package:flutter_application_1/modules/search/screens/global_search_scree
 import 'package:flutter_application_1/widgets/cached_profile_avatar.dart';
 import 'package:flutter_application_1/api/profile_api.dart';
 import 'dart:io';
+import 'package:flutter_application_1/modules/profile/required_fields_prompt.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:flutter_application_1/widgets/dashboard.dart';
 import 'package:get/get.dart';
@@ -196,6 +197,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
         body: Column(
           children: [
             DashboardTopBar(tabIndex: _currentIndex),
+            // Owner #16 — when staff make a registration field required, the
+            // people who already signed up are PROMPTED, never blocked. This
+            // renders literally nothing (SizedBox.shrink) unless this account
+            // is actually missing a newly-required field and has not already
+            // dismissed that exact prompt, so it costs the layout nothing on
+            // every other launch. It sits ABOVE the tab body rather than
+            // inside a tab because the fields are account-wide, not the
+            // business of whichever tab happens to be open.
+            const RequiredFieldsPrompt(),
             Expanded(
               // Each tab's screen wraps itself in a SafeArea, because each is
               // also reachable as a standalone pushed route. Inside this
