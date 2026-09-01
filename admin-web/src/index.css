@@ -3649,10 +3649,29 @@ html[dir='rtl'] .data-table th {
   font-size: var(--text-xs);
   font-weight: 600;
   line-height: 1;
-  padding: 6px var(--space-3);
+  /* `height` is stated, not left to padding, because the global
+     `button { height: 36px }` sets an explicit height — and padding cannot
+     shrink a fixed one. Without this the control rendered 38px tall on every
+     one of ~90 rows and dominated the values it was annotating. Overriding
+     with an explicit height is the pattern this file already uses for the
+     same reason (.topbar button 30px, .pagination button 32px). */
+  height: 26px;
+  padding: 0 10px;
   cursor: pointer;
   white-space: nowrap;
   transition: background 150ms ease, color 150ms ease;
+}
+
+/* On a touch screen density stops being the priority and the 44px target
+   does — the dashboard is an installable PWA, so this control does get
+   thumbs. Keyed on the POINTER rather than on width: a small window on a
+   laptop is still a mouse, and a large tablet is still a thumb. */
+@media (pointer: coarse) {
+  .rule-seg-btn {
+    height: 40px;
+    padding: 0 var(--space-4);
+    font-size: var(--text-sm);
+  }
 }
 .rule-seg-btn + .rule-seg-btn { border-inline-start: 1px solid var(--color-border); }
 .rule-seg-btn:hover:not(:disabled):not([data-active]) {
