@@ -25,8 +25,12 @@ import 'package:flutter_application_1/localization/app_translations.dart';
 /// Screens that used to build their own `AppBar` with the button in
 /// `actions`. Kept as a named list so the guard states exactly which files
 /// must stay clean, rather than a vague "search everywhere".
+// edit_profile.dart is deliberately absent: the screen was DELETED when every
+// "edit my profile" entry point in the app was pointed at the registration
+// form in edit mode, which now holds the avatar and every field the person's
+// role asks for. Keeping a second profile form only to satisfy this list
+// would be keeping the drift this change removed.
 const _formerOwnAppBarPages = <String>[
-  'lib/modules/auth/screens/edit_profile.dart',
   'lib/modules/bot/screens/bot_chat_screen.dart',
   'lib/modules/chat/screens/case_chat_conversation_screen.dart',
   'lib/modules/chat/screens/chat_conversation_screen.dart',

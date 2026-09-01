@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 
 class AppTranslations extends Translations {
   static const Map<String, String> _en = {
+    'Remove photo': 'Remove photo',
     'Edit your details': 'Edit your details',
     'Update the details on your account.': 'Update the details on your account.',
     'Your profile has been updated.': 'Your profile has been updated.',
@@ -3105,6 +3106,7 @@ class AppTranslations extends Translations {
   };
 
   static const Map<String, String> _ar = {
+    'Remove photo': 'إزالة الصورة',
     'Edit your details': 'تعديل بياناتك',
     'Update the details on your account.': 'حدّث البيانات الموجودة على حسابك.',
     'Your profile has been updated.': 'تم تحديث ملفك الشخصي.',
@@ -5896,6 +5898,7 @@ class AppTranslations extends Translations {
   };
 
   static final Map<String, String> _sorani = {
+    'Remove photo': 'لابردنی وێنە',
     'Edit your details': 'دەستکاری زانیارییەکانت',
     'Update the details on your account.': 'زانیارییەکانی هەژمارەکەت نوێ بکەرەوە.',
     'Your profile has been updated.': 'پرۆفایلەکەت نوێ کرایەوە.',
@@ -8189,6 +8192,7 @@ class AppTranslations extends Translations {
   };
 
   static final Map<String, String> _badini = {
+    'Remove photo': 'ژێبرنا وێنەی',
     'Edit your details': 'گهۆرینا زانیاریێن تە',
     'Update the details on your account.': 'زانیاریێن هەژمارا خۆ نوی بکە.',
     'Your profile has been updated.': 'پرۆفایلا تە هاتە نویکرن.',

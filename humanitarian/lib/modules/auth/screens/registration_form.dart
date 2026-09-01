@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/auth_session.dart';
 import 'package:flutter_application_1/api/registration_api.dart';
 import 'package:flutter_application_1/api/profile_full_api.dart';
+import 'package:flutter_application_1/api/profile_api.dart';
+import 'package:flutter_application_1/widgets/cached_profile_avatar.dart';
 import 'package:flutter_application_1/core/app_haptics.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/auth_navigation.dart';
@@ -226,6 +228,52 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
   String? _graduationCertPhotoPath;
   String? _cvPhotoPath;
 
+
+  // ─── Edit mode: the profile picture ────────────────────────────────────
+  //
+  // The avatar is NOT a registration field. Registration uploads its
+  // attachments (ID, house photos, CV) on a separate call, and the avatar is
+  // written by /profile/set — which is why it used to live on its own screen.
+  //
+  // It is here because every "edit my profile" entry point in the app now
+  // lands on THIS form, and a person who opens their profile to change their
+  // picture must not find that the one thing they came for is the one thing
+  // missing. A second screen kept only for the avatar would be the two-forms
+  // problem again, in miniature.
+  String? _avatarPath;
+  bool _removeAvatar = false;
+
+  Future<void> _pickAvatar() async {
+    // Square, because the avatar is drawn in a circle everywhere it appears —
+    // any other shape is just cropped again at display time.
+    final path = await pickCroppedImage(context, lockRatio: PhotoShape.square);
+    if (path == null || !mounted) return;
+    setState(() {
+      _avatarPath = path;
+      _removeAvatar = false;
+    });
+  }
+
+  /// Saves the picture, if it changed.
+  ///
+  /// Separate from the registration submit because it goes to a different
+  /// endpoint. Passing the SAME name/address/gender the form just submitted is
+  /// deliberate and safe: /profile/set compares full_name to the current value
+  /// and only queues a staff review when it actually differs, so an unchanged
+  /// name costs nothing.
+  Future<void> _saveAvatarIfChanged() async {
+    if (_avatarPath == null && !_removeAvatar) return;
+    final userId = int.tryParse(sharedPreferences.getString('user_id') ?? '');
+    if (userId == null || userId <= 0) return;
+    await updateUserProfile(
+      userId: userId,
+      fullName: _nameController.text.trim(),
+      address: _addressController.text.trim(),
+      gender: _gender ?? '',
+      localImagePath: _avatarPath,
+      removeProfilePicture: _removeAvatar && _avatarPath == null,
+    );
+  }
 
   // ─── Edit mode: prefill ────────────────────────────────────────────────
   //
@@ -1639,6 +1687,9 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
         );
       }
       if (widget.editMode) {
+        // The picture goes to a different endpoint; do it before leaving so
+        // the profile screen we pop back to already shows the new one.
+        await _saveAvatarIfChanged();
         // Editing, not registering: go back where they came from. Routing by
         // status here would be wrong twice over — an approved user would be
         // bounced to the home screen out of nowhere, and a still-pending one
@@ -1704,6 +1755,70 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                           color: AppThemeConfig.mutedText(context),
                         ),
                       ),
+                      if (widget.editMode) ...[
+                        const SizedBox(height: 18),
+                        // width: infinity — GlassPanel sizes to its child, and
+                        // the surrounding Column is start-aligned, so without
+                        // this the card shrink-wrapped the avatar and sat off
+                        // to one side with a band of empty page beside it,
+                        // while every other section on the form runs edge to
+                        // edge.
+                        SizedBox(
+                          width: double.infinity,
+                          child: GlassPanel(
+                            padding: const EdgeInsets.all(20),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                GestureDetector(
+                                  onTap: _pickAvatar,
+                                  child: CachedProfileAvatar(
+                                    localPath: _avatarPath ??
+                                        (_removeAvatar
+                                            ? null
+                                            : sharedPreferences
+                                                .getString('profile_image_path')),
+                                    imageUrl: _removeAvatar
+                                        ? null
+                                        : sharedPreferences
+                                            .getString('profile_picture_url'),
+                                    radius: 44,
+                                    backgroundColor: AppThemeConfig.accent(context),
+                                    placeholder: const Icon(Icons.person,
+                                        color: Colors.white, size: 44),
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                // One row, centred. Stacked they read as a
+                                // list of unrelated links; side by side they
+                                // read as the two things you can do to the
+                                // picture above them.
+                                Wrap(
+                                  alignment: WrapAlignment.center,
+                                  spacing: 8,
+                                  runSpacing: 4,
+                                  children: [
+                                    TextButton.icon(
+                                      onPressed: _pickAvatar,
+                                      icon: const Icon(Icons.photo_camera_outlined, size: 18),
+                                      label: Text('Profile picture'.tr),
+                                    ),
+                                    if (_avatarPath != null || !_removeAvatar)
+                                      TextButton.icon(
+                                        onPressed: () => setState(() {
+                                          _avatarPath = null;
+                                          _removeAvatar = true;
+                                        }),
+                                        icon: const Icon(Icons.delete_outline, size: 18),
+                                        label: Text('Remove photo'.tr),
+                                      ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 18),
                       GlassPanel(
                         padding: const EdgeInsets.all(20),
