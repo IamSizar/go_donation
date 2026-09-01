@@ -3,6 +3,8 @@ import 'package:get/get.dart';
 
 class AppTranslations extends Translations {
   static const Map<String, String> _en = {
+    'Save changes': 'Save changes',
+    'Add photo': 'Add photo',
     'Remove photo': 'Remove photo',
     'Edit your details': 'Edit your details',
     'Update the details on your account.': 'Update the details on your account.',
@@ -3106,6 +3108,8 @@ class AppTranslations extends Translations {
   };
 
   static const Map<String, String> _ar = {
+    'Save changes': 'حفظ التغييرات',
+    'Add photo': 'إضافة صورة',
     'Remove photo': 'إزالة الصورة',
     'Edit your details': 'تعديل بياناتك',
     'Update the details on your account.': 'حدّث البيانات الموجودة على حسابك.',
@@ -5898,6 +5902,8 @@ class AppTranslations extends Translations {
   };
 
   static final Map<String, String> _sorani = {
+    'Save changes': 'پاشەکەوتکردنی گۆڕانکارییەکان',
+    'Add photo': 'زیادکردنی وێنە',
     'Remove photo': 'لابردنی وێنە',
     'Edit your details': 'دەستکاری زانیارییەکانت',
     'Update the details on your account.': 'زانیارییەکانی هەژمارەکەت نوێ بکەرەوە.',
@@ -8192,6 +8198,8 @@ class AppTranslations extends Translations {
   };
 
   static final Map<String, String> _badini = {
+    'Save changes': 'گهۆرینان تومارکە',
+    'Add photo': 'وێنەیەکێ زێدە بکە',
     'Remove photo': 'ژێبرنا وێنەی',
     'Edit your details': 'گهۆرینا زانیاریێن تە',
     'Update the details on your account.': 'زانیاریێن هەژمارا خۆ نوی بکە.',

@@ -1268,7 +1268,12 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
       setState(() => _error = 'Please select your role'.tr);
       return;
     }
-    if (!_agreeToTerms) {
+    // Terms are accepted ONCE, at registration. Re-gating an edit behind them
+    // would mean somebody who already agreed cannot correct their address
+    // without agreeing again — and because the box starts unticked, the save
+    // button simply refused with an error that made no sense on a form they
+    // opened to change one field.
+    if (!widget.editMode && !_agreeToTerms) {
       setState(
         () => _error = 'Please accept the Terms & Conditions to continue'.tr,
       );
@@ -4977,6 +4982,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                         message: _error ?? '',
                         padding: const EdgeInsets.only(top: 16),
                       ),
+                      if (!widget.editMode) ...[
                       const SizedBox(height: 18),
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -5020,12 +5026,18 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                           ),
                         ],
                       ),
+                      ],
                       const SizedBox(height: 22),
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
                           onPressed: _loading ? null : _submit,
-                          child: Text('Submit for approval'.tr),
+                          child: Text(
+                            (widget.editMode
+                                    ? 'Save changes'
+                                    : 'Submit for approval')
+                                .tr,
+                          ),
                         ),
                       ),
                     ],
@@ -5192,12 +5204,25 @@ class _PhotoPickerTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // ─── FULL WIDTH, NOT A 96px SQUARE ────────────────────────────────────
+    // It used to be a fixed 96x96 box. Every attachment is a label above one
+    // of these, and they are siblings in the section's Column — so the widest
+    // child of that section was about 96px, the GlassPanel around it
+    // shrink-wrapped to match, and the whole Attachments section rendered in
+    // a strip down one side with nearly half the screen empty beside it. The
+    // eligible-recipient form has seven of them, which made that strip very
+    // tall as well as very narrow.
+    //
+    // Filling the width fixes both the empty half and the panel, because a
+    // panel sized by its widest child now has a full-width child. The row
+    // layout also gives the placeholder somewhere to say what it wants
+    // instead of stacking two icons in a square.
     return InkWell(
       borderRadius: BorderRadius.circular(16),
       onTap: onTap,
       child: Container(
-        height: 96,
-        width: 96,
+        width: double.infinity,
+        height: imagePath == null ? 72 : 160,
         decoration: BoxDecoration(
           color: AppThemeConfig.softSurface(context),
           borderRadius: BorderRadius.circular(16),
@@ -5205,22 +5230,35 @@ class _PhotoPickerTile extends StatelessWidget {
         ),
         clipBehavior: Clip.antiAlias,
         child: imagePath == null
-            ? Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+            ? Row(
                 children: [
+                  const SizedBox(width: 16),
                   Icon(
                     placeholderIcon,
                     color: AppThemeConfig.mutedText(context),
                     size: 26,
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Add photo'.tr,
+                      style: TextStyle(
+                        color: AppThemeConfig.mutedText(context),
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
                   Icon(
                     Icons.add_a_photo_outlined,
                     color: AppThemeConfig.mutedText(context),
-                    size: 16,
+                    size: 20,
                   ),
+                  const SizedBox(width: 16),
                 ],
               )
+            // Once chosen, the picture is the point — show it large enough to
+            // check it is the right document and the right way up, which a
+            // 96px thumbnail could not do.
             : Image.file(File(imagePath!), fit: BoxFit.cover),
       ),
     );
