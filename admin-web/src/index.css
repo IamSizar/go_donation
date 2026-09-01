@@ -3768,3 +3768,29 @@ html[dir='rtl'] .data-table th {
 @media (prefers-reduced-motion: reduce) {
   .empty-fields > summary { transition: none; }
 }
+
+/* ═══ "Needs action" row tag ══════════════════════════════════════════════
+   Marks the exact rows the sidebar badge counts. Worded, not just coloured:
+   the 4px status stripe already exists and cannot do this job, because a
+   failed payment promotes a counted row to red (see lib/needsAction.ts). */
+.id-with-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.needs-action-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 7px;
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  /* The amber the stripe map already assigns to "needs admin action", so the
+     tag and the stripe read as the same signal rather than two systems. */
+  color: #1b1200;
+  background: var(--tone-warn-fg-strong, #f59e0b);
+}

@@ -1697,6 +1697,10 @@ const en = {
   },
 
   // Read-only record detail page.
+  badge: {
+    needs_action: 'Needs action',
+    needs_action_hint: 'Counted by the sidebar badge — this row is waiting on staff.',
+  },
   detail: {
     empty_fields: '{count} empty fields',
     no_view: 'No detail view for "{resource}".',

@@ -1284,6 +1284,10 @@ const kmr: DeepPartial<typeof en> = {
     checkout_evidence: 'چوونا دەرڤە',
   },
 
+  badge: {
+    needs_action: 'پێدڤی ب کریارێ',
+    needs_action_hint: 'د نیشانا کێلەکێ دا هاتیە ژمارتن — ئەڤ رێزک ل بەندا ستافی یە.',
+  },
   detail: {
     empty_fields: '{count} خانێن ڤالا',
     no_view: 'چ دیتنا وردەکاری بۆ "{resource}" نینە.',

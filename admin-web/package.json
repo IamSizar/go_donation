@@ -15,6 +15,7 @@
     "test:sw": "node scripts/test-sw.mjs",
     "test:nav": "node --test scripts/test-nav-layout.mjs",
     "test:field-labels": "node --test scripts/test-field-labels.mjs",
+    "check:pending-parity": "node scripts/check-pending-parity.mjs",
     "preview": "vite preview",
     "start": "serve -s dist -l ${PORT:-3000}"
   },
