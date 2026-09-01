@@ -1579,6 +1579,10 @@ const ar: DeepPartial<typeof en> = {
     checkout_evidence: 'تسجيل الانصراف',
   },
 
+  badge: {
+    needs_action: 'بحاجة إلى إجراء',
+    needs_action_hint: 'محسوبة في شارة القائمة الجانبية — هذا السطر بانتظار الموظفين.',
+  },
   detail: {
     empty_fields: '{count} حقول فارغة',
     no_view: 'لا توجد صفحة تفاصيل لـ "{resource}".',

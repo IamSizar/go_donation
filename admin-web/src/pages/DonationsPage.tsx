@@ -17,6 +17,7 @@ import { useI18n, useStatusLabel } from '../lib/i18n'
 import { type CsvColumn } from '../lib/csv'
 import { HighlightBanner, useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForDonation } from '../lib/statusColors'
+import { donationNeedsAction } from '../lib/needsAction'
 import { formatDateParts } from '../lib/dates'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
@@ -196,7 +197,24 @@ export default function DonationsPage() {
       // is still the plain auto-increment int underneath (used unchanged in
       // every API call/link/search on this page), just prefixed with "T"
       // (Tawazzun) instead of "#" for the on-screen/export representation.
-      key: 'id', header: t('col.id'), width: '60px', cell: (d) => <strong>{fmtId(d.id)}</strong>,
+      key: 'id',
+      header: t('col.id'),
+      // Wider than the bare id to hold the needs-action tag beside it.
+      width: '110px',
+      // The sidebar badge counts these rows; nothing on the page used to say
+      // WHICH. A worded tag rather than a colour: the stripe already exists
+      // and cannot do this job — see lib/needsAction.ts for the two reasons,
+      // the sharper being that a failed payment paints a counted row RED.
+      cell: (d) => (
+        <span className="id-with-flag">
+          <strong>{fmtId(d.id)}</strong>
+          {donationNeedsAction(d) && (
+            <span className="needs-action-tag" title={t('badge.needs_action_hint')}>
+              {t('badge.needs_action')}
+            </span>
+          )}
+        </span>
+      ),
     },
     {
       key: 'ref',

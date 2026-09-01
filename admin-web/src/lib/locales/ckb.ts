@@ -1283,6 +1283,10 @@ const ckb: DeepPartial<typeof en> = {
     checkout_evidence: 'ڕۆیشتن',
   },
 
+  badge: {
+    needs_action: 'پێویستی بە کردار هەیە',
+    needs_action_hint: 'لە نیشانەی لای لاوە ژمێردراوە — ئەم ڕیزە چاوەڕێی ستافە.',
+  },
   detail: {
     empty_fields: '{count} خانەی بەتاڵ',
     no_view: 'هیچ بینینی وردەکاری بۆ "{resource}" نییە.',
