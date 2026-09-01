@@ -110,6 +110,7 @@ const ar: DeepPartial<typeof en> = {
     communication_support: 'التواصل والدعم',
     comments_activities: 'التعليقات والأنشطة',
     monitoring_reports: 'المتابعة والتقارير',
+    access_control: 'الصلاحيات والموظفون',
     system_settings: 'إعدادات النظام',
     unsorted: 'غير مصنّف',
   },
@@ -418,6 +419,7 @@ const ar: DeepPartial<typeof en> = {
     sidebar_layout_item_count: '{n} عناصر',
     sidebar_layout_reset: 'إعادة الضبط الافتراضي',
     sidebar_layout_reset_ok: 'تمت إعادة تخطيط الشريط الجانبي إلى الوضع الافتراضي.',
+    sidebar_layout_pinned: 'تبقى معًا لكي تجد كل إجابة عن "من يستطيع الدخول وما الذي يمكنه فعله؟" في مكان واحد.',
   },
   gate: {
     title: 'قسم محمي',

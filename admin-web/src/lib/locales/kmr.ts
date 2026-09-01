@@ -105,6 +105,7 @@ const kmr: DeepPartial<typeof en> = {
     communication_support: 'پەیوەندی و پشتگری',
     comments_activities: 'شرۆڤە و چالاکی',
     monitoring_reports: 'چاودێری و ڕاپۆرت',
+    access_control: 'دەستپێگەهشتن و ستاف',
     system_settings: 'رێکخستنێن سیستەمێ',
     unsorted: 'نەڕیزکری',
   },
@@ -406,6 +407,7 @@ const kmr: DeepPartial<typeof en> = {
     sidebar_layout_item_count: '{n} ئایتم',
     sidebar_layout_reset: 'ڤەگەڕان بۆ ڕەسەن',
     sidebar_layout_reset_ok: 'دیزاینا لاڕێ ڤەگەڕیا بۆ رەسەن.',
+    sidebar_layout_pinned: 'پێکڤە دمینن دا هەمی بەرسڤێن "کێ دشێت بکەڤە ژوور و چ بکەت؟" ل یەک جهی بن.',
   },
   gate: {
     title: 'بەشێ پاراستی',

@@ -107,6 +107,7 @@ const en = {
     communication_support: 'Communication & Support',
     comments_activities: 'Comments & Activities',
     monitoring_reports: 'Monitoring & Reports',
+    access_control: 'Access & Staff',
     system_settings: 'System Settings',
     unsorted: 'Unsorted',
   },
@@ -425,6 +426,7 @@ const en = {
     sidebar_layout_item_count: '{n} items',
     sidebar_layout_reset: 'Reset to default',
     sidebar_layout_reset_ok: 'Sidebar layout reset to default.',
+    sidebar_layout_pinned: 'Kept together so every answer to "who can get in, and what can they do?" stays in one place.',
   },
   gate: {
     title: 'Protected section',

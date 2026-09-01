@@ -14,8 +14,15 @@ import { api, describeError } from '../lib/api'
 import { useI18n } from '../lib/i18n'
 import { useToast } from '../lib/toast'
 import {
-  navByTo, GROUP_DEFS, DEFAULT_NAV_SECTIONS, reconcileNavSections, type NavSection,
+  navByTo, GROUP_DEFS, DEFAULT_NAV_SECTIONS, reconcileNavSections,
+  ACCESS_GROUP_KEY, ACCESS_ITEMS, type NavSection,
 } from '../lib/navLayout'
+
+// The Access & Staff pages are gathered by reconcileNavSections no matter what
+// is saved (see consolidateAccessGroup). Offering a "move to" dropdown for
+// them here would be a lie: the move would save, then snap back on the next
+// load. So they render read-only, under a line saying why.
+const PINNED = new Set(ACCESS_ITEMS)
 
 const STANDALONE = '__standalone'
 
@@ -155,11 +162,27 @@ export default function SidebarLayoutEditor() {
               )}
             </div>
 
+            {section.kind === 'group' && section.key === ACCESS_GROUP_KEY && (
+              <p className="muted" style={{ margin: '2px 0 0', fontSize: 12 }}>
+                {t('settings.sidebar_layout_pinned')}
+              </p>
+            )}
+
             {section.kind === 'group' && (
               <div className="sidebar-layout-items">
                 {section.items.map((to, iIdx) => {
                   const item = navByTo.get(to)
                   if (!item) return null
+                  // Pinned items keep the row (so the admin can still SEE
+                  // what is in the group) but lose the controls that would
+                  // not survive a reload.
+                  if (section.key === ACCESS_GROUP_KEY && PINNED.has(to)) {
+                    return (
+                      <div key={to} className="sidebar-layout-row sidebar-layout-item">
+                        <span>{t(item.tKey)}</span>
+                      </div>
+                    )
+                  }
                   return (
                     <div key={to} className="sidebar-layout-row sidebar-layout-item">
                       <div className="sidebar-layout-updown">

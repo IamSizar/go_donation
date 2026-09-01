@@ -13,6 +13,7 @@
     "check:labels": "node scripts/check-labels.mjs",
     "check:pwa": "node scripts/check-pwa.mjs",
     "test:sw": "node scripts/test-sw.mjs",
+    "test:nav": "node --test scripts/test-nav-layout.mjs",
     "preview": "vite preview",
     "start": "serve -s dist -l ${PORT:-3000}"
   },
