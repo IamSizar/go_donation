@@ -1317,24 +1317,20 @@ nav .nav-group-header:hover { background: var(--panel-2); color: var(--text-h); 
 }
 .table-wrap::-webkit-scrollbar-thumb:hover { background: var(--color-text-h); background-clip: content-box; }
 .data-table {
-  /* ─── Width: content, not 100% ────────────────────────────────────────
-     `width: 100%` + `table-layout: auto` distributes ALL surplus width
-     across the columns IN PROPORTION TO THEIR CONTENT. Nothing is sized by
-     what it needs: on the users table that gave "Account status" 213px to
-     show a select reading "نشط", and "Created" 194px for a formatted date,
-     purely because they held the longest strings.
+  /* ─── Width: fills the card ───────────────────────────────────────────
+     `table-layout: auto` hands surplus width to the columns in proportion to
+     their content, which is why this was briefly changed to `width: auto`:
+     nothing was sized by what it needed, and "Account status" took 213px to
+     show a select reading "نشط".
 
-     The owner's decision, recorded verbatim: no column absorbs the slack —
-     including the name column — every column is content-sized, and the
-     leftover width is simply empty space at the inline-end. So the table
-     stops being stretched.
-
-     `max-width: 100%` keeps the other half of the promise: a table WIDER
-     than its card (Contributions has 14 columns) is still bounded, so it
-     scrolls inside .table-wrap instead of pushing the page sideways. Only
-     the stretching goes; the containment stays. */
-  width: auto;
-  max-width: 100%;
+     That is fixed now, but at the CONTROL rather than at the table: the
+     status pill no longer stretches to fill its cell (see the note on
+     `.data-table td > .status-cell`), so a wide cell no longer means a wide,
+     silly-looking pill. Content-sizing the table on top of that left a large
+     empty band beside the rows, and the owner's call — "make the table
+     adaptive to the screen size" — is that the table should follow the
+     viewport. So it fills the card again. */
+  width: 100%;
   border-collapse: collapse;
   font-size: var(--text-sm);
 }
