@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import 'package:flutter_application_1/localization/money.dart';
 import 'package:flutter_application_1/core/app_haptics.dart';
-import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/data/featured_campaigns.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
@@ -249,10 +248,23 @@ class CampaignDetailScreen extends StatelessWidget {
                 ],
               ),
             ),
-            // Only donors can donate. Other roles can browse the campaign
-            // details but don't see the donate action.
-            if (sharedPreferences.getString('role_id') == '1')
-              Padding(
+            // EVERY signed-in role sees this, not only role 1.
+            //
+            // It used to read `if (role_id == '1')`, so a volunteer or an
+            // eligible recipient opening a campaign got the whole page —
+            // funding, location, timeline, contact — and no way to give. The
+            // client's report was exactly that: "when I tap on a campaign I
+            // want to see a button here to donate", from an account that had
+            // one hidden from it.
+            //
+            // Nothing was enforcing the restriction anyway. POST /donations
+            // checks that the caller is signed in and not a guest, and says
+            // nothing about role, so the gate was a UI opinion rather than a
+            // rule — and one no screen stated, since the button simply was
+            // not there. Guests are still handled: this pops back to the
+            // donate flow, whose own action runs the upgrade prompt (#44 /
+            // Note #40) before anything is charged.
+            Padding(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
                 child: FilledButton(
                   onPressed: () {
