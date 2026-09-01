@@ -35,10 +35,13 @@
 // gps_lng, `*_photo` → `*_photo_path`, `personal_photo` → profile_picture).
 // Unprefixed keys are the app's shared sign-up form, asked of every role.
 //
-// It is a static snapshot ON PURPOSE. Reading the rules table at render time
-// would be the start of the required/optional/off control that is deliberately
-// a SEPARATE, later change; this only needs to know whether the question was
-// ever put to this person.
+// It WAS a static snapshot on purpose, pending the required/optional/off
+// control. That control now exists (owner #15/#16), so the live rules table is
+// read at render time by lib/fieldRuleColumns.ts and passed to
+// isCollectedForRole below, which prefers it. The snapshot survives as the
+// fallback for the three moments there is no live answer — still loading, the
+// fetch failed, or a caller with no rules context — because it was correct on
+// the day it was written and "unknown" would be a worse thing to render.
 //
 // ─── ADDING A COLUMN LATER ──────────────────────────────────────────────────
 // Add it to the right group below and to the backend allow-list. The backend
@@ -273,10 +276,32 @@ export const USER_PROFILE_FIELD_BY_KEY: Record<string, ProfileField> = Object.fr
  * honest reading of "we have no form for this role" is "we cannot say this was
  * never collected", and claiming otherwise would print a confident falsehood.
  */
-export function isCollectedForRole(key: string, roleId: number | undefined): boolean {
+// Owner #15 — `liveRules`, when supplied, is the answer read off
+// `registration_field_rules` at render time (lib/fieldRuleColumns.ts). It
+// SUPERSEDES the static `roles` list above, which the file header always
+// described as a snapshot pending exactly this change: staff can now switch a
+// field on for a role from the dashboard, and the detail page must stop
+// calling it "not collected" the moment they do.
+//
+// The snapshot remains the fallback for the three cases where there is no live
+// answer: the rules are still loading, the fetch failed, or the caller is one
+// that has no rules context. Falling back to it is strictly better than
+// falling back to "unknown", because it was correct on the day it was written.
+export function isCollectedForRole(
+  key: string,
+  roleId: number | undefined,
+  liveRules?: Record<string, { governed: boolean; state: string }>,
+): boolean {
   const field = USER_PROFILE_FIELD_BY_KEY[key]
   if (!field) return true
   if (roleId !== ROLE_DONOR && roleId !== ROLE_BENEFICIARY && roleId !== ROLE_VOLUNTEER) return true
+  if (liveRules) {
+    const rule = liveRules[key]
+    // A field switched OFF for this role is not collected either — that is
+    // what "off" means, and it is the same reading the app's form applies.
+    if (rule) return rule.governed && rule.state !== 'hidden'
+    return false
+  }
   return field.roles.includes(roleId)
 }
 

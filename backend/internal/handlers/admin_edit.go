@@ -1637,6 +1637,37 @@ func (h *AdminEditHandler) guardMainAdminUserEdit(c *gin.Context, id int64, req 
 	}
 }
 
+// guardUserProfileFieldRules applies owner #15's server-side half to one
+// PATCH: the target account's ROLE selects which namespace of
+// `registration_field_rules` governs the body.
+//
+// Returns true when the caller must be STOPPED (the response is already
+// written), matching guardUserWrite and guardMainAdminUserEdit beside it.
+//
+// An account with no app role (staff, or a row whose role was never set) is
+// not governed: there is no registration form behind it, so there is no rule
+// that could be said to apply. A failed role lookup is treated the same way
+// rather than blocking the edit — the row's own 404 is raised further down by
+// the write itself, which is the honest place for it.
+func (h *AdminEditHandler) guardUserProfileFieldRules(c *gin.Context, id int64, rawBody []byte) bool {
+	var roleID *int
+	if err := h.Pool.QueryRow(c.Request.Context(),
+		`SELECT role_id FROM users WHERE id = $1`, id).Scan(&roleID); err != nil {
+		return false
+	}
+	if roleID == nil {
+		return false
+	}
+	prefix := fieldRulePrefixForRole(*roleID)
+	if prefix == "" {
+		return false
+	}
+	// includeShared: the unprefixed keys (gender, city, date_of_birth, …) are
+	// the sign-up step EVERY role passes through, so they govern every role's
+	// profile too.
+	return guardFieldRules(c, h.Pool, prefix, true, rawBody)
+}
+
 func (h *AdminEditHandler) User(c *gin.Context) {
 	id, ok := parseID(c)
 	if !ok {
@@ -1680,6 +1711,18 @@ func (h *AdminEditHandler) User(c *gin.Context) {
 	// H20 — and, if this is the main admin's account, the change has to be
 	// confirmed on BOTH of that account's channels before it is applied.
 	if h.guardMainAdminUserEdit(c, id, &req) {
+		return
+	}
+
+	// Owner #15 — the dashboard's form must match the app's. The app already
+	// validates against `registration_field_rules`; until now this endpoint
+	// did not, so a field staff had marked required for Volunteers could be
+	// blanked from the dashboard and a field they had switched off could be
+	// written by anything that spoke HTTP. The rules that apply are the ones
+	// for THIS account's role (field_rule_enforcement.go explains what is and
+	// is not refused). Runs before the transaction opens, so a refusal cannot
+	// leave a half-applied edit.
+	if h.guardUserProfileFieldRules(c, id, rawBody) {
 		return
 	}
 

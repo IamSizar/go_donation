@@ -1929,6 +1929,42 @@ const en = {
     no_documents: 'This account has not uploaded any documents.',
   },
 
+  // ─── Owner #16 — the per-field required/optional/off control on the user
+  // profile screen (components/FieldRuleCell.tsx).
+  //
+  // EVERY LABEL NAMES THE ROLE. The screen shows one person; the rule governs
+  // everyone with that role. There is deliberately no bare "Required" string
+  // in this block — the scope is in the words, not in a tooltip.
+  fieldrule: {
+    role: {
+      donors: 'donors',
+      beneficiaries: 'beneficiaries',
+      volunteers: 'volunteers',
+      unknown: 'users of this role',
+    },
+    scope: {
+      required: 'Required for all {role}',
+      optional: 'Optional for all {role}',
+      hidden: 'Off for all {role}',
+    },
+    control_label: 'Registration rule for {field}, applied to all {role}',
+    confirm: {
+      title: 'Change this for everyone?',
+      body: {
+        required: 'Make "{field}" REQUIRED on the registration form for all {role}.',
+        optional: 'Make "{field}" OPTIONAL on the registration form for all {role}.',
+        hidden: 'Turn "{field}" OFF, so it is not asked of any of the {role}.',
+      },
+      // The question an operator would otherwise have to guess the answer to.
+      existing_users:
+        'People who already registered are not locked out. The app asks them to fill the field in and lets them dismiss it and carry on.',
+      apply: 'Apply to everyone',
+    },
+    saved: 'Registration rule updated for all {role}.',
+    rules_unavailable:
+      'Could not load the registration rules, so this page cannot show which fields are required. The values below are still correct.',
+  },
+
   dbfield: {
     // ─── Registration profile (the person's own submitted details) ───────
     // Wording copied from the app's own registration form so an operator and

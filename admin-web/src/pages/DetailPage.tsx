@@ -15,7 +15,7 @@
 
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { api, describeError, assetUrl } from '../lib/api'
+import { api, describeError, assetUrl, getStoredUser, isAdminLevel } from '../lib/api'
 import { formatDateOnly, formatDateTime } from '../lib/dates'
 import { useI18n, useFieldLabel, useStatusLabel } from '../lib/i18n'
 import { skillLabelFor, scheduleSummary } from '../lib/skillCatalogue'
@@ -385,6 +385,12 @@ export default function DetailPage() {
               documents={documents}
               renderValue={renderOne}
               roleId={resp.item.role_id != null ? Number(resp.item.role_id) : undefined}
+              // Owner #16 — the per-field required/optional/off control. The
+              // client mirror of the ONE server gate on the field-rule setter
+              // routes (main.go's `fieldRuleWrite`), so the screen offers only
+              // what the server would accept. The server remains the
+              // authority; this just avoids inviting a 403.
+              canEditFieldRules={isAdminLevel(getStoredUser())}
             />
           </div>
         )

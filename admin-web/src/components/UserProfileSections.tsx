@@ -17,16 +17,21 @@
 //     saving anything. A field this role is never asked for now says so.
 //  3. Shows PHOTOS AND DOCUMENTS as things you can look at, not as file paths.
 //
-// WHERE THE LATER PER-FIELD RULE CONTROL ATTACHES
-// A follow-up adds a required/optional/off control per field. It belongs on
-// <ProfileFieldRow>: that component already receives the ProfileField, so the
-// control is one more cell in its row and needs no change to the grouping, the
-// page, or the field declaration.
+// THE PER-FIELD RULE CONTROL (owner #16) LANDED HERE, as the earlier note
+// predicted: <ProfileFieldRow> already received the field, the role and the
+// value, so the control is one more cell in its row and the grouping, the
+// page and the field declaration are untouched. It is <FieldRuleCell>, and
+// everything about why it is dangerous and how it is made safe is written
+// there — the short version is that the rule is per ROLE while this screen
+// shows one PERSON, so the control names the role in every label and confirms
+// before it writes.
 
 import { useState } from 'react'
 import { assetUrl } from '../lib/api'
 import { useI18n, useFieldLabel } from '../lib/i18n'
+import FieldRuleCell from './FieldRuleCell'
 import PhotoViewer from './PhotoViewer'
+import { useUserFieldRules, type ColumnRule } from '../lib/fieldRuleColumns'
 import {
   USER_PROFILE_GROUPS,
   isCollectedForRole,
@@ -56,6 +61,12 @@ type Props = {
   renderValue: (key: string, value: unknown) => React.ReactNode
   /** The account's role, used to answer "was this ever asked for?". */
   roleId: number | undefined
+  /**
+   * Whether to offer the per-field required/optional/off control (owner #16).
+   * False hides it entirely — see FieldRuleCell for why the server, not this
+   * flag, is the authority.
+   */
+  canEditFieldRules?: boolean
 }
 
 /** Empty for display purposes: null, undefined, or a blank/whitespace string. */
@@ -83,6 +94,9 @@ function ProfileFieldRow({
   privacyHidden,
   renderValue,
   onOpenPhoto,
+  rule,
+  canEditFieldRules,
+  onRuleChanged,
 }: {
   field: ProfileField
   value: unknown
@@ -90,6 +104,10 @@ function ProfileFieldRow({
   privacyHidden: string[]
   renderValue: (key: string, value: unknown) => React.ReactNode
   onOpenPhoto: (src: string, label: string) => void
+  /** This column's live rule for this role, or undefined while they load. */
+  rule: ColumnRule | undefined
+  canEditFieldRules: boolean
+  onRuleChanged: () => void
 }) {
   const { t } = useI18n()
   const fieldLabel = useFieldLabel()
@@ -102,7 +120,15 @@ function ProfileFieldRow({
   const privacyKey = privacyKeyFor(field.key)
   const isPrivate = privacyKey !== null && privacyHidden.includes(privacyKey)
 
-  const collected = isCollectedForRole(field.key, roleId)
+  // Owner #15 — the live rules, not the static snapshot, decide whether this
+  // role was ever asked for the column. `liveRules` is undefined while the
+  // fetch is in flight or if it failed, and isCollectedForRole then falls back
+  // to the snapshot rather than rendering an unknown.
+  const collected = isCollectedForRole(
+    field.key,
+    roleId,
+    rule ? { [field.key]: { governed: rule.governed, state: rule.state } } : undefined,
+  )
 
   let rendered: React.ReactNode
   if (!collected) {
@@ -149,7 +175,23 @@ function ProfileFieldRow({
           </span>
         )}
       </div>
-      <div className="detail-value">{rendered}</div>
+      <div className="detail-value">
+        {rendered}
+        {rule && (
+          // The rule control sits UNDER the value, not beside it: the value is
+          // what the operator came to read, and a dropdown competing with it
+          // for the same line is how a mis-click starts.
+          <div style={{ marginTop: 6 }}>
+            <FieldRuleCell
+              rule={rule}
+              roleId={roleId}
+              fieldLabel={label}
+              canEdit={canEditFieldRules}
+              onChanged={onRuleChanged}
+            />
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -228,12 +270,26 @@ export default function UserProfileSections({
   documents,
   renderValue,
   roleId,
+  canEditFieldRules = false,
 }: Props) {
   const { t } = useI18n()
   const [photo, setPhoto] = useState<{ src: string; label: string } | null>(null)
+  // Owner #15/#16 — one fetch of `registration_field_rules` for the whole
+  // page, resolved onto columns for THIS account's role. `error` is surfaced
+  // rather than swallowed; the resolver degrades to "nothing governed", which
+  // renders the page exactly as it did before this change.
+  const fieldRules = useUserFieldRules()
+  const columnRules = fieldRules.rulesFor(roleId)
 
   return (
     <div className="stack" style={{ gap: 24 }}>
+      {fieldRules.error && (
+        // Not swallowed and not fatal: the page still shows every value, it
+        // just cannot say which fields are required — so it says that, rather
+        // than quietly showing a snapshot as if it were live.
+        <p className="muted" style={{ margin: 0 }}>{t('fieldrule.rules_unavailable')}</p>
+      )}
+
       {privacyHidden.length > 0 && (
         // Said once at the top so an operator understands what the badges mean
         // and does not read a private value as one the person published.
@@ -255,6 +311,9 @@ export default function UserProfileSections({
                 privacyHidden={privacyHidden}
                 renderValue={renderValue}
                 onOpenPhoto={(src, label) => setPhoto({ src, label })}
+                rule={fieldRules.loading || fieldRules.error ? undefined : columnRules[field.key]}
+                canEditFieldRules={canEditFieldRules}
+                onRuleChanged={fieldRules.reload}
               />
             ))}
           </div>
