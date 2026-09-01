@@ -1164,6 +1164,14 @@ const ckb: DeepPartial<typeof en> = {
   },
 
   status: {
+    beauty_care: 'جوانکاری و چاودێری',
+    food_pantry: 'خۆراک',
+    home_textiles: 'ڕایەخی ماڵ',
+    cooperative: 'کۆمەڵەی هاوکاری',
+    training: 'ڕاهێنان',
+    clothes: 'جل و بەرگ',
+    school_supplies: 'پێداویستی خوێندن',
+    health: 'تەندروستی',
     all: 'هەموو',
     education: 'پەروەردە', government: 'نووسینگە و خزمەت',
     exact: 'شوێنی وردی', approx: 'نزیکەیی (~٥٠٠م)',

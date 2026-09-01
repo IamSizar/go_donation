@@ -1335,6 +1335,13 @@ const ar: DeepPartial<typeof en> = {
   },
 
   status: {
+    beauty_care: 'العناية والتجميل',
+    food_pantry: 'مواد غذائية',
+    home_textiles: 'مفروشات منزلية',
+    cooperative: 'جمعية تعاونية',
+    training: 'تدريب',
+    clothes: 'ملابس',
+    school_supplies: 'قرطاسية مدرسية',
     all: 'الكل',
     education: 'التعليم', government: 'الدوائر والخدمات',
     health: 'القطاع الصحي والطبي', commercial: 'القطاع التجاري والخدمي',

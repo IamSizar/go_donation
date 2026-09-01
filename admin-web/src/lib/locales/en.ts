@@ -1428,6 +1428,18 @@ const en = {
   // useStatusLabel(); the machine value sent to the backend is unchanged.
   // Unknown values fall back to the raw string.
   status: {
+    // Legacy free-text category slugs (marketplace_products.category,
+    // city_directory_entries.category, in_kind_donations.category). They are
+    // NOT CHECK-constrained, which is why check-labels cannot find them and
+    // why they reached an Arabic screen as `food_pantry`. Taken from the
+    // distinct values actually present in the database.
+    beauty_care: 'Beauty & care',
+    food_pantry: 'Food pantry',
+    home_textiles: 'Home textiles',
+    cooperative: 'Cooperative',
+    training: 'Training',
+    clothes: 'Clothes',
+    school_supplies: 'School supplies',
     all: 'all',
     // #29 — City Guide sector slugs. `healthcare`/`markets`/`worship`/`relief`
     // were removed: migration 052_city_guide_five_sectors.sql replaced them
