@@ -26,6 +26,7 @@ const MarketplacePage = lazy(() => import('./pages/MarketplacePage'))
 const MarriagePage = lazy(() => import('./pages/MarriagePage'))
 const MarriageMeetingRequestsPage = lazy(() => import('./pages/MarriageMeetingRequestsPage'))
 const MarriageChatsPage = lazy(() => import('./pages/MarriageChatsPage'))
+const MarriageSupportPage = lazy(() => import('./pages/MarriageSupportPage'))
 const PartnersPage = lazy(() => import('./pages/PartnersPage'))
 const MediaPage = lazy(() => import('./pages/MediaPage'))
 const CommunityPage = lazy(() => import('./pages/CommunityPage'))
@@ -154,6 +155,7 @@ export default function App() {
             <Route path="marriage" element={<MarriagePage />} />
             <Route path="marriage-requests" element={<MarriageMeetingRequestsPage />} />
             <Route path="marriage-chats" element={<MarriageChatsPage />} />
+            <Route path="marriage-support" element={<MarriageSupportPage />} />
             <Route path="partners" element={<PartnersPage />} />
             <Route path="media" element={<MediaPage />} />
             <Route path="community" element={<CommunityPage />} />

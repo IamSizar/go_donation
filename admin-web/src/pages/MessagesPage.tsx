@@ -1,5 +1,13 @@
 /**
- * Admin Messages page — oversight of every donor ↔ campaign-owner chat.
+ * Admin Messages page — oversight of every donor ↔ campaign-owner chat, and
+ * (with kind="support") of the requests app users address to the staff team.
+ *
+ * ONE COMPONENT, TWO ROUTES. The two lists are the same screen doing the same
+ * job — read any thread, claim it, reply, apply the lifecycle — over rows that
+ * differ only in `kind`. Copying 370 lines to change a heading and a query
+ * parameter is how the two drift: a lifecycle control added here and not there,
+ * a claim button fixed on one page only. What genuinely differs is named in
+ * [MessagesPageProps] and nothing else.
  *
  * Admins are the "support" party in every thread: they can read any
  * conversation and reply (messages are tagged sender_role=0 / "Support").
@@ -86,7 +94,31 @@ function StatusBadge({ status }: { status: string }) {
   return <span className={`badge tone-${tone}`}>{statusLabel(status)}</span>
 }
 
-export default function MessagesPage() {
+/** What the support view needs to say differently. Every field is optional,
+ * so the donor route renders exactly what it always did. */
+export type MessagesPageProps = {
+  /** Which threads to list. Omitted (or 'direct') is donor ↔ campaign-owner. */
+  kind?: 'direct' | 'support'
+  /** Heading and CSV title key. */
+  titleKey?: string
+  /** The emoji beside the heading. */
+  icon?: string
+  /** CSV filename stem. */
+  filenameBase?: string
+  /** i18n key naming the party who opened the thread, in parentheses. */
+  leftPartyKey?: string
+  /** i18n key naming the party they are talking to. */
+  rightPartyKey?: string
+}
+
+export default function MessagesPage({
+  kind = 'direct',
+  titleKey = 'nav.messages',
+  icon = '💬',
+  filenameBase = 'messages',
+  leftPartyKey = 'common.donor_paren',
+  rightPartyKey = 'common.owner_paren',
+}: MessagesPageProps = {}) {
   const { t } = useI18n()
   const statusLabel = useStatusLabel()
   const [threads, setThreads] = useState<AdminThread[]>([])
@@ -105,7 +137,10 @@ export default function MessagesPage() {
   const loadThreads = useCallback(async () => {
     try {
       const res = await api.get<{ items: AdminThread[] }>('/api/admin/chats', {
-        params: { q: q || undefined },
+        // `kind` is always sent: the server treats anything but 'support' as
+        // 'direct', so an omitted parameter would silently mean the donor list
+        // if this component were ever mounted without its prop.
+        params: { q: q || undefined, kind },
       })
       const items = res.data.items ?? []
       setThreads(items)
@@ -115,7 +150,7 @@ export default function MessagesPage() {
       setErr(describeError(e))
       return null
     }
-  }, [q])
+  }, [q, kind])
 
   useEffect(() => {
     setLoading(true)
@@ -197,8 +232,8 @@ export default function MessagesPage() {
       <PageHead>
         <div>
           <h1 style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: '1.3rem' }}>💬</span>
-            {t('nav.messages')}
+            <span style={{ fontSize: '1.3rem' }}>{icon}</span>
+            {t(titleKey)}
           </h1>
           <p className="muted">
             {t('common.msg_convos_count', { n: threads.length })}
@@ -215,8 +250,8 @@ export default function MessagesPage() {
           <ExportCsvButton
             rows={threads}
             columns={THREAD_CSV_COLUMNS}
-            filenameBase="messages"
-            title={t('nav.messages')}
+            filenameBase={filenameBase}
+            title={t(titleKey)}
             module="messages"
           />
         </div>
@@ -269,7 +304,7 @@ export default function MessagesPage() {
               <div style={{ borderBottom: '1px solid var(--color-border, rgba(127,127,127,0.18))', paddingBottom: 10, marginBottom: 10 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <strong>
-                    {name(selected.donor_name, selected.donor_user_id, t)} {t('common.donor_paren')} ↔ {name(selected.owner_name, selected.owner_user_id, t)} {t('common.owner_paren')}
+                    {name(selected.donor_name, selected.donor_user_id, t)} {t(leftPartyKey)} ↔ {name(selected.owner_name, selected.owner_user_id, t)} {t(rightPartyKey)}
                   </strong>
                   <StatusBadge status={selected.status} />
                 </div>

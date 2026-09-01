@@ -68,10 +68,21 @@ bool isOfflineFailure(Object error) {
 ///
 /// The caller is still responsible for logging [error] — this function never
 /// renders it.
-String failureMessage(Object error, String whatFailedKey) {
+String failureMessage(Object error, String whatFailedKey) =>
+    failureMessageFor(offline: isOfflineFailure(error), whatFailedKey: whatFailedKey);
+
+/// [failureMessage] for a call site that no longer holds the exception.
+///
+/// Some failures cross a boundary that keeps the outcome and drops the error —
+/// [SupportChatFailed] is one, carrying the detail as a string and the
+/// offline-ness as a bool decided where the exception still existed. Such a
+/// caller must compose the same sentence from the same two keys, and doing it
+/// by hand is how the two halves drift apart.
+String failureMessageFor({
+  required bool offline,
+  required String whatFailedKey,
+}) {
   final whatFailed = whatFailedKey.tr;
-  final whatToDoNext = isOfflineFailure(error)
-      ? 'error_next_offline'.tr
-      : 'error_next_retry'.tr;
+  final whatToDoNext = offline ? 'error_next_offline'.tr : 'error_next_retry'.tr;
   return '$whatFailed $whatToDoNext';
 }
