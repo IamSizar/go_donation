@@ -1093,8 +1093,29 @@ class _FeaturedCampaignsSection extends StatelessWidget {
           // height here (a Column under a ListView), so nesting it inside
           // would make OverflowBox report an infinite height and corrupt the
           // rest of the list's layout.
+          // MEASURED, not guessed. The card's content — badge, two-line
+          // title, location, funding block, progress bar and the "view &
+          // contribute" row — comes to 229pt at the default text scale and
+          // 262pt at 1.3x. Both numbers were read off the overflow amount
+          // reported when the box was deliberately shrunk to 120pt.
+          //
+          // This box was a flat 340. That left ~110pt of dead space under
+          // every card at normal text size — the empty band the owner
+          // reported — while STILL being too short for anyone using large
+          // text, where the content would clip.
+          //
+          // So the height follows the text instead of ignoring it: 240 at
+          // 1.0x, growing ~115pt per unit of scale, which keeps roughly a
+          // dozen points of headroom over the measured content at 1.0x, 1.3x
+          // and 2.0x. The Spacer inside the card is untouched — it aligns the
+          // funding block across cards of different title lengths, which is
+          // still worth having now that the slack it absorbs is small.
+          final textScale = MediaQuery.textScalerOf(
+            context,
+          ).scale(1).clamp(1.0, 2.0);
           return SizedBox(
-            height: 340,
+            key: const ValueKey('featured-campaigns-strip'),
+            height: 240 + 115 * (textScale - 1),
             child: AppAsync<List<dynamic>>(
               loading: campaignsController.isLoading.value,
               error: campaignsController.errorMessage.value,
