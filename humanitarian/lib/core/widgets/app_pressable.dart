@@ -228,25 +228,33 @@ class _AppPressableState extends State<AppPressable>
       },
     );
 
-    return _withTouchTarget(
-      _withSemantics(
-        // Listener drives the VISUAL (immediate, raw pointer events).
-        // GestureDetector drives the SEMANTIC tap (arena-resolved, so it
-        // still cooperates correctly with scrolling and other recognizers —
-        // dragging a list that contains these must scroll, not tap).
-        Listener(
-          onPointerDown: _handlePointerDown,
-          onPointerUp: _handlePointerUp,
-          onPointerCancel: _handlePointerUp,
-          child: GestureDetector(
-            behavior: widget.behavior,
-            onTap: _handleTap,
-            onLongPress: widget.onLongPress,
-            child: animated,
-          ),
+    // ORDER MATTERS — the touch target goes INSIDE the gesture handlers.
+    //
+    // It used to sit outside them, which built a 44pt box whose extra area was
+    // DEAD: `Center` shrink-wraps its child, so the GestureDetector nested
+    // within it only ever covered the child's own bounds. A 16pt icon measured
+    // 44x44 to `tester.getSize` while rejecting every tap more than 8pt from
+    // its centre — the constraint was real, the hit area was not. Wrapping the
+    // padded box in the handlers instead makes the whole 44pt square live.
+    //
+    // The scale still wraps `animated` only, so the visual press is unchanged.
+    return _withSemantics(
+      // Listener drives the VISUAL (immediate, raw pointer events).
+      // GestureDetector drives the SEMANTIC tap (arena-resolved, so it
+      // still cooperates correctly with scrolling and other recognizers —
+      // dragging a list that contains these must scroll, not tap).
+      Listener(
+        onPointerDown: _handlePointerDown,
+        onPointerUp: _handlePointerUp,
+        onPointerCancel: _handlePointerUp,
+        child: GestureDetector(
+          behavior: widget.behavior,
+          onTap: _handleTap,
+          onLongPress: widget.onLongPress,
+          child: _withTouchTarget(animated),
         ),
-        enabled: true,
       ),
+      enabled: true,
     );
   }
 
