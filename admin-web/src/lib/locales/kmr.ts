@@ -1169,6 +1169,28 @@ const kmr: DeepPartial<typeof en> = {
     clear: 'پاککرنا خانەی',
   },
 
+  staff_activity: {
+    open: 'چالاکی',
+    back: 'ڤەگەڕان بۆ ستافێ',
+    cases: 'دۆسیێن هاتینە پێداچوون',
+    registrations: 'تۆمارکرنێن هاتینە پێداچوون',
+    profile_changes: 'گهۆڕینێن پرۆفایلێ یێن بڕیاردایی',
+    meeting_requests: 'داخوازیێن چاڤپێکەفتنێ یێن بڕیاردایی',
+    permission_changes: 'گهۆڕینێن دەستهەلاتان',
+    assigned_now: 'ئاخفتنێن نوکە هاتینە سپارتن',
+    assigned_now_hint: 'یێن نوکە لدەست، نە کۆما دەمی',
+    timeline: 'چالاکی',
+    showing_all: 'نیشاندانا هەمیان {n}',
+    showing_recent: 'نیشاندانا {n}ێن نویترین ژ {total}',
+    empty: 'هێژ چو چالاکی بۆ ڤی کارمەندی نەهاتیە تۆمارکرن.',
+    kind: {
+      case: 'دۆسیە',
+      registration: 'تۆمارکرن',
+      profile_change: 'گهۆڕینا پرۆفایلێ',
+      meeting_request: 'داخوازیا چاڤپێکەفتنێ',
+      permission: 'دەستهەلات',
+    },
+  },
   status: {
     family_monthly: 'پشتەڤانیا مەهانە یا مالبەتێ',
     orphan_monthly: 'سپۆنسەریا مەهانە یا سێوییان',

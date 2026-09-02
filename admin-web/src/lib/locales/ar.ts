@@ -1339,6 +1339,28 @@ const ar: DeepPartial<typeof en> = {
     clear: 'مسح الحقل',
   },
 
+  staff_activity: {
+    open: 'النشاط',
+    back: 'العودة إلى الموظفين',
+    cases: 'الحالات المراجَعة',
+    registrations: 'التسجيلات المراجَعة',
+    profile_changes: 'تغييرات الملف المبتوتة',
+    meeting_requests: 'طلبات اللقاء المبتوتة',
+    permission_changes: 'تغييرات الصلاحيات',
+    assigned_now: 'المحادثات المسندة حاليًا',
+    assigned_now_hint: 'ما يحمله الآن، لا مجموعًا عبر الوقت',
+    timeline: 'النشاط',
+    showing_all: 'عرض الكل ({n})',
+    showing_recent: 'عرض أحدث {n} من {total}',
+    empty: 'لا يوجد نشاط مسجَّل لهذا الموظف بعد.',
+    kind: {
+      case: 'حالة',
+      registration: 'تسجيل',
+      profile_change: 'تغيير ملف',
+      meeting_request: 'طلب لقاء',
+      permission: 'صلاحية',
+    },
+  },
   status: {
     family_monthly: 'كفالة عائلة شهرية',
     orphan_monthly: 'كفالة يتيم شهرية',

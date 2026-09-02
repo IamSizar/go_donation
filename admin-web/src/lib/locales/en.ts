@@ -1435,6 +1435,28 @@ const en = {
   // Status / enum value labels. The display label is resolved via
   // useStatusLabel(); the machine value sent to the backend is unchanged.
   // Unknown values fall back to the raw string.
+  staff_activity: {
+    open: 'Activity',
+    back: 'Back to staff',
+    cases: 'Cases reviewed',
+    registrations: 'Registrations reviewed',
+    profile_changes: 'Profile changes decided',
+    meeting_requests: 'Meeting requests decided',
+    permission_changes: 'Permission changes',
+    assigned_now: 'Chats assigned now',
+    assigned_now_hint: 'Currently held, not a total over time',
+    timeline: 'Activity',
+    showing_all: 'Showing all {n}',
+    showing_recent: 'Showing the most recent {n} of {total}',
+    empty: 'Nothing recorded for this employee yet.',
+    kind: {
+      case: 'Case',
+      registration: 'Registration',
+      profile_change: 'Profile change',
+      meeting_request: 'Meeting request',
+      permission: 'Permission',
+    },
+  },
   status: {
     // Sponsorship type slugs (sponsorships.sponsorship_type,
     // sponsorship_types.slug). Free text with no CHECK behind it, so

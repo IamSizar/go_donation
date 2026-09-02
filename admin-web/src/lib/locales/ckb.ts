@@ -1168,6 +1168,28 @@ const ckb: DeepPartial<typeof en> = {
     clear: 'پاککردنەوەی خانە',
   },
 
+  staff_activity: {
+    open: 'چالاکی',
+    back: 'گەڕانەوە بۆ ستاف',
+    cases: 'کەیسە پێداچوونەوەکراوەکان',
+    registrations: 'تۆمارکردنە پێداچوونەوەکراوەکان',
+    profile_changes: 'گۆڕانکاری پرۆفایلی بڕیاردراو',
+    meeting_requests: 'داواکاری چاوپێکەوتنی بڕیاردراو',
+    permission_changes: 'گۆڕانی دەسەڵاتەکان',
+    assigned_now: 'گفتوگۆ ئێستا سپێردراو',
+    assigned_now_hint: 'ئێستا لەلایە، نەک کۆی کات',
+    timeline: 'چالاکی',
+    showing_all: 'پیشاندانی هەموو {n}',
+    showing_recent: 'پیشاندانی نوێترین {n} لە {total}',
+    empty: 'هێشتا هیچ چالاکییەک بۆ ئەم کارمەندە تۆمار نەکراوە.',
+    kind: {
+      case: 'کەیس',
+      registration: 'تۆمارکردن',
+      profile_change: 'گۆڕانی پرۆفایل',
+      meeting_request: 'داواکاری چاوپێکەوتن',
+      permission: 'دەسەڵات',
+    },
+  },
   status: {
     family_monthly: 'پاڵپشتی مانگانەی خێزان',
     orphan_monthly: 'سپۆنسەری مانگانەی هەتیو',
