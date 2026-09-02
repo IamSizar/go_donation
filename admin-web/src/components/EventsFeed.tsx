@@ -141,8 +141,24 @@ function bodyFor(
       break
     }
   }
+  // A note is either real content the operator wants (a case title, an item
+  // name) or — on rows written before the app stopped composing sentences —
+  // English prose. Content is worth more than a generic label, so it still
+  // wins; the localized sentence below is what NEW rows get, since they no
+  // longer carry a note at all.
   const note = String(r.note ?? '').trim()
   if (note) return note
+
+  const bodyKey = FEED_BODY_KEY[r.event_type]
+  if (bodyKey) {
+    const meta = (r.metadata ?? {}) as { method?: unknown }
+    const rawMethod = String(meta.method ?? '').trim().toLowerCase()
+    const methodKey = METHOD_KEY[rawMethod]
+    // The method is only part of the sentence for the two auth events; every
+    // other key ignores the placeholder, and t() leaves unused vars alone.
+    return t(bodyKey, methodKey ? { method: t(methodKey) } : {})
+  }
+
   const label = String(r.event_label ?? '').trim()
   if (label) return label
   const mod = String(r.module ?? '').trim()
@@ -187,6 +203,51 @@ const EVENT_META: Record<string, EventMeta> = {
   admin_user_active:   { icon: '⏻', tone: 'warning', badge: 'User', category: 'People' },
   admin_user_admin:    { icon: '🛡', tone: 'warning', badge: 'User', category: 'People' },
   admin_user_status:   { icon: '⚠', tone: 'danger',  badge: 'User', category: 'People' },
+}
+
+/**
+ * The sentence a feed row shows, per event type, as an i18n key.
+ *
+ * WHY THIS EXISTS
+ * The app used to write the sentence itself, in English, into the event's
+ * `note` — "password login succeeded", "Marketplace order from app cart" —
+ * and this feed prints notes verbatim. An Arabic operator therefore read
+ * English sentences down the live feed, which is what the owner reported.
+ *
+ * The app now sends machine values only (see the comment at
+ * humanitarian/lib/controllers/login.dart's AppEventFirestore.log call), and
+ * the sentence is composed HERE, in the reader's language — the same rule the
+ * admin_user_* branch above already followed.
+ *
+ * Rows written BEFORE that change still carry their English note, and nothing
+ * can localize prose that was stored as prose. They keep rendering, in
+ * English, through the note fallback in bodyFor: an old row that still reads
+ * is better than one that goes blank.
+ */
+const FEED_BODY_KEY: Record<string, string> = {
+  login: 'feed.body.login',
+  register: 'feed.body.register',
+  guest_login: 'feed.body.guest_login',
+  guest_register: 'feed.body.guest_register',
+  role_select: 'feed.body.role_select',
+  profile_update: 'feed.body.profile_update',
+  beneficiary_case_submit: 'feed.body.beneficiary_case_submit',
+  project_request_submit: 'feed.body.project_request_submit',
+  marketplace_order_submit: 'feed.body.marketplace_order_submit',
+  volunteer_application_submit: 'feed.body.volunteer_application_submit',
+  volunteer_mission_join: 'feed.body.volunteer_mission_join',
+  support_ticket_submit: 'feed.body.support_ticket_submit',
+  in_kind_donation_submit: 'feed.body.in_kind_donation_submit',
+  marriage_profile_submit: 'feed.body.marriage_profile_submit',
+  notification_mark_read: 'feed.body.notification_mark_read',
+  sponsorship_cancel: 'feed.body.sponsorship_cancel',
+}
+
+/** Auth methods the app reports, as machine values. */
+const METHOD_KEY: Record<string, string> = {
+  password: 'feed.method.password',
+  otp: 'feed.method.otp',
+  google: 'feed.method.google',
 }
 
 function metaFor(type: string): EventMeta {

@@ -1394,6 +1394,27 @@ const en = {
 
   // Dashboard live-activity feed.
   feed: {
+    // The sentence each feed row shows, composed here rather than sent as
+    // English prose by the app — see FEED_BODY_KEY in EventsFeed.tsx.
+    body: {
+      login: 'Signed in with {method}',
+      register: 'Created an account with {method}',
+      guest_login: 'Guest signed in',
+      guest_register: 'Guest account created',
+      role_select: 'Chose an account type',
+      profile_update: 'Updated their profile',
+      beneficiary_case_submit: 'Submitted a case',
+      project_request_submit: 'Submitted a project request',
+      marketplace_order_submit: 'Placed a store order',
+      volunteer_application_submit: 'Applied to volunteer',
+      volunteer_mission_join: 'Joined a mission',
+      support_ticket_submit: 'Opened a support ticket',
+      in_kind_donation_submit: 'Offered an in-kind donation',
+      marriage_profile_submit: 'Submitted an engagement profile',
+      notification_mark_read: 'Marked a notification as read',
+      sponsorship_cancel: 'Cancelled a sponsorship',
+    },
+    method: { password: 'a password', otp: 'a one-time code', google: 'Google' },
     title: 'Live activity',
     connecting: 'Connecting…',
     connected: 'Realtime connected · {visible} of {total} shown',

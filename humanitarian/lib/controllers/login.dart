@@ -610,9 +610,14 @@ class LoginController extends GetxController {
           : int.tryParse(user['role_id']?.toString() ?? ''),
       name: resolvedName,
       number: resolvedPhone,
-      note: user['returning_user'] == true
-          ? '$method login succeeded'
-          : '$method registration succeeded',
+      // NO English prose here, deliberately. This used to send
+      // "$method login succeeded", and the admin dashboard prints the note
+      // verbatim — so an Arabic operator read English sentences down the live
+      // feed. The method travels as a MACHINE value instead and the dashboard
+      // renders it in the reader's language, which is the convention the feed
+      // already states for admin events: "the raw enum is stored on the event
+      // so we localize it here to the viewer's language".
+      metadata: {'method': method.toLowerCase()},
     );
 
     return user;
