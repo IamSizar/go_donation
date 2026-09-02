@@ -1362,6 +1362,10 @@ const ar: DeepPartial<typeof en> = {
     },
   },
   status: {
+    // chat_threads.kind (migration 119) — a CHECK value, so it can
+    // reach a screen as a raw token if it is ever rendered.
+    direct: 'محادثة مباشرة',
+    support: 'طلب دعم',
     family_monthly: 'كفالة عائلة شهرية',
     orphan_monthly: 'كفالة يتيم شهرية',
     house_rent: 'إيجار سكن',

@@ -1458,6 +1458,10 @@ const en = {
     },
   },
   status: {
+    // chat_threads.kind (migration 119) — a CHECK value, so it can
+    // reach a screen as a raw token if it is ever rendered.
+    direct: 'Direct chat',
+    support: 'Support request',
     // Sponsorship type slugs (sponsorships.sponsorship_type,
     // sponsorship_types.slug). Free text with no CHECK behind it, so
     // check-labels cannot enumerate them — taken from the distinct

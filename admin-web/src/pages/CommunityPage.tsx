@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import LocalizedCell from '../components/LocalizedCell'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError } from '../lib/api'
 import type { CommunityEntry } from '../lib/api-types'
@@ -59,7 +60,7 @@ export default function CommunityPage() {
   const [q, setQ] = useState('')
   const [refreshTick, setRefreshTick] = useState(0)
   const toast = useToast()
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const statusLabel = useStatusLabel()
 
   useEffect(() => {
@@ -114,10 +115,7 @@ export default function CommunityPage() {
     { key: 'id', header: t('col.id'), width: '60px', cell: (e) => <strong>{fmtId(e.id)}</strong> },
     {
       key: 'name', header: t('col.name'), cell: (e) => (
-        <div className="cell-stack">
-          <strong>{e.name}</strong>
-          {e.name_ar && <span className="muted">{e.name_ar}</span>}
-        </div>
+        <LocalizedCell row={e} field="name" locale={locale} />
       ),
     },
     // Legacy free-text category slug from the backend; raw it showed machine

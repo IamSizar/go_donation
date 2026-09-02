@@ -1191,6 +1191,10 @@ const ckb: DeepPartial<typeof en> = {
     },
   },
   status: {
+    // chat_threads.kind (migration 119) — a CHECK value, so it can
+    // reach a screen as a raw token if it is ever rendered.
+    direct: 'گفتوگۆی ڕاستەوخۆ',
+    support: 'داواکاری پشتیوانی',
     family_monthly: 'پاڵپشتی مانگانەی خێزان',
     orphan_monthly: 'سپۆنسەری مانگانەی هەتیو',
     house_rent: 'کرێی خانوو',

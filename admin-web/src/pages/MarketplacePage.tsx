@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
+import LocalizedCell from '../components/LocalizedCell'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError, assetUrl } from '../lib/api'
 import { useLivePoll } from '../lib/useLivePoll'
@@ -299,10 +300,7 @@ function ProductsTab() {
       key: 'name',
       header: t('col.name'),
       cell: (p) => (
-        <div className="cell-stack">
-          <strong>{p.name}</strong>
-          {p.name_ar && <span className="muted">{p.name_ar}</span>}
-        </div>
+        <LocalizedCell row={p} field="name" locale={locale} />
       ),
     },
     // Legacy free-text category slug from the backend. Printed raw it showed

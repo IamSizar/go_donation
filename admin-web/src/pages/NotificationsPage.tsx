@@ -1,4 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
+import LocalizedCell from '../components/LocalizedCell'
+import { localizedField } from '../lib/localizedContent'
 import { api, describeError } from '../lib/api'
 import { useLivePoll } from '../lib/useLivePoll'
 import type { AdminNotification, AdminPageResp } from '../lib/api-types'
@@ -103,7 +105,7 @@ export default function NotificationsPage() {
   // Phase 27.9 — true while a background poll is refetching, so the loader
   // stays hidden and the list updates silently (no full reload flash).
   const pollSilent = useRef(false)
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const statusLabel = useStatusLabel()
 
 
@@ -146,15 +148,21 @@ export default function NotificationsPage() {
     {
       key: 'title', header: t('col.title'),
       cell: (n) => (
-        <div className="cell-stack">
-          <strong>{n.title}</strong>
-          {n.title_ar && <span className="muted">{n.title_ar}</span>}
-        </div>
+        <LocalizedCell row={n} field="title" locale={locale} />
       ),
     },
     {
       key: 'body', header: t('col.body'),
-      cell: (n) => <span style={{ whiteSpace: 'normal' }}>{n.body.length > 100 ? n.body.slice(0, 100) + '…' : n.body}</span>,
+      // body_ar was sitting in the payload, unrendered: the message text was
+      // English on an Arabic screen even when the translation existed.
+      cell: (n) => {
+        const text = localizedField(n as unknown as Record<string, unknown>, 'body', locale)
+        return (
+          <span style={{ whiteSpace: 'normal' }}>
+            {text.length > 100 ? text.slice(0, 100) + '…' : text}
+          </span>
+        )
+      },
     },
     // notification_type was rendered inside <code> as a raw enum
     // (beneficiary_case_submitted, volunteer_application_approved, …) —
