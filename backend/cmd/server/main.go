@@ -57,6 +57,7 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/sponsorships"
 	"github.com/karam-flutter/humanitarian-backend/internal/sponsorshipschedule"
 	"github.com/karam-flutter/humanitarian-backend/internal/sponsorshiptypes"
+	"github.com/karam-flutter/humanitarian-backend/internal/staffactivity"
 	"github.com/karam-flutter/humanitarian-backend/internal/staffchat"
 	"github.com/karam-flutter/humanitarian-backend/internal/storage"
 	"github.com/karam-flutter/humanitarian-backend/internal/support"
@@ -339,6 +340,7 @@ func main() {
 		os.Getenv("R2_PUBLIC_BASE_URL"), uploadDir)
 	permStore := permissions.New(pool)
 	adminDetailH := handlers.NewAdminDetailHandler(pool, permStore)
+	staffActivityH := handlers.NewStaffActivityHandler(staffactivity.New(pool), permStore)
 	adminExportH := handlers.NewAdminExportHandler(pool)
 	// Requirement 6c — stamp the hash chain onto any pre-chain audit rows so the
 	// ledger verifies as intact from the first request. Best-effort: a failure
@@ -393,7 +395,7 @@ func main() {
 	mediaCategoriesH := handlers.NewMediaCategoriesHandler(mediaCatStore)                                        // #22
 	caseCategoriesH := handlers.NewCaseCategoriesHandler(caseCatStore)                                           // Quick Filter Capsules
 	mediaEngageH := handlers.NewMediaEngagementHandler(postEngageStore, bannedWordsStore, notifier, eventsStore) // #24/#25
-	bannedWordsH := handlers.NewBannedWordsHandler(bannedWordsStore, pool)                                           // #25
+	bannedWordsH := handlers.NewBannedWordsHandler(bannedWordsStore, pool)                                       // #25
 	partnerEngageH := handlers.NewPartnerEngagementHandler(partnerRatingStore)                                   // #27
 	marketplaceCategoriesH := handlers.NewMarketplaceCategoriesHandler(marketplaceCatStore)                      // #28
 	paymentMethodsH := handlers.NewPaymentMethodsHandler(paymentMethodStore)
@@ -1012,6 +1014,11 @@ func main() {
 			// Note #36 — internal staff-to-staff chat. Not perm()-gated: every
 			// dashboard tier (employee and up) can use it regardless of assigned
 			// module permissions, same as the `admin` group's base requirement.
+			// The employee profile: what ONE staff member has decided. Pinned to
+			// RequireSuperAdmin like the Staff page that links to it — this is a
+			// record of a colleague's work, and who may read it is a management
+			// question, not a per-module content permission.
+			admin.GET("/admin/staff/:id/activity", auth.RequireSuperAdmin(), staffActivityH.Activity)
 			admin.GET("/admin/staff-directory", staffChatH.Directory)
 			admin.GET("/admin/staff-chats", staffChatH.List)
 			admin.POST("/admin/staff-chats/start", staffChatH.Start)

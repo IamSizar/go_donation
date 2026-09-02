@@ -290,6 +290,15 @@ export default function StaffPage() {
           <ActionsMenu
             items={[
               { key: 'view', label: t('common.view'), href: `/detail/users/${u.user_id}`, onClick: () => {} },
+              // The employee profile: what this person has decided. Sits
+              // beside "view" (which shows the RECORD) because the owner's ask
+              // was about their work, not their row.
+              {
+                key: 'activity',
+                label: t('staff_activity.open'),
+                href: `/staff/${u.user_id}/activity`,
+                onClick: () => {},
+              },
               // Task 1 (owner ask: "password change button collapse into one
               // instead of 2") — removed the standalone "Set Password" action
               // that used to sit next to "Edit" here. It hit the identical

@@ -27,6 +27,7 @@ const MarriagePage = lazy(() => import('./pages/MarriagePage'))
 const MarriageMeetingRequestsPage = lazy(() => import('./pages/MarriageMeetingRequestsPage'))
 const MarriageChatsPage = lazy(() => import('./pages/MarriageChatsPage'))
 const MarriageSupportPage = lazy(() => import('./pages/MarriageSupportPage'))
+const StaffActivityPage = lazy(() => import('./pages/StaffActivityPage'))
 const PartnersPage = lazy(() => import('./pages/PartnersPage'))
 const MediaPage = lazy(() => import('./pages/MediaPage'))
 const CommunityPage = lazy(() => import('./pages/CommunityPage'))
@@ -207,6 +208,9 @@ export default function App() {
             <Route path="field-rules" element={<FieldRulesPage />} />
             <Route path="receipts" element={<ReceiptsPage />} />
             <Route path="contact" element={<ContactPage />} />
+            {/* Reached from a row on /staff, not from the nav: it is about
+                one person, so there is nothing to put in a menu. */}
+            <Route path="staff/:id/activity" element={<StaffActivityPage />} />
             <Route path="detail/:resource/:id" element={<DetailPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
