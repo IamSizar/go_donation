@@ -1192,6 +1192,10 @@ const kmr: DeepPartial<typeof en> = {
     },
   },
   status: {
+    // chat_threads.kind (migration 119) — a CHECK value, so it can
+    // reach a screen as a raw token if it is ever rendered.
+    direct: 'ئاخفتنا رەوان',
+    support: 'داخوازیا پشتەڤانیێ',
     family_monthly: 'پشتەڤانیا مەهانە یا مالبەتێ',
     orphan_monthly: 'سپۆنسەریا مەهانە یا سێوییان',
     house_rent: 'کرێیا خانیێ',

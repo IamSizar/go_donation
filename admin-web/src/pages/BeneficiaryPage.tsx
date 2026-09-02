@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
+import LocalizedCell from '../components/LocalizedCell'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError } from '../lib/api'
 import { useLivePoll } from '../lib/useLivePoll'
@@ -382,10 +383,7 @@ function CasesTab() {
       key: 'title',
       header: t('col.title'),
       cell: (r) => (
-        <div className="cell-stack">
-          <strong>{r.public_title}</strong>
-          {r.public_title_ar && <span className="muted">{r.public_title_ar}</span>}
-        </div>
+        <LocalizedCell row={r} field="public_title" locale={locale} />
       ),
     },
     {
@@ -601,7 +599,7 @@ function RequestsTab() {
   // stays hidden and the list updates silently (no full reload flash).
   const pollSilent = useRef(false)
   const toast = useToast()
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const sel = useSelection<ProjectRequest>((r) => r.id)
   // Live-feed click → pulse the matching project-request row.
   const highlight = useHighlightedRow()
@@ -721,10 +719,7 @@ function RequestsTab() {
       key: 'title',
       header: t('col.project'),
       cell: (r) => (
-        <div className="cell-stack">
-          <strong>{r.project_title}</strong>
-          {r.project_title_ar && <span className="muted">{r.project_title_ar}</span>}
-        </div>
+        <LocalizedCell row={r} field="project_title" locale={locale} />
       ),
     },
     // Legacy free-text category slug from the backend. Printed raw it showed

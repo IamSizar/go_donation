@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import LocalizedCell from '../components/LocalizedCell'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError, assetUrl } from '../lib/api'
 import type { MediaPost } from '../lib/api-types'
@@ -229,10 +230,7 @@ export default function MediaPage() {
       key: 'title',
       header: t('col.title'),
       cell: (m) => (
-        <div className="cell-stack">
-          <strong>{m.title}</strong>
-          {m.title_ar && <span className="muted">{m.title_ar}</span>}
-        </div>
+        <LocalizedCell row={m} field="title" locale={locale} />
       ),
     },
     {

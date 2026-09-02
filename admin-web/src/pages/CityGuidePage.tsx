@@ -10,6 +10,7 @@
  * the city_directory_entries table.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import LocalizedCell from '../components/LocalizedCell'
 import { Link } from 'react-router-dom'
 import { api, describeError } from '../lib/api'
 import type { CommunityEntry, CitySector } from '../lib/api-types'
@@ -234,10 +235,7 @@ export default function CityGuidePage() {
     { key: 'id', header: t('col.id'), width: '60px', cell: (e) => <strong>{fmtId(e.id)}</strong> },
     {
       key: 'name', header: t('cityGuide.col_place'), cell: (e) => (
-        <div className="cell-stack">
-          <strong>{e.name}</strong>
-          {e.name_ar && <span className="muted" dir="rtl">{e.name_ar}</span>}
-        </div>
+<LocalizedCell row={e} field="name" locale={locale} dir="rtl" />
       ),
     },
     // Legacy free-text category slug from the backend — printed raw it showed

@@ -13,6 +13,7 @@
 //   • Delete CASCADEs signups — confirm dialog spells this out.
 
 import { useCallback, useEffect, useState, useRef } from 'react'
+import LocalizedCell from '../components/LocalizedCell'
 import ActionsMenu from '../components/ActionsMenu'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError } from '../lib/api'
@@ -106,7 +107,7 @@ export default function MissionsPage() {
   // stays hidden and the list updates silently (no full reload flash).
   const pollSilent = useRef(false)
   const toast = useToast()
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const statusLabel = useStatusLabel()
   const sel = useSelection<AdminMission>((m) => m.id)
   const highlight = useHighlightedRow()
@@ -226,8 +227,7 @@ export default function MissionsPage() {
       header: t('col.mission'),
       cell: (m) => (
         <div className="cell-stack">
-          <strong>{m.title}</strong>
-          {m.title_ar && <span className="muted">{m.title_ar}</span>}
+          <LocalizedCell row={m} field="title" locale={locale} />
           {/* F7 — the section is shown on the row rather than in a separate
               column, so the list stays readable at this width and an
               unsectioned mission simply shows nothing extra. */}

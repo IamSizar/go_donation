@@ -7,6 +7,7 @@
 // the underlying table.
 
 import { useCallback, useEffect, useState } from 'react'
+import LocalizedCell from '../components/LocalizedCell'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { Link } from 'react-router-dom'
 import { api, describeError } from '../lib/api'
@@ -131,7 +132,7 @@ export default function CampaignsPage() {
   const [deleting, setDeleting] = useState<AdminCampaign | null>(null)
   const [refreshTick, setRefreshTick] = useState(0)
   const toast = useToast()
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const statusLabel = useStatusLabel()
   const sel = useSelection<AdminCampaign>((c) => c.id)
 
@@ -204,10 +205,7 @@ export default function CampaignsPage() {
       key: 'title',
       header: t('col.title'),
       cell: (c) => (
-        <div className="cell-stack">
-          <strong>{c.title}</strong>
-          {c.title_ar && <span className="muted">{c.title_ar}</span>}
-        </div>
+        <LocalizedCell row={c} field="title" locale={locale} />
       ),
     },
     { key: 'address', header: t('col.location'), cell: (c) => c.address },

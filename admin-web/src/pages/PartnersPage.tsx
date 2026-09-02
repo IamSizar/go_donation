@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import LocalizedCell from '../components/LocalizedCell'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError, assetUrl } from '../lib/api'
 import type { Partner } from '../lib/api-types'
@@ -75,7 +76,7 @@ export default function PartnersPage() {
   const [deleting, setDeleting] = useState<Partner | null>(null)
   const [refreshTick, setRefreshTick] = useState(0)
   const toast = useToast()
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const statusLabel = useStatusLabel()
   const sel = useSelection<Partner>((p) => p.id)
 
@@ -175,10 +176,7 @@ export default function PartnersPage() {
       key: 'name',
       header: t('col.name'),
       cell: (p) => (
-        <div className="cell-stack">
-          <strong>{p.name}</strong>
-          {p.name_ar && <span className="muted">{p.name_ar}</span>}
-        </div>
+        <LocalizedCell row={p} field="name" locale={locale} />
       ),
     },
     // partner_type is a backend enum; the file already uses statusLabel
