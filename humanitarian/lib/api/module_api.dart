@@ -192,8 +192,11 @@ class ModuleApi {
         action: 'checkout',
         entityId: entityId,
         targetId: int.tryParse(requestBody['product_id']?.toString() ?? ''),
-        note: 'Marketplace order from app cart',
-        metadata: {'quantity': requestBody['quantity']},
+        // The note was 'Marketplace order from app cart' — English prose the
+        // dashboard printed verbatim. The one fact in it survives as a machine
+        // value alongside the quantity; the sentence is the dashboard's to
+        // compose, in the reader's language.
+        metadata: {'source': 'cart', 'quantity': requestBody['quantity']},
       );
       return;
     }

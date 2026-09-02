@@ -503,7 +503,8 @@ Future<void> _sendProfileUpdateEventToFirestore({
       userId: userId,
       name: fullName.trim(),
       number: phone,
-      note: 'User updated profile details from the app.',
+      // No note: English prose the dashboard printed verbatim, saying
+      // nothing eventType did not. The feed localizes by type.
     );
   } catch (_) {
     // Keep profile save successful even if analytics/event logging fails.

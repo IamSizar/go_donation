@@ -209,9 +209,8 @@ Future<GuestAuthResult> _guestAuthCall(
       action: isLogin ? 'guest_login' : 'guest_register',
       userId: uid is int ? uid : int.tryParse(uid?.toString() ?? ''),
       name: username,
-      note: isLogin
-          ? 'Guest sign-in succeeded'
-          : 'Guest registration succeeded',
+      // No note: it said only what eventType already says, in English, and
+      // the dashboard prints notes verbatim. The feed localizes by type.
     );
     return const GuestAuthResult(ok: true);
   } catch (_) {
