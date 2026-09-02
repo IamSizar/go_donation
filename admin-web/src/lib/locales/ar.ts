@@ -1304,8 +1304,8 @@ const ar: DeepPartial<typeof en> = {
 
   feed: {
     body: {
-      login: 'سجّل الدخول بـ{method}',
-      register: 'أنشأ حسابًا بـ{method}',
+      login: 'سجّل الدخول باستخدام {method}',
+      register: 'أنشأ حسابًا باستخدام {method}',
       guest_login: 'دخل زائر',
       guest_register: 'أُنشئ حساب زائر',
       role_select: 'اختار نوع الحساب',
