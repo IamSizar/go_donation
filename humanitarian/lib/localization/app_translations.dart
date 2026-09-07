@@ -1486,6 +1486,22 @@ class AppTranslations extends Translations {
     'Not now': 'Not now',
     'chat_support': 'Contact support',
     'chat_support_desc': 'Chat directly with our support / tech team.',
+    // Messaging channels surfaced inside «الرسائل» (task 24394). The *_desc /
+    // *_hint lines state who is in each conversation and what is hidden — the
+    // client asked "مع خاصية اخفاء اسم وبيانات المستخدمين" and the answer
+    // belongs beside the conversations, not in a manual. They describe
+    // existing server behaviour; nothing here changes what is masked.
+    'messages_marriage_chats_title': 'Engagement chats',
+    'messages_marriage_chats_desc':
+        'You, the other party and a staff member. Names and personal details stay hidden on both sides.',
+    'messages_marriage_staff_title': 'Message the staff team',
+    'messages_marriage_staff_desc':
+        'A private line to staff about the events section.',
+    'case_chats_hint':
+        'You, the case beneficiary and a staff member. Staff can read every message.',
+    'messages_conversations_hint':
+        'You, the other party and support. Phone numbers and email addresses are blocked automatically.',
+    'messages_open_my_donations': 'Open my donations',
     'chat_support_failed': 'Could not open support chat. Please try again.',
     // The PERMANENT counterpart of chat_support_failed. Worded for a user who
     // cannot fix it and should not be asked to try again — it says what is
@@ -4415,6 +4431,18 @@ class AppTranslations extends Translations {
     'Not now': 'ليس الآن',
     'chat_support': 'التواصل مع الدعم',
     'chat_support_desc': 'تحدّث مباشرة مع فريق الدعم / الفني.',
+    // انظر التعليق في الإنجليزية — هذه السطور تشرح أطراف كل محادثة وما يُخفى.
+    'messages_marriage_chats_title': 'محادثات الخطوبة',
+    'messages_marriage_chats_desc':
+        'أنت والطرف الآخر وموظف من الفريق. تبقى الأسماء والبيانات الشخصية مخفية عن الطرفين.',
+    'messages_marriage_staff_title': 'راسل فريق الموظفين',
+    'messages_marriage_staff_desc':
+        'خط خاص مع الموظفين بخصوص قسم الفعاليات.',
+    'case_chats_hint':
+        'أنت والمستفيد من الحالة وموظف من الفريق. يستطيع الموظفون قراءة كل الرسائل.',
+    'messages_conversations_hint':
+        'أنت والطرف الآخر وفريق الدعم. تُحجب أرقام الهاتف والبريد الإلكتروني تلقائياً.',
+    'messages_open_my_donations': 'افتح تبرعاتي',
     'chat_support_failed': 'تعذّر فتح محادثة الدعم. حاول مرة أخرى.',
     'chat_support_unavailable_title': 'محادثة الدعم غير مفعّلة بعد',
     'chat_support_unavailable_body':
