@@ -22,6 +22,7 @@ import ExportCsvButton from '../components/ExportCsvButton'
 import { type CsvColumn } from '../lib/csv'
 import PageHead from '../components/PageHead'
 import ChatLifecycleControls from '../components/ChatLifecycleControls'
+import ContactBlocksPanel from '../components/ContactBlocksPanel'
 
 type AdminThread = {
   id: number
@@ -342,6 +343,14 @@ export default function MessagesPage({
                       if (items) setSelected((s) => (s ? items.find((x) => x.id === s.id) ?? null : null))
                     }}
                   />
+                </div>
+                {/* K19's monitor half (migration 116). The block already
+                    worked; until now nothing in the dashboard could show the
+                    refusals it recorded, so the pattern the log exists to
+                    reveal was invisible to staff. Keyed on the thread id so it
+                    reloads when the operator selects a different conversation. */}
+                <div style={{ marginTop: 8 }}>
+                  <ContactBlocksPanel key={selected.id} threadId={selected.id} />
                 </div>
               </div>
 
