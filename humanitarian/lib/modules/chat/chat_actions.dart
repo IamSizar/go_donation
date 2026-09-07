@@ -42,7 +42,21 @@ abstract final class ChatActions {
       cancelLabel: 'Cancel'.tr,
     );
     if (!confirmed) return;
-    if (!context.mounted) return;
+    // A caller that hands over a context belonging to a route it has just
+    // popped lands here having said YES, and the request is then dropped
+    // without a trace — the user taps, confirms, and nothing happens. That is
+    // exactly how the "Chat with campaign owner" button was broken (see
+    // DonationDetailSheet._chatWithOwner in donations/my_donations_page).
+    // The abort is still correct — a dead context cannot host a dialog or a
+    // snackbar — but it must never again be silent.
+    if (!context.mounted) {
+      debugPrint(
+        '[chat] startChat aborted after confirm: the caller passed a context '
+        'that is no longer mounted, so the request was NOT sent. Pass a '
+        'context that outlives any route this flow closes.',
+      );
+      return;
+    }
 
     final ctrl = _controller();
     try {

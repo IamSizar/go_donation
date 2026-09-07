@@ -6,6 +6,101 @@
 
 ---
 
+## 2026-09-07 — the five messaging channels the client could not find
+
+**Asked for:** the client wrote that they could not work out how to use, or
+where to find, five messaging sections (donor↔owner↔staff with masking,
+volunteer↔staff, the volunteer group, engagement↔staff, the engagement group
+with masking). Zaid then asked for the exact navigation path to each on the
+phone, and — because those paths turned out to be poor — for the UX to be
+fixed. His two constraints: **keep the Messages entry in the top bar and keep
+its collapse effect** (no pinned icon, no fifth bottom tab), and **proper role
+separation, each chat visible only to the correct role**.
+
+**Branch:** `fix/messaging-channels-reachable`, cut from `main` (3646d29).
+Two commits, NOT pushed, no PR opened yet.
+- `86895d9` fix(chat): "Chat with campaign owner" sent no request at all
+- `9787e1c` feat(messages): surface every chat channel where users look for them
+
+### The bug worth knowing about
+`DonationDetailSheet._chatWithOwner` popped its own sheet and then passed that
+same (now unmounted) context into `ChatActions.startChat`. startChat's
+post-dialog `context.mounted` guard therefore fired and dropped the request one
+line before the POST. **The donor↔owner chat could never be started from the
+app.** It was invisible because startChat reports through ScaffoldMessenger and
+snackbars do not paint on these routes (already documented on `supportChatError`
+in `chat/screens/messages_screen.dart`).
+
+Fixed by passing the row's context down as `hostContext`. `DonationRow` and
+`DonationDetailSheet` were made package-visible so the regression is testable —
+the defect lived in *which context the sheet passed*, so nothing above them can
+pin it.
+
+### What was run, and what it printed
+- `flutter test` — **821 passed**, whole suite.
+- `flutter analyze lib/ test/` — 6 issues, all pre-existing `deprecated_member_use`
+  infos in files this branch does not touch.
+- Mutation-checked, not assumed: reverting `hostContext` to the sheet's context
+  turns `my_donations_chat_button_test` red on the "one request was sent"
+  expectation. Dropping the role half of the engagement gate fails the
+  "engagement user, no threads" case; dropping the data half fails the
+  stale-role case.
+- On device (iPhone 16 `F0E0DE7F-20B4-40D9-8CEB-CD6370285A1F`, logged in as
+  said #58, against the deployed dev backend): the broken build produced **no**
+  thread across two full runs; the fixed build produced
+  `{"id":4,"status":"pending","a":"said","b":"Diyar Saleh","camp":"School
+  Supplies for Orphan Children","created":"2026-09-07T10:57:39Z"}`.
+
+### External actions taken
+- Created contribution **#22 / CAM-000005** on the deployed dev backend (said
+  #58 → campaign 3, 25,000 IQD) via `POST /api/admin/donations`, to give item 1
+  something to chat about. Dev data, deliberate.
+- Created donor↔owner thread **#4** on the dev backend by exercising the app.
+- Nothing pushed. Nothing deployed.
+
+### Still open
+- **`support_user_id` is 0** on dev. `GET /api/admin/settings/support-user-id`
+  returns `{"user_id":0}`, and every "message the staff team" channel resolves
+  its counterpart from that one row (`handlers/chat.go:214`). This single unset
+  value kills client items **2 and 4**: tapping «التواصل مع الدعم» shows
+  «محادثة الدعم غير مفعّلة بعد». Setting it needs a human — the dashboard's
+  System Settings is behind "Protected section — enter your password", and the
+  direct API PUT was refused by the agent permission classifier. Suggested
+  value: staff **#21** (`staff_tier = employee`). OPOS **24393**.
+- **Thread #4 is `pending`** — Diyar Saleh #5 must accept it in the app before
+  item 1 can be demonstrated end to end.
+- **Item 5 unverified.** Both marriage threads (#1, #2) are `pending` with 0
+  messages; `MarriageChatsScreen` lists only *accepted* meetings, and
+  `AdminPostMessage` returns 409 on a non-active thread, so staff cannot force
+  it. Needs an owner login (#5 or #4) to accept.
+- Two defects found and logged, not fixed: the start-chat confirm dialog leaks
+  English into Arabic («…بدء محادثة مع the owner of "…"» — `otherPartyLabel` is
+  built as an English string at the call site), and startChat's success/failure
+  snackbars still never render.
+
+### Traps
+- **`_buildDonorDashboard` is not the only home.** `widgets/dashboard.dart:876`
+  switches the whole home body on the server's `role_key`. The «تبرع» hero and
+  "Recent donations → See all" exist *only* on the donor variant, so a volunteer
+  or beneficiary has no navigation path to My donations at all. Do not assume a
+  screen is reachable because you reached it as a donor.
+- **Kurdish must not be invented.** The Kurdish maps are merged over English
+  (`app_translations.dart`, note 2 near the `keys` getter), so a key present only
+  in `_en`/`_ar` degrades to English. Adding en+ar only is correct and deliberate.
+- **Snackbars do not paint on these routes.** Anything reported via
+  ScaffoldMessenger or Get.snackbar here is invisible. Report inline instead —
+  `supportChatError` in `messages_screen.dart` is the pattern.
+- **Simulators are contended.** Several other Claude sessions run on this
+  machine, and iPhone 16 `F0E0DE7F` was shut down out from under this session
+  mid-run by one of them. `simctl shutdown` is survivable (data persists, the
+  login came back); `simctl erase` or an app *uninstall* is not, and no agent
+  can recreate a login. Always pin `flutter run -d <UDID>` /
+  `xcodebuild -destination 'id=<UDID>'` — a bare invocation grabs whatever is
+  booted. Installing *over* an existing app (`simctl install`) preserved the
+  session fine.
+
+---
+
 ## 0. TL;DR
 
 - **App:** "Tawazon" (توازن) / **BalanceNex** — a multi-language humanitarian **donations & community platform**.

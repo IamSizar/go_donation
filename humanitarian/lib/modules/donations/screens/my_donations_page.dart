@@ -141,7 +141,7 @@ class _MyDonationsPageState extends State<MyDonationsPage> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     for (var i = 0; i < items.length; i++)
-                      _DonationRow(
+                      DonationRow(
                         item: items[i],
                         isLast: i == items.length - 1,
                       ),
@@ -192,8 +192,8 @@ AppStatusTone _deliveryToneFor(DonationDeliveryStatus status) =>
 /// 120pt of height per donation. The row shows what a donor scans for
 /// (campaign, amount, status, reference) and moves the rest into the detail
 /// sheet that was already there.
-class _DonationRow extends StatelessWidget {
-  const _DonationRow({required this.item, required this.isLast});
+class DonationRow extends StatelessWidget {
+  const DonationRow({super.key, required this.item, required this.isLast});
 
   final DonationHistoryEntry item;
   final bool isLast;
@@ -203,7 +203,10 @@ class _DonationRow extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _DonationDetailSheet(item: item),
+      // The ROW's context is handed down deliberately — see the note on
+      // DonationDetailSheet._chatWithOwner. It outlives the sheet, and the
+      // chat flow continues after the sheet has closed.
+      builder: (_) => DonationDetailSheet(item: item, hostContext: context),
     );
   }
 
@@ -247,15 +250,52 @@ class _DonationRow extends StatelessWidget {
   }
 }
 
-class _DonationDetailSheet extends StatelessWidget {
-  const _DonationDetailSheet({required this.item});
+/// Visible to tests rather than private: the chat button on this sheet was
+/// silently dead (OPOS 24399) and the defect lived in WHICH context the sheet
+/// handed onwards, so it cannot be pinned by testing anything else. See
+/// test/widgets/my_donations_chat_button_test.dart.
+class DonationDetailSheet extends StatelessWidget {
+  const DonationDetailSheet({
+    super.key,
+    required this.item,
+    required this.hostContext,
+  });
 
   final DonationHistoryEntry item;
 
-  Future<void> _chatWithOwner(BuildContext context) async {
-    Navigator.of(context).pop(); // close the sheet first
+  /// The context of the ROW that opened this sheet, which stays mounted after
+  /// the sheet is popped. See [_chatWithOwner] for why that matters.
+  final BuildContext hostContext;
+
+  /// "Chat with campaign owner" — the only way to open the donor ↔ owner ↔
+  /// staff conversation from the app.
+  ///
+  /// THE BUG THIS FIXES
+  /// It closed the sheet and then passed the SHEET'S OWN context on into
+  /// ChatActions.startChat. Popping the route unmounts that element, so by the
+  /// time the confirm dialog had been awaited the context was defunct, and
+  /// startChat's `if (!context.mounted) return;` guard fired and abandoned the
+  /// flow before it ever posted. The button therefore did nothing at all: the
+  /// confirmation dialog appeared, "Yes, start chat" was accepted, and no
+  /// request reached the server. Verified on device against the deployed dev
+  /// backend — GET /api/admin/chats showed no new thread after two runs, and
+  /// the app's own Messages screen stayed on «لا محادثات بعد».
+  ///
+  /// Nothing surfaced the failure because startChat reports through
+  /// ScaffoldMessenger, and this app has already established (see the note on
+  /// supportChatError in chat/screens/messages_screen.dart) that snackbars do
+  /// not paint on these routes. A silent abort behind an invisible error is
+  /// why this survived: the feature reads as "nothing happens when I tap it".
+  ///
+  /// THE FIX
+  /// Continue on [hostContext] — the row's context, which is still on screen
+  /// once the sheet is gone. The pop still happens first, so the dialog is not
+  /// stacked on top of a sheet.
+  Future<void> _chatWithOwner(BuildContext sheetContext) async {
+    Navigator.of(sheetContext).pop(); // close the sheet first
+    if (!hostContext.mounted) return;
     await ChatActions.startChat(
-      context,
+      hostContext,
       donationId: item.id,
       otherPartyLabel: 'the owner of "${item.campaignName}"',
       conversationTitle: item.campaignName,

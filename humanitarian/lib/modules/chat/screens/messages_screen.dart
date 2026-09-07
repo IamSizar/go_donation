@@ -10,6 +10,8 @@ import 'package:flutter_application_1/modules/chat/controllers/chat_controller.d
 import 'package:flutter_application_1/modules/chat/models/chat_models.dart';
 import 'package:flutter_application_1/modules/chat/screens/case_chat_conversation_screen.dart';
 import 'package:flutter_application_1/modules/chat/screens/chat_conversation_screen.dart';
+import 'package:flutter_application_1/modules/chat/widgets/marriage_chats_section.dart';
+import 'package:flutter_application_1/modules/donations/screens/my_donations_page.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -172,6 +174,9 @@ class MessagesScreen extends StatelessWidget {
                 },
               ),
               const SizedBox(height: 10),
+              // Items 4 and 5 of the client's list. Renders nothing for a
+              // role it does not belong to — see MarriageChatsSection.
+              const MarriageChatsSection(),
               const _CaseChatsSection(),
               // Only the THREAD list has four states. Its error branch used to
               // replace the whole screen, taking the support and bot entry
@@ -183,10 +188,20 @@ class MessagesScreen extends StatelessWidget {
                 onRetry: ctrl.fetchThreads,
                 data: ctrl.threads,
                 isEmpty: (list) => list.isEmpty,
-                empty: const AppEmpty(
+                // D — this used to be dead text: it told the user to start a
+                // chat "from a donation" and gave them no way to reach one.
+                // For a volunteer or beneficiary that was not merely unhelpful
+                // but impossible: the donations entry points live only on the
+                // DONOR home (_buildDonorDashboard in widgets/dashboard.dart),
+                // so those roles had no navigable path to My donations at all
+                // and global search was the only way in. The action below is
+                // that missing path, and it is the same screen the donor uses.
+                empty: AppEmpty(
                   title: 'No conversations yet',
                   message:
                       'Start a chat from a donation (donor) or from your campaign donations (owner).',
+                  actionLabel: 'messages_open_my_donations',
+                  onAction: () => Get.to(() => const MyDonationsPage()),
                 ),
                 builder: (_) => Column(
                   children: [
@@ -203,6 +218,7 @@ class MessagesScreen extends StatelessWidget {
                       _SectionLabel(
                         label: 'Conversations',
                         count: active.length,
+                        hint: 'messages_conversations_hint',
                       ),
                       for (final t in active) _ThreadTile(thread: t),
                     ],
@@ -282,7 +298,11 @@ class _CaseChatsSectionState extends State<_CaseChatsSection> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _SectionLabel(label: 'case_chats_label', count: items.length),
+              _SectionLabel(
+                label: 'case_chats_label',
+                count: items.length,
+                hint: 'case_chats_hint',
+              ),
               for (final item in items) _CaseChatTile(thread: item),
             ],
           ),
@@ -385,33 +405,54 @@ class _CaseChatTile extends StatelessWidget {
 }
 
 class _SectionLabel extends StatelessWidget {
-  const _SectionLabel({required this.label, required this.count});
+  const _SectionLabel({required this.label, required this.count, this.hint});
   final String label;
   final int count;
 
+  /// One line naming WHO is in these conversations and whether identities are
+  /// hidden, translated via `.tr`. Optional so a group that needs no
+  /// explanation does not carry an empty row.
+  ///
+  /// The client's question was not only "where are the chats" but "مع خاصية
+  /// اخفاء اسم وبيانات المستخدمين" — who can see whom. That belongs on the
+  /// screen, next to the conversations it describes, rather than in a manual
+  /// nobody opens (rule 5.9). It is a statement of existing server behaviour;
+  /// nothing here changes what is masked.
+  final String? hint;
+
   @override
   Widget build(BuildContext context) {
+    final muted = AppThemeConfig.mutedText(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(4, 14, 4, 8),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label.tr,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w900,
-              color: AppThemeConfig.mutedText(context),
-              letterSpacing: 0.3,
-            ),
+          Row(
+            children: [
+              Text(
+                label.tr,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                  color: muted,
+                  letterSpacing: 0.3,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '($count)',
+                style: TextStyle(fontSize: 12, color: muted),
+              ),
+            ],
           ),
-          const SizedBox(width: 6),
-          Text(
-            '($count)',
-            style: TextStyle(
-              fontSize: 12,
-              color: AppThemeConfig.mutedText(context),
+          if (hint != null) ...[
+            const SizedBox(height: 3),
+            Text(
+              hint!.tr,
+              style: TextStyle(fontSize: 11, height: 1.35, color: muted),
             ),
-          ),
+          ],
         ],
       ),
     );
