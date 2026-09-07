@@ -643,6 +643,19 @@ const en = {
     refresh: 'Refresh',
     save: 'Save',
   },
+  contact_blocks: {
+    title: 'Blocked contact sharing',
+    // The count is the point: one refusal is a misunderstanding, a run of them
+    // is the pattern migration 116 exists to make visible.
+    count: '{count} blocked',
+    explain:
+      'These messages were refused before they were stored, so the phone number or email address never reached the other person. Contact details are shown as ••• because the original was never saved.',
+    none: 'Nothing has been blocked in this conversation.',
+    loading: 'Loading blocked attempts…',
+    kind_phone: 'Phone number',
+    kind_email: 'Email address',
+    kind_both: 'Phone and email',
+  },
   chat_lifecycle: {
     pause: 'Pause',
     resume: 'Resume',
