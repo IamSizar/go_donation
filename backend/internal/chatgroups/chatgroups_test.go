@@ -823,6 +823,93 @@ func TestAdminListMessagesShowsRealIdentity(t *testing.T) {
 	}
 }
 
+// TestAdminListMessagesCursorPagination is AdminListMessages' half of the
+// cursor-pagination contract already proven for ListMessagesForMember by
+// TestListMessagesForMemberCursorPagination above. AdminListMessages runs the
+// same "WHERE m.id > $afterID ORDER BY m.id ASC LIMIT $limit" query shape
+// against the same table, but it is a separate SQL statement in a separate
+// method — nothing guarantees the two stay in lockstep except a test that
+// exercises this method's own cursor arithmetic directly.
+func TestAdminListMessagesCursorPagination(t *testing.T) {
+	pool := newTestPool(t)
+	s := New(pool)
+	ctx := context.Background()
+	staff := makeTestUser(t, pool, "staff")
+	donor := makeTestUser(t, pool, "donor")
+	groupID, _ := s.CreateGroup(ctx, KindMasked, "", staff, []MemberInput{{UserID: donor, RoleInGroup: "donor"}})
+
+	for i := 0; i < 3; i++ {
+		if _, err := s.PostMessage(ctx, groupID, donor, fmt.Sprintf("message %d", i)); err != nil {
+			t.Fatalf("PostMessage %d: %v", i, err)
+		}
+	}
+
+	first, err := s.AdminListMessages(ctx, groupID, 0, 2)
+	if err != nil {
+		t.Fatalf("first page: %v", err)
+	}
+	if len(first) != 2 {
+		t.Fatalf("first page len = %d, want 2", len(first))
+	}
+
+	second, err := s.AdminListMessages(ctx, groupID, first[len(first)-1].ID, 50)
+	if err != nil {
+		t.Fatalf("second page: %v", err)
+	}
+	if len(second) != 1 {
+		t.Fatalf("second page len = %d, want 1 (only the message after the cursor)", len(second))
+	}
+
+	// The critical polling property: re-polling with the LATEST id on hand
+	// returns nothing new, not the whole history again.
+	empty, err := s.AdminListMessages(ctx, groupID, second[len(second)-1].ID, 50)
+	if err != nil {
+		t.Fatalf("re-poll: %v", err)
+	}
+	if len(empty) != 0 {
+		t.Errorf("re-polling with the latest id returned %d messages, want 0", len(empty))
+	}
+}
+
+// TestAdminListMessagesTeamGroup proves AdminListMessages shows real identity
+// for a KindTeam group too, not only KindMasked (the only kind
+// TestAdminListMessagesShowsRealIdentity exercises). AdminListMessages has no
+// kind-branching logic at all — unlike ListMessagesForMember, whose masking
+// CASE keys off g.kind — so this test's job is to confirm that absence holds
+// empirically for the other kind, not just by reading the query.
+func TestAdminListMessagesTeamGroup(t *testing.T) {
+	pool := newTestPool(t)
+	s := New(pool)
+	ctx := context.Background()
+	staff := makeTestUser(t, pool, "staff")
+	volunteer := makeTestUser(t, pool, "volunteer")
+	setFullName(t, pool, volunteer, "Real Volunteer Name")
+
+	groupID, err := s.CreateGroup(ctx, KindTeam, "Distribution team", staff, []MemberInput{
+		{UserID: volunteer, RoleInGroup: "volunteer"},
+	})
+	if err != nil {
+		t.Fatalf("CreateGroup: %v", err)
+	}
+	if _, err := s.PostMessage(ctx, groupID, volunteer, "on my way"); err != nil {
+		t.Fatalf("PostMessage: %v", err)
+	}
+
+	msgs, err := s.AdminListMessages(ctx, groupID, 0, 50)
+	if err != nil {
+		t.Fatalf("AdminListMessages: %v", err)
+	}
+	if len(msgs) != 1 {
+		t.Fatalf("got %d messages, want 1", len(msgs))
+	}
+	if msgs[0].SenderUserID != volunteer {
+		t.Errorf("SenderUserID = %d, want %d", msgs[0].SenderUserID, volunteer)
+	}
+	if msgs[0].SenderName != "Real Volunteer Name" {
+		t.Errorf("team-group SenderName = %q, want the real name, no masking applied regardless of group kind", msgs[0].SenderName)
+	}
+}
+
 // setFullName / setPhone give a test user real profile data so the masking
 // test can assert that data does NOT leak.
 //
