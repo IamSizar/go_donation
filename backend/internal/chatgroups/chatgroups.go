@@ -318,3 +318,97 @@ func (s *Store) PostMessageAsStaff(ctx context.Context, groupID, staffUserID int
 	}
 	return id, nil
 }
+
+// maxMessagePage caps one page of ListMessagesForMember, and doubles as the
+// default when the caller passes a non-positive limit. An unbounded page is
+// never acceptable on a chat history that grows without limit.
+const maxMessagePage = 100
+
+// defaultMessagePage is the page size used when the caller does not choose
+// one (or asks for more than maxMessagePage).
+const defaultMessagePage = 50
+
+// ListMessagesForMember returns messages as the GIVEN viewer would see them.
+// This is the read-time projection that IS the masking guarantee — masking
+// is never a storage-time decision (chat_group_messages.sender_user_id is
+// always the real id), so this query is the single place where a real
+// identity could reach a non-staff member. Staff use the Admin* methods and
+// AdminGroupMessage instead; they never come through here.
+//
+// The label rules, and why each exists:
+//
+//   - Masked group, staff-authored message → the fixed "Support". Deliberately
+//     NOT the admin's name or a per-admin label: spec §9 lets any admin
+//     holding the messages permission reply, so a per-admin label would let a
+//     member count and fingerprint the staff handling their case, and an
+//     admin with no chat_group_members row at all (see PostMessageAsStaff)
+//     has no label to show anyway. One organisational voice, always.
+//   - Masked group, member-authored message → that member's masked_label
+//     ("Donor 1"). The label is scoped to one (group, user) pair, so it
+//     identifies a speaker inside this group without correlating that person
+//     across groups.
+//   - Team group → the sender's real user_profiles.full_name, for every
+//     sender including staff. Team groups are never masked ("real names,
+//     ordinary group chat"). If product feedback ever changes how staff
+//     appear in a team group, it is this one ELSE branch and nothing else.
+//
+// The member join deliberately does NOT filter on `removed_at IS NULL`.
+// chat_group_members is soft-deleted precisely so this query can still
+// resolve a departed member's historical messages (see RemoveMember and the
+// migration's comment on removed_at); filtering removed rows out here would
+// make the soft delete pointless and, worse, drop a removed donor's past
+// messages into the staff branch above, presenting the organisation as the
+// author of what a member said. UNIQUE (group_id, user_id) on
+// chat_group_members guarantees at most one row per pair, so widening the
+// join cannot multiply message rows.
+//
+// sender_user_id is read ONLY inside SQL, to compute is_mine, and is never
+// scanned into Go — GroupMessage has no field that could hold it (see the
+// type's doc comment), so the id cannot reach a response even by mistake.
+//
+// Cursor-paginated on the monotonic message id: afterID is the highest id
+// the caller already holds (0 for the first page), so a poll with the latest
+// id returns an empty slice rather than the whole history again.
+func (s *Store) ListMessagesForMember(ctx context.Context, groupID, viewerUserID, afterID int64, limit int) ([]GroupMessage, error) {
+	if limit <= 0 || limit > maxMessagePage {
+		limit = defaultMessagePage
+	}
+	rows, err := s.Pool.Query(ctx, `
+		SELECT
+		  m.id,
+		  COALESCE(mem.id, 0),
+		  CASE
+		    WHEN g.kind = 'masked' THEN
+		      CASE WHEN mem.id IS NULL OR mem.role_in_group = 'staff' THEN 'Support'
+		           ELSE COALESCE(mem.masked_label, 'Member') END
+		    ELSE
+		      COALESCE(up.full_name, 'Member')
+		  END,
+		  (m.sender_user_id = $2),
+		  m.body,
+		  m.created_at
+		FROM chat_group_messages m
+		JOIN chat_group_threads g ON g.id = m.group_id
+		LEFT JOIN chat_group_members mem
+		  ON mem.group_id = m.group_id AND mem.user_id = m.sender_user_id
+		LEFT JOIN user_profiles up ON up.user_id = m.sender_user_id
+		WHERE m.group_id = $1 AND m.id > $3
+		ORDER BY m.id ASC
+		LIMIT $4`,
+		groupID, viewerUserID, afterID, limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := []GroupMessage{}
+	for rows.Next() {
+		var gm GroupMessage
+		if err := rows.Scan(&gm.ID, &gm.SenderMemberID, &gm.SenderLabel, &gm.IsMine, &gm.Body, &gm.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, gm)
+	}
+	return out, rows.Err()
+}

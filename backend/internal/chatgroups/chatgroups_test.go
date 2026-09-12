@@ -2,8 +2,11 @@ package chatgroups
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -437,12 +440,273 @@ func TestPostMessageAsStaffDoesNotRequireMembership(t *testing.T) {
 	}
 }
 
+// ─── ListMessagesForMember ───────────────────────────────────────────────
+
+// TestListMessagesForMemberMasksIdentity is the highest-value test in this
+// phase: it is the executable statement of the privacy invariant the whole
+// feature exists to provide. GroupMessage structurally cannot hold a user
+// id, but SenderLabel is a plain string — nothing in the type system stops a
+// wrong query from putting a REAL NAME in it. So the assertion below
+// marshals the response exactly as an HTTP handler would and searches the
+// raw bytes, which catches a leak through any field, not just the ones this
+// test names.
+func TestListMessagesForMemberMasksIdentity(t *testing.T) {
+	pool := newTestPool(t)
+	s := New(pool)
+	ctx := context.Background()
+	staff := makeTestUser(t, pool, "staff")
+	donor := makeTestUser(t, pool, "donor")
+	beneficiary := makeTestUser(t, pool, "beneficiary")
+
+	// A distinctive real name, so a leak would be unmistakable in the
+	// assertion below.
+	setFullName(t, pool, donor, "Ahmad Distinctive Realname")
+	setPhone(t, pool, donor, "+9647701234567")
+
+	groupID, err := s.CreateGroup(ctx, KindMasked, "", staff, []MemberInput{
+		{UserID: donor, RoleInGroup: "donor"},
+		{UserID: beneficiary, RoleInGroup: "beneficiary"},
+	})
+	if err != nil {
+		t.Fatalf("CreateGroup: %v", err)
+	}
+	if _, err := s.PostMessage(ctx, groupID, donor, "Hi, I wanted to check in"); err != nil {
+		t.Fatalf("PostMessage: %v", err)
+	}
+	if _, err := s.PostMessageAsStaff(ctx, groupID, staff, "Thanks for reaching out"); err != nil {
+		t.Fatalf("PostMessageAsStaff: %v", err)
+	}
+
+	msgs, err := s.ListMessagesForMember(ctx, groupID, beneficiary, 0, 50)
+	if err != nil {
+		t.Fatalf("ListMessagesForMember: %v", err)
+	}
+	if len(msgs) != 2 {
+		t.Fatalf("got %d messages, want 2", len(msgs))
+	}
+
+	if msgs[0].SenderLabel != "Donor 1" {
+		t.Errorf("donor's message SenderLabel = %q, want %q", msgs[0].SenderLabel, "Donor 1")
+	}
+	if msgs[1].SenderLabel != "Support" {
+		t.Errorf("staff's message SenderLabel = %q, want %q", msgs[1].SenderLabel, "Support")
+	}
+
+	// The structural check: marshal to JSON exactly as an HTTP handler
+	// would, and assert the raw bytes contain neither the real name, the
+	// phone, nor either sender's real user id anywhere.
+	raw, err := json.Marshal(msgs)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	text := string(raw)
+	for _, leaked := range []string{
+		"Ahmad Distinctive Realname",
+		"+9647701234567",
+		fmt.Sprintf("%d", donor),
+		fmt.Sprintf("%d", staff),
+	} {
+		if strings.Contains(text, leaked) {
+			t.Errorf("masked response leaks %q: %s", leaked, text)
+		}
+	}
+}
+
+func TestListMessagesForMemberIsMineIsCorrect(t *testing.T) {
+	pool := newTestPool(t)
+	s := New(pool)
+	ctx := context.Background()
+	staff := makeTestUser(t, pool, "staff")
+	donor := makeTestUser(t, pool, "donor")
+	beneficiary := makeTestUser(t, pool, "beneficiary")
+	groupID, _ := s.CreateGroup(ctx, KindMasked, "", staff, []MemberInput{
+		{UserID: donor, RoleInGroup: "donor"},
+		{UserID: beneficiary, RoleInGroup: "beneficiary"},
+	})
+	if _, err := s.PostMessage(ctx, groupID, donor, "from the donor"); err != nil {
+		t.Fatalf("PostMessage: %v", err)
+	}
+
+	asDonor, err := s.ListMessagesForMember(ctx, groupID, donor, 0, 50)
+	if err != nil {
+		t.Fatalf("ListMessagesForMember (donor view): %v", err)
+	}
+	if !asDonor[0].IsMine {
+		t.Error("donor viewing their own message: IsMine = false, want true")
+	}
+
+	asBeneficiary, err := s.ListMessagesForMember(ctx, groupID, beneficiary, 0, 50)
+	if err != nil {
+		t.Fatalf("ListMessagesForMember (beneficiary view): %v", err)
+	}
+	if asBeneficiary[0].IsMine {
+		t.Error("beneficiary viewing the donor's message: IsMine = true, want false")
+	}
+}
+
+func TestListMessagesForMemberCursorPagination(t *testing.T) {
+	pool := newTestPool(t)
+	s := New(pool)
+	ctx := context.Background()
+	staff := makeTestUser(t, pool, "staff")
+	donor := makeTestUser(t, pool, "donor")
+	groupID, _ := s.CreateGroup(ctx, KindMasked, "", staff, []MemberInput{{UserID: donor, RoleInGroup: "donor"}})
+
+	var lastID int64
+	for i := 0; i < 3; i++ {
+		id, err := s.PostMessage(ctx, groupID, donor, fmt.Sprintf("message %d", i))
+		if err != nil {
+			t.Fatalf("PostMessage %d: %v", i, err)
+		}
+		lastID = id
+	}
+	_ = lastID
+
+	first, err := s.ListMessagesForMember(ctx, groupID, donor, 0, 2)
+	if err != nil {
+		t.Fatalf("first page: %v", err)
+	}
+	if len(first) != 2 {
+		t.Fatalf("first page len = %d, want 2", len(first))
+	}
+
+	second, err := s.ListMessagesForMember(ctx, groupID, donor, first[len(first)-1].ID, 50)
+	if err != nil {
+		t.Fatalf("second page: %v", err)
+	}
+	if len(second) != 1 {
+		t.Fatalf("second page len = %d, want 1 (only the message after the cursor)", len(second))
+	}
+
+	// The critical polling property: re-polling with the LATEST id on hand
+	// returns nothing new, not the whole history again.
+	empty, err := s.ListMessagesForMember(ctx, groupID, donor, second[len(second)-1].ID, 50)
+	if err != nil {
+		t.Fatalf("re-poll: %v", err)
+	}
+	if len(empty) != 0 {
+		t.Errorf("re-polling with the latest id returned %d messages, want 0", len(empty))
+	}
+}
+
+func TestListMessagesForMemberTeamGroupUsesRealNames(t *testing.T) {
+	pool := newTestPool(t)
+	s := New(pool)
+	ctx := context.Background()
+	staff := makeTestUser(t, pool, "staff")
+	v1 := makeTestUser(t, pool, "volunteer")
+	setFullName(t, pool, v1, "Real Volunteer Name")
+
+	groupID, _ := s.CreateGroup(ctx, KindTeam, "Distribution team", staff, []MemberInput{
+		{UserID: v1, RoleInGroup: "volunteer"},
+	})
+	if _, err := s.PostMessage(ctx, groupID, v1, "on my way"); err != nil {
+		t.Fatalf("PostMessage: %v", err)
+	}
+
+	msgs, err := s.ListMessagesForMember(ctx, groupID, staff, 0, 50)
+	if err != nil {
+		t.Fatalf("ListMessagesForMember: %v", err)
+	}
+	if msgs[0].SenderLabel != "Real Volunteer Name" {
+		t.Errorf("team-group SenderLabel = %q, want the real name", msgs[0].SenderLabel)
+	}
+}
+
+// TestListMessagesForMemberKeepsRemovedMembersLabel is the reason
+// RemoveMember soft-deletes instead of DELETEing: both the migration's
+// comment on chat_group_members.removed_at and RemoveMember's own doc
+// comment promise the row survives so THIS query can still resolve that
+// member's historical messages. If the label join filtered on
+// `removed_at IS NULL`, the surviving row would be invisible here — the
+// soft-delete would buy nothing, and in a masked group a removed donor's
+// past messages would fall through to the staff branch and be presented to
+// everyone as having come from "Support", i.e. the organisation would
+// appear to have said what a donor actually said.
+func TestListMessagesForMemberKeepsRemovedMembersLabel(t *testing.T) {
+	pool := newTestPool(t)
+	s := New(pool)
+	ctx := context.Background()
+	staff := makeTestUser(t, pool, "staff")
+	donor := makeTestUser(t, pool, "donor")
+	beneficiary := makeTestUser(t, pool, "beneficiary")
+	setFullName(t, pool, donor, "Ahmad Distinctive Realname")
+
+	groupID, err := s.CreateGroup(ctx, KindMasked, "", staff, []MemberInput{
+		{UserID: donor, RoleInGroup: "donor"},
+		{UserID: beneficiary, RoleInGroup: "beneficiary"},
+	})
+	if err != nil {
+		t.Fatalf("CreateGroup: %v", err)
+	}
+	if _, err := s.PostMessage(ctx, groupID, donor, "said this before being removed"); err != nil {
+		t.Fatalf("PostMessage: %v", err)
+	}
+	if err := s.RemoveMember(ctx, groupID, donor, staff); err != nil {
+		t.Fatalf("RemoveMember: %v", err)
+	}
+
+	msgs, err := s.ListMessagesForMember(ctx, groupID, beneficiary, 0, 50)
+	if err != nil {
+		t.Fatalf("ListMessagesForMember: %v", err)
+	}
+	if len(msgs) != 1 {
+		t.Fatalf("got %d messages, want 1", len(msgs))
+	}
+	if msgs[0].SenderLabel != "Donor 1" {
+		t.Errorf("removed member's historical SenderLabel = %q, want %q — the soft-deleted row must still resolve the label", msgs[0].SenderLabel, "Donor 1")
+	}
+
+	// Removal must not become a leak route either.
+	raw, err := json.Marshal(msgs)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if strings.Contains(string(raw), "Ahmad Distinctive Realname") {
+		t.Errorf("removed member's message leaks the real name: %s", raw)
+	}
+}
+
+// setFullName / setPhone give a test user real profile data so the masking
+// test can assert that data does NOT leak.
+//
+// Deviates from the task brief's version, which does not run against this
+// schema: user_profiles has NO unique constraint on user_id (only the `id`
+// primary key), so the brief's `ON CONFLICT (user_id)` raises "there is no
+// unique or exclusion constraint matching the ON CONFLICT specification";
+// and `address` is NOT NULL with no default, so omitting it raises a
+// not-null violation. A plain INSERT supplying both `gender` and `address`
+// is enough here because makeTestUser always creates a brand-new user with
+// no profile row — there is nothing to conflict with.
+func setFullName(t *testing.T, pool *pgxpool.Pool, userID int64, name string) {
+	t.Helper()
+	ctx := context.Background()
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO user_profiles (user_id, full_name, gender, address)
+		VALUES ($1, $2, 'Male', '')`,
+		userID, name,
+	); err != nil {
+		t.Fatalf("set full name: %v", err)
+	}
+	// users has an ON DELETE CASCADE FK from user_profiles (migration 002),
+	// so makeTestUser's own cleanup removes this row too.
+}
+
+func setPhone(t *testing.T, pool *pgxpool.Pool, userID int64, phone string) {
+	t.Helper()
+	ctx := context.Background()
+	if _, err := pool.Exec(ctx, `UPDATE users SET phone = $2 WHERE id = $1`, userID, phone); err != nil {
+		t.Fatalf("set phone: %v", err)
+	}
+}
+
 // makeTestUser inserts a minimal users row and removes it on cleanup. role
 // is informational only here (chatgroups doesn't read users.role_id); it's
 // recorded so test failures are easier to read.
 func makeTestUser(t *testing.T, pool *pgxpool.Pool, role string) int64 {
 	t.Helper()
 	ctx := context.Background()
+	raiseUserIDFloor(t, pool)
 	phone := "9647" + randomDigits(t, 8)
 	var id int64
 	if err := pool.QueryRow(ctx,
@@ -455,6 +719,43 @@ func makeTestUser(t *testing.T, pool *pgxpool.Pool, role string) int64 {
 		_, _ = pool.Exec(context.Background(), `DELETE FROM users WHERE id = $1`, id)
 	})
 	return id
+}
+
+// testUserIDFloor makes every test user's id a wide, distinctive number
+// instead of the single- or double-digit ids a freshly created test database
+// hands out.
+//
+// This is not cosmetic. TestListMessagesForMemberMasksIdentity proves the
+// masked response leaks no real user id by searching the raw response JSON
+// for the id's decimal digits — the strongest form of the check, because it
+// catches a leak through ANY field rather than only the ones the test names.
+// With a two-digit id that search is unsound: on a fresh database the donor
+// drew id 21 and the substring "21" duly turned up inside the legitimate
+// `"created_at":"2026-09-12T17:38:21.223297Z"`, failing the test on digits
+// that were never an id at all. Real ids are never that small, so raising
+// the floor removes the false positive without weakening the assertion —
+// a nine-digit id appearing anywhere in the payload is a genuine leak.
+const testUserIDFloor = 700000000
+
+// raiseUserIDFloor pushes users' id sequence above testUserIDFloor, once per
+// test process. setval with GREATEST never moves the sequence backwards, so
+// it is safe to run against a database that already holds higher ids.
+// users.id is a 32-bit integer, so the floor leaves ~1.4 billion ids of
+// headroom.
+var raiseUserIDFloorOnce sync.Once
+
+func raiseUserIDFloor(t *testing.T, pool *pgxpool.Pool) {
+	t.Helper()
+	raiseUserIDFloorOnce.Do(func() {
+		if _, err := pool.Exec(context.Background(), `
+			SELECT setval(
+				pg_get_serial_sequence('users', 'id'),
+				GREATEST((SELECT COALESCE(MAX(id), 0) FROM users), $1))`,
+			testUserIDFloor,
+		); err != nil {
+			t.Fatalf("raise test user id floor: %v", err)
+		}
+	})
 }
 
 // testUserPhoneSeq gives each makeTestUser call a distinct phone number.
