@@ -790,6 +790,39 @@ func TestListMessagesForMemberKeepsRemovedMembersLabel(t *testing.T) {
 	}
 }
 
+// TestAdminListMessagesShowsRealIdentity is AdminListMessages' basic case:
+// staff sees the real sender_user_id and real name for a message posted in a
+// MASKED group, where ListMessagesForMember would instead show only the
+// member's masked_label ("Donor 1"). This is the one place real identity is
+// meant to reach a caller.
+func TestAdminListMessagesShowsRealIdentity(t *testing.T) {
+	pool := newTestPool(t)
+	s := New(pool)
+	ctx := context.Background()
+	staff := makeTestUser(t, pool, "staff")
+	donor := makeTestUser(t, pool, "donor")
+	setFullName(t, pool, donor, "Real Donor Name")
+
+	groupID, _ := s.CreateGroup(ctx, KindMasked, "", staff, []MemberInput{{UserID: donor, RoleInGroup: "donor"}})
+	if _, err := s.PostMessage(ctx, groupID, donor, "hello"); err != nil {
+		t.Fatalf("PostMessage: %v", err)
+	}
+
+	msgs, err := s.AdminListMessages(ctx, groupID, 0, 50)
+	if err != nil {
+		t.Fatalf("AdminListMessages: %v", err)
+	}
+	if len(msgs) != 1 {
+		t.Fatalf("got %d messages, want 1", len(msgs))
+	}
+	if msgs[0].SenderUserID != donor {
+		t.Errorf("SenderUserID = %d, want %d", msgs[0].SenderUserID, donor)
+	}
+	if msgs[0].SenderName != "Real Donor Name" {
+		t.Errorf("SenderName = %q, want %q", msgs[0].SenderName, "Real Donor Name")
+	}
+}
+
 // setFullName / setPhone give a test user real profile data so the masking
 // test can assert that data does NOT leak.
 //

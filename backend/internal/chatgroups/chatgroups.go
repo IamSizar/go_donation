@@ -439,3 +439,54 @@ func (s *Store) ListMessagesForMember(ctx context.Context, groupID, viewerUserID
 	}
 	return out, rows.Err()
 }
+
+// AdminListMessages is the staff-only, unmasked twin of ListMessagesForMember:
+// same cursor pagination over the same table, but it returns AdminGroupMessage
+// (real sender_user_id and real name) instead of GroupMessage's masked label.
+// Named distinctly from ListMessagesForMember (spec §5) precisely so the two
+// cannot be reached for interchangeably by accident.
+//
+// Deliberately NO membership/access check, unlike ListMessagesForMember. Per
+// spec §9, admin authority to read a group comes from the CALLER's permission
+// level (perm("messages", ...) plus sensitive_data:view), checked by a later
+// phase's HTTP handler — not from having a chat_group_members row. This
+// mirrors PostMessageAsStaff, which already lets any admin holding the
+// messages permission post into a group without needing a member row.
+func (s *Store) AdminListMessages(ctx context.Context, groupID, afterID int64, limit int) ([]AdminGroupMessage, error) {
+	if limit <= 0 || limit > maxMessagePage {
+		limit = defaultMessagePage
+	}
+
+	rows, err := s.Pool.Query(ctx, `
+		SELECT
+		  m.id,
+		  COALESCE(mem.id, 0),
+		  m.sender_user_id,
+		  COALESCE(up.full_name, u.phone, 'Unknown'),
+		  m.body,
+		  m.created_at
+		FROM chat_group_messages m
+		LEFT JOIN chat_group_members mem
+		  ON mem.group_id = m.group_id AND mem.user_id = m.sender_user_id
+		LEFT JOIN users u ON u.id = m.sender_user_id
+		LEFT JOIN user_profiles up ON up.user_id = m.sender_user_id
+		WHERE m.group_id = $1 AND m.id > $2
+		ORDER BY m.id ASC
+		LIMIT $3`,
+		groupID, afterID, limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := []AdminGroupMessage{}
+	for rows.Next() {
+		var am AdminGroupMessage
+		if err := rows.Scan(&am.ID, &am.SenderMemberID, &am.SenderUserID, &am.SenderName, &am.Body, &am.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, am)
+	}
+	return out, rows.Err()
+}
