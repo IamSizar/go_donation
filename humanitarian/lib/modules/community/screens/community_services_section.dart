@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:flutter_application_1/modules/community/controllers/community_controller.dart';
 import 'package:flutter_application_1/modules/community/screens/add_activity_screen.dart';
 import 'package:flutter_application_1/modules/community/screens/community_detail_screen.dart';
+import 'package:flutter_application_1/modules/community/screens/community_events_feed.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -218,108 +219,22 @@ class CommunityServicesSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return const SectionScaffold(
       title: 'Community Services',
-      subtitle:
-          'Browse local support programs by category, region, and urgency.',
-      child: _CommunityServicesList(),
+      subtitle: 'Community events, announcements, and updates.',
+      child: CommunityEventsFeed(),
     );
-  }
-}
-
-// ── Services list + City Guide ────────────────────────────────────────────────
-
-class _CommunityServicesList extends StatelessWidget {
-  const _CommunityServicesList();
-
-  @override
-  Widget build(BuildContext context) {
-    final controller = Get.isRegistered<CommunityController>()
-        ? Get.find<CommunityController>()
-        : Get.put(CommunityController());
-
-    return Obx(() {
-      final items = controller.entries;
-      final error = controller.errorMessage.value;
-      final loading = controller.isLoading.value;
-
-      return RefreshIndicator(
-        onRefresh: controller.fetchEntries,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
-          children: [
-            // Three stacked `if` blocks replaced by one state. Before, a
-            // failed load drew the error tile AND the service cards under it,
-            // and the error was a SectionTile - the same card shape as the
-            // About and Contact rows below - so it read as another nav row
-            // rather than as a failure with a retry.
-            //
-            // The About and Contact tiles below stay OUTSIDE this: they are
-            // standing entry points, and someone whose directory failed to
-            // load is exactly who needs the "add or correct a place" contact.
-            AppAsync<List<dynamic>>(
-              loading: loading,
-              error: error,
-              onRetry: controller.fetchEntries,
-              data: items,
-              isEmpty: (list) => list.isEmpty,
-              empty: const AppEmpty(
-                title: 'Services Directory',
-                message: 'No approved city services are available yet.',
-              ),
-              builder: (list) => Column(
-                children: [
-                  for (final item in list) ...[
-                    _CityServiceCard(
-                      entry: item,
-                      onTap: () =>
-                          Get.to(() => CommunityDetailScreen(entry: item)),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                ],
-              ),
-            ),
-            // The City Guide map now lives on its own screen, opened from Home.
-            const SizedBox(height: 8),
-            // "A separate About Us and Contact Us option in the My Engagement
-            // and Comprehensive Mosul Guide interfaces" — the guide carries
-            // its own contact details, distinct from the humanitarian ones.
-            SectionTile(
-              icon: Icons.info_outline_rounded,
-              title: 'About the Mosul Guide',
-              subtitle: 'What this guide covers',
-              color: AppThemeConfig.accent(context),
-              onTap: () => Get.to(
-                () => const ContentPageScreen(
-                  slug: 'city-guide-about',
-                  titleKey: 'About the Mosul Guide',
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            SectionTile(
-              icon: Icons.support_agent_rounded,
-              title: 'Contact the Mosul Guide',
-              subtitle: 'Add or correct a place',
-              color: AppThemeConfig.accent(context),
-              onTap: () => Get.to(
-                () => const ContentPageScreen(
-                  slug: 'city-guide-contact',
-                  titleKey: 'Contact the Mosul Guide',
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    });
   }
 }
 
 // ── City Guide header card ────────────────────────────────────────────────────
 
 class _CityGuideHeader extends StatelessWidget {
-  const _CityGuideHeader({required this.count});
+  const _CityGuideHeader({required this.count, required this.onInfoTap});
   final int count;
+
+  /// Opens the About/Contact-the-Mosul-Guide sheet. Moved here from the old
+  /// Community Services screen (OPOS #25272): those two entry points are
+  /// about THIS guide, not the events feed Community Services now shows.
+  final VoidCallback onInfoTap;
 
   @override
   Widget build(BuildContext context) {
@@ -425,6 +340,27 @@ class _CityGuideHeader extends StatelessWidget {
                 ],
               ),
             ),
+          const SizedBox(width: 8),
+          Semantics(
+            button: true,
+            label: 'About the Mosul Guide'.tr,
+            child: Material(
+              color: Colors.white.withValues(alpha: 0.12),
+              shape: const CircleBorder(),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: onInfoTap,
+                child: const Padding(
+                  padding: EdgeInsets.all(8),
+                  child: Icon(
+                    Icons.info_outline_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -477,7 +413,10 @@ class _CityGuideScreenState extends State<CityGuideScreen> {
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
           child: Column(
             children: [
-              _CityGuideHeader(count: items.length),
+              _CityGuideHeader(
+                count: items.length,
+                onInfoTap: () => _showGuideInfoSheet(context),
+              ),
               // J8 — in-list search. Server-side (`?q=`): the directory is
               // capped at 50 entries per response and is the fastest-growing
               // list in the app, and the server matches address, phone and
@@ -724,6 +663,51 @@ void _showEntrySheet(BuildContext ctx, Map<String, dynamic> entry) {
     backgroundColor: Colors.transparent,
     isScrollControlled: true,
     builder: (_) => _EntrySheet(entry: entry),
+  );
+}
+
+/// "A separate About Us and Contact Us option in the My Engagement and
+/// Comprehensive Mosul Guide interfaces" — moved onto the City Guide header's
+/// info button (OPOS #25272) now that Community Services no longer shares
+/// this guide's data and is no longer where these two belonged.
+void _showGuideInfoSheet(BuildContext ctx) {
+  showModalBottomSheet(
+    context: ctx,
+    builder: (sheetCtx) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.info_outline_rounded),
+            title: Text('About the Mosul Guide'.tr),
+            subtitle: Text('What this guide covers'.tr),
+            onTap: () {
+              Navigator.of(sheetCtx).pop();
+              Get.to(
+                () => const ContentPageScreen(
+                  slug: 'city-guide-about',
+                  titleKey: 'About the Mosul Guide',
+                ),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.support_agent_rounded),
+            title: Text('Contact the Mosul Guide'.tr),
+            subtitle: Text('Add or correct a place'.tr),
+            onTap: () {
+              Navigator.of(sheetCtx).pop();
+              Get.to(
+                () => const ContentPageScreen(
+                  slug: 'city-guide-contact',
+                  titleKey: 'Contact the Mosul Guide',
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    ),
   );
 }
 
@@ -1665,148 +1649,6 @@ Color categoryPillFill(Color tint, Color card) =>
 @visibleForTesting
 Color categoryPillInk(Color tint, Color card, Color ink) =>
     readableOn(tint: tint, background: categoryPillFill(tint, card), ink: ink);
-
-// #29 — City Guide service card: soft category colour, a category chip, the
-// address, and a city · phone line. Replaces the old flat indigo tile.
-class _CityServiceCard extends StatelessWidget {
-  const _CityServiceCard({required this.entry, required this.onTap});
-
-  final Map<String, dynamic> entry;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final name = localizedContentFromMap(entry, 'name', fallback: 'Service');
-    final category = (entry['category'] ?? '').toString().trim();
-    final city = localizedCity(entry['city']);
-    final phone = (entry['phone'] ?? '').toString().trim();
-    final address = (entry['address'] ?? '').toString().trim();
-    final accent = categoryColor(category);
-    // The surface the pill is washed over, so its label can be measured
-    // against what it is actually drawn on rather than against the hue alone.
-    final card = AppThemeConfig.elevatedSurface(context);
-    final meta = [city, phone].where((s) => s.isNotEmpty).join('   ·   ');
-
-    return Material(
-      color: card,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppThemeConfig.border(context)),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(
-                  Icons.location_city_rounded,
-                  color: accent,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 15,
-                        color: AppThemeConfig.text(context),
-                      ),
-                    ),
-                    if (category.isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 9,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: categoryPillFill(accent, card),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          category,
-                          style: TextStyle(
-                            // Not `accent`: the raw hue is unreadable on its
-                            // own wash in most categories. See [categoryPillInk].
-                            color: categoryPillInk(
-                              accent,
-                              card,
-                              AppThemeConfig.text(context),
-                            ),
-                            fontWeight: FontWeight.w700,
-                            fontSize: 11.5,
-                          ),
-                        ),
-                      ),
-                    ],
-                    if (address.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(
-                            Icons.place_outlined,
-                            size: 15,
-                            color: AppThemeConfig.mutedText(context),
-                          ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              address,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                height: 1.3,
-                                color: AppThemeConfig.text(
-                                  context,
-                                ).withValues(alpha: 0.8),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                    if (meta.isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        meta,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppThemeConfig.mutedText(context),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class _PlaceCard extends StatelessWidget {
   const _PlaceCard({required this.entry});

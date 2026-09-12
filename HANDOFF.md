@@ -6,6 +6,70 @@
 
 ---
 
+## 2026-09-12 — Community Services stops duplicating City Guide, becomes a real events feed
+
+**Asked for:** OPOS #25272 — a bug report said City Guide and Community
+Services overlap and confuse users. Auditing (Explore agent, not a guess)
+found they weren't two overlapping features but the SAME one: both read
+`city_directory_entries` through the shared `CommunityController` singleton.
+Two clarifying questions were put to Zaid before writing any code: (1) how to
+resolve it → **keep both, differentiate by content**; (2) what Community
+Services' real content should be → **community events/announcements**.
+
+**Branch:** `feat/community-events-feed`, cut from `main`. One commit, pushed,
+PR opened: https://github.com/IamSizar/go_donation/pull/65 (`677c4fa`).
+
+### What was actually changed
+- `backend/migrations/121_community_media_type.sql` adds `'community'` to the
+  `media_posts.post_type` CHECK constraint — same precedent
+  `011_marriage_media.sql` set for `'marriage'`: reuse the existing table
+  and admin CRUD rather than build a new one.
+- `internal/listings/listings.go` — the untyped/general News & Activities
+  feed now excludes `post_type = 'community'` the same way it already
+  excludes `'marriage'`, so the two feeds don't leak into each other.
+- `internal/handlers/admin_edit.go`'s `mediaPostTypes` whitelist and
+  `admin-web/src/pages/MediaPage.tsx`'s `POST_TYPES` dropdown both updated
+  to allow the new value — staff author these posts with the EXISTING Media
+  form, no new admin page.
+- `humanitarian/lib/modules/community/screens/community_events_feed.dart`
+  (new) — `CommunityEventsFeed`, built entirely from existing pieces
+  (`MediaPostsController`, the public `MediaPostCard`, `FeedPaginationFooter`)
+  under its own GetX tag, mirroring `MarriageHubScreen`'s
+  `type=activity,news` pattern exactly.
+- `community_services_section.dart` — `CommunityServicesSection` now renders
+  the new feed; deleted the now-dead `_CommunityServicesList` and
+  `_CityServiceCard` widgets. The "About/Contact the Mosul Guide" tiles that
+  used to live on Community Services (they're about City Guide, not events)
+  moved onto `CityGuideScreen`'s own header as an info-button → action sheet,
+  so those two required entry points stay reachable.
+
+### What was run, and what it printed
+- `go build ./... && go vet ./... && go test ./...` — all green.
+  `gofmt -l` clean on the touched Go files.
+- Live scratch-DB check (`createdb donation_scratch_community`,
+  `RUN_MIGRATIONS=1 DATABASE_URL=... go run ./cmd/server`, dropped after):
+  seeded one `post_type='community'` row and one `post_type='news'` row
+  directly with `psql`. `GET /api/media?type=community` returned ONLY the
+  community post. `GET /api/media` (no type) returned the news post plus
+  the migration's other seed posts but NOT the community one — confirming
+  the exclusion. `POST /api/admin/media` still 401s with no token.
+- `flutter analyze` on every touched Dart file — `No issues found!`.
+- admin-web: `npx tsc --noEmit -p .` clean; `npm run build` succeeded.
+
+### Still open / needs a human
+- The concrete content type ("events/announcements") came from a clarifying
+  question, not from the original bug report — worth confirming with the
+  client that this is what they actually want Community Services to become,
+  before staff start relying on it.
+- The admin-web Media form's actual click-through creating a `'community'`
+  post was **not** verified in a browser (OTP-gated login, same limitation
+  as the districts-CMS entry above) — verified at the API/DB layer instead.
+- Moving "About/Contact the Mosul Guide" to an info-button sheet on City
+  Guide is a UX judgment call to preserve two required entry points that no
+  longer had a home — a designer should sanity-check the placement.
+
+---
+
 ## 0. TL;DR
 
 - **App:** "Tawazon" (توازن) / **BalanceNex** — a multi-language humanitarian **donations & community platform**.

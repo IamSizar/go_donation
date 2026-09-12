@@ -298,7 +298,7 @@ type mediaEditReq struct {
 	Gallery        *[]string `json:"gallery"`
 }
 
-var mediaPostTypes = []string{"news", "activity", "event", "article", "video", "marriage"}
+var mediaPostTypes = []string{"news", "activity", "event", "article", "video", "marriage", "community"}
 
 func (h *AdminEditHandler) Media(c *gin.Context) {
 	id, ok := parseID(c)
