@@ -35,6 +35,16 @@ func TestNormalizePhone(t *testing.T) {
 		"‏0750 858 2031‎":     canon, // RTL/LTR bidi marks
 		"0750858‍2031":        canon, // zero-width joiner
 
+		// OPOS #25268 — the app always sends the dial code explicitly (the
+		// country picker prepends "+964"), so an Iraqi submission goes
+		// through THIS branch, not the bare-input one above. Before the fix,
+		// this used the generic 7-15-total-digit E.164 range instead of
+		// Iraq's own exact 10-digit national-number rule, so a 9-digit
+		// national number like this reported one was wrongly accepted.
+		"+964773800028":   "",              // 9-digit NSN with explicit dial code — reported bug
+		"+9647738000289":  "9647738000289", // corrected to 10 digits — must still work
+		"+96477380002891": "",              // 11-digit NSN with explicit dial code — too long
+
 		// Invalid → "".
 		"":            "",
 		"   ":         "",
