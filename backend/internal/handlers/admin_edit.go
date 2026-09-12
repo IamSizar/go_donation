@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/karam-flutter/humanitarian-backend/internal/auth"
 	"github.com/karam-flutter/humanitarian-backend/internal/permissions"
 	"github.com/karam-flutter/humanitarian-backend/internal/volunteers"
 )
@@ -1760,16 +1761,30 @@ func (h *AdminEditHandler) User(c *gin.Context) {
 	}
 	defer tx.Rollback(c.Request.Context())
 
-	// users.phone — NOT NULL, so reject empty.
+	// users.phone — NOT NULL and UNIQUE. Normalized the same way every other
+	// write path does (registration, login, guest-upgrade — see
+	// auth.NormalizePhone) so an edit made here can never introduce a
+	// differently-formatted duplicate of a number that's already on another
+	// account, and so this account stays findable by the same canonical
+	// value everywhere else looks it up.
 	if req.Phone != nil {
 		s := strings.TrimSpace(*req.Phone)
 		if s == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "phone cannot be empty."})
 			return
 		}
+		normalized := auth.NormalizePhone(s)
+		if normalized == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Enter a valid phone number."})
+			return
+		}
 		ct, err := tx.Exec(c.Request.Context(),
-			"UPDATE users SET phone = $1 WHERE id = $2", s, id)
+			"UPDATE users SET phone = $1 WHERE id = $2", normalized, id)
 		if err != nil {
+			if strings.Contains(err.Error(), "23505") || strings.Contains(strings.ToLower(err.Error()), "duplicate") {
+				c.JSON(http.StatusConflict, gin.H{"success": false, "error": "A user with this phone already exists."})
+				return
+			}
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
 			return
 		}
