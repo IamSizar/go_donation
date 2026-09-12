@@ -82,17 +82,24 @@ introducing a new one:
   is the better call, matching Phase 1's own file-size discipline.
 - **`internal/handlers/chat_group_contact_block.go`** — new file, adapting
   `chat_contact_block.go`'s rule for groups (§5).
-- **Two small, additive Store methods** on `internal/chatgroups.Store` (same
+- **Small, additive additions** to `internal/chatgroups.Store` (same
   package, same test conventions as Phase 1 — not a reopening of reviewed
-  Phase 1 code): `RecordContactBlock`/`ListContactBlocks` against the
-  already-existing `chat_group_contact_blocks` table (mirrors
-  `internal/chat/contactblocks.go`), and `LabelsForActiveMembers(ctx,
-  groupID) (map[int64]string, error)` so notification fan-out resolves
-  every recipient's alias or real name in one query instead of one per
-  recipient. A `GetGroup`-style read (id, kind, title, members with their
-  labels/roles) is also added here for the admin membership-management UI
-  to have something to render before/after an `AddMember`/`RemoveMember`
-  call.
+  Phase 1 code, in a new `chatgroups_admin.go` file): `GetGroup(ctx,
+  groupID) (GroupDetail, error)` — the thread row plus its full member
+  roster (id, user_id, role, masked, label, removed_at) — and
+  `RecordContactBlock`/`ListContactBlocks` against the already-existing
+  `chat_group_contact_blocks` table (mirrors
+  `internal/chat/contactblocks.go`). `GetGroup` serves two purposes: the
+  admin membership-management UI needs it to render a roster before/after
+  an `AddMember`/`RemoveMember` call, and the message-posting handlers
+  (§6) call it once per post to learn the group's `kind` (for the contact
+  filter) and its member list (for notification fan-out) — one query
+  covers both needs, so no separate label-batching method is needed:
+  a masked group's per-sender label is fixed per (group, sender), not
+  per-viewer (staff always collapses to "Support" for everyone, and a
+  member's own `masked_label` is the same regardless of who's reading), so
+  resolving "how does this ONE sender appear" from the roster already in
+  hand is enough — there is no per-recipient variation to batch.
 - **`internal/notify/templates.go`**: one new template,
   `GroupMaskedNewMessageMsg(alias, preview string, groupID int64)
   LocalizedMessage` — same shape as the existing `ChatNewMessageMsg` but
@@ -103,8 +110,26 @@ introducing a new one:
   one `systems` map entry (`ThreadTable: "chat_group_threads"`,
   `MessageTable: "chat_group_messages"`, `ReadTable: "chat_group_reads"`,
   `ExtraChildTables: []string{"chat_group_contact_blocks",
-  "chat_group_staff_notes"}}`) — also wires trash/restore/export for free,
-  since those already loop generically over `chatlifecycle.Systems()`.
+  "chat_group_staff_notes"}}`), **plus one required generalization
+  discovered while scoping this phase**: `internal/handlers/admin_chat_lifecycle.go`'s
+  `trashChatThread` hardcodes the child-table foreign key column as
+  `thread_id` (`WHERE x.thread_id = $1`) when snapshotting a thread's
+  children before delete. Every `chat_group_*` child table uses `group_id`,
+  not `thread_id` — registering `KindGroup` as-is would make `DELETE
+  /admin/chat-groups/:id` fail (`column "thread_id" does not exist`) the
+  moment a group has any messages. Fix: add a `ChildIDColumn string` field
+  to `chatlifecycle.System` (defaulting to `"thread_id"` for the four
+  existing systems, set to `"group_id"` only for the new one), and change
+  `trashChatThread`'s snapshot query to use `sys.ChildIDColumn` instead of
+  the literal `thread_id`. This touches shared code used by all five chat
+  systems, but is purely additive (a new field with a value that preserves
+  today's behavior everywhere except the one new registration) — not a
+  reopening of any of the four existing systems' behavior.
+  `restoreChatChildren` needs no change: it already re-inserts whole rows
+  via `jsonb_populate_recordset` without referencing the FK column by name.
+  Once fixed, trash/restore/export work for chat groups for free, exactly
+  as they already do for the other four, since both already loop
+  generically over `chatlifecycle.Systems()`.
 - **`cmd/server/main.go`**: the route blocks in §4, plus two lifecycle
   lines (`chatLifecycleH.Apply(chatlifecycle.KindGroup)` /
   `.Delete(chatlifecycle.KindGroup)`), following the existing per-kind
@@ -178,20 +203,23 @@ exemptions is wrong for groups:
 
 ## 6. Notifications
 
-`PostMessage`/`PostMessageAsStaff` call `LabelsForActiveMembers(groupID)`
-once per post (not once per recipient — batching this was an explicit
-requirement of the Phase 1 design doc), then fan out via the existing
-detached-goroutine pattern (`go func(){ Notifier.Send(...) }()`,
-10-second timeout context, identical to `chat.go`'s `bg()` helper) to every
-active member except the sender:
+`PostMessage`/`PostMessageAsStaff`'s handlers already call `GetGroup(id)`
+for the contact filter (§5), so the same `GroupDetail` (thread + member
+roster) drives notification fan-out too — no second query. One sender
+label is resolved once per post (masked group: the sender's own
+`masked_label`, or "Support" if their `role_in_group` is `staff` or they
+have no member row at all — the same resolution `ListMessagesForMember`
+already applies at read time, kept consistent rather than re-derived
+differently; team group: the sender's `user_profiles.full_name`). That one
+label is then reused for every recipient — there is nothing to batch
+per-recipient, since the label depends only on who sent the message, never
+on who is reading it. Fan-out uses the existing detached-goroutine pattern
+(`go func(){ Notifier.Send(...) }()`, 10-second timeout context, identical
+to `chat.go`'s `bg()` helper) to every active member except the sender:
 
-- Masked groups → `GroupMaskedNewMessageMsg(alias, preview, groupID)`,
-  where `alias` is that recipient's own view of the sender (their
-  `masked_label`, or "Support" if the sender is staff — same resolution
-  `ListMessagesForMember` already does at read time, reused here rather
-  than re-derived).
-- Team groups → the existing `ChatNewMessageMsg(realName, preview,
-  groupID)`, no new template needed.
+- Masked groups → `GroupMaskedNewMessageMsg(label, preview, groupID)`.
+- Team groups → the existing `ChatNewMessageMsg(label, preview, groupID)`,
+  no new template needed.
 
 ## 7. Testing
 
