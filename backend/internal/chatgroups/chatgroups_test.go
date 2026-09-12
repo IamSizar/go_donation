@@ -1084,6 +1084,150 @@ func TestMarkReadNeverMovesBackward(t *testing.T) {
 	}
 }
 
+// ─── Connect requests ────────────────────────────────────────────────────
+
+func TestSubmitConnectRequestIsIdempotentWhilePending(t *testing.T) {
+	pool := newTestPool(t)
+	s := New(pool)
+	ctx := context.Background()
+	donor := makeTestUser(t, pool, "donor")
+
+	id1, err := s.SubmitConnectRequest(ctx, donor, "donation", 42, nil, "I'd like to connect")
+	if err != nil {
+		t.Fatalf("SubmitConnectRequest: %v", err)
+	}
+	id2, err := s.SubmitConnectRequest(ctx, donor, "donation", 42, nil, "updated message")
+	if err != nil {
+		t.Fatalf("SubmitConnectRequest (resubmit): %v", err)
+	}
+	if id1 != id2 {
+		t.Errorf("resubmitting while pending created a second row (%d, %d), want the same row", id1, id2)
+	}
+
+	var msg string
+	if err := pool.QueryRow(ctx,
+		`SELECT message FROM chat_group_connect_requests WHERE id = $1`, id1,
+	).Scan(&msg); err != nil {
+		t.Fatalf("read request: %v", err)
+	}
+	if msg != "updated message" {
+		t.Errorf("message = %q, want the resubmitted text", msg)
+	}
+}
+
+func TestSubmitConnectRequestRejectsInvalidContextType(t *testing.T) {
+	pool := newTestPool(t)
+	s := New(pool)
+	ctx := context.Background()
+	donor := makeTestUser(t, pool, "donor")
+
+	if _, err := s.SubmitConnectRequest(ctx, donor, "bogus", 1, nil, "hello"); err == nil {
+		t.Error("expected an error for an invalid context_type")
+	}
+}
+
+func TestApproveConnectRequestCreatesGroupTransactionally(t *testing.T) {
+	pool := newTestPool(t)
+	s := New(pool)
+	ctx := context.Background()
+	staff := makeTestUser(t, pool, "staff")
+	donor := makeTestUser(t, pool, "donor")
+	beneficiary := makeTestUser(t, pool, "beneficiary")
+
+	reqID, err := s.SubmitConnectRequest(ctx, donor, "donation", 42, nil, "I'd like to connect")
+	if err != nil {
+		t.Fatalf("SubmitConnectRequest: %v", err)
+	}
+
+	groupID, err := s.ApproveConnectRequest(ctx, reqID, KindMasked, "", staff, []MemberInput{
+		{UserID: donor, RoleInGroup: "donor"},
+		{UserID: beneficiary, RoleInGroup: "beneficiary"},
+	})
+	if err != nil {
+		t.Fatalf("ApproveConnectRequest: %v", err)
+	}
+	if groupID == 0 {
+		t.Fatal("expected a non-zero group id")
+	}
+
+	var status string
+	var linkedGroup int64
+	if err := pool.QueryRow(ctx,
+		`SELECT status, group_id FROM chat_group_connect_requests WHERE id = $1`, reqID,
+	).Scan(&status, &linkedGroup); err != nil {
+		t.Fatalf("read request: %v", err)
+	}
+	if status != "approved" {
+		t.Errorf("status = %q, want approved", status)
+	}
+	if linkedGroup != groupID {
+		t.Errorf("linked group_id = %d, want %d — there must be no gap between an approved request and its group", linkedGroup, groupID)
+	}
+
+	// Approving an already-decided request is an error.
+	if _, err := s.ApproveConnectRequest(ctx, reqID, KindMasked, "", staff, nil); err == nil {
+		t.Error("expected an error approving an already-approved request")
+	}
+}
+
+func TestDeclineConnectRequestRequiresReason(t *testing.T) {
+	pool := newTestPool(t)
+	s := New(pool)
+	ctx := context.Background()
+	staff := makeTestUser(t, pool, "staff")
+	donor := makeTestUser(t, pool, "donor")
+	reqID, _ := s.SubmitConnectRequest(ctx, donor, "donation", 1, nil, "please connect me")
+
+	if err := s.DeclineConnectRequest(ctx, reqID, staff, ""); err == nil {
+		t.Error("expected an error declining with an empty reason")
+	}
+
+	if err := s.DeclineConnectRequest(ctx, reqID, staff, "not eligible right now"); err != nil {
+		t.Fatalf("DeclineConnectRequest: %v", err)
+	}
+
+	var status, reason string
+	if err := pool.QueryRow(ctx,
+		`SELECT status, decline_reason FROM chat_group_connect_requests WHERE id = $1`, reqID,
+	).Scan(&status, &reason); err != nil {
+		t.Fatalf("read request: %v", err)
+	}
+	if status != "declined" || reason != "not eligible right now" {
+		t.Errorf("status/reason = %q/%q, want declined/%q", status, reason, "not eligible right now")
+	}
+}
+
+func TestListConnectRequestsFiltersByStatus(t *testing.T) {
+	pool := newTestPool(t)
+	s := New(pool)
+	ctx := context.Background()
+	staff := makeTestUser(t, pool, "staff")
+	donor := makeTestUser(t, pool, "donor")
+
+	pendingID, _ := s.SubmitConnectRequest(ctx, donor, "donation", 1, nil, "one")
+	declinedID, _ := s.SubmitConnectRequest(ctx, donor, "case", 2, nil, "two")
+	if err := s.DeclineConnectRequest(ctx, declinedID, staff, "no"); err != nil {
+		t.Fatalf("DeclineConnectRequest: %v", err)
+	}
+
+	pending, err := s.ListConnectRequests(ctx, "pending")
+	if err != nil {
+		t.Fatalf("ListConnectRequests(pending): %v", err)
+	}
+	foundPending := false
+	for _, r := range pending {
+		if r.ID == pendingID {
+			foundPending = true
+		}
+		if r.ID == declinedID {
+			t.Errorf("declined request %d appeared in the pending list", declinedID)
+		}
+	}
+	if !foundPending {
+		t.Errorf("pending request %d missing from ListConnectRequests(pending)", pendingID)
+	}
+}
+
 // setFullName / setPhone give a test user real profile data so the masking
 // test can assert that data does NOT leak.
 //
