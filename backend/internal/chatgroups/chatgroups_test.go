@@ -166,6 +166,117 @@ func TestCreateGroupTeamMembersAreNeverMasked(t *testing.T) {
 	}
 }
 
+func TestAddMemberDerivesMaskedFromGroupKind(t *testing.T) {
+	pool := newTestPool(t)
+	s := New(pool)
+	ctx := context.Background()
+	staff := makeTestUser(t, pool, "staff")
+	donor1 := makeTestUser(t, pool, "donor")
+	donor2 := makeTestUser(t, pool, "donor")
+
+	groupID, err := s.CreateGroup(ctx, KindMasked, "", staff, []MemberInput{
+		{UserID: donor1, RoleInGroup: "donor"},
+	})
+	if err != nil {
+		t.Fatalf("CreateGroup: %v", err)
+	}
+
+	if err := s.AddMember(ctx, groupID, MemberInput{UserID: donor2, RoleInGroup: "donor"}, staff); err != nil {
+		t.Fatalf("AddMember: %v", err)
+	}
+
+	var masked bool
+	var label string
+	if err := pool.QueryRow(ctx,
+		`SELECT masked, masked_label FROM chat_group_members WHERE group_id = $1 AND user_id = $2`,
+		groupID, donor2,
+	).Scan(&masked, &label); err != nil {
+		t.Fatalf("read added member: %v", err)
+	}
+	if !masked {
+		t.Error("masked = false, want true — must be derived from the group's kind")
+	}
+	if label != "Donor 2" {
+		t.Errorf("label = %q, want %q (continues the group's existing donor count)", label, "Donor 2")
+	}
+}
+
+// TestAddMemberRespectsCallerLabelOverride covers the branch where a caller
+// supplies an explicit Label for a masked-group member — the auto-label
+// counter must be skipped entirely and the exact caller-supplied string
+// stored, not a generated "Donor N".
+func TestAddMemberRespectsCallerLabelOverride(t *testing.T) {
+	pool := newTestPool(t)
+	s := New(pool)
+	ctx := context.Background()
+	staff := makeTestUser(t, pool, "staff")
+	donor1 := makeTestUser(t, pool, "donor")
+	donor2 := makeTestUser(t, pool, "donor")
+
+	groupID, err := s.CreateGroup(ctx, KindMasked, "", staff, []MemberInput{
+		{UserID: donor1, RoleInGroup: "donor"},
+	})
+	if err != nil {
+		t.Fatalf("CreateGroup: %v", err)
+	}
+
+	if err := s.AddMember(ctx, groupID, MemberInput{UserID: donor2, RoleInGroup: "donor", Label: "Custom"}, staff); err != nil {
+		t.Fatalf("AddMember: %v", err)
+	}
+
+	var label string
+	if err := pool.QueryRow(ctx,
+		`SELECT masked_label FROM chat_group_members WHERE group_id = $1 AND user_id = $2`,
+		groupID, donor2,
+	).Scan(&label); err != nil {
+		t.Fatalf("read added member: %v", err)
+	}
+	if label != "Custom" {
+		t.Errorf("masked_label = %q, want the caller-supplied %q, not an auto-generated label", label, "Custom")
+	}
+}
+
+func TestRemoveMemberIsSoftDelete(t *testing.T) {
+	pool := newTestPool(t)
+	s := New(pool)
+	ctx := context.Background()
+	staff := makeTestUser(t, pool, "staff")
+	donor := makeTestUser(t, pool, "donor")
+
+	groupID, err := s.CreateGroup(ctx, KindMasked, "", staff, []MemberInput{
+		{UserID: donor, RoleInGroup: "donor"},
+	})
+	if err != nil {
+		t.Fatalf("CreateGroup: %v", err)
+	}
+
+	if err := s.RemoveMember(ctx, groupID, donor, staff); err != nil {
+		t.Fatalf("RemoveMember: %v", err)
+	}
+
+	var removedAt *string
+	var stillHasLabel string
+	if err := pool.QueryRow(ctx,
+		`SELECT removed_at::text, masked_label FROM chat_group_members WHERE group_id = $1 AND user_id = $2`,
+		groupID, donor,
+	).Scan(&removedAt, &stillHasLabel); err != nil {
+		t.Fatalf("row must still exist after removal (soft-delete only): %v", err)
+	}
+	if removedAt == nil {
+		t.Error("removed_at is NULL, want a timestamp")
+	}
+	if stillHasLabel != "Donor 1" {
+		t.Errorf("masked_label = %q, want it preserved for historical message resolution", stillHasLabel)
+	}
+
+	// A second removal of the same (already-removed) member is an error,
+	// not a silent no-op — the caller asked to remove someone not currently
+	// active.
+	if err := s.RemoveMember(ctx, groupID, donor, staff); err == nil {
+		t.Error("removing an already-removed member should return an error")
+	}
+}
+
 // makeTestUser inserts a minimal users row and removes it on cleanup. role
 // is informational only here (chatgroups doesn't read users.role_id); it's
 // recorded so test failures are easier to read.

@@ -173,3 +173,58 @@ func (s *Store) CreateGroup(ctx context.Context, kind Kind, memberTitle string, 
 	}
 	return groupID, nil
 }
+
+// AddMember adds one member to an existing group. masked is ALWAYS derived
+// from the group's own kind — never accepted from the caller. When the
+// group is masked and the caller left Label blank, the label continues the
+// group's existing per-role auto-label sequence (the count of members ever
+// added under that role), so a member added later gets the next number, not
+// a restarted "1" — matching insertMembers' counter for the initial batch.
+func (s *Store) AddMember(ctx context.Context, groupID int64, input MemberInput, addedByStaffID int64) error {
+	var kind Kind
+	if err := s.Pool.QueryRow(ctx,
+		`SELECT kind FROM chat_group_threads WHERE id = $1`, groupID,
+	).Scan(&kind); err != nil {
+		return err
+	}
+	masked := kind == KindMasked
+	label := strings.TrimSpace(input.Label)
+	if masked && label == "" {
+		var n int
+		if err := s.Pool.QueryRow(ctx,
+			`SELECT COUNT(*) FROM chat_group_members WHERE group_id = $1 AND role_in_group = $2`,
+			groupID, input.RoleInGroup,
+		).Scan(&n); err != nil {
+			return err
+		}
+		label = autoLabel(input.RoleInGroup, n+1)
+	}
+	if !masked {
+		label = "" // team-group members are never masked; no label stored
+	}
+	_, err := s.Pool.Exec(ctx,
+		`INSERT INTO chat_group_members (group_id, user_id, role_in_group, masked, masked_label, added_by_staff_id)
+		 VALUES ($1, $2, $3, $4, $5, $6)`,
+		groupID, input.UserID, input.RoleInGroup, masked, nullIfEmpty(label), addedByStaffID,
+	)
+	return err
+}
+
+// RemoveMember soft-removes a member (removed_at/removed_by). Never DELETE
+// — a deleted row breaks historical label resolution for that member's past
+// messages (see Task 6). Removing a member who is not currently active
+// (never a member, or already removed) is an error, not a silent no-op.
+func (s *Store) RemoveMember(ctx context.Context, groupID, userID, removedByStaffID int64) error {
+	ct, err := s.Pool.Exec(ctx,
+		`UPDATE chat_group_members SET removed_at = now(), removed_by = $3
+		  WHERE group_id = $1 AND user_id = $2 AND removed_at IS NULL`,
+		groupID, userID, removedByStaffID,
+	)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return errors.New("member not found or already removed")
+	}
+	return nil
+}
