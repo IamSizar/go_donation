@@ -228,3 +228,93 @@ func (s *Store) RemoveMember(ctx context.Context, groupID, userID, removedByStaf
 	}
 	return nil
 }
+
+// advanceReadCursor is shared by PostMessage and PostMessageAsStaff: the
+// sender of a message always has it marked read for themselves, inside the
+// SAME transaction as the insert — otherwise a sender sees their own
+// message as unread on their next poll.
+func advanceReadCursor(ctx context.Context, tx pgx.Tx, groupID, userID, msgID int64) error {
+	_, err := tx.Exec(ctx, `
+		INSERT INTO chat_group_reads (group_id, user_id, last_read_msg_id)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (group_id, user_id) DO UPDATE
+		  SET last_read_msg_id = GREATEST(chat_group_reads.last_read_msg_id, EXCLUDED.last_read_msg_id)`,
+		groupID, userID, msgID,
+	)
+	return err
+}
+
+// PostMessage records a message from an active member. Returns an error if
+// senderUserID is not a current (non-removed) member of the group.
+func (s *Store) PostMessage(ctx context.Context, groupID, senderUserID int64, body string) (int64, error) {
+	body = strings.TrimSpace(body)
+	if body == "" {
+		return 0, errors.New("body must not be empty")
+	}
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback(ctx)
+
+	var isMember bool
+	if err := tx.QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM chat_group_members
+		                 WHERE group_id = $1 AND user_id = $2 AND removed_at IS NULL)`,
+		groupID, senderUserID,
+	).Scan(&isMember); err != nil {
+		return 0, err
+	}
+	if !isMember {
+		return 0, errors.New("sender is not an active member of this group")
+	}
+
+	var id int64
+	if err := tx.QueryRow(ctx,
+		`INSERT INTO chat_group_messages (group_id, sender_user_id, body)
+		 VALUES ($1, $2, $3) RETURNING id`,
+		groupID, senderUserID, body,
+	).Scan(&id); err != nil {
+		return 0, err
+	}
+	if err := advanceReadCursor(ctx, tx, groupID, senderUserID, id); err != nil {
+		return 0, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return 0, err
+	}
+	return id, nil
+}
+
+// PostMessageAsStaff records a staff reply. Any admin holding the messages
+// permission may post — membership in chat_group_members is for
+// notification targeting/ownership, not the access gate (spec §9); the
+// permission check itself belongs in the HTTP handler in a later phase, not
+// here.
+func (s *Store) PostMessageAsStaff(ctx context.Context, groupID, staffUserID int64, body string) (int64, error) {
+	body = strings.TrimSpace(body)
+	if body == "" {
+		return 0, errors.New("body must not be empty")
+	}
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback(ctx)
+
+	var id int64
+	if err := tx.QueryRow(ctx,
+		`INSERT INTO chat_group_messages (group_id, sender_user_id, body)
+		 VALUES ($1, $2, $3) RETURNING id`,
+		groupID, staffUserID, body,
+	).Scan(&id); err != nil {
+		return 0, err
+	}
+	if err := advanceReadCursor(ctx, tx, groupID, staffUserID, id); err != nil {
+		return 0, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return 0, err
+	}
+	return id, nil
+}

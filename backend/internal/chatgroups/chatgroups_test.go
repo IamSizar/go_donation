@@ -277,6 +277,84 @@ func TestRemoveMemberIsSoftDelete(t *testing.T) {
 	}
 }
 
+func TestPostMessageRequiresActiveMembership(t *testing.T) {
+	pool := newTestPool(t)
+	s := New(pool)
+	ctx := context.Background()
+	staff := makeTestUser(t, pool, "staff")
+	donor := makeTestUser(t, pool, "donor")
+	stranger := makeTestUser(t, pool, "donor")
+
+	groupID, err := s.CreateGroup(ctx, KindMasked, "", staff, []MemberInput{
+		{UserID: donor, RoleInGroup: "donor"},
+	})
+	if err != nil {
+		t.Fatalf("CreateGroup: %v", err)
+	}
+
+	if _, err := s.PostMessage(ctx, groupID, stranger, "hello"); err == nil {
+		t.Error("expected an error posting from a non-member")
+	}
+
+	msgID, err := s.PostMessage(ctx, groupID, donor, "hello from the donor")
+	if err != nil {
+		t.Fatalf("PostMessage from an active member: %v", err)
+	}
+	if msgID == 0 {
+		t.Fatal("expected a non-zero message id")
+	}
+
+	// The sender's own cursor must advance to their own message — otherwise
+	// they'd see their own message as unread.
+	var lastRead int64
+	if err := pool.QueryRow(ctx,
+		`SELECT last_read_msg_id FROM chat_group_reads WHERE group_id = $1 AND user_id = $2`,
+		groupID, donor,
+	).Scan(&lastRead); err != nil {
+		t.Fatalf("read cursor after posting: %v", err)
+	}
+	if lastRead != msgID {
+		t.Errorf("sender's last_read_msg_id = %d, want %d (their own message)", lastRead, msgID)
+	}
+}
+
+func TestPostMessageRejectsEmptyBody(t *testing.T) {
+	pool := newTestPool(t)
+	s := New(pool)
+	ctx := context.Background()
+	staff := makeTestUser(t, pool, "staff")
+	donor := makeTestUser(t, pool, "donor")
+	groupID, _ := s.CreateGroup(ctx, KindMasked, "", staff, []MemberInput{{UserID: donor, RoleInGroup: "donor"}})
+
+	if _, err := s.PostMessage(ctx, groupID, donor, "   "); err == nil {
+		t.Error("expected an error for a whitespace-only body")
+	}
+}
+
+func TestPostMessageAsStaffDoesNotRequireMembership(t *testing.T) {
+	pool := newTestPool(t)
+	s := New(pool)
+	ctx := context.Background()
+	staffCreator := makeTestUser(t, pool, "staff")
+	otherAdmin := makeTestUser(t, pool, "staff") // not added as a member of this group
+	donor := makeTestUser(t, pool, "donor")
+
+	groupID, err := s.CreateGroup(ctx, KindMasked, "", staffCreator, []MemberInput{
+		{UserID: donor, RoleInGroup: "donor"},
+	})
+	if err != nil {
+		t.Fatalf("CreateGroup: %v", err)
+	}
+
+	msgID, err := s.PostMessageAsStaff(ctx, groupID, otherAdmin, "any admin can reply here")
+	if err != nil {
+		t.Fatalf("PostMessageAsStaff from a non-member admin: %v", err)
+	}
+	if msgID == 0 {
+		t.Fatal("expected a non-zero message id")
+	}
+}
+
 // makeTestUser inserts a minimal users row and removes it on cleanup. role
 // is informational only here (chatgroups doesn't read users.role_id); it's
 // recorded so test failures are easier to read.
