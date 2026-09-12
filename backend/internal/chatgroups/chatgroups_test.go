@@ -2,6 +2,7 @@ package chatgroups
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"sync/atomic"
 	"testing"
@@ -296,6 +297,19 @@ func TestPostMessageRequiresActiveMembership(t *testing.T) {
 		t.Error("expected an error posting from a non-member")
 	}
 
+	// The non-member rejection must be an early return before any write —
+	// no message row should exist for that attempt.
+	var strangerMessageCount int
+	if err := pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM chat_group_messages WHERE group_id = $1 AND sender_user_id = $2`,
+		groupID, stranger,
+	).Scan(&strangerMessageCount); err != nil {
+		t.Fatalf("count messages from stranger: %v", err)
+	}
+	if strangerMessageCount != 0 {
+		t.Errorf("chat_group_messages has %d row(s) for the rejected non-member, want 0", strangerMessageCount)
+	}
+
 	msgID, err := s.PostMessage(ctx, groupID, donor, "hello from the donor")
 	if err != nil {
 		t.Fatalf("PostMessage from an active member: %v", err)
@@ -328,6 +342,74 @@ func TestPostMessageRejectsEmptyBody(t *testing.T) {
 
 	if _, err := s.PostMessage(ctx, groupID, donor, "   "); err == nil {
 		t.Error("expected an error for a whitespace-only body")
+	}
+}
+
+// TestPostMessageRollsBackOnReadCursorFailure proves PostMessage's message
+// insert and its read-cursor advance (advanceReadCursor) run in the SAME
+// transaction: forcing the SECOND statement to fail must roll back the
+// FIRST statement's already-inserted message too, not just the failing
+// statement on its own.
+//
+// chat_group_reads has no NOT NULL gap or FK to trip naturally, so this
+// test injects a scratch CHECK constraint that only this test's donor's
+// user_id can violate — named and scoped to that user_id so it can't
+// affect any other test running against the same database — then confirms
+// both the message row and the read-cursor row are absent afterward.
+func TestPostMessageRollsBackOnReadCursorFailure(t *testing.T) {
+	pool := newTestPool(t)
+	s := New(pool)
+	ctx := context.Background()
+	staff := makeTestUser(t, pool, "staff")
+	donor := makeTestUser(t, pool, "donor")
+
+	groupID, err := s.CreateGroup(ctx, KindMasked, "", staff, []MemberInput{
+		{UserID: donor, RoleInGroup: "donor"},
+	})
+	if err != nil {
+		t.Fatalf("CreateGroup: %v", err)
+	}
+
+	// donor's user_id is a fresh serial id from makeTestUser, not user
+	// input, so building the constraint expression with fmt.Sprintf here
+	// carries no injection risk.
+	constraintName := fmt.Sprintf("test_fault_injection_%d", donor)
+	if _, err := pool.Exec(ctx, fmt.Sprintf(
+		`ALTER TABLE chat_group_reads ADD CONSTRAINT %s CHECK (user_id <> %d)`,
+		constraintName, donor,
+	)); err != nil {
+		t.Fatalf("inject fault constraint: %v", err)
+	}
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), fmt.Sprintf(
+			`ALTER TABLE chat_group_reads DROP CONSTRAINT IF EXISTS %s`, constraintName,
+		))
+	})
+
+	if _, err := s.PostMessage(ctx, groupID, donor, "this must not survive"); err == nil {
+		t.Fatal("expected PostMessage to fail when the read-cursor advance is forced to fail")
+	}
+
+	var messageCount int
+	if err := pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM chat_group_messages WHERE group_id = $1 AND sender_user_id = $2`,
+		groupID, donor,
+	).Scan(&messageCount); err != nil {
+		t.Fatalf("count messages: %v", err)
+	}
+	if messageCount != 0 {
+		t.Errorf("chat_group_messages has %d row(s) for this group/sender after a failed PostMessage, want 0 — the message insert was not rolled back with the failing read-cursor advance", messageCount)
+	}
+
+	var readCount int
+	if err := pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM chat_group_reads WHERE group_id = $1 AND user_id = $2`,
+		groupID, donor,
+	).Scan(&readCount); err != nil {
+		t.Fatalf("count read cursors: %v", err)
+	}
+	if readCount != 0 {
+		t.Errorf("chat_group_reads has %d row(s) for this group/user after a failed PostMessage, want 0 (the failing insert itself should not have committed)", readCount)
 	}
 }
 
