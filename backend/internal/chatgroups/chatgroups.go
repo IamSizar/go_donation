@@ -14,6 +14,8 @@
 package chatgroups
 
 import (
+	"time"
+
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -38,7 +40,7 @@ type Group struct {
 	MemberTitle string
 	CreatedBy   int64
 	Lifecycle   string
-	CreatedAt   string
+	CreatedAt   time.Time
 }
 
 // MemberInput is what a caller supplies when adding someone to a group.
@@ -54,12 +56,12 @@ type MemberInput struct {
 // NO user-id field — it is not possible to leak a real identity through
 // this type because the type cannot hold one.
 type GroupMessage struct {
-	ID             int64  `json:"id"`
-	SenderMemberID int64  `json:"sender_member_id"`
-	SenderLabel    string `json:"sender_label"`
-	IsMine         bool   `json:"is_mine"`
-	Body           string `json:"body"`
-	CreatedAt      string `json:"created_at"`
+	ID             int64     `json:"id"`
+	SenderMemberID int64     `json:"sender_member_id"`
+	SenderLabel    string    `json:"sender_label"`
+	IsMine         bool      `json:"is_mine"`
+	Body           string    `json:"body"`
+	CreatedAt      time.Time `json:"created_at"`
 }
 
 // AdminGroupMessage is staff-only. Deliberately NOT built by embedding
@@ -67,10 +69,10 @@ type GroupMessage struct {
 // type's shape can be reused by mistake for a response that should carry
 // real identity.
 type AdminGroupMessage struct {
-	ID             int64  `json:"id"`
-	SenderMemberID int64  `json:"sender_member_id"`
-	SenderUserID   int64  `json:"sender_user_id"`
-	SenderName     string `json:"sender_name"`
-	Body           string `json:"body"`
-	CreatedAt      string `json:"created_at"`
+	ID             int64     `json:"id"`
+	SenderMemberID int64     `json:"sender_member_id"`
+	SenderUserID   int64     `json:"sender_user_id"`
+	SenderName     string    `json:"sender_name"`
+	Body           string    `json:"body"`
+	CreatedAt      time.Time `json:"created_at"`
 }
