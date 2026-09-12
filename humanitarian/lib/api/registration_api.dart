@@ -304,12 +304,36 @@ Future<RegistrationSubmitResult> submitRegistration({
   }
 }
 
+/// OPOS #25276 — which registration photo fields failed to save, if any.
+/// [failedFields] holds the exact form field names the server reported
+/// (e.g. "personal_photo", "id_photo") -- empty when everything the caller
+/// sent was saved. [reachedServer] is false only when the request itself
+/// never completed (network/timeout/decode failure), as distinct from a
+/// per-field save failure.
+class RegistrationPhotosResult {
+  const RegistrationPhotosResult({
+    required this.reachedServer,
+    required this.failedFields,
+  });
+
+  final bool reachedServer;
+  final List<String> failedFields;
+
+  /// True when the request reached the server and every field that was sent
+  /// actually saved.
+  bool get allSucceeded => reachedServer && failedFields.isEmpty;
+}
+
 /// Grantor registration spec — uploads the optional personal photo and/or
 /// ID card photo captured on the registration form. Best-effort: called
 /// after submitRegistration() succeeds, and a failure here never blocks the
-/// registration itself (both attachments are optional). Returns true only
-/// if the request reached the server and it reported success.
-Future<bool> uploadRegistrationPhotos({
+/// registration itself (both attachments are optional).
+///
+/// Each field is saved independently server-side (see UploadPhotos in
+/// registration.go) -- a failing attachment no longer discards an
+/// already-saved personal photo's path, which is what let the personal photo
+/// silently never display even though the file itself had uploaded fine.
+Future<RegistrationPhotosResult> uploadRegistrationPhotos({
   String? personalPhotoPath,
   String? idPhotoPath,
   // Eligible Recipient spec — "Attachments" section. All optional.
@@ -346,7 +370,7 @@ Future<bool> uploadRegistrationPhotos({
       if (e.value != null && e.value!.isNotEmpty) e.key: e.value!,
   };
   if (pending.isEmpty) {
-    return true; // nothing to upload — not an error.
+    return const RegistrationPhotosResult(reachedServer: true, failedFields: []);
   }
   try {
     final dio = Dio(
@@ -369,21 +393,35 @@ Future<bool> uploadRegistrationPhotos({
       options: withApiAuthOptions(),
     );
     final body = resp.data;
-    return resp.statusCode == 200 && body is Map && body['status'] == 'success';
+    if (resp.statusCode != 200 || body is! Map || body['status'] != 'success') {
+      // The server itself refused the whole request (e.g. a genuine DB
+      // write error) -- every field the caller sent is unaccounted for.
+      return RegistrationPhotosResult(
+        reachedServer: true,
+        failedFields: pending.keys.toList(),
+      );
+    }
+    final rawFailed = body['failed_fields'];
+    final failedFields = rawFailed is List
+        ? rawFailed.map((e) => e.toString()).toList()
+        : <String>[];
+    return RegistrationPhotosResult(
+      reachedServer: true,
+      failedFields: failedFields,
+    );
   } catch (_) {
     // Fire-and-forget by design: registration_form.dart calls this inside
-    // `unawaited(...)` AFTER submitRegistration() has already succeeded, and
-    // discards the bool. The catch is therefore load-bearing — letting the
-    // error escape an unawaited future would surface as an unhandled async
-    // error, not as anything the user could act on. The attachments are all
-    // optional and the registration itself is already saved, so a failed
-    // upload costs the user nothing they were promised.
-    //
-    // NEEDS A DECISION (not made here — the fix lives in the caller, which
-    // belongs to another change): because the result is discarded, a user
-    // whose documents fail to upload is never told, and there is no retry.
-    // If staff later require those documents, the silence becomes the bug.
-    return false;
+    // `unawaited(...)` AFTER submitRegistration() has already succeeded. The
+    // catch is therefore load-bearing — letting the error escape an
+    // unawaited future would surface as an unhandled async error, not as
+    // anything the user could act on. The attachments are all optional and
+    // the registration itself is already saved, so a failed upload costs the
+    // user nothing they were promised -- but the caller IS told, so it can
+    // name what needs retrying rather than staying silent.
+    return RegistrationPhotosResult(
+      reachedServer: false,
+      failedFields: pending.keys.toList(),
+    );
   }
 }
 

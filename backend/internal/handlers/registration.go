@@ -386,87 +386,83 @@ func (h *RegistrationHandler) UploadPhotos(c *gin.Context) {
 		return
 	}
 
-	var personalPath, idPath string
-	if fh, _ := c.FormFile("personal_photo"); fh != nil {
-		p, err := h.savePhoto(c.Request.Context(), tokenUser.UserID, "personal", fh)
+	// OPOS #25276 — "photo picked at registration sometimes doesn't display".
+	// Root cause: this used to return 400 the moment ANY ONE field's save
+	// failed, BEFORE writing any of the fields already saved successfully to
+	// the database. personal_photo/id_photo are worst hit: SetGrantorPhotos
+	// used to run only after BOTH were processed, so a failing id_photo threw
+	// away an already-saved personal_photo's path -- the file existed in
+	// storage, but user_profiles.profile_picture was never updated, so it
+	// never displayed anywhere. Every field below is now independent: a
+	// failure is recorded and the rest still get their chance, and every
+	// field that DID save gets written to the database regardless of what
+	// happened to any other field.
+	var failed []string
+	saveField := func(formKey, kind string) string {
+		fh, _ := c.FormFile(formKey)
+		if fh == nil {
+			return ""
+		}
+		p, err := h.savePhoto(c.Request.Context(), tokenUser.UserID, kind, fh)
 		if err != nil {
 			// savePhoto fails on filesystem and decode errors, whose text names
 			// server paths ("open /var/uploads/...: permission denied"). This is
 			// the app-facing endpoint, so that would go to a person registering
-			// on their phone, who can act on none of it.
-			log.Printf("[registration] personal photo save failed for user %d: %v", tokenUser.UserID, err)
-			c.JSON(http.StatusBadRequest, gin.H{"status": "error", "error": "Could not save the personal photo. Please try another image."})
-			return
+			// on their phone, who can act on none of it -- formKey stays in the
+			// log only, for the same reason.
+			log.Printf("[registration] %s save failed for user %d: %v", formKey, tokenUser.UserID, err)
+			failed = append(failed, formKey)
+			return ""
 		}
-		personalPath = p
-	}
-	if fh, _ := c.FormFile("id_photo"); fh != nil {
-		p, err := h.savePhoto(c.Request.Context(), tokenUser.UserID, "idcard", fh)
-		if err != nil {
-			log.Printf("[registration] ID card photo save failed for user %d: %v", tokenUser.UserID, err)
-			c.JSON(http.StatusBadRequest, gin.H{"status": "error", "error": "Could not save the ID card photo. Please try another image."})
-			return
-		}
-		idPath = p
+		return p
 	}
 
-	if err := h.Users.SetGrantorPhotos(c.Request.Context(), tokenUser.UserID, personalPath, idPath); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "error": "Failed to save photos."})
-		return
+	personalPath := saveField("personal_photo", "personal")
+	idPath := saveField("id_photo", "idcard")
+	if personalPath != "" || idPath != "" {
+		if err := h.Users.SetGrantorPhotos(c.Request.Context(), tokenUser.UserID, personalPath, idPath); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "error": "Failed to save photos."})
+			return
+		}
 	}
 
 	// Eligible Recipient spec — "Attachments" section. Each is optional, so a
 	// request carrying none of them stays a no-op success (same as above).
-	type attachment struct {
-		formKey string
-		kind    string
-		dest    *string
-	}
-	var rationCard, propertyProof, medicalReport string
-	var houseFacade, houseInside, houseOutside string
-	// Volunteer/Employee spec — "Attachments".
-	var goldenSquare, residenceCard, passport, graduationCert, cv string
-	for _, f := range []attachment{
-		{"ration_card_photo", "rationcard", &rationCard},
-		{"property_proof_photo", "propertyproof", &propertyProof},
-		{"medical_report_photo", "medicalreport", &medicalReport},
-		{"house_facade_photo", "housefacade", &houseFacade},
-		{"house_inside_photo", "houseinside", &houseInside},
-		{"house_outside_photo", "houseoutside", &houseOutside},
-		{"golden_square_photo", "goldensquare", &goldenSquare},
-		{"residence_card_photo", "residencecard", &residenceCard},
-		{"passport_photo", "passport", &passport},
-		{"graduation_cert_photo", "graduationcert", &graduationCert},
-		{"cv_photo", "cv", &cv},
-	} {
-		fh, _ := c.FormFile(f.formKey)
-		if fh == nil {
-			continue
-		}
-		p, err := h.savePhoto(c.Request.Context(), tokenUser.UserID, f.kind, fh)
-		if err != nil {
-			// f.formKey stays in the log, not the response: it is a form field
-			// name ("id_photo_back"), which is no more meaningful to the person
-			// uploading than the driver error beside it was.
-			log.Printf("[registration] %s save failed for user %d: %v", f.formKey, tokenUser.UserID, err)
-			c.JSON(http.StatusBadRequest, gin.H{"status": "error", "error": "Could not save the attached photo. Please try another image."})
+	rationCard := saveField("ration_card_photo", "rationcard")
+	propertyProof := saveField("property_proof_photo", "propertyproof")
+	medicalReport := saveField("medical_report_photo", "medicalreport")
+	houseFacade := saveField("house_facade_photo", "housefacade")
+	houseInside := saveField("house_inside_photo", "houseinside")
+	houseOutside := saveField("house_outside_photo", "houseoutside")
+	if rationCard != "" || propertyProof != "" || medicalReport != "" ||
+		houseFacade != "" || houseInside != "" || houseOutside != "" {
+		if err := h.Users.SetRecipientAttachments(c.Request.Context(), tokenUser.UserID,
+			rationCard, propertyProof, medicalReport, houseFacade, houseInside, houseOutside); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "error": "Failed to save attachments."})
 			return
 		}
-		*f.dest = p
 	}
-	if err := h.Users.SetRecipientAttachments(c.Request.Context(), tokenUser.UserID,
-		rationCard, propertyProof, medicalReport, houseFacade, houseInside, houseOutside); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "error": "Failed to save attachments."})
-		return
-	}
-	if err := h.Users.SetVolunteerAttachments(c.Request.Context(), tokenUser.UserID,
-		goldenSquare, residenceCard, passport, graduationCert, cv); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "error": "Failed to save attachments."})
-		return
+
+	// Volunteer/Employee spec — "Attachments".
+	goldenSquare := saveField("golden_square_photo", "goldensquare")
+	residenceCard := saveField("residence_card_photo", "residencecard")
+	passport := saveField("passport_photo", "passport")
+	graduationCert := saveField("graduation_cert_photo", "graduationcert")
+	cv := saveField("cv_photo", "cv")
+	if goldenSquare != "" || residenceCard != "" || passport != "" || graduationCert != "" || cv != "" {
+		if err := h.Users.SetVolunteerAttachments(c.Request.Context(), tokenUser.UserID,
+			goldenSquare, residenceCard, passport, graduationCert, cv); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "error": "Failed to save attachments."})
+			return
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"status":                    "success",
+		"status": "success",
+		// Non-empty when one or more fields failed to save -- everything ELSE
+		// in this request still saved. The client uses this to name exactly
+		// what needs retrying instead of a blanket "nothing uploaded".
+		"failed_fields":             failed,
 		"personal_photo_set":        personalPath != "",
 		"id_photo_set":              idPath != "",
 		"ration_card_photo_set":     rationCard != "",
