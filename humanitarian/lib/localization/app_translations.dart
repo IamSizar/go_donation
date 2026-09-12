@@ -864,6 +864,11 @@ class AppTranslations extends Translations {
     'View order status, fulfillment, and delivery updates.':
         'View order status, fulfillment, and delivery updates.',
     'Community Services': 'Community Services',
+    'Community events, announcements, and updates.':
+        'Community events, announcements, and updates.',
+    'Community events': 'Community events',
+    'No community events or announcements yet. Check back soon.':
+        'No community events or announcements yet. Check back soon.',
     'Browse local support programs by category, region, and urgency.':
         'Browse local support programs by category, region, and urgency.',
     'Services Directory': 'Services Directory',
@@ -3843,6 +3848,11 @@ class AppTranslations extends Translations {
     'View order status, fulfillment, and delivery updates.':
         'اعرض حالة الطلب والتجهيز وتحديثات التوصيل.',
     'Community Services': 'خدمات المجتمع',
+    'Community events, announcements, and updates.':
+        'فعاليات وإعلانات وتحديثات المجتمع.',
+    'Community events': 'فعاليات المجتمع',
+    'No community events or announcements yet. Check back soon.':
+        'لا توجد فعاليات أو إعلانات مجتمعية بعد. تحقق مرة أخرى قريبًا.',
     'Browse local support programs by category, region, and urgency.':
         'تصفح برامج الدعم المحلية حسب الفئة والمنطقة والأولوية.',
     'Services Directory': 'دليل الخدمات',

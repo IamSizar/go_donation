@@ -36,7 +36,7 @@ type Resp = { success: true; items: MediaPost[] }
 
 const STATUSES = ['all', 'draft', 'published', 'hidden']
 const EDITABLE_STATUSES = STATUSES.filter((s) => s !== 'all')
-const POST_TYPES = ['', 'news', 'activity', 'event', 'article', 'video', 'marriage']
+const POST_TYPES = ['', 'news', 'activity', 'event', 'article', 'video', 'marriage', 'community']
 const EDITABLE_POST_TYPES = POST_TYPES.filter((t) => t !== '')
 
 type MediaCategory = { slug: string; name_en: string; name_ar: string; name_ckb: string; name_kmr: string }
