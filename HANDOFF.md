@@ -6,6 +6,58 @@
 
 ---
 
+## 2026-09-12 — pending profile-change requests now visible on the Users list
+
+**Asked for:** OPOS #25287 — "profile edits sometimes don't sync to
+dashboard," reported as intermittent.
+
+**Branch:** `fix/profile-changes-dashboard-visibility`, cut from `main`. One
+commit, pushed, PR opened:
+https://github.com/IamSizar/go_donation/pull/68 (`6e73d89`).
+
+### Root cause (Explore-agent audit) — not intermittent, deterministic per field
+The app's real "Edit Profile" screen (`RegistrationFormPage`, edit mode)
+writes name/address straight through via `SubmitRegistration` — instant,
+no review. That SAME screen's avatar edit goes through a different
+endpoint (`POST /api/profile/set`), which DELIBERATELY queues
+`full_name`/`profile_picture` in `profile_change_requests` for staff
+review (`internal/profilechanges` — confirmed intentional by reading its
+own package doc: "a rejected change never appears anywhere"). The Users
+list had no way to show a pending row, so staff saw the name update
+instantly and the photo silently not update from the same save action —
+that's the whole "sometimes doesn't sync."
+
+### What was actually changed
+- `backend/internal/users/users.go` — `PaginatedList` now marks
+  `HasPendingProfileChange` per account via one batched query per page.
+- `admin-web/src/pages/UsersPage.tsx` — "Pending review" badge/link next
+  to the name, pointing at the existing `/profile-changes` page.
+- `api-types.ts` + `en.ts`/`ar.ts` — new field + two new strings (ckb/kmr
+  inherit English via the existing fallback chain, nothing invented).
+
+### Deliberately NOT changed
+Whether name/address edits should ALSO require staff review, to match
+photo. That's a moderation-policy call for the client — the two write
+paths behaving differently isn't necessarily a bug on its own; unifying
+them without asking would have been guessing at product intent.
+
+### What was run, and what it printed
+- New `backend/internal/users/pending_profile_change_test.go`
+  (TEST_DATABASE_URL-gated): seeds one user with a pending row, one
+  without, asserts both are marked correctly. Mutation-checked (removed
+  the marking call, confirmed the exact expected/actual failure, restored).
+- `go build/vet/test ./...` — all green, `gofmt -l` clean.
+- admin-web: `tsc --noEmit` and `npm run build` clean. Confirmed
+  `GET /api/admin/users` still 401s without auth.
+
+### Still open / needs a human
+- The moderation-policy question above (should name/address also require
+  review) needs a client decision.
+- Badge placement/copy verified by code + tsc, not clicked through live
+  (OTP-gated admin login, same limitation as every fix this session).
+
+---
+
 ## 0. TL;DR
 
 - **App:** "Tawazon" (توازن) / **BalanceNex** — a multi-language humanitarian **donations & community platform**.

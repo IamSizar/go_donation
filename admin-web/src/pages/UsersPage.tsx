@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import ActionsMenu from '../components/ActionsMenu'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError, isSuperAdmin, withMainAdminConfirmation } from '../lib/api'
@@ -312,15 +313,33 @@ export default function UsersPage() {
       // shows the operator's own language instead of printing it.
       cell: (u) => {
         const named = u.profile?.full_name?.trim()
+        // OPOS #25287 — this user has a name/photo edit sitting in the
+        // profile_change_requests review queue. Without this badge a queued
+        // edit was indistinguishable from one that never reached the server.
+        const pendingBadge = u.has_pending_profile_change ? (
+          <Link
+            to="/profile-changes"
+            className="badge"
+            style={{ opacity: 0.9 }}
+            title={t('page.users.pending_change_hint')}
+          >
+            {t('page.users.pending_change_badge')}
+          </Link>
+        ) : null
         if (u.is_guest && (!named || named === GUEST_PLACEHOLDER_NAME)) {
           return (
             <span>
               {u.username ?? <span className="muted">—</span>}{' '}
-              <span className="badge" style={{ opacity: 0.75 }}>{t('page.users.guest_badge')}</span>
+              <span className="badge" style={{ opacity: 0.75 }}>{t('page.users.guest_badge')}</span>{' '}
+              {pendingBadge}
             </span>
           )
         }
-        return named || <span className="muted">—</span>
+        return (
+          <span>
+            {named || <span className="muted">—</span>} {pendingBadge}
+          </span>
+        )
       },
     },
     // H10 — no client-side masking here any more. The SERVER decides what this

@@ -81,6 +81,14 @@ type Account struct {
 	// so they could not quote it and could not search by it. Empty for accounts
 	// that have none (staff, guests).
 	IdentityCode string `json:"identity_code"`
+	// HasPendingProfileChange (OPOS #25287) — true when this user has an
+	// unreviewed name/photo edit sitting in profile_change_requests
+	// (internal/profilechanges). That queue is intentional (staff review a
+	// user's own name/photo change before it goes live — see
+	// profilechanges.go's package doc) but the Users list had no way to show
+	// it, so a pending change looked to staff exactly like "the edit never
+	// synced" instead of "the edit is waiting on your review".
+	HasPendingProfileChange bool `json:"has_pending_profile_change"`
 }
 
 type Store struct {
@@ -1145,6 +1153,13 @@ func (s *Store) PaginatedList(ctx context.Context, page, perPage int, q, status 
 		return nil, err
 	}
 
+	// OPOS #25287 — one extra query per page (capped at 100 rows) rather than
+	// a correlated subquery per row: cheap, and keeps the row-scanning loop
+	// above unchanged.
+	if err := markPendingProfileChanges(ctx, s.Pool, items); err != nil {
+		return nil, err
+	}
+
 	totalPages := (total + perPage - 1) / perPage
 	if totalPages < 1 {
 		totalPages = 1
@@ -1159,4 +1174,43 @@ func (s *Store) PaginatedList(ctx context.Context, page, perPage int, q, status 
 			HasMore:    page < totalPages,
 		},
 	}, nil
+}
+
+// markPendingProfileChanges sets HasPendingProfileChange on every item whose
+// user_id has an unreviewed row in profile_change_requests. A no-op on an
+// empty page (nothing to look up).
+func markPendingProfileChanges(ctx context.Context, pool *pgxpool.Pool, items []Account) error {
+	if len(items) == 0 {
+		return nil
+	}
+	ids := make([]int64, len(items))
+	for i, it := range items {
+		ids[i] = it.UserID
+	}
+	rows, err := pool.Query(ctx,
+		`SELECT DISTINCT user_id FROM profile_change_requests
+		  WHERE status = 'pending' AND user_id = ANY($1)`,
+		ids,
+	)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	pending := map[int64]bool{}
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return err
+		}
+		pending[id] = true
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	for i := range items {
+		if pending[items[i].UserID] {
+			items[i].HasPendingProfileChange = true
+		}
+	}
+	return nil
 }

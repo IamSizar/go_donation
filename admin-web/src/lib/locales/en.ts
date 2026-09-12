@@ -883,6 +883,8 @@ const en = {
                     vs_last_month: 'vs {n} last month', donations_30d: 'Contributions · last 30 days' },
     users:        { view_active: 'Active accounts', hide_guests: 'Hide guests', view_archived: 'Archived', title: 'Users',          new_user: '+ New user', search_placeholder: 'search phone / full name',
                     guest_badge: 'Guest',
+                    pending_change_badge: 'Pending review',
+                    pending_change_hint: 'This user has a name/photo change waiting for your approval — click to review it.',
     wallet_topup: 'Top up wallet',
     wallet_topup_prompt: 'Enter the amount to add to this user\'s wallet (IQD):',
     wallet_topup_invalid: 'Enter a valid positive whole number.',

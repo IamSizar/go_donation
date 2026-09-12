@@ -824,6 +824,8 @@ const ar: DeepPartial<typeof en> = {
                     vs_last_month: 'مقابل {n} الشهر الماضي', donations_30d: 'المساهمات · آخر ٣٠ يومًا' },
     users:        { view_active: 'الحسابات النشطة', hide_guests: 'إخفاء الزوار', view_archived: 'المؤرشفة', title: 'المستخدمون', new_user: '+ مستخدم جديد', search_placeholder: 'بحث بالهاتف / الاسم',
                     guest_badge: 'زائر',
+                    pending_change_badge: 'بانتظار المراجعة',
+                    pending_change_hint: 'لدى هذا المستخدم تغيير في الاسم/الصورة بانتظار موافقتك — اضغط للمراجعة.',
                     wallet_topup: 'شحن المحفظة',
                     wallet_topup_prompt: 'أدخل المبلغ لإضافته إلى محفظة هذا المستخدم (دينار عراقي):',
                     wallet_topup_invalid: 'أدخل رقمًا صحيحًا موجبًا.',
