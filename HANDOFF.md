@@ -6,6 +6,65 @@
 
 ---
 
+## 2026-09-12 — Arabic-script text gets its own line-height instead of the Latin scale
+
+**Asked for:** OPOS #25281 — "Arabic text overlaps/garbles," described as
+systemic, not one screen.
+
+**Branch:** `fix/arabic-line-height`, cut from `main`. One commit, pushed, PR
+opened: https://github.com/IamSizar/go_donation/pull/67 (`3d0e26c`).
+
+### Root cause (Explore-agent audit, not a guess)
+`AppThemeConfig.applyLocaleFont()` swaps in the `Kurdfont` family for
+ar/ckb/kmr via `TextTheme.apply(fontFamily:)`, but `.apply()` only touches
+the font family — the Latin-tuned `height` values (`AppType.leadDisplay:
+1.02`, `leadTitle: 1.14`) carried straight through untouched. Arabic's
+taller x-height/ligatures/diacritics don't fit a line box sized for Latin
+glyphs — that's the "overlapping." `dashboard_screen.dart` had already
+independently found this same font needs ~1.45 before clamping it to fit a
+fixed 52pt bar; this generalizes that finding via the theme.
+
+Two contributing factors were found; only one was fixed here:
+1. **Line-height (fixed).** See below.
+2. **Font weight (NOT fixed — flagged as its own task, `task_86d1e2e0`).**
+   `Kurdfont` is bundled at weight 400 only, so every `FontWeight.w600+`
+   request is synthetically bolded for 3 of 4 languages. Needs new font
+   asset files (e.g. IBM Plex Sans Arabic / Noto Sans Arabic at 400/600/700)
+   — a licensing/design decision for a human, not something to code around.
+
+### What was actually changed
+- `humanitarian/lib/core/design/tokens.dart` — added
+  `leadDisplayAr`/`leadTitleAr`/`leadBodyAr`/`leadDenseAr`, each strictly
+  wider than its Latin counterpart.
+- `humanitarian/lib/core/theme/app_theme_config.dart` — `applyLocaleFont()`
+  applies them via `TextStyle.copyWith(height:)` after the font-family
+  swap, only for the Arabic-script family. Non-Arabic locales untouched.
+
+### Deliberately NOT changed
+The ~130 hardcoded inline `TextStyle(height: ...)` literals scattered
+across screens (found via grep). Several — including the exact dashboard
+nav-bar case above — are DELIBERATELY clamped tight to fit a fixed-height
+container. Blindly loosening all of them would trade this bug for a fresh
+overflow bug. Needs per-site layout review; out of scope for this pass.
+
+### What was run, and what it printed
+- New `test/design/arabic_line_height_test.dart` (4 tests): Latin leading
+  untouched, Arabic leading applied and strictly wider, font family still
+  swaps, null locale is a no-op. Mutation-checked (reverted the fix,
+  confirmed the exact expected/actual failure, restored it).
+- `flutter test` — full suite, 816 passed. `flutter analyze` clean on
+  touched files.
+
+### Still open / needs a human
+- Font-weight synthesis fix (above) — spun off as OPOS follow-up task
+  `task_86d1e2e0`, needs a font-asset decision from the client.
+- The chosen Arabic leading values (1.35/1.45/1.65/1.6) came from the
+  codebase's own empirical ~1.45 finding plus the existing "inverse to
+  size" principle, not from measuring the live font on a device — worth a
+  visual pass with long wrapped Arabic/Kurdish headings.
+
+---
+
 ## 0. TL;DR
 
 - **App:** "Tawazon" (توازن) / **BalanceNex** — a multi-language humanitarian **donations & community platform**.
