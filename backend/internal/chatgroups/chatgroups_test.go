@@ -973,6 +973,82 @@ func TestListGroupsForUserExcludesRemovedMembership(t *testing.T) {
 	}
 }
 
+// TestListGroupsForStaff covers the staff-facing twin of ListGroupsForUser.
+// It shares the same preview subqueries and scan order as its sibling, which
+// is exactly why it needs its own test: a column-order or hardcoded-value
+// mistake in ListGroupsForStaff would not be caught by ListGroupsForUser's
+// coverage.
+//
+// ListGroupsForStaff returns EVERY group in the database — not just the ones
+// created here — so this asserts by ID (a subset check) rather than by exact
+// result length, the same way it would need to on a database already holding
+// other tests' groups.
+func TestListGroupsForStaff(t *testing.T) {
+	pool := newTestPool(t)
+	s := New(pool)
+	ctx := context.Background()
+	staff := makeTestUser(t, pool, "staff")
+	donor1 := makeTestUser(t, pool, "donor")
+	donor2 := makeTestUser(t, pool, "donor")
+
+	group1ID, _ := s.CreateGroup(ctx, KindMasked, "", staff, []MemberInput{{UserID: donor1, RoleInGroup: "donor"}})
+	group2ID, _ := s.CreateGroup(ctx, KindMasked, "", staff, []MemberInput{{UserID: donor2, RoleInGroup: "donor"}})
+
+	if _, err := s.PostMessage(ctx, group1ID, donor1, "hello from group one"); err != nil {
+		t.Fatalf("PostMessage(group1): %v", err)
+	}
+	if _, err := s.PostMessage(ctx, group2ID, donor2, "one"); err != nil {
+		t.Fatalf("PostMessage(group2, 1): %v", err)
+	}
+	if _, err := s.PostMessage(ctx, group2ID, donor2, "two"); err != nil {
+		t.Fatalf("PostMessage(group2, 2): %v", err)
+	}
+
+	groups, err := s.ListGroupsForStaff(ctx)
+	if err != nil {
+		t.Fatalf("ListGroupsForStaff: %v", err)
+	}
+
+	byID := make(map[int64]GroupSummary, len(groups))
+	for _, g := range groups {
+		byID[g.ID] = g
+	}
+
+	g1, ok := byID[group1ID]
+	if !ok {
+		t.Fatalf("ListGroupsForStaff did not include group1 (id %d) among %d groups", group1ID, len(groups))
+	}
+	g2, ok := byID[group2ID]
+	if !ok {
+		t.Fatalf("ListGroupsForStaff did not include group2 (id %d) among %d groups", group2ID, len(groups))
+	}
+
+	// Staff has no per-user unread cursor concept (see ListGroupsForStaff's
+	// doc comment): UnreadCount is hardcoded to 0 for every group, regardless
+	// of how many messages exist.
+	if g1.UnreadCount != 0 {
+		t.Errorf("group1 UnreadCount = %d, want 0", g1.UnreadCount)
+	}
+	if g2.UnreadCount != 0 {
+		t.Errorf("group2 UnreadCount = %d, want 0", g2.UnreadCount)
+	}
+
+	// Preview fields reflect the latest message actually posted in each
+	// group — same check ListGroupsForUser's preview test makes.
+	if g1.LastMessage != "hello from group one" {
+		t.Errorf("group1 LastMessage = %q, want %q", g1.LastMessage, "hello from group one")
+	}
+	if g1.LastAt == "" {
+		t.Error("group1 LastAt is empty, want a populated timestamp")
+	}
+	if g2.LastMessage != "two" {
+		t.Errorf("group2 LastMessage = %q, want %q", g2.LastMessage, "two")
+	}
+	if g2.LastAt == "" {
+		t.Error("group2 LastAt is empty, want a populated timestamp")
+	}
+}
+
 // setFullName / setPhone give a test user real profile data so the masking
 // test can assert that data does NOT leak.
 //
