@@ -730,6 +730,8 @@ const en = {
     lang_ar: 'AR', lang_sorani: 'Sorani', lang_badini: 'Badini', lang_en: 'EN',
     actor_admin: 'Admin', actor_system: 'System', actor_mobile_app: 'Mobile app', actor_cron: 'Scheduled',
     meta_for: 'Metadata for \u2066#T{id}\u2069',
+    audit_show_metadata: 'Show details',
+    audit_hide_metadata: 'Hide details',
     city_add_place: '+ Add place',
     city_empty: "No places yet. Click '+ Add place' to create the first one.",
     set_password: 'Password',
