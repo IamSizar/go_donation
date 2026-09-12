@@ -13,7 +13,7 @@ import { useSelection } from '../lib/useSelection'
 import { type CsvColumn } from '../lib/csv'
 import { useFieldRules, type FieldRuleState } from '../lib/fieldRules'
 import PageHead from '../components/PageHead'
-import { formatDateTime } from '../lib/dates'
+import { formatDateParts } from '../lib/dates'
 import RowActionsMenu from '../components/RowActionsMenu'
 import IdWithNeedsAction from '../components/IdWithNeedsAction'
 
@@ -203,7 +203,17 @@ export default function MarriagePage() {
     {
       key: 'created',
       header: t('col.created'),
-      cell: (p) => <span className="muted">{formatDateTime(p.created_at)}</span>,
+      // OPOS #25297 — stacked date over time, matching UsersPage/
+      // DonationsPage/VolunteersPage's convention for this column.
+      cell: (p) => {
+        const { date, time } = formatDateParts(p.created_at)
+        return (
+          <div className="cell-stack">
+            <span className="muted">{date}</span>
+            {time && <span className="muted" style={{ fontSize: '0.85em' }}>{time}</span>}
+          </div>
+        )
+      },
     },
     {
       key: 'actions', header: t('common.actions'), width: '170px',
@@ -235,6 +245,10 @@ export default function MarriagePage() {
           <select value={status} onChange={(e) => { setStatus(e.target.value); sel.clear() }} style={{ width: 'auto' }}>
             {STATUSES.map((s) => <option key={s} value={s}>{statusLabel(s)}</option>)}
           </select>
+          {/* OPOS #25297 — create button before Export, matching
+              UsersPage.tsx's toolbar convention (this used to put Export
+              first, which the report flagged as inconsistent). */}
+          <button onClick={() => setCreating(true)}>{t('page.marriage.new')}</button>
           <ExportCsvButton
             rows={resp?.items ?? []}
             columns={MARRIAGE_CSV_COLUMNS}
@@ -242,7 +256,6 @@ export default function MarriagePage() {
             title={t('nav.marriage')}
             module="marriage"
           />
-          <button onClick={() => setCreating(true)}>{t('page.marriage.new')}</button>
         </div>
       </PageHead>
       {err && <div className="error-box">{err}</div>}
