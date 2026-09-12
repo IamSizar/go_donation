@@ -535,6 +535,13 @@ class ModuleApi {
   Future<List<Map<String, dynamic>>> cityCategories() =>
       getItems(cityCategoriesUrl);
 
+  /// OPOS #25271 — one of the registration form's Nineveh district/
+  /// neighborhood lists. [groupKey] is 'nineveh_district',
+  /// 'nineveh_neighborhood_left', or 'nineveh_neighborhood_right'. Each row
+  /// carries `slug` and the four `name_*` columns.
+  Future<List<Map<String, dynamic>>> districts(String groupKey) =>
+      getItems('$districtsUrl?group=$groupKey');
+
   Future<Map<String, dynamic>> submitCommunity(Map<String, dynamic> body) =>
       postJson(communitySubmitUrl, body);
 

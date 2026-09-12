@@ -2067,6 +2067,8 @@ class AppTranslations extends Translations {
     'Sponsorship target': 'Support target',
     'Campaigns could not load. Tap to retry.':
         'Campaigns could not load. Tap to retry.',
+    'Districts could not load. Tap to retry.':
+        'Districts could not load. Tap to retry.',
     'In-kind donation saved.': 'In-kind contribution saved.',
     'Marriage service profile saved.': 'Event service profile saved.',
     'Support ticket saved.': 'Support ticket saved.',
@@ -4949,6 +4951,8 @@ class AppTranslations extends Translations {
     'Sponsorship target': 'هدف الدعم',
     'Campaigns could not load. Tap to retry.':
         'تعذر تحميل الحملات. اضغط لإعادة المحاولة.',
+    'Districts could not load. Tap to retry.':
+        'تعذر تحميل قائمة المناطق. اضغط لإعادة المحاولة.',
     'In-kind donation saved.': 'تم حفظ المساهمة العينية.',
     'Marriage service profile saved.': 'تم حفظ ملف خدمة الفعاليات.',
     'Support ticket saved.': 'تم حفظ تذكرة الدعم.',

@@ -6,6 +6,8 @@ import 'package:flutter_application_1/api/auth_session.dart';
 import 'package:flutter_application_1/api/registration_api.dart';
 import 'package:flutter_application_1/api/profile_full_api.dart';
 import 'package:flutter_application_1/api/profile_api.dart';
+import 'package:flutter_application_1/api/module_api.dart';
+import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/widgets/cached_profile_avatar.dart';
 import 'package:flutter_application_1/core/app_haptics.dart';
 import 'package:flutter_application_1/core/app_state.dart';
@@ -14,7 +16,6 @@ import 'package:flutter_application_1/core/design/contrast.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/data/iraq_governorates.dart';
 import 'package:flutter_application_1/data/nineveh_districts.dart';
-import 'package:flutter_application_1/data/nineveh_neighborhoods.dart';
 import 'package:flutter_application_1/modules/auth/widgets/auth_inline_error.dart';
 import 'package:flutter_application_1/modules/legal/screens/terms_screen.dart';
 import 'package:flutter_application_1/routes/app_routes.dart';
@@ -165,6 +166,104 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
   // grantor section above and reused here as-is.
   String? _housingSide; // right | left | other — only used for Nineveh
   String? _neighborhoodDropdown; // Nineveh: picked from the side's list
+
+  // OPOS #25271 — the district/neighborhood picker used to be a hardcoded,
+  // English-only Dart const list. Now admin-managed (DistrictsManager on the
+  // dashboard) and fetched once here, shared by both the recipient and
+  // volunteer forms below (they show the same three lists).
+  List<Map<String, dynamic>> _ninevehDistrictItems = [];
+  List<Map<String, dynamic>> _ninevehLeftItems = [];
+  List<Map<String, dynamic>> _ninevehRightItems = [];
+  bool _ninevehListsLoading = true;
+  bool _ninevehListsError = false;
+
+  Future<void> _loadNinevehLists() async {
+    setState(() {
+      _ninevehListsLoading = true;
+      _ninevehListsError = false;
+    });
+    try {
+      final api = const ModuleApi();
+      final results = await Future.wait([
+        api.districts('nineveh_district'),
+        api.districts('nineveh_neighborhood_left'),
+        api.districts('nineveh_neighborhood_right'),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _ninevehDistrictItems = results[0];
+        _ninevehLeftItems = results[1];
+        _ninevehRightItems = results[2];
+        _ninevehListsLoading = false;
+      });
+    } catch (e) {
+      debugPrint('registration: could not load Nineveh district lists: $e');
+      if (mounted) {
+        setState(() {
+          _ninevehListsLoading = false;
+          _ninevehListsError = true;
+        });
+      }
+    }
+  }
+
+  /// One dropdown item per fetched row: `slug` is the stored VALUE (stable,
+  /// machine-readable, matches what DistrictsManager/the backend key on),
+  /// the localized name (falling back en -> ar per the locale order when
+  /// ckb/kmr are blank -- see migration 120's note on why they often are)
+  /// is what the user reads.
+  List<DropdownMenuItem<String>> _districtDropdownItems(
+    List<Map<String, dynamic>> items,
+  ) {
+    return [
+      for (final d in items)
+        DropdownMenuItem(
+          value: (d['slug'] ?? '').toString(),
+          child: Text(
+            localizedContentFromValues(
+              base: (d['name_en'] ?? '').toString(),
+              arabic: (d['name_ar'] ?? '').toString(),
+              sorani: (d['name_ckb'] ?? '').toString(),
+              badini: (d['name_kmr'] ?? '').toString(),
+              fallback: (d['slug'] ?? '').toString(),
+            ),
+          ),
+        ),
+    ];
+  }
+
+  /// Shown above the Nineveh district/neighborhood dropdowns only while
+  /// `_loadNinevehLists` is running or failed, so the section is never just
+  /// silently empty (house rule: no blank async states).
+  Widget _ninevehListsStatusBanner() {
+    if (_ninevehListsLoading) {
+      return const Padding(
+        padding: EdgeInsets.only(bottom: 12),
+        child: SizedBox(
+          height: 18,
+          width: 18,
+          child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+        ),
+      );
+    }
+    if (_ninevehListsError) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: GestureDetector(
+          onTap: _loadNinevehLists,
+          child: Text(
+            'Districts could not load. Tap to retry.'.tr,
+            style: const TextStyle(
+              color: Colors.redAccent,
+              decoration: TextDecoration.underline,
+            ),
+          ),
+        ),
+      );
+    }
+    return const SizedBox.shrink();
+  }
+
   final _neighborhoodController =
       TextEditingController(); // other governorates: free text
   final _nearestLandmarkController = TextEditingController();
@@ -483,6 +582,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
   @override
   void initState() {
     super.initState();
+    unawaited(_loadNinevehLists());
     // Prefill when editing after a rejection (or completing a grandfathered
     // account) so the user doesn't retype everything. Skip the auto-generated
     // "User 1234" login fallback (last-4-of-phone) — that's not a real name.
@@ -2814,6 +2914,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                 }),
                               ),
                               if (_governorate == 'Nineveh') ...[
+                                _ninevehListsStatusBanner(),
                                 ..._unlessHidden('recipient_housing_side', [
                                   const SizedBox(height: 16),
                                   _label(context, 'reg_recipient_housing_side'),
@@ -2859,16 +2960,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                     hint: Text(
                                       'reg_recipient_neighborhood_hint'.tr,
                                     ),
-                                    items: [
-                                      for (final n
-                                          in _housingSide == 'left'
-                                              ? ninevehLeftSideNeighborhoods
-                                              : ninevehRightSideNeighborhoods)
-                                        DropdownMenuItem(
-                                          value: n,
-                                          child: Text(n),
-                                        ),
-                                    ],
+                                    items: _districtDropdownItems(
+                                      _housingSide == 'left'
+                                          ? _ninevehLeftItems
+                                          : _ninevehRightItems,
+                                    ),
                                     onChanged: (v) => setState(
                                       () => _neighborhoodDropdown = v,
                                     ),
@@ -4478,6 +4574,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               // Nineveh opens the district picker, then the
                               // side, then the side's neighborhoods.
                               if (_governorate == 'Nineveh') ...[
+                                _ninevehListsStatusBanner(),
                                 ..._unlessHidden('volunteer_district', [
                                   const SizedBox(height: 16),
                                   _label(context, 'reg_volunteer_district'),
@@ -4492,13 +4589,9 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                     hint: Text(
                                       'reg_volunteer_district_hint'.tr,
                                     ),
-                                    items: [
-                                      for (final d in ninevehDistricts)
-                                        DropdownMenuItem(
-                                          value: d,
-                                          child: Text(d),
-                                        ),
-                                    ],
+                                    items: _districtDropdownItems(
+                                      _ninevehDistrictItems,
+                                    ),
                                     onChanged: (v) =>
                                         setState(() => _district = v),
                                   ),
@@ -4548,16 +4641,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                     hint: Text(
                                       'reg_recipient_neighborhood_hint'.tr,
                                     ),
-                                    items: [
-                                      for (final n
-                                          in _housingSide == 'left'
-                                              ? ninevehLeftSideNeighborhoods
-                                              : ninevehRightSideNeighborhoods)
-                                        DropdownMenuItem(
-                                          value: n,
-                                          child: Text(n),
-                                        ),
-                                    ],
+                                    items: _districtDropdownItems(
+                                      _housingSide == 'left'
+                                          ? _ninevehLeftItems
+                                          : _ninevehRightItems,
+                                    ),
                                     onChanged: (v) => setState(
                                       () => _neighborhoodDropdown = v,
                                     ),
