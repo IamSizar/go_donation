@@ -454,7 +454,6 @@ class AppTranslations extends Translations {
         'Could not read your location. Make sure location is turned on for '
         'this app, then try again.',
     // Everything below crosses the network and takes a recovery clause.
-    'error_role_change_failed': 'Could not change your account type.',
     'error_history_load_failed': 'Could not load your record.',
     'error_otp_send_failed': 'Could not send the verification code.',
     'error_otp_verify_failed': 'Could not verify that code.',
@@ -3098,12 +3097,8 @@ class AppTranslations extends Translations {
     'Marriage dashboard': 'Events dashboard',
     'Gender cannot be changed after sign-up.':
         'Gender cannot be changed after sign-up.',
-    'Account type': 'Account type',
-    'Switch account type?': 'Switch account type?',
     'You can switch to @type yourself, but only staff can switch you back.':
         'You can switch to @type yourself, but only staff can switch you back.',
-    'Account type updated.': 'Account type updated.',
-    'Account type unchanged.': 'Account type unchanged.',
     'Nothing saved yet.': 'Nothing saved yet.',
     'Remove': 'Remove',
     'Select a project': 'Select a project',
@@ -3515,7 +3510,6 @@ class AppTranslations extends Translations {
     'error_gps_capture_failed':
         'تعذّر تحديد موقعك. تأكّد من تفعيل خدمة الموقع لهذا التطبيق ثم حاول '
         'مرة أخرى.',
-    'error_role_change_failed': 'تعذّر تغيير نوع حسابك.',
     'error_history_load_failed': 'تعذّر تحميل سجلك.',
     'error_otp_send_failed': 'تعذّر إرسال رمز التحقق.',
     'error_otp_verify_failed': 'تعذّر التحقق من الرمز.',
@@ -5894,12 +5888,8 @@ class AppTranslations extends Translations {
     'Marriage dashboard': 'لوحة الفعاليات',
     'Gender cannot be changed after sign-up.':
         'لا يمكن تغيير الجنس بعد إنشاء الحساب.',
-    'Account type': 'نوع الحساب',
-    'Switch account type?': 'تغيير نوع الحساب؟',
     'You can switch to @type yourself, but only staff can switch you back.':
         'يمكنك التحويل إلى @type بنفسك، لكن لا يمكن إرجاعك إلا عن طريق الموظفين.',
-    'Account type updated.': 'تم تحديث نوع الحساب.',
-    'Account type unchanged.': 'لم يتغيّر نوع الحساب.',
     'Nothing saved yet.': 'لا توجد عناصر محفوظة بعد.',
     'Remove': 'إزالة',
     'Select a project': 'اختر مشروعًا',
@@ -8195,9 +8185,6 @@ class AppTranslations extends Translations {
     'Marriage dashboard': 'داشبۆردی هاوسەرگیری',
     'Gender cannot be changed after sign-up.':
         'ڕەگەز ناتوانرێت بگۆڕدرێت دوای دروستکردنی هەژمار.',
-    'Account type': 'جۆری هەژمار',
-    'Account type updated.': 'جۆری هەژمار نوێکرایەوە.',
-    'Account type unchanged.': 'جۆری هەژمار نەگۆڕا.',
     'Nothing saved yet.': 'هێشتا هیچ شتێک پاشەکەوت نەکراوە.',
     'Remove': 'لابردن',
     'Select a project': 'پڕۆژەیەک هەڵبژێرە',
@@ -10469,9 +10456,6 @@ class AppTranslations extends Translations {
     'Marriage dashboard': 'داشبۆردا زەواجێ',
     'Gender cannot be changed after sign-up.':
         'زایەند پشتی چێکرنا هەژماری ناهێتە گهۆڕین.',
-    'Account type': 'جۆرێ هەژماری',
-    'Account type updated.': 'جۆرێ هەژماری هاتە نویکرن.',
-    'Account type unchanged.': 'جۆرێ هەژماری نەهاتە گهۆڕین.',
     'Nothing saved yet.': 'هێشتا چ تشت نەهاتیە پاراستن.',
     'Remove': 'ژێبرن',
     'Select a project': 'پرۆژەکێ هەلبژێرە',
