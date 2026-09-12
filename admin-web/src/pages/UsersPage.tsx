@@ -462,8 +462,10 @@ export default function UsersPage() {
                           return
                         }
                         try {
-                          // No PIN step here by request — test-phase wallet
-                          // top-up, kept to a single amount prompt.
+                          // PIN-confirmed (OPOS #25290) — crediting a wallet
+                          // is a financial action, same step-up as role/
+                          // account_status changes above.
+                          await verifyPin()
                           const { data } = await api.post(`/api/admin/users/${u.user_id}/wallet/topup`, {
                             amount_iqd: amount,
                           })
