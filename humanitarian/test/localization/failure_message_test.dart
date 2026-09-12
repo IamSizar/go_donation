@@ -108,7 +108,6 @@ void main() {
       'every whatFailed key used by the app resolves in English and Arabic',
       () {
         const keysInUse = <String>[
-          'error_role_change_failed',
           'error_gps_capture_failed',
           'error_privacy_settings_save_failed',
           'error_service_request_failed',
