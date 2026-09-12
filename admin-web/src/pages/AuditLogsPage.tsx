@@ -157,10 +157,21 @@ export default function AuditLogsPage() {
       ),
     },
     {
+      // OPOS #25294 — reported as "is this a bug, what does it do": the
+      // button was real (toggles the metadata JSON panel below) but had no
+      // header, no title, and no aria-label, and only appears on rows that
+      // actually carry metadata_json — nothing distinguished it from a
+      // rendering glitch. Left the behavior as-is (it does something
+      // useful) and only added the missing affordance.
       key: 'meta', header: '', width: '36px',
       cell: (a) =>
         a.metadata_json ? (
-          <button className="row-edit-btn" onClick={() => setExpanded(expanded === a.id ? null : a.id)}>
+          <button
+            className="row-edit-btn"
+            title={t(expanded === a.id ? 'common.audit_hide_metadata' : 'common.audit_show_metadata')}
+            aria-label={t(expanded === a.id ? 'common.audit_hide_metadata' : 'common.audit_show_metadata')}
+            onClick={() => setExpanded(expanded === a.id ? null : a.id)}
+          >
             {expanded === a.id ? '−' : '+'}
           </button>
         ) : null,

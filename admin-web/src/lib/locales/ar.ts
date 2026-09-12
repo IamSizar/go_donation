@@ -716,6 +716,8 @@ const ar: DeepPartial<typeof en> = {
     lang_ar: 'عربي', lang_sorani: 'سۆرانی', lang_badini: 'بادینی', lang_en: 'إنجليزي',
     actor_admin: 'مشرف', actor_system: 'النظام', actor_mobile_app: 'تطبيق الجوال', actor_cron: 'مجدول',
     meta_for: 'بيانات وصفية للسجل \u2066#T{id}\u2069',
+    audit_show_metadata: 'عرض التفاصيل',
+    audit_hide_metadata: 'إخفاء التفاصيل',
     city_add_place: '+ إضافة مكان',
     city_empty: 'لا توجد أماكن بعد. اضغط «+ إضافة مكان» لإنشاء أول مكان.',
     set_password: 'كلمة المرور',
