@@ -14,6 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
+	"github.com/karam-flutter/humanitarian-backend/internal/notify"
 	"github.com/karam-flutter/humanitarian-backend/internal/storage"
 	"github.com/karam-flutter/humanitarian-backend/internal/users"
 )
@@ -30,10 +31,31 @@ type RegistrationHandler struct {
 	// deleted on every deploy, because UploadDir pointed at the container's own
 	// filesystem. See internal/storage.
 	Store storage.Storage
+	// Notifier — nil-safe (see notifyStaffInBackground). OPOS #25275: a brand
+	// new registration used to reach 'pending' with no staff alert at all;
+	// BeneficiaryHandler's identically-named helper is the pattern this
+	// mirrors, for the case/project-request alerts already tagged B1.
+	Notifier *notify.Notifier
 }
 
-func NewRegistrationHandler(u *users.Store, store storage.Storage) *RegistrationHandler {
-	return &RegistrationHandler{Users: u, Store: store}
+func NewRegistrationHandler(u *users.Store, store storage.Storage, n *notify.Notifier) *RegistrationHandler {
+	return &RegistrationHandler{Users: u, Store: store, Notifier: n}
+}
+
+// notifyStaffInBackground fires the staff alert off-request, same contract as
+// BeneficiaryHandler's copy: a slow/failed push must never hold up (or fail)
+// the registrant's own response.
+func (h *RegistrationHandler) notifyStaffInBackground(m notify.LocalizedMessage) {
+	if h.Notifier == nil {
+		return
+	}
+	go func() {
+		bg, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if _, err := h.Notifier.BroadcastToStaff(bg, m); err != nil {
+			log.Printf("[notify] registration submission alert failed: %v", err)
+		}
+	}()
 }
 
 type registrationSubmitReq struct {
@@ -324,6 +346,11 @@ func (h *RegistrationHandler) Submit(c *gin.Context) {
 	msg := "Registration submitted for approval."
 	if newStatus == "approved" {
 		msg = "Profile saved." // grandfathered user just completing their role/profile
+	} else {
+		// Only a genuine new-account registration needs staff review — the
+		// "approved" branch above is a grandfathered user completing their
+		// profile, which was already reviewed once and needs no second alert.
+		h.notifyStaffInBackground(notify.NewUserRegistrationAdminMsg(fullName, tokenUser.UserID))
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"status":              "success",

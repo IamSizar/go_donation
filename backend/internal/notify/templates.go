@@ -537,6 +537,33 @@ func ProjectRequestSubmittedMsg(title string, requestID int64) LocalizedMessage 
 // the ~24 triggers that were silently lost in the PHP→Go port.
 // ============================================================================
 
+// NewUserRegistrationAdminMsg alerts STAFF (dashboard) that someone just
+// submitted their registration form and is awaiting review — OPOS #25275.
+// This is distinct from NewBeneficiaryCaseAdminMsg/NewProjectRequestAdminMsg
+// above (both already tagged "Requirement B1"): those cover an ELIGIBLE
+// person submitting a case or aid request AFTER their account exists: this
+// one covers the very first step, a brand-new account's own registration
+// form, which had no staff alert at all until now.
+func NewUserRegistrationAdminMsg(fullName string, userID int64) LocalizedMessage {
+	return LocalizedMessage{
+		Type:              "admin_new_registration",
+		RelatedEntityType: "users",
+		RelatedEntityID:   userID,
+		Title: LocalText{
+			En:  "New registration to review",
+			Ar:  "تسجيل جديد للمراجعة",
+			Ckb: "تۆمارکردنێکی نوێ بۆ پێداچوونەوە",
+			Kmr: "تۆمارکرنەکا نوو بۆ پشکنینێ",
+		},
+		Body: LocalText{
+			En:  fmt.Sprintf("%s submitted a registration and is awaiting approval. Open it to review.", fullName),
+			Ar:  fmt.Sprintf("قدّم %s تسجيلاً وينتظر الموافقة. افتحه للمراجعة.", fullName),
+			Ckb: fmt.Sprintf("%s تۆمارکردنێکی ناردووە و چاوەڕێی پەسەندکردنە. بیکەرەوە بۆ پێداچوونەوە.", fullName),
+			Kmr: fmt.Sprintf("%s تۆمارکرنەک شاندیە و چاڤەڕێیا پەسەندکرنێیە. ڤەکە بۆ پشکنینێ.", fullName),
+		},
+	}
+}
+
 // --- Registration approval -------------------------------------------------
 
 // RegistrationApprovedMsg — admin approved a new user's registration, so they
