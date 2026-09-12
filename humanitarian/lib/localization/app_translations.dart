@@ -458,6 +458,13 @@ class AppTranslations extends Translations {
     'error_history_load_failed': 'Could not load your record.',
     'error_otp_send_failed': 'Could not send the verification code.',
     'error_otp_verify_failed': 'Could not verify that code.',
+    // OPOS #25270 — the backend's own "error" text for these two responses
+    // is a raw English literal (backend/internal/handlers/auth.go and
+    // auth_staff_otp.go); the client now matches on the machine `code` field
+    // instead and shows this localized copy, never the backend's text.
+    'otp_resend_cooldown_message': 'Please wait before requesting another code.',
+    'staff_otp_unavailable_message':
+        "Staff sign-in isn't available yet. Ask the administrator for your code.",
     'error_password_setup_failed': 'Could not set your password.',
     'error_message_send_failed': 'Could not send your message.',
     'error_messages_load_failed': 'Could not load this conversation.',
@@ -3519,6 +3526,9 @@ class AppTranslations extends Translations {
     'error_history_load_failed': 'تعذّر تحميل سجلك.',
     'error_otp_send_failed': 'تعذّر إرسال رمز التحقق.',
     'error_otp_verify_failed': 'تعذّر التحقق من الرمز.',
+    'otp_resend_cooldown_message': 'يرجى الانتظار قبل طلب رمز جديد.',
+    'staff_otp_unavailable_message':
+        'تسجيل دخول الموظفين غير متاح بعد. يرجى طلب الرمز من المشرف.',
     'error_password_setup_failed': 'تعذّر تعيين كلمة المرور.',
     'error_message_send_failed': 'تعذّر إرسال رسالتك.',
     'error_messages_load_failed': 'تعذّر تحميل هذه المحادثة.',

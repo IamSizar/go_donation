@@ -1228,3 +1228,36 @@ func TestOTPRequestRateLimitBoundsEnumeration(t *testing.T) {
 		t.Errorf("numbers probed from one address = %d, want 3 (the configured hourly cap)", allowed)
 	}
 }
+
+// OPOS #25270 — the resend-cooldown refusal's "error" text is a raw English
+// literal never run through internal/notify's 4-language system, and the
+// Flutter client used to render it verbatim. The client now matches on this
+// response's `code` field instead of its text, so this pins the field exists
+// — a client-side regression here would otherwise go undetected until the
+// English string reappeared on an Arabic screen.
+func TestOTPRequestCooldownCarriesAMachineCode(t *testing.T) {
+	pool := newAuthTestPool(t)
+	t.Setenv("OTP_DEMO_ENABLED", "1")
+	t.Setenv("OTP_DEMO_CODE", "424242")
+	r := newAuthRouter(t, pool)
+	acc := insertAccount(t, pool, "user", "")
+
+	status, body := postJSON(t, r, "/api/auth/otp/request",
+		map[string]any{"phone": acc.phone, "mode": "demo"})
+	if status != http.StatusOK {
+		t.Fatalf("first request: status = %d, want 200 (body: %v)", status, body)
+	}
+
+	// Same phone, no time elapsed — inside the 60s cooldown.
+	status, body = postJSON(t, r, "/api/auth/otp/request",
+		map[string]any{"phone": acc.phone, "mode": "demo"})
+	if status != http.StatusTooManyRequests {
+		t.Fatalf("second request: status = %d, want 429 (body: %v)", status, body)
+	}
+	if got, _ := body["code"].(string); got != "otp_resend_cooldown" {
+		t.Errorf(`code = %q, want "otp_resend_cooldown" — without it the client falls back to the backend's raw English "error" text`, got)
+	}
+	if _, ok := body["retry_after"]; !ok {
+		t.Error("retry_after missing — the client's countdown needs it regardless of the code field")
+	}
+}
