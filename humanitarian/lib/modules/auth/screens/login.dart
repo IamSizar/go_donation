@@ -459,7 +459,10 @@ class _LoginFormState extends State<_LoginForm>
                       ),
                       cursorColor: AppThemeConfig.primary,
                       decoration: InputDecoration(
-                        hintText: '750 858 2031',
+                        // OPOS #25266 — a format example, not a real
+                        // person's number. All-zero, not translatable (it's
+                        // digits, not prose).
+                        hintText: '000 000 0000',
                         hintStyle: TextStyle(
                           color: AppThemeConfig.mutedText(
                             context,
