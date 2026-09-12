@@ -157,13 +157,14 @@ List<Widget> _roleSpecificTiles(BuildContext context, String roleId) {
         color: AppThemeConfig.accent(context),
         onTap: () => Get.to(() => const SponsorshipFormScreen()),
       ),
-      SectionTile(
-        icon: Icons.inventory_2_rounded,
-        title: 'In-kind donation',
-        subtitle: 'Submit food, clothing, supplies, or other items.',
-        color: AppThemeConfig.accent(context),
-        onTap: () => Get.to(() => const InKindDonationFormScreen()),
-      ),
+      // OPOS #25293 — "In-kind donation" used to have its own tile here too,
+      // duplicating the Contribute tab's entry point (Contribute -> Continue
+      // -> "What kind of donation is this?" -> In-kind donation, added by M3
+      // specifically to make this reachable from Contribute -- see the
+      // comment atop donation_kind_screen.dart). It's a form of giving, not a
+      // service being requested, so Services keeps only the one destination
+      // Reports still needs; the same InKindDonationFormScreen this used to
+      // open is unchanged and still reachable from Contribute.
       SectionTile(
         icon: Icons.query_stats_rounded,
         title: 'Reports',
