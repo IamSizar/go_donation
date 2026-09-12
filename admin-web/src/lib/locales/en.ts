@@ -1186,8 +1186,16 @@ const en = {
     logout_title: 'Sign out of the admin dashboard',
     logout_message: "You'll be signed out of the admin dashboard.",
     language: 'Language',
-    pending_aria: '{label} — {count} pending',
-    pending_count: '{count} pending',
+    // OPOS #25285 — staff read a bare "{count} pending" and could not tell
+    // what it counted or why it did not clear after they had looked at
+    // everything. It counts rows waiting on a staff ACTION (a status change),
+    // not "unread" rows, and stays until that action happens — the "Needs
+    // action" tag (badge.needs_action) on the list page marks exactly which
+    // rows. Spelling that out here, since a sidebar badge's hover tooltip is
+    // the one place every one of these numbers is seen before the confusion
+    // starts.
+    pending_aria: "{label} — {count} waiting on staff action, marked 'Needs action' in the list",
+    pending_count: "{count} waiting on staff action — see the 'Needs action' tag in the list",
     unread_aria: '{label} — {count} unread',
     unread_count: '{count} unread',
     admin_word: 'admin',
