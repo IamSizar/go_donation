@@ -516,16 +516,28 @@ class ModuleApi {
     );
   }
 
-  Future<List<Map<String, dynamic>>> communityDirectory({String? q}) {
+  Future<List<Map<String, dynamic>>> communityDirectory({
+    String? q,
+    String? sector,
+  }) {
     // #33 — optional q so a single-entry lookup isn't capped by the default
     // page limit (see _fetchPlaceEntry in global_search_screen.dart).
-    if (q != null && q.isNotEmpty) {
-      final uri = Uri.parse(
-        communityDirectoryUrl,
-      ).replace(queryParameters: {'q': q});
-      return getItems(uri.toString());
-    }
-    return getItems(communityDirectoryUrl);
+    //
+    // OPOS #25274 — sector is sent to the server (`sectors @> $1`, a clean
+    // array match) rather than filtered client-side over whatever page
+    // happened to load, so a sector's chip reflects the whole approved
+    // directory rather than just its first 50 city-wide rows. Sub-category
+    // stays client-side on purpose — see CommunityController._spellingsOf —
+    // the free-text `category` column holds legacy values an exact-match
+    // server-side filter would silently miss.
+    final params = <String, String>{};
+    if (q != null && q.isNotEmpty) params['q'] = q;
+    if (sector != null && sector.isNotEmpty) params['sector'] = sector;
+    if (params.isEmpty) return getItems(communityDirectoryUrl);
+    final uri = Uri.parse(
+      communityDirectoryUrl,
+    ).replace(queryParameters: params);
+    return getItems(uri.toString());
   }
 
   Future<List<Map<String, dynamic>>> citySectors() => getItems(citySectorsUrl);
