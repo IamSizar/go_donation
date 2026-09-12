@@ -173,6 +173,11 @@ const String citySectorsUrl = '${baseUrl}city-sectors';
 /// since migration 101; the app had never asked for either.
 const String cityCategoriesUrl = '${baseUrl}city-categories';
 
+/// OPOS #25271 — the registration form's Nineveh district/neighborhood
+/// pickers. Public, like the two above; scoped with `?group=` (see
+/// districts_api.dart).
+const String districtsUrl = '${baseUrl}districts';
+
 /// POST: a user suggests a new City Guide place → admin approval queue (#30).
 const String communitySubmitUrl = '${baseUrl}community/submit';
 

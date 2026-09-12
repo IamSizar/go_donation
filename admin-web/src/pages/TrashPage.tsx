@@ -57,6 +57,8 @@ const MODULE_TKEY: Record<string, string> = {
   city_categories: 'nav.city_categories',
   media_categories: 'nav.media_categories',
   case_categories: 'nav.beneficiary',
+  // OPOS #25271 — managed from the Registrations page, not its own nav entry.
+  districts: 'nav.registrations',
   marketplace_categories: 'nav.marketplace_categories',
   payment_methods: 'nav.payment_methods',
   // M7 — donation types are deleted through trashRow like every sibling list,

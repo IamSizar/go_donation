@@ -28,6 +28,7 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/content"
 	"github.com/karam-flutter/humanitarian-backend/internal/dashboard"
 	"github.com/karam-flutter/humanitarian-backend/internal/db"
+	"github.com/karam-flutter/humanitarian-backend/internal/districts"
 	"github.com/karam-flutter/humanitarian-backend/internal/donations"
 	"github.com/karam-flutter/humanitarian-backend/internal/donationtypes"
 	"github.com/karam-flutter/humanitarian-backend/internal/events"
@@ -389,6 +390,7 @@ func main() {
 	sponsorshipScheduleH.StartReminderLoop(6 * time.Hour)
 	citySectorsH := handlers.NewCitySectorsHandler(citySectorStore)                                              // #29
 	cityCategoriesH := handlers.NewCityCategoriesHandler(citycategories.New(pool))                               // sub-categories
+	districtsH := handlers.NewDistrictsHandler(districts.New(pool))                                              // OPOS #25271 — Nineveh district/neighborhood pickers
 	searchH := handlers.NewSearchHandler(searchStore)                                                            // #33
 	fieldRulesH := handlers.NewFieldRulesHandler(pool)                                                           // #43
 	aidReceiptsH := handlers.NewAidReceiptsHandler(pool)                                                         // #50
@@ -537,6 +539,7 @@ func main() {
 		api.GET("/donation-types", donationTypesH.PublicList)
 		api.GET("/city-sectors", citySectorsH.PublicList)            // #29 — City Guide filter chips
 		api.GET("/city-categories", cityCategoriesH.PublicList)      // sub-categories per sector
+		api.GET("/districts", districtsH.PublicList)                 // OPOS #25271 — ?group=nineveh_district|nineveh_neighborhood_left|nineveh_neighborhood_right
 		api.GET("/search", searchH.Search)                           // #33 — global search
 		api.GET("/registration/field-rules", fieldRulesH.PublicList) // #43 — required-field rules
 		// #36 — support WhatsApp handoff number. The admin-editable DB value
@@ -1287,6 +1290,11 @@ func main() {
 			admin.PATCH("/admin/city-categories/:id", auth.RequireAdminTier(), cityCategoriesH.Update)
 			admin.POST("/admin/city-categories/reorder", auth.RequireAdminTier(), cityCategoriesH.Reorder)
 			admin.DELETE("/admin/city-categories/:id", auth.RequireAdminTier(), cityCategoriesH.Delete)
+			admin.GET("/admin/districts", districtsH.AdminList)
+			admin.POST("/admin/districts", auth.RequireAdminTier(), districtsH.Add)
+			admin.PATCH("/admin/districts/:id", auth.RequireAdminTier(), districtsH.Update)
+			admin.POST("/admin/districts/reorder", auth.RequireAdminTier(), districtsH.Reorder)
+			admin.DELETE("/admin/districts/:id", auth.RequireAdminTier(), districtsH.Delete)
 			// #19 — payment-method CMS (admin-managed, 4-language, ordered).
 			// #22 — "Our Work" media categories (writes gated to admin tier).
 			admin.GET("/admin/media-categories", mediaCategoriesH.AdminList)

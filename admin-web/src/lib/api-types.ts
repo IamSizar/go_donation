@@ -255,6 +255,22 @@ export type CaseCategory = {
   active: boolean
 }
 
+// District — OPOS #25271. One entry in the registration form's Nineveh
+// district/neighborhood pickers, scoped by group_key (which picker it
+// belongs to): 'nineveh_district' | 'nineveh_neighborhood_left' |
+// 'nineveh_neighborhood_right'.
+export type District = {
+  id: number
+  slug: string
+  group_key: string
+  name_en: string
+  name_ar: string
+  name_ckb: string
+  name_kmr: string
+  display_order: number
+  active: boolean
+}
+
 export type ProjectRequest = {
   id: number
   user_id: number

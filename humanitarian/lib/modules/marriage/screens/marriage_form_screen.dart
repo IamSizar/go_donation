@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -7,7 +8,7 @@ import 'package:flutter_application_1/api/registration_api.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/data/iraq_governorates.dart';
-import 'package:flutter_application_1/data/nineveh_neighborhoods.dart';
+import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/modules/marriage/screens/marriage_my_profile_screen.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
@@ -156,9 +157,97 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
   String? _photoUrl;
   bool _uploadingPhoto = false;
 
+  // OPOS #25271 — same admin-managed district/neighborhood lists as
+  // registration_form.dart (DistrictsManager on the dashboard), fetched
+  // here too since this screen has its own duplicate of the same pickers.
+  List<Map<String, dynamic>> _ninevehLeftItems = [];
+  List<Map<String, dynamic>> _ninevehRightItems = [];
+  bool _ninevehListsLoading = true;
+  bool _ninevehListsError = false;
+
+  Future<void> _loadNinevehNeighborhoods() async {
+    setState(() {
+      _ninevehListsLoading = true;
+      _ninevehListsError = false;
+    });
+    try {
+      final api = const ModuleApi();
+      final results = await Future.wait([
+        api.districts('nineveh_neighborhood_left'),
+        api.districts('nineveh_neighborhood_right'),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _ninevehLeftItems = results[0];
+        _ninevehRightItems = results[1];
+        _ninevehListsLoading = false;
+      });
+    } catch (e) {
+      debugPrint('marriage form: could not load Nineveh neighborhoods: $e');
+      if (mounted) {
+        setState(() {
+          _ninevehListsLoading = false;
+          _ninevehListsError = true;
+        });
+      }
+    }
+  }
+
+  /// Shown above the neighborhood dropdown only while `_loadNinevehNeighborhoods`
+  /// is running or failed, so the field is never just silently empty.
+  Widget _ninevehListsStatusBanner() {
+    if (_ninevehListsLoading) {
+      return const Padding(
+        padding: EdgeInsets.only(bottom: 12),
+        child: SizedBox(
+          height: 18,
+          width: 18,
+          child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+        ),
+      );
+    }
+    if (_ninevehListsError) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: GestureDetector(
+          onTap: _loadNinevehNeighborhoods,
+          child: Text(
+            'Districts could not load. Tap to retry.'.tr,
+            style: const TextStyle(
+              color: Colors.redAccent,
+              decoration: TextDecoration.underline,
+            ),
+          ),
+        ),
+      );
+    }
+    return const SizedBox.shrink();
+  }
+
+  List<DropdownMenuItem<String>> _neighborhoodDropdownItems(
+    List<Map<String, dynamic>> items,
+  ) {
+    return [
+      for (final d in items)
+        DropdownMenuItem(
+          value: (d['slug'] ?? '').toString(),
+          child: Text(
+            localizedContentFromValues(
+              base: (d['name_en'] ?? '').toString(),
+              arabic: (d['name_ar'] ?? '').toString(),
+              sorani: (d['name_ckb'] ?? '').toString(),
+              badini: (d['name_kmr'] ?? '').toString(),
+              fallback: (d['slug'] ?? '').toString(),
+            ),
+          ),
+        ),
+    ];
+  }
+
   @override
   void initState() {
     super.initState();
+    unawaited(_loadNinevehNeighborhoods());
     fetchFieldRuleSets().then((rules) {
       if (!mounted) return;
       setState(() {
@@ -1027,6 +1116,7 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
             const SizedBox(height: 14),
           ],
           if (_governorate == 'Nineveh') ...[
+            _ninevehListsStatusBanner(),
             if (!_hidden.contains('housing_side')) ...[
               _label('reg_recipient_housing_side'),
               DropdownButtonFormField<String>(
@@ -1057,13 +1147,9 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
                   prefixIcon: Icon(Icons.location_city_outlined),
                 ),
                 hint: Text('reg_recipient_neighborhood_hint'.tr),
-                items: [
-                  for (final n
-                      in _housingSide == 'left'
-                          ? ninevehLeftSideNeighborhoods
-                          : ninevehRightSideNeighborhoods)
-                    DropdownMenuItem(value: n, child: Text(n)),
-                ],
+                items: _neighborhoodDropdownItems(
+                  _housingSide == 'left' ? _ninevehLeftItems : _ninevehRightItems,
+                ),
                 onChanged: (v) => setState(() => _neighborhoodDropdown = v),
               ),
               const SizedBox(height: 14),
