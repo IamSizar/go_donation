@@ -6,6 +6,48 @@
 
 ---
 
+## 2026-09-12 — video posts can now actually have a video file attached
+
+**Asked for:** OPOS #25291 — "News & Media post bug," reported with no
+further detail.
+
+**Branch:** `fix/media-video-upload`, cut from `main`. One commit, pushed,
+PR opened: https://github.com/IamSizar/go_donation/pull/70 (`32657af`).
+
+### Root cause (Explore-agent audit found this despite the vague report)
+`post_type: 'video'` has existed since the seed data, but attaching a real
+video file was a dead end on both ends: `MediaPage.tsx`'s file field had no
+`accept` override (defaulted to images only, so the OS picker wouldn't
+even list a `.mp4`), and the backend's `AdminUploadHandler` extension
+whitelist had no video extension at all (would 400 even if bypassed by
+hand). The only way a video post ever worked was pasting an
+already-hosted external URL into Link URL.
+
+### What was actually changed
+- `backend/internal/handlers/admin_upload.go` — new `allowedVideoExts`
+  map (`.mp4`/`.mov`/`.webm`) with its OWN 50 MB `MaxVideoBytes` ceiling,
+  kept separate from the existing 5 MB image/PDF cap so the larger limit
+  doesn't leak to the other things sharing this one endpoint (partner
+  logos, case documents, product images).
+- `admin-web/src/pages/MediaPage.tsx` — `media_url` sets
+  `accept="image/*,video/*"`.
+
+### What was run, and what it printed
+- Extended `admin_upload_test.go`: `TestUploadAcceptsVideoExtensions`,
+  `TestUploadEnforcesPerCategorySizeLimits` (6 MB video passes, 6 MB
+  image still rejected, 51 MB video still rejected). Mutation-checked:
+  emptied the video map, confirmed both fail with the exact
+  "Unsupported file type" error, restored.
+- `go build/vet/test ./...` green, gofmt clean. admin-web `tsc --noEmit`
+  + `npm run build` clean.
+
+### Still open / needs a human
+- 50 MB is a judgment call — confirm against real content the client
+  expects to post.
+- Not clicked through with a real video file in a live browser session.
+
+---
+
 ## 0. TL;DR
 
 - **App:** "Tawazon" (توازن) / **BalanceNex** — a multi-language humanitarian **donations & community platform**.
