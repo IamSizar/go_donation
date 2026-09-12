@@ -595,21 +595,144 @@ func TestListMessagesForMemberTeamGroupUsesRealNames(t *testing.T) {
 	ctx := context.Background()
 	staff := makeTestUser(t, pool, "staff")
 	v1 := makeTestUser(t, pool, "volunteer")
+	// The viewer is a SECOND volunteer, not the staff creator: the creator
+	// gets no chat_group_members row from CreateGroup, and the viewer gate
+	// (see ListMessagesForMember) requires an active member. Staff read via
+	// the Admin* methods, never through this one.
+	v2 := makeTestUser(t, pool, "volunteer")
 	setFullName(t, pool, v1, "Real Volunteer Name")
 
 	groupID, _ := s.CreateGroup(ctx, KindTeam, "Distribution team", staff, []MemberInput{
 		{UserID: v1, RoleInGroup: "volunteer"},
+		{UserID: v2, RoleInGroup: "volunteer"},
 	})
 	if _, err := s.PostMessage(ctx, groupID, v1, "on my way"); err != nil {
 		t.Fatalf("PostMessage: %v", err)
 	}
 
-	msgs, err := s.ListMessagesForMember(ctx, groupID, staff, 0, 50)
+	msgs, err := s.ListMessagesForMember(ctx, groupID, v2, 0, 50)
 	if err != nil {
 		t.Fatalf("ListMessagesForMember: %v", err)
 	}
 	if msgs[0].SenderLabel != "Real Volunteer Name" {
 		t.Errorf("team-group SenderLabel = %q, want the real name", msgs[0].SenderLabel)
+	}
+}
+
+// TestListMessagesForMemberStaffWithMemberRowShowsSupport covers the
+// `mem.role_in_group = 'staff'` arm of the masking CASE, which every other
+// test in this file misses: they only ever use donor/beneficiary/volunteer
+// roles, so a staff member WITH a chat_group_members row is never exercised.
+//
+// Design §9 makes that row the NORMAL case — staff rows exist for
+// notification targeting and ownership — so this is not an exotic path.
+// Without the OR-clause such a message would take the non-staff branch,
+// resolve to the member's own masked_label, and because autoLabelName has no
+// "staff" entry that label reads "Member 1": a distinct pseudonymous speaker
+// that a member could count and fingerprint across messages, which is the
+// exact harm the single fixed "Support" label exists to prevent.
+//
+// It deliberately posts via PostMessage, not PostMessageAsStaff: the no-row
+// path (mem.id IS NULL) is already covered by
+// TestListMessagesForMemberMasksIdentity, and the point here is the
+// row-based path.
+func TestListMessagesForMemberStaffWithMemberRowShowsSupport(t *testing.T) {
+	pool := newTestPool(t)
+	s := New(pool)
+	ctx := context.Background()
+	staffCreator := makeTestUser(t, pool, "staff")
+	staffMember := makeTestUser(t, pool, "staff")
+	donor := makeTestUser(t, pool, "donor")
+	// A distinctive real name on the staff member, so a leak through the
+	// team/real-name branch would be unmistakable below.
+	setFullName(t, pool, staffMember, "Sara Staff Realname")
+
+	groupID, err := s.CreateGroup(ctx, KindMasked, "", staffCreator, []MemberInput{
+		{UserID: donor, RoleInGroup: "donor"},
+		{UserID: staffMember, RoleInGroup: "staff"},
+	})
+	if err != nil {
+		t.Fatalf("CreateGroup: %v", err)
+	}
+	if _, err := s.PostMessage(ctx, groupID, staffMember, "how can we help?"); err != nil {
+		t.Fatalf("PostMessage as the staff member: %v", err)
+	}
+
+	// Viewed by a DIFFERENT member — the donor, the person the masking
+	// protects against.
+	msgs, err := s.ListMessagesForMember(ctx, groupID, donor, 0, 50)
+	if err != nil {
+		t.Fatalf("ListMessagesForMember: %v", err)
+	}
+	if len(msgs) != 1 {
+		t.Fatalf("got %d messages, want 1", len(msgs))
+	}
+	if msgs[0].SenderLabel != "Support" {
+		t.Errorf("staff member WITH a member row: SenderLabel = %q, want %q — a per-admin label lets a member fingerprint individual staff", msgs[0].SenderLabel, "Support")
+	}
+
+	raw, err := json.Marshal(msgs)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if strings.Contains(string(raw), "Sara Staff Realname") {
+		t.Errorf("staff member's message leaks their real name: %s", raw)
+	}
+}
+
+// TestListMessagesForMemberRequiresActiveMembership is the read-side twin of
+// TestPostMessageRequiresActiveMembership. The store gates reads on the same
+// predicate as writes, so neither a stranger who was never in the group nor
+// a member RemoveMember has since revoked can pull the history.
+func TestListMessagesForMemberRequiresActiveMembership(t *testing.T) {
+	pool := newTestPool(t)
+	s := New(pool)
+	ctx := context.Background()
+	staff := makeTestUser(t, pool, "staff")
+	donor := makeTestUser(t, pool, "donor")
+	removed := makeTestUser(t, pool, "beneficiary")
+	stranger := makeTestUser(t, pool, "donor") // never added to this group
+
+	groupID, err := s.CreateGroup(ctx, KindMasked, "", staff, []MemberInput{
+		{UserID: donor, RoleInGroup: "donor"},
+		{UserID: removed, RoleInGroup: "beneficiary"},
+	})
+	if err != nil {
+		t.Fatalf("CreateGroup: %v", err)
+	}
+	if _, err := s.PostMessage(ctx, groupID, donor, "members-only history"); err != nil {
+		t.Fatalf("PostMessage: %v", err)
+	}
+
+	// A user who was never a member gets an error and no messages.
+	msgs, err := s.ListMessagesForMember(ctx, groupID, stranger, 0, 50)
+	if err == nil {
+		t.Errorf("a non-member read succeeded, want an error; got %d messages", len(msgs))
+	}
+	if len(msgs) != 0 {
+		t.Errorf("a non-member read returned %d messages, want 0", len(msgs))
+	}
+
+	// A removed former member loses read access too — RemoveMember keeps
+	// the row for historical LABEL resolution, not as continued access.
+	if err := s.RemoveMember(ctx, groupID, removed, staff); err != nil {
+		t.Fatalf("RemoveMember: %v", err)
+	}
+	msgs, err = s.ListMessagesForMember(ctx, groupID, removed, 0, 50)
+	if err == nil {
+		t.Errorf("a removed member's read succeeded, want an error; got %d messages", len(msgs))
+	}
+	if len(msgs) != 0 {
+		t.Errorf("a removed member's read returned %d messages, want 0", len(msgs))
+	}
+
+	// The gate must not lock out the people it is meant to serve.
+	msgs, err = s.ListMessagesForMember(ctx, groupID, donor, 0, 50)
+	if err != nil {
+		t.Fatalf("an active member's read failed: %v", err)
+	}
+	if len(msgs) != 1 {
+		t.Errorf("active member got %d messages, want 1", len(msgs))
 	}
 }
 

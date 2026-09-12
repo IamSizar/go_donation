@@ -319,13 +319,19 @@ func (s *Store) PostMessageAsStaff(ctx context.Context, groupID, staffUserID int
 	return id, nil
 }
 
-// maxMessagePage caps one page of ListMessagesForMember, and doubles as the
-// default when the caller passes a non-positive limit. An unbounded page is
-// never acceptable on a chat history that grows without limit.
+// maxMessagePage caps one page of ListMessagesForMember. An unbounded page
+// is never acceptable on a chat history that grows without limit. A limit
+// ABOVE this cap is not clamped down to it — it falls back to
+// defaultMessagePage, the same as a non-positive limit (see the `limit <= 0
+// || limit > maxMessagePage` guard in ListMessagesForMember).
 const maxMessagePage = 100
 
-// defaultMessagePage is the page size used when the caller does not choose
-// one (or asks for more than maxMessagePage).
+// defaultMessagePage is the page size actually used whenever the caller does
+// not supply a usable limit — both when limit is non-positive and when it
+// exceeds maxMessagePage. It is deliberately SMALLER than maxMessagePage: a
+// caller that asked for nothing in particular gets a modest page, and only a
+// caller that explicitly names a size between 1 and maxMessagePage gets that
+// size.
 const defaultMessagePage = 50
 
 // ListMessagesForMember returns messages as the GIVEN viewer would see them.
@@ -369,10 +375,31 @@ const defaultMessagePage = 50
 // Cursor-paginated on the monotonic message id: afterID is the highest id
 // the caller already holds (0 for the first page), so a poll with the latest
 // id returns an empty slice rather than the whole history again.
+//
+// Access gate: viewerUserID must be a CURRENT (non-removed) member of the
+// group, exactly as PostMessage requires of a sender. Without it any user id
+// could read any group's full history — including someone who was never a
+// member, and a member whose access was deliberately revoked by
+// RemoveMember. Phase 2's HTTP handler will gate this too, but the store
+// layer does not silently trust that it always will; read and write are
+// gated by the same predicate so they cannot drift apart.
 func (s *Store) ListMessagesForMember(ctx context.Context, groupID, viewerUserID, afterID int64, limit int) ([]GroupMessage, error) {
 	if limit <= 0 || limit > maxMessagePage {
 		limit = defaultMessagePage
 	}
+
+	var isMember bool
+	if err := s.Pool.QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM chat_group_members
+		                 WHERE group_id = $1 AND user_id = $2 AND removed_at IS NULL)`,
+		groupID, viewerUserID,
+	).Scan(&isMember); err != nil {
+		return nil, err
+	}
+	if !isMember {
+		return nil, errors.New("viewer is not an active member of this group")
+	}
+
 	rows, err := s.Pool.Query(ctx, `
 		SELECT
 		  m.id,
