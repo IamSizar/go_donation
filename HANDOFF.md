@@ -6,6 +6,85 @@
 
 ---
 
+## 2026-09-12 — Nineveh district/neighborhood lists moved from hardcoded Dart to an admin CMS
+
+**Asked for:** OPOS #25271 — the district/neighborhood dropdowns in the
+registration form were English-only and the list itself was hardcoded and
+incomplete, with no way for staff to add or correct an entry without a code
+change and app release ("in the registration form and anywhere else the list
+is used").
+
+**Branch:** `fix/districts-list-cms`, cut from `main`. One commit, pushed,
+PR opened: https://github.com/IamSizar/go_donation/pull/64 (`963182d`).
+
+### What was actually changed
+- New table `districts` (migration `backend/migrations/120_districts.sql`):
+  `group_key` scopes rows to `nineveh_district` / `nineveh_neighborhood_left`
+  / `nineveh_neighborhood_right`; seeded with the same 10 districts + 24
+  neighborhoods the old hardcoded lists had. Kurdish (ckb/kmr) is filled in
+  for the 10 governorate-level districts only — deliberately left blank for
+  the 24 neighborhood rows, since nobody here can vouch for a Kurdish
+  translation of a Mosul neighborhood name and the client localizer already
+  falls back en→ar when a Kurdish value is blank.
+- `backend/internal/districts/districts.go` + `internal/handlers/admin_districts.go`
+  — store + handler, copied line-for-line from `citycategories`/
+  `admin_city_categories.go` (same CMS-clone convention as every other
+  admin-managed list in this codebase), wired into `cmd/server/main.go`.
+- `admin-web/src/components/DistrictsManager.tsx` — modal opened from the
+  Registrations page toolbar (not a new sidebar entry — per earlier client
+  feedback that the admin nav already has too many one-off modules).
+- Flutter: `registration_form.dart` (both the recipient and volunteer
+  sub-forms) and `marriage_form_screen.dart` (a second usage site the
+  original bug report didn't mention — found by grep, not by guessing) now
+  fetch the three lists via `ModuleApi.districts(groupKey)` on `initState`
+  and render them through the existing `localizedContentFromValues` helper.
+  Deleted `lib/data/nineveh_neighborhoods.dart` outright and removed the
+  `ninevehDistricts` const from `nineveh_districts.dart` (its
+  `volunteerLanguages` const is unrelated and was kept).
+- Added a small loading-spinner / error+retry banner above the affected
+  dropdowns in both screens — new string `'Districts could not load. Tap to
+  retry.'` in `app_translations.dart`, en+ar only (same reasoning as the
+  Kurdish note above: Sorani/Badini fall back to English automatically for
+  any key this session didn't add a real translation for).
+
+### What was run, and what it printed
+- `go build ./... && go vet ./... && go test ./...` — all packages `ok`,
+  nothing failed. `gofmt -l .` flagged one pre-existing unrelated file
+  (`admin_edit_user_profile.go`), untouched by this branch, left alone.
+- Live verification against a scratch DB (`createdb donation_scratch_districts`,
+  `RUN_MIGRATIONS=1 DATABASE_URL=... go run ./cmd/server`, dropped after):
+  `GET /api/districts?group=nineveh_district` returned the 10 seeded rows
+  with correct ckb/kmr values; `GET /api/districts` (no `group`) returned
+  `400 {"error":"group is required."}`; `GET /api/admin/districts` returned
+  `401 auth_required` with no token. A throwaway `cmd/districtsverify/main.go`
+  (deleted before commit, never pushed) exercised the store's
+  Add→List→Update→Reorder→Delete directly against the scratch DB — printed
+  `ALL DISTRICTS STORE CHECKS PASSED`.
+- `flutter analyze` on every touched Dart file — `No issues found!`.
+- admin-web: `npx tsc --noEmit -p .` — no output (clean); `npm run build` —
+  succeeded, `RegistrationsPage` (which imports `DistrictsManager`) bundled
+  with no errors.
+
+### Still open / needs a human
+- The admin-web `DistrictsManager` modal's actual click-through was **not**
+  verified in a browser — the dashboard login is OTP/2FA-gated and this
+  session didn't attempt to simulate that flow. Everything it calls was
+  verified at the API/store layer instead. Worth a manual pass before or
+  right after merge.
+- This branch was cut from `main`, not from `fix/messaging-channels-reachable`
+  (a different, still-unmerged branch with its own HANDOFF entry above this
+  one won't appear until that branch merges) — the two are independent and
+  should merge cleanly against each other.
+
+### A trap worth flagging
+Started this task's edits on `fix/registration-photo-not-displaying` (the
+previous task's already-pushed branch) before realizing no dedicated branch
+had been created — caught it before anything was committed, via
+`git stash` → `git checkout -b fix/districts-list-cms main` → `git stash pop`.
+Always create the task's branch **before** the first edit, not after.
+
+---
+
 ## 0. TL;DR
 
 - **App:** "Tawazon" (توازن) / **BalanceNex** — a multi-language humanitarian **donations & community platform**.
