@@ -27,6 +27,7 @@ var (
 	ErrNotFound = errors.New("thread not found")
 	ErrNotParty = errors.New("you are not a participant in this chat")
 	ErrSelf     = errors.New("you cannot message yourself")
+	ErrNotStaff = errors.New("both participants must be staff accounts")
 )
 
 type Thread struct {
@@ -50,9 +51,28 @@ func (t Thread) OtherUserID(senderID int64) int64 {
 
 // GetOrCreateThread returns the existing thread for this staff pair, or
 // creates one. userA/userB order doesn't matter — canonicalized internally.
+//
+// Both accounts must hold a staff tier. This package's whole premise (see the
+// doc comment above) is that a thread here needs no accept/decline step
+// BECAUSE both parties are already trusted staff — without this check, a
+// caller could stand up a thread with an ordinary donor/beneficiary/volunteer
+// account, and every message in it would then be delivered as an unfiltered
+// push (internal/notify.Send has no dashboard-only concept) carrying the
+// "internal staff message" template straight to that person's phone.
 func (s *Store) GetOrCreateThread(ctx context.Context, userA, userB int64) (Thread, error) {
 	if userA == userB {
 		return Thread{}, ErrSelf
+	}
+	var bothStaff bool
+	if err := s.Pool.QueryRow(ctx, `
+		SELECT COUNT(*) = 2 FROM users
+		 WHERE id IN ($1, $2) AND staff_tier <> 'user'`,
+		userA, userB,
+	).Scan(&bothStaff); err != nil {
+		return Thread{}, err
+	}
+	if !bothStaff {
+		return Thread{}, ErrNotStaff
 	}
 	lo, hi := userA, userB
 	if lo > hi {
