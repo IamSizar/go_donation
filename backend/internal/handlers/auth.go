@@ -647,6 +647,7 @@ func (h *AuthHandler) OTPRequest(c *gin.Context) {
 		if sinceSent < cooldown {
 			c.JSON(http.StatusTooManyRequests, gin.H{
 				"error":       "Please wait before requesting another code.",
+				"code":        "otp_resend_cooldown",
 				"retry_after": cooldown - sinceSent,
 			})
 			return
