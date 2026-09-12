@@ -200,8 +200,10 @@ func SponsorshipSubmittedMsg(amount, currency, projectName string, sponsorshipID
 }
 
 // SponsorshipCancelledByDonorMsg — grantor cancelled their own active sponsorship.
+// projectName is "" for a "General support" sponsorship (see the identical
+// note on SponsorshipAcceptedMsg above) — OPOS #25279.
 func SponsorshipCancelledByDonorMsg(projectName string, sponsorshipID int64) LocalizedMessage {
-	return LocalizedMessage{
+	msg := LocalizedMessage{
 		Type:              "sponsorship_cancelled",
 		RelatedEntityType: "sponsorships",
 		RelatedEntityID:   sponsorshipID,
@@ -211,13 +213,23 @@ func SponsorshipCancelledByDonorMsg(projectName string, sponsorshipID int64) Loc
 			Ckb: "سپۆنسەرکردن هەڵوەشێنرایەوە",
 			Kmr: "سپۆنسەری هاتە بەتالکرن",
 		},
-		Body: LocalText{
-			En:  fmt.Sprintf("Your monthly sponsorship for %s was cancelled.", projectName),
-			Ar:  fmt.Sprintf("تم إلغاء كفالتك الشهرية للمشروع \"%s\".", projectName),
-			Ckb: fmt.Sprintf("سپۆنسەری مانگانەی تۆ بۆ «%s» هەڵوەشێنرایەوە.", projectName),
-			Kmr: fmt.Sprintf("سپۆنسەریا تە یا مەهانە بۆ «%s» هاتە بەتالکرن.", projectName),
-		},
 	}
+	if projectName == "" {
+		msg.Body = LocalText{
+			En:  "Your monthly sponsorship was cancelled.",
+			Ar:  "تم إلغاء كفالتك الشهرية.",
+			Ckb: "سپۆنسەری مانگانەی تۆ هەڵوەشێنرایەوە.",
+			Kmr: "سپۆنسەریا تە یا مەهانە هاتە بەتالکرن.",
+		}
+		return msg
+	}
+	msg.Body = LocalText{
+		En:  fmt.Sprintf("Your monthly sponsorship for %s was cancelled.", projectName),
+		Ar:  fmt.Sprintf("تم إلغاء كفالتك الشهرية للمشروع \"%s\".", projectName),
+		Ckb: fmt.Sprintf("سپۆنسەری مانگانەی تۆ بۆ «%s» هەڵوەشێنرایەوە.", projectName),
+		Kmr: fmt.Sprintf("سپۆنسەریا تە یا مەهانە بۆ «%s» هاتە بەتالکرن.", projectName),
+	}
+	return msg
 }
 
 // InKindSubmittedMsg — grantor created an in-kind donation pending pickup.
@@ -832,8 +844,19 @@ func DonationReceivedOnProjectMsg(amount, currency, projectTitle, donorName stri
 // --- Sponsorships ----------------------------------------------------------
 
 // SponsorshipAcceptedMsg — admin accepted a pending sponsorship → active.
+//
+// projectName is "" for a "General support" sponsorship — one created with
+// neither a beneficiary_case_id nor a project_request_id (a legitimate,
+// intentional shape; see sponsorships.Store.Insert and the identical
+// COALESCE(p.title, 'General support') fallback used throughout
+// internal/sponsorships). OPOS #25279: the caller used to interpolate that
+// empty string straight into the sentence below (`للمشروع ""`), which read as
+// if the notification had simply forgotten to say which project. Below,
+// empty projectName gets its own complete sentence per language instead of a
+// blank interpolation — NOT the raw English literal "General support",
+// which would otherwise leak untranslated into the ar/ckb/kmr copy.
 func SponsorshipAcceptedMsg(amount, currency, projectName string, sponsorshipID int64) LocalizedMessage {
-	return LocalizedMessage{
+	msg := LocalizedMessage{
 		Type:              "sponsorship_accepted",
 		RelatedEntityType: "sponsorships",
 		RelatedEntityID:   sponsorshipID,
@@ -843,19 +866,54 @@ func SponsorshipAcceptedMsg(amount, currency, projectName string, sponsorshipID 
 			Ckb: "سپۆنسەرکردن وەرگیرا",
 			Kmr: "سپۆنسەری هاتە قبوولکرن",
 		},
-		Body: LocalText{
-			En:  fmt.Sprintf("Your %s %s monthly sponsorship for \"%s\" was accepted. You'll be reminded each month when payment is due.", amount, currency, projectName),
-			Ar:  fmt.Sprintf("تم قبول كفالتك الشهرية بمبلغ %s %s للمشروع \"%s\". سيتم تذكيرك كل شهر عند موعد الدفع.", amount, currency, projectName),
-			Ckb: fmt.Sprintf("سپۆنسەری مانگانەی تۆ بە بڕی %s %s بۆ «%s» وەرگیرا. هەموو مانگێک کاتی پارەدان پێشت ئاگادار دەکرێیتەوە.", amount, currency, projectName),
-			Kmr: fmt.Sprintf("سپۆنسەریا تە یا مەهانە یا %s %s بۆ «%s» هاتە قبوولکرن. هەر مەهی دەمێ پارەدانێ تە ئاگەهدار دکەین.", amount, currency, projectName),
-		},
 	}
+	if projectName == "" {
+		msg.Body = LocalText{
+			En:  fmt.Sprintf("Your %s %s monthly sponsorship was accepted. You'll be reminded each month when payment is due.", amount, currency),
+			Ar:  fmt.Sprintf("تم قبول كفالتك الشهرية بمبلغ %s %s. سيتم تذكيرك كل شهر عند موعد الدفع.", amount, currency),
+			Ckb: fmt.Sprintf("سپۆنسەری مانگانەی تۆ بە بڕی %s %s وەرگیرا. هەموو مانگێک کاتی پارەدان پێشت ئاگادار دەکرێیتەوە.", amount, currency),
+			Kmr: fmt.Sprintf("سپۆنسەریا تە یا مەهانە یا %s %s هاتە قبوولکرن. هەر مەهی دەمێ پارەدانێ تە ئاگەهدار دکەین.", amount, currency),
+		}
+		return msg
+	}
+	msg.Body = LocalText{
+		En:  fmt.Sprintf("Your %s %s monthly sponsorship for \"%s\" was accepted. You'll be reminded each month when payment is due.", amount, currency, projectName),
+		Ar:  fmt.Sprintf("تم قبول كفالتك الشهرية بمبلغ %s %s للمشروع \"%s\". سيتم تذكيرك كل شهر عند موعد الدفع.", amount, currency, projectName),
+		Ckb: fmt.Sprintf("سپۆنسەری مانگانەی تۆ بە بڕی %s %s بۆ «%s» وەرگیرا. هەموو مانگێک کاتی پارەدان پێشت ئاگادار دەکرێیتەوە.", amount, currency, projectName),
+		Kmr: fmt.Sprintf("سپۆنسەریا تە یا مەهانە یا %s %s بۆ «%s» هاتە قبوولکرن. هەر مەهی دەمێ پارەدانێ تە ئاگەهدار دکەین.", amount, currency, projectName),
+	}
+	return msg
 }
 
 // SponsorshipStatusChangedMsg — generic fallback when admin moves the
 // sponsorship to a status other than 'active' or 'cancelled'.
+// sponsorshipStatusWord localizes the raw status strings notifySponsorshipDecision
+// switches on ("paused", "delayed", "completed") — OPOS #25279, found alongside
+// the empty-projectName bug: this function used to interpolate that raw English
+// word straight into the ar/ckb/kmr sentence below. Falls back to the English
+// word itself for any value outside the three the caller actually sends, so an
+// unrecognized status degrades to readable English rather than an empty gap.
+func sponsorshipStatusWord(status string, lang int) string {
+	// lang: 0=en 1=ar 2=ckb 3=kmr — matches the four fmt.Sprintf calls below.
+	words := map[string][4]string{
+		"paused":    {"paused", "متوقفة مؤقتًا", "وەستێنراوە", "هاتییە وەستاندن"},
+		"delayed":   {"delayed", "مؤجلة", "دواخراوە", "هاتییە دواخستن"},
+		"completed": {"completed", "مكتملة", "تەواوبووە", "تەواو بووە"},
+	}
+	if w, ok := words[status]; ok {
+		return w[lang]
+	}
+	return status
+}
+
+// projectName is "" for a "General support" sponsorship (see the identical
+// note on SponsorshipAcceptedMsg above) — OPOS #25279.
 func SponsorshipStatusChangedMsg(projectName, status string, sponsorshipID int64) LocalizedMessage {
-	return LocalizedMessage{
+	en := sponsorshipStatusWord(status, 0)
+	ar := sponsorshipStatusWord(status, 1)
+	ckb := sponsorshipStatusWord(status, 2)
+	kmr := sponsorshipStatusWord(status, 3)
+	msg := LocalizedMessage{
 		Type:              "sponsorship_status_changed",
 		RelatedEntityType: "sponsorships",
 		RelatedEntityID:   sponsorshipID,
@@ -865,13 +923,23 @@ func SponsorshipStatusChangedMsg(projectName, status string, sponsorshipID int64
 			Ckb: "بارودۆخی سپۆنسەرکردن نوێ کرایەوە",
 			Kmr: "ڕەوشا سپۆنسەریێ هاتە نوێکرن",
 		},
-		Body: LocalText{
-			En:  fmt.Sprintf("Your monthly sponsorship for \"%s\" is now %s.", projectName, status),
-			Ar:  fmt.Sprintf("كفالتك الشهرية للمشروع \"%s\" أصبحت الآن %s.", projectName, status),
-			Ckb: fmt.Sprintf("سپۆنسەری مانگانەی تۆ بۆ «%s» ئێستا %s ە.", projectName, status),
-			Kmr: fmt.Sprintf("سپۆنسەریا تە یا مەهانە بۆ «%s» نوکە %s یە.", projectName, status),
-		},
 	}
+	if projectName == "" {
+		msg.Body = LocalText{
+			En:  fmt.Sprintf("Your monthly sponsorship is now %s.", en),
+			Ar:  fmt.Sprintf("كفالتك الشهرية أصبحت الآن %s.", ar),
+			Ckb: fmt.Sprintf("سپۆنسەری مانگانەی تۆ ئێستا %s ە.", ckb),
+			Kmr: fmt.Sprintf("سپۆنسەریا تە یا مەهانە نوکە %s یە.", kmr),
+		}
+		return msg
+	}
+	msg.Body = LocalText{
+		En:  fmt.Sprintf("Your monthly sponsorship for \"%s\" is now %s.", projectName, en),
+		Ar:  fmt.Sprintf("كفالتك الشهرية للمشروع \"%s\" أصبحت الآن %s.", projectName, ar),
+		Ckb: fmt.Sprintf("سپۆنسەری مانگانەی تۆ بۆ «%s» ئێستا %s ە.", projectName, ckb),
+		Kmr: fmt.Sprintf("سپۆنسەریا تە یا مەهانە بۆ «%s» نوکە %s یە.", projectName, kmr),
+	}
+	return msg
 }
 
 // SponsorshipPaymentDueMsg — task #20 (reminder scheduler). Fires from the
