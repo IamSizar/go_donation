@@ -387,12 +387,39 @@ class AppThemeConfig {
   /// Note that Kurdish Sorani and Badini are registered as `ar_IQ` and
   /// `ar_TR` (see AppLocaleService), so testing the language code alone
   /// correctly catches all three right-to-left languages.
+  ///
+  /// OPOS #25281 — also corrects each style's `height` to the Arabic-script
+  /// leading tokens (see `AppType.lead*Ar`). `.apply(fontFamily:)` alone
+  /// swaps the glyphs but leaves the LATIN-tuned line-height untouched, so
+  /// Arabic's taller x-height and diacritics were rendering inside a line
+  /// box sized for a shorter Latin one — the systemic cause behind reports
+  /// of Arabic text "overlapping" on wrapped headings/titles.
   static ThemeData applyLocaleFont(ThemeData theme, Locale? locale) {
     final fontFamily = _fontFamilyForLocale(locale);
     if (fontFamily == null) return theme;
+    final isArabicScript = fontFamily == arabicScriptFontFamily;
+    TextTheme apply(TextTheme t) {
+      final withFont = t.apply(fontFamily: fontFamily);
+      if (!isArabicScript) return withFont;
+      return withFont.copyWith(
+        displayLarge: withFont.displayLarge?.copyWith(
+          height: AppType.leadDisplayAr,
+        ),
+        headlineMedium: withFont.headlineMedium?.copyWith(
+          height: AppType.leadTitleAr,
+        ),
+        headlineSmall: withFont.headlineSmall?.copyWith(
+          height: AppType.leadTitleAr,
+        ),
+        bodyLarge: withFont.bodyLarge?.copyWith(height: AppType.leadBodyAr),
+        bodyMedium: withFont.bodyMedium?.copyWith(height: AppType.leadDenseAr),
+        bodySmall: withFont.bodySmall?.copyWith(height: AppType.leadDenseAr),
+      );
+    }
+
     return theme.copyWith(
-      textTheme: theme.textTheme.apply(fontFamily: fontFamily),
-      primaryTextTheme: theme.primaryTextTheme.apply(fontFamily: fontFamily),
+      textTheme: apply(theme.textTheme),
+      primaryTextTheme: apply(theme.primaryTextTheme),
     );
   }
 
