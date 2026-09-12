@@ -910,6 +910,69 @@ func TestAdminListMessagesTeamGroup(t *testing.T) {
 	}
 }
 
+func TestListGroupsForUserUnreadCount(t *testing.T) {
+	pool := newTestPool(t)
+	s := New(pool)
+	ctx := context.Background()
+	staff := makeTestUser(t, pool, "staff")
+	donor := makeTestUser(t, pool, "donor")
+	beneficiary := makeTestUser(t, pool, "beneficiary")
+	groupID, _ := s.CreateGroup(ctx, KindMasked, "", staff, []MemberInput{
+		{UserID: donor, RoleInGroup: "donor"},
+		{UserID: beneficiary, RoleInGroup: "beneficiary"},
+	})
+
+	if _, err := s.PostMessage(ctx, groupID, donor, "one"); err != nil {
+		t.Fatalf("PostMessage: %v", err)
+	}
+	if _, err := s.PostMessage(ctx, groupID, donor, "two"); err != nil {
+		t.Fatalf("PostMessage: %v", err)
+	}
+
+	// donor sent both, so donor's own unread count is 0 (advanced by
+	// PostMessage's own cursor update).
+	donorGroups, err := s.ListGroupsForUser(ctx, donor)
+	if err != nil {
+		t.Fatalf("ListGroupsForUser(donor): %v", err)
+	}
+	if len(donorGroups) != 1 || donorGroups[0].UnreadCount != 0 {
+		t.Errorf("donor's groups = %+v, want one group with UnreadCount 0", donorGroups)
+	}
+
+	// beneficiary never read anything, so both messages are unread.
+	beneficiaryGroups, err := s.ListGroupsForUser(ctx, beneficiary)
+	if err != nil {
+		t.Fatalf("ListGroupsForUser(beneficiary): %v", err)
+	}
+	if len(beneficiaryGroups) != 1 || beneficiaryGroups[0].UnreadCount != 2 {
+		t.Errorf("beneficiary's groups = %+v, want one group with UnreadCount 2", beneficiaryGroups)
+	}
+	if beneficiaryGroups[0].LastMessage != "two" {
+		t.Errorf("LastMessage = %q, want %q", beneficiaryGroups[0].LastMessage, "two")
+	}
+}
+
+func TestListGroupsForUserExcludesRemovedMembership(t *testing.T) {
+	pool := newTestPool(t)
+	s := New(pool)
+	ctx := context.Background()
+	staff := makeTestUser(t, pool, "staff")
+	donor := makeTestUser(t, pool, "donor")
+	groupID, _ := s.CreateGroup(ctx, KindMasked, "", staff, []MemberInput{{UserID: donor, RoleInGroup: "donor"}})
+
+	if err := s.RemoveMember(ctx, groupID, donor, staff); err != nil {
+		t.Fatalf("RemoveMember: %v", err)
+	}
+
+	groups, err := s.ListGroupsForUser(ctx, donor)
+	if err != nil {
+		t.Fatalf("ListGroupsForUser: %v", err)
+	}
+	if len(groups) != 0 {
+		t.Errorf("got %d groups for a removed member, want 0", len(groups))
+	}
+}
+
 // setFullName / setPhone give a test user real profile data so the masking
 // test can assert that data does NOT leak.
 //

@@ -1,9 +1,11 @@
-// This file holds chatgroups' read-side methods — listing groups and
-// paging through a group's messages — split out of chatgroups.go to keep
-// both files under this project's ~400-line file-size guidance (see the
-// package doc comment in chatgroups.go for the package overview). Nothing
-// here changes behavior versus what used to live in chatgroups.go: this is
-// a pure relocation, not a rewrite.
+// This file holds chatgroups' read-side methods: paging through a group's
+// messages (ListMessagesForMember, AdminListMessages) and listing groups
+// themselves (ListGroupsForUser, ListGroupsForStaff). The message-reading
+// methods were split out of chatgroups.go to keep both files under this
+// project's ~400-line file-size guidance (see the package doc comment in
+// chatgroups.go for the package overview) — that move changed no behavior,
+// it was a pure relocation. The group-listing methods were added directly
+// here since they belong with the rest of the read path.
 package chatgroups
 
 import (
@@ -179,6 +181,82 @@ func (s *Store) AdminListMessages(ctx context.Context, groupID, afterID int64, l
 			return nil, err
 		}
 		out = append(out, am)
+	}
+	return out, rows.Err()
+}
+
+// GroupSummary is one row in a group list — the app's Messages tab and the
+// admin dashboard's group list both read this shape.
+type GroupSummary struct {
+	ID          int64  `json:"id"`
+	Kind        Kind   `json:"kind"`
+	Title       string `json:"title"` // team groups only; "" for masked
+	UnreadCount int    `json:"unread_count"`
+	LastMessage string `json:"last_message"`
+	LastAt      string `json:"last_at"`
+}
+
+// ListGroupsForUser returns the groups userID is an ACTIVE (non-removed)
+// member of, with unread counts from their own read cursor.
+func (s *Store) ListGroupsForUser(ctx context.Context, userID int64) ([]GroupSummary, error) {
+	rows, err := s.Pool.Query(ctx, `
+		SELECT g.id, g.kind, g.member_title,
+		       (SELECT COUNT(*) FROM chat_group_messages gm
+		         WHERE gm.group_id = g.id
+		           AND gm.id > COALESCE((SELECT last_read_msg_id FROM chat_group_reads
+		                                  WHERE group_id = g.id AND user_id = $1), 0)),
+		       COALESCE((SELECT body FROM chat_group_messages gm
+		                  WHERE gm.group_id = g.id ORDER BY gm.id DESC LIMIT 1), ''),
+		       COALESCE((SELECT created_at::text FROM chat_group_messages gm
+		                  WHERE gm.group_id = g.id ORDER BY gm.id DESC LIMIT 1), '')
+		  FROM chat_group_threads g
+		  JOIN chat_group_members mem ON mem.group_id = g.id
+		 WHERE mem.user_id = $1 AND mem.removed_at IS NULL
+		 ORDER BY g.updated_at DESC`,
+		userID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := []GroupSummary{}
+	for rows.Next() {
+		var gs GroupSummary
+		if err := rows.Scan(&gs.ID, &gs.Kind, &gs.Title, &gs.UnreadCount, &gs.LastMessage, &gs.LastAt); err != nil {
+			return nil, err
+		}
+		out = append(out, gs)
+	}
+	return out, rows.Err()
+}
+
+// ListGroupsForStaff returns every group, for the admin dashboard. Unlike
+// ListGroupsForUser this has no per-user unread cursor concept — staff's
+// "seen" state is out of scope for this phase.
+func (s *Store) ListGroupsForStaff(ctx context.Context) ([]GroupSummary, error) {
+	rows, err := s.Pool.Query(ctx, `
+		SELECT g.id, g.kind, g.member_title,
+		       0,
+		       COALESCE((SELECT body FROM chat_group_messages gm
+		                  WHERE gm.group_id = g.id ORDER BY gm.id DESC LIMIT 1), ''),
+		       COALESCE((SELECT created_at::text FROM chat_group_messages gm
+		                  WHERE gm.group_id = g.id ORDER BY gm.id DESC LIMIT 1), '')
+		  FROM chat_group_threads g
+		 ORDER BY g.updated_at DESC`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := []GroupSummary{}
+	for rows.Next() {
+		var gs GroupSummary
+		if err := rows.Scan(&gs.ID, &gs.Kind, &gs.Title, &gs.UnreadCount, &gs.LastMessage, &gs.LastAt); err != nil {
+			return nil, err
+		}
+		out = append(out, gs)
 	}
 	return out, rows.Err()
 }
