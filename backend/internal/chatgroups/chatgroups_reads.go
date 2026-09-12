@@ -260,3 +260,17 @@ func (s *Store) ListGroupsForStaff(ctx context.Context) ([]GroupSummary, error) 
 	}
 	return out, rows.Err()
 }
+
+// MarkRead advances userID's read cursor for groupID to lastReadMsgID.
+// Never regresses — GREATEST guards against a stale client reporting an
+// older id than the one already recorded.
+func (s *Store) MarkRead(ctx context.Context, groupID, userID, lastReadMsgID int64) error {
+	_, err := s.Pool.Exec(ctx, `
+		INSERT INTO chat_group_reads (group_id, user_id, last_read_msg_id)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (group_id, user_id) DO UPDATE
+		  SET last_read_msg_id = GREATEST(chat_group_reads.last_read_msg_id, EXCLUDED.last_read_msg_id)`,
+		groupID, userID, lastReadMsgID,
+	)
+	return err
+}

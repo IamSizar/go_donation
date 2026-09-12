@@ -1049,6 +1049,41 @@ func TestListGroupsForStaff(t *testing.T) {
 	}
 }
 
+func TestMarkReadNeverMovesBackward(t *testing.T) {
+	pool := newTestPool(t)
+	s := New(pool)
+	ctx := context.Background()
+	staff := makeTestUser(t, pool, "staff")
+	donor := makeTestUser(t, pool, "donor")
+	beneficiary := makeTestUser(t, pool, "beneficiary")
+	groupID, _ := s.CreateGroup(ctx, KindMasked, "", staff, []MemberInput{
+		{UserID: donor, RoleInGroup: "donor"},
+		{UserID: beneficiary, RoleInGroup: "beneficiary"},
+	})
+	id1, _ := s.PostMessage(ctx, groupID, donor, "one")
+	id2, _ := s.PostMessage(ctx, groupID, donor, "two")
+
+	if err := s.MarkRead(ctx, groupID, beneficiary, id2); err != nil {
+		t.Fatalf("MarkRead: %v", err)
+	}
+	// A stale client re-reporting an OLDER id must not move the cursor
+	// backward.
+	if err := s.MarkRead(ctx, groupID, beneficiary, id1); err != nil {
+		t.Fatalf("MarkRead (stale): %v", err)
+	}
+
+	var lastRead int64
+	if err := pool.QueryRow(ctx,
+		`SELECT last_read_msg_id FROM chat_group_reads WHERE group_id = $1 AND user_id = $2`,
+		groupID, beneficiary,
+	).Scan(&lastRead); err != nil {
+		t.Fatalf("read cursor: %v", err)
+	}
+	if lastRead != id2 {
+		t.Errorf("last_read_msg_id = %d, want %d (must not regress)", lastRead, id2)
+	}
+}
+
 // setFullName / setPhone give a test user real profile data so the masking
 // test can assert that data does NOT leak.
 //
