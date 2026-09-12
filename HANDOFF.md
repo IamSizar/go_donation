@@ -6,6 +6,60 @@
 
 ---
 
+## 2026-09-12 — City Guide's sector chips actually hit the server now; Marketplace was already done
+
+**Asked for:** OPOS #25274 — "Marketplace + City Guide: browse by category
+(backend category filter + frontend chips)".
+
+**Branch:** `fix/city-guide-server-side-category-filter`, cut from `main`. One
+commit, pushed, PR opened: https://github.com/IamSizar/go_donation/pull/66
+(`6877845`).
+
+### What was found before touching anything
+- **Marketplace: nothing to do.** Backend `category` param, admin category
+  field, and a working chip bar already shipped end-to-end in an earlier
+  commit (K15/#28) — confirmed by an Explore-agent audit, not assumed.
+- **City Guide: the chips were cosmetic.** `CommunityController.fetchEntries()`
+  never sent the selected sector to the server; `selectSector` only mutated
+  local Rx state and `filteredEntries` re-filtered whatever page had already
+  loaded. `ListCommunity` caps at 50 rows by default, so a sector whose
+  matches fell outside that first page silently looked empty even though the
+  backend's `sectors @> $1` WHERE clause and `?sector=` param already existed
+  and worked.
+
+### What was actually changed
+- `humanitarian/lib/api/module_api.dart` — `communityDirectory()` gained a
+  `sector` param.
+- `humanitarian/lib/modules/community/controllers/community_controller.dart`
+  — `selectSector()` now refetches from the server (same pattern
+  `setSearchQuery` already used), and `filteredEntries` no longer
+  re-filters by sector client-side.
+- **Deliberately NOT changed:** sub-category (K16) filtering stays
+  client-side. Reading `_spellingsOf()` in that same file BEFORE touching
+  it showed this is intentional: the free-text `category` column holds
+  legacy values (raw Arabic strings, typos) an exact-match server-side
+  filter would silently miss. "Fixing" this the same way as sector would
+  have been a data-visibility regression, not a fix — caught by reading the
+  code instead of pattern-matching the two filters as identical.
+
+### What was run, and what it printed
+- No backend changes were needed (the `?sector=` param already existed) —
+  Go build/vet/test were not re-run for this branch.
+- Live scratch-DB check (`createdb donation_scratch_cityguide`, dropped
+  after): seeded two `city_directory_entries` in different sectors
+  (`health`, `commercial`); `GET /api/community?sector=health` returned
+  only its entry, `?sector=commercial` returned only its entry, unfiltered
+  returned both plus seed data.
+- `flutter analyze` project-wide: clean except 6 pre-existing
+  `deprecated_member_use` infos in untouched files.
+
+### Still open / needs a human
+- Verified via curl + static analysis, not clicked through on a device —
+  worth a quick manual check that the sector chips visibly narrow the
+  City Guide map/place-strip.
+
+---
+
 ## 0. TL;DR
 
 - **App:** "Tawazon" (توازن) / **BalanceNex** — a multi-language humanitarian **donations & community platform**.
