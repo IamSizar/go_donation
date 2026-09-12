@@ -1036,9 +1036,21 @@ func (h *AdminStatusHandler) PublishProjectRequest(c *gin.Context) {
 	// Also clamp the address / title in case any of those columns has data
 	// that overflows the 200-char column the schema enforces.
 	title = clamp200(title)
+	// campaigns.title_ar is NOT NULL (unlike description/description_ar,
+	// which the same-shaped nil checks above already default to "").
+	// project_title_ar is nullable on beneficiary_project_requests, and the
+	// app's own project-request submission form never collects one (OPOS
+	// #25292) — so titleAr is nil for essentially every user-submitted
+	// project. Passing that nil straight into the INSERT crashed with a raw
+	// "null value... violates not-null constraint" instead of the clear,
+	// inline validation the sibling "Add Campaign" admin form gives for the
+	// exact same required field. Defaulting to "" (never to the English
+	// title — this app never substitutes English text into an Arabic
+	// column) makes this path consistent with how every other
+	// NOT-NULL-but-possibly-absent field here already degrades.
+	titleArValue := ""
 	if titleAr != nil {
-		v := clamp200(*titleAr)
-		titleAr = &v
+		titleArValue = clamp200(*titleAr)
 	}
 	beneficiaries := "—"
 	if peopleAffected != nil && *peopleAffected > 0 {
@@ -1062,7 +1074,7 @@ func (h *AdminStatusHandler) PublishProjectRequest(c *gin.Context) {
 		   is_active, status, owner_user_id)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,1,'active',$13)
 		RETURNING id`,
-		title, titleAr, titleSorani, titleBadini,
+		title, titleArValue, titleSorani, titleBadini,
 		desc, descAr, nil, nil,
 		addr, beneficiaries, goal, raised, ownerID,
 	).Scan(&newID)
