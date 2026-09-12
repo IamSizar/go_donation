@@ -14,8 +14,13 @@
 package chatgroups
 
 import (
+	"context"
+	"errors"
+	"fmt"
+	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -75,4 +80,96 @@ type AdminGroupMessage struct {
 	SenderName     string    `json:"sender_name"`
 	Body           string    `json:"body"`
 	CreatedAt      time.Time `json:"created_at"`
+}
+
+// autoLabelName is the display noun for each role's auto-generated label —
+// "Donor 1", "Beneficiary 1", etc. Staff never gets a numbered label here;
+// see Task 6, where every staff-sent message collapses to the fixed
+// "Support" at READ time regardless of what a staff member's own row says.
+var autoLabelName = map[string]string{
+	"donor":       "Donor",
+	"beneficiary": "Beneficiary",
+	"volunteer":   "Volunteer",
+}
+
+// autoLabel builds the auto-generated masked-member label for role, using n
+// as the per-role sequence number ("Donor 1", "Donor 2", ...). Roles outside
+// autoLabelName fall back to the generic "Member" noun.
+func autoLabel(role string, n int) string {
+	name, ok := autoLabelName[role]
+	if !ok {
+		name = "Member"
+	}
+	return fmt.Sprintf("%s %d", name, n)
+}
+
+// nullIfEmpty converts an empty string to a nil pointer so it round-trips as
+// SQL NULL instead of an empty-string value.
+func nullIfEmpty(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
+// insertMembers adds members to an existing group within tx. masked is
+// derived from kind ONCE, here — every call site (CreateGroup, AddMember,
+// ApproveConnectRequest) goes through this, so a masked group can never end
+// up with an unmasked member.
+func insertMembers(ctx context.Context, tx pgx.Tx, groupID int64, kind Kind, addedByStaffID int64, members []MemberInput) error {
+	masked := kind == KindMasked
+	counters := map[string]int{}
+	for _, m := range members {
+		label := strings.TrimSpace(m.Label)
+		if masked {
+			if label == "" {
+				counters[m.RoleInGroup]++
+				label = autoLabel(m.RoleInGroup, counters[m.RoleInGroup])
+			}
+		} else {
+			label = "" // team-group members are never masked; no label stored
+		}
+		if _, err := tx.Exec(ctx,
+			`INSERT INTO chat_group_members (group_id, user_id, role_in_group, masked, masked_label, added_by_staff_id)
+			 VALUES ($1, $2, $3, $4, $5, $6)`,
+			groupID, m.UserID, m.RoleInGroup, masked, nullIfEmpty(label), addedByStaffID,
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// CreateGroup creates a thread and its initial members in one transaction.
+// For a masked group, memberTitle is ignored (masked groups never carry a
+// member-facing title — see the migration comment on member_title).
+func (s *Store) CreateGroup(ctx context.Context, kind Kind, memberTitle string, createdByStaffID int64, members []MemberInput) (int64, error) {
+	if kind != KindMasked && kind != KindTeam {
+		return 0, errors.New("kind must be 'masked' or 'team'")
+	}
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback(ctx)
+
+	title := memberTitle
+	if kind == KindMasked {
+		title = ""
+	}
+	var groupID int64
+	if err := tx.QueryRow(ctx,
+		`INSERT INTO chat_group_threads (kind, member_title, created_by_staff_id)
+		 VALUES ($1, $2, $3) RETURNING id`,
+		string(kind), title, createdByStaffID,
+	).Scan(&groupID); err != nil {
+		return 0, err
+	}
+	if err := insertMembers(ctx, tx, groupID, kind, createdByStaffID, members); err != nil {
+		return 0, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return 0, err
+	}
+	return groupID, nil
 }
