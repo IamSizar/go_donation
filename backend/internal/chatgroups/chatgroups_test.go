@@ -3,6 +3,7 @@ package chatgroups
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -276,8 +277,8 @@ func TestRemoveMemberIsSoftDelete(t *testing.T) {
 	// A second removal of the same (already-removed) member is an error,
 	// not a silent no-op — the caller asked to remove someone not currently
 	// active.
-	if err := s.RemoveMember(ctx, groupID, donor, staff); err == nil {
-		t.Error("removing an already-removed member should return an error")
+	if err := s.RemoveMember(ctx, groupID, donor, staff); !errors.Is(err, ErrNotFound) {
+		t.Errorf("removing an already-removed member = %v, want errors.Is(err, ErrNotFound)", err)
 	}
 }
 
@@ -296,8 +297,8 @@ func TestPostMessageRequiresActiveMembership(t *testing.T) {
 		t.Fatalf("CreateGroup: %v", err)
 	}
 
-	if _, err := s.PostMessage(ctx, groupID, stranger, "hello"); err == nil {
-		t.Error("expected an error posting from a non-member")
+	if _, err := s.PostMessage(ctx, groupID, stranger, "hello"); !errors.Is(err, ErrNotMember) {
+		t.Errorf("PostMessage from a non-member = %v, want errors.Is(err, ErrNotMember)", err)
 	}
 
 	// The non-member rejection must be an early return before any write —
@@ -706,8 +707,8 @@ func TestListMessagesForMemberRequiresActiveMembership(t *testing.T) {
 
 	// A user who was never a member gets an error and no messages.
 	msgs, err := s.ListMessagesForMember(ctx, groupID, stranger, 0, 50)
-	if err == nil {
-		t.Errorf("a non-member read succeeded, want an error; got %d messages", len(msgs))
+	if !errors.Is(err, ErrNotMember) {
+		t.Errorf("a non-member read = %v, want errors.Is(err, ErrNotMember); got %d messages", err, len(msgs))
 	}
 	if len(msgs) != 0 {
 		t.Errorf("a non-member read returned %d messages, want 0", len(msgs))
@@ -719,8 +720,8 @@ func TestListMessagesForMemberRequiresActiveMembership(t *testing.T) {
 		t.Fatalf("RemoveMember: %v", err)
 	}
 	msgs, err = s.ListMessagesForMember(ctx, groupID, removed, 0, 50)
-	if err == nil {
-		t.Errorf("a removed member's read succeeded, want an error; got %d messages", len(msgs))
+	if !errors.Is(err, ErrNotMember) {
+		t.Errorf("a removed member's read = %v, want errors.Is(err, ErrNotMember); got %d messages", err, len(msgs))
 	}
 	if len(msgs) != 0 {
 		t.Errorf("a removed member's read returned %d messages, want 0", len(msgs))
@@ -1038,14 +1039,14 @@ func TestListGroupsForStaff(t *testing.T) {
 	if g1.LastMessage != "hello from group one" {
 		t.Errorf("group1 LastMessage = %q, want %q", g1.LastMessage, "hello from group one")
 	}
-	if g1.LastAt == "" {
-		t.Error("group1 LastAt is empty, want a populated timestamp")
+	if g1.LastAt.IsZero() {
+		t.Error("group1 LastAt is zero, want a populated timestamp")
 	}
 	if g2.LastMessage != "two" {
 		t.Errorf("group2 LastMessage = %q, want %q", g2.LastMessage, "two")
 	}
-	if g2.LastAt == "" {
-		t.Error("group2 LastAt is empty, want a populated timestamp")
+	if g2.LastAt.IsZero() {
+		t.Error("group2 LastAt is zero, want a populated timestamp")
 	}
 }
 
@@ -1121,8 +1122,8 @@ func TestSubmitConnectRequestRejectsInvalidContextType(t *testing.T) {
 	ctx := context.Background()
 	donor := makeTestUser(t, pool, "donor")
 
-	if _, err := s.SubmitConnectRequest(ctx, donor, "bogus", 1, nil, "hello"); err == nil {
-		t.Error("expected an error for an invalid context_type")
+	if _, err := s.SubmitConnectRequest(ctx, donor, "bogus", 1, nil, "hello"); !errors.Is(err, ErrInvalidInput) {
+		t.Errorf("SubmitConnectRequest with an invalid context_type = %v, want errors.Is(err, ErrInvalidInput)", err)
 	}
 }
 
@@ -1165,8 +1166,8 @@ func TestApproveConnectRequestCreatesGroupTransactionally(t *testing.T) {
 	}
 
 	// Approving an already-decided request is an error.
-	if _, err := s.ApproveConnectRequest(ctx, reqID, KindMasked, "", staff, nil); err == nil {
-		t.Error("expected an error approving an already-approved request")
+	if _, err := s.ApproveConnectRequest(ctx, reqID, KindMasked, "", staff, nil); !errors.Is(err, ErrAlreadyDecided) {
+		t.Errorf("approving an already-approved request = %v, want errors.Is(err, ErrAlreadyDecided)", err)
 	}
 }
 

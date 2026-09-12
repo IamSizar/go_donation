@@ -24,6 +24,23 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// Sentinel errors so a Phase 2 HTTP handler can map store failures to status
+// codes (403 vs 404 vs 500) with errors.Is, never by matching error text.
+var (
+	// ErrNotMember is returned when the acting/viewing user has no active
+	// membership row for the group (or was removed from it).
+	ErrNotMember = errors.New("chatgroups: not an active member of this group")
+	// ErrNotFound is returned when a referenced group, member, or connect
+	// request does not exist.
+	ErrNotFound = errors.New("chatgroups: not found")
+	// ErrAlreadyDecided is returned when a connect request is no longer
+	// pending (already approved or declined).
+	ErrAlreadyDecided = errors.New("chatgroups: connect request already decided")
+	// ErrInvalidInput is returned when caller-supplied arguments fail
+	// validation before any query runs.
+	ErrInvalidInput = errors.New("chatgroups: invalid input")
+)
+
 type Store struct {
 	Pool *pgxpool.Pool
 }
@@ -134,7 +151,7 @@ func insertMembers(ctx context.Context, tx pgx.Tx, groupID int64, kind Kind, add
 			 VALUES ($1, $2, $3, $4, $5, $6)`,
 			groupID, m.UserID, m.RoleInGroup, masked, nullIfEmpty(label), addedByStaffID,
 		); err != nil {
-			return err
+			return fmt.Errorf("chatgroups: adding member %d to group %d: %w", m.UserID, groupID, err)
 		}
 	}
 	return nil
@@ -149,7 +166,7 @@ func (s *Store) CreateGroup(ctx context.Context, kind Kind, memberTitle string, 
 	}
 	tx, err := s.Pool.Begin(ctx)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("chatgroups: creating group: begin transaction: %w", err)
 	}
 	defer tx.Rollback(ctx)
 
@@ -163,13 +180,13 @@ func (s *Store) CreateGroup(ctx context.Context, kind Kind, memberTitle string, 
 		 VALUES ($1, $2, $3) RETURNING id`,
 		string(kind), title, createdByStaffID,
 	).Scan(&groupID); err != nil {
-		return 0, err
+		return 0, fmt.Errorf("chatgroups: creating group: %w", err)
 	}
 	if err := insertMembers(ctx, tx, groupID, kind, createdByStaffID, members); err != nil {
 		return 0, err
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return 0, err
+		return 0, fmt.Errorf("chatgroups: creating group %d: commit: %w", groupID, err)
 	}
 	return groupID, nil
 }
@@ -185,7 +202,7 @@ func (s *Store) AddMember(ctx context.Context, groupID int64, input MemberInput,
 	if err := s.Pool.QueryRow(ctx,
 		`SELECT kind FROM chat_group_threads WHERE id = $1`, groupID,
 	).Scan(&kind); err != nil {
-		return err
+		return fmt.Errorf("chatgroups: looking up group %d: %w", groupID, err)
 	}
 	masked := kind == KindMasked
 	label := strings.TrimSpace(input.Label)
@@ -195,19 +212,21 @@ func (s *Store) AddMember(ctx context.Context, groupID int64, input MemberInput,
 			`SELECT COUNT(*) FROM chat_group_members WHERE group_id = $1 AND role_in_group = $2`,
 			groupID, input.RoleInGroup,
 		).Scan(&n); err != nil {
-			return err
+			return fmt.Errorf("chatgroups: counting %s members in group %d: %w", input.RoleInGroup, groupID, err)
 		}
 		label = autoLabel(input.RoleInGroup, n+1)
 	}
 	if !masked {
 		label = "" // team-group members are never masked; no label stored
 	}
-	_, err := s.Pool.Exec(ctx,
+	if _, err := s.Pool.Exec(ctx,
 		`INSERT INTO chat_group_members (group_id, user_id, role_in_group, masked, masked_label, added_by_staff_id)
 		 VALUES ($1, $2, $3, $4, $5, $6)`,
 		groupID, input.UserID, input.RoleInGroup, masked, nullIfEmpty(label), addedByStaffID,
-	)
-	return err
+	); err != nil {
+		return fmt.Errorf("chatgroups: adding member %d to group %d: %w", input.UserID, groupID, err)
+	}
+	return nil
 }
 
 // RemoveMember soft-removes a member (removed_at/removed_by). Never DELETE
@@ -221,10 +240,10 @@ func (s *Store) RemoveMember(ctx context.Context, groupID, userID, removedByStaf
 		groupID, userID, removedByStaffID,
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("chatgroups: removing member %d from group %d: %w", userID, groupID, err)
 	}
 	if ct.RowsAffected() == 0 {
-		return errors.New("member not found or already removed")
+		return fmt.Errorf("chatgroups: member %d in group %d: %w", userID, groupID, ErrNotFound)
 	}
 	return nil
 }
@@ -241,7 +260,10 @@ func advanceReadCursor(ctx context.Context, tx pgx.Tx, groupID, userID, msgID in
 		  SET last_read_msg_id = GREATEST(chat_group_reads.last_read_msg_id, EXCLUDED.last_read_msg_id)`,
 		groupID, userID, msgID,
 	)
-	return err
+	if err != nil {
+		return fmt.Errorf("chatgroups: advancing read cursor for user %d in group %d: %w", userID, groupID, err)
+	}
+	return nil
 }
 
 // PostMessage records a message from an active member. Returns an error if
@@ -253,7 +275,7 @@ func (s *Store) PostMessage(ctx context.Context, groupID, senderUserID int64, bo
 	}
 	tx, err := s.Pool.Begin(ctx)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("chatgroups: posting message to group %d: begin transaction: %w", groupID, err)
 	}
 	defer tx.Rollback(ctx)
 
@@ -263,10 +285,10 @@ func (s *Store) PostMessage(ctx context.Context, groupID, senderUserID int64, bo
 		                 WHERE group_id = $1 AND user_id = $2 AND removed_at IS NULL)`,
 		groupID, senderUserID,
 	).Scan(&isMember); err != nil {
-		return 0, err
+		return 0, fmt.Errorf("chatgroups: checking membership for user %d in group %d: %w", senderUserID, groupID, err)
 	}
 	if !isMember {
-		return 0, errors.New("sender is not an active member of this group")
+		return 0, fmt.Errorf("chatgroups: user %d in group %d: %w", senderUserID, groupID, ErrNotMember)
 	}
 
 	var id int64
@@ -275,13 +297,13 @@ func (s *Store) PostMessage(ctx context.Context, groupID, senderUserID int64, bo
 		 VALUES ($1, $2, $3) RETURNING id`,
 		groupID, senderUserID, body,
 	).Scan(&id); err != nil {
-		return 0, err
+		return 0, fmt.Errorf("chatgroups: posting message to group %d: %w", groupID, err)
 	}
 	if err := advanceReadCursor(ctx, tx, groupID, senderUserID, id); err != nil {
 		return 0, err
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return 0, err
+		return 0, fmt.Errorf("chatgroups: posting message %d to group %d: commit: %w", id, groupID, err)
 	}
 	return id, nil
 }
@@ -298,7 +320,7 @@ func (s *Store) PostMessageAsStaff(ctx context.Context, groupID, staffUserID int
 	}
 	tx, err := s.Pool.Begin(ctx)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("chatgroups: posting staff message to group %d: begin transaction: %w", groupID, err)
 	}
 	defer tx.Rollback(ctx)
 
@@ -308,13 +330,13 @@ func (s *Store) PostMessageAsStaff(ctx context.Context, groupID, staffUserID int
 		 VALUES ($1, $2, $3) RETURNING id`,
 		groupID, staffUserID, body,
 	).Scan(&id); err != nil {
-		return 0, err
+		return 0, fmt.Errorf("chatgroups: posting staff message to group %d: %w", groupID, err)
 	}
 	if err := advanceReadCursor(ctx, tx, groupID, staffUserID, id); err != nil {
 		return 0, err
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return 0, err
+		return 0, fmt.Errorf("chatgroups: posting staff message %d to group %d: commit: %w", id, groupID, err)
 	}
 	return id, nil
 }

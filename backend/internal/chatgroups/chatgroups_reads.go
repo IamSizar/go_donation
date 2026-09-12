@@ -6,11 +6,13 @@
 // chatgroups.go for the package overview) — that move changed no behavior,
 // it was a pure relocation. The group-listing methods were added directly
 // here since they belong with the rest of the read path.
+
 package chatgroups
 
 import (
 	"context"
-	"errors"
+	"fmt"
+	"time"
 )
 
 // maxMessagePage caps one page of ListMessagesForMember. An unbounded page
@@ -88,10 +90,10 @@ func (s *Store) ListMessagesForMember(ctx context.Context, groupID, viewerUserID
 		                 WHERE group_id = $1 AND user_id = $2 AND removed_at IS NULL)`,
 		groupID, viewerUserID,
 	).Scan(&isMember); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("chatgroups: checking membership for user %d in group %d: %w", viewerUserID, groupID, err)
 	}
 	if !isMember {
-		return nil, errors.New("viewer is not an active member of this group")
+		return nil, fmt.Errorf("chatgroups: user %d in group %d: %w", viewerUserID, groupID, ErrNotMember)
 	}
 
 	rows, err := s.Pool.Query(ctx, `
@@ -119,7 +121,7 @@ func (s *Store) ListMessagesForMember(ctx context.Context, groupID, viewerUserID
 		groupID, viewerUserID, afterID, limit,
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("chatgroups: listing messages for group %d: %w", groupID, err)
 	}
 	defer rows.Close()
 
@@ -127,11 +129,14 @@ func (s *Store) ListMessagesForMember(ctx context.Context, groupID, viewerUserID
 	for rows.Next() {
 		var gm GroupMessage
 		if err := rows.Scan(&gm.ID, &gm.SenderMemberID, &gm.SenderLabel, &gm.IsMine, &gm.Body, &gm.CreatedAt); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("chatgroups: scanning message row for group %d: %w", groupID, err)
 		}
 		out = append(out, gm)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("chatgroups: listing messages for group %d: %w", groupID, err)
+	}
+	return out, nil
 }
 
 // AdminListMessages is the staff-only, unmasked twin of ListMessagesForMember:
@@ -170,7 +175,7 @@ func (s *Store) AdminListMessages(ctx context.Context, groupID, afterID int64, l
 		groupID, afterID, limit,
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("chatgroups: admin-listing messages for group %d: %w", groupID, err)
 	}
 	defer rows.Close()
 
@@ -178,22 +183,25 @@ func (s *Store) AdminListMessages(ctx context.Context, groupID, afterID int64, l
 	for rows.Next() {
 		var am AdminGroupMessage
 		if err := rows.Scan(&am.ID, &am.SenderMemberID, &am.SenderUserID, &am.SenderName, &am.Body, &am.CreatedAt); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("chatgroups: scanning admin message row for group %d: %w", groupID, err)
 		}
 		out = append(out, am)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("chatgroups: admin-listing messages for group %d: %w", groupID, err)
+	}
+	return out, nil
 }
 
 // GroupSummary is one row in a group list — the app's Messages tab and the
 // admin dashboard's group list both read this shape.
 type GroupSummary struct {
-	ID          int64  `json:"id"`
-	Kind        Kind   `json:"kind"`
-	Title       string `json:"title"` // team groups only; "" for masked
-	UnreadCount int    `json:"unread_count"`
-	LastMessage string `json:"last_message"`
-	LastAt      string `json:"last_at"`
+	ID          int64     `json:"id"`
+	Kind        Kind      `json:"kind"`
+	Title       string    `json:"title"` // team groups only; "" for masked
+	UnreadCount int       `json:"unread_count"`
+	LastMessage string    `json:"last_message"`
+	LastAt      time.Time `json:"last_at"`
 }
 
 // ListGroupsForUser returns the groups userID is an ACTIVE (non-removed)
@@ -207,8 +215,8 @@ func (s *Store) ListGroupsForUser(ctx context.Context, userID int64) ([]GroupSum
 		                                  WHERE group_id = g.id AND user_id = $1), 0)),
 		       COALESCE((SELECT body FROM chat_group_messages gm
 		                  WHERE gm.group_id = g.id ORDER BY gm.id DESC LIMIT 1), ''),
-		       COALESCE((SELECT created_at::text FROM chat_group_messages gm
-		                  WHERE gm.group_id = g.id ORDER BY gm.id DESC LIMIT 1), '')
+		       COALESCE((SELECT created_at FROM chat_group_messages gm
+		                  WHERE gm.group_id = g.id ORDER BY gm.id DESC LIMIT 1), g.created_at)
 		  FROM chat_group_threads g
 		  JOIN chat_group_members mem ON mem.group_id = g.id
 		 WHERE mem.user_id = $1 AND mem.removed_at IS NULL
@@ -216,7 +224,7 @@ func (s *Store) ListGroupsForUser(ctx context.Context, userID int64) ([]GroupSum
 		userID,
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("chatgroups: listing groups for user %d: %w", userID, err)
 	}
 	defer rows.Close()
 
@@ -224,11 +232,14 @@ func (s *Store) ListGroupsForUser(ctx context.Context, userID int64) ([]GroupSum
 	for rows.Next() {
 		var gs GroupSummary
 		if err := rows.Scan(&gs.ID, &gs.Kind, &gs.Title, &gs.UnreadCount, &gs.LastMessage, &gs.LastAt); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("chatgroups: scanning group row for user %d: %w", userID, err)
 		}
 		out = append(out, gs)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("chatgroups: listing groups for user %d: %w", userID, err)
+	}
+	return out, nil
 }
 
 // ListGroupsForStaff returns every group, for the admin dashboard. Unlike
@@ -240,13 +251,13 @@ func (s *Store) ListGroupsForStaff(ctx context.Context) ([]GroupSummary, error) 
 		       0,
 		       COALESCE((SELECT body FROM chat_group_messages gm
 		                  WHERE gm.group_id = g.id ORDER BY gm.id DESC LIMIT 1), ''),
-		       COALESCE((SELECT created_at::text FROM chat_group_messages gm
-		                  WHERE gm.group_id = g.id ORDER BY gm.id DESC LIMIT 1), '')
+		       COALESCE((SELECT created_at FROM chat_group_messages gm
+		                  WHERE gm.group_id = g.id ORDER BY gm.id DESC LIMIT 1), g.created_at)
 		  FROM chat_group_threads g
 		 ORDER BY g.updated_at DESC`,
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("chatgroups: listing groups for staff: %w", err)
 	}
 	defer rows.Close()
 
@@ -254,11 +265,14 @@ func (s *Store) ListGroupsForStaff(ctx context.Context) ([]GroupSummary, error) 
 	for rows.Next() {
 		var gs GroupSummary
 		if err := rows.Scan(&gs.ID, &gs.Kind, &gs.Title, &gs.UnreadCount, &gs.LastMessage, &gs.LastAt); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("chatgroups: scanning group row for staff: %w", err)
 		}
 		out = append(out, gs)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("chatgroups: listing groups for staff: %w", err)
+	}
+	return out, nil
 }
 
 // MarkRead advances userID's read cursor for groupID to lastReadMsgID.
@@ -272,5 +286,8 @@ func (s *Store) MarkRead(ctx context.Context, groupID, userID, lastReadMsgID int
 		  SET last_read_msg_id = GREATEST(chat_group_reads.last_read_msg_id, EXCLUDED.last_read_msg_id)`,
 		groupID, userID, lastReadMsgID,
 	)
-	return err
+	if err != nil {
+		return fmt.Errorf("chatgroups: marking read for user %d in group %d: %w", userID, groupID, err)
+	}
+	return nil
 }

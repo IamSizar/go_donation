@@ -4,6 +4,7 @@
 // insertMembers helper CreateGroup uses (chatgroups.go) — there is never an
 // "approved, no group yet" dangling state. See chat_group_connect_requests in
 // the migration for the full column list and constraints this file relies on.
+
 package chatgroups
 
 import (
@@ -11,6 +12,9 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // ConnectRequestStatus is a chat_group_connect_requests.status value.
@@ -38,7 +42,7 @@ type ConnectRequest struct {
 	Status         ConnectRequestStatus
 	DeclineReason  string
 	DecidedByStaff *int64
-	CreatedAt      string
+	CreatedAt      time.Time
 }
 
 // SubmitConnectRequest records a request. Resubmitting while one from the
@@ -47,7 +51,7 @@ type ConnectRequest struct {
 // by the partial unique index in the migration.
 func (s *Store) SubmitConnectRequest(ctx context.Context, requesterID int64, contextType string, contextID int64, targetHint *int64, message string) (int64, error) {
 	if contextType != "donation" && contextType != "case" {
-		return 0, errors.New("context_type must be 'donation' or 'case'")
+		return 0, fmt.Errorf("chatgroups: context_type %q: %w", contextType, ErrInvalidInput)
 	}
 	message = strings.TrimSpace(message)
 	if message == "" {
@@ -62,7 +66,10 @@ func (s *Store) SubmitConnectRequest(ctx context.Context, requesterID int64, con
 		RETURNING id`,
 		requesterID, contextType, contextID, targetHint, message,
 	).Scan(&id)
-	return id, err
+	if err != nil {
+		return 0, fmt.Errorf("chatgroups: submitting connect request for user %d: %w", requesterID, err)
+	}
+	return id, nil
 }
 
 // ApproveConnectRequest creates the group AND stamps the request approved in
@@ -71,7 +78,7 @@ func (s *Store) SubmitConnectRequest(ctx context.Context, requesterID int64, con
 func (s *Store) ApproveConnectRequest(ctx context.Context, requestID int64, kind Kind, memberTitle string, staffID int64, members []MemberInput) (int64, error) {
 	tx, err := s.Pool.Begin(ctx)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("chatgroups: approving connect request %d: begin transaction: %w", requestID, err)
 	}
 	defer tx.Rollback(ctx)
 
@@ -79,10 +86,13 @@ func (s *Store) ApproveConnectRequest(ctx context.Context, requestID int64, kind
 	if err := tx.QueryRow(ctx,
 		`SELECT status FROM chat_group_connect_requests WHERE id = $1 FOR UPDATE`, requestID,
 	).Scan(&status); err != nil {
-		return 0, err
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, fmt.Errorf("chatgroups: connect request %d: %w", requestID, ErrNotFound)
+		}
+		return 0, fmt.Errorf("chatgroups: approving connect request %d: %w", requestID, err)
 	}
 	if status != string(RequestPending) {
-		return 0, fmt.Errorf("request is %s, not pending", status)
+		return 0, fmt.Errorf("chatgroups: connect request %d: %w", requestID, ErrAlreadyDecided)
 	}
 
 	title := memberTitle
@@ -95,7 +105,7 @@ func (s *Store) ApproveConnectRequest(ctx context.Context, requestID int64, kind
 		 VALUES ($1, $2, $3) RETURNING id`,
 		string(kind), title, staffID,
 	).Scan(&groupID); err != nil {
-		return 0, err
+		return 0, fmt.Errorf("chatgroups: approving connect request %d: creating group: %w", requestID, err)
 	}
 	if err := insertMembers(ctx, tx, groupID, kind, staffID, members); err != nil {
 		return 0, err
@@ -106,10 +116,10 @@ func (s *Store) ApproveConnectRequest(ctx context.Context, requestID int64, kind
 		  WHERE id = $1`,
 		requestID, groupID, staffID,
 	); err != nil {
-		return 0, err
+		return 0, fmt.Errorf("chatgroups: approving connect request %d: %w", requestID, err)
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return 0, err
+		return 0, fmt.Errorf("chatgroups: approving connect request %d: commit: %w", requestID, err)
 	}
 	return groupID, nil
 }
@@ -128,10 +138,22 @@ func (s *Store) DeclineConnectRequest(ctx context.Context, requestID, staffID in
 		requestID, staffID, reason,
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("chatgroups: declining connect request %d: %w", requestID, err)
 	}
 	if ct.RowsAffected() == 0 {
-		return errors.New("request not found or already decided")
+		// The UPDATE's WHERE clause can't tell "no such request" apart from
+		// "found but not pending" on its own — look the row up to tell which
+		// sentinel applies.
+		var status string
+		if err := s.Pool.QueryRow(ctx,
+			`SELECT status FROM chat_group_connect_requests WHERE id = $1`, requestID,
+		).Scan(&status); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return fmt.Errorf("chatgroups: connect request %d: %w", requestID, ErrNotFound)
+			}
+			return fmt.Errorf("chatgroups: declining connect request %d: %w", requestID, err)
+		}
+		return fmt.Errorf("chatgroups: connect request %d: %w", requestID, ErrAlreadyDecided)
 	}
 	return nil
 }
@@ -141,7 +163,7 @@ func (s *Store) DeclineConnectRequest(ctx context.Context, requestID, staffID in
 func (s *Store) ListConnectRequests(ctx context.Context, status string) ([]ConnectRequest, error) {
 	query := `
 		SELECT id, requester_user_id, context_type, context_id, target_hint,
-		       message, group_id, status, decline_reason, decided_by_staff_id, created_at::text
+		       message, group_id, status, decline_reason, decided_by_staff_id, created_at
 		  FROM chat_group_connect_requests`
 	args := []any{}
 	if status != "" {
@@ -152,7 +174,7 @@ func (s *Store) ListConnectRequests(ctx context.Context, status string) ([]Conne
 
 	rows, err := s.Pool.Query(ctx, query, args...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("chatgroups: listing connect requests: %w", err)
 	}
 	defer rows.Close()
 
@@ -161,9 +183,12 @@ func (s *Store) ListConnectRequests(ctx context.Context, status string) ([]Conne
 		var r ConnectRequest
 		if err := rows.Scan(&r.ID, &r.RequesterID, &r.ContextType, &r.ContextID, &r.TargetHint,
 			&r.Message, &r.GroupID, &r.Status, &r.DeclineReason, &r.DecidedByStaff, &r.CreatedAt); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("chatgroups: scanning connect request row: %w", err)
 		}
 		out = append(out, r)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("chatgroups: listing connect requests: %w", err)
+	}
+	return out, nil
 }
