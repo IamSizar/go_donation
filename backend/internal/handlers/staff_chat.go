@@ -59,6 +59,8 @@ func (h *StaffChatHandler) chatErr(c *gin.Context, err error) {
 		c.JSON(http.StatusForbidden, gin.H{"success": false, "error": "You are not a participant in this chat."})
 	case errors.Is(err, staffchat.ErrSelf):
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "You cannot message yourself."})
+	case errors.Is(err, staffchat.ErrNotStaff):
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Both participants must be staff accounts."})
 	default:
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
 	}
