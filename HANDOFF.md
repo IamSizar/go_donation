@@ -6,6 +6,29 @@
 
 ---
 
+## 2026-09-13 — OPOS #25284 Phase 2: chat-group routes, permissions, lifecycle wiring (PR #72, branch `feat/chat-groups-phase2`)
+
+**What was asked:** expose Phase 1's `internal/chatgroups` Store (schema + service layer, no HTTP surface) over the real API — mobile and admin routes, permission gating, registering the new chat system with the shared `internal/chatlifecycle` pause/resume/archive/delete/restore mechanism, adapting the existing K19 contact-info filter for masked groups, and push notifications.
+
+**What was actually changed:** new files `backend/internal/handlers/chat_group.go`, `chat_group_admin.go`, `chat_group_contact_block.go` (12 routes total on one `ChatGroupHandler`); `backend/internal/chatlifecycle/chatlifecycle.go` gains a 5th registered system (`KindGroup`); `backend/internal/chatgroups/chatgroups_admin.go` (new: `GetGroup`, contact-block recording) plus two small error-typing fixes in `chatgroups.go`; `backend/migrations/121_chat_group_contact_blocks_fix.sql` (corrects a Phase 1 scaffolding table's columns before its first real use — zero rows, zero prior consumers); `backend/internal/notify/templates.go` gains `GroupMaskedNewMessageMsg`; `backend/cmd/server/main.go` wires all of it in. Design spec: `docs/superpowers/specs/2026-09-12-chat-groups-phase2-routes-design.md`. Plan: `docs/superpowers/plans/2026-09-12-chat-groups-phase2-routes-and-permissions.md`. Built via 10 subagent-driven-development tasks, two of which needed a fix round.
+
+**What was run and what it printed:** `go build ./...`, `go vet ./...`, `gofmt -l internal cmd` all clean (one pre-existing, unrelated file — `admin_edit_user_profile.go` — excepted, not touched by this work). `go test ./...` against a freshly-created Postgres database — every package `ok`, including 16 new chat-group HTTP tests and a rewritten delete/restore round-trip test now covering all five chat systems (was hardcoded to one before this phase).
+
+**External actions taken:** pushed branch `feat/chat-groups-phase2` to `origin`. Opened PR #72 against `worktree-chat-groups-phase1` (Phase 1's branch, NOT `main`) — https://github.com/IamSizar/go_donation/pull/72. This PR must merge after PR #71 (Phase 1), since it depends directly on Phase 1's `internal/chatgroups` package.
+
+**What is still open:**
+- PR #72 is unmerged, unreviewed by a human, and depends on PR #71 merging first.
+- Phases 3–6 of #25284 not started (connect-request routes; retiring the old direct chat; Flutter and admin-web clients).
+- A real bug was found and fixed by this phase's own final review before merge: `chat_group_*` tables have no foreign keys (Phase 1's deliberate convention), but the shared trash/delete handler (`admin_chat_lifecycle.go`) assumed every chat system has `ON DELETE CASCADE` FKs on its child tables — so deleting a chat group didn't delete its data and restoring it failed with a duplicate-key error. Fixed uniformly for all five chat systems, not special-cased.
+- Several real-but-non-blocking gaps deliberately deferred, each with zero current impact since no client exists yet to reach any of these routes: per-user permission-override awareness on the admin routes that reveal real identity inside a masked group (tier-based gating only, a broader design question intentionally carried to whichever phase builds the admin-web UI); a notification entity-type mismatch for team-group pushes (reuses the donor-chat template's `RelatedEntityType`, colliding with an unrelated id space — latent since no client reads it yet, but baked into stored notification rows from first deploy); notification dispatch has zero automated test coverage; `chat_group_test.go` is 748 lines (over this codebase's 500-line file-size cap); a handful of "four chat systems" doc-comment references now that there are five. Full detail on every one of these, including explicit rulings, was recorded in this phase's SDD ledger before that scratch file was deleted per the workflow's own convention (git history + this entry are now the record).
+
+**Traps:**
+- `chat_group_*`'s deliberate no-foreign-keys convention (correct for Phase 1's own purposes) is exactly what broke the shared trash/delete/restore machinery, which every other chat system's schema satisfies via FK cascades. Any future chat-adjacent table built without FKs needs the SAME explicit-child-delete treatment in `admin_chat_lifecycle.go`'s `trashChatThread` — it's now generic across all five systems, so a sixth system just needs its `ChildIDColumn`/`ExtraChildTables` set correctly in `chatlifecycle.go`, nothing new in the handler.
+- Running this codebase's Go test suite twice against the *same* database without recreating it reproduces a known, pre-existing, unrelated flake in `TestListGroupsForUserUnreadCount` (orphaned rows from the first run). Always use a fresh `createdb` for a trustworthy single-shot verification run; a background task (`task_b18e99d7`) was separately spawned to fix the underlying test-hygiene issue in `internal/chatgroups`'s own test helpers.
+- This worktree's `HANDOFF.md` (this file) only reflects branches that have actually merged into whatever `main` snapshot it forked from — like Phase 1's entry above, this Phase 2 entry lives only on `feat/chat-groups-phase2` until both PRs land.
+
+---
+
 ## 2026-09-12 — OPOS #25284 Phase 1: chatgroups schema + Store layer (PR #71, branch `worktree-chat-groups-phase1`)
 
 **What was asked:** design and start building a replacement for direct donor/beneficiary/volunteer messaging — per client policy, those three roles must never contact each other directly; only staff-created group chats (masked/alias-only for donor+beneficiary+volunteer coordination, real-name for staff-curated volunteer teams) connect them. Full policy, architecture options, and phasing are in `docs/superpowers/specs/2026-09-12-masked-group-chats-design.md`.
