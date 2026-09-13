@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -587,5 +588,53 @@ func TestAdminContactBlocks_ListsRecordedAttempts(t *testing.T) {
 	items, _ := body["items"].([]any)
 	if len(items) != 1 {
 		t.Fatalf("got %d contact blocks, want 1", len(items))
+	}
+}
+
+// TestChatGroupMessages_HTTPResponseNeverLeaksRealIdentity is the single
+// highest-priority test for this phase (design spec §7): it proves, at the
+// HTTP layer, that Phase 1's structural masking guarantee survives the trip
+// through gin.Context.JSON. It searches the RAW response body string, not
+// just the typed fields a hand-picked assertion might miss.
+func TestChatGroupMessages_HTTPResponseNeverLeaksRealIdentity(t *testing.T) {
+	pool := newChatGroupPool(t)
+	r, _ := newWriteChatGroupRouter(pool)
+	staff := makeChatGroupUser(t, pool, "Staff Real Name")
+	donor := makeChatGroupUser(t, pool, "Donor Secret Real Name")
+	beneficiary := makeChatGroupUser(t, pool, "Beneficiary Secret Real Name")
+	groupID := makeChatGroup(t, pool, staff, chatgroups.KindMasked, []chatgroups.MemberInput{
+		{UserID: donor, RoleInGroup: "donor"},
+		{UserID: beneficiary, RoleInGroup: "beneficiary"},
+	})
+	donorToken := tokenForChatGroupUser(t, pool, donor)
+
+	if code, body := postAs(t, r, donorToken, fmt.Sprintf("/api/chat-groups/%d/messages", groupID),
+		map[string]string{"body": "hello from the donor side"}); code != http.StatusOK {
+		t.Fatalf("seed message: status = %d (body %v)", code, body)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/chat-groups/%d/messages", groupID), nil)
+	req.Header.Set("Authorization", "Bearer "+tokenForChatGroupUser(t, pool, beneficiary))
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (body %s)", w.Code, w.Body.String())
+	}
+
+	raw := w.Body.String()
+	forbidden := []string{
+		"Donor Secret Real Name",
+		"Beneficiary Secret Real Name",
+		"Staff Real Name",
+		fmt.Sprintf("%d", donor),
+		fmt.Sprintf("%d", staff),
+	}
+	for _, needle := range forbidden {
+		if strings.Contains(raw, needle) {
+			t.Fatalf("masked-group response leaks %q: %s", needle, raw)
+		}
+	}
+	if !strings.Contains(raw, "Donor 1") {
+		t.Fatalf("expected the donor's masked label \"Donor 1\" somewhere in the response: %s", raw)
 	}
 }
