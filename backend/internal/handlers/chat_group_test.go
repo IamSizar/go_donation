@@ -250,18 +250,51 @@ func TestChatGroupList_ReturnsCallersGroups(t *testing.T) {
 	}
 }
 
+// TestChatGroupMessages_RefusesNonMember pins the answer an outsider gets
+// from the read route — and pins that it is the SAME answer whether or not
+// the group has been archived.
+//
+// The archived subtest is the one with teeth. Messages used to run the
+// archived-status gate BEFORE membership was checked (membership was only
+// enforced later, inside chatgroups.Store.ListMessagesForMember), so an
+// outsider probing an arbitrary group id got a 404 for an archived group and
+// a 403 for a live one. That difference is an oracle: it tells someone who
+// was never in a group whether staff have archived it. PostMessage and
+// MarkRead already check membership first; this asserts Messages does too, by
+// requiring both cases to answer 403 identically.
 func TestChatGroupMessages_RefusesNonMember(t *testing.T) {
-	pool := newChatGroupPool(t)
-	r, _ := newChatGroupRouter(pool)
-	staff := makeChatGroupUser(t, pool, "Staff")
-	donor := makeChatGroupUser(t, pool, "Donor Name")
-	outsider := makeChatGroupUser(t, pool, "Outsider")
-	groupID := makeChatGroup(t, pool, staff, chatgroups.KindMasked, []chatgroups.MemberInput{{UserID: donor, RoleInGroup: "donor"}})
+	for _, tc := range []struct {
+		name     string
+		archived bool
+	}{
+		{"live group", false},
+		{"archived group", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			pool := newChatGroupPool(t)
+			r, _ := newChatGroupRouter(pool)
+			staff := makeChatGroupUser(t, pool, "Staff")
+			donor := makeChatGroupUser(t, pool, "Donor Name")
+			outsider := makeChatGroupUser(t, pool, "Outsider")
+			groupID := makeChatGroup(t, pool, staff, chatgroups.KindMasked, []chatgroups.MemberInput{{UserID: donor, RoleInGroup: "donor"}})
 
-	code, body := getAs(t, r, tokenForChatGroupUser(t, pool, outsider), fmt.Sprintf("/api/chat-groups/%d/messages", groupID))
+			if tc.archived {
+				// Set directly: the subject is the READ route's gate order,
+				// and the staff archive route is already covered by
+				// chat_lifecycle_trash_test.go.
+				if _, err := pool.Exec(context.Background(),
+					`UPDATE chat_group_threads SET archived_at = CURRENT_TIMESTAMP WHERE id = $1`,
+					groupID); err != nil {
+					t.Fatalf("archive group: %v", err)
+				}
+			}
 
-	if code != http.StatusForbidden {
-		t.Fatalf("status = %d, want 403 (body %v)", code, body)
+			code, body := getAs(t, r, tokenForChatGroupUser(t, pool, outsider), fmt.Sprintf("/api/chat-groups/%d/messages", groupID))
+
+			if code != http.StatusForbidden {
+				t.Fatalf("status = %d, want 403 — a non-member must not learn a group's archived state (body %v)", code, body)
+			}
+		})
 	}
 }
 

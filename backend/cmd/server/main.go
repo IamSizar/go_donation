@@ -1004,7 +1004,12 @@ func main() {
 			// OPOS #25284 Phase 2 — staff-created group chats.
 			admin.GET("/admin/chat-groups", perm("messages", "view"), chatGroupH.AdminList)
 			admin.POST("/admin/chat-groups", perm("messages", "add"), chatGroupH.AdminCreateGroup)
-			admin.GET("/admin/chat-groups/:id", perm("messages", "view"), chatGroupH.AdminGetGroup)
+			// Returns the member roster: every member's REAL user_id next to
+			// the masked_label their messages appear under — i.e. the exact
+			// key that de-masks the whole group. Same disclosure strength as
+			// the messages route below, so the same two permissions.
+			admin.GET("/admin/chat-groups/:id",
+				perm("messages", "view"), perm("sensitive_data", "view"), chatGroupH.AdminGetGroup)
 			admin.POST("/admin/chat-groups/:id/members", perm("messages", "edit"), chatGroupH.AdminAddMember)
 			admin.DELETE("/admin/chat-groups/:id/members/:userId", perm("messages", "edit"), chatGroupH.AdminRemoveMember)
 			// Reveals real identities inside a masked group — messages:view
@@ -1012,7 +1017,11 @@ func main() {
 			admin.GET("/admin/chat-groups/:id/messages",
 				perm("messages", "view"), perm("sensitive_data", "view"), chatGroupH.AdminMessages)
 			admin.POST("/admin/chat-groups/:id/messages", perm("messages", "add"), chatGroupH.AdminPostMessage)
-			admin.GET("/admin/chat-groups/:id/contact-blocks", perm("messages", "view"), chatGroupH.AdminContactBlocks)
+			// Names the REAL sender behind every blocked attempt to pass
+			// contact details inside a masked group — identity disclosure of
+			// the same strength, so the same two permissions.
+			admin.GET("/admin/chat-groups/:id/contact-blocks",
+				perm("messages", "view"), perm("sensitive_data", "view"), chatGroupH.AdminContactBlocks)
 
 			// ─── Chat lifecycle (migration 118) ─────────────────────────
 			// END / PAUSE / RESUME / ARCHIVE / UNARCHIVE and DELETE, for every

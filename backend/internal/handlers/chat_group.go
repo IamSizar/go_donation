@@ -95,6 +95,25 @@ func (h *ChatGroupHandler) Messages(c *gin.Context) {
 	if !ok {
 		return
 	}
+	// Membership FIRST, before any other gate — the identical order
+	// PostMessage and MarkRead use, and for the identical reason (see
+	// isActiveGroupMember's doc comment).
+	//
+	// ListMessagesForMember below does enforce membership on its own, but it
+	// runs too late: checking archived-status before it meant a non-member
+	// probing an arbitrary group id got a 404 when that group happened to be
+	// archived and a 403 otherwise, which told an outsider whether a group
+	// they were never part of has been archived. GetGroup is called purely to
+	// have a GroupDetail to check the roster against.
+	group, err := h.Store.GetGroup(c.Request.Context(), id)
+	if err != nil {
+		h.chatErr(c, err)
+		return
+	}
+	if !isActiveGroupMember(group, user.UserID) {
+		h.chatErr(c, chatgroups.ErrNotMember)
+		return
+	}
 	// An ARCHIVED group is treated as gone for a participant, same rule as
 	// the donor↔owner chat (see refuseIfArchivedForParticipant's own doc
 	// comment for why this is 404, not 403).
@@ -120,19 +139,25 @@ type chatGroupMessageReq struct {
 // isActiveGroupMember reports whether userID currently belongs to group —
 // present in its member roster and not removed.
 //
-// Every participant-facing write route (PostMessage, MarkRead) MUST check
-// this before doing anything else with the request. Unlike the read routes,
-// which fail closed inside chatgroups.Store itself (ListMessagesForMember
-// returns ErrNotMember from its own query), the write routes call through
-// helpers — refuseIfNotSendable, refuseGroupContactDetails — that know
-// nothing about membership and would otherwise run for an outsider who was
-// never in the group at all. Left unchecked, that means: a non-member's
+// EVERY participant-facing route in this file (Messages, PostMessage,
+// MarkRead) MUST check this before doing anything else with the request.
+//
+// The write routes call through helpers — refuseIfNotSendable,
+// refuseGroupContactDetails — that know nothing about membership and would
+// otherwise run for an outsider who was never in the group at all. Left
+// unchecked, that means: a non-member's
 // message containing a phone number gets a 422 AND a chat_group_contact_blocks
 // audit row recorded against a group they have no connection to (polluting
 // the log staff actually act on), and the DIFFERENCE between that 422 and a
 // plain 403 lets an outside caller probe whether an arbitrary group id
 // exists and is masked. Checking membership first, before either of those
 // run, closes both holes.
+//
+// The read route (Messages) needs the check for the same reason even though
+// chatgroups.Store.ListMessagesForMember fails closed on its own: the store
+// runs too late to protect the archived-status gate ahead of it, which
+// answered 404 for an archived group and 403 for a live one and so told a
+// non-member which it was.
 //
 // Task 8's AdminPostMessage does NOT call this: staff post via
 // chatgroups.Store.PostMessageAsStaff without being a member, by design (see

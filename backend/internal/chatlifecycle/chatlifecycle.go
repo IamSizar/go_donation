@@ -97,14 +97,15 @@ type System struct {
 	Kind Kind
 	// ThreadTable holds the thread rows carrying the lifecycle columns.
 	ThreadTable string
-	// MessageTable and ReadTable are the FK children that would be silently
-	// cascaded away by a delete. They are snapshotted alongside the thread so
-	// a restore brings back a conversation rather than an empty shell — see
-	// TrashThreadWithChildren.
+	// MessageTable and ReadTable are the child tables that would otherwise be
+	// lost by a delete. They are snapshotted alongside the thread so a restore
+	// brings back a conversation rather than an empty shell — see
+	// handlers.trashChatThread.
 	MessageTable string
 	ReadTable    string
-	// ExtraChildTables are further cascade children to preserve. Only the
-	// donor chat has one today (the K19 blocked-contact supervision log).
+	// ExtraChildTables are further child tables to preserve: the donor chat's
+	// K19 blocked-contact supervision log, and chat groups' contact-block log,
+	// staff note and member roster.
 	ExtraChildTables []string
 	// ChildIDColumn is the foreign-key column name every child table (message,
 	// read, and extra tables) uses to reference ThreadTable's id. Every system
@@ -154,11 +155,18 @@ var systems = map[Kind]System{
 		ThreadTable:  "chat_group_threads",
 		MessageTable: "chat_group_messages",
 		ReadTable:    "chat_group_reads",
-		// The masked-group contact-block log (mirrors chat_contact_blocks)
-		// and the staff-only context note both cascade from the group, so
-		// they travel with it through trash/restore just like the donor
-		// chat's extra table does.
-		ExtraChildTables: []string{"chat_group_contact_blocks", "chat_group_staff_notes"},
+		// The masked-group contact-block log (mirrors chat_contact_blocks),
+		// the staff-only context note, and the MEMBER ROSTER all belong to
+		// the group, so they travel with it through trash/restore just like
+		// the donor chat's extra table does.
+		//
+		// chat_group_members is not optional here: a member row is what maps
+		// a sender to their masked_label, so a group restored without its
+		// roster comes back with every message collapsed to the "Support"
+		// fallback (see handlers.groupSenderLabel and
+		// chatgroups.Store.ListMessagesForMember) — a silently wrong restore,
+		// which is worse than one that fails loudly.
+		ExtraChildTables: []string{"chat_group_contact_blocks", "chat_group_staff_notes", "chat_group_members"},
 		ChildIDColumn:    "group_id",
 	},
 }
