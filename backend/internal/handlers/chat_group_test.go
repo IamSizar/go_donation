@@ -73,6 +73,38 @@ func makeChatGroupUser(t *testing.T, pool *pgxpool.Pool, name string) int64 {
 	return id
 }
 
+// makeChatGroupStaffUser is makeChatGroupUser plus a real staff_tier on the
+// users row. makeChatGroup's staffID parameter (created_by_staff_id) is NOT
+// itself a group member and carries no tier at all, so it cannot exercise
+// the contact filter's staff exemption — a test proving that exemption, or
+// proving it does NOT leak into masked-group filtering by accident, needs a
+// user that is both an actual chat_group_members row AND permissions.TierFrom
+// != TierUser on the users table, which is what this produces.
+func makeChatGroupStaffUser(t *testing.T, pool *pgxpool.Pool, name, tier string) int64 {
+	t.Helper()
+	ctx := context.Background()
+	chatGroupUserSeq++
+	var id int64
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO users (phone, role_id, active, staff_tier, registration_status) VALUES ($1, 1, 1, $2, 'approved') RETURNING id`,
+		fmt.Sprintf("9647720%06d", chatGroupUserSeq), tier,
+	).Scan(&id); err != nil {
+		t.Fatalf("insert staff user: %v", err)
+	}
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO user_profiles (user_id, full_name, gender, address) VALUES ($1, $2, '', '')`,
+		id, name,
+	); err != nil {
+		t.Fatalf("insert profile: %v", err)
+	}
+	t.Cleanup(func() {
+		ctx := context.Background()
+		_, _ = pool.Exec(ctx, `DELETE FROM user_profiles WHERE user_id = $1`, id)
+		_, _ = pool.Exec(ctx, `DELETE FROM users WHERE id = $1`, id)
+	})
+	return id
+}
+
 func makeChatGroup(t *testing.T, pool *pgxpool.Pool, staffID int64, kind chatgroups.Kind, members []chatgroups.MemberInput) int64 {
 	t.Helper()
 	s := chatgroups.New(pool)
@@ -208,17 +240,83 @@ func TestChatGroupPostMessage_RefusesContactDetailsInMaskedGroup(t *testing.T) {
 	pool := newChatGroupPool(t)
 	r, _ := newWriteChatGroupRouter(pool)
 	staff := makeChatGroupUser(t, pool, "Staff")
+	// staffMember is a REAL staff-tier user who is also an actual member of
+	// this group (role_in_group "staff") — not just staffID/
+	// created_by_staff_id, which is not a member at all and carries no
+	// tier. A masked group ALWAYS includes staff by construction, so a
+	// donor's message must still be filtered even though the group's
+	// roster contains a staff-tier party. Without a real staff member
+	// present here, this test could not catch a regression where someone
+	// reintroduces the donor↔owner chat's "any staff party → skip
+	// filtering entirely" exemption into this file.
+	staffMember := makeChatGroupStaffUser(t, pool, "Case Worker", "supervisor")
 	donor := makeChatGroupUser(t, pool, "Donor Name")
-	groupID := makeChatGroup(t, pool, staff, chatgroups.KindMasked, []chatgroups.MemberInput{{UserID: donor, RoleInGroup: "donor"}})
+	groupID := makeChatGroup(t, pool, staff, chatgroups.KindMasked, []chatgroups.MemberInput{
+		{UserID: donor, RoleInGroup: "donor"},
+		{UserID: staffMember, RoleInGroup: "staff"},
+	})
 
 	code, body := postAs(t, r, tokenForChatGroupUser(t, pool, donor),
 		fmt.Sprintf("/api/chat-groups/%d/messages", groupID), map[string]string{"body": "call me on 07701234567"})
 
 	if code != http.StatusUnprocessableEntity {
-		t.Fatalf("status = %d, want 422 (body %v)", code, body)
+		t.Fatalf("status = %d, want 422 — a donor's message must be filtered even though the group has a staff member (body %v)", code, body)
 	}
 	if n := countGroupMessages(t, pool, groupID); n != 0 {
 		t.Fatalf("chat_group_messages has %d rows after a refused message; want 0", n)
+	}
+}
+
+func TestChatGroupPostMessage_StaffMemberExemptFromContactFilter(t *testing.T) {
+	pool := newChatGroupPool(t)
+	r, _ := newWriteChatGroupRouter(pool)
+	staff := makeChatGroupUser(t, pool, "Staff")
+	donor := makeChatGroupUser(t, pool, "Donor Name")
+	// The SENDER here is a staff-tier user who is themselves a member of
+	// the masked group — K19's mediator relaying a number on someone's
+	// behalf, mirroring chat_contact_block_test.go's
+	// TestContactBlock_StaffSenderIsExempt for the donor↔owner chat.
+	staffMember := makeChatGroupStaffUser(t, pool, "Case Worker", "supervisor")
+	groupID := makeChatGroup(t, pool, staff, chatgroups.KindMasked, []chatgroups.MemberInput{
+		{UserID: donor, RoleInGroup: "donor"},
+		{UserID: staffMember, RoleInGroup: "staff"},
+	})
+
+	code, body := postAs(t, r, tokenForChatGroupUser(t, pool, staffMember),
+		fmt.Sprintf("/api/chat-groups/%d/messages", groupID), map[string]string{"body": "call the coordinator on 07701234567"})
+
+	if code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 — a staff relay must not be filtered (body %v)", code, body)
+	}
+	if n := countGroupMessages(t, pool, groupID); n != 1 {
+		t.Fatalf("chat_group_messages has %d rows; want 1", n)
+	}
+}
+
+func TestChatGroupPostMessage_RefusesNonMember(t *testing.T) {
+	pool := newChatGroupPool(t)
+	r, _ := newWriteChatGroupRouter(pool)
+	staff := makeChatGroupUser(t, pool, "Staff")
+	donor := makeChatGroupUser(t, pool, "Donor Name")
+	outsider := makeChatGroupUser(t, pool, "Outsider")
+	groupID := makeChatGroup(t, pool, staff, chatgroups.KindMasked, []chatgroups.MemberInput{{UserID: donor, RoleInGroup: "donor"}})
+
+	code, body := postAs(t, r, tokenForChatGroupUser(t, pool, outsider),
+		fmt.Sprintf("/api/chat-groups/%d/messages", groupID), map[string]string{"body": "call me on 07701234567"})
+
+	if code != http.StatusForbidden {
+		t.Fatalf("status = %d, want 403 — an outsider must be rejected as a non-member before the lifecycle gate or contact filter ever run (body %v)", code, body)
+	}
+	if n := countGroupMessages(t, pool, groupID); n != 0 {
+		t.Fatalf("chat_group_messages has %d rows; want 0", n)
+	}
+	var blocks int
+	if err := pool.QueryRow(context.Background(),
+		`SELECT COUNT(*) FROM chat_group_contact_blocks WHERE group_id = $1`, groupID).Scan(&blocks); err != nil {
+		t.Fatalf("count contact blocks: %v", err)
+	}
+	if blocks != 0 {
+		t.Fatalf("chat_group_contact_blocks has %d rows for a non-member's message; want 0 — the contact filter must never run before membership is checked", blocks)
 	}
 }
 
@@ -266,6 +364,36 @@ func TestChatGroupMarkRead_AdvancesCursor(t *testing.T) {
 	}
 	if last != msgID {
 		t.Fatalf("last_read_msg_id = %d, want %d", last, msgID)
+	}
+}
+
+func TestChatGroupMarkRead_RefusesNonMember(t *testing.T) {
+	pool := newChatGroupPool(t)
+	r, _ := newWriteChatGroupRouter(pool)
+	staff := makeChatGroupUser(t, pool, "Staff")
+	donor := makeChatGroupUser(t, pool, "Donor Name")
+	outsider := makeChatGroupUser(t, pool, "Outsider")
+	groupID := makeChatGroup(t, pool, staff, chatgroups.KindMasked, []chatgroups.MemberInput{{UserID: donor, RoleInGroup: "donor"}})
+	s := chatgroups.New(pool)
+	msgID, err := s.PostMessage(context.Background(), groupID, donor, "one")
+	if err != nil {
+		t.Fatalf("seed message: %v", err)
+	}
+
+	code, body := postAs(t, r, tokenForChatGroupUser(t, pool, outsider),
+		fmt.Sprintf("/api/chat-groups/%d/read", groupID), map[string]int64{"last_read_msg_id": msgID})
+
+	if code != http.StatusForbidden {
+		t.Fatalf("status = %d, want 403 — an outsider must not be able to create a read cursor for a group they don't belong to (body %v)", code, body)
+	}
+	var n int
+	if err := pool.QueryRow(context.Background(),
+		`SELECT COUNT(*) FROM chat_group_reads WHERE group_id = $1 AND user_id = $2`,
+		groupID, outsider).Scan(&n); err != nil {
+		t.Fatalf("count read cursor: %v", err)
+	}
+	if n != 0 {
+		t.Fatalf("chat_group_reads has %d rows for a non-member; want 0", n)
 	}
 }
 

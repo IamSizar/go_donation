@@ -117,6 +117,36 @@ type chatGroupMessageReq struct {
 	Body string `json:"body"`
 }
 
+// isActiveGroupMember reports whether userID currently belongs to group —
+// present in its member roster and not removed.
+//
+// Every participant-facing write route (PostMessage, MarkRead) MUST check
+// this before doing anything else with the request. Unlike the read routes,
+// which fail closed inside chatgroups.Store itself (ListMessagesForMember
+// returns ErrNotMember from its own query), the write routes call through
+// helpers — refuseIfNotSendable, refuseGroupContactDetails — that know
+// nothing about membership and would otherwise run for an outsider who was
+// never in the group at all. Left unchecked, that means: a non-member's
+// message containing a phone number gets a 422 AND a chat_group_contact_blocks
+// audit row recorded against a group they have no connection to (polluting
+// the log staff actually act on), and the DIFFERENCE between that 422 and a
+// plain 403 lets an outside caller probe whether an arbitrary group id
+// exists and is masked. Checking membership first, before either of those
+// run, closes both holes.
+//
+// Task 8's AdminPostMessage does NOT call this: staff post via
+// chatgroups.Store.PostMessageAsStaff without being a member, by design (see
+// that method's own doc comment) — only the participant-facing routes in
+// this file are gated on membership.
+func isActiveGroupMember(group chatgroups.GroupDetail, userID int64) bool {
+	for _, m := range group.Members {
+		if m.UserID == userID && m.RemovedAt == nil {
+			return true
+		}
+	}
+	return false
+}
+
 // POST /api/chat-groups/:id/messages
 func (h *ChatGroupHandler) PostMessage(c *gin.Context) {
 	user, ok := auth.UserFromGin(c)
@@ -131,6 +161,13 @@ func (h *ChatGroupHandler) PostMessage(c *gin.Context) {
 	group, err := h.Store.GetGroup(c.Request.Context(), id)
 	if err != nil {
 		h.chatErr(c, err)
+		return
+	}
+	// Membership first — before the lifecycle gate and, especially, before
+	// the contact filter. See isActiveGroupMember's doc comment for why the
+	// order matters.
+	if !isActiveGroupMember(group, user.UserID) {
+		h.chatErr(c, chatgroups.ErrNotMember)
 		return
 	}
 	// A PAUSED or ENDED group refuses new messages, server-side — same rule
@@ -168,6 +205,19 @@ func (h *ChatGroupHandler) MarkRead(c *gin.Context) {
 	}
 	id, ok := parseID(c)
 	if !ok {
+		return
+	}
+	// chatgroups.Store.MarkRead is a plain upsert with no membership check
+	// of its own (unlike ListMessagesForMember) — the handler must check
+	// before writing a cursor row for a group the caller has no connection
+	// to. Same isActiveGroupMember rule as PostMessage.
+	group, err := h.Store.GetGroup(c.Request.Context(), id)
+	if err != nil {
+		h.chatErr(c, err)
+		return
+	}
+	if !isActiveGroupMember(group, user.UserID) {
+		h.chatErr(c, chatgroups.ErrNotMember)
 		return
 	}
 	var req chatGroupReadReq
@@ -211,32 +261,37 @@ func (h *ChatGroupHandler) groupSenderLabel(ctx context.Context, group chatgroup
 }
 
 // notifyGroupMembers fans a push out to every OTHER active member of group,
-// masked or real depending on group.Kind. Fire-and-forget, matching
-// chat.go's bg()/goroutine pattern. The sender's own label is resolved ONCE
-// — it depends only on who sent the message, never on who is reading it, so
-// there is nothing to batch per recipient (see the design spec §6 for why
-// this replaced an earlier, unnecessary per-recipient-label design).
+// masked or real depending on group.Kind. Fully fire-and-forget: the WHOLE
+// body, including resolving the sender's own label, runs inside one
+// goroutine on h.bg()'s bounded context, so nothing here can block the HTTP
+// response that already stored the message. (An earlier version resolved
+// groupSenderLabel synchronously on the request goroutine before spawning
+// per-recipient goroutines — for a team group that is a live, deadline-less
+// user_profiles query, so a stalled DB pool would hang the client's response
+// even though the message was already saved. Moving the goroutine boundary
+// to wrap the whole function closes that gap.) The label is still resolved
+// ONCE — it depends only on who sent the message, never on who is reading
+// it — it just now happens off the request path entirely.
 func (h *ChatGroupHandler) notifyGroupMembers(group chatgroups.GroupDetail, senderUserID int64, body string) {
 	preview := body
 	if r := []rune(preview); len(r) > 80 {
 		preview = string(r[:80]) + "…"
 	}
-	label := h.groupSenderLabel(context.Background(), group, senderUserID)
-	for _, m := range group.Members {
-		if m.UserID == senderUserID || m.RemovedAt != nil {
-			continue
-		}
-		recipient := m.UserID
-		go func() {
-			ctx, cancel := h.bg()
-			defer cancel()
+	go func() {
+		ctx, cancel := h.bg()
+		defer cancel()
+		label := h.groupSenderLabel(ctx, group, senderUserID)
+		for _, m := range group.Members {
+			if m.UserID == senderUserID || m.RemovedAt != nil {
+				continue
+			}
 			var msg notify.LocalizedMessage
 			if group.Kind == chatgroups.KindMasked {
 				msg = notify.GroupMaskedNewMessageMsg(label, preview, group.ID)
 			} else {
 				msg = notify.ChatNewMessageMsg(label, preview, group.ID)
 			}
-			_, _ = h.Notifier.Send(ctx, recipient, msg)
-		}()
-	}
+			_, _ = h.Notifier.Send(ctx, m.UserID, msg)
+		}
+	}()
 }
