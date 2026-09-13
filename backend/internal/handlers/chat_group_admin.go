@@ -13,6 +13,7 @@ import (
 
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
 	"github.com/karam-flutter/humanitarian-backend/internal/chatgroups"
+	"github.com/karam-flutter/humanitarian-backend/internal/chatlifecycle"
 )
 
 // GET /api/admin/chat-groups
@@ -132,4 +133,80 @@ func (h *ChatGroupHandler) AdminRemoveMember(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true})
+}
+
+// GET /api/admin/chat-groups/:id/messages
+func (h *ChatGroupHandler) AdminMessages(c *gin.Context) {
+	if _, ok := auth.UserFromGin(c); !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		return
+	}
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	afterID, limit := parseGroupPageParams(c)
+	items, err := h.Store.AdminListMessages(c.Request.Context(), id, afterID, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "items": items})
+}
+
+// POST /api/admin/chat-groups/:id/messages — staff replies, shown as
+// "Support" to non-staff members (see groupSenderLabel, chat_group.go).
+func (h *ChatGroupHandler) AdminPostMessage(c *gin.Context) {
+	user, ok := auth.UserFromGin(c)
+	if !ok || user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		return
+	}
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	group, err := h.Store.GetGroup(c.Request.Context(), id)
+	if err != nil {
+		h.chatErr(c, err)
+		return
+	}
+	// The pause holds for STAFF too — a pause staff could talk through would
+	// not be a pause (see AdminPostMessage's equivalent comment in chat.go).
+	if refuseIfNotSendable(c, h.Pool, chatlifecycle.KindGroup, id) {
+		return
+	}
+	var req chatGroupMessageReq
+	if err := c.ShouldBindJSON(&req); err != nil || strings.TrimSpace(req.Body) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Message body is required."})
+		return
+	}
+	if h.refuseGroupContactDetails(c, group, user, req.Body) {
+		return
+	}
+	msgID, err := h.Store.PostMessageAsStaff(c.Request.Context(), id, user.UserID, req.Body)
+	if err != nil {
+		h.chatErr(c, err)
+		return
+	}
+	h.notifyGroupMembers(group, user.UserID, req.Body)
+	c.JSON(http.StatusOK, gin.H{"success": true, "message_id": msgID})
+}
+
+// GET /api/admin/chat-groups/:id/contact-blocks
+func (h *ChatGroupHandler) AdminContactBlocks(c *gin.Context) {
+	if _, ok := auth.UserFromGin(c); !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		return
+	}
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	items, err := h.Store.ListContactBlocks(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "items": items})
 }

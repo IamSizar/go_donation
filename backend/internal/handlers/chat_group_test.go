@@ -513,3 +513,79 @@ func TestAdminAddMemberAndRemoveMember(t *testing.T) {
 		t.Fatalf("remove member: status = %d, want 200 (body %s)", w.Code, w.Body.String())
 	}
 }
+
+func newAdminMessagesRouter(pool *pgxpool.Pool) (*gin.Engine, *ChatGroupHandler) {
+	gin.SetMode(gin.TestMode)
+	h := NewChatGroupHandler(chatgroups.New(pool), notify.New(pool), permissions.New(pool), pool)
+	r := gin.New()
+	admin := r.Group("/api", auth.RequireAdmin(auth.NewTokenStore(pool)))
+	admin.GET("/admin/chat-groups/:id/messages", h.AdminMessages)
+	admin.POST("/admin/chat-groups/:id/messages", h.AdminPostMessage)
+	admin.GET("/admin/chat-groups/:id/contact-blocks", h.AdminContactBlocks)
+	return r, h
+}
+
+func TestAdminMessages_ShowsRealIdentity(t *testing.T) {
+	pool := newChatGroupPool(t)
+	r, _ := newAdminMessagesRouter(pool)
+	staff := makeChatGroupUser(t, pool, "Staff")
+	donor := makeChatGroupUser(t, pool, "Donor Real Name")
+	groupID := makeChatGroup(t, pool, staff, chatgroups.KindMasked, []chatgroups.MemberInput{{UserID: donor, RoleInGroup: "donor"}})
+	s := chatgroups.New(pool)
+	if _, err := s.PostMessage(context.Background(), groupID, donor, "hi from donor"); err != nil {
+		t.Fatalf("seed message: %v", err)
+	}
+	token := tokenForStaffUser(t, pool, staff)
+
+	code, body := getAs(t, r, token, fmt.Sprintf("/api/admin/chat-groups/%d/messages", groupID))
+
+	if code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (body %v)", code, body)
+	}
+	raw, _ := json.Marshal(body)
+	if !bytes.Contains(raw, []byte("Donor Real Name")) {
+		t.Fatalf("admin view did not carry the real name: %s", raw)
+	}
+}
+
+func TestAdminPostMessage_PostsAsStaffAndNotifiesMembers(t *testing.T) {
+	pool := newChatGroupPool(t)
+	r, _ := newAdminMessagesRouter(pool)
+	staff := makeChatGroupUser(t, pool, "Staff")
+	donor := makeChatGroupUser(t, pool, "Donor Name")
+	groupID := makeChatGroup(t, pool, staff, chatgroups.KindMasked, []chatgroups.MemberInput{{UserID: donor, RoleInGroup: "donor"}})
+	token := tokenForStaffUser(t, pool, staff)
+
+	code, body := postAs(t, r, token, fmt.Sprintf("/api/admin/chat-groups/%d/messages", groupID),
+		map[string]string{"body": "we are looking into it"})
+
+	if code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (body %v)", code, body)
+	}
+	if n := countGroupMessages(t, pool, groupID); n != 1 {
+		t.Fatalf("chat_group_messages has %d rows; want 1", n)
+	}
+}
+
+func TestAdminContactBlocks_ListsRecordedAttempts(t *testing.T) {
+	pool := newChatGroupPool(t)
+	r, _ := newAdminMessagesRouter(pool)
+	staff := makeChatGroupUser(t, pool, "Staff")
+	donor := makeChatGroupUser(t, pool, "Donor Name")
+	groupID := makeChatGroup(t, pool, staff, chatgroups.KindMasked, []chatgroups.MemberInput{{UserID: donor, RoleInGroup: "donor"}})
+	s := chatgroups.New(pool)
+	if err := s.RecordContactBlock(context.Background(), groupID, donor, "phone", 1, "call •••"); err != nil {
+		t.Fatalf("seed contact block: %v", err)
+	}
+	token := tokenForStaffUser(t, pool, staff)
+
+	code, body := getAs(t, r, token, fmt.Sprintf("/api/admin/chat-groups/%d/contact-blocks", groupID))
+
+	if code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (body %v)", code, body)
+	}
+	items, _ := body["items"].([]any)
+	if len(items) != 1 {
+		t.Fatalf("got %d contact blocks, want 1", len(items))
+	}
+}
