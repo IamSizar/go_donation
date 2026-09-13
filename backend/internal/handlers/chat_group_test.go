@@ -8,6 +8,7 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -160,4 +161,124 @@ func TestChatGroupMessages_RefusesNonMember(t *testing.T) {
 	if code != http.StatusForbidden {
 		t.Fatalf("status = %d, want 403 (body %v)", code, body)
 	}
+}
+
+func postAs(t *testing.T, r *gin.Engine, token, path string, body any) (int, map[string]any) {
+	t.Helper()
+	payload, _ := json.Marshal(body)
+	req := httptest.NewRequest(http.MethodPost, path, bytes.NewReader(payload))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	var out map[string]any
+	_ = json.Unmarshal(w.Body.Bytes(), &out)
+	return w.Code, out
+}
+
+func countGroupMessages(t *testing.T, pool *pgxpool.Pool, groupID int64) int {
+	t.Helper()
+	var n int
+	if err := pool.QueryRow(context.Background(),
+		`SELECT COUNT(*) FROM chat_group_messages WHERE group_id = $1`, groupID).Scan(&n); err != nil {
+		t.Fatalf("count messages: %v", err)
+	}
+	return n
+}
+
+func TestChatGroupPostMessage_MemberCanPost(t *testing.T) {
+	pool := newChatGroupPool(t)
+	r, _ := newWriteChatGroupRouter(pool)
+	staff := makeChatGroupUser(t, pool, "Staff")
+	donor := makeChatGroupUser(t, pool, "Donor Name")
+	groupID := makeChatGroup(t, pool, staff, chatgroups.KindMasked, []chatgroups.MemberInput{{UserID: donor, RoleInGroup: "donor"}})
+
+	code, body := postAs(t, r, tokenForChatGroupUser(t, pool, donor),
+		fmt.Sprintf("/api/chat-groups/%d/messages", groupID), map[string]string{"body": "hello group"})
+
+	if code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (body %v)", code, body)
+	}
+	if n := countGroupMessages(t, pool, groupID); n != 1 {
+		t.Fatalf("chat_group_messages has %d rows; want 1", n)
+	}
+}
+
+func TestChatGroupPostMessage_RefusesContactDetailsInMaskedGroup(t *testing.T) {
+	pool := newChatGroupPool(t)
+	r, _ := newWriteChatGroupRouter(pool)
+	staff := makeChatGroupUser(t, pool, "Staff")
+	donor := makeChatGroupUser(t, pool, "Donor Name")
+	groupID := makeChatGroup(t, pool, staff, chatgroups.KindMasked, []chatgroups.MemberInput{{UserID: donor, RoleInGroup: "donor"}})
+
+	code, body := postAs(t, r, tokenForChatGroupUser(t, pool, donor),
+		fmt.Sprintf("/api/chat-groups/%d/messages", groupID), map[string]string{"body": "call me on 07701234567"})
+
+	if code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422 (body %v)", code, body)
+	}
+	if n := countGroupMessages(t, pool, groupID); n != 0 {
+		t.Fatalf("chat_group_messages has %d rows after a refused message; want 0", n)
+	}
+}
+
+func TestChatGroupPostMessage_TeamGroupAllowsContactDetails(t *testing.T) {
+	pool := newChatGroupPool(t)
+	r, _ := newWriteChatGroupRouter(pool)
+	staff := makeChatGroupUser(t, pool, "Staff")
+	volunteer := makeChatGroupUser(t, pool, "Volunteer Name")
+	groupID := makeChatGroup(t, pool, staff, chatgroups.KindTeam, []chatgroups.MemberInput{{UserID: volunteer, RoleInGroup: "volunteer"}})
+
+	code, body := postAs(t, r, tokenForChatGroupUser(t, pool, volunteer),
+		fmt.Sprintf("/api/chat-groups/%d/messages", groupID), map[string]string{"body": "call me on 07701234567"})
+
+	if code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 — team groups are never filtered (body %v)", code, body)
+	}
+	if n := countGroupMessages(t, pool, groupID); n != 1 {
+		t.Fatalf("chat_group_messages has %d rows; want 1", n)
+	}
+}
+
+func TestChatGroupMarkRead_AdvancesCursor(t *testing.T) {
+	pool := newChatGroupPool(t)
+	r, _ := newWriteChatGroupRouter(pool)
+	staff := makeChatGroupUser(t, pool, "Staff")
+	donor := makeChatGroupUser(t, pool, "Donor Name")
+	groupID := makeChatGroup(t, pool, staff, chatgroups.KindMasked, []chatgroups.MemberInput{{UserID: donor, RoleInGroup: "donor"}})
+	s := chatgroups.New(pool)
+	msgID, err := s.PostMessage(context.Background(), groupID, donor, "one")
+	if err != nil {
+		t.Fatalf("seed message: %v", err)
+	}
+
+	code, body := postAs(t, r, tokenForChatGroupUser(t, pool, donor),
+		fmt.Sprintf("/api/chat-groups/%d/read", groupID), map[string]int64{"last_read_msg_id": msgID})
+
+	if code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (body %v)", code, body)
+	}
+	var last int64
+	if err := pool.QueryRow(context.Background(),
+		`SELECT last_read_msg_id FROM chat_group_reads WHERE group_id = $1 AND user_id = $2`,
+		groupID, donor).Scan(&last); err != nil {
+		t.Fatalf("read cursor: %v", err)
+	}
+	if last != msgID {
+		t.Fatalf("last_read_msg_id = %d, want %d", last, msgID)
+	}
+}
+
+// newWriteChatGroupRouter extends newChatGroupRouter with the write routes
+// this task adds.
+func newWriteChatGroupRouter(pool *pgxpool.Pool) (*gin.Engine, *ChatGroupHandler) {
+	gin.SetMode(gin.TestMode)
+	h := NewChatGroupHandler(chatgroups.New(pool), notify.New(pool), permissions.New(pool), pool)
+	r := gin.New()
+	participant := r.Group("/api", auth.RequireBearer(auth.NewTokenStore(pool)))
+	participant.GET("/chat-groups", h.List)
+	participant.GET("/chat-groups/:id/messages", h.Messages)
+	participant.POST("/chat-groups/:id/messages", auth.RequireNotGuest(), h.PostMessage)
+	participant.POST("/chat-groups/:id/read", auth.RequireNotGuest(), h.MarkRead)
+	return r, h
 }
