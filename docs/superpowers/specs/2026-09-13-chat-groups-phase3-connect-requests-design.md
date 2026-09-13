@@ -111,16 +111,34 @@ caller needs it" (this phase):
   UPDATE` transaction, assert it appears in `members` before calling
   `insertMembers`; return `ErrInvalidInput` if not.
 
-## 6. Staff activity logging (spec §9)
+## 6. Staff activity logging (spec §9) — corrected
 
-"Group creation, membership changes, and label edits are logged via
-`internal/staffactivity`." Phase 2's `AdminCreateGroup`/`AdminAddMember`/
-`AdminRemoveMember` shipped without this (tracked as its own follow-up, OPOS
-#25634, since those routes are already merged/PR'd). This phase's OWN new
-group-creation path — approving a connect request — must not repeat that
-miss: log via `internal/staffactivity` (reuse its existing call shape from
-`internal/handlers/admin_detail.go`'s `sensitive_data` unmask logging, the
-same precedent spec §9 points at) immediately after a successful approval.
+The original design spec says group creation/membership changes should be
+"logged via `internal/staffactivity`." Checked directly before writing this
+plan: that assumption doesn't hold. `internal/staffactivity` (`store.go`) is
+a **read-only aggregator** — its `Load`/`Summary` methods `UNION` several
+purpose-built source tables (`permission_audit_log` for tier/permission
+changes, and similar per-domain tables for other decision types) into a
+staff-performance view. There is no generic `Log(...)`/`Record(...)` write
+method, and `admin_contact_view.go`'s `canViewContact` (spec §9's other
+cited precedent) does no audit writing at all — it's a pure permission
+check.
+
+Building a real "who unmasked whom" trail therefore means either (a) adding
+a new source table and extending `staffactivity`'s `Load` UNION query — a
+cross-cutting change to a stable, unrelated dashboard feature, or (b) a
+small, standalone audit table that just records the fact, leaving "surface
+it in the Staff Activity page" as a separate decision for whoever builds
+the admin-web chat-groups UI. This plan takes **(b)**: additive, low-risk,
+and doesn't require understanding or touching `staffactivity`'s existing
+aggregation logic to ship this phase.
+
+**Task 5 below** adds `chat_group_audit_log` (new migration) and a
+`RecordAudit` Store method, called from `ApproveConnectRequest`'s approval
+path. OPOS #25634 (Phase 2's own version of this same gap, on
+`AdminCreateGroup`/`AdminAddMember`/`AdminRemoveMember`) has been corrected
+to point at the same table/method rather than a nonexistent `staffactivity`
+call — see that ticket for Phase 2's retrofit, not repeated here.
 
 ## 7. Testing
 
