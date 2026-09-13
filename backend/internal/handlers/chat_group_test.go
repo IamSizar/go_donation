@@ -16,6 +16,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -43,8 +44,76 @@ func newChatGroupPool(t *testing.T) *pgxpool.Pool {
 		pool.Close()
 		t.Fatalf("run migrations: %v", err)
 	}
+	raiseChatGroupUserIDFloor(t, pool)
 	t.Cleanup(pool.Close)
 	return pool
+}
+
+// chatGroupUserIDFloor mirrors internal/chatgroups/chatgroups_test.go's
+// testUserIDFloor (see that file's exact comment for the full rationale):
+// on a fresh database users.id starts at 1, and a numeric substring that
+// small collides with digits inside the response's own fields (an "id":1,
+// a "sender_member_id":1, an RFC3339 timestamp) that are not identity
+// leaks at all. TestChatGroupMessages_HTTPResponseNeverLeaksRealIdentity
+// searches the raw response body for the donor/staff numeric id as an
+// unanchored substring specifically to catch a leak through ANY field, so
+// it needs every id to be wide enough (9+ digits) that such a collision
+// can never happen by chance — only a genuine leak of the real id can
+// produce that substring.
+//
+// This package is its own test binary/process, separate from
+// internal/chatgroups, so chatgroups' sync.Once does not protect it: each
+// package that relies on this property needs its own floor-raising call.
+const chatGroupUserIDFloor = 700000000
+
+// raiseChatGroupUserIDFloorOnce guards raiseChatGroupUserIDFloor so it runs
+// at most once per test binary — see chatGroupUserIDFloor's doc comment.
+var raiseChatGroupUserIDFloorOnce sync.Once
+
+// raiseChatGroupUserIDFloor pushes users.id's sequence to at least
+// chatGroupUserIDFloor, once per test binary.
+//
+// This does NOT compute the new value from MAX(id) FROM users, unlike
+// internal/chatgroups' equivalent helper — deliberately. `go test ./...`
+// runs this package and internal/chatgroups as two separate OS processes
+// CONCURRENTLY against the SAME shared Postgres database and the SAME
+// physical users.id sequence. MAX(id) FROM users only reflects rows that
+// currently exist, and a test's own t.Cleanup deletes its users row (but,
+// by both packages' existing convention, never the chat_group_members /
+// chat_group_messages rows that referenced it — those are cleaned up by
+// group id, separately, and can legitimately still be in use by a
+// still-running test in the OTHER process). So at any instant, MAX(id)
+// can read back LOWER than ids the other process has already issued and
+// is still actively using: this process would then compute
+// GREATEST(that stale low max, chatGroupUserIDFloor) and setval the
+// shared sequence BACKWARD, and a subsequent nextval() here would reissue
+// a number the other process's still-live row already holds — corrupting
+// an unrelated test's data (observed as TestChatGroupList_ReturnsCallersGroups
+// suddenly seeing an extra, foreign group, because its "fresh" donor id
+// collided with another process's real, currently-a-member user).
+//
+// Reading the SEQUENCE's own last_value instead of the TABLE's MAX(id)
+// avoids this: last_value only ever moves forward (via nextval/setval),
+// never backward from a concurrent DELETE, so GREATEST(last_value, floor)
+// can never retreat the sequence below where either process has already
+// pushed it — regardless of how the two processes interleave.
+func raiseChatGroupUserIDFloor(t *testing.T, pool *pgxpool.Pool) {
+	t.Helper()
+	raiseChatGroupUserIDFloorOnce.Do(func() {
+		if _, err := pool.Exec(context.Background(), `
+			SELECT setval(
+				pg_get_serial_sequence('users', 'id'),
+				GREATEST(
+					(SELECT last_value FROM pg_sequences
+					  WHERE schemaname || '.' || sequencename = pg_get_serial_sequence('users', 'id')),
+					(SELECT COALESCE(MAX(id), 0) FROM users),
+					$1
+				))`,
+			chatGroupUserIDFloor,
+		); err != nil {
+			t.Fatalf("raise test user id floor: %v", err)
+		}
+	})
 }
 
 var chatGroupUserSeq int
@@ -591,26 +660,59 @@ func TestAdminContactBlocks_ListsRecordedAttempts(t *testing.T) {
 	}
 }
 
+// lookUpUserPhone reads back the phone number makeChatGroupUser /
+// makeChatGroupStaffUser seeded for userID, so a test can assert that
+// number never leaks — a phone number is exactly the kind of leak-through-
+// an-unanticipated-field the raw-string sweep in
+// TestChatGroupMessages_HTTPResponseNeverLeaksRealIdentity exists to catch.
+func lookUpUserPhone(t *testing.T, pool *pgxpool.Pool, userID int64) string {
+	t.Helper()
+	var phone string
+	if err := pool.QueryRow(context.Background(),
+		`SELECT phone FROM users WHERE id = $1`, userID).Scan(&phone); err != nil {
+		t.Fatalf("look up phone for user %d: %v", userID, err)
+	}
+	return phone
+}
+
 // TestChatGroupMessages_HTTPResponseNeverLeaksRealIdentity is the single
 // highest-priority test for this phase (design spec §7): it proves, at the
 // HTTP layer, that Phase 1's structural masking guarantee survives the trip
 // through gin.Context.JSON. It searches the RAW response body string, not
 // just the typed fields a hand-picked assertion might miss.
+//
+// The group has THREE senders — a donor, a beneficiary reading the
+// response, and a real staff-tier MEMBER (not just the group's
+// created_by_staff_id, which is never itself a member and never posts —
+// see makeChatGroupStaffUser's doc comment) — so both masking branches
+// ListMessagesForMember's SQL implements are exercised: a member's message
+// collapses to their masked_label ("Donor 1"), and a staff member's
+// message collapses to the fixed "Support" label, never the staff
+// member's own real name or id.
 func TestChatGroupMessages_HTTPResponseNeverLeaksRealIdentity(t *testing.T) {
 	pool := newChatGroupPool(t)
 	r, _ := newWriteChatGroupRouter(pool)
-	staff := makeChatGroupUser(t, pool, "Staff Real Name")
+	staff := makeChatGroupStaffUser(t, pool, "Staff Real Name", "supervisor")
 	donor := makeChatGroupUser(t, pool, "Donor Secret Real Name")
 	beneficiary := makeChatGroupUser(t, pool, "Beneficiary Secret Real Name")
 	groupID := makeChatGroup(t, pool, staff, chatgroups.KindMasked, []chatgroups.MemberInput{
 		{UserID: donor, RoleInGroup: "donor"},
 		{UserID: beneficiary, RoleInGroup: "beneficiary"},
+		{UserID: staff, RoleInGroup: "staff"},
 	})
+	donorPhone := lookUpUserPhone(t, pool, donor)
+	beneficiaryPhone := lookUpUserPhone(t, pool, beneficiary)
+	staffPhone := lookUpUserPhone(t, pool, staff)
 	donorToken := tokenForChatGroupUser(t, pool, donor)
+	staffToken := tokenForChatGroupUser(t, pool, staff)
 
 	if code, body := postAs(t, r, donorToken, fmt.Sprintf("/api/chat-groups/%d/messages", groupID),
 		map[string]string{"body": "hello from the donor side"}); code != http.StatusOK {
-		t.Fatalf("seed message: status = %d (body %v)", code, body)
+		t.Fatalf("seed donor message: status = %d (body %v)", code, body)
+	}
+	if code, body := postAs(t, r, staffToken, fmt.Sprintf("/api/chat-groups/%d/messages", groupID),
+		map[string]string{"body": "hello from the case worker"}); code != http.StatusOK {
+		t.Fatalf("seed staff message: status = %d (body %v)", code, body)
 	}
 
 	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/chat-groups/%d/messages", groupID), nil)
@@ -628,6 +730,9 @@ func TestChatGroupMessages_HTTPResponseNeverLeaksRealIdentity(t *testing.T) {
 		"Staff Real Name",
 		fmt.Sprintf("%d", donor),
 		fmt.Sprintf("%d", staff),
+		donorPhone,
+		beneficiaryPhone,
+		staffPhone,
 	}
 	for _, needle := range forbidden {
 		if strings.Contains(raw, needle) {
@@ -636,5 +741,8 @@ func TestChatGroupMessages_HTTPResponseNeverLeaksRealIdentity(t *testing.T) {
 	}
 	if !strings.Contains(raw, "Donor 1") {
 		t.Fatalf("expected the donor's masked label \"Donor 1\" somewhere in the response: %s", raw)
+	}
+	if !strings.Contains(raw, "Support") {
+		t.Fatalf("expected the staff member's message to carry the fixed \"Support\" label somewhere in the response: %s", raw)
 	}
 }
