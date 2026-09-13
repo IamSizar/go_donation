@@ -197,7 +197,7 @@ func trashChatThread(c *gin.Context, pool *pgxpool.Pool, sys chatlifecycle.Syste
 	for _, child := range sys.ChildTables() {
 		var rows []byte
 		if err := tx.QueryRow(ctx,
-			"SELECT COALESCE(jsonb_agg(to_jsonb(x.*)), '[]'::jsonb) FROM "+child+" x WHERE x.thread_id = $1",
+			"SELECT COALESCE(jsonb_agg(to_jsonb(x.*)), '[]'::jsonb) FROM "+child+" x WHERE x."+sys.ChildIDColumn+" = $1",
 			id).Scan(&rows); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false,
 				"error": "Could not snapshot this chat's messages: " + err.Error()})

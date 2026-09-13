@@ -169,6 +169,36 @@ func seedCaseChat(t *testing.T, pool *pgxpool.Pool) chatFixture {
 		fmt.Sprintf("/api/case-chats/%d/messages", id)}
 }
 
+func seedGroupChat(t *testing.T, pool *pgxpool.Pool) chatFixture {
+	t.Helper()
+	ctx := context.Background()
+	member := makeLifecycleUser(t, pool, "user")
+	staff := makeLifecycleUser(t, pool, "employee")
+	var id, memberRowID int64
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO chat_group_threads (kind, created_by_staff_id) VALUES ('masked', $1) RETURNING id`,
+		staff).Scan(&id); err != nil {
+		t.Fatalf("insert chat group thread: %v", err)
+	}
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO chat_group_members (group_id, user_id, role_in_group, masked, masked_label, added_by_staff_id)
+		 VALUES ($1, $2, 'donor', true, 'Donor 1', $3) RETURNING id`,
+		id, member, staff).Scan(&memberRowID); err != nil {
+		t.Fatalf("insert chat group member: %v", err)
+	}
+	t.Cleanup(func() {
+		ctx := context.Background()
+		_, _ = pool.Exec(ctx, `DELETE FROM chat_group_contact_blocks WHERE group_id = $1`, id)
+		_, _ = pool.Exec(ctx, `DELETE FROM chat_group_reads WHERE group_id = $1`, id)
+		_, _ = pool.Exec(ctx, `DELETE FROM chat_group_messages WHERE group_id = $1`, id)
+		_, _ = pool.Exec(ctx, `DELETE FROM trash_items WHERE source_table = 'chat_group_threads' AND row_id = $1`, id)
+		_, _ = pool.Exec(ctx, `DELETE FROM chat_group_members WHERE group_id = $1`, id)
+		_, _ = pool.Exec(ctx, `DELETE FROM chat_group_threads WHERE id = $1`, id)
+	})
+	return chatFixture{chatlifecycle.KindGroup, "chat_group_threads", "chat_group_messages", id, member,
+		fmt.Sprintf("/api/chat-groups/%d/messages", id)}
+}
+
 // ─── The router, wired exactly as main.go wires it ──────────────────────
 
 // newLifecycleRouter mounts every send route plus the staff-only lifecycle
@@ -213,12 +243,22 @@ func newLifecycleRouter(pool *pgxpool.Pool) *gin.Engine {
 	return r
 }
 
-// allFixtures seeds one thread in each of the four systems.
+// allFixtures seeds one thread in each of the five systems.
+//
+// NOTE: seedGroupChat's SendPath (POST /api/chat-groups/:id/messages) is not
+// yet registered in newLifecycleRouter above — that route belongs to
+// ChatGroupHandler, which does not exist until Task 9 of the chat-groups
+// phase-2 plan. Until then, every table-driven test in chat_lifecycle_test.go
+// that exercises SendPath will see its "group" subtest fail with a 404. That
+// is the documented, expected state for this task (see task-1-brief.md Step
+// 3) — not a regression in the four pre-existing systems, which this task
+// changed no behavior for.
 func allFixtures(t *testing.T, pool *pgxpool.Pool) []chatFixture {
 	return []chatFixture{
 		seedDonorChat(t, pool),
 		seedMarriageChat(t, pool),
 		seedStaffChat(t, pool),
 		seedCaseChat(t, pool),
+		seedGroupChat(t, pool),
 	}
 }

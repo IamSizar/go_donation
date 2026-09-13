@@ -87,6 +87,7 @@ const (
 	KindMarriage Kind = "marriage" // marriage_chat_threads (058)
 	KindStaff    Kind = "staff"    // staff_chat_threads (059)
 	KindCase     Kind = "case"     // case_volunteer_chat_threads (061)
+	KindGroup    Kind = "group"    // chat_group_threads (120)
 )
 
 // System describes one chat system's tables. Every string in here is a
@@ -105,6 +106,12 @@ type System struct {
 	// ExtraChildTables are further cascade children to preserve. Only the
 	// donor chat has one today (the K19 blocked-contact supervision log).
 	ExtraChildTables []string
+	// ChildIDColumn is the foreign-key column name every child table (message,
+	// read, and extra tables) uses to reference ThreadTable's id. Every system
+	// through chat groups used "thread_id"; chat groups uses "group_id"
+	// instead, so this is a per-system value rather than a hardcoded literal
+	// in the trash/restore snapshot query.
+	ChildIDColumn string
 }
 
 // systems is the whitelist. A Kind that is not a key here is refused before
@@ -119,24 +126,40 @@ var systems = map[Kind]System{
 		// cascades from the thread, so it has to travel with it or a restored
 		// thread would quietly lose its moderation history.
 		ExtraChildTables: []string{"chat_contact_blocks"},
+		ChildIDColumn:    "thread_id",
 	},
 	KindMarriage: {
-		Kind:         KindMarriage,
-		ThreadTable:  "marriage_chat_threads",
-		MessageTable: "marriage_chat_messages",
-		ReadTable:    "marriage_chat_reads",
+		Kind:          KindMarriage,
+		ThreadTable:   "marriage_chat_threads",
+		MessageTable:  "marriage_chat_messages",
+		ReadTable:     "marriage_chat_reads",
+		ChildIDColumn: "thread_id",
 	},
 	KindStaff: {
-		Kind:         KindStaff,
-		ThreadTable:  "staff_chat_threads",
-		MessageTable: "staff_chat_messages",
-		ReadTable:    "staff_chat_reads",
+		Kind:          KindStaff,
+		ThreadTable:   "staff_chat_threads",
+		MessageTable:  "staff_chat_messages",
+		ReadTable:     "staff_chat_reads",
+		ChildIDColumn: "thread_id",
 	},
 	KindCase: {
-		Kind:         KindCase,
-		ThreadTable:  "case_volunteer_chat_threads",
-		MessageTable: "case_volunteer_chat_messages",
-		ReadTable:    "case_volunteer_chat_reads",
+		Kind:          KindCase,
+		ThreadTable:   "case_volunteer_chat_threads",
+		MessageTable:  "case_volunteer_chat_messages",
+		ReadTable:     "case_volunteer_chat_reads",
+		ChildIDColumn: "thread_id",
+	},
+	KindGroup: {
+		Kind:         KindGroup,
+		ThreadTable:  "chat_group_threads",
+		MessageTable: "chat_group_messages",
+		ReadTable:    "chat_group_reads",
+		// The masked-group contact-block log (mirrors chat_contact_blocks)
+		// and the staff-only context note both cascade from the group, so
+		// they travel with it through trash/restore just like the donor
+		// chat's extra table does.
+		ExtraChildTables: []string{"chat_group_contact_blocks", "chat_group_staff_notes"},
+		ChildIDColumn:    "group_id",
 	},
 }
 
@@ -148,10 +171,10 @@ func Lookup(k Kind) (System, bool) {
 }
 
 // Systems returns every registered system, for callers that must act on all
-// four (the dashboard's kind list, tests that assert full coverage).
+// five (the dashboard's kind list, tests that assert full coverage).
 func Systems() []System {
 	// Fixed order so a test or a UI listing is stable rather than map-random.
-	return []System{systems[KindDonor], systems[KindMarriage], systems[KindStaff], systems[KindCase]}
+	return []System{systems[KindDonor], systems[KindMarriage], systems[KindStaff], systems[KindCase], systems[KindGroup]}
 }
 
 // ChildTables lists every FK child whose rows must survive a trash/restore.
