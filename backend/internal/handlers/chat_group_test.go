@@ -410,3 +410,106 @@ func newWriteChatGroupRouter(pool *pgxpool.Pool) (*gin.Engine, *ChatGroupHandler
 	participant.POST("/chat-groups/:id/read", auth.RequireNotGuest(), h.MarkRead)
 	return r, h
 }
+
+func newAdminChatGroupRouter(pool *pgxpool.Pool) (*gin.Engine, *ChatGroupHandler) {
+	gin.SetMode(gin.TestMode)
+	h := NewChatGroupHandler(chatgroups.New(pool), notify.New(pool), permissions.New(pool), pool)
+	r := gin.New()
+	admin := r.Group("/api", auth.RequireAdmin(auth.NewTokenStore(pool)))
+	admin.GET("/admin/chat-groups", h.AdminList)
+	admin.POST("/admin/chat-groups", h.AdminCreateGroup)
+	admin.GET("/admin/chat-groups/:id", h.AdminGetGroup)
+	admin.POST("/admin/chat-groups/:id/members", h.AdminAddMember)
+	admin.DELETE("/admin/chat-groups/:id/members/:userId", h.AdminRemoveMember)
+	return r, h
+}
+
+func tokenForStaffUser(t *testing.T, pool *pgxpool.Pool, userID int64) string {
+	t.Helper()
+	if _, err := pool.Exec(context.Background(),
+		`UPDATE users SET staff_tier = 'admin' WHERE id = $1`, userID); err != nil {
+		t.Fatalf("promote to staff: %v", err)
+	}
+	return tokenForChatGroupUser(t, pool, userID)
+}
+
+func TestAdminCreateGroup_CreatesMaskedGroup(t *testing.T) {
+	pool := newChatGroupPool(t)
+	r, _ := newAdminChatGroupRouter(pool)
+	staff := makeChatGroupUser(t, pool, "Staff")
+	donor := makeChatGroupUser(t, pool, "Donor Name")
+	token := tokenForStaffUser(t, pool, staff)
+
+	code, body := postAs(t, r, token, "/api/admin/chat-groups", map[string]any{
+		"kind": "masked",
+		"members": []map[string]any{
+			{"user_id": donor, "role_in_group": "donor"},
+		},
+	})
+
+	if code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (body %v)", code, body)
+	}
+	groupIDF, ok := body["group_id"].(float64)
+	if !ok || groupIDF <= 0 {
+		t.Fatalf("group_id missing or invalid: %v", body)
+	}
+	t.Cleanup(func() {
+		ctx := context.Background()
+		id := int64(groupIDF)
+		_, _ = pool.Exec(ctx, `DELETE FROM chat_group_members WHERE group_id = $1`, id)
+		_, _ = pool.Exec(ctx, `DELETE FROM chat_group_threads WHERE id = $1`, id)
+	})
+}
+
+func TestAdminCreateGroup_RejectsInvalidKind(t *testing.T) {
+	pool := newChatGroupPool(t)
+	r, _ := newAdminChatGroupRouter(pool)
+	staff := makeChatGroupUser(t, pool, "Staff")
+	donor := makeChatGroupUser(t, pool, "Donor Name")
+	token := tokenForStaffUser(t, pool, staff)
+
+	code, body := postAs(t, r, token, "/api/admin/chat-groups", map[string]any{
+		"kind":    "bogus",
+		"members": []map[string]any{{"user_id": donor, "role_in_group": "donor"}},
+	})
+
+	if code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400 (body %v)", code, body)
+	}
+}
+
+func TestAdminAddMemberAndRemoveMember(t *testing.T) {
+	pool := newChatGroupPool(t)
+	r, _ := newAdminChatGroupRouter(pool)
+	staff := makeChatGroupUser(t, pool, "Staff")
+	donor := makeChatGroupUser(t, pool, "Donor Name")
+	beneficiary := makeChatGroupUser(t, pool, "Beneficiary Name")
+	groupID := makeChatGroup(t, pool, staff, chatgroups.KindMasked, []chatgroups.MemberInput{{UserID: donor, RoleInGroup: "donor"}})
+	token := tokenForStaffUser(t, pool, staff)
+
+	code, body := postAs(t, r, token, fmt.Sprintf("/api/admin/chat-groups/%d/members", groupID),
+		map[string]any{"user_id": beneficiary, "role_in_group": "beneficiary"})
+	if code != http.StatusOK {
+		t.Fatalf("add member: status = %d, want 200 (body %v)", code, body)
+	}
+
+	getCode, getBody := getAs(t, r, token, fmt.Sprintf("/api/admin/chat-groups/%d", groupID))
+	if getCode != http.StatusOK {
+		t.Fatalf("get group: status = %d, want 200 (body %v)", getCode, getBody)
+	}
+	group, _ := getBody["group"].(map[string]any)
+	members, _ := group["members"].([]any)
+	if len(members) != 2 {
+		t.Fatalf("got %d members after add, want 2", len(members))
+	}
+
+	req := httptest.NewRequest(http.MethodDelete,
+		fmt.Sprintf("/api/admin/chat-groups/%d/members/%d", groupID, beneficiary), nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("remove member: status = %d, want 200 (body %s)", w.Code, w.Body.String())
+	}
+}
