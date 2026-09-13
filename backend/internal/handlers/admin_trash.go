@@ -112,6 +112,7 @@ var restorableTables = map[string]bool{
 	"marriage_chat_threads":       true,
 	"staff_chat_threads":          true,
 	"case_volunteer_chat_threads": true,
+	"chat_group_threads":          true,
 }
 
 // List returns everything currently in the trash (not yet restored), newest

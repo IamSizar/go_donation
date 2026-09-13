@@ -158,7 +158,7 @@ func TestChatLifecycle_DeleteTrashesAndRestoreBringsBackMessages(t *testing.T) {
 			t.Fatalf("seed message %q: status %d body %v", text, code, body)
 		}
 	}
-	if n := countRows(t, pool, "chat_messages", f.ThreadID); n != 2 {
+	if n := countRows(t, pool, "chat_messages", "thread_id", f.ThreadID); n != 2 {
 		t.Fatalf("seeded %d messages, want 2", n)
 	}
 
@@ -168,7 +168,7 @@ func TestChatLifecycle_DeleteTrashesAndRestoreBringsBackMessages(t *testing.T) {
 	}
 
 	// Gone from the live tables — the cascade took the messages with it.
-	if n := countRows(t, pool, "chat_messages", f.ThreadID); n != 0 {
+	if n := countRows(t, pool, "chat_messages", "thread_id", f.ThreadID); n != 0 {
 		t.Fatalf("chat_messages = %d after delete, want 0", n)
 	}
 	// …and present in the Trash.
@@ -186,11 +186,11 @@ func TestChatLifecycle_DeleteTrashesAndRestoreBringsBackMessages(t *testing.T) {
 		t.Fatalf("thread was not restored: %v", err)
 	}
 	// THE assertion.
-	if n := countRows(t, pool, "chat_messages", f.ThreadID); n != 2 {
+	if n := countRows(t, pool, "chat_messages", "thread_id", f.ThreadID); n != 2 {
 		t.Fatalf("restored thread has %d messages, want 2 — a thread without its history is not a restore", n)
 	}
 	// The read cursors came back too, so unread badges are not silently reset.
-	if n := countRows(t, pool, "chat_reads", f.ThreadID); n == 0 {
+	if n := countRows(t, pool, "chat_reads", "thread_id", f.ThreadID); n == 0 {
 		t.Fatalf("chat_reads did not survive the round trip")
 	}
 }
