@@ -192,6 +192,19 @@ func Systems() []System {
 	return []System{systems[KindDonor], systems[KindMarriage], systems[KindStaff], systems[KindGroup]}
 }
 
+// AllSystems returns every registered chat system, including ones retired
+// from active use (e.g. KindCase after OPOS #25284 Phase 4) — unlike
+// Systems(), which returns only the actively-iterated subset. Use this for
+// lookups that must still resolve historical/retired data (e.g. restoring a
+// trashed thread row), never for UI listings of "chat systems in active use".
+func AllSystems() []System {
+	out := make([]System, 0, len(systems))
+	for _, sys := range systems {
+		out = append(out, sys)
+	}
+	return out
+}
+
 // ChildTables lists every FK child whose rows must survive a trash/restore.
 func (s System) ChildTables() []string {
 	out := []string{s.MessageTable, s.ReadTable}

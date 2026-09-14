@@ -1770,51 +1770,6 @@ func MarriageChatNewMessageMsg(threadID int64) LocalizedMessage {
 	}
 }
 
-// ===== Staff↔Volunteer↔Beneficiary chat (Note #36, part 3) =====
-
-// CaseVolunteerChatOpenedMsg tells the volunteer and beneficiary a 3-way
-// chat is now open — fires once, when a case-linked signup becomes eligible.
-func CaseVolunteerChatOpenedMsg(threadID int64) LocalizedMessage {
-	return LocalizedMessage{
-		Type:              "case_volunteer_chat_opened",
-		RelatedEntityType: "case_volunteer_chat_thread",
-		RelatedEntityID:   threadID,
-		Title: LocalText{
-			En:  "Chat opened",
-			Ar:  "تم فتح محادثة",
-			Ckb: "گفتوگۆ کرایەوە",
-			Kmr: "Axaftin hate vekirin",
-		},
-		Body: LocalText{
-			En:  "You can now message about this case, with staff able to help.",
-			Ar:  "يمكنك الآن مراسلة الطرف الآخر بخصوص هذه الحالة، والموظفون يمكنهم المساعدة.",
-			Ckb: "ئێستا دەتوانیت دەربارەی ئەم دۆسیەیە نامە بنێریت، کارمەندانیش دەتوانن یارمەتی بدەن.",
-			Kmr: "Niha tu dikarî derbarê vê dosyeyê de peyaman bişînî, karmend jî dikarin arîkarî bikin.",
-		},
-	}
-}
-
-// CaseVolunteerChatNewMessageMsg notifies the other party of a new message.
-func CaseVolunteerChatNewMessageMsg(preview string, threadID int64) LocalizedMessage {
-	return LocalizedMessage{
-		Type:              "case_volunteer_chat_message",
-		RelatedEntityType: "case_volunteer_chat_thread",
-		RelatedEntityID:   threadID,
-		Title: LocalText{
-			En:  "New message",
-			Ar:  "رسالة جديدة",
-			Ckb: "نامەیەکی نوێ",
-			Kmr: "Peyameke nû",
-		},
-		Body: LocalText{
-			En:  preview,
-			Ar:  preview,
-			Ckb: preview,
-			Kmr: preview,
-		},
-	}
-}
-
 // ===== Internal staff chat (Note #36) =====
 
 // StaffChatNewMessageMsg notifies a staff member of a new internal message
