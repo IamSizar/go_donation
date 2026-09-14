@@ -43,8 +43,19 @@ Future<void> _settle(WidgetTester tester) async {
   }
 }
 
+/// What the root screen under the host says, so a test can tell whether the
+/// host was popped off and uncovered it.
+const _rootText = 'root screen';
+
+/// Long enough for a dismissal to start the sheet's ~200 ms exit animation,
+/// short enough that the sheet's state is still mounted.
+const _insideExitAnimation = Duration(milliseconds: 50);
+
 /// Opens the sheet the way a member does: by tapping the entry-point button
 /// for donation [_contextId], on a screen that has a Scaffold to confirm on.
+///
+/// The host is PUSHED over a root screen, as a real detail screen is, so a
+/// stray pop has a route to wrongly remove and a test can see it happen.
 Future<void> _openSheet(
   WidgetTester tester,
   FakeChatGroupsApi api, {
@@ -56,17 +67,27 @@ Future<void> _openSheet(
       theme: AppThemeConfig.buildTheme(Brightness.light),
       translations: AppTranslations(),
       locale: locale,
-      home: Scaffold(
-        body: Center(
-          child: ConnectRequestButton(
-            contextType: kConnectContextDonation,
-            contextId: _contextId,
-            api: api,
-          ),
-        ),
-      ),
+      home: const Scaffold(body: Center(child: Text(_rootText))),
     ),
   );
+  unawaited(
+    tester
+        .state<NavigatorState>(find.byType(Navigator).first)
+        .push(
+          MaterialPageRoute<void>(
+            builder: (_) => Scaffold(
+              body: Center(
+                child: ConnectRequestButton(
+                  contextType: kConnectContextDonation,
+                  contextId: _contextId,
+                  api: api,
+                ),
+              ),
+            ),
+          ),
+        ),
+  );
+  await _settle(tester);
   await tester.tap(find.byType(ConnectRequestButton));
   await _settle(tester);
 }
@@ -164,6 +185,38 @@ void main() {
     await _settle(tester);
 
     expect(api.submittedConnectRequests, hasLength(1));
+    expect(find.text(en['connect_request_sent']!), findsOneWidget);
+    await _close(tester);
+  });
+
+  testWidgets('an answer landing as the sheet closes never pops the screen '
+      'underneath', (tester) async {
+    final gate = Completer<void>();
+    final api = FakeChatGroupsApi()..submitGate = gate;
+    await _openSheet(tester, api);
+
+    await tester.enterText(find.byType(TextField), 'Please connect me.');
+    await tester.tap(find.byKey(_submit));
+    await tester.pump();
+
+    // The member taps the barrier while it is sending, and the answer lands
+    // during the exit animation — while the sheet's state is still mounted.
+    await tester.tapAt(const Offset(AppSpace.lg, AppSpace.lg));
+    await tester.pump();
+    await tester.pump(_insideExitAnimation);
+    expect(find.byType(ConnectRequestSheet), findsOneWidget);
+
+    gate.complete();
+    await _settle(tester);
+
+    expect(find.byType(ConnectRequestSheet), findsNothing);
+    expect(
+      find.byType(ConnectRequestButton),
+      findsOneWidget,
+      reason: 'the host screen under the sheet was popped',
+    );
+    expect(find.text(_rootText), findsNothing);
+    // The sheet was gone before the answer, so the toast is the confirmation.
     expect(find.text(en['connect_request_sent']!), findsOneWidget);
     await _close(tester);
   });

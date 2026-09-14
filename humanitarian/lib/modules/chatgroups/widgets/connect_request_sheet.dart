@@ -198,9 +198,16 @@ class _ConnectRequestSheetState extends State<ConnectRequestSheet> {
       return;
     }
     AppHaptics.success();
-    if (mounted) Navigator.of(context).pop();
+    if (_isCurrentRoute) Navigator.of(context).pop();
     onSent();
   }
+
+  /// True while this sheet is still the route on top — false once the member
+  /// has dismissed it, even though its state stays mounted for the ~200 ms
+  /// exit animation. `mounted` alone is not enough: popping then would remove
+  /// the screen or sheet UNDERNEATH instead.
+  bool get _isCurrentRoute =>
+      mounted && (ModalRoute.of(context)?.isCurrent ?? true);
 
   /// Logs [error] for support and shows the member a localized sentence
   /// instead. The typed text stays, and the button is usable again.
