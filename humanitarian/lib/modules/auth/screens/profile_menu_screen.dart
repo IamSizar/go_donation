@@ -12,6 +12,7 @@ import 'package:flutter_application_1/modules/auth/screens/task_verification_scr
 import 'package:flutter_application_1/modules/community/screens/community_services_section.dart';
 import 'package:flutter_application_1/modules/dashboard/screens/games_screen.dart';
 import 'package:flutter_application_1/modules/legal/screens/content_page_screen.dart';
+import 'package:flutter_application_1/modules/proposal/screens/news_activities_screen.dart';
 import 'package:flutter_application_1/modules/proposal/screens/our_work_screen.dart';
 import 'package:flutter_application_1/modules/proposal/screens/partners_screen.dart';
 import 'package:flutter_application_1/modules/proposal/screens/saved_posts_screen.dart';
@@ -169,6 +170,22 @@ class ProfileMenuScreen extends StatelessWidget {
                 icon: Icons.receipt_long_rounded,
                 label: 'receipts_title',
                 onTap: () => Get.to(() => const AidReceiptsScreen()),
+              ),
+            ],
+          ),
+
+          // OPOS #25869 — the general news/activities feed used to be
+          // embedded directly on the Marriage hub screen (removed per OPOS
+          // #25858, since it mixed humanitarian posts into a section-specific
+          // screen). Here it's a single door instead, matching this screen's
+          // own icon-tile idiom rather than a bespoke embedded feed.
+          const MenuSectionLabel('News'),
+          MenuGrid(
+            items: [
+              MenuGridItem(
+                icon: Icons.campaign_outlined,
+                label: 'News and activities',
+                onTap: () => Get.to(() => const NewsActivitiesScreen()),
               ),
             ],
           ),

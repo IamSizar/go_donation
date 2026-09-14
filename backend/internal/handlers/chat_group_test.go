@@ -617,6 +617,129 @@ func TestAdminAddMemberAndRemoveMember(t *testing.T) {
 	}
 }
 
+// auditRow reads back one chat_group_audit_log row for (groupID, action),
+// used by the three OPOS #25634 tests below to prove each admin handler
+// actually wrote its audit row — not just that the handler returned 200.
+func auditRow(t *testing.T, pool *pgxpool.Pool, groupID int64, action string) (actorStaffID int64, targetUserID *int64) {
+	t.Helper()
+	if err := pool.QueryRow(context.Background(),
+		`SELECT actor_staff_id, target_user_id FROM chat_group_audit_log WHERE group_id = $1 AND action = $2`,
+		groupID, action,
+	).Scan(&actorStaffID, &targetUserID); err != nil {
+		t.Fatalf("query audit row (group %d, action %q): %v", groupID, action, err)
+	}
+	return actorStaffID, targetUserID
+}
+
+// TestAdminCreateGroup_RecordsAuditRow is OPOS #25634's acceptance test for
+// AdminCreateGroup: creating a group via the admin route must write a
+// chat_group_audit_log row with action='created' for the new group, with no
+// target user (group creation has no single target member).
+func TestAdminCreateGroup_RecordsAuditRow(t *testing.T) {
+	pool := newChatGroupPool(t)
+	r, _ := newAdminChatGroupRouter(pool)
+	staff := makeChatGroupUser(t, pool, "Staff")
+	donor := makeChatGroupUser(t, pool, "Donor Name")
+	token := tokenForStaffUser(t, pool, staff)
+
+	code, body := postAs(t, r, token, "/api/admin/chat-groups", map[string]any{
+		"kind": "masked",
+		"members": []map[string]any{
+			{"user_id": donor, "role_in_group": "donor"},
+		},
+	})
+	if code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (body %v)", code, body)
+	}
+	groupIDF, ok := body["group_id"].(float64)
+	if !ok || groupIDF <= 0 {
+		t.Fatalf("group_id missing or invalid: %v", body)
+	}
+	groupID := int64(groupIDF)
+	t.Cleanup(func() {
+		ctx := context.Background()
+		_, _ = pool.Exec(ctx, `DELETE FROM chat_group_audit_log WHERE group_id = $1`, groupID)
+		_, _ = pool.Exec(ctx, `DELETE FROM chat_group_members WHERE group_id = $1`, groupID)
+		_, _ = pool.Exec(ctx, `DELETE FROM chat_group_threads WHERE id = $1`, groupID)
+	})
+
+	actorStaffID, targetUserID := auditRow(t, pool, groupID, "created")
+	if actorStaffID != staff {
+		t.Fatalf("actor_staff_id = %d, want %d", actorStaffID, staff)
+	}
+	if targetUserID != nil {
+		t.Fatalf("target_user_id = %v, want nil for a 'created' action", *targetUserID)
+	}
+}
+
+// TestAdminAddMember_RecordsAuditRow is OPOS #25634's acceptance test for
+// AdminAddMember: adding a member via the admin route must write a
+// chat_group_audit_log row with action='member_added' and target_user_id
+// set to the member who was added.
+func TestAdminAddMember_RecordsAuditRow(t *testing.T) {
+	pool := newChatGroupPool(t)
+	r, _ := newAdminChatGroupRouter(pool)
+	staff := makeChatGroupUser(t, pool, "Staff")
+	donor := makeChatGroupUser(t, pool, "Donor Name")
+	beneficiary := makeChatGroupUser(t, pool, "Beneficiary Name")
+	groupID := makeChatGroup(t, pool, staff, chatgroups.KindMasked, []chatgroups.MemberInput{{UserID: donor, RoleInGroup: "donor"}})
+	token := tokenForStaffUser(t, pool, staff)
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `DELETE FROM chat_group_audit_log WHERE group_id = $1`, groupID)
+	})
+
+	code, body := postAs(t, r, token, fmt.Sprintf("/api/admin/chat-groups/%d/members", groupID),
+		map[string]any{"user_id": beneficiary, "role_in_group": "beneficiary"})
+	if code != http.StatusOK {
+		t.Fatalf("add member: status = %d, want 200 (body %v)", code, body)
+	}
+
+	actorStaffID, targetUserID := auditRow(t, pool, groupID, "member_added")
+	if actorStaffID != staff {
+		t.Fatalf("actor_staff_id = %d, want %d", actorStaffID, staff)
+	}
+	if targetUserID == nil || *targetUserID != beneficiary {
+		t.Fatalf("target_user_id = %v, want %d", targetUserID, beneficiary)
+	}
+}
+
+// TestAdminRemoveMember_RecordsAuditRow is OPOS #25634's acceptance test for
+// AdminRemoveMember: removing a member via the admin route must write a
+// chat_group_audit_log row with action='member_removed' and target_user_id
+// set to the member who was removed.
+func TestAdminRemoveMember_RecordsAuditRow(t *testing.T) {
+	pool := newChatGroupPool(t)
+	r, _ := newAdminChatGroupRouter(pool)
+	staff := makeChatGroupUser(t, pool, "Staff")
+	donor := makeChatGroupUser(t, pool, "Donor Name")
+	beneficiary := makeChatGroupUser(t, pool, "Beneficiary Name")
+	groupID := makeChatGroup(t, pool, staff, chatgroups.KindMasked, []chatgroups.MemberInput{
+		{UserID: donor, RoleInGroup: "donor"},
+		{UserID: beneficiary, RoleInGroup: "beneficiary"},
+	})
+	token := tokenForStaffUser(t, pool, staff)
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `DELETE FROM chat_group_audit_log WHERE group_id = $1`, groupID)
+	})
+
+	req := httptest.NewRequest(http.MethodDelete,
+		fmt.Sprintf("/api/admin/chat-groups/%d/members/%d", groupID, beneficiary), nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("remove member: status = %d, want 200 (body %s)", w.Code, w.Body.String())
+	}
+
+	actorStaffID, targetUserID := auditRow(t, pool, groupID, "member_removed")
+	if actorStaffID != staff {
+		t.Fatalf("actor_staff_id = %d, want %d", actorStaffID, staff)
+	}
+	if targetUserID == nil || *targetUserID != beneficiary {
+		t.Fatalf("target_user_id = %v, want %d", targetUserID, beneficiary)
+	}
+}
+
 func newAdminMessagesRouter(pool *pgxpool.Pool) (*gin.Engine, *ChatGroupHandler) {
 	gin.SetMode(gin.TestMode)
 	h := NewChatGroupHandler(chatgroups.New(pool), notify.New(pool), permissions.New(pool), pool)
