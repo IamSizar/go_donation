@@ -352,6 +352,15 @@ const String inKindDonationsUrl = '${baseUrl}in_kind_donations/';
 const String marriageProfilesUrl = '${baseUrl}marriage/';
 // Note #35 — staff-mediated marriage chat.
 const String marriageChatsUrl = '${baseUrl}marriage/chats';
+
+// OPOS #25284 — staff-mediated masked/team group chats.
+const String chatGroupsUrl = '${baseUrl}chat-groups';
+String chatGroupMessagesUrl(int groupId) => '$chatGroupsUrl/$groupId/messages';
+String chatGroupReadUrl(int groupId) => '$chatGroupsUrl/$groupId/read';
+const String connectRequestsUrl = '${baseUrl}chat-groups/connect-requests';
+const String myConnectRequestsUrl =
+    '${baseUrl}chat-groups/connect-requests/mine';
+
 // Note #37 — generic authed photo upload + volunteer self check-in/out.
 const String uploadsUrl = '${baseUrl}uploads';
 // Note #42 — test-phase internal app wallet (IQD).
