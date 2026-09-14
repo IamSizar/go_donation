@@ -884,3 +884,141 @@ func TestMyConnectRequests_NeverExposesStaffIdentity(t *testing.T) {
 		t.Fatalf("expected the decline reason to still be visible to the requester: %s", raw)
 	}
 }
+
+func newAdminConnectRequestRouter(pool *pgxpool.Pool) (*gin.Engine, *ChatGroupHandler) {
+	gin.SetMode(gin.TestMode)
+	h := NewChatGroupHandler(chatgroups.New(pool), notify.New(pool), permissions.New(pool), pool)
+	r := gin.New()
+	admin := r.Group("/api", auth.RequireAdmin(auth.NewTokenStore(pool)))
+	admin.GET("/admin/chat-groups/connect-requests", h.AdminListConnectRequests)
+	admin.GET("/admin/chat-groups/connect-requests/:id", h.AdminGetConnectRequest)
+	admin.POST("/admin/chat-groups/connect-requests/:id/approve", h.AdminApproveConnectRequest)
+	admin.POST("/admin/chat-groups/connect-requests/:id/decline", h.AdminDeclineConnectRequest)
+	return r, h
+}
+
+func TestAdminListConnectRequests_ReturnsAll(t *testing.T) {
+	pool := newChatGroupPool(t)
+	r, _ := newAdminConnectRequestRouter(pool)
+	staff := makeChatGroupUser(t, pool, "Staff")
+	donor := makeChatGroupUser(t, pool, "Donor Name")
+	s := chatgroups.New(pool)
+	if _, err := s.SubmitConnectRequest(context.Background(), donor, "donation", 1, nil, "please"); err != nil {
+		t.Fatalf("submit: %v", err)
+	}
+	token := tokenForStaffUser(t, pool, staff)
+
+	code, body := getAs(t, r, token, "/api/admin/chat-groups/connect-requests")
+
+	if code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (body %v)", code, body)
+	}
+	items, _ := body["items"].([]any)
+	if len(items) != 1 {
+		t.Fatalf("got %d requests, want 1", len(items))
+	}
+}
+
+func TestAdminApproveConnectRequest_CreatesUsableGroup(t *testing.T) {
+	pool := newChatGroupPool(t)
+	adminR, adminH := newAdminConnectRequestRouter(pool)
+	mobileR, _ := newWriteChatGroupRouter(pool)
+	staff := makeChatGroupUser(t, pool, "Staff")
+	donor := makeChatGroupUser(t, pool, "Donor Name")
+	s := chatgroups.New(pool)
+	reqID, err := s.SubmitConnectRequest(context.Background(), donor, "donation", 1, nil, "please connect me")
+	if err != nil {
+		t.Fatalf("submit: %v", err)
+	}
+	token := tokenForStaffUser(t, pool, staff)
+
+	code, body := postAs(t, adminR, token, fmt.Sprintf("/api/admin/chat-groups/connect-requests/%d/approve", reqID),
+		map[string]any{
+			"kind": "masked",
+			"members": []map[string]any{
+				{"user_id": donor, "role_in_group": "donor"},
+			},
+		})
+	if code != http.StatusOK {
+		t.Fatalf("approve: status = %d, want 200 (body %v)", code, body)
+	}
+	groupIDF, ok := body["group_id"].(float64)
+	if !ok || groupIDF <= 0 {
+		t.Fatalf("group_id missing or invalid: %v", body)
+	}
+	groupID := int64(groupIDF)
+	t.Cleanup(func() {
+		ctx := context.Background()
+		_, _ = pool.Exec(ctx, `DELETE FROM chat_group_audit_log WHERE group_id = $1`, groupID)
+		_, _ = pool.Exec(ctx, `DELETE FROM chat_group_reads WHERE group_id = $1`, groupID)
+		_, _ = pool.Exec(ctx, `DELETE FROM chat_group_messages WHERE group_id = $1`, groupID)
+		_, _ = pool.Exec(ctx, `DELETE FROM chat_group_members WHERE group_id = $1`, groupID)
+		_, _ = pool.Exec(ctx, `DELETE FROM chat_group_threads WHERE id = $1`, groupID)
+	})
+
+	// The end-to-end proof: the group is immediately usable by the requester.
+	postCode, postBody := postAs(t, mobileR, tokenForChatGroupUser(t, pool, donor),
+		fmt.Sprintf("/api/chat-groups/%d/messages", groupID), map[string]string{"body": "hello from the approved group"})
+	if postCode != http.StatusOK {
+		t.Fatalf("post as requester: status = %d, want 200 (body %v)", postCode, postBody)
+	}
+	_ = adminH
+}
+
+func TestAdminApproveConnectRequest_RejectsMembersWithoutRequester(t *testing.T) {
+	pool := newChatGroupPool(t)
+	r, _ := newAdminConnectRequestRouter(pool)
+	staff := makeChatGroupUser(t, pool, "Staff")
+	donor := makeChatGroupUser(t, pool, "Donor Name")
+	beneficiary := makeChatGroupUser(t, pool, "Beneficiary Name")
+	s := chatgroups.New(pool)
+	reqID, err := s.SubmitConnectRequest(context.Background(), donor, "donation", 1, nil, "please connect me")
+	if err != nil {
+		t.Fatalf("submit: %v", err)
+	}
+	token := tokenForStaffUser(t, pool, staff)
+
+	code, body := postAs(t, r, token, fmt.Sprintf("/api/admin/chat-groups/connect-requests/%d/approve", reqID),
+		map[string]any{
+			"kind": "masked",
+			"members": []map[string]any{
+				{"user_id": beneficiary, "role_in_group": "beneficiary"},
+			},
+		})
+	if code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400 (body %v)", code, body)
+	}
+}
+
+func TestAdminDeclineConnectRequest_ShowsReasonToRequester(t *testing.T) {
+	pool := newChatGroupPool(t)
+	adminR, _ := newAdminConnectRequestRouter(pool)
+	mobileR, _ := newConnectRequestRouter(pool)
+	staff := makeChatGroupUser(t, pool, "Staff")
+	donor := makeChatGroupUser(t, pool, "Donor Name")
+	s := chatgroups.New(pool)
+	reqID, err := s.SubmitConnectRequest(context.Background(), donor, "donation", 1, nil, "please connect me")
+	if err != nil {
+		t.Fatalf("submit: %v", err)
+	}
+	token := tokenForStaffUser(t, pool, staff)
+
+	code, body := postAs(t, adminR, token, fmt.Sprintf("/api/admin/chat-groups/connect-requests/%d/decline", reqID),
+		map[string]string{"reason": "Not eligible for this campaign."})
+	if code != http.StatusOK {
+		t.Fatalf("decline: status = %d, want 200 (body %v)", code, body)
+	}
+
+	mineCode, mineBody := getAs(t, mobileR, tokenForChatGroupUser(t, pool, donor), "/api/chat-groups/connect-requests/mine")
+	if mineCode != http.StatusOK {
+		t.Fatalf("mine: status = %d (body %v)", mineCode, mineBody)
+	}
+	items, _ := mineBody["items"].([]any)
+	if len(items) != 1 {
+		t.Fatalf("got %d requests, want 1", len(items))
+	}
+	item, _ := items[0].(map[string]any)
+	if item["decline_reason"] != "Not eligible for this campaign." {
+		t.Fatalf("decline_reason = %v, want the staff reason", item["decline_reason"])
+	}
+}
