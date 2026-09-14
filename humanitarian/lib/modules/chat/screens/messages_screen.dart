@@ -9,6 +9,8 @@ import 'package:flutter_application_1/modules/bot/screens/bot_chat_screen.dart';
 import 'package:flutter_application_1/modules/chat/controllers/chat_controller.dart';
 import 'package:flutter_application_1/modules/chat/models/chat_models.dart';
 import 'package:flutter_application_1/modules/chat/screens/chat_conversation_screen.dart';
+import 'package:flutter_application_1/api/guest_session.dart';
+import 'package:flutter_application_1/modules/chatgroups/widgets/chat_groups_section.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -214,6 +216,9 @@ class MessagesScreen extends StatelessWidget {
                   ],
                 ),
               ),
+              // OPOS #25284 — staff-mediated group chats. Last, so nothing in
+              // it can displace the doors above; guests cannot message at all.
+              if (!isGuestMode()) const ChatGroupsSection(),
             ],
           ),
         );

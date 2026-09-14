@@ -478,6 +478,33 @@ class AppTranslations extends Translations {
     // The send button's accessibility label: the button itself is an icon, so
     // a screen reader has nothing else to announce.
     'Send message': 'Send message',
+    // OPOS #25284 Phase 5 Task 4 — the Messages tab's group-chat block and the
+    // My Connect Requests screen. en + ar only; Sorani and Badini fall back to
+    // English until a native speaker translates them (#21431).
+    'chat_groups_my_connect_requests': 'My Connect Requests',
+    'chat_groups_my_connect_requests_desc':
+        'See where the requests you sent to our team stand.',
+    'chat_groups_my_connections': 'My Connections',
+    'chat_groups_my_team_groups': 'My Team Groups',
+    // A masked group's title: its members never see each other's names.
+    'chat_groups_connection_title': 'Connection',
+    // A team group whose title staff left blank.
+    'chat_groups_team_group_title': 'Team group',
+    'chat_groups_no_messages_yet': 'No messages yet',
+    // Read aloud for the unread badge, which on screen is only a number.
+    'chat_groups_unread_count': 'Unread messages: @count',
+    'chat_groups_status_pending': 'Pending',
+    'chat_groups_status_approved': 'Approved',
+    'chat_groups_status_declined': 'Declined',
+    'chat_groups_about_donation': 'About a donation',
+    'chat_groups_about_case': 'About a case',
+    'chat_groups_pending_hint': 'Our team is reviewing your request.',
+    'chat_groups_open_conversation': 'Open the conversation',
+    'chat_groups_decline_reason_label': 'Reason from our team',
+    'chat_groups_requests_empty_title': 'No connect requests yet',
+    'chat_groups_requests_empty_message':
+        'When you ask our team to connect you with someone, your request and '
+        'its status will appear here.',
     'error_privacy_settings_save_failed':
         'Could not save your privacy settings.',
     'error_service_request_failed': 'Could not send your service request.',
@@ -3551,6 +3578,27 @@ class AppTranslations extends Translations {
         'التواصل هنا، واطلب من فريقنا إن احتجت إلى ترتيب وسيلة تواصل.',
     'chat_group_send_closed': 'لم تُرسَل رسالتك لأن هذه المحادثة لم تعد مفتوحة.',
     'Send message': 'إرسال الرسالة',
+    // OPOS #25284 Phase 5 Task 4 — انظر شرح المفاتيح في كتلة الإنجليزية أعلاه.
+    'chat_groups_my_connect_requests': 'طلبات التواصل الخاصة بي',
+    'chat_groups_my_connect_requests_desc':
+        'تابِع حالة الطلبات التي أرسلتها إلى فريقنا.',
+    'chat_groups_my_connections': 'محادثات التواصل',
+    'chat_groups_my_team_groups': 'مجموعات الفريق',
+    'chat_groups_connection_title': 'محادثة تواصل',
+    'chat_groups_team_group_title': 'مجموعة فريق',
+    'chat_groups_no_messages_yet': 'لا توجد رسائل بعد',
+    'chat_groups_unread_count': 'رسائل غير مقروءة: @count',
+    'chat_groups_status_pending': 'قيد المراجعة',
+    'chat_groups_status_approved': 'تمت الموافقة',
+    'chat_groups_status_declined': 'مرفوض',
+    'chat_groups_about_donation': 'بخصوص تبرّع',
+    'chat_groups_about_case': 'بخصوص حالة',
+    'chat_groups_pending_hint': 'يراجع فريقنا طلبك حالياً.',
+    'chat_groups_open_conversation': 'افتح المحادثة',
+    'chat_groups_decline_reason_label': 'السبب من فريقنا',
+    'chat_groups_requests_empty_title': 'لا توجد طلبات تواصل بعد',
+    'chat_groups_requests_empty_message':
+        'عندما تطلب من فريقنا أن يوصلك بشخص ما، سيظهر طلبك وحالته هنا.',
     'error_privacy_settings_save_failed': 'تعذّر حفظ إعدادات الخصوصية.',
     'error_service_request_failed': 'تعذّر إرسال طلب الخدمة.',
     'error_subscription_failed': 'تعذّر إتمام اشتراكك.',
