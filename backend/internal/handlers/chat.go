@@ -172,6 +172,10 @@ func (h *ChatHandler) Request(c *gin.Context) {
 
 	thread, recipient, isNew, err := h.Store.RequestThread(c.Request.Context(), donorID, ownerID, campaignID, user.UserID)
 	if err != nil {
+		if errors.Is(err, chat.ErrDirectChatRetired) {
+			c.JSON(http.StatusGone, gin.H{"success": false, "error": "Direct messaging has been retired. Ask staff to connect you instead."})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
 		return
 	}
