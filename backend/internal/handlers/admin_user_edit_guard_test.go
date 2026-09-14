@@ -290,6 +290,66 @@ func TestUserEditGuardAllowsLegitimateEdits(t *testing.T) {
 		}
 	})
 
+	t.Run("editing a phone to one already on another account is refused, not written", func(t *testing.T) {
+		actor := insertAccount(t, pool, "employee", "")
+		taken := insertAccount(t, pool, "user", "")
+		target := insertAccount(t, pool, "user", "")
+		before := phoneOf(t, pool, target.id)
+
+		status, body := patchUserAs(t, pool, actor.id, target.id,
+			map[string]any{"phone": taken.phone})
+
+		if status != http.StatusConflict {
+			t.Fatalf("status = %d, want 409 (body: %v)", status, body)
+		}
+		if got, _ := body["error"].(string); !strings.Contains(got, "already exists") {
+			t.Errorf(`error = %q, want it to say the phone already exists — a raw DB error must never reach this response`, got)
+		}
+		if got := phoneOf(t, pool, target.id); got != before {
+			t.Errorf("phone = %q, want unchanged %q — a refused edit must not partially land", got, before)
+		}
+	})
+
+	t.Run("a differently-formatted duplicate is still caught (normalized before the uniqueness check)", func(t *testing.T) {
+		actor := insertAccount(t, pool, "employee", "")
+		taken := insertAccount(t, pool, "user", "") // phone is "9647XXXXXXXXX"
+		target := insertAccount(t, pool, "user", "")
+		before := phoneOf(t, pool, target.id)
+
+		// Same number as `taken`, written with a leading trunk "0" and spaces
+		// instead of the canonical "964..." form — exactly the kind of
+		// differently-formatted duplicate auth.NormalizePhone exists to catch.
+		national := strings.TrimPrefix(taken.phone, "964")
+		localForm := "0" + national[:3] + " " + national[3:6] + " " + national[6:]
+
+		status, body := patchUserAs(t, pool, actor.id, target.id,
+			map[string]any{"phone": localForm})
+
+		if status != http.StatusConflict {
+			t.Fatalf("status = %d, want 409 (body: %v) — normalization should have matched %q to the existing %q",
+				status, body, localForm, taken.phone)
+		}
+		if got := phoneOf(t, pool, target.id); got != before {
+			t.Errorf("phone = %q, want unchanged %q", got, before)
+		}
+	})
+
+	t.Run("an unparseable phone is rejected with a friendly message", func(t *testing.T) {
+		actor := insertAccount(t, pool, "employee", "")
+		target := insertAccount(t, pool, "user", "")
+		before := phoneOf(t, pool, target.id)
+
+		status, body := patchUserAs(t, pool, actor.id, target.id,
+			map[string]any{"phone": "12"})
+
+		if status != http.StatusBadRequest {
+			t.Fatalf("status = %d, want 400 (body: %v)", status, body)
+		}
+		if got := phoneOf(t, pool, target.id); got != before {
+			t.Errorf("phone = %q, want unchanged %q", got, before)
+		}
+	})
+
 	t.Run("employee can edit an ordinary user's profile fields", func(t *testing.T) {
 		actor := insertAccount(t, pool, "employee", "")
 		target := insertAccount(t, pool, "user", "")
