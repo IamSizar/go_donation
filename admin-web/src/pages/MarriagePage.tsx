@@ -171,9 +171,22 @@ export default function MarriagePage() {
     {
       key: 'summary',
       header: t('col.summary'),
+      // OPOS #25286 — this is applicant free text (see Note #33) and can run
+      // to a full paragraph, which inflated the whole row to several times
+      // normal height. Truncated with a hover tooltip, same convention as
+      // AvailabilityCell's free-text cell; the untruncated value is still one
+      // click away via RowActionsMenu's viewHref -> DetailPage.
       cell: (p) =>
         p.social_summary ? (
-          <span>{p.social_summary}</span>
+          <span
+            title={p.social_summary}
+            style={{
+              display: 'inline-block', maxWidth: '220px', overflow: 'hidden',
+              textOverflow: 'ellipsis', whiteSpace: 'nowrap', verticalAlign: 'bottom',
+            }}
+          >
+            {p.social_summary}
+          </span>
         ) : (
           <span className="muted">—</span>
         ),
