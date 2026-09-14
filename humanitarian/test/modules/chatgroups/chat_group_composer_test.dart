@@ -11,10 +11,15 @@
 //      draws its default grey ticks — about 1.5:1 against the accent fill, so
 //      an iPhone user saw a blank green circle while sending. Adaptive widgets
 //      are tested on both targets (rule 7.1).
+//   4. Focusing the draft keeps its pill outline. The device walkthrough found
+//      the app theme's focused border is a flat underline, so a field that set
+//      only its resting outlines lost its rounded shape the moment it was
+//      tapped (rule 4.5: rounded inputs with a visible focus state).
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:flutter_application_1/core/design/tokens.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/modules/chatgroups/widgets/chat_group_composer.dart';
 
@@ -90,6 +95,37 @@ void main() {
     await tester.tap(find.byKey(_sendButton));
     await tester.pump();
     expect(sends, 1);
+  });
+
+  testWidgets('focusing the draft keeps its rounded outline, in the accent', (
+    tester,
+  ) async {
+    await _pumpComposer(
+      tester,
+      input: TextEditingController(),
+      onSend: () {},
+      isSending: false,
+    );
+
+    await tester.tap(find.byType(TextField));
+    await tester.pump();
+
+    final decorator = tester.widget<InputDecorator>(
+      find.byType(InputDecorator),
+    );
+    expect(decorator.isFocused, isTrue);
+    final focused = decorator.decoration.focusedBorder;
+    expect(
+      focused,
+      isA<OutlineInputBorder>(),
+      reason: 'the theme default is a flat underline, which drops the pill',
+    );
+    final outline = focused! as OutlineInputBorder;
+    expect(outline.borderRadius, BorderRadius.circular(AppRadius.full));
+    expect(
+      outline.borderSide.color,
+      AppThemeConfig.accent(tester.element(find.byType(ChatGroupComposer))),
+    );
   });
 
   testWidgets('while sending, the button ignores taps', (tester) async {

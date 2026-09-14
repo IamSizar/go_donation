@@ -33,6 +33,9 @@ const double _spinnerStrokeWidth = 2;
 /// How faded the send button is while there is nothing to send.
 const double _disabledOpacity = 0.45;
 
+/// The draft's outline weight while focused — the app theme's focus weight.
+const double _focusedOutlineWidth = 1.5;
+
 /// A growing text field and a round send button, in one bar.
 class ChatGroupComposer extends StatelessWidget {
   /// Builds the bar around [input].
@@ -96,6 +99,15 @@ class _DraftField extends StatelessWidget {
       borderRadius: BorderRadius.circular(AppRadius.full),
       borderSide: BorderSide(color: AppThemeConfig.border(context)),
     );
+    // The theme's focused border is a flat underline; left to it, the pill
+    // collapses to a line the moment the member taps in. Keep the shape and
+    // take the theme's focus colour and weight instead.
+    final focusedOutline = outline.copyWith(
+      borderSide: BorderSide(
+        color: AppThemeConfig.accent(context),
+        width: _focusedOutlineWidth,
+      ),
+    );
     return TextField(
       controller: input,
       minLines: 1,
@@ -111,11 +123,9 @@ class _DraftField extends StatelessWidget {
           horizontal: AppSpace.md,
           vertical: AppSpace.xs,
         ),
-        // Only the resting outlines are set; the focused outline comes from
-        // the app theme, so the field shows the same focus state as every
-        // other input.
         border: outline,
         enabledBorder: outline,
+        focusedBorder: focusedOutline,
       ),
     );
   }
