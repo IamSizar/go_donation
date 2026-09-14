@@ -178,6 +178,40 @@ class FakeChatGroupsApi extends ModuleApi {
     if (error != null) throw error;
     markedRead.add((groupId: groupId, lastReadMessageId: lastReadMessageId));
   }
+
+  // ─── POST /chat-groups/connect-requests ───────────────────────────────────
+
+  /// Every connect request that ARRIVED, in order. Recorded before the gate
+  /// and the error, so a request still held in flight — or one that then
+  /// fails — is counted too; that is what lets a test prove a second tap sent
+  /// nothing more.
+  final submittedConnectRequests =
+      <({String contextType, int contextId, String message})>[];
+
+  /// When set, [submitConnectRequest] throws this after recording the call.
+  Exception? submitError;
+
+  /// When set, [submitConnectRequest] waits for it before answering.
+  Completer<void>? submitGate;
+
+  /// Answers like SubmitConnectRequest: `success` plus the request's id. The
+  /// answer is decided when the request arrives, like every endpoint here.
+  @override
+  Future<Map<String, dynamic>> submitConnectRequest({
+    required String contextType,
+    required int contextId,
+    required String message,
+  }) async {
+    submittedConnectRequests.add(
+      (contextType: contextType, contextId: contextId, message: message),
+    );
+    final error = submitError;
+    final id = submittedConnectRequests.length;
+    final gate = submitGate;
+    if (gate != null) await gate.future;
+    if (error != null) throw error;
+    return <String, dynamic>{'success': true, 'request_id': id};
+  }
 }
 
 /// One item of `GET /chat-groups`, shaped exactly as the Go handler writes it.

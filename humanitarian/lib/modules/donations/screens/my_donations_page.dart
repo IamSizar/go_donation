@@ -4,6 +4,8 @@ import 'package:flutter_application_1/localization/money.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/modules/donations/controllers/my_donations_controller.dart';
 import 'package:flutter_application_1/modules/donations/models/donation_history_models.dart';
+import 'package:flutter_application_1/modules/chatgroups/widgets/connect_request_button.dart';
+import 'package:flutter_application_1/modules/chatgroups/widgets/connect_request_sheet.dart';
 import 'package:flutter_application_1/core/design/tokens.dart';
 import 'package:flutter_application_1/core/widgets/app_figure.dart';
 import 'package:flutter_application_1/core/widgets/app_list_search_field.dart';
@@ -316,6 +318,14 @@ class _DonationDetailSheet extends StatelessWidget {
               _DetailLine(label: 'Reference', value: item.reference),
               if (item.note.trim().isNotEmpty && item.note != '—')
                 _DetailLine(label: 'Message', value: item.note),
+              // OPOS #25284 Phase 5 — members cannot message each other
+              // directly, so the donor asks staff to connect them about THIS
+              // donation. Renders nothing for a guest or a row with no id.
+              ConnectRequestButton(
+                contextType: kConnectContextDonation,
+                contextId: item.id,
+                padding: const EdgeInsetsDirectional.only(top: AppSpace.md),
+              ),
             ],
           ),
         ),

@@ -1512,6 +1512,21 @@ class AppTranslations extends Translations {
         'No one is assigned to receive chat messages right now. You can still '
         'reach the team through the support form or on WhatsApp.',
     'chat_support_unavailable_action': 'Open technical support',
+    // OPOS #25284 Phase 5 Task 5 — "Ask staff to connect me". Members cannot
+    // contact each other directly; they ask staff, who may open a supervised
+    // chat. en + ar only; Sorani and Badini fall back to English (#21431).
+    'connect_request_action': 'Ask staff to connect me',
+    'connect_request_title': 'Ask staff to connect you',
+    'connect_request_explainer':
+        'Our staff will review your request. If they approve it, they will '
+        'open a supervised chat for you here in the app.',
+    'connect_request_message_label': 'What do you need?',
+    'connect_request_message_hint':
+        'Tell staff what you would like to discuss, and why.',
+    'connect_request_message_required': 'Please describe what you need.',
+    'connect_request_submit': 'Send request',
+    'connect_request_sent': 'Request sent. Staff will review it shortly.',
+    'error_connect_request_submit_failed': 'Could not send your request.',
     // The standing (not error-triggered) route to the ticket form, offered
     // next to chat_support so the two read as different things: one is a
     // live conversation, the other files a tracked request.
@@ -4450,6 +4465,17 @@ class AppTranslations extends Translations {
         'لا يوجد حاليًا من يستقبل رسائل المحادثة. ما زال بإمكانك الوصول إلى '
         'الفريق عبر نموذج الدعم أو عبر واتساب.',
     'chat_support_unavailable_action': 'فتح الدعم الفني',
+    'connect_request_action': 'اطلب التواصل عبر الفريق',
+    'connect_request_title': 'طلب تواصل عبر الفريق',
+    'connect_request_explainer':
+        'سيراجع فريقنا طلبك، وإذا وافق عليه فسيفتح لك محادثة خاضعة للإشراف '
+        'هنا في التطبيق.',
+    'connect_request_message_label': 'ما الذي تحتاجه؟',
+    'connect_request_message_hint': 'أخبر الفريق بما تود مناقشته، ولماذا.',
+    'connect_request_message_required': 'يرجى وصف ما تحتاجه.',
+    'connect_request_submit': 'إرسال الطلب',
+    'connect_request_sent': 'تم إرسال الطلب. سيراجعه الفريق قريبًا.',
+    'error_connect_request_submit_failed': 'تعذّر إرسال طلبك.',
     'support_request_form': 'إرسال طلب دعم',
     'support_request_form_desc':
         'قدّم تذكرة وتابع حالتها — دون الحاجة لمحادثة مباشرة.',
