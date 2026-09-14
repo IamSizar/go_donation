@@ -103,11 +103,17 @@ var restorableTables = map[string]bool{
 	// back in — see AdminTrashHandler.BannedWords.
 	"app_events":   true,
 	"banned_words": true,
-	// Chat lifecycle (migration 118) — the four chat systems' thread tables,
+	// Chat lifecycle (migration 118) — the chat systems' thread tables,
 	// deleted through trashChatThread (admin_chat_lifecycle.go). Their
 	// messages travel in the same payload and are re-inserted by
-	// restoreChatChildren below, so a restore brings back a conversation and
-	// not an empty shell.
+	// restoreChatChildren below, whose allowedChatChildTables resolves child
+	// tables via chatlifecycle.AllSystems() (not the narrower Systems(),
+	// which only lists actively-reachable systems) — so this holds for every
+	// table listed here, including case_volunteer_chat_threads, whose own
+	// active routes OPOS #25284 Phase 4 retired but whose already-trashed
+	// rows must still restore as a full conversation, not an empty shell.
+	// Do not "simplify" allowedChatChildTables back to Systems(): that
+	// silently breaks this exact guarantee for any retired system.
 	"chat_threads":                true,
 	"marriage_chat_threads":       true,
 	"staff_chat_threads":          true,

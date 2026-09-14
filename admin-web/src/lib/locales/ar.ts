@@ -62,7 +62,6 @@ const ar: DeepPartial<typeof en> = {
     receipts: 'إيصالات المساعدات',
     messages: 'الرسائل',
     staff_chat: 'محادثة الموظفين',
-    case_volunteer_chats: 'محادثات الحالة ↔ المتطوع',
     volunteers: 'المتطوعون',
     volunteer_board: 'لوحة المتطوعين',
     tasks: 'المهام',
@@ -896,12 +895,6 @@ const ar: DeepPartial<typeof en> = {
     staff_chat: {
       subtitle: 'رسائل مباشرة بين موظفي لوحة التحكم — المدير ↔ الموظف، أو أي زوج آخر.',
       new: '+ محادثة جديدة', empty: 'لا توجد محادثات بعد.', pick_someone: 'ابدأ محادثة مع…',
-    },
-    case_volunteer_chats: {
-      subtitle: 'تُفتح تلقائياً عند ربط تسجيل متطوع بحالة والموافقة عليه.',
-      empty: 'لا توجد محادثات بعد.',
-      volunteer_paren: '(متطوع)',
-      beneficiary_paren: '(مستحق)',
     },
     partners:     { title: 'الشركاء', search_placeholder: 'بحث بالاسم / النوع', new: '+ شريك جديد' },
     media:        { title: 'الإعلام', search_placeholder: 'بحث بالعنوان / المحتوى', new: '+ منشور جديد' },

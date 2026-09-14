@@ -178,11 +178,31 @@ func Lookup(k Kind) (System, bool) {
 	return s, ok
 }
 
-// Systems returns every registered system, for callers that must act on all
-// five (the dashboard's kind list, tests that assert full coverage).
+// Systems returns every ACTIVELY REACHABLE system, for callers that must act
+// on all of them (the dashboard's kind list, tests that assert full
+// coverage).
+//
+// OPOS #25284 Phase 4 retired KindCase's direct volunteer↔beneficiary
+// messaging entirely — no route or handler reaches it any more — so it is
+// deliberately left out of this slice even though its constant and its
+// systems map entry stay defined below (case_volunteer_chat_threads still
+// holds historical rows the Global Constraints forbid dropping).
 func Systems() []System {
 	// Fixed order so a test or a UI listing is stable rather than map-random.
-	return []System{systems[KindDonor], systems[KindMarriage], systems[KindStaff], systems[KindCase], systems[KindGroup]}
+	return []System{systems[KindDonor], systems[KindMarriage], systems[KindStaff], systems[KindGroup]}
+}
+
+// AllSystems returns every registered chat system, including ones retired
+// from active use (e.g. KindCase after OPOS #25284 Phase 4) — unlike
+// Systems(), which returns only the actively-iterated subset. Use this for
+// lookups that must still resolve historical/retired data (e.g. restoring a
+// trashed thread row), never for UI listings of "chat systems in active use".
+func AllSystems() []System {
+	out := make([]System, 0, len(systems))
+	for _, sys := range systems {
+		out = append(out, sys)
+	}
+	return out
 }
 
 // ChildTables lists every FK child whose rows must survive a trash/restore.

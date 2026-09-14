@@ -325,8 +325,18 @@ func restoreChatChildren(ctx context.Context, tx pgx.Tx, sourceTable string, pay
 // allowedChatChildTables returns the child tables of the chat system whose
 // thread table is `sourceTable`, or nil when the table is not a chat thread
 // table. This is the whitelist that keeps a payload key from becoming SQL.
+//
+// This deliberately calls chatlifecycle.AllSystems(), NOT chatlifecycle.Systems():
+// a thread trashed before a system was retired from active use (e.g. a
+// case_volunteer_chat_threads row, retired by OPOS #25284 Phase 4) is still
+// sitting in the Trash UI and still restorable per restorableTables below —
+// resolving its child tables here must keep working even though the system
+// is no longer iterated for creation/listing purposes. Swapping this back to
+// Systems() would silently make every such restore come back as an empty
+// shell (thread row present, messages gone) — see
+// TestAllowedChatChildTablesCoversEveryRestorableTable.
 func allowedChatChildTables(sourceTable string) []string {
-	for _, sys := range chatlifecycle.Systems() {
+	for _, sys := range chatlifecycle.AllSystems() {
 		if sys.ThreadTable == sourceTable {
 			return sys.ChildTables()
 		}

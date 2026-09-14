@@ -58,6 +58,9 @@ func TestChatLifecycle_ArchiveHidesFromParticipantsOnly(t *testing.T) {
 	r := newLifecycleRouter(pool)
 	staffToken := tokenFor(t, pool, makeLifecycleUser(t, pool, "admin"))
 
+	// KindCase is deliberately absent: OPOS #25284 Phase 4 retired
+	// casevolchat's direct volunteer↔beneficiary messaging entirely, so
+	// there is no more case-chats route to archive/list through.
 	cases := []struct {
 		kind            chatlifecycle.Kind
 		fixture         chatFixture
@@ -69,8 +72,6 @@ func TestChatLifecycle_ArchiveHidesFromParticipantsOnly(t *testing.T) {
 			"/api/chats", "/api/admin/chats"},
 		{chatlifecycle.KindMarriage, seedMarriageChat(t, pool), "/api/admin/marriage/chats/%d/lifecycle",
 			"/api/marriage/chats", "/api/admin/marriage/chats"},
-		{chatlifecycle.KindCase, seedCaseChat(t, pool), "/api/admin/case-chats/%d/lifecycle",
-			"/api/case-chats", "/api/admin/case-chats"},
 	}
 
 	for _, tc := range cases {
@@ -161,12 +162,14 @@ func childCounts(t *testing.T, pool *pgxpool.Pool, sys chatlifecycle.System, thr
 // the same map TestChatLifecycle_ParticipantCannotModerate builds, kept here
 // so both it and the round-trip test below drive the very routes
 // newLifecycleRouter registers.
+// KindCase carries no entry here: OPOS #25284 Phase 4 retired casevolchat's
+// direct volunteer↔beneficiary messaging entirely, so it is no longer in
+// allFixtures and this function is never called with it.
 func adminThreadPath(kind chatlifecycle.Kind, threadID int64) string {
 	base := map[chatlifecycle.Kind]string{
 		chatlifecycle.KindDonor:    "/api/admin/chats/%d",
 		chatlifecycle.KindMarriage: "/api/admin/marriage/chats/%d",
 		chatlifecycle.KindStaff:    "/api/admin/staff-chats/%d",
-		chatlifecycle.KindCase:     "/api/admin/case-chats/%d",
 		chatlifecycle.KindGroup:    "/api/admin/chat-groups/%d",
 	}[kind]
 	return fmt.Sprintf(base, threadID)
@@ -261,6 +264,54 @@ func TestChatLifecycle_AllFourThreadTablesAreRestorable(t *testing.T) {
 	for _, sys := range chatlifecycle.Systems() {
 		if !restorableTables[sys.ThreadTable] {
 			t.Errorf("%s is trashed but missing from restorableTables — it could never come back", sys.ThreadTable)
+		}
+	}
+}
+
+// TestAllowedChatChildTablesCoversEveryRestorableTable is the reverse
+// direction of the assertion above, and the one that actually catches the
+// regression this fix addresses: every chat thread table restorableTables
+// promises the operator can come back must ALSO resolve a non-empty child
+// table list via allowedChatChildTables, or the row restores as an empty
+// shell (the thread reappears, its messages don't) with no error to say so.
+//
+// case_volunteer_chat_threads is the case that matters here: OPOS #25284
+// Phase 4 retired its active routes, which correctly dropped KindCase from
+// chatlifecycle.Systems() (Task 3 of that plan) — but a row trashed before
+// that deploy is still sitting in the Trash UI, still listed in
+// restorableTables, and still expected to restore as a full conversation,
+// not just a bare thread row. allowedChatChildTables must keep resolving it
+// by walking chatlifecycle.AllSystems(), which — unlike Systems() — never
+// drops a retired kind.
+//
+// Before the fix (allowedChatChildTables walking Systems() instead of
+// AllSystems()), this test failed: case_volunteer_chat_threads resolved to
+// a nil child-table list. After the fix it passes.
+func TestAllowedChatChildTablesCoversEveryRestorableTable(t *testing.T) {
+	// Every Kind chatlifecycle knows about, keyed by its thread table, so we
+	// can tell a genuine chat-thread table in restorableTables apart from an
+	// unrelated one (partners, campaigns, ...) that this function correctly
+	// returns nil for.
+	knownChatThreadTables := map[string]bool{}
+	for _, sys := range chatlifecycle.AllSystems() {
+		knownChatThreadTables[sys.ThreadTable] = true
+	}
+
+	// KindCase's table must actually be one of the ones AllSystems() still
+	// knows about, or this test would not be exercising the retired-kind
+	// case it exists to cover.
+	if !knownChatThreadTables["case_volunteer_chat_threads"] {
+		t.Fatal("case_volunteer_chat_threads is no longer in chatlifecycle.AllSystems() — this test needs updating")
+	}
+
+	for table := range restorableTables {
+		if !knownChatThreadTables[table] {
+			continue // not a chat thread table at all (partners, campaigns, ...)
+		}
+		children := allowedChatChildTables(table)
+		if len(children) == 0 {
+			t.Errorf("allowedChatChildTables(%q) = %v, want a non-empty child-table list — "+
+				"a row for this table would restore as an empty shell (thread back, messages gone)", table, children)
 		}
 	}
 }

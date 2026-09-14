@@ -185,8 +185,10 @@ func (s *Store) Load(ctx context.Context, userID int64, limit int) (*Summary, er
 		  (SELECT COUNT(*) FROM marriage_meeting_requests
 		    WHERE decided_by = $1 AND decided_at IS NOT NULL),
 		  (SELECT COUNT(*) FROM permission_audit_log WHERE actor_id = $1),
-		  (SELECT COUNT(*) FROM chat_threads WHERE assigned_staff_user_id = $1),
-		  (SELECT COUNT(*) FROM case_volunteer_chat_threads WHERE assigned_staff_user_id = $1)`,
+		  (SELECT COUNT(*) FROM chat_threads
+		    WHERE assigned_staff_user_id = $1 AND lifecycle = 'open'),
+		  (SELECT COUNT(*) FROM case_volunteer_chat_threads
+		    WHERE assigned_staff_user_id = $1 AND lifecycle = 'open')`,
 		userID,
 	).Scan(
 		&out.Totals.Cases, &out.Totals.Registrations, &out.Totals.ProfileChanges,

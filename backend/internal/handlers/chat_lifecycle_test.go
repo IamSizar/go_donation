@@ -337,11 +337,14 @@ func TestChatLifecycle_ParticipantCannotModerate(t *testing.T) {
 				participant = makeLifecycleUser(t, pool, "user")
 			}
 			token := tokenFor(t, pool, participant)
+			// KindCase carries no entry here: OPOS #25284 Phase 4 retired
+			// casevolchat's direct volunteer↔beneficiary messaging entirely,
+			// so it is no longer in allFixtures (see chat_lifecycle_fixtures_test.go)
+			// and f.Kind can never be KindCase in this loop.
 			base := map[chatlifecycle.Kind]string{
 				chatlifecycle.KindDonor:    "/api/admin/chats/%d",
 				chatlifecycle.KindMarriage: "/api/admin/marriage/chats/%d",
 				chatlifecycle.KindStaff:    "/api/admin/staff-chats/%d",
-				chatlifecycle.KindCase:     "/api/admin/case-chats/%d",
 				chatlifecycle.KindGroup:    "/api/admin/chat-groups/%d",
 			}[f.Kind]
 			path := fmt.Sprintf(base, f.ThreadID)
