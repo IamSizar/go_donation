@@ -854,6 +854,31 @@ class ModuleApi {
     String body,
   ) => postJson('$marriageChatsUrl/$threadId/messages', {'body': body});
 
+  // OPOS #25284 — staff-mediated masked/team group chats.
+  Future<List<Map<String, dynamic>>> chatGroups() => getItems(chatGroupsUrl);
+
+  Future<Map<String, dynamic>> chatGroupMessages(int groupId) =>
+      getObject(chatGroupMessagesUrl(groupId));
+
+  Future<Map<String, dynamic>> sendChatGroupMessage(int groupId, String body) =>
+      postJson(chatGroupMessagesUrl(groupId), {'body': body});
+
+  Future<void> markChatGroupRead(int groupId) =>
+      postJson(chatGroupReadUrl(groupId), {});
+
+  Future<Map<String, dynamic>> submitConnectRequest({
+    required String contextType,
+    required int contextId,
+    required String message,
+  }) => postJson(connectRequestsUrl, {
+    'context_type': contextType,
+    'context_id': contextId,
+    'message': message,
+  });
+
+  Future<List<Map<String, dynamic>>> myConnectRequests() =>
+      getItems(myConnectRequestsUrl);
+
   // Note #37 — uploads a photo (e.g. a check-in/out live photo) and returns
   // the stored relative path (same "upload, then save the path" convention
   // used everywhere else — e.g. profile pictures). Reuses the exact same
