@@ -323,7 +323,6 @@ const String beneficiaryCampaignDonationsUrl =
 
 /// Donor ↔ campaign-owner chat (Phase 28).
 const String chatsUrl = '${baseUrl}chats';
-const String chatRequestUrl = '${baseUrl}chats/request';
 String chatAcceptUrl(int threadId) => '${baseUrl}chats/$threadId/accept';
 String chatDeclineUrl(int threadId) => '${baseUrl}chats/$threadId/decline';
 String chatMessagesUrl(int threadId) => '${baseUrl}chats/$threadId/messages';
