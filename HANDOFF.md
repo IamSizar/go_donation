@@ -6,6 +6,50 @@
 
 ---
 
+## 2026-09-14 — OPOS #25284 Phase 5 Task 2: chat-groups Flutter controllers (branch `feat/chat-groups-phase5-ui`, commit `97aab43`, NOT pushed)
+
+**What was asked:** study where the project stands and continue. Continued Phase 5 (OPOS #25608) with Task 2 (OPOS #26042). User decisions this session: OPOS work is recorded under account 6 (Zaid Aqrawi); the case-context "ask staff to connect me" entry point goes on `BeneficiaryCaseDetailScreen` in Task 5 — NOT the plan's Messages-tab "type a case number" dialog, because users only ever see codes like `CSE-000123` and the backend cannot look a case up by code.
+
+**What was actually changed** — commit `97aab43` on `feat/chat-groups-phase5-ui`, branched from `origin/main` `cf24bd4`:
+- New `humanitarian/lib/modules/chatgroups/controllers/`: `chat_groups_controller.dart`, `chat_group_conversation_controller.dart`, `my_connect_requests_controller.dart`.
+- `humanitarian/lib/api/module_api.dart` — three fixes to Task 1's client (PR #81), all verified against Go source:
+  - `markChatGroupRead(groupId, lastReadMessageId:)` now posts `last_read_msg_id`. It posted `{}`; the field is not required, so the server bound 0, `GREATEST` kept the old cursor, and unread badges could never clear.
+  - `chatGroupMessages(groupId, afterId:, limit:)` now pages. The server returns ids above `after_id`, oldest first, default 50 / max 100 (`chatgroups_reads.go`); the old call only ever saw the first 50 messages of a group.
+  - `sendChatGroupMessage` now goes through `_sendCodedJson`, so `contact_details_blocked` (422) and `chat_lifecycle_closed` (409) codes reach the app. `_sendCodedJson` now honours the `httpClient` test seam. `postJson`'s `_trackEvent` has no branch for this path, so no analytics are lost.
+- `app_translations.dart` — 4 keys in en + ar. Sorani/Badini intentionally absent (#21431); they still need listing in `TRANSLATION_REQUEST.md` (final task #26047).
+- Tests: `test/modules/chatgroups/fake_chat_groups_api.dart` (pages like the server) + 5 controller test files, 3 API tests under `test/api/chat_group_*`, and `failure_message_test.dart` now pins the new keys.
+
+**Where the Phase 5 plan file is wrong — read before Tasks 3-5:**
+- The mark-read body, messages paging and send refusals above. Verify every endpoint against Go source; do not trust the plan's shapes.
+- **`send()` contract for Task 3's screen:**
+  - Failures go to `sendError`, NOT `errorMessage` (the plan's screen checks `errorMessage` and would silently lose the typed text). Restore the text when `send()` returns false.
+  - `isSending` stays true until the sent message is on screen, so disabling the button on `isSending` prevents double sends.
+  - A `chat_lifecycle_closed` refusal refreshes the lifecycle, so the closed notice replaces the composer.
+- A failed first load sets `errorMessage`; the plan's screen shows "No messages yet" in that case — Task 3 needs a real error state.
+
+**Process:** an independent code review (everything-claude-code code-reviewer) found 1 CRITICAL (paging) and 2 IMPORTANT (overlapping poll responses applied out of order; dropped refusal codes) plus minors. Each was checked against source, then fixed test-first. Loads now run one at a time (a poll tick skips while a load runs) and nothing is applied after the screen closes. Mutation checks ran twice: bugs were planted (files backed up, restored byte-identical by checksum) and exactly the targeted tests failed each time.
+
+**What was run and what it printed:**
+- `cd humanitarian && flutter test test/modules/chatgroups/ test/api/chat_group_mark_read_test.dart test/api/chat_group_messages_page_test.dart test/api/chat_group_send_refusal_test.dart test/localization/failure_message_test.dart` → `+58: All tests passed!`
+- `flutter analyze` on every changed file → `No issues found!`. Full `flutter analyze` → the same 6 pre-existing `deprecated_member_use` infos as before any change.
+- Full `flutter test` → `+861 -5`. All 5 failures are pre-existing: the same 5 fail on a clean detached `origin/main` checkout. `main_menu_button_test.dart` (1) is stale since `e07d59a` deleted `case_chat_conversation_screen.dart`; `marriage_hub_feed_test.dart` (4) are stale since #76 removed the hub feed. A separate follow-up task was suggested for them.
+
+**External actions taken:** OPOS only — created #26042 (Task 2), #26044 (Task 3), #26045 (Task 4), #26046 (Task 5), #26047 (final verification/PR/handoff) in office 19; #25608 moved To Do → Work In Progress with comments; findings recorded on #26042. Nothing pushed, no PR opened.
+
+**What is still open:**
+- `97aab43` is local only. The branch's upstream was deliberately unset (it was created tracking `origin/main`).
+- Tasks 3-5 (#26044-#26046) and #26047.
+- The 5 stale Flutter tests (follow-up suggested, not started).
+- Still pending from earlier sessions: the production run of `backend/cmd/retire-direct-chats` (an ops decision).
+
+**Traps:**
+- OPOS: the `opos` MCP server reports "needs authentication", but the claude.ai connector (`mcp__e090ae84…` tools) works. Write calls need `accountId` (3 linked accounts). Moving a task to In Progress auto-starts a timer — it silently started one on #25608, which had to be stopped. `list_tasks officeId=19` returns ~2.4 MB: query the saved file with `jq`.
+- This worktree's directory is still named `chat-groups-phase1`, but its branch is `feat/chat-groups-phase5-ui`.
+- A GateGuard hook denies the first Write/Edit of every file until its facts are stated; expect one retry per new file.
+- `testWidgets` poll tests must `Get.delete` the controller before they end, or pending timers fail the test.
+
+---
+
 ## 2026-09-14 — SESSION WRAP-UP: OPOS #25284 Phases 1-4 fully merged to `main`, Phase 5 in progress
 
 **Read this entry first if you are picking this project up cold.** It is the single most current summary of where the whole chat-groups feature (OPOS #25284) actually stands, written specifically so a fresh agent or engineer does not have to reconstruct it from git archaeology.
