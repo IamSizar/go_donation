@@ -27,11 +27,21 @@
 //
 // State lives in ChatGroupsController; this widget renders it and forwards
 // taps. Every screen it opens is handed the same ModuleApi.
+//
+// WHY THE CONTROLLER IS NOT MADE HERE
+// MessagesScreen registers ChatGroupsController in its own build; this block
+// only finds it. GetX deletes a controller together with the route that was
+// current when it was put, and this block — the last child of a lazily built
+// list — can first be built while another screen covers Messages. A controller
+// made at that moment belonged to the covering screen: it was deleted when that
+// screen closed, and the block went on showing a list that never refreshed
+// again (reproduced in a widget test for review task #26331).
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/core/design/tokens.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
+import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 
@@ -39,6 +49,7 @@ import '../controllers/chat_groups_controller.dart';
 import '../models/chat_group_models.dart';
 import '../screens/chat_group_conversation_screen.dart';
 import '../screens/my_connect_requests_screen.dart';
+import '../utils/chat_group_title.dart';
 
 /// The avatar's diameter: the same 48 as TileIcon and the Messages tab's
 /// thread avatars, so group rows line up with the rows above them.
@@ -58,22 +69,20 @@ const double _labelLetterSpacing = 0.3;
 /// member's masked and team groups.
 class ChatGroupsSection extends StatelessWidget {
   /// [api] is injectable so tests can answer without a network. It is handed
-  /// on to every screen this block opens; production uses the default.
+  /// on to every screen this block opens; production uses the default. The
+  /// groups themselves come from the registered ChatGroupsController.
   const ChatGroupsSection({super.key, this.api = const ModuleApi()});
 
-  /// The API the groups — and every screen opened from here — read from.
+  /// The API every screen opened from here reads from.
   final ModuleApi api;
-
-  /// The tab's one ChatGroupsController: found if it already exists,
-  /// otherwise made here. This is the find-or-put the tab uses for
-  /// ChatController, so the poll survives this row scrolling off screen.
-  ChatGroupsController _controller() => Get.isRegistered<ChatGroupsController>()
-      ? Get.find<ChatGroupsController>()
-      : Get.put(ChatGroupsController(api: api));
 
   @override
   Widget build(BuildContext context) {
-    final ctrl = _controller();
+    // Registered by MessagesScreen: see "WHY THE CONTROLLER IS NOT MADE HERE".
+    final ctrl = Get.find<ChatGroupsController>();
+    // Run when a conversation opened from here closes. Quiet, like the poll:
+    // it only brings the badges up to date, so it has nothing to announce.
+    Future<void> refreshQuietly() => ctrl.fetchGroups(silent: true);
     return Obx(() {
       final error = ctrl.errorMessage.value;
       final masked = ctrl.masked;
@@ -93,12 +102,14 @@ class ChatGroupsSection extends StatelessWidget {
               label: 'chat_groups_my_connections',
               groups: masked,
               api: api,
+              onReturned: refreshQuietly,
             ),
           if (teams.isNotEmpty)
             _GroupList(
               label: 'chat_groups_my_team_groups',
               groups: teams,
               api: api,
+              onReturned: refreshQuietly,
             ),
         ],
       );
@@ -136,6 +147,7 @@ class _GroupList extends StatelessWidget {
     required this.label,
     required this.groups,
     required this.api,
+    required this.onReturned,
   });
 
   /// The heading's translation key.
@@ -147,13 +159,17 @@ class _GroupList extends StatelessWidget {
   /// Handed to each conversation opened from here.
   final ModuleApi api;
 
+  /// Run when a conversation opened from here closes.
+  final Future<void> Function() onReturned;
+
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _SectionLabel(label: label, count: groups.length),
-        for (final group in groups) _GroupTile(group: group, api: api),
+        for (final group in groups)
+          _GroupTile(group: group, api: api, onReturned: onReturned),
       ],
     );
   }
@@ -214,7 +230,11 @@ class _SectionLabel extends StatelessWidget {
 /// One group: its avatar, title, last message and unread badge. Tapping it
 /// opens the conversation under the same title.
 class _GroupTile extends StatelessWidget {
-  const _GroupTile({required this.group, required this.api});
+  const _GroupTile({
+    required this.group,
+    required this.api,
+    required this.onReturned,
+  });
 
   /// The group to show.
   final ChatGroupSummary group;
@@ -222,30 +242,26 @@ class _GroupTile extends StatelessWidget {
   /// Handed to the conversation screen.
   final ModuleApi api;
 
-  /// The title a member may see. A masked group is always "Connection". Its
-  /// server title is empty by design, and ignoring it outright means no title
-  /// can ever put a real name on a masked member's screen.
-  String get _title {
-    if (group.isMasked) return 'chat_groups_connection_title'.tr;
-    final title = group.title.trim();
-    return title.isEmpty ? 'chat_groups_team_group_title'.tr : title;
-  }
+  /// Run when the conversation opened from this tile closes.
+  final Future<void> Function() onReturned;
 
-  /// Opens this group's conversation under the title shown on the tile.
-  void _open() {
-    final title = _title;
-    Get.to(
+  /// Opens this group's conversation under the title shown on the tile, then
+  /// runs [onReturned] once the member comes back: reading the conversation
+  /// cleared its unread count on the server, and the badge should say so now
+  /// rather than at the next 5-second poll.
+  Future<void> _open() async {
+    await Get.to(
       () => ChatGroupConversationScreen(
         groupId: group.id,
-        title: title,
+        title: chatGroupTitle(group),
         api: api,
       ),
     );
+    await onReturned();
   }
 
   @override
   Widget build(BuildContext context) {
-    final hasUnread = group.unreadCount > 0;
     return Padding(
       padding: const EdgeInsetsDirectional.only(bottom: AppSpace.xs),
       child: GlassPanel(
@@ -254,31 +270,37 @@ class _GroupTile extends StatelessWidget {
         // rather than beneath it, where it would never be seen.
         child: Material(
           type: MaterialType.transparency,
-          child: InkWell(
-            onTap: _open,
-            child: Padding(
-              padding: const EdgeInsetsDirectional.all(AppSpace.sm),
-              child: Row(
-                children: [
-                  _GroupAvatar(isMasked: group.isMasked),
-                  const SizedBox(width: AppSpace.sm),
-                  Expanded(
-                    child: _GroupText(
-                      title: _title,
-                      lastMessage: group.lastMessage,
-                      hasUnread: hasUnread,
-                    ),
-                  ),
-                  if (hasUnread) ...[
-                    const SizedBox(width: AppSpace.xs),
-                    _UnreadBadge(groupId: group.id, count: group.unreadCount),
-                  ],
-                ],
+          // One button for the whole row, so a screen reader announces the
+          // title, last message and unread count together, as a thing to tap.
+          child: Semantics(
+            button: true,
+            container: true,
+            child: InkWell(
+              onTap: _open,
+              child: Padding(
+                padding: const EdgeInsetsDirectional.all(AppSpace.sm),
+                child: _content(),
               ),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  /// The avatar, the text and — only when something is unread — the badge.
+  Widget _content() {
+    final hasUnread = group.unreadCount > 0;
+    return Row(
+      children: [
+        _GroupAvatar(isMasked: group.isMasked),
+        const SizedBox(width: AppSpace.sm),
+        Expanded(child: _GroupText(group: group)),
+        if (hasUnread) ...[
+          const SizedBox(width: AppSpace.xs),
+          _UnreadBadge(groupId: group.id, count: group.unreadCount),
+        ],
+      ],
     );
   }
 }
@@ -314,33 +336,33 @@ class _GroupAvatar extends StatelessWidget {
 
 /// The group's title over its last message. An unread group shows its message
 /// in full-strength ink, so it stands out without a second colour.
+///
+/// Words people typed — a team's title, the last message — are laid out in
+/// their own direction, not the screen's: an English message on an Arabic
+/// screen would otherwise show its full stop at the wrong end (".See you").
+/// Translated strings always follow the screen.
 class _GroupText extends StatelessWidget {
-  const _GroupText({
-    required this.title,
-    required this.lastMessage,
-    required this.hasUnread,
-  });
+  const _GroupText({required this.group});
 
-  /// The already-localized title.
-  final String title;
-
-  /// The newest message's text, or empty when nothing has been said yet.
-  final String lastMessage;
-
-  /// True while the member has messages they have not read.
-  final bool hasUnread;
+  /// The group whose title and last message are shown.
+  final ChatGroupSummary group;
 
   @override
   Widget build(BuildContext context) {
-    final preview = lastMessage.trim();
+    final preview = group.lastMessage.trim();
+    final hasUnread = group.unreadCount > 0;
+    final screen = Directionality.of(context);
     final ink = AppThemeConfig.text(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          title,
+          chatGroupTitle(group),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
+          textDirection: hasStaffWrittenTitle(group)
+              ? contentDirection(group.title, fallback: screen)
+              : null,
           style: TextStyle(
             fontSize: AppType.body,
             fontWeight: AppType.wLabel,
@@ -352,6 +374,9 @@ class _GroupText extends StatelessWidget {
           preview.isEmpty ? 'chat_groups_no_messages_yet'.tr : preview,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
+          textDirection: preview.isEmpty
+              ? null
+              : contentDirection(preview, fallback: screen),
           style: TextStyle(
             fontSize: AppType.dense,
             fontWeight: hasUnread ? AppType.wLabel : AppType.wBody,

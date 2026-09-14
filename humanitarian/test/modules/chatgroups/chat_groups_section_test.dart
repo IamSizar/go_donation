@@ -12,14 +12,25 @@
 //      fallback when it is blank.
 //   4. The unread badge appears only when something is unread, and says so to
 //      a screen reader.
-//   5. Tapping a group opens its conversation under the same title.
+//   5. Tapping a group opens its conversation under the same title, and
+//      coming back refreshes the groups at once, so the unread badge the
+//      member just read does not linger until the next 5-second poll.
 //   6. A failed load shows Retry INSIDE the block and Retry recovers; a failed
 //      refresh keeps groups that already loaded readable — and lays out
 //      without error inside the Messages tab's ListView.
 //   7. Arabic: nothing the block writes itself is in English.
+//   8. A group tile is announced to screen readers as a button.
+//   9. What people wrote — a last message, a team's title — is laid out in its
+//      own direction, not the screen's: English on an Arabic screen keeps its
+//      full stop at the end.
+//
+// The block no longer creates ChatGroupsController; MessagesScreen does (see
+// messages_screen_chat_groups_wiring_test.dart). So [_open] registers one on
+// the fake API first, exactly as Messages would.
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -45,8 +56,13 @@ Future<void> _settle(WidgetTester tester) async {
   }
 }
 
-/// Mounts the section the way the Messages tab does — as one child of a
-/// ListView inside a Scaffold — and waits for its opening load.
+/// Mounts the section the way the Messages tab does — one child of a ListView
+/// inside a Scaffold, its controller registered by the screen's build just
+/// before — and waits for its opening load.
+///
+/// The controller is put inside the tree rather than before pumpWidget: its
+/// first load starts at once, and a failure message built before
+/// GetMaterialApp has loaded the translations would come out untranslated.
 Future<void> _open(
   WidgetTester tester,
   FakeChatGroupsApi api, {
@@ -58,8 +74,15 @@ Future<void> _open(
       theme: AppThemeConfig.buildTheme(Brightness.light),
       translations: AppTranslations(),
       locale: locale,
-      home: Scaffold(
-        body: ListView(children: [ChatGroupsSection(api: api)]),
+      home: Builder(
+        builder: (context) {
+          if (!Get.isRegistered<ChatGroupsController>()) {
+            Get.put(ChatGroupsController(api: api));
+          }
+          return Scaffold(
+            body: ListView(children: [ChatGroupsSection(api: api)]),
+          );
+        },
       ),
     ),
   );
@@ -77,6 +100,10 @@ Future<void> _close(WidgetTester tester) async {
 /// The vertical position of the first widget showing [text].
 double _top(WidgetTester tester, String text) =>
     tester.getTopLeft(find.text(text).first).dy;
+
+/// The direction the paragraph showing [text] is laid out in.
+TextDirection _directionOf(WidgetTester tester, String text) =>
+    tester.renderObject<RenderParagraph>(find.text(text)).textDirection;
 
 void main() {
   setUp(() async {
@@ -208,6 +235,97 @@ void main() {
       );
       expect(screen.groupId, 7);
       expect(screen.title, _en['chat_groups_connection_title']);
+      await _close(tester);
+    });
+
+    testWidgets('coming back refreshes the groups, so a read badge clears', (
+      tester,
+    ) async {
+      final api = FakeChatGroupsApi()
+        ..groups = [
+          groupRow(id: 8, kind: 'team', title: 'Field team', unreadCount: 3),
+        ];
+      await _open(tester, api);
+      final badge = find.byKey(const ValueKey('chat_group_unread_8'));
+      expect(badge, findsOneWidget);
+
+      await tester.tap(find.text('Field team'));
+      await _settle(tester);
+      // Reading the conversation cleared its unread count on the server.
+      api.groups = [groupRow(id: 8, kind: 'team', title: 'Field team')];
+      final callsBefore = api.groupsCalls;
+      Get.back();
+      await _settle(tester);
+
+      expect(api.groupsCalls, callsBefore + 1);
+      expect(badge, findsNothing);
+      await _close(tester);
+    });
+  });
+
+  testWidgets('a group tile is announced as one button', (tester) async {
+    final semantics = tester.ensureSemantics();
+    final api = FakeChatGroupsApi()
+      ..groups = [
+        groupRow(
+          id: 8,
+          kind: 'team',
+          title: 'Field team',
+          lastMessage: 'See you at nine',
+          unreadCount: 2,
+        ),
+      ];
+    await _open(tester, api);
+
+    final tile = tester.getSemantics(find.text('Field team'));
+    expect(tile, isSemantics(isButton: true, hasTapAction: true));
+    // One announcement for the row: title, last message and unread count.
+    expect(tile.label, contains('Field team'));
+    expect(tile.label, contains('See you at nine'));
+    expect(
+      tile.label,
+      contains(_en['chat_groups_unread_count']!.replaceAll('@count', '2')),
+    );
+    await _close(tester);
+    semantics.dispose();
+  });
+
+  group('what people wrote keeps its own direction', () {
+    testWidgets('English on an Arabic screen is laid out left-to-right', (
+      tester,
+    ) async {
+      final api = FakeChatGroupsApi()
+        ..groups = [
+          groupRow(
+            id: 2,
+            kind: 'team',
+            title: 'Field team',
+            lastMessage: 'God bless you all.',
+          ),
+        ];
+      await _open(tester, api, locale: const Locale('ar', 'SA'));
+
+      expect(_directionOf(tester, 'Field team'), TextDirection.ltr);
+      expect(_directionOf(tester, 'God bless you all.'), TextDirection.ltr);
+      await _close(tester);
+    });
+
+    testWidgets('Arabic on an English screen is laid out right-to-left', (
+      tester,
+    ) async {
+      final api = FakeChatGroupsApi()
+        ..groups = [
+          groupRow(
+            id: 2,
+            kind: 'team',
+            title: 'فريق التوزيع',
+            lastMessage: 'بارك الله فيكم.',
+          ),
+        ];
+      await _open(tester, api);
+
+      expect(_directionOf(tester, 'فريق التوزيع'), TextDirection.rtl);
+      expect(_directionOf(tester, 'بارك الله فيكم.'), TextDirection.rtl);
       await _close(tester);
     });
   });
