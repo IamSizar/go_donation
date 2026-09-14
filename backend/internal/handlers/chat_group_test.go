@@ -903,7 +903,8 @@ func TestAdminListConnectRequests_ReturnsAll(t *testing.T) {
 	staff := makeChatGroupUser(t, pool, "Staff")
 	donor := makeChatGroupUser(t, pool, "Donor Name")
 	s := chatgroups.New(pool)
-	if _, err := s.SubmitConnectRequest(context.Background(), donor, "donation", 1, nil, "please"); err != nil {
+	reqID, err := s.SubmitConnectRequest(context.Background(), donor, "donation", 1, nil, "please")
+	if err != nil {
 		t.Fatalf("submit: %v", err)
 	}
 	token := tokenForStaffUser(t, pool, staff)
@@ -914,8 +915,27 @@ func TestAdminListConnectRequests_ReturnsAll(t *testing.T) {
 		t.Fatalf("status = %d, want 200 (body %v)", code, body)
 	}
 	items, _ := body["items"].([]any)
-	if len(items) != 1 {
-		t.Fatalf("got %d requests, want 1", len(items))
+
+	// Find the request we just created, rather than asserting the total count.
+	// The test DB is shared across all tests in this package, so the total count
+	// can be higher than 1 due to other tests leaving rows behind.
+	var found map[string]any
+	for _, item := range items {
+		if itemMap, ok := item.(map[string]any); ok {
+			if id, ok := itemMap["id"].(float64); ok && id == float64(reqID) {
+				found = itemMap
+				break
+			}
+		}
+	}
+	if found == nil {
+		t.Fatalf("request %d not found in admin list (got %d total items)", reqID, len(items))
+	}
+	if found["context_type"] != "donation" {
+		t.Fatalf("context_type = %v, want \"donation\"", found["context_type"])
+	}
+	if found["status"] != "pending" {
+		t.Fatalf("status = %v, want \"pending\"", found["status"])
 	}
 }
 
