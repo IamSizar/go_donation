@@ -6,6 +6,49 @@
 
 ---
 
+## 2026-09-12 — publishing a project request with no Arabic title no longer crashes
+
+**Asked for:** OPOS #25292 — "'Add Campaign' UI inconsistent," reported
+vague, no further detail.
+
+**Branch:** `fix/publish-project-request-crash`, cut from `main`. One commit,
+pushed, PR opened: https://github.com/IamSizar/go_donation/pull/69 (`8ce3d1c`).
+
+### Root cause (Explore-agent audit found this despite the vague report)
+Two paths `INSERT INTO campaigns`: the direct "Add Campaign" admin form
+requires `title_ar` with clear inline validation; "Publish" a beneficiary's
+approved project request maps `project_title_ar` (nullable, and the app's
+own submission form never collects it) onto the same `NOT NULL
+campaigns.title_ar` column, passing `nil` straight into the INSERT — a raw
+`"null value... violates not-null constraint"` 500 on essentially every
+real publish. That's the "inconsistency": one flow demands Arabic title,
+the other crashes instead of asking for it.
+
+### What was actually changed
+- `backend/internal/handlers/admin_status.go` — `title_ar` now defaults to
+  `""` when the source has none, matching the exact pattern this same
+  function already uses for `description`/`description_ar`. Never falls
+  back to the English title (house rule: Arabic UI = no English).
+
+### Deliberately NOT changed
+Whether the project-request submission form should start collecting an
+Arabic title, or whether staff should be prompted for missing
+translations before publish. Both are real product/UX decisions for the
+client — not something to decide unilaterally while fixing a crash.
+
+### What was run, and what it printed
+- New `publish_project_request_test.go` drives the real HTTP route
+  (`RequireAdmin` + `RequirePermission`, matching `main.go`'s wiring),
+  asserts 200 + no English-in-Arabic leak. Mutation-checked: reverted to
+  the nil-passthrough, confirmed the test fails with the EXACT originally
+  reported error, restored the fix.
+- `go build/vet/test ./...` — all green, `gofmt -l` clean.
+
+### Still open / needs a human
+The two deliberately-deferred decisions above.
+
+---
+
 ## 0. TL;DR
 
 - **App:** "Tawazon" (توازن) / **BalanceNex** — a multi-language humanitarian **donations & community platform**.
