@@ -6,6 +6,30 @@
 
 ---
 
+## 2026-09-12 — OPOS #25284 Phase 1: chatgroups schema + Store layer (PR #71, branch `worktree-chat-groups-phase1`)
+
+**What was asked:** design and start building a replacement for direct donor/beneficiary/volunteer messaging — per client policy, those three roles must never contact each other directly; only staff-created group chats (masked/alias-only for donor+beneficiary+volunteer coordination, real-name for staff-curated volunteer teams) connect them. Full policy, architecture options, and phasing are in `docs/superpowers/specs/2026-09-12-masked-group-chats-design.md`.
+
+**What was actually changed:** new, currently-unreferenced Go package `backend/internal/chatgroups/` (`chatgroups.go`, `chatgroups_reads.go`, `chatgroups_connect.go`, `chatgroups_test.go`) and new migration `backend/migrations/120_chat_groups.sql` (7 new tables: `chat_group_threads`, `chat_group_staff_notes`, `chat_group_members`, `chat_group_messages`, `chat_group_reads`, `chat_group_contact_blocks`, `chat_group_connect_requests`; additive only, no existing table touched). No HTTP route, no `chatlifecycle` registration, no client change — nothing here is reachable yet. Built via `docs/superpowers/plans/2026-09-12-chat-groups-phase1-schema-and-store.md` (10 tasks, subagent-driven development).
+
+**What was run and what it printed:** `go build ./...` and `go vet ./internal/chatgroups/...` clean; `gofmt -l internal/chatgroups/*.go` empty; `go test ./...` from `backend/` — every package `ok`, including `ok github.com/karam-flutter/humanitarian-backend/internal/chatgroups 0.618s` (29 tests, gated on `TEST_DATABASE_URL` against a real Postgres instance — this machine's local Postgres via `pg_isready` on port 5432). Migration applies cleanly to a fresh database.
+
+**External actions taken:** pushed branch `worktree-chat-groups-phase1` to `origin` (note: NOT named `feat/chat-groups-phase1` as originally intended — that name was already checked out in another local worktree, so the auto-generated worktree branch name was kept). Opened PR #71 against `main`: https://github.com/IamSizar/go_donation/pull/71. `mcp__ccd_pr__bind_pr` failed to bind it for CI monitoring ("could not read it as an open pull request... a host `gh` is not signed in to") — the desktop app's GitHub auth and this shell's `gh` CLI auth are apparently different identities/hosts; PR CI should be checked manually or by re-authenticating the app's GitHub connection.
+
+**What is still open:**
+- PR #71 is unmerged, unreviewed by a human.
+- Phases 2–6 of #25284 (routes/permissions, connect-request end-to-end, retiring the old direct chat and `casevolchat`'s direct mode, Flutter client, admin-web client) are not started — each needs its own plan, written only once the prior phase's real interfaces exist.
+- OPOS #25544 (run `moderation.ScanContact` over staff-typed masked labels, per spec §5) is open — deliberately not implemented in Phase 1 since no route sets a label yet; must be picked up when Phase 2 wires label input over HTTP.
+- Several other gaps found by the final whole-branch review were deliberately deferred to the Phase 2 brief rather than fixed here (no current consumer exists for any of them): `ApproveConnectRequest` doesn't validate the requester is among the approved members or that `kind` is valid; `ListConnectRequests` isn't renamed/documented as staff-only; group-listing order reflects creation time not last-activity and isn't paginated; `AddMember` has no re-add-after-soft-remove path.
+- OPOS #25296 (marriage feed separation + multi-vendor services catalogue) explicitly overlaps this task's messaging parts and was flagged in its own ticket to coordinate scope, not duplicated here.
+
+**Traps:**
+- This worktree's `HANDOFF.md` is branched from an old `main` snapshot (2026-07-06, `new-update` branch content) — it does **not** contain other same-day branches' entries from this same working session, since none of those PRs are merged yet. That's expected, not data loss: each unmerged branch's `HANDOFF.md` is relative to its own fork point until merge.
+- `git branch -m` to rename the worktree's auto-generated branch to the intended `feat/chat-groups-phase1` fails (`fatal: a branch named 'feat/chat-groups-phase1' already exists`) if that name is checked out elsewhere in the same repo's other worktrees/checkouts — don't fight it, the branch name on GitHub (`worktree-chat-groups-phase1`) is what matters for the PR, not the local name.
+- `gofmt -l pkg/*.go && echo CLEAN || echo DIRTY` is backwards logic: `gofmt -l` exits 0 whether or not it lists files, so the `&&` branch always fires. Check for genuinely empty output directly instead of trusting the exit code.
+
+---
+
 ## 0. TL;DR
 
 - **App:** "Tawazon" (توازن) / **BalanceNex** — a multi-language humanitarian **donations & community platform**.
