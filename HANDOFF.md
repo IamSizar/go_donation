@@ -6,6 +6,82 @@
 
 ---
 
+## 2026-09-14 — SESSION WRAP-UP: OPOS #25284 Phases 1-4 fully merged to `main`, Phase 5 in progress
+
+**Read this entry first if you are picking this project up cold.** It is the single most current summary of where the whole chat-groups feature (OPOS #25284) actually stands, written specifically so a fresh agent or engineer does not have to reconstruct it from git archaeology.
+
+### What is DONE and merged into `main` right now
+
+Nine PRs from this session are merged into `main`, in this order (verify with `git log --oneline main` — all are still there as named merge commits):
+
+1. **#71** — Phase 1: `internal/chatgroups` schema + Store layer (masked/team group chats, no HTTP surface yet).
+2. **#72** — Phase 2: mobile + admin routes, permission gating, `chatlifecycle` registration (`KindGroup`), K19 contact filter, push notifications.
+3. **#73** — OPOS #25544: `moderation.ScanContact` now runs over a staff-typed `masked_label` before it's stored (closes a contact-info leak in the admin create-group/add-member routes).
+4. **#74** — Phase 3: connect-request end-to-end (`POST /chat-groups/connect-requests`, admin approve/decline, `chat_group_audit_log` table + `RecordAudit`).
+5. **#78** — OPOS #25634: wires `RecordAudit` into Phase 2's `AdminCreateGroup`/`AdminAddMember`/`AdminRemoveMember` (the retrofit Phase 3's own audit mechanism was built for).
+6. **#79** — Phase 4: retires the old donor↔campaign-owner direct chat (`kind='direct'` now refuses new requests, returns 410) and removes `casevolchat`'s direct volunteer↔beneficiary messaging entirely (package trimmed to one surviving read-only method).
+7. **#80** — the integration PR that collapsed the whole #71→#72→#73→#74→#78→#79 dependency chain into one clean merge to `main` (see "How the merge-to-main actually happened" below — there were real, resolved-by-hand conflicts here, not just a rubber-stamp).
+8. **#75** — OPOS #25612: replaced the single-weight, unlicensed `Kurdfont.ttf` with `NotoKufiArabic[wght].ttf` (OFL-licensed variable font, weights 300/400/600).
+9. **#76** — marriage hub screen no longer shows the general humanitarian news/activities feed (was leaking humanitarian-work posts into the Marriage tab).
+10. **#77** — added a "News" section to the Profile screen (`ProfileMenuScreen`) as the requested relocation of what #76 removed — the home tab already had an equivalent "Latest news" strip, so nothing was needed there.
+
+**Verification standard applied to every one of the above, and to the final merged state of `main` itself:** every PR was independently re-verified by the controlling agent against a genuinely fresh (`createdb`, `-count=1 -p 1`) Postgres database — never trusted a subagent's self-reported test count or a single green run. `main` itself, AFTER all nine merges, was re-checked out fresh and re-verified one final time: `go build ./...` clean, `go vet ./...` clean, `gofmt -l` shows only one pre-existing unrelated file (`internal/handlers/admin_edit_user_profile.go`, untouched by any of this session's work), full backend suite **22/22 packages green, zero failures**, `flutter analyze` clean (6 pre-existing unrelated info-level notices), admin-web `tsc --noEmit` + `npm run build` clean.
+
+### How the merge-to-main actually happened (read this before touching the chain again)
+
+PR #71 (Phase 1) was **squash-merged** into `main` as a single commit. Every other branch in the chain (#72, #73, #74, #78, #79) was forked from Phase 1's **original, un-squashed** branch tip — so once #71 landed, those branches no longer shared a common git ancestor with `main` for the files Phase 1 touched, even though the actual file *content* was compatible. This produced real "add/add" merge conflicts when trying to bring the chain into `main` directly (git could not do a 3-way diff without a shared ancestor).
+
+**The fix used, in order:**
+1. Merged each PR into its **original** base branch first (not `main`) — #72 into `worktree-chat-groups-phase1`, #73+#74 into `feat/chat-groups-phase2`, #78+#79 into `feat/chat-groups-phase3` — all regular (non-squash) merges, so no history was rewritten and no force-push was needed anywhere.
+2. Merged `feat/chat-groups-phase2` and then `feat/chat-groups-phase3` into `worktree-chat-groups-phase1`, producing one fully-integrated branch with all of Phases 1-4 on it. One trivial `HANDOFF.md` conflict at each step (both sides had appended their own "newest entry" at the top) — resolved by keeping both entries, newest first.
+3. Merged `origin/main` into that integrated branch. This is where the real add/add conflicts appeared, in `backend/internal/chatgroups/chatgroups.go`, `chatgroups_connect.go`, and `chatgroups_test.go`. **Before resolving anything**, each conflict was independently verified line-by-line (`git diff origin/main:<file> <branch>:<file>`) to confirm the integrated branch's version was a **strict superset** of main's version — i.e., every line main had, the integrated branch also had, plus additional later-phase work, with nothing contradicted or removed. Only after confirming this were the conflicts resolved by keeping the integrated branch's side (`git checkout --ours`). **Do not resolve a conflict like this by just picking a side without doing this line-by-line superset check first** — if the two sides had actually diverged (not just "one side is behind"), blindly picking "ours" could have silently dropped a real fix from the other side.
+4. Pushed the fully-reconciled integrated branch, opened PR #80 against `main`, verified the full 3-stack (backend/Flutter/admin-web) test suite on it one more time, then merged.
+5. The three independent, already-`main`-based PRs (#75, #76, #77) merged cleanly afterward with no special handling needed.
+
+**If you ever need to merge another long-lived branch chain into `main` again**: avoid squash-merging the FIRST link in a chain if other branches have already forked from it — either squash-merge everything at the very end (once), or don't squash internal links at all and only decide squash-vs-merge for the final PR into `main`. This session's approach (regular merges up the chain, one final reconciliation into `main`) is the safe pattern if you're already past the point where the first squash happened.
+
+### What is NOT done — Phase 5 (Flutter client), in progress right now
+
+**Branch:** `feat/chat-groups-phase5-flutter-client`, pushed to `origin`, **not yet a PR** (deliberately — it's incomplete, do not open a PR until at least Task 1's acceptance criteria for the whole plan are met, and ideally all 5 tasks).
+
+**Design docs (both already written, committed, and approved — read these before writing any more code, do not re-derive):**
+- `docs/superpowers/specs/2026-09-14-chat-groups-phase5-flutter-client-design.md` — the design addendum (extends §11 of the original masked-group-chats spec with concrete screen-by-screen decisions: one conversation screen serves both masked and team groups, where the "Request to connect" entry points live, etc.)
+- `docs/superpowers/plans/2026-09-14-chat-groups-phase5-flutter-client.md` — the full 5-task implementation plan with exact code for every task.
+
+**SDD ledger and workspace:** `.superpowers/sdd/2026-09-14-chat-groups-phase5-flutter-client/` — contains `progress.md` (the ledger — check its first line names this plan, and look for `Task <N>: complete` lines to see what's actually done vs. what's just committed-but-unreviewed) and `task-1-brief.md` (already extracted).
+
+**Exact current state as of this entry:**
+- **Task 1 (API client methods + models) is DONE**: commit `42b7494` on `feat/chat-groups-phase5-flutter-client`, independently re-verified (`flutter analyze` clean, `flutter test test/modules/chatgroups/` 5/5 pass). This added `humanitarian/lib/modules/chatgroups/models/chat_group_models.dart` (`ChatGroupSummary`, `ChatGroupMessage`, `MyConnectRequest`), new URL constants in `links.dart`, and new thin one-liner methods on `ModuleApi` (`chatGroups()`, `chatGroupMessages()`, `sendChatGroupMessage()`, `markChatGroupRead()`, `submitConnectRequest()`, `myConnectRequests()`).
+- **Tasks 2-5 are NOT started.** The ledger at `.superpowers/sdd/2026-09-14-chat-groups-phase5-flutter-client/progress.md` should be checked for the exact `Task 1: complete` line before resuming — trust that file over this HANDOFF entry's own memory of it, since more work may have happened after this entry was written.
+- Task 2: GetX controllers (`ChatGroupsController`, `ChatGroupConversationController`, `MyConnectRequestsController`) — full exact code already in the plan.
+- Task 3: `ChatGroupConversationScreen` — one screen serves both masked and team groups (the backend's `sender_label` already resolves correctly for both; the client never branches on `kind`). Full exact code already in the plan, modeled directly on the existing `ChatConversationScreen`.
+- Task 4: wires "My Connections"/"My Team Groups" sections and a "My Connect Requests" tile into the existing `messages_screen.dart`, plus the new `MyConnectRequestsScreen`.
+- Task 5: the "Request to connect" entry points — a shared bottom-sheet widget, wired into the two spots Phase 4 removed the old chat buttons from (`my_donations_page.dart`, `beneficiary_campaign_donations_screen.dart`) for donation context, plus a new generic "Request help with a case" dialog in the Messages tab for case context (a case reference number typed by the user — deliberately NOT a lookup against a specific case-detail screen, to keep this phase's scope bounded; see the design addendum §2 for the reasoning).
+
+**How to resume:** use the `superpowers:subagent-driven-development` skill against the existing plan file. Record `git rev-parse HEAD` as BASE, run `scripts/task-brief docs/superpowers/plans/2026-09-14-chat-groups-phase5-flutter-client.md 2` to extract Task 2's brief, dispatch a fresh implementer subagent with that brief, independently re-verify its work (fresh test run, read the actual diff, don't trust the report), update the ledger, and continue through Tasks 3-5 the same way — then a final whole-branch review, then `finishing-a-development-branch` (push, open a PR against `main` since Phase 4 is already merged there — Phase 5 no longer needs to target a feature branch the way Phases 2-4 did).
+
+**OPOS #25608** (Phase 5's tracker) is in **Work In Progress** status with a detailed comment recording this exact state — check it for anything that changed after this HANDOFF entry was written.
+
+### What has NOT been started at all
+
+- **Phase 6** (admin-web client for the new chat-groups system) — OPOS #25610, still in "To Do", no design or plan work done yet. Will need its own scoping pass same as Phase 5 did (it's real UI work, not just API wiring) — the original spec's §11 has a short admin-web bullet list to start from (create-group flow, connect-request inbox, `MessagesPage.tsx`'s old donor/owner section becomes read-only history, `CaseVolunteerChatsPage.tsx`'s retirement already done in Phase 4).
+
+### Deploy-time action still pending (not a code gap — a human/ops decision)
+
+`backend/cmd/retire-direct-chats` (shipped in Phase 4, PR #79) has never been run against any real database — it was only tested against throwaway `createdb` instances during development. Running `go run ./cmd/retire-direct-chats -actor=<staff_user_id>` against production is what actually ends+archives every existing open donor↔owner direct-chat thread; until that runs, the **capability** to create new ones is gone (refused with 410) but existing ones keep working normally. This is a deliberate, separate deploy step — flag it to whoever owns production deploys, it is not something a future coding session should just run on its own initiative.
+
+### Traps and gotchas worth knowing before you touch this codebase again
+
+- **Test database reuse.** This backend's test suite has a real, pre-existing, well-documented flake: running `go test` twice against the *same* Postgres database without recreating it reproduces spurious failures (`TestListGroupsForUserUnreadCount` and others) purely from leftover rows, not from any actual bug. **Always `createdb` fresh and use `-count=1 -p 1`** for a trustworthy run. `-p 1` (serialized package execution) also avoids a separate, unrelated cross-package race where `internal/permissions`' own tests can run before another package's test binary has finished migrating the shared database.
+- **Squash-merging the first link of a branch chain breaks every descendant's mergeability into the same target later** — see "How the merge-to-main actually happened" above. If you're about to squash-merge a PR, check first whether any other branch was forked from its pre-squash tip.
+- **A dispatched subagent that `cd`s into `backend/` (or any subdirectory) before writing a report to a relative path can silently write it to the wrong location** — this happened at least twice this session (a stray `backend/.superpowers/sdd/.../task-4-report.md` during Phase 3, discovered and merged back into the canonical file). Always double-check where a subagent's "written to X" claim actually landed if there's any chance it changed directories mid-task.
+- **`chatlifecycle.Systems()` vs `chatlifecycle.AllSystems()` are NOT interchangeable**, despite matching signatures — `Systems()` deliberately excludes retired kinds (correct for the dashboard's "systems in active use" listings), `AllSystems()` includes them (required for resolving historical/trashed data, e.g. restoring a `case_volunteer_chat_threads` row trashed before Phase 4 retired it). A "simplification" that merges these two call sites back together silently reintroduces a real empty-shell-restore bug that Phase 4's final review caught and fixed — the comments in `admin_chat_lifecycle.go` and `admin_trash.go` exist specifically to warn against this.
+- **OPOS MCP requires interactive OAuth and was repeatedly unavailable to dispatched subagents** (non-interactive sessions) throughout this work, even though it worked fine in the main controlling session. Several fix-round subagents flagged this rather than silently skipping task tracking — worth checking whether OPOS auth can be pre-established for automated/background sessions rather than re-discovering this each time.
+- **`hawkscan`'s post-commit hook fires on every commit** in this environment; its own stated precondition ("if the application is running and HAWK_API_KEY is set") was never met this session (no key configured), so every scan was correctly skipped, not silently ignored. A human with the key configured may want to run a scan over this session's cumulative changes at some point.
+- **This project's `HANDOFF.md` merge conflicts are always the same shape**: two branches each add their own "newest entry" at the very top. Resolve by keeping both, ordered newest-first by date — never by discarding one side's entry.
+
+---
+
 ## 2026-09-14 — OPOS #25284 Phase 4 final-review fix round (branch `fix/chatgroups-phase4-retire-direct-chat`)
 
 **What was asked:** fix four findings from the final whole-branch review of `fix/chatgroups-phase4-retire-direct-chat` (Phase 4, retiring old direct chat): (1) IMPORTANT — a trash-restore regression where `case_volunteer_chat_threads` rows trashed before this deploy would restore as empty shells; (2) IMPORTANT — `staffactivity`'s "Chats assigned now" metric never excluded ended/archived threads; (3) MINOR — dead Flutter code (`ChatController.requestChat`, `chatRequestUrl`); (4) MINOR — dead notify templates (`CaseVolunteerChatOpenedMsg`, `CaseVolunteerChatNewMessageMsg`).
