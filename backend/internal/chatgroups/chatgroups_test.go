@@ -1337,3 +1337,91 @@ func randomDigits(t *testing.T, n int) string {
 	}
 	return string(b)
 }
+
+func TestApproveConnectRequestRecordsAudit(t *testing.T) {
+	pool := newTestPool(t)
+	s := New(pool)
+	staff := makeTestUser(t, pool, "staff")
+	donor := makeTestUser(t, pool, "donor")
+	reqID, err := s.SubmitConnectRequest(context.Background(), donor, "donation", 1, nil, "please connect me")
+	if err != nil {
+		t.Fatalf("submit: %v", err)
+	}
+	groupID, err := s.ApproveConnectRequest(context.Background(), reqID, KindMasked, "", staff,
+		[]MemberInput{{UserID: donor, RoleInGroup: "donor"}})
+	if err != nil {
+		t.Fatalf("approve: %v", err)
+	}
+	var n int
+	if err := pool.QueryRow(context.Background(),
+		`SELECT COUNT(*) FROM chat_group_audit_log WHERE group_id = $1 AND action = 'created'`, groupID,
+	).Scan(&n); err != nil {
+		t.Fatalf("count audit rows: %v", err)
+	}
+	if n != 1 {
+		t.Fatalf("got %d 'created' audit rows, want 1", n)
+	}
+}
+
+func TestApproveConnectRequestRejectsInvalidKind(t *testing.T) {
+	pool := newTestPool(t)
+	s := New(pool)
+	staff := makeTestUser(t, pool, "staff")
+	donor := makeTestUser(t, pool, "donor")
+	reqID, err := s.SubmitConnectRequest(context.Background(), donor, "donation", 1, nil, "please connect me")
+	if err != nil {
+		t.Fatalf("submit: %v", err)
+	}
+	_, err = s.ApproveConnectRequest(context.Background(), reqID, Kind("bogus"), "", staff,
+		[]MemberInput{{UserID: donor, RoleInGroup: "donor"}})
+	if !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("err = %v, want ErrInvalidInput", err)
+	}
+}
+
+func TestApproveConnectRequestRejectsMembersWithoutRequester(t *testing.T) {
+	pool := newTestPool(t)
+	s := New(pool)
+	staff := makeTestUser(t, pool, "staff")
+	donor := makeTestUser(t, pool, "donor")
+	beneficiary := makeTestUser(t, pool, "beneficiary")
+	reqID, err := s.SubmitConnectRequest(context.Background(), donor, "donation", 1, nil, "please connect me")
+	if err != nil {
+		t.Fatalf("submit: %v", err)
+	}
+	// Members list omits the requester (donor) entirely.
+	_, err = s.ApproveConnectRequest(context.Background(), reqID, KindMasked, "", staff,
+		[]MemberInput{{UserID: beneficiary, RoleInGroup: "beneficiary"}})
+	if !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("err = %v, want ErrInvalidInput", err)
+	}
+}
+
+func TestGetConnectRequestReturnsErrNotFoundForUnknown(t *testing.T) {
+	pool := newTestPool(t)
+	s := New(pool)
+	_, err := s.GetConnectRequest(context.Background(), 999999999)
+	if !errors.Is(err, ErrNotFound) {
+		t.Fatalf("err = %v, want ErrNotFound", err)
+	}
+}
+
+func TestListConnectRequestsForUserOnlyReturnsOwnRequests(t *testing.T) {
+	pool := newTestPool(t)
+	s := New(pool)
+	donorA := makeTestUser(t, pool, "donor")
+	donorB := makeTestUser(t, pool, "donor")
+	if _, err := s.SubmitConnectRequest(context.Background(), donorA, "donation", 1, nil, "a"); err != nil {
+		t.Fatalf("submit A: %v", err)
+	}
+	if _, err := s.SubmitConnectRequest(context.Background(), donorB, "donation", 2, nil, "b"); err != nil {
+		t.Fatalf("submit B: %v", err)
+	}
+	items, err := s.ListConnectRequestsForUser(context.Background(), donorA)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(items) != 1 || items[0].RequesterID != donorA {
+		t.Fatalf("got %+v, want exactly donorA's own request", items)
+	}
+}
