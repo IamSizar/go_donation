@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -88,6 +89,13 @@ func (h *ChatGroupHandler) AdminCreateGroup(c *gin.Context) {
 		h.chatErr(c, err)
 		return
 	}
+	// Best-effort: mirrors refuseGroupContactDetails' RecordContactBlock
+	// handling in chat_group_contact_block.go — the group is already
+	// created, so a failed audit write is logged, not surfaced to the
+	// caller or allowed to roll back the primary action.
+	if err := h.Store.RecordAudit(c.Request.Context(), groupID, "created", user.UserID, nil); err != nil {
+		log.Printf("[chat-group] could not record audit for group %d creation: %v", groupID, err)
+	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "group_id": groupID})
 }
 
@@ -112,6 +120,10 @@ func (h *ChatGroupHandler) AdminAddMember(c *gin.Context) {
 		h.chatErr(c, err)
 		return
 	}
+	// Best-effort — see AdminCreateGroup's identical comment.
+	if err := h.Store.RecordAudit(c.Request.Context(), id, "member_added", user.UserID, &req.UserID); err != nil {
+		log.Printf("[chat-group] could not record audit for member %d added to group %d: %v", req.UserID, id, err)
+	}
 	c.JSON(http.StatusOK, gin.H{"success": true})
 }
 
@@ -134,6 +146,10 @@ func (h *ChatGroupHandler) AdminRemoveMember(c *gin.Context) {
 	if err := h.Store.RemoveMember(c.Request.Context(), id, memberUserID, user.UserID); err != nil {
 		h.chatErr(c, err)
 		return
+	}
+	// Best-effort — see AdminCreateGroup's identical comment.
+	if err := h.Store.RecordAudit(c.Request.Context(), id, "member_removed", user.UserID, &memberUserID); err != nil {
+		log.Printf("[chat-group] could not record audit for member %d removed from group %d: %v", memberUserID, id, err)
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true})
 }
