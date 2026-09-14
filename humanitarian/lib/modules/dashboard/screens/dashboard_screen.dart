@@ -297,7 +297,7 @@ class _CompactBottomNavBar extends StatelessWidget {
   static const double _barHeight = 52;
 
   /// Clearance below the labels, clamped between [_minClearance] and
-  /// [_maxClearance].
+  /// [_maxClearance] — **on iOS only** (see [_clearanceFor]).
   ///
   /// Two different things constrain this, and getting it wrong in either
   /// direction is visible:
@@ -314,21 +314,37 @@ class _CompactBottomNavBar extends StatelessWidget {
   ///     which is why the clipping looks asymmetric.
   ///
   /// 20pt clears both the indicator and the corner mask while still sitting
-  /// 14pt lower than the full inset.
+  /// 14pt lower than the full inset. This trade-off only holds on iOS: the
+  /// home indicator is a translucent overlay, not an opaque bar, so content
+  /// merely needs to clear the indicator itself, not the whole inset.
   static const double _minClearance = 6;
   static const double _maxClearance = 20;
 
-  /// The device's real bottom inset, clamped.
+  /// The device's real bottom inset, clamped **on iOS only**.
   ///
   /// Read from [View], not from MediaQuery: an ancestor can legitimately
   /// consume the padding (Scaffold does), after which MediaQuery reports 0
   /// and any calculation based on it silently produces a bar that looks fine
   /// in code and wrong on screen. The view is the ground truth.
+  ///
+  /// Android's system navigation (3-button bar, gesture pill, or an OEM
+  /// skin's own variant) is reported through the exact same inset, but
+  /// unlike iOS's home indicator it can be an OPAQUE bar drawn on top of the
+  /// app's own surface — and its height varies far more widely (24–48dp+)
+  /// than iOS's fixed ~34pt. Applying the iOS [_maxClearance] cap there
+  /// leaves the last several points of the tab bar's icons/labels sitting
+  /// behind that opaque bar, i.e. obstructed — which is exactly the reported
+  /// bug, and why it only showed up on some Android devices (whichever ones
+  /// report an inset above 20pt: gesture nav, taller OEM bars, or Android 15
+  /// where edge-to-edge is mandatory). Android must therefore always clear
+  /// its own full reported inset, uncapped.
   static double _clearanceFor(BuildContext context) {
     final view = View.of(context);
     final inset = view.viewPadding.bottom / view.devicePixelRatio;
-    return inset <= 0
-        ? _minClearance
+    if (inset <= 0) return _minClearance;
+    final isAndroid = Theme.of(context).platform == TargetPlatform.android;
+    return isAndroid
+        ? (inset < _minClearance ? _minClearance : inset)
         : inset.clamp(_minClearance, _maxClearance);
   }
 
