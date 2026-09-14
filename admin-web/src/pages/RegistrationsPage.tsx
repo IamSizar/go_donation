@@ -11,7 +11,7 @@ import { useLivePoll } from '../lib/useLivePoll'
 import { formatPhone } from '../lib/phone'
 import { type CsvColumn } from '../lib/csv'
 import PageHead from '../components/PageHead'
-import { formatDateTime } from '../lib/dates'
+import { formatDateParts } from '../lib/dates'
 import ActionsMenu from '../components/ActionsMenu'
 import { NeedsActionTag } from '../components/IdWithNeedsAction'
 
@@ -177,9 +177,17 @@ export default function RegistrationsPage() {
     {
       key: 'submitted',
       header: t('registrations.col_submitted'),
-      cell: (r) => (
-        <span className="muted">{formatDateTime(r.submitted_at) ?? '—'}</span>
-      ),
+      // OPOS #25297 — stacked date over time, matching UsersPage/
+      // DonationsPage/VolunteersPage's convention for this column.
+      cell: (r) => {
+        const { date, time } = formatDateParts(r.submitted_at)
+        return (
+          <div className="cell-stack">
+            <span className="muted">{date || '—'}</span>
+            {time && <span className="muted" style={{ fontSize: '0.85em' }}>{time}</span>}
+          </div>
+        )
+      },
     },
     {
       key: 'status',
