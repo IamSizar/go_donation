@@ -939,19 +939,56 @@ func TestAdminListConnectRequests_ReturnsAll(t *testing.T) {
 	}
 }
 
+// TestAdminApproveConnectRequest_CreatesUsableGroup proves the whole
+// submit→list-as-admin→approve→post→read-back chain end to end (design spec
+// §7 point 1), not just each endpoint in isolation: submit happens over HTTP
+// (not the Store directly), the submitted request must show up in the admin
+// inbox BEFORE it is approved, and after approval the requester must be able
+// to both post a message into the new group AND read it back.
 func TestAdminApproveConnectRequest_CreatesUsableGroup(t *testing.T) {
 	pool := newChatGroupPool(t)
-	adminR, adminH := newAdminConnectRequestRouter(pool)
+	adminR, _ := newAdminConnectRequestRouter(pool)
 	mobileR, _ := newWriteChatGroupRouter(pool)
+	connectR, _ := newConnectRequestRouter(pool)
 	staff := makeChatGroupUser(t, pool, "Staff")
 	donor := makeChatGroupUser(t, pool, "Donor Name")
-	s := chatgroups.New(pool)
-	reqID, err := s.SubmitConnectRequest(context.Background(), donor, "donation", 1, nil, "please connect me")
-	if err != nil {
-		t.Fatalf("submit: %v", err)
+	donorToken := tokenForChatGroupUser(t, pool, donor)
+
+	// Step 1: submit over HTTP, exactly as the mobile app would.
+	submitCode, submitBody := postAs(t, connectR, donorToken, "/api/chat-groups/connect-requests",
+		map[string]any{"context_type": "donation", "context_id": 1, "message": "please connect me"})
+	if submitCode != http.StatusOK {
+		t.Fatalf("submit: status = %d, want 200 (body %v)", submitCode, submitBody)
 	}
+	reqIDF, ok := submitBody["request_id"].(float64)
+	if !ok || reqIDF <= 0 {
+		t.Fatalf("request_id missing or invalid: %v", submitBody)
+	}
+	reqID := int64(reqIDF)
+
 	token := tokenForStaffUser(t, pool, staff)
 
+	// Step 2: the submitted request must be visible in the admin inbox before
+	// it is ever approved — staff cannot act on a request they can't see.
+	listCode, listBody := getAs(t, adminR, token, "/api/admin/chat-groups/connect-requests")
+	if listCode != http.StatusOK {
+		t.Fatalf("admin list: status = %d, want 200 (body %v)", listCode, listBody)
+	}
+	listItems, _ := listBody["items"].([]any)
+	foundInList := false
+	for _, item := range listItems {
+		if itemMap, ok := item.(map[string]any); ok {
+			if id, ok := itemMap["id"].(float64); ok && id == float64(reqID) {
+				foundInList = true
+				break
+			}
+		}
+	}
+	if !foundInList {
+		t.Fatalf("request %d not found in admin list before approval (got %d items)", reqID, len(listItems))
+	}
+
+	// Step 3: approve over HTTP.
 	code, body := postAs(t, adminR, token, fmt.Sprintf("/api/admin/chat-groups/connect-requests/%d/approve", reqID),
 		map[string]any{
 			"kind": "masked",
@@ -976,13 +1013,33 @@ func TestAdminApproveConnectRequest_CreatesUsableGroup(t *testing.T) {
 		_, _ = pool.Exec(ctx, `DELETE FROM chat_group_threads WHERE id = $1`, groupID)
 	})
 
-	// The end-to-end proof: the group is immediately usable by the requester.
-	postCode, postBody := postAs(t, mobileR, tokenForChatGroupUser(t, pool, donor),
-		fmt.Sprintf("/api/chat-groups/%d/messages", groupID), map[string]string{"body": "hello from the approved group"})
+	// Step 4: the group is immediately usable — post a message as the
+	// (now-member) requester.
+	const posted = "hello from the approved group"
+	postCode, postBody := postAs(t, mobileR, donorToken,
+		fmt.Sprintf("/api/chat-groups/%d/messages", groupID), map[string]string{"body": posted})
 	if postCode != http.StatusOK {
 		t.Fatalf("post as requester: status = %d, want 200 (body %v)", postCode, postBody)
 	}
-	_ = adminH
+
+	// Step 5: read it back as the requester — the whole point of "usable".
+	readCode, readBody := getAs(t, mobileR, donorToken, fmt.Sprintf("/api/chat-groups/%d/messages", groupID))
+	if readCode != http.StatusOK {
+		t.Fatalf("read messages: status = %d, want 200 (body %v)", readCode, readBody)
+	}
+	readItems, _ := readBody["items"].([]any)
+	foundMessage := false
+	for _, item := range readItems {
+		if itemMap, ok := item.(map[string]any); ok {
+			if b, _ := itemMap["body"].(string); b == posted {
+				foundMessage = true
+				break
+			}
+		}
+	}
+	if !foundMessage {
+		t.Fatalf("posted message %q not found when read back: %v", posted, readItems)
+	}
 }
 
 func TestAdminApproveConnectRequest_RejectsMembersWithoutRequester(t *testing.T) {
@@ -1040,5 +1097,98 @@ func TestAdminDeclineConnectRequest_ShowsReasonToRequester(t *testing.T) {
 	item, _ := items[0].(map[string]any)
 	if item["decline_reason"] != "Not eligible for this campaign." {
 		t.Fatalf("decline_reason = %v, want the staff reason", item["decline_reason"])
+	}
+}
+
+// TestAdminGetConnectRequest_ResolvesDonationContextLabel is the regression
+// guard for a Critical bug in resolveConnectContext's "donation" case
+// (chat_group_admin.go): donations.amount is VARCHAR(200), not numeric, so
+// scanning it into a float64 always failed, the error was discarded, and the
+// label silently fell all the way through to the raw "donation #4471"
+// fallback — defeating the entire point of resolving context for staff. This
+// inserts a REAL donation + campaign row so the happy path is proven to
+// actually work, not just that the fallback doesn't crash.
+func TestAdminGetConnectRequest_ResolvesDonationContextLabel(t *testing.T) {
+	pool := newChatGroupPool(t)
+	r, _ := newAdminConnectRequestRouter(pool)
+	staff := makeChatGroupUser(t, pool, "Staff")
+	donor := makeChatGroupUser(t, pool, "Donor Name")
+
+	// Column lists match the actual schema (migrations/001_full_v2.sql), not
+	// the schema the original finding assumed:
+	//   - campaigns has no defaults for title/title_ar/description/
+	//     description_ar/address/beneficiaries/goal_amount/raised_amount
+	//     (all VARCHAR NOT NULL).
+	//   - donations references the donor via `user_id` (not `donor_user_id`),
+	//     and requires `message` and `payment_method` (both NOT NULL, no
+	//     default) in addition to `amount`.
+	ctx := context.Background()
+	var campaignID int64
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO campaigns (title, title_ar, description, description_ar, address, beneficiaries, goal_amount, raised_amount)
+		VALUES ('Winter Relief', 'إغاثة الشتاء', 'd', 'd', 'a', '1', '1000', '0')
+		RETURNING id`,
+	).Scan(&campaignID); err != nil {
+		t.Fatalf("insert campaign: %v", err)
+	}
+	var donationID int64
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO donations (user_id, campaign_id, message, amount, payment_method)
+		VALUES ($1, $2, 'test donation', '250', 'cash')
+		RETURNING id`,
+		donor, campaignID,
+	).Scan(&donationID); err != nil {
+		t.Fatalf("insert donation: %v", err)
+	}
+	t.Cleanup(func() {
+		ctx := context.Background()
+		_, _ = pool.Exec(ctx, `DELETE FROM donations WHERE id = $1`, donationID)
+		_, _ = pool.Exec(ctx, `DELETE FROM campaigns WHERE id = $1`, campaignID)
+	})
+
+	s := chatgroups.New(pool)
+	reqID, err := s.SubmitConnectRequest(ctx, donor, "donation", donationID, nil, "please connect me")
+	if err != nil {
+		t.Fatalf("submit: %v", err)
+	}
+	token := tokenForStaffUser(t, pool, staff)
+
+	code, body := getAs(t, r, token, fmt.Sprintf("/api/admin/chat-groups/connect-requests/%d", reqID))
+	if code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (body %v)", code, body)
+	}
+	label, _ := body["context_label"].(string)
+	if !strings.Contains(label, "250") || !strings.Contains(label, "Winter Relief") {
+		t.Fatalf("context_label = %q, want it to mention the donation amount and campaign title", label)
+	}
+}
+
+// TestSubmitConnectRequest_ResubmittingWhilePendingReturnsSameID is the
+// HTTP-level twin of chatgroups_test.go's
+// TestSubmitConnectRequestIsIdempotentWhilePending (design spec §7 point 5):
+// it confirms the route itself, not just the Store, surfaces resubmit-while-
+// pending idempotency — the same id comes back both times.
+func TestSubmitConnectRequest_ResubmittingWhilePendingReturnsSameID(t *testing.T) {
+	pool := newChatGroupPool(t)
+	r, _ := newConnectRequestRouter(pool)
+	donor := makeChatGroupUser(t, pool, "Donor Name")
+	token := tokenForChatGroupUser(t, pool, donor)
+
+	body := map[string]any{"context_type": "donation", "context_id": 1, "message": "please connect me"}
+
+	code1, resp1 := postAs(t, r, token, "/api/chat-groups/connect-requests", body)
+	if code1 != http.StatusOK {
+		t.Fatalf("first submit: status = %d, want 200 (body %v)", code1, resp1)
+	}
+	id1, _ := resp1["request_id"].(float64)
+
+	code2, resp2 := postAs(t, r, token, "/api/chat-groups/connect-requests", body)
+	if code2 != http.StatusOK {
+		t.Fatalf("second submit: status = %d, want 200 (body %v)", code2, resp2)
+	}
+	id2, _ := resp2["request_id"].(float64)
+
+	if id1 == 0 || id1 != id2 {
+		t.Fatalf("resubmitting while pending should return the same id: first=%v second=%v", id1, id2)
 	}
 }

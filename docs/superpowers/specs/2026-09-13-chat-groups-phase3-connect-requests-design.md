@@ -57,14 +57,16 @@ and keeping `internal/chatgroups` free of dependencies on `campaigns`/
 func (h *ChatGroupHandler) resolveConnectContext(ctx context.Context, contextType string, contextID int64) string {
 	switch contextType {
 	case "donation":
-		var amount float64
-		var campaignTitle string
+		// donations.amount is VARCHAR(200), not numeric — scanned as a string,
+		// matching how the rest of this codebase treats it (never parsed to a
+		// float).
+		var amount, campaignTitle string
 		_ = h.Pool.QueryRow(ctx, `
 			SELECT d.amount, COALESCE(c.title, 'General fund')
 			  FROM donations d LEFT JOIN campaigns c ON c.id = d.campaign_id
 			 WHERE d.id = $1`, contextID).Scan(&amount, &campaignTitle)
 		if campaignTitle != "" {
-			return fmt.Sprintf("Donation of %.0f to %q", amount, campaignTitle)
+			return fmt.Sprintf("Donation of %s to %q", amount, campaignTitle)
 		}
 	case "case":
 		var caseCode, title string
