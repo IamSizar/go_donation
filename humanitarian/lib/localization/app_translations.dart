@@ -2013,6 +2013,10 @@ class AppTranslations extends Translations {
     'Browse partner and supporting entities.':
         'Browse partner and supporting entities.',
     'News and activities': 'News and activities',
+    // OPOS #25869 — short form of 'News and activities' above, for a
+    // section label that sits directly above a tile already spelling out
+    // the full phrase (ProfileMenuScreen).
+    'News': 'News',
     'See activities, news, articles, and events.':
         'See activities, news, articles, and events.',
     'Technical support': 'Technical support',
@@ -4902,6 +4906,7 @@ class AppTranslations extends Translations {
     'Partners': 'الشركاء',
     'Browse partner and supporting entities.': 'تصفح الشركاء والجهات الداعمة.',
     'News and activities': 'الأخبار والنشاطات',
+    'News': 'الأخبار',
     'See activities, news, articles, and events.':
         'اطلع على النشاطات والأخبار والمقالات والفعاليات.',
     'Technical support': 'الدعم الفني',
@@ -7073,6 +7078,7 @@ class AppTranslations extends Translations {
     'Marriage service': 'خزمەتگوزاری هاوسەرگیری',
     'Partners': 'هاوبەشەکان',
     'News and activities': 'هەواڵ و چالاکییەکان',
+    'News': 'هەواڵ',
     'Technical support': 'پشتیوانی تەکنیکی',
     'Create sponsorship': 'دروستکردنی کەفالەت',
     'In-kind donation': 'بەشداریی کاڵا (جگە لە پارە)',
@@ -8871,6 +8877,7 @@ class AppTranslations extends Translations {
     "Browse partner and supporting entities.":
         "ل لایەنێن هەڤپشک و پشتەڤان بگەرە.",
     "News and activities": "نووچە و چالاکی",
+    "News": "نووچە",
     "See activities, news, articles, and events.":
         "چالاکی، نووچە، بابەت و بۆنەیان ببینە.",
     "Technical support": "پشتەڤانیا تەکنیکی",
