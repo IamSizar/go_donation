@@ -19,7 +19,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
-	"github.com/karam-flutter/humanitarian-backend/internal/casevolchat"
 	"github.com/karam-flutter/humanitarian-backend/internal/events"
 	"github.com/karam-flutter/humanitarian-backend/internal/notify"
 	"github.com/karam-flutter/humanitarian-backend/internal/permissions"
@@ -381,11 +380,6 @@ type AdminStatusHandler struct {
 	Events    *events.Store    // Admin Notification System — user-account CRUD is
 	// appended to app_events so it surfaces in the dashboard Notification Center
 	// and is permanently recorded (append-only audit).
-	// Note #36 — opens the Staff↔Volunteer↔Beneficiary chat the moment a
-	// case-linked signup becomes approved (or later). Optional: nil skips the
-	// check (defensive — lets this handler keep working even if the caller
-	// forgets to wire it, just without auto-opening chats).
-	CaseVolChat *casevolchat.Store
 	// "Eighth: Sponsorship Schedule and Calendar" — materialises a
 	// sponsorship's due dates the moment it goes active, so the tracking
 	// screen and the reminder sweep have something to work with without a
@@ -393,8 +387,8 @@ type AdminStatusHandler struct {
 	Schedule *sponsorshipschedule.Store
 }
 
-func NewAdminStatusHandler(pool *pgxpool.Pool, n *notify.Notifier, ev *events.Store, cvc *casevolchat.Store) *AdminStatusHandler {
-	return &AdminStatusHandler{Pool: pool, Notifier: n, Events: ev, CaseVolChat: cvc}
+func NewAdminStatusHandler(pool *pgxpool.Pool, n *notify.Notifier, ev *events.Store) *AdminStatusHandler {
+	return &AdminStatusHandler{Pool: pool, Notifier: n, Events: ev}
 }
 
 // revokeSessionsForUser revokes every active session token for one user — the
@@ -1173,48 +1167,14 @@ func (h *AdminStatusHandler) MissionSignup(c *gin.Context) {
 	// Phase 18 — fire the 4-language notification to the volunteer.
 	h.notifyMissionSignupDecision(c.Request.Context(), id, status)
 
-	// Note #36 — this status change may be what makes the signup eligible for
-	// the Staff↔Volunteer↔Beneficiary chat (already case-linked, now approved
-	// or further along).
-	ensureCaseVolChat(c.Request.Context(), h.CaseVolChat, h.Notifier, id)
-
 	c.JSON(http.StatusOK, gin.H{"success": true, "id": id, "status": status})
-}
-
-// ensureCaseVolChat opens the case-volunteer-beneficiary chat thread for a
-// signup if it just became eligible, and notifies both real parties. Safe to
-// call after every write that could change eligibility — a no-op otherwise.
-// Free function (not a method) so both admin-side status changes and the
-// volunteer's own check-in/check-out (Note #37, VolunteerCheckinHandler) can
-// share it.
-func ensureCaseVolChat(ctx context.Context, cvc *casevolchat.Store, notifier *notify.Notifier, signupID int64) {
-	if cvc == nil {
-		return
-	}
-	threadID, err := cvc.EnsureThreadForSignup(ctx, signupID)
-	if err != nil || threadID == nil {
-		return
-	}
-	thread, err := cvc.GetThread(ctx, *threadID)
-	if err != nil {
-		return
-	}
-	for _, uid := range []int64{thread.VolunteerUserID, thread.BeneficiaryUserID} {
-		oid := uid
-		go func() {
-			bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancel()
-			_, _ = notifier.Send(bgCtx, oid, notify.CaseVolunteerChatOpenedMsg(*threadID))
-		}()
-	}
 }
 
 // AssignSignupCase — POST /api/admin/volunteer_mission_signups/:id/assign-case
 // body {beneficiary_case_id: number|null}. Links (or unlinks, with null) this
-// specific volunteer's signup to a specific beneficiary case — the
-// foundation the future Staff↔Volunteer↔Beneficiary chat pairs off of.
-// Deliberately per-signup, not per-mission: one mission can serve several
-// different beneficiaries.
+// specific volunteer's signup to a specific beneficiary case. Deliberately
+// per-signup, not per-mission: one mission can serve several different
+// beneficiaries.
 func (h *AdminStatusHandler) AssignSignupCase(c *gin.Context) {
 	id, ok := parseID(c)
 	if !ok {
@@ -1251,12 +1211,6 @@ func (h *AdminStatusHandler) AssignSignupCase(c *gin.Context) {
 	if ct.RowsAffected() == 0 {
 		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Not found."})
 		return
-	}
-
-	// Note #36 — linking a case may be what makes an already-approved signup
-	// eligible for the Staff↔Volunteer↔Beneficiary chat.
-	if req.BeneficiaryCaseID != nil {
-		ensureCaseVolChat(c.Request.Context(), h.CaseVolChat, h.Notifier, id)
 	}
 
 	c.JSON(http.StatusOK, gin.H{"success": true, "id": id, "beneficiary_case_id": req.BeneficiaryCaseID})

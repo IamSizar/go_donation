@@ -178,11 +178,18 @@ func Lookup(k Kind) (System, bool) {
 	return s, ok
 }
 
-// Systems returns every registered system, for callers that must act on all
-// five (the dashboard's kind list, tests that assert full coverage).
+// Systems returns every ACTIVELY REACHABLE system, for callers that must act
+// on all of them (the dashboard's kind list, tests that assert full
+// coverage).
+//
+// OPOS #25284 Phase 4 retired KindCase's direct volunteer↔beneficiary
+// messaging entirely — no route or handler reaches it any more — so it is
+// deliberately left out of this slice even though its constant and its
+// systems map entry stay defined below (case_volunteer_chat_threads still
+// holds historical rows the Global Constraints forbid dropping).
 func Systems() []System {
 	// Fixed order so a test or a UI listing is stable rather than map-random.
-	return []System{systems[KindDonor], systems[KindMarriage], systems[KindStaff], systems[KindCase], systems[KindGroup]}
+	return []System{systems[KindDonor], systems[KindMarriage], systems[KindStaff], systems[KindGroup]}
 }
 
 // ChildTables lists every FK child whose rows must survive a trash/restore.

@@ -21,7 +21,6 @@ import (
 	"testing"
 
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
-	"github.com/karam-flutter/humanitarian-backend/internal/casevolchat"
 	"github.com/karam-flutter/humanitarian-backend/internal/chat"
 	"github.com/karam-flutter/humanitarian-backend/internal/chatgroups"
 	"github.com/karam-flutter/humanitarian-backend/internal/chatlifecycle"
@@ -134,47 +133,11 @@ func seedMarriageChat(t *testing.T, pool *pgxpool.Pool) chatFixture {
 		fmt.Sprintf("/api/marriage/chats/%d/messages", id), "thread_id"}
 }
 
-func seedCaseChat(t *testing.T, pool *pgxpool.Pool) chatFixture {
-	t.Helper()
-	ctx := context.Background()
-	volunteer := makeLifecycleUser(t, pool, "user")
-	beneficiary := makeLifecycleUser(t, pool, "user")
-	lifecycleSeq++
-	var missionID, signupID, caseID, id int64
-	if err := pool.QueryRow(ctx,
-		`INSERT INTO volunteer_missions (title) VALUES ($1) RETURNING id`,
-		fmt.Sprintf("LC mission %d", lifecycleSeq)).Scan(&missionID); err != nil {
-		t.Fatalf("insert mission: %v", err)
-	}
-	if err := pool.QueryRow(ctx,
-		`INSERT INTO volunteer_mission_signups (mission_id, user_id) VALUES ($1, $2) RETURNING id`,
-		missionID, volunteer).Scan(&signupID); err != nil {
-		t.Fatalf("insert signup: %v", err)
-	}
-	if err := pool.QueryRow(ctx,
-		`INSERT INTO beneficiary_cases (case_code, public_title, user_id) VALUES ($1, $2, $3) RETURNING id`,
-		fmt.Sprintf("CSE-LC-%d", lifecycleSeq), "LC case", beneficiary).Scan(&caseID); err != nil {
-		t.Fatalf("insert case: %v", err)
-	}
-	if err := pool.QueryRow(ctx,
-		`INSERT INTO case_volunteer_chat_threads (signup_id, case_id, volunteer_user_id, beneficiary_user_id)
-		 VALUES ($1, $2, $3, $4) RETURNING id`,
-		signupID, caseID, volunteer, beneficiary).Scan(&id); err != nil {
-		t.Fatalf("insert case-volunteer thread: %v", err)
-	}
-	t.Cleanup(func() {
-		ctx := context.Background()
-		_, _ = pool.Exec(ctx, `DELETE FROM case_volunteer_chat_reads WHERE thread_id = $1`, id)
-		_, _ = pool.Exec(ctx, `DELETE FROM case_volunteer_chat_messages WHERE thread_id = $1`, id)
-		_, _ = pool.Exec(ctx, `DELETE FROM trash_items WHERE source_table = 'case_volunteer_chat_threads' AND row_id = $1`, id)
-		_, _ = pool.Exec(ctx, `DELETE FROM case_volunteer_chat_threads WHERE id = $1`, id)
-		_, _ = pool.Exec(ctx, `DELETE FROM beneficiary_cases WHERE id = $1`, caseID)
-		_, _ = pool.Exec(ctx, `DELETE FROM volunteer_mission_signups WHERE id = $1`, signupID)
-		_, _ = pool.Exec(ctx, `DELETE FROM volunteer_missions WHERE id = $1`, missionID)
-	})
-	return chatFixture{chatlifecycle.KindCase, "case_volunteer_chat_threads", "case_volunteer_chat_messages", id, volunteer,
-		fmt.Sprintf("/api/case-chats/%d/messages", id), "thread_id"}
-}
+// seedCaseChat and the case-chats routes it fed were removed by OPOS #25284
+// Phase 4, which retired casevolchat's direct volunteer↔beneficiary
+// messaging entirely: there is no more handler or route to seed a fixture
+// for, and KindCase is no longer in chatlifecycle.Systems(). See
+// chatlifecycle.go and casevolchat.go.
 
 func seedGroupChat(t *testing.T, pool *pgxpool.Pool) chatFixture {
 	t.Helper()
@@ -220,7 +183,6 @@ func newLifecycleRouter(pool *pgxpool.Pool) *gin.Engine {
 	chatH := NewChatHandler(chat.New(pool), n, pool)
 	marriageH := NewMarriageChatHandler(marriagechat.New(pool), n, pool)
 	staffH := NewStaffChatHandler(staffchat.New(pool), n, pool)
-	caseH := NewCaseVolunteerChatHandler(casevolchat.New(pool), n)
 	lifeH := NewChatLifecycleHandler(pool)
 
 	r := gin.New()
@@ -230,23 +192,18 @@ func newLifecycleRouter(pool *pgxpool.Pool) *gin.Engine {
 	participant.GET("/chats/:id/messages", chatH.Messages)
 	participant.POST("/marriage/chats/:id/messages", marriageH.PostMessage)
 	participant.GET("/marriage/chats", marriageH.List)
-	participant.POST("/case-chats/:id/messages", caseH.PostMessage)
-	participant.GET("/case-chats", caseH.List)
 
 	admin := r.Group("/api", auth.RequireAdmin(tokens))
 	admin.POST("/admin/staff-chats/:id/messages", staffH.PostMessage)
 	admin.GET("/admin/staff-chats", staffH.List)
 	admin.GET("/admin/chats", chatH.AdminList)
 	admin.GET("/admin/marriage/chats", marriageH.AdminList)
-	admin.GET("/admin/case-chats", caseH.AdminList)
 	admin.POST("/admin/chats/:id/lifecycle", lifeH.Apply(chatlifecycle.KindDonor))
 	admin.POST("/admin/staff-chats/:id/lifecycle", lifeH.Apply(chatlifecycle.KindStaff))
 	admin.POST("/admin/marriage/chats/:id/lifecycle", lifeH.Apply(chatlifecycle.KindMarriage))
-	admin.POST("/admin/case-chats/:id/lifecycle", lifeH.Apply(chatlifecycle.KindCase))
 	admin.DELETE("/admin/chats/:id", lifeH.Delete(chatlifecycle.KindDonor))
 	admin.DELETE("/admin/staff-chats/:id", lifeH.Delete(chatlifecycle.KindStaff))
 	admin.DELETE("/admin/marriage/chats/:id", lifeH.Delete(chatlifecycle.KindMarriage))
-	admin.DELETE("/admin/case-chats/:id", lifeH.Delete(chatlifecycle.KindCase))
 
 	groupsStore := chatgroups.New(pool)
 	groupsH := NewChatGroupHandler(groupsStore, n, nil, pool)
@@ -256,13 +213,16 @@ func newLifecycleRouter(pool *pgxpool.Pool) *gin.Engine {
 	return r
 }
 
-// allFixtures seeds one thread in each of the five systems.
+// allFixtures seeds one thread in each of the four ACTIVELY REACHABLE systems
+// (chatlifecycle.Systems()) — donor, marriage, staff, and group. KindCase is
+// deliberately excluded: OPOS #25284 Phase 4 retired casevolchat's direct
+// volunteer↔beneficiary messaging entirely, so it is no longer in
+// chatlifecycle.Systems() and has no route left to fixture.
 func allFixtures(t *testing.T, pool *pgxpool.Pool) []chatFixture {
 	return []chatFixture{
 		seedDonorChat(t, pool),
 		seedMarriageChat(t, pool),
 		seedStaffChat(t, pool),
-		seedCaseChat(t, pool),
 		seedGroupChat(t, pool),
 	}
 }

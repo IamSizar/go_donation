@@ -58,6 +58,9 @@ func TestChatLifecycle_ArchiveHidesFromParticipantsOnly(t *testing.T) {
 	r := newLifecycleRouter(pool)
 	staffToken := tokenFor(t, pool, makeLifecycleUser(t, pool, "admin"))
 
+	// KindCase is deliberately absent: OPOS #25284 Phase 4 retired
+	// casevolchat's direct volunteer↔beneficiary messaging entirely, so
+	// there is no more case-chats route to archive/list through.
 	cases := []struct {
 		kind            chatlifecycle.Kind
 		fixture         chatFixture
@@ -69,8 +72,6 @@ func TestChatLifecycle_ArchiveHidesFromParticipantsOnly(t *testing.T) {
 			"/api/chats", "/api/admin/chats"},
 		{chatlifecycle.KindMarriage, seedMarriageChat(t, pool), "/api/admin/marriage/chats/%d/lifecycle",
 			"/api/marriage/chats", "/api/admin/marriage/chats"},
-		{chatlifecycle.KindCase, seedCaseChat(t, pool), "/api/admin/case-chats/%d/lifecycle",
-			"/api/case-chats", "/api/admin/case-chats"},
 	}
 
 	for _, tc := range cases {
@@ -161,12 +162,14 @@ func childCounts(t *testing.T, pool *pgxpool.Pool, sys chatlifecycle.System, thr
 // the same map TestChatLifecycle_ParticipantCannotModerate builds, kept here
 // so both it and the round-trip test below drive the very routes
 // newLifecycleRouter registers.
+// KindCase carries no entry here: OPOS #25284 Phase 4 retired casevolchat's
+// direct volunteer↔beneficiary messaging entirely, so it is no longer in
+// allFixtures and this function is never called with it.
 func adminThreadPath(kind chatlifecycle.Kind, threadID int64) string {
 	base := map[chatlifecycle.Kind]string{
 		chatlifecycle.KindDonor:    "/api/admin/chats/%d",
 		chatlifecycle.KindMarriage: "/api/admin/marriage/chats/%d",
 		chatlifecycle.KindStaff:    "/api/admin/staff-chats/%d",
-		chatlifecycle.KindCase:     "/api/admin/case-chats/%d",
 		chatlifecycle.KindGroup:    "/api/admin/chat-groups/%d",
 	}[kind]
 	return fmt.Sprintf(base, threadID)
