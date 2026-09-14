@@ -353,8 +353,6 @@ const String inKindDonationsUrl = '${baseUrl}in_kind_donations/';
 const String marriageProfilesUrl = '${baseUrl}marriage/';
 // Note #35 — staff-mediated marriage chat.
 const String marriageChatsUrl = '${baseUrl}marriage/chats';
-// Note #36 — Staff↔Volunteer↔Beneficiary chat.
-const String caseChatsUrl = '${baseUrl}case-chats';
 // Note #37 — generic authed photo upload + volunteer self check-in/out.
 const String uploadsUrl = '${baseUrl}uploads';
 // Note #42 — test-phase internal app wallet (IQD).
