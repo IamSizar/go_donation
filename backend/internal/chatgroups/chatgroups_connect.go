@@ -32,17 +32,17 @@ const (
 // later phase — this type carries the raw ids, not a bare "context_id" the
 // admin-web page would have to make sense of unassisted.
 type ConnectRequest struct {
-	ID             int64
-	RequesterID    int64
-	ContextType    string
-	ContextID      int64
-	TargetHint     *int64
-	Message        string
-	GroupID        *int64
-	Status         ConnectRequestStatus
-	DeclineReason  string
-	DecidedByStaff *int64
-	CreatedAt      time.Time
+	ID             int64                `json:"id"`
+	RequesterID    int64                `json:"requester_user_id"`
+	ContextType    string               `json:"context_type"`
+	ContextID      int64                `json:"context_id"`
+	TargetHint     *int64               `json:"target_hint,omitempty"`
+	Message        string               `json:"message"`
+	GroupID        *int64               `json:"group_id,omitempty"`
+	Status         ConnectRequestStatus `json:"status"`
+	DeclineReason  string               `json:"decline_reason,omitempty"`
+	DecidedByStaff *int64               `json:"decided_by_staff_id,omitempty"`
+	CreatedAt      time.Time            `json:"created_at"`
 }
 
 // SubmitConnectRequest records a request. Resubmitting while one from the
@@ -83,9 +83,10 @@ func (s *Store) ApproveConnectRequest(ctx context.Context, requestID int64, kind
 	defer tx.Rollback(ctx)
 
 	var status string
+	var requesterID int64
 	if err := tx.QueryRow(ctx,
-		`SELECT status FROM chat_group_connect_requests WHERE id = $1 FOR UPDATE`, requestID,
-	).Scan(&status); err != nil {
+		`SELECT status, requester_user_id FROM chat_group_connect_requests WHERE id = $1 FOR UPDATE`, requestID,
+	).Scan(&status, &requesterID); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return 0, fmt.Errorf("chatgroups: connect request %d: %w", requestID, ErrNotFound)
 		}
@@ -93,6 +94,19 @@ func (s *Store) ApproveConnectRequest(ctx context.Context, requestID int64, kind
 	}
 	if status != string(RequestPending) {
 		return 0, fmt.Errorf("chatgroups: connect request %d: %w", requestID, ErrAlreadyDecided)
+	}
+	if kind != KindMasked && kind != KindTeam {
+		return 0, fmt.Errorf("chatgroups: kind %q: %w", kind, ErrInvalidInput)
+	}
+	requesterIncluded := false
+	for _, m := range members {
+		if m.UserID == requesterID {
+			requesterIncluded = true
+			break
+		}
+	}
+	if !requesterIncluded {
+		return 0, fmt.Errorf("chatgroups: approving connect request %d: requester %d not in members: %w", requestID, requesterID, ErrInvalidInput)
 	}
 
 	title := memberTitle
@@ -117,6 +131,13 @@ func (s *Store) ApproveConnectRequest(ctx context.Context, requestID int64, kind
 		requestID, groupID, staffID,
 	); err != nil {
 		return 0, fmt.Errorf("chatgroups: approving connect request %d: %w", requestID, err)
+	}
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO chat_group_audit_log (group_id, action, actor_staff_id, target_user_id)
+		 VALUES ($1, 'created', $2, NULL)`,
+		groupID, staffID,
+	); err != nil {
+		return 0, fmt.Errorf("chatgroups: approving connect request %d: recording audit: %w", requestID, err)
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return 0, fmt.Errorf("chatgroups: approving connect request %d: commit: %w", requestID, err)
@@ -189,6 +210,55 @@ func (s *Store) ListConnectRequests(ctx context.Context, status string) ([]Conne
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("chatgroups: listing connect requests: %w", err)
+	}
+	return out, nil
+}
+
+// GetConnectRequest reads one request by id.
+func (s *Store) GetConnectRequest(ctx context.Context, id int64) (ConnectRequest, error) {
+	var r ConnectRequest
+	err := s.Pool.QueryRow(ctx, `
+		SELECT id, requester_user_id, context_type, context_id, target_hint,
+		       message, group_id, status, decline_reason, decided_by_staff_id, created_at
+		  FROM chat_group_connect_requests WHERE id = $1`, id,
+	).Scan(&r.ID, &r.RequesterID, &r.ContextType, &r.ContextID, &r.TargetHint,
+		&r.Message, &r.GroupID, &r.Status, &r.DeclineReason, &r.DecidedByStaff, &r.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ConnectRequest{}, fmt.Errorf("chatgroups: connect request %d: %w", id, ErrNotFound)
+	}
+	if err != nil {
+		return ConnectRequest{}, fmt.Errorf("chatgroups: getting connect request %d: %w", id, err)
+	}
+	return r, nil
+}
+
+// ListConnectRequestsForUser returns every request requesterID has ever
+// submitted, newest first — unlike ListConnectRequests (staff-only, no
+// requester filter), this shows a user their own request history
+// regardless of status.
+func (s *Store) ListConnectRequestsForUser(ctx context.Context, requesterID int64) ([]ConnectRequest, error) {
+	rows, err := s.Pool.Query(ctx, `
+		SELECT id, requester_user_id, context_type, context_id, target_hint,
+		       message, group_id, status, decline_reason, decided_by_staff_id, created_at
+		  FROM chat_group_connect_requests
+		 WHERE requester_user_id = $1
+		 ORDER BY created_at DESC`, requesterID)
+	if err != nil {
+		return nil, fmt.Errorf("chatgroups: listing connect requests for user %d: %w", requesterID, err)
+	}
+	defer rows.Close()
+
+	out := []ConnectRequest{}
+	for rows.Next() {
+		var r ConnectRequest
+		if err := rows.Scan(&r.ID, &r.RequesterID, &r.ContextType, &r.ContextID, &r.TargetHint,
+			&r.Message, &r.GroupID, &r.Status, &r.DeclineReason, &r.DecidedByStaff, &r.CreatedAt); err != nil {
+			return nil, fmt.Errorf("chatgroups: scanning connect request row: %w", err)
+		}
+		out = append(out, r)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("chatgroups: listing connect requests for user %d: %w", requesterID, err)
 	}
 	return out, nil
 }

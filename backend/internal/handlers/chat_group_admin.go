@@ -5,6 +5,9 @@
 package handlers
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -209,4 +212,155 @@ func (h *ChatGroupHandler) AdminContactBlocks(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "items": items})
+}
+
+// resolveConnectContext turns a connect request's raw context_type/context_id
+// into a human-readable label for the admin inbox — staff cannot make a
+// privacy decision from "context_id: 4471" (design spec §6). Best-effort:
+// a resolution failure falls back to the raw id rather than breaking the
+// whole inbox listing, matching this file's existing groupSenderLabel
+// pattern for a similar best-effort lookup.
+func (h *ChatGroupHandler) resolveConnectContext(ctx context.Context, contextType string, contextID int64) string {
+	switch contextType {
+	case "donation":
+		// donations.amount is VARCHAR(200), not numeric (see
+		// migrations/001_full_v2.sql:395) — this codebase never parses it to a
+		// float (internal/donations/donations.go models Amount as a plain Go
+		// string throughout), so it is scanned as a string here too.
+		var amount, campaignTitle string
+		_ = h.Pool.QueryRow(ctx, `
+			SELECT d.amount, COALESCE(c.title, 'General fund')
+			  FROM donations d LEFT JOIN campaigns c ON c.id = d.campaign_id
+			 WHERE d.id = $1`, contextID).Scan(&amount, &campaignTitle)
+		if campaignTitle != "" {
+			return fmt.Sprintf("Donation of %s to %q", amount, campaignTitle)
+		}
+	case "case":
+		var caseCode, title string
+		_ = h.Pool.QueryRow(ctx, `SELECT case_code, public_title FROM beneficiary_cases WHERE id = $1`, contextID).
+			Scan(&caseCode, &title)
+		if caseCode != "" {
+			return fmt.Sprintf("Case %s — %s", caseCode, title)
+		}
+	}
+	return fmt.Sprintf("%s #%d", contextType, contextID)
+}
+
+// GET /api/admin/chat-groups/connect-requests
+func (h *ChatGroupHandler) AdminListConnectRequests(c *gin.Context) {
+	if _, ok := auth.UserFromGin(c); !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		return
+	}
+	items, err := h.Store.ListConnectRequests(c.Request.Context(), c.Query("status"))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		return
+	}
+	type resolvedItem struct {
+		chatgroups.ConnectRequest
+		ContextLabel string `json:"context_label"`
+	}
+	out := make([]resolvedItem, len(items))
+	for i, r := range items {
+		out[i] = resolvedItem{ConnectRequest: r, ContextLabel: h.resolveConnectContext(c.Request.Context(), r.ContextType, r.ContextID)}
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "items": out})
+}
+
+// GET /api/admin/chat-groups/connect-requests/:id
+func (h *ChatGroupHandler) AdminGetConnectRequest(c *gin.Context) {
+	if _, ok := auth.UserFromGin(c); !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		return
+	}
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	req, err := h.Store.GetConnectRequest(c.Request.Context(), id)
+	if err != nil {
+		// A missing connect request is not a missing "Group" — chatErr's
+		// generic ErrNotFound message is shared by every other chat-group
+		// route and stays as-is; only this connect-request-specific case gets
+		// a more accurate message.
+		if errors.Is(err, chatgroups.ErrNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Connect request not found."})
+			return
+		}
+		h.chatErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success":       true,
+		"request":       req,
+		"context_label": h.resolveConnectContext(c.Request.Context(), req.ContextType, req.ContextID),
+	})
+}
+
+// POST /api/admin/chat-groups/connect-requests/:id/approve
+func (h *ChatGroupHandler) AdminApproveConnectRequest(c *gin.Context) {
+	user, ok := auth.UserFromGin(c)
+	if !ok || user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		return
+	}
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	var req adminCreateGroupReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid JSON."})
+		return
+	}
+	if strings.TrimSpace(req.Kind) == "" || len(req.Members) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "kind and at least one member are required."})
+		return
+	}
+	members := make([]chatgroups.MemberInput, len(req.Members))
+	for i, m := range req.Members {
+		members[i] = chatgroups.MemberInput{UserID: m.UserID, RoleInGroup: m.RoleInGroup, Label: m.Label}
+	}
+	groupID, err := h.Store.ApproveConnectRequest(c.Request.Context(), id, chatgroups.Kind(req.Kind), req.MemberTitle, user.UserID, members)
+	if err != nil {
+		if errors.Is(err, chatgroups.ErrNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Connect request not found."})
+			return
+		}
+		h.chatErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "group_id": groupID})
+}
+
+type declineConnectRequestReq struct {
+	Reason string `json:"reason"`
+}
+
+// POST /api/admin/chat-groups/connect-requests/:id/decline
+func (h *ChatGroupHandler) AdminDeclineConnectRequest(c *gin.Context) {
+	user, ok := auth.UserFromGin(c)
+	if !ok || user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		return
+	}
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	var req declineConnectRequestReq
+	if err := c.ShouldBindJSON(&req); err != nil || strings.TrimSpace(req.Reason) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "A decline reason is required."})
+		return
+	}
+	if err := h.Store.DeclineConnectRequest(c.Request.Context(), id, user.UserID, req.Reason); err != nil {
+		if errors.Is(err, chatgroups.ErrNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Connect request not found."})
+			return
+		}
+		h.chatErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true})
 }
