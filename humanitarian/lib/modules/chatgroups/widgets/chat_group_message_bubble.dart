@@ -13,6 +13,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/core/design/tokens.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
+import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:intl/intl.dart';
 
 import '../models/chat_group_models.dart';
@@ -127,6 +128,13 @@ class _BubbleBody extends StatelessWidget {
       ),
       child: Text(
         text,
+        // Laid out in the direction of what was typed, not of the screen: an
+        // English message on an Arabic screen otherwise shows ".campaign",
+        // its full stop moved to the wrong end.
+        textDirection: contentDirection(
+          text,
+          fallback: Directionality.of(context),
+        ),
         style: TextStyle(
           fontSize: AppType.body,
           height: AppType.leadDense,
