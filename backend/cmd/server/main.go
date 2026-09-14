@@ -824,6 +824,10 @@ func main() {
 			authed.POST("/chat-groups/:id/messages", auth.RequireNotGuest(), chatGroupH.PostMessage)
 			authed.POST("/chat-groups/:id/read", auth.RequireNotGuest(), chatGroupH.MarkRead)
 
+			// OPOS #25284 Phase 3 — connect requests (request to join a group).
+			authed.POST("/chat-groups/connect-requests", auth.RequireNotGuest(), chatGroupH.SubmitConnectRequest)
+			authed.GET("/chat-groups/connect-requests/mine", chatGroupH.MyConnectRequests)
+
 			// "Eighth: Sponsorship Schedule and Calendar" — the entitlement
 			// tracking screen (upcoming / due / overdue / history).
 			authed.GET("/sponsorships/schedule", sponsorshipScheduleH.List)
@@ -1022,6 +1026,12 @@ func main() {
 			// the same strength, so the same two permissions.
 			admin.GET("/admin/chat-groups/:id/contact-blocks",
 				perm("messages", "view"), perm("sensitive_data", "view"), chatGroupH.AdminContactBlocks)
+
+			// OPOS #25284 Phase 3 — connect requests (admin moderation).
+			admin.GET("/admin/chat-groups/connect-requests", perm("messages", "view"), chatGroupH.AdminListConnectRequests)
+			admin.GET("/admin/chat-groups/connect-requests/:id", perm("messages", "view"), chatGroupH.AdminGetConnectRequest)
+			admin.POST("/admin/chat-groups/connect-requests/:id/approve", perm("messages", "edit"), chatGroupH.AdminApproveConnectRequest)
+			admin.POST("/admin/chat-groups/connect-requests/:id/decline", perm("messages", "edit"), chatGroupH.AdminDeclineConnectRequest)
 
 			// ─── Chat lifecycle (migration 118) ─────────────────────────
 			// END / PAUSE / RESUME / ARCHIVE / UNARCHIVE and DELETE, for every
