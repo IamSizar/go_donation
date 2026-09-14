@@ -5,11 +5,15 @@
 //   1. Validation happens before the network: a blank or whitespace-only
 //      message is refused at the field and no request is made.
 //   2. A valid message is sent exactly once, trimmed, to the context the entry
-//      point named; the sheet closes and a confirmation is shown — even when
-//      the member closed the sheet while the request was in flight. That is
-//      the part the old plan got wrong: it confirmed through the sheet's own
-//      context, behind `if (mounted)`, so a request that landed after the
+//      point named, and the success view replaces the form IN the sheet, with
+//      one success haptic; Done closes the sheet and nothing under it
+//      (OPOS #26331 — a toast on the screen underneath was hidden by covering
+//      sheets). A member who closed the sheet while the request was in flight
+//      is still told, by a toast: the old plan confirmed through the sheet's
+//      own context, behind `if (mounted)`, so a request that landed after the
 //      sheet was gone was sent without the member ever being told.
+//   2a. An answer that lands during the sheet's exit animation — state still
+//      mounted, route no longer current — never pops the screen underneath.
 //   3. A server failure is told in the member's language, never as the raw
 //      exception; the typed text survives and the button works again.
 //   4. A second tap while the request is in flight sends nothing more.
@@ -19,6 +23,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -33,7 +38,26 @@ import 'package:flutter_application_1/modules/chatgroups/widgets/connect_request
 import 'fake_chat_groups_api.dart';
 
 const _submit = Key('connect_request_submit');
+const _done = Key('connect_request_done');
 const _contextId = 42;
+
+/// What AppHaptics.success() asks the platform for: a medium impact.
+const _successHaptic = 'HapticFeedbackType.mediumImpact';
+
+/// Records every haptic the app asks the platform for, in order, for the rest
+/// of the test.
+List<String> _recordHaptics(WidgetTester tester) {
+  final played = <String>[];
+  final messenger = tester.binding.defaultBinaryMessenger;
+  messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+    if (call.method == 'HapticFeedback.vibrate') played.add('${call.arguments}');
+    return null;
+  });
+  addTearDown(
+    () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+  );
+  return played;
+}
 
 /// Pumps in short steps: long enough for the fake to answer and the sheet to
 /// animate, without ever settling on the looping in-button spinner.
@@ -143,9 +167,10 @@ void main() {
     await _close(tester);
   });
 
-  testWidgets('a valid message is sent once, trimmed, then confirmed', (
+  testWidgets('a valid message is sent once, trimmed, then the sheet says so', (
     tester,
   ) async {
+    final haptics = _recordHaptics(tester);
     final api = FakeChatGroupsApi();
     await _openSheet(tester, api);
 
@@ -160,8 +185,29 @@ void main() {
         message: 'Please connect me.',
       ),
     ]);
+    // The confirmation is IN the sheet, where the member is looking — not a
+    // toast that a covering sheet, or an overlay that never paints, can hide.
+    expect(find.byType(ConnectRequestSheet), findsOneWidget);
+    expect(find.byType(TextField), findsNothing);
+    expect(find.text(en['connect_request_sent_title']!), findsOneWidget);
+    expect(find.text(en['connect_request_sent_body']!), findsOneWidget);
+    expect(find.text(en['connect_request_sent']!), findsNothing);
+    expect(haptics.where((played) => played == _successHaptic), hasLength(1));
+    await _close(tester);
+  });
+
+  testWidgets('Done closes the sheet and only the sheet', (tester) async {
+    await _openSheet(tester, FakeChatGroupsApi());
+    await tester.enterText(find.byType(TextField), 'Please connect me.');
+    await tester.tap(find.byKey(_submit));
+    await _settle(tester);
+
+    await tester.tap(find.byKey(_done));
+    await _settle(tester);
+
     expect(find.byType(ConnectRequestSheet), findsNothing);
-    expect(find.text(en['connect_request_sent']!), findsOneWidget);
+    expect(find.byType(ConnectRequestButton), findsOneWidget);
+    expect(find.text(_rootText), findsNothing);
     await _close(tester);
   });
 
@@ -247,7 +293,7 @@ void main() {
     await _settle(tester);
 
     expect(api.submittedConnectRequests, hasLength(2));
-    expect(find.byType(ConnectRequestSheet), findsNothing);
+    expect(find.text(en['connect_request_sent_title']!), findsOneWidget);
     await _close(tester);
   });
 

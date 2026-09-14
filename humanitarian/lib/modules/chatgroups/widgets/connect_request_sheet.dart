@@ -20,19 +20,35 @@
 //     sentence and no machine code, so the member is shown failureMessage's
 //     localized "what failed, what to do next" and the detail goes to the log.
 //
-// THE CONFIRMATION
-// It is shown through the ScaffoldMessenger captured from the CALLER's context
-// before the sheet opens. The sheet's own context is deactivated once the
-// sheet pops, and using it then throws — the bug the original plan carried.
+// THE CONFIRMATION (OPOS #26331)
+// When the request is accepted while the sheet is still open, the form is
+// replaced IN PLACE by ConnectRequestSentView, whose Done button closes the
+// sheet. It used to be a SnackBar on the screen underneath, which the member
+// often never saw: on My Donations the donation's detail sheet stays open over
+// that screen and covers it, and on the Messages route toasts were found not
+// to paint at all (messages_screen.dart).
+//
+// The SnackBar survives only for a member who dismissed the sheet before the
+// answer arrived, when there is no sheet left to confirm in. It goes through
+// the ScaffoldMessenger captured from the CALLER's context before the sheet
+// opens: the sheet's own context is deactivated once the sheet pops, and using
+// it then throws.
+//
+// NEVER POP A ROUTE THAT IS NOT CURRENT
+// A dismissed sheet stays mounted for its ~200 ms exit animation. Anything
+// here that pops checks first that the sheet's route is still on top; popping
+// otherwise removes the screen or sheet UNDERNEATH it.
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/core/app_haptics.dart';
+import 'package:flutter_application_1/core/design/motion.dart';
 import 'package:flutter_application_1/core/design/tokens.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/core/widgets/app_pressable.dart';
 import 'package:flutter_application_1/localization/failure_message.dart';
+import 'package:flutter_application_1/modules/chatgroups/widgets/connect_request_sent_view.dart';
 
 /// `context_type` for a request about one donation.
 const String kConnectContextDonation = 'donation';
@@ -61,17 +77,18 @@ const double _spinnerSize = 20;
 /// [contextType] ([kConnectContextDonation] or [kConnectContextCase]).
 ///
 /// Completes when the sheet closes, however it closed. When the request was
-/// sent, a confirmation is shown on the screen underneath. [api] is a seam
-/// for tests; production uses the real client.
+/// sent the sheet itself says so; a member who closed it before the answer
+/// arrived is told on the screen underneath instead. [api] is a seam for
+/// tests; production uses the real client.
 Future<void> showConnectRequestSheet(
   BuildContext context, {
   required String contextType,
   required int contextId,
   ModuleApi api = const ModuleApi(),
 }) async {
-  // Captured now, while [context] is certainly mounted. The confirmation is
-  // shown after the sheet has popped, when neither the sheet's context nor —
-  // if the caller was itself a sheet — the caller's may still be usable.
+  // Captured now, while [context] is certainly mounted. The fallback toast is
+  // shown after the sheet has gone, when neither the sheet's context nor — if
+  // the caller was itself a sheet — the caller's may still be usable.
   final messenger = ScaffoldMessenger.maybeOf(context);
   await showModalBottomSheet<void>(
     context: context,
@@ -86,27 +103,29 @@ Future<void> showConnectRequestSheet(
       contextType: contextType,
       contextId: contextId,
       api: api,
-      onSent: () => _confirmSent(messenger),
+      onSentAfterDismiss: () => _confirmSent(messenger),
     ),
   );
 }
 
-/// Tells the member their request went through, on the screen underneath.
+/// Tells a member who closed the sheet early that their request still went
+/// through, on the screen underneath.
 void _confirmSent(ScaffoldMessengerState? messenger) {
   if (messenger == null || !messenger.mounted) return;
   messenger.showSnackBar(SnackBar(content: Text('connect_request_sent'.tr)));
 }
 
-/// The sheet's content: what happens next, the message field, and the button.
+/// The sheet's content: what happens next, the message field, and the button
+/// — then, once the request is accepted, the success view in their place.
 class ConnectRequestSheet extends StatefulWidget {
   /// Builds the sheet for one donation or case. Prefer
-  /// [showConnectRequestSheet], which also wires the confirmation.
+  /// [showConnectRequestSheet], which also wires the fallback confirmation.
   const ConnectRequestSheet({
     super.key,
     required this.contextType,
     required this.contextId,
     required this.api,
-    required this.onSent,
+    required this.onSentAfterDismiss,
   }) : assert(
          contextType == kConnectContextDonation ||
              contextType == kConnectContextCase,
@@ -122,9 +141,10 @@ class ConnectRequestSheet extends StatefulWidget {
   /// Where the request is sent.
   final ModuleApi api;
 
-  /// Called once the server has accepted the request — even if the member
-  /// dismissed the sheet while it was in flight, because it was still sent.
-  final VoidCallback onSent;
+  /// Called when the server accepts a request whose sheet the member had
+  /// already dismissed. It was still sent, and with no sheet left to show the
+  /// success view in, the caller has to confirm it instead.
+  final VoidCallback onSentAfterDismiss;
 
   @override
   State<ConnectRequestSheet> createState() => _ConnectRequestSheetState();
@@ -140,6 +160,10 @@ class _ConnectRequestSheetState extends State<ConnectRequestSheet> {
 
   /// True while the request is in flight; the button is disabled meanwhile.
   bool _isSending = false;
+
+  /// True once the request was accepted while the sheet was still open; the
+  /// form is replaced by the success view from then on.
+  bool _isSent = false;
 
   @override
   void dispose() {
@@ -181,7 +205,7 @@ class _ConnectRequestSheetState extends State<ConnectRequestSheet> {
     }
     // Read before the await: the sheet may be dismissed while in flight.
     final api = widget.api;
-    final onSent = widget.onSent;
+    final onSentAfterDismiss = widget.onSentAfterDismiss;
     FocusScope.of(context).unfocus();
     setState(() {
       _isSending = true;
@@ -198,8 +222,14 @@ class _ConnectRequestSheetState extends State<ConnectRequestSheet> {
       return;
     }
     AppHaptics.success();
-    if (_isCurrentRoute) Navigator.of(context).pop();
-    onSent();
+    if (!_isCurrentRoute) {
+      onSentAfterDismiss();
+      return;
+    }
+    setState(() {
+      _isSending = false;
+      _isSent = true;
+    });
   }
 
   /// True while this sheet is still the route on top — false once the member
@@ -208,6 +238,12 @@ class _ConnectRequestSheetState extends State<ConnectRequestSheet> {
   /// the screen or sheet UNDERNEATH instead.
   bool get _isCurrentRoute =>
       mounted && (ModalRoute.of(context)?.isCurrent ?? true);
+
+  /// Closes the sheet from the success view's Done button, guarded like every
+  /// pop here so it can never remove the route underneath.
+  void _closeSheet() {
+    if (_isCurrentRoute) Navigator.of(context).pop();
+  }
 
   /// Logs [error] for support and shows the member a localized sentence
   /// instead. The typed text stays, and the button is usable again.
@@ -230,6 +266,9 @@ class _ConnectRequestSheetState extends State<ConnectRequestSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final motion = AppMotion.reduced(context)
+        ? Duration.zero
+        : AppMotion.settleDuration;
     return Padding(
       // Lifts the sheet above the keyboard so it never covers the field or
       // the button (rule 5.6).
@@ -246,23 +285,38 @@ class _ConnectRequestSheetState extends State<ConnectRequestSheet> {
             AppSpace.lg,
             AppSpace.lg,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const _SheetHeading(),
-              const SizedBox(height: AppSpace.lg),
-              _MessageField(
-                controller: _message,
-                errorText: _error,
-                onChanged: _onChanged,
-              ),
-              const SizedBox(height: AppSpace.md),
-              _SubmitButton(isSending: _isSending, onTap: _submit),
-            ],
+          // The form cross-fades into the success view and the sheet eases to
+          // its new height, rather than either jumping (rule 5.4).
+          child: AnimatedSize(
+            duration: motion,
+            child: AnimatedSwitcher(
+              duration: motion,
+              child: _isSent
+                  ? ConnectRequestSentView(onDone: _closeSheet)
+                  : _buildForm(),
+            ),
           ),
         ),
       ),
+    );
+  }
+
+  /// The heading, the message field and the send button.
+  Widget _buildForm() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const _SheetHeading(),
+        const SizedBox(height: AppSpace.lg),
+        _MessageField(
+          controller: _message,
+          errorText: _error,
+          onChanged: _onChanged,
+        ),
+        const SizedBox(height: AppSpace.md),
+        _SubmitButton(isSending: _isSending, onTap: _submit),
+      ],
     );
   }
 }

@@ -32,7 +32,7 @@ made on this project once and had to be reverted.
 Every key below currently renders its **English** string to a Kurdish user.
 That is deliberate and safe. It is not a crash, and it is not Arabic text.
 
-## Count: 455 keys need Kurdish
+## Count: 457 keys need Kurdish
 
 | Client | Sorani (ckb) | Badini (kmr) | Distinct keys |
 |---|---|---|---|
@@ -57,8 +57,8 @@ That is deliberate and safe. It is not a crash, and it is not Arabic text.
 | App — security page auth description (old Kurdish was FALSE) | 1 | 1 | 1 |
 | App — K14 خطوبتي owner self-management (new) | 20 | 20 | 20 |
 | App — K15 product-list labels (new) | 27 | 27 | 27 |
-| App — OPOS #25284 Phase 5 staff-mediated group chats (new) | 34 | 34 | 34 |
-| **Total distinct words to translate** | | | **455** |
+| App — OPOS #25284 Phase 5 staff-mediated group chats (new) | 36 | 36 | 36 |
+| **Total distinct words to translate** | | | **457** |
 
 > **The dashboard figure above is a floor, not a ceiling — and it is the one
 > number in this file that was never fully measured.** Counting key paths in
@@ -113,7 +113,7 @@ The `٢٠٠` in the second row is the database column limit and must stay 200.
 | `guest_full_name_hint` | e.g. Zaid Ahmed | مثال: زيد أحمد | ckb + kmr |
 | `guest_full_name_too_long` | That name is too long. Use 200 characters or fewer. | الاسم طويل جدًا. استخدم ٢٠٠ حرف أو أقل. | ckb + kmr |
 
-## chat groups · OPOS #25284 Phase 5 staff-mediated group chats  (34 keys)
+## chat groups · OPOS #25284 Phase 5 staff-mediated group chats  (36 keys)
 
 Added 2026-09-14. The app's side of the new staff-mediated group chats: the
 conversation screen, the Messages tab's "My Connections" / "My Team Groups"
@@ -160,6 +160,8 @@ members of a masked group see each other only by an alias.
 | `connect_request_message_required` | Please describe what you need. | يرجى وصف ما تحتاجه. | ckb + kmr |
 | `connect_request_submit` | Send request | إرسال الطلب | ckb + kmr |
 | `connect_request_sent` | Request sent. Staff will review it shortly. | تم إرسال الطلب. سيراجعه الفريق قريبًا. | ckb + kmr |
+| `connect_request_sent_title` | Request sent | تم إرسال الطلب | ckb + kmr |
+| `connect_request_sent_body` | Staff will review it shortly. You can follow it in My Connect Requests on the Messages tab. | سيراجعه الفريق قريبًا. يمكنك متابعته من «طلبات التواصل الخاصة بي» في تبويب «الرسائل». | ckb + kmr |
 | `error_connect_request_submit_failed` | Could not send your request. | تعذّر إرسال طلبك. | ckb + kmr |
 
 ## notifications · K7 alert categories  (8 keys)
