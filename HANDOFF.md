@@ -6,6 +6,27 @@
 
 ---
 
+## 2026-09-14 — OPOS #25284 Phase 4 final-review fix round (branch `fix/chatgroups-phase4-retire-direct-chat`)
+
+**What was asked:** fix four findings from the final whole-branch review of `fix/chatgroups-phase4-retire-direct-chat` (Phase 4, retiring old direct chat): (1) IMPORTANT — a trash-restore regression where `case_volunteer_chat_threads` rows trashed before this deploy would restore as empty shells; (2) IMPORTANT — `staffactivity`'s "Chats assigned now" metric never excluded ended/archived threads; (3) MINOR — dead Flutter code (`ChatController.requestChat`, `chatRequestUrl`); (4) MINOR — dead notify templates (`CaseVolunteerChatOpenedMsg`, `CaseVolunteerChatNewMessageMsg`).
+
+**What was actually changed:** `backend/internal/chatlifecycle/chatlifecycle.go` gained `AllSystems()` (every registered kind including retired ones, vs. `Systems()`'s actively-reachable subset); `admin_chat_lifecycle.go`'s `allowedChatChildTables` now calls `AllSystems()` instead of `Systems()` so a trashed `case_volunteer_chat_threads` row still resolves its child tables on restore; `admin_trash.go`'s stale comment claiming restore always brings back a full conversation was corrected to explain *why* that's true now (via `AllSystems()`) and warn against reverting; `staffactivity/store.go`'s `Load` added `AND lifecycle = 'open'` to the `chat_threads`/`case_volunteer_chat_threads` OpenWork subqueries; deleted `ChatController.requestChat` + `links.dart`'s `chatRequestUrl` (Flutter) and `notify/templates.go`'s two dead `CaseVolunteerChat*Msg` builders. New tests: `TestAllowedChatChildTablesCoversEveryRestorableTable` (`backend/internal/handlers/chat_lifecycle_trash_test.go`) and `TestLoadOpenWorkExcludesEndedDonorChats` (new file `backend/internal/staffactivity/store_test.go`, this package's first test file, `TEST_DATABASE_URL`-gated per the `chatgroups` package's convention). Full report: `.superpowers/sdd/2026-09-14-chat-groups-phase4-retire-direct-chat/final-review-fix-report.md`.
+
+**What was run and what it printed:** `go build ./...`, `go vet ./...` clean; `gofmt -l internal cmd` — only the same pre-existing, unrelated `admin_edit_user_profile.go` flag every phase of this work has shown. Full backend suite (`TEST_DATABASE_URL=... go test ./... -count=1 -p 1` against a fresh single-use `createdb godonation_phase4_finalfix`, dropped afterward) — 22 packages, all `ok`, zero FAIL lines; the three test names confirmed individually as PASS in the verbose log. The restore-path regression test was explicitly verified both ways per the brief's own requirement: reverted the `AllSystems()` fix, re-ran `TestAllowedChatChildTablesCoversEveryRestorableTable` alone and watched it FAIL with the exact expected message (`case_volunteer_chat_threads` resolving to an empty child list), then restored the fix and watched it PASS. `flutter analyze` from `humanitarian/` — 6 issues, all the same pre-existing unrelated `deprecated_member_use` info notices this branch has shown throughout, zero new.
+
+**External actions taken:** none. Two local commits on `fix/chatgroups-phase4-retire-direct-chat`, neither pushed: `9b3fa6a` (backend: chatlifecycle/admin_chat_lifecycle/admin_trash/staffactivity/notify + 2 test files) and `0c8919d` (humanitarian: links.dart + chat_controller.dart).
+
+**What is still open:**
+- Both commits are unpushed and unreviewed by a human.
+- OPOS MCP required an interactive OAuth flow and was unavailable in this non-interactive session — no OPOS tasks were created or moved for this fix round. Same limitation hit a dispatched subagent during Phase 3's own fix round (see that entry's Traps below); both need reconciling once OPOS access is available.
+- Two `hawkscan` post-commit hooks fired (one per commit) asking to run a security scan; `HAWK_API_KEY` is unset in this environment, so per the hook's own stated precondition the scan was correctly skipped rather than run — a human with the key configured may want to run it.
+
+**Traps:**
+- `allowedChatChildTables`'s whole point is to walk `chatlifecycle.AllSystems()`, NOT `chatlifecycle.Systems()` — they look interchangeable (same return type) but are not: `Systems()` deliberately excludes retired kinds (correct for the dashboard's "systems in active use" listings) while `AllSystems()` includes them (required for resolving historical/trashed data). A future "simplification" that merges these two call sites back together silently reintroduces the empty-shell restore bug this fix round closed — the comments left in both `admin_chat_lifecycle.go` and `admin_trash.go` exist specifically to stop that.
+- OPOS MCP's non-interactive-session limitation is now a recurring pattern across this branch's phases (Phase 3's fix round hit it too) — worth checking whether OPOS auth can be pre-established outside these automated sessions rather than re-discovering the same blocker each time.
+
+---
+
 ## 2026-09-14 — OPOS #25284 Phase 3: connect-request end-to-end (PR #74, branch `feat/chat-groups-phase3`)
 
 **What was asked:** expose Phase 1's `internal/chatgroups` connect-request Store methods (`SubmitConnectRequest`/`ApproveConnectRequest`/`DeclineConnectRequest`/`ListConnectRequests`, built with no HTTP surface) — the flow where a donor/beneficiary/volunteer asks staff to open a masked chat group and staff triage, approve (creating the group transactionally), or decline.

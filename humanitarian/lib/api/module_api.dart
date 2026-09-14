@@ -854,18 +854,6 @@ class ModuleApi {
     String body,
   ) => postJson('$marriageChatsUrl/$threadId/messages', {'body': body});
 
-  // Note #36 — Staff↔Volunteer↔Beneficiary chat. Opens automatically once a
-  // volunteer's signup is linked to a case and approved (or further along);
-  // real identities, no accept/decline step needed (staff already confirmed
-  // the pairing by approving the signup).
-  Future<List<Map<String, dynamic>>> caseChats() => getItems(caseChatsUrl);
-
-  Future<Map<String, dynamic>> caseChatMessages(int threadId) =>
-      getObject('$caseChatsUrl/$threadId/messages');
-
-  Future<Map<String, dynamic>> sendCaseChatMessage(int threadId, String body) =>
-      postJson('$caseChatsUrl/$threadId/messages', {'body': body});
-
   // Note #37 — uploads a photo (e.g. a check-in/out live photo) and returns
   // the stored relative path (same "upload, then save the path" convention
   // used everywhere else — e.g. profile pictures). Reuses the exact same

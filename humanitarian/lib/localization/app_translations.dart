@@ -1518,7 +1518,6 @@ class AppTranslations extends Translations {
         'Could not save that just now. Please try again.',
     'marriage_saved_unsave_failed':
         'Could not remove that just now. Please try again.',
-    'case_chats_label': 'Case chats',
     'Confirm': 'Confirm',
     'check_in_action': 'Check in (photo + location)',
     'check_out_action': 'Check out (photo + location)',
@@ -4439,7 +4438,6 @@ class AppTranslations extends Translations {
     'marriage_saved_toggle_failed': 'تعذّر الحفظ الآن. يرجى المحاولة مرة أخرى.',
     'marriage_saved_unsave_failed':
         'تعذّر الإزالة الآن. يرجى المحاولة مرة أخرى.',
-    'case_chats_label': 'محادثات الحالات',
     'Confirm': 'تأكيد',
     'check_in_action': 'تسجيل حضور (صورة + موقع)',
     'check_out_action': 'تسجيل انصراف (صورة + موقع)',
@@ -6782,7 +6780,6 @@ class AppTranslations extends Translations {
         'ئێستا نەتوانرا پاشەکەوت بکرێت. تکایە دووبارە هەوڵ بدەرەوە.',
     'marriage_saved_unsave_failed':
         'ئێستا نەتوانرا لابردرێت. تکایە دووبارە هەوڵ بدەرەوە.',
-    'case_chats_label': 'گفتوگۆکانی دۆسیە',
     'Confirm': 'دڵنیاکردنەوە',
     'check_in_action': 'تۆمارکردنی هاتن (وێنە + شوێن)',
     'check_out_action': 'تۆمارکردنی ڕۆیشتن (وێنە + شوێن)',
@@ -10058,7 +10055,6 @@ class AppTranslations extends Translations {
         'نوکە نەشیا بهێتە پاراستن. ژ کەرەما خۆ دیسا هەوڵ بدە.',
     'marriage_saved_unsave_failed':
         'نوکە نەشیا بهێتە ژێبرن. ژ کەرەما خۆ دیسا هەوڵ بدە.',
-    'case_chats_label': 'گفتوگۆیێن دۆسیێ',
     'Confirm': 'پشتراستکرن',
     'check_in_action': 'تۆمارکرنا هاتنێ (وێنە + جهـ)',
     'check_out_action': 'تۆمارکرنا چوونا دەرڤە (وێنە + جهـ)',

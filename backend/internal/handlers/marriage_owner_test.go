@@ -232,7 +232,7 @@ func TestMarriageOwnerDeleteIsUndoneByAStaffStatusDecision(t *testing.T) {
 	}
 
 	// Staff reinstate it through the route they already use.
-	adminH := NewAdminStatusHandler(pool, nil, nil, nil)
+	adminH := NewAdminStatusHandler(pool, nil, nil)
 	if code, body := callAsUser(t, pool, http.MethodPost, "/api/admin/marriage/:id/status",
 		"/api/admin/marriage/"+idStr+"/status", owner, adminH.Marriage,
 		`{"status":"active"}`); code != http.StatusOK {

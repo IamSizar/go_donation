@@ -119,7 +119,7 @@ func postUserStatusAs(t *testing.T, pool *pgxpool.Pool, actorID, targetID int64,
 	r.POST("/api/admin/users/:id/:action",
 		auth.RequireAdmin(tokenStore),
 		auth.RequirePermission(permissions.New(pool), "users", "edit"),
-		NewAdminStatusHandler(pool, nil, nil, nil).UserPassword,
+		NewAdminStatusHandler(pool, nil, nil).UserPassword,
 	)
 
 	raw, err := json.Marshal(body)

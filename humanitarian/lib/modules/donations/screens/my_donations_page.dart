@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import 'package:flutter_application_1/localization/money.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
-import 'package:flutter_application_1/modules/chat/chat_actions.dart';
 import 'package:flutter_application_1/modules/donations/controllers/my_donations_controller.dart';
 import 'package:flutter_application_1/modules/donations/models/donation_history_models.dart';
 import 'package:flutter_application_1/core/design/tokens.dart';
@@ -252,21 +251,9 @@ class _DonationDetailSheet extends StatelessWidget {
 
   final DonationHistoryEntry item;
 
-  Future<void> _chatWithOwner(BuildContext context) async {
-    Navigator.of(context).pop(); // close the sheet first
-    await ChatActions.startChat(
-      context,
-      donationId: item.id,
-      otherPartyLabel: 'the owner of "${item.campaignName}"',
-      conversationTitle: item.campaignName,
-      conversationSubtitle: 'Campaign owner'.tr,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final statusColor = item.status.color;
-    final canChat = item.campaignId != null && item.id != null;
 
     return SafeArea(
       child: Padding(
@@ -329,30 +316,6 @@ class _DonationDetailSheet extends StatelessWidget {
               _DetailLine(label: 'Reference', value: item.reference),
               if (item.note.trim().isNotEmpty && item.note != '—')
                 _DetailLine(label: 'Message', value: item.note),
-              const SizedBox(height: 18),
-              if (canChat)
-                FilledButton.icon(
-                  onPressed: () => _chatWithOwner(context),
-                  icon: const Icon(Icons.forum_rounded, size: 19),
-                  label: Text('Chat with campaign owner'.tr),
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    // Resolves per theme. Was a hardcoded copy of the old
-                    // teal (#0F766E) that bypassed the theme entirely and so
-                    // never adapted to dark mode.
-                    backgroundColor: AppThemeConfig.accent(context),
-                    foregroundColor: AppThemeConfig.onAccent(context),
-                  ),
-                )
-              else
-                Text(
-                  'Chat is only available for campaign donations.'.tr,
-                  style: TextStyle(
-                    color: AppThemeConfig.mutedText(context),
-                    fontSize: 13,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
             ],
           ),
         ),

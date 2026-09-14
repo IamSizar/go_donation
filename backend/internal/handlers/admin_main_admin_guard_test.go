@@ -225,7 +225,7 @@ func newUserWriteRouter(pool *pgxpool.Pool, mailer *auth.Mailer, otpiq *auth.OTP
 
 	editH := NewAdminEditHandler(pool)
 	editH.MainAdmin = guard
-	statusH := NewAdminStatusHandler(pool, nil, nil, nil)
+	statusH := NewAdminStatusHandler(pool, nil, nil)
 	statusH.MainAdmin = guard
 
 	r := gin.New()

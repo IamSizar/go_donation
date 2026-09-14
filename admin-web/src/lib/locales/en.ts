@@ -62,7 +62,6 @@ const en = {
     receipts: 'Aid receipts',
     messages: 'Messages',
     staff_chat: 'Staff Chat',
-    case_volunteer_chats: 'Case ↔ Volunteer Chats',
     volunteers: 'Volunteers',
     volunteer_board: 'Volunteer board',
     tasks: 'Tasks',
@@ -955,12 +954,6 @@ const en = {
     staff_chat: {
       subtitle: 'Direct messages between dashboard staff — Manager ↔ Staff Member, or any other pair.',
       new: '+ New chat', empty: 'No chats yet.', pick_someone: 'Start a chat with…',
-    },
-    case_volunteer_chats: {
-      subtitle: 'Opens automatically once a volunteer signup is linked to a case and approved.',
-      empty: 'No chats yet.',
-      volunteer_paren: '(volunteer)',
-      beneficiary_paren: '(beneficiary)',
     },
     partners:     { title: 'Partners',       search_placeholder: 'search name / type',  new: '+ New partner' },
     media:        { title: 'Media',          search_placeholder: 'search title / body', new: '+ New post' },
