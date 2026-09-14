@@ -12,6 +12,12 @@
 //      named the case — the entry point lives on the case itself.)
 //   4. BeneficiaryCampaignDonationsScreen offers it on each donation row, for
 //      that donation.
+//   5. MyDonationsPage offers it inside a donation's detail sheet, and the
+//      request's success view shows IN the connect sheet, over that detail
+//      sheet — a toast behind the detail sheet was never seen — and Done
+//      closes only the connect sheet, leaving the donor on their donation.
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
@@ -26,7 +32,19 @@ import 'package:flutter_application_1/modules/chatgroups/widgets/connect_request
 import 'package:flutter_application_1/modules/chatgroups/widgets/connect_request_sheet.dart';
 import 'package:flutter_application_1/modules/proposal/screens/beneficiary_case_detail_screen.dart';
 import 'package:flutter_application_1/modules/sponsorship/controllers/beneficiary_campaign_donations_controller.dart';
+import 'package:flutter_application_1/modules/donations/screens/my_donations_page.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/beneficiary_campaign_donations_screen.dart';
+
+import '../../support/fake_http.dart';
+
+/// One donation with an id, shaped as POST /donate/my_donations returns it.
+///
+/// It also answers the connect request: FakeHttpOverrides has one body for
+/// every call, and postJson accepts any 2xx body whose `success` is true.
+const _donationHistory =
+    '{"success": true, "summary": {}, "items": ['
+    '{"id": 91, "campaign_name": "Winter Campaign", "amount": 50000, '
+    '"reference": "#91", "status": "success"}]}';
 
 /// Lets a frame build and a sheet animate, in short steps.
 Future<void> _settle(WidgetTester tester) async {
@@ -233,6 +251,55 @@ void main() {
     await _settle(tester);
 
     expect(find.byType(ConnectRequestSheet), findsOneWidget);
+    await _close(tester);
+  });
+
+  testWidgets('MyDonationsPage: the success view shows over the donation '
+      'detail sheet, and Done leaves the donor on that sheet', (tester) async {
+    final en = AppTranslations.englishForTest;
+    // A portrait phone, 390x844 logical: the app is portrait-locked.
+    tester.view
+      ..devicePixelRatio = 3
+      ..physicalSize = const Size(1170, 2532);
+    addTearDown(tester.view.reset);
+    await sharedPreferences.setString('id_user', '7');
+    final network = FakeHttpOverrides(HttpBehaviour.ok, body: _donationHistory);
+    final previous = HttpOverrides.current;
+    HttpOverrides.global = network;
+    addTearDown(() => HttpOverrides.global = previous);
+
+    await _pump(tester, const MyDonationsPage());
+    await tester.tap(find.text('Winter Campaign'));
+    await _settle(tester);
+    await tester.tap(find.byType(ConnectRequestButton));
+    await _settle(tester);
+
+    await tester.enterText(
+      find.descendant(
+        of: find.byType(ConnectRequestSheet),
+        matching: find.byType(TextField),
+      ),
+      'Please connect me.',
+    );
+    // A frame for Send to rebuild for the typed text and enable, as it has by
+    // the time a member's finger arrives.
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('connect_request_submit')));
+    await _settle(tester);
+
+    final sent = network.requestUrls.where(
+      (url) => url.path.endsWith('/chat-groups/connect-requests'),
+    );
+    expect(sent, hasLength(1));
+    expect(find.text(en['connect_request_sent_title']!), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('connect_request_done')));
+    await _settle(tester);
+
+    expect(find.byType(ConnectRequestSheet), findsNothing);
+    // Exactly one sheet is left: the donation's own, still showing its button.
+    expect(find.byType(BottomSheet), findsOneWidget);
+    expect(find.byType(ConnectRequestButton), findsOneWidget);
     await _close(tester);
   });
 }

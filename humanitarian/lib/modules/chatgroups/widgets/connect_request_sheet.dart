@@ -11,8 +11,9 @@
 // THE CONTRACT — POST /api/chat-groups/connect-requests
 // (backend/internal/handlers/chat_group_connect.go, chatgroups_connect.go):
 //   * context_type must be "donation" or "case"; context_id names the row.
-//   * A blank message is refused (400). There is NO maximum length, so the
-//     field sets none either.
+//   * A blank message is refused (400), so Send is disabled while the trimmed
+//     message is blank (rule 5.6: never let a doomed request fire). There is
+//     NO maximum length, so the field sets none either.
 //   * Resubmitting while an earlier request for the same context is pending
 //     replaces its message, so sending twice is harmless — but one tap still
 //     sends one request, because the button is disabled while it is in flight.
@@ -20,19 +21,35 @@
 //     sentence and no machine code, so the member is shown failureMessage's
 //     localized "what failed, what to do next" and the detail goes to the log.
 //
-// THE CONFIRMATION
-// It is shown through the ScaffoldMessenger captured from the CALLER's context
-// before the sheet opens. The sheet's own context is deactivated once the
-// sheet pops, and using it then throws — the bug the original plan carried.
+// THE CONFIRMATION (OPOS #26331)
+// When the request is accepted while the sheet is still open, the form is
+// replaced IN PLACE by ConnectRequestSentView, whose Done button closes the
+// sheet. It used to be a SnackBar on the screen underneath, which the member
+// often never saw: on My Donations the donation's detail sheet stays open over
+// that screen and covers it, and on the Messages route toasts were found not
+// to paint at all (messages_screen.dart).
+//
+// The SnackBar survives only for a member who dismissed the sheet before the
+// answer arrived, when there is no sheet left to confirm in. It goes through
+// the ScaffoldMessenger captured from the CALLER's context before the sheet
+// opens: the sheet's own context is deactivated once the sheet pops, and using
+// it then throws.
+//
+// NEVER POP A ROUTE THAT IS NOT CURRENT
+// A dismissed sheet stays mounted for its ~200 ms exit animation. Anything
+// here that pops checks first that the sheet's route is still on top; popping
+// otherwise removes the screen or sheet UNDERNEATH it.
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/core/app_haptics.dart';
+import 'package:flutter_application_1/core/design/motion.dart';
 import 'package:flutter_application_1/core/design/tokens.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/core/widgets/app_pressable.dart';
 import 'package:flutter_application_1/localization/failure_message.dart';
+import 'package:flutter_application_1/modules/chatgroups/widgets/connect_request_sent_view.dart';
 
 /// `context_type` for a request about one donation.
 const String kConnectContextDonation = 'donation';
@@ -57,21 +74,26 @@ const double _submitHeight = 48;
 /// The in-button spinner's diameter.
 const double _spinnerSize = 20;
 
+/// How faded the send button is while there is nothing to send — the same as
+/// the chat-group composer's send button (chat_group_composer.dart).
+const double _disabledOpacity = 0.45;
+
 /// Opens the sheet asking staff to connect the member about [contextId] of
 /// [contextType] ([kConnectContextDonation] or [kConnectContextCase]).
 ///
 /// Completes when the sheet closes, however it closed. When the request was
-/// sent, a confirmation is shown on the screen underneath. [api] is a seam
-/// for tests; production uses the real client.
+/// sent the sheet itself says so; a member who closed it before the answer
+/// arrived is told on the screen underneath instead. [api] is a seam for
+/// tests; production uses the real client.
 Future<void> showConnectRequestSheet(
   BuildContext context, {
   required String contextType,
   required int contextId,
   ModuleApi api = const ModuleApi(),
 }) async {
-  // Captured now, while [context] is certainly mounted. The confirmation is
-  // shown after the sheet has popped, when neither the sheet's context nor —
-  // if the caller was itself a sheet — the caller's may still be usable.
+  // Captured now, while [context] is certainly mounted. The fallback toast is
+  // shown after the sheet has gone, when neither the sheet's context nor — if
+  // the caller was itself a sheet — the caller's may still be usable.
   final messenger = ScaffoldMessenger.maybeOf(context);
   await showModalBottomSheet<void>(
     context: context,
@@ -86,27 +108,29 @@ Future<void> showConnectRequestSheet(
       contextType: contextType,
       contextId: contextId,
       api: api,
-      onSent: () => _confirmSent(messenger),
+      onSentAfterDismiss: () => _confirmSent(messenger),
     ),
   );
 }
 
-/// Tells the member their request went through, on the screen underneath.
+/// Tells a member who closed the sheet early that their request still went
+/// through, on the screen underneath.
 void _confirmSent(ScaffoldMessengerState? messenger) {
   if (messenger == null || !messenger.mounted) return;
   messenger.showSnackBar(SnackBar(content: Text('connect_request_sent'.tr)));
 }
 
-/// The sheet's content: what happens next, the message field, and the button.
+/// The sheet's content: what happens next, the message field, and the button
+/// — then, once the request is accepted, the success view in their place.
 class ConnectRequestSheet extends StatefulWidget {
   /// Builds the sheet for one donation or case. Prefer
-  /// [showConnectRequestSheet], which also wires the confirmation.
+  /// [showConnectRequestSheet], which also wires the fallback confirmation.
   const ConnectRequestSheet({
     super.key,
     required this.contextType,
     required this.contextId,
     required this.api,
-    required this.onSent,
+    required this.onSentAfterDismiss,
   }) : assert(
          contextType == kConnectContextDonation ||
              contextType == kConnectContextCase,
@@ -122,9 +146,10 @@ class ConnectRequestSheet extends StatefulWidget {
   /// Where the request is sent.
   final ModuleApi api;
 
-  /// Called once the server has accepted the request — even if the member
-  /// dismissed the sheet while it was in flight, because it was still sent.
-  final VoidCallback onSent;
+  /// Called when the server accepts a request whose sheet the member had
+  /// already dismissed. It was still sent, and with no sheet left to show the
+  /// success view in, the caller has to confirm it instead.
+  final VoidCallback onSentAfterDismiss;
 
   @override
   State<ConnectRequestSheet> createState() => _ConnectRequestSheetState();
@@ -141,6 +166,10 @@ class _ConnectRequestSheetState extends State<ConnectRequestSheet> {
   /// True while the request is in flight; the button is disabled meanwhile.
   bool _isSending = false;
 
+  /// True once the request was accepted while the sheet was still open; the
+  /// form is replaced by the success view from then on.
+  bool _isSent = false;
+
   @override
   void dispose() {
     _message.dispose();
@@ -151,10 +180,12 @@ class _ConnectRequestSheetState extends State<ConnectRequestSheet> {
 
   /// The refusal to show for [text], or null when it may be sent.
   ///
-  /// Blank is refused because the server refuses it (400): checking here means
-  /// a doomed request never fires and the member is told at the field. It is
-  /// judged after trimming because the server trims before it checks, so a
-  /// message of spaces and new lines is blank to both.
+  /// Blank is refused because the server refuses it (400). Send is already
+  /// disabled while the message is blank, so this is the defence behind that:
+  /// if a tap ever reaches [_submit] with nothing to send, the doomed request
+  /// still never fires and the member is told at the field. It is judged after
+  /// trimming because the server trims before it checks, so a message of
+  /// spaces and new lines is blank to both.
   ///
   /// There is deliberately no maximum: the server enforces none, and a limit
   /// invented here would cut off the members with the most to explain.
@@ -181,7 +212,7 @@ class _ConnectRequestSheetState extends State<ConnectRequestSheet> {
     }
     // Read before the await: the sheet may be dismissed while in flight.
     final api = widget.api;
-    final onSent = widget.onSent;
+    final onSentAfterDismiss = widget.onSentAfterDismiss;
     FocusScope.of(context).unfocus();
     setState(() {
       _isSending = true;
@@ -198,8 +229,27 @@ class _ConnectRequestSheetState extends State<ConnectRequestSheet> {
       return;
     }
     AppHaptics.success();
-    if (mounted) Navigator.of(context).pop();
-    onSent();
+    if (!_isCurrentRoute) {
+      onSentAfterDismiss();
+      return;
+    }
+    setState(() {
+      _isSending = false;
+      _isSent = true;
+    });
+  }
+
+  /// True while this sheet is still the route on top — false once the member
+  /// has dismissed it, even though its state stays mounted for the ~200 ms
+  /// exit animation. `mounted` alone is not enough: popping then would remove
+  /// the screen or sheet UNDERNEATH instead.
+  bool get _isCurrentRoute =>
+      mounted && (ModalRoute.of(context)?.isCurrent ?? true);
+
+  /// Closes the sheet from the success view's Done button, guarded like every
+  /// pop here so it can never remove the route underneath.
+  void _closeSheet() {
+    if (_isCurrentRoute) Navigator.of(context).pop();
   }
 
   /// Logs [error] for support and shows the member a localized sentence
@@ -223,6 +273,9 @@ class _ConnectRequestSheetState extends State<ConnectRequestSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final motion = AppMotion.reduced(context)
+        ? Duration.zero
+        : AppMotion.settleDuration;
     return Padding(
       // Lifts the sheet above the keyboard so it never covers the field or
       // the button (rule 5.6).
@@ -239,23 +292,42 @@ class _ConnectRequestSheetState extends State<ConnectRequestSheet> {
             AppSpace.lg,
             AppSpace.lg,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const _SheetHeading(),
-              const SizedBox(height: AppSpace.lg),
-              _MessageField(
-                controller: _message,
-                errorText: _error,
-                onChanged: _onChanged,
-              ),
-              const SizedBox(height: AppSpace.md),
-              _SubmitButton(isSending: _isSending, onTap: _submit),
-            ],
+          // The form cross-fades into the success view and the sheet eases to
+          // its new height, rather than either jumping (rule 5.4).
+          child: AnimatedSize(
+            duration: motion,
+            child: AnimatedSwitcher(
+              duration: motion,
+              child: _isSent
+                  ? ConnectRequestSentView(onDone: _closeSheet)
+                  : _buildForm(),
+            ),
           ),
         ),
       ),
+    );
+  }
+
+  /// The heading, the message field and the send button.
+  Widget _buildForm() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const _SheetHeading(),
+        const SizedBox(height: AppSpace.lg),
+        _MessageField(
+          controller: _message,
+          errorText: _error,
+          onChanged: _onChanged,
+        ),
+        const SizedBox(height: AppSpace.md),
+        _SubmitButton(
+          message: _message,
+          isSending: _isSending,
+          onTap: _submit,
+        ),
+      ],
     );
   }
 }
@@ -334,54 +406,93 @@ class _MessageField extends StatelessWidget {
   }
 }
 
-/// The filled primary button: disabled, with a spinner in place of its label,
-/// while [isSending] — so a second tap cannot send a second request.
+/// The filled primary button. Usable only when there is something to send:
+/// disabled and dimmed while the trimmed [message] is blank (rule 5.6), and
+/// disabled with a spinner in place of its label while [isSending] — so a
+/// second tap cannot send a second request.
 class _SubmitButton extends StatelessWidget {
-  const _SubmitButton({required this.isSending, required this.onTap});
+  const _SubmitButton({
+    required this.message,
+    required this.isSending,
+    required this.onTap,
+  });
+
+  /// The member's message, watched keystroke by keystroke.
+  final TextEditingController message;
 
   /// True while the request is in flight.
   final bool isSending;
 
-  /// Called on tap when not sending.
+  /// Called on tap when there is something to send and nothing in flight.
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final foreground = AppThemeConfig.onAccent(context);
     final label = 'connect_request_submit'.tr;
-    return AppPressable(
-      key: const Key('connect_request_submit'),
-      onTap: isSending ? null : onTap,
-      semanticLabel: label,
-      expand: true,
-      child: Container(
-        height: _submitHeight,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: AppThemeConfig.accent(context),
-          borderRadius: AppRadius.mdAll,
-        ),
-        child: isSending
-            ? SizedBox.square(
-                dimension: _spinnerSize,
-                child: CircularProgressIndicator.adaptive(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(foreground),
-                ),
-              )
-            // Excluded because the button already announces [label]; reading
-            // the text too would say it twice.
-            : ExcludeSemantics(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: AppType.body,
-                    fontWeight: AppType.wAction,
-                    color: foreground,
-                  ),
+    // Rebuilds on every keystroke, so the button enables the moment there is
+    // something to send and disables again when the field is cleared — the
+    // same pattern as the chat-group composer's send button.
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: message,
+      builder: (context, draft, _) {
+        final canSend = !isSending && draft.text.trim().isNotEmpty;
+        return AppPressable(
+          key: const Key('connect_request_submit'),
+          onTap: canSend ? onTap : null,
+          semanticLabel: label,
+          expand: true,
+          child: Opacity(
+            // A sending button stays at full strength: it is busy, not idle.
+            opacity: canSend || isSending ? 1 : _disabledOpacity,
+            child: _SubmitFace(label: label, isSending: isSending),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// What the send button draws: the accent fill, with its label — or, while
+/// [isSending], a spinner in the label's place.
+class _SubmitFace extends StatelessWidget {
+  const _SubmitFace({required this.label, required this.isSending});
+
+  /// The already-translated label.
+  final String label;
+
+  /// True while the request is in flight.
+  final bool isSending;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = AppThemeConfig.onAccent(context);
+    return Container(
+      height: _submitHeight,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: AppThemeConfig.accent(context),
+        borderRadius: AppRadius.mdAll,
+      ),
+      child: isSending
+          ? SizedBox.square(
+              dimension: _spinnerSize,
+              child: CircularProgressIndicator.adaptive(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(foreground),
+              ),
+            )
+          // Excluded because the button already announces [label]; reading
+          // the text too would say it twice.
+          : ExcludeSemantics(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: AppType.body,
+                  fontWeight: AppType.wAction,
+                  color: foreground,
                 ),
               ),
-      ),
+            ),
     );
   }
 }

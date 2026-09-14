@@ -1558,6 +1558,14 @@ class AppTranslations extends Translations {
     'connect_request_message_required': 'Please describe what you need.',
     'connect_request_submit': 'Send request',
     'connect_request_sent': 'Request sent. Staff will review it shortly.',
+    // The success view that replaces the form INSIDE the sheet once the
+    // request is accepted. `connect_request_sent` above is now only the toast
+    // for a member who closed the sheet before the answer arrived. The Done
+    // button reuses the existing `Done` key, already translated everywhere.
+    'connect_request_sent_title': 'Request sent',
+    'connect_request_sent_body':
+        'Staff will review it shortly. You can follow it in My Connect '
+        'Requests on the Messages tab.',
     'error_connect_request_submit_failed': 'Could not send your request.',
     // The standing (not error-triggered) route to the ticket form, offered
     // next to chat_support so the two read as different things: one is a
@@ -4531,6 +4539,10 @@ class AppTranslations extends Translations {
     'connect_request_message_required': 'يرجى وصف ما تحتاجه.',
     'connect_request_submit': 'إرسال الطلب',
     'connect_request_sent': 'تم إرسال الطلب. سيراجعه الفريق قريبًا.',
+    'connect_request_sent_title': 'تم إرسال الطلب',
+    'connect_request_sent_body':
+        'سيراجعه الفريق قريبًا. يمكنك متابعته من «طلبات التواصل الخاصة بي» '
+        'في تبويب «الرسائل».',
     'error_connect_request_submit_failed': 'تعذّر إرسال طلبك.',
     'support_request_form': 'إرسال طلب دعم',
     'support_request_form_desc':
