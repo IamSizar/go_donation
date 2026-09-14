@@ -461,6 +461,20 @@ class AppTranslations extends Translations {
     'error_password_setup_failed': 'Could not set your password.',
     'error_message_send_failed': 'Could not send your message.',
     'error_messages_load_failed': 'Could not load this conversation.',
+    // OPOS #25284 Phase 5 — staff-mediated group chats. en + ar only;
+    // Sorani and Badini await a native speaker (#21431).
+    'error_chat_groups_load_failed': 'Could not load your group chats.',
+    'error_connect_requests_load_failed':
+        'Could not load your connect requests.',
+    // A send the server refused BY NAME. Retrying cannot help either one, so
+    // neither says "try again" — see ChatGroupConversationController.
+    'chat_group_send_contact_blocked':
+        'Phone numbers and email addresses cannot be shared in this chat. '
+        'It is supervised for your safety — please keep the conversation '
+        'here, and ask our team if you need to arrange contact.',
+    'chat_group_send_closed':
+        'Your message was not sent because this conversation is no longer '
+        'open.',
     'error_privacy_settings_save_failed':
         'Could not save your privacy settings.',
     'error_service_request_failed': 'Could not send your service request.',
@@ -3525,6 +3539,14 @@ class AppTranslations extends Translations {
     'error_password_setup_failed': 'تعذّر تعيين كلمة المرور.',
     'error_message_send_failed': 'تعذّر إرسال رسالتك.',
     'error_messages_load_failed': 'تعذّر تحميل هذه المحادثة.',
+    // OPOS #25284 Phase 5 — staff-mediated group chats.
+    'error_chat_groups_load_failed': 'تعذّر تحميل محادثاتك الجماعية.',
+    'error_connect_requests_load_failed': 'تعذّر تحميل طلبات التواصل الخاصة بك.',
+    'chat_group_send_contact_blocked':
+        'لا يمكن مشاركة أرقام الهواتف أو عناوين البريد الإلكتروني في هذه '
+        'المحادثة. المحادثة تحت إشراف فريقنا حفاظاً على سلامتك — يُرجى إبقاء '
+        'التواصل هنا، واطلب من فريقنا إن احتجت إلى ترتيب وسيلة تواصل.',
+    'chat_group_send_closed': 'لم تُرسَل رسالتك لأن هذه المحادثة لم تعد مفتوحة.',
     'error_privacy_settings_save_failed': 'تعذّر حفظ إعدادات الخصوصية.',
     'error_service_request_failed': 'تعذّر إرسال طلب الخدمة.',
     'error_subscription_failed': 'تعذّر إتمام اشتراكك.',

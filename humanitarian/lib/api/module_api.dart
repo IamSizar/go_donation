@@ -44,12 +44,12 @@ class ModuleApi {
 
   /// An HTTP client to use instead of the package-level functions.
   ///
-  /// A SEAM FOR TESTS, and narrow on purpose: only [openSupportThread] honours
-  /// it. That method's whole job is to tell three server responses apart, and
-  /// there is no way to assert it does so without being able to produce those
-  /// responses. Everything else in this class still goes through the
-  /// package-level helpers, so nothing about production behaviour changes —
-  /// `const ModuleApi()` keeps meaning exactly what it did.
+  /// A SEAM FOR TESTS. Honoured by every GET (through `_authedGet`), by
+  /// [postJson], by `_sendCodedJson` and by [openSupportThread] — the calls
+  /// whose request or response a test needs to see. [postJsonNoTrack] still
+  /// uses the package-level helper. In production this is always null, so
+  /// nothing about production behaviour changes — `const ModuleApi()` keeps
+  /// meaning exactly what it did.
   final http.Client? httpClient;
 
   /// How long any single request may hang before it is treated as a failure.
@@ -416,7 +416,11 @@ class ModuleApi {
       )
       ..body = jsonEncode(withApiAuthJsonBody(body));
 
-    final streamed = await http.Client().send(request).timeout(_requestTimeout);
+    // `httpClient ?? http.Client()` mirrors [postJson] and [_authedGet]: in
+    // production [httpClient] is null and this is the fresh client it always
+    // was; a test passes a MockClient to see which code a refusal carries.
+    final client = httpClient ?? http.Client();
+    final streamed = await client.send(request).timeout(_requestTimeout);
     final response = await http.Response.fromStream(streamed);
 
     // Same reasoning as [postJson]: the session check goes before the decode.
@@ -857,14 +861,44 @@ class ModuleApi {
   // OPOS #25284 — staff-mediated masked/team group chats.
   Future<List<Map<String, dynamic>>> chatGroups() => getItems(chatGroupsUrl);
 
-  Future<Map<String, dynamic>> chatGroupMessages(int groupId) =>
-      getObject(chatGroupMessagesUrl(groupId));
+  /// One page of a group's transcript: the messages with an id above
+  /// [afterId], oldest first, at most [limit] of them. The server caps [limit]
+  /// at 100 and uses 50 when it is omitted, so a caller that wants the whole
+  /// history must keep asking from the newest id it has received.
+  Future<Map<String, dynamic>> chatGroupMessages(
+    int groupId, {
+    int afterId = 0,
+    int? limit,
+  }) => getObject(
+    Uri.parse(chatGroupMessagesUrl(groupId))
+        .replace(
+          queryParameters: {
+            'after_id': '$afterId',
+            if (limit != null) 'limit': '$limit',
+          },
+        )
+        .toString(),
+  );
 
+  /// Posts [body] to a group. Goes through [_sendCodedJson] rather than
+  /// [postJson] because the server NAMES the refusals a member can hit here —
+  /// `contact_details_blocked` (contact details in a supervised chat) and
+  /// `chat_lifecycle_closed` (staff paused or ended it) — and the member must
+  /// be told which, not just "try again". [postJson]'s analytics hook has no
+  /// entry for this path, so nothing is lost by bypassing it.
   Future<Map<String, dynamic>> sendChatGroupMessage(int groupId, String body) =>
-      postJson(chatGroupMessagesUrl(groupId), {'body': body});
+      _sendCodedJson('POST', chatGroupMessagesUrl(groupId), {'body': body});
 
-  Future<void> markChatGroupRead(int groupId) =>
-      postJson(chatGroupReadUrl(groupId), {});
+  /// Moves the member's read cursor in [groupId] up to [lastReadMessageId],
+  /// the newest message id they have been shown. The server keeps the greater
+  /// of the stored and sent ids, so an older id is harmless — but an omitted
+  /// one is recorded as 0 and the group's unread count never goes down.
+  Future<void> markChatGroupRead(
+    int groupId, {
+    required int lastReadMessageId,
+  }) => postJson(chatGroupReadUrl(groupId), {
+    'last_read_msg_id': lastReadMessageId,
+  });
 
   Future<Map<String, dynamic>> submitConnectRequest({
     required String contextType,
