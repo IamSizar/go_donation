@@ -106,6 +106,27 @@ void main() {
     expect(ctrl.errorMessage.value, isNull);
   });
 
+  test('a poll that succeeds after a failed first load clears the error', () async {
+    final api = FakeChatGroupsApi()..groupsError = Exception('Request timed out.');
+    final ctrl = ChatGroupsController(api: api);
+    await ctrl.fetchGroups();
+    expect(ctrl.errorMessage.value, isNotNull);
+
+    api
+      ..groupsError = null
+      ..groups = [groupRow(id: 1, kind: 'masked')];
+    await ctrl.fetchGroups(silent: true);
+
+    expect(ctrl.groups.map((g) => g.id), [1]);
+    expect(
+      ctrl.errorMessage.value,
+      isNull,
+      reason:
+          'the groups have loaded; a "could not load" banner left over from '
+          'the first attempt would contradict what is on screen',
+    );
+  });
+
   group('the new-group chime', () {
     test("a poll that brings the member's very first group chimes", () async {
       var chimes = 0;

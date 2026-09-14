@@ -126,6 +126,10 @@ class ChatGroupsController extends GetxController {
       _chimeOnNewGroup(fresh);
       groups.assignAll(fresh);
       _hasLoaded = true;
+      // Any successful load — a silent poll included — settles an earlier
+      // failure: a "could not load" banner must not sit over groups that
+      // have since loaded.
+      errorMessage.value = null;
     } catch (e) {
       // Only a visible failure is logged: the silent poll would otherwise
       // write the same line every five seconds while the phone is offline.

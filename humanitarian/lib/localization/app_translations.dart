@@ -475,6 +475,9 @@ class AppTranslations extends Translations {
     'chat_group_send_closed':
         'Your message was not sent because this conversation is no longer '
         'open.',
+    // The send button's accessibility label: the button itself is an icon, so
+    // a screen reader has nothing else to announce.
+    'Send message': 'Send message',
     'error_privacy_settings_save_failed':
         'Could not save your privacy settings.',
     'error_service_request_failed': 'Could not send your service request.',
@@ -3547,6 +3550,7 @@ class AppTranslations extends Translations {
         'المحادثة. المحادثة تحت إشراف فريقنا حفاظاً على سلامتك — يُرجى إبقاء '
         'التواصل هنا، واطلب من فريقنا إن احتجت إلى ترتيب وسيلة تواصل.',
     'chat_group_send_closed': 'لم تُرسَل رسالتك لأن هذه المحادثة لم تعد مفتوحة.',
+    'Send message': 'إرسال الرسالة',
     'error_privacy_settings_save_failed': 'تعذّر حفظ إعدادات الخصوصية.',
     'error_service_request_failed': 'تعذّر إرسال طلب الخدمة.',
     'error_subscription_failed': 'تعذّر إتمام اشتراكك.',

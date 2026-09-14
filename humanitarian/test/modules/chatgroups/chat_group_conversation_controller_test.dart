@@ -125,6 +125,28 @@ void main() {
       expect(ctrl.messages.map((m) => m.id), [11, 12]);
       expect(ctrl.errorMessage.value, isNull);
     });
+
+    test('a poll that succeeds after a failed first load clears the error', () async {
+      final api = FakeChatGroupsApi()
+        ..messagesError = Exception('Request timed out.');
+      final ctrl = ChatGroupConversationController(_groupId, api: api);
+      await ctrl.fetchMessages();
+      expect(ctrl.errorMessage.value, isNotNull);
+
+      api
+        ..messagesError = null
+        ..transcript = twoMessages;
+      await ctrl.fetchMessages(silent: true);
+
+      expect(ctrl.messages.map((m) => m.id), [11, 12]);
+      expect(
+        ctrl.errorMessage.value,
+        isNull,
+        reason:
+            'the conversation has loaded; a "could not load" banner left over '
+            'from the first attempt would contradict what is on screen',
+      );
+    });
   });
 
   group('long conversations', () {

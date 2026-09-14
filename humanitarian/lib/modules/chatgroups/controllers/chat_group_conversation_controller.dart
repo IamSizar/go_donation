@@ -159,6 +159,10 @@ class ChatGroupConversationController extends GetxController {
       final newer = await _fetchNewerMessages();
       if (isClosed) return;
       _apply(newer);
+      // Any successful load — a silent poll included — settles an earlier
+      // failure: a "could not load" banner must not sit over a transcript
+      // that has since loaded.
+      errorMessage.value = null;
     } catch (e) {
       // Only a visible failure is logged; the silent poll would repeat the
       // same line every three seconds while the phone is offline.
