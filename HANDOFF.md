@@ -33,6 +33,22 @@
 
 ---
 
+## 2026-09-13 — OPOS #25544: wire moderation.ScanContact into masked_label writes (PR #73, branch `fix/chatgroups-scancontact-labels`)
+
+**What was asked:** design spec §5's "Alias quality" rule that `moderation.ScanContact` runs over a staff-typed `masked_label` at write time was silently dropped during Phase 1 (the other two Alias-quality rules — auto-generation, neutral placeholder fallback — were implemented). Phase 2 (merged into this branch's history) made it exploitable by adding `POST /api/admin/chat-groups` and `POST /api/admin/chat-groups/:id/members`, both accepting a caller-supplied `label` with no contact-info filtering. Small, fully-specified OPOS follow-up ticket (#25544) from Phase 1's review.
+
+**What was actually changed:** `backend/internal/chatgroups/chatgroups.go` — added `refuseContactInLabel(label string) error` (wraps `moderation.ScanContact`, returns an error wrapping `ErrInvalidInput` when flagged); wired into `insertMembers()` (used by `CreateGroup`) and `AddMember()`, called only on a non-empty, caller-supplied label on a MASKED group, after the empty→auto-label branch and before the `INSERT` — auto-generated labels ("Donor 1") are never scanned. `backend/internal/chatgroups/chatgroups_admin_test.go` — 4 new tests: `TestCreateGroupRefusesPhoneNumberLabel`, `TestAddMemberRefusesPhoneNumberLabel`, `TestAddMemberAllowsCleanLabel`, `TestAddMemberEmptyLabelStillAutoGeneratesForMaskedGroup`. No handler-side change needed: `internal/handlers/chat_group.go`'s existing `chatErr` dispatcher already maps `ErrInvalidInput` → 400.
+
+**What was run and what it printed:** `createdb godonation_chatgroups_scancontact` (throwaway); `TEST_DATABASE_URL=... go test ./internal/chatgroups/... -v` → `PASS`, 38/38 (34 pre-existing Phase 1/Phase 2 tests + 4 new), `ok ... 2.650s`; database dropped after. `gofmt -l internal/chatgroups/*.go` → no output. `go vet ./internal/chatgroups/...` → clean. `go build ./...` (whole backend) → clean.
+
+**External actions taken:** pushed branch `fix/chatgroups-scancontact-labels` to `origin`. Opened PR #73 against `feat/chat-groups-phase2` (correct base — depends on Phase 2's admin routes existing even though the code change is entirely in the Phase 1 `internal/chatgroups` package): https://github.com/IamSizar/go_donation/pull/73. OPOS task #25544 moved Work In Progress → Completed, timer stopped, completion comment added with files/tests.
+
+**What is still open:** PR #73 is unmerged and unreviewed by a human; it stacks on the still-unmerged PR #72 (Phase 2) which itself stacks on PR #71 (Phase 1) — merge order matters. `hawkscan`'s post-commit hook fired asking for a scan, but its own precondition ("if the application is running and HAWK_API_KEY is set") wasn't met in this session (nothing running, key not verified), so it was not run — flagging in case a future session has that set up and wants to scan commit `ab4768a`.
+
+**Traps:** none new. The existing "fresh `createdb` per verification run" trap from Phase 2's entry above still applies — this session followed it (dedicated throwaway db, dropped after).
+
+---
+
 ## 2026-09-13 — OPOS #25284 Phase 2: chat-group routes, permissions, lifecycle wiring (PR #72, branch `feat/chat-groups-phase2`)
 
 **What was asked:** expose Phase 1's `internal/chatgroups` Store (schema + service layer, no HTTP surface) over the real API — mobile and admin routes, permission gating, registering the new chat system with the shared `internal/chatlifecycle` pause/resume/archive/delete/restore mechanism, adapting the existing K19 contact-info filter for masked groups, and push notifications.
