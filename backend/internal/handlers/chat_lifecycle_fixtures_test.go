@@ -23,6 +23,7 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
 	"github.com/karam-flutter/humanitarian-backend/internal/casevolchat"
 	"github.com/karam-flutter/humanitarian-backend/internal/chat"
+	"github.com/karam-flutter/humanitarian-backend/internal/chatgroups"
 	"github.com/karam-flutter/humanitarian-backend/internal/chatlifecycle"
 	"github.com/karam-flutter/humanitarian-backend/internal/marriagechat"
 	"github.com/karam-flutter/humanitarian-backend/internal/notify"
@@ -41,6 +42,12 @@ type chatFixture struct {
 	ThreadID    int64
 	SenderID    int64 // a participant allowed to post when the thread is open
 	SendPath    string
+	// MsgIDColumn is the column on MsgTable that points back at ThreadID.
+	// Every pre-existing system calls it "thread_id"; chat_group_messages
+	// (migration 120) calls it "group_id" instead, since a group is not a
+	// "thread" in this schema's vocabulary. countRows needs this to build a
+	// query that actually matches a column that exists.
+	MsgIDColumn string
 }
 
 func seedDonorChat(t *testing.T, pool *pgxpool.Pool) chatFixture {
@@ -62,7 +69,7 @@ func seedDonorChat(t *testing.T, pool *pgxpool.Pool) chatFixture {
 		_, _ = pool.Exec(ctx, `DELETE FROM chat_threads WHERE id = $1`, id)
 	})
 	return chatFixture{chatlifecycle.KindDonor, "chat_threads", "chat_messages", id, donor,
-		fmt.Sprintf("/api/chats/%d/messages", id)}
+		fmt.Sprintf("/api/chats/%d/messages", id), "thread_id"}
 }
 
 func seedStaffChat(t *testing.T, pool *pgxpool.Pool) chatFixture {
@@ -87,7 +94,7 @@ func seedStaffChat(t *testing.T, pool *pgxpool.Pool) chatFixture {
 		_, _ = pool.Exec(ctx, `DELETE FROM staff_chat_threads WHERE id = $1`, id)
 	})
 	return chatFixture{chatlifecycle.KindStaff, "staff_chat_threads", "staff_chat_messages", id, a,
-		fmt.Sprintf("/api/admin/staff-chats/%d/messages", id)}
+		fmt.Sprintf("/api/admin/staff-chats/%d/messages", id), "thread_id"}
 }
 
 func seedMarriageChat(t *testing.T, pool *pgxpool.Pool) chatFixture {
@@ -124,7 +131,7 @@ func seedMarriageChat(t *testing.T, pool *pgxpool.Pool) chatFixture {
 		_, _ = pool.Exec(ctx, `DELETE FROM marriage_profiles WHERE id = $1`, profileID)
 	})
 	return chatFixture{chatlifecycle.KindMarriage, "marriage_chat_threads", "marriage_chat_messages", id, requester,
-		fmt.Sprintf("/api/marriage/chats/%d/messages", id)}
+		fmt.Sprintf("/api/marriage/chats/%d/messages", id), "thread_id"}
 }
 
 func seedCaseChat(t *testing.T, pool *pgxpool.Pool) chatFixture {
@@ -166,7 +173,37 @@ func seedCaseChat(t *testing.T, pool *pgxpool.Pool) chatFixture {
 		_, _ = pool.Exec(ctx, `DELETE FROM volunteer_missions WHERE id = $1`, missionID)
 	})
 	return chatFixture{chatlifecycle.KindCase, "case_volunteer_chat_threads", "case_volunteer_chat_messages", id, volunteer,
-		fmt.Sprintf("/api/case-chats/%d/messages", id)}
+		fmt.Sprintf("/api/case-chats/%d/messages", id), "thread_id"}
+}
+
+func seedGroupChat(t *testing.T, pool *pgxpool.Pool) chatFixture {
+	t.Helper()
+	ctx := context.Background()
+	member := makeLifecycleUser(t, pool, "user")
+	staff := makeLifecycleUser(t, pool, "employee")
+	var id, memberRowID int64
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO chat_group_threads (kind, created_by_staff_id) VALUES ('masked', $1) RETURNING id`,
+		staff).Scan(&id); err != nil {
+		t.Fatalf("insert chat group thread: %v", err)
+	}
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO chat_group_members (group_id, user_id, role_in_group, masked, masked_label, added_by_staff_id)
+		 VALUES ($1, $2, 'donor', true, 'Donor 1', $3) RETURNING id`,
+		id, member, staff).Scan(&memberRowID); err != nil {
+		t.Fatalf("insert chat group member: %v", err)
+	}
+	t.Cleanup(func() {
+		ctx := context.Background()
+		_, _ = pool.Exec(ctx, `DELETE FROM chat_group_contact_blocks WHERE group_id = $1`, id)
+		_, _ = pool.Exec(ctx, `DELETE FROM chat_group_reads WHERE group_id = $1`, id)
+		_, _ = pool.Exec(ctx, `DELETE FROM chat_group_messages WHERE group_id = $1`, id)
+		_, _ = pool.Exec(ctx, `DELETE FROM trash_items WHERE source_table = 'chat_group_threads' AND row_id = $1`, id)
+		_, _ = pool.Exec(ctx, `DELETE FROM chat_group_members WHERE group_id = $1`, id)
+		_, _ = pool.Exec(ctx, `DELETE FROM chat_group_threads WHERE id = $1`, id)
+	})
+	return chatFixture{chatlifecycle.KindGroup, "chat_group_threads", "chat_group_messages", id, member,
+		fmt.Sprintf("/api/chat-groups/%d/messages", id), "group_id"}
 }
 
 // ─── The router, wired exactly as main.go wires it ──────────────────────
@@ -210,15 +247,22 @@ func newLifecycleRouter(pool *pgxpool.Pool) *gin.Engine {
 	admin.DELETE("/admin/staff-chats/:id", lifeH.Delete(chatlifecycle.KindStaff))
 	admin.DELETE("/admin/marriage/chats/:id", lifeH.Delete(chatlifecycle.KindMarriage))
 	admin.DELETE("/admin/case-chats/:id", lifeH.Delete(chatlifecycle.KindCase))
+
+	groupsStore := chatgroups.New(pool)
+	groupsH := NewChatGroupHandler(groupsStore, n, nil, pool)
+	participant.POST("/chat-groups/:id/messages", groupsH.PostMessage)
+	admin.POST("/admin/chat-groups/:id/lifecycle", lifeH.Apply(chatlifecycle.KindGroup))
+	admin.DELETE("/admin/chat-groups/:id", lifeH.Delete(chatlifecycle.KindGroup))
 	return r
 }
 
-// allFixtures seeds one thread in each of the four systems.
+// allFixtures seeds one thread in each of the five systems.
 func allFixtures(t *testing.T, pool *pgxpool.Pool) []chatFixture {
 	return []chatFixture{
 		seedDonorChat(t, pool),
 		seedMarriageChat(t, pool),
 		seedStaffChat(t, pool),
 		seedCaseChat(t, pool),
+		seedGroupChat(t, pool),
 	}
 }

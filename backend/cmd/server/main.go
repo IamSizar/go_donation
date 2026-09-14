@@ -21,6 +21,7 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/casecategories"
 	"github.com/karam-flutter/humanitarian-backend/internal/casevolchat"
 	"github.com/karam-flutter/humanitarian-backend/internal/chat"
+	"github.com/karam-flutter/humanitarian-backend/internal/chatgroups"
 	"github.com/karam-flutter/humanitarian-backend/internal/chatlifecycle"
 	"github.com/karam-flutter/humanitarian-backend/internal/citycategories"
 	"github.com/karam-flutter/humanitarian-backend/internal/citysectors"
@@ -299,6 +300,8 @@ func main() {
 	walletH := handlers.NewWalletHandler(walletStore, notifier)
 	tasksH := handlers.NewTasksHandler(tasksStore, notifier)
 	chatH := handlers.NewChatHandler(chatStore, notifier, pool)
+	chatGroupsStore := chatgroups.New(pool)
+	chatGroupH := handlers.NewChatGroupHandler(chatGroupsStore, notifier, nil, pool)
 	staffChatH := handlers.NewStaffChatHandler(staffChatStore, notifier, pool)
 	caseVolChatH := handlers.NewCaseVolunteerChatHandler(caseVolChatStore, notifier)
 	// Chat lifecycle (migration 118) — one handler serving end/pause/resume/
@@ -447,9 +450,10 @@ func main() {
 	adminListsH.Perms = permStore // in-kind · support · volunteer apps · signups · board · campaigns
 	usersAdminH.Perms = permStore // /admin/users — also the sign-in identity
 	registrationAdminH.Perms = permStore
-	donationsH.Perms = permStore    // donor_phone
-	beneficiaryH.Perms = permStore  // case phone
-	chatH.Perms = permStore         // both parties of a donor↔owner thread
+	donationsH.Perms = permStore   // donor_phone
+	beneficiaryH.Perms = permStore // case phone
+	chatH.Perms = permStore        // both parties of a donor↔owner thread
+	chatGroupH.Perms = permStore
 	caseVolChatH.Perms = permStore  // volunteer + beneficiary
 	marriageChatH.Perms = permStore // requester + profile owner
 	staffChatH.Perms = permStore    // the staff directory's own numbers
@@ -811,6 +815,15 @@ func main() {
 			authed.GET("/case-chats/:id/messages", caseVolChatH.Messages)
 			authed.POST("/case-chats/:id/messages", caseVolChatH.PostMessage)
 
+			// OPOS #25284 Phase 2 — staff-created group chats (masked
+			// donor/beneficiary/volunteer coordination, real-name volunteer
+			// teams). Group creation/membership is admin-only (below);
+			// mobile only reads and posts into groups a member already has.
+			authed.GET("/chat-groups", chatGroupH.List)
+			authed.GET("/chat-groups/:id/messages", chatGroupH.Messages)
+			authed.POST("/chat-groups/:id/messages", auth.RequireNotGuest(), chatGroupH.PostMessage)
+			authed.POST("/chat-groups/:id/read", auth.RequireNotGuest(), chatGroupH.MarkRead)
+
 			// "Eighth: Sponsorship Schedule and Calendar" — the entitlement
 			// tracking screen (upcoming / due / overdue / history).
 			authed.GET("/sponsorships/schedule", sponsorshipScheduleH.List)
@@ -988,6 +1001,28 @@ func main() {
 			admin.POST("/admin/chats/:id/claim", perm("messages", "edit"), chatH.AdminClaim)
 			admin.POST("/admin/chats/:id/release", perm("messages", "edit"), chatH.AdminRelease)
 
+			// OPOS #25284 Phase 2 — staff-created group chats.
+			admin.GET("/admin/chat-groups", perm("messages", "view"), chatGroupH.AdminList)
+			admin.POST("/admin/chat-groups", perm("messages", "add"), chatGroupH.AdminCreateGroup)
+			// Returns the member roster: every member's REAL user_id next to
+			// the masked_label their messages appear under — i.e. the exact
+			// key that de-masks the whole group. Same disclosure strength as
+			// the messages route below, so the same two permissions.
+			admin.GET("/admin/chat-groups/:id",
+				perm("messages", "view"), perm("sensitive_data", "view"), chatGroupH.AdminGetGroup)
+			admin.POST("/admin/chat-groups/:id/members", perm("messages", "edit"), chatGroupH.AdminAddMember)
+			admin.DELETE("/admin/chat-groups/:id/members/:userId", perm("messages", "edit"), chatGroupH.AdminRemoveMember)
+			// Reveals real identities inside a masked group — messages:view
+			// alone is not enough (see design spec §4).
+			admin.GET("/admin/chat-groups/:id/messages",
+				perm("messages", "view"), perm("sensitive_data", "view"), chatGroupH.AdminMessages)
+			admin.POST("/admin/chat-groups/:id/messages", perm("messages", "add"), chatGroupH.AdminPostMessage)
+			// Names the REAL sender behind every blocked attempt to pass
+			// contact details inside a masked group — identity disclosure of
+			// the same strength, so the same two permissions.
+			admin.GET("/admin/chat-groups/:id/contact-blocks",
+				perm("messages", "view"), perm("sensitive_data", "view"), chatGroupH.AdminContactBlocks)
+
 			// ─── Chat lifecycle (migration 118) ─────────────────────────
 			// END / PAUSE / RESUME / ARCHIVE / UNARCHIVE and DELETE, for every
 			// one of the four chat systems. STAFF ONLY by construction: these
@@ -1010,6 +1045,8 @@ func main() {
 			admin.DELETE("/admin/case-chats/:id", perm("volunteers", "delete"), chatLifecycleH.Delete(chatlifecycle.KindCase))
 			admin.POST("/admin/marriage/chats/:id/lifecycle", perm("marriage", "edit"), chatLifecycleH.Apply(chatlifecycle.KindMarriage))
 			admin.DELETE("/admin/marriage/chats/:id", perm("marriage", "delete"), chatLifecycleH.Delete(chatlifecycle.KindMarriage))
+			admin.POST("/admin/chat-groups/:id/lifecycle", perm("messages", "edit"), chatLifecycleH.Apply(chatlifecycle.KindGroup))
+			admin.DELETE("/admin/chat-groups/:id", perm("messages", "delete"), chatLifecycleH.Delete(chatlifecycle.KindGroup))
 
 			// Note #36 — internal staff-to-staff chat. Not perm()-gated: every
 			// dashboard tier (employee and up) can use it regardless of assigned

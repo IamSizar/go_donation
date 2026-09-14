@@ -146,13 +146,17 @@ const chatChildrenKey = "__chat_children"
 // WHY IT EXISTS. trashRow snapshots ONE row and lets the FK cascade take the
 // children — its own comment says so. For most tables that is fine. For a
 // chat it is not: chat_messages, chat_reads (and, for the donor chat, the K19
-// contact-block log) all cascade from the thread, so a plain trashRow would
-// put an EMPTY conversation in the Trash and restore an empty conversation
-// back out. A thread without its messages is worse than useless — it looks
+// contact-block log) all belong to the thread, so a plain trashRow would put
+// an EMPTY conversation in the Trash and restore an empty conversation back
+// out. A thread without its messages is worse than useless — it looks
 // recovered while the actual content is gone forever.
 //
 // So the snapshot here is the thread row PLUS every child row, all in the one
-// trash_items payload, written inside the same transaction as the delete.
+// trash_items payload, written inside the same transaction as the delete —
+// and the delete removes those children EXPLICITLY rather than trusting a
+// cascade to exist, because in one of the five systems it does not (see step
+// 4 below).
+//
 // restoreChatChildren (admin_trash.go) puts the children back after the
 // generic restore has re-inserted the parent. Kept as one payload rather than
 // one trash entry per message so the operator restores a CONVERSATION with a
@@ -191,13 +195,13 @@ func trashChatThread(c *gin.Context, pool *pgxpool.Pool, sys chatlifecycle.Syste
 		return
 	}
 
-	// 2) Every cascade child, keyed by its table so the restore knows where
-	//    each list belongs.
+	// 2) Every child row, keyed by its table so the restore knows where each
+	//    list belongs. Step 4 deletes from exactly this same table list.
 	children := map[string]json.RawMessage{}
 	for _, child := range sys.ChildTables() {
 		var rows []byte
 		if err := tx.QueryRow(ctx,
-			"SELECT COALESCE(jsonb_agg(to_jsonb(x.*)), '[]'::jsonb) FROM "+child+" x WHERE x.thread_id = $1",
+			"SELECT COALESCE(jsonb_agg(to_jsonb(x.*)), '[]'::jsonb) FROM "+child+" x WHERE x."+sys.ChildIDColumn+" = $1",
 			id).Scan(&rows); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false,
 				"error": "Could not snapshot this chat's messages: " + err.Error()})
@@ -224,6 +228,35 @@ func trashChatThread(c *gin.Context, pool *pgxpool.Pool, sys chatlifecycle.Syste
 		sys.ThreadTable, id, full, actor); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
 		return
+	}
+	// 4) The child rows, EXPLICITLY, before the parent — never by relying on a
+	//    cascade.
+	//
+	//    The four pre-existing systems (012, 058, 059, 061) do declare
+	//    `REFERENCES <thread table>(id) ON DELETE CASCADE` on every child, so
+	//    for them this loop removes rows the cascade would have removed a
+	//    moment later anyway — same end state, just stated rather than
+	//    implied. chat_group_* (migration 120) has NO foreign keys at all, by
+	//    that package's deliberate convention (existence is validated in
+	//    chatgroups.Store instead), so for a group there is no cascade to
+	//    inherit: without this loop the delete left every message, read
+	//    cursor, contact-block and member row live in the database forever,
+	//    and a later restore then failed outright on a duplicate key while
+	//    re-inserting rows that had never gone away.
+	//
+	//    One uniform path for all five systems rather than a special case for
+	//    the one without FKs: the snapshot above is already written from
+	//    sys.ChildTables(), so deleting from exactly that same list is what
+	//    keeps "what was saved" and "what was removed" provably the same set.
+	for _, child := range sys.ChildTables() {
+		if _, err := tx.Exec(ctx,
+			// Table and column names are package-level literals from
+			// chatlifecycle's whitelist, never request values.
+			"DELETE FROM "+child+" WHERE "+sys.ChildIDColumn+" = $1", id); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false,
+				"error": "Could not delete this chat's messages: " + err.Error()})
+			return
+		}
 	}
 	if _, err := tx.Exec(ctx, "DELETE FROM "+sys.ThreadTable+" WHERE id = $1", id); err != nil {
 		var pgErr *pgconn.PgError

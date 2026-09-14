@@ -57,12 +57,12 @@ const (
 
 // Group mirrors one chat_group_threads row.
 type Group struct {
-	ID          int64
-	Kind        Kind
-	MemberTitle string
-	CreatedBy   int64
-	Lifecycle   string
-	CreatedAt   time.Time
+	ID          int64     `json:"id"`
+	Kind        Kind      `json:"kind"`
+	MemberTitle string    `json:"member_title"`
+	CreatedBy   int64     `json:"created_by_staff_id"`
+	Lifecycle   string    `json:"lifecycle"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 // MemberInput is what a caller supplies when adding someone to a group.
@@ -162,7 +162,7 @@ func insertMembers(ctx context.Context, tx pgx.Tx, groupID int64, kind Kind, add
 // member-facing title — see the migration comment on member_title).
 func (s *Store) CreateGroup(ctx context.Context, kind Kind, memberTitle string, createdByStaffID int64, members []MemberInput) (int64, error) {
 	if kind != KindMasked && kind != KindTeam {
-		return 0, errors.New("kind must be 'masked' or 'team'")
+		return 0, fmt.Errorf("chatgroups: kind %q: %w", kind, ErrInvalidInput)
 	}
 	tx, err := s.Pool.Begin(ctx)
 	if err != nil {
@@ -202,6 +202,9 @@ func (s *Store) AddMember(ctx context.Context, groupID int64, input MemberInput,
 	if err := s.Pool.QueryRow(ctx,
 		`SELECT kind FROM chat_group_threads WHERE id = $1`, groupID,
 	).Scan(&kind); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("chatgroups: group %d: %w", groupID, ErrNotFound)
+		}
 		return fmt.Errorf("chatgroups: looking up group %d: %w", groupID, err)
 	}
 	masked := kind == KindMasked
