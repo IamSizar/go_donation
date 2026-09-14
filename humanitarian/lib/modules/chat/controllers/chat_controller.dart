@@ -72,27 +72,6 @@ class ChatController extends GetxController {
     }
   }
 
-  /// Opens or finds a chat. Returns the thread id, its status, and whether it
-  /// already existed (already==true + status active → just open it; otherwise
-  /// it's a fresh pending request awaiting the other party's accept).
-  Future<({int threadId, String status, bool already})> requestChat({
-    int? donationId,
-    int? donorUserId,
-    int? campaignId,
-  }) async {
-    final body = <String, dynamic>{};
-    if (donationId != null) body['donation_id'] = donationId;
-    if (donorUserId != null) body['donor_user_id'] = donorUserId;
-    if (campaignId != null) body['campaign_id'] = campaignId;
-    final res = await const ModuleApi().postJson(chatRequestUrl, body);
-    await fetchThreads(silent: true);
-    return (
-      threadId: int.tryParse('${res['thread_id']}') ?? 0,
-      status: (res['status'] ?? 'pending').toString(),
-      already: res['already'] == true,
-    );
-  }
-
   /// Opens (or reuses) a direct chat with the configured support/tech staff
   /// account (#45) — powers "Message the staff team" entry points across
   /// sections (Marriage and similar).

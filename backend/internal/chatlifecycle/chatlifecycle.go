@@ -87,6 +87,7 @@ const (
 	KindMarriage Kind = "marriage" // marriage_chat_threads (058)
 	KindStaff    Kind = "staff"    // staff_chat_threads (059)
 	KindCase     Kind = "case"     // case_volunteer_chat_threads (061)
+	KindGroup    Kind = "group"    // chat_group_threads (120)
 )
 
 // System describes one chat system's tables. Every string in here is a
@@ -96,15 +97,22 @@ type System struct {
 	Kind Kind
 	// ThreadTable holds the thread rows carrying the lifecycle columns.
 	ThreadTable string
-	// MessageTable and ReadTable are the FK children that would be silently
-	// cascaded away by a delete. They are snapshotted alongside the thread so
-	// a restore brings back a conversation rather than an empty shell — see
-	// TrashThreadWithChildren.
+	// MessageTable and ReadTable are the child tables that would otherwise be
+	// lost by a delete. They are snapshotted alongside the thread so a restore
+	// brings back a conversation rather than an empty shell — see
+	// handlers.trashChatThread.
 	MessageTable string
 	ReadTable    string
-	// ExtraChildTables are further cascade children to preserve. Only the
-	// donor chat has one today (the K19 blocked-contact supervision log).
+	// ExtraChildTables are further child tables to preserve: the donor chat's
+	// K19 blocked-contact supervision log, and chat groups' contact-block log,
+	// staff note and member roster.
 	ExtraChildTables []string
+	// ChildIDColumn is the foreign-key column name every child table (message,
+	// read, and extra tables) uses to reference ThreadTable's id. Every system
+	// through chat groups used "thread_id"; chat groups uses "group_id"
+	// instead, so this is a per-system value rather than a hardcoded literal
+	// in the trash/restore snapshot query.
+	ChildIDColumn string
 }
 
 // systems is the whitelist. A Kind that is not a key here is refused before
@@ -119,24 +127,47 @@ var systems = map[Kind]System{
 		// cascades from the thread, so it has to travel with it or a restored
 		// thread would quietly lose its moderation history.
 		ExtraChildTables: []string{"chat_contact_blocks"},
+		ChildIDColumn:    "thread_id",
 	},
 	KindMarriage: {
-		Kind:         KindMarriage,
-		ThreadTable:  "marriage_chat_threads",
-		MessageTable: "marriage_chat_messages",
-		ReadTable:    "marriage_chat_reads",
+		Kind:          KindMarriage,
+		ThreadTable:   "marriage_chat_threads",
+		MessageTable:  "marriage_chat_messages",
+		ReadTable:     "marriage_chat_reads",
+		ChildIDColumn: "thread_id",
 	},
 	KindStaff: {
-		Kind:         KindStaff,
-		ThreadTable:  "staff_chat_threads",
-		MessageTable: "staff_chat_messages",
-		ReadTable:    "staff_chat_reads",
+		Kind:          KindStaff,
+		ThreadTable:   "staff_chat_threads",
+		MessageTable:  "staff_chat_messages",
+		ReadTable:     "staff_chat_reads",
+		ChildIDColumn: "thread_id",
 	},
 	KindCase: {
-		Kind:         KindCase,
-		ThreadTable:  "case_volunteer_chat_threads",
-		MessageTable: "case_volunteer_chat_messages",
-		ReadTable:    "case_volunteer_chat_reads",
+		Kind:          KindCase,
+		ThreadTable:   "case_volunteer_chat_threads",
+		MessageTable:  "case_volunteer_chat_messages",
+		ReadTable:     "case_volunteer_chat_reads",
+		ChildIDColumn: "thread_id",
+	},
+	KindGroup: {
+		Kind:         KindGroup,
+		ThreadTable:  "chat_group_threads",
+		MessageTable: "chat_group_messages",
+		ReadTable:    "chat_group_reads",
+		// The masked-group contact-block log (mirrors chat_contact_blocks),
+		// the staff-only context note, and the MEMBER ROSTER all belong to
+		// the group, so they travel with it through trash/restore just like
+		// the donor chat's extra table does.
+		//
+		// chat_group_members is not optional here: a member row is what maps
+		// a sender to their masked_label, so a group restored without its
+		// roster comes back with every message collapsed to the "Support"
+		// fallback (see handlers.groupSenderLabel and
+		// chatgroups.Store.ListMessagesForMember) — a silently wrong restore,
+		// which is worse than one that fails loudly.
+		ExtraChildTables: []string{"chat_group_contact_blocks", "chat_group_staff_notes", "chat_group_members"},
+		ChildIDColumn:    "group_id",
 	},
 }
 
@@ -147,11 +178,31 @@ func Lookup(k Kind) (System, bool) {
 	return s, ok
 }
 
-// Systems returns every registered system, for callers that must act on all
-// four (the dashboard's kind list, tests that assert full coverage).
+// Systems returns every ACTIVELY REACHABLE system, for callers that must act
+// on all of them (the dashboard's kind list, tests that assert full
+// coverage).
+//
+// OPOS #25284 Phase 4 retired KindCase's direct volunteer↔beneficiary
+// messaging entirely — no route or handler reaches it any more — so it is
+// deliberately left out of this slice even though its constant and its
+// systems map entry stay defined below (case_volunteer_chat_threads still
+// holds historical rows the Global Constraints forbid dropping).
 func Systems() []System {
 	// Fixed order so a test or a UI listing is stable rather than map-random.
-	return []System{systems[KindDonor], systems[KindMarriage], systems[KindStaff], systems[KindCase]}
+	return []System{systems[KindDonor], systems[KindMarriage], systems[KindStaff], systems[KindGroup]}
+}
+
+// AllSystems returns every registered chat system, including ones retired
+// from active use (e.g. KindCase after OPOS #25284 Phase 4) — unlike
+// Systems(), which returns only the actively-iterated subset. Use this for
+// lookups that must still resolve historical/retired data (e.g. restoring a
+// trashed thread row), never for UI listings of "chat systems in active use".
+func AllSystems() []System {
+	out := make([]System, 0, len(systems))
+	for _, sys := range systems {
+		out = append(out, sys)
+	}
+	return out
 }
 
 // ChildTables lists every FK child whose rows must survive a trash/restore.

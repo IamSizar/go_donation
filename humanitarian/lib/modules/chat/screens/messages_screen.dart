@@ -8,7 +8,6 @@ import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/modules/bot/screens/bot_chat_screen.dart';
 import 'package:flutter_application_1/modules/chat/controllers/chat_controller.dart';
 import 'package:flutter_application_1/modules/chat/models/chat_models.dart';
-import 'package:flutter_application_1/modules/chat/screens/case_chat_conversation_screen.dart';
 import 'package:flutter_application_1/modules/chat/screens/chat_conversation_screen.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
@@ -171,8 +170,6 @@ class MessagesScreen extends StatelessWidget {
                   );
                 },
               ),
-              const SizedBox(height: 10),
-              const _CaseChatsSection(),
               // Only the THREAD list has four states. Its error branch used to
               // replace the whole screen, taking the support and bot entry
               // points down with it - so a failed thread fetch also removed
@@ -221,165 +218,6 @@ class MessagesScreen extends StatelessWidget {
           ),
         );
       }),
-    );
-  }
-}
-
-// Note #36 — Staff↔Volunteer↔Beneficiary chats. Opens automatically once a
-// volunteer's case-linked signup is approved; renders nothing when the user
-// has none (most users never will — this only applies to case-linked
-// volunteer signups and the case's beneficiary).
-class _CaseChatsSection extends StatefulWidget {
-  const _CaseChatsSection();
-
-  @override
-  State<_CaseChatsSection> createState() => _CaseChatsSectionState();
-}
-
-class _CaseChatsSectionState extends State<_CaseChatsSection> {
-  late Future<List<Map<String, dynamic>>> _future;
-
-  @override
-  void initState() {
-    super.initState();
-    _future = const ModuleApi().caseChats();
-  }
-
-  /// Re-runs the fetch. The new future replaces the old one, which also clears
-  /// the previous error — the FutureBuilder rebuilds from a clean snapshot.
-  void _reload() {
-    setState(() => _future = const ModuleApi().caseChats());
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<List<Map<String, dynamic>>>(
-      future: _future,
-      builder: (context, snapshot) {
-        // snapshot.hasError is now read. It was not before: the builder went
-        // straight to `snapshot.data ?? const []`, so a future that THREW
-        // produced an empty list and the section erased itself — a volunteer
-        // or beneficiary with live case chats saw no trace of them, and had
-        // no way to retry. Rendering nothing is only correct when the fetch
-        // SUCCEEDED and returned nothing.
-        if (snapshot.hasError) {
-          debugPrint('caseChats failed: ${snapshot.error}');
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: AppErrorState(
-              message: 'Could not load your case chats.',
-              onRetry: _reload,
-            ),
-          );
-        }
-        final items = snapshot.data ?? const <Map<String, dynamic>>[];
-        // Genuinely empty (or still loading): most users never have a case
-        // chat, so this section stays invisible rather than showing a
-        // skeleton or an empty state for something they will never use.
-        if (items.isEmpty) return const SizedBox.shrink();
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _SectionLabel(label: 'case_chats_label', count: items.length),
-              for (final item in items) _CaseChatTile(thread: item),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _CaseChatTile extends StatelessWidget {
-  const _CaseChatTile({required this.thread});
-  final Map<String, dynamic> thread;
-
-  @override
-  Widget build(BuildContext context) {
-    final id = int.tryParse('${thread['id']}') ?? 0;
-    final otherName = (thread['other_name'] ?? '').toString().trim();
-    final title = otherName.isNotEmpty ? otherName : 'User'.tr;
-    final caseCode = (thread['case_code'] ?? '').toString();
-    final lastMessage = (thread['last_message'] ?? '').toString();
-    final unread = int.tryParse('${thread['unread_count'] ?? 0}') ?? 0;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: GlassPanel(
-        padding: EdgeInsets.zero,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(24),
-          onTap: () => Get.to(
-            () => CaseChatConversationScreen(
-              threadId: id,
-              title: title,
-              subtitle: caseCode,
-            ),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                _Avatar(name: title, color: AppThemeConfig.accent(context)),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                          color: AppThemeConfig.text(context),
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        lastMessage.isNotEmpty ? lastMessage : caseCode,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: AppThemeConfig.mutedText(context),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (unread > 0) ...[
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.all(7),
-                    decoration: BoxDecoration(
-                      color: AppThemeConfig.primary,
-                      shape: BoxShape.circle,
-                    ),
-                    constraints: const BoxConstraints(
-                      minWidth: 24,
-                      minHeight: 24,
-                    ),
-                    child: Center(
-                      child: Text(
-                        '$unread',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

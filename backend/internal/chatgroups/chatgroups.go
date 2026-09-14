@@ -22,6 +22,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/karam-flutter/humanitarian-backend/internal/moderation"
 )
 
 // Sentinel errors so a Phase 2 HTTP handler can map store failures to status
@@ -57,12 +59,12 @@ const (
 
 // Group mirrors one chat_group_threads row.
 type Group struct {
-	ID          int64
-	Kind        Kind
-	MemberTitle string
-	CreatedBy   int64
-	Lifecycle   string
-	CreatedAt   time.Time
+	ID          int64     `json:"id"`
+	Kind        Kind      `json:"kind"`
+	MemberTitle string    `json:"member_title"`
+	CreatedBy   int64     `json:"created_by_staff_id"`
+	Lifecycle   string    `json:"lifecycle"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 // MemberInput is what a caller supplies when adding someone to a group.
@@ -129,6 +131,29 @@ func nullIfEmpty(s string) *string {
 	return &s
 }
 
+// refuseContactInLabel enforces design spec §5's "Alias quality" rule that
+// moderation.ScanContact runs over a staff-typed masked_label at write time —
+// a staff member pasting a phone number or other contact info into a label
+// is a realistic slip, since the label is the one free-text field that
+// reaches a masked group's members verbatim.
+//
+// It REFUSES rather than redacts-and-stores, unlike the message-body filter
+// this mirrors (see internal/handlers/chat_contact_block.go): a masked_label
+// is a persistent, always-visible field, not a one-off message, so silently
+// turning a phone number into "•••" would still need a caller decision about
+// what to store instead. Returning an error wrapping ErrInvalidInput lets it
+// propagate to the caller (the admin HTTP route) as a 4xx via the existing
+// chatErr dispatcher, with zero handler-side changes.
+//
+// Only ever called with a non-empty, caller-supplied label — an
+// auto-generated label ("Donor 1") must never reach this function.
+func refuseContactInLabel(label string) error {
+	if finding := moderation.ScanContact(label); finding.Blocked() {
+		return fmt.Errorf("chatgroups: label %q: %w", label, ErrInvalidInput)
+	}
+	return nil
+}
+
 // insertMembers adds members to an existing group within tx. masked is
 // derived from kind ONCE, here — every call site (CreateGroup, AddMember,
 // ApproveConnectRequest) goes through this, so a masked group can never end
@@ -142,6 +167,8 @@ func insertMembers(ctx context.Context, tx pgx.Tx, groupID int64, kind Kind, add
 			if label == "" {
 				counters[m.RoleInGroup]++
 				label = autoLabel(m.RoleInGroup, counters[m.RoleInGroup])
+			} else if err := refuseContactInLabel(label); err != nil {
+				return err
 			}
 		} else {
 			label = "" // team-group members are never masked; no label stored
@@ -162,7 +189,7 @@ func insertMembers(ctx context.Context, tx pgx.Tx, groupID int64, kind Kind, add
 // member-facing title — see the migration comment on member_title).
 func (s *Store) CreateGroup(ctx context.Context, kind Kind, memberTitle string, createdByStaffID int64, members []MemberInput) (int64, error) {
 	if kind != KindMasked && kind != KindTeam {
-		return 0, errors.New("kind must be 'masked' or 'team'")
+		return 0, fmt.Errorf("chatgroups: kind %q: %w", kind, ErrInvalidInput)
 	}
 	tx, err := s.Pool.Begin(ctx)
 	if err != nil {
@@ -202,21 +229,27 @@ func (s *Store) AddMember(ctx context.Context, groupID int64, input MemberInput,
 	if err := s.Pool.QueryRow(ctx,
 		`SELECT kind FROM chat_group_threads WHERE id = $1`, groupID,
 	).Scan(&kind); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("chatgroups: group %d: %w", groupID, ErrNotFound)
+		}
 		return fmt.Errorf("chatgroups: looking up group %d: %w", groupID, err)
 	}
 	masked := kind == KindMasked
 	label := strings.TrimSpace(input.Label)
-	if masked && label == "" {
-		var n int
-		if err := s.Pool.QueryRow(ctx,
-			`SELECT COUNT(*) FROM chat_group_members WHERE group_id = $1 AND role_in_group = $2`,
-			groupID, input.RoleInGroup,
-		).Scan(&n); err != nil {
-			return fmt.Errorf("chatgroups: counting %s members in group %d: %w", input.RoleInGroup, groupID, err)
+	if masked {
+		if label == "" {
+			var n int
+			if err := s.Pool.QueryRow(ctx,
+				`SELECT COUNT(*) FROM chat_group_members WHERE group_id = $1 AND role_in_group = $2`,
+				groupID, input.RoleInGroup,
+			).Scan(&n); err != nil {
+				return fmt.Errorf("chatgroups: counting %s members in group %d: %w", input.RoleInGroup, groupID, err)
+			}
+			label = autoLabel(input.RoleInGroup, n+1)
+		} else if err := refuseContactInLabel(label); err != nil {
+			return err
 		}
-		label = autoLabel(input.RoleInGroup, n+1)
-	}
-	if !masked {
+	} else {
 		label = "" // team-group members are never masked; no label stored
 	}
 	if _, err := s.Pool.Exec(ctx,

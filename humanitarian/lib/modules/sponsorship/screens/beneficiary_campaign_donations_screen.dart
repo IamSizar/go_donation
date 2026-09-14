@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/localization/money.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/localization/content_localizer.dart';
-import 'package:flutter_application_1/modules/chat/chat_actions.dart';
 import 'package:flutter_application_1/modules/sponsorship/controllers/beneficiary_campaign_donations_controller.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
@@ -271,8 +270,6 @@ class _CampaignDonationsCardState extends State<_CampaignDonationsCard> {
               for (int i = 0; i < donations.length; i++) ...[
                 _DonationRow(
                   donation: donations[i],
-                  campaignId: int.tryParse('${camp['id']}'),
-                  campaignTitle: title,
                   isLast: i == donations.length - 1,
                 ),
               ],
@@ -286,33 +283,10 @@ class _CampaignDonationsCardState extends State<_CampaignDonationsCard> {
 // ── Single donation row ──────────────────────────────────────────────────────
 
 class _DonationRow extends StatelessWidget {
-  const _DonationRow({
-    required this.donation,
-    required this.isLast,
-    this.campaignId,
-    this.campaignTitle,
-  });
+  const _DonationRow({required this.donation, required this.isLast});
 
   final Map<String, dynamic> donation;
   final bool isLast;
-  final int? campaignId;
-  final String? campaignTitle;
-
-  Future<void> _suggestChat(BuildContext context) async {
-    final donorId = int.tryParse('${donation['donor_user_id']}');
-    if (donorId == null || campaignId == null) return;
-    final donorName = (donation['donor_name'] ?? 'Anonymous Donor'.tr)
-        .toString()
-        .trim();
-    await ChatActions.startChat(
-      context,
-      donorUserId: donorId,
-      campaignId: campaignId,
-      otherPartyLabel: donorName.isEmpty ? 'Anonymous Donor'.tr : donorName,
-      conversationTitle: donorName.isEmpty ? 'Anonymous Donor'.tr : donorName,
-      conversationSubtitle: campaignTitle,
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -325,12 +299,8 @@ class _DonationRow extends StatelessWidget {
     final dateStr = (donation['transaction_date'] ?? '').toString();
     final date = _parseDate(dateStr);
     final statusColor = _donationStatusColor(context, status);
-    final canChat =
-        int.tryParse('${donation['donor_user_id']}') != null &&
-        campaignId != null;
 
     return InkWell(
-      onTap: canChat ? () => _suggestChat(context) : null,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
@@ -393,14 +363,6 @@ class _DonationRow extends StatelessWidget {
                           color: AppThemeConfig.primary,
                         ),
                       ),
-                      if (canChat) ...[
-                        const SizedBox(width: 8),
-                        Icon(
-                          Icons.forum_rounded,
-                          size: 16,
-                          color: AppThemeConfig.primary.withValues(alpha: 0.7),
-                        ),
-                      ],
                     ],
                   ),
                   const SizedBox(height: 4),

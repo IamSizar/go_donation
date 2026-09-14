@@ -64,7 +64,6 @@ export const NAV: NavItem[] = [
   { to: '/volunteers',    tKey: 'nav.volunteers',    countKey: 'volunteers', module: 'volunteers' },
   { to: '/volunteer-board', tKey: 'nav.volunteer_board', module: 'volunteers' },
   { to: '/tasks',          tKey: 'nav.tasks',            module: 'tasks' },
-  { to: '/case-volunteer-chats', tKey: 'nav.case_volunteer_chats', module: 'volunteers' },
   { to: '/missions',      tKey: 'nav.missions',        module: 'missions' },
   { to: '/sponsorships',  tKey: 'nav.sponsorships',  countKey: 'sponsorships', module: 'sponsorships' },
   { to: '/in-kind',       tKey: 'nav.in_kind',       countKey: 'in_kind', module: 'in_kind' },
@@ -172,7 +171,7 @@ export const DEFAULT_NAV_SECTIONS: NavSection[] = [
   {
     kind: 'group', key: 'users_members', tKey: 'nav_group.users_members',
     items: ['/users', '/beneficiary', '/volunteers', '/volunteer-board', '/tasks',
-            '/case-volunteer-chats', '/partners'],
+            '/partners'],
   },
   {
     kind: 'group', key: 'aid_campaigns', tKey: 'nav_group.aid_campaigns',

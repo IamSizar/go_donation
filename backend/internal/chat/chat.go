@@ -31,11 +31,12 @@ const (
 )
 
 var (
-	ErrNotFound       = errors.New("thread not found")
-	ErrNotParty       = errors.New("you are not a participant in this chat")
-	ErrNotRecipient   = errors.New("only the invited party can accept or decline")
-	ErrNotActive      = errors.New("this chat is not active yet")
-	ErrAlreadyClaimed = errors.New("this chat is already claimed by another staff member")
+	ErrNotFound          = errors.New("thread not found")
+	ErrNotParty          = errors.New("you are not a participant in this chat")
+	ErrNotRecipient      = errors.New("only the invited party can accept or decline")
+	ErrNotActive         = errors.New("this chat is not active yet")
+	ErrAlreadyClaimed    = errors.New("this chat is already claimed by another staff member")
+	ErrDirectChatRetired = errors.New("direct donor-owner chat has been retired; use a staff-mediated connect request instead")
 )
 
 // Thread is the raw row.
@@ -86,74 +87,17 @@ type Message struct {
 	CreatedAt    time.Time `json:"created_at"`
 }
 
-// RequestThread opens (or re-opens) a pending thread between a donor and an
-// owner. initiatorID must equal donorID or ownerID (validated by the caller).
-// Returns the thread, the recipient's user id (the party who must accept), and
-// whether a fresh request was created (true → caller should notify recipient).
+// RequestThread used to open (or re-open) a pending thread between a donor
+// and an owner. Phase 4 of OPOS #25284 retires the old donor↔campaign-owner
+// direct-chat system in favor of staff-mediated masked group chats
+// (internal/chatgroups): every call now refuses up front with
+// ErrDirectChatRetired and writes nothing. The signature is kept so the one
+// remaining call site (handlers.ChatHandler.Request) does not need touching
+// beyond mapping the new sentinel to a clean HTTP response — see that
+// handler's Request method.
 func (s *Store) RequestThread(ctx context.Context, donorID, ownerID int64, campaignID *int64, initiatorID int64) (Thread, int64, bool, error) {
 	var t Thread
-	recipient := ownerID
-	if initiatorID == ownerID {
-		recipient = donorID
-	}
-
-	tx, err := s.Pool.Begin(ctx)
-	if err != nil {
-		return t, 0, false, err
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	err = tx.QueryRow(ctx, `
-		SELECT id, donor_user_id, owner_user_id, campaign_id, status, initiated_by, assigned_staff_user_id, created_at, updated_at
-		  FROM chat_threads
-		 WHERE donor_user_id = $1 AND owner_user_id = $2
-		 FOR UPDATE`,
-		donorID, ownerID,
-	).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt)
-
-	switch {
-	case errors.Is(err, pgx.ErrNoRows):
-		// Brand-new request.
-		if err := tx.QueryRow(ctx, `
-			INSERT INTO chat_threads (donor_user_id, owner_user_id, campaign_id, status, initiated_by)
-			VALUES ($1, $2, $3, 'pending', $4)
-			RETURNING id, donor_user_id, owner_user_id, campaign_id, status, initiated_by, assigned_staff_user_id, created_at, updated_at`,
-			donorID, ownerID, campaignID, initiatorID,
-		).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt); err != nil {
-			return t, 0, false, err
-		}
-		if err := tx.Commit(ctx); err != nil {
-			return t, 0, false, err
-		}
-		return t, recipient, true, nil
-	case err != nil:
-		return t, 0, false, err
-	}
-
-	// A thread already exists.
-	if t.Status == "declined" {
-		// Re-open as a fresh pending request from this initiator.
-		if err := tx.QueryRow(ctx, `
-			UPDATE chat_threads
-			   SET status = 'pending', initiated_by = $2,
-			       campaign_id = COALESCE($3, campaign_id), updated_at = CURRENT_TIMESTAMP
-			 WHERE id = $1
-			RETURNING id, donor_user_id, owner_user_id, campaign_id, status, initiated_by, assigned_staff_user_id, created_at, updated_at`,
-			t.ID, initiatorID, campaignID,
-		).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt); err != nil {
-			return t, 0, false, err
-		}
-		if err := tx.Commit(ctx); err != nil {
-			return t, 0, false, err
-		}
-		return t, recipient, true, nil
-	}
-
-	// Already pending or active — nothing to do, no new notification.
-	if err := tx.Commit(ctx); err != nil {
-		return t, 0, false, err
-	}
-	return t, recipient, false, nil
+	return t, 0, false, ErrDirectChatRetired
 }
 
 // RequestSupportThread opens (or reuses) the thread between a user and the

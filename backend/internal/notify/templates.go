@@ -1649,6 +1649,36 @@ func ChatNewMessageMsg(senderName, preview string, threadID int64) LocalizedMess
 	}
 }
 
+// GroupMaskedNewMessageMsg is ChatNewMessageMsg's masked-group twin (OPOS
+// #25284 Phase 2). `alias` is how the sender appears in THIS group — their
+// own masked_label, or "Support" for a staff sender — never a real name, so
+// a masked group's push notification cannot re-identify anyone the chat
+// screen itself hides. Team-kind groups reuse ChatNewMessageMsg directly
+// with the sender's real name; this template exists only for masked groups.
+func GroupMaskedNewMessageMsg(alias, preview string, groupID int64) LocalizedMessage {
+	who := alias
+	if who == "" {
+		who = "Member"
+	}
+	return LocalizedMessage{
+		Type:              "chat_group_message",
+		RelatedEntityType: "chat_group_thread",
+		RelatedEntityID:   groupID,
+		Title: LocalText{
+			En:  fmt.Sprintf("Message from %s", who),
+			Ar:  fmt.Sprintf("رسالة من %s", who),
+			Ckb: fmt.Sprintf("نامە لە %s", who),
+			Kmr: fmt.Sprintf("Peyam ji %s", who),
+		},
+		Body: LocalText{
+			En:  preview,
+			Ar:  preview,
+			Ckb: preview,
+			Kmr: preview,
+		},
+	}
+}
+
 // ===== Marriage mediated chat (Note #35) =====
 //
 // Unlike the donor↔owner chat templates above, none of these ever include a
@@ -1736,51 +1766,6 @@ func MarriageChatNewMessageMsg(threadID int64) LocalizedMessage {
 			Ar:  "لديك رسالة جديدة في محادثة قسم الزواج.",
 			Ckb: "نامەیەکی نوێت هەیە لە گفتوگۆی هاوسەرگیریدا.",
 			Kmr: "Peyameke te ya nû di axaftina Hevsergiriyê de heye.",
-		},
-	}
-}
-
-// ===== Staff↔Volunteer↔Beneficiary chat (Note #36, part 3) =====
-
-// CaseVolunteerChatOpenedMsg tells the volunteer and beneficiary a 3-way
-// chat is now open — fires once, when a case-linked signup becomes eligible.
-func CaseVolunteerChatOpenedMsg(threadID int64) LocalizedMessage {
-	return LocalizedMessage{
-		Type:              "case_volunteer_chat_opened",
-		RelatedEntityType: "case_volunteer_chat_thread",
-		RelatedEntityID:   threadID,
-		Title: LocalText{
-			En:  "Chat opened",
-			Ar:  "تم فتح محادثة",
-			Ckb: "گفتوگۆ کرایەوە",
-			Kmr: "Axaftin hate vekirin",
-		},
-		Body: LocalText{
-			En:  "You can now message about this case, with staff able to help.",
-			Ar:  "يمكنك الآن مراسلة الطرف الآخر بخصوص هذه الحالة، والموظفون يمكنهم المساعدة.",
-			Ckb: "ئێستا دەتوانیت دەربارەی ئەم دۆسیەیە نامە بنێریت، کارمەندانیش دەتوانن یارمەتی بدەن.",
-			Kmr: "Niha tu dikarî derbarê vê dosyeyê de peyaman bişînî, karmend jî dikarin arîkarî bikin.",
-		},
-	}
-}
-
-// CaseVolunteerChatNewMessageMsg notifies the other party of a new message.
-func CaseVolunteerChatNewMessageMsg(preview string, threadID int64) LocalizedMessage {
-	return LocalizedMessage{
-		Type:              "case_volunteer_chat_message",
-		RelatedEntityType: "case_volunteer_chat_thread",
-		RelatedEntityID:   threadID,
-		Title: LocalText{
-			En:  "New message",
-			Ar:  "رسالة جديدة",
-			Ckb: "نامەیەکی نوێ",
-			Kmr: "Peyameke nû",
-		},
-		Body: LocalText{
-			En:  preview,
-			Ar:  preview,
-			Ckb: preview,
-			Kmr: preview,
 		},
 	}
 }

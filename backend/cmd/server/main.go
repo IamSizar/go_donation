@@ -19,8 +19,8 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/beneficiary"
 	"github.com/karam-flutter/humanitarian-backend/internal/campaigns"
 	"github.com/karam-flutter/humanitarian-backend/internal/casecategories"
-	"github.com/karam-flutter/humanitarian-backend/internal/casevolchat"
 	"github.com/karam-flutter/humanitarian-backend/internal/chat"
+	"github.com/karam-flutter/humanitarian-backend/internal/chatgroups"
 	"github.com/karam-flutter/humanitarian-backend/internal/chatlifecycle"
 	"github.com/karam-flutter/humanitarian-backend/internal/citycategories"
 	"github.com/karam-flutter/humanitarian-backend/internal/citysectors"
@@ -111,8 +111,7 @@ func main() {
 	beneficiaryStore := beneficiary.NewStore(pool)
 	marketplaceStore := marketplace.NewStore(pool)
 	chatStore := chat.New(pool)
-	staffChatStore := staffchat.New(pool)     // Note #36 — internal staff-to-staff chat
-	caseVolChatStore := casevolchat.New(pool) // Note #36 — Staff↔Volunteer↔Beneficiary chat
+	staffChatStore := staffchat.New(pool) // Note #36 — internal staff-to-staff chat
 	eventsStore := events.New(pool)
 	notifier := notify.New(pool)
 	walletStore := wallet.New(pool)        // Note #42 — test-phase internal app wallet
@@ -299,12 +298,13 @@ func main() {
 	walletH := handlers.NewWalletHandler(walletStore, notifier)
 	tasksH := handlers.NewTasksHandler(tasksStore, notifier)
 	chatH := handlers.NewChatHandler(chatStore, notifier, pool)
+	chatGroupsStore := chatgroups.New(pool)
+	chatGroupH := handlers.NewChatGroupHandler(chatGroupsStore, notifier, nil, pool)
 	staffChatH := handlers.NewStaffChatHandler(staffChatStore, notifier, pool)
-	caseVolChatH := handlers.NewCaseVolunteerChatHandler(caseVolChatStore, notifier)
 	// Chat lifecycle (migration 118) — one handler serving end/pause/resume/
 	// archive/unarchive/delete for ALL FOUR chat systems.
 	chatLifecycleH := handlers.NewChatLifecycleHandler(pool)
-	volunteerCheckinH := handlers.NewVolunteerCheckinHandler(pool, notifier, caseVolChatStore)
+	volunteerCheckinH := handlers.NewVolunteerCheckinHandler(pool, notifier)
 	eventsH := handlers.NewEventsHandler(eventsStore, pool)
 	assistantH := handlers.NewAssistantHandler(assistantSvc, pool)
 	notificationsH := handlers.NewNotificationsHandler(notifier)
@@ -312,7 +312,7 @@ func main() {
 	kpisH := handlers.NewDashboardKPIsHandler(pool)
 
 	adminListsH := handlers.NewAdminListsHandler(pool)
-	adminStatusH := handlers.NewAdminStatusHandler(pool, notifier, eventsStore, caseVolChatStore)
+	adminStatusH := handlers.NewAdminStatusHandler(pool, notifier, eventsStore)
 	adminEditH := handlers.NewAdminEditHandler(pool)
 	// H20 — one guard instance shared by both handlers that can rewrite a
 	// main-admin credential, so "confirmed on both channels" means the same
@@ -447,10 +447,10 @@ func main() {
 	adminListsH.Perms = permStore // in-kind · support · volunteer apps · signups · board · campaigns
 	usersAdminH.Perms = permStore // /admin/users — also the sign-in identity
 	registrationAdminH.Perms = permStore
-	donationsH.Perms = permStore    // donor_phone
-	beneficiaryH.Perms = permStore  // case phone
-	chatH.Perms = permStore         // both parties of a donor↔owner thread
-	caseVolChatH.Perms = permStore  // volunteer + beneficiary
+	donationsH.Perms = permStore   // donor_phone
+	beneficiaryH.Perms = permStore // case phone
+	chatH.Perms = permStore        // both parties of a donor↔owner thread
+	chatGroupH.Perms = permStore
 	marriageChatH.Perms = permStore // requester + profile owner
 	staffChatH.Perms = permStore    // the staff directory's own numbers
 	profileChangesH.Perms = permStore
@@ -806,10 +806,18 @@ func main() {
 			authed.GET("/marriage/chats/:id/messages", marriageChatH.Messages)
 			authed.POST("/marriage/chats/:id/messages", auth.RequireNotGuest(), marriageChatH.PostMessage)
 
-			// Note #36 — Staff↔Volunteer↔Beneficiary chat (volunteer/beneficiary side).
-			authed.GET("/case-chats", caseVolChatH.List)
-			authed.GET("/case-chats/:id/messages", caseVolChatH.Messages)
-			authed.POST("/case-chats/:id/messages", caseVolChatH.PostMessage)
+			// OPOS #25284 Phase 2 — staff-created group chats (masked
+			// donor/beneficiary/volunteer coordination, real-name volunteer
+			// teams). Group creation/membership is admin-only (below);
+			// mobile only reads and posts into groups a member already has.
+			authed.GET("/chat-groups", chatGroupH.List)
+			authed.GET("/chat-groups/:id/messages", chatGroupH.Messages)
+			authed.POST("/chat-groups/:id/messages", auth.RequireNotGuest(), chatGroupH.PostMessage)
+			authed.POST("/chat-groups/:id/read", auth.RequireNotGuest(), chatGroupH.MarkRead)
+
+			// OPOS #25284 Phase 3 — connect requests (request to join a group).
+			authed.POST("/chat-groups/connect-requests", auth.RequireNotGuest(), chatGroupH.SubmitConnectRequest)
+			authed.GET("/chat-groups/connect-requests/mine", chatGroupH.MyConnectRequests)
 
 			// "Eighth: Sponsorship Schedule and Calendar" — the entitlement
 			// tracking screen (upcoming / due / overdue / history).
@@ -988,6 +996,34 @@ func main() {
 			admin.POST("/admin/chats/:id/claim", perm("messages", "edit"), chatH.AdminClaim)
 			admin.POST("/admin/chats/:id/release", perm("messages", "edit"), chatH.AdminRelease)
 
+			// OPOS #25284 Phase 2 — staff-created group chats.
+			admin.GET("/admin/chat-groups", perm("messages", "view"), chatGroupH.AdminList)
+			admin.POST("/admin/chat-groups", perm("messages", "add"), chatGroupH.AdminCreateGroup)
+			// Returns the member roster: every member's REAL user_id next to
+			// the masked_label their messages appear under — i.e. the exact
+			// key that de-masks the whole group. Same disclosure strength as
+			// the messages route below, so the same two permissions.
+			admin.GET("/admin/chat-groups/:id",
+				perm("messages", "view"), perm("sensitive_data", "view"), chatGroupH.AdminGetGroup)
+			admin.POST("/admin/chat-groups/:id/members", perm("messages", "edit"), chatGroupH.AdminAddMember)
+			admin.DELETE("/admin/chat-groups/:id/members/:userId", perm("messages", "edit"), chatGroupH.AdminRemoveMember)
+			// Reveals real identities inside a masked group — messages:view
+			// alone is not enough (see design spec §4).
+			admin.GET("/admin/chat-groups/:id/messages",
+				perm("messages", "view"), perm("sensitive_data", "view"), chatGroupH.AdminMessages)
+			admin.POST("/admin/chat-groups/:id/messages", perm("messages", "add"), chatGroupH.AdminPostMessage)
+			// Names the REAL sender behind every blocked attempt to pass
+			// contact details inside a masked group — identity disclosure of
+			// the same strength, so the same two permissions.
+			admin.GET("/admin/chat-groups/:id/contact-blocks",
+				perm("messages", "view"), perm("sensitive_data", "view"), chatGroupH.AdminContactBlocks)
+
+			// OPOS #25284 Phase 3 — connect requests (admin moderation).
+			admin.GET("/admin/chat-groups/connect-requests", perm("messages", "view"), chatGroupH.AdminListConnectRequests)
+			admin.GET("/admin/chat-groups/connect-requests/:id", perm("messages", "view"), chatGroupH.AdminGetConnectRequest)
+			admin.POST("/admin/chat-groups/connect-requests/:id/approve", perm("messages", "edit"), chatGroupH.AdminApproveConnectRequest)
+			admin.POST("/admin/chat-groups/connect-requests/:id/decline", perm("messages", "edit"), chatGroupH.AdminDeclineConnectRequest)
+
 			// ─── Chat lifecycle (migration 118) ─────────────────────────
 			// END / PAUSE / RESUME / ARCHIVE / UNARCHIVE and DELETE, for every
 			// one of the four chat systems. STAFF ONLY by construction: these
@@ -1006,10 +1042,10 @@ func main() {
 			admin.DELETE("/admin/chats/:id", perm("messages", "delete"), chatLifecycleH.Delete(chatlifecycle.KindDonor))
 			admin.POST("/admin/staff-chats/:id/lifecycle", perm("messages", "edit"), chatLifecycleH.Apply(chatlifecycle.KindStaff))
 			admin.DELETE("/admin/staff-chats/:id", perm("messages", "delete"), chatLifecycleH.Delete(chatlifecycle.KindStaff))
-			admin.POST("/admin/case-chats/:id/lifecycle", perm("volunteers", "edit"), chatLifecycleH.Apply(chatlifecycle.KindCase))
-			admin.DELETE("/admin/case-chats/:id", perm("volunteers", "delete"), chatLifecycleH.Delete(chatlifecycle.KindCase))
 			admin.POST("/admin/marriage/chats/:id/lifecycle", perm("marriage", "edit"), chatLifecycleH.Apply(chatlifecycle.KindMarriage))
 			admin.DELETE("/admin/marriage/chats/:id", perm("marriage", "delete"), chatLifecycleH.Delete(chatlifecycle.KindMarriage))
+			admin.POST("/admin/chat-groups/:id/lifecycle", perm("messages", "edit"), chatLifecycleH.Apply(chatlifecycle.KindGroup))
+			admin.DELETE("/admin/chat-groups/:id", perm("messages", "delete"), chatLifecycleH.Delete(chatlifecycle.KindGroup))
 
 			// Note #36 — internal staff-to-staff chat. Not perm()-gated: every
 			// dashboard tier (employee and up) can use it regardless of assigned
@@ -1024,13 +1060,6 @@ func main() {
 			admin.POST("/admin/staff-chats/start", staffChatH.Start)
 			admin.GET("/admin/staff-chats/:id/messages", staffChatH.Messages)
 			admin.POST("/admin/staff-chats/:id/messages", staffChatH.PostMessage)
-
-			// Note #36 — Staff↔Volunteer↔Beneficiary chat oversight.
-			admin.GET("/admin/case-chats", perm("volunteers", "view"), caseVolChatH.AdminList)
-			admin.GET("/admin/case-chats/:id/messages", perm("volunteers", "view"), caseVolChatH.AdminMessages)
-			admin.POST("/admin/case-chats/:id/messages", perm("volunteers", "add"), caseVolChatH.AdminPostMessage)
-			admin.POST("/admin/case-chats/:id/claim", perm("volunteers", "edit"), caseVolChatH.AdminClaim)
-			admin.POST("/admin/case-chats/:id/release", perm("volunteers", "edit"), caseVolChatH.AdminRelease)
 
 			// Note #35 — marriage meeting-requests inbox + mediated chat oversight.
 			admin.GET("/admin/marriage/meeting-requests", perm("marriage", "view"), marriageChatH.AdminListMeetingRequests)
