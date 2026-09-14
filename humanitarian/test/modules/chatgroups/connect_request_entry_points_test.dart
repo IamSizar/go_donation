@@ -281,6 +281,9 @@ void main() {
       ),
       'Please connect me.',
     );
+    // A frame for Send to rebuild for the typed text and enable, as it has by
+    // the time a member's finger arrives.
+    await tester.pump();
     await tester.tap(find.byKey(const Key('connect_request_submit')));
     await _settle(tester);
 

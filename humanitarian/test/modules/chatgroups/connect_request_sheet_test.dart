@@ -2,8 +2,9 @@
 // (OPOS #26046).
 //
 // WHAT IS PINNED
-//   1. Validation happens before the network: a blank or whitespace-only
-//      message is refused at the field and no request is made.
+//   1. Rule 5.6: Send is disabled — and dimmed — while the trimmed message is
+//      blank, enabling and disabling again as the member types, so a blank
+//      request is never made (OPOS #26331). It used to check only on submit.
 //   2. A valid message is sent exactly once, trimmed, to the context the entry
 //      point named, and the success view replaces the form IN the sheet, with
 //      one success haptic; Done closes the sheet and nothing under it
@@ -19,7 +20,8 @@
 //   4. A second tap while the request is in flight sends nothing more.
 //   5. Rule 5.6: dragging dismisses the keyboard, and the keyboard never covers
 //      the field or the button.
-//   6. Arabic: nothing on the sheet is written in Latin letters.
+//   6. Arabic: nothing on the sheet is written in Latin letters — as opened,
+//      with a failure showing, and on the success view.
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -31,6 +33,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/design/tokens.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
+import 'package:flutter_application_1/core/widgets/app_pressable.dart';
 import 'package:flutter_application_1/localization/app_translations.dart';
 import 'package:flutter_application_1/modules/chatgroups/widgets/connect_request_button.dart';
 import 'package:flutter_application_1/modules/chatgroups/widgets/connect_request_sheet.dart';
@@ -59,14 +62,6 @@ List<String> _recordHaptics(WidgetTester tester) {
   return played;
 }
 
-/// Pumps in short steps: long enough for the fake to answer and the sheet to
-/// animate, without ever settling on the looping in-button spinner.
-Future<void> _settle(WidgetTester tester) async {
-  for (var i = 0; i < 8; i++) {
-    await tester.pump(const Duration(milliseconds: 50));
-  }
-}
-
 /// What the root screen under the host says, so a test can tell whether the
 /// host was popped off and uncovered it.
 const _rootText = 'root screen';
@@ -74,6 +69,14 @@ const _rootText = 'root screen';
 /// Long enough for a dismissal to start the sheet's ~200 ms exit animation,
 /// short enough that the sheet's state is still mounted.
 const _insideExitAnimation = Duration(milliseconds: 50);
+
+/// Pumps in short steps: long enough for the fake to answer and the sheet to
+/// animate, without ever settling on the looping in-button spinner.
+Future<void> _settle(WidgetTester tester) async {
+  for (var i = 0; i < 8; i++) {
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+}
 
 /// Opens the sheet the way a member does: by tapping the entry-point button
 /// for donation [_contextId], on a screen that has a Scaffold to confirm on.
@@ -127,6 +130,26 @@ Future<void> _close(WidgetTester tester) async {
 String _fieldText(WidgetTester tester) =>
     tester.widget<TextField>(find.byType(TextField)).controller!.text;
 
+/// Taps Send the way a member can: a frame after typing, once the button has
+/// rebuilt for the new text. A tap in the same frame as `enterText` lands on
+/// the stale button, still disabled for the empty field.
+Future<void> _tapSend(WidgetTester tester) async {
+  await tester.pump();
+  await tester.tap(find.byKey(_submit));
+}
+
+/// Whether Send would act on a tap right now: a disabled AppPressable is
+/// given no onTap, which is also what makes it announce itself as disabled.
+bool _canSubmit(WidgetTester tester) =>
+    tester.widget<AppPressable>(find.byKey(_submit)).onTap != null;
+
+/// How strongly Send is drawn: dimmed while it cannot be used.
+double _submitOpacity(WidgetTester tester) => tester
+    .widget<Opacity>(
+      find.descendant(of: find.byKey(_submit), matching: find.byType(Opacity)),
+    )
+    .opacity;
+
 /// Every string drawn inside the sheet, labels and errors included.
 List<String> _sheetTexts(WidgetTester tester) => tester
     .widgetList<Text>(
@@ -151,19 +174,41 @@ void main() {
 
   tearDown(Get.reset);
 
-  testWidgets('a blank message is refused at the field and never sent', (
+  testWidgets('a blank message cannot be sent: Send stays disabled', (
     tester,
   ) async {
     final api = FakeChatGroupsApi();
     await _openSheet(tester, api);
 
     await tester.enterText(find.byType(TextField), '   \n  ');
-    await tester.tap(find.byKey(_submit));
+    await tester.pump();
+    expect(_canSubmit(tester), isFalse);
+
+    await tester.tap(find.byKey(_submit), warnIfMissed: false);
     await _settle(tester);
 
-    expect(find.text(en['connect_request_message_required']!), findsOneWidget);
     expect(api.submittedConnectRequests, isEmpty);
     expect(find.byType(ConnectRequestSheet), findsOneWidget);
+    await _close(tester);
+  });
+
+  testWidgets('Send enables as the member types and disables when cleared', (
+    tester,
+  ) async {
+    await _openSheet(tester, FakeChatGroupsApi());
+    expect(_canSubmit(tester), isFalse, reason: 'nothing is typed yet');
+    expect(_submitOpacity(tester), lessThan(1));
+
+    await tester.enterText(find.byType(TextField), 'P');
+    await tester.pump();
+    expect(_canSubmit(tester), isTrue);
+    expect(_submitOpacity(tester), 1);
+
+    // Spaces and new lines are blank to the server, so they are blank here.
+    await tester.enterText(find.byType(TextField), ' \n ');
+    await tester.pump();
+    expect(_canSubmit(tester), isFalse);
+    expect(_submitOpacity(tester), lessThan(1));
     await _close(tester);
   });
 
@@ -175,7 +220,7 @@ void main() {
     await _openSheet(tester, api);
 
     await tester.enterText(find.byType(TextField), '  Please connect me.  ');
-    await tester.tap(find.byKey(_submit));
+    await _tapSend(tester);
     await _settle(tester);
 
     expect(api.submittedConnectRequests, [
@@ -199,7 +244,7 @@ void main() {
   testWidgets('Done closes the sheet and only the sheet', (tester) async {
     await _openSheet(tester, FakeChatGroupsApi());
     await tester.enterText(find.byType(TextField), 'Please connect me.');
-    await tester.tap(find.byKey(_submit));
+    await _tapSend(tester);
     await _settle(tester);
 
     await tester.tap(find.byKey(_done));
@@ -219,7 +264,7 @@ void main() {
     await _openSheet(tester, api);
 
     await tester.enterText(find.byType(TextField), 'Please connect me.');
-    await tester.tap(find.byKey(_submit));
+    await _tapSend(tester);
     await tester.pump();
 
     // The member taps the barrier above the sheet while it is still sending.
@@ -242,7 +287,7 @@ void main() {
     await _openSheet(tester, api);
 
     await tester.enterText(find.byType(TextField), 'Please connect me.');
-    await tester.tap(find.byKey(_submit));
+    await _tapSend(tester);
     await tester.pump();
 
     // The member taps the barrier while it is sending, and the answer lands
@@ -275,7 +320,7 @@ void main() {
     await _openSheet(tester, api);
 
     await tester.enterText(find.byType(TextField), 'Please connect me.');
-    await tester.tap(find.byKey(_submit));
+    await _tapSend(tester);
     await _settle(tester);
 
     expect(
@@ -289,7 +334,7 @@ void main() {
 
     // Usable again: the same tap now goes through.
     api.submitError = null;
-    await tester.tap(find.byKey(_submit));
+    await _tapSend(tester);
     await _settle(tester);
 
     expect(api.submittedConnectRequests, hasLength(2));
@@ -303,7 +348,7 @@ void main() {
     await _openSheet(tester, api);
 
     await tester.enterText(find.byType(TextField), 'Please connect me.');
-    await tester.tap(find.byKey(_submit));
+    await _tapSend(tester);
     await tester.pump();
 
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
@@ -368,26 +413,31 @@ void main() {
     final api = FakeChatGroupsApi()..submitError = Exception('Database error');
     await _openSheet(tester, api, locale: const Locale('ar', 'SA'));
     final latin = RegExp(r'[A-Za-z]');
-
-    // As opened, then with the blank-message refusal showing.
-    await tester.tap(find.byKey(_submit));
-    await _settle(tester);
-    expect(find.text(ar['connect_request_message_required']!), findsOneWidget);
-    for (final text in _sheetTexts(tester)) {
-      expect(latin.hasMatch(text), isFalse, reason: text);
+    void expectNoLatin() {
+      for (final text in _sheetTexts(tester)) {
+        expect(latin.hasMatch(text), isFalse, reason: text);
+      }
     }
 
-    // And with a server failure showing.
+    // As opened.
+    expectNoLatin();
+
+    // With a server failure showing.
     await tester.enterText(find.byType(TextField), 'أرجو التواصل مع المتبرع');
-    await tester.tap(find.byKey(_submit));
+    await _tapSend(tester);
     await _settle(tester);
     expect(
       find.textContaining(ar['error_connect_request_submit_failed']!),
       findsOneWidget,
     );
-    for (final text in _sheetTexts(tester)) {
-      expect(latin.hasMatch(text), isFalse, reason: text);
-    }
+    expectNoLatin();
+
+    // And on the success view.
+    api.submitError = null;
+    await _tapSend(tester);
+    await _settle(tester);
+    expect(find.text(ar['connect_request_sent_title']!), findsOneWidget);
+    expectNoLatin();
     await _close(tester);
   });
 }

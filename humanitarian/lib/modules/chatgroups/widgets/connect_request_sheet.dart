@@ -11,8 +11,9 @@
 // THE CONTRACT — POST /api/chat-groups/connect-requests
 // (backend/internal/handlers/chat_group_connect.go, chatgroups_connect.go):
 //   * context_type must be "donation" or "case"; context_id names the row.
-//   * A blank message is refused (400). There is NO maximum length, so the
-//     field sets none either.
+//   * A blank message is refused (400), so Send is disabled while the trimmed
+//     message is blank (rule 5.6: never let a doomed request fire). There is
+//     NO maximum length, so the field sets none either.
 //   * Resubmitting while an earlier request for the same context is pending
 //     replaces its message, so sending twice is harmless — but one tap still
 //     sends one request, because the button is disabled while it is in flight.
@@ -72,6 +73,10 @@ const double _submitHeight = 48;
 
 /// The in-button spinner's diameter.
 const double _spinnerSize = 20;
+
+/// How faded the send button is while there is nothing to send — the same as
+/// the chat-group composer's send button (chat_group_composer.dart).
+const double _disabledOpacity = 0.45;
 
 /// Opens the sheet asking staff to connect the member about [contextId] of
 /// [contextType] ([kConnectContextDonation] or [kConnectContextCase]).
@@ -175,10 +180,12 @@ class _ConnectRequestSheetState extends State<ConnectRequestSheet> {
 
   /// The refusal to show for [text], or null when it may be sent.
   ///
-  /// Blank is refused because the server refuses it (400): checking here means
-  /// a doomed request never fires and the member is told at the field. It is
-  /// judged after trimming because the server trims before it checks, so a
-  /// message of spaces and new lines is blank to both.
+  /// Blank is refused because the server refuses it (400). Send is already
+  /// disabled while the message is blank, so this is the defence behind that:
+  /// if a tap ever reaches [_submit] with nothing to send, the doomed request
+  /// still never fires and the member is told at the field. It is judged after
+  /// trimming because the server trims before it checks, so a message of
+  /// spaces and new lines is blank to both.
   ///
   /// There is deliberately no maximum: the server enforces none, and a limit
   /// invented here would cut off the members with the most to explain.
@@ -315,7 +322,11 @@ class _ConnectRequestSheetState extends State<ConnectRequestSheet> {
           onChanged: _onChanged,
         ),
         const SizedBox(height: AppSpace.md),
-        _SubmitButton(isSending: _isSending, onTap: _submit),
+        _SubmitButton(
+          message: _message,
+          isSending: _isSending,
+          onTap: _submit,
+        ),
       ],
     );
   }
@@ -395,54 +406,93 @@ class _MessageField extends StatelessWidget {
   }
 }
 
-/// The filled primary button: disabled, with a spinner in place of its label,
-/// while [isSending] — so a second tap cannot send a second request.
+/// The filled primary button. Usable only when there is something to send:
+/// disabled and dimmed while the trimmed [message] is blank (rule 5.6), and
+/// disabled with a spinner in place of its label while [isSending] — so a
+/// second tap cannot send a second request.
 class _SubmitButton extends StatelessWidget {
-  const _SubmitButton({required this.isSending, required this.onTap});
+  const _SubmitButton({
+    required this.message,
+    required this.isSending,
+    required this.onTap,
+  });
+
+  /// The member's message, watched keystroke by keystroke.
+  final TextEditingController message;
 
   /// True while the request is in flight.
   final bool isSending;
 
-  /// Called on tap when not sending.
+  /// Called on tap when there is something to send and nothing in flight.
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final foreground = AppThemeConfig.onAccent(context);
     final label = 'connect_request_submit'.tr;
-    return AppPressable(
-      key: const Key('connect_request_submit'),
-      onTap: isSending ? null : onTap,
-      semanticLabel: label,
-      expand: true,
-      child: Container(
-        height: _submitHeight,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: AppThemeConfig.accent(context),
-          borderRadius: AppRadius.mdAll,
-        ),
-        child: isSending
-            ? SizedBox.square(
-                dimension: _spinnerSize,
-                child: CircularProgressIndicator.adaptive(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(foreground),
-                ),
-              )
-            // Excluded because the button already announces [label]; reading
-            // the text too would say it twice.
-            : ExcludeSemantics(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: AppType.body,
-                    fontWeight: AppType.wAction,
-                    color: foreground,
-                  ),
+    // Rebuilds on every keystroke, so the button enables the moment there is
+    // something to send and disables again when the field is cleared — the
+    // same pattern as the chat-group composer's send button.
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: message,
+      builder: (context, draft, _) {
+        final canSend = !isSending && draft.text.trim().isNotEmpty;
+        return AppPressable(
+          key: const Key('connect_request_submit'),
+          onTap: canSend ? onTap : null,
+          semanticLabel: label,
+          expand: true,
+          child: Opacity(
+            // A sending button stays at full strength: it is busy, not idle.
+            opacity: canSend || isSending ? 1 : _disabledOpacity,
+            child: _SubmitFace(label: label, isSending: isSending),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// What the send button draws: the accent fill, with its label — or, while
+/// [isSending], a spinner in the label's place.
+class _SubmitFace extends StatelessWidget {
+  const _SubmitFace({required this.label, required this.isSending});
+
+  /// The already-translated label.
+  final String label;
+
+  /// True while the request is in flight.
+  final bool isSending;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = AppThemeConfig.onAccent(context);
+    return Container(
+      height: _submitHeight,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: AppThemeConfig.accent(context),
+        borderRadius: AppRadius.mdAll,
+      ),
+      child: isSending
+          ? SizedBox.square(
+              dimension: _spinnerSize,
+              child: CircularProgressIndicator.adaptive(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(foreground),
+              ),
+            )
+          // Excluded because the button already announces [label]; reading
+          // the text too would say it twice.
+          : ExcludeSemantics(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: AppType.body,
+                  fontWeight: AppType.wAction,
+                  color: foreground,
                 ),
               ),
-      ),
+            ),
     );
   }
 }
