@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'package:flutter_application_1/shared/widgets/adaptive_dialog.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/widgets/menu_grid.dart';
 import 'package:flutter_application_1/api/guest_session.dart';
@@ -21,11 +20,8 @@ import 'package:flutter_application_1/modules/receipts/screens/aid_receipts_scre
 import 'package:flutter_application_1/modules/support/screens/support_section.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:flutter_application_1/widgets/settings_section.dart';
-import 'package:flutter_application_1/api/module_api.dart';
-import 'package:flutter_application_1/modules/dashboard/controllers/role_dashboard_controller.dart';
 import 'package:get/get.dart';
 import 'package:flutter_application_1/modules/support/screens/technical_support_screen.dart';
-import 'package:flutter_application_1/localization/failure_message.dart';
 
 /// Client spec, "Ninth: Improve the Home Interface Design" — the account hub
 /// opened by the circular profile photo in the top-right of every tab.
@@ -47,80 +43,6 @@ import 'package:flutter_application_1/localization/failure_message.dart';
 /// single entry point and the top-bar bell (with its unread badge) is the one
 /// that stays. The enable/disable *setting* does live here, as its own
 /// switch — a different thing from the list.
-/// Account types a user may move themselves into. Anything else is granted by
-/// staff — see selfSelectableRole in the backend's choose_role handler.
-const Map<String, int> _selfSelectableRoles = {'Marriage': 5, 'Guest': 0};
-
-/// The label for a self-selectable role id, for the confirmation sentence.
-/// Falls back to the generic word rather than printing a bare number, which is
-/// what a reader would otherwise see if the map above ever gains an entry.
-String _roleLabelFor(int roleId) {
-  for (final entry in _selfSelectableRoles.entries) {
-    if (entry.value == roleId) return entry.key;
-  }
-  return 'Account type';
-}
-
-Future<void> _chooseAccountType(BuildContext context) async {
-  final picked = await showDialog<int>(
-    context: context,
-    builder: (context) => SimpleDialog(
-      title: Text('Account type'.tr),
-      children: [
-        for (final entry in _selfSelectableRoles.entries)
-          SimpleDialogOption(
-            onPressed: () => Navigator.of(context).pop(entry.value),
-            child: Text(entry.key.tr),
-          ),
-      ],
-    ),
-  );
-  if (picked == null) return;
-
-  // Confirm first — this is a ONE-WAY door and the list row gave no sign of it.
-  //
-  // choose_role.go refuses a self-promotion into Recipient or Volunteer
-  // (`current > 0 && !selfSelectableRole`), but Guest and Marriage ARE
-  // self-selectable, so the guard does not fire for either option offered here:
-  // the write goes through. A recipient who taps ضيف becomes a guest, and
-  // because Recipient is NOT self-selectable they cannot undo it — only staff
-  // can put the role back, after vetting.
-  //
-  // So a single tap on an unlabelled row could cost someone the account type
-  // their aid is attached to, with no warning and nothing to cancel. Found by
-  // opening this sheet as a recipient — the role nobody had signed in as before.
-  if (!context.mounted) return;
-  final confirmed = await showAdaptiveConfirm(
-    context,
-    title: 'Switch account type?'.tr,
-    message:
-        'You can switch to @type yourself, but only staff can switch you back.'
-            .trParams({'type': _roleLabelFor(picked).tr}),
-    confirmLabel: 'Confirm'.tr,
-    cancelLabel: 'Cancel'.tr,
-  );
-  if (!confirmed) return;
-
-  try {
-    final applied = await ModuleApi().chooseRole(picked);
-    if (applied != picked) {
-      Get.snackbar('Account type'.tr, 'Account type unchanged.'.tr);
-      return;
-    }
-    // The dashboard reads role_key from the summary, so refetch rather than
-    // patching local state — the backend is the source of truth for the role.
-    if (Get.isRegistered<RoleDashboardController>()) {
-      await Get.find<RoleDashboardController>().fetchSummary();
-    }
-    Get.snackbar('Account type'.tr, 'Account type updated.'.tr);
-  } catch (e) {
-    // The server's sentence is English and unlocalizable — chooseRole goes
-    // through postJson, which carries no machine code — so it goes to the log
-    // and the user gets copy in their own language.
-    debugPrint('chooseRole($picked) failed: $e');
-    Get.snackbar('Error'.tr, failureMessage(e, 'error_role_change_failed'));
-  }
-}
 
 class ProfileMenuScreen extends StatelessWidget {
   const ProfileMenuScreen({super.key});
@@ -150,13 +72,6 @@ class ProfileMenuScreen extends StatelessWidget {
                   label: 'Profile',
                   onTap: () =>
                       Get.to(() => const RegistrationFormPage(editMode: true)),
-                ),
-              if (!guest)
-                MenuGridItem(
-                  icon: Icons.badge_outlined,
-                  label: 'Account type',
-                  color: Colors.brown,
-                  onTap: () => _chooseAccountType(context),
                 ),
               if (!guest)
                 MenuGridItem(
