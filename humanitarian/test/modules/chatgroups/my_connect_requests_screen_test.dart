@@ -6,25 +6,35 @@
 //      status (never a hard-coded red), what it is about, the member's own
 //      message and the date; a declined one also shows staff's reason.
 //   2. An APPROVED request with a group opens that group — the link the old
-//      plan's code forgot. A pending request, or an approved one whose group
-//      does not exist yet, opens nothing.
+//      plan's code forgot. A pending request opens nothing, and neither does
+//      an approved row with no group id, which the server never sends
+//      (approval creates the group in the same transaction) but which must not
+//      crash. The conversation opens under the group's own title when the
+//      Messages tab has it loaded — a team's name, or "Connection" for a
+//      masked group — and coming back refreshes that tab's groups at once.
 //   3. The designed empty state, and a failed load shown as an error with
 //      Retry that recovers.
 //   4. Pull-to-refresh really refreshes — on the list and on the empty state —
 //      and a failed refresh keeps the requests already on screen readable.
 //   5. Arabic: no English on the screen, the date in Arabic, and the status
 //      chip at the reading start — the right.
+//   6. An openable request is announced to screen readers as a button.
+//   7. What people wrote — the member's message, staff's decline reason — is
+//      laid out in its own direction, not the screen's.
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'package:intl/intl.dart';
+// intl has a TextDirection of its own, which would shadow Flutter's.
+import 'package:intl/intl.dart' hide TextDirection;
 
 import 'package:flutter_application_1/core/design/tokens.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/localization/app_translations.dart';
+import 'package:flutter_application_1/modules/chatgroups/controllers/chat_groups_controller.dart';
 import 'package:flutter_application_1/modules/chatgroups/screens/chat_group_conversation_screen.dart';
 import 'package:flutter_application_1/modules/chatgroups/screens/my_connect_requests_screen.dart';
 
@@ -62,11 +72,41 @@ Future<void> _open(
 }
 
 /// Leaves the screen, disposing it and any conversation opened from it — the
-/// conversation's poll included — before the test ends.
+/// conversation's poll included — and deletes the groups controller a test
+/// registered, cancelling its poll too, before the test ends.
 Future<void> _close(WidgetTester tester) async {
   await tester.pumpWidget(const SizedBox());
+  if (Get.isRegistered<ChatGroupsController>()) {
+    await Get.delete<ChatGroupsController>(force: true);
+  }
   await tester.pump();
 }
+
+/// Registers the Messages tab's groups controller on [api]. This screen is
+/// only reachable from Messages, where that controller always exists.
+void _registerGroups(FakeChatGroupsApi api) {
+  Get.put(ChatGroupsController(api: api));
+}
+
+/// Taps the request showing [message], reads the title its conversation
+/// opened under, then comes back.
+Future<String> _titleOpenedFrom(WidgetTester tester, String message) async {
+  await tester.ensureVisible(find.text(message));
+  await tester.tap(find.text(message));
+  await _settle(tester);
+  final title = tester
+      .widget<ChatGroupConversationScreen>(
+        find.byType(ChatGroupConversationScreen),
+      )
+      .title;
+  Get.back();
+  await _settle(tester);
+  return title;
+}
+
+/// The direction the paragraph showing [text] is laid out in.
+TextDirection _directionOf(WidgetTester tester, String text) =>
+    tester.renderObject<RenderParagraph>(find.text(text)).textDirection;
 
 /// The colour the status chip's label is drawn in.
 Color? _inkOf(WidgetTester tester, String label) =>
@@ -170,6 +210,155 @@ void main() {
     expect(screen.title, _en['chat_groups_connection_title']);
     expect(screen.api, same(api));
     await _close(tester);
+  });
+
+  group("with the Messages tab's groups loaded", () {
+    testWidgets("an approved request opens under its group's own title", (
+      tester,
+    ) async {
+      final api = FakeChatGroupsApi()
+        ..groups = [
+          groupRow(id: 31, kind: 'team', title: 'Field team'),
+          groupRow(id: 32, kind: 'team'),
+          groupRow(id: 33, kind: 'masked', title: 'Leaked real name'),
+        ]
+        ..requests = [
+          connectRequestRow(
+            id: 1,
+            status: 'approved',
+            groupId: 31,
+            message: 'Team one',
+          ),
+          connectRequestRow(
+            id: 2,
+            status: 'approved',
+            groupId: 32,
+            message: 'Untitled team',
+          ),
+          connectRequestRow(
+            id: 3,
+            status: 'approved',
+            groupId: 33,
+            message: 'Masked one',
+          ),
+          connectRequestRow(
+            id: 4,
+            status: 'approved',
+            groupId: 99,
+            message: 'Not loaded',
+          ),
+        ];
+      _registerGroups(api);
+      await _open(tester, api);
+
+      final connection = _en['chat_groups_connection_title'];
+      expect(await _titleOpenedFrom(tester, 'Team one'), 'Field team');
+      expect(
+        await _titleOpenedFrom(tester, 'Untitled team'),
+        _en['chat_groups_team_group_title'],
+      );
+      expect(await _titleOpenedFrom(tester, 'Masked one'), connection);
+      // Not in the tab's list yet: the neutral title that names no one.
+      expect(await _titleOpenedFrom(tester, 'Not loaded'), connection);
+      await _close(tester);
+    });
+
+    testWidgets('coming back from the conversation refreshes the groups', (
+      tester,
+    ) async {
+      final api = FakeChatGroupsApi()
+        ..groups = [groupRow(id: 31, kind: 'team', title: 'Field team')]
+        ..requests = [
+          connectRequestRow(
+            id: 2,
+            status: 'approved',
+            groupId: 31,
+            message: 'Approved one',
+          ),
+        ];
+      _registerGroups(api);
+      await _open(tester, api);
+      final callsBefore = api.groupsCalls;
+
+      await _titleOpenedFrom(tester, 'Approved one');
+
+      expect(api.groupsCalls, callsBefore + 1);
+      await _close(tester);
+    });
+  });
+
+  testWidgets('an openable request is announced as a button; others are not', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    final api = FakeChatGroupsApi()
+      ..requests = [
+        connectRequestRow(id: 3, status: 'pending', message: 'Pending one'),
+        connectRequestRow(
+          id: 2,
+          status: 'approved',
+          groupId: 31,
+          message: 'Approved one',
+        ),
+      ];
+    await _open(tester, api);
+
+    final approved = tester.getSemantics(find.text('Approved one'));
+    expect(approved, isSemantics(isButton: true, hasTapAction: true));
+    expect(approved.label, contains('Approved one'));
+    expect(approved.label, contains(_en['chat_groups_open_conversation']!));
+    expect(
+      tester.getSemantics(find.text('Pending one')),
+      isSemantics(isButton: false, hasTapAction: false),
+    );
+    await _close(tester);
+    semantics.dispose();
+  });
+
+  group('what people wrote keeps its own direction', () {
+    testWidgets('English on an Arabic screen is laid out left-to-right', (
+      tester,
+    ) async {
+      final api = FakeChatGroupsApi()
+        ..requests = [
+          connectRequestRow(
+            id: 1,
+            status: 'declined',
+            message: 'I will bring the van.',
+            declineReason: 'We cannot share contact details.',
+          ),
+        ];
+      await _open(tester, api, locale: const Locale('ar', 'SA'));
+
+      expect(_directionOf(tester, 'I will bring the van.'), TextDirection.ltr);
+      expect(
+        _directionOf(tester, 'We cannot share contact details.'),
+        TextDirection.ltr,
+      );
+      await _close(tester);
+    });
+
+    testWidgets('Arabic on an English screen is laid out right-to-left', (
+      tester,
+    ) async {
+      final api = FakeChatGroupsApi()
+        ..requests = [
+          connectRequestRow(
+            id: 1,
+            status: 'declined',
+            message: 'سأحضر الشاحنة.',
+            declineReason: 'لا يمكننا مشاركة بيانات التواصل.',
+          ),
+        ];
+      await _open(tester, api);
+
+      expect(_directionOf(tester, 'سأحضر الشاحنة.'), TextDirection.rtl);
+      expect(
+        _directionOf(tester, 'لا يمكننا مشاركة بيانات التواصل.'),
+        TextDirection.rtl,
+      );
+      await _close(tester);
+    });
   });
 
   testWidgets('no requests shows the designed empty state, which refreshes', (

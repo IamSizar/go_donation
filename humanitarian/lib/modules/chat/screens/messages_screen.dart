@@ -10,6 +10,7 @@ import 'package:flutter_application_1/modules/chat/controllers/chat_controller.d
 import 'package:flutter_application_1/modules/chat/models/chat_models.dart';
 import 'package:flutter_application_1/modules/chat/screens/chat_conversation_screen.dart';
 import 'package:flutter_application_1/api/guest_session.dart';
+import 'package:flutter_application_1/modules/chatgroups/controllers/chat_groups_controller.dart';
 import 'package:flutter_application_1/modules/chatgroups/widgets/chat_groups_section.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
@@ -97,6 +98,14 @@ class MessagesScreen extends StatelessWidget {
     final ctrl = Get.isRegistered<ChatController>()
         ? Get.find<ChatController>()
         : Get.put(ChatController());
+    // Put here, never in the lazily built ChatGroupsSection: GetX deletes a
+    // controller with the route current when it was put, and only this build
+    // is sure to run while Messages is that route. Guests have no groups.
+    final groups = isGuestMode()
+        ? null
+        : Get.isRegistered<ChatGroupsController>()
+        ? Get.find<ChatGroupsController>()
+        : Get.put(ChatGroupsController());
 
     return SectionScaffold(
       assistantRoute: 'messages',
@@ -110,7 +119,11 @@ class MessagesScreen extends StatelessWidget {
             .toList();
 
         return RefreshIndicator(
-          onRefresh: ctrl.fetchThreads,
+          // Pulling down refreshes everything the tab lists, groups included.
+          onRefresh: () => Future.wait([
+            ctrl.fetchThreads(),
+            if (groups != null) groups.fetchGroups(),
+          ]),
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
             children: [

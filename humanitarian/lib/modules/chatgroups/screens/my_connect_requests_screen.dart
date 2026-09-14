@@ -7,9 +7,16 @@
 // message; then what happens next — our team is reviewing it, the conversation
 // is ready (tap to go in), or staff's reason for declining it.
 //
-// An APPROVED request with a group is the one tappable row: it opens that
-// group's conversation. That is the point of a request, so the row must lead
-// there rather than leaving the member to hunt for the group in the tab.
+// An APPROVED request with a group is the one tappable row, announced to
+// screen readers as a button: it opens that group's conversation. That is the
+// point of a request, so the row must lead there rather than leaving the
+// member to hunt for the group in the tab. The conversation opens under the
+// group's own title, taken from the Messages tab's ChatGroupsController — this
+// screen is only reachable from that tab — and coming back refreshes that
+// tab's groups, so the badge for what was just read clears at once.
+//
+// What people wrote — the member's message, staff's decline reason — is laid
+// out in its own direction, not the screen's (see contentDirection).
 //
 // States come from AppAsync: skeleton, error with Retry, the designed empty
 // state, the list. Pull-to-refresh works on the list and on the empty state.
@@ -24,12 +31,15 @@ import 'package:flutter_application_1/core/design/directional_icons.dart';
 import 'package:flutter_application_1/core/design/tokens.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
+import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
+import '../controllers/chat_groups_controller.dart';
 import '../controllers/my_connect_requests_controller.dart';
 import '../models/chat_group_models.dart';
+import '../utils/chat_group_title.dart';
 import 'chat_group_conversation_screen.dart';
 
 /// The horizontal screen gutter, shared by the list and by AppAsync's skeleton
@@ -149,22 +159,40 @@ class _RequestTile extends StatelessWidget {
   final ModuleApi api;
 
   /// The group this request leads to, or null when there is none to open:
-  /// pending, declined, or approved before its group exists.
+  /// pending, declined, or — defensively — an approved row with no group id.
+  /// The server never sends that: approval creates the group in the same
+  /// transaction (backend/internal/chatgroups/chatgroups_connect.go).
   int? get _openableGroupId => request.isApproved ? request.groupId : null;
 
-  /// Opens [groupId]'s conversation under the neutral "Connection" title.
-  ///
-  /// A request carries neither the group's kind nor its title, and staff may
-  /// approve it into a masked or a team group (ApproveConnectRequest takes a
-  /// kind), so the one title that is safe for both — it names no one — is used.
-  void _openGroup(int groupId) {
-    Get.to(
+  /// The title [groupId]'s conversation opens under, named the way the
+  /// Messages tab names it: a team's own title, or "Connection" for a masked
+  /// group. A request carries neither the group's kind nor its title, so both
+  /// come from that tab's ChatGroupsController. A group not in its list yet
+  /// opens as "Connection", which names no one and so is safe for either kind.
+  static String _titleFor(int groupId) {
+    final groups = Get.isRegistered<ChatGroupsController>()
+        ? Get.find<ChatGroupsController>().groups
+        : const <ChatGroupSummary>[];
+    for (final group in groups) {
+      if (group.id == groupId) return chatGroupTitle(group);
+    }
+    return 'chat_groups_connection_title'.tr;
+  }
+
+  /// Opens [groupId]'s conversation, then — once the member comes back —
+  /// quietly refreshes the Messages tab's groups, so the unread badge for what
+  /// was just read clears now rather than at the next 5-second poll.
+  Future<void> _openGroup(int groupId) async {
+    await Get.to(
       () => ChatGroupConversationScreen(
         groupId: groupId,
-        title: 'chat_groups_connection_title'.tr,
+        title: _titleFor(groupId),
         api: api,
       ),
     );
+    if (Get.isRegistered<ChatGroupsController>()) {
+      await Get.find<ChatGroupsController>().fetchGroups(silent: true);
+    }
   }
 
   @override
@@ -177,17 +205,23 @@ class _RequestTile extends StatelessWidget {
         // Transparent Material, so the ripple paints above the panel's fill.
         child: Material(
           type: MaterialType.transparency,
-          child: InkWell(
-            onTap: groupId == null ? null : () => _openGroup(groupId),
-            child: Padding(
-              padding: const EdgeInsetsDirectional.all(AppSpace.md),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _StatusRow(request: request),
-                  _RequestBody(request: request),
-                  _NextStep(request: request, canOpen: groupId != null),
-                ],
+          // One announcement per card. A card that opens a conversation is a
+          // button, so a screen reader says it can be activated.
+          child: Semantics(
+            button: groupId != null,
+            container: true,
+            child: InkWell(
+              onTap: groupId == null ? null : () => _openGroup(groupId),
+              child: Padding(
+                padding: const EdgeInsetsDirectional.all(AppSpace.md),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _StatusRow(request: request),
+                    _RequestBody(request: request),
+                    _NextStep(request: request, canOpen: groupId != null),
+                  ],
+                ),
               ),
             ),
           ),
@@ -300,6 +334,12 @@ class _RequestBody extends StatelessWidget {
           const SizedBox(height: AppSpace.xxs),
           Text(
             message,
+            // The member's own words, in their own direction: English on an
+            // Arabic screen otherwise shows its full stop at the wrong end.
+            textDirection: contentDirection(
+              message,
+              fallback: Directionality.of(context),
+            ),
             style: TextStyle(
               fontSize: AppType.body,
               height: AppType.leadDense,
@@ -313,8 +353,9 @@ class _RequestBody extends StatelessWidget {
 }
 
 /// What happens next: our team is reviewing it; the conversation is ready; or
-/// staff's reason for declining. An approved request whose group does not
-/// exist yet says nothing, rather than promise a link that is not there.
+/// staff's reason for declining. An approved row with no group id — which the
+/// server never sends, since approval creates the group in the same
+/// transaction — says nothing, rather than promise a link that is not there.
 class _NextStep extends StatelessWidget {
   const _NextStep({required this.request, required this.canOpen});
 
@@ -406,6 +447,11 @@ class _DeclineReason extends StatelessWidget {
           const SizedBox(height: AppSpace.xxs),
           Text(
             reason,
+            // Staff's own words, in their own direction, like the message.
+            textDirection: contentDirection(
+              reason,
+              fallback: Directionality.of(context),
+            ),
             style: TextStyle(
               fontSize: AppType.dense,
               height: AppType.leadDense,
