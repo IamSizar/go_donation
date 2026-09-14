@@ -779,3 +779,108 @@ func TestChatGroupMessages_HTTPResponseNeverLeaksRealIdentity(t *testing.T) {
 		t.Fatalf("expected the staff member's message to carry the fixed \"Support\" label somewhere in the response: %s", raw)
 	}
 }
+
+func newConnectRequestRouter(pool *pgxpool.Pool) (*gin.Engine, *ChatGroupHandler) {
+	gin.SetMode(gin.TestMode)
+	h := NewChatGroupHandler(chatgroups.New(pool), notify.New(pool), permissions.New(pool), pool)
+	r := gin.New()
+	participant := r.Group("/api", auth.RequireBearer(auth.NewTokenStore(pool)))
+	participant.POST("/chat-groups/connect-requests", auth.RequireNotGuest(), h.SubmitConnectRequest)
+	participant.GET("/chat-groups/connect-requests/mine", h.MyConnectRequests)
+	return r, h
+}
+
+func TestSubmitConnectRequest_CreatesRequest(t *testing.T) {
+	pool := newChatGroupPool(t)
+	r, _ := newConnectRequestRouter(pool)
+	donor := makeChatGroupUser(t, pool, "Donor Name")
+
+	code, body := postAs(t, r, tokenForChatGroupUser(t, pool, donor), "/api/chat-groups/connect-requests",
+		map[string]any{"context_type": "donation", "context_id": 1, "message": "please connect me to the campaign owner"})
+
+	if code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (body %v)", code, body)
+	}
+	if _, ok := body["request_id"]; !ok {
+		t.Fatalf("no request_id in response: %v", body)
+	}
+}
+
+func TestSubmitConnectRequest_RejectsInvalidContextType(t *testing.T) {
+	pool := newChatGroupPool(t)
+	r, _ := newConnectRequestRouter(pool)
+	donor := makeChatGroupUser(t, pool, "Donor Name")
+
+	code, body := postAs(t, r, tokenForChatGroupUser(t, pool, donor), "/api/chat-groups/connect-requests",
+		map[string]any{"context_type": "bogus", "context_id": 1, "message": "hi"})
+
+	if code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400 (body %v)", code, body)
+	}
+}
+
+func TestMyConnectRequests_ReturnsOwnRequestsOnly(t *testing.T) {
+	pool := newChatGroupPool(t)
+	r, _ := newConnectRequestRouter(pool)
+	donorA := makeChatGroupUser(t, pool, "Donor A")
+	donorB := makeChatGroupUser(t, pool, "Donor B")
+	s := chatgroups.New(pool)
+	if _, err := s.SubmitConnectRequest(context.Background(), donorA, "donation", 1, nil, "a"); err != nil {
+		t.Fatalf("submit A: %v", err)
+	}
+	if _, err := s.SubmitConnectRequest(context.Background(), donorB, "donation", 2, nil, "b"); err != nil {
+		t.Fatalf("submit B: %v", err)
+	}
+
+	code, body := getAs(t, r, tokenForChatGroupUser(t, pool, donorA), "/api/chat-groups/connect-requests/mine")
+
+	if code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (body %v)", code, body)
+	}
+	items, _ := body["items"].([]any)
+	if len(items) != 1 {
+		t.Fatalf("got %d requests, want 1 (only donorA's own)", len(items))
+	}
+}
+
+// TestMyConnectRequests_NeverExposesStaffIdentity proves the fix applied to
+// this task's brief: chatgroups.ConnectRequest carries a DecidedByStaff
+// field (json tag decided_by_staff_id) that names the real staff member who
+// approved or declined a request, and MyConnectRequests must never let that
+// reach the requester — design spec §9 gives every requester a collective
+// "Support" label for staff, never an individual admin's identity. This
+// searches the RAW response body for the JSON key itself, the same
+// structural-leak-proof style TestChatGroupMessages_HTTPResponseNeverLeaksRealIdentity
+// uses above: a field-by-field assertion could miss the DTO ever being
+// swapped back out for the store type by accident, but a raw substring
+// search on the tag name cannot.
+func TestMyConnectRequests_NeverExposesStaffIdentity(t *testing.T) {
+	pool := newChatGroupPool(t)
+	r, _ := newConnectRequestRouter(pool)
+	staff := makeChatGroupUser(t, pool, "Staff Real Name")
+	donor := makeChatGroupUser(t, pool, "Donor Name")
+	s := chatgroups.New(pool)
+	requestID, err := s.SubmitConnectRequest(context.Background(), donor, "donation", 1, nil, "please connect me")
+	if err != nil {
+		t.Fatalf("submit request: %v", err)
+	}
+	if err := s.DeclineConnectRequest(context.Background(), requestID, staff, "not eligible right now"); err != nil {
+		t.Fatalf("decline request: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/chat-groups/connect-requests/mine", nil)
+	req.Header.Set("Authorization", "Bearer "+tokenForChatGroupUser(t, pool, donor))
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (body %s)", w.Code, w.Body.String())
+	}
+	raw := w.Body.String()
+	if strings.Contains(raw, "decided_by_staff_id") {
+		t.Fatalf("MyConnectRequests response leaks the staff-identity field \"decided_by_staff_id\": %s", raw)
+	}
+	if !strings.Contains(raw, "not eligible right now") {
+		t.Fatalf("expected the decline reason to still be visible to the requester: %s", raw)
+	}
+}
