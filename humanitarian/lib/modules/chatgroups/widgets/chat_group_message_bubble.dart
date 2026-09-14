@@ -21,6 +21,10 @@ import '../models/chat_group_models.dart';
 /// short paragraph, while the two sides of the conversation stay visibly apart.
 const double _maxWidthFraction = 0.76;
 
+/// The radius of the bubble's corner on the sender's side — nearly square, so
+/// the bubble points at who wrote it.
+const double _squaredCornerRadius = 4;
+
 /// One message — label, body and time — aligned by who sent it.
 class ChatGroupMessageBubble extends StatelessWidget {
   /// Draws [message].
@@ -102,15 +106,15 @@ class _BubbleBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const round = Radius.circular(AppRadius.md);
-    const squared = Radius.circular(AppSpace.xxs);
+    const squared = Radius.circular(_squaredCornerRadius);
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpace.sm,
         vertical: AppSpace.xs,
       ),
       decoration: BoxDecoration(
-        // accent/onAccent is the theme's contrast-checked pair, in light and
-        // dark mode alike.
+        // accent/onAccent is the theme's contrast-checked pair (measured 7.5:1
+        // in light mode and 7.7:1 in dark).
         color: mine
             ? AppThemeConfig.accent(context)
             : AppThemeConfig.softSurface(context),
@@ -138,10 +142,12 @@ class _BubbleBody extends StatelessWidget {
 /// When the message was sent, in the reader's language.
 ///
 /// `Intl.defaultLocale` is pinned to the app's language at startup and on
-/// every switch (AppLocaleService.syncDateFormatLocale), so a bare skeleton is
-/// already correct in every locale the app ships — unlike the fixed
-/// `'MMM d · HH:mm'` pattern the 1:1 chat uses, which prints English month
-/// names on an Arabic screen.
+/// every switch (AppLocaleService.syncDateFormatLocale). English and Arabic
+/// get their own month names; both Kurdish locales fall back to Arabic
+/// calendar data, because `intl` ships none for Sorani or Badini. Either way
+/// it beats the fixed `'MMM d · HH:mm'` pattern the 1:1 chat uses, which
+/// prints English month names on an Arabic screen. The year is left out to
+/// keep the line short — chats are read close to when they happen.
 class _SentAt extends StatelessWidget {
   const _SentAt({required this.time});
 

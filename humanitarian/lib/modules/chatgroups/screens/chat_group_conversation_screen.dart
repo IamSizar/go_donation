@@ -11,6 +11,11 @@
 // designed empty state, or the messages; then the footer — the composer, or,
 // once staff have paused or ended the chat, the lifecycle notice in its place.
 //
+// The transcript is a REVERSED list, anchored at its newest message. New
+// messages appear without scrolling anyone, a member reading older messages
+// stays where they are while the 3-second poll runs, and when the keyboard
+// opens the newest message stays in view.
+//
 // State lives in ChatGroupConversationController; this screen only renders it
 // and forwards taps. Tapping outside a field dismisses the keyboard app-wide
 // (DismissKeyboardOnTap in main.dart), and dragging the transcript does too.
@@ -25,9 +30,6 @@ import 'package:get/get.dart';
 import '../controllers/chat_group_conversation_controller.dart';
 import '../widgets/chat_group_composer.dart';
 import '../widgets/chat_group_message_bubble.dart';
-
-/// How long the transcript takes to glide to a newly arrived message.
-const Duration _scrollToNewestDuration = Duration(milliseconds: 220);
 
 /// One chat group's conversation.
 class ChatGroupConversationScreen extends StatefulWidget {
@@ -57,23 +59,23 @@ class ChatGroupConversationScreen extends StatefulWidget {
       _ChatGroupConversationScreenState();
 }
 
+/// Renders one group's conversation and owns the member's draft.
 class _ChatGroupConversationScreenState
     extends State<ChatGroupConversationScreen> {
-  /// Owns the transcript. Registered under a per-group tag, so two groups
-  /// open one above the other never share a controller.
+  /// This screen's GetX tag — unique per screen INSTANCE, not per group.
+  ///
+  /// GetX ignores a `Get.put` for a tag that is already registered, so a tag
+  /// per group would hand a second screen on the same group (a notification
+  /// tap over an open chat) the first screen's controller, and closing the
+  /// second screen would delete it out from under the first.
+  late final String _tag =
+      'chat-group-${widget.groupId}-${identityHashCode(this)}';
+
+  /// Owns the transcript for this screen.
   late final ChatGroupConversationController _ctrl;
 
   /// The member's draft.
   final _input = TextEditingController();
-
-  /// Scrolls the transcript to its newest message.
-  final _scroll = ScrollController();
-
-  /// Scrolls to each newly arrived message; disposed with the screen.
-  late final Worker _scrollOnNewMessage;
-
-  /// The controller's GetX tag for this group.
-  String get _tag => 'chat-group-${widget.groupId}';
 
   @override
   void initState() {
@@ -82,35 +84,19 @@ class _ChatGroupConversationScreenState
       ChatGroupConversationController(widget.groupId, api: widget.api),
       tag: _tag,
     );
-    _scrollOnNewMessage = ever(_ctrl.messages, (_) => _scrollToNewest());
   }
 
   @override
   void dispose() {
-    _scrollOnNewMessage.dispose();
     Get.delete<ChatGroupConversationController>(tag: _tag);
     _input.dispose();
-    _scroll.dispose();
     super.dispose();
   }
 
   // ─── Actions ──────────────────────────────────────────────────────────────
 
-  /// Glides to the newest message once the frame that draws it is laid out.
-  void _scrollToNewest() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      // The screen can close between scheduling and running this callback.
-      if (!mounted || !_scroll.hasClients) return;
-      _scroll.animateTo(
-        _scroll.position.maxScrollExtent,
-        duration: _scrollToNewestDuration,
-        curve: Curves.easeOut,
-      );
-    });
-  }
-
   /// Sends the draft. The box empties at once so the member can keep typing;
-  /// if the send fails, their words are put back and the reason is shown —
+  /// if the send fails, the message is put back and the reason is shown —
   /// retyping a message is a cost they should never have to pay.
   Future<void> _send() async {
     final text = _input.text;
@@ -118,10 +104,21 @@ class _ChatGroupConversationScreenState
     _input.clear();
     final sent = await _ctrl.send(text);
     if (sent || !mounted) return;
-    _input.text = text;
+    _restoreUnsent(text);
     final reason = _ctrl.sendError.value;
     if (reason == null) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(reason)));
+  }
+
+  /// Puts an [unsent] message back in the box, ahead of anything typed while
+  /// it was in flight, with the cursor at the end — neither may be lost.
+  void _restoreUnsent(String unsent) {
+    final draft = _input.text;
+    final restored = draft.trim().isEmpty ? unsent : '$unsent\n$draft';
+    _input.value = TextEditingValue(
+      text: restored,
+      selection: TextSelection.collapsed(offset: restored.length),
+    );
   }
 
   // ─── Layout ───────────────────────────────────────────────────────────────
@@ -148,10 +145,8 @@ class _ChatGroupConversationScreenState
     final messages = _ctrl.messages;
     final error = _ctrl.errorMessage.value;
     if (messages.isEmpty && _ctrl.isLoading.value) {
-      return Padding(
-        padding: const EdgeInsets.all(AppSpace.md),
-        child: AppSkeleton.bubbles(),
-      );
+      // The skeleton carries its own padding (see AppAsync's docs).
+      return AppSkeleton.bubbles();
     }
     if (messages.isEmpty && error != null) {
       return Padding(
@@ -159,20 +154,33 @@ class _ChatGroupConversationScreenState
         child: AppErrorState(message: error, onRetry: _ctrl.fetchMessages),
       );
     }
-    if (messages.isEmpty) {
-      return const AppEmpty(
-        icon: Icons.forum_outlined,
-        title: 'No messages yet. Say hello! 👋',
-        message: 'Send the first message to start the conversation.',
-      );
-    }
+    if (messages.isEmpty) return _buildEmpty();
     return ListView.builder(
-      controller: _scroll,
+      reverse: true,
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       padding: const EdgeInsets.all(AppSpace.md),
       itemCount: messages.length,
-      itemBuilder: (context, index) =>
-          ChatGroupMessageBubble(message: messages[index]),
+      // Reversed: index 0 is the bottom of the list, so the newest message.
+      itemBuilder: (context, index) => ChatGroupMessageBubble(
+        message: messages[messages.length - 1 - index],
+      ),
+    );
+  }
+
+  /// The empty state. An open chat invites the first message; a chat staff
+  /// have already closed says so instead, since nothing can be sent into it.
+  Widget _buildEmpty() {
+    if (ChatLifecycle.isClosed(_ctrl.lifecycle.value)) {
+      return const AppEmpty(
+        icon: Icons.forum_outlined,
+        title: 'chat_group_closed_empty_title',
+        message: 'chat_group_closed_empty_message',
+      );
+    }
+    return const AppEmpty(
+      icon: Icons.forum_outlined,
+      title: 'No messages yet. Say hello! 👋',
+      message: 'Send the first message to start the conversation.',
     );
   }
 

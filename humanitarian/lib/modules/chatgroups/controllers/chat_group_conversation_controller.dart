@@ -203,9 +203,14 @@ class ChatGroupConversationController extends GetxController {
   /// after the first load, and takes the lifecycle from the latest response.
   void _apply(_NewerMessages newer) {
     final shownIds = messages.map((m) => m.id).toSet();
-    final added = newer.messages.where((m) => !shownIds.contains(m.id));
+    final added = newer.messages
+        .where((m) => !shownIds.contains(m.id))
+        .toList();
     if (_hasLoaded && added.any((m) => !m.isMine)) _onIncomingMessage();
-    messages.addAll(added);
+    // RxList.addAll notifies every listener even when handed nothing, and the
+    // poll runs every three seconds — so only touch the list when something
+    // actually arrived.
+    if (added.isNotEmpty) messages.addAll(added);
     _hasLoaded = true;
 
     final response = newer.lastResponse;

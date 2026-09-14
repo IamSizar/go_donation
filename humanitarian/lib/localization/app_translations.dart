@@ -461,6 +461,11 @@ class AppTranslations extends Translations {
     'error_password_setup_failed': 'Could not set your password.',
     'error_message_send_failed': 'Could not send your message.',
     'error_messages_load_failed': 'Could not load this conversation.',
+    // An empty chat staff closed before anyone wrote: no "say hello" invite,
+    // because nothing can be sent into it.
+    'chat_group_closed_empty_title': 'No messages here',
+    'chat_group_closed_empty_message':
+        'This conversation was closed before any messages were sent.',
     // OPOS #25284 Phase 5 — staff-mediated group chats. en + ar only;
     // Sorani and Badini await a native speaker (#21431).
     'error_chat_groups_load_failed': 'Could not load your group chats.',
@@ -3542,6 +3547,9 @@ class AppTranslations extends Translations {
     'error_password_setup_failed': 'تعذّر تعيين كلمة المرور.',
     'error_message_send_failed': 'تعذّر إرسال رسالتك.',
     'error_messages_load_failed': 'تعذّر تحميل هذه المحادثة.',
+    'chat_group_closed_empty_title': 'لا توجد رسائل هنا',
+    'chat_group_closed_empty_message':
+        'أُغلقت هذه المحادثة قبل إرسال أي رسالة.',
     // OPOS #25284 Phase 5 — staff-mediated group chats.
     'error_chat_groups_load_failed': 'تعذّر تحميل محادثاتك الجماعية.',
     'error_connect_requests_load_failed': 'تعذّر تحميل طلبات التواصل الخاصة بك.',

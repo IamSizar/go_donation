@@ -147,6 +147,25 @@ void main() {
             'from the first attempt would contradict what is on screen',
       );
     });
+
+    test('a poll that brings nothing new does not notify the transcript', () async {
+      final api = FakeChatGroupsApi()..transcript = twoMessages;
+      final ctrl = ChatGroupConversationController(_groupId, api: api);
+      await ctrl.fetchMessages();
+      var notified = 0;
+      final worker = ever(ctrl.messages, (_) => notified++);
+      addTearDown(worker.dispose);
+
+      await ctrl.fetchMessages(silent: true);
+
+      expect(
+        notified,
+        0,
+        reason:
+            'every listener would otherwise fire every three seconds — review '
+            'caught the screen scrolling a reader back to the bottom this way',
+      );
+    });
   });
 
   group('long conversations', () {
