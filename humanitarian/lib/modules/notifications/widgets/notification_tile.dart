@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/modules/chat/controllers/chat_controller.dart';
 import 'package:flutter_application_1/modules/chat/models/chat_models.dart';
@@ -192,10 +193,32 @@ class NotificationTile extends StatelessWidget {
                                 ),
                               ),
                               // Inline Accept/Decline for incoming chat requests.
+                              //
+                              // OPOS #26448 — never for a guest. The actions
+                              // read ChatController through an Obx and put one
+                              // when none is registered, and ChatController
+                              // fetches /api/chats at once and polls it every
+                              // 5 seconds. So merely drawing them started that
+                              // poll for a guest, for a list the server always
+                              // leaves empty (GuestGetsEmptyList). #100 took
+                              // the controller away from a guest's dashboard
+                              // and Messages tab; this was the door left open.
+                              //
+                              // Hidden rather than gated behind a sign-in
+                              // prompt, as ConnectRequestButton hides for a
+                              // guest: the server refuses a guest's accept and
+                              // decline (RequireNotGuest), and signing in lands
+                              // on a different account the invite is not
+                              // addressed to. The notification still shows and
+                              // still taps through.
+                              //
+                              // isGuestMode() is checked last, so a tile that
+                              // is not a chat request never reads preferences.
                               if (notification.notificationType ==
                                       'chat_request' &&
                                   int.tryParse(notification.relatedEntityId) !=
-                                      null) ...[
+                                      null &&
+                                  !isGuestMode()) ...[
                                 const SizedBox(height: 12),
                                 _ChatRequestActions(
                                   threadId: int.parse(
@@ -430,6 +453,9 @@ class _ChatRequestActionsState extends State<_ChatRequestActions> {
   bool _localDone = false;
   String? _localResult;
 
+  // The put below starts ChatController's /api/chats fetch and 5-second poll,
+  // which is why NotificationTile never builds this widget for a guest
+  // (OPOS #26448). Do not host it anywhere without that guard.
   ChatController get _ctrl => Get.isRegistered<ChatController>()
       ? Get.find<ChatController>()
       : Get.put(ChatController());
