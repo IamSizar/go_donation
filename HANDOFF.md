@@ -6,6 +6,118 @@
 
 ---
 
+## 2026-09-15 — OPOS #26410 (part): chat-group membership conflicts answer 409 with codes, and re-adding a removed member reactivates them (branch `feat/chat-groups-conflict-codes`)
+
+**What was asked:** on the chat-group admin routes, adding someone who is already a member, or giving a masked label that another active member holds, returned 500 "Database error.". Three changes were requested, test-first:
+- return 409s with machine codes instead;
+- give every `chatErr` refusal a stable `code`;
+- by user decision D3, re-add a REMOVED member by reactivating their row, keeping its label and role, instead of refusing.
+
+A parallel agent owns `chat_group_admin.go`, `chatgroups_admin.go` and the admin routes in `main.go`. None of those were touched.
+
+**What was actually changed** (on `feat/chat-groups-conflict-codes`, off `origin/main` `a1da04f`, not pushed):
+- **`6927965` refactor(chatgroups): a pure move, diffed line for line against HEAD.** The membership writes left `chatgroups.go` for the new `backend/internal/chatgroups/chatgroups_members.go`: `autoLabel*`, `nullIfEmpty`, `refuseContactInLabel`, `memberExecer`, `memberRow`, `insertMemberRow*`, `insertMembers`, `AddMember` and `RemoveMember`. This was needed because the feature would have pushed `chatgroups.go` past 500 lines.
+- **`8436e44` feat(chatgroups): 409 codes for member and label conflicts, reactivate removed members:**
+  - **`chatgroups.go`.** New sentinels `ErrMemberConflict`, `ErrLabelConflict` and `ErrLabelContact`; the last wraps `ErrInvalidInput`, so old `errors.Is` checks still hold. The package and `CreateGroup` doc comments were updated.
+  - **`chatgroups_members.go`: conflict mapping.** `memberConflict` maps SQLSTATE 23505 by `PgError.ConstraintName`: `chat_group_members_group_id_user_id_key` becomes `ErrMemberConflict`, and `uq_chat_group_members_active_label` becomes `ErrLabelConflict`. It is used by `insertMemberRow` (all three add paths) and by `reactivateMemberRow`.
+  - **`chatgroups_members.go`: `AddMember`.** One transaction with `SELECT … FOR UPDATE` on the user's row in the group:
+    - no row: insert, with auto-labels as before;
+    - an active row: `ErrMemberConflict`;
+    - a removed row: `reactivateMemberRowSQL`, which clears `removed_at` and `removed_by` only and refuses a guest in the same statement.
+  - **`chatgroups_members.go`: `refuseContactInLabel`.** It returns `ErrLabelContact`, and the error no longer contains the label text, so the contact detail stays out of logs.
+  - **`backend/internal/handlers/chat_group.go`.** `chatErr` is now an ordered table (`chatErrResponses`) plus `respondChatErr`. Every answer is `{success:false, error, code}`. An unrecognised error is logged and answered 500 `server_error`.
+  - **Tests.** New `chatgroups_conflict_test.go`, `chatgroups_reactivate_test.go`, `handlers/chat_group_conflict_test.go` and `handlers/chat_group_error_codes_test.go`; the last includes a DB-free table test of the whole `chatErr` mapping. In `handlers/chat_group_guest_member_test.go`, the old "invalid input carries no code" test became `TestAdminCreateGroup_InvalidKindKeepsItsSentence`, asserting `group_invalid_input` with its sentence unchanged.
+
+**Error codes sent by `chatErr`** (the English sentences of the pre-existing cases are unchanged):
+
+| Code | Status | English `error` | Routes |
+|---|---|---|---|
+| `not_group_member` | 403 | You are not a member of this group. | GET/POST `/api/chat-groups/:id/messages`, POST `/api/chat-groups/:id/read` |
+| `group_not_found` | 404 | Group not found. | the three participant routes above; GET `/api/admin/chat-groups/:id`; POST `/api/admin/chat-groups/:id/members`; DELETE `/api/admin/chat-groups/:id/members/:userId` (also when the user is not an active member); POST `/api/admin/chat-groups/:id/messages` |
+| `connect_request_decided` | 409 | This request has already been decided. | POST `/api/admin/chat-groups/connect-requests/:id/approve` and `/decline` |
+| `group_member_conflict` | 409 | This person is already a member of this group. | POST `/api/admin/chat-groups`, POST `/api/admin/chat-groups/:id/members`, POST `…/connect-requests/:id/approve` |
+| `group_label_conflict` | 409 | Another member of this group already has this label. | the same three routes |
+| `guest_member_not_allowed` | 400 | Guest accounts cannot be added to a chat group. | the same three routes |
+| `group_label_contact` | 400 | A member label cannot contain a phone number or email address. | the same three routes (it used to be 400 "Invalid request." with no code) |
+| `group_invalid_input` | 400 | Invalid request. | POST `/api/admin/chat-groups` (unknown kind); POST `…/approve` (unknown kind, or requester not in members); POST `/api/chat-groups/connect-requests` (context_type not donation/case) |
+| `connect_context_not_found` | 400 | We couldn't find that case or donation. | POST `/api/chat-groups/connect-requests` |
+| `server_error` | 500 | Database error. | any route above, for a failure `chatErr` does not recognise (now logged) |
+
+These refusals on the same routes do NOT come from `chatErr`, so they are unchanged and carry no code unless one is noted:
+- **400:**
+  - "Invalid JSON.": create group, approve, and POST read.
+  - "kind and at least one member are required.": create group and approve.
+  - "user_id is required.": add member.
+  - "Invalid user id.": remove member.
+  - "A decline reason is required.": decline.
+  - "Message body is required.": both message POSTs.
+  - "context_type, context_id, and message are required.": submit connect request.
+  - "Invalid id.": `parseID`, on every `:id` route.
+- **404:**
+  - "Connect request not found.": GET a connect request, approve and decline. `chat_group_admin.go` intercepts it before `chatErr`.
+  - "Chat not found.": the lifecycle and archived gates.
+- **409 `chat_lifecycle_closed`:** a message POST to a paused or ended group.
+- **422 `contact_details_blocked`:** contact details in a masked-group message.
+- **500 "Database error." inline:** the list routes and POST read.
+
+**Reactivation rules (D3):** these apply to `AddMember` only (POST `/api/admin/chat-groups/:id/members`). CreateGroup and approval always make a new group, so no removed rows exist there.
+1. A user with a REMOVED row in the group gets that same row back: `removed_at` and `removed_by` are cleared. The member id, `masked_label`, `role_in_group`, `masked`, `added_at` and `added_by_staff_id` stay. The route answers 200 and records its usual `member_added` audit row.
+2. The request's `role_in_group` and `label` are ignored for a returning member.
+3. The request's label is still scanned first. A phone number or email gets 400 `group_label_contact`, and the member stays removed.
+4. If the old label is now held by another active member (compared ignoring case), the answer is 409 `group_label_conflict`, and the member stays removed.
+5. A guest account gets 400 `guest_member_not_allowed` and stays removed.
+6. A user who is already active gets 409 `group_member_conflict`, and nothing changes.
+7. The lookup and the write share one transaction, with the member row locked `FOR UPDATE`.
+8. Old and new messages resolve to the same `sender_member_id` and label, because the read side joins members on `(group_id, user_id)`.
+
+**What was run and what it printed:**
+- **RED, fresh DB `godonation_cg_conflict_codes`, sentinels declared but unused:**
+  - **Store tests.** Every new store test failed with raw errors, for example `duplicate key value violates unique constraint "chat_group_members_group_id_user_id_key" (SQLSTATE 23505), want errors.Is(err, ErrMemberConflict)` and the same for `uq_chat_group_members_active_label`. The contact-label tests failed with `chatgroups: invalid input, want errors.Is(err, ErrLabelContact)`, and re-adding a removed member failed with the 23505 above. Only `TestAddMemberRefusesReactivatingGuest` passed, as a guard: the old INSERT already refused the guest.
+  - **Handler tests.** `status = 500, want 409 (body map[error:Database error. success:false])`, and `code = <nil>, want "not_group_member"` and so on for each code. Only the two pre-existing codes passed.
+- **GREEN, same DB:**
+  - `go test ./internal/chatgroups/ -count=1 -p 1 -v`: `ok …/internal/chatgroups 126.064s`, 62 PASS / 0 SKIP / 0 FAIL.
+  - `go test ./internal/handlers/ -count=1 -p 1 -v`: `ok …/internal/handlers 1512.881s`, 237 PASS / 0 SKIP / 0 FAIL. Every new test printed `--- PASS`.
+- **Fresh DB `godonation_cg_conflict_codes_pkg`:** `go test ./internal/chatgroups/ ./internal/handlers/ -count=1 -p 1 -timeout 45m` printed `ok …/internal/chatgroups 615.473s` and `ok …/internal/handlers 552.194s`, exit 0.
+- **Fresh DB `godonation_cg_conflict_codes_suite`:** `go test ./... -count=1 -p 1 -timeout 45m` exited 0 and printed 22 `ok` packages with 0 FAIL, panic or build-failed lines. Among them were `ok …/internal/chatgroups 23.768s` and `ok …/internal/handlers 81.963s`. The first full-suite attempt, on `godonation_cg_conflict_codes_full`, was killed with its session before finishing; that DB no longer exists.
+- `go vet ./...` exited 0. `gofmt -l` on the 8 changed files printed nothing.
+- **Review:** `ecc:code-reviewer` said APPROVE, with 0 critical, 0 high, 0 medium and 1 low; the low is listed under "still open" below.
+- **DBs:** four throwaway DBs were created for this work: `godonation_cg_conflict_codes` (RED/GREEN), `_pkg`, `_full` (the killed run) and `_suite`.
+  - `dropdb` reported dropping `godonation_cg_conflict_codes` and `godonation_cg_conflict_codes_suite`.
+  - `_pkg` and `_full` were already gone when checked after the restart.
+  - At the end, `psql -lqt | grep godonation_cg_conflict_codes` matched nothing (grep exit 1).
+  - No other database was touched.
+
+**External actions taken:** none. Nothing was pushed and no PR was opened.
+
+**What is still open:**
+- The commits are local and unpushed, and no human has reviewed them.
+- OPOS MCP needs interactive OAuth and was not available to this subagent, so #26410 was not moved or commented on.
+- **admin-web.**
+  - `src/lib/locales/{en,ar,ckb,kmr}.ts` have no `error.<code>` keys for any of these codes, `server_error` included.
+  - Until they are added, `describeError` shows the English sentence for a 4xx and `error.server` for the 500.
+- **Owned by the parallel agent (`chat_group_admin.go`).**
+  - The connect-request 404 "Connect request not found." needs a one-line `"code": "connect_request_not_found"` on each of its three intercepts.
+  - The handler-level 400s listed above also have no code.
+- **Misleading sentence.** DELETE on a member who is not active answers 404 `group_not_found` "Group not found.".
+- **No relabel path.** No endpoint changes a member's label, so a reactivation refused for a taken label can only be resolved by removing the other holder.
+- **Reviewer LOW, which predates this diff.** `insertNewMember`'s auto-label `COUNT(*)` is not serialized. Two concurrent adds of new users with the same role can compute the same "Donor N"; the second now gets a clean 409 `group_label_conflict` instead of a 500.
+- **Flutter.** No change is needed.
+  - `sendChatGroupMessage` maps only `contact_details_blocked` and `chat_lifecycle_closed`. Any other code, including the new `not_group_member`, gets the same generic line that no code got before.
+  - The conversation screen reads status codes only.
+  - `postJson` callers show `failureMessage`, never the server sentence.
+
+**Traps:**
+- **Worktree guard.** The agent's worktree guard refuses complex Bash: process substitution around `git show`, or a long `-run 'a|b|c'` combined with variables and redirects. Split them into plain commands.
+- **Long handlers run.** `internal/handlers` took about 25 minutes under this machine's load, past the 10-minute tool limit, so run it in the background.
+- **`chatErr` logs from `c.Request`.** A test that builds a context with `gin.CreateTestContext` must set `c.Request`, or the `server_error` path panics.
+- **Hard-coded constraint names.** `memberUserConstraint` and `memberLabelConstraint` in `chatgroups_members.go` must change with any migration that renames those constraints; otherwise conflicts silently revert to 500 `server_error`.
+- **Unrelated gofmt hit.** `gofmt -l` in `backend/` still lists `internal/handlers/admin_edit_user_profile.go`, which is untouched and already unformatted on `origin/main`.
+- **A session end kills background test runs.** The first full-suite run died with its session and left nothing to read. Check `psql -l` for leftover throwaway DBs before re-running, and re-run on a fresh one.
+- **`dropdb` can hang past the tool limit.** `dropdb` waits while any connection to the DB is still open, which may be a test process that has not exited yet. Check `pg_stat_activity` for the DB first.
+- **No re-runs on the same DB.** `internal/chatgroups` tests still cannot be re-run on the same DB (see the #26351 entry). Use a fresh DB per run.
+
+---
+
 ## 2026-09-15 — OPOS #26448: the chat request notification tile never starts a chat poller for a guest (branch `fix/notification-tile-no-guest-chat-poller`)
 
 **What was asked:** close the gap #100 (OPOS #26423) left open, test-first. `NotificationTile` still fell back to `Get.put(ChatController())` for a `chat_request` notification, with no guest check. This is defense in depth: the server already gives guests an empty `/chats` (#97), and #26424 hides chat notifications from guests server-side. The change had to stay in `notification_tile.dart` plus new tests, with no `app_translations.dart` edits.
