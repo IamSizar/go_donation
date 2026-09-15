@@ -13,7 +13,7 @@
 - Part of #26410: roster names, the lifecycle fields, and the requester's name on connect requests. D6: `requester_name` only for a caller who may view sensitive data, by the same per-user check.
 - Out of scope, done in parallel by another agent: #26410's conflict codes and member reactivation (`insertMembers`, `AddMember`, `refuseContactInLabel`, `chatErr`). None of those functions was touched here.
 
-**What was actually changed** (three code commits on `feat/chat-groups-admin-data`, based on `origin/main` `a1da04f`):
+**What was actually changed** (three code commits on `feat/chat-groups-admin-data`, based on `origin/main` `a1da04f`; the later helper rename, the merge of main and the #107 follow-up are under **Follow-up** below):
 - `a3e9323` feat(chatgroups): per-user sensitive gate on masked group admin reads.
   - `backend/cmd/server/main.go`: `perm("sensitive_data","view")` removed from `GET /api/admin/chat-groups/:id`, `/:id/messages`, `/:id/contact-blocks`. `perm("messages","view")` stays. Route comments rewritten.
   - `backend/internal/handlers/chat_group_admin.go`: new `refuseMaskedWithoutSensitive(c, groupID)`, called by `AdminGetGroup`, `AdminMessages`, `AdminContactBlocks`.
@@ -52,7 +52,8 @@
   - `id`: int. `group_id`: int. `sender_user_id`: int. `sender_name`: string|null.
   - `kind`: string. `match_count`: int. `redacted_body`: string. `created_at`: string.
 - The three routes above, masked group, caller without sensitive_data → 403 `{"success":false,"error":"You need permission to view sensitive data to read this masked group.","code":"sensitive_data_required"}`.
-- Missing group → 404 `{"success":false,"error":"Group not found."}`. This is new for messages and contact-blocks, which answered 200 with an empty list before.
+- Missing group → 404 `{"success":false,"error":"Group not found.","code":"group_not_found"}`. This is new for messages and contact-blocks, which answered 200 with an empty list before. The `code` comes from #107's `chatErr`, merged in at `b633687`.
+- The gate cannot read the group's kind (database failure) → 500 `{"success":false,"error":"Database error.","code":"server_error"}`, also from #107's `chatErr`, which logs the detail.
 - Caller without messages:view → the middleware's 403 `{"status":"error","error":"You don't have permission for this action.","code":"permission_denied"}`.
 - `GET /api/admin/chat-groups/connect-requests?status=` → 200 `{success: true, items: [...]}`. Each item is:
   - `id`: int. `requester_user_id`: int. `context_type`: `"donation"|"case"`. `context_id`: int.
@@ -66,7 +67,8 @@
   - `godonation_admin_data_26409`, for the RED/GREEN runs. Dropped with `dropdb` after the package run; `psql -lqt` no longer lists it;
   - `godonation_admin_data_26409_pkg`, for the package run;
   - `godonation_admin_data_26409_full`, for the full suite;
-  - `godonation_admin_data_26409_fix`, for the review-fix verification.
+  - `godonation_admin_data_26409_fix`, for the review-fix verification;
+  - `godonation_admin_data_26409_merge`, `…_merge_full` and `…_merge_v`, for the verification after merging #107 (see **Follow-up**).
 - **No baseline run** before the first edit.
 - **B1 RED:** `go test ./internal/handlers/ -run 'TestAdminGroupReads_' -count=1 -p 1 -timeout 45m -v` printed `FAIL …/internal/handlers 38.458s`.
   - The revoked admin and the employee without sensitive_data: `status = 200, want 403`, with bodies carrying `"sender_name":"Sensitive Donor Secret Name"`.
@@ -108,15 +110,60 @@
   - Before the run: `gofmt -l` on the two changed files printed nothing, and `go vet ./...` and `go build ./...` were clean.
   - The DB was then dropped with `dropdb`, and `psql -lqt` no longer lists it.
 
+**Follow-up, same day: the branch stopped compiling after main was merged in.**
+- **What was asked (coordinator):**
+  - The branch had taken main up to #105 in merge commits `6654ecd` and `4976c63`.
+  - main's `chat_guest_reads_test.go` (#97) defines `getRawAs(t, r, token, path) (int, string)`, and this branch's three-value `getRawAs` redeclared it.
+  - The automated fix `4fd5d6e` deleted this branch's copy, and `go vet` then failed: `chat_group_admin_data_test.go:138:21: assignment mismatch: 3 variables but getRawAs returns 2 values`.
+  - Asked: restore the helper under a new name; merge main again at `30186e5` (#106, #107); reconcile with #107's `chatErr` codes; verify on fresh DBs.
+- **What was changed:**
+  - `a926e77` test(chatgroups): rename the admin raw-response helper to avoid main's getRawAs.
+    - The helper is restored as `getRawAdminAs` in `chat_group_admin_sensitive_test.go`, with its `net/http/httptest` import.
+    - All 10 three-value call sites in that file and `chat_group_admin_data_test.go` use the new name. main's `getRawAs` and its callers are untouched.
+  - `b633687` merges `origin/main` at `30186e5`.
+    - Only `HANDOFF.md` conflicted. `merge_handoff.py 9425007 HEAD MERGE_HEAD` printed `inserted 126 branch lines at line 9 above upstream entries`.
+    - No Go file conflicted, as `git merge-tree` had predicted.
+  - `ac4e839` refactor(chatgroups): align the admin group reads with #107's chatErr.
+    - `chat_group_admin.go`: `refuseMaskedWithoutSensitive` no longer logs a non-404 kind-lookup error itself. #107's `chatErr` logs it, so each failure is logged once. Statuses and bodies are unchanged.
+    - `chat_group_admin_sensitive_test.go`: `TestAdminGroupReads_MissingGroupIs404` now asserts the whole body with #107's `assertChatGroupRefusal(…, wantGroupNotFound)`.
+- **Response bodies changed by #107 on this branch's routes:**
+  - A missing group on the detail, messages and contact-blocks reads now answers 404 with `"code":"group_not_found"` added.
+  - A failed kind lookup answers 500 with `"code":"server_error"` added.
+  - `sensitive_data_required` and every 200 body are unchanged.
+- **#107 checked for interplay and found compatible:**
+  - `TestChatGroupRoutes_MissingGroupCarriesItsCode` expects the admin group detail to answer 404 `group_not_found` for a missing group. The gate answers a missing group through `chatErr`, so it does.
+  - `chatGroupRoster` (in `chat_group_conflict_test.go`) reads the roster through `newAdminChatGroupRouter`, which has `Perms` wired, signed in as an admin (`tokenForStaffUser`), who holds sensitive_data by default. The masked-group gate lets it through. Its `reflect.DeepEqual` compares the roster before and after a refused add; both carry `full_name`.
+  - `git grep -n -w` on `origin/main` for every identifier this branch adds found no collision.
+- **What was run and what it printed:**
+  - After the merge, on the final tree: `go build ./...` ok and `go vet ./...` ok. `gofmt -l` on `chat_group_admin.go`, `chat_group_admin_sensitive_test.go` and `chat_group_admin_data_test.go` printed nothing.
+  - All three runs below used the final code (`ac4e839`'s tree), each on its own fresh DB, and all exited 0.
+  - Package run, fresh DB `godonation_admin_data_26409_merge`: `go test ./internal/chatgroups/ ./internal/handlers/ -count=1 -p 1 -timeout 45m` printed `ok …/internal/chatgroups 3.147s` and `ok …/internal/handlers 18.319s`.
+  - Full suite, fresh DB `godonation_admin_data_26409_merge_full`: `go test ./... -count=1 -p 1 -timeout 45m` — 22 packages `ok`, 36 with no test files, 0 `FAIL` and 0 `panic` lines.
+    - Among them: `ok …/internal/chatgroups 2.569s` and `ok …/internal/handlers 17.102s`. The last `ok` line was `ok …/internal/users 0.715s`.
+  - `-v` run of this branch's new tests, fresh DB `godonation_admin_data_26409_merge_v`: `-run 'TestAdminGroupReads_|TestAdminGetGroup|TestAdminConnectRequests_|TestChatGroupMemberReads_|TestGroupKind|TestConnectRequestAdminReads|TestConnectRequestNeverSerializes'` printed `ok …/internal/chatgroups 1.793s` and `ok …/internal/handlers 1.065s`.
+    - 18 top-level tests, 65 `--- PASS` lines counting subtests, 0 `--- FAIL`, 0 `--- SKIP`.
+  - These timings are far shorter than this entry's earlier runs (handlers 17.102s here, 1390.034s before). Nothing was skipped or cached:
+    - `-count=1` disables the test cache.
+    - The DB-backed tests skip only when `TEST_DATABASE_URL` is empty, and every command set it.
+    - The `-v` run shows those tests as PASS, not SKIP.
+    - The first test in each package paid the migration cost on its fresh DB (`TestGroupKindReadsEachKind` 1.20s, the rest 0.00–0.07s).
+    - It was not a quieter machine: `uptime` right afterwards printed load averages `13.37 16.83 18.14`. The likelier cause is that the earlier slow runs overlapped with other worktrees' test runs against the same Postgres — `pgrep` then showed five `handlers.test` processes from different worktrees. That was not measured.
+  - Afterwards the three DBs were dropped with `dropdb`, and `psql -lqt` lists none of the `godonation_admin_data_26409*` databases.
+
 **External actions taken:** none. Nothing was pushed and no PR was opened.
 
 **What is still open:**
 - The commits are local, unpushed, and not reviewed by a human.
 - OPOS MCP needed interactive OAuth and wasn't available in this subagent session. OPOS #26409 and #26410 were not moved or commented on.
-- `origin/main` moved to `9e4a99f` (#96–#98) after this branch was cut from `a1da04f`.
-  - `git merge-tree --write-tree HEAD origin/main` reported no conflict for the code commits.
-  - This HANDOFF entry will conflict with main's newer top entry when merged or rebased.
-- The admin-web must handle 403 `sensitive_data_required` and 404 on all three group reads.
+- The branch now contains `origin/main` up to `30186e5` (#107), through merge commits `6654ecd`, `4976c63` and `b633687`. It is not merged into main.
+- The admin-web must handle 403 `sensitive_data_required` and 404 `group_not_found` on all three group reads.
+- Not every chat-group admin refusal carries a `code` yet. #107 put one on everything `chatErr` sends, but `chat_group_admin.go` still writes these refusals inline without one:
+  - 401 `Unauthorized.` on every handler.
+  - 400 `Invalid JSON.` and `kind and at least one member are required.` on create and approve.
+  - 400 `user_id is required.` on add member, `Invalid user id.` on remove member, `Message body is required.` on post message, and `A decline reason is required.` on decline.
+  - 404 `Connect request not found.` on connect-request detail, approve and decline.
+  - 500 `Database error.` on the group list, messages, contact blocks and the connect-request list.
+  - None of these changed in this work; admin-web's `describeError` falls back to the sentence for them. Adding codes means editing `chat_group_admin.go`, which must first be split (next item).
 - `backend/internal/handlers/chat_group_admin.go` is 493 lines, 7 under the 500-line cap. It was deliberately NOT split in this work (coordinator's decision after review). **The next change to this file must first move its connect-request inbox section into a file of its own:** `resolveConnectContext`, `adminConnectRequestItem`, `adminConnectRequestItems`, and the list, detail, approve and decline handlers. Only then add anything else.
 - `user_profiles.user_id` has no index and no UNIQUE constraint (checked every migration). Every name lookup scans it. Worth a migration of its own.
 - `resolveConnectContext` still runs one query per inbox item (pre-existing).
@@ -129,6 +176,9 @@
   - for a known batch of ids, `DISTINCT ON (user_id) … WHERE user_id = ANY($1) ORDER BY user_id, id` (`profileNames`);
   - per row, `LEFT JOIN LATERAL (… WHERE up.user_id = r.requester_user_id ORDER BY up.id LIMIT 1) p ON true` (`adminConnectRequestSelect`).
   - Do not join a `DISTINCT ON` view of the whole table: it scans and sorts every profile on every call.
+- Two test files in one Go package that each define the same helper name merge without any git conflict; only the compiler finds the clash. That happened here with `getRawAs`, from #97 and from this branch.
+  - Before merging main, run `git grep -n -w` on `origin/main` for the identifiers the branch adds.
+  - When two same-named helpers collide, compare their signatures before deleting one. `4fd5d6e` deleted the three-value copy on the assumption the two matched, and `go vet` then failed.
 
 ---
 
