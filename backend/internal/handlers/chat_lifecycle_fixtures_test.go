@@ -5,9 +5,9 @@
 // Nothing here asserts anything. It builds one real thread in each of the
 // four chat systems — including the parent rows each one requires (a marriage
 // profile and meeting request, a mission signup and beneficiary case) — and
-// mounts the routes behind main.go's gates, because the middleware is what
-// makes the lifecycle actions staff-only. Which of main.go's admin gates are
-// deliberately left out, and why, is spelled out on newLifecycleRouter.
+// mounts the routes behind main.go's gates, participant and admin alike,
+// because the middleware is what makes the lifecycle actions staff-only. The
+// chain each group gets is spelled out on newLifecycleRouter.
 //
 // Every fixture removes what it wrote in its own t.Cleanup: the suite must
 // leave the shared test database exactly as it found it.
@@ -16,10 +16,10 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"testing"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"testing"
 
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
 	"github.com/karam-flutter/humanitarian-backend/internal/chat"
@@ -27,6 +27,7 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/chatlifecycle"
 	"github.com/karam-flutter/humanitarian-backend/internal/marriagechat"
 	"github.com/karam-flutter/humanitarian-backend/internal/notify"
+	"github.com/karam-flutter/humanitarian-backend/internal/permissions"
 	"github.com/karam-flutter/humanitarian-backend/internal/staffchat"
 )
 
@@ -99,9 +100,21 @@ func seedStaffChat(t *testing.T, pool *pgxpool.Pool) chatFixture {
 
 func seedMarriageChat(t *testing.T, pool *pgxpool.Pool) chatFixture {
 	t.Helper()
-	ctx := context.Background()
 	requester := makeLifecycleUser(t, pool, "user")
 	owner := makeLifecycleUser(t, pool, "user")
+	id := insertMarriageChatThread(t, pool, requester, owner)
+	return chatFixture{chatlifecycle.KindMarriage, "marriage_chat_threads", "marriage_chat_messages", id, requester,
+		fmt.Sprintf("/api/marriage/chats/%d/messages", id), "thread_id"}
+}
+
+// insertMarriageChatThread inserts an ACTIVE marriage chat thread between two
+// existing users, with the parent rows the schema requires: the owner's
+// marriage profile and the requester's meeting request. Split out of
+// seedMarriageChat so chat_guest_reads_test.go can put a guest on one side.
+// Removes everything it wrote in its own t.Cleanup.
+func insertMarriageChatThread(t *testing.T, pool *pgxpool.Pool, requester, owner int64) int64 {
+	t.Helper()
+	ctx := context.Background()
 	lifecycleSeq++
 	var profileID, requestID, id int64
 	if err := pool.QueryRow(ctx,
@@ -130,8 +143,7 @@ func seedMarriageChat(t *testing.T, pool *pgxpool.Pool) chatFixture {
 		_, _ = pool.Exec(ctx, `DELETE FROM marriage_meeting_requests WHERE id = $1`, requestID)
 		_, _ = pool.Exec(ctx, `DELETE FROM marriage_profiles WHERE id = $1`, profileID)
 	})
-	return chatFixture{chatlifecycle.KindMarriage, "marriage_chat_threads", "marriage_chat_messages", id, requester,
-		fmt.Sprintf("/api/marriage/chats/%d/messages", id), "thread_id"}
+	return id
 }
 
 // seedCaseChat and the case-chats routes it fed were removed by OPOS #25284
@@ -177,21 +189,27 @@ func seedGroupChat(t *testing.T, pool *pgxpool.Pool) chatFixture {
 // what makes these actions staff-only.
 //
 // The participant routes get main.go's full chain: the authed group's
-// RequireBearer + RequireApproved, plus RequireNotGuest on each send route, so
-// no test here can pass a guest send that production refuses (OPOS #26357).
+// RequireBearer + RequireApproved, plus RequireNotGuest on each send and
+// messages route and GuestGetsEmptyList on each list route, so no test here can
+// get a guest a response production would not give (OPOS #26357, #26354).
 //
-// The admin routes get RequireAdmin, but NOT the rest of main.go's admin chain:
-//   - RequireDeletePassword is left out because the staff DELETE in
-//     chat_lifecycle_trash_test.go sends no password; that gate is covered by
-//     delete_password_test.go.
-//   - The perm("messages" / "marriage", …) gates main.go puts on the chat
-//     lists, lifecycle and delete routes are left out because these tests
-//     assert the participant/staff boundary RequireAdmin draws, not the
-//     per-tier permission matrix.
+// The admin routes get main.go's full admin chain too (OPOS #26367):
+//   - the admin group's RequireAdmin and RequireDeletePassword, so a staff
+//     DELETE has to carry the acting staff member's own password, exactly as
+//     the dashboard sends it (see
+//     TestChatLifecycle_DeleteTrashesAndRestoreBringsBackMessages);
+//   - each route's own perm() gate: messages/* for the donor, staff and group
+//     chats, marriage/* for the marriage chat. The staff-chat list and send
+//     routes carry no perm() gate in main.go, so they carry none here.
 func newLifecycleRouter(pool *pgxpool.Pool) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	tokens := auth.NewTokenStore(pool)
 	n := notify.New(pool)
+	perms := permissions.New(pool)
+	// perm mirrors main.go's helper of the same name.
+	perm := func(module, action string) gin.HandlerFunc {
+		return auth.RequirePermission(perms, module, action)
+	}
 
 	chatH := NewChatHandler(chat.New(pool), n, pool)
 	marriageH := NewMarriageChatHandler(marriagechat.New(pool), n, pool)
@@ -201,28 +219,28 @@ func newLifecycleRouter(pool *pgxpool.Pool) *gin.Engine {
 	r := gin.New()
 	participant := r.Group("/api", auth.RequireBearer(tokens), auth.RequireApproved())
 	participant.POST("/chats/:id/messages", auth.RequireNotGuest(), chatH.PostMessage)
-	participant.GET("/chats", chatH.List)
-	participant.GET("/chats/:id/messages", chatH.Messages)
+	participant.GET("/chats", GuestGetsEmptyList(), chatH.List)
+	participant.GET("/chats/:id/messages", auth.RequireNotGuest(), chatH.Messages)
 	participant.POST("/marriage/chats/:id/messages", auth.RequireNotGuest(), marriageH.PostMessage)
-	participant.GET("/marriage/chats", marriageH.List)
+	participant.GET("/marriage/chats", GuestGetsEmptyList(), marriageH.List)
 
-	admin := r.Group("/api", auth.RequireAdmin(tokens))
+	admin := r.Group("/api", auth.RequireAdmin(tokens), RequireDeletePassword(pool))
 	admin.POST("/admin/staff-chats/:id/messages", staffH.PostMessage)
 	admin.GET("/admin/staff-chats", staffH.List)
-	admin.GET("/admin/chats", chatH.AdminList)
-	admin.GET("/admin/marriage/chats", marriageH.AdminList)
-	admin.POST("/admin/chats/:id/lifecycle", lifeH.Apply(chatlifecycle.KindDonor))
-	admin.POST("/admin/staff-chats/:id/lifecycle", lifeH.Apply(chatlifecycle.KindStaff))
-	admin.POST("/admin/marriage/chats/:id/lifecycle", lifeH.Apply(chatlifecycle.KindMarriage))
-	admin.DELETE("/admin/chats/:id", lifeH.Delete(chatlifecycle.KindDonor))
-	admin.DELETE("/admin/staff-chats/:id", lifeH.Delete(chatlifecycle.KindStaff))
-	admin.DELETE("/admin/marriage/chats/:id", lifeH.Delete(chatlifecycle.KindMarriage))
+	admin.GET("/admin/chats", perm("messages", "view"), chatH.AdminList)
+	admin.GET("/admin/marriage/chats", perm("marriage", "view"), marriageH.AdminList)
+	admin.POST("/admin/chats/:id/lifecycle", perm("messages", "edit"), lifeH.Apply(chatlifecycle.KindDonor))
+	admin.POST("/admin/staff-chats/:id/lifecycle", perm("messages", "edit"), lifeH.Apply(chatlifecycle.KindStaff))
+	admin.POST("/admin/marriage/chats/:id/lifecycle", perm("marriage", "edit"), lifeH.Apply(chatlifecycle.KindMarriage))
+	admin.DELETE("/admin/chats/:id", perm("messages", "delete"), lifeH.Delete(chatlifecycle.KindDonor))
+	admin.DELETE("/admin/staff-chats/:id", perm("messages", "delete"), lifeH.Delete(chatlifecycle.KindStaff))
+	admin.DELETE("/admin/marriage/chats/:id", perm("marriage", "delete"), lifeH.Delete(chatlifecycle.KindMarriage))
 
 	groupsStore := chatgroups.New(pool)
 	groupsH := NewChatGroupHandler(groupsStore, n, nil, pool)
 	participant.POST("/chat-groups/:id/messages", auth.RequireNotGuest(), groupsH.PostMessage)
-	admin.POST("/admin/chat-groups/:id/lifecycle", lifeH.Apply(chatlifecycle.KindGroup))
-	admin.DELETE("/admin/chat-groups/:id", lifeH.Delete(chatlifecycle.KindGroup))
+	admin.POST("/admin/chat-groups/:id/lifecycle", perm("messages", "edit"), lifeH.Apply(chatlifecycle.KindGroup))
+	admin.DELETE("/admin/chat-groups/:id", perm("messages", "delete"), lifeH.Delete(chatlifecycle.KindGroup))
 	return r
 }
 

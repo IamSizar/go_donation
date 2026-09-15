@@ -1552,27 +1552,29 @@ class AppTranslations extends Translations {
         'No one is assigned to receive chat messages right now. You can still '
         'reach the team through the support form or on WhatsApp.',
     'chat_support_unavailable_action': 'Open technical support',
-    // OPOS #25284 Phase 5 Task 5 — "Ask staff to connect me". Members cannot
-    // contact each other directly; they ask staff, who may open a supervised
-    // chat. en + ar only; Sorani and Badini fall back to English (#21431).
-    'connect_request_action': 'Ask staff to connect me',
-    'connect_request_title': 'Ask staff to connect you',
+    // OPOS #25284 Phase 5 Task 5 — "Ask our team to connect me". Members
+    // cannot contact each other directly; they ask staff, who may open a
+    // supervised chat. en + ar only; Sorani and Badini fall back to English
+    // (#21431). A member reads "our team", never "staff" — the same words as
+    // the chat-group strings and lifecycle notices (OPOS #26351).
+    'connect_request_action': 'Ask our team to connect me',
+    'connect_request_title': 'Ask our team to connect you',
     'connect_request_explainer':
-        'Our staff will review your request. If they approve it, they will '
+        'Our team will review your request. If they approve it, they will '
         'open a supervised chat for you here in the app.',
     'connect_request_message_label': 'What do you need?',
     'connect_request_message_hint':
-        'Tell staff what you would like to discuss, and why.',
+        'Tell our team what you would like to discuss, and why.',
     'connect_request_message_required': 'Please describe what you need.',
     'connect_request_submit': 'Send request',
-    'connect_request_sent': 'Request sent. Staff will review it shortly.',
+    'connect_request_sent': 'Request sent. Our team will review it shortly.',
     // The success view that replaces the form INSIDE the sheet once the
     // request is accepted. `connect_request_sent` above is now only the toast
     // for a member who closed the sheet before the answer arrived. The Done
     // button reuses the existing `Done` key, already translated everywhere.
     'connect_request_sent_title': 'Request sent',
     'connect_request_sent_body':
-        'Staff will review it shortly. You can follow it in My Connect '
+        'Our team will review it shortly. You can follow it in My Connect '
         'Requests on the Messages tab.',
     'error_connect_request_submit_failed': 'Could not send your request.',
     // The standing (not error-triggered) route to the ticket form, offered
@@ -3190,6 +3192,15 @@ class AppTranslations extends Translations {
     'Nothing saved yet.': 'Nothing saved yet.',
     'Remove': 'Remove',
     'Select a project': 'Select a project',
+
+    // OPOS #26423 — the Messages tab's sign-in prompt for a guest
+    // (GuestMessagesPrompt in dashboard/screens/guest_sections.dart), shown
+    // where the conversation list would be; a guest has none. Its button
+    // reuses 'Sign in'. en + ar only; Sorani and Badini fall back to English
+    // (#21431) and are listed in TRANSLATION_REQUEST.md.
+    'messages_guest_title': 'Sign in to use Messages',
+    'messages_guest_body':
+        'Your conversations will appear here once you have a full account.',
   };
 
   static const Map<String, String> _ar = {
@@ -4540,19 +4551,20 @@ class AppTranslations extends Translations {
         'لا يوجد حاليًا من يستقبل رسائل المحادثة. ما زال بإمكانك الوصول إلى '
         'الفريق عبر نموذج الدعم أو عبر واتساب.',
     'chat_support_unavailable_action': 'فتح الدعم الفني',
-    'connect_request_action': 'اطلب التواصل عبر الفريق',
-    'connect_request_title': 'طلب تواصل عبر الفريق',
+    // "فريقنا" and never "الفريق", as in the chat-group strings (OPOS #26351).
+    'connect_request_action': 'اطلب التواصل عبر فريقنا',
+    'connect_request_title': 'طلب تواصل عبر فريقنا',
     'connect_request_explainer':
         'سيراجع فريقنا طلبك، وإذا وافق عليه فسيفتح لك محادثة خاضعة للإشراف '
         'هنا في التطبيق.',
     'connect_request_message_label': 'ما الذي تحتاجه؟',
-    'connect_request_message_hint': 'أخبر الفريق بما تود مناقشته، ولماذا.',
+    'connect_request_message_hint': 'أخبر فريقنا بما تود مناقشته، ولماذا.',
     'connect_request_message_required': 'يرجى وصف ما تحتاجه.',
     'connect_request_submit': 'إرسال الطلب',
-    'connect_request_sent': 'تم إرسال الطلب. سيراجعه الفريق قريبًا.',
+    'connect_request_sent': 'تم إرسال الطلب. سيراجعه فريقنا قريبًا.',
     'connect_request_sent_title': 'تم إرسال الطلب',
     'connect_request_sent_body':
-        'سيراجعه الفريق قريبًا. يمكنك متابعته من «طلبات التواصل الخاصة بي» '
+        'سيراجعه فريقنا قريبًا. يمكنك متابعته من «طلبات التواصل الخاصة بي» '
         'في تبويب «الرسائل».',
     'error_connect_request_submit_failed': 'تعذّر إرسال طلبك.',
     'support_request_form': 'إرسال طلب دعم',
@@ -6037,6 +6049,11 @@ class AppTranslations extends Translations {
     'Nothing saved yet.': 'لا توجد عناصر محفوظة بعد.',
     'Remove': 'إزالة',
     'Select a project': 'اختر مشروعًا',
+
+    // OPOS #26423 — انظر التعليق نفسه في الخريطة الإنجليزية.
+    'messages_guest_title': 'سجّل الدخول لاستخدام الرسائل',
+    'messages_guest_body':
+        'ستظهر محادثاتك هنا عندما يصبح لديك حساب كامل.',
   };
 
   static final Map<String, String> _sorani = {

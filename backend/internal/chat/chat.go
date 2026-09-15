@@ -37,6 +37,10 @@ var (
 	ErrNotActive         = errors.New("this chat is not active yet")
 	ErrAlreadyClaimed    = errors.New("this chat is already claimed by another staff member")
 	ErrDirectChatRetired = errors.New("direct donor-owner chat has been retired; use a staff-mediated connect request instead")
+	// ErrNotPending is returned by DeclineThread when the thread is no longer
+	// an invite waiting for an answer — it is already active — so declining it
+	// would end a conversation both parties are using (OPOS #26427).
+	ErrNotPending = errors.New("this chat is no longer a pending invite")
 )
 
 // Thread is the raw row.
@@ -172,6 +176,11 @@ func (s *Store) RequestSupportThread(ctx context.Context, userID, supportID int6
 // AcceptThread flips a pending thread to active. Only the recipient (the party
 // who did NOT initiate) may accept. Returns the thread and the initiator id so
 // the caller can notify them.
+//
+// It does NOT check the thread's lifecycle (paused / ended / archived). That
+// gate lives in the HTTP layer with every other lifecycle refusal —
+// handlers.ChatHandler.Accept runs refuseIfInviteClosed before calling this —
+// so any new caller must run it too.
 func (s *Store) AcceptThread(ctx context.Context, threadID, userID int64) (Thread, int64, error) {
 	t, err := s.GetThread(ctx, threadID)
 	if err != nil {
@@ -197,7 +206,23 @@ func (s *Store) AcceptThread(ctx context.Context, threadID, userID int64) (Threa
 	return t, t.InitiatedBy, nil
 }
 
-// DeclineThread marks a pending thread declined. Only the recipient may decline.
+// DeclineThread marks a pending invite declined. Only the recipient (the party
+// who did NOT initiate) may decline; the party checks run first, so a user
+// with no right to decline is never told the thread's status.
+//
+// Only an invite can be declined (OPOS #26427). This used to update by id
+// alone, so the recipient could flip an ACTIVE chat to declined, hiding it from
+// both participants and refusing every further message. The status condition
+// lives in the UPDATE itself, so nothing can change between reading the status
+// and writing it: an active thread matches no row and comes back as
+// ErrNotPending, untouched. Declining an invite that is already declined still
+// succeeds, as it always has — the app's notification tile offers Decline again
+// for one, because the thread list it reads hides declined threads.
+//
+// Like AcceptThread it does NOT check the thread's lifecycle, but here that is
+// the rule rather than a job left to the caller: a pending invite on a paused,
+// ended or archived thread can still be declined, which is how the recipient
+// dismisses a dead invite (OPOS #26413).
 func (s *Store) DeclineThread(ctx context.Context, threadID, userID int64) (Thread, error) {
 	t, err := s.GetThread(ctx, threadID)
 	if err != nil {
@@ -209,10 +234,15 @@ func (s *Store) DeclineThread(ctx context.Context, threadID, userID int64) (Thre
 	if userID == t.InitiatedBy {
 		return t, ErrNotRecipient
 	}
-	_, err = s.Pool.Exec(ctx, `
-		UPDATE chat_threads SET status = 'declined', updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
-		threadID)
-	t.Status = "declined"
+	err = s.Pool.QueryRow(ctx, `
+		UPDATE chat_threads SET status = 'declined', updated_at = CURRENT_TIMESTAMP
+		 WHERE id = $1 AND status IN ('pending', 'declined')
+		RETURNING id, donor_user_id, owner_user_id, campaign_id, status, initiated_by, assigned_staff_user_id, created_at, updated_at`,
+		threadID,
+	).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return t, ErrNotPending
+	}
 	return t, err
 }
 

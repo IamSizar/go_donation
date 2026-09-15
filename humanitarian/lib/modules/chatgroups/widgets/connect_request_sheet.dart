@@ -1,5 +1,6 @@
-// ConnectRequestSheet — "Ask staff to connect me" (OPOS #25284 Phase 5 Task 5,
-// OPOS #26046).
+// ConnectRequestSheet — "Ask our team to connect me" (OPOS #25284 Phase 5
+// Task 5, OPOS #26046). The member-facing copy says "our team", never "staff"
+// (OPOS #26351); these comments still say staff for the people who act.
 //
 // WHY THIS EXISTS
 // Donors, beneficiaries and volunteers may not contact each other directly in
