@@ -137,6 +137,304 @@ The first four go beside the member rows in a form (`chatGroupErrorArea`).
 
 ---
 
+## 2026-09-15 — OPOS #26474: `user_profiles.user_id` gets an index, and group chats stop repeating a message whose sender has two profile rows (branch `perf/user-profiles-user-id-index`)
+
+**What was asked:** add an index on `user_profiles.user_id` and check the table's one-row-per-user assumption. If a user can have two rows, fix `AdminListMessages`' join, test-first. The change was to stay within a new migration plus a minimal code fix, because other branches are editing the chat-group handlers and stores. A database review was then to be run, and anything real it found fixed.
+
+**What was actually changed.** There are three local commits on `perf/user-profiles-user-id-index`, based on `origin/main` `9425007`.
+
+**`bb32094` `perf(db): index user_profiles.user_id`**
+- `backend/migrations/124_user_profiles_user_id_index.sql` (new): `CREATE INDEX IF NOT EXISTS idx_user_profiles_user_id ON user_profiles (user_id);`.
+- Its header explains why the index is needed, why there is no UNIQUE and why there is no CONCURRENTLY. The DOWN is recorded in comments, the same way as in 113.
+- Numbered 124 because `fix/chat-group-lifecycle-null-reason` already adds `123_chat_group_lifecycle_reason_nullable.sql`.
+
+**`ec83248` `fix(chatgroups): stop repeating messages for senders with two profiles`**
+- `backend/internal/chatgroups/chatgroups_reads.go`: in both message reads, the plain `LEFT JOIN user_profiles up ON up.user_id = m.sender_user_id` became `LEFT JOIN LATERAL (SELECT p.full_name … ORDER BY p.id LIMIT 1) up ON true`, so the oldest profile row names the sender. Both doc comments say why.
+  - `AdminListMessages` serves `GET /admin/chat-groups/:id/messages` (`cmd/server/main.go:1035` → `handlers/chat_group_admin.go:168`).
+  - `ListMessagesForMember` is the members' own read. In a team group, the repeated copies could show one message under two names.
+- Response shapes are unchanged.
+- `backend/internal/chatgroups/chatgroups_duplicate_profiles_test.go` (new), with two tests:
+  - `TestAdminListMessagesListsEachMessageOnceWhenSenderHasTwoProfiles`;
+  - `TestListMessagesForMemberListsEachMessageOnceWhenSenderHasTwoProfiles`, with `team` and `masked` subtests.
+- The member-read half was added after the database review (see Review).
+
+**This entry** is the third commit.
+
+**Can a user have two `user_profiles` rows? Yes. One row per user is intended, not guaranteed.**
+- **The table:** `001_full_v2.sql:73-80` declares `user_id INTEGER NOT NULL`, with no UNIQUE and no index. `002_add_foreign_keys.sql:32-34` adds only the FK (ON DELETE CASCADE). No trigger or SQL function writes the table; the only SQL INSERT is the six-user seed at `001_full_v2.sql:751`.
+- **The intent is written down:** `010_phone_canonical.sql:60` says "user_profiles is one-row-per-user", and `handlers/admin_edit.go:1806` notes the missing UNIQUE.
+- **Safe inserts**, both for a brand-new user id:
+  - `users/users.go:817` `InsertGuest`, in the same transaction as the user insert;
+  - `handlers/admin_status.go:341`, right after creating the user.
+- **Racy check-then-insert**, with no lock held between the check and the INSERT:
+  - `users/profile.go` `UpsertProfile`: `GetProfileRow` at `:100` runs on the pool, outside the transaction begun at `:105`, and the INSERT is at `:139`.
+  - `users/registration.go` `SubmitRegistration`: SELECT at `:153`, INSERT at `:157`. The transaction's first `UPDATE users` is at `:238`, after the insert.
+  - `handlers/admin_edit.go` `User`: SELECT at `:1811`, INSERT at `:1930`. The users row is locked only when phone or email are sent too (`:1770`, `:1790`).
+- **So no UNIQUE constraint was added.** It would fail to apply on a database that already holds a pair, and deduping means deleting user rows. That decision belongs to a human.
+
+**Why not `CREATE INDEX CONCURRENTLY`.**
+- `internal/db/migrate.go:182` sends a whole file as one simple-protocol query.
+- Probed on local Postgres 18.6:
+  - A file with `SELECT 1;` before the CIC failed with `CREATE INDEX CONCURRENTLY cannot run inside a transaction block`.
+  - A one-statement CIC file, comments included, succeeded.
+- **But the one-statement form deadlocks against the runner's own locking.** Session A took `pg_advisory_lock` and ran the CIC. Session B blocked in `pg_advisory_lock` on the same key. B was aborted:
+  - `ERROR: deadlock detected`
+  - `Process 3460 waits for ExclusiveLock on advisory lock … blocked by process 3254.`
+  - `Process 3254 waits for ShareLock on virtual transaction 9/471; blocked by process 3460.`
+- **Concurrent callers are normal here:** every DB test package's process, and two replicas booting with `RUN_MIGRATIONS=1` (`internal/db/migrate_concurrent_test.go`).
+- **A plain build is atomic,** and 113 indexed this table the same way.
+
+**What was run and what it printed.** All ran on local databases created for this task. Nothing remote was touched.
+
+**Migration.** On `godonation_upidx_26474`:
+- Main's migrations first: `done: 121 newly applied, 121 total migration files`. At that point `\d user_profiles` showed no `user_id` index.
+- Seeded 50,000 users and profiles, 2,000 connect requests (one in ten pending), and group 900001 with 5,000 messages from 500 senders, then ran `ANALYZE`.
+- 124 applied through `db.RunMigrations`: `done: 1 newly applied, 122 total migration files`, with `indisvalid = t`.
+- DOWN executed (`DROP INDEX IF EXISTS idx_user_profiles_user_id` and the ledger delete): `index rows: 0`, `ledger rows: 0`.
+- Up again: `1 newly applied`, still valid.
+
+**EXPLAIN ANALYZE, before → after:**
+
+| query | before | after |
+|---|---|---|
+| roster `WHERE user_id = ANY('{…}'::bigint[])`, the `profileNames` shape | Seq Scan, 50,001 rows removed, 20.968 ms | Index Scan using `idx_user_profiles_user_id`, 0.417 ms |
+| requester `LATERAL (… WHERE up.user_id = r.requester_user_id ORDER BY up.id LIMIT 1)`, 200 pending requests | 200 loops of Seq Scan, 2293.849 ms | Index Scan, 200 searches, 1.610 ms |
+| old DISTINCT ON derived-table requester shape, one request | Seq Scan + Sort of 50,006 rows, 30.452 ms | Index Scan + Incremental Sort, 0.091 ms |
+| `AdminListMessages` as on main | Hash Left Join over a Seq Scan of all 50,006 profiles, 33.832 ms | Memoize + Index Scan, 0.584 ms |
+
+- With `enable_seqscan = off` before the index, there was no index path at all: `Seq Scan … Disabled: true` for the roster, and `Index Scan using user_profiles_pkey … Filter` for LATERAL.
+- The fixed `AdminListMessages` uses `idx_user_profiles_user_id` (50 loops). Over 5 warm, alternating runs each, the median was 0.408 ms for the old join and 0.469 ms for the LATERAL.
+
+**Tests first.** All run with `go -C backend test ./internal/chatgroups/ -run … -count=1 -v`.
+- **RED, admin:** `chatgroups_duplicate_profiles_test.go:53: got 2 messages, want 1: a sender with two user_profiles rows must not duplicate their message`.
+- **GREEN, admin:** `-run '^TestAdminListMessages'` passed 4 tests: `ok …/internal/chatgroups 0.713s`.
+- **RED, member** (on a fresh `godonation_upidx_member_26474`): both the `/team` and `/masked` subtests printed `chatgroups_duplicate_profiles_test.go:108: got 2 messages, want 1 …`.
+- **GREEN, both:** `-run '^Test(ListMessagesForMember|AdminListMessages)'` passed all 12 tests, including both subtests: `ok …/internal/chatgroups 0.730s`.
+
+**Format and vet:** `gofmt -l` on the two changed Go files printed nothing, and `go -C backend vet ./...` exited 0.
+
+**Suites on the final tree**, each on a brand-new DB:
+- `go test ./internal/chatgroups/ ./internal/handlers/ -count=1 -p 1 -timeout 45m` on `godonation_upidx_suite2_26474`: `ok …/internal/chatgroups 1.867s`, `ok …/internal/handlers 14.390s`, exit 0.
+- `go test ./... -count=1 -p 1 -timeout 45m -v` on `godonation_upidx_full2_26474`: exit 0, 22 packages `ok`, 995 `--- PASS`, 0 SKIP, 0 FAIL. The last package line was `ok …/internal/users 0.785s`.
+
+**Earlier suite runs,** on the tree before the member-read fix:
+- The targeted run passed on a fresh DB: chatgroups 3.036s, handlers 35.327s.
+- A full run reusing that DB failed two chatgroups tests on leftovers (see Traps).
+- The rerun on a brand-new DB passed: exit 0, 22 packages `ok`, 992 PASS, 0 FAIL.
+
+**Databases created and dropped:** `godonation_upidx_probe_26474`, `godonation_upidx_26474`, `godonation_upidx_suite_26474`, `godonation_upidx_full_26474`, `godonation_upidx_member_26474`, `godonation_upidx_suite2_26474` and `godonation_upidx_full2_26474`. `SELECT count(*) FROM pg_database WHERE datname LIKE 'godonation_upidx%'` printed `0`.
+
+**Merge check** (`git merge-tree --write-tree --name-only`), done after the commits:
+- Against `origin/feat/chat-groups-admin-data` (`891b571`, which contains `a3e9323`, the other commit editing `chatgroups_reads.go`): exit 0, no conflicts.
+- Against `origin/main`, which moved to `bbc6aa2` during this session and has merged that work as `9044379` (#111): exit 0, no conflicts.
+- `origin/main` still ends at migration 122, so 124 does not collide.
+
+**Review.** `ecc:database-reviewer` ran on the first version, which had fixed only `AdminListMessages`.
+- **HIGH:** `ListMessagesForMember` (`chatgroups_reads.go:117`) had the same fan-out, on the member-facing read. It is fixed in `ec83248`, test-first as above.
+- **LOW:** the migration and test comments named the `profile.go` writer `UpdateProfile`, but it is `UpsertProfile` (`profile.go:81`). Fixed.
+- **Verified with no issue:**
+  - the runner and CIC claims;
+  - the index name, and `(user_id)` over `(user_id, id)`;
+  - the LATERAL semantics for 0, 1 and 2+ rows, including the `COALESCE` fallback and pagination;
+  - the RED reasoning;
+  - the test cleanup.
+
+**External actions taken:** none. Nothing was pushed and no PR was opened. The OPOS MCP needed OAuth, which isn't available in this non-interactive session, so #26474 was not moved or commented on.
+
+**What is still open:**
+- All three commits are local, unpushed and not reviewed by a human.
+- **The branch is behind `origin/main`** (`9425007` vs `bbc6aa2`). It merges cleanly, but the suites have not been run on the merged tree.
+- **44 other plain name joins remain.** `grep -rn -E "JOIN user_profiles [a-z]+ +ON [a-z]+\.user_id" backend/internal` still finds 44 in non-test Go code on this branch. Each can return a row twice for a user with two profiles. In chatgroups, only `chatgroups_admin.go:115` (contact blocks) is left. These were out of scope.
+- **UNIQUE on `user_profiles.user_id`** needs a human decision on how to dedupe existing pairs. After that, the three racy writers above can become `INSERT … ON CONFLICT (user_id)`.
+- **Stale comment once 124 merges.** The comment in `chatgroups_connect.go` (on `origin/main` via #111) that says `user_id` "still has no index … an index is the remaining fix" becomes stale.
+
+**Traps:**
+- **Never run the chatgroups tests twice against one DB.** `TestListGroupsForUserUnreadCount` and `TestListConnectRequestsForUserOnlyReturnsOwnRequests` then fail on the earlier run's rows: two groups (`LastAt 18:05:22` and `18:06:41`), and two requests from `RequesterID:700000127`.
+  - `makeTestUser` cleanup deletes only the `users` row (`chatgroups_test.go:1282`).
+  - `raiseUserIDFloor` sets the id sequence to `GREATEST(MAX(id), 700000000)` once per process, so a second run reissues the same ids.
+  - No `chat_group_*` table has an FK to `users`.
+  - Use a brand-new DB for every full run.
+- **The brief's two named queries were not on this branch's base.** `profileNames` and the LATERAL requester lookup came from `feat/chat-groups-admin-data` and reached `origin/main` only in `9044379`. The first version of that branch (`3134085`) used a `DISTINCT ON` derived table.
+- **The local branch `feat/chat-groups-admin-data` was deleted mid-session.** Only `origin/feat/chat-groups-admin-data` remains; use that ref.
+- **CONCURRENTLY looks allowed but deadlocks** (see above). Don't "upgrade" this or a later index migration to CIC without changing the runner.
+- **The worktree guard refuses psql heredocs combined with `&`/`wait`.** Write the SQL to a file, run `psql -f`, and use the tool's background mode for the second session.
+- **`git show <sha> | grep` is refused too.** Use `git show <sha> --output=<file>` or `git grep <rev>`, then read the file.
+
+## 2026-09-15 — OPOS #26467: the retire runbook's freeze list matches the lifecycle race fix (branch `docs/retire-runbook-freeze-list`)
+
+**What was asked:** bring `docs/runbooks/retire-direct-chats.md` in line with PR #103 (`95ea8fb`, OPOS #26431). Pause and resume come off the run-window freeze. End, archive and unarchive stay on it. Delete goes on it, because of the Trash risk tracked as OPOS #26466. Docs only.
+
+**What was actually changed** (branch from `origin/main` `95ea8fb`):
+- One commit, `docs(ops): narrow the retire runbook freeze list after the lifecycle race fix`, touching the runbook and this file only.
+- **Section 3, item 7:** from the snapshot until the post-checks are done, staff must not end, archive, unarchive or delete a direct chat, or restore one from the Trash. Each item says why. Pause and resume are no longer frozen.
+- **Section 4:** new pre-flight query 6 counts direct threads in the Trash, grouped by the copy's lifecycle and archive state. The filter is `trash_items.source_table = 'chat_threads'`, `restored_at IS NULL` and `payload->>'kind' = 'direct'`. A new "What to expect" bullet explains the output.
+- **Section 5:** one sentence. A pause or resume made between the snapshot and the run is still ended by the run, but a restore puts back the snapshot's state.
+- **Section 7:** new post-check 7h lists direct threads deleted to the Trash since `snapshot_taken_at`. A paragraph after the block says what to do with a row.
+- **Section 9:** the Apply race moved to a new "Resolved by OPOS #26431" block. Risk 9 is now the Trash risk (#26466), so the existing "risk 9" cross-references still point at the right item.
+- The header table and the appendix intro each gained one sentence. The appendix one says query 6 and 7h were verified separately, here.
+- **Review fix, commit `d7a219a`** (`docs(ops): apply the review of the retire runbook freeze list`). The agent review of `ca8193a` came back CHANGES NEEDED, with 3 medium findings, 4 low, and none critical or high. All seven were checked against the code and applied:
+  - **Trash restore is admin-level, not Super-Admin only.** The route uses `RequireAdminTier` (`main.go:1176`), which accepts `admin` or `super_admin` (`auth/middleware.go:47-53`). Query 6's bullet and risk 9 now say so.
+  - **Claim and release join the freeze.** Both write `updated_at` with only `WHERE id = $1` (`chat/chat.go:281-282`, `:297-298`), and the Messages page shows them on every thread (`MessagesPage.tsx:316-330`). Staff replies stay off the list, because `handlers/chat.go:537` refuses them on ended threads.
+  - **7h also lists Trash restores** (`restored_at >= snapshot_taken_at`). Its comment now names the other causes of a query 6 difference: a purge, or a delete or restore made between the pre-flight and the snapshot.
+  - **Wording fixes:**
+    - The pause/resume text now covers a pause that lands first, which the run then ends.
+    - The resolved block no longer says delete "stays" frozen.
+    - The 7h follow-up notes that an `ended | t` copy shows in neither 7a nor 7c.
+    - Section 5 says "the section 10 restore", and the header says the freeze was revised.
+  - **Not applied, on instruction:** the review's "Sentences to update when OPOS #26466 lands" list, because #26466 has not merged.
+
+**Evidence read** (file:line at `95ea8fb`):
+- **Pause and resume are refused on an ended thread:** `backend/internal/chatlifecycle/apply.go:121-122` and `:127-128`.
+  - The write only lands while the lifecycle is unchanged (`:194`, `AND lifecycle = $5`). Zero rows means `errLifecycleChanged` (`:198-199`), and Apply reads again (`:91-99`).
+  - `handlers/admin_chat_lifecycle.go:99-101` maps `ErrEnded` to 409.
+  - Tested against the run in `apply_race_test.go`. Line `:293` covers the run committed first, `:294-295` the run's `retireInTx` holding its locks, and `:312-321` assert `ErrEnded` with the run's END kept.
+- **End, archive and unarchive still write:**
+  - an end with a reason on an ended thread rewrites reason, actor and `updated_at` (`apply.go:139-142`, `:191-194`);
+  - archive and unarchive have no condition, and re-stamp or clear `archived_at` and bump `updated_at` (`apply.go:215-236`).
+- **Trash:**
+  - `handlers/admin_chat_lifecycle.go:182-183` copies the thread with a plain `SELECT to_jsonb(t.*)`, with no `FOR UPDATE`. It then inserts into `trash_items` (`:226-228`) and deletes (`:261`).
+  - `handlers/admin_trash.go:255-257` restores by inserting the copy as it is.
+  - Routes: `backend/cmd/server/main.go:1065` (`DELETE /admin/chats/:id`, direct chats) and `:1176` (Trash restore).
+  - The run's selectors read only live `chat_threads` (`retire.go:101`, `:113`).
+  - Schema: `migrations/016_trash.sql` (`trash_items`), and `migrations/119_chat_support_threads.sql:28` (`kind NOT NULL DEFAULT 'direct'`).
+
+**What was run and what it printed** (throwaway DB `gd_retire_freeze_26467`, made with `createdb -h /tmp`):
+- **Migrations:** `TEST_DATABASE_URL=... go test ./internal/chatlifecycle/ -count=1 -run '^TestRetireAllDirectThreadsIsIdempotent$' -v` → `[migrate] done: 121 newly applied, 121 total migration files`, `PASS`, `ok 1.358s`.
+- **Restore probe:** open direct thread 920001 was trashed with `trashChatThread`'s statements, then re-inserted with `Restore`'s `jsonb_populate_record` INSERT. It came back `920001 | direct | open | f`. The same copy without its `kind` key failed: `ERROR: null value in column "kind" of relation "chat_threads" violates not-null constraint`.
+- **Verbatim run of the edited runbook:**
+  - The SQL blocks of sections 2, 4, 5 and 7 were extracted from the file with `awk`. `<actor>` was replaced by 1 (`admin`), and each block ran through `psql -v ON_ERROR_STOP=1`, with sections 4 and 7 under `PGOPTIONS` read-only.
+  - Seed: open direct threads 920002 and 920003.
+  - Pre-flight: `will_end 2 | will_archive 0`; query 6 printed `open | f | 1` (920001, from the probe).
+  - Snapshot: `snapshot_rows 2`. Then 920003 was deleted to the Trash.
+  - Run: `UPDATE 1`, `UPDATE 0`, `COMMIT`.
+  - Post-checks: 7a `0`, 7b `1`, 7c `0 rows`, 7d `0 rows`, 7f `0`, 7g `2026-09-15 17:59:48.655791 | 1`.
+  - 7h returned one row: `2 | 920003 | open | f | 2026-09-15 17:59:35.456159+03 |` (not restored).
+  - Query 6 again: `open | f | 2`, higher by exactly the 7h row.
+- **Cleanup:** `dropdb -h /tmp gd_retire_freeze_26467`, then a `pg_database` count of `gd_retire_freeze_26467%` → `0`.
+- **Whitespace:** `git diff --check` is clean.
+- **Review fix, on a fresh throwaway DB `gd_retire_freeze_26467_b`.** It was made with `createdb`, then migrated with the same test, which printed `[migrate] done: 121 newly applied, 121 total migration files` and `ok 2.303s`.
+  - Direct threads 930001 and 930002 were deleted to the Trash before the snapshot. The snapshot then printed `snapshot_rows 1` (930003).
+  - After the snapshot, 930001 was restored with `Restore`'s INSERT plus `restored_at = NOW()`, and 930003 was deleted.
+  - The edited section 7 block ran verbatim and read-only. 7h returned exactly `1 | 930001 | open | f | 18:14:25.176912 | 18:14:47.151094` and `3 | 930003 | open | f | 18:14:49.451224 |` (dates 2026-09-15, +03). 930002 was not listed.
+  - The other checks: 7a `1` (the restored open thread; no retire run was made), 7b `0`, 7c and 7d `0 rows`, 7f `0`, 7g `0 rows`.
+  - After `dropdb`, a `pg_database` count of `gd_retire_freeze_26467%` returned `0`. `git diff --check` is clean.
+
+**External actions taken:** none. Nothing was pushed and no PR was opened. OPOS was not updated from this session: the `opos` MCP server needed authorization, and this non-interactive session could not run the OAuth flow.
+
+**What is still open:**
+- Both commits, `ca8193a` and `d7a219a`, are local and unpushed. The agent review's findings are applied in `d7a219a`, but no human has reviewed either commit.
+- **OPOS #26466 is not fixed.** The freeze, query 6 and 7h only work around it. The delete race itself (a delete that copies the thread before the run commits) was read in the code, not reproduced.
+- **When OPOS #26466 merges,** apply the review's "Sentences to update when OPOS #26466 lands" list. It is in the review output of agent `af8516112e224c0f3`. The list covers:
+  - the delete and restore freeze items in section 3, item 7;
+  - query 6's bullet, and 7h with its follow-up paragraph;
+  - risk 9;
+  - the section 10 note on `updated_at`;
+  - the header row.
+- **Additions beyond the original brief:** restore from the Trash is frozen alongside delete, section 5 has its pause-and-resume sentence, and the review added claim and release to the freeze. Revert any of them if unwanted.
+- **`origin/main` has moved at least five commits ahead,** with its own `HANDOFF.md` entries at the top. A rebase will conflict in this file only: keep both sets of entries.
+- The production run has still not been performed.
+
+**Traps:**
+- **The worktree isolation guard refuses a Bash command that uses `$(...)`** ("a construct too complex to verify"). Split it into plain separate commands.
+- **GateGuard's destructive-command check fires on any `psql` with INSERT or DELETE,** even against a throwaway DB. State the facts and retry.
+- **A `chat_threads` copy in the Trash from before migration 119 has no `kind` key,** and its restore fails on NOT NULL. That is why query 6 needs only `payload->>'kind' = 'direct'`.
+- **A review agent's `tasks/<id>.output` file is a JSONL transcript of about 1 MB,** too large for Read. The report is the text content of its last line: `sed -n <last>p <file> | jq -r '.message.content[] | select(.type=="text") | .text'`.
+
+---
+
+## 2026-09-15 — OPOS #26443: guests' phones no longer get chat pushes (branch `fix/no-chat-push-to-guest-devices`)
+
+**What was asked:** a guest who is a grandfathered chat participant still received chat push notifications, including the 80-character message preview. #104 (OPOS #26424) had already hidden those rows from the guest's in-app list, so the push was the remaining leak. Fix it test-first in `backend/internal/notify`, and keep out of the chat, chatgroups and trash code that other branches are editing.
+
+**Findings the fix rests on** (read on `origin/main` `9425007`):
+- `activeDevicesFor` (`push.go`) selects every active device of a user and never reads `users.is_guest`.
+- `Send` (`notify.go`) always fires `sendPush` in a goroutine after writing the row. `sendPush` is its only caller.
+- `POST /api/notifications/device` is not guest-gated. By the owner's decision, it stays that way.
+- **There is no FCM interface or fake.** `Notifier.fcm` is a concrete `*fcmClient`, with an `httpClient` field and a cached `accessToken`/`tokenExpires`.
+- `users.is_guest` is `BOOLEAN NOT NULL DEFAULT FALSE` (migration 064).
+- `user_device_tokens.user_id` has an `ON DELETE CASCADE` FK (migration 002).
+- `SendPushDirect` (the admin compose endpoint) sends admin free text with no notification type, so it is out of scope.
+
+**Owner decision implemented:**
+- A guest gets no push for a type in `chatNotificationTypes` (`list.go`, #104's list, reused, not copied).
+- Guests keep every other push: broadcasts, `admin_announcement` and support-ticket updates.
+- Members are unchanged.
+- The in-app row is still written, and device registration is not gated.
+
+**What was actually changed.** There are two local commits on `fix/no-chat-push-to-guest-devices`, based on `origin/main` `9425007`.
+
+**`77d123e` `fix(notify): no chat push notifications to guest devices`**
+- `backend/internal/notify/push.go`:
+  - New unexported `shouldWithholdChatPush(ctx, userID, notificationType) bool`. For a non-chat type it returns false without querying.
+  - For a chat type it runs one `SELECT COALESCE(is_guest, FALSE) FROM users WHERE id = $1` and returns true for a guest, logging `[notify:push] chat push withheld from guest ...`.
+  - On any lookup error, including a missing user row, it fails closed: it returns true and logs `guest lookup ... failed; chat push withheld`.
+  - `sendPush` calls it once per send, not per device, after the existing "no devices" and "FCM not configured" exits, so those paths never pay for the query.
+- `backend/internal/notify/notify.go`: a doc-comment paragraph on `Send` only.
+- `backend/internal/notify/push_guest_test.go` (new, 351 lines) holds the six tests, selected by `-run '^TestGuestPush_'` (`go test -list` shows exactly six):
+  - **The fake:** a real `fcmClient` with a cached token (so no OAuth call) and an `http.Client` whose `RoundTripper` records `fcm.googleapis.com/.../messages:send` requests and refuses anything else.
+  - **Why `sendPush` is called directly:** `Send` runs it in a goroutine that a test cannot wait on without sleeping.
+  - `TestGuestPush_NoChatPushReachesAGuestDevice`: every conversation template to a guest, 0 pushes.
+  - `TestGuestPush_MemberStillGetsChatPushes`: every one to a member, 1 each.
+  - `TestGuestPush_GuestKeepsNonChatPushes`: broadcasts, support and `admin_announcement` to a guest, 1 each.
+  - `TestGuestPush_UpgradedGuestGetsChatPushesAgain`.
+  - `TestGuestPush_SendStillStoresTheChatRow`.
+  - `TestGuestPush_GuestLookupFailsClosedForChatTypesOnly`: a missing row and a closed pool.
+  - **Reused helpers:** `newCategoryTestPool`, `makeNotifyUser`, `catSeq` and `catRunTag` (category_preference_test.go), and `conversationTemplates`/`guestVisibleTemplates` (chat_types_test.go).
+
+**This entry** is the second commit.
+
+**What was run and what it printed.** All commands ran from the worktree, on a fresh DB `godonation_guest_push_26443`, created with `createdb`, passed as `TEST_DATABASE_URL='postgres://localhost:5432/godonation_guest_push_26443?sslmode=disable'`.
+
+**RED, stage 1** (the tests on unchanged `origin/main` code), `go -C backend test ./internal/notify/ -count=1 -p 1 -run '^TestGuestPush' -v -timeout 45m`, exit 1:
+- All 10 `TestGuestPush_NoChatPushReachesAGuestDevice` subtests failed. For example: `a guest's phone got 1 push(es) of type "chat_message": [{Token:test-device-70000-8 Title:Message from Donor Body:preview}]`, and likewise for `chat_request`, `chat_accepted`, `chat_group_message` (masked and team), `marriage_chat_*`, `marriage_meeting_declined` and `staff_chat_message`.
+- The member, non-chat, upgraded-guest and Send-row guard tests already passed. Last line: `FAIL .../internal/notify 10.270s`.
+
+**RED, stage 2** (the fail-closed test, before the helper existed), `-run '^TestGuestPush_GuestLookupFailsClosedForChatTypesOnly$'`, exit 1:
+- `push_guest_test.go:327:9: n.shouldWithholdChatPush undefined`, then `FAIL .../internal/notify [build failed]`.
+
+**GREEN**, the same `-run '^TestGuestPush' -v`, exit 0:
+- All 6 top-level tests PASS, 0 SKIP. That is 10 + 10 + 8 + 2 subtests, plus the upgraded-guest and Send-row tests.
+- The log shows `chat push withheld from guest user=13 type=chat_message`, and the fail-closed lines `... user=2000000000 ... no rows in result set` and `... closed pool`.
+- Last line: `ok .../internal/notify 0.600s`.
+
+**Formatting and vet:** `gofmt -l backend/internal/notify` printed nothing, and `go -C backend vet ./internal/notify/` exited 0.
+
+**The two affected packages**, `go -C backend test ./internal/notify/ ./internal/handlers/ -count=1 -p 1 -timeout 45m`, exit 0:
+- `ok .../internal/notify 0.849s`
+- `ok .../internal/handlers 14.590s`
+
+**Handlers verbose check.** `handlers` took 14.6s, where #26434's entry recorded 636s, so I checked it wasn't skipping. `go -C backend test ./internal/handlers/ -count=1 -p 1 -v` exited 0 with 242 top-level `--- PASS`, 0 `--- SKIP` and 0 `--- FAIL`, ending `ok .../internal/handlers 16.075s`. The handler tests read only `TEST_DATABASE_URL`, so the earlier 636s came from machine load.
+
+**Full suite**, `go -C backend test ./... -count=1 -p 1 -timeout 45m`, exit 0:
+- 22 packages `ok`, 0 FAIL.
+- `handlers` took 35.134s and `chatgroups` 3.986s. The last test line was `ok .../internal/users 2.034s`.
+
+**Cleanup:** `dropdb godonation_guest_push_26443` exited 0, and `SELECT count(*) FROM pg_database WHERE datname = 'godonation_guest_push_26443'` printed `0`.
+
+**Review:** `ecc:code-reviewer` on the diff returned **APPROVE, with 0 findings at any severity**. It confirmed:
+- the gate is evaluated once per `sendPush`, before the device loop;
+- it fails closed on any scan error, including `ErrNoRows`;
+- `SendPushDirect` is correctly out of scope;
+- the tests are deterministic and non-vacuous.
+
+It also mentioned a gofmt issue in `devices.go` that already exists on main. That did not reproduce here: `gofmt -l backend/internal/notify/devices.go` printed nothing, and the file is identical to `origin/main`'s.
+
+**External actions:** none. Nothing was pushed. OPOS #26443 was only read: it was already in Work In Progress, with its timer (log 24687) started by the orchestrating session. It was not moved and no timer was touched.
+
+**Still open:**
+- Both commits are local and unpushed, and there is no PR. The coordinator will merge main, re-verify on a fresh DB and ship.
+- At commit time `origin/main` had moved 4 commits past this branch's base (#106–#109). They are not merged here.
+- The OPOS task needs completion notes and a move to Completed once shipped.
+
+**Traps:**
+- **zsh expands unquoted globs.** `grep --include=*_test.go` failed with `no matches found`; quote the pattern.
+- **The worktree-isolation guard refuses complex Bash.** It rejects a `cd` + variable + `go` compound, and a Monitor loop that uses `$((…))`. Use plain `go -C <abs>/backend …` with the output redirected to a file, then grep that file in a separate call.
+- **Package run times vary about 20x with machine load**, e.g. `handlers` at 636s vs 15–35s. A fast run is not by itself evidence of skipping; check with `-v` and count `--- SKIP`.
+- **The FCM fake must not touch `*testing.T`.** `Send`'s push goroutine can outlive a test, and logging through a finished test panics. That is also why the Send-row test uses a Notifier with no FCM client.
+- **The scratchpad is shared** with other sessions, which use generic names like `commit1.txt` and `full.txt`. Give your files a task-specific name.
+
+---
+
 ## 2026-09-15 — OPOS #26473: notification_tile.dart split under the 500-line limit, no behaviour change (branch `refactor/split-notification-tile`)
 
 **What was asked:** `humanitarian/lib/modules/notifications/widgets/notification_tile.dart` had 704 lines against the 500-line limit. The request was to move the self-contained chat request Accept / Decline widget into its own file, keep #106's guest guard and every comment, and split further if the file was still too long. It was a pure refactor.
