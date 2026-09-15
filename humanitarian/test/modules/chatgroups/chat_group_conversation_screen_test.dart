@@ -4,7 +4,10 @@
 // WHAT IS PINNED
 //   1. Masking: a message shows the label the server resolved and its body —
 //      nothing that could carry a member's identity. (The plan's version of
-//      this test only inspected the model, never the screen.)
+//      this test only inspected the model, never the screen.) The server's own
+//      generated words are drawn in the reader's language: "Donor 1" in
+//      English, "مانح 1" in Arabic (OPOS #26419; the mapping is pinned in
+//      chat_group_sender_label_test.dart).
 //   2. The states a transcript can be in: a skeleton while loading; a designed
 //      empty state (which does not invite a first message into a chat staff
 //      have closed); a failed first load shown as an error with Retry — never
