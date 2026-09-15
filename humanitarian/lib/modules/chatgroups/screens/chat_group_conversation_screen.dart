@@ -11,6 +11,11 @@
 // designed empty state, or the messages; then the footer — the composer, or,
 // once staff have paused or ended the chat, the lifecycle notice in its place.
 //
+// One state overrides all of those: once the server says the group is gone
+// for this member (deleted, archived, or the member removed), the transcript
+// becomes a "no longer available" empty state with no Retry, and the footer
+// is empty. The app bar's back button is the way on.
+//
 // The transcript is a REVERSED list, anchored at its newest message. New
 // messages appear without scrolling anyone, a member reading older messages
 // stays where they are while the 3-second poll runs, and when the keyboard
@@ -141,7 +146,11 @@ class _ChatGroupConversationScreenState
   /// Exactly one transcript state. A load error replaces the transcript only
   /// while nothing has loaded: once messages are on screen they stay readable,
   /// and the background poll keeps trying.
+  ///
+  /// A group that is gone is checked FIRST: it hides whatever had loaded,
+  /// because the member no longer belongs to that conversation.
   Widget _buildTranscript() {
+    if (_ctrl.isUnavailable.value) return _buildUnavailable();
     final messages = _ctrl.messages;
     final error = _ctrl.errorMessage.value;
     if (messages.isEmpty && _ctrl.isLoading.value) {
@@ -184,9 +193,22 @@ class _ChatGroupConversationScreenState
     );
   }
 
+  /// The terminal state for a group that is gone for this member. An empty
+  /// state rather than an error: there is no Retry, because no retry can bring
+  /// the group back, and the copy points the member back to their other chats.
+  Widget _buildUnavailable() {
+    return const AppEmpty(
+      icon: Icons.speaker_notes_off_outlined,
+      title: 'chat_group_unavailable_title',
+      message: 'chat_group_unavailable_message',
+    );
+  }
+
   /// The composer — or, once staff have paused or ended the chat, the notice
-  /// explaining why nothing more can be sent.
+  /// explaining why nothing more can be sent. Nothing at all for a group that
+  /// is gone: there is nobody to send to, and no lifecycle left to explain.
   Widget _buildFooter() {
+    if (_ctrl.isUnavailable.value) return const SizedBox.shrink();
     final lifecycle = _ctrl.lifecycle.value;
     if (ChatLifecycle.isClosed(lifecycle)) {
       return ChatLifecycleNotice(

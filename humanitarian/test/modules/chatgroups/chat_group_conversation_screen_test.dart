@@ -8,7 +8,10 @@
 //   2. The states a transcript can be in: a skeleton while loading; a designed
 //      empty state (which does not invite a first message into a chat staff
 //      have closed); a failed first load shown as an error with Retry — never
-//      as "No messages yet"; and the transcript itself.
+//      as "No messages yet"; a group that is gone for this member (deleted,
+//      archived, or the member removed) shown as "no longer available" with
+//      no Retry and no composer — also when a poll finds out mid-chat, and
+//      in Arabic; and the transcript itself.
 //   3. A paused or ended chat replaces the composer with the lifecycle notice.
 //   4. Sending: a sent message clears the box and appears; a refused one keeps
 //      the member's typed text — including anything typed while it was in
@@ -30,6 +33,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:flutter_application_1/api/api_status_exception.dart';
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
@@ -37,6 +41,7 @@ import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/localization/app_translations.dart';
 import 'package:flutter_application_1/modules/chat/widgets/chat_lifecycle_notice.dart';
 import 'package:flutter_application_1/modules/chatgroups/screens/chat_group_conversation_screen.dart';
+import 'package:flutter_application_1/modules/chatgroups/widgets/chat_group_composer.dart';
 
 import 'fake_chat_groups_api.dart';
 
@@ -186,6 +191,61 @@ void main() {
       await _settle(tester);
 
       expect(find.text('Welcome'), findsOneWidget);
+      await _close(tester);
+    });
+
+    testWidgets('a group that is gone says so, with no Retry and no composer', (
+      tester,
+    ) async {
+      // Staff deleted the group: the server answers 404 however often asked.
+      final api = FakeChatGroupsApi()
+        ..messagesError = const ApiStatusException(404);
+
+      await _open(tester, api);
+
+      expect(
+        find.text('This conversation is no longer available'),
+        findsOneWidget,
+      );
+      expect(
+        find.text(AppTranslations.englishForTest['retry']!),
+        findsNothing,
+        reason: 'retrying a group that no longer exists can never succeed',
+      );
+      expect(find.byType(ChatGroupComposer), findsNothing);
+      expect(find.byType(TextField), findsNothing);
+      await _close(tester);
+    });
+
+    testWidgets('a member removed mid-chat loses the transcript and composer', (
+      tester,
+    ) async {
+      final api = FakeChatGroupsApi()
+        ..transcript = [messageRow(id: 11, senderLabel: 'Support', body: 'Hi')];
+      await _open(tester, api);
+      expect(find.text('Hi'), findsOneWidget);
+
+      api.messagesError = const ApiStatusException(403);
+      await tester.pump(const Duration(seconds: 3)); // one background poll
+      await _settle(tester);
+
+      expect(
+        find.text('This conversation is no longer available'),
+        findsOneWidget,
+      );
+      expect(find.text('Hi'), findsNothing);
+      expect(find.byType(TextField), findsNothing);
+      await _close(tester);
+    });
+
+    testWidgets('a group that is gone says so in Arabic', (tester) async {
+      final api = FakeChatGroupsApi()
+        ..messagesError = const ApiStatusException(403);
+
+      await _open(tester, api, locale: const Locale('ar', 'SA'));
+
+      expect(find.text('هذه المحادثة لم تعد متاحة'), findsOneWidget);
+      expect(find.text(AppTranslations.arabicForTest['retry']!), findsNothing);
       await _close(tester);
     });
   });

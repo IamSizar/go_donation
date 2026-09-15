@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter_application_1/api/api_status_exception.dart';
 import 'package:flutter_application_1/api/auth_session.dart';
 import 'package:flutter_application_1/api/links.dart';
 import 'package:flutter_application_1/api/support_chat_result.dart';
@@ -313,7 +314,7 @@ class ModuleApi {
     final response = await _authedGet(url);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       await _endSessionIfTokenRejected(response.statusCode);
-      throw Exception('Request failed (${response.statusCode})');
+      throw ApiStatusException(response.statusCode);
     }
     final decoded = _decodeJson(response);
     if (decoded is! Map<String, dynamic> || decoded['success'] != true) {

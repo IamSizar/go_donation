@@ -480,6 +480,14 @@ class AppTranslations extends Translations {
     'chat_group_send_closed':
         'Your message was not sent because this conversation is no longer '
         'open.',
+    // A group that is gone for this member: staff deleted or archived it, or
+    // removed the member (the server answers 404 / 403). No "try again" —
+    // retrying cannot bring it back — so the copy points the way back instead.
+    // "our team" matches the lifecycle notices on the same screen.
+    'chat_group_unavailable_title': 'This conversation is no longer available',
+    'chat_group_unavailable_message':
+        'It may have been closed by our team, or you are no longer part of it. '
+        'Go back to see your other conversations.',
     // The send button's accessibility label: the button itself is an icon, so
     // a screen reader has nothing else to announce.
     'Send message': 'Send message',
@@ -3608,6 +3616,9 @@ class AppTranslations extends Translations {
         'المحادثة. المحادثة تحت إشراف فريقنا حفاظاً على سلامتك — يُرجى إبقاء '
         'التواصل هنا، واطلب من فريقنا إن احتجت إلى ترتيب وسيلة تواصل.',
     'chat_group_send_closed': 'لم تُرسَل رسالتك لأن هذه المحادثة لم تعد مفتوحة.',
+    'chat_group_unavailable_title': 'هذه المحادثة لم تعد متاحة',
+    'chat_group_unavailable_message':
+        'ربما أغلقها فريقنا، أو لم تعد مشاركاً فيها. ارجع لرؤية محادثاتك الأخرى.',
     'Send message': 'إرسال الرسالة',
     // OPOS #25284 Phase 5 Task 4 — انظر شرح المفاتيح في كتلة الإنجليزية أعلاه.
     'chat_groups_my_connect_requests': 'طلبات التواصل الخاصة بي',

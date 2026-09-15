@@ -20,6 +20,12 @@
 //   6. The chime: someone else's new message chimes; the opening load and the
 //      member's own message do not.
 //   7. The 3-second poll really runs, and really stops once closed.
+//   8. A group that is gone for this member — staff deleted or archived it
+//      (404) or removed the member (403) — is terminal: `isUnavailable`, no
+//      retryable error, and no more polling, whether the opening load or a
+//      later poll is the one that finds out. Every other failure, another
+//      status or no network alike, stays a retryable error. (Before, a gone
+//      group showed a Retry that could never succeed.)
 import 'dart:async';
 import 'dart:io';
 
@@ -28,6 +34,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:flutter_application_1/api/api_status_exception.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/localization/app_translations.dart';
 import 'package:flutter_application_1/modules/chatgroups/controllers/chat_group_conversation_controller.dart';
@@ -165,6 +172,87 @@ void main() {
             'every listener would otherwise fire every three seconds — review '
             'caught the screen scrolling a reader back to the bottom this way',
       );
+    });
+  });
+
+  group('a group that is gone for this member', () {
+    test('a 404 on the opening load is terminal, not a retryable error', () async {
+      // Staff deleted or archived the group before the member opened it.
+      final api = FakeChatGroupsApi()
+        ..messagesError = const ApiStatusException(404);
+      final ctrl = ChatGroupConversationController(_groupId, api: api);
+
+      await ctrl.fetchMessages();
+
+      expect(ctrl.isUnavailable.value, isTrue);
+      expect(
+        ctrl.errorMessage.value,
+        isNull,
+        reason: 'an error message is what puts a Retry on screen, and no '
+            'retry can bring a deleted group back',
+      );
+      expect(ctrl.isLoading.value, isFalse);
+    });
+
+    test('a 403 during a silent poll of a loaded conversation is terminal too', () async {
+      // Staff removed the member while the conversation was open.
+      final api = FakeChatGroupsApi()..transcript = twoMessages;
+      final ctrl = ChatGroupConversationController(_groupId, api: api);
+      await ctrl.fetchMessages();
+      expect(ctrl.isUnavailable.value, isFalse);
+
+      api.messagesError = const ApiStatusException(403);
+      await ctrl.fetchMessages(silent: true);
+
+      expect(ctrl.isUnavailable.value, isTrue);
+      expect(ctrl.errorMessage.value, isNull);
+    });
+
+    test('a status that does not mean gone stays a retryable error', () async {
+      final api = FakeChatGroupsApi()
+        ..messagesError = const ApiStatusException(500);
+      final ctrl = ChatGroupConversationController(_groupId, api: api);
+
+      await ctrl.fetchMessages();
+
+      expect(ctrl.isUnavailable.value, isFalse);
+      expect(
+        ctrl.errorMessage.value,
+        allOf(
+          contains('Could not load this conversation.'),
+          contains('Please try again'),
+        ),
+      );
+    });
+
+    test('no network stays a retryable error', () async {
+      final api = FakeChatGroupsApi()
+        ..messagesError = const SocketException('no route to host');
+      final ctrl = ChatGroupConversationController(_groupId, api: api);
+
+      await ctrl.fetchMessages();
+
+      expect(ctrl.isUnavailable.value, isFalse);
+      expect(ctrl.errorMessage.value, contains('Check your connection'));
+    });
+
+    testWidgets('polling stops once the group is gone', (tester) async {
+      final api = FakeChatGroupsApi()
+        ..messagesError = const ApiStatusException(404);
+      final ctrl = Get.put(ChatGroupConversationController(_groupId, api: api));
+      await tester.pump();
+      expect(api.messagesCalls, 1, reason: 'opening the conversation loads once');
+      expect(ctrl.isUnavailable.value, isTrue);
+
+      await tester.pump(const Duration(seconds: 9));
+
+      expect(
+        api.messagesCalls,
+        1,
+        reason: 'asking every three seconds about a group that is gone only '
+            'repeats the same refusal',
+      );
+      Get.delete<ChatGroupConversationController>();
     });
   });
 
