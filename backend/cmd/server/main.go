@@ -734,15 +734,20 @@ func main() {
 			// Support conversations contain user messages, so they require a
 			// full account just like every other chat write path.
 			authed.POST("/chats/support", auth.RequireNotGuest(), chatH.SupportThread) // #45 — direct chat with support/tech
-			// OPOS #26354 — guests are refused on the READ routes too, not
-			// only the writes, same as the chat groups (#26347): the server
+			// OPOS #26354 — the READ routes are guarded against guests too,
+			// not only the writes (as the chat groups are, #26347): the server
 			// must not rely on the app hiding these screens from a guest
 			// session. RequireApproved does not keep a guest out (guests are
 			// created approved), and a guest party to a thread — for example
 			// a support thread opened before 9d1cde5 closed that door — could
 			// otherwise list it and read its whole history.
-			authed.GET("/chats", auth.RequireNotGuest(), chatH.List)
-			authed.GET("/chats/", auth.RequireNotGuest(), chatH.List)
+			//   - The LISTS answer a guest with an ordinary empty list, not a
+			//     403: installed apps poll GET /chats on every dashboard
+			//     session and would show guests a dead-end load error. See
+			//     handlers.GuestGetsEmptyList.
+			//   - The MESSAGES read refuses a guest (403 guest_restricted).
+			authed.GET("/chats", handlers.GuestGetsEmptyList(), chatH.List)
+			authed.GET("/chats/", handlers.GuestGetsEmptyList(), chatH.List)
 			authed.POST("/chats/:id/accept", auth.RequireNotGuest(), chatH.Accept)
 			authed.POST("/chats/:id/decline", auth.RequireNotGuest(), chatH.Decline)
 			authed.GET("/chats/:id/messages", auth.RequireNotGuest(), chatH.Messages)
@@ -811,10 +816,11 @@ func main() {
 			authed.POST("/marriage/", auth.RequireNotGuest(), marriageH.Post)
 
 			// Note #35 — staff-mediated marriage chat (identity-masked).
-			// OPOS #26354 — guests are refused on the READ routes too, not
-			// only the writes, for the same reason as the donor chat above.
-			authed.GET("/marriage/chats", auth.RequireNotGuest(), marriageChatH.List)
-			authed.GET("/marriage/chats/", auth.RequireNotGuest(), marriageChatH.List)
+			// OPOS #26354 — the READ routes are guarded against guests too,
+			// exactly as the donor chat above: the lists answer a guest with
+			// an empty list, the messages read refuses one with a 403.
+			authed.GET("/marriage/chats", handlers.GuestGetsEmptyList(), marriageChatH.List)
+			authed.GET("/marriage/chats/", handlers.GuestGetsEmptyList(), marriageChatH.List)
 			authed.POST("/marriage/chats/:id/accept", auth.RequireNotGuest(), marriageChatH.Accept)
 			authed.POST("/marriage/chats/:id/decline", auth.RequireNotGuest(), marriageChatH.Decline)
 			authed.GET("/marriage/chats/:id/messages", auth.RequireNotGuest(), marriageChatH.Messages)

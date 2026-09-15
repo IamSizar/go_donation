@@ -189,9 +189,9 @@ func seedGroupChat(t *testing.T, pool *pgxpool.Pool) chatFixture {
 // what makes these actions staff-only.
 //
 // The participant routes get main.go's full chain: the authed group's
-// RequireBearer + RequireApproved, plus RequireNotGuest on each send and read
-// route, so no test here can pass a guest request that production refuses
-// (OPOS #26357, #26354).
+// RequireBearer + RequireApproved, plus RequireNotGuest on each send and
+// messages route and GuestGetsEmptyList on each list route, so no test here can
+// get a guest a response production would not give (OPOS #26357, #26354).
 //
 // The admin routes get main.go's full admin chain too (OPOS #26367):
 //   - the admin group's RequireAdmin and RequireDeletePassword, so a staff
@@ -219,10 +219,10 @@ func newLifecycleRouter(pool *pgxpool.Pool) *gin.Engine {
 	r := gin.New()
 	participant := r.Group("/api", auth.RequireBearer(tokens), auth.RequireApproved())
 	participant.POST("/chats/:id/messages", auth.RequireNotGuest(), chatH.PostMessage)
-	participant.GET("/chats", auth.RequireNotGuest(), chatH.List)
+	participant.GET("/chats", GuestGetsEmptyList(), chatH.List)
 	participant.GET("/chats/:id/messages", auth.RequireNotGuest(), chatH.Messages)
 	participant.POST("/marriage/chats/:id/messages", auth.RequireNotGuest(), marriageH.PostMessage)
-	participant.GET("/marriage/chats", auth.RequireNotGuest(), marriageH.List)
+	participant.GET("/marriage/chats", GuestGetsEmptyList(), marriageH.List)
 
 	admin := r.Group("/api", auth.RequireAdmin(tokens), RequireDeletePassword(pool))
 	admin.POST("/admin/staff-chats/:id/messages", staffH.PostMessage)
