@@ -101,10 +101,24 @@ Status when this was written:
   - Verified in English, light theme: the masked chat; the composer's focus outline, send enabling and sending; the contact-details refusal (typed text kept); a paused chat with its reason; an ended, empty chat; the Messages-tab sections; My Connect Requests in all its states.
   - The screenshots exist only in the agent scratchpad.
 
-**External actions taken:** OPOS only: tasks, comments, statuses, and manual time logs for #26347 and #26348. Nothing was pushed and no PR was opened today.
+**External actions taken:**
+- **OPOS:** tasks, comments, statuses, and manual time logs for #26347 and #26348.
+- **GitHub**, on the user's instruction "yes push everything and open the PRs and merge":
+  - pushed all six branches and opened #83–#87;
+  - squash-merged them into `main` in this order:
+    1. #83 `81a9478`
+    2. #85 `91aec17`
+    3. #86 `e1e99bf`
+    4. #82 `07759e5`
+    5. #84 `7de63f9`, rebased onto `main` first to drop its copy of #83's commit
+    6. #87 `4ed2c86`, after a HANDOFF.md conflict resolved by keeping both entries
+- **Merged `main` verified at `4ed2c86`**, in a fresh worktree:
+  - full `flutter test` → `+954: All tests passed!` (0 failures)
+  - `flutter analyze` → `6 issues found` (the baseline)
+  - `go build ./...` and `go vet ./...` → ok
 
 **What is still open**
-- **Push and PRs, waiting on the user:** #26347, #26357 (stacked on #26347), #26353, #26348, #26349, plus the new local commits on PR #82.
+- **Merged:** every branch above is on `main` (see External actions taken). Their local worktrees and branches can be removed; the remote branches were kept.
 - **#26353:** a signed release build with the real `key.properties` is still needed before merging.
 - **#26351 decisions:** whether the case-detail "Ask staff to connect me" button should show on every route, and "staff" vs "our team".
 - **Android device pass still to do:** the connect sheet (success and failure), Arabic, dark mode, guest vs donor. The Motorola disconnected twice (usb:2-1) and was not back after a 30-minute wait.
