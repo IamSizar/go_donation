@@ -3,9 +3,11 @@
 //
 // Every reply mirrors the Go handler named beside it: the same status codes,
 // envelope and English error text, so a screen's error path looks the same
-// against the mock as against the real API. Where the backend has a known gap
-// that a later task will close (a duplicate member is a 500, not a 409; see
-// "Gaps and traps" in the Phase 6 plan), the mock reproduces TODAY's backend.
+// against the mock as against the real API. Chat-group refusals follow the
+// final error contract the backend branches bring to main: every chatErr
+// answer carries a `code` (a missing connect request is still an uncoded 404),
+// a repeated person or active label is a 409, and re-adding a removed member
+// reactivates their old row (decision D3).
 //
 // Module map:
 //   mock-api.mjs             HTTP, scenarios, logging, start-up
@@ -17,6 +19,7 @@
 // ids; handle({ state, query, body }, ids) returns { status, body }.
 import {
   CHAT_GROUP_CONTACT_BLOCKS, CHAT_GROUP_DETAILS, CHAT_GROUP_MESSAGES, CHAT_GROUP_SUMMARIES, CONNECT_REQUESTS,
+  GUEST_USER_ID,
 } from '../src/test/fixtures/chatGroups.ts'
 import {
   DONOR_CONTACT_BLOCKS, DONOR_MESSAGES, DONOR_THREADS, MARRIAGE_MESSAGES, MARRIAGE_THREADS,
@@ -88,7 +91,13 @@ function searchUsers({ query }) {
 
 // ─── Chat groups: building and validating (handlers/chat_group_admin.go) ─
 
-const groupNotFound = () => fail(404, 'Group not found.')
+// chatErr's refusals (handlers/chat_group.go), each with its code and text.
+const groupNotFound = () => fail(404, 'Group not found.', { code: 'group_not_found' })
+const invalidInput = () => fail(400, 'Invalid request.', { code: 'group_invalid_input' })
+const requestDecided = () => fail(409, 'This request has already been decided.', { code: 'connect_request_decided' })
+const memberConflict = () => fail(409, 'This person is already a member of this group.', { code: 'group_member_conflict' })
+const labelConflict = () => fail(409, 'Another member of this group already has this label.', { code: 'group_label_conflict' })
+// The one refusal the backend still sends without a code.
 const requestNotFound = () => fail(404, 'Connect request not found.')
 
 /** The noun of an auto-generated masked label per role (chatgroups.go autoLabelName). */
@@ -118,11 +127,44 @@ function groupBodyError(body) {
   return null
 }
 
-/** The store's checks: a known kind, and no user twice (UNIQUE(group_id, user_id) is a 500 today). */
+/**
+ * The refusal for a guest account among `userIds`, which insertMemberRow
+ * makes on every member write and chatErr answers with a code.
+ *
+ * @returns 400 guest_member_not_allowed, or null when no guest is listed.
+ */
+function guestMemberError(userIds) {
+  if (!userIds.includes(GUEST_USER_ID)) return null
+  return fail(400, 'Guest accounts cannot be added to a chat group.', { code: 'guest_member_not_allowed' })
+}
+
+/** Whether typed labels repeat one another, ignoring case, spaces and blanks. */
+function hasRepeatedLabel(labels) {
+  const folded = labels.map((label) => String(label ?? '').trim().toLowerCase()).filter(Boolean)
+  return new Set(folded).size !== folded.length
+}
+
+/**
+ * The store's checks, in order: a known kind, no guest account, no person
+ * twice (UNIQUE(group_id, user_id)), and for a masked group no label twice
+ * (the case-insensitive unique index on active masked labels, migration 120).
+ */
 function groupStoreError(body) {
-  if (body.kind !== 'masked' && body.kind !== 'team') return fail(400, 'Invalid request.')
+  if (body.kind !== 'masked' && body.kind !== 'team') return invalidInput()
   const ids = body.members.map((m) => Number(m.user_id))
-  return new Set(ids).size === ids.length ? null : fail(500, 'Database error.')
+  const guest = guestMemberError(ids)
+  if (guest) return guest
+  if (new Set(ids).size !== ids.length) return memberConflict()
+  if (body.kind === 'masked' && hasRepeatedLabel(body.members.map((m) => m.label))) return labelConflict()
+  return null
+}
+
+/** Whether an ACTIVE masked member other than `exceptUserId` has `label`, ignoring case. */
+function labelTaken(group, label, exceptUserId) {
+  const folded = label.trim().toLowerCase()
+  return group.members.some(
+    (m) => !m.removed_at && m.masked && m.user_id !== exceptUserId && m.masked_label.trim().toLowerCase() === folded,
+  )
 }
 
 /**
@@ -174,10 +216,10 @@ function approveConnectRequest({ state, body }, [id]) {
   if (shapeError) return shapeError
   const request = state.connectRequests.find((r) => r.id === id)
   if (!request) return requestNotFound()
-  if (request.status !== 'pending') return fail(409, 'This request has already been decided.')
-  if (body.kind !== 'masked' && body.kind !== 'team') return fail(400, 'Invalid request.')
+  if (request.status !== 'pending') return requestDecided()
+  if (body.kind !== 'masked' && body.kind !== 'team') return invalidInput()
   const includesRequester = body.members.some((m) => Number(m.user_id) === request.requester_user_id)
-  if (!includesRequester) return fail(400, 'Invalid request.')
+  if (!includesRequester) return invalidInput()
   const storeError = groupStoreError(body)
   if (storeError) return storeError
   const groupId = insertGroup(state, body)
@@ -190,20 +232,33 @@ function declineConnectRequest({ state, body }, [id]) {
   if (!reason) return fail(400, 'A decline reason is required.')
   const request = state.connectRequests.find((r) => r.id === id)
   if (!request) return requestNotFound()
-  if (request.status !== 'pending') return fail(409, 'This request has already been decided.')
+  if (request.status !== 'pending') return requestDecided()
   Object.assign(request, { status: 'declined', decline_reason: reason, decided_by_staff_id: STAFF_ID })
   return ok()
 }
 
+/**
+ * GET …/:id (#111): the roster with each member's `full_name`, and the
+ * lifecycle, lifecycle_reason and is_archived fields that mergeChatLifecycle
+ * puts beside `group`. The sensitive-data 403 is not mocked: every mock caller
+ * is a super_admin.
+ */
 function getGroup({ state }, [id]) {
   const group = findGroup(state, id)
-  return group ? ok({ group }) : groupNotFound()
+  if (!group) return groupNotFound()
+  const { lifecycle, lifecycle_reason, is_archived } = lifecycleRecord(state, 'group', id)
+  const members = group.members.map((m) => ({ ...m, full_name: fullNameOf(m.user_id) }))
+  return ok({ group: { ...group, members }, lifecycle, lifecycle_reason, is_archived })
+}
+
+/** A user's profile name from the users fixture, or null (GroupMember.FullName is *string). */
+function fullNameOf(userId) {
+  return ADMIN_USERS.find((u) => u.user_id === userId)?.profile?.full_name ?? null
 }
 
 /**
- * POST …/:id/members. UNIQUE(group_id, user_id) also covers a REMOVED row, so
- * re-adding anyone who was ever a member is a 500 today (plan decision D3 will
- * make it a reactivation). A blank masked label continues the role's
+ * POST …/:id/members. Someone who was ever a member is re-added through
+ * {@link reactivate}. A new member's blank masked label continues the role's
  * sequence: members ever added under that role, plus one (AddMember).
  */
 function addMember({ state, body }, [id]) {
@@ -211,10 +266,28 @@ function addMember({ state, body }, [id]) {
   if (!Number.isInteger(userId) || userId <= 0) return fail(400, 'user_id is required.')
   const group = findGroup(state, id)
   if (!group) return groupNotFound()
-  if (group.members.some((m) => m.user_id === userId)) return fail(500, 'Database error.')
+  const guest = guestMemberError([userId])
+  if (guest) return guest
+  const existing = group.members.find((m) => m.user_id === userId)
+  if (existing) return reactivate(group, existing)
   const role = String(body.role_in_group ?? '')
   const n = group.members.filter((m) => m.role_in_group === role).length + 1
-  group.members.push(memberRow(state, { kind: group.kind, input: body, n }))
+  const row = memberRow(state, { kind: group.kind, input: body, n })
+  if (row.masked && labelTaken(group, row.masked_label)) return labelConflict()
+  group.members.push(row)
+  return ok()
+}
+
+/**
+ * Re-adding someone who was ever a member (decision D3). An active member is a
+ * 409. A removed one gets the same row back with their old role and label;
+ * the request's role and label are ignored, and a 409 answers when that old
+ * label now belongs to another active member.
+ */
+function reactivate(group, member) {
+  if (!member.removed_at) return memberConflict()
+  if (member.masked && labelTaken(group, member.masked_label, member.user_id)) return labelConflict()
+  delete member.removed_at
   return ok()
 }
 
@@ -228,6 +301,7 @@ function removeMember({ state }, [id, userId]) {
 
 /** GET …/:id/messages — after_id, and a limit outside 1-100 means 50 (chatgroups_reads.go). */
 function listGroupMessages({ state, query }, [id]) {
+  if (!findGroup(state, id)) return groupNotFound()
   const afterId = positiveInt(query, 'after_id', 0)
   const requested = Number(query.get('limit'))
   const limit = Number.isInteger(requested) && requested >= 1 && requested <= 100 ? requested : 50
@@ -283,7 +357,8 @@ export const ROUTES = [
   route('DELETE', `chat-groups/${ID}/members/${ID}`, removeMember),
   route('GET', `chat-groups/${ID}/messages`, listGroupMessages),
   route('POST', `chat-groups/${ID}/messages`, postGroupMessage),
-  route('GET', `chat-groups/${ID}/contact-blocks`, ({ state }, [id]) => ok({ items: state.groupBlocks[id] ?? [] })),
+  route('GET', `chat-groups/${ID}/contact-blocks`, ({ state }, [id]) =>
+    findGroup(state, id) ? ok({ items: state.groupBlocks[id] ?? [] }) : groupNotFound()),
   route('POST', `chat-groups/${ID}/lifecycle`, applyLifecycle('group')),
 
   // Donor ↔ owner and support chats.
