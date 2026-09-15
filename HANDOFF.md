@@ -70,8 +70,11 @@ The user asked for speed and pre-approved pushing and opening the PR. They also 
 - "staff" vs "our team" wording;
 - the case button appears on every route into case detail, which needs a product decision.
 
-**External actions taken:** OPOS only so far.
-- Created #26331 (review fixes) and moved it to WIP, which auto-stopped another session's timer on #26330 (office 1555).
+**External actions taken:**
+- **GitHub:** pushed `feat/chat-groups-phase5-ui` (`5575061..604931e`; the branch now tracks origin) and opened PR #82 against `main`: https://github.com/IamSizar/go_donation/pull/82. Screenshots are not attached to the PR yet.
+- **OPOS, #26331:** Completed, with completion notes.
+- **OPOS, #26047 and #25608:** comments posted. Their statuses could NOT be changed: while account 6 is clocked out, OPOS rejects status changes with `PRESENCE_NOT_WORKING`, although comments still go through.
+- **OPOS:** Created #26331 (review fixes) and moved it to WIP, which auto-stopped another session's timer on #26330 (office 1555).
 - Posted progress comments on #26331.
 
 **What is still open:**
