@@ -1,14 +1,23 @@
-// Command retire-direct-chats is a one-off ops script for OPOS #25284 Phase 4:
-// ends and archives every existing open kind='direct' chat_threads row, now
-// that new direct-chat creation is refused server-side (see
-// internal/chat.Store.RequestThread). Safe to re-run — already-ended threads
-// are skipped. Usage:
+// Command retire-direct-chats is a one-off ops script for OPOS #25284 Phase 4.
+// It retires every existing kind='direct' chat_threads row, now that new
+// direct-chat creation is refused server-side (see
+// internal/chat.Store.RequestThread):
+//
+//   - open and paused direct threads are ended and archived, keeping any
+//     archive stamp staff had already set;
+//   - ended direct threads that participants can still see are archived.
+//
+// The whole run is one transaction (a failure changes nothing), the actor
+// must be dashboard staff, and a re-run changes nothing. Hardened by OPOS
+// #26412; the operator's runbook is docs/runbooks/retire-direct-chats.md.
+// Usage:
 //
 //	go run ./cmd/retire-direct-chats -actor=<staff_user_id>
 package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -20,7 +29,7 @@ import (
 )
 
 func main() {
-	actor := flag.Int64("actor", 0, "staff/admin user id to attribute this bulk action to (required)")
+	actor := flag.Int64("actor", 0, "dashboard staff user id to attribute this bulk action to (required)")
 	flag.Parse()
 	if *actor <= 0 {
 		log.Fatal("retire-direct-chats: -actor=<staff_user_id> is required")
@@ -39,9 +48,18 @@ func main() {
 	}
 	defer pool.Close()
 
-	count, err := chatlifecycle.RetireAllDirectThreads(context.Background(), pool, *actor)
+	res, err := chatlifecycle.RetireAllDirectThreads(context.Background(), pool, *actor)
+	// A refusal gets its own wording: it is an operator mistake with an
+	// obvious fix, not a failure to investigate. log.Fatal exits with 1.
+	var refused *chatlifecycle.ActorNotStaffError
+	if errors.As(err, &refused) {
+		log.Fatalf("retire-direct-chats: refused, nothing was changed: %v", refused)
+	}
 	if err != nil {
 		log.Fatalf("retire-direct-chats: %v", err)
 	}
-	fmt.Printf("retire-direct-chats: ended+archived %d thread(s)\n", count)
+	// The first line keeps the original format; the second breaks the total
+	// down so it can be checked against the runbook's pre-flight counts.
+	fmt.Printf("retire-direct-chats: ended+archived %d thread(s)\n", res.Total())
+	fmt.Printf("retire-direct-chats: ended %d open/paused thread(s), archived %d already-ended thread(s)\n", res.Ended, res.Archived)
 }
