@@ -16,7 +16,11 @@
 //   2a. An answer that lands during the sheet's exit animation — state still
 //      mounted, route no longer current — never pops the screen underneath.
 //   3. A server failure is told in the member's language, never as the raw
-//      exception; the typed text survives and the button works again.
+//      exception; the typed text survives and the button works again. A
+//      failure that lands after the member closed the sheet — or during its
+//      exit animation — is still told, by a toast, and pops nothing
+//      (OPOS #26345): it used to be only logged, leaving the member to believe
+//      the request had been sent.
 //   4. A second tap while the request is in flight sends nothing more.
 //   5. Rule 5.6: dragging dismisses the keyboard, and the keyboard never covers
 //      the field or the button.
@@ -309,6 +313,74 @@ void main() {
     expect(find.text(_rootText), findsNothing);
     // The sheet was gone before the answer, so the toast is the confirmation.
     expect(find.text(en['connect_request_sent']!), findsOneWidget);
+    await _close(tester);
+  });
+
+  testWidgets('a request that fails after the sheet was closed is still told', (
+    tester,
+  ) async {
+    final gate = Completer<void>();
+    final api = FakeChatGroupsApi()
+      ..submitGate = gate
+      ..submitError = Exception('pq: connection reset by peer');
+    await _openSheet(tester, api);
+
+    await tester.enterText(find.byType(TextField), 'Please connect me.');
+    await _tapSend(tester);
+    await tester.pump();
+
+    // The member closes the sheet while it is still sending; then it fails.
+    await tester.tapAt(const Offset(AppSpace.lg, AppSpace.lg));
+    await _settle(tester);
+    expect(find.byType(ConnectRequestSheet), findsNothing);
+
+    gate.complete();
+    await _settle(tester);
+
+    expect(
+      find.textContaining(en['error_connect_request_submit_failed']!),
+      findsOneWidget,
+      reason: 'the member must not be left believing the request was sent',
+    );
+    expect(find.textContaining('pq:'), findsNothing);
+    expect(find.text(en['connect_request_sent']!), findsNothing);
+    await _close(tester);
+  });
+
+  testWidgets('a failure landing as the sheet closes is told, and pops '
+      'nothing', (tester) async {
+    final gate = Completer<void>();
+    final api = FakeChatGroupsApi()
+      ..submitGate = gate
+      ..submitError = Exception('pq: connection reset by peer');
+    await _openSheet(tester, api);
+
+    await tester.enterText(find.byType(TextField), 'Please connect me.');
+    await _tapSend(tester);
+    await tester.pump();
+
+    // Closed while sending, and the failure lands during the exit animation —
+    // while the sheet's state is still mounted but no longer the top route.
+    await tester.tapAt(const Offset(AppSpace.lg, AppSpace.lg));
+    await tester.pump();
+    await tester.pump(_insideExitAnimation);
+    expect(find.byType(ConnectRequestSheet), findsOneWidget);
+
+    gate.complete();
+    await _settle(tester);
+
+    expect(find.byType(ConnectRequestSheet), findsNothing);
+    expect(
+      find.byType(ConnectRequestButton),
+      findsOneWidget,
+      reason: 'the host screen under the sheet was popped',
+    );
+    expect(find.text(_rootText), findsNothing);
+    expect(
+      find.textContaining(en['error_connect_request_submit_failed']!),
+      findsOneWidget,
+      reason: 'the failure must reach the screen the member is back on',
+    );
     await _close(tester);
   });
 

@@ -99,6 +99,7 @@ Future<void> showConnectRequestSheet(
       contextId: contextId,
       api: api,
       onSentAfterDismiss: () => _confirmSent(messenger),
+      onFailedAfterDismiss: (message) => _tellFailed(messenger, message),
     ),
   );
 }
@@ -108,6 +109,14 @@ Future<void> showConnectRequestSheet(
 void _confirmSent(ScaffoldMessengerState? messenger) {
   if (messenger == null || !messenger.mounted) return;
   messenger.showSnackBar(SnackBar(content: Text('connect_request_sent'.tr)));
+}
+
+/// Tells a member who closed the sheet early that their request did NOT go
+/// through, with the already-localized [message], on the screen underneath —
+/// left untold, they would reasonably believe it was sent (OPOS #26345).
+void _tellFailed(ScaffoldMessengerState? messenger, String message) {
+  if (messenger == null || !messenger.mounted) return;
+  messenger.showSnackBar(SnackBar(content: Text(message)));
 }
 
 /// The sheet's content: what happens next, the message field, and the button
@@ -121,6 +130,7 @@ class ConnectRequestSheet extends StatefulWidget {
     required this.contextId,
     required this.api,
     required this.onSentAfterDismiss,
+    required this.onFailedAfterDismiss,
   }) : assert(
          contextType == kConnectContextDonation ||
              contextType == kConnectContextCase,
@@ -140,6 +150,11 @@ class ConnectRequestSheet extends StatefulWidget {
   /// already dismissed. It was still sent, and with no sheet left to show the
   /// success view in, the caller has to confirm it instead.
   final VoidCallback onSentAfterDismiss;
+
+  /// Called with the localized failure sentence when a request fails after
+  /// the member dismissed its sheet: no sheet is left to show the error on, so
+  /// the caller has to tell them instead.
+  final ValueChanged<String> onFailedAfterDismiss;
 
   @override
   State<ConnectRequestSheet> createState() => _ConnectRequestSheetState();
@@ -203,6 +218,7 @@ class _ConnectRequestSheetState extends State<ConnectRequestSheet> {
     // Read before the await: the sheet may be dismissed while in flight.
     final api = widget.api;
     final onSentAfterDismiss = widget.onSentAfterDismiss;
+    final onFailedAfterDismiss = widget.onFailedAfterDismiss;
     FocusScope.of(context).unfocus();
     setState(() {
       _isSending = true;
@@ -215,7 +231,7 @@ class _ConnectRequestSheetState extends State<ConnectRequestSheet> {
         message: _message.text.trim(),
       );
     } catch (e) {
-      _showFailure(e);
+      _showFailure(e, onFailedAfterDismiss);
       return;
     }
     AppHaptics.success();
@@ -242,20 +258,28 @@ class _ConnectRequestSheetState extends State<ConnectRequestSheet> {
     if (_isCurrentRoute) Navigator.of(context).pop();
   }
 
-  /// Logs [error] for support and shows the member a localized sentence
-  /// instead. The typed text stays, and the button is usable again.
-  void _showFailure(Object error) {
+  /// Logs [error] for support and tells the member in a localized sentence
+  /// instead: on the sheet, where the typed text stays and the button works
+  /// again — or, when the member already dismissed the sheet, through
+  /// [onFailedAfterDismiss] on the screen underneath.
+  void _showFailure(Object error, ValueChanged<String> onFailedAfterDismiss) {
     debugPrint(
       '[chat-groups] connect request for ${widget.contextType} '
       '${widget.contextId} failed: $error',
     );
-    // Dismissed while in flight: there is no sheet left to explain it on, and
-    // no confirmation was shown, so the member is not misled.
-    if (!mounted) return;
+    final message =
+        failureMessage(error, 'error_connect_request_submit_failed');
     AppHaptics.error();
+    // Dismissed while in flight — gone, or still mounted for its ~200 ms exit
+    // animation: an error set on the sheet would never be read, and staying
+    // silent would leave the member believing the request was sent.
+    if (!_isCurrentRoute) {
+      onFailedAfterDismiss(message);
+      return;
+    }
     setState(() {
       _isSending = false;
-      _error = failureMessage(error, 'error_connect_request_submit_failed');
+      _error = message;
     });
   }
 
