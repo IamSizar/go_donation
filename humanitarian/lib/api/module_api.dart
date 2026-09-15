@@ -1156,10 +1156,16 @@ class ModuleApi {
   /// — and it searches every published post, not the 50 the feed is capped to.
   ///
   /// [type] narrows the feed to one or more `post_type` values, passed as the
-  /// comma-separated `?type=` the API accepts ("activity,news"). The Events hub
-  /// uses it to show only the activity posts and news the admin panel
-  /// publishes. Omit it for the general feed, which the server then serves
-  /// minus `marriage` posts.
+  /// comma-separated `?type=` the API accepts ("activity,news"). Omit it for
+  /// the general feed, which the server then serves minus `marriage` posts.
+  ///
+  /// Filtered feeds do not come through here: `MediaPostsController(postType:)`
+  /// has passed its filter to [mediaPostsPage] since PR #5 (a6c74d5). The
+  /// Events hub's news feed was one such controller until PR #76 (commit
+  /// 33d6891, OPOS #25858) removed it. The call in
+  /// proposal_services_section.dart asks for the general feed.
+  /// `test/api/media_posts_type_filter_test.dart` pins the query this method
+  /// builds, not the one [mediaPostsPage] builds.
   Future<List<Map<String, dynamic>>> mediaPosts({
     int? userId,
     String? q,

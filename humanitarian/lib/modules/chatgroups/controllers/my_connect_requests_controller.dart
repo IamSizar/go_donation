@@ -1,5 +1,5 @@
 // MyConnectRequestsController — owns the signed-in member's own history of
-// "ask staff to connect me" requests (OPOS #25284 Phase 5), shown on the
+// "ask our team to connect me" requests (OPOS #25284 Phase 5), shown on the
 // My Connect Requests screen.
 //
 // No polling: this is a pull-to-refresh history, not a live conversation. An

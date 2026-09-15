@@ -56,14 +56,18 @@ func chatGroupReadRoutes(listRouter, connectRouter *gin.Engine, groupID int64) [
 // TestChatGroupReads_RefuseGuest makes the guest an actual member of the
 // group — the worst case. If the gate were missing, the messages route would
 // hand a guest the conversation, because membership is the only other check.
+//
+// The store has refused to add a guest since OPOS #26355, so the membership
+// row is written directly (insertLegacyGuestMembership), standing in for one
+// created before that fix.
 func TestChatGroupReads_RefuseGuest(t *testing.T) {
 	pool := newChatGroupPool(t)
 	listRouter, _ := newChatGroupRouter(pool)
 	connectRouter, _ := newConnectRequestRouter(pool)
 	staff := makeChatGroupUser(t, pool, "Staff")
 	guest := makeGuestUser(t, pool)
-	groupID := makeChatGroup(t, pool, staff, chatgroups.KindMasked,
-		[]chatgroups.MemberInput{{UserID: guest, RoleInGroup: "donor"}})
+	groupID := makeChatGroup(t, pool, staff, chatgroups.KindMasked, nil)
+	insertLegacyGuestMembership(t, pool, groupID, guest, staff)
 	token := tokenForChatGroupUser(t, pool, guest)
 
 	for _, route := range chatGroupReadRoutes(listRouter, connectRouter, groupID) {
