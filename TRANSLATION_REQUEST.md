@@ -32,7 +32,7 @@ made on this project once and had to be reverted.
 Every key below currently renders its **English** string to a Kurdish user.
 That is deliberate and safe. It is not a crash, and it is not Arabic text.
 
-## Count: 577 keys need Kurdish
+## Count: 578 keys need Kurdish
 
 | Client | Sorani (ckb) | Badini (kmr) | Distinct keys |
 |---|---|---|---|
@@ -63,7 +63,8 @@ That is deliberate and safe. It is not a crash, and it is not Arabic text.
 | App — OPOS #25284 Phase 5 staff-mediated group chats (new) | 38 | 38 | 38 |
 | App — OPOS #26419 chat group sender labels (new) | 6 | 6 | 6 |
 | App — OPOS #26429 group chat message notification type (new) | 1 | 1 | 1 |
-| **Total distinct words to translate** | | | **577** |
+| App — OPOS #26483 unnamed chat thread party (new) | 1 | 1 | 1 |
+| **Total distinct words to translate** | | | **578** |
 
 > **The dashboard figure above is a floor, not a ceiling — and it is the one
 > number in this file that was never fully measured.** Counting key paths in
@@ -237,6 +238,17 @@ type is the other half of #26429 and is not part of this change.
 | Key | English | Arabic | Needs |
 |---|---|---|---|
 | `chat_group_message` | Group chat message | رسالة محادثة جماعية | ckb + kmr |
+
+## chat · OPOS #26483 unnamed chat thread party  (1 key)
+
+Added 2026-09-15. The Messages list names the other party of a 1:1 thread
+the server sent no name for. The app used to write the English "User #57"
+into every language; it now uses this key, keeping the user id so two unnamed
+threads stay distinguishable. `@id` is the number and must stay in the text.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `chat_thread_other_user_id` | User #@id | مستخدم #@id | ckb + kmr |
 
 ## notifications · K7 alert categories  (8 keys)
 

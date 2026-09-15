@@ -5,7 +5,7 @@
 | Script | `backend/cmd/retire-direct-chats/main.go` |
 | Logic | `chatlifecycle.RetireAllDirectThreads` in `backend/internal/chatlifecycle/retire.go` |
 | Feature | OPOS #25284 Phase 4 (PR #79) retired the donor ↔ campaign-owner direct chat |
-| Runbook | OPOS #26402. Updated for the OPOS #26412 hardening, and re-verified against a local throwaway database on 2026-09-15 (see the appendix). OPOS #26467 revised the freeze after OPOS #26431 (PR #103): pause and resume off; claim, release, delete and Trash restore on. It also added the Trash checks |
+| Runbook | OPOS #26402. Updated for the OPOS #26412 hardening, and re-verified against a local throwaway database on 2026-09-15 (see the appendix). OPOS #26467 revised the freeze after OPOS #26431 (PR #103): pause and resume off; claim, release, delete and Trash restore on. It also added the Trash checks. Updated for OPOS #26466: Trash delete and restore come off the freeze, and a Trash-restored direct chat comes back ended and archived |
 | Production run | **Not performed yet.** This is a one-off ops step that needs an explicit go-ahead. |
 
 A coding session must never run this against production on its own initiative.
@@ -123,9 +123,12 @@ SELECT u.id, p.full_name, u.staff_tier, u.active, u.account_status
 
 7. **Pick a quiet window, and freeze these dashboard chat actions for it.**
    - Anyone who has a direct chat open during the run loses it mid-conversation (see section 8).
-   - From the snapshot until the post-checks are done, staff must not **end**, **archive**, **unarchive**, **claim**, **release** or **delete** a direct chat, and must not **restore** a direct chat from the Trash.
+   - From the snapshot until the post-checks are done, staff must not **end**, **archive**, **unarchive**, **claim** or **release** a direct chat.
      - **End, archive, unarchive, claim and release** still leave a valid thread if they race the run, but they write the row again. An end with a reason replaces the run's reason and actor, archive re-stamps `archived_at`, unarchive clears it, and claim or release bumps `updated_at`. That shifts post-checks 7b, 7c, 7d and 7g, and the restore (section 10) skips those rows, because their `updated_at` is no longer `run_ts`.
-     - **Delete and restore** go through the Trash, which the run can't reach. A direct chat deleted during the window can be stored, and later restored, in its state from before the run (risk 9).
+     - **Delete and Trash restore no longer need freezing** (OPOS #26466).
+     - A delete reads the thread `FOR UPDATE` (`backend/internal/handlers/admin_chat_lifecycle.go:207`) and snapshots each child table from its own `DELETE … RETURNING *` (`:247-248`). A delete that reaches a thread while the run holds it waits for the commit, and stores the ended and archived row.
+     - A restore re-inserts the copy (`admin_trash.go:273`) and then, in the same transaction, `closeRestoredDirectChat` (`admin_trash.go:296`, `admin_chat_lifecycle.go:369`) applies the run's own two statements to that one thread (`chatlifecycle/retire_one.go:31`, `:35`, `:53`). A restored direct chat is never open, whatever its copy held.
+     - They still change counts: a delete or restore in the window shows up in post-checks 7e and 7h. Record each one.
    - **Pause and resume no longer need freezing.** Since PR #103 (`95ea8fb`, OPOS #26431), a pause or resume can't leave a direct thread un-ended. One that reaches the thread before the run is ended by the run (see section 5 for the restore). One that loses the race, or comes after the run, is refused with 409.
 
 ---
@@ -181,7 +184,8 @@ SELECT count(*) AS messages_in_retired_threads
 --    supervisor, employee; active = 1; account_status = 'active').
 SELECT id, staff_tier, active, account_status FROM users WHERE id = <actor>;
 
--- 6. Direct threads already in the Trash, which the run can't reach (risk 9).
+-- 6. Direct threads already in the Trash. The run doesn't touch them; a restore
+--    closes each one (section 9, resolved by OPOS #26466).
 --    Save this output for post-check 7h.
 SELECT payload->>'lifecycle' AS lifecycle,
        (payload->>'archived_at') IS NOT NULL AS archived,
@@ -201,7 +205,7 @@ ROLLBACK;
 - Query 3 has no `direct | open`, `direct | paused` or `direct | ended | f` rows, because those are exactly what the run changes.
 - Migration 119 says no support thread existed in production when it was written, so `support` rows may be few or none.
 - If query 5's `staff_tier` is not a staff tier, the script will refuse. Pick another actor now.
-- Query 6 is not part of N. A restore by an `admin` or `super_admin` puts each of those threads back exactly as it was deleted. Only `ended | t` rows are safe to restore. Any other row comes back as a direct chat its participants can see, or one that works again once staff resume or unarchive it (risk 9). Threads deleted before migration 119 have no `kind` in their copy and are not counted: their restore fails on the `NOT NULL` `kind` column.
+- Query 6 is not part of N. The run leaves those copies as they are. A restore by an `admin` or `super_admin` brings any of them back ended and archived, with the run's reason, the restoring staff member as `lifecycle_changed_by` and `archived_by`, any existing end or archive stamp kept, and its messages intact (`admin_chat_lifecycle.go:369`, `retire.go:97-118`). So every row is safe to restore, and the Trash is not a way to reopen a retired chat. Threads deleted before migration 119 have no `kind` in their copy and are not counted: their restore fails on the `NOT NULL` `kind` column.
 - If N is 0, stop. There is nothing to do.
 
 ---
@@ -319,9 +323,9 @@ SELECT t.updated_at AS run_ts, count(*) AS threads
  ORDER BY 2 DESC;
 
 -- 7h. Direct threads deleted to, or restored from, the Trash since the
---     snapshot (expect 0 rows). Needs the snapshot table. A row here is a
---     delete or restore the freeze should have stopped, and a deleted copy can
---     hold the thread's state from before the run (risk 9). Re-run pre-flight
+--     snapshot. Needs the snapshot table. Delete and restore are not frozen
+--     (section 3, item 7), so a row here is an action to record, not a failure.
+--     A restored direct thread comes back ended and archived. Re-run pre-flight
 --     query 6 too. Apart from these rows it should match its saved output. Any
 --     other difference is a purge, or a delete or restore made between the
 --     pre-flight and the snapshot. Check those with 7a and 7c.
@@ -341,7 +345,7 @@ ROLLBACK;
 
 **If 7a or 7c returns anything,** the run did not commit, or a direct thread changed afterwards. Re-run the script: it selects exactly those rows.
 
-**If 7h returns a row,** leave that thread in the Trash unless its copy is `ended | t`. If `restored_at` is set, the thread is live again. Unless its copy is `ended | t`, 7a or 7c shows it, and a re-run retires it.
+**If 7h returns a row,** record it for the section 10 restore: a thread in the snapshot that is still in the Trash can't be restored from the snapshot, and one that was deleted and restored may be skipped (section 10). If `restored_at` is set, the thread is live again but ended and archived, so 7a and 7c still show nothing for it.
 
 **Optional:** re-run the script with the same actor. It must print `ended+archived 0 thread(s)` and `ended 0 open/paused thread(s), archived 0 already-ended thread(s)`.
 
@@ -377,7 +381,10 @@ ROLLBACK;
 - the actor was not validated as staff.
 
 **Resolved by OPOS #26431 (PR #103, `95ea8fb`), no longer a risk:**
-- a dashboard pause or resume that raced the run could write `paused` or `open` over its `ended`, leaving the thread archived but resumable. `chatlifecycle.Apply` now writes only while the thread's lifecycle is still the one it read. A pause or resume that loses the race reads again and is refused with 409, and the thread stays ended. This is tested against the run's own statements, both when they commit first and while they hold their locks. One that reaches the row first lands, and the run then ends that thread, because it selects paused threads too. End, archive and unarchive stay frozen, and claim, release, delete and Trash restore are now frozen too, for other reasons (section 3, item 7).
+- a dashboard pause or resume that raced the run could write `paused` or `open` over its `ended`, leaving the thread archived but resumable. `chatlifecycle.Apply` now writes only while the thread's lifecycle is still the one it read. A pause or resume that loses the race reads again and is refused with 409, and the thread stays ended. This is tested against the run's own statements, both when they commit first and while they hold their locks. One that reaches the row first lands, and the run then ends that thread, because it selects paused threads too. End, archive, unarchive, claim and release stay frozen, for other reasons (section 3, item 7).
+
+**Resolved by OPOS #26466, no longer a risk:**
+- a direct chat in the Trash could come back as a working chat. A Trash restore re-inserted the copy as it was, and a delete copied the thread with a plain `SELECT`, so a delete racing the run could store the state from before it. The delete now locks the thread `FOR UPDATE` and snapshots children from `DELETE … RETURNING *` (`admin_chat_lifecycle.go:207`, `:247-248`). A restore of a direct chat closes it in the same transaction with the run's reason and the restoring staff member as actor, keeping existing stamps (`admin_trash.go:296`, `admin_chat_lifecycle.go:369`, `chatlifecycle/retire_one.go:53`). Other chat kinds restore unchanged. Direct chats already in the Trash stay as they are until someone restores them.
 
 **Still open:**
 
@@ -392,12 +399,7 @@ ROLLBACK;
 6. **A lost connection at commit is ambiguous.** Section 6 says how the post-checks settle it.
 7. **No audit trail beyond the columns.** Record the run in OPOS and `HANDOFF.md`: who ran it, when, the actor, N1 and N2, the commit SHA, and the pre-flight and post-check output.
 8. **Credentials leave the platform.** The script runs outside the production image with the production `DATABASE_URL`, so protect that URL.
-9. **A direct chat in the Trash can come back as a working chat.** Tracked as OPOS #26466, not fixed.
-   - What happens: the run changes only live `chat_threads` rows. A deleted thread is a JSON copy in `trash_items`, and a restore by an `admin` or `super_admin` re-inserts that copy as it was. So a direct thread that was open when it was deleted comes back open, even if it was deleted before the run.
-   - The delete race: `handlers.trashChatThread` copies the thread with a plain `SELECT`, which takes no row lock and doesn't wait for the run, then deletes it. A delete that copies the thread before the run commits stores its state from before the run, and the delete itself lands once the run commits.
-   - How this is known: the restore of an open direct thread was reproduced on a local throwaway database (OPOS #26467). The delete race is from reading the code, not from a run.
-   - Mitigation: freeze delete and restore during the window (section 3, item 7). Pre-flight query 6 lists what is already in the Trash, and post-check 7h lists what was deleted or restored during the window. Until #26466 is fixed, a direct chat restored from the Trash after the run must be ended and archived again from the dashboard.
-10. **A message can land in a thread the run just ended** (section 8). It is harmless: the message is kept, and only staff can read it.
+9. **A message can land in a thread the run just ended** (section 8). It is harmless: the message is kept, and only staff can read it.
 
 ---
 
@@ -410,6 +412,10 @@ ROLLBACK;
 **Full recovery: restore from the snapshot.** This was verified locally (see the appendix), and it restores every column exactly.
 - It only touches rows whose `updated_at` is still the run's timestamp, `run_ts` from post-check 7g.
 - Every write to a thread bumps `updated_at`: a staff lifecycle action, and a message send. So threads anyone changed after the run are not overwritten.
+- **Threads that went through the Trash (OPOS #26466).** Nothing in the migrations bumps `chat_threads.updated_at` on its own, so a Trash restore keeps the copy's `updated_at` (`backend/internal/handlers/admin_trash.go:273`). Restoring its messages doesn't write the thread (`admin_chat_lifecycle.go:332`). The close writes only when it changes something (`chatlifecycle/retire.go:106`, `:118`). So:
+  - **Deleted after the run, then restored:** the copy is the run's row. The close changes nothing, and `updated_at` is still `run_ts`, so this restore puts the snapshot's state back, like any other row.
+  - **Deleted between the snapshot and the run, then restored:** the close ends or archives it, and `updated_at` becomes the restore time. This restore skips it, and the skipped-rows query below lists it.
+  - **Still in the Trash:** there is no live row, so it is skipped silently, and `restored_rows` is lower. Neither the section 5 snapshot nor this restore covers rows in the Trash, and a Trash restore brings a direct chat back closed. It is not a way to reopen a retired chat.
 - Replace `<run_ts>` with the recorded value, keeping the quotes and all six decimal places.
 
 ```sql

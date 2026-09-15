@@ -6,6 +6,121 @@
 
 ---
 
+## 2026-09-15 — OPOS #26483 (app half): no English "User #" or bare الدعم in chats (branch `fix/app-chat-english-fallbacks`)
+
+**What was asked:** remove the two app-side fallbacks the #109 agent found, one English and one the wrong Arabic word, following #109's display-time pattern. The push half is the separate branch `fix/support-push-title-localized`.
+
+**Findings:**
+- `ChatThread.fromMap` (`humanitarian/lib/modules/chat/models/chat_models.dart`) put `'User #<other_user_id>'` into `otherName` for a blank name, and an untranslated `'User'` for a null one. Its only reader is `lib/modules/chat/screens/messages_screen.dart`, at 8 sites.
+- `marriage_chat_conversation_screen.dart` lives in `lib/modules/marriage/screens/`, not in `marriagechat/`. Its `_Bubble` labelled staff with `'Support'.tr`, whose Arabic is الدعم (Kafala). T10 forbids that.
+
+**What was changed** (one commit on `fix/app-chat-english-fallbacks`, based on `origin/main` `bbc6aa2`):
+- `chat_models.dart`: `otherName` is now the trimmed server name, or `''`.
+- `lib/modules/chat/utils/chat_sender_name.dart`: new `chatThreadOtherName(ChatThread)`. It returns, in order:
+  - the name;
+  - else `chat_thread_other_user_id`.trParams, keeping the id as the old UX did;
+  - else `'User'.tr` when the id is 0.
+- `messages_screen.dart`: every `thread.otherName` became `chatThreadOtherName(thread)`.
+- `marriage_chat_conversation_screen.dart`: the staff label uses `'chat_group_sender_support'.tr` (Support / فريق الدعم).
+- `lib/localization/app_translations.dart`: new key `chat_thread_other_user_id`, en `User #@id`, ar `مستخدم #@id`. It has no Kurdish, so Kurdish falls back to English.
+- `TRANSLATION_REQUEST.md`: a new section and table row. The count went from 468 to 469.
+- Tests:
+  - `test/modules/chat/chat_thread_other_name_test.dart`: the model, ar, en, and a source test on messages_screen.
+  - `test/modules/marriage/marriage_chat_staff_label_test.dart`: a source test plus the key's values.
+
+**What was run:**
+- **RED:** `flutter test` on the two new files printed `Error: Method not found: 'chatThreadOtherName'` and `00:00 +2 -2: Some tests failed.` The marriage source assertion failed with `Expected: true`.
+- **GREEN:** `flutter test test/modules/chat/ test/modules/marriage/` printed `+26: All tests passed!`.
+- **`flutter analyze`:** `6 issues found.`, the baseline. A doc comment containing `<id>` briefly made it 7; that is fixed.
+- **Full `flutter test`:** `00:54 +1058: All tests passed!`.
+- **Review:** `ecc:flutter-reviewer` returned APPROVE, with no CRITICAL or HIGH findings. Its three LOW notes needed no change.
+
+**External actions:** none. Nothing was pushed; the orchestrator ships.
+
+**Still open:** Kurdish for `chat_thread_other_user_id` (listed in TRANSLATION_REQUEST.md).
+
+**Traps:**
+- `dart format lib/modules/chat` also reformats unrelated files (`chat_controller.dart`, `chat_lifecycle_notice.dart`). Format only the files you touch.
+- A hook blocks `git checkout -- <file>`; `git restore <file>` works.
+
+## 2026-09-15 — OPOS #26466 follow-up: the retire runbook matches the Trash fix (branch `docs/runbook-after-trash-fix`)
+
+**What was asked:** update `docs/runbooks/retire-direct-chats.md` for the #26466 Trash fix. Docs only.
+
+**What was changed:** branched from the local `fix/trash-direct-chat-restore-closed` (`85dda17`). One commit touches the runbook and this file.
+- **Header row:** notes the #26466 update.
+- **Section 3, item 7:** delete and Trash restore are off the freeze. Claim and release stay on. The reasons cited are: `FOR UPDATE` (`admin_chat_lifecycle.go:207`), `DELETE … RETURNING *` (`:247-248`), and the restore closing direct chats in the same transaction (`admin_trash.go:296`, `admin_chat_lifecycle.go:369`, `retire_one.go:53`).
+- **Pre-flight query 6 and its bullet:** every trashed direct chat is now safe to restore, because it comes back ended and archived.
+- **Post-check 7h and its follow-up:** a row there is something to record, not a failure. It is no longer "expect 0 rows".
+- **Section 9:** old risk 9 moved to a new "Resolved by OPOS #26466" block. Old risk 10 is now 9. No text referred to it by number.
+- **Section 10:** new bullet on Trash-restored snapshot threads.
+  - `chat_threads` has no `updated_at` trigger, and the restore keeps the copy's value.
+  - A thread deleted after the run and then restored still has `run_ts`, so the snapshot restore reopens it.
+  - One deleted between the snapshot and the run gets a new `updated_at` when the restore closes it, so the snapshot restore skips it.
+  - Rows still in the Trash are skipped.
+
+**What was run:** `git diff --check`, clean. A grep for `risk [0-9]` found only "risk 3", which is still correct. No code was run, because this is docs only.
+
+**External actions:** none. Not pushed. OPOS was not available to this agent.
+
+**Still open:**
+- Merge after `fix/trash-direct-chat-restore-closed` lands.
+- The section 10 claims come from reading the code, not from a run.
+
+**Traps:** a thread deleted after the run and then restored is not protected by the `run_ts` filter. Check 7h before running the snapshot restore.
+
+---
+
+## 2026-09-15 — OPOS #26483 (push half): the staff-reply push names the support team per language (branch `fix/support-push-title-localized`)
+
+**What was asked:** the admin reply in a 1:1 donor chat pushed «رسالة من Support» to Arabic users. Localize the sender in the template layer, not the handler. The app half is the separate branch `fix/app-chat-english-fallbacks`.
+
+**Findings:**
+- `handlers/chat.go` (the admin reply, around line 578) sent `notify.ChatNewMessageMsg("Support", preview, id)`.
+- That template formats one `who` into all four titles.
+- `pickLocalizedText` (`push.go`) picks the device's `locale_code` slot and falls back to English only when a slot is empty.
+- `group_alias.go`'s `groupFixedLabels` already mapped `"Support"` to ar فريق الدعم, with no ckb/kmr.
+
+**What was changed** (one commit, based on `origin/main` `e1ac95f`):
+- `backend/internal/notify/templates.go`:
+  - New `ChatSupportReplyMsg(preview, threadID)`, which names the sender through `localizedGroupAlias(supportSenderLabel, lang)`.
+  - `ChatNewMessageMsg` and the new template share a private `chatThreadNewMessageMsg(who LocalText, ...)`.
+  - Titles for every other caller are byte-identical.
+- `backend/internal/notify/group_alias.go`: new const `supportSenderLabel = "Support"`, used as the `groupFixedLabels` key. The `localizedGroupAlias` doc now names its second caller.
+- `backend/internal/handlers/chat.go`: the admin reply sends `notify.ChatSupportReplyMsg(preview, id)`.
+- `backend/internal/notify/support_reply_push_test.go` (new), selected by `-run '^TestSupportReplyPush_'` (4 tests):
+  - Arabic and English devices, through the real `sendPush` with push_guest_test.go's FCM recorder;
+  - all four stored titles;
+  - a source check that the handler uses the template.
+- **Titles:**
+  - en: `Message from Support`
+  - ar: `رسالة من فريق الدعم`
+  - ckb: `نامە لە Support`
+  - kmr: `Peyam ji Support`
+- **Kurdish:** no support-team term exists, so ckb/kmr keep "Support", the same fallback the chat-group alias uses. OPOS #26468 tracks this.
+
+**What was run** (from `backend/`):
+- **RED** on the fresh DB `godonation_26483_red`: `go test ./internal/notify/ -run '^TestSupportReplyPush_' -v` printed `undefined: ChatSupportReplyMsg` and `FAIL ... [build failed]`.
+- **GREEN** on the same DB: 4 `--- PASS`, `ok .../internal/notify 1.037s`.
+- **gofmt:** `gofmt -l` on the four changed files printed nothing (after `gofmt -w group_alias.go` realigned the map).
+- **Build and vet:** `go build ./...` and `go vet ./...` were clean.
+- **`godonation_26483_pkg`:** `go test ./internal/notify/ ./internal/handlers/ -count=1 -p 1` gave `ok notify 1.048s` and `ok handlers 14.903s`.
+- **`godonation_26483_run`:** `-v -run '^TestSupportReplyPush_'` gave PASS=4, SKIP=0, FAIL=0.
+- **`godonation_26483_all`:** `go test ./... -count=1 -p 1 -timeout 45m` exited 0, with 22 packages `ok` and 0 FAIL.
+- **Cleanup:** every DB was dropped; `psql -lqt | grep -c 26483` printed `0`.
+- **Review:** `ecc:go-reviewer` returned APPROVE WITH NITS.
+  - It confirmed byte-identical titles for the other callers, and correct per-language titles.
+  - Nit 2 was a confusing doc sentence on `localizedGroupAlias`; it is reworded.
+  - Nit 1, four lookups instead of a helper, was left as is for clarity.
+
+**External actions:** none. Nothing was pushed.
+
+**Still open:**
+- The Kurdish word for the support team (OPOS #26468).
+- The in-app rows already stored with «رسالة من Support» are not rewritten.
+
+**Traps:** `ChatNewMessageMsg`'s `Sprintf` lines also appear in other templates, so a text replace across templates.go hits more than one.
+
 ## 2026-09-15 — OPOS #26478: the connect-request "not found" 404 gets a machine code (branch `fix/connect-request-not-found-code`)
 
 **What was asked:** give the admin connect-request not-found 404 (detail, approve, decline) the `code` #107's `chatErr` puts on every other chat-group refusal, so admin-web can use its translated `error.connect_request_not_found`. First move the connect-request inbox out of `chat_group_admin.go` (492 lines), as #111's entry required.

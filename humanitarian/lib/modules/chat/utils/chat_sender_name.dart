@@ -45,3 +45,19 @@ String chatSenderName(ChatMessage message) {
   if (message.senderName.isNotEmpty) return message.senderName;
   return (message.isSupport ? _supportKey : _userKey).tr;
 }
+
+/// Names a thread's other party with no name, keeping their user id so two
+/// unnamed threads in the Messages list stay distinguishable ("User #57" /
+/// "مستخدم #57"). OPOS #26483: the model used to bake in the English.
+const _userWithIdKey = 'chat_thread_other_user_id';
+
+/// The name to draw for [thread]'s other party, in the current language.
+///
+/// Returns the server's name unchanged whenever there is one. Otherwise
+/// returns "User #id" translated, or a bare translated "User" when the
+/// server sent no usable id.
+String chatThreadOtherName(ChatThread thread) {
+  if (thread.otherName.isNotEmpty) return thread.otherName;
+  if (thread.otherUserId <= 0) return _userKey.tr;
+  return _userWithIdKey.trParams({'id': '${thread.otherUserId}'});
+}
