@@ -137,7 +137,8 @@ class RoleHistoryController extends GetxController with RealtimePollingMixin {
   /// One identity-code lookup, or null when the server refused it.
   ///
   /// The refusal is turned into a SENTENCE here rather than being thrown.
-  /// `getObject` reports every non-2xx as `Exception('Request failed (404)')`
+  /// `getObject` reports every non-2xx as an `ApiStatusException`, which prints
+  /// as `Exception: Request failed (404)`,
   /// and the catch above assigns `e.toString()` into the message the screen
   /// renders — so a plain rethrow would print a status code at the user, which
   /// is nothing they can act on.

@@ -198,14 +198,16 @@ func makeChatGroup(t *testing.T, pool *pgxpool.Pool, staffID int64, kind chatgro
 }
 
 // newChatGroupRouter wires the mobile chat-group routes with the same
-// middleware main.go uses.
+// per-route gates main.go uses. The authed group's RequireApproved is left out
+// (see OPOS #26357); every test user here is approved, so no result depends on
+// it.
 func newChatGroupRouter(pool *pgxpool.Pool) (*gin.Engine, *ChatGroupHandler) {
 	gin.SetMode(gin.TestMode)
 	h := NewChatGroupHandler(chatgroups.New(pool), notify.New(pool), permissions.New(pool), pool)
 	r := gin.New()
 	participant := r.Group("/api", auth.RequireBearer(auth.NewTokenStore(pool)))
-	participant.GET("/chat-groups", h.List)
-	participant.GET("/chat-groups/:id/messages", h.Messages)
+	participant.GET("/chat-groups", auth.RequireNotGuest(), h.List)
+	participant.GET("/chat-groups/:id/messages", auth.RequireNotGuest(), h.Messages)
 	return r, h
 }
 
@@ -507,8 +509,8 @@ func newWriteChatGroupRouter(pool *pgxpool.Pool) (*gin.Engine, *ChatGroupHandler
 	h := NewChatGroupHandler(chatgroups.New(pool), notify.New(pool), permissions.New(pool), pool)
 	r := gin.New()
 	participant := r.Group("/api", auth.RequireBearer(auth.NewTokenStore(pool)))
-	participant.GET("/chat-groups", h.List)
-	participant.GET("/chat-groups/:id/messages", h.Messages)
+	participant.GET("/chat-groups", auth.RequireNotGuest(), h.List)
+	participant.GET("/chat-groups/:id/messages", auth.RequireNotGuest(), h.Messages)
 	participant.POST("/chat-groups/:id/messages", auth.RequireNotGuest(), h.PostMessage)
 	participant.POST("/chat-groups/:id/read", auth.RequireNotGuest(), h.MarkRead)
 	return r, h
@@ -909,7 +911,7 @@ func newConnectRequestRouter(pool *pgxpool.Pool) (*gin.Engine, *ChatGroupHandler
 	r := gin.New()
 	participant := r.Group("/api", auth.RequireBearer(auth.NewTokenStore(pool)))
 	participant.POST("/chat-groups/connect-requests", auth.RequireNotGuest(), h.SubmitConnectRequest)
-	participant.GET("/chat-groups/connect-requests/mine", h.MyConnectRequests)
+	participant.GET("/chat-groups/connect-requests/mine", auth.RequireNotGuest(), h.MyConnectRequests)
 	return r, h
 }
 

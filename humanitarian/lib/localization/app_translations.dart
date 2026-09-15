@@ -461,6 +461,63 @@ class AppTranslations extends Translations {
     'error_password_setup_failed': 'Could not set your password.',
     'error_message_send_failed': 'Could not send your message.',
     'error_messages_load_failed': 'Could not load this conversation.',
+    // An empty chat staff closed before anyone wrote: no "say hello" invite,
+    // because nothing can be sent into it.
+    'chat_group_closed_empty_title': 'No messages here',
+    'chat_group_closed_empty_message':
+        'This conversation was closed before any messages were sent.',
+    // OPOS #25284 Phase 5 — staff-mediated group chats. en + ar only;
+    // Sorani and Badini await a native speaker (#21431).
+    'error_chat_groups_load_failed': 'Could not load your group chats.',
+    'error_connect_requests_load_failed':
+        'Could not load your connect requests.',
+    // A send the server refused BY NAME. Retrying cannot help either one, so
+    // neither says "try again" — see ChatGroupConversationController.
+    'chat_group_send_contact_blocked':
+        'Phone numbers and email addresses cannot be shared in this chat. '
+        'It is supervised for your safety — please keep the conversation '
+        'here, and ask our team if you need to arrange contact.',
+    'chat_group_send_closed':
+        'Your message was not sent because this conversation is no longer '
+        'open.',
+    // A group that is gone for this member: staff deleted or archived it, or
+    // removed the member (the server answers 404 / 403). No "try again" —
+    // retrying cannot bring it back — so the copy points the way back instead.
+    // "our team" matches the lifecycle notices on the same screen.
+    'chat_group_unavailable_title': 'This conversation is no longer available',
+    'chat_group_unavailable_message':
+        'It may have been closed by our team, or you are no longer part of it. '
+        'Go back to see your other conversations.',
+    // The send button's accessibility label: the button itself is an icon, so
+    // a screen reader has nothing else to announce.
+    'Send message': 'Send message',
+    // OPOS #25284 Phase 5 Task 4 — the Messages tab's group-chat block and the
+    // My Connect Requests screen. en + ar only; Sorani and Badini fall back to
+    // English until a native speaker translates them (#21431).
+    'chat_groups_my_connect_requests': 'My Connect Requests',
+    'chat_groups_my_connect_requests_desc':
+        'See where the requests you sent to our team stand.',
+    'chat_groups_my_connections': 'My Connections',
+    'chat_groups_my_team_groups': 'My Team Groups',
+    // A masked group's title: its members never see each other's names.
+    'chat_groups_connection_title': 'Connection',
+    // A team group whose title staff left blank.
+    'chat_groups_team_group_title': 'Team group',
+    'chat_groups_no_messages_yet': 'No messages yet',
+    // Read aloud for the unread badge, which on screen is only a number.
+    'chat_groups_unread_count': 'Unread messages: @count',
+    'chat_groups_status_pending': 'Pending',
+    'chat_groups_status_approved': 'Approved',
+    'chat_groups_status_declined': 'Declined',
+    'chat_groups_about_donation': 'About a donation',
+    'chat_groups_about_case': 'About a case',
+    'chat_groups_pending_hint': 'Our team is reviewing your request.',
+    'chat_groups_open_conversation': 'Open the conversation',
+    'chat_groups_decline_reason_label': 'Reason from our team',
+    'chat_groups_requests_empty_title': 'No connect requests yet',
+    'chat_groups_requests_empty_message':
+        'When you ask our team to connect you with someone, your request and '
+        'its status will appear here.',
     'error_privacy_settings_save_failed':
         'Could not save your privacy settings.',
     'error_service_request_failed': 'Could not send your service request.',
@@ -1495,6 +1552,29 @@ class AppTranslations extends Translations {
         'No one is assigned to receive chat messages right now. You can still '
         'reach the team through the support form or on WhatsApp.',
     'chat_support_unavailable_action': 'Open technical support',
+    // OPOS #25284 Phase 5 Task 5 — "Ask staff to connect me". Members cannot
+    // contact each other directly; they ask staff, who may open a supervised
+    // chat. en + ar only; Sorani and Badini fall back to English (#21431).
+    'connect_request_action': 'Ask staff to connect me',
+    'connect_request_title': 'Ask staff to connect you',
+    'connect_request_explainer':
+        'Our staff will review your request. If they approve it, they will '
+        'open a supervised chat for you here in the app.',
+    'connect_request_message_label': 'What do you need?',
+    'connect_request_message_hint':
+        'Tell staff what you would like to discuss, and why.',
+    'connect_request_message_required': 'Please describe what you need.',
+    'connect_request_submit': 'Send request',
+    'connect_request_sent': 'Request sent. Staff will review it shortly.',
+    // The success view that replaces the form INSIDE the sheet once the
+    // request is accepted. `connect_request_sent` above is now only the toast
+    // for a member who closed the sheet before the answer arrived. The Done
+    // button reuses the existing `Done` key, already translated everywhere.
+    'connect_request_sent_title': 'Request sent',
+    'connect_request_sent_body':
+        'Staff will review it shortly. You can follow it in My Connect '
+        'Requests on the Messages tab.',
+    'error_connect_request_submit_failed': 'Could not send your request.',
     // The standing (not error-triggered) route to the ticket form, offered
     // next to chat_support so the two read as different things: one is a
     // live conversation, the other files a tracked request.
@@ -3525,6 +3605,42 @@ class AppTranslations extends Translations {
     'error_password_setup_failed': 'تعذّر تعيين كلمة المرور.',
     'error_message_send_failed': 'تعذّر إرسال رسالتك.',
     'error_messages_load_failed': 'تعذّر تحميل هذه المحادثة.',
+    'chat_group_closed_empty_title': 'لا توجد رسائل هنا',
+    'chat_group_closed_empty_message':
+        'أُغلقت هذه المحادثة قبل إرسال أي رسالة.',
+    // OPOS #25284 Phase 5 — staff-mediated group chats.
+    'error_chat_groups_load_failed': 'تعذّر تحميل محادثاتك الجماعية.',
+    'error_connect_requests_load_failed': 'تعذّر تحميل طلبات التواصل الخاصة بك.',
+    'chat_group_send_contact_blocked':
+        'لا يمكن مشاركة أرقام الهواتف أو عناوين البريد الإلكتروني في هذه '
+        'المحادثة. المحادثة تحت إشراف فريقنا حفاظاً على سلامتك — يُرجى إبقاء '
+        'التواصل هنا، واطلب من فريقنا إن احتجت إلى ترتيب وسيلة تواصل.',
+    'chat_group_send_closed': 'لم تُرسَل رسالتك لأن هذه المحادثة لم تعد مفتوحة.',
+    'chat_group_unavailable_title': 'هذه المحادثة لم تعد متاحة',
+    'chat_group_unavailable_message':
+        'ربما أغلقها فريقنا، أو لم تعد مشاركاً فيها. ارجع لرؤية محادثاتك الأخرى.',
+    'Send message': 'إرسال الرسالة',
+    // OPOS #25284 Phase 5 Task 4 — انظر شرح المفاتيح في كتلة الإنجليزية أعلاه.
+    'chat_groups_my_connect_requests': 'طلبات التواصل الخاصة بي',
+    'chat_groups_my_connect_requests_desc':
+        'تابِع حالة الطلبات التي أرسلتها إلى فريقنا.',
+    'chat_groups_my_connections': 'محادثات التواصل',
+    'chat_groups_my_team_groups': 'مجموعات الفريق',
+    'chat_groups_connection_title': 'محادثة تواصل',
+    'chat_groups_team_group_title': 'مجموعة فريق',
+    'chat_groups_no_messages_yet': 'لا توجد رسائل بعد',
+    'chat_groups_unread_count': 'رسائل غير مقروءة: @count',
+    'chat_groups_status_pending': 'قيد المراجعة',
+    'chat_groups_status_approved': 'تمت الموافقة',
+    'chat_groups_status_declined': 'مرفوض',
+    'chat_groups_about_donation': 'بخصوص تبرّع',
+    'chat_groups_about_case': 'بخصوص حالة',
+    'chat_groups_pending_hint': 'يراجع فريقنا طلبك حالياً.',
+    'chat_groups_open_conversation': 'افتح المحادثة',
+    'chat_groups_decline_reason_label': 'السبب من فريقنا',
+    'chat_groups_requests_empty_title': 'لا توجد طلبات تواصل بعد',
+    'chat_groups_requests_empty_message':
+        'عندما تطلب من فريقنا أن يوصلك بشخص ما، سيظهر طلبك وحالته هنا.',
     'error_privacy_settings_save_failed': 'تعذّر حفظ إعدادات الخصوصية.',
     'error_service_request_failed': 'تعذّر إرسال طلب الخدمة.',
     'error_subscription_failed': 'تعذّر إتمام اشتراكك.',
@@ -4424,6 +4540,21 @@ class AppTranslations extends Translations {
         'لا يوجد حاليًا من يستقبل رسائل المحادثة. ما زال بإمكانك الوصول إلى '
         'الفريق عبر نموذج الدعم أو عبر واتساب.',
     'chat_support_unavailable_action': 'فتح الدعم الفني',
+    'connect_request_action': 'اطلب التواصل عبر الفريق',
+    'connect_request_title': 'طلب تواصل عبر الفريق',
+    'connect_request_explainer':
+        'سيراجع فريقنا طلبك، وإذا وافق عليه فسيفتح لك محادثة خاضعة للإشراف '
+        'هنا في التطبيق.',
+    'connect_request_message_label': 'ما الذي تحتاجه؟',
+    'connect_request_message_hint': 'أخبر الفريق بما تود مناقشته، ولماذا.',
+    'connect_request_message_required': 'يرجى وصف ما تحتاجه.',
+    'connect_request_submit': 'إرسال الطلب',
+    'connect_request_sent': 'تم إرسال الطلب. سيراجعه الفريق قريبًا.',
+    'connect_request_sent_title': 'تم إرسال الطلب',
+    'connect_request_sent_body':
+        'سيراجعه الفريق قريبًا. يمكنك متابعته من «طلبات التواصل الخاصة بي» '
+        'في تبويب «الرسائل».',
+    'error_connect_request_submit_failed': 'تعذّر إرسال طلبك.',
     'support_request_form': 'إرسال طلب دعم',
     'support_request_form_desc':
         'قدّم تذكرة وتابع حالتها — دون الحاجة لمحادثة مباشرة.',
