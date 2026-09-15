@@ -43,9 +43,20 @@ func (h *ChatGroupHandler) bg() (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.Background(), 10*time.Second)
 }
 
+// guestMemberNotAllowedCode is the machine-readable code on the 400 an admin
+// route returns when staff list a guest account as a group member
+// (chatgroups.ErrGuestMember, OPOS #26355). The admin dashboard keys its
+// explanation on this value, so it is a contract: never reword it.
+const guestMemberNotAllowedCode = "guest_member_not_allowed"
+
 // chatErr maps chatgroups' sentinel errors onto HTTP, mirroring chat.go's
 // chatErr (see internal/chatgroups' sentinel doc comments for what each
 // means).
+//
+// Only the guest-member refusal carries a "code" field. It shares 400 with the
+// generic invalid-input answer, and without a code the dashboard could not
+// tell "you picked a guest account" from any other bad request. Every other
+// response keeps its existing shape.
 func (h *ChatGroupHandler) chatErr(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, chatgroups.ErrNotMember):
@@ -54,8 +65,16 @@ func (h *ChatGroupHandler) chatErr(c *gin.Context, err error) {
 		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Group not found."})
 	case errors.Is(err, chatgroups.ErrAlreadyDecided):
 		c.JSON(http.StatusConflict, gin.H{"success": false, "error": "This request has already been decided."})
+	case errors.Is(err, chatgroups.ErrGuestMember):
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "Guest accounts cannot be added to a chat group.",
+			"code":    guestMemberNotAllowedCode,
+		})
 	case errors.Is(err, chatgroups.ErrInvalidInput):
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid request."})
+	case errors.Is(err, chatgroups.ErrUnknownContext):
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "We couldn't find that case or donation.", "code": "connect_context_not_found"})
 	default:
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
 	}
@@ -310,13 +329,25 @@ func (h *ChatGroupHandler) notifyGroupMembers(group chatgroups.GroupDetail, send
 			if m.UserID == senderUserID || m.RemovedAt != nil {
 				continue
 			}
-			var msg notify.LocalizedMessage
-			if group.Kind == chatgroups.KindMasked {
-				msg = notify.GroupMaskedNewMessageMsg(label, preview, group.ID)
-			} else {
-				msg = notify.ChatNewMessageMsg(label, preview, group.ID)
-			}
+			msg := groupMessageFor(group.Kind, label, preview, group.ID)
 			_, _ = h.Notifier.Send(ctx, m.UserID, msg)
 		}
 	}()
+}
+
+// groupMessageFor picks the push template for one chat-group message. It is
+// pure so the choice is testable without a database (see
+// chat_group_push_message_test.go).
+//
+// A team group gets GroupTeamNewMessageMsg with the sender's real name. Every
+// other kind gets GroupMaskedNewMessageMsg with the alias, failing closed the
+// same way groupSenderLabel treats every non-team kind as masked. Both
+// templates reference the chat group itself ("chat_group_thread"); the team
+// branch used to send ChatNewMessageMsg, which mislabelled the group id as a
+// donor "chat_thread" (OPOS #26411).
+func groupMessageFor(kind chatgroups.Kind, senderLabel, preview string, groupID int64) notify.LocalizedMessage {
+	if kind == chatgroups.KindTeam {
+		return notify.GroupTeamNewMessageMsg(senderLabel, preview, groupID)
+	}
+	return notify.GroupMaskedNewMessageMsg(senderLabel, preview, groupID)
 }

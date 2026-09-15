@@ -38,6 +38,10 @@ var (
 	ErrNotOwner    = errors.New("only the profile owner can accept or decline")
 	ErrNotActive   = errors.New("this chat is not active yet")
 	ErrRequestGone = errors.New("meeting request not found or already decided")
+	// ErrNotPending is returned by DeclineThread when the thread is no longer
+	// an invite waiting for the owner's answer — it is already active — so
+	// declining it would end a conversation both parties are using (OPOS #26427).
+	ErrNotPending = errors.New("this chat is no longer a pending invite")
 )
 
 // MeetingRequestView is one row for the admin's meeting-requests inbox.
@@ -229,7 +233,19 @@ func (s *Store) AcceptThread(ctx context.Context, threadID, userID int64) (Threa
 	return t, err
 }
 
-// DeclineThread marks an active/pending thread declined. Only the profile owner may decline.
+// DeclineThread marks a pending invite declined. Only the profile owner may
+// decline; that check runs first, so anyone else is never told the status.
+//
+// Only an invite can be declined (OPOS #26427). This used to decline an ACTIVE
+// thread too, ending a conversation both parties were using. The status
+// condition lives in the UPDATE itself, so nothing can change between reading
+// the status and writing it: an active thread matches no row and comes back as
+// ErrNotPending, untouched. Declining an invite that is already declined still
+// succeeds, as it always has.
+//
+// It does NOT check the thread's lifecycle, deliberately: a pending invite on a
+// paused, ended or archived thread can still be declined, which is how the
+// owner dismisses a dead invite.
 func (s *Store) DeclineThread(ctx context.Context, threadID, userID int64) (Thread, error) {
 	t, err := s.GetThread(ctx, threadID)
 	if err != nil {
@@ -238,10 +254,15 @@ func (s *Store) DeclineThread(ctx context.Context, threadID, userID int64) (Thre
 	if userID != t.OwnerUserID {
 		return t, ErrNotOwner
 	}
-	_, err = s.Pool.Exec(ctx,
-		`UPDATE marriage_chat_threads SET status = 'declined', updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
-		threadID)
-	t.Status = "declined"
+	err = s.Pool.QueryRow(ctx, `
+		UPDATE marriage_chat_threads SET status = 'declined', updated_at = CURRENT_TIMESTAMP
+		 WHERE id = $1 AND status IN ('pending', 'declined')
+		RETURNING id, meeting_request_id, profile_id, requester_user_id, owner_user_id, status, created_at, updated_at`,
+		threadID,
+	).Scan(&t.ID, &t.MeetingRequestID, &t.ProfileID, &t.RequesterUserID, &t.OwnerUserID, &t.Status, &t.CreatedAt, &t.UpdatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return t, ErrNotPending
+	}
 	return t, err
 }
 

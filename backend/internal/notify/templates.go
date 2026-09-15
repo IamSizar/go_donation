@@ -1653,10 +1653,28 @@ func ChatNewMessageMsg(senderName, preview string, threadID int64) LocalizedMess
 // #25284 Phase 2). `alias` is how the sender appears in THIS group — their
 // own masked_label, or "Support" for a staff sender — never a real name, so
 // a masked group's push notification cannot re-identify anyone the chat
-// screen itself hides. Team-kind groups reuse ChatNewMessageMsg directly
-// with the sender's real name; this template exists only for masked groups.
+// screen itself hides. Real-name team groups use GroupTeamNewMessageMsg.
 func GroupMaskedNewMessageMsg(alias, preview string, groupID int64) LocalizedMessage {
-	who := alias
+	return chatGroupNewMessageMsg(alias, preview, groupID)
+}
+
+// GroupTeamNewMessageMsg notifies a member of a real-name TEAM chat group of a
+// new message (OPOS #26411). `senderName` is the sender's real full name, which
+// a team group shows by design. Team groups used to reuse ChatNewMessageMsg,
+// but that template stamps RelatedEntityType "chat_thread" (the donor ↔ owner
+// table) onto a chat-GROUP id, and the two tables' ids overlap by accident, so
+// every stored row pointed at the wrong conversation. Rows written before this
+// fix keep that wrong type; they cannot be told apart from real donor-chat rows.
+func GroupTeamNewMessageMsg(senderName, preview string, groupID int64) LocalizedMessage {
+	return chatGroupNewMessageMsg(senderName, preview, groupID)
+}
+
+// chatGroupNewMessageMsg is the one body behind both chat-group templates, so
+// masked and team pushes can never drift onto different notification types or
+// entity types. `who` is whatever label the caller resolved; an empty one falls
+// back to a neutral "Member". The Kurdish titles are the same strings
+// ChatNewMessageMsg already ships, reused rather than re-drafted.
+func chatGroupNewMessageMsg(who, preview string, groupID int64) LocalizedMessage {
 	if who == "" {
 		who = "Member"
 	}

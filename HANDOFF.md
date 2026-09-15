@@ -55,6 +55,481 @@
 
 ---
 
+## 2026-09-15 — OPOS #26427: only a pending chat invite can be declined (branch `fix/chat-decline-requires-pending`)
+
+**What was asked:** confirm test-first, then fix, that both invite-decline store methods (donor chat and marriage chat) update the thread without requiring `status = 'pending'`, which let an invite's recipient flip an ACTIVE chat to `declined`. Put the pending condition inside the UPDATE, map "no row" to a not-pending error, map it in the handlers, and do not change decline's lifecycle behaviour.
+
+**What was actually changed** (commit `63759ae`, off `origin/main` `8fcd38d`):
+- **The bug, confirmed by the RED run below:** `chat.Store.DeclineThread` and `marriagechat.Store.DeclineThread` both ran `UPDATE ... SET status = 'declined' WHERE id = $1`. A declined thread is hidden from both participants' lists (`ListThreadsForUser` filters `status <> 'declined'`), and sending needs `active`, so one tap ended a live chat.
+- **Two assumptions in the brief were wrong:**
+  - Accept does not require pending. `AcceptThread` returns an idempotent 200 on an already-`active` thread and otherwise updates with no status condition, so a `declined` thread goes back to `active`. This is true in both stores.
+  - Neither package had a not-pending error. A new sentinel `ErrNotPending` was added to each.
+- `backend/internal/chat/chat.go`:
+  - `ErrNotPending` at :43.
+  - `DeclineThread` at :226 now runs `UPDATE chat_threads ... WHERE id = $1 AND status IN ('pending', 'declined') RETURNING ...`. `pgx.ErrNoRows` becomes `ErrNotPending`.
+  - The participant and recipient checks still run first. The doc comment was rewritten.
+- `backend/internal/marriagechat/marriagechat.go`: `ErrNotPending` at :44, and the same guarded UPDATE in `DeclineThread` at :249. The old doc said it declined "an active/pending thread"; the new doc describes the fix.
+- `backend/internal/handlers/chat.go` (`chatErr` :452, `Decline` doc :301) and `backend/internal/handlers/marriage_chat.go` (`chatErr` :53, `Decline` doc :180): `ErrNotPending` → `409 {"success":false,"error":"This chat is already active, so it can no longer be declined."}`. There is no `code` field, matching the sibling `chatErr` entries.
+- **Deliberate choice:** re-declining an already-`declined` invite stays a 200. The guard is `IN ('pending','declined')`, not `= 'pending'`.
+  - That is the behaviour before this change, and it mirrors accept being idempotent on `active`.
+  - The Flutter notification tile really does re-offer Decline for a declined invite, because the list it reads hides declined threads. The tile swallows errors, so a 409 there would be a silent dead button.
+  - Switching to strict pending is a one-line SQL change plus flipping one test.
+- **Untouched on purpose:**
+  - Decline is still not lifecycle-gated, so a pending invite on an ended and archived thread still declines (OPOS #26413).
+  - Routes are unchanged: `main.go:740` and `:805`, behind `RequireBearer` + `RequireApproved` + `RequireNotGuest`.
+- **New tests:**
+  - `backend/internal/chat/chat_decline_pending_test.go` (3 store tests).
+  - `backend/internal/handlers/chat_invite_decline_pending_test.go` (5 tests, 12 subtests, covering donor and marriage):
+    - active thread refused, status stays active;
+    - pending declines;
+    - already-declined stays 200;
+    - the other party and a stranger get today's 403s on pending AND active threads, so status is never revealed;
+    - a retired (end + archive through `chatlifecycle.Apply`) pending invite still declines.
+
+**What was run and what it printed** (all on a fresh DB `godonation_decline_pending_26427`, created for this task, dropped at the end, confirmed gone):
+- **RED, store, before the fix** (only the sentinel declared): `go test ./internal/chat/ -run DeclineThread -count=1 -v`
+  - `err = <nil>, want ErrNotPending`
+  - `stored status = "declined", want active`
+  - The pending and declined controls passed. It ended `FAIL .../internal/chat 12.708s`.
+- **RED, HTTP:** `go test ./internal/handlers/ -run ChatInviteDecline -count=1 -v`
+  - Donor and marriage both printed `decline on an active ... thread: 200 map[status:declined success:true ...]` and `stored status = "declined" after declining an active chat, want "active"`.
+  - The other 4 tests passed. It ended `FAIL .../internal/handlers 3.053s`.
+- **GREEN, same two commands:**
+  - Store: `ok .../internal/chat 3.413s` (3/3).
+  - HTTP: 5/5 PASS, with `decline on an active donor thread: 409 map[error:This chat is already active, so it can no longer be declined. success:false]` (marriage identical). It ended `ok .../internal/handlers 16.475s`.
+- **Targeted run:** `go test ./internal/chat/ ./internal/handlers/ -count=1 -timeout 45m` printed `ok .../internal/chat 5.961s` and `ok .../internal/handlers 58.229s`, exit 0. `internal/marriagechat` has no test files.
+- **Full run:** `go test ./... -count=1 -p 1 -timeout 45m` printed 22 `ok` packages and 0 FAIL, including `ok .../internal/handlers 187.120s`, exit 0.
+- **Lint:** `gofmt -l` on the 6 changed files printed nothing. `go vet ./...` exited 0.
+- **Review:** an `ecc:code-reviewer` pass returned APPROVE with 0 findings at every severity.
+- **Security review:** an `ecc:security-reviewer` pass found no CRITICAL, HIGH or MEDIUM issues and nothing to fix, and called the diff a net security improvement. Its report went to the coordinating agent, which relayed this summary:
+  - **No new enumeration oracle.** The participant/recipient (donor) and owner (marriage) checks still run on `GetThread` data before the UPDATE. Strangers and non-recipients get the same 403 on pending and active threads, pinned by `TestChatInviteDecline_NonRecipientRefusedAsBefore`. Only an authorized recipient can reach the 409.
+  - **TOCTOU closed.** The old read followed by an unconditional UPDATE could race a concurrent accept. `WHERE status IN ('pending','declined') ... RETURNING` makes check-and-write one atomic statement.
+  - **SQL is fully parameterized.** The test helper builds a table name by concatenation, but only from a hardcoded fixture value, never user input.
+  - **Marriage identity masking is unaffected.** `Decline` serializes only `thread.ID` and `Status`.
+  - **The 409 error text leaks no internals.**
+
+**External actions taken:** none. Nothing was pushed and no PR was opened. OPOS MCP needed interactive OAuth in this subagent session, so #26427 was not moved or commented on.
+
+**What is still open:**
+- **Unpushed:** `63759ae` and this entry are local only.
+- **Behind main:** the branch is 3 commits behind `origin/main` (#95, #96, #97 landed during the work).
+  - `git merge-tree` of the fix commit onto `origin/main` is clean. None of the six files overlap, and #97 did not change the decline routes.
+  - This HANDOFF entry will conflict at the top of the file, as every parallel branch's does.
+- **What the app shows on the new 409** (Flutter was not changed):
+  - **Notification tile:** `humanitarian/lib/modules/notifications/widgets/notification_tile.dart:462` `_decline` catches the error and only clears `_busy`. The user sees nothing; the Decline button simply comes back. The tile offers Decline whenever the thread is not in `ChatController.threads`, for example not loaded yet, archived, or declined, so this is the path that used to kill active chats.
+  - **Messages tab:** `humanitarian/lib/modules/chat/screens/messages_screen.dart:510` `_decline` shows the snackbar "Could not decline this chat request." It only renders for `incomingPending` threads, so it would need a stale list to reach the 409.
+  - **Marriage conversation screen:** `humanitarian/lib/modules/marriage/screens/marriage_chat_conversation_screen.dart:152` `_decide` offers Decline only while `_status == 'pending' && isOwner` (:212). On failure it shows the generic `failureMessage(e, 'error_message_send_failed')` and does not reload. The 3-second poll then replaces the buttons.
+  - No caller shows the server's error text.
+- **Accept can re-activate a declined invite** in both stores (see above). It is the recipient's own consent, but it pushes the initiator. Not changed; it needs a decision.
+- **Marriage accept is still not lifecycle-gated** (carried over from #26413).
+- **Race edge:** a thread deleted between `GetThread` and the guarded UPDATE answers 409 instead of 404.
+- **Files over the 500-line limit** (already over before this change): `internal/chat/chat.go` 611 (was 586), `internal/handlers/chat.go` 605 (was 598), `internal/marriagechat/marriagechat.go` 551 (was 530). `handlers/chat.go` was not split because #26354 was editing its List handler in parallel.
+
+**Traps:**
+- **The worktree guard refuses some shell constructs.** It refused `go test -run 'A|B'` (a quoted `|`) and commands built from shell variables. Run separate, plain commands.
+- **go.mod is in `backend/` and each Bash call starts in the worktree root.** `go test ./...` from the worktree root fails with "cannot find main module". Use `go -C <abs>/backend test ...`.
+- **The chat and handlers tests share one DB.** Run them as sequential commands or with `-p 1`, so the first-run migrations and seeded rows don't race.
+
+---
+
+## 2026-09-15 — OPOS #26354: guests get an empty chat list and are refused chat messages (branch `fix/guest-gates-chat-reads`)
+
+**What was asked:** block guest sessions from the remaining chat READ routes, the way #83 did for chat groups, writing the tests first. The owner decided "Block, keep guest support". A later decision followed, for apps already installed: the chat LIST routes give a guest an empty list instead of a 403, and the messages routes stay 403.
+
+**What was actually changed:** two local commits on `fix/guest-gates-chat-reads`, rebased onto `origin/main` `aa32268`, which includes #89 and #90. The rebase had no conflicts.
+- **`5186698` `fix(server): refuse guest sessions on donor and marriage chat reads`.** It put `auth.RequireNotGuest()` on all six GET routes. Its message still says the lists return 403; the next commit supersedes that for the lists.
+- **Follow-up `fix(server): give guests an empty chat list instead of a 403`.** It sets the final behaviour, in `backend/cmd/server/main.go`:
+  - **List routes:** `GET /api/chats`, `/api/chats/` (lines 749-750) and `GET /api/marriage/chats`, `/api/marriage/chats/` (lines 822-823) now use `handlers.GuestGetsEmptyList()`.
+    - A guest gets 200 `{"items":[],"success":true}`.
+    - That is byte-identical to what `ChatHandler.List` (`backend/internal/handlers/chat.go:309`) and `MarriageChatHandler.List` (`marriage_chat.go:143`) send a member with no threads. Both stores start from an empty slice (`internal/chat/chat.go:326`, `internal/marriagechat/marriagechat.go:295`).
+    - The list handler never runs for a guest, so no thread is queried.
+  - **Messages routes:** `GET /api/chats/:id/messages` (753) and `GET /api/marriage/chats/:id/messages` (826) keep `auth.RequireNotGuest()`, which returns 403 `guest_restricted`.
+  - **Support:** `GET /api/support/mine` (784) stays open on purpose.
+- **`backend/internal/handlers/guest_empty_list.go`** (new): the middleware, with a doc comment explaining why it exists.
+- **`backend/internal/handlers/chat_guest_reads_test.go`** (new):
+  - `TestChatLists_GuestGetsEmptyList`: the guest is a participant in both threads, each holding a canary message. All 4 list routes must return exactly the body a member with no threads gets.
+  - `TestChatMessages_RefuseGuest`: both messages routes return 403.
+  - `TestChatReads_AllowSignedInParticipant`: the member still sees its thread ids and can read both conversations.
+  - `TestSupportMine_StaysOpenToGuest`.
+- **`backend/internal/handlers/chat_lifecycle_fixtures_test.go`:**
+  - `insertMarriageChatThread` split out of `seedMarriageChat`.
+  - `newLifecycleRouter` mirrors main.go: guest guards on the participant routes, and #90's `perm()` and `RequireDeletePassword` on the admin routes.
+- **`backend/internal/auth/middleware.go`:** the `RequireNotGuest` doc now says the chat lists use `GuestGetsEmptyList` on purpose.
+
+**Why support stays open (evidence):**
+- Guests already cannot write to support. `POST /api/support` (main.go:772-773) and `POST /api/chats/support` (main.go:736) refuse them.
+  - Commit `9d1cde5` ("fix: require sign-in for support messages") added that, undoing K20 `520d50c`.
+  - `chat_guest_support_test.go` guards it.
+- The app's send path calls `requireSignIn` (`humanitarian/lib/modules/support/screens/technical_support_screen.dart:122`).
+- But `_load` fetches `support/mine` for every session, guests included (same file, `:83`). Blocking that route would show every guest "Could not load your support requests."
+
+**What was run and what it printed:**
+- **First commit** (DB `godonation_guest_chat_reads_26354`, created for it and dropped):
+  - RED: `go test ./internal/handlers/ -count=1 -run 'ChatReads|SupportMine|ChatLifecycle' -v`. `TestChatReads_RefuseGuest` failed on all 6 subtests with `status = 200, want 403`, and the bodies contained the guest's own threads.
+  - GREEN: `go test ./internal/handlers/ -count=1 -v` exited 0, `ok .../internal/handlers 374.525s`. The full suite exited 0.
+- **Follow-up** (a fresh DB, `godonation_guest_chat_lists_26354`, created for it and dropped):
+  - RED, run on `5186698` before the middleware existed: `go test ./internal/handlers/ -count=1 -run 'ChatLists|ChatMessages|ChatReads|SupportMine' -v`.
+    - `TestChatLists_GuestGetsEmptyList` failed on all 4 subtests with `status = 403, want 200 ... (body {"code":"guest_restricted",...})`.
+    - `TestChatMessages_RefuseGuest`, `TestChatReads_AllowSignedInParticipant` and `TestSupportMine_StaysOpenToGuest` passed.
+    - Each subtest's baseline check also passed: a member with no threads gets exactly `{"items":[],"success":true}`.
+  - GREEN: `go test ./internal/handlers/ -count=1 -v` exited 0: 215 top-level PASS, 0 FAIL, 0 SKIP, `ok .../internal/handlers 20.803s`.
+  - Full: `go test ./... -count=1 -p 1` exited 0, with all 22 packages that have tests `ok`. The last lines were `ok .../internal/storage 0.596s` and `ok .../internal/users 1.245s`.
+  - `gofmt -l` on the changed Go files prints nothing, and `go vet ./...` is clean.
+- `gofmt -l .` on the whole backend also lists `internal/handlers/admin_edit_user_profile.go`, which this branch does not touch. That warning was already on `main`: gofmt wants to rewrite `''` in its doc comments as `”`, which would corrupt the SQL `DEFAULT ''` quoted there.
+- `everything-claude-code:code-reviewer` passes on both commits found no backend defects.
+  - The first review found the app dead end that the owner's empty-list decision resolves.
+  - The follow-up review's LOW doc-comment notes were applied.
+
+**External actions taken:** none. Nothing was pushed and no PR was opened. OPOS MCP needed OAuth and wasn't available in this non-interactive session, so #26354 was not moved or commented on.
+
+**What is still open:**
+- Both commits are local, unpushed and not reviewed by a human.
+  - `5186698`'s message says the list routes return 403.
+  - A squash-merge message or PR description must describe the final behaviour: lists return 200 with an empty list, messages return 403.
+- **App (no longer a blocker):** installed apps now show guests the normal "No conversations yet" state.
+  - The dashboard still creates `ChatController` for guests (`humanitarian/lib/modules/dashboard/screens/dashboard_screen.dart:122-124`).
+  - That controller polls `GET /api/chats` every 5 s (`modules/chat/controllers/chat_controller.dart:30-31, 65`). The guard answers those polls without a database query.
+  - Skipping that poll for guests in the app is optional tidy-up.
+  - Marriage chats need nothing: their tile is inside `if (!guest)` (`modules/marriage/screens/marriage_event_group_screen.dart:206, 231`).
+- **LOW:** `GET /api/notifications` has no guest gate, and chat-message notifications include an 80-character preview (`backend/internal/handlers/chat.go:405-414, 528-537`). A guest who was in a thread from before 9d1cde5 can still see message snippets there.
+- **LOW:** the handler test routers copy main.go's middleware chains, and nothing tests main.go's real route table. Removing a guard from main.go alone would not fail any test; this was already true for #83.
+- A guest who was in a support thread opened in the K20 window (before 9d1cde5) no longer sees it in the list and cannot read it.
+
+**Traps:**
+- The full `go test ./... -count=1 -p 1` took over 10 minutes in one run and under a minute in the next, both on fresh databases.
+  - 10 minutes is longer than the Bash tool's 600 s limit, so the harness moved the slow run to the background.
+  - The cause was not verified. Other agents running tests on the same machine is a likely one, so plan for the slow case.
+- An agent isolated in a worktree has Bash commands refused as "too complex to verify" when they mix `git` or `go test` with shell variables. Use literal paths.
+- `TestChatLists_GuestGetsEmptyList` compares exact bytes against `emptyChatListBody`. If the list handlers' envelope ever gains a key, change `GuestGetsEmptyList` and that constant together; otherwise guests and members would get different shapes.
+
+---
+
+## 2026-09-15 — OPOS #26412: `retire-direct-chats` made atomic, paused threads included, staff actor required (branch `fix/retire-direct-chats-atomic`)
+
+**What was asked:** harden `backend/cmd/retire-direct-chats` → `chatlifecycle.RetireAllDirectThreads` before it runs on production. Work test-first, update `docs/runbooks/retire-direct-chats.md`, and verify only on local throwaway databases. It fixes the four findings from the OPOS #26402 local run:
+- not atomic;
+- paused direct threads skipped;
+- actor not checked;
+- existing archive stamps overwritten.
+
+**What was actually changed** (branch based on `dfa632d`, the runbook commit on top of `origin/main` `9bcc053`). The code and tests are commit `6b91432`. The runbook and this entry are in the docs commit directly on top of it.
+- `backend/internal/chatlifecycle/retire.go`, rewritten.
+  - One transaction. It first locks the actor `FOR SHARE` and returns `*ActorNotStaffError` if the actor isn't dashboard staff. Staff is `permissions.CanAccessDashboard(permissions.TierFrom(staff_tier))`, the predicate behind `auth.IsDashboardStaff` (`internal/auth/middleware.go:40`, `internal/permissions/permissions.go:51,62`). `is_admin` is not read.
+  - UPDATE 1 ends AND archives `kind='direct'` threads that are open or paused. It keeps an existing `archived_at` and `archived_by`.
+  - UPDATE 2 archives ended direct threads that are still visible.
+  - Returns `RetireResult{Ended, Archived}`. The reason text is unchanged.
+- `backend/cmd/retire-direct-chats/main.go`: the first output line is unchanged, a counts line is added, and a refused actor gets a clear message with exit 1.
+- `backend/internal/chatlifecycle/retire_direct_hardening_test.go` (new): 9 tests.
+- `backend/internal/chatlifecycle/retire_direct_test.go`: uses a staff actor and table-derived counts.
+- `docs/runbooks/retire-direct-chats.md`: the new selection in pre-flight, snapshot, post-checks and restore; new expected and failure outputs; the resolved risks removed; and a new appendix with this run's evidence.
+
+**What was run and what it printed** (every DB was created with `createdb` and dropped afterwards):
+- **Baseline at `dfa632d`:** `go test ./internal/chatlifecycle/ -count=1 -v` → 2 PASS, `ok`.
+- **RED, the new tests against the old behaviour.** 6 of the 9 new tests failed, each on the finding it pins:
+  - the atomicity test left `lifecycle:ended … ArchivedAt:<null>` after the injected failure;
+  - the paused thread stayed `paused`;
+  - a non-staff actor got `err = <nil>`;
+  - the archive stamp `2026-09-01 10:00:00/41` was overwritten;
+  - the result was `{Ended:1 Archived:0}`, want `{Ended:2 Archived:2}`.
+- **GREEN:** 11 top-level tests PASS, `ok`. `-race` → `ok`.
+- `go build ./...` and `go vet ./...` are clean. `gofmt -l` on the changed dirs prints nothing. The whole backend flags only the pre-existing, untouched `internal/handlers/admin_edit_user_profile.go`.
+- **Full suite:** `go test ./... -count=1 -p 1`, run twice on separate fresh DBs, once before and once after the review changes. Both runs: 22 packages `ok`, 0 `FAIL`, exit 0.
+- **Local script run** on `gd_retire_run_26412`, following the runbook verbatim (full outputs are in the runbook appendix):
+  - pre-flight `will_end 4 / will_archive 2`;
+  - three refused actors (non-staff, legacy `is_admin`, nonexistent) and a missing `-actor`, each exit 1 with the checksum unchanged;
+  - run 1 `ended+archived 6` / `ended 4 …, archived 2 …`;
+  - post-checks 7a 0, 7b 4, 7c 0, 7d 0, 7f 4;
+  - run 2 `0`/`0` with the checksum unchanged;
+  - the restore put back `6 | 6`, and the checksum matched the before-state.
+- **Code review** (`everything-claude-code:code-reviewer`): no correctness bugs in `retire.go` or `main.go`. Its findings, and what was done with each:
+  - (a) The `retireInTx` comment wrongly said the statement order didn't matter. It matters under READ COMMITTED. Comment fixed.
+  - (b) The atomicity test accepted any error. It now requires the injected `P0001`.
+  - (c) The runbook's restore guard (reason plus actor) would also undo a staff unarchive and re-archive made after the run. It was replaced by `t.updated_at = '<run_ts>'`, with a new post-check 7g that records `run_ts`.
+  - (d) 7f now expects at least the pre-flight count, because a send that already passed its lifecycle check can still land during the run (`chat.PostMessage`, chat.go:442-453). Section 8 and risk 10 say so.
+  - (e) The "five round trips" figure was wrong under pgx statement preparation, and was removed.
+  - (f) The restore now has a note for the 23503 error from a deleted user.
+  - (g) A staff pause or resume that races the run can overwrite `ended`, because `Apply` writes `WHERE id = $1` only. Mitigated in the runbook: a lifecycle-action freeze and risk 9. Not fixed in code (see open items).
+- **Second local pass** after the review, on the same DB:
+  - run 1 `6`/`4`/`2`;
+  - 7a 0, 7b 4, 7c 0, 7d 0, 7f 4, and 7g one row `13:35:38.522824 | 6`;
+  - simulated staff unarchive then re-archive of 910002 as the actor, after which the old guard would have restored 6 rows including 910002;
+  - the new restore put back `5 | 6`, skipped 910002 with its re-archive intact, and every other row's checksum matched the before-state (`69426f0e…`);
+  - DB dropped.
+- Re-ran after the review changes: chatlifecycle 11 PASS, `ok`; `go vet` clean; `gofmt -l` prints nothing on the changed dirs.
+
+**External actions taken:** none. Nothing was pushed, no PR was opened, and no remote or production database was touched.
+
+**What is still open:**
+- The branch commits are local and unpushed, not reviewed by a human.
+- **The production run has still not been performed.** It needs the owner's explicit go, per the runbook.
+- OPOS MCP needed interactive OAuth in this non-interactive subagent session, so OPOS #26412 was not moved or commented on. Update it by hand.
+- **Follow-up, not done here:** `chatlifecycle.Apply` reads a thread's lifecycle, then writes with only `WHERE id = $1`. So a dashboard pause or resume that races any end, the bulk run included, can overwrite `ended` and make the thread resumable again. The fix is to add a lifecycle guard to the pause and resume UPDATEs (`AND lifecycle <> 'ended'`). This predates OPOS #26412, so it needs its own task. Until it is fixed, the runbook asks for a lifecycle-action freeze during the production run.
+- `docs/superpowers/plans/2026-09-14-chat-groups-phase4-retire-direct-chat.md` still shows the old `(int, error)` signature. It is a historical plan and was left as is.
+
+**Traps:**
+- `chat_threads` has `uq_chat_pair UNIQUE (donor_user_id, owner_user_id)`, so a fixture seeding several threads needs a fresh owner (or donor) per thread.
+- Runbook post-check 7b needs `lifecycle_changed_at = updated_at`. Without it, it also counts threads an earlier interrupted run had already ended (5 instead of 4 locally).
+- The worktree-isolation guard refuses Bash commands that use shell variables, `${pipestatus}` or `cd` into computed paths alongside psql or git. Write literal paths.
+
+---
+
+## 2026-09-15 — OPOS #26351: the server refuses a connect request for a case or donation that does not exist (branch `fix/connect-request-unknown-context`)
+
+**What was asked:** `POST /api/chat-groups/connect-requests` accepted any `context_id`, including a case or donation that does not exist. Refuse such a request on the server, test-first. The user's decision: keep the "Ask our team to connect me" button everywhere, and have the server refuse only an unknown context. There are no status, visibility or ownership checks.
+
+**What was actually changed** (one commit on `fix/connect-request-unknown-context`, based on `origin/main` `9bcc053`):
+- `backend/internal/chatgroups/chatgroups.go`: new sentinel `ErrUnknownContext`.
+- `backend/internal/chatgroups/chatgroups_connect.go`: `SubmitConnectRequest` now runs `submitConnectRequestSQL`, one parameterized statement.
+  - The statement is `INSERT … SELECT … WHERE EXISTS … ON CONFLICT … RETURNING id`.
+  - `case` checks `beneficiary_cases.id`, and `donation` checks `donations.id`.
+  - When no row comes back (`pgx.ErrNoRows`), it returns `ErrUnknownContext` and writes nothing. The doc comment was rewritten.
+- `backend/internal/handlers/chat_group.go`: one added `chatErr` case, answering 400 `{"success":false,"error":"We couldn't find that case or donation.","code":"connect_context_not_found"}`.
+- `backend/internal/handlers/chat_group_connect.go`: handler doc comment.
+- New test files: `backend/internal/chatgroups/chatgroups_connect_context_test.go` and `backend/internal/handlers/chat_group_connect_context_test.go`.
+- `chatgroups_test.go` and `chat_group_test.go`: every connect request that used a literal context id (1, 2 or 42) now uses a real case or donation fixture.
+  - Donations 1–8 and cases 1–2 exist only as demo seed rows from `migrations/001_full_v2.sql`.
+  - Donation 42 does not exist, so it would now be refused.
+
+**Findings behind the decisions:**
+- **Donation ids are plain `donations.id`.**
+  - My Donations: `donations.Store.ListByUser` (`backend/internal/donations/donations.go:562`, `FROM donations d`) feeds `DonationHistoryEntry.id` (`humanitarian/lib/modules/donations/models/donation_history_models.dart:330`), which `my_donations_page.dart:326` sends.
+  - Campaign donations list: the handler reads `d.id … FROM donations d` (`backend/internal/handlers/donations.go:569`), which `beneficiary_campaign_donations_screen.dart:464` sends.
+  - `in_kind_donations` has no connect button.
+  - Donations are therefore checked the same way as cases.
+- **Case ids come from `GET /beneficiary_cases`** (`beneficiary.Store`, `FROM beneficiary_cases`). They are sent by `beneficiary_case_detail_screen.dart:192`, which opens from `proposal_services_section.dart` and `orphan_family_profiles_screen.dart`.
+- **Soft delete.** Neither table has a trash column. The Trash (`trashRow` in `backend/internal/handlers/admin_delete.go`) copies the row into `trash_items` and then DELETEs it from the source table.
+  - A trashed case or donation is therefore unknown and refused; a restored one is accepted again.
+  - The "moved to the Trash" subtests pin this.
+
+**What the app shows for the 400:**
+- `ModuleApi.postJson` throws `Exception(<server sentence>)` and ignores `code`.
+- `connect_request_sheet.dart` passes the exception to `failureMessage(e, 'error_connect_request_submit_failed')`, which does not count it as an offline failure.
+- The member sees this under the message field: "Could not send your request. Please try again. If it keeps happening, contact support." (ar: "تعذّر إرسال طلبك. حاول مرة أخرى. وإن تكرّر الأمر، تواصل مع الدعم.").
+- The server's sentence reaches only `debugPrint`. No Flutter file was changed.
+
+**What was run and what it printed** (on DB `godonation_connect_ctx_26351`, created for this work, recreated fresh before GREEN and before the full suite, and dropped at the end):
+- **Baseline, before any edit:** `go test ./internal/chatgroups/ ./internal/handlers/ -run ConnectRequest -count=1 -p 1` printed `ok` for both.
+- **RED:**
+  - `TestSubmitConnectRequestRefusesUnknownContext` failed with `SubmitConnectRequest(case 9000000000000000) = <nil>, want errors.Is(err, ErrUnknownContext)`. All 4 subtests failed that way, plus `5 request rows written for unknown contexts, want 0`.
+  - `TestSubmitConnectRequest_RefusesUnknownContext` failed with `status = 200, want 400` for both case and donation.
+  - The accept tests passed, as guards.
+- **GREEN, fresh DB:** `go test ./internal/chatgroups/ ./internal/handlers/ -count=1 -p 1` printed `ok …/internal/chatgroups 156.858s` and `ok …/internal/handlers 420.185s`.
+- **Full suite, fresh DB:** `go test ./... -count=1 -p 1` printed `ok` for every package with tests, exit 0. Among them: `ok …/internal/chatgroups 47.347s` and `ok …/internal/handlers 41.532s`.
+- **Connect tests with `-v`:** every one printed `--- PASS`, and the `--- SKIP` count was `0`.
+- `go vet ./...` was clean. `gofmt -l` on the 8 changed files printed nothing.
+- **Reviews:**
+  - `ecc:code-reviewer` found nothing.
+  - `ecc:security-reviewer` found one Low. The route is now an existence oracle for case and donation ids (400 vs 200), though it returns no content and sits behind bearer, approved and non-guest checks. It suggested an optional per-user rate limit; not blocking.
+
+**External actions taken:** none. Nothing was pushed and no PR was opened.
+
+**What is still open:**
+- The commit is local, unpushed, and not reviewed by a human.
+- OPOS MCP needed interactive OAuth and wasn't available in this subagent session. OPOS #26351 was not moved or commented on.
+- To say "not found" specifically, the app must read `code`, for example through `ApiCodedException`. Today it shows the generic failure sentence.
+- The optional rate limit from the security review.
+
+**Traps:**
+- `gofmt -l .` in `backend/` lists `internal/handlers/admin_edit_user_profile.go`. That file is untouched here and already unformatted on `origin/main`.
+- `internal/chatgroups` tests cannot be re-run safely against the same database.
+  - `raiseUserIDFloor` in `chatgroups_test.go` recomputes the floor from `MAX(users.id)`, which falls back once earlier runs have deleted their users, so user ids are reissued. Connect-request rows are never cleaned up.
+  - A second run failed `TestListConnectRequestsForUserOnlyReturnsOwnRequests` on a row left by the first run.
+  - Use a fresh database per run. `internal/handlers` already fixed its copy by reading the sequence's `last_value`. Not fixed here because it is out of scope.
+
+---
+
+## 2026-09-15 — OPOS #26411: team chat-group pushes get their own entity type (branch `fix/team-group-push-entity-type`)
+
+**What was asked:** team-group message pushes used the donor-chat template, which labelled a chat-GROUP id as a `chat_thread`. Give them their own template, test-first, and leave `chatErr` in `chat_group.go` untouched (parallel branches edit it).
+
+**What was actually changed** (commit `fa22b87`, off `origin/main` `aa32268`):
+- **Before:**
+  - Masked groups already sent `GroupMaskedNewMessageMsg`: `chat_group_message` / `chat_group_thread` / group id.
+  - Team groups sent `ChatNewMessageMsg`: `chat_message` / `chat_thread` / group id, which was wrong.
+- **Now:**
+  - `backend/internal/notify/templates.go` adds `GroupTeamNewMessageMsg` (`chat_group_message` / `chat_group_thread`). It and the masked template share a private `chatGroupNewMessageMsg`, and the masked output is unchanged.
+  - `backend/internal/handlers/chat_group.go`: `notifyGroupMembers` calls the new pure `groupMessageFor(kind, label, preview, groupID)`. Team kind gets the team template, and every other kind fails closed onto the masked template. `chatErr` was not touched.
+- **Kurdish:** ckb/kmr reuse the exact strings `ChatNewMessageMsg` already ships. Note that its kmr string `Peyam ji %s` is Latin script, while the file header says Arabic script.
+- **New tests (pure, no DB):**
+  - `backend/internal/notify/templates_group_test.go` (3 tests)
+  - `backend/internal/handlers/chat_group_push_message_test.go` (table test with 3 cases, plus an alias test)
+
+**What was run and what it printed:**
+- **RED:**
+  - `go test ./internal/notify/` printed `undefined: GroupTeamNewMessageMsg` and `[build failed]`.
+  - `go test ./internal/handlers/` printed `undefined: groupMessageFor` and `[build failed]`.
+- **GREEN, on a fresh DB `godonation_team_group_push_26411`** (created, then dropped):
+  - The targeted run printed `ok .../internal/notify 6.070s` and `ok .../internal/handlers 31.014s`.
+  - `go test ./... -count=1 -p 1` exited 0, with 22 `ok` packages and 0 FAIL/panic lines.
+- **Lint:**
+  - `go vet ./...` exited 0.
+  - `gofmt -l` listed only `internal/handlers/admin_edit_user_profile.go`. That file is untouched and already unformatted on `origin/main`.
+- **Review:** an `ecc:code-reviewer` pass found 0 issues.
+
+**Readers of `related_entity_type`:**
+- None branch on it. The backend only writes and lists it (`notify.go:141`, `list.go:29`).
+- The Flutter app copies it into `AppNotificationModel` (`notifications_controller.dart:161`) but never acts on it.
+- admin-web does not reference it.
+- `chat_request` is the only type the tile acts on, keyed on `notification_type` (`notification_tile.dart:196`).
+- The push-tap handler (`main.dart:114`) only logs.
+
+**External actions taken:** none. Nothing was pushed and no PR was opened.
+
+**What is still open:**
+- Both commits are local and unpushed.
+- Existing team-group rows keep `chat_message` / `chat_thread`. They can't be told apart from real donor-chat rows, so there is no backfill.
+- `chat_group_message` has no label anywhere:
+  - Flutter `app_translations.dart` (en/ar), and the `notificationTypes` list in `test/localization/localized_tag_test.dart`.
+  - admin-web `src/lib/locales/en.ts` and `ar.ts`.
+  - The Arabic UI shows the `localizedTag` fallback. Masked-group rows had this gap before; team-group rows now share it. It needs a Flutter plus admin-web follow-up.
+- OPOS MCP needed OAuth and wasn't available in this subagent session, so #26411's status and notes need updating by hand.
+
+**Traps:**
+- The worktree guard refuses `go test ... | tee ...` with `${pipestatus}`. Redirect to a file instead.
+- `gofmt -l .` on `backend/` is not empty on `main`, because of `admin_edit_user_profile.go`.
+
+---
+
+## 2026-09-15 — OPOS #26413: donor-chat invite accept now respects the thread lifecycle (branch `fix/chat-accept-respects-lifecycle`)
+
+**What was asked:** confirm, then fix test-first, that `POST /api/chats/:id/accept` ignored `chat_threads.lifecycle`, so a pending invite on an ended or archived thread could be accepted and push "chat accepted". Report whether decline or other invite transitions have the same gap. Fix only accept.
+
+**What was actually changed:** one commit, `d790230`, based on `origin/main` `9374edc`:
+- `backend/internal/handlers/chat_lifecycle_gate.go` gained the new `refuseIfInviteClosed`, which reuses the two existing gates.
+  - It calls `refuseIfNotSendable` first. A paused or ended thread gets 409 `chat_lifecycle_closed`, the same response the send path gives.
+  - It then calls `refuseIfArchivedForParticipant`. An archived-but-open thread gets 404, the same as the participant messages route.
+- `backend/internal/handlers/chat.go` `ChatHandler.Accept` now runs `GetThread`, then `IsParticipant` (403), then the gate, before `AcceptThread` and the push.
+  - The participant check comes first because the 409 carries staff's reason.
+- `backend/internal/chat/chat.go`: a doc comment on `AcceptThread` says the lifecycle gate is the handler's job.
+- New test `backend/internal/handlers/chat_invite_accept_lifecycle_test.go` (6 tests):
+  - Four refusal cases: ended, paused, retired (real `chatlifecycle.Apply` end+archive), and archived-open. Each asserts that the status stays `pending` and that no `chat_accepted` row exists in `app_notifications`.
+  - An open control, which accepts and waits for the push row.
+  - A stranger test, which gets a plain 403 with no lifecycle detail.
+
+**What was run and what it printed:** all runs used a fresh DB, `godonation_accept_lifecycle_26413`, which has since been dropped.
+- **RED, before the fix:** `go test ./internal/handlers/ -run ChatInviteAccept -count=1 -v` failed 4 tests. The ended, paused, retired and archived-open cases each printed `200 map[status:active success:true ...]`. The open control and the stranger test passed.
+- **GREEN, same command after the fix:** 6/6 PASS. The ended case, for example, printed `409 map[code:chat_lifecycle_closed ... lifecycle:ended lifecycle_reason:Resolved by our team ...]`, and the archived-open case printed `404 map[error:Chat not found.]`.
+- `go test ./internal/handlers/ -count=1` printed `ok ... internal/handlers 24.223s`.
+- `go test ./... -count=1 -p 1` printed `ok` for every package with tests, and no FAIL.
+- `go vet ./...` was clean.
+- `gofmt -l .` printed only `internal/handlers/admin_edit_user_profile.go`, which is not part of this diff (see Traps). The 4 changed files are gofmt-clean.
+- An `ecc:code-reviewer` pass on the diff returned APPROVE with 0 critical, high or medium findings. Its 2 LOW notes are listed under "still open".
+
+**External actions taken:** none. Nothing was pushed and no PR was opened. OPOS MCP needed interactive OAuth in this subagent session, so OPOS #26413 was not moved or commented on.
+
+**What is still open:**
+- `d790230` and this entry are local and unpushed.
+- **Same gap in marriage chat, not fixed:** `MarriageChatHandler.Accept` (`backend/internal/handlers/marriage_chat.go:147`) has no lifecycle gate and pushes `MarriageChatAcceptedMsg`. Approving a meeting request opens a `pending` marriage thread (`marriagechat.go:125`), so the path can be reached. The fix would be the same pattern with `chatlifecycle.KindMarriage`, done as a separate task.
+- **Decline was deliberately left ungated,** in both donor and marriage chat.
+  - Reasons: decline sends no push, and it is the only way an invitee can dismiss a dead invite, because `ListThreadsForUser` hides `status='declined'`. Gating decline would leave an ended invite stuck in their list forever.
+  - Found in passing: `chat.Store.DeclineThread` never checks `status = 'pending'`, so the recipient can flip an ACTIVE thread to declined. The marriage store's decline does the same. Not changed here.
+- **Race window:** there is a gap between the gate's SELECT and `AcceptThread`'s UPDATE. The send path has the same shape. A `SELECT ... FOR UPDATE` in one transaction would close it.
+- **Oversized files:** `backend/internal/handlers/chat.go` was already 581 lines before this change, over the 500-line limit, and is now 598 (+17).
+- **App behaviour:** the Flutter caller, `humanitarian/lib/modules/chat/controllers/chat_controller.dart:90`, has not been checked for how it shows a 409 or 404 on accept.
+
+**Traps:**
+- `gofmt -l` flags `internal/handlers/admin_edit_user_profile.go` on `origin/main` itself (unchanged since `a6c74d5`). Do not "fix" it blindly: gofmt rewrites the SQL `''` inside its doc comments into a typographic `”`.
+- `chatlifecycle.RetireAllDirectThreads` sweeps every open direct thread in whatever DB it is pointed at. The retired-invite test applies the same two transitions to its own thread only, so the shared test DB is not swept.
+
+---
+
+## 2026-09-15 — OPOS #26355: guest accounts can no longer be added to a chat group (branch `fix/chat-groups-no-guest-members`)
+
+**What was asked:** staff could add a guest account (`users.is_guest = TRUE`) to a chat group in three ways: create group, add member, or approve a connect request. Every participant chat-group route refuses guest sessions, so that guest was locked out and staff got no warning. The brief: enforce the rule once, in the store, test-first, and return a 400 with a machine code.
+
+**What was actually changed** (one commit on `fix/chat-groups-no-guest-members`, branched from `origin/main` `9bcc053`):
+- `backend/internal/chatgroups/chatgroups.go`:
+  - New sentinel `ErrGuestMember`.
+  - New `insertMemberRow`, now the ONLY writer of `chat_group_members`. It is a single `INSERT ... SELECT ... WHERE NOT EXISTS (SELECT 1 FROM users WHERE id = $2 AND is_guest)`. Zero rows affected means the user is a guest, and it returns `ErrGuestMember`.
+  - `insertMembers` (used by `CreateGroup` and `ApproveConnectRequest` inside their transactions) and `AddMember` now both call it. That replaces two duplicated INSERTs.
+  - A user id with no `users` row is inserted exactly as before (there is no FK).
+- `backend/internal/chatgroups/chatgroups_connect.go`: doc comment only. A guest requester's request can never be approved, only declined.
+- `backend/internal/handlers/chat_group.go`: `chatErr` maps `ErrGuestMember` to `400 {"success":false,"error":"Guest accounts cannot be added to a chat group.","code":"guest_member_not_allowed"}`. Only this response has a `code`; every other response is unchanged.
+- New tests:
+  - `backend/internal/chatgroups/chatgroups_guest_test.go` (store).
+  - `backend/internal/handlers/chat_group_guest_member_test.go` (HTTP). They are separate files because `chatgroups_test.go` and `chat_group_test.go` are already over 500 lines.
+- `backend/internal/handlers/chat_group_guest_test.go`: `TestChatGroupReads_RefuseGuest` now writes the guest's membership row directly (`insertLegacyGuestMembership`), because the store refuses it now.
+
+**What was run and what it printed**
+- **RED, before the fix, with the new tests plus only the sentinel declared:**
+  - Store tests: `CreateGroup`/`AddMember`/`ApproveConnectRequest with a guest member = <nil>, want errors.Is(err, ErrGuestMember)` for TestCreateGroupRefusesGuestMember (masked and team), TestAddMemberRefusesGuest, TestApproveConnectRequestRefusesGuestMember and TestApproveConnectRequestRefusesGuestRequester.
+  - HTTP tests: `status = 200, want 400` for TestAdminCreateGroup_RefusesGuestMember, TestAdminAddMember_RefusesGuestMember, TestAdminApproveConnectRequest_RefusesGuestMember and TestAdminApproveConnectRequest_RefusesGuestRequester.
+  - The controls passed: TestAddMemberAcceptsUpgradedGuest and TestAdminCreateGroup_OtherRefusalsCarryNoCode.
+- **After the fix:**
+  - `gofmt -l` on all 6 changed files printed nothing.
+  - `go vet ./...` printed nothing, exit 0.
+  - On a fresh DB, `go test ./internal/chatgroups/ ./internal/handlers/ -count=1` printed `ok .../internal/chatgroups 143.403s` and `ok .../internal/handlers 539.745s`, with 0 FAIL and 0 SKIP.
+  - On a second fresh DB, `go test ./... -count=1 -p 1 -timeout 30m` exited 0 with 22 `ok` packages and 0 FAIL, including `ok .../internal/chatgroups 94.593s` and `ok .../internal/handlers 57.991s`.
+- An `ecc:code-reviewer` pass found 0 issues at every severity.
+
+**External actions taken:** none. Nothing was pushed and no PR was opened. The throwaway DBs `godonation_guest_members_26355`, `_pkgs` and `_full` were created and then dropped.
+
+**What is still open**
+- The commit is local and unpushed.
+- OPOS MCP needed interactive OAuth in this subagent session, so #26355 was not moved or commented on.
+- **Admin dashboard (Phase 6)** must handle `400` + `code: "guest_member_not_allowed"` on these three routes:
+  - `POST /api/admin/chat-groups`
+  - `POST /api/admin/chat-groups/:id/members`
+  - `POST /api/admin/chat-groups/connect-requests/:id/approve`
+- What that means for the dashboard:
+  - Show a localized message on this code, not the raw `error`.
+  - The refusal is all-or-nothing, so nothing was created.
+  - For approve, the request stays `pending`. A guest requester's request can only be declined.
+  - The member picker should exclude guests up front, for example via `GET /api/admin/users?hide_guests=1`.
+- Guest memberships created before this fix are not cleaned up. They are still locked out by the read and write gates.
+- A background-task suggestion was filed: `raiseUserIDFloor` in `chatgroups_test.go` moves the users sequence backward (see Traps).
+
+**Traps**
+- **Reusing one test DB across runs of `internal/chatgroups` gives spurious failures.** Its `raiseUserIDFloor` uses `MAX(users.id)`, which drops after cleanup. So each new process reissues user ids that still own leftover `chat_group_members` and connect-request rows.
+  - Seen after 3 runs on one DB: 61 orphan member rows, sequence at 700000532 vs `MAX(id)` 6.
+  - Tests that failed because of it: TestListGroupsForUserUnreadCount, TestListGroupsForUserExcludesRemovedMembership, TestAdminDeclineConnectRequest_ShowsReasonToRequester.
+  - Use a fresh DB per run. The new guest tests count only rows above a `chat_group_members.id` watermark for this reason.
+- **Under machine load** (load average around 40 from parallel agents), `internal/handlers` took 540s, close to Go's 10-minute default per-binary timeout and the Bash tool's 10-minute cap. Run the full suite in the background with `-timeout 30m` and wait for an exit marker.
+- **The sandbox refuses `psql`/`createdb` commands that contain shell variables.** Use literal DB names.
+
+---
+
+## 2026-09-15 — OPOS #26351 ("our team" decision): connect-request copy says "our team", not "staff" (branch `fix/connect-copy-our-team`)
+
+**What was asked:** implement one of OPOS #26351's decisions. All member-facing chat-group and connect-request copy says "our team" (Arabic فريقنا), never "staff" (الفريق). Tests first. Do not write Kurdish.
+
+**What was actually changed** (one commit on `fix/connect-copy-our-team`, based on `origin/main` `9bcc053`):
+- `humanitarian/lib/localization/app_translations.dart`: values only. No key was renamed, because no key name contains "staff".
+  - English: `connect_request_action`, `_title`, `_explainer`, `_message_hint`, `_sent` and `_sent_body`.
+  - Arabic: the same keys except `_explainer`, which already said فريقنا.
+- Two new tests:
+  - `humanitarian/test/modules/chatgroups/connect_request_our_team_copy_test.dart` renders the button, the sheet and the success view in en and ar.
+  - `humanitarian/test/localization/chat_groups_our_team_copy_test.dart` holds exact-value pins, plus a scan so that no chat-group or connect value says staff/الفريق/موظف. `chat_groups_my_team_groups` (the "team" kind of group) is allowlisted.
+- Comments that quoted the old "Ask staff to connect me" label were updated in 7 files: the sheet, button, sent view, submit button, My Connect Requests controller, `failure_message_test.dart` and `connect_request_sheet_test.dart`.
+- `TRANSLATION_REQUEST.md`: the 6 rows now show the new English and Arabic and are marked `**ckb + kmr — REWORDED**`. An intro note was added. The key count stays at 459.
+
+**What was run and what it printed** (from `humanitarian/`):
+- **RED, before the value change:**
+  - The new widget test printed `+0 -6: Some tests failed.`
+  - The new localization test printed `+2 -13: Some tests failed.` The 2 that passed are the Arabic explainer pin and the guard against an empty scan.
+- **GREEN:**
+  - `flutter test test/modules/chatgroups/ test/localization/` printed `+300: All tests passed!`
+  - Full `flutter test` printed `+975: All tests passed!` (main's 954 plus the 21 new tests).
+  - `flutter analyze` printed `6 issues found.`, the same 6 `deprecated_member_use` as the baseline.
+  - `dart format --set-exit-if-changed` on the 2 new files changed 0.
+- An `ecc:code-reviewer` pass found 0 issues.
+
+**External actions taken:** none. Nothing was pushed and no PR was opened.
+
+**What is still open:**
+- The commit is local and unpushed.
+- OPOS MCP needs interactive OAuth, so it was unavailable in this subagent session. OPOS #26351 was not commented on or moved.
+- #26351's OTHER decision is untouched: whether the case-detail connect button should show on every route.
+- The 6 REWORDED rows need Sorani and Badini from a native speaker.
+- "staff" was deliberately left in other features: the support chat ("Message the staff team", "Staff support", `chat_support_unavailable_body`'s الفريق), marriage chat ("mediated by staff"), and the `staff_chat_message` notification type, which belongs to the older `staffchat` threads. Also left: profile-approval, checkout, marriage-owner and "Staff only" visibility strings.
+
+**Traps:**
+- macOS `awk` does not support `\s`, so an awk grep over the translation map silently matched nothing. Use perl.
+- The first English edit missed `connect_request_sent_body`. Only the new pins caught it.
+- `connect_request_sheet_test.dart` was already 515 lines, over the 500-line cap, so the new widget tests went into their own file.
+
+---
+
 ## 2026-09-15 — OPOS #26348: 5 stale Flutter tests on `main` brought up to current behaviour (branch `fix/stale-flutter-tests`)
 
 **What was asked:** fix the 5 Flutter tests failing on `origin/main`: 1 in `main_menu_button_test.dart` and 4 in `marriage_hub_feed_test.dart`. Update or delete each test whose subject was changed on purpose. Change no product code, and report a real regression rather than fix it. None was found.

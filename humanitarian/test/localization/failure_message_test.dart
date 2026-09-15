@@ -129,7 +129,8 @@ void main() {
           'error_connect_requests_load_failed',
           'error_messages_load_failed',
           'error_message_send_failed',
-          // OPOS #25284 Phase 5 Task 5 — the "ask staff to connect me" sheet.
+          // OPOS #25284 Phase 5 Task 5 — the "ask our team to connect me"
+          // sheet.
           'error_connect_request_submit_failed',
           'error_next_offline',
           'error_next_retry',
