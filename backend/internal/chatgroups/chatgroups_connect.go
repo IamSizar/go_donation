@@ -232,19 +232,29 @@ func (s *Store) DeclineConnectRequest(ctx context.Context, requestID, staffID in
 // RequesterName. ListConnectRequests and GetConnectRequest share it, and
 // scanAdminConnectRequest reads it, so the two reads cannot drift apart.
 //
-// The name comes through a DISTINCT ON derived table, not a plain join:
-// user_profiles.user_id carries no UNIQUE constraint, so a requester with two
-// profile rows would otherwise list their request twice. The oldest profile
-// row names them; a requester with no profile gets NULL. Every request column
-// is qualified with r. because user_profiles has an id of its own.
+// The name comes through a LATERAL subquery scoped to each request's own
+// requester, not a plain join: user_profiles.user_id carries no UNIQUE
+// constraint, so a requester with two profile rows would otherwise list their
+// request twice. ORDER BY id LIMIT 1 names them from the oldest profile row. A
+// requester with no profile gets NULL, because LEFT JOIN ... ON true keeps the
+// request when the subquery finds nothing.
+//
+// Scoped per request rather than joined to a DISTINCT ON view of the whole
+// table, which scanned and sorted every profile on every call — including
+// GetConnectRequest's single-request read. user_profiles.user_id still has no
+// index, so each lookup scans that table; an index is the remaining fix.
+// Every request column is qualified with r. because user_profiles has an id
+// of its own.
 const adminConnectRequestSelect = `
 	SELECT r.id, r.requester_user_id, r.context_type, r.context_id, r.target_hint,
 	       r.message, r.group_id, r.status, r.decline_reason, r.decided_by_staff_id, r.created_at,
 	       p.full_name
 	  FROM chat_group_connect_requests r
-	  LEFT JOIN (SELECT DISTINCT ON (user_id) user_id, full_name
-	               FROM user_profiles
-	              ORDER BY user_id, id) p ON p.user_id = r.requester_user_id`
+	  LEFT JOIN LATERAL (SELECT up.full_name
+	                       FROM user_profiles up
+	                      WHERE up.user_id = r.requester_user_id
+	                      ORDER BY up.id
+	                      LIMIT 1) p ON true`
 
 // scanAdminConnectRequest reads one row of adminConnectRequestSelect.
 func scanAdminConnectRequest(row pgx.Row) (ConnectRequest, error) {

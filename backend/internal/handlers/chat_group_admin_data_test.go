@@ -149,6 +149,43 @@ func TestAdminGetGroup_RosterCarriesFullName(t *testing.T) {
 	}
 }
 
+// TestAdminGetGroup_TeamRosterCarriesFullNameWithoutSensitive: a TEAM group's
+// roster carries full_name too — the profile name, or null without a profile —
+// and reaches a caller who holds messages:view but not sensitive_data. By D1 a
+// team group's members already see each other's real names, so the names are
+// no disclosure there.
+func TestAdminGetGroup_TeamRosterCarriesFullNameWithoutSensitive(t *testing.T) {
+	pool := newChatGroupPool(t)
+	r := newAdminGroupReadRouter(pool)
+	requireTierPermission(t, pool, "employee", sensitive.Module, false)
+	requireTierPermission(t, pool, "employee", "messages", true)
+	creator := makeChatGroupStaffUser(t, pool, "Team Roster Creator", "admin")
+	named := makeChatGroupUser(t, pool, "Team Volunteer Real Name")
+	unnamed := makeChatGroupUserWithoutProfile(t, pool)
+	groupID := makeChatGroup(t, pool, creator, chatgroups.KindTeam, []chatgroups.MemberInput{
+		{UserID: named, RoleInGroup: "volunteer"},
+		{UserID: unnamed, RoleInGroup: "volunteer"},
+	})
+	_, token := staffActor(t, pool, "Team Roster Employee", "employee")
+
+	code, raw, body := getRawAs(t, r, token, fmt.Sprintf("/api/admin/chat-groups/%d", groupID))
+
+	if code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (body %s)", code, raw)
+	}
+	group, _ := body["group"].(map[string]any)
+	if group["kind"] != "team" {
+		t.Fatalf("group kind = %v, want \"team\" (body %s)", group["kind"], raw)
+	}
+	if got := rosterMember(t, body, named)["full_name"]; got != "Team Volunteer Real Name" {
+		t.Fatalf("named member full_name = %v, want \"Team Volunteer Real Name\" (body %s)", got, raw)
+	}
+	got, present := rosterMember(t, body, unnamed)["full_name"]
+	if !present || got != nil {
+		t.Fatalf("unnamed member full_name = %v (present %v), want null (body %s)", got, present, raw)
+	}
+}
+
 // TestAdminGetGroup_CarriesLifecycleFields: the detail carries lifecycle,
 // lifecycle_reason and is_archived at the top level, the dashboard's lifecycle
 // controls' inputs, for an open group and for a paused, archived one.
