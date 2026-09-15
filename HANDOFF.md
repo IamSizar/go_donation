@@ -182,6 +182,180 @@
 
 ---
 
+## 2026-09-15 — OPOS #26435 and #26429 (app half): the 1:1 chat names an unnamed staff reply in the reader's language, and group chat notifications get a type label (branch `fix/app-support-name-and-group-notif-label`)
+
+**What was asked:** two Flutter localization fixes on one branch, test-first, in en and ar only.
+- **#26435:** the 1:1 support chat showed English "Support" to Arabic users.
+- **#26429:** the `chat_group_message` notification type had no label. Only the app half was in scope, not admin-web.
+
+Commit locally; do not push.
+
+**What was actually changed:**
+- **Base.** The branch was cut from `origin/main` `e66ff69`. Before any commit, it was moved onto `origin/main` `30186e5` with `git checkout -B`. Upstream #103–#107 had landed in the meantime, and none of them touch these files.
+- **`8cb9fd8` fix(chat): localize the support sender name and the group-message notification label.**
+  - `humanitarian/lib/modules/chat/models/chat_models.dart`: `ChatMessage.senderName` is now the server's trimmed `sender_name`, or `''` when the server sent none.
+    - It used to be `'Support'` for `sender_role` 0 and `'User'` for everyone else.
+    - The server sends null when a staff profile has no name, or when privacy settings hide the name. `Viewer.Name` in `backend/internal/privacy/privacy.go` returns nil on purpose and leaves the placeholder to the client.
+  - New `humanitarian/lib/modules/chat/utils/chat_sender_name.dart`: `chatSenderName(ChatMessage)`.
+    - It returns the server's name when there is one.
+    - Otherwise it returns `'chat_group_sender_support'.tr` for staff and `'User'.tr` for anyone else.
+  - `humanitarian/lib/modules/chat/screens/chat_conversation_screen.dart`: `_MessageBubble` draws `chatSenderName(message)` (~line 233), and its comment was rewritten to match.
+    - This is the only place the app displays `senderName`. Grepping `lib/` finds no other reader.
+  - `humanitarian/lib/localization/app_translations.dart`: `chat_group_message` was added to `_en` (line 37) and `_ar` (line 3258), next to `chat_message`.
+    - A comment on `chat_group_sender_support` now says the key is shared with the 1:1 chat.
+  - **Tests:**
+    - New `humanitarian/test/modules/chat/chat_sender_name_test.dart`, 14 cases:
+      - `fromMap` adds no words of its own;
+      - Arabic and English fallbacks, with real names left untouched;
+      - Kurdish never falls back to Arabic;
+      - a source guard that the screen draws `chatSenderName(message)`.
+    - It is a source test rather than a pumped screen: `ChatThreadController.onInit` calls `const ModuleApi()` directly, with no seam for a fake.
+    - `humanitarian/test/localization/localized_tag_test.dart` lists `chat_group_message`. It also has a new test that every listed type has its own `_en` entry, because the existing English test passes on the humanised token alone.
+  - `TRANSLATION_REQUEST.md`:
+    - a new 1-key section and table row;
+    - the count heading and the Total row both went from 467 to 468;
+    - a note in the #26419 section that `chat_group_sender_support` now serves both chats.
+- **This entry.**
+
+| Key | English | Arabic | Status |
+|---|---|---|---|
+| `chat_group_sender_support` | Support | فريق الدعم | reused (from #26419). T10: a bare الدعم is Kafala |
+| `User` | User | مستخدم | reused |
+| `chat_group_message` | Group chat message | رسالة محادثة جماعية | **new**. It follows `chat_message` → رسالة محادثة; جماعية is the word the chat-groups screens use |
+
+**What was run and what it printed** (from `humanitarian/`):
+- **RED.** This ran on `e66ff69`, where every file involved is byte-identical to `30186e5`. `chat_sender_name.dart` was an identity stub, and nothing else in production had changed.
+  - `flutter test test/modules/chat/chat_sender_name_test.dart test/localization/localized_tag_test.dart` printed `+24 -8: Some tests failed.` The failures were:
+    - the model tests: `Expected: ''` / `Actual: 'Support'` and `Actual: 'User'`;
+    - Arabic: `Expected: 'فريق الدعم'` / `Actual: 'Support'`, and `Expected: 'مستخدم'` / `Actual: 'User'`;
+    - the source guard;
+    - `no _en entry for chat_group_message`;
+    - `chat_group_message rendered as "Chat group message" in Arabic`.
+- **GREEN.** The same command printed `00:00 +32: All tests passed!`
+- **Format.** `dart format --output=none --set-exit-if-changed` on the 5 owned Dart files flagged only the new test, which was then formatted. `app_translations.dart` was left alone: it already fails formatting on main (see the #26419 entry).
+- **On `30186e5`:**
+  - `flutter analyze` printed `6 issues found. (ran in 10.6s)`, the same 6 `deprecated_member_use` as the baseline.
+  - `flutter test test/localization/ test/modules/chat/ test/modules/chatgroups/` printed `00:24 +357: All tests passed!`
+  - `flutter test` (full) printed `01:10 +1045: All tests passed!` (exit 0).
+- **Review.** `ecc:flutter-reviewer` returned APPROVE, with 0 CRITICAL, 0 HIGH and 0 MEDIUM findings. Neither of its two minor findings was changed:
+  - **LOW:** the Kurdish test asserts "not Arabic, not empty" rather than exactly "Support". That is deliberate: it catches the real risk and survives a future Kurdish translation.
+  - **NIT:** the "shared key" comment could drift if the key is renamed. It names `chatSenderName`, which a grep finds.
+
+**External actions taken:** none. Nothing was pushed and no PR was opened. The OPOS connector needs interactive OAuth, which this session could not do, so #26435 and #26429 were not moved or commented on.
+
+**What is still open:**
+- Both commits are local and unpushed.
+- The admin-web half of #26429, the dashboard's label for `chat_group_message`, is not done.
+- `chat_group_message` needs Sorani and Badini.
+- **Not fixed, same file:** `ChatThread.otherName` still falls back to English `'User #<id>'` (`chat_models.dart` ~line 53). It is what the Messages tile and conversation title show for a counterpart with no name.
+- **Not fixed, T10:** the marriage chat signs staff with `'Support'.tr` (`marriage_chat_conversation_screen.dart` ~line 356). That resolves to `الدعم`, the Kafala word, not `فريق الدعم`.
+- **Not fixed, server side: the 1:1 support-reply push.**
+  - The admin reply handler in `backend/internal/handlers/chat.go` (~line 561) always calls `notify.ChatNewMessageMsg("Support", …)`.
+  - That template (`backend/internal/notify/templates.go`) puts the word into every language's title.
+  - So an Arabic user's push, and the in-app notification row, both read «رسالة من Support».
+  - The fix belongs in that template, the way #26434 fixed masked group pushes.
+
+**Traps:**
+- **The shared `origin/main` ref moves under you.** Another worktree's fetch advanced it from `e66ff69` to `30186e5` mid-task. After that, `git diff origin/main` showed about 4,000 lines of unrelated upstream work. Diff against `HEAD` or the base SHA, and re-check `git log <base>..origin/main` before committing.
+- **`test/modules/chat/` did not exist before this change**, so a test command naming it would have failed on main.
+- **zsh:** an unquoted `--include=*.dart` fails with "no matches found". Quote it.
+- **The worktree guard refuses `$((...))` arithmetic in Bash.** Split the command into plain ones.
+
+---
+
+## 2026-09-15 — OPOS #26436: a declined chat invite can't be accepted; asking again starts a fresh one (branch `fix/declined-invite-needs-reinvite`)
+
+**What was asked:** apply the owner's decision "make it decline and re invite behavior", test-first:
+- a declined chat invite can no longer be accepted, in donor chat or marriage chat;
+- to start again, the initiator sends a new invite or request, and the recipient gets a fresh pending invite and a notification.
+
+The brief limited the change to the two chat stores' accept (and re-invite), their handlers' accept paths and error mapping, and new test files, because parallel branches edit chat groups, notifications and `chatlifecycle.Apply`.
+
+**What was actually changed:** commit `9c06524`, based on `origin/main` `62cadbd` and fast-forwarded to `e66ff69` before committing. Nothing between those two touches `backend/`.
+- **The bug.** Both `AcceptThread`s updated by id with no status condition. A recipient who had declined could accept later: the thread went back to `active` and the initiator was pushed "chat accepted". The RED run below confirms it.
+- `backend/internal/chat/chat.go`:
+  - new sentinel `ErrInviteDeclined` (:47);
+  - `AcceptThread` (:198) now runs `UPDATE … WHERE id = $1 AND status = 'pending' RETURNING …`;
+  - on no row, the new `acceptNotPending` (:230) re-reads the thread. `active` keeps today's idempotent success and still returns the initiator id. Anything else returns `ErrInviteDeclined` with initiator id 0, so nobody is pushed.
+- `backend/internal/marriagechat/marriagechat.go`:
+  - the same shape: `ErrInviteDeclined` (:50), `AcceptThread` (:249), `acceptNotPending` (:279).
+  - `ApproveMeetingRequest` (:115): the `ON CONFLICT (requester_user_id, profile_id) DO UPDATE` now also sets `status = CASE WHEN marriage_chat_threads.status = 'declined' THEN 'pending' ELSE marriage_chat_threads.status END` (:148).
+- `backend/internal/handlers/chat.go`: new const `chatInviteDeclinedCode = "chat_invite_declined"` (:452), and `chatErr` maps `ErrInviteDeclined` (:456).
+- `backend/internal/handlers/marriage_chat.go`: `chatErr` maps `ErrInviteDeclined` (:55). Doc comments updated on `Accept` (:182) and `AdminApproveMeetingRequest` (:99).
+- **Check order is unchanged:** the participant/owner check, then `refuseIfInviteClosed` (#93/#99), then `AcceptThread`. #98's decline code is untouched.
+- **New tests:**
+  - `backend/internal/chat/chat_accept_declined_test.go` (3 store tests): declined is refused and untouched with initiator 0; pending accepts; active is idempotent.
+  - `backend/internal/handlers/chat_invite_accept_declined_test.go` (6 tests, 10 counting subtests):
+    - accepting a declined invite answers 409 and leaves no accepted-notification row, in donor and marriage;
+    - pending accepts, and a repeat accept is a 200, in both;
+    - the initiator/requester and a stranger get today's plain 403 on a declined thread, never the 409;
+    - marriage re-invite through the production routes end to end: request, approve, decline, request again, approve again; the owner's `GET /api/marriage/chats` lists the thread as pending, and accepting it succeeds and pushes the requester;
+    - a new approval leaves an active chat active.
+
+**Responses:**
+- **Donor, declined:** `409 {"success":false,"code":"chat_invite_declined","error":"This chat request was declined, so it can no longer be accepted."}`. It promises nothing further, because a donor chat cannot be requested again.
+- **Marriage, declined:** `409 {"success":false,"code":"chat_invite_declined","error":"This chat request was declined, so it can no longer be accepted. If a new request is approved, it will come to you as a new invite."}`. It does not promise a push; see the notification gap below.
+- **Already active, both:** 200 `{"success":true,"status":"active",…}`, unchanged.
+
+**Re-invite findings per kind:**
+- **Donor direct chat: none exists, so a declined donor invite is final.**
+  - The route `POST /api/chats/request` (`cmd/server/main.go:733`) runs `ChatHandler.Request` (`internal/handlers/chat.go:94`), which calls `chat.Store.RequestThread` (`internal/chat/chat.go:106`). That always returns `ErrDirectChatRetired`, which becomes 410 "Direct messaging has been retired. Ask staff to connect you instead." (`handlers/chat.go:176`).
+  - Creation was not re-opened.
+- **Marriage chat: the requester asks again through the existing flow.**
+  - `POST /api/marriage/:id/request-meeting` (`main.go:804`, `MarriageHandler.RequestMeeting` `handlers/extras.go:453`, `marriage.Store.RequestMeeting` `internal/marriage/marriage.go:403`) inserts a new `marriage_meeting_requests` row. That table has no uniqueness, so nothing blocks a second request.
+  - Staff then approve with `POST /api/admin/marriage/meeting-requests/:id/approve` (`main.go:1089`), which runs `ApproveMeetingRequest`.
+  - The schema keeps ONE thread per pair: `CONSTRAINT uq_marriage_chat_pair UNIQUE (requester_user_id, profile_id)` (`migrations/058_marriage_mediated_chat.sql:29`). Before this change the conflict branch reused the declined thread without touching `status`, so the "new" invite came back `declined` and hidden from the owner's list.
+  - **Choice: reset the existing thread, don't create a new one.** The unique constraint makes a second thread impossible without a migration, and resetting is how the model is meant to work.
+  - Only `declined` becomes `pending`. A `pending` or `active` thread keeps its status, so a new approval never locks a live chat back behind the owner's accept.
+
+**What was run and what it printed:**
+- **RED, before the fix, observed earlier in this session** on DB `godonation_declined_invite_26436` (only the sentinels declared):
+  - `go test ./internal/chat/ -run AcceptThread -count=1 -p 1 -timeout 45m -v`: `TestAcceptThreadRefusesDeclinedInvite` printed `err = <nil>, want ErrInviteDeclined`, `initiator = 8, want 0` and `stored status = "active", want declined`. The two controls passed. It ended `FAIL …/internal/chat 132.074s`.
+  - `go test ./internal/handlers/ -run DeclinedInvite -count=1 -p 1 -timeout 45m -v`:
+    - DonorRefused printed `200 map[status:active success:true thread_id:4]`;
+    - MarriageRefused printed `200 map[status:active success:true thread_id:1]`;
+    - the re-invite test printed `approve: status = 200 body = map[status:declined success:true thread_id:4], want 200 pending`;
+    - the other 3 tests passed. It ended `FAIL …/internal/handlers 22.278s`.
+  - The re-invite test was later rewritten to seed the first approval through the routes. Its status assertion is the one that failed above; the rewritten version was not re-run against the pre-fix code.
+- **Notification probe, after the fix:** a temporary test (not committed) ran request → route approve → decline → request again → route approve. It printed `user 30 has 1 "marriage_chat_request" notifications after 5s, want at least 2`.
+- **GREEN, final, on a freshly recreated DB `godonation_declined_invite_26436b`:**
+  - store `-v`: 6/6 PASS, `ok …/internal/chat 0.871s`;
+  - HTTP `-run DeclinedInvite -v`: 6/6 PASS with no SKIP, `ok …/internal/handlers 1.083s`. It printed, for example, `approve a new meeting request after a decline: 200 map[status:pending success:true thread_id:4]` and `accept the fresh invite: 200 map[status:active success:true thread_id:4]`.
+- **Package run, DB recreated fresh:** `go test ./internal/chat/ ./internal/handlers/ -count=1 -p 1 -timeout 45m` printed `ok …/internal/chat 1.443s` and `ok …/internal/handlers 16.306s`, exit 0. `internal/marriagechat` has no test files; its behaviour is covered through the handlers tests.
+- **Full suite, DB recreated fresh again:** `go test ./... -count=1 -p 1 -timeout 45m` exited 0 with 22 `ok` packages and 0 FAIL. Among them: `ok …/internal/handlers 17.832s`, `ok …/internal/marriage 1.062s`, `ok …/internal/chatlifecycle 1.056s` and `ok …/internal/notify 0.583s`.
+- **Cleanup:** `dropdb godonation_declined_invite_26436b` succeeded. Afterwards `psql -d postgres -lqt` lists 0 `godonation_declined_invite*` databases. The first DB, `godonation_declined_invite_26436`, was already gone after the session restart.
+- **Lint:** `go build ./...` and `go vet ./...` exited 0, and `gofmt -l` on the 6 changed files printed nothing.
+- **Review:** `ecc:code-reviewer` returned APPROVE with 0 critical, high or medium findings.
+  - LOW 1: files over 500 lines, already over before this change. Not split, because parallel branches edit them.
+  - LOW 2: a re-approval landing between the guarded UPDATE and the re-read makes one accept tap answer 409. Accepted and documented on `acceptNotPending`.
+  - The review ran before the notification probe and assumed a re-opened invite "brings its own notification". The two comments that said so were corrected afterwards.
+
+**External actions taken:** none. Nothing was pushed and no PR was opened. OPOS MCP needs interactive OAuth in this subagent session, so #26436 was not moved or commented on. A background-task suggestion, "Fix lost marriage chat invite notifications", was raised for the user.
+
+**What is still open:**
+- The two commits are local and unpushed.
+- **The re-invite push is lost.** `notify.Notifier.Send` dedupes on user + English title + English body + type, with no time window and no entity check (`internal/notify/notify.go:120`). `MarriageChatRequestMsg`'s text never varies, so an owner who already received one invite gets no new row and no push for the re-invite. The same applies to any later invite from anyone, and `MarriageChatAcceptedMsg` has the same shape. The probe above confirms it.
+  - The owner still sees the pending invite in their Marriage chats list.
+  - Not fixed here: the dedupe is relied on elsewhere (`handlers/admin_status_notify.go:357-360`), the templates belong to a parallel branch, and getting past it would mean deleting users' notification rows or changing the shared `Send`. It needs a decision.
+- **A re-opened thread keeps its lifecycle and its old messages.** If staff had ended or archived the declined thread, a re-invite produces a pending invite that accept refuses with `chat_lifecycle_closed`, or 404 if archived. This is the lifecycle rule working as designed, but staff approving a request for such a pair creates an invite nobody can use.
+- **Flutter** (no Dart changed; for #26433). Both accept calls go through `postJson` (`humanitarian/lib/api/module_api.dart:360`), which throws `Exception(<error>)` and drops `code`:
+  - **Notification tile** (`modules/notifications/widgets/notification_tile.dart`): Accept is offered on any `chat_request` (:196) whose thread is not active in `ChatController.threads`. Declined threads are never in that list, so the `declined` branch at :550 never fires. `_localDone` (:557) resets when the widget is rebuilt, so a user who declined sees Accept again. Tapping it, `_accept` (:437) shows a snackbar with the raw text "Exception: This chat request was declined, so it can no longer be accepted." in English on every locale, and the buttons stay. This is the path most likely to hit the 409.
+  - **Messages tab** (`modules/chat/screens/messages_screen.dart`): `_accept` (:517) shows the same raw `'$e'` (:533). Accept only renders for `incomingPending` threads (:198), so reaching it takes a stale list.
+  - **Marriage conversation** (`modules/marriage/screens/marriage_chat_conversation_screen.dart`): `_decide(true)` (:152, :156) shows `failureMessage(e, 'error_message_send_failed')` (:165), i.e. "Could not send your message. Please try again…" / "تعذّر إرسال رسالتك…", which is misleading. Accept is gated on `_status == 'pending' && isOwner` (:212). A stale list row, or the first load, can still show it.
+  - `marriage_chat_request` notifications have no buttons in the tile.
+  - The existing pattern to follow is `ApiCodedException` via `_sendCodedJson`, as in `chat_group_conversation_controller.dart`'s `chat_lifecycle_closed` handling.
+- **Files over 500 lines** (already over before): `internal/chat/chat.go`, `internal/handlers/chat.go`, `internal/marriagechat/marriagechat.go`.
+
+**Traps:**
+- **A session restart kills every background test run and reviewer.** Recheck `psql -l`: the first DB for this task was already gone afterwards.
+- **Notification tests that seed an invite through the store** (`marriagechat.Store.ApproveMeetingRequest`) write no notification row, so they cannot see `Send`'s dedupe. Seed through the approve route when a test depends on a notification arriving.
+- **In this worktree-isolated agent, the sandbox refuses:**
+  - `cd <dir> && git …`: use `git -C <worktree>`;
+  - Monitor loops with shell arithmetic: `tail -F log | grep --line-buffered …` works.
+- **`psql` without `-d postgres` fails** with `database "zaidaqrawi" does not exist`.
+
+---
+
 ## 2026-09-15 — OPOS #26410 (part): chat-group membership conflicts answer 409 with codes, and re-adding a removed member reactivates them (branch `feat/chat-groups-conflict-codes`)
 
 **What was asked:** on the chat-group admin routes, adding someone who is already a member, or giving a masked label that another active member holds, returned 500 "Database error.". Three changes were requested, test-first:
