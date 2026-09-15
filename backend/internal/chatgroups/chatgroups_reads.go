@@ -64,6 +64,12 @@ const defaultMessagePage = 50
 // chat_group_members guarantees at most one row per pair, so widening the
 // join cannot multiply message rows.
 //
+// The profile lookup has no such guarantee: user_profiles.user_id is not
+// UNIQUE (migration 124 records why). So the team-group name comes from a
+// LATERAL lookup of ONE profile row, the oldest (ORDER BY id LIMIT 1), not
+// from a plain join. A plain join would repeat a message for a sender with two
+// profile rows, in masked groups too, and let the LIMIT count the copies.
+//
 // sender_user_id is read ONLY inside SQL, to compute is_mine, and is never
 // scanned into Go — GroupMessage has no field that could hold it (see the
 // type's doc comment), so the id cannot reach a response even by mistake.
@@ -114,7 +120,13 @@ func (s *Store) ListMessagesForMember(ctx context.Context, groupID, viewerUserID
 		JOIN chat_group_threads g ON g.id = m.group_id
 		LEFT JOIN chat_group_members mem
 		  ON mem.group_id = m.group_id AND mem.user_id = m.sender_user_id
-		LEFT JOIN user_profiles up ON up.user_id = m.sender_user_id
+		LEFT JOIN LATERAL (
+		  SELECT p.full_name
+		    FROM user_profiles p
+		   WHERE p.user_id = m.sender_user_id
+		   ORDER BY p.id
+		   LIMIT 1
+		) up ON true
 		WHERE m.group_id = $1 AND m.id > $3
 		ORDER BY m.id ASC
 		LIMIT $4`,
@@ -147,10 +159,17 @@ func (s *Store) ListMessagesForMember(ctx context.Context, groupID, viewerUserID
 //
 // Deliberately NO membership/access check, unlike ListMessagesForMember. Per
 // spec §9, admin authority to read a group comes from the CALLER's permission
-// level (perm("messages", ...) plus sensitive_data:view), checked by a later
-// phase's HTTP handler — not from having a chat_group_members row. This
+// level — not from having a chat_group_members row. The HTTP layer checks it:
+// messages:view on the route, plus, for a masked group, sensitive_data:view
+// resolved per user (handlers' refuseMaskedWithoutSensitive, OPOS #26409). This
 // mirrors PostMessageAsStaff, which already lets any admin holding the
 // messages permission post into a group without needing a member row.
+//
+// The sender's name comes from a LATERAL lookup of ONE profile row, the
+// oldest (ORDER BY id LIMIT 1), not from a plain join. user_profiles.user_id
+// has no UNIQUE constraint (migration 124 records why), so a sender with two
+// profile rows would otherwise return each of their messages twice, and the
+// LIMIT would count the copies and cut the page short.
 func (s *Store) AdminListMessages(ctx context.Context, groupID, afterID int64, limit int) ([]AdminGroupMessage, error) {
 	if limit <= 0 || limit > maxMessagePage {
 		limit = defaultMessagePage
@@ -168,7 +187,13 @@ func (s *Store) AdminListMessages(ctx context.Context, groupID, afterID int64, l
 		LEFT JOIN chat_group_members mem
 		  ON mem.group_id = m.group_id AND mem.user_id = m.sender_user_id
 		LEFT JOIN users u ON u.id = m.sender_user_id
-		LEFT JOIN user_profiles up ON up.user_id = m.sender_user_id
+		LEFT JOIN LATERAL (
+		  SELECT p.full_name
+		    FROM user_profiles p
+		   WHERE p.user_id = m.sender_user_id
+		   ORDER BY p.id
+		   LIMIT 1
+		) up ON true
 		WHERE m.group_id = $1 AND m.id > $2
 		ORDER BY m.id ASC
 		LIMIT $3`,

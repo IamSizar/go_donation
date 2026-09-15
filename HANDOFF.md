@@ -68,6 +68,921 @@ The owner decided (2026-09-15) on **"Restore as closed"**: a restored direct cha
 - **Postgres row-version behaviour:** under READ COMMITTED a plain SELECT never waits on an uncommitted UPDATE. Only a later `DELETE` or `FOR UPDATE` waits, and it then sees the new row version.
 - **Don't reorder or renumber the retire SQL** without updating `retire_one.go`.
 
+## 2026-09-15 — OPOS #26474: `user_profiles.user_id` gets an index, and group chats stop repeating a message whose sender has two profile rows (branch `perf/user-profiles-user-id-index`)
+
+**What was asked:** add an index on `user_profiles.user_id` and check the table's one-row-per-user assumption. If a user can have two rows, fix `AdminListMessages`' join, test-first. The change was to stay within a new migration plus a minimal code fix, because other branches are editing the chat-group handlers and stores. A database review was then to be run, and anything real it found fixed.
+
+**What was actually changed.** There are three local commits on `perf/user-profiles-user-id-index`, based on `origin/main` `9425007`.
+
+**`bb32094` `perf(db): index user_profiles.user_id`**
+- `backend/migrations/124_user_profiles_user_id_index.sql` (new): `CREATE INDEX IF NOT EXISTS idx_user_profiles_user_id ON user_profiles (user_id);`.
+- Its header explains why the index is needed, why there is no UNIQUE and why there is no CONCURRENTLY. The DOWN is recorded in comments, the same way as in 113.
+- Numbered 124 because `fix/chat-group-lifecycle-null-reason` already adds `123_chat_group_lifecycle_reason_nullable.sql`.
+
+**`ec83248` `fix(chatgroups): stop repeating messages for senders with two profiles`**
+- `backend/internal/chatgroups/chatgroups_reads.go`: in both message reads, the plain `LEFT JOIN user_profiles up ON up.user_id = m.sender_user_id` became `LEFT JOIN LATERAL (SELECT p.full_name … ORDER BY p.id LIMIT 1) up ON true`, so the oldest profile row names the sender. Both doc comments say why.
+  - `AdminListMessages` serves `GET /admin/chat-groups/:id/messages` (`cmd/server/main.go:1035` → `handlers/chat_group_admin.go:168`).
+  - `ListMessagesForMember` is the members' own read. In a team group, the repeated copies could show one message under two names.
+- Response shapes are unchanged.
+- `backend/internal/chatgroups/chatgroups_duplicate_profiles_test.go` (new), with two tests:
+  - `TestAdminListMessagesListsEachMessageOnceWhenSenderHasTwoProfiles`;
+  - `TestListMessagesForMemberListsEachMessageOnceWhenSenderHasTwoProfiles`, with `team` and `masked` subtests.
+- The member-read half was added after the database review (see Review).
+
+**This entry** is the third commit.
+
+**Can a user have two `user_profiles` rows? Yes. One row per user is intended, not guaranteed.**
+- **The table:** `001_full_v2.sql:73-80` declares `user_id INTEGER NOT NULL`, with no UNIQUE and no index. `002_add_foreign_keys.sql:32-34` adds only the FK (ON DELETE CASCADE). No trigger or SQL function writes the table; the only SQL INSERT is the six-user seed at `001_full_v2.sql:751`.
+- **The intent is written down:** `010_phone_canonical.sql:60` says "user_profiles is one-row-per-user", and `handlers/admin_edit.go:1806` notes the missing UNIQUE.
+- **Safe inserts**, both for a brand-new user id:
+  - `users/users.go:817` `InsertGuest`, in the same transaction as the user insert;
+  - `handlers/admin_status.go:341`, right after creating the user.
+- **Racy check-then-insert**, with no lock held between the check and the INSERT:
+  - `users/profile.go` `UpsertProfile`: `GetProfileRow` at `:100` runs on the pool, outside the transaction begun at `:105`, and the INSERT is at `:139`.
+  - `users/registration.go` `SubmitRegistration`: SELECT at `:153`, INSERT at `:157`. The transaction's first `UPDATE users` is at `:238`, after the insert.
+  - `handlers/admin_edit.go` `User`: SELECT at `:1811`, INSERT at `:1930`. The users row is locked only when phone or email are sent too (`:1770`, `:1790`).
+- **So no UNIQUE constraint was added.** It would fail to apply on a database that already holds a pair, and deduping means deleting user rows. That decision belongs to a human.
+
+**Why not `CREATE INDEX CONCURRENTLY`.**
+- `internal/db/migrate.go:182` sends a whole file as one simple-protocol query.
+- Probed on local Postgres 18.6:
+  - A file with `SELECT 1;` before the CIC failed with `CREATE INDEX CONCURRENTLY cannot run inside a transaction block`.
+  - A one-statement CIC file, comments included, succeeded.
+- **But the one-statement form deadlocks against the runner's own locking.** Session A took `pg_advisory_lock` and ran the CIC. Session B blocked in `pg_advisory_lock` on the same key. B was aborted:
+  - `ERROR: deadlock detected`
+  - `Process 3460 waits for ExclusiveLock on advisory lock … blocked by process 3254.`
+  - `Process 3254 waits for ShareLock on virtual transaction 9/471; blocked by process 3460.`
+- **Concurrent callers are normal here:** every DB test package's process, and two replicas booting with `RUN_MIGRATIONS=1` (`internal/db/migrate_concurrent_test.go`).
+- **A plain build is atomic,** and 113 indexed this table the same way.
+
+**What was run and what it printed.** All ran on local databases created for this task. Nothing remote was touched.
+
+**Migration.** On `godonation_upidx_26474`:
+- Main's migrations first: `done: 121 newly applied, 121 total migration files`. At that point `\d user_profiles` showed no `user_id` index.
+- Seeded 50,000 users and profiles, 2,000 connect requests (one in ten pending), and group 900001 with 5,000 messages from 500 senders, then ran `ANALYZE`.
+- 124 applied through `db.RunMigrations`: `done: 1 newly applied, 122 total migration files`, with `indisvalid = t`.
+- DOWN executed (`DROP INDEX IF EXISTS idx_user_profiles_user_id` and the ledger delete): `index rows: 0`, `ledger rows: 0`.
+- Up again: `1 newly applied`, still valid.
+
+**EXPLAIN ANALYZE, before → after:**
+
+| query | before | after |
+|---|---|---|
+| roster `WHERE user_id = ANY('{…}'::bigint[])`, the `profileNames` shape | Seq Scan, 50,001 rows removed, 20.968 ms | Index Scan using `idx_user_profiles_user_id`, 0.417 ms |
+| requester `LATERAL (… WHERE up.user_id = r.requester_user_id ORDER BY up.id LIMIT 1)`, 200 pending requests | 200 loops of Seq Scan, 2293.849 ms | Index Scan, 200 searches, 1.610 ms |
+| old DISTINCT ON derived-table requester shape, one request | Seq Scan + Sort of 50,006 rows, 30.452 ms | Index Scan + Incremental Sort, 0.091 ms |
+| `AdminListMessages` as on main | Hash Left Join over a Seq Scan of all 50,006 profiles, 33.832 ms | Memoize + Index Scan, 0.584 ms |
+
+- With `enable_seqscan = off` before the index, there was no index path at all: `Seq Scan … Disabled: true` for the roster, and `Index Scan using user_profiles_pkey … Filter` for LATERAL.
+- The fixed `AdminListMessages` uses `idx_user_profiles_user_id` (50 loops). Over 5 warm, alternating runs each, the median was 0.408 ms for the old join and 0.469 ms for the LATERAL.
+
+**Tests first.** All run with `go -C backend test ./internal/chatgroups/ -run … -count=1 -v`.
+- **RED, admin:** `chatgroups_duplicate_profiles_test.go:53: got 2 messages, want 1: a sender with two user_profiles rows must not duplicate their message`.
+- **GREEN, admin:** `-run '^TestAdminListMessages'` passed 4 tests: `ok …/internal/chatgroups 0.713s`.
+- **RED, member** (on a fresh `godonation_upidx_member_26474`): both the `/team` and `/masked` subtests printed `chatgroups_duplicate_profiles_test.go:108: got 2 messages, want 1 …`.
+- **GREEN, both:** `-run '^Test(ListMessagesForMember|AdminListMessages)'` passed all 12 tests, including both subtests: `ok …/internal/chatgroups 0.730s`.
+
+**Format and vet:** `gofmt -l` on the two changed Go files printed nothing, and `go -C backend vet ./...` exited 0.
+
+**Suites on the final tree**, each on a brand-new DB:
+- `go test ./internal/chatgroups/ ./internal/handlers/ -count=1 -p 1 -timeout 45m` on `godonation_upidx_suite2_26474`: `ok …/internal/chatgroups 1.867s`, `ok …/internal/handlers 14.390s`, exit 0.
+- `go test ./... -count=1 -p 1 -timeout 45m -v` on `godonation_upidx_full2_26474`: exit 0, 22 packages `ok`, 995 `--- PASS`, 0 SKIP, 0 FAIL. The last package line was `ok …/internal/users 0.785s`.
+
+**Earlier suite runs,** on the tree before the member-read fix:
+- The targeted run passed on a fresh DB: chatgroups 3.036s, handlers 35.327s.
+- A full run reusing that DB failed two chatgroups tests on leftovers (see Traps).
+- The rerun on a brand-new DB passed: exit 0, 22 packages `ok`, 992 PASS, 0 FAIL.
+
+**Databases created and dropped:** `godonation_upidx_probe_26474`, `godonation_upidx_26474`, `godonation_upidx_suite_26474`, `godonation_upidx_full_26474`, `godonation_upidx_member_26474`, `godonation_upidx_suite2_26474` and `godonation_upidx_full2_26474`. `SELECT count(*) FROM pg_database WHERE datname LIKE 'godonation_upidx%'` printed `0`.
+
+**Merge check** (`git merge-tree --write-tree --name-only`), done after the commits:
+- Against `origin/feat/chat-groups-admin-data` (`891b571`, which contains `a3e9323`, the other commit editing `chatgroups_reads.go`): exit 0, no conflicts.
+- Against `origin/main`, which moved to `bbc6aa2` during this session and has merged that work as `9044379` (#111): exit 0, no conflicts.
+- `origin/main` still ends at migration 122, so 124 does not collide.
+
+**Review.** `ecc:database-reviewer` ran on the first version, which had fixed only `AdminListMessages`.
+- **HIGH:** `ListMessagesForMember` (`chatgroups_reads.go:117`) had the same fan-out, on the member-facing read. It is fixed in `ec83248`, test-first as above.
+- **LOW:** the migration and test comments named the `profile.go` writer `UpdateProfile`, but it is `UpsertProfile` (`profile.go:81`). Fixed.
+- **Verified with no issue:**
+  - the runner and CIC claims;
+  - the index name, and `(user_id)` over `(user_id, id)`;
+  - the LATERAL semantics for 0, 1 and 2+ rows, including the `COALESCE` fallback and pagination;
+  - the RED reasoning;
+  - the test cleanup.
+
+**External actions taken:** none. Nothing was pushed and no PR was opened. The OPOS MCP needed OAuth, which isn't available in this non-interactive session, so #26474 was not moved or commented on.
+
+**What is still open:**
+- All three commits are local, unpushed and not reviewed by a human.
+- **The branch is behind `origin/main`** (`9425007` vs `bbc6aa2`). It merges cleanly, but the suites have not been run on the merged tree.
+- **44 other plain name joins remain.** `grep -rn -E "JOIN user_profiles [a-z]+ +ON [a-z]+\.user_id" backend/internal` still finds 44 in non-test Go code on this branch. Each can return a row twice for a user with two profiles. In chatgroups, only `chatgroups_admin.go:115` (contact blocks) is left. These were out of scope.
+- **UNIQUE on `user_profiles.user_id`** needs a human decision on how to dedupe existing pairs. After that, the three racy writers above can become `INSERT … ON CONFLICT (user_id)`.
+- **Stale comment once 124 merges.** The comment in `chatgroups_connect.go` (on `origin/main` via #111) that says `user_id` "still has no index … an index is the remaining fix" becomes stale.
+
+**Traps:**
+- **Never run the chatgroups tests twice against one DB.** `TestListGroupsForUserUnreadCount` and `TestListConnectRequestsForUserOnlyReturnsOwnRequests` then fail on the earlier run's rows: two groups (`LastAt 18:05:22` and `18:06:41`), and two requests from `RequesterID:700000127`.
+  - `makeTestUser` cleanup deletes only the `users` row (`chatgroups_test.go:1282`).
+  - `raiseUserIDFloor` sets the id sequence to `GREATEST(MAX(id), 700000000)` once per process, so a second run reissues the same ids.
+  - No `chat_group_*` table has an FK to `users`.
+  - Use a brand-new DB for every full run.
+- **The brief's two named queries were not on this branch's base.** `profileNames` and the LATERAL requester lookup came from `feat/chat-groups-admin-data` and reached `origin/main` only in `9044379`. The first version of that branch (`3134085`) used a `DISTINCT ON` derived table.
+- **The local branch `feat/chat-groups-admin-data` was deleted mid-session.** Only `origin/feat/chat-groups-admin-data` remains; use that ref.
+- **CONCURRENTLY looks allowed but deadlocks** (see above). Don't "upgrade" this or a later index migration to CIC without changing the runner.
+- **The worktree guard refuses psql heredocs combined with `&`/`wait`.** Write the SQL to a file, run `psql -f`, and use the tool's background mode for the second session.
+- **`git show <sha> | grep` is refused too.** Use `git show <sha> --output=<file>` or `git grep <rev>`, then read the file.
+
+## 2026-09-15 — OPOS #26467: the retire runbook's freeze list matches the lifecycle race fix (branch `docs/retire-runbook-freeze-list`)
+
+**What was asked:** bring `docs/runbooks/retire-direct-chats.md` in line with PR #103 (`95ea8fb`, OPOS #26431). Pause and resume come off the run-window freeze. End, archive and unarchive stay on it. Delete goes on it, because of the Trash risk tracked as OPOS #26466. Docs only.
+
+**What was actually changed** (branch from `origin/main` `95ea8fb`):
+- One commit, `docs(ops): narrow the retire runbook freeze list after the lifecycle race fix`, touching the runbook and this file only.
+- **Section 3, item 7:** from the snapshot until the post-checks are done, staff must not end, archive, unarchive or delete a direct chat, or restore one from the Trash. Each item says why. Pause and resume are no longer frozen.
+- **Section 4:** new pre-flight query 6 counts direct threads in the Trash, grouped by the copy's lifecycle and archive state. The filter is `trash_items.source_table = 'chat_threads'`, `restored_at IS NULL` and `payload->>'kind' = 'direct'`. A new "What to expect" bullet explains the output.
+- **Section 5:** one sentence. A pause or resume made between the snapshot and the run is still ended by the run, but a restore puts back the snapshot's state.
+- **Section 7:** new post-check 7h lists direct threads deleted to the Trash since `snapshot_taken_at`. A paragraph after the block says what to do with a row.
+- **Section 9:** the Apply race moved to a new "Resolved by OPOS #26431" block. Risk 9 is now the Trash risk (#26466), so the existing "risk 9" cross-references still point at the right item.
+- The header table and the appendix intro each gained one sentence. The appendix one says query 6 and 7h were verified separately, here.
+- **Review fix, commit `d7a219a`** (`docs(ops): apply the review of the retire runbook freeze list`). The agent review of `ca8193a` came back CHANGES NEEDED, with 3 medium findings, 4 low, and none critical or high. All seven were checked against the code and applied:
+  - **Trash restore is admin-level, not Super-Admin only.** The route uses `RequireAdminTier` (`main.go:1176`), which accepts `admin` or `super_admin` (`auth/middleware.go:47-53`). Query 6's bullet and risk 9 now say so.
+  - **Claim and release join the freeze.** Both write `updated_at` with only `WHERE id = $1` (`chat/chat.go:281-282`, `:297-298`), and the Messages page shows them on every thread (`MessagesPage.tsx:316-330`). Staff replies stay off the list, because `handlers/chat.go:537` refuses them on ended threads.
+  - **7h also lists Trash restores** (`restored_at >= snapshot_taken_at`). Its comment now names the other causes of a query 6 difference: a purge, or a delete or restore made between the pre-flight and the snapshot.
+  - **Wording fixes:**
+    - The pause/resume text now covers a pause that lands first, which the run then ends.
+    - The resolved block no longer says delete "stays" frozen.
+    - The 7h follow-up notes that an `ended | t` copy shows in neither 7a nor 7c.
+    - Section 5 says "the section 10 restore", and the header says the freeze was revised.
+  - **Not applied, on instruction:** the review's "Sentences to update when OPOS #26466 lands" list, because #26466 has not merged.
+
+**Evidence read** (file:line at `95ea8fb`):
+- **Pause and resume are refused on an ended thread:** `backend/internal/chatlifecycle/apply.go:121-122` and `:127-128`.
+  - The write only lands while the lifecycle is unchanged (`:194`, `AND lifecycle = $5`). Zero rows means `errLifecycleChanged` (`:198-199`), and Apply reads again (`:91-99`).
+  - `handlers/admin_chat_lifecycle.go:99-101` maps `ErrEnded` to 409.
+  - Tested against the run in `apply_race_test.go`. Line `:293` covers the run committed first, `:294-295` the run's `retireInTx` holding its locks, and `:312-321` assert `ErrEnded` with the run's END kept.
+- **End, archive and unarchive still write:**
+  - an end with a reason on an ended thread rewrites reason, actor and `updated_at` (`apply.go:139-142`, `:191-194`);
+  - archive and unarchive have no condition, and re-stamp or clear `archived_at` and bump `updated_at` (`apply.go:215-236`).
+- **Trash:**
+  - `handlers/admin_chat_lifecycle.go:182-183` copies the thread with a plain `SELECT to_jsonb(t.*)`, with no `FOR UPDATE`. It then inserts into `trash_items` (`:226-228`) and deletes (`:261`).
+  - `handlers/admin_trash.go:255-257` restores by inserting the copy as it is.
+  - Routes: `backend/cmd/server/main.go:1065` (`DELETE /admin/chats/:id`, direct chats) and `:1176` (Trash restore).
+  - The run's selectors read only live `chat_threads` (`retire.go:101`, `:113`).
+  - Schema: `migrations/016_trash.sql` (`trash_items`), and `migrations/119_chat_support_threads.sql:28` (`kind NOT NULL DEFAULT 'direct'`).
+
+**What was run and what it printed** (throwaway DB `gd_retire_freeze_26467`, made with `createdb -h /tmp`):
+- **Migrations:** `TEST_DATABASE_URL=... go test ./internal/chatlifecycle/ -count=1 -run '^TestRetireAllDirectThreadsIsIdempotent$' -v` → `[migrate] done: 121 newly applied, 121 total migration files`, `PASS`, `ok 1.358s`.
+- **Restore probe:** open direct thread 920001 was trashed with `trashChatThread`'s statements, then re-inserted with `Restore`'s `jsonb_populate_record` INSERT. It came back `920001 | direct | open | f`. The same copy without its `kind` key failed: `ERROR: null value in column "kind" of relation "chat_threads" violates not-null constraint`.
+- **Verbatim run of the edited runbook:**
+  - The SQL blocks of sections 2, 4, 5 and 7 were extracted from the file with `awk`. `<actor>` was replaced by 1 (`admin`), and each block ran through `psql -v ON_ERROR_STOP=1`, with sections 4 and 7 under `PGOPTIONS` read-only.
+  - Seed: open direct threads 920002 and 920003.
+  - Pre-flight: `will_end 2 | will_archive 0`; query 6 printed `open | f | 1` (920001, from the probe).
+  - Snapshot: `snapshot_rows 2`. Then 920003 was deleted to the Trash.
+  - Run: `UPDATE 1`, `UPDATE 0`, `COMMIT`.
+  - Post-checks: 7a `0`, 7b `1`, 7c `0 rows`, 7d `0 rows`, 7f `0`, 7g `2026-09-15 17:59:48.655791 | 1`.
+  - 7h returned one row: `2 | 920003 | open | f | 2026-09-15 17:59:35.456159+03 |` (not restored).
+  - Query 6 again: `open | f | 2`, higher by exactly the 7h row.
+- **Cleanup:** `dropdb -h /tmp gd_retire_freeze_26467`, then a `pg_database` count of `gd_retire_freeze_26467%` → `0`.
+- **Whitespace:** `git diff --check` is clean.
+- **Review fix, on a fresh throwaway DB `gd_retire_freeze_26467_b`.** It was made with `createdb`, then migrated with the same test, which printed `[migrate] done: 121 newly applied, 121 total migration files` and `ok 2.303s`.
+  - Direct threads 930001 and 930002 were deleted to the Trash before the snapshot. The snapshot then printed `snapshot_rows 1` (930003).
+  - After the snapshot, 930001 was restored with `Restore`'s INSERT plus `restored_at = NOW()`, and 930003 was deleted.
+  - The edited section 7 block ran verbatim and read-only. 7h returned exactly `1 | 930001 | open | f | 18:14:25.176912 | 18:14:47.151094` and `3 | 930003 | open | f | 18:14:49.451224 |` (dates 2026-09-15, +03). 930002 was not listed.
+  - The other checks: 7a `1` (the restored open thread; no retire run was made), 7b `0`, 7c and 7d `0 rows`, 7f `0`, 7g `0 rows`.
+  - After `dropdb`, a `pg_database` count of `gd_retire_freeze_26467%` returned `0`. `git diff --check` is clean.
+
+**External actions taken:** none. Nothing was pushed and no PR was opened. OPOS was not updated from this session: the `opos` MCP server needed authorization, and this non-interactive session could not run the OAuth flow.
+
+**What is still open:**
+- Both commits, `ca8193a` and `d7a219a`, are local and unpushed. The agent review's findings are applied in `d7a219a`, but no human has reviewed either commit.
+- **OPOS #26466 is not fixed.** The freeze, query 6 and 7h only work around it. The delete race itself (a delete that copies the thread before the run commits) was read in the code, not reproduced.
+- **When OPOS #26466 merges,** apply the review's "Sentences to update when OPOS #26466 lands" list. It is in the review output of agent `af8516112e224c0f3`. The list covers:
+  - the delete and restore freeze items in section 3, item 7;
+  - query 6's bullet, and 7h with its follow-up paragraph;
+  - risk 9;
+  - the section 10 note on `updated_at`;
+  - the header row.
+- **Additions beyond the original brief:** restore from the Trash is frozen alongside delete, section 5 has its pause-and-resume sentence, and the review added claim and release to the freeze. Revert any of them if unwanted.
+- **`origin/main` has moved at least five commits ahead,** with its own `HANDOFF.md` entries at the top. A rebase will conflict in this file only: keep both sets of entries.
+- The production run has still not been performed.
+
+**Traps:**
+- **The worktree isolation guard refuses a Bash command that uses `$(...)`** ("a construct too complex to verify"). Split it into plain separate commands.
+- **GateGuard's destructive-command check fires on any `psql` with INSERT or DELETE,** even against a throwaway DB. State the facts and retry.
+- **A `chat_threads` copy in the Trash from before migration 119 has no `kind` key,** and its restore fails on NOT NULL. That is why query 6 needs only `payload->>'kind' = 'direct'`.
+- **A review agent's `tasks/<id>.output` file is a JSONL transcript of about 1 MB,** too large for Read. The report is the text content of its last line: `sed -n <last>p <file> | jq -r '.message.content[] | select(.type=="text") | .text'`.
+
+---
+
+## 2026-09-15 — OPOS #26443: guests' phones no longer get chat pushes (branch `fix/no-chat-push-to-guest-devices`)
+
+**What was asked:** a guest who is a grandfathered chat participant still received chat push notifications, including the 80-character message preview. #104 (OPOS #26424) had already hidden those rows from the guest's in-app list, so the push was the remaining leak. Fix it test-first in `backend/internal/notify`, and keep out of the chat, chatgroups and trash code that other branches are editing.
+
+**Findings the fix rests on** (read on `origin/main` `9425007`):
+- `activeDevicesFor` (`push.go`) selects every active device of a user and never reads `users.is_guest`.
+- `Send` (`notify.go`) always fires `sendPush` in a goroutine after writing the row. `sendPush` is its only caller.
+- `POST /api/notifications/device` is not guest-gated. By the owner's decision, it stays that way.
+- **There is no FCM interface or fake.** `Notifier.fcm` is a concrete `*fcmClient`, with an `httpClient` field and a cached `accessToken`/`tokenExpires`.
+- `users.is_guest` is `BOOLEAN NOT NULL DEFAULT FALSE` (migration 064).
+- `user_device_tokens.user_id` has an `ON DELETE CASCADE` FK (migration 002).
+- `SendPushDirect` (the admin compose endpoint) sends admin free text with no notification type, so it is out of scope.
+
+**Owner decision implemented:**
+- A guest gets no push for a type in `chatNotificationTypes` (`list.go`, #104's list, reused, not copied).
+- Guests keep every other push: broadcasts, `admin_announcement` and support-ticket updates.
+- Members are unchanged.
+- The in-app row is still written, and device registration is not gated.
+
+**What was actually changed.** There are two local commits on `fix/no-chat-push-to-guest-devices`, based on `origin/main` `9425007`.
+
+**`77d123e` `fix(notify): no chat push notifications to guest devices`**
+- `backend/internal/notify/push.go`:
+  - New unexported `shouldWithholdChatPush(ctx, userID, notificationType) bool`. For a non-chat type it returns false without querying.
+  - For a chat type it runs one `SELECT COALESCE(is_guest, FALSE) FROM users WHERE id = $1` and returns true for a guest, logging `[notify:push] chat push withheld from guest ...`.
+  - On any lookup error, including a missing user row, it fails closed: it returns true and logs `guest lookup ... failed; chat push withheld`.
+  - `sendPush` calls it once per send, not per device, after the existing "no devices" and "FCM not configured" exits, so those paths never pay for the query.
+- `backend/internal/notify/notify.go`: a doc-comment paragraph on `Send` only.
+- `backend/internal/notify/push_guest_test.go` (new, 351 lines) holds the six tests, selected by `-run '^TestGuestPush_'` (`go test -list` shows exactly six):
+  - **The fake:** a real `fcmClient` with a cached token (so no OAuth call) and an `http.Client` whose `RoundTripper` records `fcm.googleapis.com/.../messages:send` requests and refuses anything else.
+  - **Why `sendPush` is called directly:** `Send` runs it in a goroutine that a test cannot wait on without sleeping.
+  - `TestGuestPush_NoChatPushReachesAGuestDevice`: every conversation template to a guest, 0 pushes.
+  - `TestGuestPush_MemberStillGetsChatPushes`: every one to a member, 1 each.
+  - `TestGuestPush_GuestKeepsNonChatPushes`: broadcasts, support and `admin_announcement` to a guest, 1 each.
+  - `TestGuestPush_UpgradedGuestGetsChatPushesAgain`.
+  - `TestGuestPush_SendStillStoresTheChatRow`.
+  - `TestGuestPush_GuestLookupFailsClosedForChatTypesOnly`: a missing row and a closed pool.
+  - **Reused helpers:** `newCategoryTestPool`, `makeNotifyUser`, `catSeq` and `catRunTag` (category_preference_test.go), and `conversationTemplates`/`guestVisibleTemplates` (chat_types_test.go).
+
+**This entry** is the second commit.
+
+**What was run and what it printed.** All commands ran from the worktree, on a fresh DB `godonation_guest_push_26443`, created with `createdb`, passed as `TEST_DATABASE_URL='postgres://localhost:5432/godonation_guest_push_26443?sslmode=disable'`.
+
+**RED, stage 1** (the tests on unchanged `origin/main` code), `go -C backend test ./internal/notify/ -count=1 -p 1 -run '^TestGuestPush' -v -timeout 45m`, exit 1:
+- All 10 `TestGuestPush_NoChatPushReachesAGuestDevice` subtests failed. For example: `a guest's phone got 1 push(es) of type "chat_message": [{Token:test-device-70000-8 Title:Message from Donor Body:preview}]`, and likewise for `chat_request`, `chat_accepted`, `chat_group_message` (masked and team), `marriage_chat_*`, `marriage_meeting_declined` and `staff_chat_message`.
+- The member, non-chat, upgraded-guest and Send-row guard tests already passed. Last line: `FAIL .../internal/notify 10.270s`.
+
+**RED, stage 2** (the fail-closed test, before the helper existed), `-run '^TestGuestPush_GuestLookupFailsClosedForChatTypesOnly$'`, exit 1:
+- `push_guest_test.go:327:9: n.shouldWithholdChatPush undefined`, then `FAIL .../internal/notify [build failed]`.
+
+**GREEN**, the same `-run '^TestGuestPush' -v`, exit 0:
+- All 6 top-level tests PASS, 0 SKIP. That is 10 + 10 + 8 + 2 subtests, plus the upgraded-guest and Send-row tests.
+- The log shows `chat push withheld from guest user=13 type=chat_message`, and the fail-closed lines `... user=2000000000 ... no rows in result set` and `... closed pool`.
+- Last line: `ok .../internal/notify 0.600s`.
+
+**Formatting and vet:** `gofmt -l backend/internal/notify` printed nothing, and `go -C backend vet ./internal/notify/` exited 0.
+
+**The two affected packages**, `go -C backend test ./internal/notify/ ./internal/handlers/ -count=1 -p 1 -timeout 45m`, exit 0:
+- `ok .../internal/notify 0.849s`
+- `ok .../internal/handlers 14.590s`
+
+**Handlers verbose check.** `handlers` took 14.6s, where #26434's entry recorded 636s, so I checked it wasn't skipping. `go -C backend test ./internal/handlers/ -count=1 -p 1 -v` exited 0 with 242 top-level `--- PASS`, 0 `--- SKIP` and 0 `--- FAIL`, ending `ok .../internal/handlers 16.075s`. The handler tests read only `TEST_DATABASE_URL`, so the earlier 636s came from machine load.
+
+**Full suite**, `go -C backend test ./... -count=1 -p 1 -timeout 45m`, exit 0:
+- 22 packages `ok`, 0 FAIL.
+- `handlers` took 35.134s and `chatgroups` 3.986s. The last test line was `ok .../internal/users 2.034s`.
+
+**Cleanup:** `dropdb godonation_guest_push_26443` exited 0, and `SELECT count(*) FROM pg_database WHERE datname = 'godonation_guest_push_26443'` printed `0`.
+
+**Review:** `ecc:code-reviewer` on the diff returned **APPROVE, with 0 findings at any severity**. It confirmed:
+- the gate is evaluated once per `sendPush`, before the device loop;
+- it fails closed on any scan error, including `ErrNoRows`;
+- `SendPushDirect` is correctly out of scope;
+- the tests are deterministic and non-vacuous.
+
+It also mentioned a gofmt issue in `devices.go` that already exists on main. That did not reproduce here: `gofmt -l backend/internal/notify/devices.go` printed nothing, and the file is identical to `origin/main`'s.
+
+**External actions:** none. Nothing was pushed. OPOS #26443 was only read: it was already in Work In Progress, with its timer (log 24687) started by the orchestrating session. It was not moved and no timer was touched.
+
+**Still open:**
+- Both commits are local and unpushed, and there is no PR. The coordinator will merge main, re-verify on a fresh DB and ship.
+- At commit time `origin/main` had moved 4 commits past this branch's base (#106–#109). They are not merged here.
+- The OPOS task needs completion notes and a move to Completed once shipped.
+
+**Traps:**
+- **zsh expands unquoted globs.** `grep --include=*_test.go` failed with `no matches found`; quote the pattern.
+- **The worktree-isolation guard refuses complex Bash.** It rejects a `cd` + variable + `go` compound, and a Monitor loop that uses `$((…))`. Use plain `go -C <abs>/backend …` with the output redirected to a file, then grep that file in a separate call.
+- **Package run times vary about 20x with machine load**, e.g. `handlers` at 636s vs 15–35s. A fast run is not by itself evidence of skipping; check with `-v` and count `--- SKIP`.
+- **The FCM fake must not touch `*testing.T`.** `Send`'s push goroutine can outlive a test, and logging through a finished test panics. That is also why the Send-row test uses a Notifier with no FCM client.
+- **The scratchpad is shared** with other sessions, which use generic names like `commit1.txt` and `full.txt`. Give your files a task-specific name.
+
+---
+
+## 2026-09-15 — OPOS #26473: notification_tile.dart split under the 500-line limit, no behaviour change (branch `refactor/split-notification-tile`)
+
+**What was asked:** `humanitarian/lib/modules/notifications/widgets/notification_tile.dart` had 704 lines against the 500-line limit. The request was to move the self-contained chat request Accept / Decline widget into its own file, keep #106's guest guard and every comment, and split further if the file was still too long. It was a pure refactor.
+
+**What was actually changed** (on `refactor/split-notification-tile`, off `origin/main` `30186e5`, which includes #106 `686eb89`; not pushed):
+- **`672519c` refactor(notifications): split the chat request actions out of notification_tile.dart.** Module map, all in `humanitarian/lib/modules/notifications/widgets/`:
+
+  | File | Lines | Holds |
+  |---|---|---|
+  | `notification_tile.dart` | 446 (was 704) | `NotificationTile`, `_relativeTime`, `_IconBadge`, `_CategoryChip`, `_MiniChip`, `_ReadBackground`; new file header |
+  | `chat_request_actions.dart` (new) | 197 | `ChatRequestActions`, formerly `_ChatRequestActions`, with its private State: the inline Accept / Decline row |
+  | `notification_visuals.dart` (new) | 149 | `NotificationVisuals`, formerly `_NotificationVisuals`: category and type map to colour, icon and `isPinned` |
+
+  `notification_tile.dart` imports both new files; neither imports it back. Moving only the actions would have left the tile at about 550 lines, so the icon and colour lookup was moved as well.
+- **Why the classes are public.** `lib/` has no `part` / `part of` libraries, so library-private was not an option in the house style. Two constructor lines changed:
+  - `ChatRequestActions` gained `super.key`, which `use_key_in_widget_constructors` expects on a public widget. The tile passes no key.
+  - `NotificationVisuals` has a private `._` constructor and is built only through `.of`, as before.
+- **The guest guard is still at the call site.** `NotificationTile` builds `ChatRequestActions` only when `notificationType == 'chat_request'`, the related id parses, and `!isGuestMode()`, with `isGuestMode()` last. The new file's header and class doc say that any other host must apply the same guard, because building the widget registers `ChatController` and starts its 5-second `/api/chats` poll.
+- **Proof of no change** (Python, against `git show HEAD:…`): with comments ignored and the two renames normalized, the kept tile code (318 lines) and both moved bodies (124 and 105 lines) match line for line, except the two constructor changes above. All 109 original comment lines are still present.
+
+**What was run and what it printed** (from `humanitarian/`):
+- `flutter analyze` on untouched main printed `6 issues found.`, and after the split also `6 issues found.`: the same six deprecation infos, nothing new.
+- `dart format` on the three files: `Formatted 3 files (1 changed)`. The change re-joined the `NotificationVisuals.of` signature.
+- `flutter test test/notifications/ test/localization/notification_relative_time_test.dart` printed `00:03 +18: All tests passed!`. These are the only tests that render `NotificationTile`; grep finds no dashboard test that does.
+- Full `flutter test` printed `00:57 +1031: All tests passed!` and exited 0.
+- Full `flutter test --reporter json`, parsed:
+  - `suites run: 135 | test files on disk: 135`, `on disk but not run: none`;
+  - `{'success': 1031}`, with no failures;
+  - `chat_request_tile_guest_test.dart` 4, `support_destination_test.dart` 9 and `notification_relative_time_test.dart` 5, all success.
+
+**Review** (`ecc:flutter-reviewer` on `git diff origin/main`): the verdict was **no behaviour change**. It independently confirmed the moved bodies match, the guard and its OPOS #26448 comment are intact, all imports are used, and consumers reference only `NotificationTile`. It reported two findings; neither changed the code:
+- **MEDIUM, the guest guard is now enforced by documentation instead of the compiler.** As a library-private class in a codebase with no `part` files, `_ChatRequestActions` could not be built outside the tile. As a public class it can be, and only the header, the class doc and the `_ctrl` comment warn against it. This is real, and it is the trade-off the task accepted: public with a clear doc if there is no `part` pattern. The suggested `assert(!isGuestMode(), …)` in `initState` would add debug-mode runtime behaviour to a change meant to have none, so it was not added. See Still open.
+- **LOW, `notification_tile.dart:6` is 81 columns.** This is a false positive: the line is 77 characters and 81 bytes, because "•" and "—" are three bytes each. By character count the only lines over 80 in the three files are four carried over verbatim: two comments in the tile, and the `chat_controller` and `chat_conversation_screen` imports.
+
+**External actions:** none. Nothing was pushed, and there is no PR. The OPOS MCP needed authentication in this session, so #26473 was not moved to WIP or Completed and no timer was run.
+
+**Still open:**
+- Push the branch and open a PR.
+- Update OPOS #26473 once the connector is authorised.
+- Decide whether to restore some enforcement of the guest guard on the now-public `ChatRequestActions`. The reviewer's option is a debug-only `assert(!isGuestMode(), 'ChatRequestActions must not be built for a guest — OPOS #26448')` in `initState`, with a test that a guest-mode build trips it. It is a behaviour change in debug and test builds, so it belongs in its own commit.
+- Pre-existing issues in the moved code were left untouched on purpose:
+  - `ChatRequestActions._accept` shows the raw exception (`'$e'`) in a SnackBar;
+  - `_decline` catches its error and only re-enables the buttons, so a failed decline tells the member nothing.
+
+  Both break the error-UX rules and deserve their own fix with a test.
+
+**Traps:**
+- The expanded reporter's log names only the test files whose tests happened to print, 82 of 135 here, so it cannot prove a full run. Use `flutter test --reporter json` and count the `suite` events.
+- `wc -l` gives 704 for the original tile. The Read tool shows 705 because it numbers the empty line after the final newline.
+- In zsh, `grep --include=*.dart` must be quoted (`--include='*.dart'`), or it fails with "no matches found".
+- In a worktree-isolated agent, the isolation hook refuses git inside `for` loops and multi-statement Monitor scripts. Run plain, single git commands from the worktree root.
+
+---
+
+## 2026-09-15 — OPOS #26409 and part of #26410: masked chat-group admin reads check sensitive_data per user, and the dashboard gets names and lifecycle fields (branch `feat/chat-groups-admin-data`)
+
+**What was asked:** backend for Phase 6 of the chat-group admin dashboard, test-first.
+- #26409 (user decision D1): a MASKED group's detail, messages and contact blocks need sensitive_data, checked per user with per-user overrides applied. A TEAM group needs only messages:view.
+- Part of #26410: roster names, the lifecycle fields, and the requester's name on connect requests. D6: `requester_name` only for a caller who may view sensitive data, by the same per-user check.
+- Out of scope, done in parallel by another agent: #26410's conflict codes and member reactivation (`insertMembers`, `AddMember`, `refuseContactInLabel`, `chatErr`). None of those functions was touched here.
+
+**What was actually changed** (three code commits on `feat/chat-groups-admin-data`, based on `origin/main` `a1da04f`; the later helper rename, the merge of main and the #107 follow-up are under **Follow-up** below):
+- `a3e9323` feat(chatgroups): per-user sensitive gate on masked group admin reads.
+  - `backend/cmd/server/main.go`: `perm("sensitive_data","view")` removed from `GET /api/admin/chat-groups/:id`, `/:id/messages`, `/:id/contact-blocks`. `perm("messages","view")` stays. Route comments rewritten.
+  - `backend/internal/handlers/chat_group_admin.go`: new `refuseMaskedWithoutSensitive(c, groupID)`, called by `AdminGetGroup`, `AdminMessages`, `AdminContactBlocks`.
+    - It reads the kind first (404 via `chatErr` when the group is missing).
+    - A team group passes. Any other kind needs `canViewContact(c, h.Perms)`, otherwise 403 with code `sensitive_data_required`.
+  - `backend/internal/chatgroups/chatgroups_admin.go`: new `Store.GroupKind`.
+  - `backend/internal/chatgroups/chatgroups_reads.go`: `AdminListMessages` doc comment only.
+  - New tests: `backend/internal/handlers/chat_group_admin_sensitive_test.go`, `backend/internal/chatgroups/chatgroups_admin_kind_test.go`.
+- `3134085` feat(chatgroups): names and lifecycle fields for the admin dashboard.
+  - `chatgroups_admin.go`: `GroupMember.FullName *string` (`json:"full_name"`), filled only by new `Store.AdminGetGroup`.
+    - `AdminGetGroup` is `GetGroup` plus one batched `DISTINCT ON` query over `user_profiles` (`profileNames`).
+    - `GetGroup` stays name-less on purpose: the member routes call it on every poll for their membership check.
+  - `chatgroups_connect.go`: `ConnectRequest.RequesterName *string` tagged `json:"-"`.
+    - `ListConnectRequests` and `GetConnectRequest` share `adminConnectRequestSelect` / `scanAdminConnectRequest`, which LEFT JOIN a `DISTINCT ON (user_id)` view of `user_profiles`.
+  - `chat_group_admin.go`: `AdminGetGroup` answers through `mergeChatLifecycle`.
+    - New `adminConnectRequestItem` DTO. `adminConnectRequestItems` asks `canViewContact` once per request and copies the name only on yes.
+    - The detail's `request` is now that DTO; the top-level `context_label` stays.
+  - New tests: `backend/internal/handlers/chat_group_admin_data_test.go`, `backend/internal/chatgroups/chatgroups_admin_names_test.go`.
+- `1cc9dea` perf(chatgroups): scope the requester-name lookup to each connect request. This commit addresses the code review's findings.
+  - `chatgroups_connect.go`: `adminConnectRequestSelect` now uses a `LEFT JOIN LATERAL … WHERE up.user_id = r.requester_user_id ORDER BY up.id LIMIT 1` instead of a `DISTINCT ON` view of the whole `user_profiles` table. The output is unchanged.
+  - `chat_group_admin_data_test.go`: new `TestAdminGetGroup_TeamRosterCarriesFullNameWithoutSensitive`.
+
+**JSON shapes, for the admin-web implementer:**
+- `GET /api/admin/chat-groups/:id` → 200:
+  - `success`: `true`.
+  - `group`:
+    - `id`: int. `kind`: `"masked"|"team"`. `member_title`: string. `created_by_staff_id`: int. `lifecycle`: string. `created_at`: RFC 3339 string.
+    - `members`: array of `{id: int, user_id: int, full_name: string|null, role_in_group: string, masked: bool, masked_label: string, removed_at?: RFC 3339 string}`. It is `null`, not `[]`, for a group with no member rows (pre-existing).
+  - `lifecycle`: `"open"|"paused"|"ended"`.
+  - `lifecycle_reason`: string, `""` when none. `null` only if the state read failed.
+  - `is_archived`: bool.
+- `GET /api/admin/chat-groups/:id/messages?after_id=&limit=` → 200 `{success: true, items: [...]}`. Unchanged. Each item is:
+  - `id`: int. `sender_member_id`: int, `0` when no member row. `sender_user_id`: int.
+  - `sender_name`: string. `body`: string. `created_at`: string.
+- `GET /api/admin/chat-groups/:id/contact-blocks` → 200 `{success: true, items: [...]}`. Unchanged. Each item is:
+  - `id`: int. `group_id`: int. `sender_user_id`: int. `sender_name`: string|null.
+  - `kind`: string. `match_count`: int. `redacted_body`: string. `created_at`: string.
+- The three routes above, masked group, caller without sensitive_data → 403 `{"success":false,"error":"You need permission to view sensitive data to read this masked group.","code":"sensitive_data_required"}`.
+- Missing group → 404 `{"success":false,"error":"Group not found.","code":"group_not_found"}`. This is new for messages and contact-blocks, which answered 200 with an empty list before. The `code` comes from #107's `chatErr`, merged in at `b633687`.
+- The gate cannot read the group's kind (database failure) → 500 `{"success":false,"error":"Database error.","code":"server_error"}`, also from #107's `chatErr`, which logs the detail.
+- Caller without messages:view → the middleware's 403 `{"status":"error","error":"You don't have permission for this action.","code":"permission_denied"}`.
+- `GET /api/admin/chat-groups/connect-requests?status=` → 200 `{success: true, items: [...]}`. Each item is:
+  - `id`: int. `requester_user_id`: int. `context_type`: `"donation"|"case"`. `context_id`: int.
+  - `target_hint?`: int. `message`: string. `group_id?`: int. `status`: `"pending"|"approved"|"declined"`.
+  - `decline_reason?`: string. `decided_by_staff_id?`: int. `created_at`: string. `context_label`: string.
+  - `requester_name?`: string. It is present only for a caller who may view sensitive data per user, AND whose requester has a profile. Otherwise the key is absent; tell the two apart with `/api/admin/permissions/me`.
+- `GET /api/admin/chat-groups/connect-requests/:id` → 200 `{success: true, request: <same shape as a list item>, context_label: string}`. Missing request → 404 `{"success":false,"error":"Connect request not found."}`.
+
+**What was run and what it printed:**
+- **Throwaway DBs**, created for this work:
+  - `godonation_admin_data_26409`, for the RED/GREEN runs. Dropped with `dropdb` after the package run; `psql -lqt` no longer lists it;
+  - `godonation_admin_data_26409_pkg`, for the package run;
+  - `godonation_admin_data_26409_full`, for the full suite;
+  - `godonation_admin_data_26409_fix`, for the review-fix verification;
+  - `godonation_admin_data_26409_merge`, `…_merge_full` and `…_merge_v`, for the verification after merging #107 (see **Follow-up**).
+- **No baseline run** before the first edit.
+- **B1 RED:** `go test ./internal/handlers/ -run 'TestAdminGroupReads_' -count=1 -p 1 -timeout 45m -v` printed `FAIL …/internal/handlers 38.458s`.
+  - The revoked admin and the employee without sensitive_data: `status = 200, want 403`, with bodies carrying `"sender_name":"Sensitive Donor Secret Name"`.
+  - The missing group's messages and contact-blocks: `status = 200, want 404`.
+  - The grant, super_admin and team cases passed, as guards, because the post-#26409 router has no sensitive gate to refuse them.
+- **`GroupKind` RED:** `s.GroupKind undefined`, build failed. GREEN: `ok …/internal/chatgroups 2.328s`.
+- **B1 GREEN:** the handler run filtered to chat-group and connect-request tests printed `ok …/internal/handlers 72.428s`, 44 `--- PASS`, 0 `--- SKIP`.
+- **B2 RED:**
+  - The store test failed to build: `FullName undefined`, `RequesterName undefined`.
+  - Handlers printed `FAIL …/internal/handlers 12.501s`: `named member full_name = <nil>`, `lifecycle fields = (<nil>, <nil>, <nil>)`, and `requester_name = <nil> (present false)` for the allowed callers.
+  - The detail failed `request.context_label missing`.
+  - The member-route leak test passed, as a guard.
+  - After RED the store test was retargeted from `GetGroup` to the new `AdminGetGroup`, a design change so that the poll path holds no names. RED was not re-run for that edit.
+- **B2 GREEN:**
+  - chatgroups, filtered: `ok …/internal/chatgroups 60.393s`, 0 failures.
+  - handlers, filtered: `ok …/internal/handlers 124.034s`, 48 `--- PASS`, 0 `--- FAIL`, 0 `--- SKIP`.
+- **Package run, fresh DB `godonation_admin_data_26409_pkg`:** `go test ./internal/chatgroups/ ./internal/handlers/ -count=1 -p 1 -timeout 45m` printed `ok …/internal/chatgroups 101.049s` and `ok …/internal/handlers 1144.309s`, exit 0. The handlers package took 19 minutes on the loaded machine, so give it the full `-timeout 45m`. The DB was then dropped with `dropdb`, and `psql -lqt` no longer lists it.
+- **Full suite, fresh DB `godonation_admin_data_26409_full`:** `go test ./... -count=1 -p 1 -timeout 45m` exited 0.
+  - 22 packages printed `ok`, 36 had no test files, and there were 0 `FAIL` and 0 `panic` lines.
+  - Among them: `ok …/internal/chatgroups 202.193s` and `ok …/internal/handlers 1390.034s`. The last line was `ok …/internal/users 161.348s`.
+  - Its test binaries were built from `3134085`. `1cc9dea` changes only chatgroups and handlers files, and was verified separately below.
+  - The DB was then dropped with `dropdb`. At the end, `psql -lqt` lists none of the four `godonation_admin_data_26409*` databases.
+- **Static checks:** `go build ./...` ok. `go vet ./...` ok. `gofmt -l` on the 9 changed Go files printed nothing.
+- **Review:** `ecc:code-reviewer` on `a1da04f..HEAD` answered APPROVE: 0 CRITICAL, 0 HIGH, 1 MEDIUM, 2 LOW.
+  - **Checked and found sound:**
+    - `canViewContact` / `CanViewForUser` fail closed, and an unknown group kind is treated as masked.
+    - The `adminConnectRequestItem.RequesterName` shadowing is correct.
+    - No member route leaks a name: `GetGroup` loads none, `GroupSummary` is a distinct type, and `MyConnectRequests` maps to its own DTO while the store field is `json:"-"`.
+    - `user_id = ANY($1)` with `[]int64` is safe; `privacy.go` uses the same pattern. NULL scans are safe.
+    - The `main.go` comments are accurate.
+  - **MEDIUM:** `adminConnectRequestSelect` joined a `DISTINCT ON` view of the WHOLE `user_profiles` table, which scanned and sorted every profile on every inbox call, even the single-request read.
+    - Fixed in `1cc9dea`: `LEFT JOIN LATERAL (SELECT up.full_name FROM user_profiles up WHERE up.user_id = r.requester_user_id ORDER BY up.id LIMIT 1) p ON true`.
+    - The output is unchanged: the oldest profile row's name, or NULL without a profile.
+  - **LOW:** no test covered a TEAM group's roster names. Added `TestAdminGetGroup_TeamRosterCarriesFullNameWithoutSensitive` in the same commit. An employee with messages:view but no sensitive_data gets `full_name` for a named member and null for one without a profile.
+  - **LOW:** `chat_group_admin.go` is 493 lines. It was not split, by the coordinator's decision; see "What is still open".
+- **Review-fix verification, fresh DB `godonation_admin_data_26409_fix`:**
+  - `go test ./internal/chatgroups/ ./internal/handlers/ -count=1 -p 1 -timeout 45m -v -run 'ConnectRequest|AdminGetGroup|AdminGroupReads|RosterCarriesFullName'` printed `ok …/internal/chatgroups 59.953s` and `ok …/internal/handlers 24.865s`.
+  - That was 44 top-level tests: 105 `--- PASS` lines counting subtests, 0 `--- FAIL`, 0 `--- SKIP`.
+  - Before the run: `gofmt -l` on the two changed files printed nothing, and `go vet ./...` and `go build ./...` were clean.
+  - The DB was then dropped with `dropdb`, and `psql -lqt` no longer lists it.
+
+**Follow-up, same day: the branch stopped compiling after main was merged in.**
+- **What was asked (coordinator):**
+  - The branch had taken main up to #105 in merge commits `6654ecd` and `4976c63`.
+  - main's `chat_guest_reads_test.go` (#97) defines `getRawAs(t, r, token, path) (int, string)`, and this branch's three-value `getRawAs` redeclared it.
+  - The automated fix `4fd5d6e` deleted this branch's copy, and `go vet` then failed: `chat_group_admin_data_test.go:138:21: assignment mismatch: 3 variables but getRawAs returns 2 values`.
+  - Asked: restore the helper under a new name; merge main again at `30186e5` (#106, #107); reconcile with #107's `chatErr` codes; verify on fresh DBs.
+- **What was changed:**
+  - `a926e77` test(chatgroups): rename the admin raw-response helper to avoid main's getRawAs.
+    - The helper is restored as `getRawAdminAs` in `chat_group_admin_sensitive_test.go`, with its `net/http/httptest` import.
+    - All 10 three-value call sites in that file and `chat_group_admin_data_test.go` use the new name. main's `getRawAs` and its callers are untouched.
+  - `b633687` merges `origin/main` at `30186e5`.
+    - Only `HANDOFF.md` conflicted. `merge_handoff.py 9425007 HEAD MERGE_HEAD` printed `inserted 126 branch lines at line 9 above upstream entries`.
+    - No Go file conflicted, as `git merge-tree` had predicted.
+  - `ac4e839` refactor(chatgroups): align the admin group reads with #107's chatErr.
+    - `chat_group_admin.go`: `refuseMaskedWithoutSensitive` no longer logs a non-404 kind-lookup error itself. #107's `chatErr` logs it, so each failure is logged once. Statuses and bodies are unchanged.
+    - `chat_group_admin_sensitive_test.go`: `TestAdminGroupReads_MissingGroupIs404` now asserts the whole body with #107's `assertChatGroupRefusal(…, wantGroupNotFound)`.
+- **Response bodies changed by #107 on this branch's routes:**
+  - A missing group on the detail, messages and contact-blocks reads now answers 404 with `"code":"group_not_found"` added.
+  - A failed kind lookup answers 500 with `"code":"server_error"` added.
+  - `sensitive_data_required` and every 200 body are unchanged.
+- **#107 checked for interplay and found compatible:**
+  - `TestChatGroupRoutes_MissingGroupCarriesItsCode` expects the admin group detail to answer 404 `group_not_found` for a missing group. The gate answers a missing group through `chatErr`, so it does.
+  - `chatGroupRoster` (in `chat_group_conflict_test.go`) reads the roster through `newAdminChatGroupRouter`, which has `Perms` wired, signed in as an admin (`tokenForStaffUser`), who holds sensitive_data by default. The masked-group gate lets it through. Its `reflect.DeepEqual` compares the roster before and after a refused add; both carry `full_name`.
+  - `git grep -n -w` on `origin/main` for every identifier this branch adds found no collision.
+- **What was run and what it printed:**
+  - After the merge, on the final tree: `go build ./...` ok and `go vet ./...` ok. `gofmt -l` on `chat_group_admin.go`, `chat_group_admin_sensitive_test.go` and `chat_group_admin_data_test.go` printed nothing.
+  - All three runs below used the final code (`ac4e839`'s tree), each on its own fresh DB, and all exited 0.
+  - Package run, fresh DB `godonation_admin_data_26409_merge`: `go test ./internal/chatgroups/ ./internal/handlers/ -count=1 -p 1 -timeout 45m` printed `ok …/internal/chatgroups 3.147s` and `ok …/internal/handlers 18.319s`.
+  - Full suite, fresh DB `godonation_admin_data_26409_merge_full`: `go test ./... -count=1 -p 1 -timeout 45m` — 22 packages `ok`, 36 with no test files, 0 `FAIL` and 0 `panic` lines.
+    - Among them: `ok …/internal/chatgroups 2.569s` and `ok …/internal/handlers 17.102s`. The last `ok` line was `ok …/internal/users 0.715s`.
+  - `-v` run of this branch's new tests, fresh DB `godonation_admin_data_26409_merge_v`: `-run 'TestAdminGroupReads_|TestAdminGetGroup|TestAdminConnectRequests_|TestChatGroupMemberReads_|TestGroupKind|TestConnectRequestAdminReads|TestConnectRequestNeverSerializes'` printed `ok …/internal/chatgroups 1.793s` and `ok …/internal/handlers 1.065s`.
+    - 18 top-level tests, 65 `--- PASS` lines counting subtests, 0 `--- FAIL`, 0 `--- SKIP`.
+  - These timings are far shorter than this entry's earlier runs (handlers 17.102s here, 1390.034s before). Nothing was skipped or cached:
+    - `-count=1` disables the test cache.
+    - The DB-backed tests skip only when `TEST_DATABASE_URL` is empty, and every command set it.
+    - The `-v` run shows those tests as PASS, not SKIP.
+    - The first test in each package paid the migration cost on its fresh DB (`TestGroupKindReadsEachKind` 1.20s, the rest 0.00–0.07s).
+    - It was not a quieter machine: `uptime` right afterwards printed load averages `13.37 16.83 18.14`. The likelier cause is that the earlier slow runs overlapped with other worktrees' test runs against the same Postgres — `pgrep` then showed five `handlers.test` processes from different worktrees. That was not measured.
+  - Afterwards the three DBs were dropped with `dropdb`, and `psql -lqt` lists none of the `godonation_admin_data_26409*` databases.
+
+**External actions taken:** none. Nothing was pushed and no PR was opened.
+
+**What is still open:**
+- The commits are local, unpushed, and not reviewed by a human.
+- OPOS MCP needed interactive OAuth and wasn't available in this subagent session. OPOS #26409 and #26410 were not moved or commented on.
+- The branch now contains `origin/main` up to `30186e5` (#107), through merge commits `6654ecd`, `4976c63` and `b633687`. It is not merged into main.
+- The admin-web must handle 403 `sensitive_data_required` and 404 `group_not_found` on all three group reads.
+- Not every chat-group admin refusal carries a `code` yet. #107 put one on everything `chatErr` sends, but `chat_group_admin.go` still writes these refusals inline without one:
+  - 401 `Unauthorized.` on every handler.
+  - 400 `Invalid JSON.` and `kind and at least one member are required.` on create and approve.
+  - 400 `user_id is required.` on add member, `Invalid user id.` on remove member, `Message body is required.` on post message, and `A decline reason is required.` on decline.
+  - 404 `Connect request not found.` on connect-request detail, approve and decline.
+  - 500 `Database error.` on the group list, messages, contact blocks and the connect-request list.
+  - None of these changed in this work; admin-web's `describeError` falls back to the sentence for them. Adding codes means editing `chat_group_admin.go`, which must first be split (next item).
+- `backend/internal/handlers/chat_group_admin.go` is 493 lines, 7 under the 500-line cap. It was deliberately NOT split in this work (coordinator's decision after review). **The next change to this file must first move its connect-request inbox section into a file of its own:** `resolveConnectContext`, `adminConnectRequestItem`, `adminConnectRequestItems`, and the list, detail, approve and decline handlers. Only then add anything else.
+- `user_profiles.user_id` has no index and no UNIQUE constraint (checked every migration). Every name lookup scans it. Worth a migration of its own.
+- `resolveConnectContext` still runs one query per inbox item (pre-existing).
+
+**Traps:**
+- The `origin/main` ref is shared by every worktree, so another session's fetch moves it under you. `git diff origin/main` then shows main's newer commits as deletions on your branch. Diff against `git merge-base HEAD origin/main`.
+- In a worktree-isolated agent session, a Bash or Monitor command is refused when it chains many statements or contains the text `git` in a form the guard cannot verify. A grep pattern with `github.com` was enough. Use short, separate commands.
+- Do not run `internal/chatgroups` and `internal/handlers` tests at the same time against one database: they share the `users.id` sequence (see `raiseChatGroupUserIDFloor`). Run them one after the other, or on separate databases.
+- `user_profiles` can hold two rows for one user, so a plain `JOIN user_profiles` duplicates rows. The new reads avoid that in two ways:
+  - for a known batch of ids, `DISTINCT ON (user_id) … WHERE user_id = ANY($1) ORDER BY user_id, id` (`profileNames`);
+  - per row, `LEFT JOIN LATERAL (… WHERE up.user_id = r.requester_user_id ORDER BY up.id LIMIT 1) p ON true` (`adminConnectRequestSelect`).
+  - Do not join a `DISTINCT ON` view of the whole table: it scans and sorts every profile on every call.
+- Two test files in one Go package that each define the same helper name merge without any git conflict; only the compiler finds the clash. That happened here with `getRawAs`, from #97 and from this branch.
+  - Before merging main, run `git grep -n -w` on `origin/main` for the identifiers the branch adds.
+  - When two same-named helpers collide, compare their signatures before deleting one. `4fd5d6e` deleted the three-value copy on the assumption the two matched, and `go vet` then failed.
+
+---
+
+## 2026-09-15 — OPOS #26397 (E1 + E2): export ONE chat conversation from the donor, marriage and staff chat pages (branch `feat/admin-chat-conversation-export`)
+
+**What was asked:** in admin-web, test-first, let staff export the open conversation (CSV / Excel / PDF / Word, behind the existing PIN step-up) from MessagesPage, MarriageChatsPage and StaffChatPage. Fix ExportCsvButton reporting every failure as "Incorrect password". Make the engine general enough for the later group export (E3). Commit, do not push.
+
+**What was actually changed** (on `origin/main` `7de9faf`, worktree `.claude/worktrees/agent-a944411f886a442c7`):
+- **`efbbeaf` fix(admin-web): export errors no longer claim the password was wrong.** `components/ExportCsvButton.tsx` reports each step on its own: a refused PIN shows the server's refusal; a failed verify-password request goes through `describeError`; a failed file build shows `error.unknown` and logs the detail. New `ExportCsvButton.test.tsx`.
+- **`c1ee5e8` feat(admin-web): export a single chat conversation.**
+  - `ExportCsvButton` gains optional `loadRows`, called exactly once and only after the PIN is accepted. A load failure toasts `export.load_failed` with `describeError`'s reason.
+  - New `src/lib/chatExport.ts` (+ test): row engine `toExportRow`, builders `donorExportRows` / `marriageExportRows` / `staffExportRows`, `chatExportColumns()` (six columns) and `groupChatExportColumns()` (adds `masked_label`, `role_in_group`), `chatExportFilenameBase` (`donor_chat_7`, `support_chat_20`, `marriage_chat_51`, `staff_chat_61`), `chatExportTitle`, loaders for donor and marriage.
+  - Columns: `message_id`, `sent_at` (ISO UTC), `sender_name`, `sender_user_id`, `sender_role` (translated), `body`. Rows are built field by field, so no contact field can reach a file.
+  - Role mapping, verified on main: donor `0` = support (`backend/internal/chat/chat.go:30` RoleSupport; staff replies use it at `handlers/chat.go:563`), otherwise the sender's app role_id (`handlers/chat.go:425`), `1` grantor / `2` recipient / `3` volunteer (`handlers/registration.go:232,299,309`; same keys as `UserPicker.tsx` and `DetailPage.tsx`). Marriage `requester` / `owner` / `staff` (`internal/marriagechat/marriagechat.go:214-216`), staff named "Support" like the page. Staff chat has no role; the sender's staff tier stands in.
+  - Page buttons ("Export conversation") in each conversation header, gated by the module that gates the messages route: `messages` (`main.go:1012`), `marriage` (`main.go:1092`), and `messages` for staff chat (decision D5; the route has no perm gate, `main.go:1084`).
+  - Locales en + ar: `col.{message_id, sent_at, sender_name, sender_user_id, sender_role, masked_label, role_in_group}` and `export.{conversation, load_failed, chat_title, chat_donor, chat_support, chat_marriage, chat_staff, chat_group, role_unknown}`. No Kurdish.
+  - Mock API: `src/test/fixtures/legacyChats.ts` adds a multi-line body with commas and quotes to each system's first thread (messages 7004, 5104, 6103); `scripts/mock-api.test.mjs` pins it; `docs/mock-api.md` says how to check an export by hand.
+  - One page test per page.
+- **`6731167` fix(admin-web): staff chat export includes messages that arrive during the PIN.** From the `ecc:react-reviewer` review: StaffChatPage's `loadRows` had closed over a render-time copy of the messages, so a message the 3 s poll delivered during PIN entry was left out. It now reads a ref holding the newest list, filtered by the thread id captured at click. Tests added for that, for the thread-switch race, and for a download that throws.
+- **This entry.**
+
+**Staff-chat read side effect.** `GET /api/admin/staff-chats/:id/messages` calls `Store.MarkRead` (`handlers/staff_chat.go:162`, `internal/staffchat/staffchat.go:227`). The page already calls it on open and every 3 s, so the export REUSES the loaded messages and sends no GET of its own (pinned by StaffChatPage.test.tsx). The export changes no read state. Donor and marriage routes have no such side effect and are fetched once after the PIN.
+
+**What was run and what it printed** (Node 22.23.1, `PATH=/opt/homebrew/opt/node@22/bin:$PATH`):
+- RED:
+  - all tests written, before `chatExport.ts` and `loadRows` existed: `Tests 9 failed | 6 passed (15)`, with `Failed to resolve import "./chatExport"`, `Unable to find role="button" and name "Export"` for the loadRows cases, and the page tests timing out;
+  - the error-reporting tests before the error fix: `Tests 2 failed | 1 passed (3)`, the DOM showing "Incorrect password — cancelled.";
+  - before the fixture change: `not ok 13 - each legacy chat has a multi-line message body with a comma`;
+  - before the review fix: `AssertionError: expected [ 6101, 6102, 6103 ] to deeply equal [ 6101, 6102, 6103, 6104 ]`.
+- Final, on `c07b9a7`, whose admin-web tree is identical to `6731167` (the later rebase onto `7de9faf` brought only backend and HANDOFF changes); `npm test` re-run on the rebased tree printed `Tests 34 passed (34)` again:
+  - `npm test` → `Test Files 7 passed (7)`, `Tests 34 passed (34)`;
+  - `npx tsc -b` → exit 0;
+  - `npm run build` → exit 0 (only Vite's usual >500 kB chunk warning);
+  - `npm run test:mock-api` → `# tests 24`, `# pass 24`, `# fail 0`;
+  - `npm run check:labels` → exit 1, only the 6 chat-group values (`status.case, created, masked, member_added, member_removed, team`), none from this branch;
+  - `npm run test:nav` → 15 pass;
+  - `npm run check:css-tokens` → `62 tokens read, all defined.`;
+  - `npx eslint` on the 14 changed ts/tsx/mjs files → `✖ 6 problems (6 errors, 0 warnings)`, all `react-hooks/set-state-in-effect` in the three pages' existing polling effects (2 per page; the base versions of those pages give the same 2 each). None new.
+
+**External actions taken:** none. Nothing pushed. OPOS MCP needed OAuth, unavailable in this non-interactive session, so #26397 was not moved or commented on.
+
+**What is still open:**
+- The three commits are local and unpushed.
+- **LOW, pre-existing, not fixed:** ExportCsvButton's dropdown has no roving focus, no arrow-key navigation and no `aria-controls` (reviewer finding).
+- The staff chat page itself can still DISPLAY a late load for the previously selected thread under the newly selected one until the next poll (a pre-existing page race). The export hides itself in that state and never mixes threads (pinned by a test).
+- **E3 (group export) should reuse:** `toExportRow(message, role, { masked_label, role_in_group })`, `groupChatExportColumns()`, `chatExportFilenameBase('group', id)`, `chatExportTitle('group', id)` (`export.chat_group` exists), and `ExportCsvButton` `loadRows` with the after_id paging loop. The `col.masked_label` / `col.role_in_group` keys are already in en and ar.
+
+**Traps:**
+- **Vitest timeout.** A whole-page export test takes ~1.5 s alone but passed Vitest's 5 s default when all files ran in parallel. Each page suite sets `{ timeout: 15_000 }` with a comment.
+- **Poll tests.** Fake ONLY `setInterval` / `clearInterval` (`vi.useFakeTimers({ toFake: [...] })`), so Testing Library's `waitFor` and user-event keep real `setTimeout`.
+- **mockApi replies synchronously.** To model a slow request, wrap its spy through `vi.mocked(api.get).getMockImplementation()` (see `holdFirstLoadOf` in StaffChatPage.test.tsx).
+- **`vi.clearAllMocks()` keeps mock implementations.** A test that replaces one should use `mockImplementationOnce` or `vi.resetAllMocks()`.
+- **FileReader drops the BOM** that `csv.ts` writes, so a test reading the CSV Blob sees text starting at the header row.
+- **Worktree guard.** This harness refuses `git -C ..`, and `awk -v` inside compound commands. Use plain git from the worktree root.
+
+---
+
+## 2026-09-15 — OPOS #26435 and #26429 (app half): the 1:1 chat names an unnamed staff reply in the reader's language, and group chat notifications get a type label (branch `fix/app-support-name-and-group-notif-label`)
+
+**What was asked:** two Flutter localization fixes on one branch, test-first, in en and ar only.
+- **#26435:** the 1:1 support chat showed English "Support" to Arabic users.
+- **#26429:** the `chat_group_message` notification type had no label. Only the app half was in scope, not admin-web.
+
+Commit locally; do not push.
+
+**What was actually changed:**
+- **Base.** The branch was cut from `origin/main` `e66ff69`. Before any commit, it was moved onto `origin/main` `30186e5` with `git checkout -B`. Upstream #103–#107 had landed in the meantime, and none of them touch these files.
+- **`8cb9fd8` fix(chat): localize the support sender name and the group-message notification label.**
+  - `humanitarian/lib/modules/chat/models/chat_models.dart`: `ChatMessage.senderName` is now the server's trimmed `sender_name`, or `''` when the server sent none.
+    - It used to be `'Support'` for `sender_role` 0 and `'User'` for everyone else.
+    - The server sends null when a staff profile has no name, or when privacy settings hide the name. `Viewer.Name` in `backend/internal/privacy/privacy.go` returns nil on purpose and leaves the placeholder to the client.
+  - New `humanitarian/lib/modules/chat/utils/chat_sender_name.dart`: `chatSenderName(ChatMessage)`.
+    - It returns the server's name when there is one.
+    - Otherwise it returns `'chat_group_sender_support'.tr` for staff and `'User'.tr` for anyone else.
+  - `humanitarian/lib/modules/chat/screens/chat_conversation_screen.dart`: `_MessageBubble` draws `chatSenderName(message)` (~line 233), and its comment was rewritten to match.
+    - This is the only place the app displays `senderName`. Grepping `lib/` finds no other reader.
+  - `humanitarian/lib/localization/app_translations.dart`: `chat_group_message` was added to `_en` (line 37) and `_ar` (line 3258), next to `chat_message`.
+    - A comment on `chat_group_sender_support` now says the key is shared with the 1:1 chat.
+  - **Tests:**
+    - New `humanitarian/test/modules/chat/chat_sender_name_test.dart`, 14 cases:
+      - `fromMap` adds no words of its own;
+      - Arabic and English fallbacks, with real names left untouched;
+      - Kurdish never falls back to Arabic;
+      - a source guard that the screen draws `chatSenderName(message)`.
+    - It is a source test rather than a pumped screen: `ChatThreadController.onInit` calls `const ModuleApi()` directly, with no seam for a fake.
+    - `humanitarian/test/localization/localized_tag_test.dart` lists `chat_group_message`. It also has a new test that every listed type has its own `_en` entry, because the existing English test passes on the humanised token alone.
+  - `TRANSLATION_REQUEST.md`:
+    - a new 1-key section and table row;
+    - the count heading and the Total row both went from 467 to 468;
+    - a note in the #26419 section that `chat_group_sender_support` now serves both chats.
+- **This entry.**
+
+| Key | English | Arabic | Status |
+|---|---|---|---|
+| `chat_group_sender_support` | Support | فريق الدعم | reused (from #26419). T10: a bare الدعم is Kafala |
+| `User` | User | مستخدم | reused |
+| `chat_group_message` | Group chat message | رسالة محادثة جماعية | **new**. It follows `chat_message` → رسالة محادثة; جماعية is the word the chat-groups screens use |
+
+**What was run and what it printed** (from `humanitarian/`):
+- **RED.** This ran on `e66ff69`, where every file involved is byte-identical to `30186e5`. `chat_sender_name.dart` was an identity stub, and nothing else in production had changed.
+  - `flutter test test/modules/chat/chat_sender_name_test.dart test/localization/localized_tag_test.dart` printed `+24 -8: Some tests failed.` The failures were:
+    - the model tests: `Expected: ''` / `Actual: 'Support'` and `Actual: 'User'`;
+    - Arabic: `Expected: 'فريق الدعم'` / `Actual: 'Support'`, and `Expected: 'مستخدم'` / `Actual: 'User'`;
+    - the source guard;
+    - `no _en entry for chat_group_message`;
+    - `chat_group_message rendered as "Chat group message" in Arabic`.
+- **GREEN.** The same command printed `00:00 +32: All tests passed!`
+- **Format.** `dart format --output=none --set-exit-if-changed` on the 5 owned Dart files flagged only the new test, which was then formatted. `app_translations.dart` was left alone: it already fails formatting on main (see the #26419 entry).
+- **On `30186e5`:**
+  - `flutter analyze` printed `6 issues found. (ran in 10.6s)`, the same 6 `deprecated_member_use` as the baseline.
+  - `flutter test test/localization/ test/modules/chat/ test/modules/chatgroups/` printed `00:24 +357: All tests passed!`
+  - `flutter test` (full) printed `01:10 +1045: All tests passed!` (exit 0).
+- **Review.** `ecc:flutter-reviewer` returned APPROVE, with 0 CRITICAL, 0 HIGH and 0 MEDIUM findings. Neither of its two minor findings was changed:
+  - **LOW:** the Kurdish test asserts "not Arabic, not empty" rather than exactly "Support". That is deliberate: it catches the real risk and survives a future Kurdish translation.
+  - **NIT:** the "shared key" comment could drift if the key is renamed. It names `chatSenderName`, which a grep finds.
+
+**External actions taken:** none. Nothing was pushed and no PR was opened. The OPOS connector needs interactive OAuth, which this session could not do, so #26435 and #26429 were not moved or commented on.
+
+**What is still open:**
+- Both commits are local and unpushed.
+- The admin-web half of #26429, the dashboard's label for `chat_group_message`, is not done.
+- `chat_group_message` needs Sorani and Badini.
+- **Not fixed, same file:** `ChatThread.otherName` still falls back to English `'User #<id>'` (`chat_models.dart` ~line 53). It is what the Messages tile and conversation title show for a counterpart with no name.
+- **Not fixed, T10:** the marriage chat signs staff with `'Support'.tr` (`marriage_chat_conversation_screen.dart` ~line 356). That resolves to `الدعم`, the Kafala word, not `فريق الدعم`.
+- **Not fixed, server side: the 1:1 support-reply push.**
+  - The admin reply handler in `backend/internal/handlers/chat.go` (~line 561) always calls `notify.ChatNewMessageMsg("Support", …)`.
+  - That template (`backend/internal/notify/templates.go`) puts the word into every language's title.
+  - So an Arabic user's push, and the in-app notification row, both read «رسالة من Support».
+  - The fix belongs in that template, the way #26434 fixed masked group pushes.
+
+**Traps:**
+- **The shared `origin/main` ref moves under you.** Another worktree's fetch advanced it from `e66ff69` to `30186e5` mid-task. After that, `git diff origin/main` showed about 4,000 lines of unrelated upstream work. Diff against `HEAD` or the base SHA, and re-check `git log <base>..origin/main` before committing.
+- **`test/modules/chat/` did not exist before this change**, so a test command naming it would have failed on main.
+- **zsh:** an unquoted `--include=*.dart` fails with "no matches found". Quote it.
+- **The worktree guard refuses `$((...))` arithmetic in Bash.** Split the command into plain ones.
+
+---
+
+## 2026-09-15 — OPOS #26436: a declined chat invite can't be accepted; asking again starts a fresh one (branch `fix/declined-invite-needs-reinvite`)
+
+**What was asked:** apply the owner's decision "make it decline and re invite behavior", test-first:
+- a declined chat invite can no longer be accepted, in donor chat or marriage chat;
+- to start again, the initiator sends a new invite or request, and the recipient gets a fresh pending invite and a notification.
+
+The brief limited the change to the two chat stores' accept (and re-invite), their handlers' accept paths and error mapping, and new test files, because parallel branches edit chat groups, notifications and `chatlifecycle.Apply`.
+
+**What was actually changed:** commit `9c06524`, based on `origin/main` `62cadbd` and fast-forwarded to `e66ff69` before committing. Nothing between those two touches `backend/`.
+- **The bug.** Both `AcceptThread`s updated by id with no status condition. A recipient who had declined could accept later: the thread went back to `active` and the initiator was pushed "chat accepted". The RED run below confirms it.
+- `backend/internal/chat/chat.go`:
+  - new sentinel `ErrInviteDeclined` (:47);
+  - `AcceptThread` (:198) now runs `UPDATE … WHERE id = $1 AND status = 'pending' RETURNING …`;
+  - on no row, the new `acceptNotPending` (:230) re-reads the thread. `active` keeps today's idempotent success and still returns the initiator id. Anything else returns `ErrInviteDeclined` with initiator id 0, so nobody is pushed.
+- `backend/internal/marriagechat/marriagechat.go`:
+  - the same shape: `ErrInviteDeclined` (:50), `AcceptThread` (:249), `acceptNotPending` (:279).
+  - `ApproveMeetingRequest` (:115): the `ON CONFLICT (requester_user_id, profile_id) DO UPDATE` now also sets `status = CASE WHEN marriage_chat_threads.status = 'declined' THEN 'pending' ELSE marriage_chat_threads.status END` (:148).
+- `backend/internal/handlers/chat.go`: new const `chatInviteDeclinedCode = "chat_invite_declined"` (:452), and `chatErr` maps `ErrInviteDeclined` (:456).
+- `backend/internal/handlers/marriage_chat.go`: `chatErr` maps `ErrInviteDeclined` (:55). Doc comments updated on `Accept` (:182) and `AdminApproveMeetingRequest` (:99).
+- **Check order is unchanged:** the participant/owner check, then `refuseIfInviteClosed` (#93/#99), then `AcceptThread`. #98's decline code is untouched.
+- **New tests:**
+  - `backend/internal/chat/chat_accept_declined_test.go` (3 store tests): declined is refused and untouched with initiator 0; pending accepts; active is idempotent.
+  - `backend/internal/handlers/chat_invite_accept_declined_test.go` (6 tests, 10 counting subtests):
+    - accepting a declined invite answers 409 and leaves no accepted-notification row, in donor and marriage;
+    - pending accepts, and a repeat accept is a 200, in both;
+    - the initiator/requester and a stranger get today's plain 403 on a declined thread, never the 409;
+    - marriage re-invite through the production routes end to end: request, approve, decline, request again, approve again; the owner's `GET /api/marriage/chats` lists the thread as pending, and accepting it succeeds and pushes the requester;
+    - a new approval leaves an active chat active.
+
+**Responses:**
+- **Donor, declined:** `409 {"success":false,"code":"chat_invite_declined","error":"This chat request was declined, so it can no longer be accepted."}`. It promises nothing further, because a donor chat cannot be requested again.
+- **Marriage, declined:** `409 {"success":false,"code":"chat_invite_declined","error":"This chat request was declined, so it can no longer be accepted. If a new request is approved, it will come to you as a new invite."}`. It does not promise a push; see the notification gap below.
+- **Already active, both:** 200 `{"success":true,"status":"active",…}`, unchanged.
+
+**Re-invite findings per kind:**
+- **Donor direct chat: none exists, so a declined donor invite is final.**
+  - The route `POST /api/chats/request` (`cmd/server/main.go:733`) runs `ChatHandler.Request` (`internal/handlers/chat.go:94`), which calls `chat.Store.RequestThread` (`internal/chat/chat.go:106`). That always returns `ErrDirectChatRetired`, which becomes 410 "Direct messaging has been retired. Ask staff to connect you instead." (`handlers/chat.go:176`).
+  - Creation was not re-opened.
+- **Marriage chat: the requester asks again through the existing flow.**
+  - `POST /api/marriage/:id/request-meeting` (`main.go:804`, `MarriageHandler.RequestMeeting` `handlers/extras.go:453`, `marriage.Store.RequestMeeting` `internal/marriage/marriage.go:403`) inserts a new `marriage_meeting_requests` row. That table has no uniqueness, so nothing blocks a second request.
+  - Staff then approve with `POST /api/admin/marriage/meeting-requests/:id/approve` (`main.go:1089`), which runs `ApproveMeetingRequest`.
+  - The schema keeps ONE thread per pair: `CONSTRAINT uq_marriage_chat_pair UNIQUE (requester_user_id, profile_id)` (`migrations/058_marriage_mediated_chat.sql:29`). Before this change the conflict branch reused the declined thread without touching `status`, so the "new" invite came back `declined` and hidden from the owner's list.
+  - **Choice: reset the existing thread, don't create a new one.** The unique constraint makes a second thread impossible without a migration, and resetting is how the model is meant to work.
+  - Only `declined` becomes `pending`. A `pending` or `active` thread keeps its status, so a new approval never locks a live chat back behind the owner's accept.
+
+**What was run and what it printed:**
+- **RED, before the fix, observed earlier in this session** on DB `godonation_declined_invite_26436` (only the sentinels declared):
+  - `go test ./internal/chat/ -run AcceptThread -count=1 -p 1 -timeout 45m -v`: `TestAcceptThreadRefusesDeclinedInvite` printed `err = <nil>, want ErrInviteDeclined`, `initiator = 8, want 0` and `stored status = "active", want declined`. The two controls passed. It ended `FAIL …/internal/chat 132.074s`.
+  - `go test ./internal/handlers/ -run DeclinedInvite -count=1 -p 1 -timeout 45m -v`:
+    - DonorRefused printed `200 map[status:active success:true thread_id:4]`;
+    - MarriageRefused printed `200 map[status:active success:true thread_id:1]`;
+    - the re-invite test printed `approve: status = 200 body = map[status:declined success:true thread_id:4], want 200 pending`;
+    - the other 3 tests passed. It ended `FAIL …/internal/handlers 22.278s`.
+  - The re-invite test was later rewritten to seed the first approval through the routes. Its status assertion is the one that failed above; the rewritten version was not re-run against the pre-fix code.
+- **Notification probe, after the fix:** a temporary test (not committed) ran request → route approve → decline → request again → route approve. It printed `user 30 has 1 "marriage_chat_request" notifications after 5s, want at least 2`.
+- **GREEN, final, on a freshly recreated DB `godonation_declined_invite_26436b`:**
+  - store `-v`: 6/6 PASS, `ok …/internal/chat 0.871s`;
+  - HTTP `-run DeclinedInvite -v`: 6/6 PASS with no SKIP, `ok …/internal/handlers 1.083s`. It printed, for example, `approve a new meeting request after a decline: 200 map[status:pending success:true thread_id:4]` and `accept the fresh invite: 200 map[status:active success:true thread_id:4]`.
+- **Package run, DB recreated fresh:** `go test ./internal/chat/ ./internal/handlers/ -count=1 -p 1 -timeout 45m` printed `ok …/internal/chat 1.443s` and `ok …/internal/handlers 16.306s`, exit 0. `internal/marriagechat` has no test files; its behaviour is covered through the handlers tests.
+- **Full suite, DB recreated fresh again:** `go test ./... -count=1 -p 1 -timeout 45m` exited 0 with 22 `ok` packages and 0 FAIL. Among them: `ok …/internal/handlers 17.832s`, `ok …/internal/marriage 1.062s`, `ok …/internal/chatlifecycle 1.056s` and `ok …/internal/notify 0.583s`.
+- **Cleanup:** `dropdb godonation_declined_invite_26436b` succeeded. Afterwards `psql -d postgres -lqt` lists 0 `godonation_declined_invite*` databases. The first DB, `godonation_declined_invite_26436`, was already gone after the session restart.
+- **Lint:** `go build ./...` and `go vet ./...` exited 0, and `gofmt -l` on the 6 changed files printed nothing.
+- **Review:** `ecc:code-reviewer` returned APPROVE with 0 critical, high or medium findings.
+  - LOW 1: files over 500 lines, already over before this change. Not split, because parallel branches edit them.
+  - LOW 2: a re-approval landing between the guarded UPDATE and the re-read makes one accept tap answer 409. Accepted and documented on `acceptNotPending`.
+  - The review ran before the notification probe and assumed a re-opened invite "brings its own notification". The two comments that said so were corrected afterwards.
+
+**External actions taken:** none. Nothing was pushed and no PR was opened. OPOS MCP needs interactive OAuth in this subagent session, so #26436 was not moved or commented on. A background-task suggestion, "Fix lost marriage chat invite notifications", was raised for the user.
+
+**What is still open:**
+- The two commits are local and unpushed.
+- **The re-invite push is lost.** `notify.Notifier.Send` dedupes on user + English title + English body + type, with no time window and no entity check (`internal/notify/notify.go:120`). `MarriageChatRequestMsg`'s text never varies, so an owner who already received one invite gets no new row and no push for the re-invite. The same applies to any later invite from anyone, and `MarriageChatAcceptedMsg` has the same shape. The probe above confirms it.
+  - The owner still sees the pending invite in their Marriage chats list.
+  - Not fixed here: the dedupe is relied on elsewhere (`handlers/admin_status_notify.go:357-360`), the templates belong to a parallel branch, and getting past it would mean deleting users' notification rows or changing the shared `Send`. It needs a decision.
+- **A re-opened thread keeps its lifecycle and its old messages.** If staff had ended or archived the declined thread, a re-invite produces a pending invite that accept refuses with `chat_lifecycle_closed`, or 404 if archived. This is the lifecycle rule working as designed, but staff approving a request for such a pair creates an invite nobody can use.
+- **Flutter** (no Dart changed; for #26433). Both accept calls go through `postJson` (`humanitarian/lib/api/module_api.dart:360`), which throws `Exception(<error>)` and drops `code`:
+  - **Notification tile** (`modules/notifications/widgets/notification_tile.dart`): Accept is offered on any `chat_request` (:196) whose thread is not active in `ChatController.threads`. Declined threads are never in that list, so the `declined` branch at :550 never fires. `_localDone` (:557) resets when the widget is rebuilt, so a user who declined sees Accept again. Tapping it, `_accept` (:437) shows a snackbar with the raw text "Exception: This chat request was declined, so it can no longer be accepted." in English on every locale, and the buttons stay. This is the path most likely to hit the 409.
+  - **Messages tab** (`modules/chat/screens/messages_screen.dart`): `_accept` (:517) shows the same raw `'$e'` (:533). Accept only renders for `incomingPending` threads (:198), so reaching it takes a stale list.
+  - **Marriage conversation** (`modules/marriage/screens/marriage_chat_conversation_screen.dart`): `_decide(true)` (:152, :156) shows `failureMessage(e, 'error_message_send_failed')` (:165), i.e. "Could not send your message. Please try again…" / "تعذّر إرسال رسالتك…", which is misleading. Accept is gated on `_status == 'pending' && isOwner` (:212). A stale list row, or the first load, can still show it.
+  - `marriage_chat_request` notifications have no buttons in the tile.
+  - The existing pattern to follow is `ApiCodedException` via `_sendCodedJson`, as in `chat_group_conversation_controller.dart`'s `chat_lifecycle_closed` handling.
+- **Files over 500 lines** (already over before): `internal/chat/chat.go`, `internal/handlers/chat.go`, `internal/marriagechat/marriagechat.go`.
+
+**Traps:**
+- **A session restart kills every background test run and reviewer.** Recheck `psql -l`: the first DB for this task was already gone afterwards.
+- **Notification tests that seed an invite through the store** (`marriagechat.Store.ApproveMeetingRequest`) write no notification row, so they cannot see `Send`'s dedupe. Seed through the approve route when a test depends on a notification arriving.
+- **In this worktree-isolated agent, the sandbox refuses:**
+  - `cd <dir> && git …`: use `git -C <worktree>`;
+  - Monitor loops with shell arithmetic: `tail -F log | grep --line-buffered …` works.
+- **`psql` without `-d postgres` fails** with `database "zaidaqrawi" does not exist`.
+
+---
+
+## 2026-09-15 — OPOS #26410 (part): chat-group membership conflicts answer 409 with codes, and re-adding a removed member reactivates them (branch `feat/chat-groups-conflict-codes`)
+
+**What was asked:** on the chat-group admin routes, adding someone who is already a member, or giving a masked label that another active member holds, returned 500 "Database error.". Three changes were requested, test-first:
+- return 409s with machine codes instead;
+- give every `chatErr` refusal a stable `code`;
+- by user decision D3, re-add a REMOVED member by reactivating their row, keeping its label and role, instead of refusing.
+
+A parallel agent owns `chat_group_admin.go`, `chatgroups_admin.go` and the admin routes in `main.go`. None of those were touched.
+
+**What was actually changed** (on `feat/chat-groups-conflict-codes`, off `origin/main` `a1da04f`, not pushed):
+- **`6927965` refactor(chatgroups): a pure move, diffed line for line against HEAD.** The membership writes left `chatgroups.go` for the new `backend/internal/chatgroups/chatgroups_members.go`: `autoLabel*`, `nullIfEmpty`, `refuseContactInLabel`, `memberExecer`, `memberRow`, `insertMemberRow*`, `insertMembers`, `AddMember` and `RemoveMember`. This was needed because the feature would have pushed `chatgroups.go` past 500 lines.
+- **`8436e44` feat(chatgroups): 409 codes for member and label conflicts, reactivate removed members:**
+  - **`chatgroups.go`.** New sentinels `ErrMemberConflict`, `ErrLabelConflict` and `ErrLabelContact`; the last wraps `ErrInvalidInput`, so old `errors.Is` checks still hold. The package and `CreateGroup` doc comments were updated.
+  - **`chatgroups_members.go`: conflict mapping.** `memberConflict` maps SQLSTATE 23505 by `PgError.ConstraintName`: `chat_group_members_group_id_user_id_key` becomes `ErrMemberConflict`, and `uq_chat_group_members_active_label` becomes `ErrLabelConflict`. It is used by `insertMemberRow` (all three add paths) and by `reactivateMemberRow`.
+  - **`chatgroups_members.go`: `AddMember`.** One transaction with `SELECT … FOR UPDATE` on the user's row in the group:
+    - no row: insert, with auto-labels as before;
+    - an active row: `ErrMemberConflict`;
+    - a removed row: `reactivateMemberRowSQL`, which clears `removed_at` and `removed_by` only and refuses a guest in the same statement.
+  - **`chatgroups_members.go`: `refuseContactInLabel`.** It returns `ErrLabelContact`, and the error no longer contains the label text, so the contact detail stays out of logs.
+  - **`backend/internal/handlers/chat_group.go`.** `chatErr` is now an ordered table (`chatErrResponses`) plus `respondChatErr`. Every answer is `{success:false, error, code}`. An unrecognised error is logged and answered 500 `server_error`.
+  - **Tests.** New `chatgroups_conflict_test.go`, `chatgroups_reactivate_test.go`, `handlers/chat_group_conflict_test.go` and `handlers/chat_group_error_codes_test.go`; the last includes a DB-free table test of the whole `chatErr` mapping. In `handlers/chat_group_guest_member_test.go`, the old "invalid input carries no code" test became `TestAdminCreateGroup_InvalidKindKeepsItsSentence`, asserting `group_invalid_input` with its sentence unchanged.
+
+**Error codes sent by `chatErr`** (the English sentences of the pre-existing cases are unchanged):
+
+| Code | Status | English `error` | Routes |
+|---|---|---|---|
+| `not_group_member` | 403 | You are not a member of this group. | GET/POST `/api/chat-groups/:id/messages`, POST `/api/chat-groups/:id/read` |
+| `group_not_found` | 404 | Group not found. | the three participant routes above; GET `/api/admin/chat-groups/:id`; POST `/api/admin/chat-groups/:id/members`; DELETE `/api/admin/chat-groups/:id/members/:userId` (also when the user is not an active member); POST `/api/admin/chat-groups/:id/messages` |
+| `connect_request_decided` | 409 | This request has already been decided. | POST `/api/admin/chat-groups/connect-requests/:id/approve` and `/decline` |
+| `group_member_conflict` | 409 | This person is already a member of this group. | POST `/api/admin/chat-groups`, POST `/api/admin/chat-groups/:id/members`, POST `…/connect-requests/:id/approve` |
+| `group_label_conflict` | 409 | Another member of this group already has this label. | the same three routes |
+| `guest_member_not_allowed` | 400 | Guest accounts cannot be added to a chat group. | the same three routes |
+| `group_label_contact` | 400 | A member label cannot contain a phone number or email address. | the same three routes (it used to be 400 "Invalid request." with no code) |
+| `group_invalid_input` | 400 | Invalid request. | POST `/api/admin/chat-groups` (unknown kind); POST `…/approve` (unknown kind, or requester not in members); POST `/api/chat-groups/connect-requests` (context_type not donation/case) |
+| `connect_context_not_found` | 400 | We couldn't find that case or donation. | POST `/api/chat-groups/connect-requests` |
+| `server_error` | 500 | Database error. | any route above, for a failure `chatErr` does not recognise (now logged) |
+
+These refusals on the same routes do NOT come from `chatErr`, so they are unchanged and carry no code unless one is noted:
+- **400:**
+  - "Invalid JSON.": create group, approve, and POST read.
+  - "kind and at least one member are required.": create group and approve.
+  - "user_id is required.": add member.
+  - "Invalid user id.": remove member.
+  - "A decline reason is required.": decline.
+  - "Message body is required.": both message POSTs.
+  - "context_type, context_id, and message are required.": submit connect request.
+  - "Invalid id.": `parseID`, on every `:id` route.
+- **404:**
+  - "Connect request not found.": GET a connect request, approve and decline. `chat_group_admin.go` intercepts it before `chatErr`.
+  - "Chat not found.": the lifecycle and archived gates.
+- **409 `chat_lifecycle_closed`:** a message POST to a paused or ended group.
+- **422 `contact_details_blocked`:** contact details in a masked-group message.
+- **500 "Database error." inline:** the list routes and POST read.
+
+**Reactivation rules (D3):** these apply to `AddMember` only (POST `/api/admin/chat-groups/:id/members`). CreateGroup and approval always make a new group, so no removed rows exist there.
+1. A user with a REMOVED row in the group gets that same row back: `removed_at` and `removed_by` are cleared. The member id, `masked_label`, `role_in_group`, `masked`, `added_at` and `added_by_staff_id` stay. The route answers 200 and records its usual `member_added` audit row.
+2. The request's `role_in_group` and `label` are ignored for a returning member.
+3. The request's label is still scanned first. A phone number or email gets 400 `group_label_contact`, and the member stays removed.
+4. If the old label is now held by another active member (compared ignoring case), the answer is 409 `group_label_conflict`, and the member stays removed.
+5. A guest account gets 400 `guest_member_not_allowed` and stays removed.
+6. A user who is already active gets 409 `group_member_conflict`, and nothing changes.
+7. The lookup and the write share one transaction, with the member row locked `FOR UPDATE`.
+8. Old and new messages resolve to the same `sender_member_id` and label, because the read side joins members on `(group_id, user_id)`.
+
+**What was run and what it printed:**
+- **RED, fresh DB `godonation_cg_conflict_codes`, sentinels declared but unused:**
+  - **Store tests.** Every new store test failed with raw errors, for example `duplicate key value violates unique constraint "chat_group_members_group_id_user_id_key" (SQLSTATE 23505), want errors.Is(err, ErrMemberConflict)` and the same for `uq_chat_group_members_active_label`. The contact-label tests failed with `chatgroups: invalid input, want errors.Is(err, ErrLabelContact)`, and re-adding a removed member failed with the 23505 above. Only `TestAddMemberRefusesReactivatingGuest` passed, as a guard: the old INSERT already refused the guest.
+  - **Handler tests.** `status = 500, want 409 (body map[error:Database error. success:false])`, and `code = <nil>, want "not_group_member"` and so on for each code. Only the two pre-existing codes passed.
+- **GREEN, same DB:**
+  - `go test ./internal/chatgroups/ -count=1 -p 1 -v`: `ok …/internal/chatgroups 126.064s`, 62 PASS / 0 SKIP / 0 FAIL.
+  - `go test ./internal/handlers/ -count=1 -p 1 -v`: `ok …/internal/handlers 1512.881s`, 237 PASS / 0 SKIP / 0 FAIL. Every new test printed `--- PASS`.
+- **Fresh DB `godonation_cg_conflict_codes_pkg`:** `go test ./internal/chatgroups/ ./internal/handlers/ -count=1 -p 1 -timeout 45m` printed `ok …/internal/chatgroups 615.473s` and `ok …/internal/handlers 552.194s`, exit 0.
+- **Fresh DB `godonation_cg_conflict_codes_suite`:** `go test ./... -count=1 -p 1 -timeout 45m` exited 0 and printed 22 `ok` packages with 0 FAIL, panic or build-failed lines. Among them were `ok …/internal/chatgroups 23.768s` and `ok …/internal/handlers 81.963s`. The first full-suite attempt, on `godonation_cg_conflict_codes_full`, was killed with its session before finishing; that DB no longer exists.
+- `go vet ./...` exited 0. `gofmt -l` on the 8 changed files printed nothing.
+- **Review:** `ecc:code-reviewer` said APPROVE, with 0 critical, 0 high, 0 medium and 1 low; the low is listed under "still open" below.
+- **DBs:** four throwaway DBs were created for this work: `godonation_cg_conflict_codes` (RED/GREEN), `_pkg`, `_full` (the killed run) and `_suite`.
+  - `dropdb` reported dropping `godonation_cg_conflict_codes` and `godonation_cg_conflict_codes_suite`.
+  - `_pkg` and `_full` were already gone when checked after the restart.
+  - At the end, `psql -lqt | grep godonation_cg_conflict_codes` matched nothing (grep exit 1).
+  - No other database was touched.
+
+**External actions taken:** none. Nothing was pushed and no PR was opened.
+
+**What is still open:**
+- The commits are local and unpushed, and no human has reviewed them.
+- OPOS MCP needs interactive OAuth and was not available to this subagent, so #26410 was not moved or commented on.
+- **admin-web.**
+  - `src/lib/locales/{en,ar,ckb,kmr}.ts` have no `error.<code>` keys for any of these codes, `server_error` included.
+  - Until they are added, `describeError` shows the English sentence for a 4xx and `error.server` for the 500.
+- **Owned by the parallel agent (`chat_group_admin.go`).**
+  - The connect-request 404 "Connect request not found." needs a one-line `"code": "connect_request_not_found"` on each of its three intercepts.
+  - The handler-level 400s listed above also have no code.
+- **Misleading sentence.** DELETE on a member who is not active answers 404 `group_not_found` "Group not found.".
+- **No relabel path.** No endpoint changes a member's label, so a reactivation refused for a taken label can only be resolved by removing the other holder.
+- **Reviewer LOW, which predates this diff.** `insertNewMember`'s auto-label `COUNT(*)` is not serialized. Two concurrent adds of new users with the same role can compute the same "Donor N"; the second now gets a clean 409 `group_label_conflict` instead of a 500.
+- **Flutter.** No change is needed.
+  - `sendChatGroupMessage` maps only `contact_details_blocked` and `chat_lifecycle_closed`. Any other code, including the new `not_group_member`, gets the same generic line that no code got before.
+  - The conversation screen reads status codes only.
+  - `postJson` callers show `failureMessage`, never the server sentence.
+
+**Traps:**
+- **Worktree guard.** The agent's worktree guard refuses complex Bash: process substitution around `git show`, or a long `-run 'a|b|c'` combined with variables and redirects. Split them into plain commands.
+- **Long handlers run.** `internal/handlers` took about 25 minutes under this machine's load, past the 10-minute tool limit, so run it in the background.
+- **`chatErr` logs from `c.Request`.** A test that builds a context with `gin.CreateTestContext` must set `c.Request`, or the `server_error` path panics.
+- **Hard-coded constraint names.** `memberUserConstraint` and `memberLabelConstraint` in `chatgroups_members.go` must change with any migration that renames those constraints; otherwise conflicts silently revert to 500 `server_error`.
+- **Unrelated gofmt hit.** `gofmt -l` in `backend/` still lists `internal/handlers/admin_edit_user_profile.go`, which is untouched and already unformatted on `origin/main`.
+- **A session end kills background test runs.** The first full-suite run died with its session and left nothing to read. Check `psql -l` for leftover throwaway DBs before re-running, and re-run on a fresh one.
+- **`dropdb` can hang past the tool limit.** `dropdb` waits while any connection to the DB is still open, which may be a test process that has not exited yet. Check `pg_stat_activity` for the DB first.
+- **No re-runs on the same DB.** `internal/chatgroups` tests still cannot be re-run on the same DB (see the #26351 entry). Use a fresh DB per run.
+
+---
+
+## 2026-09-15 — OPOS #26448: the chat request notification tile never starts a chat poller for a guest (branch `fix/notification-tile-no-guest-chat-poller`)
+
+**What was asked:** close the gap #100 (OPOS #26423) left open, test-first. `NotificationTile` still fell back to `Get.put(ChatController())` for a `chat_request` notification, with no guest check. This is defense in depth: the server already gives guests an empty `/chats` (#97), and #26424 hides chat notifications from guests server-side. The change had to stay in `notification_tile.dart` plus new tests, with no `app_translations.dart` edits.
+
+**What was actually changed** (commit `bf77eb8` on `origin/main` `e66ff69`; local, unpushed):
+- `humanitarian/lib/modules/notifications/widgets/notification_tile.dart`:
+  - `_ChatRequestActions` (inline Accept/Decline) is now built only when `!isGuestMode()`, checked LAST in its condition, so a tile that is not a chat request never reads preferences.
+  - The reason it matters: the widget's `Obx` reads `ChatController.threads` and puts a controller when none exists. `ChatController.onInit` fetches `/api/chats` and starts a 5-second `Timer.periodic`, so merely rendering the tile started that poll for a guest.
+  - A comment on the `_ctrl` getter warns not to host the widget without the guard.
+- **Why hidden and not `requireSignIn`:**
+  - `ConnectRequestButton` already renders nothing for a guest.
+  - A tap gate cannot stop a poller that the build itself starts.
+  - `POST /api/chats/:id/accept` and `/decline` are `RequireNotGuest` (`backend/cmd/server/main.go:751-752`).
+  - Signing in lands on a different account, which the invite is not addressed to.
+  - The notification itself still shows and still taps through.
+- New test: `humanitarian/test/notifications/chat_request_tile_guest_test.dart` (4 tests).
+  - Guest: the tile shows and taps through, with no `ChatController`, no chat-route request past 6 seconds, and no buttons.
+  - Member: with no controller registered, the fallback still registers one, which loads and polls `/api/chats` and draws 2 buttons. Decline posts `POST /api/chats/42/decline`.
+
+**What was run and what it printed** (all from `humanitarian/`):
+- RED, before the fix: the new file printed `00:19 +2 -2: Some tests failed.`
+  - Guest tests: `Expected: false / Actual: <true>` (controller registered) and `Expected: <0> / Actual: <2>` (buttons shown).
+  - Both member tests passed, as intended.
+- GREEN:
+  - The new file alone printed `00:01 +4: All tests passed!`
+  - The new file plus the existing notification and guest-chat tests printed `00:12 +51: All tests passed!` Those are `support_destination_test`, `notification_relative_time_test`, `localized_tag_test`, `dashboard_guest_chat_polling_test`, `messages_guest_prompt_test` and `top_bar_support_button_test`.
+- Full `flutter test` on the final tree printed `02:23 +1031: All tests passed!`, exit 0.
+- `flutter analyze` printed `6 issues found.`, the same 6 `deprecated_member_use` as the baseline, none in touched files.
+- `dart format --set-exit-if-changed` on both files: 0 changed.
+- `ecc:flutter-reviewer`: APPROVE, with 0 critical, 0 high and 0 medium findings.
+  - Only 3 sites ever `Get.put(ChatController())`, and all are now guest-guarded.
+  - The tests are not vacuous, and no timers leak.
+
+**External actions taken:** none. Nothing was pushed and no PR was opened.
+
+**What is still open:**
+- The commits are local and unpushed, with no PR and no human review.
+- OPOS MCP needed interactive OAuth and was unavailable in this subagent, so OPOS #26448 has no status update or notes yet.
+- Reviewer LOW, deliberately not fixed here: `isGuestMode()` is read once at build, so the tile does not react to a guest upgrading to a member mid-session until it rebuilds. The app uses the same pattern at 16 other call sites.
+- Reviewer LOW, deliberately not fixed here: `notification_tile.dart` is 705 lines, over the 500-line limit, and was already about 678 before this change. A follow-up should extract `_ChatRequestActions` into its own file.
+
+**Traps:**
+- `isGuestMode()` reads the `late` global `sharedPreferences`. A widget test that pumps a `chat_request` tile without initializing prefs now throws `LateInitializationError`. Other tile types do not, because the guest check runs last. `notification_relative_time_test.dart` pumps a support tile without prefs and is unaffected.
+- The first session running this task ended mid-work and its background `flutter test` and reviewer runs were killed. The uncommitted tree survived, and `git checkout -B <branch> origin/main` carried it onto the newer main cleanly, because #101 and #102 touch neither file.
+
+---
+
 ## 2026-09-15 — OPOS #26434: masked chat-group pushes name the sender in Arabic and Kurdish, not English (branch `fix/masked-push-title-localized-alias`)
 
 **What was asked:** masked chat-group pushes put the server's English label ("Donor 1", "Support", …) into every language's title. An Arabic push read «رسالة من Donor 1», and the in-app list stored the same. Fix it test-first in `backend/internal/notify`, without touching files other branches are editing.

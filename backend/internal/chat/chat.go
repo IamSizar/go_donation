@@ -41,6 +41,10 @@ var (
 	// an invite waiting for an answer — it is already active — so declining it
 	// would end a conversation both parties are using (OPOS #26427).
 	ErrNotPending = errors.New("this chat is no longer a pending invite")
+	// ErrInviteDeclined is returned by AcceptThread when the invite was
+	// declined. A declined invite is final (OPOS #26436): accepting it would
+	// revive a request the initiator was told was turned down.
+	ErrInviteDeclined = errors.New("this chat invite was declined")
 )
 
 // Thread is the raw row.
@@ -173,9 +177,19 @@ func (s *Store) RequestSupportThread(ctx context.Context, userID, supportID int6
 	return t, false, nil
 }
 
-// AcceptThread flips a pending thread to active. Only the recipient (the party
-// who did NOT initiate) may accept. Returns the thread and the initiator id so
-// the caller can notify them.
+// AcceptThread flips a pending invite to active. Only the recipient (the party
+// who did NOT initiate) may accept; the party checks run first, so a user with
+// no right to accept is never told the thread's status. Returns the thread and
+// the initiator id so the caller can notify them.
+//
+// Only a PENDING invite can be accepted (OPOS #26436). This used to update by
+// id alone, so a recipient who had declined could accept later, reviving the
+// thread and pushing the initiator "chat accepted" for a request they had been
+// told was turned down. The status condition lives in the UPDATE itself, as in
+// DeclineThread, so a decline cannot land between reading the status and
+// writing it. When the UPDATE matches no row, acceptNotPending reads the thread
+// again to say why. A declined donor invite is final: new direct chats are
+// retired (RequestThread), so nobody can send a fresh one.
 //
 // It does NOT check the thread's lifecycle (paused / ended / archived). That
 // gate lives in the HTTP layer with every other lifecycle refusal —
@@ -192,18 +206,36 @@ func (s *Store) AcceptThread(ctx context.Context, threadID, userID int64) (Threa
 	if userID == t.InitiatedBy {
 		return t, 0, ErrNotRecipient
 	}
-	if t.Status == "active" {
-		return t, t.InitiatedBy, nil // idempotent
-	}
-	if err := s.Pool.QueryRow(ctx, `
+	err = s.Pool.QueryRow(ctx, `
 		UPDATE chat_threads SET status = 'active', updated_at = CURRENT_TIMESTAMP
-		 WHERE id = $1
+		 WHERE id = $1 AND status = 'pending'
 		RETURNING id, donor_user_id, owner_user_id, campaign_id, status, initiated_by, assigned_staff_user_id, created_at, updated_at`,
 		threadID,
-	).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt); err != nil {
-		return t, 0, err
+	).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return s.acceptNotPending(ctx, threadID)
+	}
+	if err != nil {
+		return t, 0, fmt.Errorf("accepting chat thread %d: %w", threadID, err)
 	}
 	return t, t.InitiatedBy, nil
+}
+
+// acceptNotPending answers an accept whose guarded UPDATE matched no row, so
+// the thread was not pending when it ran. A fresh read says why:
+//   - already active: the idempotent success accept has always given, with
+//     the initiator id as before;
+//   - any other status: ErrInviteDeclined, with no initiator id, so no caller
+//     pushes "chat accepted".
+func (s *Store) acceptNotPending(ctx context.Context, threadID int64) (Thread, int64, error) {
+	t, err := s.GetThread(ctx, threadID)
+	if err != nil {
+		return t, 0, err
+	}
+	if t.Status == "active" {
+		return t, t.InitiatedBy, nil
+	}
+	return t, 0, ErrInviteDeclined
 }
 
 // DeclineThread marks a pending invite declined. Only the recipient (the party

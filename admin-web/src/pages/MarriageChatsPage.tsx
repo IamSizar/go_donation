@@ -10,8 +10,17 @@ import { api, describeError } from '../lib/api'
 import { useI18n, useStatusLabel } from '../lib/i18n'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { type CsvColumn } from '../lib/csv'
+import {
+  chatExportColumns,
+  chatExportFilenameBase,
+  chatExportTitle,
+  loadMarriageChatExport,
+} from '../lib/chatExport'
 import PageHead from '../components/PageHead'
 import ChatLifecycleControls from '../components/ChatLifecycleControls'
+
+/** Columns of the one-conversation export (OPOS #26397), the same for every thread. */
+const CONVERSATION_EXPORT_COLUMNS = chatExportColumns()
 
 type AdminThread = {
   id: number
@@ -219,11 +228,24 @@ export default function MarriageChatsPage() {
           ) : (
             <>
               <div style={{ borderBottom: '1px solid var(--color-border, rgba(127,127,127,0.18))', paddingBottom: 10, marginBottom: 10 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
                   <strong>
                     {name(selected.requester_name, selected.requester_user_id, t)} {t('common.msg_requester_paren')} ↔ {name(selected.owner_name, selected.owner_user_id, t)} {t('common.owner_paren')}
                   </strong>
-                  <StatusBadge status={selected.status} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <StatusBadge status={selected.status} />
+                    {/* OPOS #26397 — export THIS conversation. The rows load
+                        only after the PIN, from the marriage:view route this
+                        pane reads; the export needs marriage export. */}
+                    <ExportCsvButton
+                      loadRows={() => loadMarriageChatExport(selected.id)}
+                      columns={CONVERSATION_EXPORT_COLUMNS}
+                      filenameBase={chatExportFilenameBase('marriage', selected.id)}
+                      title={chatExportTitle('marriage', selected.id)}
+                      module="marriage"
+                      label={t('export.conversation')}
+                    />
+                  </div>
                 </div>
                 <span className="muted" style={{ fontSize: 12.5 }}>{t('col.profile_code')}: {selected.profile_code}</span>
                 {/* Chat lifecycle (migration 117) — end / pause / resume /

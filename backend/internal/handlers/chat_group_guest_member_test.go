@@ -135,10 +135,12 @@ func TestAdminCreateGroup_RefusesGuestMember(t *testing.T) {
 	}
 }
 
-// TestAdminCreateGroup_OtherRefusalsCarryNoCode pins that only the guest
-// refusal gained a "code" field: the generic invalid-input answer the
-// dashboard already handles is unchanged.
-func TestAdminCreateGroup_OtherRefusalsCarryNoCode(t *testing.T) {
+// TestAdminCreateGroup_InvalidKindKeepsItsSentence pins that the generic
+// invalid-input answer kept its English sentence when every chat-group
+// refusal gained a code (OPOS #26410). Only the code is new, so a client that
+// shows the sentence sees exactly what it did before. The full code table is
+// chat_group_error_codes_test.go.
+func TestAdminCreateGroup_InvalidKindKeepsItsSentence(t *testing.T) {
 	pool := newChatGroupPool(t)
 	r, _ := newAdminChatGroupRouter(pool)
 	staff := makeChatGroupUser(t, pool, "Staff")
@@ -153,8 +155,8 @@ func TestAdminCreateGroup_OtherRefusalsCarryNoCode(t *testing.T) {
 	if code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400 (body %v)", code, body)
 	}
-	if _, has := body["code"]; has {
-		t.Errorf("invalid-kind response gained a code field: %v", body)
+	if body["code"] != "group_invalid_input" {
+		t.Errorf("code = %v, want \"group_invalid_input\" (body %v)", body["code"], body)
 	}
 	if body["error"] != "Invalid request." {
 		t.Errorf("error = %v, want the unchanged \"Invalid request.\"", body["error"])

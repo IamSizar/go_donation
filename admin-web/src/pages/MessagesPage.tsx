@@ -20,9 +20,24 @@ import { api, describeError } from '../lib/api'
 import { useI18n, useStatusLabel } from '../lib/i18n'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { type CsvColumn } from '../lib/csv'
+import {
+  chatExportColumns,
+  chatExportFilenameBase,
+  chatExportTitle,
+  loadDonorChatExport,
+  type ChatExportKind,
+} from '../lib/chatExport'
 import PageHead from '../components/PageHead'
 import ChatLifecycleControls from '../components/ChatLifecycleControls'
 import ContactBlocksPanel from '../components/ContactBlocksPanel'
+
+/** Columns of the one-conversation export (OPOS #26397), the same for every thread. */
+const CONVERSATION_EXPORT_COLUMNS = chatExportColumns()
+
+/** The chat type an export's filename and title name: support threads say so. */
+function exportKindFor(kind: MessagesPageProps['kind']): ChatExportKind {
+  return kind === 'support' ? 'support' : 'donor'
+}
 
 type AdminThread = {
   id: number
@@ -303,11 +318,24 @@ export default function MessagesPage({
           ) : (
             <>
               <div style={{ borderBottom: '1px solid var(--color-border, rgba(127,127,127,0.18))', paddingBottom: 10, marginBottom: 10 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
                   <strong>
                     {name(selected.donor_name, selected.donor_user_id, t)} {t(leftPartyKey)} ↔ {name(selected.owner_name, selected.owner_user_id, t)} {t(rightPartyKey)}
                   </strong>
-                  <StatusBadge status={selected.status} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <StatusBadge status={selected.status} />
+                    {/* OPOS #26397 — export THIS conversation. The rows load
+                        only after the PIN, from the messages:view route this
+                        pane reads, so the file holds what the page may show. */}
+                    <ExportCsvButton
+                      loadRows={() => loadDonorChatExport(selected.id)}
+                      columns={CONVERSATION_EXPORT_COLUMNS}
+                      filenameBase={chatExportFilenameBase(exportKindFor(kind), selected.id)}
+                      title={chatExportTitle(exportKindFor(kind), selected.id)}
+                      module="messages"
+                      label={t('export.conversation')}
+                    />
+                  </div>
                 </div>
                 {selected.campaign_title && (
                   <span className="muted" style={{ fontSize: 12.5 }}>{t('common.msg_campaign')}: {selected.campaign_title}</span>
