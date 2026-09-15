@@ -100,9 +100,21 @@ func seedStaffChat(t *testing.T, pool *pgxpool.Pool) chatFixture {
 
 func seedMarriageChat(t *testing.T, pool *pgxpool.Pool) chatFixture {
 	t.Helper()
-	ctx := context.Background()
 	requester := makeLifecycleUser(t, pool, "user")
 	owner := makeLifecycleUser(t, pool, "user")
+	id := insertMarriageChatThread(t, pool, requester, owner)
+	return chatFixture{chatlifecycle.KindMarriage, "marriage_chat_threads", "marriage_chat_messages", id, requester,
+		fmt.Sprintf("/api/marriage/chats/%d/messages", id), "thread_id"}
+}
+
+// insertMarriageChatThread inserts an ACTIVE marriage chat thread between two
+// existing users, with the parent rows the schema requires: the owner's
+// marriage profile and the requester's meeting request. Split out of
+// seedMarriageChat so chat_guest_reads_test.go can put a guest on one side.
+// Removes everything it wrote in its own t.Cleanup.
+func insertMarriageChatThread(t *testing.T, pool *pgxpool.Pool, requester, owner int64) int64 {
+	t.Helper()
+	ctx := context.Background()
 	lifecycleSeq++
 	var profileID, requestID, id int64
 	if err := pool.QueryRow(ctx,
@@ -131,8 +143,7 @@ func seedMarriageChat(t *testing.T, pool *pgxpool.Pool) chatFixture {
 		_, _ = pool.Exec(ctx, `DELETE FROM marriage_meeting_requests WHERE id = $1`, requestID)
 		_, _ = pool.Exec(ctx, `DELETE FROM marriage_profiles WHERE id = $1`, profileID)
 	})
-	return chatFixture{chatlifecycle.KindMarriage, "marriage_chat_threads", "marriage_chat_messages", id, requester,
-		fmt.Sprintf("/api/marriage/chats/%d/messages", id), "thread_id"}
+	return id
 }
 
 // seedCaseChat and the case-chats routes it fed were removed by OPOS #25284
@@ -178,8 +189,9 @@ func seedGroupChat(t *testing.T, pool *pgxpool.Pool) chatFixture {
 // what makes these actions staff-only.
 //
 // The participant routes get main.go's full chain: the authed group's
-// RequireBearer + RequireApproved, plus RequireNotGuest on each send route, so
-// no test here can pass a guest send that production refuses (OPOS #26357).
+// RequireBearer + RequireApproved, plus RequireNotGuest on each send and read
+// route, so no test here can pass a guest request that production refuses
+// (OPOS #26357, #26354).
 //
 // The admin routes get main.go's full admin chain too (OPOS #26367):
 //   - the admin group's RequireAdmin and RequireDeletePassword, so a staff
@@ -207,10 +219,10 @@ func newLifecycleRouter(pool *pgxpool.Pool) *gin.Engine {
 	r := gin.New()
 	participant := r.Group("/api", auth.RequireBearer(tokens), auth.RequireApproved())
 	participant.POST("/chats/:id/messages", auth.RequireNotGuest(), chatH.PostMessage)
-	participant.GET("/chats", chatH.List)
-	participant.GET("/chats/:id/messages", chatH.Messages)
+	participant.GET("/chats", auth.RequireNotGuest(), chatH.List)
+	participant.GET("/chats/:id/messages", auth.RequireNotGuest(), chatH.Messages)
 	participant.POST("/marriage/chats/:id/messages", auth.RequireNotGuest(), marriageH.PostMessage)
-	participant.GET("/marriage/chats", marriageH.List)
+	participant.GET("/marriage/chats", auth.RequireNotGuest(), marriageH.List)
 
 	admin := r.Group("/api", auth.RequireAdmin(tokens), RequireDeletePassword(pool))
 	admin.POST("/admin/staff-chats/:id/messages", staffH.PostMessage)

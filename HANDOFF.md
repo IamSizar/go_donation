@@ -6,6 +6,63 @@
 
 ---
 
+## 2026-09-15 — OPOS #26354: guests blocked from reading donor and marriage chats (branch `fix/guest-gates-chat-reads`)
+
+**What was asked:** block guest sessions from the remaining chat READ routes, the way #83 did for chat groups, writing the tests first. The owner decided "Block, keep guest support".
+
+**What was actually changed** (one local commit on `fix/guest-gates-chat-reads`, based on `origin/main` `9bcc053`):
+- **`backend/cmd/server/main.go`:**
+  - `auth.RequireNotGuest()` added to `GET /api/chats`, `/api/chats/` and `/api/chats/:id/messages` (lines 744-748).
+  - The same gate added to `GET /api/marriage/chats`, `/api/marriage/chats/` and `/api/marriage/chats/:id/messages` (lines 816-820).
+  - `GET /api/support/mine` (line 779) stays open on purpose, with a comment explaining why.
+- **`backend/internal/handlers/chat_guest_reads_test.go`** (new):
+  - `TestChatReads_RefuseGuest`: the guest is a real participant of both threads, and all 6 routes must return 403 `guest_restricted`.
+  - `TestChatReads_AllowSignedInParticipant`: control; a full account gets 200.
+  - `TestSupportMine_StaysOpenToGuest`: a guest gets 200.
+- **`backend/internal/handlers/chat_lifecycle_fixtures_test.go`:**
+  - `insertMarriageChatThread` split out of `seedMarriageChat`, with the same SQL and cleanup.
+  - `newLifecycleRouter`'s GET routes gain the gate, so the router still mirrors main.go.
+
+**Why support stays open (evidence):**
+- Guests already cannot write to support. `POST /api/support` (main.go:772-773) and `POST /api/chats/support` (main.go:736) refuse them.
+  - Commit `9d1cde5` ("fix: require sign-in for support messages") added that, undoing K20 `520d50c`.
+  - `chat_guest_support_test.go` guards it.
+- The app's send path calls `requireSignIn` (`humanitarian/lib/modules/support/screens/technical_support_screen.dart:122`).
+- But `_load` fetches `support/mine` for every session, guests included (same file, `:83`). Blocking that route would show every guest "Could not load your support requests."
+
+**What was run and what it printed:**
+- **RED**, with main.go and the test router not yet gated: `go test ./internal/handlers/ -count=1 -run 'ChatReads|SupportMine|ChatLifecycle' -v`.
+  - `TestChatReads_RefuseGuest` failed on all 6 subtests with `status = 200, want 403`, and the response bodies contained the guest's own threads.
+  - The control test, the support test and the lifecycle tests passed.
+- **GREEN:** `go test ./internal/handlers/ -count=1 -v` exited 0: 214 top-level PASS, 0 FAIL, 0 SKIP, `ok .../internal/handlers 374.525s`.
+- **Full:** `go test ./... -count=1 -p 1` exited 0, with all 22 packages that have tests `ok`, including `internal/handlers 323.231s` and `internal/chatgroups 147.414s`.
+- `go vet ./...` is clean.
+- `gofmt -l .` prints only `internal/handlers/admin_edit_user_profile.go`, which this branch does not touch.
+  - That warning was already on `main`: gofmt wants to rewrite `''` in its doc comments as `”`, which would corrupt the SQL `DEFAULT ''` quoted there.
+- Database: `godonation_guest_chat_reads_26354` was created for this task and dropped afterwards.
+- An `everything-claude-code:code-reviewer` pass found no backend defects: 1 HIGH, which is the app issue below, and 2 LOWs.
+
+**External actions taken:** none. Nothing was pushed and no PR was opened. OPOS MCP needed OAuth and wasn't available in this non-interactive session, so #26354 was not moved or commented on.
+
+**What is still open:**
+- **App follow-up (HIGH): the app still calls `GET /api/chats` for guests.**
+  - `DashboardScreen.initState` creates `ChatController` for every session (`humanitarian/lib/modules/dashboard/screens/dashboard_screen.dart:122-124`).
+  - That controller fetches on start and then every 5 s (`modules/chat/controllers/chat_controller.dart:30-31, 65`).
+  - Every one of those requests is now a 403. The background polls hide the error and the badge stays 0. A 403 does not sign the guest out; only a 401 does (`core/session_expiry.dart:98`).
+  - The top-bar Messages icon is not hidden for guests (`dashboard_screen.dart:794`).
+  - A guest opening `MessagesScreen` now sees "Unable to load your chats." with a Retry that can never succeed (`modules/chat/screens/messages_screen.dart:192-196`). Before this change it showed the empty state.
+  - Suggested fix: don't create `ChatController` or its poll for guests, and show an upgrade prompt instead of the thread list.
+  - Marriage chats need nothing: the tile is inside `if (!guest)` (`modules/marriage/screens/marriage_event_group_screen.dart:206, 231`).
+- **LOW:** `GET /api/notifications` has no guest gate, and chat-message notifications include an 80-character preview (`backend/internal/handlers/chat.go:405-414, 528-537`). A guest who was in a thread from before 9d1cde5 can still see message snippets there.
+- **LOW:** the handler test routers copy main.go's middleware chains, and nothing tests main.go's real route table. Removing a gate from main.go alone would not fail any test; this was already true for #83.
+- A guest who was in a support thread opened in the K20 window (before 9d1cde5) can no longer read that thread.
+
+**Traps:**
+- The full `go test ./... -count=1 -p 1` takes more than 10 minutes, which is longer than the Bash tool's 600 s limit. The harness moved it to the background automatically.
+- An agent isolated in a worktree has Bash commands refused as "too complex to verify" when they mix `git` or `go test` with shell variables. Use literal paths.
+
+---
+
 ## 2026-09-15 — OPOS #26348: 5 stale Flutter tests on `main` brought up to current behaviour (branch `fix/stale-flutter-tests`)
 
 **What was asked:** fix the 5 Flutter tests failing on `origin/main`: 1 in `main_menu_button_test.dart` and 4 in `marriage_hub_feed_test.dart`. Update or delete each test whose subject was changed on purpose. Change no product code, and report a real regression rather than fix it. None was found.
