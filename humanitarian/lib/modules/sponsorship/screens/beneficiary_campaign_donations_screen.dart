@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/localization/money.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/localization/content_localizer.dart';
+import 'package:flutter_application_1/modules/chatgroups/widgets/connect_request_button.dart';
+import 'package:flutter_application_1/modules/chatgroups/widgets/connect_request_sheet.dart';
 import 'package:flutter_application_1/modules/sponsorship/controllers/beneficiary_campaign_donations_controller.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
@@ -452,6 +454,14 @@ class _DonationRow extends StatelessWidget {
                   ],
                 ],
               ),
+            ),
+            // OPOS #25284 Phase 5 — an explicit action, not a whole-row tap:
+            // the beneficiary asks staff to connect them with this donor. The
+            // server sends `id` as a number (donationRow.ID); a row without
+            // one, or a guest, gets nothing.
+            ConnectRequestButton.iconOnly(
+              contextType: kConnectContextDonation,
+              contextId: int.tryParse('${donation['id'] ?? ''}'),
             ),
           ],
         ),

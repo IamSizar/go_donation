@@ -6,6 +6,230 @@
 
 ---
 
+## 2026-09-15 — Phase 5 follow-ups, backend/Android/test fixes, Motorola device pass (PR #82 branch plus 5 fix branches)
+
+**What was asked:** "log tasks on opos and continue working", then "use the connected motorola device to test". This continued from PR #82 (Phase 5 chat groups) with the open follow-ups. Every task was logged in OPOS before work started.
+
+**OPOS tasks** (office 19, account 6). Created today: #26344–#26351, #26353–#26355, #26357, #26364, #26367.
+
+Status when this was written:
+- **Completed:** #26344, #26345, #26346, #26350.
+- **Under Review** (local commits; pushing and opening PRs needs the user's OK): #26347, #26348, #26349, #26353, #26357.
+- **To Do:** #26351 (needs user decisions), #26354, #26355, #26364, #26367.
+- **WIP:** #26047 (final Phase 5 verification), blocked on the Android device pass.
+
+**What was actually changed**
+1. **`feat/chat-groups-phase5-ui` (PR #82)**: four new local commits, **not pushed**.
+   - `995beda`: the connect sheet's send button moved to `widgets/connect_request_submit_button.dart`. The sheet went from 498 to 397 lines. (#26344)
+   - `b9a525c`: a connect request that fails after the member dismissed the sheet is now reported through a SnackBar (`onFailedAfterDismiss`). (#26345)
+   - `0e1a97f`, merged in `e74651a` (#26346):
+     - New `lib/api/api_status_exception.dart`. `ModuleApi.getObject` now throws `ApiStatusException(status)`, whose `toString` is unchanged.
+     - A 403 or 404 on chat-group messages now gives a terminal "This conversation is no longer available" state, with no Retry and no composer.
+     - 2 new en+ar keys. TRANSLATION_REQUEST.md now lists 459 keys.
+   - `f38c58b`: queued loads stop once a group is unavailable. It also corrects three comments about the exception getObject throws.
+2. **`fix/chat-groups-guest-reads`** (worktree `.claude/worktrees/agent-afe13100798e37acf`): `56bfb95` adds `auth.RequireNotGuest()` to `GET /chat-groups`, `GET /chat-groups/:id/messages` and `GET /chat-groups/connect-requests/mine`. (#26347)
+3. **`fix/android-debug-build-without-signing`** (worktree `.claude/worktrees/android-signing-fix`): `976d876` and `b231054` change `build.gradle.kts` to use `signingConfigs.findByName("release")`, plus a task-graph guard that fails only release builds that have no signing config. Before this, a checkout without the gitignored `key.properties` could not even build debug. (#26353)
+4. **`fix/stale-flutter-tests`** (worktree `.claude/worktrees/agent-aa2e480042cf01557`): `b1a18e1`, `250d781` and `2034ffa`.
+   - The 5 tests that failed on main were updated or deleted. Each pinned behaviour that e07d59a or PR #76 changed on purpose.
+   - Added a test that Profile opens News.
+   - That branch has its own HANDOFF.md entry, so expect a trivial HANDOFF.md merge conflict. (#26348)
+5. **`fix/app-error-state-in-scroll-views`** (worktree `.claude/worktrees/app-error-state-fix`): `7471961` makes `AppErrorState` use `Expanded` for stale rows only when the height is bounded. Inside a scroll view it threw, which broke the Messages tab on a failed pull-to-refresh. (#26349)
+6. **`fix/test-routers-match-main`** (worktree `.claude/worktrees/agent-a2f9a9fd81ffdbf57`), stacked on `56bfb95`: `ae7a65a` makes the backend handler test routers apply the same guest and approval gates as `main.go`, including routers the review missed. Only 6 `_test.go` files changed; no production code. (#26357)
+7. Removed the 4 merged Phase 5 agent worktrees and their branches. (#26350)
+
+**What was run and what it printed**
+- **Phase 5 branch, at `f38c58b`:**
+  - `flutter test test/modules/chatgroups/ test/api/ test/localization/` → `+330: All tests passed!`
+  - Full `flutter test` → `+947 -5`. The 5 are the known stale tests, fixed on branch 4.
+  - Full `flutter analyze` → `6 issues found`, the existing baseline.
+- **#26345:** the 2 new tests failed first ("Found 0 widgets with text containing Could not send your…"), then passed. `test/modules/chatgroups/ test/localization/` → `+270`.
+- **#26346:** 8 new tests failed first, then passed. `test/modules/chatgroups/ test/api/ test/localization/` → `+329`, and `+330` after `f38c58b`.
+- **#26347:**
+  - `TestChatGroupReads_RefuseGuest` failed first: a guest group member got 200.
+  - `go vet ./...` is clean, and `go test ./... -count=1 -p 1` on a freshly created DB → 22 packages ok.
+  - A reviewer confirmed with a mutation check that the test catches the bug.
+- **#26353**, in a checkout without `key.properties`:
+  - The debug build printed "✓ Built … app-debug.apk", then installed and ran on a Motorola Defy.
+  - `flutter build apk --release` → "No release signing config: android/key.properties is missing…", BUILD FAILED.
+  - A reviewer used a fake keystore to show that release signing is unchanged when the file is present.
+- **#26348:** full `flutter test` on that branch → `+820: All tests passed!`, 0 failures. Analyze is at the baseline.
+- **#26349:**
+  - On origin/main without the fix → `+1 -2`, failing with "RenderFlex children have non-zero flex but incoming height constraints are unbounded".
+  - With the fix → `+3: All tests passed!`
+  - Full suite on that branch → `+819 -5`, the 5 stale tests.
+- **#26357:** no test began failing. `go vet ./...` exit 0; `go test ./internal/handlers/ -count=1` → ok; full `go test ./... -count=1 -p 1` → every package ok, on fresh DBs dropped afterwards; a `-v` handlers run → 429 PASS / 0 SKIP / 0 FAIL.
+- **Android device pass** on the Motorola Defy (ZY32D3QTSD, Android 11, 720×1600), through the uncommitted dev harness `humanitarian/tool/chat_groups_preview.dart` with a fake API.
+  - Verified in English, light theme: the masked chat; the composer's focus outline, send enabling and sending; the contact-details refusal (typed text kept); a paused chat with its reason; an ended, empty chat; the Messages-tab sections; My Connect Requests in all its states.
+  - The screenshots exist only in the agent scratchpad.
+
+**External actions taken:** OPOS only: tasks, comments, statuses, and manual time logs for #26347 and #26348. Nothing was pushed and no PR was opened today.
+
+**What is still open**
+- **Push and PRs, waiting on the user:** #26347, #26357 (stacked on #26347), #26353, #26348, #26349, plus the new local commits on PR #82.
+- **#26353:** a signed release build with the real `key.properties` is still needed before merging.
+- **#26351 decisions:** whether the case-detail "Ask staff to connect me" button should show on every route, and "staff" vs "our team".
+- **Android device pass still to do:** the connect sheet (success and failure), Arabic, dark mode, guest vs donor. The Motorola disconnected twice (usb:2-1) and was not back after a 30-minute wait.
+- **Phase 5 worktree temporary files:** an UNCOMMITTED copy of the #26353 `build.gradle.kts` (needed to build on devices) and the untracked dev harness `humanitarian/tool/`. Never commit either; revert and delete both after the device pass.
+- **Worktree cleanup:** `.claude/worktrees/agent-a52e0750b3d4145aa` (`fix/phase5-chat-unavailable`, already merged) can be removed.
+- **Follow-ups:** #26354 (guest gates on the other chat read routes), #26355 (staff can add a guest to a group), #26364 (stale Events-hub comments), #26367 (admin test routers skip main.go's permission and admin-tier gates).
+
+**Traps**
+- **OPOS timers and statuses:**
+  - Each account has ONE running timer. Moving a task to in_progress stops any other timer.
+  - Status changes fail with `PRESENCE_NOT_WORKING` while the account is clocked out, but comments still work.
+- **OPOS uploads:** `upload_screenshot` cannot read local files (ENOENT).
+- **emulator-5554 hangs device discovery:** the Pixel Tablet emulator, used by another session, never answers `adb`, so `flutter run` hangs on its `adb shell getprop`. Kill only the hung getprop processes your own run spawned; do not touch the emulator.
+- **zsh word-splitting:** zsh does not split `$VAR` into a command plus arguments. Use a function (`adbm() { adb -s SERIAL "$@"; }`) or run the script through `bash -s`.
+- **GetX translations:** a hot reload does not load new translation keys, so raw keys show until a hot restart.
+- **GateGuard hook:** besides first file edits, it blocks the first Bash command of a session and anything it deems destructive (`git commit --amend`, `git checkout --`, `rm`) until you state the facts and retry.
+
+---
+
+## 2026-09-14 — OPOS #25284 Phase 5 Tasks 3-5 + whole-branch review fixes + device walkthrough (branch `feat/chat-groups-phase5-ui`)
+
+**What was asked:** take Phase 5 (tracker #25608) through to a PR:
+- Task 3 (#26044): the group conversation screen.
+- Task 4 (#26045): Messages-tab group sections and My Connect Requests.
+- Task 5 (#26046): the "ask staff to connect me" sheet and its entry points.
+- #26047: final verification, PR and handoff.
+
+The user asked for speed and pre-approved pushing and opening the PR. They also asked the agent to test every role on a device itself. The agent does not enter passwords, so the device pass used a dev harness with fake data (see below) instead of a signed-in account.
+
+**What was actually changed** (all under `humanitarian/` unless noted):
+- **Task 3:** `a1fd7c2`, review fixes in `5575061`. Files: `lib/modules/chatgroups/screens/chat_group_conversation_screen.dart`, `widgets/chat_group_message_bubble.dart`, `widgets/chat_group_composer.dart`.
+- **Task 5:** merged in `b30aacc`. Files: `widgets/connect_request_sheet.dart` and `widgets/connect_request_button.dart`. Entry points were added in:
+  - `my_donations_page.dart` (`_DonationDetailSheet`)
+  - `beneficiary_campaign_donations_screen.dart` (`_DonationRow`)
+  - `beneficiary_case_detail_screen.dart`
+- **Task 4:** merged in `70e8ecc` (commit `2d0b51d`). Files: `widgets/chat_groups_section.dart` and `screens/my_connect_requests_screen.dart`. `lib/modules/chat/screens/messages_screen.dart` now shows the section to non-guests.
+- **Fixes found on the device:**
+  - `d055e54`: the composer lost its pill outline on focus, because the theme's `focusedBorder` is an underline.
+  - `0bf69f8`: a message is now laid out in the direction it was typed. It used to show ".campaign" on Arabic screens. Reuses `contentDirection` from `lib/localization/content_localizer.dart`.
+- **`211343c`:** repo-root `TRANSLATION_REQUEST.md` now lists the Phase 5 keys for Kurdish: 36 keys, 457 in total after the review fixes. Kurdish itself was deliberately not written (#21431).
+- **Whole-branch review fixes (OPOS #26331).** Two agents worked in separate worktrees; their branches were merged in `4f74392` and `47ac0de`.
+  - **Connect sheet** (`7fd7d20`, `bfaf757`, `f2375fc`):
+    - The sheet pops only while its own route is current. Before, a response landing during the dismiss animation popped the screen underneath.
+    - Success is shown inside the sheet: `connect_request_sent_view.dart`, keys `connect_request_sent_title` and `connect_request_sent_body`. Before, the SnackBar was hidden under the donation detail sheet on My Donations. The SnackBar now fires only if the sheet was dismissed before the answer arrived.
+    - Send is disabled while the message is blank.
+    - New MyDonationsPage entry-point test, using `test/support/fake_http.dart`.
+  - **Messages section** (`0f9aeeb`):
+    - `ChatGroupsController` is now created in `MessagesScreen.build`. It used to be created in the lazily built section, where it could bind to a covering route and be deleted early.
+    - Pull-to-refresh, and returning from a conversation, now refresh the groups.
+    - Group tiles and request cards are announced as buttons.
+    - Approved requests open under the group's real title, via `lib/modules/chatgroups/utils/chat_group_title.dart`.
+    - `contentDirection` is applied to message previews, team titles, request messages and decline reasons.
+
+**What was run and what it printed:**
+- On `4f74392`: `flutter test test/modules/chatgroups/ test/localization/ test/api/` → `+304: All tests passed!`
+- Connect-sheet agent: `flutter test test/modules/chatgroups/ test/localization/` → `+253: All tests passed!`
+- Section agent: the same command plus `test/widgets/messages_support_doors_test.dart` → `+265: All tests passed!`
+- `flutter analyze` on the changed files → `No issues found!`, on both fix branches and for `d055e54` / `0bf69f8`.
+- On `47ac0de` (both fix branches merged):
+  - Full `flutter test` → `01:08 +933 -5: Some tests failed.` The 5 failures are the pre-existing stale tests, which fail identically on a clean `origin/main`: `marriage_hub_feed_test` ×4 and `main_menu_button_test` ×1.
+  - Full `flutter analyze`: `6 issues found`, the same 6 pre-existing `deprecated_member_use` infos.
+- Before the review fixes: backend `go test ./...` on a fresh Postgres DB → all 22 packages ok.
+
+**Device walkthrough** (iPhone 17 simulator, UDID `90C7CF87-E95B-40B4-B8AA-DE9A0BD82D7E`). It used an uncommitted dev harness, `tool/chat_groups_preview.dart`, since deleted. The harness ran the real screens against the same `FakeChatGroupsApi` the widget tests use, with EN/AR, dark mode and role switches.
+- **English, light:**
+  - masked chat;
+  - contact-details refusal, with the typed text kept;
+  - Messages sections with an unread badge, where a tap opens the chat;
+  - My Connect Requests, both empty and in all three states; an approved request opens its chat;
+  - connect-sheet validation and sending.
+- **Arabic, light and dark:**
+  - chat is right-to-left, with Arabic-Indic dates and a mirrored send icon;
+  - the Messages tab and My Connect Requests;
+  - the connect-sheet failure path shows a localized message and keeps the typed text.
+- **Guest vs donor** on the real `BeneficiaryCaseDetailScreen`: the connect button is hidden for a guest and shown for a donor.
+- **Roles:** the chat-group widgets branch only on guest vs member. Donor, beneficiary and volunteer see the same widgets; they differ only in which host screens they can reach.
+
+**Review:** the whole-branch everything-claude-code code-reviewer said "not ready", with 2 IMPORTANT findings plus minors. Every finding was checked against the source and fixed as described above. Left for the PR description:
+- an approved request whose group was later deleted;
+- a failure after the sheet is dismissed is only logged;
+- "staff" vs "our team" wording;
+- the case button appears on every route into case detail, which needs a product decision.
+
+**External actions taken:**
+- **GitHub:** pushed `feat/chat-groups-phase5-ui` (`5575061..604931e`; the branch now tracks origin) and opened PR #82 against `main`: https://github.com/IamSizar/go_donation/pull/82. Screenshots are not attached to the PR yet.
+- **OPOS, #26331:** Completed, with completion notes.
+- **OPOS, #26047 and #25608:** comments posted. Their statuses could NOT be changed: while account 6 is clocked out, OPOS rejects status changes with `PRESENCE_NOT_WORKING`, although comments still go through.
+- **OPOS:** Created #26331 (review fixes) and moved it to WIP, which auto-stopped another session's timer on #26330 (office 1555).
+- Posted progress comments on #26331.
+
+**What is still open:**
+- **A signed-in pass on a real backend, for every role.** It has to be done by a human; the agent cannot enter credentials.
+- **Native-speaker review** of the Arabic copy.
+- **Android device pass.** None was done. The walkthrough was iOS only, to save time after a stalled `flutter run` on `emulator-5554` blocked the Flutter lock for 14 minutes. The platform-specific send spinner is widget-tested on both platforms.
+- **Kurdish translations** (`TRANSLATION_REQUEST.md`).
+- **Product decision:** should the case "Ask staff to connect me" button show on every route into case detail? Today that includes the public feed, Orphan & Family Profiles, and a beneficiary's own pending or rejected cases.
+- **Known issues listed in the PR:**
+  - A pre-existing Messages-tab `AppAsync` sits in an unbounded `ListView`.
+  - GET chat-group routes don't block guests on the server (`backend/cmd/server/main.go:813`, `:820`).
+  - An approved request whose group was later deleted.
+  - A failure after the sheet is dismissed is only logged.
+  - An English draft in an Arabic text field follows the screen's direction.
+  - `messages_screen.dart` (678 lines) and `beneficiary_campaign_donations_screen.dart` (528 lines) exceed 500 lines.
+  - `connect_request_sheet.dart` is at 498 lines. The next change should move `_SubmitButton` into its own file.
+- **The 5 stale Flutter tests** (follow-up suggested, not started).
+- **Agent worktrees to remove:** `.claude/worktrees/agent-aae98afe2eae47416` and `.claude/worktrees/agent-a0e52345db4207465`. Both branches are merged.
+
+**Traps:**
+- **Flutter startup lock.** Every `flutter` command shares `~/flutter/bin/cache/lockfile`. A stalled `flutter run -d emulator-5554` held it for 14 minutes and silently blocked every `flutter test`, whose output was buffered behind a pipe. `lsof ~/flutter/bin/cache/lockfile` shows the holder.
+- **Reloading a background `flutter run`.** Send `kill -USR1 <pid>` to hot-reload it and `kill -USR2 <pid>` to hot-restart it.
+  - A hot RELOAD does not pick up new translation keys: GetX loads translations once at startup, so new keys show raw until a restart.
+  - A preview `GetMaterialApp` without `localizationsDelegates` shows a red "No MaterialLocalizations" screen in Arabic.
+- **OPOS timers.** Account 6 has one running timer. Moving any task to `in_progress` stops whatever timer is running, including another session's.
+- **Focus borders.** The app theme's focused input border is an `UnderlineInputBorder`. A field with a custom shape must set `focusedBorder` itself.
+- **Text direction.** User- or staff-written text needs `contentDirection` (`content_localizer.dart`); otherwise it takes the screen's direction.
+- **Toasts.** SnackBars and toasts are unreliable on the Messages route (see the header of `messages_screen.dart`). Prefer an in-place confirmation.
+- **GateGuard hook.** It denies the first Write/Edit of every file, scratchpad files included, until its facts are stated.
+
+---
+
+## 2026-09-14 — OPOS #25284 Phase 5 Task 2: chat-groups Flutter controllers (branch `feat/chat-groups-phase5-ui`, commit `97aab43`, NOT pushed)
+
+**What was asked:** study where the project stands and continue. Continued Phase 5 (OPOS #25608) with Task 2 (OPOS #26042). User decisions this session: OPOS work is recorded under account 6 (Zaid Aqrawi); the case-context "ask staff to connect me" entry point goes on `BeneficiaryCaseDetailScreen` in Task 5 — NOT the plan's Messages-tab "type a case number" dialog, because users only ever see codes like `CSE-000123` and the backend cannot look a case up by code.
+
+**What was actually changed** — commit `97aab43` on `feat/chat-groups-phase5-ui`, branched from `origin/main` `cf24bd4`:
+- New `humanitarian/lib/modules/chatgroups/controllers/`: `chat_groups_controller.dart`, `chat_group_conversation_controller.dart`, `my_connect_requests_controller.dart`.
+- `humanitarian/lib/api/module_api.dart` — three fixes to Task 1's client (PR #81), all verified against Go source:
+  - `markChatGroupRead(groupId, lastReadMessageId:)` now posts `last_read_msg_id`. It posted `{}`; the field is not required, so the server bound 0, `GREATEST` kept the old cursor, and unread badges could never clear.
+  - `chatGroupMessages(groupId, afterId:, limit:)` now pages. The server returns ids above `after_id`, oldest first, default 50 / max 100 (`chatgroups_reads.go`); the old call only ever saw the first 50 messages of a group.
+  - `sendChatGroupMessage` now goes through `_sendCodedJson`, so `contact_details_blocked` (422) and `chat_lifecycle_closed` (409) codes reach the app. `_sendCodedJson` now honours the `httpClient` test seam. `postJson`'s `_trackEvent` has no branch for this path, so no analytics are lost.
+- `app_translations.dart` — 4 keys in en + ar. Sorani/Badini intentionally absent (#21431); they still need listing in `TRANSLATION_REQUEST.md` (final task #26047).
+- Tests: `test/modules/chatgroups/fake_chat_groups_api.dart` (pages like the server) + 5 controller test files, 3 API tests under `test/api/chat_group_*`, and `failure_message_test.dart` now pins the new keys.
+
+**Where the Phase 5 plan file is wrong — read before Tasks 3-5:**
+- The mark-read body, messages paging and send refusals above. Verify every endpoint against Go source; do not trust the plan's shapes.
+- **`send()` contract for Task 3's screen:**
+  - Failures go to `sendError`, NOT `errorMessage` (the plan's screen checks `errorMessage` and would silently lose the typed text). Restore the text when `send()` returns false.
+  - `isSending` stays true until the sent message is on screen, so disabling the button on `isSending` prevents double sends.
+  - A `chat_lifecycle_closed` refusal refreshes the lifecycle, so the closed notice replaces the composer.
+- A failed first load sets `errorMessage`; the plan's screen shows "No messages yet" in that case — Task 3 needs a real error state.
+
+**Process:** an independent code review (everything-claude-code code-reviewer) found 1 CRITICAL (paging) and 2 IMPORTANT (overlapping poll responses applied out of order; dropped refusal codes) plus minors. Each was checked against source, then fixed test-first. Loads now run one at a time (a poll tick skips while a load runs) and nothing is applied after the screen closes. Mutation checks ran twice: bugs were planted (files backed up, restored byte-identical by checksum) and exactly the targeted tests failed each time.
+
+**What was run and what it printed:**
+- `cd humanitarian && flutter test test/modules/chatgroups/ test/api/chat_group_mark_read_test.dart test/api/chat_group_messages_page_test.dart test/api/chat_group_send_refusal_test.dart test/localization/failure_message_test.dart` → `+58: All tests passed!`
+- `flutter analyze` on every changed file → `No issues found!`. Full `flutter analyze` → the same 6 pre-existing `deprecated_member_use` infos as before any change.
+- Full `flutter test` → `+861 -5`. All 5 failures are pre-existing: the same 5 fail on a clean detached `origin/main` checkout. `main_menu_button_test.dart` (1) is stale since `e07d59a` deleted `case_chat_conversation_screen.dart`; `marriage_hub_feed_test.dart` (4) are stale since #76 removed the hub feed. A separate follow-up task was suggested for them.
+
+**External actions taken:** OPOS only — created #26042 (Task 2), #26044 (Task 3), #26045 (Task 4), #26046 (Task 5), #26047 (final verification/PR/handoff) in office 19; #25608 moved To Do → Work In Progress with comments; findings recorded on #26042. Nothing pushed, no PR opened.
+
+**What is still open:**
+- `97aab43` is local only. The branch's upstream was deliberately unset (it was created tracking `origin/main`).
+- Tasks 3-5 (#26044-#26046) and #26047.
+- The 5 stale Flutter tests (follow-up suggested, not started).
+- Still pending from earlier sessions: the production run of `backend/cmd/retire-direct-chats` (an ops decision).
+
+**Traps:**
+- OPOS: the `opos` MCP server reports "needs authentication", but the claude.ai connector (`mcp__e090ae84…` tools) works. Write calls need `accountId` (3 linked accounts). Moving a task to In Progress auto-starts a timer — it silently started one on #25608, which had to be stopped. `list_tasks officeId=19` returns ~2.4 MB: query the saved file with `jq`.
+- This worktree's directory is still named `chat-groups-phase1`, but its branch is `feat/chat-groups-phase5-ui`.
+- A GateGuard hook denies the first Write/Edit of every file until its facts are stated; expect one retry per new file.
+- `testWidgets` poll tests must `Get.delete` the controller before they end, or pending timers fail the test.
+
+---
+
 ## 2026-09-14 — SESSION WRAP-UP: OPOS #25284 Phases 1-4 fully merged to `main`, Phase 5 in progress
 
 **Read this entry first if you are picking this project up cold.** It is the single most current summary of where the whole chat-groups feature (OPOS #25284) actually stands, written specifically so a fresh agent or engineer does not have to reconstruct it from git archaeology.

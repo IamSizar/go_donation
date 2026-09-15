@@ -32,7 +32,7 @@ made on this project once and had to be reverted.
 Every key below currently renders its **English** string to a Kurdish user.
 That is deliberate and safe. It is not a crash, and it is not Arabic text.
 
-## Count: 421 keys need Kurdish
+## Count: 459 keys need Kurdish
 
 | Client | Sorani (ckb) | Badini (kmr) | Distinct keys |
 |---|---|---|---|
@@ -57,7 +57,8 @@ That is deliberate and safe. It is not a crash, and it is not Arabic text.
 | App — security page auth description (old Kurdish was FALSE) | 1 | 1 | 1 |
 | App — K14 خطوبتي owner self-management (new) | 20 | 20 | 20 |
 | App — K15 product-list labels (new) | 27 | 27 | 27 |
-| **Total distinct words to translate** | | | **421** |
+| App — OPOS #25284 Phase 5 staff-mediated group chats (new) | 38 | 38 | 38 |
+| **Total distinct words to translate** | | | **459** |
 
 > **The dashboard figure above is a floor, not a ceiling — and it is the one
 > number in this file that was never fully measured.** Counting key paths in
@@ -111,6 +112,59 @@ The `٢٠٠` in the second row is the database column limit and must stay 200.
 |---|---|---|---|
 | `guest_full_name_hint` | e.g. Zaid Ahmed | مثال: زيد أحمد | ckb + kmr |
 | `guest_full_name_too_long` | That name is too long. Use 200 characters or fewer. | الاسم طويل جدًا. استخدم ٢٠٠ حرف أو أقل. | ckb + kmr |
+
+## chat groups · OPOS #25284 Phase 5 staff-mediated group chats  (38 keys)
+
+Added 2026-09-14. The app's side of the new staff-mediated group chats: the
+conversation screen, the Messages tab's "My Connections" / "My Team Groups"
+sections, the My Connect Requests screen, and the "Ask staff to connect me"
+sheet on donations and cases. Donors, beneficiaries and volunteers never
+message each other directly any more — staff open a supervised chat, in which
+members of a masked group see each other only by an alias.
+
+`chat_groups_unread_count` must keep the `@count` placeholder exactly as it is.
+`Send message` is the send button's screen-reader label, not visible text.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `chat_group_closed_empty_title` | No messages here | لا توجد رسائل هنا | ckb + kmr |
+| `chat_group_closed_empty_message` | This conversation was closed before any messages were sent. | أُغلقت هذه المحادثة قبل إرسال أي رسالة. | ckb + kmr |
+| `error_chat_groups_load_failed` | Could not load your group chats. | تعذّر تحميل محادثاتك الجماعية. | ckb + kmr |
+| `error_connect_requests_load_failed` | Could not load your connect requests. | تعذّر تحميل طلبات التواصل الخاصة بك. | ckb + kmr |
+| `chat_group_send_contact_blocked` | Phone numbers and email addresses cannot be shared in this chat. It is supervised for your safety — please keep the conversation here, and ask our team if you need to arrange contact. | لا يمكن مشاركة أرقام الهواتف أو عناوين البريد الإلكتروني في هذه المحادثة. المحادثة تحت إشراف فريقنا حفاظاً على سلامتك — يُرجى إبقاء التواصل هنا، واطلب من فريقنا إن احتجت إلى ترتيب وسيلة تواصل. | ckb + kmr |
+| `chat_group_send_closed` | Your message was not sent because this conversation is no longer open. | لم تُرسَل رسالتك لأن هذه المحادثة لم تعد مفتوحة. | ckb + kmr |
+| `chat_group_unavailable_title` | This conversation is no longer available | هذه المحادثة لم تعد متاحة | ckb + kmr |
+| `chat_group_unavailable_message` | It may have been closed by our team, or you are no longer part of it. Go back to see your other conversations. | ربما أغلقها فريقنا، أو لم تعد مشاركاً فيها. ارجع لرؤية محادثاتك الأخرى. | ckb + kmr |
+| `Send message` | Send message | إرسال الرسالة | ckb + kmr |
+| `chat_groups_my_connect_requests` | My Connect Requests | طلبات التواصل الخاصة بي | ckb + kmr |
+| `chat_groups_my_connect_requests_desc` | See where the requests you sent to our team stand. | تابِع حالة الطلبات التي أرسلتها إلى فريقنا. | ckb + kmr |
+| `chat_groups_my_connections` | My Connections | محادثات التواصل | ckb + kmr |
+| `chat_groups_my_team_groups` | My Team Groups | مجموعات الفريق | ckb + kmr |
+| `chat_groups_connection_title` | Connection | محادثة تواصل | ckb + kmr |
+| `chat_groups_team_group_title` | Team group | مجموعة فريق | ckb + kmr |
+| `chat_groups_no_messages_yet` | No messages yet | لا توجد رسائل بعد | ckb + kmr |
+| `chat_groups_unread_count` | Unread messages: @count | رسائل غير مقروءة: @count | ckb + kmr |
+| `chat_groups_status_pending` | Pending | قيد المراجعة | ckb + kmr |
+| `chat_groups_status_approved` | Approved | تمت الموافقة | ckb + kmr |
+| `chat_groups_status_declined` | Declined | مرفوض | ckb + kmr |
+| `chat_groups_about_donation` | About a donation | بخصوص تبرّع | ckb + kmr |
+| `chat_groups_about_case` | About a case | بخصوص حالة | ckb + kmr |
+| `chat_groups_pending_hint` | Our team is reviewing your request. | يراجع فريقنا طلبك حالياً. | ckb + kmr |
+| `chat_groups_open_conversation` | Open the conversation | افتح المحادثة | ckb + kmr |
+| `chat_groups_decline_reason_label` | Reason from our team | السبب من فريقنا | ckb + kmr |
+| `chat_groups_requests_empty_title` | No connect requests yet | لا توجد طلبات تواصل بعد | ckb + kmr |
+| `chat_groups_requests_empty_message` | When you ask our team to connect you with someone, your request and its status will appear here. | عندما تطلب من فريقنا أن يوصلك بشخص ما، سيظهر طلبك وحالته هنا. | ckb + kmr |
+| `connect_request_action` | Ask staff to connect me | اطلب التواصل عبر الفريق | ckb + kmr |
+| `connect_request_title` | Ask staff to connect you | طلب تواصل عبر الفريق | ckb + kmr |
+| `connect_request_explainer` | Our staff will review your request. If they approve it, they will open a supervised chat for you here in the app. | سيراجع فريقنا طلبك، وإذا وافق عليه فسيفتح لك محادثة خاضعة للإشراف هنا في التطبيق. | ckb + kmr |
+| `connect_request_message_label` | What do you need? | ما الذي تحتاجه؟ | ckb + kmr |
+| `connect_request_message_hint` | Tell staff what you would like to discuss, and why. | أخبر الفريق بما تود مناقشته، ولماذا. | ckb + kmr |
+| `connect_request_message_required` | Please describe what you need. | يرجى وصف ما تحتاجه. | ckb + kmr |
+| `connect_request_submit` | Send request | إرسال الطلب | ckb + kmr |
+| `connect_request_sent` | Request sent. Staff will review it shortly. | تم إرسال الطلب. سيراجعه الفريق قريبًا. | ckb + kmr |
+| `connect_request_sent_title` | Request sent | تم إرسال الطلب | ckb + kmr |
+| `connect_request_sent_body` | Staff will review it shortly. You can follow it in My Connect Requests on the Messages tab. | سيراجعه الفريق قريبًا. يمكنك متابعته من «طلبات التواصل الخاصة بي» في تبويب «الرسائل». | ckb + kmr |
+| `error_connect_request_submit_failed` | Could not send your request. | تعذّر إرسال طلبك. | ckb + kmr |
 
 ## notifications · K7 alert categories  (8 keys)
 
