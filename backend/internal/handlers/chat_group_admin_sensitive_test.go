@@ -32,6 +32,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -166,12 +167,27 @@ func requireTierPermission(t *testing.T, pool *pgxpool.Pool, tier, module string
 	}
 }
 
+// getRawAdminAs sends a GET and returns the status, the raw body and the
+// decoded body. The raw body is what a leak assertion searches; the decoded
+// body is what a field assertion reads. It is not main's getRawAs
+// (chat_guest_reads_test.go), which returns only the status and the raw body.
+func getRawAdminAs(t *testing.T, r *gin.Engine, token, path string) (int, string, map[string]any) {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodGet, path, nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	decoded := map[string]any{}
+	_ = json.Unmarshal(w.Body.Bytes(), &decoded)
+	return w.Code, w.Body.String(), decoded
+}
+
 // assertAllReadable walks every read route and requires a 200 success.
 func assertAllReadable(t *testing.T, r *gin.Engine, token string, groupID int64) {
 	t.Helper()
 	for _, route := range adminGroupReadPaths(groupID) {
 		t.Run(route.name, func(t *testing.T) {
-			code, raw, body := getRawAs(t, r, token, route.path)
+			code, raw, body := getRawAdminAs(t, r, token, route.path)
 			if code != http.StatusOK || body["success"] != true {
 				t.Fatalf("status = %d, want 200 success (body %s)", code, raw)
 			}
@@ -186,7 +202,7 @@ func assertAllRefusedAsSensitive(t *testing.T, r *gin.Engine, token string, pool
 	donorPhone := lookUpUserPhone(t, pool, fx.donorID)
 	for _, route := range adminGroupReadPaths(fx.groupID) {
 		t.Run(route.name, func(t *testing.T) {
-			code, raw, body := getRawAs(t, r, token, route.path)
+			code, raw, body := getRawAdminAs(t, r, token, route.path)
 			if code != http.StatusForbidden {
 				t.Fatalf("status = %d, want 403 (body %s)", code, raw)
 			}
@@ -295,7 +311,7 @@ func TestAdminGroupReads_MissingGroupIs404(t *testing.T) {
 		t.Run(caller.name, func(t *testing.T) {
 			for _, route := range adminGroupReadPaths(neverExistingGroupID) {
 				t.Run(route.name, func(t *testing.T) {
-					code, raw, _ := getRawAs(t, r, caller.token, route.path)
+					code, raw, _ := getRawAdminAs(t, r, caller.token, route.path)
 					if code != http.StatusNotFound {
 						t.Fatalf("status = %d, want 404 (body %s)", code, raw)
 					}

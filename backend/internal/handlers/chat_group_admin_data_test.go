@@ -135,7 +135,7 @@ func TestAdminGetGroup_RosterCarriesFullName(t *testing.T) {
 	})
 	_, token := staffActor(t, pool, "Roster Admin", "admin")
 
-	code, raw, body := getRawAs(t, r, token, fmt.Sprintf("/api/admin/chat-groups/%d", groupID))
+	code, raw, body := getRawAdminAs(t, r, token, fmt.Sprintf("/api/admin/chat-groups/%d", groupID))
 
 	if code != http.StatusOK {
 		t.Fatalf("status = %d, want 200 (body %s)", code, raw)
@@ -168,7 +168,7 @@ func TestAdminGetGroup_TeamRosterCarriesFullNameWithoutSensitive(t *testing.T) {
 	})
 	_, token := staffActor(t, pool, "Team Roster Employee", "employee")
 
-	code, raw, body := getRawAs(t, r, token, fmt.Sprintf("/api/admin/chat-groups/%d", groupID))
+	code, raw, body := getRawAdminAs(t, r, token, fmt.Sprintf("/api/admin/chat-groups/%d", groupID))
 
 	if code != http.StatusOK {
 		t.Fatalf("status = %d, want 200 (body %s)", code, raw)
@@ -200,7 +200,7 @@ func TestAdminGetGroup_CarriesLifecycleFields(t *testing.T) {
 	t.Run("open group", func(t *testing.T) {
 		groupID := makeChatGroup(t, pool, creator, chatgroups.KindMasked, members)
 
-		code, raw, body := getRawAs(t, r, token, fmt.Sprintf("/api/admin/chat-groups/%d", groupID))
+		code, raw, body := getRawAdminAs(t, r, token, fmt.Sprintf("/api/admin/chat-groups/%d", groupID))
 
 		if code != http.StatusOK {
 			t.Fatalf("status = %d, want 200 (body %s)", code, raw)
@@ -220,7 +220,7 @@ func TestAdminGetGroup_CarriesLifecycleFields(t *testing.T) {
 			t.Fatalf("pause and archive group: %v", err)
 		}
 
-		code, raw, body := getRawAs(t, r, token, fmt.Sprintf("/api/admin/chat-groups/%d", groupID))
+		code, raw, body := getRawAdminAs(t, r, token, fmt.Sprintf("/api/admin/chat-groups/%d", groupID))
 
 		if code != http.StatusOK {
 			t.Fatalf("status = %d, want 200 (body %s)", code, raw)
@@ -267,14 +267,14 @@ func TestAdminConnectRequests_RequesterNameFollowsPerUserSensitive(t *testing.T)
 	for _, caller := range callers {
 		t.Run(caller.name, func(t *testing.T) {
 			t.Run("list", func(t *testing.T) {
-				code, raw, body := getRawAs(t, r, caller.token, "/api/admin/chat-groups/connect-requests")
+				code, raw, body := getRawAdminAs(t, r, caller.token, "/api/admin/chat-groups/connect-requests")
 				if code != http.StatusOK {
 					t.Fatalf("status = %d, want 200 (body %s)", code, raw)
 				}
 				assertRequesterName(t, connectRequestItem(t, body, requestID), raw, requesterName, caller.wantName)
 			})
 			t.Run("detail", func(t *testing.T) {
-				code, raw, body := getRawAs(t, r, caller.token,
+				code, raw, body := getRawAdminAs(t, r, caller.token,
 					fmt.Sprintf("/api/admin/chat-groups/connect-requests/%d", requestID))
 				if code != http.StatusOK {
 					t.Fatalf("status = %d, want 200 (body %s)", code, raw)
@@ -343,7 +343,7 @@ func TestChatGroupMemberReads_MaskedGroupLeaksNoRealIdentity(t *testing.T) {
 	}
 	for _, route := range routes {
 		t.Run(route.name, func(t *testing.T) {
-			code, raw, _ := getRawAs(t, route.router, token, route.path)
+			code, raw, _ := getRawAdminAs(t, route.router, token, route.path)
 			if code != http.StatusOK {
 				t.Fatalf("status = %d, want 200 (body %s)", code, raw)
 			}
