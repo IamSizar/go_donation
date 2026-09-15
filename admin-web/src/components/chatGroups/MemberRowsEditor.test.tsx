@@ -151,7 +151,7 @@ describe('MemberRowsEditor', () => {
     renderWithProviders(<Harness kind="masked" issues={issues} />)
 
     // Assert
-    expect(labelBox(1)).not.toHaveAttribute('aria-invalid', 'true')
+    expect(labelBox(1)).not.toHaveAttribute('aria-invalid')
     expect(labelBox(1)).toHaveAccessibleDescription(/looks like a phone number or email address/)
   })
 })

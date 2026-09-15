@@ -9,8 +9,9 @@
  *     4xx → a generic translated line;
  *   - which refusals belong beside the member rows rather than atop the form.
  */
-import { AxiosError, AxiosHeaders, type AxiosResponse } from 'axios'
-import { describe, expect, it } from 'vitest'
+import axios, { AxiosError, AxiosHeaders, type AxiosResponse } from 'axios'
+import { describe, expect, it, vi } from 'vitest'
+import { DELETE_CANCELLED } from './api'
 import {
   CHAT_GROUP_ERROR_CODES,
   CHAT_GROUP_ERROR_KEYS,
@@ -118,6 +119,23 @@ describe('describeChatGroupError', () => {
 
   it('falls back to the generic line when a 4xx carries no text at all', () => {
     expect(describeChatGroupError(refused(400, {}))).toBe('Something went wrong. Please try again.')
+  })
+
+  it("never shows a programming error's own message, and logs it instead", () => {
+    // Arrange: the kind of guard buildCreateGroupBody throws on a caller bug.
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const bug = new Error('buildCreateGroupBody: member row m2 has no person')
+
+    // Act
+    const shown = describeChatGroupError(bug)
+
+    // Assert
+    expect(shown).toBe('Something went wrong. Please try again.')
+    expect(logged).toHaveBeenCalledWith(expect.any(String), bug)
+  })
+
+  it('keeps the plain "delete cancelled" line when the operator dismisses the password prompt', () => {
+    expect(describeChatGroupError(new axios.Cancel(DELETE_CANCELLED))).toBe('Delete cancelled — nothing was deleted.')
   })
 
   it('never shows the prose of a 5xx', () => {

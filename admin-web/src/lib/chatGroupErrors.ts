@@ -31,7 +31,9 @@
  *   2. the staff reason on a lifecycle refusal, in the operator's language;
  *   3. a translated "not found" for connect requests;
  *   4. a last resort that never shows axios's own "Request failed with status
- *      code 400" when a refusal carries no text at all.
+ *      code 400" when a refusal carries no text at all;
+ *   5. no developer message on screen when the failure is a bug rather than
+ *      a request: it is logged, and the operator gets the generic line.
  */
 import axios from 'axios'
 import { describeError } from './api'
@@ -136,18 +138,31 @@ function lifecycleMessage(err: unknown): string {
 }
 
 /**
+ * A failure that is not a request at all: a bug in the caller, such as the
+ * guard buildCreateGroupBody throws on a draft that skipped validation. Its
+ * message is written for a developer and in English, so it goes to the
+ * console for them, and the operator gets the generic line.
+ */
+function describeUnexpectedFailure(err: unknown): string {
+  console.error('chat groups: unexpected failure', err)
+  return translate('error.unknown')
+}
+
+/**
  * The message to show the operator for a failed chat-group request, in their
  * language.
  *
- * Order: a known code's translation (with the staff reason for a lifecycle
- * refusal) → describeError's rules (a 4xx's own text, the generic server line
- * for a 5xx, the offline line) → the generic "Something went wrong" when a
- * refusal carried no text at all.
+ * Order: a failure that is not a request (logged, generic line) → a known
+ * code's translation (with the staff reason for a lifecycle refusal) →
+ * describeError's rules (the "delete cancelled" line, a 4xx's own text, the
+ * generic server line for a 5xx, the offline line) → the generic "Something
+ * went wrong" when a refusal carried no text at all.
  *
  * @param err  anything a rejected call threw.
  * @returns    a sentence that is safe to put on screen.
  */
 export function describeChatGroupError(err: unknown): string {
+  if (!axios.isAxiosError(err) && !axios.isCancel(err)) return describeUnexpectedFailure(err)
   const code = chatGroupErrorCode(err)
   if (code === 'chat_lifecycle_closed') return lifecycleMessage(err)
   if (code) return translate(CHAT_GROUP_ERROR_KEYS[code])
