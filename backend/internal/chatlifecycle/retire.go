@@ -17,6 +17,11 @@
 // The runbook for the production run is docs/runbooks/retire-direct-chats.md.
 // Its pre-flight and post-check queries mirror the two UPDATEs below, so a
 // change to either statement must be made in the runbook too.
+//
+// retire_one.go runs the same two UPDATEs on a single thread, for the Trash
+// restore (OPOS #26466), by appending an id condition to each. So both must
+// keep ending in their WHERE clause, and adding a parameter to either means
+// renumbering the id placeholder retire_one.go appends.
 package chatlifecycle
 
 import (

@@ -1,6 +1,6 @@
 // chat_group_connect.go — the mobile half of the connect-request flow: a
 // donor/beneficiary/volunteer asks staff to open a chat. The admin half
-// (inbox, approve, decline) is in chat_group_admin.go.
+// (inbox, approve, decline) is in chat_group_admin_connect.go.
 package handlers
 
 import (

@@ -35,6 +35,7 @@ const CityGuidePage = lazy(() => import('./pages/CityGuidePage'))
 const CitySectorsPage = lazy(() => import('./pages/CitySectorsPage'))
 const MessagesPage = lazy(() => import('./pages/MessagesPage'))
 const StaffChatPage = lazy(() => import('./pages/StaffChatPage'))
+const ChatGroupsPage = lazy(() => import('./pages/ChatGroupsPage'))
 const VolunteersPage = lazy(() => import('./pages/VolunteersPage'))
 const VolunteerBoardPage = lazy(() => import('./pages/VolunteerBoardPage'))
 const MissionsPage = lazy(() => import('./pages/MissionsPage'))
@@ -163,6 +164,7 @@ export default function App() {
             <Route path="city-sectors" element={<CitySectorsPage />} />
             <Route path="messages" element={<MessagesPage />} />
             <Route path="staff-chat" element={<StaffChatPage />} />
+            <Route path="chat-groups" element={<ChatGroupsPage />} />
             <Route path="volunteers" element={<VolunteersPage />} />
             <Route path="volunteer-board" element={<VolunteerBoardPage />} />
             <Route path="tasks" element={<TasksPage />} />
