@@ -45,10 +45,43 @@ type ConnectRequest struct {
 	CreatedAt      time.Time            `json:"created_at"`
 }
 
-// SubmitConnectRequest records a request. Resubmitting while one from the
-// same user for the same context is still pending updates that row's
-// message rather than creating a second one for staff to triage — enforced
-// by the partial unique index in the migration.
+// submitConnectRequestSQL writes a connect request only when the case or
+// donation it names exists. The existence check is the INSERT's own WHERE
+// EXISTS, one statement, so there is no gap between a separate check and the
+// insert for the row to be moved to the Trash in.
+//
+// context_type picks the table: 'case' is beneficiary_cases, 'donation' is
+// donations; any other value matches neither branch (SubmitConnectRequest
+// refuses it before the query runs anyway). Every parameter is cast so each
+// has one type, since $2 and $3 are both inserted and compared. donations.id
+// is INTEGER and context_id BIGINT; that comparison is exact, so an id beyond
+// INTEGER's range matches nothing instead of overflowing.
+const submitConnectRequestSQL = `
+	INSERT INTO chat_group_connect_requests (requester_user_id, context_type, context_id, target_hint, message)
+	SELECT $1::integer, $2::varchar, $3::bigint, $4::bigint, $5::text
+	 WHERE ($2::varchar = 'case' AND EXISTS (SELECT 1 FROM beneficiary_cases WHERE id = $3::bigint))
+	    OR ($2::varchar = 'donation' AND EXISTS (SELECT 1 FROM donations WHERE id = $3::bigint))
+	ON CONFLICT (requester_user_id, context_type, context_id) WHERE status = 'pending'
+	DO UPDATE SET message = EXCLUDED.message
+	RETURNING id`
+
+// SubmitConnectRequest records a member's request that staff connect them
+// about one donation or beneficiary case, and returns the request's id.
+// Resubmitting while one from the same user for the same context is still
+// pending updates that row's message rather than creating a second one for
+// staff to triage — enforced by the partial unique index in the migration.
+//
+// The case or donation must exist (OPOS #26351). An id that names no row —
+// never created, or moved to the Trash, which deletes the row from its source
+// table (handlers.trashRow) — fails with ErrUnknownContext and writes
+// nothing. Existence is the ONLY rule on the context, by the user's decision:
+// the app offers this request on every case and donation, so a case in any
+// verification_status or public_visibility, and the requester's own case, is
+// accepted. Donations have no ownership rule either: a campaign owner asks
+// about donations other people made.
+//
+// Fails with ErrInvalidInput for a context_type other than "donation" or
+// "case", and with a plain error for a blank message.
 func (s *Store) SubmitConnectRequest(ctx context.Context, requesterID int64, contextType string, contextID int64, targetHint *int64, message string) (int64, error) {
 	if contextType != "donation" && contextType != "case" {
 		return 0, fmt.Errorf("chatgroups: context_type %q: %w", contextType, ErrInvalidInput)
@@ -58,14 +91,14 @@ func (s *Store) SubmitConnectRequest(ctx context.Context, requesterID int64, con
 		return 0, errors.New("message must not be empty")
 	}
 	var id int64
-	err := s.Pool.QueryRow(ctx, `
-		INSERT INTO chat_group_connect_requests (requester_user_id, context_type, context_id, target_hint, message)
-		VALUES ($1, $2, $3, $4, $5)
-		ON CONFLICT (requester_user_id, context_type, context_id) WHERE status = 'pending'
-		DO UPDATE SET message = EXCLUDED.message
-		RETURNING id`,
+	err := s.Pool.QueryRow(ctx, submitConnectRequestSQL,
 		requesterID, contextType, contextID, targetHint, message,
 	).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		// WHERE EXISTS matched nothing, so nothing was inserted. It is the only
+		// way to get no row back: an ON CONFLICT update returns its row too.
+		return 0, fmt.Errorf("chatgroups: %s %d: %w", contextType, contextID, ErrUnknownContext)
+	}
 	if err != nil {
 		return 0, fmt.Errorf("chatgroups: submitting connect request for user %d: %w", requesterID, err)
 	}

@@ -927,7 +927,7 @@ func TestSubmitConnectRequest_CreatesRequest(t *testing.T) {
 	donor := makeChatGroupUser(t, pool, "Donor Name")
 
 	code, body := postAs(t, r, tokenForChatGroupUser(t, pool, donor), "/api/chat-groups/connect-requests",
-		map[string]any{"context_type": "donation", "context_id": 1, "message": "please connect me to the campaign owner"})
+		map[string]any{"context_type": "donation", "context_id": makeChatGroupDonation(t, pool, donor), "message": "please connect me to the campaign owner"})
 
 	if code != http.StatusOK {
 		t.Fatalf("status = %d, want 200 (body %v)", code, body)
@@ -956,10 +956,10 @@ func TestMyConnectRequests_ReturnsOwnRequestsOnly(t *testing.T) {
 	donorA := makeChatGroupUser(t, pool, "Donor A")
 	donorB := makeChatGroupUser(t, pool, "Donor B")
 	s := chatgroups.New(pool)
-	if _, err := s.SubmitConnectRequest(context.Background(), donorA, "donation", 1, nil, "a"); err != nil {
+	if _, err := s.SubmitConnectRequest(context.Background(), donorA, "donation", makeChatGroupDonation(t, pool, donorA), nil, "a"); err != nil {
 		t.Fatalf("submit A: %v", err)
 	}
-	if _, err := s.SubmitConnectRequest(context.Background(), donorB, "donation", 2, nil, "b"); err != nil {
+	if _, err := s.SubmitConnectRequest(context.Background(), donorB, "donation", makeChatGroupDonation(t, pool, donorB), nil, "b"); err != nil {
 		t.Fatalf("submit B: %v", err)
 	}
 
@@ -991,7 +991,7 @@ func TestMyConnectRequests_NeverExposesStaffIdentity(t *testing.T) {
 	staff := makeChatGroupUser(t, pool, "Staff Real Name")
 	donor := makeChatGroupUser(t, pool, "Donor Name")
 	s := chatgroups.New(pool)
-	requestID, err := s.SubmitConnectRequest(context.Background(), donor, "donation", 1, nil, "please connect me")
+	requestID, err := s.SubmitConnectRequest(context.Background(), donor, "donation", makeChatGroupDonation(t, pool, donor), nil, "please connect me")
 	if err != nil {
 		t.Fatalf("submit request: %v", err)
 	}
@@ -1034,7 +1034,7 @@ func TestAdminListConnectRequests_ReturnsAll(t *testing.T) {
 	staff := makeChatGroupUser(t, pool, "Staff")
 	donor := makeChatGroupUser(t, pool, "Donor Name")
 	s := chatgroups.New(pool)
-	reqID, err := s.SubmitConnectRequest(context.Background(), donor, "donation", 1, nil, "please")
+	reqID, err := s.SubmitConnectRequest(context.Background(), donor, "donation", makeChatGroupDonation(t, pool, donor), nil, "please")
 	if err != nil {
 		t.Fatalf("submit: %v", err)
 	}
@@ -1087,7 +1087,7 @@ func TestAdminApproveConnectRequest_CreatesUsableGroup(t *testing.T) {
 
 	// Step 1: submit over HTTP, exactly as the mobile app would.
 	submitCode, submitBody := postAs(t, connectR, donorToken, "/api/chat-groups/connect-requests",
-		map[string]any{"context_type": "donation", "context_id": 1, "message": "please connect me"})
+		map[string]any{"context_type": "donation", "context_id": makeChatGroupDonation(t, pool, donor), "message": "please connect me"})
 	if submitCode != http.StatusOK {
 		t.Fatalf("submit: status = %d, want 200 (body %v)", submitCode, submitBody)
 	}
@@ -1180,7 +1180,7 @@ func TestAdminApproveConnectRequest_RejectsMembersWithoutRequester(t *testing.T)
 	donor := makeChatGroupUser(t, pool, "Donor Name")
 	beneficiary := makeChatGroupUser(t, pool, "Beneficiary Name")
 	s := chatgroups.New(pool)
-	reqID, err := s.SubmitConnectRequest(context.Background(), donor, "donation", 1, nil, "please connect me")
+	reqID, err := s.SubmitConnectRequest(context.Background(), donor, "donation", makeChatGroupDonation(t, pool, donor), nil, "please connect me")
 	if err != nil {
 		t.Fatalf("submit: %v", err)
 	}
@@ -1205,7 +1205,7 @@ func TestAdminDeclineConnectRequest_ShowsReasonToRequester(t *testing.T) {
 	staff := makeChatGroupUser(t, pool, "Staff")
 	donor := makeChatGroupUser(t, pool, "Donor Name")
 	s := chatgroups.New(pool)
-	reqID, err := s.SubmitConnectRequest(context.Background(), donor, "donation", 1, nil, "please connect me")
+	reqID, err := s.SubmitConnectRequest(context.Background(), donor, "donation", makeChatGroupDonation(t, pool, donor), nil, "please connect me")
 	if err != nil {
 		t.Fatalf("submit: %v", err)
 	}
@@ -1305,7 +1305,7 @@ func TestSubmitConnectRequest_ResubmittingWhilePendingReturnsSameID(t *testing.T
 	donor := makeChatGroupUser(t, pool, "Donor Name")
 	token := tokenForChatGroupUser(t, pool, donor)
 
-	body := map[string]any{"context_type": "donation", "context_id": 1, "message": "please connect me"}
+	body := map[string]any{"context_type": "donation", "context_id": makeChatGroupDonation(t, pool, donor), "message": "please connect me"}
 
 	code1, resp1 := postAs(t, r, token, "/api/chat-groups/connect-requests", body)
 	if code1 != http.StatusOK {
