@@ -46,6 +46,11 @@ import "regexp"
 // one: the empty-label fallback of both chat-group push templates.
 const groupMemberLabel = "Member"
 
+// supportSenderLabel is the server's English word for the support team. It
+// signs staff in masked chat groups and names staff in the 1:1 donor-chat
+// reply push (ChatSupportReplyMsg, OPOS #26483).
+const supportSenderLabel = "Support"
+
 // serverAliasPattern matches the label chatgroups.autoLabel writes: one of its
 // four nouns, one space, and a sequence number counted from 1 with no leading
 // zero. It is anchored and case-sensitive because autoLabel only ever writes
@@ -73,8 +78,8 @@ var groupAliasNouns = map[string]map[string]string{
 // groupFixedLabels maps each whole label the server writes without a number,
 // per language code, with the same fallback as groupAliasNouns.
 var groupFixedLabels = map[string]map[string]string{
-	"Support":        {"ar": "فريق الدعم"},
-	groupMemberLabel: memberWords,
+	supportSenderLabel: {"ar": "فريق الدعم"},
+	groupMemberLabel:   memberWords,
 }
 
 // ─── Lookup ───
@@ -90,8 +95,10 @@ var groupFixedLabels = map[string]map[string]string{
 // decision, and every label in an unknown lang. It cannot fail, and it never
 // turns a non-empty label into an empty one.
 //
-// Masked groups only: a team group's label is the sender's real name, which
-// must reach every language untouched even when it reads like an alias.
+// Only for labels the server writes, never for real names: a team group's
+// sender name must reach every language untouched even when it reads like an
+// alias. Callers are the masked-group template and ChatSupportReplyMsg, which
+// passes the fixed supportSenderLabel (OPOS #26483).
 func localizedGroupAlias(label, lang string) string {
 	if word, ok := groupFixedLabels[label][lang]; ok {
 		return word

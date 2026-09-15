@@ -34,6 +34,56 @@
 
 ---
 
+## 2026-09-15 — OPOS #26483 (push half): the staff-reply push names the support team per language (branch `fix/support-push-title-localized`)
+
+**What was asked:** the admin reply in a 1:1 donor chat pushed «رسالة من Support» to Arabic users. Localize the sender in the template layer, not the handler. The app half is the separate branch `fix/app-chat-english-fallbacks`.
+
+**Findings:**
+- `handlers/chat.go` (the admin reply, around line 578) sent `notify.ChatNewMessageMsg("Support", preview, id)`.
+- That template formats one `who` into all four titles.
+- `pickLocalizedText` (`push.go`) picks the device's `locale_code` slot and falls back to English only when a slot is empty.
+- `group_alias.go`'s `groupFixedLabels` already mapped `"Support"` to ar فريق الدعم, with no ckb/kmr.
+
+**What was changed** (one commit, based on `origin/main` `e1ac95f`):
+- `backend/internal/notify/templates.go`:
+  - New `ChatSupportReplyMsg(preview, threadID)`, which names the sender through `localizedGroupAlias(supportSenderLabel, lang)`.
+  - `ChatNewMessageMsg` and the new template share a private `chatThreadNewMessageMsg(who LocalText, ...)`.
+  - Titles for every other caller are byte-identical.
+- `backend/internal/notify/group_alias.go`: new const `supportSenderLabel = "Support"`, used as the `groupFixedLabels` key. The `localizedGroupAlias` doc now names its second caller.
+- `backend/internal/handlers/chat.go`: the admin reply sends `notify.ChatSupportReplyMsg(preview, id)`.
+- `backend/internal/notify/support_reply_push_test.go` (new), selected by `-run '^TestSupportReplyPush_'` (4 tests):
+  - Arabic and English devices, through the real `sendPush` with push_guest_test.go's FCM recorder;
+  - all four stored titles;
+  - a source check that the handler uses the template.
+- **Titles:**
+  - en: `Message from Support`
+  - ar: `رسالة من فريق الدعم`
+  - ckb: `نامە لە Support`
+  - kmr: `Peyam ji Support`
+- **Kurdish:** no support-team term exists, so ckb/kmr keep "Support", the same fallback the chat-group alias uses. OPOS #26468 tracks this.
+
+**What was run** (from `backend/`):
+- **RED** on the fresh DB `godonation_26483_red`: `go test ./internal/notify/ -run '^TestSupportReplyPush_' -v` printed `undefined: ChatSupportReplyMsg` and `FAIL ... [build failed]`.
+- **GREEN** on the same DB: 4 `--- PASS`, `ok .../internal/notify 1.037s`.
+- **gofmt:** `gofmt -l` on the four changed files printed nothing (after `gofmt -w group_alias.go` realigned the map).
+- **Build and vet:** `go build ./...` and `go vet ./...` were clean.
+- **`godonation_26483_pkg`:** `go test ./internal/notify/ ./internal/handlers/ -count=1 -p 1` gave `ok notify 1.048s` and `ok handlers 14.903s`.
+- **`godonation_26483_run`:** `-v -run '^TestSupportReplyPush_'` gave PASS=4, SKIP=0, FAIL=0.
+- **`godonation_26483_all`:** `go test ./... -count=1 -p 1 -timeout 45m` exited 0, with 22 packages `ok` and 0 FAIL.
+- **Cleanup:** every DB was dropped; `psql -lqt | grep -c 26483` printed `0`.
+- **Review:** `ecc:go-reviewer` returned APPROVE WITH NITS.
+  - It confirmed byte-identical titles for the other callers, and correct per-language titles.
+  - Nit 2 was a confusing doc sentence on `localizedGroupAlias`; it is reworded.
+  - Nit 1, four lookups instead of a helper, was left as is for clarity.
+
+**External actions:** none. Nothing was pushed.
+
+**Still open:**
+- The Kurdish word for the support team (OPOS #26468).
+- The in-app rows already stored with «رسالة من Support» are not rewritten.
+
+**Traps:** `ChatNewMessageMsg`'s `Sprintf` lines also appear in other templates, so a text replace across templates.go hits more than one.
+
 ## 2026-09-15 — OPOS #26478: the connect-request "not found" 404 gets a machine code (branch `fix/connect-request-not-found-code`)
 
 **What was asked:** give the admin connect-request not-found 404 (detail, approve, decline) the `code` #107's `chatErr` puts on every other chat-group refusal, so admin-web can use its translated `error.connect_request_not_found`. First move the connect-request inbox out of `chat_group_admin.go` (492 lines), as #111's entry required.

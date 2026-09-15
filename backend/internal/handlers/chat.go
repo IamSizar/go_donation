@@ -575,7 +575,8 @@ func (h *ChatHandler) AdminPostMessage(c *gin.Context) {
 		go func() {
 			ctx, cancel := h.bg()
 			defer cancel()
-			_, _ = h.Notifier.Send(ctx, oid, notify.ChatNewMessageMsg("Support", preview, id))
+			// Names the support team in each reader's language (OPOS #26483).
+			_, _ = h.Notifier.Send(ctx, oid, notify.ChatSupportReplyMsg(preview, id))
 		}()
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": msg})
