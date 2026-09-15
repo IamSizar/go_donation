@@ -611,6 +611,17 @@ const ar: DeepPartial<typeof en> = {
     pdf: 'PDF',
     word: 'Word',
     rows_n: '{n} صفوف',
+    // Per-conversation export — see the notes on the English side.
+    conversation: 'تصدير المحادثة',
+    load_failed: 'تعذّر تحميل بيانات التصدير. {reason}',
+    // The id is isolated (LRI … PDI) so "#51" keeps its order in RTL text.
+    chat_title: '{chat} \u2066#{id}\u2069',
+    chat_donor: 'محادثة مانح',
+    chat_support: 'محادثة دعم',
+    chat_marriage: 'محادثة زواج',
+    chat_staff: 'محادثة موظفين',
+    chat_group: 'محادثة جماعية',
+    role_unknown: 'الدور {role}',
   },
   toolbar: {
     back: 'رجوع',
@@ -1139,6 +1150,14 @@ const ar: DeepPartial<typeof en> = {
     field: 'الحقل',
     change: 'التغيير',
     actor: 'الفاعل',
+    // Chat conversation export headers (lib/chatExport.ts).
+    message_id: 'معرّف الرسالة',
+    sent_at: 'وقت الإرسال',
+    sender_name: 'اسم المرسل',
+    sender_user_id: 'معرّف المستخدم المرسل',
+    sender_role: 'دور المرسل',
+    masked_label: 'الاسم المستعار',
+    role_in_group: 'الدور في المجموعة',
   },
 
   action: {

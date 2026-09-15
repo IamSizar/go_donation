@@ -360,6 +360,26 @@ test('the donor, marriage and staff chat routes list threads and their messages'
   }
 })
 
+test('each legacy chat has a multi-line message body with a comma, so an export can be checked by hand', async (t) => {
+  // A conversation export must keep such a body in ONE cell (lib/chatExport.ts
+  // → lib/csv.ts). Without one in the fixtures, a manual export against the
+  // mock could not show whether it does.
+  const request = await startMock(t)
+  const systems = [
+    ['/api/admin/chats?kind=direct', (id) => `/api/admin/chats/${id}/messages`],
+    ['/api/admin/marriage/chats', (id) => `/api/admin/marriage/chats/${id}/messages`],
+    ['/api/admin/staff-chats?include_archived=1', (id) => `/api/admin/staff-chats/${id}/messages`],
+  ]
+
+  for (const [listPath, messagesPath] of systems) {
+    const list = await request('GET', listPath)
+    const messages = await request('GET', messagesPath(list.body.items[0].id))
+
+    const tricky = messages.body.items.filter((m) => m.body.includes('\n') && m.body.includes(','))
+    assert.ok(tricky.length > 0, `${listPath}'s first thread has a multi-line body containing a comma`)
+  }
+})
+
 test('the support view of donor chats lists different threads from the direct view', async (t) => {
   const request = await startMock(t)
 

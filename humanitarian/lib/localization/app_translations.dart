@@ -31,6 +31,10 @@ class AppTranslations extends Translations {
     'case_volunteer_chat_message': 'Case chat message',
     'case_volunteer_chat_opened': 'Case chat opened',
     'chat_accepted': 'Chat accepted',
+    // OPOS #26429 — masked and team chat-group messages share this one type
+    // (chatGroupNewMessageMsg in templates.go). "Group chat" is the name the
+    // Messages tab already uses ('Could not load your group chats.').
+    'chat_group_message': 'Group chat message',
     'chat_message': 'Chat message',
     'chat_request': 'Chat request',
     'donation_approved': 'Donation approved',
@@ -522,6 +526,9 @@ class AppTranslations extends Translations {
     // words, not the app's role vocabulary (user decision, 2026-09-15), so a
     // member reads the same alias here as in the dashboard and in push
     // notifications.
+    // chat_group_sender_support also names an unnamed staff reply in the 1:1
+    // support chat (chatSenderName, OPOS #26435), so the support team has one
+    // name in both kinds of chat. Renaming the key means updating both.
     'chat_group_sender_support': 'Support',
     'chat_group_sender_member': 'Member',
     'chat_group_sender_donor_n': 'Donor @n',
@@ -3246,6 +3253,9 @@ class AppTranslations extends Translations {
     'case_volunteer_chat_message': 'رسالة محادثة الحالة',
     'case_volunteer_chat_opened': 'فتح محادثة الحالة',
     'chat_accepted': 'قبول المحادثة',
+    // OPOS #26429 — follows رسالة محادثة below; جماعية is the chat-groups
+    // screens' own word ('تعذّر تحميل محادثاتك الجماعية.').
+    'chat_group_message': 'رسالة محادثة جماعية',
     'chat_message': 'رسالة محادثة',
     'chat_request': 'طلب محادثة',
     'donation_approved': 'قبول التبرع',
