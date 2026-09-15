@@ -3176,6 +3176,10 @@ class AppTranslations extends Translations {
         "Couldn't start guest browsing. Check your connection and try again.",
     'Use a different number': 'Use a different number',
     'User': 'User',
+    // Names a 1:1 thread's other party the server sent no name for, keeping
+    // their user id so unnamed threads stay distinguishable
+    // (chatThreadOtherName, OPOS #26483). No Kurdish yet: English fallback.
+    'chat_thread_other_user_id': 'User #@id',
     'Verify & Continue': 'Verify & Continue',
     'Verify your phone': 'Verify your phone',
     'We sent a 6-digit code to @phone': 'We sent a 6-digit code to @phone',
@@ -6051,6 +6055,8 @@ class AppTranslations extends Translations {
         'تعذّر بدء التصفح كزائر. تحقّق من اتصالك وحاول مرة أخرى.',
     'Use a different number': 'استخدم رقمًا مختلفًا',
     'User': 'مستخدم',
+    // انظر التعليق نفسه في الخريطة الإنجليزية.
+    'chat_thread_other_user_id': 'مستخدم #@id',
     'Verify & Continue': 'تحقّق وتابع',
     'Verify your phone': 'تحقّق من هاتفك',
     'We sent a 6-digit code to @phone':

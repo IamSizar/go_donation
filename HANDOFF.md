@@ -87,6 +87,43 @@ Everything else it checked came back clean: no exception masking in `_answer`, s
 
 ---
 
+## 2026-09-15 — OPOS #26483 (app half): no English "User #" or bare الدعم in chats (branch `fix/app-chat-english-fallbacks`)
+
+**What was asked:** remove the two app-side fallbacks the #109 agent found, one English and one the wrong Arabic word, following #109's display-time pattern. The push half is the separate branch `fix/support-push-title-localized`.
+
+**Findings:**
+- `ChatThread.fromMap` (`humanitarian/lib/modules/chat/models/chat_models.dart`) put `'User #<other_user_id>'` into `otherName` for a blank name, and an untranslated `'User'` for a null one. Its only reader is `lib/modules/chat/screens/messages_screen.dart`, at 8 sites.
+- `marriage_chat_conversation_screen.dart` lives in `lib/modules/marriage/screens/`, not in `marriagechat/`. Its `_Bubble` labelled staff with `'Support'.tr`, whose Arabic is الدعم (Kafala). T10 forbids that.
+
+**What was changed** (one commit on `fix/app-chat-english-fallbacks`, based on `origin/main` `bbc6aa2`):
+- `chat_models.dart`: `otherName` is now the trimmed server name, or `''`.
+- `lib/modules/chat/utils/chat_sender_name.dart`: new `chatThreadOtherName(ChatThread)`. It returns, in order:
+  - the name;
+  - else `chat_thread_other_user_id`.trParams, keeping the id as the old UX did;
+  - else `'User'.tr` when the id is 0.
+- `messages_screen.dart`: every `thread.otherName` became `chatThreadOtherName(thread)`.
+- `marriage_chat_conversation_screen.dart`: the staff label uses `'chat_group_sender_support'.tr` (Support / فريق الدعم).
+- `lib/localization/app_translations.dart`: new key `chat_thread_other_user_id`, en `User #@id`, ar `مستخدم #@id`. It has no Kurdish, so Kurdish falls back to English.
+- `TRANSLATION_REQUEST.md`: a new section and table row. The count went from 468 to 469.
+- Tests:
+  - `test/modules/chat/chat_thread_other_name_test.dart`: the model, ar, en, and a source test on messages_screen.
+  - `test/modules/marriage/marriage_chat_staff_label_test.dart`: a source test plus the key's values.
+
+**What was run:**
+- **RED:** `flutter test` on the two new files printed `Error: Method not found: 'chatThreadOtherName'` and `00:00 +2 -2: Some tests failed.` The marriage source assertion failed with `Expected: true`.
+- **GREEN:** `flutter test test/modules/chat/ test/modules/marriage/` printed `+26: All tests passed!`.
+- **`flutter analyze`:** `6 issues found.`, the baseline. A doc comment containing `<id>` briefly made it 7; that is fixed.
+- **Full `flutter test`:** `00:54 +1058: All tests passed!`.
+- **Review:** `ecc:flutter-reviewer` returned APPROVE, with no CRITICAL or HIGH findings. Its three LOW notes needed no change.
+
+**External actions:** none. Nothing was pushed; the orchestrator ships.
+
+**Still open:** Kurdish for `chat_thread_other_user_id` (listed in TRANSLATION_REQUEST.md).
+
+**Traps:**
+- `dart format lib/modules/chat` also reformats unrelated files (`chat_controller.dart`, `chat_lifecycle_notice.dart`). Format only the files you touch.
+- A hook blocks `git checkout -- <file>`; `git restore <file>` works.
+
 ## 2026-09-15 — OPOS #26466 follow-up: the retire runbook matches the Trash fix (branch `docs/runbook-after-trash-fix`)
 
 **What was asked:** update `docs/runbooks/retire-direct-chats.md` for the #26466 Trash fix. Docs only.

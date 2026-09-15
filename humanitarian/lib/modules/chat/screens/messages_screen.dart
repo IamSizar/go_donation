@@ -8,6 +8,7 @@ import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/modules/bot/screens/bot_chat_screen.dart';
 import 'package:flutter_application_1/modules/chat/controllers/chat_controller.dart';
 import 'package:flutter_application_1/modules/chat/models/chat_models.dart';
+import 'package:flutter_application_1/modules/chat/utils/chat_sender_name.dart';
 import 'package:flutter_application_1/modules/chat/screens/chat_conversation_screen.dart';
 import 'package:flutter_application_1/modules/chat/utils/chat_invite_refusal.dart';
 import 'package:flutter_application_1/modules/chat/widgets/chat_lifecycle_notice.dart';
@@ -345,7 +346,7 @@ class _ThreadTile extends StatelessWidget {
           onTap: () => Get.to(
             () => ChatConversationScreen(
               threadId: thread.id,
-              title: thread.otherName,
+              title: chatThreadOtherName(thread),
               subtitle: thread.campaignTitle ?? roleLabel.tr,
             ),
           ),
@@ -353,7 +354,7 @@ class _ThreadTile extends StatelessWidget {
             padding: const EdgeInsets.all(12),
             child: Row(
               children: [
-                _Avatar(name: thread.otherName),
+                _Avatar(name: chatThreadOtherName(thread)),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -363,7 +364,7 @@ class _ThreadTile extends StatelessWidget {
                         children: [
                           Expanded(
                             child: Text(
-                              thread.otherName,
+                              chatThreadOtherName(thread),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
@@ -472,7 +473,7 @@ class _OutgoingPendingTile extends StatelessWidget {
         child: Row(
           children: [
             _Avatar(
-              name: thread.otherName,
+              name: chatThreadOtherName(thread),
               color: AppThemeConfig.pending(context),
             ),
             const SizedBox(width: 12),
@@ -481,7 +482,7 @@ class _OutgoingPendingTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    thread.otherName,
+                    chatThreadOtherName(thread),
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w800,
@@ -523,7 +524,7 @@ class _IncomingRequestCard extends StatelessWidget {
         Get.to(
           () => ChatConversationScreen(
             threadId: thread.id,
-            title: thread.otherName,
+            title: chatThreadOtherName(thread),
             subtitle: thread.campaignTitle,
           ),
         );
@@ -577,14 +578,17 @@ class _IncomingRequestCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                _Avatar(name: thread.otherName, color: AppThemeConfig.primary),
+                _Avatar(
+                  name: chatThreadOtherName(thread),
+                  color: AppThemeConfig.primary,
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        thread.otherName,
+                        chatThreadOtherName(thread),
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w900,
