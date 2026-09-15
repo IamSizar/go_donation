@@ -6,6 +6,53 @@
 
 ---
 
+## 2026-09-15 — OPOS #26448: the chat request notification tile never starts a chat poller for a guest (branch `fix/notification-tile-no-guest-chat-poller`)
+
+**What was asked:** close the gap #100 (OPOS #26423) left open, test-first. `NotificationTile` still fell back to `Get.put(ChatController())` for a `chat_request` notification, with no guest check. This is defense in depth: the server already gives guests an empty `/chats` (#97), and #26424 hides chat notifications from guests server-side. The change had to stay in `notification_tile.dart` plus new tests, with no `app_translations.dart` edits.
+
+**What was actually changed** (commit `bf77eb8` on `origin/main` `e66ff69`; local, unpushed):
+- `humanitarian/lib/modules/notifications/widgets/notification_tile.dart`:
+  - `_ChatRequestActions` (inline Accept/Decline) is now built only when `!isGuestMode()`, checked LAST in its condition, so a tile that is not a chat request never reads preferences.
+  - The reason it matters: the widget's `Obx` reads `ChatController.threads` and puts a controller when none exists. `ChatController.onInit` fetches `/api/chats` and starts a 5-second `Timer.periodic`, so merely rendering the tile started that poll for a guest.
+  - A comment on the `_ctrl` getter warns not to host the widget without the guard.
+- **Why hidden and not `requireSignIn`:**
+  - `ConnectRequestButton` already renders nothing for a guest.
+  - A tap gate cannot stop a poller that the build itself starts.
+  - `POST /api/chats/:id/accept` and `/decline` are `RequireNotGuest` (`backend/cmd/server/main.go:751-752`).
+  - Signing in lands on a different account, which the invite is not addressed to.
+  - The notification itself still shows and still taps through.
+- New test: `humanitarian/test/notifications/chat_request_tile_guest_test.dart` (4 tests).
+  - Guest: the tile shows and taps through, with no `ChatController`, no chat-route request past 6 seconds, and no buttons.
+  - Member: with no controller registered, the fallback still registers one, which loads and polls `/api/chats` and draws 2 buttons. Decline posts `POST /api/chats/42/decline`.
+
+**What was run and what it printed** (all from `humanitarian/`):
+- RED, before the fix: the new file printed `00:19 +2 -2: Some tests failed.`
+  - Guest tests: `Expected: false / Actual: <true>` (controller registered) and `Expected: <0> / Actual: <2>` (buttons shown).
+  - Both member tests passed, as intended.
+- GREEN:
+  - The new file alone printed `00:01 +4: All tests passed!`
+  - The new file plus the existing notification and guest-chat tests printed `00:12 +51: All tests passed!` Those are `support_destination_test`, `notification_relative_time_test`, `localized_tag_test`, `dashboard_guest_chat_polling_test`, `messages_guest_prompt_test` and `top_bar_support_button_test`.
+- Full `flutter test` on the final tree printed `02:23 +1031: All tests passed!`, exit 0.
+- `flutter analyze` printed `6 issues found.`, the same 6 `deprecated_member_use` as the baseline, none in touched files.
+- `dart format --set-exit-if-changed` on both files: 0 changed.
+- `ecc:flutter-reviewer`: APPROVE, with 0 critical, 0 high and 0 medium findings.
+  - Only 3 sites ever `Get.put(ChatController())`, and all are now guest-guarded.
+  - The tests are not vacuous, and no timers leak.
+
+**External actions taken:** none. Nothing was pushed and no PR was opened.
+
+**What is still open:**
+- The commits are local and unpushed, with no PR and no human review.
+- OPOS MCP needed interactive OAuth and was unavailable in this subagent, so OPOS #26448 has no status update or notes yet.
+- Reviewer LOW, deliberately not fixed here: `isGuestMode()` is read once at build, so the tile does not react to a guest upgrading to a member mid-session until it rebuilds. The app uses the same pattern at 16 other call sites.
+- Reviewer LOW, deliberately not fixed here: `notification_tile.dart` is 705 lines, over the 500-line limit, and was already about 678 before this change. A follow-up should extract `_ChatRequestActions` into its own file.
+
+**Traps:**
+- `isGuestMode()` reads the `late` global `sharedPreferences`. A widget test that pumps a `chat_request` tile without initializing prefs now throws `LateInitializationError`. Other tile types do not, because the guest check runs last. `notification_relative_time_test.dart` pumps a support tile without prefs and is unaffected.
+- The first session running this task ended mid-work and its background `flutter test` and reviewer runs were killed. The uncommitted tree survived, and `git checkout -B <branch> origin/main` carried it onto the newer main cleanly, because #101 and #102 touch neither file.
+
+---
+
 ## 2026-09-15 — OPOS #26434: masked chat-group pushes name the sender in Arabic and Kurdish, not English (branch `fix/masked-push-title-localized-alias`)
 
 **What was asked:** masked chat-group pushes put the server's English label ("Donor 1", "Support", …) into every language's title. An Arabic push read «رسالة من Donor 1», and the in-app list stored the same. Fix it test-first in `backend/internal/notify`, without touching files other branches are editing.
