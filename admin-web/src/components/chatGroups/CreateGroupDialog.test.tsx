@@ -183,8 +183,8 @@ describe('CreateGroupDialog', () => {
     {
       status: 409,
       code: 'group_label_conflict',
-      english: 'Duplicate label.',
-      shown: 'Two members would have the same label. Give each member a different label.',
+      english: 'Another member of this group already has this label.',
+      shown: "Another member of this group already has this label. Each member's label must be different.",
     },
   ])('explains a $status $code beside the members and keeps the dialog open', async ({ status, code, english, shown }) => {
     // Arrange

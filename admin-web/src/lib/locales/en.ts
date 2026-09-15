@@ -1403,21 +1403,24 @@ const en = {
     perm_section_blocked_wait: 'This section is temporarily locked after a rapid series of permission changes. No unlock code could be sent, because neither SMS nor email is set up on this server, so the lock clears by itself shortly.',
     perm_unlock_invalid: 'That unlock code is not correct.',
     perm_unlock_attempts: 'Too many incorrect unlock codes. The lock now has to run its course.',
-    // Chat groups (OPOS #26398). Matched against the `code` the chat-group
-    // routes send; lib/chatGroupErrors.ts lists every one, and its test fails
-    // if any loses its English or Arabic. guest_member_not_allowed and
-    // connect_context_not_found are on main today; the rest arrive with the
-    // backend branches in flight.
+    // Chat groups (OPOS #26398). Matched against the `code` every chat-group
+    // refusal carries; lib/chatGroupErrors.ts lists them all, and its test
+    // fails if any loses its English or Arabic. server_error reuses
+    // error.server. connect_request_not_found is for the one refusal still
+    // sent without a code: a plain 404 for a missing connect request.
     guest_member_not_allowed: 'Guest accounts cannot join a chat group. Remove the guest account from the members and try again.',
     connect_context_not_found: 'The case or donation this request is about could not be found, so no group was opened for it.',
     group_member_conflict: 'One of these people is already a member of this group. Remove the repeated person and try again.',
-    group_label_conflict: 'Two members would have the same label. Give each member a different label.',
+    group_label_conflict: "Another member of this group already has this label. Each member's label must be different.",
     group_label_contact: 'A label contains a phone number or email address. Other members see labels, so remove the contact detail.',
     group_invalid_input: 'Some details of this group were not accepted. Check the type, the name and every member, then try again.',
     group_not_found: 'This chat group no longer exists. Go back to the list and refresh it.',
-    not_group_member: 'That person is no longer a member of this group. Refresh the group and try again.',
+    not_group_member: "The group's members have changed, so this could not be done. Refresh the group and try again.",
     connect_request_decided: 'Another staff member has already decided this request. Refresh the list to see the outcome.',
     sensitive_data_required: "This group hides its members' identities, and your access level does not include sensitive data. Ask the Primary Administrator if you need it.",
+    chat_lifecycle_closed: 'This group is paused or has ended, so no new messages can be sent.',
+    contact_details_blocked: 'This message contains a phone number or email address, so it was not sent. Remove the contact detail and send it again.',
+    connect_request_not_found: 'This connect request no longer exists. Refresh the list to see the current requests.',
   },
 
   // Singular entity nouns — used by the live-feed highlight banner.

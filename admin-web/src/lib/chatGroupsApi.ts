@@ -185,10 +185,16 @@ export async function getGroup(groupId: number): Promise<ChatGroupDetail> {
 }
 
 /**
- * Adds one member, or reactivates a removed one (decision D3). Needs
- * messages:edit.
+ * Adds one member. Needs messages:edit.
  *
- * @throws the axios error; 409 group_member_conflict when already active.
+ * Re-adding a REMOVED member reactivates their old membership (decision D3):
+ * their old label and role are kept, and `member.role_in_group` and
+ * `member.label` are ignored.
+ *
+ * @throws the axios error: 409 group_member_conflict when they are already
+ *         active; 409 group_label_conflict when the label, or a reactivated
+ *         member's old label, is taken; 400 guest_member_not_allowed or
+ *         group_label_contact; 404 group_not_found.
  */
 export async function addGroupMember(groupId: number, member: ChatGroupMemberInput): Promise<void> {
   await api.post(`${BASE}/${groupId}/members`, member)
@@ -199,8 +205,9 @@ export async function addGroupMember(groupId: number, member: ChatGroupMemberInp
  * lib/api.ts asks the operator for their password first, as for every admin
  * DELETE.
  *
- * @throws the axios error (404 when the user is not an active member), or an
- *         axios cancel when the operator dismisses the password prompt.
+ * @throws the axios error (404 group_not_found when the user is not an active
+ *         member), or an axios cancel when the operator dismisses the
+ *         password prompt.
  */
 export async function removeGroupMember(groupId: number, userId: number): Promise<void> {
   await api.delete(`${BASE}/${groupId}/members/${userId}`)
@@ -213,7 +220,7 @@ export async function removeGroupMember(groupId: number, userId: number): Promis
  *
  * @param page.afterId  only messages with a larger id; omit for the start.
  * @param page.limit    1–{@link GROUP_MESSAGES_PAGE_MAX}; the server's 50 when omitted.
- * @throws              the axios error when the request fails.
+ * @throws              the axios error; 404 group_not_found for a missing group.
  */
 export async function listGroupMessages(
   groupId: number,
@@ -235,7 +242,8 @@ export async function listGroupMessages(
  *
  * @param pageSize  rows per request, clamped to 1–{@link GROUP_MESSAGES_PAGE_MAX}.
  * @returns         every message, oldest first.
- * @throws          the axios error of the first page that fails.
+ * @throws          the axios error of the first page that fails (404
+ *                  group_not_found for a missing group).
  */
 export async function fetchAllGroupMessages(
   groupId: number,
@@ -258,8 +266,9 @@ export async function fetchAllGroupMessages(
  * messages:add.
  *
  * @returns the new message's id.
- * @throws  the axios error; 422 contact_details_blocked, or 409 when the
- *          group is paused or ended.
+ * @throws  the axios error; 422 contact_details_blocked, or 409
+ *          chat_lifecycle_closed (with `lifecycle_reason`) when the group is
+ *          paused or ended.
  */
 export async function postGroupMessage(groupId: number, body: string): Promise<number> {
   const res = await api.post<{ message_id: number }>(`${BASE}/${groupId}/messages`, { body })
@@ -269,7 +278,7 @@ export async function postGroupMessage(groupId: number, body: string): Promise<n
 /**
  * Lists the refused contact-sharing attempts in one group, newest first.
  *
- * @throws the axios error when the request fails.
+ * @throws the axios error; 404 group_not_found for a missing group.
  */
 export async function listGroupContactBlocks(groupId: number): Promise<ChatGroupContactBlock[]> {
   const res = await api.get<Items<ChatGroupContactBlock>>(`${BASE}/${groupId}/contact-blocks`)
@@ -321,7 +330,8 @@ export async function listConnectRequests(status?: ConnectRequestStatus): Promis
 /**
  * Reads one connect request.
  *
- * @throws the axios error; 404 when it does not exist.
+ * @throws the axios error; a 404 with no code when it does not exist, which
+ *         describeConnectRequestError (lib/chatGroupErrors.ts) translates.
  */
 export async function getConnectRequest(requestId: number): Promise<ConnectRequestDetail> {
   const res = await api.get<ConnectRequestDetail>(`${BASE}/connect-requests/${requestId}`)
@@ -333,7 +343,8 @@ export async function getConnectRequest(requestId: number): Promise<ConnectReque
  * one of `body.members`, or the server answers 400. Needs messages:edit.
  *
  * @returns the new group's id.
- * @throws  the axios error; 409 connect_request_decided when already decided.
+ * @throws  the axios error; 409 connect_request_decided when already decided,
+ *          or a 404 with no code when the request does not exist.
  */
 export async function approveConnectRequest(requestId: number, body: CreateGroupBody): Promise<number> {
   const res = await api.post<{ group_id: number }>(`${BASE}/connect-requests/${requestId}/approve`, body)
@@ -344,7 +355,9 @@ export async function approveConnectRequest(requestId: number, body: CreateGroup
  * Declines a pending request. Needs messages:edit.
  *
  * @param reason  required by the server; shown to the requester.
- * @throws        the axios error; 400 when the reason is blank, 409 when decided.
+ * @throws        the axios error; 400 when the reason is blank, 409
+ *                connect_request_decided when decided, 404 with no code
+ *                when the request does not exist.
  */
 export async function declineConnectRequest(requestId: number, reason: string): Promise<void> {
   await api.post(`${BASE}/connect-requests/${requestId}/decline`, { reason })

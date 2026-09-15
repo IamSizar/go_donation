@@ -17,6 +17,7 @@ import {
   chatGroupErrorArea,
   chatGroupErrorCode,
   describeChatGroupError,
+  describeConnectRequestError,
 } from './chatGroupErrors'
 import { translate } from './i18n'
 
@@ -31,8 +32,10 @@ function refused(status: number, data: unknown): AxiosError {
 describe('CHAT_GROUP_ERROR_KEYS', () => {
   it('covers every code the chat-group routes send', () => {
     expect([...CHAT_GROUP_ERROR_CODES].sort()).toEqual([
+      'chat_lifecycle_closed',
       'connect_context_not_found',
       'connect_request_decided',
+      'contact_details_blocked',
       'group_invalid_input',
       'group_label_conflict',
       'group_label_contact',
@@ -41,6 +44,7 @@ describe('CHAT_GROUP_ERROR_KEYS', () => {
       'guest_member_not_allowed',
       'not_group_member',
       'sensitive_data_required',
+      'server_error',
     ])
   })
 
@@ -59,12 +63,50 @@ describe('CHAT_GROUP_ERROR_KEYS', () => {
 
 describe('describeChatGroupError', () => {
   it("translates a known code instead of showing the server's English", () => {
-    const err = refused(409, { success: false, error: 'Duplicate label.', code: 'group_label_conflict' })
+    const err = refused(409, {
+      success: false,
+      error: 'Another member of this group already has this label.',
+      code: 'group_label_conflict',
+    })
 
     expect(chatGroupErrorCode(err)).toBe('group_label_conflict')
     expect(describeChatGroupError(err)).toBe(
-      'Two members would have the same label. Give each member a different label.',
+      "Another member of this group already has this label. Each member's label must be different.",
     )
+  })
+
+  it('adds the reason staff gave when a paused or ended group refuses a message', () => {
+    const err = refused(409, {
+      success: false,
+      error: 'This conversation has been paused by our team. Reason: Under review',
+      code: 'chat_lifecycle_closed',
+      lifecycle: 'paused',
+      lifecycle_reason: 'Under review',
+    })
+
+    expect(describeChatGroupError(err)).toBe(
+      'This group is paused or has ended, so no new messages can be sent. Participants are being shown: Under review',
+    )
+  })
+
+  it('says only that the group is closed when staff gave no reason', () => {
+    const err = refused(409, { success: false, error: 'Closed.', code: 'chat_lifecycle_closed', lifecycle_reason: '  ' })
+
+    expect(describeChatGroupError(err)).toBe('This group is paused or has ended, so no new messages can be sent.')
+  })
+
+  it('explains a message refused for carrying contact details', () => {
+    const err = refused(422, { success: false, error: 'Contact details are not allowed.', code: 'contact_details_blocked' })
+
+    expect(describeChatGroupError(err)).toBe(
+      'This message contains a phone number or email address, so it was not sent. Remove the contact detail and send it again.',
+    )
+  })
+
+  it('shows the generic server line for server_error, never "Database error."', () => {
+    const err = refused(500, { success: false, error: 'Database error.', code: 'server_error' })
+
+    expect(describeChatGroupError(err)).toBe('A server error occurred. Please try again in a moment.')
   })
 
   it("falls back to the server's own text for a 4xx with no code it knows", () => {
@@ -81,6 +123,24 @@ describe('describeChatGroupError', () => {
   it('never shows the prose of a 5xx', () => {
     expect(describeChatGroupError(refused(500, { success: false, error: 'Database error.' }))).toBe(
       'A server error occurred. Please try again in a moment.',
+    )
+  })
+})
+
+describe('describeConnectRequestError', () => {
+  it('translates the uncoded 404 a missing connect request answers', () => {
+    const err = refused(404, { success: false, error: 'Connect request not found.' })
+
+    expect(describeConnectRequestError(err)).toBe(
+      'This connect request no longer exists. Refresh the list to see the current requests.',
+    )
+  })
+
+  it('still prefers a code the server sent', () => {
+    const err = refused(409, { success: false, error: 'This request has already been decided.', code: 'connect_request_decided' })
+
+    expect(describeConnectRequestError(err)).toBe(
+      'Another staff member has already decided this request. Refresh the list to see the outcome.',
     )
   })
 })
