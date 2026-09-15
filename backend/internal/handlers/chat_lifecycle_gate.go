@@ -1,5 +1,6 @@
 // chat_lifecycle_gate.go — the SERVER-SIDE refusal that every chat send path
-// runs before a message is stored.
+// runs before a message is stored, and that accepting a donor-chat invite runs
+// before the invite is activated and the initiator is pushed (OPOS #26413).
 //
 // This is the enforcement. The Flutter app hides its composer on a paused or
 // ended chat and the dashboard greys out its reply box, but neither is a
@@ -92,6 +93,36 @@ func refuseIfArchivedForParticipant(c *gin.Context, pool *pgxpool.Pool, kind cha
 		return true
 	}
 	return false
+}
+
+// refuseIfInviteClosed is the gate for ACCEPTING an invite. It writes the
+// refusal and returns true when the caller must stop, and it must run before
+// anything changes state or pushes (OPOS #26413).
+//
+// A pending invite outlives the conversation it belongs to: retiring the
+// direct chat (chatlifecycle.RetireAllDirectThreads) ends and archives every
+// open direct thread, pending ones included, and staff can pause or end one
+// from the dashboard. Accepting such an invite used to activate it and push
+// the initiator "chat accepted" for a thread neither of them could use.
+//
+//   - paused or ended → exactly the send path's 409 (refuseIfNotSendable). An
+//     accepted invite exists to be written into; a thread that refuses every
+//     message has nothing to accept. Checked FIRST so a retired invite, which
+//     is ended AND archived, gets the same explanation the send path gives.
+//   - archived but open → the participant read path's 404
+//     (refuseIfArchivedForParticipant). The send gate lets an archived-open
+//     thread through because staff may still be working it. Accepting is not
+//     staff work: it is a participant acting on a thread already hidden from
+//     both participants' lists, whose messages route already answers 404.
+//
+// The caller must confirm the user is a participant BEFORE this runs: the 409
+// carries staff's reason in their own words, which a stranger guessing thread
+// ids must not read.
+func refuseIfInviteClosed(c *gin.Context, pool *pgxpool.Pool, kind chatlifecycle.Kind, threadID int64) bool {
+	if refuseIfNotSendable(c, pool, kind, threadID) {
+		return true
+	}
+	return refuseIfArchivedForParticipant(c, pool, kind, threadID)
 }
 
 // mergeChatLifecycle adds the {lifecycle, reason, archived} triple to a

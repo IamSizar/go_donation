@@ -22,6 +22,15 @@ type submitConnectRequestReq struct {
 }
 
 // POST /api/chat-groups/connect-requests
+//
+// SubmitConnectRequest records a member's request that staff connect them
+// about one donation or beneficiary case. It answers 200 with request_id, and
+// 400 when the body is malformed or the message blank, when context_type is
+// not "donation" or "case", or — with code connect_context_not_found — when
+// no case or donation has that id (OPOS #26351). Existence is the only rule:
+// the app offers this on every case and donation whatever its status or
+// owner, and the server refuses nothing else. See
+// chatgroups.Store.SubmitConnectRequest.
 func (h *ChatGroupHandler) SubmitConnectRequest(c *gin.Context) {
 	user, ok := auth.UserFromGin(c)
 	if !ok || user == nil {
