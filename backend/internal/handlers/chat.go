@@ -251,6 +251,11 @@ func (h *ChatHandler) SupportThread(c *gin.Context) {
 }
 
 // POST /api/chats/:id/accept
+//
+// A paused, ended or archived thread is refused BEFORE AcceptThread and the
+// push, so the initiator is never told a chat was accepted that neither party
+// can use (OPOS #26413; see refuseIfInviteClosed). The participant check runs
+// first because that refusal carries staff's reason.
 func (h *ChatHandler) Accept(c *gin.Context) {
 	user, _ := auth.UserFromGin(c)
 	if user == nil {
@@ -259,6 +264,18 @@ func (h *ChatHandler) Accept(c *gin.Context) {
 	}
 	id, ok := parseID(c)
 	if !ok {
+		return
+	}
+	current, err := h.Store.GetThread(c.Request.Context(), id)
+	if err != nil {
+		h.chatErr(c, err)
+		return
+	}
+	if !current.IsParticipant(user.UserID) {
+		h.chatErr(c, chat.ErrNotParty)
+		return
+	}
+	if refuseIfInviteClosed(c, h.Pool, chatlifecycle.KindDonor, id) {
 		return
 	}
 	thread, initiator, err := h.Store.AcceptThread(c.Request.Context(), id, user.UserID)
