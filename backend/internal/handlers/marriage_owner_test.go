@@ -49,10 +49,18 @@ import (
 var marriageOwnerSeq = time.Now().UnixNano() % 100000
 
 // callAsUser drives an owner-scoped handler through the REAL request chain
-// main.go builds for these routes — RequireBearer + RequireApproved, with a
-// genuine token minted for the caller. Nothing about who-is-asking is stubbed,
-// because "the handler is fine but the gate resolves the wrong user" is a way
-// this feature could be wrong that a faked context would hide.
+// main.go builds for the owner routes — the authed group's RequireBearer +
+// RequireApproved, then the route's own RequireNotGuest — with a genuine token
+// minted for the caller. Nothing about who-is-asking is stubbed, because "the
+// handler is fine but the gate resolves the wrong user" is a way this feature
+// could be wrong that a faked context would hide.
+//
+// One caller does not get main.go's chain:
+// TestMarriageOwnerDeleteIsUndoneByAStaffStatusDecision sends
+// POST /api/admin/marriage/:id/status through here as the profile's owner, a
+// plain app user. main.go mounts that route on the admin group instead
+// (RequireAdmin + perm("marriage", "edit")), which refuses a non-staff caller.
+// That test asserts the stamp is cleared, not who may clear it.
 func callAsUser(t *testing.T, pool *pgxpool.Pool, method, route, path string, userID int64, handler gin.HandlerFunc, body string) (int, string) {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
@@ -62,7 +70,7 @@ func callAsUser(t *testing.T, pool *pgxpool.Pool, method, route, path string, us
 		t.Fatalf("issue token for user %d: %v", userID, err)
 	}
 	r := gin.New()
-	r.Handle(method, route, auth.RequireBearer(tokenStore), auth.RequireApproved(), handler)
+	r.Handle(method, route, auth.RequireBearer(tokenStore), auth.RequireApproved(), auth.RequireNotGuest(), handler)
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
