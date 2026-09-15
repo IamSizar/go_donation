@@ -6,6 +6,83 @@
 
 ---
 
+## 2026-09-15 — OPOS #26427: only a pending chat invite can be declined (branch `fix/chat-decline-requires-pending`)
+
+**What was asked:** confirm test-first, then fix, that both invite-decline store methods (donor chat and marriage chat) update the thread without requiring `status = 'pending'`, which let an invite's recipient flip an ACTIVE chat to `declined`. Put the pending condition inside the UPDATE, map "no row" to a not-pending error, map it in the handlers, and do not change decline's lifecycle behaviour.
+
+**What was actually changed** (commit `63759ae`, off `origin/main` `8fcd38d`):
+- **The bug, confirmed by the RED run below:** `chat.Store.DeclineThread` and `marriagechat.Store.DeclineThread` both ran `UPDATE ... SET status = 'declined' WHERE id = $1`. A declined thread is hidden from both participants' lists (`ListThreadsForUser` filters `status <> 'declined'`), and sending needs `active`, so one tap ended a live chat.
+- **Two assumptions in the brief were wrong:**
+  - Accept does not require pending. `AcceptThread` returns an idempotent 200 on an already-`active` thread and otherwise updates with no status condition, so a `declined` thread goes back to `active`. This is true in both stores.
+  - Neither package had a not-pending error. A new sentinel `ErrNotPending` was added to each.
+- `backend/internal/chat/chat.go`:
+  - `ErrNotPending` at :43.
+  - `DeclineThread` at :226 now runs `UPDATE chat_threads ... WHERE id = $1 AND status IN ('pending', 'declined') RETURNING ...`. `pgx.ErrNoRows` becomes `ErrNotPending`.
+  - The participant and recipient checks still run first. The doc comment was rewritten.
+- `backend/internal/marriagechat/marriagechat.go`: `ErrNotPending` at :44, and the same guarded UPDATE in `DeclineThread` at :249. The old doc said it declined "an active/pending thread"; the new doc describes the fix.
+- `backend/internal/handlers/chat.go` (`chatErr` :452, `Decline` doc :301) and `backend/internal/handlers/marriage_chat.go` (`chatErr` :53, `Decline` doc :180): `ErrNotPending` → `409 {"success":false,"error":"This chat is already active, so it can no longer be declined."}`. There is no `code` field, matching the sibling `chatErr` entries.
+- **Deliberate choice:** re-declining an already-`declined` invite stays a 200. The guard is `IN ('pending','declined')`, not `= 'pending'`.
+  - That is the behaviour before this change, and it mirrors accept being idempotent on `active`.
+  - The Flutter notification tile really does re-offer Decline for a declined invite, because the list it reads hides declined threads. The tile swallows errors, so a 409 there would be a silent dead button.
+  - Switching to strict pending is a one-line SQL change plus flipping one test.
+- **Untouched on purpose:**
+  - Decline is still not lifecycle-gated, so a pending invite on an ended and archived thread still declines (OPOS #26413).
+  - Routes are unchanged: `main.go:740` and `:805`, behind `RequireBearer` + `RequireApproved` + `RequireNotGuest`.
+- **New tests:**
+  - `backend/internal/chat/chat_decline_pending_test.go` (3 store tests).
+  - `backend/internal/handlers/chat_invite_decline_pending_test.go` (5 tests, 12 subtests, covering donor and marriage):
+    - active thread refused, status stays active;
+    - pending declines;
+    - already-declined stays 200;
+    - the other party and a stranger get today's 403s on pending AND active threads, so status is never revealed;
+    - a retired (end + archive through `chatlifecycle.Apply`) pending invite still declines.
+
+**What was run and what it printed** (all on a fresh DB `godonation_decline_pending_26427`, created for this task, dropped at the end, confirmed gone):
+- **RED, store, before the fix** (only the sentinel declared): `go test ./internal/chat/ -run DeclineThread -count=1 -v`
+  - `err = <nil>, want ErrNotPending`
+  - `stored status = "declined", want active`
+  - The pending and declined controls passed. It ended `FAIL .../internal/chat 12.708s`.
+- **RED, HTTP:** `go test ./internal/handlers/ -run ChatInviteDecline -count=1 -v`
+  - Donor and marriage both printed `decline on an active ... thread: 200 map[status:declined success:true ...]` and `stored status = "declined" after declining an active chat, want "active"`.
+  - The other 4 tests passed. It ended `FAIL .../internal/handlers 3.053s`.
+- **GREEN, same two commands:**
+  - Store: `ok .../internal/chat 3.413s` (3/3).
+  - HTTP: 5/5 PASS, with `decline on an active donor thread: 409 map[error:This chat is already active, so it can no longer be declined. success:false]` (marriage identical). It ended `ok .../internal/handlers 16.475s`.
+- **Targeted run:** `go test ./internal/chat/ ./internal/handlers/ -count=1 -timeout 45m` printed `ok .../internal/chat 5.961s` and `ok .../internal/handlers 58.229s`, exit 0. `internal/marriagechat` has no test files.
+- **Full run:** `go test ./... -count=1 -p 1 -timeout 45m` printed 22 `ok` packages and 0 FAIL, including `ok .../internal/handlers 187.120s`, exit 0.
+- **Lint:** `gofmt -l` on the 6 changed files printed nothing. `go vet ./...` exited 0.
+- **Review:** an `ecc:code-reviewer` pass returned APPROVE with 0 findings at every severity.
+- **Security review:** an `ecc:security-reviewer` pass found no CRITICAL, HIGH or MEDIUM issues and nothing to fix, and called the diff a net security improvement. Its report went to the coordinating agent, which relayed this summary:
+  - **No new enumeration oracle.** The participant/recipient (donor) and owner (marriage) checks still run on `GetThread` data before the UPDATE. Strangers and non-recipients get the same 403 on pending and active threads, pinned by `TestChatInviteDecline_NonRecipientRefusedAsBefore`. Only an authorized recipient can reach the 409.
+  - **TOCTOU closed.** The old read followed by an unconditional UPDATE could race a concurrent accept. `WHERE status IN ('pending','declined') ... RETURNING` makes check-and-write one atomic statement.
+  - **SQL is fully parameterized.** The test helper builds a table name by concatenation, but only from a hardcoded fixture value, never user input.
+  - **Marriage identity masking is unaffected.** `Decline` serializes only `thread.ID` and `Status`.
+  - **The 409 error text leaks no internals.**
+
+**External actions taken:** none. Nothing was pushed and no PR was opened. OPOS MCP needed interactive OAuth in this subagent session, so #26427 was not moved or commented on.
+
+**What is still open:**
+- **Unpushed:** `63759ae` and this entry are local only.
+- **Behind main:** the branch is 3 commits behind `origin/main` (#95, #96, #97 landed during the work).
+  - `git merge-tree` of the fix commit onto `origin/main` is clean. None of the six files overlap, and #97 did not change the decline routes.
+  - This HANDOFF entry will conflict at the top of the file, as every parallel branch's does.
+- **What the app shows on the new 409** (Flutter was not changed):
+  - **Notification tile:** `humanitarian/lib/modules/notifications/widgets/notification_tile.dart:462` `_decline` catches the error and only clears `_busy`. The user sees nothing; the Decline button simply comes back. The tile offers Decline whenever the thread is not in `ChatController.threads`, for example not loaded yet, archived, or declined, so this is the path that used to kill active chats.
+  - **Messages tab:** `humanitarian/lib/modules/chat/screens/messages_screen.dart:510` `_decline` shows the snackbar "Could not decline this chat request." It only renders for `incomingPending` threads, so it would need a stale list to reach the 409.
+  - **Marriage conversation screen:** `humanitarian/lib/modules/marriage/screens/marriage_chat_conversation_screen.dart:152` `_decide` offers Decline only while `_status == 'pending' && isOwner` (:212). On failure it shows the generic `failureMessage(e, 'error_message_send_failed')` and does not reload. The 3-second poll then replaces the buttons.
+  - No caller shows the server's error text.
+- **Accept can re-activate a declined invite** in both stores (see above). It is the recipient's own consent, but it pushes the initiator. Not changed; it needs a decision.
+- **Marriage accept is still not lifecycle-gated** (carried over from #26413).
+- **Race edge:** a thread deleted between `GetThread` and the guarded UPDATE answers 409 instead of 404.
+- **Files over the 500-line limit** (already over before this change): `internal/chat/chat.go` 611 (was 586), `internal/handlers/chat.go` 605 (was 598), `internal/marriagechat/marriagechat.go` 551 (was 530). `handlers/chat.go` was not split because #26354 was editing its List handler in parallel.
+
+**Traps:**
+- **The worktree guard refuses some shell constructs.** It refused `go test -run 'A|B'` (a quoted `|`) and commands built from shell variables. Run separate, plain commands.
+- **go.mod is in `backend/` and each Bash call starts in the worktree root.** `go test ./...` from the worktree root fails with "cannot find main module". Use `go -C <abs>/backend test ...`.
+- **The chat and handlers tests share one DB.** Run them as sequential commands or with `-p 1`, so the first-run migrations and seeded rows don't race.
+
+---
+
 ## 2026-09-15 — OPOS #26411: team chat-group pushes get their own entity type (branch `fix/team-group-push-entity-type`)
 
 **What was asked:** team-group message pushes used the donor-chat template, which labelled a chat-GROUP id as a `chat_thread`. Give them their own template, test-first, and leave `chatErr` in `chat_group.go` untouched (parallel branches edit it).
