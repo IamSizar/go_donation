@@ -192,7 +192,11 @@ func adminThreadPath(kind chatlifecycle.Kind, threadID int64) string {
 func TestChatLifecycle_DeleteTrashesAndRestoreBringsBackMessages(t *testing.T) {
 	pool := newLifecyclePool(t)
 	r := newLifecycleRouter(pool)
-	staffToken := tokenFor(t, pool, makeLifecycleUser(t, pool, "admin"))
+	// The DELETE goes through main.go's delete-password gate, so the staff
+	// member needs a password of their own and sends it with the delete,
+	// exactly as the dashboard does.
+	const staffPassword = "lifecycle-delete-pin"
+	staffToken := tokenFor(t, pool, insertAccount(t, pool, "admin", staffPassword).id)
 
 	for _, f := range allFixtures(t, pool) {
 		t.Run(string(f.Kind), func(t *testing.T) {
@@ -214,7 +218,8 @@ func TestChatLifecycle_DeleteTrashesAndRestoreBringsBackMessages(t *testing.T) {
 			}
 			t.Logf("before delete: %s", childCounts(t, pool, sys, f.ThreadID))
 
-			code, body := doJSON(t, r, http.MethodDelete, adminThreadPath(f.Kind, f.ThreadID), staffToken, nil)
+			code, body := doJSON(t, r, http.MethodDelete, adminThreadPath(f.Kind, f.ThreadID), staffToken,
+				map[string]string{"password": staffPassword})
 			if code != http.StatusOK || body["trashed"] != true {
 				t.Fatalf("delete: status %d body %v", code, body)
 			}

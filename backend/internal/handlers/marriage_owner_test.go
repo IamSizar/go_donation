@@ -42,6 +42,7 @@ import (
 
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
 	"github.com/karam-flutter/humanitarian-backend/internal/marriage"
+	"github.com/karam-flutter/humanitarian-backend/internal/permissions"
 )
 
 // ─── Harness ────────────────────────────────────────────────────────────
@@ -55,12 +56,10 @@ var marriageOwnerSeq = time.Now().UnixNano() % 100000
 // handler is fine but the gate resolves the wrong user" is a way this feature
 // could be wrong that a faked context would hide.
 //
-// One caller does not get main.go's chain:
-// TestMarriageOwnerDeleteIsUndoneByAStaffStatusDecision sends
-// POST /api/admin/marriage/:id/status through here as the profile's owner, a
-// plain app user. main.go mounts that route on the admin group instead
-// (RequireAdmin + perm("marriage", "edit")), which refuses a non-staff caller.
-// That test asserts the stamp is cleared, not who may clear it.
+// Only the owner routes go through here. The staff route that clears the
+// owner's delete lives on main.go's admin group, so
+// TestMarriageOwnerDeleteIsUndoneByAStaffStatusDecision sends it through
+// postAsStaff with that group's chain instead.
 func callAsUser(t *testing.T, pool *pgxpool.Pool, method, route, path string, userID int64, handler gin.HandlerFunc, body string) (int, string) {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
@@ -239,12 +238,18 @@ func TestMarriageOwnerDeleteIsUndoneByAStaffStatusDecision(t *testing.T) {
 		t.Fatalf("the deleted profile is still in the owner's list")
 	}
 
-	// Staff reinstate it through the route they already use.
+	// Staff reinstate it through the route they already use, behind the chain
+	// main.go puts in front of it: the admin group's RequireAdmin, then
+	// perm("marriage", "edit"). The owner cannot send this request, because
+	// RequireAdmin refuses an app user. An employee is the lowest tier that
+	// holds marriage/edit by default, so it is the least-privileged caller
+	// production lets through.
+	staff := insertAccount(t, pool, "employee", "")
 	adminH := NewAdminStatusHandler(pool, nil, nil)
-	if code, body := callAsUser(t, pool, http.MethodPost, "/api/admin/marriage/:id/status",
-		"/api/admin/marriage/"+idStr+"/status", owner, adminH.Marriage,
-		`{"status":"active"}`); code != http.StatusOK {
-		t.Fatalf("admin status returned %d: %s", code, body)
+	if code, body := postAsStaff(t, pool, staff.id, "/api/admin/marriage/:id/status",
+		"/api/admin/marriage/"+idStr+"/status", map[string]string{"status": "active"},
+		auth.RequirePermission(permissions.New(pool), "marriage", "edit"), adminH.Marriage); code != http.StatusOK {
+		t.Fatalf("admin status returned %d: %v", code, body)
 	}
 
 	var stamped bool
