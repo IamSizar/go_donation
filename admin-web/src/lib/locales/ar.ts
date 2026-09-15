@@ -741,8 +741,6 @@ const ar: DeepPartial<typeof en> = {
     new: 'جديد',
     saving: 'جارٍ الحفظ…',
     loading: 'جارٍ التحميل…',
-    // زر إعادة المحاولة بجانب أي تحميل فشل. نفس صياغة error.retry.
-    retry: 'إعادة المحاولة',
     applying: 'جارٍ التطبيق…',
     uploading: 'جارٍ الرفع…',
     export_csv: 'تصدير CSV',

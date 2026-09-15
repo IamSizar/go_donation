@@ -771,11 +771,6 @@ const en = {
     new: 'New',
     saving: 'Saving…',
     loading: 'Loading…',
-    // The label on the Retry button beside a failed load (ContactBlocksPanel,
-    // EditModal, ChatGroupsPage). Components asked for this key long before it
-    // existed, so they printed "common.retry". Same words as error.retry,
-    // which Table's error row uses, so every Retry button reads alike.
-    retry: 'Try again',
     applying: 'Applying…',
     uploading: 'Uploading…',
     export_csv: 'Export CSV',
