@@ -168,7 +168,7 @@ export const ADMIN_NOTIFICATIONS: AdminNotification[] = [
 export type AdminUserRow = {
   user_id: number
   phone: string
-  role_id: number
+  role_id: number | null
   created_at: string
   registration_status: string
   staff_tier: string
@@ -179,6 +179,10 @@ export type AdminUserRow = {
  * The app users the member picker can find. role_id follows UserPicker's
  * ROLE_LABEL_KEY: 1 donor, 2 beneficiary, 3 volunteer. Two share the name
  * Layla so a search visibly narrows the list without emptying it.
+ *
+ * 107 is a guest account with no role. It is chatGroups.ts's GUEST_USER_ID,
+ * which the chat-group member routes refuse; scripts/mock-api.test.mjs
+ * checks the two ids still agree.
  */
 export const ADMIN_USERS: AdminUserRow[] = [
   user(101, '+9647701002001', 1, 'Layla Hassan'),
@@ -187,10 +191,11 @@ export const ADMIN_USERS: AdminUserRow[] = [
   user(104, '+9647701114521', 1, 'Omar Khalid'),
   user(105, '+9647814445566', 3, 'Yusuf Kareem'),
   user(106, '+9647705556677', 3, 'Noor Jabbar'),
+  user(107, '+9647709990107', null, 'Guest visitor'),
 ]
 
 /** Builds one approved app-user row with a profile. */
-function user(id: number, phone: string, roleId: number, fullName: string): AdminUserRow {
+function user(id: number, phone: string, roleId: number | null, fullName: string): AdminUserRow {
   return {
     user_id: id,
     phone,

@@ -62,6 +62,7 @@ const en = {
     receipts: 'Aid receipts',
     messages: 'Messages',
     staff_chat: 'Staff Chat',
+    chat_groups: 'Chat groups',
     volunteers: 'Volunteers',
     volunteer_board: 'Volunteer board',
     tasks: 'Tasks',
@@ -684,6 +685,68 @@ const en = {
     end_confirm: 'Ending is final — the chat becomes read-only for everyone and cannot be reopened. The history is kept.',
     delete_confirm: 'Move this chat and all of its messages to the Trash? A Super-Admin can restore it, or delete it permanently.',
     archived_hint: 'Hidden from the participants. Staff can still see it here.',
+  },
+  // Chat groups (Phase 6a, OPOS #26398): /chat-groups and its create dialog.
+  // Refusal codes are under error.*; the kind badge uses status.masked/team;
+  // member roles use status.donor/beneficiary/volunteer/staff.
+  chat_groups: {
+    title: 'Chat groups',
+    subtitle: "Supervised conversations between donors, recipients, volunteers and staff. In a masked group members see only each other's labels; a team group uses real names.",
+    new_group: 'New group',
+    list: {
+      aria: 'Chat groups',
+      loading: 'Loading chat groups…',
+      masked_title: 'Masked group \u2066#T{id}\u2069',
+      team_untitled: 'Team group \u2066#T{id}\u2069',
+      no_messages: 'No messages yet',
+    },
+    empty: {
+      title: 'No chat groups yet',
+      body: 'A chat group lets staff open a supervised conversation, for example between a donor and the family they support. Create one to get started.',
+      cta: 'Create a group',
+      no_permission: 'Your access level cannot create groups. A staff member who can add messages can create the first one.',
+    },
+    create: {
+      title: 'New chat group',
+      intro: 'Choose the kind of group, then add the people in it. Staff can read and moderate every group.',
+      kind_label: 'Group type',
+      kind_masked_title: 'Masked group',
+      kind_masked_desc: 'Members see each other only by a label, such as "Donor 1". Names and contact details stay hidden.',
+      kind_team_title: 'Team group',
+      kind_team_desc: "A named working group. Members see each other's real names.",
+      title_label: 'Team name',
+      title_hint: 'Members see this name at the top of the chat. Up to {max} characters.',
+      members_label: 'Members',
+      member_n: 'Member {n}',
+      person_label: 'Person',
+      role_label: 'Role in the group',
+      role_placeholder: 'Choose a role',
+      label_label: 'Label shown to other members',
+      label_placeholder: 'e.g. Donor 1',
+      label_hint: 'Optional. Leave it blank and a label such as "Donor 1" is given automatically.',
+      add_member: 'Add member',
+      remove_member: 'Remove',
+      remove_member_aria: 'Remove member {n}',
+      submit: 'Create group',
+      submitting: 'Creating…',
+      created_toast: 'Chat group created',
+      gated_hint: 'To create the group, choose its type, name a team group, and give every member a person and a role.',
+      no_user_search_title: "You can't search for people here",
+      no_user_search_body: 'Members are picked from the Users list, which your access level cannot view. Ask the Primary Administrator for permission to view users, or ask a colleague who has it to create this group.',
+    },
+    // Validation messages from lib/chatGroupForm.ts, shown under each field.
+    form: {
+      kind_required: 'Choose a group type.',
+      title_required: 'Enter a name for the team group.',
+      title_too_long: 'Use {max} characters or fewer.',
+      members_required: 'Add at least one member.',
+      member_user_required: 'Choose a person for this member, or remove the row.',
+      member_duplicate: 'This person is already in the group. Remove this row.',
+      member_role_required: 'Choose a role for this member.',
+      label_too_long: 'Use {max} characters or fewer.',
+      label_duplicate: 'Another member already has this label. Give each member a different one.',
+      label_contact_hint: 'This looks like a phone number or email address. Labels cannot contain contact details, so the group would be refused.',
+    },
   },
   common: {
     breadcrumb: 'Breadcrumb',
@@ -1364,6 +1427,24 @@ const en = {
     perm_section_blocked_wait: 'This section is temporarily locked after a rapid series of permission changes. No unlock code could be sent, because neither SMS nor email is set up on this server, so the lock clears by itself shortly.',
     perm_unlock_invalid: 'That unlock code is not correct.',
     perm_unlock_attempts: 'Too many incorrect unlock codes. The lock now has to run its course.',
+    // Chat groups (OPOS #26398). Matched against the `code` every chat-group
+    // refusal carries; lib/chatGroupErrors.ts lists them all, and its test
+    // fails if any loses its English or Arabic. server_error reuses
+    // error.server. connect_request_not_found is for the one refusal still
+    // sent without a code: a plain 404 for a missing connect request.
+    guest_member_not_allowed: 'Guest accounts cannot join a chat group. Remove the guest account from the members and try again.',
+    connect_context_not_found: 'The case or donation this request is about could not be found, so no group was opened for it.',
+    group_member_conflict: 'One of these people is already a member of this group. Remove the repeated person and try again.',
+    group_label_conflict: "Another member of this group already has this label. Each member's label must be different.",
+    group_label_contact: 'A label contains a phone number or email address. Other members see labels, so remove the contact detail.',
+    group_invalid_input: 'Some details of this group were not accepted. Check the type, the name and every member, then try again.',
+    group_not_found: 'This chat group no longer exists. Go back to the list and refresh it.',
+    not_group_member: "The group's members have changed, so this could not be done. Refresh the group and try again.",
+    connect_request_decided: 'Another staff member has already decided this request. Refresh the list to see the outcome.',
+    sensitive_data_required: "This group hides its members' identities, and your access level does not include sensitive data. Ask the Primary Administrator if you need it.",
+    chat_lifecycle_closed: 'This group is paused or has ended, so no new messages can be sent.',
+    contact_details_blocked: 'This message contains a phone number or email address, so it was not sent. Remove the contact detail and send it again.',
+    connect_request_not_found: 'This connect request no longer exists. Refresh the list to see the current requests.',
   },
 
   // Singular entity nouns — used by the live-feed highlight banner.
@@ -1749,6 +1830,18 @@ const en = {
     volunteer_mission_rejected: 'Mission join rejected',
     wallet_topup: 'Wallet top-up',
     user: 'User',
+    // Chat groups: CHECK values from migrations 120 and 122, which
+    // check-labels enumerates.
+    //   masked / team — chat_groups.kind, printed as the list page's badge.
+    //   case — chat_group_connect_requests.context_type ('donation' is
+    //     labelled above as a contribution).
+    //   created / member_added / member_removed — chat_group_audit_log.action.
+    masked: 'Masked',
+    team: 'Team',
+    case: 'Case',
+    created: 'Created',
+    member_added: 'Member added',
+    member_removed: 'Member removed',
   },
 
   // Volunteer board (Kanban).
