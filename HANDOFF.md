@@ -6,6 +6,64 @@
 
 ---
 
+## 2026-09-15 — OPOS #26467: the retire runbook's freeze list matches the lifecycle race fix (branch `docs/retire-runbook-freeze-list`)
+
+**What was asked:** bring `docs/runbooks/retire-direct-chats.md` in line with PR #103 (`95ea8fb`, OPOS #26431). Pause and resume come off the run-window freeze. End, archive and unarchive stay on it. Delete goes on it, because of the Trash risk tracked as OPOS #26466. Docs only.
+
+**What was actually changed** (branch from `origin/main` `95ea8fb`):
+- One commit, `docs(ops): narrow the retire runbook freeze list after the lifecycle race fix`, touching the runbook and this file only.
+- **Section 3, item 7:** from the snapshot until the post-checks are done, staff must not end, archive, unarchive or delete a direct chat, or restore one from the Trash. Each item says why. Pause and resume are no longer frozen.
+- **Section 4:** new pre-flight query 6 counts direct threads in the Trash, grouped by the copy's lifecycle and archive state. The filter is `trash_items.source_table = 'chat_threads'`, `restored_at IS NULL` and `payload->>'kind' = 'direct'`. A new "What to expect" bullet explains the output.
+- **Section 5:** one sentence. A pause or resume made between the snapshot and the run is still ended by the run, but a restore puts back the snapshot's state.
+- **Section 7:** new post-check 7h lists direct threads deleted to the Trash since `snapshot_taken_at`. A paragraph after the block says what to do with a row.
+- **Section 9:** the Apply race moved to a new "Resolved by OPOS #26431" block. Risk 9 is now the Trash risk (#26466), so the existing "risk 9" cross-references still point at the right item.
+- The header table and the appendix intro each gained one sentence. The appendix one says query 6 and 7h were verified separately, here.
+
+**Evidence read** (file:line at `95ea8fb`):
+- **Pause and resume are refused on an ended thread:** `backend/internal/chatlifecycle/apply.go:121-122` and `:127-128`.
+  - The write only lands while the lifecycle is unchanged (`:194`, `AND lifecycle = $5`). Zero rows means `errLifecycleChanged` (`:198-199`), and Apply reads again (`:91-99`).
+  - `handlers/admin_chat_lifecycle.go:99-101` maps `ErrEnded` to 409.
+  - Tested against the run in `apply_race_test.go`. Line `:293` covers the run committed first, `:294-295` the run's `retireInTx` holding its locks, and `:312-321` assert `ErrEnded` with the run's END kept.
+- **End, archive and unarchive still write:**
+  - an end with a reason on an ended thread rewrites reason, actor and `updated_at` (`apply.go:139-142`, `:191-194`);
+  - archive and unarchive have no condition, and re-stamp or clear `archived_at` and bump `updated_at` (`apply.go:215-236`).
+- **Trash:**
+  - `handlers/admin_chat_lifecycle.go:182-183` copies the thread with a plain `SELECT to_jsonb(t.*)`, with no `FOR UPDATE`. It then inserts into `trash_items` (`:226-228`) and deletes (`:261`).
+  - `handlers/admin_trash.go:255-257` restores by inserting the copy as it is.
+  - Routes: `backend/cmd/server/main.go:1065` (`DELETE /admin/chats/:id`, direct chats) and `:1176` (Trash restore).
+  - The run's selectors read only live `chat_threads` (`retire.go:101`, `:113`).
+  - Schema: `migrations/016_trash.sql` (`trash_items`), and `migrations/119_chat_support_threads.sql:28` (`kind NOT NULL DEFAULT 'direct'`).
+
+**What was run and what it printed** (throwaway DB `gd_retire_freeze_26467`, made with `createdb -h /tmp`):
+- **Migrations:** `TEST_DATABASE_URL=... go test ./internal/chatlifecycle/ -count=1 -run '^TestRetireAllDirectThreadsIsIdempotent$' -v` → `[migrate] done: 121 newly applied, 121 total migration files`, `PASS`, `ok 1.358s`.
+- **Restore probe:** open direct thread 920001 was trashed with `trashChatThread`'s statements, then re-inserted with `Restore`'s `jsonb_populate_record` INSERT. It came back `920001 | direct | open | f`. The same copy without its `kind` key failed: `ERROR: null value in column "kind" of relation "chat_threads" violates not-null constraint`.
+- **Verbatim run of the edited runbook:**
+  - The SQL blocks of sections 2, 4, 5 and 7 were extracted from the file with `awk`. `<actor>` was replaced by 1 (`admin`), and each block ran through `psql -v ON_ERROR_STOP=1`, with sections 4 and 7 under `PGOPTIONS` read-only.
+  - Seed: open direct threads 920002 and 920003.
+  - Pre-flight: `will_end 2 | will_archive 0`; query 6 printed `open | f | 1` (920001, from the probe).
+  - Snapshot: `snapshot_rows 2`. Then 920003 was deleted to the Trash.
+  - Run: `UPDATE 1`, `UPDATE 0`, `COMMIT`.
+  - Post-checks: 7a `0`, 7b `1`, 7c `0 rows`, 7d `0 rows`, 7f `0`, 7g `2026-09-15 17:59:48.655791 | 1`.
+  - 7h returned one row: `2 | 920003 | open | f | 2026-09-15 17:59:35.456159+03 |` (not restored).
+  - Query 6 again: `open | f | 2`, higher by exactly the 7h row.
+- **Cleanup:** `dropdb -h /tmp gd_retire_freeze_26467`, then a `pg_database` count of `gd_retire_freeze_26467%` → `0`.
+- **Whitespace:** `git diff --check` is clean.
+
+**External actions taken:** none. Nothing was pushed and no PR was opened. OPOS was not updated from this session: the `opos` MCP server needed authorization, and this non-interactive session could not run the OAuth flow.
+
+**What is still open:**
+- The commit is local and unpushed, and no human has reviewed it.
+- **OPOS #26466 is not fixed.** The freeze, query 6 and 7h only work around it. The delete race itself (a delete that copies the thread before the run commits) was read in the code, not reproduced.
+- **Two additions beyond the brief:** restore from the Trash was frozen alongside delete, and section 5 gained its pause-and-resume sentence. Revert either if unwanted.
+- The production run has still not been performed.
+
+**Traps:**
+- **The worktree isolation guard refuses a Bash command that uses `$(...)`** ("a construct too complex to verify"). Split it into plain separate commands.
+- **GateGuard's destructive-command check fires on any `psql` with INSERT or DELETE,** even against a throwaway DB. State the facts and retry.
+- **A `chat_threads` copy in the Trash from before migration 119 has no `kind` key,** and its restore fails on NOT NULL. That is why query 6 needs only `payload->>'kind' = 'direct'`.
+
+---
+
 ## 2026-09-15 — OPOS #26431: a racing staff pause or resume can no longer reopen an ended chat (branch `fix/chat-lifecycle-apply-race`)
 
 **What was asked:** make `chatlifecycle.Apply`'s writes conditional on the state it read, working test-first. Two concurrent actions could interleave: a staff pause or resume, and an END from another staff member or from `cmd/retire-direct-chats`. The later write overwrote `ended`. Changes were to stay inside `backend/internal/chatlifecycle`.
