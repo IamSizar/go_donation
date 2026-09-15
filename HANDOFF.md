@@ -6,6 +6,60 @@
 
 ---
 
+## 2026-09-15 — OPOS #26397 (E1 + E2): export ONE chat conversation from the donor, marriage and staff chat pages (branch `feat/admin-chat-conversation-export`)
+
+**What was asked:** in admin-web, test-first, let staff export the open conversation (CSV / Excel / PDF / Word, behind the existing PIN step-up) from MessagesPage, MarriageChatsPage and StaffChatPage. Fix ExportCsvButton reporting every failure as "Incorrect password". Make the engine general enough for the later group export (E3). Commit, do not push.
+
+**What was actually changed** (on `origin/main` `7de9faf`, worktree `.claude/worktrees/agent-a944411f886a442c7`):
+- **`efbbeaf` fix(admin-web): export errors no longer claim the password was wrong.** `components/ExportCsvButton.tsx` reports each step on its own: a refused PIN shows the server's refusal; a failed verify-password request goes through `describeError`; a failed file build shows `error.unknown` and logs the detail. New `ExportCsvButton.test.tsx`.
+- **`c1ee5e8` feat(admin-web): export a single chat conversation.**
+  - `ExportCsvButton` gains optional `loadRows`, called exactly once and only after the PIN is accepted. A load failure toasts `export.load_failed` with `describeError`'s reason.
+  - New `src/lib/chatExport.ts` (+ test): row engine `toExportRow`, builders `donorExportRows` / `marriageExportRows` / `staffExportRows`, `chatExportColumns()` (six columns) and `groupChatExportColumns()` (adds `masked_label`, `role_in_group`), `chatExportFilenameBase` (`donor_chat_7`, `support_chat_20`, `marriage_chat_51`, `staff_chat_61`), `chatExportTitle`, loaders for donor and marriage.
+  - Columns: `message_id`, `sent_at` (ISO UTC), `sender_name`, `sender_user_id`, `sender_role` (translated), `body`. Rows are built field by field, so no contact field can reach a file.
+  - Role mapping, verified on main: donor `0` = support (`backend/internal/chat/chat.go:30` RoleSupport; staff replies use it at `handlers/chat.go:563`), otherwise the sender's app role_id (`handlers/chat.go:425`), `1` grantor / `2` recipient / `3` volunteer (`handlers/registration.go:232,299,309`; same keys as `UserPicker.tsx` and `DetailPage.tsx`). Marriage `requester` / `owner` / `staff` (`internal/marriagechat/marriagechat.go:214-216`), staff named "Support" like the page. Staff chat has no role; the sender's staff tier stands in.
+  - Page buttons ("Export conversation") in each conversation header, gated by the module that gates the messages route: `messages` (`main.go:1012`), `marriage` (`main.go:1092`), and `messages` for staff chat (decision D5; the route has no perm gate, `main.go:1084`).
+  - Locales en + ar: `col.{message_id, sent_at, sender_name, sender_user_id, sender_role, masked_label, role_in_group}` and `export.{conversation, load_failed, chat_title, chat_donor, chat_support, chat_marriage, chat_staff, chat_group, role_unknown}`. No Kurdish.
+  - Mock API: `src/test/fixtures/legacyChats.ts` adds a multi-line body with commas and quotes to each system's first thread (messages 7004, 5104, 6103); `scripts/mock-api.test.mjs` pins it; `docs/mock-api.md` says how to check an export by hand.
+  - One page test per page.
+- **`6731167` fix(admin-web): staff chat export includes messages that arrive during the PIN.** From the `ecc:react-reviewer` review: StaffChatPage's `loadRows` had closed over a render-time copy of the messages, so a message the 3 s poll delivered during PIN entry was left out. It now reads a ref holding the newest list, filtered by the thread id captured at click. Tests added for that, for the thread-switch race, and for a download that throws.
+- **This entry.**
+
+**Staff-chat read side effect.** `GET /api/admin/staff-chats/:id/messages` calls `Store.MarkRead` (`handlers/staff_chat.go:162`, `internal/staffchat/staffchat.go:227`). The page already calls it on open and every 3 s, so the export REUSES the loaded messages and sends no GET of its own (pinned by StaffChatPage.test.tsx). The export changes no read state. Donor and marriage routes have no such side effect and are fetched once after the PIN.
+
+**What was run and what it printed** (Node 22.23.1, `PATH=/opt/homebrew/opt/node@22/bin:$PATH`):
+- RED:
+  - all tests written, before `chatExport.ts` and `loadRows` existed: `Tests 9 failed | 6 passed (15)`, with `Failed to resolve import "./chatExport"`, `Unable to find role="button" and name "Export"` for the loadRows cases, and the page tests timing out;
+  - the error-reporting tests before the error fix: `Tests 2 failed | 1 passed (3)`, the DOM showing "Incorrect password — cancelled.";
+  - before the fixture change: `not ok 13 - each legacy chat has a multi-line message body with a comma`;
+  - before the review fix: `AssertionError: expected [ 6101, 6102, 6103 ] to deeply equal [ 6101, 6102, 6103, 6104 ]`.
+- Final, on `c07b9a7`, whose admin-web tree is identical to `6731167` (the later rebase onto `7de9faf` brought only backend and HANDOFF changes); `npm test` re-run on the rebased tree printed `Tests 34 passed (34)` again:
+  - `npm test` → `Test Files 7 passed (7)`, `Tests 34 passed (34)`;
+  - `npx tsc -b` → exit 0;
+  - `npm run build` → exit 0 (only Vite's usual >500 kB chunk warning);
+  - `npm run test:mock-api` → `# tests 24`, `# pass 24`, `# fail 0`;
+  - `npm run check:labels` → exit 1, only the 6 chat-group values (`status.case, created, masked, member_added, member_removed, team`), none from this branch;
+  - `npm run test:nav` → 15 pass;
+  - `npm run check:css-tokens` → `62 tokens read, all defined.`;
+  - `npx eslint` on the 14 changed ts/tsx/mjs files → `✖ 6 problems (6 errors, 0 warnings)`, all `react-hooks/set-state-in-effect` in the three pages' existing polling effects (2 per page; the base versions of those pages give the same 2 each). None new.
+
+**External actions taken:** none. Nothing pushed. OPOS MCP needed OAuth, unavailable in this non-interactive session, so #26397 was not moved or commented on.
+
+**What is still open:**
+- The three commits are local and unpushed.
+- **LOW, pre-existing, not fixed:** ExportCsvButton's dropdown has no roving focus, no arrow-key navigation and no `aria-controls` (reviewer finding).
+- The staff chat page itself can still DISPLAY a late load for the previously selected thread under the newly selected one until the next poll (a pre-existing page race). The export hides itself in that state and never mixes threads (pinned by a test).
+- **E3 (group export) should reuse:** `toExportRow(message, role, { masked_label, role_in_group })`, `groupChatExportColumns()`, `chatExportFilenameBase('group', id)`, `chatExportTitle('group', id)` (`export.chat_group` exists), and `ExportCsvButton` `loadRows` with the after_id paging loop. The `col.masked_label` / `col.role_in_group` keys are already in en and ar.
+
+**Traps:**
+- **Vitest timeout.** A whole-page export test takes ~1.5 s alone but passed Vitest's 5 s default when all files ran in parallel. Each page suite sets `{ timeout: 15_000 }` with a comment.
+- **Poll tests.** Fake ONLY `setInterval` / `clearInterval` (`vi.useFakeTimers({ toFake: [...] })`), so Testing Library's `waitFor` and user-event keep real `setTimeout`.
+- **mockApi replies synchronously.** To model a slow request, wrap its spy through `vi.mocked(api.get).getMockImplementation()` (see `holdFirstLoadOf` in StaffChatPage.test.tsx).
+- **`vi.clearAllMocks()` keeps mock implementations.** A test that replaces one should use `mockImplementationOnce` or `vi.resetAllMocks()`.
+- **FileReader drops the BOM** that `csv.ts` writes, so a test reading the CSV Blob sees text starting at the header row.
+- **Worktree guard.** This harness refuses `git -C ..`, and `awk -v` inside compound commands. Use plain git from the worktree root.
+
+---
+
 ## 2026-09-15 — OPOS #26435 and #26429 (app half): the 1:1 chat names an unnamed staff reply in the reader's language, and group chat notifications get a type label (branch `fix/app-support-name-and-group-notif-label`)
 
 **What was asked:** two Flutter localization fixes on one branch, test-first, in en and ar only.
