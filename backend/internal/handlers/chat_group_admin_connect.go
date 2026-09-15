@@ -89,6 +89,20 @@ func (h *ChatGroupHandler) adminConnectRequestItems(c *gin.Context, requests []c
 	return out
 }
 
+// connectRequestErr prepares a connect-request store error for chatErr. The
+// store reports a missing request with the same ErrNotFound it uses for a
+// missing group, which chatErr would answer "Group not found."; a missing
+// connect request is not a missing group, so that case is wrapped with
+// errConnectRequestNotFound and answers 404 connect_request_not_found with the
+// sentence "Connect request not found." (OPOS #26478). The original error
+// stays in the chain. Every other error passes through unchanged.
+func connectRequestErr(err error) error {
+	if errors.Is(err, chatgroups.ErrNotFound) {
+		return fmt.Errorf("%w: %w", errConnectRequestNotFound, err)
+	}
+	return err
+}
+
 // GET /api/admin/chat-groups/connect-requests — the inbox, newest first,
 // optionally filtered by ?status=pending|approved|declined. Every item is an
 // adminConnectRequestItem.
@@ -120,15 +134,7 @@ func (h *ChatGroupHandler) AdminGetConnectRequest(c *gin.Context) {
 	}
 	req, err := h.Store.GetConnectRequest(c.Request.Context(), id)
 	if err != nil {
-		// A missing connect request is not a missing "Group" — chatErr's
-		// generic ErrNotFound message is shared by every other chat-group
-		// route and stays as-is; only this connect-request-specific case gets
-		// a more accurate message.
-		if errors.Is(err, chatgroups.ErrNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Connect request not found."})
-			return
-		}
-		h.chatErr(c, err)
+		h.chatErr(c, connectRequestErr(err))
 		return
 	}
 	item := h.adminConnectRequestItems(c, []chatgroups.ConnectRequest{req})[0]
@@ -165,11 +171,7 @@ func (h *ChatGroupHandler) AdminApproveConnectRequest(c *gin.Context) {
 	}
 	groupID, err := h.Store.ApproveConnectRequest(c.Request.Context(), id, chatgroups.Kind(req.Kind), req.MemberTitle, user.UserID, members)
 	if err != nil {
-		if errors.Is(err, chatgroups.ErrNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Connect request not found."})
-			return
-		}
-		h.chatErr(c, err)
+		h.chatErr(c, connectRequestErr(err))
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "group_id": groupID})
@@ -196,11 +198,7 @@ func (h *ChatGroupHandler) AdminDeclineConnectRequest(c *gin.Context) {
 		return
 	}
 	if err := h.Store.DeclineConnectRequest(c.Request.Context(), id, user.UserID, req.Reason); err != nil {
-		if errors.Is(err, chatgroups.ErrNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Connect request not found."})
-			return
-		}
-		h.chatErr(c, err)
+		h.chatErr(c, connectRequestErr(err))
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true})
