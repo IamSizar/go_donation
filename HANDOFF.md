@@ -6,6 +6,58 @@
 
 ---
 
+## 2026-09-15 — OPOS #26478: the connect-request "not found" 404 gets a machine code (branch `fix/connect-request-not-found-code`)
+
+**What was asked:** give the admin connect-request not-found 404 (detail, approve, decline) the `code` #107's `chatErr` puts on every other chat-group refusal, so admin-web can use its translated `error.connect_request_not_found`. First move the connect-request inbox out of `chat_group_admin.go` (492 lines), as #111's entry required.
+
+**What was actually changed** (off `origin/main` `3bc5b1d`; not pushed):
+- `5452d17` refactor(chatgroups): move the connect-request inbox handlers into their own file. It is a pure move:
+  - `backend/internal/handlers/chat_group_admin.go` is now 309 lines.
+  - The new `chat_group_admin_connect.go` (207 lines) holds `resolveConnectContext`, `adminConnectRequestItem`, `adminConnectRequestItems` and the list, detail, approve and decline handlers.
+  - A `diff` against `git show HEAD:` showed the moved block is identical; only headers and imports changed.
+  - `chat_group_connect.go`'s header comment now points at the new file.
+- `a4e9181` fix(chatgroups): give the connect-request not-found 404 its machine code.
+  - The store uses one `chatgroups.ErrNotFound` for groups, members and connect requests, and has no connect-request sentinel, so the store is unchanged.
+  - `chat_group.go` has a new handler-level `errConnectRequestNotFound`, entered in `chatErrResponses` BEFORE `ErrNotFound`: 404, `"Connect request not found."`, `connect_request_not_found`.
+  - `connectRequestErr` (in `chat_group_admin_connect.go`) wraps a store `ErrNotFound` as `fmt.Errorf("%w: %w", errConnectRequestNotFound, err)`. The three handlers call `h.chatErr(c, connectRequestErr(err))` instead of answering inline. No other refusal changed.
+  - New test file `backend/internal/handlers/chat_group_connect_not_found_test.go`:
+    - `TestConnectRequestErr_MapsOnlyNotFound`, which needs no DB;
+    - `TestAdminConnectRequest_MissingRequestCarriesItsCode`, which uses the real routes with valid approve and decline bodies.
+- New body: `404 {"success":false,"error":"Connect request not found.","code":"connect_request_not_found"}`.
+
+**What was run and what it printed** (from `backend/`):
+- After the move: `go build ./...` and `go vet ./...` were ok. `gofmt -l internal/handlers/` listed only `admin_edit_user_profile.go`, which is untouched and pre-existing.
+- **RED**, on DB `godonation_26478_red`: `--- FAIL: TestAdminConnectRequest_MissingRequestCarriesItsCode (0.53s)`. Detail, approve and decline each printed `code = <nil>, want "connect_request_not_found"`. `TestConnectRequestErr_MapsOnlyNotFound` was written after RED and was never seen failing.
+- **GREEN**, same DB, `-run` new tests plus `TestChatErr_|CarriesItsCode`: `ok …/internal/handlers 6.714s`, all PASS. `gofmt -l` on the changed files printed nothing; build and vet ok.
+- **Package run**, fresh DB `godonation_26478_pkg`: `ok …/internal/chatgroups 18.107s`, `ok …/internal/handlers 46.399s`, exit 0.
+- **`-v` run**, fresh DB `godonation_26478_v`: `-run 'TestConnectRequestErr_MapsOnlyNotFound|TestAdminConnectRequest_MissingRequestCarriesItsCode'` printed `ok …/internal/handlers 7.753s`, with 11 `--- PASS` and 0 `--- SKIP`.
+- **Full suite**, fresh DB `godonation_26478_full`: `go test ./... -count=1 -p 1 -timeout 45m` exited 0.
+  - 22 `ok`, 36 with no test files, 0 `FAIL` or `panic` lines.
+  - `ok …/internal/chatgroups 2.609s`, `ok …/internal/handlers 33.016s`; the last `ok` line was `ok …/internal/users 2.669s`.
+- All four DBs were dropped with `dropdb`, and `psql -lqt` lists no `godonation_26478*` database.
+- **Review:** `ecc:go-reviewer` on `3bc5b1d..HEAD` answered APPROVE, with 0 CRITICAL, 0 HIGH and 0 MEDIUM. It confirmed:
+  - the move is pure;
+  - the table order is correct;
+  - `connectRequestErr` cannot mislabel another not-found;
+  - the tests reuse the shared helpers.
+
+  It raised one LOW nit, about where `connectRequestErr` lives. It was left as is, by the coordinator's decision.
+
+**External actions:** none. Nothing was pushed and no PR was opened. OPOS was not touched from this session; the coordinator tracks it.
+
+**Still open:**
+- Push the branch and open a PR.
+- Inline chat-group refusals that still lack a `code`:
+  - 401 `Unauthorized.` on every handler.
+  - The 400s: `Invalid JSON.`, `kind and at least one member are required.`, `user_id is required.`, `Invalid user id.`, `Message body is required.`, `A decline reason is required.`, and the mobile submit's 400.
+  - The `Database error.` 500s on the group list, messages, contact blocks, the connect-request list, and the mobile list, mark-read and my-requests routes.
+
+**Traps:**
+- The worktree isolation hook refused a `git add && git commit -F - <<EOF … && git log` chain even though the same shape had worked minutes earlier. Write the message to a file and run `git add`, `git commit -F file` and `git log` as separate commands.
+- `ErrNotFound` is shared across groups, members and connect requests. Any handler that needs a more specific not-found must wrap it with its own sentinel listed before `ErrNotFound` in `chatErrResponses`. Do not add a second inline 404.
+
+---
+
 ## 2026-09-15 — OPOS #26473: notification_tile.dart split under the 500-line limit, no behaviour change (branch `refactor/split-notification-tile`)
 
 **What was asked:** `humanitarian/lib/modules/notifications/widgets/notification_tile.dart` had 704 lines against the 500-line limit. The request was to move the self-contained chat request Accept / Decline widget into its own file, keep #106's guest guard and every comment, and split further if the file was still too long. It was a pure refactor.
