@@ -810,14 +810,17 @@ func main() {
 			// donor/beneficiary/volunteer coordination, real-name volunteer
 			// teams). Group creation/membership is admin-only (below);
 			// mobile only reads and posts into groups a member already has.
-			authed.GET("/chat-groups", chatGroupH.List)
-			authed.GET("/chat-groups/:id/messages", chatGroupH.Messages)
+			// OPOS #26347 — guests are refused on the READ routes too, not
+			// only the writes: the server must not rely on the app hiding
+			// these screens from a guest session.
+			authed.GET("/chat-groups", auth.RequireNotGuest(), chatGroupH.List)
+			authed.GET("/chat-groups/:id/messages", auth.RequireNotGuest(), chatGroupH.Messages)
 			authed.POST("/chat-groups/:id/messages", auth.RequireNotGuest(), chatGroupH.PostMessage)
 			authed.POST("/chat-groups/:id/read", auth.RequireNotGuest(), chatGroupH.MarkRead)
 
 			// OPOS #25284 Phase 3 — connect requests (request to join a group).
 			authed.POST("/chat-groups/connect-requests", auth.RequireNotGuest(), chatGroupH.SubmitConnectRequest)
-			authed.GET("/chat-groups/connect-requests/mine", chatGroupH.MyConnectRequests)
+			authed.GET("/chat-groups/connect-requests/mine", auth.RequireNotGuest(), chatGroupH.MyConnectRequests)
 
 			// "Eighth: Sponsorship Schedule and Calendar" — the entitlement
 			// tracking screen (upcoming / due / overdue / history).
