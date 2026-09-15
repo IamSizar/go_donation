@@ -50,9 +50,10 @@ class ChatThread {
       myRole: (m['my_role'] ?? '').toString(),
       incomingPending: m['incoming_pending'] == true,
       otherUserId: int.tryParse('${m['other_user_id']}') ?? 0,
-      otherName: (m['other_name'] ?? 'User').toString().trim().isEmpty
-          ? 'User #${m['other_user_id']}'
-          : (m['other_name']).toString(),
+      // Only the server's trimmed name, or '' — no fallback words here
+      // (OPOS #26483). The screen names an unnamed other party in the
+      // reader's language through `chatThreadOtherName`.
+      otherName: (m['other_name'] ?? '').toString().trim(),
       otherPhone: m['other_phone']?.toString(),
       lastMessage: m['last_message']?.toString(),
       lastMessageAt: DateTime.tryParse((m['last_message_at'] ?? '').toString()),

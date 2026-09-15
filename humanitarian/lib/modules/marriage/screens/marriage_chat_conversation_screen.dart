@@ -353,7 +353,10 @@ class _Bubble extends StatelessWidget {
                     mine
                         ? 'marriage_chat_you'.tr
                         : isStaff
-                        ? 'Support'.tr
+                        // The support team (فريق الدعم), never the bare
+                        // 'Support' key, whose Arabic الدعم means Kafala
+                        // (TERMINOLOGY.md T10, OPOS #26483).
+                        ? 'chat_group_sender_support'.tr
                         : 'marriage_chat_other_party'.tr,
                     style: TextStyle(
                       fontSize: 11,
