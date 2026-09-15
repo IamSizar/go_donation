@@ -6,6 +6,10 @@
  *     permission matrix allows exporting the `messages` module (decision D5).
  *   - The export REUSES the messages the page already loaded and makes no GET
  *     of the messages route of its own.
+ *   - It still exports the LATEST messages: one the poll delivers while the
+ *     PIN dialog is open is in the file.
+ *   - A late load for the previously selected thread never puts that thread's
+ *     messages in the file of the thread switched to.
  *
  * WHY REUSE MATTERS HERE
  * GET /api/admin/staff-chats/:id/messages marks the thread read for the caller
@@ -14,18 +18,25 @@
  * after, so re-fetching for the export would only move the read marker again.
  * Reusing the loaded rows keeps the export free of any read-state change.
  *
+ * TIMERS
+ * The two poll tests fake setInterval and clearInterval ONLY, so each test
+ * decides when the page's 3 s poll runs, while the setTimeout that
+ * Testing Library's waitFor and user-event rely on stays real.
+ *
  * The staff member is an employee, whose tier fallback refuses exports, so only
  * the matrix can show the button; the refusing matrix grants `marriage` export,
  * so a page gated on the wrong module fails. See MessagesPage.test.tsx for why
  * lib/csv and askForText are mocked.
  */
-import { screen, waitFor } from '@testing-library/react'
+import { act, screen, waitFor } from '@testing-library/react'
 import userEvent, { type UserEvent } from '@testing-library/user-event'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { AxiosRequestConfig } from 'axios'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import StaffChatPage from './StaffChatPage'
+import { api } from '../lib/api'
 import { downloadCsv } from '../lib/csv'
 import { askForText } from '../lib/dialogs'
-import { STAFF_MESSAGES, STAFF_THREADS } from '../test/fixtures/legacyChats'
+import { STAFF_MESSAGES, STAFF_THREADS, type StaffMessage } from '../test/fixtures/legacyChats'
 import { MOCK_STAFF_USER } from '../test/fixtures/session'
 import { mockApi, type MockApi } from '../test/mockApi'
 import { renderWithProviders } from '../test/render'
@@ -50,7 +61,13 @@ const VERIFY_URL = '/api/admin/verify-password'
 const THREAD = STAFF_THREADS[0]
 const MESSAGES = STAFF_MESSAGES[THREAD.id]
 const MESSAGES_URL = `/api/admin/staff-chats/${THREAD.id}/messages`
+const OTHER_THREAD = STAFF_THREADS[1]
+const OTHER_MESSAGES = STAFF_MESSAGES[OTHER_THREAD.id]
+const OTHER_MESSAGES_URL = `/api/admin/staff-chats/${OTHER_THREAD.id}/messages`
 const EMPLOYEE = { ...MOCK_STAFF_USER, staff_tier: 'employee' }
+
+/** How often StaffChatPage reloads the open conversation. */
+const POLL_INTERVAL_MS = 3000
 
 /**
  * A whole page, a thread click, the menu and the PIN take about 1.5 s alone,
@@ -58,7 +75,22 @@ const EMPLOYEE = { ...MOCK_STAFF_USER, staff_tier: 'employee' }
  */
 const PAGE_TEST_TIMEOUT_MS = 15_000
 
+/** A message the poll delivers while the operator is still typing the PIN. */
+const LATE_MESSAGE: StaffMessage = {
+  id: 6104,
+  thread_id: THREAD.id,
+  sender_user_id: 2,
+  sender_name: 'Ahmed Faris',
+  body: 'One more: the Basra roster is final too.',
+  created_at: '2026-09-15T09:20:00Z',
+}
+
 type Matrix = Record<string, Record<string, boolean>>
+
+const EXPORT_ALLOWED: Matrix = {
+  messages: { view: true, export: true },
+  marriage: { view: true, export: false },
+}
 
 // ─── Helpers ───
 
@@ -68,6 +100,7 @@ function serveStaffChats(permissions: Matrix): MockApi {
     .on('get', ME_URL, { data: { success: true, tier: 'employee', permissions } })
     .on('get', '/api/admin/staff-chats', { data: { success: true, items: STAFF_THREADS } })
     .on('get', MESSAGES_URL, { data: { success: true, items: MESSAGES } })
+    .on('get', OTHER_MESSAGES_URL, { data: { success: true, items: OTHER_MESSAGES } })
     .on('post', VERIFY_URL, { data: { success: true, ok: true } })
 }
 
@@ -77,8 +110,67 @@ async function openConversation(user: UserEvent): Promise<void> {
   await screen.findByText(MESSAGES[0].body)
 }
 
+/** Opens the export menu of the open conversation and picks CSV. */
+async function exportAsCsv(user: UserEvent): Promise<void> {
+  await user.click(await screen.findByRole('button', { name: 'Export conversation' }))
+  await user.click(screen.getByRole('menuitem', { name: 'CSV' }))
+}
+
+/** The message ids the (mocked) CSV download received. */
+function exportedIds(): number[] {
+  const [, rows] = vi.mocked(downloadCsv).mock.calls[0]
+  return (rows as { message_id: number }[]).map((r) => r.message_id)
+}
+
+/**
+ * Keeps the PIN dialog open until the test confirms it.
+ *
+ * @returns the function that types the PIN and confirms.
+ */
+function holdPinDialog(): (pin: string) => void {
+  let confirm: (answer: string | null) => void = () => {}
+  vi.mocked(askForText).mockImplementation(
+    () => new Promise<string | null>((resolve) => { confirm = resolve }),
+  )
+  return (pin) => confirm(pin)
+}
+
+/**
+ * Holds the FIRST GET of `url` until the returned function is called, then
+ * answers it with what mockApi has registered; every other GET answers at
+ * once. mockApi replies synchronously, so its spy is wrapped to model a slow
+ * request.
+ *
+ * @returns the function that lets the held request land.
+ */
+function holdFirstLoadOf(url: string): () => void {
+  const answer = vi.mocked(api.get).getMockImplementation()!
+  let release: () => void = () => {}
+  const released = new Promise<void>((resolve) => { release = resolve })
+  let held = false
+  vi.mocked(api.get).mockImplementation(((path: string, config?: AxiosRequestConfig) => {
+    if (path !== url || held) return answer(path, config)
+    held = true
+    return released.then(() => answer(path, config))
+  }) as typeof api.get)
+  return () => release()
+}
+
+/** Runs the page's conversation poll once. */
+async function runPoll(): Promise<void> {
+  await act(async () => {
+    vi.advanceTimersByTime(POLL_INTERVAL_MS)
+  })
+}
+
+// Reset, not just clear: tests replace askForText's and downloadCsv's
+// implementations, and a leftover one would answer the next test.
 beforeEach(() => {
-  vi.clearAllMocks()
+  vi.resetAllMocks()
+})
+
+afterEach(() => {
+  vi.useRealTimers()
 })
 
 // ─── Tests ───
@@ -88,10 +180,7 @@ describe('StaffChatPage conversation export', { timeout: PAGE_TEST_TIMEOUT_MS },
     // Arrange: the download records how many requests had been made when it ran.
     const user = userEvent.setup()
     vi.mocked(askForText).mockResolvedValue('1234')
-    const server = serveStaffChats({
-      messages: { view: true, export: true },
-      marriage: { view: true, export: false },
-    })
+    const server = serveStaffChats(EXPORT_ALLOWED)
     let callsAtDownload = -1
     vi.mocked(downloadCsv).mockImplementation(() => {
       callsAtDownload = server.calls.length
@@ -100,8 +189,7 @@ describe('StaffChatPage conversation export', { timeout: PAGE_TEST_TIMEOUT_MS },
     await openConversation(user)
 
     // Act
-    await user.click(await screen.findByRole('button', { name: 'Export conversation' }))
-    await user.click(screen.getByRole('menuitem', { name: 'CSV' }))
+    await exportAsCsv(user)
 
     // Assert: no GET of the messages route between the PIN and the download,
     // so the export moved no read marker.
@@ -145,5 +233,60 @@ describe('StaffChatPage conversation export', { timeout: PAGE_TEST_TIMEOUT_MS },
     // Assert
     expect(server.callsTo('get', ME_URL).length).toBeGreaterThan(0)
     expect(screen.queryByRole('button', { name: 'Export conversation' })).not.toBeInTheDocument()
+  })
+
+  it('includes a message the poll delivers while the PIN dialog is still open', async () => {
+    // Arrange: the operator starts the export, and the PIN dialog stays open.
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
+    const user = userEvent.setup()
+    const confirmPin = holdPinDialog()
+    const server = serveStaffChats(EXPORT_ALLOWED)
+    renderWithProviders(<StaffChatPage />, { user: EMPLOYEE })
+    await openConversation(user)
+    await exportAsCsv(user)
+    await waitFor(() => expect(askForText).toHaveBeenCalledTimes(1))
+
+    // Act: the poll brings a new message, then the operator confirms the PIN.
+    server.on('get', MESSAGES_URL, { data: { success: true, items: [...MESSAGES, LATE_MESSAGE] } })
+    await runPoll()
+    expect(await screen.findByText(LATE_MESSAGE.body)).toBeInTheDocument()
+    await act(async () => confirmPin('1234'))
+
+    // Assert
+    await waitFor(() => expect(downloadCsv).toHaveBeenCalledTimes(1))
+    expect(exportedIds()).toEqual([...MESSAGES, LATE_MESSAGE].map((m) => m.id))
+  })
+
+  it("never puts the previous thread's messages in the export of the thread switched to", async () => {
+    // Arrange: thread 61's first load is slow.
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
+    const user = userEvent.setup()
+    vi.mocked(askForText).mockResolvedValue('1234')
+    serveStaffChats(EXPORT_ALLOWED)
+    const releaseFirstLoad = holdFirstLoadOf(MESSAGES_URL)
+    renderWithProviders(<StaffChatPage />, { user: EMPLOYEE })
+
+    // Act: open 61, switch to 62 before 61 loads; 62 loads and can be exported.
+    await user.click(await screen.findByRole('button', { name: /^Ahmed Faris/ }))
+    await user.click(screen.getByRole('button', { name: /^Zainab Kadhim/ }))
+    expect(await screen.findByRole('button', { name: 'Export conversation' })).toBeInTheDocument()
+
+    // Act: 61's slow load lands now and replaces the list while 62 is open.
+    await act(async () => releaseFirstLoad())
+    expect(await screen.findByText(MESSAGES[0].body)).toBeInTheDocument()
+
+    // Assert: nothing is offered while the list holds only another thread's rows.
+    expect(screen.queryByRole('button', { name: 'Export conversation' })).not.toBeInTheDocument()
+
+    // Act: the next poll reloads 62, and the operator exports it.
+    await runPoll()
+    await waitFor(() => expect(screen.queryByText(MESSAGES[0].body)).not.toBeInTheDocument())
+    await exportAsCsv(user)
+
+    // Assert: the file is thread 62's, and holds thread 62's messages only.
+    await waitFor(() => expect(downloadCsv).toHaveBeenCalledTimes(1))
+    const [filename] = vi.mocked(downloadCsv).mock.calls[0]
+    expect(filename).toMatch(/^staff_chat_62-\d{4}-\d{2}-\d{2}\.csv$/)
+    expect(exportedIds()).toEqual(OTHER_MESSAGES.map((m) => m.id))
   })
 })

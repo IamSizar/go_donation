@@ -203,6 +203,29 @@ describe('ExportCsvButton with loadRows', () => {
     expect(loadRows).not.toHaveBeenCalled()
     expect(downloadCsv).not.toHaveBeenCalled()
   })
+
+  it('reports a download that throws with the generic line, and with nothing else', async () => {
+    // Arrange: the PIN is accepted and the rows load, but building the file
+    // throws. Once, so the throw cannot reach another test.
+    const user = userEvent.setup()
+    serverAllowingExport().on('post', VERIFY_URL, PIN_ACCEPTED)
+    vi.mocked(askForText).mockResolvedValue('1234')
+    vi.mocked(downloadCsv).mockImplementationOnce(() => {
+      throw new Error('Blob construction failed')
+    })
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    renderWithProviders(
+      <ExportCsvButton loadRows={async () => ROWS} columns={COLUMNS} filenameBase="conversation" module="messages" />,
+    )
+
+    // Act
+    await chooseFormat(user, 'CSV')
+
+    // Assert: one toast, the generic line; the detail goes to the console.
+    expect(await screen.findByText('Something went wrong. Please try again.')).toBeInTheDocument()
+    expect(screen.getAllByRole('status')).toHaveLength(1)
+    expect(consoleError).toHaveBeenCalledWith('ExportCsvButton: building the export file failed', expect.any(Error))
+  })
 })
 
 // ─── rows mode ───

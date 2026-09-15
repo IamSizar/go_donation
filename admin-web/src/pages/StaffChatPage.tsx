@@ -4,6 +4,12 @@
  * Staff Member, or any other staff pair). Never reachable by app users —
  * these routes require a valid dashboard session and are open to every
  * staff tier, not gated by a business-module permission.
+ *
+ * EXPORT (OPOS #26397). The open conversation exports the messages already on
+ * screen and never fetches them again, because this page's messages route
+ * marks the thread read. It still exports the LATEST of them: the rows are
+ * read when the export runs, after the PIN, not when the button rendered.
+ * StaffConversationExport below has the details.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, describeError } from '../lib/api'
@@ -20,29 +26,44 @@ const CONVERSATION_EXPORT_COLUMNS = chatExportColumns()
 /**
  * The open staff conversation's export button, gated by messages export (D5).
  *
- * It REUSES the messages this page already loaded instead of fetching them
- * again. GET /api/admin/staff-chats/:id/messages marks the thread read for the
- * caller (handlers/staff_chat.go Messages → staffchat.Store.MarkRead), and the
- * page already sends it when the thread opens and every 3 s after, so the
- * export itself changes no read state.
+ * NO RE-FETCH. It exports the messages this page already holds instead of
+ * loading them again. GET /api/admin/staff-chats/:id/messages marks the thread
+ * read for the caller (handlers/staff_chat.go Messages → staffchat.Store.MarkRead),
+ * and the page already sends it when the thread opens and every 3 s after, so
+ * the export itself changes no read state.
  *
- * Rows are filtered to this thread, because a load for the previously selected
- * thread can land after the switch. Nothing is offered until this thread's
- * messages are here: a file of nothing, or of rows not loaded yet, would mislead.
+ * BUT THE LATEST ROWS. The rows are read when the export runs, after the PIN,
+ * not when the button rendered. Typing a PIN takes a while and the poll keeps
+ * landing meanwhile, so a copy taken at render time would silently leave out
+ * every message that arrived during the PIN. `latestMessages` always holds the
+ * page's newest list.
+ *
+ * ONE THREAD ONLY. Rows are filtered to the thread that was open when the
+ * operator clicked Export, because a load for the previously selected thread
+ * can land after a switch and replace the list. Nothing is offered while the
+ * list holds none of this thread's messages: a file of nothing, or of another
+ * thread's rows, would mislead.
  */
 function StaffConversationExport({ thread, messages }: { thread: StaffThread; messages: StaffMessage[] }) {
   const { t } = useI18n()
   const { user } = useAuth()
-  const own = messages.filter((m) => m.thread_id === thread.id)
-  if (own.length === 0 || !user) return null
+  const latestMessages = useRef(messages)
+  useEffect(() => {
+    latestMessages.current = messages
+  }, [messages])
+  if (!user || !messages.some((m) => m.thread_id === thread.id)) return null
+  const threadId = thread.id
   // Staff chat has no sender role; each sender's tier stands in for one.
   const parties = [
     { user_id: thread.other_user_id, staff_tier: thread.other_staff_tier },
     { user_id: user.user_id, staff_tier: user.staff_tier },
   ]
+  // Runs after the PIN; reads the newest list, never this render's copy.
+  const loadRows = async () =>
+    staffExportRows(latestMessages.current.filter((m) => m.thread_id === threadId), parties)
   return (
     <ExportCsvButton
-      loadRows={async () => staffExportRows(own, parties)}
+      loadRows={loadRows}
       columns={CONVERSATION_EXPORT_COLUMNS}
       filenameBase={chatExportFilenameBase('staff', thread.id)}
       title={chatExportTitle('staff', thread.id)}
