@@ -1,5 +1,16 @@
+/**
+ * ExportCsvButton.tsx — the export entry point for list pages: one PIN step-up,
+ * then a CSV / Excel / PDF / Word download (lib/csv.ts), gated by the
+ * per-module export permission (lib/permissions.ts).
+ *
+ * Every step reports its own failure. A PIN the server refused says so; a
+ * verify-password request that fails outright (a 500, no network, a 403 "no
+ * password is set") is shown through describeError; a download that throws
+ * gets the generic line. One catch used to turn all of these into "Incorrect
+ * password", which sent operators to retype a password that was never wrong.
+ */
 import { useEffect, useRef, useState } from 'react'
-import { api, canExportData } from '../lib/api'
+import { api, canExportData, describeError } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { askForText } from '../lib/dialogs'
 import { useI18n } from '../lib/i18n'
@@ -79,13 +90,51 @@ export default function ExportCsvButton<T>({
     return true
   }
 
+  // ─── Failure reporting, one step at a time ───
+
+  /**
+   * The PIN step-up. A refused PIN is reported inside verifyPin; a request
+   * that fails outright is reported as what it is.
+   *
+   * @returns true only when the server accepted the PIN.
+   */
+  async function stepUp(): Promise<boolean> {
+    try {
+      return await verifyPin()
+    } catch (e) {
+      toast.error(describeError(e))
+      return false
+    }
+  }
+
+  /**
+   * Builds the file. A throw here is a client-side fault with nothing the
+   * operator can fix, so they get the generic line and the console the detail.
+   */
+  function build(write: () => void): void {
+    try {
+      write()
+    } catch (e) {
+      console.error('ExportCsvButton: building the export file failed', e)
+      toast.error(t('error.unknown'))
+    }
+  }
+
+  /** Hands the rows to the lib/csv writer for the chosen format. */
+  function download(format: Format, data: T[]): void {
+    const date = new Date().toISOString().slice(0, 10)
+    const base = `${filenameBase}-${date}`
+    if (format === 'csv') downloadCsv(`${base}.csv`, data, columns!)
+    else if (format === 'excel') downloadExcel(`${base}.xls`, data, columns!)
+    else if (format === 'word') downloadWord(`${base}.doc`, title ?? filenameBase!, data, columns!)
+    else downloadPdf(title ?? filenameBase!, data, columns!)
+  }
+
   async function runLegacy() {
     if (busy) return
     setBusy(true)
     try {
-      if (await verifyPin()) onExport?.()
-    } catch {
-      toast.error(t('export.pin_incorrect'))
+      if (await stepUp()) build(() => onExport?.())
     } finally {
       setBusy(false)
     }
@@ -96,15 +145,8 @@ export default function ExportCsvButton<T>({
     if (busy || !multi) return
     setBusy(true)
     try {
-      if (!(await verifyPin())) return
-      const date = new Date().toISOString().slice(0, 10)
-      const base = `${filenameBase}-${date}`
-      if (format === 'csv') downloadCsv(`${base}.csv`, rows!, columns!)
-      else if (format === 'excel') downloadExcel(`${base}.xls`, rows!, columns!)
-      else if (format === 'word') downloadWord(`${base}.doc`, title ?? filenameBase!, rows!, columns!)
-      else downloadPdf(title ?? filenameBase!, rows!, columns!)
-    } catch {
-      toast.error(t('export.pin_incorrect'))
+      if (!(await stepUp())) return
+      build(() => download(format, rows!))
     } finally {
       setBusy(false)
     }
