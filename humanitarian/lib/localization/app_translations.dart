@@ -465,6 +465,13 @@ class AppTranslations extends Translations {
     'error_password_setup_failed': 'Could not set your password.',
     'error_message_send_failed': 'Could not send your message.',
     'error_messages_load_failed': 'Could not load this conversation.',
+    // OPOS #26433 — a refused chat-invite answer (chat_invite_refusal.dart).
+    // The accept line takes a recovery clause; the two refusals do not,
+    // because trying again cannot change them.
+    'error_chat_accept_failed': 'Could not accept this chat request.',
+    'chat_invite_refusal_declined': 'You declined this invitation.',
+    'chat_invite_refusal_already_active':
+        'This chat is already active, so it can no longer be declined.',
     // An empty chat staff closed before anyone wrote: no "say hello" invite,
     // because nothing can be sent into it.
     'chat_group_closed_empty_title': 'No messages here',
@@ -3644,6 +3651,10 @@ class AppTranslations extends Translations {
     'error_password_setup_failed': 'تعذّر تعيين كلمة المرور.',
     'error_message_send_failed': 'تعذّر إرسال رسالتك.',
     'error_messages_load_failed': 'تعذّر تحميل هذه المحادثة.',
+    'error_chat_accept_failed': 'تعذّر قبول طلب المحادثة.',
+    'chat_invite_refusal_declined': 'لقد رفضتَ هذه الدعوة.',
+    'chat_invite_refusal_already_active':
+        'هذه المحادثة نشطة بالفعل، لذا لم يعد بالإمكان رفضها.',
     'chat_group_closed_empty_title': 'لا توجد رسائل هنا',
     'chat_group_closed_empty_message':
         'أُغلقت هذه المحادثة قبل إرسال أي رسالة.',

@@ -6,6 +6,87 @@
 
 ---
 
+## 2026-09-15 — OPOS #26433: refused chat-invite answers show accurate copy, and closed chats offer no Accept (branch `fix/app-chat-invite-refusal-copy`)
+
+**What was asked:** fix the app's chat-invite refusals, test first:
+- The marriage chat screen showed the send-failure line for a refused accept or decline.
+- The notification tile's `ChatRequestActions` showed a failed accept as raw `'$e'`, and a failed decline said nothing.
+- Accept stayed visible on paused or ended threads.
+
+**Findings the fix rests on** (read on `origin/main` `bbc6aa2`):
+- **Accept refusals.** Both `chatErr` switches (`backend/internal/handlers/chat.go`, `marriage_chat.go`) and `refuseIfInviteClosed` answer:
+  - paused or ended → 409 `chat_lifecycle_closed`, with `lifecycle` and `lifecycle_reason`;
+  - archived → a bare 404;
+  - declined → 409 `chat_invite_declined`.
+- **Decline on an active chat** is an UNCODED 409. Both `DeclineThread` updates are guarded by `WHERE status IN ('pending','declined')` and return `ErrNotPending`, which is the only 409 either decline route returns. So the status identifies it without reading the English sentence.
+- **The donor conversation screen has no Accept/Decline at all.** The donor answers live in `ChatRequestActions` and the Messages tab's `_IncomingRequestCard`, and both showed `'$e'` on accept.
+- **`/api/chats` already sends `lifecycle` per thread** (`chat.go` ThreadSummary); `ChatThread` just did not parse it.
+- **`_trackEvent` tracks no chat path**, so moving the four answer calls off `postJson` loses no analytics.
+
+**What was actually changed.** Two commits on `fix/app-chat-invite-refusal-copy`, not pushed:
+
+**`7bf2ae6` `fix(chat): accurate copy for refused chat-invite answers, no Accept on closed chats`**
+- `lib/api/module_api.dart`:
+  - `ApiCodedException` gains `statusCode` (default 0) and `payload` (default `{}`), so the K14 callers are unchanged.
+  - `acceptMarriageChat`/`declineMarriageChat` now use `_sendCodedJson`.
+  - New `acceptChat`/`declineChat` for the donor chat.
+- `lib/modules/chat/utils/chat_invite_refusal.dart` (new): `classifyChatInviteRefusal` and `chatInviteRefusalMessage`.
+  - The closed copy reuses the lifecycle notice's "...closed/paused by our team." keys, plus `Reason: <staff reason>`.
+  - The generic line is `failureMessage` with `error_chat_accept_failed` or the existing `Could not decline this chat request.`
+  - It never renders the exception text.
+- `chat_models.dart`: `ChatThread.lifecycle` (optional, defaults to `open`). The `'User #'` fallback, which #26483 owns, was not touched.
+- `chat_controller.dart`: `accept`/`decline` call the coded API and refresh threads in `finally`, so a refused invite's stale buttons go.
+- **`ChatRequestActions`:** a refusal shows the mapped SnackBar and settles the row:
+  - declined → Declined;
+  - already active → Accepted;
+  - closed → Accept removed, Decline kept;
+  - anything else → both buttons re-enabled.
+
+  Accept is also hidden when the loaded list reports the thread closed.
+- `messages_screen.dart` `_IncomingRequestCard`: mapped copy for accept and decline, and no Accept on a closed thread.
+- **Marriage chat screen:** `_decide(ChatInviteAnswer)` maps the refusal, sets `_acceptClosed` or `_status = 'declined'`, then reloads silently.
+  - The pending-owner row moved to the new `lib/modules/marriage/widgets/marriage_chat_invite_bar.dart` (`canAccept`), which keeps the screen at 482 lines, under 500.
+  - The `'Support'.tr` label was not touched.
+- **Keys and docs:** 3 en+ar keys in `app_translations.dart`, and a new `TRANSLATION_REQUEST.md` section, "chat · OPOS #26433 chat invite refusals (3 keys)".
+- `test/support/fake_http.dart`: an optional per-request `respond` returning `FakeHttpAnswer`. Null keeps every existing behaviour.
+- **New tests:**
+  - `test/modules/chat/chat_invite_refusal_test.dart` (unit, en + ar);
+  - `test/modules/marriage/marriage_chat_invite_refusal_test.dart` (6 widget tests);
+  - `test/notifications/chat_request_actions_refusal_test.dart` (5 widget tests).
+
+**`a78e8ab`** merges `origin/main` `3e094c6` (#119, #120 and the #26483 app half). Only `TRANSLATION_REQUEST.md` conflicted; both sides were kept, and the count and Total went from main's 536 to **539**.
+
+**This entry** is the third commit.
+
+**What was run and what it printed** (from `humanitarian/`):
+- **Baseline:** `flutter analyze` printed `6 issues found.`
+- **RED:** `flutter test` on the two widget files gave `00:03 +1 -10: Some tests failed.`, failing on assertions (`Actual: <false>` / `<1>`). The one pass was the open-invite accept, which already worked. The unit file failed to compile: `Error when reading 'lib/modules/chat/utils/chat_invite_refusal.dart': No such file or directory`.
+- **GREEN:** the three new files, plus `chat_request_tile_guest_test.dart`, `messages_stale_threads_test.dart` and `test/localization`, gave `00:08 +191: All tests passed!`
+- **Pre-merge full suite:** `flutter test` gave `01:11 +1064: All tests passed!`
+- **After the merge:** `flutter analyze` printed `6 issues found. (ran in 30.2s)`, and the full `flutter test` gave `02:48 +1064: All tests passed!`.
+
+**Review:** `ecc:flutter-reviewer` returned REQUEST CHANGES, with one HIGH and one LOW.
+- **HIGH:** it claimed `DeclineThread` never checks status, so the "already active" 409 would be unreachable. This is a **false positive**: `backend/internal/chat/chat.go:271` and `backend/internal/marriagechat/marriagechat.go:313` both guard `status IN ('pending','declined')` and return `ErrNotPending` (lines 276 and 318). No change was made.
+- **LOW:** `messages_screen.dart` (722 lines) and `module_api.dart` were already over 500 lines. Not acted on, per the coordinator (CRITICAL/HIGH only).
+
+Everything else it checked came back clean: no exception masking in `_answer`, safe casts, mounted checks, non-vacuous tests.
+
+**Guest guard:** no `assert(!isGuestMode())` was added to `ChatRequestActions`. It was optional, the call-site guard already exists, and #26483 is editing nearby, so it was left out.
+
+**External actions:** none. Nothing was pushed and there is no PR.
+
+**Still open:**
+- All three commits are local.
+- `messages_screen.dart` and `module_api.dart` are still over the 500-line limit.
+- There is no widget test for the Messages tab card. It shares the unit-tested mapping.
+
+**Traps:**
+- **`Locale('ar', 'IQ')` is the SORANI map in this app**, and Arabic is `ar_SA` (`AppTranslations.keys`). An Arabic assertion under `ar_IQ` fails with Kurdish text.
+- **`chat_controller.dart` and `app_translations.dart` were already not `dart format`-clean on main.** Formatting them reflows unrelated lines and invites conflicts, so only the touched, previously clean files were formatted.
+- **The worktree guard refuses shell loops and `cd` + git compounds.** Use plain `git -C <abs>` and one command per call.
+
+---
+
 ## 2026-09-15 — OPOS #26483 (app half): no English "User #" or bare الدعم in chats (branch `fix/app-chat-english-fallbacks`)
 
 **What was asked:** remove the two app-side fallbacks the #109 agent found, one English and one the wrong Arabic word, following #109's display-time pattern. The push half is the separate branch `fix/support-push-title-localized`.

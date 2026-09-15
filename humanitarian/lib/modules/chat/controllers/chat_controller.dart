@@ -86,14 +86,25 @@ class ChatController extends GetxController {
     );
   }
 
-  Future<void> accept(int threadId) async {
-    await const ModuleApi().postJson(chatAcceptUrl(threadId), {});
-    await fetchThreads(silent: true);
-  }
+  /// Accepts the invite [threadId], then refreshes the list.
+  ///
+  /// Throws the API's [ApiCodedException] on a refusal, so the caller can
+  /// pick its copy (chat_invite_refusal.dart). The list is refreshed on a
+  /// refusal too: a declined, active or closed thread must not keep offering
+  /// buttons that were just refused (OPOS #26433).
+  Future<void> accept(int threadId) =>
+      _answer(() => const ModuleApi().acceptChat(threadId));
 
-  Future<void> decline(int threadId) async {
-    await const ModuleApi().postJson(chatDeclineUrl(threadId), {});
-    await fetchThreads(silent: true);
+  /// Declines the invite [threadId]; see [accept].
+  Future<void> decline(int threadId) =>
+      _answer(() => const ModuleApi().declineChat(threadId));
+
+  Future<void> _answer(Future<Object?> Function() call) async {
+    try {
+      await call();
+    } finally {
+      await fetchThreads(silent: true);
+    }
   }
 }
 
