@@ -66,11 +66,10 @@ describe('ContactBlocksPanel', () => {
     expect(screen.queryByText('Database error.')).not.toBeInTheDocument()
 
     // Act: the server recovers, then the operator retries. The button is found
-    // by role rather than by its label: the component asks for `common.retry`,
-    // which no locale file defines (only `error.retry` exists), so today it
-    // renders the raw key. Pin the visible label here once that key exists.
+    // by its visible label, which pins `common.retry`: before that key existed
+    // the button printed the raw key "common.retry".
     api.on('get', BLOCKS_URL, { data: { success: true, items: [PHONE_BLOCK] } })
-    await user.click(within(panel()).getByRole('button'))
+    await user.click(within(panel()).getByRole('button', { name: 'Try again' }))
 
     // Assert
     expect(await screen.findByText('Call me on ••• after the delivery')).toBeInTheDocument()

@@ -741,6 +741,8 @@ const ar: DeepPartial<typeof en> = {
     new: 'جديد',
     saving: 'جارٍ الحفظ…',
     loading: 'جارٍ التحميل…',
+    // زر إعادة المحاولة بجانب أي تحميل فشل. نفس صياغة error.retry.
+    retry: 'إعادة المحاولة',
     applying: 'جارٍ التطبيق…',
     uploading: 'جارٍ الرفع…',
     export_csv: 'تصدير CSV',
@@ -1598,6 +1600,13 @@ const ar: DeepPartial<typeof en> = {
     volunteer_mission_rejected: 'رفض الانضمام لمهمة',
     wallet_topup: 'شحن المحفظة',
     user: 'مستخدم',
+    // المجموعات الحوارية: قيم CHECK في الترحيلين 120 و122 (راجع التعليق في en.ts).
+    masked: 'بأسماء مستعارة',
+    team: 'فريق',
+    case: 'حالة',
+    created: 'تم الإنشاء',
+    member_added: 'إضافة عضو',
+    member_removed: 'إزالة عضو',
   },
 
   board: {

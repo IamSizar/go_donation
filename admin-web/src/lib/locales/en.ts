@@ -771,6 +771,11 @@ const en = {
     new: 'New',
     saving: 'Saving…',
     loading: 'Loading…',
+    // The label on the Retry button beside a failed load (ContactBlocksPanel,
+    // EditModal, ChatGroupsPage). Components asked for this key long before it
+    // existed, so they printed "common.retry". Same words as error.retry,
+    // which Table's error row uses, so every Retry button reads alike.
+    retry: 'Try again',
     applying: 'Applying…',
     uploading: 'Uploading…',
     export_csv: 'Export CSV',
@@ -1725,6 +1730,18 @@ const en = {
     volunteer_mission_rejected: 'Mission join rejected',
     wallet_topup: 'Wallet top-up',
     user: 'User',
+    // Chat groups: CHECK values from migrations 120 and 122, which
+    // check-labels enumerates.
+    //   masked / team — chat_groups.kind, printed as the list page's badge.
+    //   case — chat_group_connect_requests.context_type ('donation' is
+    //     labelled above as a contribution).
+    //   created / member_added / member_removed — chat_group_audit_log.action.
+    masked: 'Masked',
+    team: 'Team',
+    case: 'Case',
+    created: 'Created',
+    member_added: 'Member added',
+    member_removed: 'Member removed',
   },
 
   // Volunteer board (Kanban).
