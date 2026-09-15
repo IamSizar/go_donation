@@ -8,6 +8,27 @@
 
 ## 2026-09-15 — OPOS #26398 (Phase 6a): admin-web Chat Groups page, create dialog and error map (branch `feat/admin-chat-groups-list`)
 
+**Follow-up (same day): main merged in.** `origin/main` (`3bc5b1d`, which includes #109–#112) was merged, not rebased, in `22adc5e`.
+- **Conflicts:**
+  - `TRANSLATION_REQUEST.md`: both rows kept; the count is now 536 (main's 468 plus 68).
+  - `HANDOFF.md`: both entries kept, this one on top.
+  - `en.ts`, `ar.ts` and `mock-api.test.mjs` merged by themselves.
+- **Follow-up commit (see the SHA in `git log`):**
+  - The merged `scripts/mock-api.test.mjs` came to 516 lines. The chat-group cases moved to `scripts/mock-api-chat-groups.test.mjs`, the shared `startMock` to `scripts/mock-api-test-helpers.mjs`, and `test:mock-api` now runs both files.
+  - The mock detail route now serves the #111 fields: `full_name` on each member (from the users fixture), and `lifecycle`, `lifecycle_reason` and `is_archived` beside `group`. `chatGroupsApi.getGroup` folds those three into the group it returns.
+  - RED was 1 failing of 32; GREEN is 32 of 32.
+  - Not mocked: the sensitive 403, and `requester_name` on connect requests.
+- **Runs on the merged tree:**
+  - `npm test`: `Test Files 12 passed (12)`, `Tests 110 passed (110)`
+  - `npx tsc -b`: exit 0
+  - `npm run build`: exit 0
+  - `test:mock-api`: `# pass 32`, `# fail 0`
+  - `test:nav`: `# pass 15`
+  - `check:labels`: passes
+  - `check:css-tokens`: 62 tokens, all defined
+  - eslint on this branch's files: exit 0
+- **Still open:** #26478 will add `code: "connect_request_not_found"`. `describeConnectRequestError` already handles the coded and uncoded forms, but `connect_request_not_found` is not yet in `CHAT_GROUP_ERROR_CODES`, so the coded form still goes through the 404 check.
+
 **What was asked:** build the Chat Groups page (list plus create dialog) in admin-web, test-first. Also fix the `check:labels` gaps, and give admin-web an error map for the final chat-group error contract. The mock API was to serve the page. Commit, do not push, and do not start the Vite dev server.
 
 **Mid-task scope changes from the coordinator:**
