@@ -69,12 +69,12 @@ void main() {
       expect(localizedSenderLabel('Member'), 'Member');
     });
 
-    test('generated aliases use the app\'s English role nouns', () {
-      // "Donor" and "Beneficiary" are the server's words; the app's English
-      // calls those people "Grantor" and "Eligible Recipient" everywhere else
-      // (TERMINOLOGY.md T12 and T5), so the alias follows the app.
-      expect(localizedSenderLabel('Donor 1'), 'Grantor 1');
-      expect(localizedSenderLabel('Beneficiary 12'), 'Eligible Recipient 12');
+    test('generated aliases read exactly as the server wrote them', () {
+      // A deliberate decision (2026-09-15): English keeps the server's own
+      // words, so the alias matches the dashboard and push notifications —
+      // not the app's "Grantor" / "Eligible Recipient" role vocabulary.
+      expect(localizedSenderLabel('Donor 1'), 'Donor 1');
+      expect(localizedSenderLabel('Beneficiary 12'), 'Beneficiary 12');
       expect(localizedSenderLabel('Volunteer 3'), 'Volunteer 3');
       expect(localizedSenderLabel('Member 2'), 'Member 2');
     });
@@ -89,8 +89,9 @@ void main() {
   group('Arabic', () {
     setUp(() => Get.updateLocale(const Locale('ar', 'SA')));
 
-    test('a staff message reads الدعم, not "Support"', () {
-      expect(localizedSenderLabel('Support'), 'الدعم');
+    test('a staff message reads فريق الدعم, not "Support"', () {
+      // Not a bare الدعم: that is already Kafala (TERMINOLOGY.md T10).
+      expect(localizedSenderLabel('Support'), 'فريق الدعم');
     });
 
     test('the bare fallback reads عضو, not "Member"', () {
@@ -113,6 +114,40 @@ void main() {
     test('a number too large to parse is shown as sent, not a crash', () {
       const label = 'Donor 123456789012345678901234567890';
       expect(localizedSenderLabel(label), label);
+    });
+  });
+
+  // Both Kurdish locales ride on `ar` with a region (AppLocaleService:
+  // kurdishSorani = ar_IQ, kurdishBadini = ar_TR) and have no Kurdish for these
+  // keys yet. AppTranslations merges English underneath each Kurdish map, so
+  // the reader must get the English alias — never the Arabic one that GetX's
+  // language-code bucket (`ar`) would otherwise hand them.
+  for (final kurdish in const [Locale('ar', 'IQ'), Locale('ar', 'TR')]) {
+    group('Kurdish ($kurdish) falls back to English, not Arabic', () {
+      setUp(() => Get.updateLocale(kurdish));
+
+      test('generated labels read in English', () {
+        expect(localizedSenderLabel('Support'), 'Support');
+        expect(localizedSenderLabel('Member'), 'Member');
+        expect(localizedSenderLabel('Donor 1'), 'Donor 1');
+        expect(localizedSenderLabel('Beneficiary 12'), 'Beneficiary 12');
+      });
+    });
+  }
+
+  // The Kurdish rows above never reach the missing-translation branch: the
+  // English merged under each Kurdish map always answers. This group does, by
+  // loading no translations at all, where GetX echoes the KEY back.
+  group('with no translation for the key', () {
+    setUp(() {
+      Get.clearTranslations();
+      Get.updateLocale(const Locale('ar', 'SA'));
+    });
+
+    test('the server label is shown, never the key name', () {
+      expect(localizedSenderLabel('Support'), 'Support');
+      expect(localizedSenderLabel('Member'), 'Member');
+      expect(localizedSenderLabel('Donor 1'), 'Donor 1');
     });
   });
 }

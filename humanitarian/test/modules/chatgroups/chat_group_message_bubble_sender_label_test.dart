@@ -55,7 +55,7 @@ Future<void> _pumpBubbles(
 void main() {
   tearDown(Get.reset);
 
-  testWidgets('an Arabic member reads الدعم and مانح 1, not English', (
+  testWidgets('an Arabic member reads فريق الدعم and مانح 1, not English', (
     tester,
   ) async {
     await _pumpBubbles(
@@ -64,13 +64,15 @@ void main() {
       labels: const ['Support', 'Donor 1'],
     );
 
-    expect(find.text('الدعم'), findsOneWidget);
+    expect(find.text('فريق الدعم'), findsOneWidget);
     expect(find.text('مانح 1'), findsOneWidget);
     expect(find.text('Support'), findsNothing);
     expect(find.text('Donor 1'), findsNothing);
   });
 
-  testWidgets('an English member reads Support and Grantor 1', (tester) async {
+  testWidgets('an English member reads the server\'s own Support and Donor 1', (
+    tester,
+  ) async {
     await _pumpBubbles(
       tester,
       locale: const Locale('en', 'US'),
@@ -78,7 +80,7 @@ void main() {
     );
 
     expect(find.text('Support'), findsOneWidget);
-    expect(find.text('Grantor 1'), findsOneWidget);
+    expect(find.text('Donor 1'), findsOneWidget);
   });
 
   testWidgets('a team member\'s real name is drawn exactly as sent', (

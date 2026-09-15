@@ -30,18 +30,31 @@ Why (a): it needs no API change and no backend release in step with the app.
 
   | Key | English | Arabic |
   |---|---|---|
-  | `support` | Support | الدعم |
+  | `support` | Support | فريق الدعم |
   | `member` | Member | عضو |
-  | `donor_n` | Grantor @n | مانح @n |
-  | `beneficiary_n` | Eligible Recipient @n | مستحق @n |
+  | `donor_n` | Donor @n | مانح @n |
+  | `beneficiary_n` | Beneficiary @n | مستحق @n |
   | `volunteer_n` | Volunteer @n | متطوع @n |
   | `member_n` | Member @n | عضو @n |
 
+  The table shows the values after the review follow-up commit (below). The first commit `61311a7` shipped English `Grantor @n` / `Eligible Recipient @n` and Arabic support `الدعم`.
 - **Tests:**
-  - New `test/modules/chatgroups/chat_group_sender_label_test.dart` (unit).
+  - New `test/modules/chatgroups/chat_group_sender_label_test.dart` (unit). It includes Kurdish `ar_IQ` and `ar_TR` (English fallback, never Arabic) and a no-translations group (the key name is never shown).
   - New `test/modules/chatgroups/chat_group_message_bubble_sender_label_test.dart` (widget).
-  - `chat_group_conversation_screen_test.dart` now expects "Grantor 1" where it expected "Donor 1" (English).
-- **`TRANSLATION_REQUEST.md`:** new 6-key section; the total goes from 459 to 465.
+  - `chat_group_conversation_screen_test.dart` still expects "Donor 1" in English. The first commit changed it to "Grantor 1"; the follow-up changed it back.
+- **`TRANSLATION_REQUEST.md`:** new 6-key section; the total and the `## Count:` heading both read 465.
+
+**Review follow-up (second commit, same branch, not amended):**
+- **User decision, 2026-09-15:** English aliases use the server's own words (`Donor @n`, `Beneficiary @n`), so the app matches the dashboard and push notifications.
+- **Arabic `chat_group_sender_support`:** now `فريق الدعم`. A bare `الدعم` is already Kafala (`app_translations.dart` ~3859), and TERMINOLOGY.md T10 settles that the two must differ. The app already says فريق الدعم for the support team.
+- **Kurdish:** `ar_IQ` / `ar_TR` get English here, because `AppTranslations` merges `_en` under each Kurdish map. That means Kurdish never reaches the missing-translation branch, so a separate test clears all translations to pin that branch.
+- **Follow-up verification** (from `humanitarian/`):
+  - `dart format` on the 4 files this change owns printed `Formatted 4 files (0 changed)`.
+  - The 2 new test files printed `+43: All tests passed!`
+  - `flutter analyze` printed `6 issues found.`, the same baseline.
+  - `flutter test test/modules/chatgroups/ test/localization/` printed `08:02 +343: All tests passed!`
+  - `flutter test` printed `24:16 +1018: All tests passed!`
+  - The machine was slow: analyze took 229s and the full suite took 24 minutes, against 3 before. The chain went past the 600s Bash limit and finished in the background.
 
 **What was run and what it printed** (from `humanitarian/`):
 - **Digit probe** (a temporary test, deleted): intl 0.20.2 prints ASCII digits for `ar`, `ar_SA` and `ar_IQ`.
@@ -59,7 +72,7 @@ Why (a): it needs no API change and no backend release in step with the app.
 **What is still open:**
 - The commit is local and unpushed.
 - OPOS MCP needs interactive OAuth and was unavailable in this subagent session, so #26419 was not moved or commented on.
-- **Needs a human decision:** English changed from "Donor 1" to "Grantor 1" and from "Beneficiary 2" to "Eligible Recipient 2". This follows the app's own English role nouns (TERMINOLOGY.md T12 settled; T5 is still a CONFLICT). To keep the server's English words, change only the 2 `_en` values plus the English expectations in the 3 test files.
+- **Resolved (was open after `61311a7`):** whether English aliases use the app's role nouns ("Grantor 1") or the server's words ("Donor 1"). The user chose the server's words on 2026-09-15, and the review follow-up commit applies that.
 - **Not fixed, server side:** the push notification for a masked-group message.
   - `GroupMaskedNewMessageMsg` in `backend/internal/notify/templates.go` bakes the English alias into all 4 language titles ("رسالة من Donor 1").
   - Those titles are also what the in-app notification list shows.
