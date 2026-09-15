@@ -256,6 +256,11 @@ func (h *ChatHandler) SupportThread(c *gin.Context) {
 // push, so the initiator is never told a chat was accepted that neither party
 // can use (OPOS #26413; see refuseIfInviteClosed). The participant check runs
 // first because that refusal carries staff's reason.
+//
+// An invite the recipient already declined is refused after both checks, by
+// AcceptThread itself: 409 with code chat_invite_declined, the status stays
+// declined, and nobody is pushed (OPOS #26436). Accepting a thread that is
+// already active is still a 200.
 func (h *ChatHandler) Accept(c *gin.Context) {
 	user, _ := auth.UserFromGin(c)
 	if user == nil {
@@ -439,8 +444,20 @@ func (h *ChatHandler) PostMessage(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": msg})
 }
 
+// chatInviteDeclinedCode marks the 409 that accepting an already-declined
+// invite gets, in both the donor and the marriage chat (OPOS #26436). It is
+// for the app to switch on, so it can stop offering Accept and show its own
+// localised copy. The English `error` beside it serves clients that do not
+// know the code.
+const chatInviteDeclinedCode = "chat_invite_declined"
+
 func (h *ChatHandler) chatErr(c *gin.Context, err error) {
 	switch {
+	case errors.Is(err, chat.ErrInviteDeclined):
+		// Promises nothing further: direct donor chats are retired, so a
+		// declined one cannot be requested again.
+		c.JSON(http.StatusConflict, gin.H{"success": false, "code": chatInviteDeclinedCode,
+			"error": "This chat request was declined, so it can no longer be accepted."})
 	case errors.Is(err, chat.ErrNotFound):
 		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Chat not found."})
 	case errors.Is(err, chat.ErrNotParty):

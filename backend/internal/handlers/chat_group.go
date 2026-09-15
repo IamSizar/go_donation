@@ -12,6 +12,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -49,35 +50,59 @@ func (h *ChatGroupHandler) bg() (context.Context, context.CancelFunc) {
 // explanation on this value, so it is a contract: never reword it.
 const guestMemberNotAllowedCode = "guest_member_not_allowed"
 
-// chatErr maps chatgroups' sentinel errors onto HTTP, mirroring chat.go's
-// chatErr (see internal/chatgroups' sentinel doc comments for what each
-// means).
+// chatErrResponse is how chatErr answers one kind of failure: the HTTP status,
+// the English sentence, and the machine-readable code.
+type chatErrResponse struct {
+	target  error
+	status  int
+	message string
+	code    string
+}
+
+// chatErrResponses maps chatgroups' sentinel errors onto HTTP, mirroring
+// chat.go's chatErr (see internal/chatgroups' sentinel doc comments for what
+// each means). chatErr checks them IN ORDER with errors.Is, so a sentinel must
+// come before any sentinel it wraps: ErrLabelContact wraps ErrInvalidInput
+// and is listed first.
 //
-// Only the guest-member refusal carries a "code" field. It shares 400 with the
-// generic invalid-input answer, and without a code the dashboard could not
-// tell "you picked a guest account" from any other bad request. Every other
-// response keeps its existing shape.
+// Every refusal carries a code beside its sentence (OPOS #26410). admin-web's
+// describeError translates error.<code> and falls back to the sentence; the
+// Flutter app maps the codes it has copy for and shows its own generic line
+// for the rest. Codes and sentences are both a contract with those clients:
+// never reword one — add a new entry instead.
+var chatErrResponses = []chatErrResponse{
+	{chatgroups.ErrNotMember, http.StatusForbidden, "You are not a member of this group.", "not_group_member"},
+	{chatgroups.ErrNotFound, http.StatusNotFound, "Group not found.", "group_not_found"},
+	{chatgroups.ErrAlreadyDecided, http.StatusConflict, "This request has already been decided.", "connect_request_decided"},
+	{chatgroups.ErrMemberConflict, http.StatusConflict, "This person is already a member of this group.", "group_member_conflict"},
+	{chatgroups.ErrLabelConflict, http.StatusConflict, "Another member of this group already has this label.", "group_label_conflict"},
+	{chatgroups.ErrGuestMember, http.StatusBadRequest, "Guest accounts cannot be added to a chat group.", guestMemberNotAllowedCode},
+	{chatgroups.ErrLabelContact, http.StatusBadRequest, "A member label cannot contain a phone number or email address.", "group_label_contact"},
+	{chatgroups.ErrInvalidInput, http.StatusBadRequest, "Invalid request.", "group_invalid_input"},
+	{chatgroups.ErrUnknownContext, http.StatusBadRequest, "We couldn't find that case or donation.", "connect_context_not_found"},
+}
+
+// chatErrServerError answers any failure chatErrResponses does not name: a
+// database or other unexpected fault, whose detail is logged, not sent.
+var chatErrServerError = chatErrResponse{status: http.StatusInternalServerError, message: "Database error.", code: "server_error"}
+
+// chatErr answers err with the first chatErrResponses entry it matches, or
+// chatErrServerError after logging it. Every answer has the same envelope:
+// {"success": false, "error": <sentence>, "code": <code>}.
 func (h *ChatGroupHandler) chatErr(c *gin.Context, err error) {
-	switch {
-	case errors.Is(err, chatgroups.ErrNotMember):
-		c.JSON(http.StatusForbidden, gin.H{"success": false, "error": "You are not a member of this group."})
-	case errors.Is(err, chatgroups.ErrNotFound):
-		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Group not found."})
-	case errors.Is(err, chatgroups.ErrAlreadyDecided):
-		c.JSON(http.StatusConflict, gin.H{"success": false, "error": "This request has already been decided."})
-	case errors.Is(err, chatgroups.ErrGuestMember):
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"error":   "Guest accounts cannot be added to a chat group.",
-			"code":    guestMemberNotAllowedCode,
-		})
-	case errors.Is(err, chatgroups.ErrInvalidInput):
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid request."})
-	case errors.Is(err, chatgroups.ErrUnknownContext):
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "We couldn't find that case or donation.", "code": "connect_context_not_found"})
-	default:
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+	for _, r := range chatErrResponses {
+		if errors.Is(err, r.target) {
+			respondChatErr(c, r)
+			return
+		}
 	}
+	log.Printf("[chat-group] %s %s failed: %v", c.Request.Method, c.FullPath(), err)
+	respondChatErr(c, chatErrServerError)
+}
+
+// respondChatErr writes one chat-group refusal in the shared envelope.
+func respondChatErr(c *gin.Context, r chatErrResponse) {
+	c.JSON(r.status, gin.H{"success": false, "error": r.message, "code": r.code})
 }
 
 // parseGroupPageParams reads after_id/limit query params, both optional —
