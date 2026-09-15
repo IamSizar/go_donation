@@ -6,6 +6,70 @@
 
 ---
 
+## 2026-09-15 — OPOS #26400 (Phase 6c): admin-web connect-request inbox (branch `feat/admin-connect-request-inbox`)
+
+**What was asked:** the connect-request inbox in admin-web, test-first. It needed:
+- a status filter and list;
+- a detail panel;
+- Approve and Decline dialogs, with validation and error codes;
+- gates, nav and route;
+- the mock routes.
+
+The branch was to merge `origin/main`, commit, and not push.
+
+**What was changed** (branch cut from `feat/admin-chat-groups-list` `dffbe1f`):
+- **`2eb598c`** merges `origin/main`, which has 6a squashed as #117. The only conflict was `HANDOFF.md`, where main's side was kept.
+- **`d8b39e5` feat(admin-web): connect-request inbox with approve and decline.**
+  - `src/pages/ConnectRequestsPage.tsx` and its test. The route is `chat-groups/connect-requests` in `App.tsx`. The NAV item `/chat-groups/connect-requests` has module `messages` and sits under communication_support.
+  - `src/components/connectRequests/`: `ConnectRequestPanel` (detail, gates, dialogs), `ApproveRequestDialog`, `DeclineRequestDialog`, `DialogFrame`, and tests for both dialogs.
+  - `src/lib/connectRequestForm.ts` and its test: decline-reason rules, the approve draft with the requester pre-filled, the requester-must-stay rule, badge tones and the requester fallback name.
+  - `TeamTitleField` moved out of `CreateGroupDialog` into `src/components/chatGroups/TeamTitleField.tsx`, unchanged, so both dialogs share it.
+  - `chatGroupsApi.ts`: `ConnectRequest.requester_name?`.
+  - Mock: list and detail now add `requester_name` from the users fixture when the requester has a profile. There are 3 new cases in `scripts/mock-api-chat-groups.test.mjs`: the name key, approve and decline success, and requester-not-a-member returning 400.
+  - Locales: `nav.connect_requests` and a separate `chat_groups.inbox.*` block in en and ar, 41 keys in all.
+- **`503e2e7`** lists the 41 keys in `TRANSLATION_REQUEST.md`. No Kurdish was written.
+- **`5cd51bc`** merges `origin/main` again (#118–#121). The only conflict was `TRANSLATION_REQUEST.md`: both rows were kept, and the count is now **578** (main's 537 plus 41).
+- **The last commit (see `git log`)** is the review fix: rows use `aria-pressed`, not `aria-current`. It also adds this entry.
+
+**The approve body, confirmed on `origin/main`.** In `handlers/chat_group_admin.go`, `adminCreateGroupReq` is `{kind, member_title, members:[{user_id, role_in_group, label}]}`. The member field is `label`, not `masked_label`, and the response is `{success, group_id}`. `ApproveConnectRequest` answers 400 `group_invalid_input` when the requester is not among the members, so the dialog pre-fills them and blocks their removal.
+
+**The decline reason.** The handler only requires it to be non-blank after trimming, and the column is `TEXT`, so the backend has no max length. The 1000-character cap is the dashboard's own (`DECLINE_REASON_MAX_LENGTH`).
+
+**`target_hint` is never rendered (D8).** A test asserts the declined request's panel does not contain it.
+
+**What was run** (Node 22.23.1; `node_modules` installed in this worktree with `npm ci`):
+- **RED.**
+  - vitest: `Test Files 4 failed (4)`, each with `Failed to resolve import "./ConnectRequestsPage"` (and the same for the other three).
+  - mock-api: `# fail 1` on `at least one requester is named`.
+- **GREEN, on the final merged tree:**
+  - `npm test`: `Test Files 16 passed (16)`, `Tests 135 passed (135)`
+  - `npx tsc -b`: exit 0
+  - `npm run build`: exit 0; `ConnectRequestsPage` is 13.75 kB
+  - `test:mock-api`: `# pass 35`, `# fail 0`
+  - `test:nav`: `# pass 15`
+  - `check:labels`: `every controlled value and permission module has a label.`
+  - `check:css-tokens`: `62 tokens read, all defined.`
+  - eslint on every changed `src` file: exit 0
+  - After the `aria-pressed` fix: the page test at 8/8, eslint and `tsc -b` all passed again.
+
+**Review (`ecc:react-reviewer`): APPROVE WITH COMMENTS.**
+- **HIGH, fixed:** `aria-current` was used for row selection.
+- **MEDIUM, not done (out of scope by instruction):** after a decision the row leaves the pending list while its panel stays open.
+- **LOW:** no action needed.
+
+**External actions:** none. Nothing was pushed and no PR was opened. OPOS is tracked by the orchestrator.
+
+**Still open:**
+- **#26478.** `code: "connect_request_not_found"` was not in `origin/main`'s handler or in `CHAT_GROUP_ERROR_CODES` when merged. `describeConnectRequestError` handles only the uncoded 404 today. Once the code lands, add it to the error map, or the coded 404 would fall through to describeError's text.
+- **Without users:view (D2),** the member rows are replaced by the guidance card, so the requester's role cannot be chosen and approval cannot be submitted. That is consistent with 6a, but such staff can only decline.
+- **The group link** goes to `/chat-groups/:id`, which is 6b's route (built in parallel).
+- **No fixture requester lacks a profile,** so the mock never omits `requester_name`. The fallback is covered in `ConnectRequestsPage.test.tsx` instead.
+- **Not checked in a browser.**
+
+**Traps:**
+- **The worktree had no `node_modules`.** Run `npm ci` in `admin-web/` first.
+- **Commands with `$PATH` in them are refused in isolated agent worktrees.** Call `/opt/homebrew/opt/node@22/bin/node` directly on `node_modules/vitest/vitest.mjs`, `typescript/bin/tsc`, `vite/bin/vite.js` and `eslint/bin/eslint.js`.
+
 ## 2026-09-15 — OPOS #26483 (app half): no English "User #" or bare الدعم in chats (branch `fix/app-chat-english-fallbacks`)
 
 **What was asked:** remove the two app-side fallbacks the #109 agent found, one English and one the wrong Arabic word, following #109's display-time pattern. The push half is the separate branch `fix/support-push-title-localized`.

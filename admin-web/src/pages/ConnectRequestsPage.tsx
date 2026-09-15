@@ -203,7 +203,7 @@ function RequestRow({ request, isSelected, onSelect }: RowProps) {
     <button
       type="button"
       className="secondary stack"
-      aria-current={isSelected || undefined}
+      aria-pressed={isSelected}
       onClick={() => onSelect(request.id)}
       style={{ width: '100%', textAlign: 'start', gap: 'var(--space-1)', alignItems: 'stretch' }}
     >
