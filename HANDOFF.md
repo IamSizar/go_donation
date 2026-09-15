@@ -6,16 +6,16 @@
 
 ---
 
-## 2026-09-15 — Phase 5 follow-ups, backend/Android/test fixes, Motorola device pass (PR #82 branch plus 4 fix branches)
+## 2026-09-15 — Phase 5 follow-ups, backend/Android/test fixes, Motorola device pass (PR #82 branch plus 5 fix branches)
 
 **What was asked:** "log tasks on opos and continue working", then "use the connected motorola device to test". This continued from PR #82 (Phase 5 chat groups) with the open follow-ups. Every task was logged in OPOS before work started.
 
-**OPOS tasks** (office 19, account 6). Created today: #26344–#26351, #26353–#26355, #26357, #26364.
+**OPOS tasks** (office 19, account 6). Created today: #26344–#26351, #26353–#26355, #26357, #26364, #26367.
 
 Status when this was written:
 - **Completed:** #26344, #26345, #26346, #26350.
-- **Under Review** (local commits; pushing and opening PRs needs the user's OK): #26347, #26348, #26349, #26353.
-- **To Do:** #26351 (needs user decisions), #26354, #26355, #26357, #26364.
+- **Under Review** (local commits; pushing and opening PRs needs the user's OK): #26347, #26348, #26349, #26353, #26357.
+- **To Do:** #26351 (needs user decisions), #26354, #26355, #26364, #26367.
 - **WIP:** #26047 (final Phase 5 verification), blocked on the Android device pass.
 
 **What was actually changed**
@@ -34,7 +34,8 @@ Status when this was written:
    - Added a test that Profile opens News.
    - That branch has its own HANDOFF.md entry, so expect a trivial HANDOFF.md merge conflict. (#26348)
 5. **`fix/app-error-state-in-scroll-views`** (worktree `.claude/worktrees/app-error-state-fix`): `7471961` makes `AppErrorState` use `Expanded` for stale rows only when the height is bounded. Inside a scroll view it threw, which broke the Messages tab on a failed pull-to-refresh. (#26349)
-6. Removed the 4 merged Phase 5 agent worktrees and their branches. (#26350)
+6. **`fix/test-routers-match-main`** (worktree `.claude/worktrees/agent-a2f9a9fd81ffdbf57`), stacked on `56bfb95`: `ae7a65a` makes the backend handler test routers apply the same guest and approval gates as `main.go`, including routers the review missed. Only 6 `_test.go` files changed; no production code. (#26357)
+7. Removed the 4 merged Phase 5 agent worktrees and their branches. (#26350)
 
 **What was run and what it printed**
 - **Phase 5 branch, at `f38c58b`:**
@@ -56,6 +57,7 @@ Status when this was written:
   - On origin/main without the fix → `+1 -2`, failing with "RenderFlex children have non-zero flex but incoming height constraints are unbounded".
   - With the fix → `+3: All tests passed!`
   - Full suite on that branch → `+819 -5`, the 5 stale tests.
+- **#26357:** no test began failing. `go vet ./...` exit 0; `go test ./internal/handlers/ -count=1` → ok; full `go test ./... -count=1 -p 1` → every package ok, on fresh DBs dropped afterwards; a `-v` handlers run → 429 PASS / 0 SKIP / 0 FAIL.
 - **Android device pass** on the Motorola Defy (ZY32D3QTSD, Android 11, 720×1600), through the uncommitted dev harness `humanitarian/tool/chat_groups_preview.dart` with a fake API.
   - Verified in English, light theme: the masked chat; the composer's focus outline, send enabling and sending; the contact-details refusal (typed text kept); a paused chat with its reason; an ended, empty chat; the Messages-tab sections; My Connect Requests in all its states.
   - The screenshots exist only in the agent scratchpad.
@@ -63,13 +65,13 @@ Status when this was written:
 **External actions taken:** OPOS only: tasks, comments, statuses, and manual time logs for #26347 and #26348. Nothing was pushed and no PR was opened today.
 
 **What is still open**
-- **Push and PRs, waiting on the user:** #26347, #26353, #26348, #26349, plus the 4 new commits on PR #82.
+- **Push and PRs, waiting on the user:** #26347, #26357 (stacked on #26347), #26353, #26348, #26349, plus the new local commits on PR #82.
 - **#26353:** a signed release build with the real `key.properties` is still needed before merging.
 - **#26351 decisions:** whether the case-detail "Ask staff to connect me" button should show on every route, and "staff" vs "our team".
 - **Android device pass still to do:** the connect sheet (success and failure), Arabic, dark mode, guest vs donor. The Motorola disconnected twice (usb:2-1) and was not back after a 30-minute wait.
 - **Phase 5 worktree temporary files:** an UNCOMMITTED copy of the #26353 `build.gradle.kts` (needed to build on devices) and the untracked dev harness `humanitarian/tool/`. Never commit either; revert and delete both after the device pass.
 - **Worktree cleanup:** `.claude/worktrees/agent-a52e0750b3d4145aa` (`fix/phase5-chat-unavailable`, already merged) can be removed.
-- **Follow-ups:** #26354 (guest gates on the other chat read routes), #26355 (staff can add a guest to a group), #26357 (test routers out of sync with main.go), #26364 (stale Events-hub comments).
+- **Follow-ups:** #26354 (guest gates on the other chat read routes), #26355 (staff can add a guest to a group), #26364 (stale Events-hub comments), #26367 (admin test routers skip main.go's permission and admin-tier gates).
 
 **Traps**
 - **OPOS timers and statuses:**
