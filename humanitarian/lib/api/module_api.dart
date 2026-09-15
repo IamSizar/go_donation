@@ -1159,13 +1159,13 @@ class ModuleApi {
   /// comma-separated `?type=` the API accepts ("activity,news"). Omit it for
   /// the general feed, which the server then serves minus `marriage` posts.
   ///
-  /// No caller passes [type] today. The only call in `lib/`, the media loader
-  /// in proposal_services_section.dart, asks for the general feed. The last
-  /// screen to filter by type was the Events hub's news feed ("activity,news"),
-  /// which PR #76 (commit 33d6891, OPOS #25858) removed. The parameter stays
-  /// for a possible marriage-specific news feed (OPOS #25862), and
-  /// `test/api/media_posts_type_filter_test.dart` still pins the query it
-  /// builds.
+  /// Filtered feeds do not come through here: `MediaPostsController(postType:)`
+  /// has passed its filter to [mediaPostsPage] since PR #5 (a6c74d5). The
+  /// Events hub's news feed was one such controller until PR #76 (commit
+  /// 33d6891, OPOS #25858) removed it. The call in
+  /// proposal_services_section.dart asks for the general feed.
+  /// `test/api/media_posts_type_filter_test.dart` pins the query this method
+  /// builds, not the one [mediaPostsPage] builds.
   Future<List<Map<String, dynamic>>> mediaPosts({
     int? userId,
     String? q,

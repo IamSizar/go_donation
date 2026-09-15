@@ -360,26 +360,21 @@ class MediaPostCard extends StatelessWidget {
   final Map<String, dynamic> item;
   final String categoryLabel;
 
-  /// The controller whose `posts` list contains [item].
+  /// The controller whose `posts` list contains [item]. Null falls back to
+  /// the shared untagged instance.
   ///
-  /// NO CALLER PASSES THIS TODAY. The two screens that draw a MediaPostCard,
-  /// News & Activities and Our Work, share the untagged instance, which is
-  /// what null falls back to. The last caller was the Events hub's news feed,
-  /// a MediaPostsController registered under the 'events-hub-feed' GetX tag;
-  /// PR #76 (commit 33d6891, OPOS #25858) removed that feed.
+  /// A screen that registers its own MediaPostsController under a GetX tag
+  /// MUST pass it here. The engagement bar mutates the post map and then
+  /// calls `posts.refresh()` to redraw, so refreshing a different controller
+  /// than the one the screen observes leaves like/save looking dead even
+  /// though the request went out.
   ///
-  /// It is kept for a possible marriage-specific news feed (OPOS #25862),
-  /// which would need its own filtered controller. Any screen that registers
-  /// a MediaPostsController under a GetX tag MUST pass it here. The
-  /// engagement bar mutates the post map and then calls `posts.refresh()` to
-  /// redraw; refreshing a DIFFERENT controller than the one the screen is
-  /// observing updates nothing on screen, so like/save appear completely dead
-  /// even though the request went out.
-  ///
-  /// A card-wiring test must come back with the first such caller. The one
-  /// that guarded the hub was deleted in commit 250d781 once its call site
-  /// went away. Recover it with
-  /// `git show 250d781^:humanitarian/test/widgets/marriage_hub_feed_test.dart`.
+  /// MarriageHubScreen (the Events hub) passed the controller it registered
+  /// under the 'events-hub-feed' tag until PR #76 (commit 33d6891,
+  /// OPOS #25858) removed that feed. The parameter stays for a
+  /// marriage-specific feed (OPOS #25862). Whoever passes it next should
+  /// restore the card-wiring test that PR #87 (commit 4ed2c86) deleted:
+  /// `git show 4ed2c86^:humanitarian/test/widgets/marriage_hub_feed_test.dart`.
   final MediaPostsController? controller;
 
   @override
