@@ -32,7 +32,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"slices"
 	"strings"
 	"testing"
@@ -132,17 +131,6 @@ type notificationRow struct {
 	ID     int64   `json:"id"`
 	UserID *int64  `json:"user_id"`
 	Type   *string `json:"notification_type"`
-}
-
-// getRawAs performs a GET as token and returns the status and raw body. The
-// raw body matters: the preview check must see every field, not a decoded one.
-func getRawAs(t *testing.T, r *gin.Engine, token, path string) (int, string) {
-	t.Helper()
-	req := httptest.NewRequest(http.MethodGet, path, nil)
-	req.Header.Set("Authorization", "Bearer "+token)
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-	return w.Code, w.Body.String()
 }
 
 // listNotifications GETs a /api/notifications path and decodes its items.
