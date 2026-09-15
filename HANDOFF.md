@@ -55,6 +55,67 @@
 
 ---
 
+## 2026-09-15 — OPOS #26426: marriage-chat invite accept now respects the thread lifecycle (branch `fix/marriage-accept-respects-lifecycle`)
+
+**What was asked:** `POST /api/marriage/chats/:id/accept` had no lifecycle check, the gap #26413 recorded as open. Confirm the bug, then fix it test-first with the same gate the donor accept got in #26413. Keep the change to the marriage ACCEPT handler plus new test files, because parallel branches edit decline (#26427), the list routes (#26354) and chat-group files.
+
+**What was actually changed:** one commit, `12f45af`, based on `origin/main` `a1da04f`:
+- `backend/internal/handlers/marriage_chat.go` `MarriageChatHandler.Accept` (line 158) now runs `GetThread`, then an owner check, then `refuseIfInviteClosed(c, h.Pool, chatlifecycle.KindMarriage, id)` (line 177). All three run before `AcceptThread` and the `MarriageChatAcceptedMsg` push (line 190).
+  - A non-owner gets `chatErr(marriagechat.ErrNotOwner)`, the same 403 "Only the profile owner can accept or decline." that `AcceptThread` gave before.
+  - This is an OWNER check, not the donor path's participant check. It keeps today's 403 for both a stranger and the requester, and it runs before the gate because the 409 carries staff's reason.
+  - Paused or ended gets 409 `chat_lifecycle_closed`, the same as the send path.
+  - Archived-but-open gets 404 `{"error":"Chat not found.","success":false}`. That is exactly what the marriage messages route (`MarriageChatHandler.Messages` → `refuseIfArchivedForParticipant`) answers, and it is the same 404 the donor accept gives.
+- `backend/internal/marriagechat/marriagechat.go` `Store.AcceptThread` (line 217): doc comment only. It says the lifecycle gate lives in the handler, so a new caller must run it. The wording mirrors #26413's comment on `chat.Store.AcceptThread`.
+- New test `backend/internal/handlers/marriage_invite_accept_lifecycle_test.go` (6 tests, 8 counting subtests):
+  - Each invite is seeded through the real `marriagechat.Store.ApproveMeetingRequest`, which opens the `pending` thread.
+  - Refusal cases:
+    - ended and paused, via `setLifecycle`;
+    - retired, via real `chatlifecycle.Apply` end then archive with `KindMarriage`;
+    - archived-open, where the test compares the accept response to the messages route response with `reflect.DeepEqual`.
+  - Each refusal asserts that the status stays `pending` and that no `marriage_chat_accepted` row exists in `app_notifications`.
+  - Controls: an open invite accepts and its push row appears. A stranger and the requester each get the plain 403 with no `code` or `lifecycle_reason`.
+- The route (`backend/cmd/server/main.go:804`) and the gate (`backend/internal/handlers/chat_lifecycle_gate.go:121`) are unchanged.
+
+**What the app shows for a refused accept:**
+- `marriage_chat_conversation_screen.dart:156` `_decide(true)` calls `ModuleApi.acceptMarriageChat`, which goes through `postJson`. On non-2xx, `postJson` throws `Exception(<server sentence>)` and ignores `code`.
+- The catch shows a snackbar from `failureMessage(e, 'error_message_send_failed')`: "Could not send your message. Please try again. If it keeps happening, contact support." (ar: "تعذّر إرسال رسالتك. حاول مرة أخرى. وإن تكرّر الأمر، تواصل مع الدعم."). The server sentence is not shown.
+- The Accept/Decline row is gated only on `_status == 'pending' && isOwner`, not on the lifecycle. On a paused or ended invite the owner therefore sees the buttons and the `ChatLifecycleNotice` together.
+- On an archived invite the messages load fails with a 404, so the screen shows "Could not load this conversation." with Retry. An archived thread is not in the list, so it is only reachable from an already-open screen or a push.
+- No Flutter file was changed.
+
+**What was run and what it printed:** DB `godonation_marriage_accept_26426`, created for this work, recreated fresh before the package run and again before the full suite, and dropped at the end. After the drop, `psql -l` shows 0 matches.
+- **RED, before the fix:** `go test ./internal/handlers/ -run MarriageInviteAccept -count=1 -p 1 -timeout 45m -v` failed 4 tests, and each printed `200 map[status:active success:true ...]`:
+  - `ClosedThreadRefused/ended`
+  - `ClosedThreadRefused/paused`
+  - `RetiredInviteRefused`
+  - `ArchivedOpenInviteAnswersLikeMessagesRoute`: `accept = 200 ..., want the messages route's 404 map[error:Chat not found. success:false]`
+
+  `OpenInviteStillAccepts` and both `NonOwnerRefusedAsBefore` subtests passed.
+- **GREEN, same command after the fix:** every test printed `--- PASS`, with no `--- SKIP`, and the run ended `ok …/internal/handlers 1.536s`. For example, ended printed `409 map[code:chat_lifecycle_closed … lifecycle:ended lifecycle_reason:Resolved by our team success:false]`, and archived-open printed `404 map[error:Chat not found. success:false] (messages route: 404 map[error:Chat not found. success:false])`.
+- **Package, fresh DB:** `go test ./internal/handlers/ -count=1 -p 1 -timeout 45m` printed `ok …/internal/handlers 389.763s`.
+- **Full suite, fresh DB:** `go test ./... -count=1 -p 1 -timeout 45m` exited 0 with 22 `ok` packages and no FAIL. Among them: `ok …/internal/handlers 38.802s` and `ok …/internal/marriage 9.289s`.
+- `go vet ./...` exited 0, `go build ./...` exited 0, and `gofmt -l` on the 3 changed files printed nothing.
+- **Review:** `ecc:code-reviewer` returned APPROVE with 0 critical, high or medium findings.
+  - LOW 1: document on `Store.AcceptThread` that the gate is the handler's job. Applied, in `12f45af`.
+  - LOW 2: the double `GetThread`, and a race between the gate's SELECT and `AcceptThread`'s UPDATE. Left as is, because it mirrors the merged donor precedent.
+
+**External actions taken:** none. Nothing was pushed and no PR was opened. OPOS MCP needed interactive OAuth in this subagent session, so OPOS #26426 was not moved or commented on.
+
+**What is still open:**
+- `12f45af` and this entry are local and unpushed.
+- **Race window (LOW 2):** the gate reads the lifecycle, then `AcceptThread` updates without re-checking it. The donor accept and every send path have the same shape. A `SELECT … FOR UPDATE` in one transaction would close it.
+- **Behaviour change to be aware of:** `AcceptThread` treats an already-active thread as idempotent (200). A repeated accept on an ACTIVE thread that staff later paused or ended now gets 409 instead.
+- **Stale comment, left for scope:** the `chat_lifecycle_gate.go` header (lines 1-3) still names only the donor-chat accept as a user of the gate.
+- **App:** the marriage screen shows Accept/Decline on a closed invite, and a refused accept shows the generic "Could not send your message." copy. To name the refusal, the app would have to read `code`, for example the way `chat_group_conversation_controller.dart` does with `chat_lifecycle_closed`.
+- **Decline:** still ungated in marriage chat, and `DeclineThread` does not check `status`. Both are being handled on the parallel #26427 branch, not here.
+
+**Traps:**
+- zsh: `grep --include=*.dart` fails with `no matches found`. Quote the glob: `--include='*.dart'`.
+- When a background test run is written as `go test … > log; echo "exit=$?" >> log`, the background task's own exit code is the `echo`'s, always 0. Read the `exit=` line and the `ok`/`FAIL` lines from the log.
+- Run times vary widely with machine load: the same `internal/handlers` package took 389.763s on one fresh DB and 38.802s inside the full suite minutes later. Keep `-timeout 45m`.
+
+---
+
 ## 2026-09-15 — OPOS #26427: only a pending chat invite can be declined (branch `fix/chat-decline-requires-pending`)
 
 **What was asked:** confirm test-first, then fix, that both invite-decline store methods (donor chat and marriage chat) update the thread without requiring `status = 'pending'`, which let an invite's recipient flip an ACTIVE chat to `declined`. Put the pending condition inside the UPDATE, map "no row" to a not-pending error, map it in the handlers, and do not change decline's lifecycle behaviour.
