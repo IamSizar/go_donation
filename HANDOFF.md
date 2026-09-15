@@ -6,6 +6,75 @@
 
 ---
 
+## 2026-09-15 — OPOS #26412: `retire-direct-chats` made atomic, paused threads included, staff actor required (branch `fix/retire-direct-chats-atomic`)
+
+**What was asked:** harden `backend/cmd/retire-direct-chats` → `chatlifecycle.RetireAllDirectThreads` before it runs on production. Work test-first, update `docs/runbooks/retire-direct-chats.md`, and verify only on local throwaway databases. It fixes the four findings from the OPOS #26402 local run:
+- not atomic;
+- paused direct threads skipped;
+- actor not checked;
+- existing archive stamps overwritten.
+
+**What was actually changed** (branch based on `dfa632d`, the runbook commit on top of `origin/main` `9bcc053`). The code and tests are commit `6b91432`. The runbook and this entry are in the docs commit directly on top of it.
+- `backend/internal/chatlifecycle/retire.go`, rewritten.
+  - One transaction. It first locks the actor `FOR SHARE` and returns `*ActorNotStaffError` if the actor isn't dashboard staff. Staff is `permissions.CanAccessDashboard(permissions.TierFrom(staff_tier))`, the predicate behind `auth.IsDashboardStaff` (`internal/auth/middleware.go:40`, `internal/permissions/permissions.go:51,62`). `is_admin` is not read.
+  - UPDATE 1 ends AND archives `kind='direct'` threads that are open or paused. It keeps an existing `archived_at` and `archived_by`.
+  - UPDATE 2 archives ended direct threads that are still visible.
+  - Returns `RetireResult{Ended, Archived}`. The reason text is unchanged.
+- `backend/cmd/retire-direct-chats/main.go`: the first output line is unchanged, a counts line is added, and a refused actor gets a clear message with exit 1.
+- `backend/internal/chatlifecycle/retire_direct_hardening_test.go` (new): 9 tests.
+- `backend/internal/chatlifecycle/retire_direct_test.go`: uses a staff actor and table-derived counts.
+- `docs/runbooks/retire-direct-chats.md`: the new selection in pre-flight, snapshot, post-checks and restore; new expected and failure outputs; the resolved risks removed; and a new appendix with this run's evidence.
+
+**What was run and what it printed** (every DB was created with `createdb` and dropped afterwards):
+- **Baseline at `dfa632d`:** `go test ./internal/chatlifecycle/ -count=1 -v` → 2 PASS, `ok`.
+- **RED, the new tests against the old behaviour.** 6 of the 9 new tests failed, each on the finding it pins:
+  - the atomicity test left `lifecycle:ended … ArchivedAt:<null>` after the injected failure;
+  - the paused thread stayed `paused`;
+  - a non-staff actor got `err = <nil>`;
+  - the archive stamp `2026-09-01 10:00:00/41` was overwritten;
+  - the result was `{Ended:1 Archived:0}`, want `{Ended:2 Archived:2}`.
+- **GREEN:** 11 top-level tests PASS, `ok`. `-race` → `ok`.
+- `go build ./...` and `go vet ./...` are clean. `gofmt -l` on the changed dirs prints nothing. The whole backend flags only the pre-existing, untouched `internal/handlers/admin_edit_user_profile.go`.
+- **Full suite:** `go test ./... -count=1 -p 1`, run twice on separate fresh DBs, once before and once after the review changes. Both runs: 22 packages `ok`, 0 `FAIL`, exit 0.
+- **Local script run** on `gd_retire_run_26412`, following the runbook verbatim (full outputs are in the runbook appendix):
+  - pre-flight `will_end 4 / will_archive 2`;
+  - three refused actors (non-staff, legacy `is_admin`, nonexistent) and a missing `-actor`, each exit 1 with the checksum unchanged;
+  - run 1 `ended+archived 6` / `ended 4 …, archived 2 …`;
+  - post-checks 7a 0, 7b 4, 7c 0, 7d 0, 7f 4;
+  - run 2 `0`/`0` with the checksum unchanged;
+  - the restore put back `6 | 6`, and the checksum matched the before-state.
+- **Code review** (`everything-claude-code:code-reviewer`): no correctness bugs in `retire.go` or `main.go`. Its findings, and what was done with each:
+  - (a) The `retireInTx` comment wrongly said the statement order didn't matter. It matters under READ COMMITTED. Comment fixed.
+  - (b) The atomicity test accepted any error. It now requires the injected `P0001`.
+  - (c) The runbook's restore guard (reason plus actor) would also undo a staff unarchive and re-archive made after the run. It was replaced by `t.updated_at = '<run_ts>'`, with a new post-check 7g that records `run_ts`.
+  - (d) 7f now expects at least the pre-flight count, because a send that already passed its lifecycle check can still land during the run (`chat.PostMessage`, chat.go:442-453). Section 8 and risk 10 say so.
+  - (e) The "five round trips" figure was wrong under pgx statement preparation, and was removed.
+  - (f) The restore now has a note for the 23503 error from a deleted user.
+  - (g) A staff pause or resume that races the run can overwrite `ended`, because `Apply` writes `WHERE id = $1` only. Mitigated in the runbook: a lifecycle-action freeze and risk 9. Not fixed in code (see open items).
+- **Second local pass** after the review, on the same DB:
+  - run 1 `6`/`4`/`2`;
+  - 7a 0, 7b 4, 7c 0, 7d 0, 7f 4, and 7g one row `13:35:38.522824 | 6`;
+  - simulated staff unarchive then re-archive of 910002 as the actor, after which the old guard would have restored 6 rows including 910002;
+  - the new restore put back `5 | 6`, skipped 910002 with its re-archive intact, and every other row's checksum matched the before-state (`69426f0e…`);
+  - DB dropped.
+- Re-ran after the review changes: chatlifecycle 11 PASS, `ok`; `go vet` clean; `gofmt -l` prints nothing on the changed dirs.
+
+**External actions taken:** none. Nothing was pushed, no PR was opened, and no remote or production database was touched.
+
+**What is still open:**
+- The branch commits are local and unpushed, not reviewed by a human.
+- **The production run has still not been performed.** It needs the owner's explicit go, per the runbook.
+- OPOS MCP needed interactive OAuth in this non-interactive subagent session, so OPOS #26412 was not moved or commented on. Update it by hand.
+- **Follow-up, not done here:** `chatlifecycle.Apply` reads a thread's lifecycle, then writes with only `WHERE id = $1`. So a dashboard pause or resume that races any end, the bulk run included, can overwrite `ended` and make the thread resumable again. The fix is to add a lifecycle guard to the pause and resume UPDATEs (`AND lifecycle <> 'ended'`). This predates OPOS #26412, so it needs its own task. Until it is fixed, the runbook asks for a lifecycle-action freeze during the production run.
+- `docs/superpowers/plans/2026-09-14-chat-groups-phase4-retire-direct-chat.md` still shows the old `(int, error)` signature. It is a historical plan and was left as is.
+
+**Traps:**
+- `chat_threads` has `uq_chat_pair UNIQUE (donor_user_id, owner_user_id)`, so a fixture seeding several threads needs a fresh owner (or donor) per thread.
+- Runbook post-check 7b needs `lifecycle_changed_at = updated_at`. Without it, it also counts threads an earlier interrupted run had already ended (5 instead of 4 locally).
+- The worktree-isolation guard refuses Bash commands that use shell variables, `${pipestatus}` or `cd` into computed paths alongside psql or git. Write literal paths.
+
+---
+
 ## 2026-09-15 — OPOS #26348: 5 stale Flutter tests on `main` brought up to current behaviour (branch `fix/stale-flutter-tests`)
 
 **What was asked:** fix the 5 Flutter tests failing on `origin/main`: 1 in `main_menu_button_test.dart` and 4 in `marriage_hub_feed_test.dart`. Update or delete each test whose subject was changed on purpose. Change no product code, and report a real regression rather than fix it. None was found.
