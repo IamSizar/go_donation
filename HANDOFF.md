@@ -6,6 +6,127 @@
 
 ---
 
+## 2026-09-15 — OPOS #26408: admin-web test infrastructure and a credential-free mock API (branch `chore/admin-web-test-setup`)
+
+**What was asked:** implement Phase 6 plan sections T0 and T0b in admin-web, test-first. That meant two things:
+- **T0:** Vitest and Testing Library, with a first ContactBlocksPanel test.
+- **T0b:** a zero-dependency mock API, so dashboard screens can be checked in a browser with no backend and no login.
+
+Commit, do not push.
+
+**What was actually changed** (branched from `origin/main` at `9bcc053`, in worktree `.claude/worktrees/agent-a5596c0e5627a3217`):
+- **`1f2424d` chore(admin-web): add Vitest and Testing Library.**
+  - devDependencies, installed without `--legacy-peer-deps`:
+    - vitest 5.0.1 and jsdom 30.0.1;
+    - @testing-library/react 16.3.3, dom 10.4.2, user-event 14.6.7 and jest-dom 7.0.1.
+  - The lockfile also moved three transitive packages, each within range:
+    - @jridgewell/sourcemap-codec 1.5.5→1.6.0;
+    - picomatch 4.0.4→4.0.7;
+    - tinyglobby 0.2.16→0.2.17.
+  - New files: `vitest.config.ts`, which merges `vite.config.ts`, and `tsconfig.test.json`. Three existing configs changed:
+    - `tsconfig.json` now references `tsconfig.test.json`;
+    - `tsconfig.app.json` excludes the tests;
+    - `tsconfig.node.json` includes `vitest.config.ts`.
+  - Under `src/test/`:
+    - `setup.ts`: jest-dom; `cleanup`, `localStorage.clear` and `resetPermissionCache` after each test.
+    - `render.tsx`: `renderWithProviders`.
+    - `mockApi.ts`: spies on `api` and rejects unregistered requests.
+    - `fixtures/session.ts`.
+  - Scripts `test` and `test:watch`.
+  - `src/lib/permissions.ts` gains `resetPermissionCache()`.
+  - Tests:
+    - `src/components/ContactBlocksPanel.test.tsx`: the empty state, which asserts the GET URL, and Retry after a 500.
+    - `src/lib/permissions.test.ts`.
+- **`493a8e1` feat(admin-web): mock API for credential-free browser checks.**
+  - The server is split across four files, `scripts/mock-api.mjs` plus `-routes`, `-chat-routes` and `-helpers`. Each file stays under 500 lines.
+  - Fixtures: `src/test/fixtures/{chatGroups,legacyChats,permissions,shell}.ts`.
+  - `scripts/mock-api.test.mjs` has 21 cases, and `docs/mock-api.md` explains how to use the mock.
+  - Scripts `mock:api` and `test:mock-api`.
+- **This entry.**
+
+**What was run and what it printed.** All runs used Node 22.23.1, via `PATH=/opt/homebrew/opt/node@22/bin:$PATH`.
+- **RED, then GREEN, for the ContactBlocksPanel test.**
+  - The expected GET URL was deliberately wrong. The run printed `AssertionError: expected [ { method: 'get', …(2) } ] to deeply equal [ { method: 'get', …(1) } ]`, with the diff `- "url": "/api/admin/chat-groups/7/contact-blocks"` / `+ "url": "/api/admin/chats/7/contact-blocks"`, and `Tests 1 failed | 1 passed (2)`.
+  - After correcting the URL, both tests passed.
+- **RED, then GREEN, for `resetPermissionCache`.**
+  - Before the function existed: `TypeError: resetPermissionCache is not a function`.
+  - With a no-op body: `AssertionError: expected false to be true`, the stale cached matrix.
+  - After implementing it: `Tests 3 passed (3)`.
+- **RED, then GREEN, for the mock.**
+  - Before the server existed: `ERR_MODULE_NOT_FOUND … scripts/mock-api.mjs`.
+  - After: `# tests 21`, `# pass 21`, `# fail 0`.
+- **Final runs on the branch:**
+  - `npm test` → `Test Files 2 passed (2)`, `Tests 3 passed (3)`.
+  - `npm run build` → exit 0.
+  - `npm run test:mock-api` → 21 pass, 0 fail.
+  - `npm run lint` → `✖ 162 problems (98 errors, 64 warnings)`, exit 1. This is identical to clean `9bcc053`: the same 137 files are flagged, none of them new.
+  - `check:labels` → exit 1, output identical to clean main (see below).
+  - The other checks pass, as they did on main:
+    - `check:pwa`: 46 checks passed (38 on main, where `dist/` was absent);
+    - `test:sw`: 13 passed;
+    - `test:nav`: 15 pass;
+    - `test:field-labels`: 4 pass;
+    - `check:pending-parity`, `check:css-tokens` and `check:feed-bodies`: ok.
+- **On the machine's default Node 23.11.0,** `npx vitest run` passed 3 of 3 and the mock test passed 21 of 21.
+- **Live check.**
+  - `npm run mock:api` equivalent, on port 8787 as PID 39334. The start-up log printed the `API_TARGET` and localStorage hints.
+  - `curl /api/admin/chat-groups` → groups 42 (team) and 41 (masked).
+  - `…/41/messages?after_id=8101&limit=2` → messages 8102 and 8103.
+  - `…/connect-requests?scenario=error` → 500.
+  - Then PID 39334 was killed.
+
+**Review follow-up, same day** (commit `fix(admin-web): mock API listens on loopback only`). The code review came back CHANGES NEEDED with one HIGH. Everything else it checked was verified solid.
+- **HIGH, fixed: the mock listened on every interface.**
+  - `scripts/mock-api.mjs` called `server.listen(port, …)` with no host.
+  - Before the fix, `lsof -nP -a -p <pid> -iTCP -sTCP:LISTEN` on the running CLI printed `IPv6 … TCP *:8787 (LISTEN)`. The start-up banner prints a super_admin session.
+  - Now a new exported `listenOnLoopback(server, port)` binds `127.0.0.1`, and both the command line and the test helper start the server through it.
+  - The banner and `docs/mock-api.md` now say 127.0.0.1 throughout.
+- **Tests first.** Two new cases in `scripts/mock-api.test.mjs`:
+  - `listenOnLoopback` binds `127.0.0.1`;
+  - the `if (isEntryPoint)` block calls `listenOnLoopback(server, port)` and never `.listen(` itself.
+
+  RED printed `SyntaxError: The requested module './mock-api.mjs' does not provide an export named 'listenOnLoopback'`. Run against the unfixed file, the CLI check found `server.listen(port, () => printStartupHint(port, scenario))` and no helper call.
+
+  GREEN, after the fix, with the same `lsof`: `IPv4 … TCP 127.0.0.1:8787 (LISTEN)`, and `curl http://127.0.0.1:8787/api/admin/chat-groups/42` answered the team group.
+- **Vite binds every interface too.** `vite.config.ts` sets `host: true`, so a plain `npm run dev` would expose the mock's data through the `/api` proxy.
+  - Checked: `npx vite --host 127.0.0.1` listened on `127.0.0.1:5199` only.
+  - The docs and banner now say `API_TARGET=http://127.0.0.1:8787 npm run dev -- --host 127.0.0.1`. `vite.config.ts` was not changed.
+- **The mock scripts have no ESLint coverage today.**
+  - `npx eslint --print-config scripts/mock-api.mjs` applies 0 rules, against 108 for `src/lib/api.ts`.
+  - A throwaway `scripts/*.mjs` file containing an unused variable linted clean, exit 0; the file was deleted.
+  - The cause: `eslint.config.js` only configures `**/*.{ts,tsx}`, and a config-protection hook blocks editing that file.
+  - Stated in `docs/mock-api.md`. The coordinator is adding it to the lint follow-up, OPOS #26437.
+- **`common.retry`:** nothing to do on this branch. The Phase 6a branch adds the key, and the test's comment stays as it is.
+- **Verification with Node 22.23.1:**
+  - `npm run test:mock-api` → `# tests 23`, `# pass 23`, `# fail 0`.
+  - `npm test` → exit 0, `Test Files 2 passed (2)`, `Tests 3 passed (3)`.
+  - `npm run build` → exit 0, `✓ built in 6.57s`.
+- **New traps:**
+  - Use `127.0.0.1` in `API_TARGET`, not `localhost`: the mock does not listen on IPv6 `::1`.
+  - localStorage is per origin, so a session pasted on `localhost:5173` is not visible on `127.0.0.1:5173`.
+
+**External actions taken:** none. Nothing was pushed. OPOS MCP needed OAuth, which wasn't available in this non-interactive subagent, so #26408 was not moved or commented on.
+
+**What is still open:**
+- **Commits.** Both commits are local, unpushed and not reviewed by a human.
+- **Lint.** `npm run lint` already fails on main with 162 problems, so the plan's "lint passes" acceptance needs a separate cleanup. This branch adds no problems.
+- **check:labels.** It already fails on main with 6 values: `status.case`, `created`, `masked`, `member_added`, `member_removed` and `team`. The fix belongs to the Phase 6 dashboard task.
+- **ESLint override.** The planned override for `src/test/**` was not added, because a config-protection hook blocks edits to `eslint.config.js`. ESLint reports no problems in the test files without it.
+- **Missing `common.retry` key.**
+  - No locale defines it, so ContactBlocksPanel.tsx:132 and EditModal.tsx:384 print the raw key.
+  - The Retry test finds the button by role, with a comment saying to pin the label once the key exists.
+  - A follow-up task was suggested.
+- **Mock vs backend.** Known differences are listed in `admin-web/docs/mock-api.md`: no auth or masking, no contact scan on labels, and borrowed empty-body 400 text on the legacy routes.
+
+**Traps:**
+- **Node version.** The default `node` on this Mac is 23.11.0. That is outside vitest 5's engines (`^22.12 || ^24`) and jsdom 30's (`^22.22.2 || ^24.15`). The tests passed on it, but `.nvmrc` says 22 and Homebrew's `node@22` is installed.
+- **Test reporter.** On Node 23, `node --test` prints `ℹ pass N`, not the TAP `# pass N`, so a grep for `# pass` finds nothing.
+- **Testing Library cleanup.** It does not clean up automatically without Vitest globals, so `setup.ts` calls `cleanup()` itself.
+- **`mockApi` scope.** It spies on `api`'s methods, so axios interceptors (the Bearer header, the delete-password dialog, the 401 sign-out) never run in those tests.
+- **Parallel branches.** Other agents' branches also edit this file. On a conflict, keep both entries.
+
+---
+
 ## 2026-09-15 — OPOS #26419: masked chat-group sender labels in the reader's language (branch `fix/chat-group-sender-labels-localized`)
 
 **What was asked:** Arabic members saw the server's English sender labels ("Support", "Donor 1") in masked group chats. Fix it in the Flutter app, tests first, en + ar only.
