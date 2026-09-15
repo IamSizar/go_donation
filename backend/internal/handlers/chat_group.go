@@ -327,13 +327,25 @@ func (h *ChatGroupHandler) notifyGroupMembers(group chatgroups.GroupDetail, send
 			if m.UserID == senderUserID || m.RemovedAt != nil {
 				continue
 			}
-			var msg notify.LocalizedMessage
-			if group.Kind == chatgroups.KindMasked {
-				msg = notify.GroupMaskedNewMessageMsg(label, preview, group.ID)
-			} else {
-				msg = notify.ChatNewMessageMsg(label, preview, group.ID)
-			}
+			msg := groupMessageFor(group.Kind, label, preview, group.ID)
 			_, _ = h.Notifier.Send(ctx, m.UserID, msg)
 		}
 	}()
+}
+
+// groupMessageFor picks the push template for one chat-group message. It is
+// pure so the choice is testable without a database (see
+// chat_group_push_message_test.go).
+//
+// A team group gets GroupTeamNewMessageMsg with the sender's real name. Every
+// other kind gets GroupMaskedNewMessageMsg with the alias, failing closed the
+// same way groupSenderLabel treats every non-team kind as masked. Both
+// templates reference the chat group itself ("chat_group_thread"); the team
+// branch used to send ChatNewMessageMsg, which mislabelled the group id as a
+// donor "chat_thread" (OPOS #26411).
+func groupMessageFor(kind chatgroups.Kind, senderLabel, preview string, groupID int64) notify.LocalizedMessage {
+	if kind == chatgroups.KindTeam {
+		return notify.GroupTeamNewMessageMsg(senderLabel, preview, groupID)
+	}
+	return notify.GroupMaskedNewMessageMsg(senderLabel, preview, groupID)
 }

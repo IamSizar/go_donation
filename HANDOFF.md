@@ -6,6 +6,58 @@
 
 ---
 
+## 2026-09-15 — OPOS #26411: team chat-group pushes get their own entity type (branch `fix/team-group-push-entity-type`)
+
+**What was asked:** team-group message pushes used the donor-chat template, which labelled a chat-GROUP id as a `chat_thread`. Give them their own template, test-first, and leave `chatErr` in `chat_group.go` untouched (parallel branches edit it).
+
+**What was actually changed** (commit `fa22b87`, off `origin/main` `aa32268`):
+- **Before:**
+  - Masked groups already sent `GroupMaskedNewMessageMsg`: `chat_group_message` / `chat_group_thread` / group id.
+  - Team groups sent `ChatNewMessageMsg`: `chat_message` / `chat_thread` / group id, which was wrong.
+- **Now:**
+  - `backend/internal/notify/templates.go` adds `GroupTeamNewMessageMsg` (`chat_group_message` / `chat_group_thread`). It and the masked template share a private `chatGroupNewMessageMsg`, and the masked output is unchanged.
+  - `backend/internal/handlers/chat_group.go`: `notifyGroupMembers` calls the new pure `groupMessageFor(kind, label, preview, groupID)`. Team kind gets the team template, and every other kind fails closed onto the masked template. `chatErr` was not touched.
+- **Kurdish:** ckb/kmr reuse the exact strings `ChatNewMessageMsg` already ships. Note that its kmr string `Peyam ji %s` is Latin script, while the file header says Arabic script.
+- **New tests (pure, no DB):**
+  - `backend/internal/notify/templates_group_test.go` (3 tests)
+  - `backend/internal/handlers/chat_group_push_message_test.go` (table test with 3 cases, plus an alias test)
+
+**What was run and what it printed:**
+- **RED:**
+  - `go test ./internal/notify/` printed `undefined: GroupTeamNewMessageMsg` and `[build failed]`.
+  - `go test ./internal/handlers/` printed `undefined: groupMessageFor` and `[build failed]`.
+- **GREEN, on a fresh DB `godonation_team_group_push_26411`** (created, then dropped):
+  - The targeted run printed `ok .../internal/notify 6.070s` and `ok .../internal/handlers 31.014s`.
+  - `go test ./... -count=1 -p 1` exited 0, with 22 `ok` packages and 0 FAIL/panic lines.
+- **Lint:**
+  - `go vet ./...` exited 0.
+  - `gofmt -l` listed only `internal/handlers/admin_edit_user_profile.go`. That file is untouched and already unformatted on `origin/main`.
+- **Review:** an `ecc:code-reviewer` pass found 0 issues.
+
+**Readers of `related_entity_type`:**
+- None branch on it. The backend only writes and lists it (`notify.go:141`, `list.go:29`).
+- The Flutter app copies it into `AppNotificationModel` (`notifications_controller.dart:161`) but never acts on it.
+- admin-web does not reference it.
+- `chat_request` is the only type the tile acts on, keyed on `notification_type` (`notification_tile.dart:196`).
+- The push-tap handler (`main.dart:114`) only logs.
+
+**External actions taken:** none. Nothing was pushed and no PR was opened.
+
+**What is still open:**
+- Both commits are local and unpushed.
+- Existing team-group rows keep `chat_message` / `chat_thread`. They can't be told apart from real donor-chat rows, so there is no backfill.
+- `chat_group_message` has no label anywhere:
+  - Flutter `app_translations.dart` (en/ar), and the `notificationTypes` list in `test/localization/localized_tag_test.dart`.
+  - admin-web `src/lib/locales/en.ts` and `ar.ts`.
+  - The Arabic UI shows the `localizedTag` fallback. Masked-group rows had this gap before; team-group rows now share it. It needs a Flutter plus admin-web follow-up.
+- OPOS MCP needed OAuth and wasn't available in this subagent session, so #26411's status and notes need updating by hand.
+
+**Traps:**
+- The worktree guard refuses `go test ... | tee ...` with `${pipestatus}`. Redirect to a file instead.
+- `gofmt -l .` on `backend/` is not empty on `main`, because of `admin_edit_user_profile.go`.
+
+---
+
 ## 2026-09-15 — OPOS #26413: donor-chat invite accept now respects the thread lifecycle (branch `fix/chat-accept-respects-lifecycle`)
 
 **What was asked:** confirm, then fix test-first, that `POST /api/chats/:id/accept` ignored `chat_threads.lifecycle`, so a pending invite on an ended or archived thread could be accepted and push "chat accepted". Report whether decline or other invite transitions have the same gap. Fix only accept.
