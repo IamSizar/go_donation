@@ -18,6 +18,11 @@ class ChatThread {
   // if any (null = unclaimed, any admin may still reply as "Support").
   final String? assignedStaffName;
 
+  /// Migration 117 — the staff-controlled lifecycle: open | paused | ended.
+  /// Read by the invite answers (OPOS #26433), which stop offering Accept on a
+  /// closed thread. Defaults to open, so an older server leaves Accept working.
+  final String lifecycle;
+
   const ChatThread({
     required this.id,
     required this.status,
@@ -33,6 +38,7 @@ class ChatThread {
     required this.lastMessageAt,
     required this.unreadCount,
     required this.assignedStaffName,
+    this.lifecycle = 'open',
   });
 
   bool get isActive => status == 'active';
@@ -50,9 +56,10 @@ class ChatThread {
       myRole: (m['my_role'] ?? '').toString(),
       incomingPending: m['incoming_pending'] == true,
       otherUserId: int.tryParse('${m['other_user_id']}') ?? 0,
-      otherName: (m['other_name'] ?? 'User').toString().trim().isEmpty
-          ? 'User #${m['other_user_id']}'
-          : (m['other_name']).toString(),
+      // Only the server's trimmed name, or '' — no fallback words here
+      // (OPOS #26483). The screen names an unnamed other party in the
+      // reader's language through `chatThreadOtherName`.
+      otherName: (m['other_name'] ?? '').toString().trim(),
       otherPhone: m['other_phone']?.toString(),
       lastMessage: m['last_message']?.toString(),
       lastMessageAt: DateTime.tryParse((m['last_message_at'] ?? '').toString()),
@@ -61,6 +68,7 @@ class ChatThread {
           (m['assigned_staff_name'] as String?)?.trim().isEmpty == true
           ? null
           : m['assigned_staff_name'] as String?,
+      lifecycle: (m['lifecycle'] ?? 'open').toString(),
     );
   }
 }

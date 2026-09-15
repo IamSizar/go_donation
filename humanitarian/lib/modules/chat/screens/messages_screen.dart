@@ -8,7 +8,10 @@ import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/modules/bot/screens/bot_chat_screen.dart';
 import 'package:flutter_application_1/modules/chat/controllers/chat_controller.dart';
 import 'package:flutter_application_1/modules/chat/models/chat_models.dart';
+import 'package:flutter_application_1/modules/chat/utils/chat_sender_name.dart';
 import 'package:flutter_application_1/modules/chat/screens/chat_conversation_screen.dart';
+import 'package:flutter_application_1/modules/chat/utils/chat_invite_refusal.dart';
+import 'package:flutter_application_1/modules/chat/widgets/chat_lifecycle_notice.dart';
 import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/modules/chatgroups/controllers/chat_groups_controller.dart';
 import 'package:flutter_application_1/modules/chatgroups/widgets/chat_groups_section.dart';
@@ -343,7 +346,7 @@ class _ThreadTile extends StatelessWidget {
           onTap: () => Get.to(
             () => ChatConversationScreen(
               threadId: thread.id,
-              title: thread.otherName,
+              title: chatThreadOtherName(thread),
               subtitle: thread.campaignTitle ?? roleLabel.tr,
             ),
           ),
@@ -351,7 +354,7 @@ class _ThreadTile extends StatelessWidget {
             padding: const EdgeInsets.all(12),
             child: Row(
               children: [
-                _Avatar(name: thread.otherName),
+                _Avatar(name: chatThreadOtherName(thread)),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -361,7 +364,7 @@ class _ThreadTile extends StatelessWidget {
                         children: [
                           Expanded(
                             child: Text(
-                              thread.otherName,
+                              chatThreadOtherName(thread),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
@@ -470,7 +473,7 @@ class _OutgoingPendingTile extends StatelessWidget {
         child: Row(
           children: [
             _Avatar(
-              name: thread.otherName,
+              name: chatThreadOtherName(thread),
               color: AppThemeConfig.pending(context),
             ),
             const SizedBox(width: 12),
@@ -479,7 +482,7 @@ class _OutgoingPendingTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    thread.otherName,
+                    chatThreadOtherName(thread),
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w800,
@@ -521,16 +524,22 @@ class _IncomingRequestCard extends StatelessWidget {
         Get.to(
           () => ChatConversationScreen(
             threadId: thread.id,
-            title: thread.otherName,
+            title: chatThreadOtherName(thread),
             subtitle: thread.campaignTitle,
           ),
         );
       }
     } catch (e) {
+      // Was `Text('$e')`, the raw English exception on every locale. The
+      // controller has already refreshed the list, so a declined, active or
+      // closed invite leaves this section on its own (OPOS #26433).
+      debugPrint('accept thread ${thread.id} failed: $e');
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(chatInviteRefusalMessage(e, ChatInviteAnswer.accept)),
+          ),
+        );
       }
     }
   }
@@ -546,7 +555,11 @@ class _IncomingRequestCard extends StatelessWidget {
       debugPrint('decline thread ${thread.id} failed: $e');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not decline this chat request.'.tr)),
+          SnackBar(
+            content: Text(
+              chatInviteRefusalMessage(e, ChatInviteAnswer.decline),
+            ),
+          ),
         );
       }
     }
@@ -565,14 +578,17 @@ class _IncomingRequestCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                _Avatar(name: thread.otherName, color: AppThemeConfig.primary),
+                _Avatar(
+                  name: chatThreadOtherName(thread),
+                  color: AppThemeConfig.primary,
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        thread.otherName,
+                        chatThreadOtherName(thread),
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w900,
@@ -616,13 +632,17 @@ class _IncomingRequestCard extends StatelessWidget {
                     child: Text('Decline'.tr),
                   ),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: () => _accept(context),
-                    child: Text('Accept'.tr),
+                // No Accept on a paused or ended thread: the server refuses
+                // it. Decline stays, to dismiss the invite (OPOS #26433).
+                if (!ChatLifecycle.isClosed(thread.lifecycle)) ...[
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () => _accept(context),
+                      child: Text('Accept'.tr),
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ],

@@ -1630,15 +1630,39 @@ func ChatNewMessageMsg(senderName, preview string, threadID int64) LocalizedMess
 	if who == "" {
 		who = "New message"
 	}
+	return chatThreadNewMessageMsg(LocalText{En: who, Ar: who, Ckb: who, Kmr: who}, preview, threadID)
+}
+
+// ChatSupportReplyMsg notifies a party of a 1:1 donor chat that staff replied
+// (OPOS #26483). The admin reply used to send ChatNewMessageMsg("Support"),
+// which put the English word into every language, so Arabic read
+// «رسالة من Support». The sender is named per language through
+// localizedGroupAlias, the same lookup the masked chat groups use, so the
+// support team has one name everywhere: "Support" in English, فريق الدعم in
+// Arabic (never الدعم, which is Kafala: TERMINOLOGY.md T10). Sorani and Badini
+// have no word for the support team yet and keep "Support" (OPOS #26468).
+func ChatSupportReplyMsg(preview string, threadID int64) LocalizedMessage {
+	return chatThreadNewMessageMsg(LocalText{
+		En:  localizedGroupAlias(supportSenderLabel, "en"),
+		Ar:  localizedGroupAlias(supportSenderLabel, "ar"),
+		Ckb: localizedGroupAlias(supportSenderLabel, "ckb"),
+		Kmr: localizedGroupAlias(supportSenderLabel, "kmr"),
+	}, preview, threadID)
+}
+
+// chatThreadNewMessageMsg is the one body behind both 1:1 chat templates, so
+// a staff reply and a member's message can never drift onto different types.
+// `who` is the sender's name per language, already resolved by the caller.
+func chatThreadNewMessageMsg(who LocalText, preview string, threadID int64) LocalizedMessage {
 	return LocalizedMessage{
 		Type:              "chat_message",
 		RelatedEntityType: "chat_thread",
 		RelatedEntityID:   threadID,
 		Title: LocalText{
-			En:  fmt.Sprintf("Message from %s", who),
-			Ar:  fmt.Sprintf("رسالة من %s", who),
-			Ckb: fmt.Sprintf("نامە لە %s", who),
-			Kmr: fmt.Sprintf("Peyam ji %s", who),
+			En:  fmt.Sprintf("Message from %s", who.En),
+			Ar:  fmt.Sprintf("رسالة من %s", who.Ar),
+			Ckb: fmt.Sprintf("نامە لە %s", who.Ckb),
+			Kmr: fmt.Sprintf("Peyam ji %s", who.Kmr),
 		},
 		Body: LocalText{
 			En:  preview,
