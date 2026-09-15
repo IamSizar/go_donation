@@ -1,13 +1,27 @@
+// notification_tile.dart — one card in the notification list: a type-aware
+// alert tile with swipe-to-read and, for a signed-in member's chat request,
+// inline Accept / Decline.
+//
+// MODULE MAP (split by OPOS #26473 to stay under the 500-line limit)
+//   • notification_tile.dart    — NotificationTile, its relative-time stamp,
+//     and the card's small private pieces (icon badge, chips, swipe
+//     background).
+//   • notification_visuals.dart — NotificationVisuals: category and type to
+//     colour, icon and pinned state.
+//   • chat_request_actions.dart — ChatRequestActions: the Accept / Decline
+//     row, which this file builds only when `!isGuestMode()` (OPOS #26448).
+//
+// Hosted by NotificationsScreen (screens/notifications_screen.dart) and by
+// lib/widgets/notification.dart.
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
-import 'package:flutter_application_1/modules/chat/controllers/chat_controller.dart';
-import 'package:flutter_application_1/modules/chat/models/chat_models.dart';
-import 'package:flutter_application_1/modules/chat/screens/chat_conversation_screen.dart';
 import 'package:intl/intl.dart';
 import 'package:get/get.dart';
 
 import '../models/app_notification_model.dart';
+import 'chat_request_actions.dart';
+import 'notification_visuals.dart';
 
 /// A redesigned, type-aware alert card.
 ///
@@ -33,7 +47,7 @@ class NotificationTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = _NotificationVisuals.of(context, notification);
+    final style = NotificationVisuals.of(context, notification);
     final unread = !notification.isRead;
 
     final surface = AppThemeConfig.surface(context);
@@ -220,7 +234,7 @@ class NotificationTile extends StatelessWidget {
                                       null &&
                                   !isGuestMode()) ...[
                                 const SizedBox(height: 12),
-                                _ChatRequestActions(
+                                ChatRequestActions(
                                   threadId: int.parse(
                                     notification.relatedEntityId,
                                   ),
@@ -302,7 +316,7 @@ String _relativeTime(DateTime dt) {
 class _IconBadge extends StatelessWidget {
   const _IconBadge({required this.style, required this.dimmed});
 
-  final _NotificationVisuals style;
+  final NotificationVisuals style;
   final bool dimmed;
 
   @override
@@ -336,7 +350,7 @@ class _IconBadge extends StatelessWidget {
 class _CategoryChip extends StatelessWidget {
   const _CategoryChip({required this.style, required this.notification});
 
-  final _NotificationVisuals style;
+  final NotificationVisuals style;
   final AppNotificationModel notification;
 
   @override
@@ -428,277 +442,5 @@ class _ReadBackground extends StatelessWidget {
         color: AppThemeConfig.accent(context),
       ),
     );
-  }
-}
-
-/// Accept / Decline buttons shown inline on a `chat_request` notification.
-///
-/// Uses [Obx] to reactively read the thread's status from [ChatController].
-/// This means the done-state persists across notification-list rebuilds:
-/// if the thread is already `active` (accepted) or `declined`, the buttons
-/// never reappear even when the notification list re-polls.
-class _ChatRequestActions extends StatefulWidget {
-  const _ChatRequestActions({required this.threadId});
-  final int threadId;
-
-  @override
-  State<_ChatRequestActions> createState() => _ChatRequestActionsState();
-}
-
-class _ChatRequestActionsState extends State<_ChatRequestActions> {
-  bool _busy = false;
-
-  // Local "done" is only used as instant feedback during the API call,
-  // before the next fetchThreads() result arrives.
-  bool _localDone = false;
-  String? _localResult;
-
-  // The put below starts ChatController's /api/chats fetch and 5-second poll,
-  // which is why NotificationTile never builds this widget for a guest
-  // (OPOS #26448). Do not host it anywhere without that guard.
-  ChatController get _ctrl => Get.isRegistered<ChatController>()
-      ? Get.find<ChatController>()
-      : Get.put(ChatController());
-
-  Future<void> _accept() async {
-    if (_busy) return;
-    setState(() => _busy = true);
-    try {
-      await _ctrl.accept(widget.threadId);
-      if (!mounted) return;
-      setState(() {
-        _localDone = true;
-        _localResult = 'Accepted';
-        _busy = false;
-      });
-      Get.to(
-        () =>
-            ChatConversationScreen(threadId: widget.threadId, title: 'Chat'.tr),
-      );
-    } catch (e) {
-      if (mounted) {
-        setState(() => _busy = false);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('$e')));
-      }
-    }
-  }
-
-  Future<void> _decline() async {
-    if (_busy) return;
-    setState(() => _busy = true);
-    try {
-      await _ctrl.decline(widget.threadId);
-      if (!mounted) return;
-      setState(() {
-        _localDone = true;
-        _localResult = 'Declined';
-        _busy = false;
-      });
-    } catch (e) {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Widget _buildDone(String result) {
-    return Row(
-      children: [
-        Icon(
-          result == 'Accepted'
-              ? Icons.check_circle_rounded
-              : Icons.cancel_rounded,
-          size: 16,
-          color: result == 'Accepted'
-              ? AppThemeConfig.accent(context)
-              : AppThemeConfig.consequence(context),
-        ),
-        const SizedBox(width: 6),
-        Text(
-          result.tr,
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            color: AppThemeConfig.mutedText(context),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildButtons() {
-    return Row(
-      children: [
-        Expanded(
-          child: OutlinedButton(
-            onPressed: _busy ? null : _decline,
-            child: Text('Decline'.tr),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: FilledButton(
-            onPressed: _busy ? null : _accept,
-            child: _busy
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : Text('Accept'.tr),
-          ),
-        ),
-      ],
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // Obx reacts to ChatController.threads changes, so this widget
-    // automatically updates when accept/decline completes (fetchThreads
-    // refreshes the list) — and also stays correct across notification
-    // list rebuilds because it reads persisted singleton state.
-    return Obx(() {
-      // Look up the thread's current status from the singleton controller.
-      ChatThread? thread;
-      for (final t in _ctrl.threads) {
-        if (t.id == widget.threadId) {
-          thread = t;
-          break;
-        }
-      }
-
-      if (thread != null && thread.status == 'active') {
-        return _buildDone('Accepted');
-      }
-      if (thread != null && thread.status == 'declined') {
-        return _buildDone('Declined');
-      }
-
-      // Thread not yet in list (controller may not have fetched yet) or
-      // still pending — fall back to local state for instant feedback
-      // during the in-flight API call.
-      if (_localDone) return _buildDone(_localResult ?? '');
-
-      return _buildButtons();
-    });
-  }
-}
-
-/// Per-type/category visual styling: a colour and an icon. Colour comes from
-/// the category (urgent/payment/…) while
-/// the icon is refined by the concrete notification *type* so a chat request,
-/// a donation and a campaign update each look distinct even within a category.
-class _NotificationVisuals {
-  const _NotificationVisuals({
-    required this.color,
-    required this.icon,
-    required this.isPinned,
-  });
-
-  final Color color;
-  final IconData icon;
-  final bool isPinned;
-
-  factory _NotificationVisuals.of(
-    BuildContext context,
-    AppNotificationModel n,
-  ) {
-    final base = _byCategory(context, n.normalizedCategory);
-    final icon = _iconForType(n.notificationType) ?? base.icon;
-    return _NotificationVisuals(
-      color: base.color,
-      icon: icon,
-      isPinned: base.isPinned,
-    );
-  }
-
-  static _NotificationVisuals _byCategory(
-    BuildContext context,
-    String category,
-  ) {
-    switch (category) {
-      case 'urgent':
-        return _NotificationVisuals(
-          color: AppThemeConfig.consequence(context),
-          icon: Icons.priority_high_rounded,
-          isPinned: true,
-        );
-      case 'payment':
-        return _NotificationVisuals(
-          color: AppThemeConfig.accent(context),
-          icon: Icons.payments_rounded,
-          isPinned: true,
-        );
-      case 'campaign':
-        return _NotificationVisuals(
-          color: AppThemeConfig.accent(context),
-          icon: Icons.campaign_rounded,
-          isPinned: false,
-        );
-      case 'system':
-        return _NotificationVisuals(
-          color: AppThemeConfig.subtleText(context),
-          icon: Icons.settings_suggest_rounded,
-          isPinned: false,
-        );
-      case 'reminder':
-        return _NotificationVisuals(
-          color: AppThemeConfig.pending(context),
-          icon: Icons.event_available_rounded,
-          isPinned: false,
-        );
-      default:
-        return _NotificationVisuals(
-          color: AppThemeConfig.accent(context),
-          icon: Icons.notifications_active_rounded,
-          isPinned: false,
-        );
-    }
-  }
-
-  /// Refine the icon by the concrete notification type. Returns null to keep
-  /// the category default.
-  static IconData? _iconForType(String type) {
-    final t = type.trim().toLowerCase();
-    if (t.contains('chat') || t.contains('message')) {
-      return Icons.forum_rounded;
-    }
-    if (t.contains('donation') || t.contains('payment')) {
-      return Icons.volunteer_activism_rounded;
-    }
-    if (t.contains('sponsor') || t.contains('kafala')) {
-      return Icons.diversity_1_rounded;
-    }
-    if (t.contains('project') || t.contains('campaign')) {
-      return Icons.campaign_rounded;
-    }
-    if (t == 'media_post' || t == 'news' || t == 'activity') {
-      return Icons.article_rounded;
-    }
-    if (t.contains('partner')) {
-      return Icons.handshake_rounded;
-    }
-    if (t.contains('support') || t.contains('ticket')) {
-      return Icons.support_agent_rounded;
-    }
-    if (t.contains('marriage')) {
-      return Icons.favorite_rounded;
-    }
-    if (t.contains('volunteer') || t.contains('mission')) {
-      return Icons.assignment_turned_in_rounded;
-    }
-    if (t.contains('reminder') || t.contains('due')) {
-      return Icons.event_available_rounded;
-    }
-    if (t.contains('approve') || t.contains('accepted')) {
-      return Icons.verified_rounded;
-    }
-    if (t.contains('reject') || t.contains('declined')) {
-      return Icons.cancel_rounded;
-    }
-    return null;
   }
 }
