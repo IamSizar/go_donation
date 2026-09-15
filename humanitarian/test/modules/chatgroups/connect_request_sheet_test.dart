@@ -1,4 +1,4 @@
-// Pins the "Ask staff to connect me" sheet — OPOS #25284 Phase 5 Task 5
+// Pins the "Ask our team to connect me" sheet — OPOS #25284 Phase 5 Task 5
 // (OPOS #26046).
 //
 // WHAT IS PINNED
