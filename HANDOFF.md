@@ -6,6 +6,62 @@
 
 ---
 
+## 2026-09-15 — OPOS #26355: guest accounts can no longer be added to a chat group (branch `fix/chat-groups-no-guest-members`)
+
+**What was asked:** staff could add a guest account (`users.is_guest = TRUE`) to a chat group in three ways: create group, add member, or approve a connect request. Every participant chat-group route refuses guest sessions, so that guest was locked out and staff got no warning. The brief: enforce the rule once, in the store, test-first, and return a 400 with a machine code.
+
+**What was actually changed** (one commit on `fix/chat-groups-no-guest-members`, branched from `origin/main` `9bcc053`):
+- `backend/internal/chatgroups/chatgroups.go`:
+  - New sentinel `ErrGuestMember`.
+  - New `insertMemberRow`, now the ONLY writer of `chat_group_members`. It is a single `INSERT ... SELECT ... WHERE NOT EXISTS (SELECT 1 FROM users WHERE id = $2 AND is_guest)`. Zero rows affected means the user is a guest, and it returns `ErrGuestMember`.
+  - `insertMembers` (used by `CreateGroup` and `ApproveConnectRequest` inside their transactions) and `AddMember` now both call it. That replaces two duplicated INSERTs.
+  - A user id with no `users` row is inserted exactly as before (there is no FK).
+- `backend/internal/chatgroups/chatgroups_connect.go`: doc comment only. A guest requester's request can never be approved, only declined.
+- `backend/internal/handlers/chat_group.go`: `chatErr` maps `ErrGuestMember` to `400 {"success":false,"error":"Guest accounts cannot be added to a chat group.","code":"guest_member_not_allowed"}`. Only this response has a `code`; every other response is unchanged.
+- New tests:
+  - `backend/internal/chatgroups/chatgroups_guest_test.go` (store).
+  - `backend/internal/handlers/chat_group_guest_member_test.go` (HTTP). They are separate files because `chatgroups_test.go` and `chat_group_test.go` are already over 500 lines.
+- `backend/internal/handlers/chat_group_guest_test.go`: `TestChatGroupReads_RefuseGuest` now writes the guest's membership row directly (`insertLegacyGuestMembership`), because the store refuses it now.
+
+**What was run and what it printed**
+- **RED, before the fix, with the new tests plus only the sentinel declared:**
+  - Store tests: `CreateGroup`/`AddMember`/`ApproveConnectRequest with a guest member = <nil>, want errors.Is(err, ErrGuestMember)` for TestCreateGroupRefusesGuestMember (masked and team), TestAddMemberRefusesGuest, TestApproveConnectRequestRefusesGuestMember and TestApproveConnectRequestRefusesGuestRequester.
+  - HTTP tests: `status = 200, want 400` for TestAdminCreateGroup_RefusesGuestMember, TestAdminAddMember_RefusesGuestMember, TestAdminApproveConnectRequest_RefusesGuestMember and TestAdminApproveConnectRequest_RefusesGuestRequester.
+  - The controls passed: TestAddMemberAcceptsUpgradedGuest and TestAdminCreateGroup_OtherRefusalsCarryNoCode.
+- **After the fix:**
+  - `gofmt -l` on all 6 changed files printed nothing.
+  - `go vet ./...` printed nothing, exit 0.
+  - On a fresh DB, `go test ./internal/chatgroups/ ./internal/handlers/ -count=1` printed `ok .../internal/chatgroups 143.403s` and `ok .../internal/handlers 539.745s`, with 0 FAIL and 0 SKIP.
+  - On a second fresh DB, `go test ./... -count=1 -p 1 -timeout 30m` exited 0 with 22 `ok` packages and 0 FAIL, including `ok .../internal/chatgroups 94.593s` and `ok .../internal/handlers 57.991s`.
+- An `ecc:code-reviewer` pass found 0 issues at every severity.
+
+**External actions taken:** none. Nothing was pushed and no PR was opened. The throwaway DBs `godonation_guest_members_26355`, `_pkgs` and `_full` were created and then dropped.
+
+**What is still open**
+- The commit is local and unpushed.
+- OPOS MCP needed interactive OAuth in this subagent session, so #26355 was not moved or commented on.
+- **Admin dashboard (Phase 6)** must handle `400` + `code: "guest_member_not_allowed"` on these three routes:
+  - `POST /api/admin/chat-groups`
+  - `POST /api/admin/chat-groups/:id/members`
+  - `POST /api/admin/chat-groups/connect-requests/:id/approve`
+- What that means for the dashboard:
+  - Show a localized message on this code, not the raw `error`.
+  - The refusal is all-or-nothing, so nothing was created.
+  - For approve, the request stays `pending`. A guest requester's request can only be declined.
+  - The member picker should exclude guests up front, for example via `GET /api/admin/users?hide_guests=1`.
+- Guest memberships created before this fix are not cleaned up. They are still locked out by the read and write gates.
+- A background-task suggestion was filed: `raiseUserIDFloor` in `chatgroups_test.go` moves the users sequence backward (see Traps).
+
+**Traps**
+- **Reusing one test DB across runs of `internal/chatgroups` gives spurious failures.** Its `raiseUserIDFloor` uses `MAX(users.id)`, which drops after cleanup. So each new process reissues user ids that still own leftover `chat_group_members` and connect-request rows.
+  - Seen after 3 runs on one DB: 61 orphan member rows, sequence at 700000532 vs `MAX(id)` 6.
+  - Tests that failed because of it: TestListGroupsForUserUnreadCount, TestListGroupsForUserExcludesRemovedMembership, TestAdminDeclineConnectRequest_ShowsReasonToRequester.
+  - Use a fresh DB per run. The new guest tests count only rows above a `chat_group_members.id` watermark for this reason.
+- **Under machine load** (load average around 40 from parallel agents), `internal/handlers` took 540s, close to Go's 10-minute default per-binary timeout and the Bash tool's 10-minute cap. Run the full suite in the background with `-timeout 30m` and wait for an exit marker.
+- **The sandbox refuses `psql`/`createdb` commands that contain shell variables.** Use literal DB names.
+
+---
+
 ## 2026-09-15 — OPOS #26351 ("our team" decision): connect-request copy says "our team", not "staff" (branch `fix/connect-copy-our-team`)
 
 **What was asked:** implement one of OPOS #26351's decisions. All member-facing chat-group and connect-request copy says "our team" (Arabic فريقنا), never "staff" (الفريق). Tests first. Do not write Kurdish.

@@ -43,9 +43,20 @@ func (h *ChatGroupHandler) bg() (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.Background(), 10*time.Second)
 }
 
+// guestMemberNotAllowedCode is the machine-readable code on the 400 an admin
+// route returns when staff list a guest account as a group member
+// (chatgroups.ErrGuestMember, OPOS #26355). The admin dashboard keys its
+// explanation on this value, so it is a contract: never reword it.
+const guestMemberNotAllowedCode = "guest_member_not_allowed"
+
 // chatErr maps chatgroups' sentinel errors onto HTTP, mirroring chat.go's
 // chatErr (see internal/chatgroups' sentinel doc comments for what each
 // means).
+//
+// Only the guest-member refusal carries a "code" field. It shares 400 with the
+// generic invalid-input answer, and without a code the dashboard could not
+// tell "you picked a guest account" from any other bad request. Every other
+// response keeps its existing shape.
 func (h *ChatGroupHandler) chatErr(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, chatgroups.ErrNotMember):
@@ -54,6 +65,12 @@ func (h *ChatGroupHandler) chatErr(c *gin.Context, err error) {
 		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Group not found."})
 	case errors.Is(err, chatgroups.ErrAlreadyDecided):
 		c.JSON(http.StatusConflict, gin.H{"success": false, "error": "This request has already been decided."})
+	case errors.Is(err, chatgroups.ErrGuestMember):
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "Guest accounts cannot be added to a chat group.",
+			"code":    guestMemberNotAllowedCode,
+		})
 	case errors.Is(err, chatgroups.ErrInvalidInput):
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid request."})
 	default:

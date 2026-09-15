@@ -75,6 +75,13 @@ func (s *Store) SubmitConnectRequest(ctx context.Context, requesterID int64, con
 // ApproveConnectRequest creates the group AND stamps the request approved in
 // ONE transaction — there is never an "approved, no group yet" state. Fails
 // if the request is not currently pending.
+//
+// Members go through insertMembers, so a guest account anywhere in members
+// fails the whole approval with ErrGuestMember and leaves the request pending
+// (OPOS #26355). That includes the requester, who must be a member: a pending
+// request whose requester is a guest — e.g. one filed before
+// POST /api/chat-groups/connect-requests was guest-gated — can never be
+// approved, only declined.
 func (s *Store) ApproveConnectRequest(ctx context.Context, requestID int64, kind Kind, memberTitle string, staffID int64, members []MemberInput) (int64, error) {
 	tx, err := s.Pool.Begin(ctx)
 	if err != nil {
