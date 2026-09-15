@@ -114,7 +114,7 @@ func seedPendingMarriageInvite(t *testing.T, pool *pgxpool.Pool) pendingMarriage
 // newMarriageAcceptRouter mounts accept, and the participant messages route
 // the archived case is compared against, behind main.go's chain for them: the
 // authed group's RequireBearer + RequireApproved, plus RequireNotGuest on
-// accept (the messages GET has none).
+// both routes (the messages GET gained it in OPOS #26354).
 func newMarriageAcceptRouter(pool *pgxpool.Pool) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	tokens := auth.NewTokenStore(pool)
@@ -122,7 +122,7 @@ func newMarriageAcceptRouter(pool *pgxpool.Pool) *gin.Engine {
 	r := gin.New()
 	authed := r.Group("/api", auth.RequireBearer(tokens), auth.RequireApproved())
 	authed.POST("/marriage/chats/:id/accept", auth.RequireNotGuest(), h.Accept)
-	authed.GET("/marriage/chats/:id/messages", h.Messages)
+	authed.GET("/marriage/chats/:id/messages", auth.RequireNotGuest(), h.Messages)
 	return r
 }
 
