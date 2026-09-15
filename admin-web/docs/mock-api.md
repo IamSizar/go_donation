@@ -98,6 +98,7 @@ What the fixtures contain:
 |---|---|
 | Masked group | 41 |
 | Team group | 42 |
+| Guest account | user 107, "Guest visitor". The users search finds it, and creating a group with it, or adding it to one, answers 400 `guest_member_not_allowed` |
 | Connect requests | 29 (declined), 30 (approved), 31 and 32 (pending) |
 | Donor chats | 7 (active), 8 (paused), 9 (pending) |
 | Support chat | 20 |
@@ -120,6 +121,12 @@ Known differences from the real API:
 
 - **Access.** No authentication, no per-user permissions and no sensitive-data masking: every reply is what a super_admin sees.
 - **Contact-detail refusals.** Staff messages are never refused for contact details. The backend exempts staff (`handlers/chat_group_contact_block.go`), and the mock only ever acts as staff.
-- **Masked labels.** A typed masked label is not scanned for contact details. The backend refuses such a label with 400 "Invalid request." (`refuseContactInLabel` in `internal/chatgroups/chatgroups.go`).
+- **Masked labels.** A typed masked label is not scanned for contact details. The backend refuses such a label with 400 `group_label_contact` (`refuseContactInLabel` in `internal/chatgroups/chatgroups.go`).
+- **Refusal codes.** The chat-group routes follow the final error contract that the backend branches in flight bring to `main`:
+  - every refusal carries a `code`: `group_not_found` (including a missing group's messages and contact blocks), `group_invalid_input`, `group_member_conflict`, `group_label_conflict`, `guest_member_not_allowed` and `connect_request_decided`;
+  - a missing connect request is a 404 with no code, as on the backend;
+  - re-adding a removed member reactivates them with their old label and role (decision D3).
+
+  Not mocked: `group_label_contact`, `sensitive_data_required`, `not_group_member`, `contact_details_blocked` and `server_error`. The dashboard translates all of them (`src/lib/chatGroupErrors.ts`).
 - **Staff chats.** Messages are not limited to the two participants.
 - **Validation.** The mock does not check that a user id exists.

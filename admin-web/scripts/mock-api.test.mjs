@@ -29,7 +29,7 @@ import { dirname, join } from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { createMockServer, listenOnLoopback } from './mock-api.mjs'
-import { MASKED_GROUP_ID, TEAM_GROUP_ID } from '../src/test/fixtures/chatGroups.ts'
+import { GUEST_USER_ID, MASKED_GROUP_ID, TEAM_GROUP_ID } from '../src/test/fixtures/chatGroups.ts'
 import { PERMISSION_ACTIONS, PERMISSION_MODULES } from '../src/test/fixtures/permissions.ts'
 import { SESSION_STORAGE_KEYS } from '../src/test/fixtures/session.ts'
 
@@ -174,14 +174,19 @@ test('group messages page by after_id and limit, the way the export loop asks', 
   assert.deepEqual(page.body.items, [all[1]])
 })
 
-test('a group that does not exist answers 404 in the backend error envelope', async (t) => {
+test('a group that does not exist answers 404 group_not_found, for its detail, messages and contact blocks', async (t) => {
   const request = await startMock(t)
 
-  const { status, body } = await request('GET', '/api/admin/chat-groups/999999')
+  const replies = [
+    await request('GET', '/api/admin/chat-groups/999999'),
+    await request('GET', '/api/admin/chat-groups/999999/messages'),
+    await request('GET', '/api/admin/chat-groups/999999/contact-blocks'),
+  ]
 
-  assert.equal(status, 404)
-  assert.equal(body.success, false)
-  assert.equal(typeof body.error, 'string')
+  for (const { status, body } of replies) {
+    assert.equal(status, 404)
+    assert.deepEqual(body, { success: false, error: 'Group not found.', code: 'group_not_found' })
+  }
 })
 
 test('a staff message posted to a group is appended to its history', async (t) => {
@@ -212,6 +217,128 @@ test('connect requests cover every status and filter by ?status=', async (t) => 
   for (const r of pending.body.items) assert.equal(r.status, 'pending')
   assert.equal(one.body.request.id, all.body.items[0].id)
   assert.equal(one.body.context_label, all.body.items[0].context_label)
+})
+
+test('creating a group answers its group_id, and the list then shows it first', async (t) => {
+  const request = await startMock(t)
+  const body = {
+    kind: 'team',
+    member_title: 'Night shift',
+    members: [{ user_id: 105, role_in_group: 'volunteer', label: '' }],
+  }
+
+  const created = await request('POST', '/api/admin/chat-groups', body)
+  const list = await request('GET', '/api/admin/chat-groups')
+
+  assert.equal(created.status, 200)
+  assert.equal(typeof created.body.group_id, 'number')
+  assert.deepEqual(
+    { id: list.body.items[0].id, kind: list.body.items[0].kind, title: list.body.items[0].title },
+    { id: created.body.group_id, kind: 'team', title: 'Night shift' },
+  )
+})
+
+test('a guest account is found by the users search but refused as a group member', async (t) => {
+  const request = await startMock(t)
+  const member = (userId) => ({ user_id: userId, role_in_group: 'donor', label: '' })
+
+  const search = await request('GET', '/api/admin/users?q=guest&per_page=8')
+  const created = await request('POST', '/api/admin/chat-groups', {
+    kind: 'team', member_title: 'Night shift', members: [member(105), member(GUEST_USER_ID)],
+  })
+  const added = await request('POST', `/api/admin/chat-groups/${TEAM_GROUP_ID}/members`, member(GUEST_USER_ID))
+  const groups = await request('GET', '/api/admin/chat-groups')
+  const team = await request('GET', `/api/admin/chat-groups/${TEAM_GROUP_ID}`)
+
+  // The search finding this id is also the check that shell.ts's guest row
+  // and chatGroups.ts's GUEST_USER_ID still agree.
+  assert.deepEqual(search.body.data.map((u) => u.user_id), [GUEST_USER_ID])
+  for (const refused of [created, added]) {
+    assert.equal(refused.status, 400)
+    assert.equal(refused.body.code, 'guest_member_not_allowed')
+  }
+  assert.equal(groups.body.items.length, 2, 'the refused create wrote no group')
+  assert.equal(team.body.group.members.some((m) => m.user_id === GUEST_USER_ID), false)
+})
+
+test('creating a group refuses a repeated person and a repeated masked label with 409 codes', async (t) => {
+  const request = await startMock(t)
+  const member = (userId, label = '') => ({ user_id: userId, role_in_group: 'donor', label })
+
+  const repeatedPerson = await request('POST', '/api/admin/chat-groups', {
+    kind: 'team', member_title: 'Night shift', members: [member(105), member(105)],
+  })
+  const repeatedLabel = await request('POST', '/api/admin/chat-groups', {
+    kind: 'masked', member_title: '', members: [member(101, 'Donor A'), member(103, ' donor a ')],
+  })
+  const groups = await request('GET', '/api/admin/chat-groups')
+
+  assert.equal(repeatedPerson.status, 409)
+  assert.equal(repeatedPerson.body.code, 'group_member_conflict')
+  assert.equal(repeatedLabel.status, 409)
+  assert.equal(repeatedLabel.body.code, 'group_label_conflict')
+  assert.equal(groups.body.items.length, 2, 'neither refused create wrote a group')
+})
+
+test('adding an active member again answers 409 group_member_conflict', async (t) => {
+  const request = await startMock(t)
+
+  const { status, body } = await request('POST', `/api/admin/chat-groups/${MASKED_GROUP_ID}/members`, {
+    user_id: 101, role_in_group: 'donor', label: '',
+  })
+
+  assert.equal(status, 409)
+  assert.equal(body.code, 'group_member_conflict')
+})
+
+test('re-adding a removed member reactivates them with their old label and role', async (t) => {
+  const request = await startMock(t)
+  const path = `/api/admin/chat-groups/${MASKED_GROUP_ID}`
+  const before = (await request('GET', path)).body.group.members.find((m) => m.removed_at)
+
+  const added = await request('POST', `${path}/members`, { user_id: before.user_id, role_in_group: 'volunteer', label: 'New name' })
+  const after = (await request('GET', path)).body.group.members.filter((m) => m.user_id === before.user_id)
+
+  assert.equal(added.status, 200)
+  assert.equal(after.length, 1, 'the old row is reused, not duplicated')
+  assert.equal(after[0].removed_at, undefined)
+  assert.equal(after[0].masked_label, before.masked_label)
+  assert.equal(after[0].role_in_group, before.role_in_group)
+})
+
+test('a reactivation whose old label is now taken answers 409 group_label_conflict', async (t) => {
+  const request = await startMock(t)
+  const path = `/api/admin/chat-groups/${MASKED_GROUP_ID}`
+  const removed = (await request('GET', path)).body.group.members.find((m) => m.removed_at)
+
+  const taken = await request('POST', `${path}/members`, {
+    user_id: 105, role_in_group: 'volunteer', label: removed.masked_label.toUpperCase(),
+  })
+  const reactivated = await request('POST', `${path}/members`, { user_id: removed.user_id, role_in_group: 'donor', label: '' })
+
+  assert.equal(taken.status, 200, 'a removed member does not hold on to their label')
+  assert.equal(reactivated.status, 409)
+  assert.equal(reactivated.body.code, 'group_label_conflict')
+})
+
+test('deciding a connect request twice answers 409 connect_request_decided; a missing one is an uncoded 404', async (t) => {
+  const request = await startMock(t)
+  const all = (await request('GET', '/api/admin/chat-groups/connect-requests')).body.items
+  const approved = all.find((r) => r.status === 'approved')
+  const declined = all.find((r) => r.status === 'declined')
+  const body = {
+    kind: 'masked', member_title: '', members: [{ user_id: approved.requester_user_id, role_in_group: 'donor', label: '' }],
+  }
+
+  const approveAgain = await request('POST', `/api/admin/chat-groups/connect-requests/${approved.id}/approve`, body)
+  const declineAgain = await request('POST', `/api/admin/chat-groups/connect-requests/${declined.id}/decline`, { reason: 'Again' })
+  const missing = await request('GET', '/api/admin/chat-groups/connect-requests/999999')
+
+  for (const reply of [approveAgain, declineAgain]) {
+    assert.equal(reply.status, 409)
+    assert.equal(reply.body.code, 'connect_request_decided')
+  }
+  assert.deepEqual(missing, { status: 404, body: { success: false, error: 'Connect request not found.' } })
 })
 
 // ─── 3 · Legacy chats ────────────────────────────────────────────────────
