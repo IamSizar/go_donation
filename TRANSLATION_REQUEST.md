@@ -58,7 +58,8 @@ That is deliberate and safe. It is not a crash, and it is not Arabic text.
 | App — K14 خطوبتي owner self-management (new) | 20 | 20 | 20 |
 | App — K15 product-list labels (new) | 27 | 27 | 27 |
 | App — OPOS #25284 Phase 5 staff-mediated group chats (new) | 38 | 38 | 38 |
-| **Total distinct words to translate** | | | **459** |
+| App — OPOS #26419 chat group sender labels (new) | 6 | 6 | 6 |
+| **Total distinct words to translate** | | | **465** |
 
 > **The dashboard figure above is a floor, not a ceiling — and it is the one
 > number in this file that was never fully measured.** Counting key paths in
@@ -171,6 +172,29 @@ unchanged.
 | `connect_request_sent_title` | Request sent | تم إرسال الطلب | ckb + kmr |
 | `connect_request_sent_body` | Our team will review it shortly. You can follow it in My Connect Requests on the Messages tab. | سيراجعه فريقنا قريبًا. يمكنك متابعته من «طلبات التواصل الخاصة بي» في تبويب «الرسائل». | **ckb + kmr — REWORDED**, the English changed on 2026-09-15: it said "Staff", it now says "Our team" |
 | `error_connect_request_submit_failed` | Could not send your request. | تعذّر إرسال طلبك. | ckb + kmr |
+
+## chat groups · OPOS #26419 sender labels  (6 keys)
+
+Added 2026-09-15. The name shown above someone else's message in a
+staff-mediated group chat. The server writes these in English, so the app
+translates exactly these words and leaves every other label, including names
+and labels staff type, as sent.
+
+`@n` is the member's number within the group ("Grantor 2" is the second
+grantor). Keep `@n` exactly as it is, and put it where a number naturally goes
+after the noun. The noun is a **label**, like a name tag, not a sentence.
+`chat_group_sender_support` is how every staff message is signed, so it should
+read as the organisation's support team, not as financial support
+(TERMINOLOGY.md T10).
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `chat_group_sender_support` | Support | الدعم | ckb + kmr |
+| `chat_group_sender_member` | Member | عضو | ckb + kmr |
+| `chat_group_sender_donor_n` | Grantor @n | مانح @n | ckb + kmr |
+| `chat_group_sender_beneficiary_n` | Eligible Recipient @n | مستحق @n | ckb + kmr |
+| `chat_group_sender_volunteer_n` | Volunteer @n | متطوع @n | ckb + kmr |
+| `chat_group_sender_member_n` | Member @n | عضو @n | ckb + kmr |
 
 ## notifications · K7 alert categories  (8 keys)
 

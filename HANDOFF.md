@@ -6,6 +6,76 @@
 
 ---
 
+## 2026-09-15 — OPOS #26419: masked chat-group sender labels in the reader's language (branch `fix/chat-group-sender-labels-localized`)
+
+**What was asked:** Arabic members saw the server's English sender labels ("Support", "Donor 1") in masked group chats. Fix it in the Flutter app, tests first, en + ar only.
+
+**Decision: app side (a), not server fields (b).** The app maps only the exact strings the server generates:
+- `autoLabel` in `backend/internal/chatgroups/chatgroups.go` writes "Donor N", "Beneficiary N", "Volunteer N" and "Member N".
+- `ListMessagesForMember` in `chatgroups_reads.go` writes "Support" for staff, and a bare "Member" fallback when there is no label or name.
+
+Why (a): it needs no API change and no backend release in step with the app.
+- The conversation screen is never told the group kind, so the mapping runs on every label.
+- A custom label or a team member's real name is translated only if it is literally "Support", "Member" or "Donor 3", and then it already meant that.
+
+**What was actually changed** (one commit, based on `origin/main` `60cf163`):
+- **New:** `humanitarian/lib/modules/chatgroups/utils/chat_group_sender_label.dart`, containing `localizedSenderLabel(String)`.
+  - Match rule: `^(Donor|Beneficiary|Volunteer|Member) ([1-9][0-9]*)$`, plus the exact words `Support` and `Member`. It is case-sensitive.
+  - Anything else, a number too big for an int, or a missing translation returns the label unchanged.
+  - The number is formatted with `NumberFormat.decimalPattern(AppLocaleService.dateFormatLocale(Get.locale))..turnOffGrouping()`.
+- **`chat_group_message_bubble.dart`:** `_SenderLabel` calls the mapper. This is the ONLY place the app displays `sender_label`.
+  - The Messages-tab tile's `last_message` is the message body only.
+  - My Connect Requests only uses `chatGroupTitle`.
+- **`app_translations.dart`:** 6 keys added to `_en` and `_ar` under `chat_group_sender_`:
+
+  | Key | English | Arabic |
+  |---|---|---|
+  | `support` | Support | الدعم |
+  | `member` | Member | عضو |
+  | `donor_n` | Grantor @n | مانح @n |
+  | `beneficiary_n` | Eligible Recipient @n | مستحق @n |
+  | `volunteer_n` | Volunteer @n | متطوع @n |
+  | `member_n` | Member @n | عضو @n |
+
+- **Tests:**
+  - New `test/modules/chatgroups/chat_group_sender_label_test.dart` (unit).
+  - New `test/modules/chatgroups/chat_group_message_bubble_sender_label_test.dart` (widget).
+  - `chat_group_conversation_screen_test.dart` now expects "Grantor 1" where it expected "Donor 1" (English).
+- **`TRANSLATION_REQUEST.md`:** new 6-key section; the total goes from 459 to 465.
+
+**What was run and what it printed** (from `humanitarian/`):
+- **Digit probe** (a temporary test, deleted): intl 0.20.2 prints ASCII digits for `ar`, `ar_SA` and `ar_IQ`.
+  - `NumberFormat.decimalPattern('ar').format(12)` gives `12`.
+  - `DateFormat.MMMd('ar').add_jm()` gives `14 سبتمبر 9:05 ص`.
+  - So Arabic labels read `مانح 1`, matching the app's other numbers and dates.
+- **RED**, with the mapper as an identity stub: the 2 new files printed `+33 -7: Some tests failed.`
+- **GREEN:** the 2 new files printed `+40: All tests passed!`
+- `flutter test test/modules/chatgroups/ test/localization/` printed `+340: All tests passed!`
+- `flutter test` printed `+1015: All tests passed!`
+- `flutter analyze` printed `6 issues found.`, the same 6 `deprecated_member_use` as the baseline.
+
+**External actions taken:** none. Nothing was pushed and no PR was opened.
+
+**What is still open:**
+- The commit is local and unpushed.
+- OPOS MCP needs interactive OAuth and was unavailable in this subagent session, so #26419 was not moved or commented on.
+- **Needs a human decision:** English changed from "Donor 1" to "Grantor 1" and from "Beneficiary 2" to "Eligible Recipient 2". This follows the app's own English role nouns (TERMINOLOGY.md T12 settled; T5 is still a CONFLICT). To keep the server's English words, change only the 2 `_en` values plus the English expectations in the 3 test files.
+- **Not fixed, server side:** the push notification for a masked-group message.
+  - `GroupMaskedNewMessageMsg` in `backend/internal/notify/templates.go` bakes the English alias into all 4 language titles ("رسالة من Donor 1").
+  - Those titles are also what the in-app notification list shows.
+  - The fix belongs in that template, translating the alias per language. The app cannot fix it without parsing server sentences.
+- **Not fixed, separate leak:** the 1:1 support chat.
+  - `lib/modules/chat/models/chat_models.dart:97` falls back to an untranslated `'Support'`.
+  - `chat_conversation_screen.dart` draws `senderName` raw.
+- The 6 new keys need Sorani and Badini.
+
+**Traps:**
+- "The device showed ١٤ سبتمبر" did not reproduce: intl 0.20.2 prints ASCII digits under `ar`. Probe it before assuming Eastern Arabic digits.
+- `dart format --set-exit-if-changed` fails on `lib/localization/app_translations.dart` (9 hunks) and on `test/modules/chatgroups/chat_group_conversation_screen_test.dart`, and it fails the same way on `origin/main`. That drift predates this change and was left alone.
+- zsh: `echo ==== X` fails with "=== not found"; quote it.
+
+---
+
 ## 2026-09-15 — OPOS #26351 ("our team" decision): connect-request copy says "our team", not "staff" (branch `fix/connect-copy-our-team`)
 
 **What was asked:** implement one of OPOS #26351's decisions. All member-facing chat-group and connect-request copy says "our team" (Arabic فريقنا), never "staff" (الفريق). Tests first. Do not write Kurdish.

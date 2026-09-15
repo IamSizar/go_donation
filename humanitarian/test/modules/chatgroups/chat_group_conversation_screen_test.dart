@@ -4,7 +4,10 @@
 // WHAT IS PINNED
 //   1. Masking: a message shows the label the server resolved and its body —
 //      nothing that could carry a member's identity. (The plan's version of
-//      this test only inspected the model, never the screen.)
+//      this test only inspected the model, never the screen.) The server's own
+//      generated words are drawn in the reader's language, so "Donor 1" reads
+//      "Grantor 1" in English (OPOS #26419; the mapping is pinned in
+//      chat_group_sender_label_test.dart).
 //   2. The states a transcript can be in: a skeleton while loading; a designed
 //      empty state (which does not invite a first message into a chat staff
 //      have closed); a failed first load shown as an error with Retry — never
@@ -125,7 +128,8 @@ void main() {
 
     await _open(tester, api);
 
-    expect(find.text('Donor 1'), findsOneWidget);
+    // The server's generated alias, in the app's English role noun.
+    expect(find.text('Grantor 1'), findsOneWidget);
     expect(find.text('Hello'), findsOneWidget);
     expect(find.textContaining('98765'), findsNothing);
     await _close(tester);
