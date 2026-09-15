@@ -137,6 +137,68 @@ The first four go beside the member rows in a form (`chatGroupErrorArea`).
 
 ---
 
+## 2026-09-15 — OPOS #26466: the Trash snapshots chat threads atomically, and restored direct chats come back closed (branch `fix/trash-direct-chat-restore-closed`)
+
+**What was asked:** two findings in the chat Trash, fixed test-first.
+1. `trashChatThread` snapshotted a thread without a lock, so a delete racing a lifecycle write or the retire run could store an earlier state.
+2. Restoring a trashed `kind='direct'` thread brought it back OPEN, reopening a retired conversation.
+
+The owner decided (2026-09-15) on **"Restore as closed"**: a restored direct chat comes back ended and archived, with the retire run's rules and reason. Every other chat restores as before.
+
+**What was changed:** commit `743d71f`, based on `origin/main` `9425007`.
+- **`backend/internal/handlers/admin_chat_lifecycle.go`:**
+  - `trashChatThread` reads the thread `FOR UPDATE`.
+  - Each child table's snapshot is now its own `WITH removed AS (DELETE … RETURNING *) SELECT jsonb_agg(…)`.
+  - The thread is then deleted, and the `trash_items` row is inserted last.
+  - A second concurrent delete of the same thread now gets 404 instead of creating a duplicate trash entry.
+  - New: `closeRestoredDirectChat`.
+- **`backend/internal/handlers/admin_trash.go`:**
+  - `Restore` calls `closeRestoredDirectChat` inside its transaction, with the password-verified staff member as the actor.
+  - After the commit it logs `[trash] INFO restored direct chat … came back closed`.
+- **`backend/internal/chatlifecycle/retire_one.go` (new):** `RetireDirectThreadInTx(ctx, tx, threadID, actorID)` is the bulk `endAndArchiveOpenSQL`/`archiveEndedSQL` with ` AND id = $3` / ` AND id = $2` appended. Same reason text, and existing end and archive stamps are kept.
+- **`retire.go`:** comment only.
+- **New tests:**
+  - `chatlifecycle/retire_one_test.go`
+  - `handlers/chat_trash_direct_restore_test.go`
+  - `handlers/chat_trash_snapshot_race_test.go`: holds the write open in a second transaction and commits it once `pg_stat_activity` shows the delete blocked.
+
+**What was run:**
+- **RED, against `origin/main` code on fresh DB `godonation_trash_restore_26466`:**
+  - `chatlifecycle`: `retire_one_test.go:141:14: undefined: RetireDirectThreadInTx`.
+  - `TestTrashRestore_OpenDirectChatComesBackClosed`: `restored direct chat = {Lifecycle:open …}`.
+  - The paused, open+archived and ended+visible subtests of `…KeepsTheStampsStaffAlreadySet` failed.
+  - Race: `the Trash holds thread 9 with lifecycle open … but the delete removed it with lifecycle ended`.
+  - Race: `message 3, sent while the chat was being deleted, is not in the Trash … lost for good`.
+  - The guard tests passed, as intended: ended+archived keeps every stamp, and support/marriage/staff/group threads are unchanged.
+- **GREEN, on fresh DBs:**
+  - `go test ./internal/handlers/ ./internal/chatlifecycle/ -count=1 -p 1 -timeout 45m`: `ok …/handlers 17.172s`, `ok …/chatlifecycle 0.943s`.
+  - `go test ./... -count=1 -p 1 -timeout 45m`: 22 packages `ok`, exit 0.
+- **After the review fixes, on fresh DB `godonation_trash_review_26466`:**
+  - Both packages `ok` (55.243s and 3.985s).
+  - The new tests with `-v`: 6 top-level PASS, 0 SKIP.
+- **Formatting and vet:** `gofmt -l` is clean on the changed files; the only file it lists anywhere in `backend/` is the pre-existing `admin_edit_user_profile.go`. `go vet ./...` is clean.
+- **Every test DB was dropped:** `SELECT count(*) … LIKE 'godonation_trash_%26466'` printed `0`.
+
+**Code review** (`ecc:code-reviewer`): APPROVE, with no critical or high findings.
+- **MEDIUM**, fixed: the `RetireResult` was discarded. It is now logged after the commit.
+- **MEDIUM**, fixed: the appended placeholders could drift. Renumbering comments were added to both files, and the test fails on drift.
+- **LOW**, kept with a reason: the duplicate `UserFromGin` guard in `Restore` stays, so the handler never relies on another function's nil check.
+
+**External actions:** none. Nothing was pushed. OPOS MCP needed OAuth in this session, so #26466 was not moved.
+
+**Still open:**
+- Both commits are local and unpushed. Main has moved (≥ `bbc6aa2`); the coordinator merges it.
+- **Chat groups have no foreign keys.** A group message committed after its child `DELETE` ran stays behind as a live row. It is not lost, and it reappears with the group on restore.
+- **The runbook (`docs/runbooks/retire-direct-chats.md`) is not updated.** Another branch owns it. It should say:
+  - Trashed direct chats are not touched by the run.
+  - Restoring one brings it back ended and archived, with the run's reason, `lifecycle_changed_by`/`archived_by` set to the restoring staff member, and existing stamps kept.
+  - The Trash is therefore not a way to reopen a retired chat.
+  - The snapshot and 7g restore queries do not cover rows in the Trash.
+
+**Traps:**
+- **Postgres row-version behaviour:** under READ COMMITTED a plain SELECT never waits on an uncommitted UPDATE. Only a later `DELETE` or `FOR UPDATE` waits, and it then sees the new row version.
+- **Don't reorder or renumber the retire SQL** without updating `retire_one.go`.
+
 ## 2026-09-15 — OPOS #26474: `user_profiles.user_id` gets an index, and group chats stop repeating a message whose sender has two profile rows (branch `perf/user-profiles-user-id-index`)
 
 **What was asked:** add an index on `user_profiles.user_id` and check the table's one-row-per-user assumption. If a user can have two rows, fix `AdminListMessages`' join, test-first. The change was to stay within a new migration plus a minimal code fix, because other branches are editing the chat-group handlers and stores. A database review was then to be run, and anything real it found fixed.

@@ -155,12 +155,33 @@ const chatChildrenKey = "__chat_children"
 // trash_items payload, written inside the same transaction as the delete —
 // and the delete removes those children EXPLICITLY rather than trusting a
 // cascade to exist, because in one of the five systems it does not (see step
-// 4 below).
+// 2 below).
+//
+// THE SNAPSHOT IS THE ROW THAT WAS DELETED (OPOS #26466). The copy used to be
+// a plain SELECT, which takes no lock under READ COMMITTED. A write another
+// transaction had made but not yet committed was invisible to it: a staff END,
+// the retire run's END and ARCHIVE, a message send. The DELETE that followed
+// waited for that write, then removed the row it produced. So the Trash held
+// a thread open that had been ended, which a restore reopened, and a message
+// the cascade removed was in no snapshot at all. Now:
+//   - the thread row is read FOR UPDATE. That waits for such a write to
+//     commit, reads the row it left, and holds the row until this transaction
+//     ends. A child insert in a system with foreign keys takes a KEY SHARE
+//     lock on the row, so no message can be added meanwhile either;
+//   - each child table's snapshot is the RETURNING of its own DELETE, so what
+//     was saved and what was removed are the same rows by construction. Chat
+//     groups have no foreign keys, so nothing stops a message being committed
+//     to one after that DELETE ran: it stays behind as a live row rather than
+//     being lost.
+//
+// A second delete of the same thread now waits on the first and then answers
+// 404, instead of writing a second trash entry for it.
 //
 // restoreChatChildren (admin_trash.go) puts the children back after the
-// generic restore has re-inserted the parent. Kept as one payload rather than
-// one trash entry per message so the operator restores a CONVERSATION with a
-// single click, and cannot half-restore one.
+// generic restore has re-inserted the parent, and closeRestoredDirectChat then
+// closes a direct chat. Kept as one payload rather than one trash entry per
+// message so the operator restores a CONVERSATION with a single click, and
+// cannot half-restore one.
 func trashChatThread(c *gin.Context, pool *pgxpool.Pool, sys chatlifecycle.System, id int64) {
 	ctx := c.Request.Context()
 
@@ -176,11 +197,14 @@ func trashChatThread(c *gin.Context, pool *pgxpool.Pool, sys chatlifecycle.Syste
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	// 1) The thread row itself.
+	// 1) The thread row, read FOR UPDATE and so held until this transaction
+	//    ends (see THE SNAPSHOT IS THE ROW THAT WAS DELETED above). A thread a
+	//    concurrent request deleted is gone once the lock is granted, and is
+	//    reported as not found.
 	var payload []byte
 	// Table name is a package-level literal from chatlifecycle's whitelist.
 	err = tx.QueryRow(ctx,
-		"SELECT to_jsonb(t.*) FROM "+sys.ThreadTable+" t WHERE t.id = $1", id).Scan(&payload)
+		"SELECT to_jsonb(t.*) FROM "+sys.ThreadTable+" t WHERE t.id = $1 FOR UPDATE", id).Scan(&payload)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Chat not found."})
@@ -195,16 +219,36 @@ func trashChatThread(c *gin.Context, pool *pgxpool.Pool, sys chatlifecycle.Syste
 		return
 	}
 
-	// 2) Every child row, keyed by its table so the restore knows where each
-	//    list belongs. Step 4 deletes from exactly this same table list.
+	// 2) Every child row: deleted EXPLICITLY, never by relying on a cascade,
+	//    and snapshotted from that same DELETE's RETURNING, keyed by its table
+	//    so the restore knows where each list belongs.
+	//
+	//    The four pre-existing systems (012, 058, 059, 061) do declare
+	//    `REFERENCES <thread table>(id) ON DELETE CASCADE` on every child, so
+	//    for them this loop removes rows the cascade would have removed a
+	//    moment later anyway — same end state, just stated rather than
+	//    implied. chat_group_* (migration 120) has NO foreign keys at all, by
+	//    that package's deliberate convention (existence is validated in
+	//    chatgroups.Store instead), so for a group there is no cascade to
+	//    inherit: without this loop the delete left every message, read
+	//    cursor, contact-block and member row live in the database forever,
+	//    and a later restore then failed outright on a duplicate key while
+	//    re-inserting rows that had never gone away.
+	//
+	//    One statement per table, doing both the delete and the snapshot, is
+	//    what keeps "what was saved" and "what was removed" provably the same
+	//    rows, in all five systems alike.
 	children := map[string]json.RawMessage{}
 	for _, child := range sys.ChildTables() {
 		var rows []byte
 		if err := tx.QueryRow(ctx,
-			"SELECT COALESCE(jsonb_agg(to_jsonb(x.*)), '[]'::jsonb) FROM "+child+" x WHERE x."+sys.ChildIDColumn+" = $1",
+			// Table and column names are package-level literals from
+			// chatlifecycle's whitelist, never request values.
+			"WITH removed AS (DELETE FROM "+child+" WHERE "+sys.ChildIDColumn+" = $1 RETURNING *) "+
+				"SELECT COALESCE(jsonb_agg(to_jsonb(removed.*)), '[]'::jsonb) FROM removed",
 			id).Scan(&rows); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false,
-				"error": "Could not snapshot this chat's messages: " + err.Error()})
+				"error": "Could not move this chat's messages to the Trash: " + err.Error()})
 			return
 		}
 		children[child] = rows
@@ -221,43 +265,8 @@ func trashChatThread(c *gin.Context, pool *pgxpool.Pool, sys chatlifecycle.Syste
 		return
 	}
 
-	// 3) Into the Trash, then out of the live table — one transaction, so the
-	//    conversation is never lost nor left half-deleted.
-	if _, err := tx.Exec(ctx,
-		`INSERT INTO trash_items (source_table, row_id, payload, deleted_by) VALUES ($1, $2, $3, $4)`,
-		sys.ThreadTable, id, full, actor); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
-		return
-	}
-	// 4) The child rows, EXPLICITLY, before the parent — never by relying on a
-	//    cascade.
-	//
-	//    The four pre-existing systems (012, 058, 059, 061) do declare
-	//    `REFERENCES <thread table>(id) ON DELETE CASCADE` on every child, so
-	//    for them this loop removes rows the cascade would have removed a
-	//    moment later anyway — same end state, just stated rather than
-	//    implied. chat_group_* (migration 120) has NO foreign keys at all, by
-	//    that package's deliberate convention (existence is validated in
-	//    chatgroups.Store instead), so for a group there is no cascade to
-	//    inherit: without this loop the delete left every message, read
-	//    cursor, contact-block and member row live in the database forever,
-	//    and a later restore then failed outright on a duplicate key while
-	//    re-inserting rows that had never gone away.
-	//
-	//    One uniform path for all five systems rather than a special case for
-	//    the one without FKs: the snapshot above is already written from
-	//    sys.ChildTables(), so deleting from exactly that same list is what
-	//    keeps "what was saved" and "what was removed" provably the same set.
-	for _, child := range sys.ChildTables() {
-		if _, err := tx.Exec(ctx,
-			// Table and column names are package-level literals from
-			// chatlifecycle's whitelist, never request values.
-			"DELETE FROM "+child+" WHERE "+sys.ChildIDColumn+" = $1", id); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"success": false,
-				"error": "Could not delete this chat's messages: " + err.Error()})
-			return
-		}
-	}
+	// 3) Out of the live table, then (4) into the Trash — one transaction, so
+	//    the conversation is never lost nor left half-deleted.
 	if _, err := tx.Exec(ctx, "DELETE FROM "+sys.ThreadTable+" WHERE id = $1", id); err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23503" {
@@ -268,6 +277,12 @@ func trashChatThread(c *gin.Context, pool *pgxpool.Pool, sys chatlifecycle.Syste
 			c.JSON(http.StatusConflict, gin.H{"success": false, "error": msg})
 			return
 		}
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
+		return
+	}
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO trash_items (source_table, row_id, payload, deleted_by) VALUES ($1, $2, $3, $4)`,
+		sys.ThreadTable, id, full, actor); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
 		return
 	}
@@ -320,6 +335,55 @@ func restoreChatChildren(ctx context.Context, tx pgx.Tx, sourceTable string, pay
 		}
 	}
 	return nil
+}
+
+// restoredDirectChatTable is the one thread table whose restores are closed on
+// the way back. chatlifecycle.RetireDirectThreadInTx writes only this table,
+// and only its kind='direct' rows.
+const restoredDirectChatTable = "chat_threads"
+
+// closeRestoredDirectChat closes a donor↔owner DIRECT chat that
+// AdminTrashHandler.Restore has just re-inserted, inside the restore's own
+// transaction (OPOS #26466). It is a no-op for every other table, and for a
+// kind='support' chat.
+//
+// WHY. Direct messaging is retired (OPOS #25284 Phase 4): a new direct chat is
+// refused with 410, and cmd/retire-direct-chats ends and archives the ones that
+// exist. The Trash sat outside both. A direct chat deleted while open, or
+// deleted before the retire run, came back open, and its participants could
+// carry on in it. The owner's decision (2026-09-15) is "restore as closed": it
+// comes back ended and archived, so staff keep its history and nobody can
+// message in it again.
+//
+// It applies the retire run's own rules and reason, through
+// chatlifecycle.RetireDirectThreadInTx, with actorID, the restoring staff
+// member, recorded as the one who closed it. An end or archive stamp the chat
+// already carries is kept.
+//
+// The thread id is read from the payload, the row the restore just inserted,
+// so the chat closed is always the one restored.
+//
+// It returns the id it acted on and what the retirement changed, so the caller
+// can log it once the restore has committed. Both are zero for a table that is
+// not chat_threads.
+func closeRestoredDirectChat(ctx context.Context, tx pgx.Tx, sourceTable string, payload []byte, actorID int64) (int64, chatlifecycle.RetireResult, error) {
+	if sourceTable != restoredDirectChatTable {
+		return 0, chatlifecycle.RetireResult{}, nil
+	}
+	var restored struct {
+		ID int64 `json:"id"`
+	}
+	if err := json.Unmarshal(payload, &restored); err != nil {
+		return 0, chatlifecycle.RetireResult{}, fmt.Errorf("decode the id of the restored %s row: %w", sourceTable, err)
+	}
+	if restored.ID == 0 {
+		return 0, chatlifecycle.RetireResult{}, fmt.Errorf("the restored %s payload carries no id", sourceTable)
+	}
+	res, err := chatlifecycle.RetireDirectThreadInTx(ctx, tx, restored.ID, actorID)
+	if err != nil {
+		return 0, chatlifecycle.RetireResult{}, fmt.Errorf("close restored direct chat %d: %w", restored.ID, err)
+	}
+	return restored.ID, res, nil
 }
 
 // allowedChatChildTables returns the child tables of the chat system whose
