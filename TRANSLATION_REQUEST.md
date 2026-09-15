@@ -32,7 +32,7 @@ made on this project once and had to be reverted.
 Every key below currently renders its **English** string to a Kurdish user.
 That is deliberate and safe. It is not a crash, and it is not Arabic text.
 
-## Count: 536 keys need Kurdish
+## Count: 577 keys need Kurdish
 
 | Client | Sorani (ckb) | Badini (kmr) | Distinct keys |
 |---|---|---|---|
@@ -55,6 +55,7 @@ That is deliberate and safe. It is not a crash, and it is not Arabic text.
 | Admin dashboard — content page save confirmation | 2 | 2 | 2 |
 | Admin dashboard — delete confirmation bodies (were FALSE in Kurdish) | 5 | 5 | 5 |
 | Admin dashboard — OPOS #26398 chat groups page (new) | 68 | 68 | 68 |
+| Admin dashboard — OPOS #26400 connect-request inbox (new) | 41 | 41 | 41 |
 | App — City Guide map chip (place count) | 2 | 2 | 2 |
 | App — security page auth description (old Kurdish was FALSE) | 1 | 1 | 1 |
 | App — K14 خطوبتي owner self-management (new) | 20 | 20 | 20 |
@@ -62,7 +63,7 @@ That is deliberate and safe. It is not a crash, and it is not Arabic text.
 | App — OPOS #25284 Phase 5 staff-mediated group chats (new) | 38 | 38 | 38 |
 | App — OPOS #26419 chat group sender labels (new) | 6 | 6 | 6 |
 | App — OPOS #26429 group chat message notification type (new) | 1 | 1 | 1 |
-| **Total distinct words to translate** | | | **536** |
+| **Total distinct words to translate** | | | **577** |
 
 > **The dashboard figure above is a floor, not a ceiling — and it is the one
 > number in this file that was never fully measured.** Counting key paths in
@@ -1827,6 +1828,63 @@ These are database values the dashboard prints as a badge or a log entry.
 | `status.created` | Created | تم الإنشاء | ckb + kmr |
 | `status.member_added` | Member added | إضافة عضو | ckb + kmr |
 | `status.member_removed` | Member removed | إزالة عضو | ckb + kmr |
+
+## Dashboard · OPOS #26400 the connect-request inbox (dashboard, `admin-web`)  (41 keys)
+
+Same rule: **English and Arabic written; ckb and kmr NOT** — they fall back to
+English. No Kurdish invented.
+
+Added 2026-09-15. The page `/chat-groups/connect-requests` lists the requests
+members send to be put in touch, and lets staff approve one (by opening a
+group) or decline it with a reason **the member reads in the app**. The status
+words on the filter and badges reuse `status.pending`, `status.approved` and
+`status.declined`, which already exist. Keep `{id}` and `{max}` exactly as
+written, and the invisible `⁦`/`⁩` marks around `#T{id}`.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `nav.connect_requests` | Connect requests | طلبات التواصل | ckb + kmr |
+| `chat_groups.inbox.title` | Connect requests | طلبات التواصل | ckb + kmr |
+| `chat_groups.inbox.subtitle` | Members ask to be put in touch about a donation or a case. Approve a request by opening a supervised group, or decline it with a reason the member will read. | يطلب الأعضاء التواصل بشأن مساهمة أو حالة. وافق على الطلب بفتح مجموعة تحت الإشراف، أو ارفضه مع سبب يقرؤه العضو. | ckb + kmr |
+| `chat_groups.inbox.filter_aria` | Filter by status | التصفية حسب الحالة | ckb + kmr |
+| `chat_groups.inbox.list_aria` | Connect requests | طلبات التواصل | ckb + kmr |
+| `chat_groups.inbox.loading` | Loading connect requests… | جارٍ تحميل طلبات التواصل… | ckb + kmr |
+| `chat_groups.inbox.requester_fallback` | Requester ⁦#T{id}⁩ | مقدّم الطلب ⁦#T{id}⁩ | ckb + kmr |
+| `chat_groups.inbox.context_donation` | Donation | مساهمة | ckb + kmr |
+| `chat_groups.inbox.context_case` | Case | حالة | ckb + kmr |
+| `chat_groups.inbox.empty.pending_title` | No pending requests | لا توجد طلبات قيد الانتظار | ckb + kmr |
+| `chat_groups.inbox.empty.pending_body` | When a member asks to be put in touch, their request waits here for a decision. | عندما يطلب عضو التواصل، ينتظر طلبه هنا إلى أن يُتخذ قرار بشأنه. | ckb + kmr |
+| `chat_groups.inbox.empty.approved_title` | No approved requests | لا توجد طلبات موافق عليها | ckb + kmr |
+| `chat_groups.inbox.empty.approved_body` | Requests that are approved appear here, with a link to the group opened for them. | تظهر هنا الطلبات الموافق عليها، مع رابط للمجموعة التي فُتحت لها. | ckb + kmr |
+| `chat_groups.inbox.empty.declined_title` | No declined requests | لا توجد طلبات مرفوضة | ckb + kmr |
+| `chat_groups.inbox.empty.declined_body` | Requests that are declined appear here, with the reason the member was given. | تظهر هنا الطلبات المرفوضة، مع السبب الذي أُبلغ به العضو. | ckb + kmr |
+| `chat_groups.inbox.detail.aria` | Request details | تفاصيل الطلب | ckb + kmr |
+| `chat_groups.inbox.detail.choose` | Choose a request to read it in full. | اختر طلباً لقراءته كاملاً. | ckb + kmr |
+| `chat_groups.inbox.detail.loading` | Loading the request… | جارٍ تحميل الطلب… | ckb + kmr |
+| `chat_groups.inbox.detail.context` | About | بخصوص | ckb + kmr |
+| `chat_groups.inbox.detail.message` | Message | الرسالة | ckb + kmr |
+| `chat_groups.inbox.detail.sent_at` | Sent | أُرسل | ckb + kmr |
+| `chat_groups.inbox.detail.decline_reason` | Reason given to the member | السبب الذي أُبلغ به العضو | ckb + kmr |
+| `chat_groups.inbox.detail.open_group` | Open the group ⁦#T{id}⁩ | فتح المجموعة ⁦#T{id}⁩ | ckb + kmr |
+| `chat_groups.inbox.detail.approve` | Approve | موافقة | ckb + kmr |
+| `chat_groups.inbox.detail.decline` | Decline | رفض | ckb + kmr |
+| `chat_groups.inbox.detail.no_edit` | Your access level can read requests but not decide them. | مستوى صلاحيتك يسمح بقراءة الطلبات دون اتخاذ قرار بشأنها. | ckb + kmr |
+| `chat_groups.inbox.approve.title` | Approve request | الموافقة على الطلب | ckb + kmr |
+| `chat_groups.inbox.approve.intro` | Approving opens a supervised group for this request. The person who sent it is already the first member; add anyone else they should talk to. | تفتح الموافقة مجموعة تحت الإشراف لهذا الطلب. مقدّم الطلب مضاف مسبقاً كأول عضو؛ أضف أي شخص آخر ينبغي أن يتواصل معه. | ckb + kmr |
+| `chat_groups.inbox.approve.requester_required` | The person who sent the request must be a member of the group. | يجب أن يكون مقدّم الطلب عضواً في المجموعة. | ckb + kmr |
+| `chat_groups.inbox.approve.submit` | Approve and open group | الموافقة وفتح المجموعة | ckb + kmr |
+| `chat_groups.inbox.approve.submitting` | Approving… | جارٍ الموافقة… | ckb + kmr |
+| `chat_groups.inbox.approve.approved_toast` | Request approved. The group is open. | تمت الموافقة على الطلب وفُتحت المجموعة. | ckb + kmr |
+| `chat_groups.inbox.approve.gated_hint` | To approve, choose a group type, name a team group, and give every member a person and a role. | للموافقة، اختر نوع المجموعة، وسمِّ مجموعة الفريق، وحدّد لكل عضو شخصاً ودوراً. | ckb + kmr |
+| `chat_groups.inbox.decline.title` | Decline request | رفض الطلب | ckb + kmr |
+| `chat_groups.inbox.decline.intro` | A declined request cannot be reopened. | لا يمكن إعادة فتح الطلب بعد رفضه. | ckb + kmr |
+| `chat_groups.inbox.decline.reason_label` | Reason | السبب | ckb + kmr |
+| `chat_groups.inbox.decline.reason_hint` | The member sees this reason in the app. Up to {max} characters. | يرى العضو هذا السبب في التطبيق. {max} حرف كحد أقصى. | ckb + kmr |
+| `chat_groups.inbox.decline.reason_required` | Enter a reason for the member. | أدخل سبباً للعضو. | ckb + kmr |
+| `chat_groups.inbox.decline.reason_too_long` | Use {max} characters or fewer. | استخدم {max} حرفاً أو أقل. | ckb + kmr |
+| `chat_groups.inbox.decline.submit` | Decline request | رفض الطلب | ckb + kmr |
+| `chat_groups.inbox.decline.submitting` | Declining… | جارٍ الرفض… | ckb + kmr |
+| `chat_groups.inbox.decline.declined_toast` | Request declined | تم رفض الطلب | ckb + kmr |
 
 ## Write failures: what happened, and what to do next (app, `humanitarian`)
 
