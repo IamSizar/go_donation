@@ -6,6 +6,45 @@
 
 ---
 
+## 2026-09-15 — OPOS #26348: 5 stale Flutter tests on `main` brought up to current behaviour (branch `fix/stale-flutter-tests`)
+
+**What was asked:** fix the 5 Flutter tests failing on `origin/main`: 1 in `main_menu_button_test.dart` and 4 in `marriage_hub_feed_test.dart`. Update or delete each test whose subject was changed on purpose. Change no product code, and report a real regression rather than fix it. None was found.
+
+**What was actually changed (tests only, zero product code):**
+- `b1a18e1`, in `humanitarian/test/widgets/main_menu_button_test.dart`: removed `lib/modules/chat/screens/case_chat_conversation_screen.dart` from `_formerOwnAppBarPages`, with a comment. Commit `e07d59a` (PR #79, chat-groups Phase 4) deleted that screen on purpose, so `_read()` failed with "... is missing". The other 6 paths are still guarded. Verdict: updated.
+- `250d781`, in `humanitarian/test/widgets/marriage_hub_feed_test.dart` (rewritten). PR #76 (`33d6891`, OPOS #25858) removed the hub's general news feed on purpose.
+  - Now pinned: the hub draws no "News and activities" section, no "See all" and no `MediaPostCard`. It registers no `MediaPostsController`, untagged or under `events-hub-feed`. Both cards still render.
+  - Deleted: the "feed sits below the cards" test and the "card wired to hub feed" test, because the feed they guarded no longer exists.
+- Also in `250d781`, `humanitarian/test/widgets/profile_menu_doors_test.dart` gained a source pin that `profile_menu_screen.dart` navigates to `NewsActivitiesScreen`. PR #77 (`6fdad49`, OPOS #25869) moved the feed's door there with no test. Full per-test reasoning is in the two commit messages.
+
+**What was run and what it printed:**
+- **Before any edit, on `cf24bd4`:**
+  - `flutter test test/widgets/main_menu_button_test.dart test/widgets/marriage_hub_feed_test.dart` printed `+4 -5: Some tests failed.`
+  - `flutter analyze` printed `6 issues found.`, all `deprecated_member_use`.
+- **After the change**, all from `humanitarian/`:
+  - The same two-file command printed `+7: All tests passed!`
+  - Full `flutter test` printed `+820: All tests passed!` with exit 0.
+  - `flutter analyze` on the 3 changed files printed `No issues found!`
+  - Full `flutter analyze` printed `6 issues found.`, all 6 `deprecated_member_use`, so the baseline is unchanged.
+- An `ecc:code-reviewer` pass on the diff found 0 issues.
+
+**External actions taken:** none. Nothing was pushed and no PR was opened.
+
+**What is still open:**
+- Both commits and this entry are local, unpushed, and not reviewed by a human.
+- OPOS MCP needed interactive OAuth and wasn't available in this non-interactive subagent session. OPOS #26348 was not moved or commented on, so its status and completion notes need updating by hand.
+- Stale product comments were found but not changed here, because they are out of scope:
+  - The `MediaPostCard.controller` doc comment in `humanitarian/lib/modules/proposal/screens/news_activities_screen.dart` still says the Events hub registers a tagged controller.
+  - `humanitarian/lib/api/module_api.dart:1124` still mentions the Events hub.
+  - No caller passes `MediaPostCard(controller:)` any more, so that parameter is now unused.
+  - If OPOS #25862 (a marriage-specific news feed) brings back a tagged `MediaPostsController`, restore a card-wiring test. The deleted one is at `git show 250d781^:humanitarian/test/widgets/marriage_hub_feed_test.dart`.
+
+**Traps:**
+- The task brief's failure text for `main_menu_button_test.dart` ("Found 0 widgets with type AppSectionHeader") actually came from `marriage_hub_feed_test.dart`. Run each file on its own to see its own failure.
+- `dart format --set-exit-if-changed` already flags these test files on `main`, for example `profile_menu_doors_test.dart:81` and `main_menu_button_test.dart:78`. They predate the current formatter style. Only lines edited here were formatted, so the real diff stays readable.
+
+---
+
 ## 2026-09-14 — SESSION WRAP-UP: OPOS #25284 Phases 1-4 fully merged to `main`, Phase 5 in progress
 
 **Read this entry first if you are picking this project up cold.** It is the single most current summary of where the whole chat-groups feature (OPOS #25284) actually stands, written specifically so a fresh agent or engineer does not have to reconstruct it from git archaeology.
