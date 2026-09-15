@@ -6,6 +6,34 @@
 
 ---
 
+## 2026-09-15 — OPOS #26466 follow-up: the retire runbook matches the Trash fix (branch `docs/runbook-after-trash-fix`)
+
+**What was asked:** update `docs/runbooks/retire-direct-chats.md` for the #26466 Trash fix. Docs only.
+
+**What was changed:** branched from the local `fix/trash-direct-chat-restore-closed` (`85dda17`). One commit touches the runbook and this file.
+- **Header row:** notes the #26466 update.
+- **Section 3, item 7:** delete and Trash restore are off the freeze. Claim and release stay on. The reasons cited are: `FOR UPDATE` (`admin_chat_lifecycle.go:207`), `DELETE … RETURNING *` (`:247-248`), and the restore closing direct chats in the same transaction (`admin_trash.go:296`, `admin_chat_lifecycle.go:369`, `retire_one.go:53`).
+- **Pre-flight query 6 and its bullet:** every trashed direct chat is now safe to restore, because it comes back ended and archived.
+- **Post-check 7h and its follow-up:** a row there is something to record, not a failure. It is no longer "expect 0 rows".
+- **Section 9:** old risk 9 moved to a new "Resolved by OPOS #26466" block. Old risk 10 is now 9. No text referred to it by number.
+- **Section 10:** new bullet on Trash-restored snapshot threads.
+  - `chat_threads` has no `updated_at` trigger, and the restore keeps the copy's value.
+  - A thread deleted after the run and then restored still has `run_ts`, so the snapshot restore reopens it.
+  - One deleted between the snapshot and the run gets a new `updated_at` when the restore closes it, so the snapshot restore skips it.
+  - Rows still in the Trash are skipped.
+
+**What was run:** `git diff --check`, clean. A grep for `risk [0-9]` found only "risk 3", which is still correct. No code was run, because this is docs only.
+
+**External actions:** none. Not pushed. OPOS was not available to this agent.
+
+**Still open:**
+- Merge after `fix/trash-direct-chat-restore-closed` lands.
+- The section 10 claims come from reading the code, not from a run.
+
+**Traps:** a thread deleted after the run and then restored is not protected by the `run_ts` filter. Check 7h before running the snapshot restore.
+
+---
+
 ## 2026-09-15 — OPOS #26483 (push half): the staff-reply push names the support team per language (branch `fix/support-push-title-localized`)
 
 **What was asked:** the admin reply in a 1:1 donor chat pushed «رسالة من Support» to Arabic users. Localize the sender in the template layer, not the handler. The app half is the separate branch `fix/app-chat-english-fallbacks`.
