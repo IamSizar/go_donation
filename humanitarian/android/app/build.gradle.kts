@@ -78,18 +78,27 @@ android {
 }
 
 // A release build without the signing material must still fail loudly (see the
-// comment on keystoreProperties above), and say what is missing. Only a RELEASE
-// build, though: debug and profile builds sign with the debug key and need no
-// secrets, so they must keep working in a checkout without key.properties.
+// comment on keystoreProperties above), and say what is missing. The check
+// fires for any build whose task graph includes this app's release-variant
+// tasks — assembleRelease and bundleRelease (flutter build apk/appbundle), and
+// also :app:test and :app:check, which pull release tasks in; that errs on the
+// safe side. Debug and profile builds sign with the debug key and need no
+// secrets, so they keep working in a checkout without key.properties.
+//
+// It asks whether the release build type actually has a signing config, not
+// whether key.properties exists, so it stays right if signing ever moves to
+// another source.
 gradle.taskGraph.whenReady {
     val buildsRelease = allTasks.any { task ->
         task.project == project && task.name.contains("Release")
     }
-    if (buildsRelease && !keystorePropertiesFile.exists()) {
+    val releaseSigning = android.buildTypes.getByName("release").signingConfig
+    if (buildsRelease && releaseSigning == null) {
         throw GradleException(
-            "android/key.properties is missing, so this release build cannot be " +
-                "signed with the upload key. Restore key.properties and " +
-                "upload-keystore.jks from the password manager.",
+            "No release signing config: android/key.properties is missing, so " +
+                "this release build cannot be signed with the upload key. Put " +
+                "key.properties and the keystore it names back in android/ " +
+                "(see the comment above buildTypes.release).",
         )
     }
 }
