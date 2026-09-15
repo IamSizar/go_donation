@@ -6,6 +6,71 @@
 
 ---
 
+## 2026-09-15 — OPOS #26351: the server refuses a connect request for a case or donation that does not exist (branch `fix/connect-request-unknown-context`)
+
+**What was asked:** `POST /api/chat-groups/connect-requests` accepted any `context_id`, including a case or donation that does not exist. Refuse such a request on the server, test-first. The user's decision: keep the "Ask our team to connect me" button everywhere, and have the server refuse only an unknown context. There are no status, visibility or ownership checks.
+
+**What was actually changed** (one commit on `fix/connect-request-unknown-context`, based on `origin/main` `9bcc053`):
+- `backend/internal/chatgroups/chatgroups.go`: new sentinel `ErrUnknownContext`.
+- `backend/internal/chatgroups/chatgroups_connect.go`: `SubmitConnectRequest` now runs `submitConnectRequestSQL`, one parameterized statement.
+  - The statement is `INSERT … SELECT … WHERE EXISTS … ON CONFLICT … RETURNING id`.
+  - `case` checks `beneficiary_cases.id`, and `donation` checks `donations.id`.
+  - When no row comes back (`pgx.ErrNoRows`), it returns `ErrUnknownContext` and writes nothing. The doc comment was rewritten.
+- `backend/internal/handlers/chat_group.go`: one added `chatErr` case, answering 400 `{"success":false,"error":"We couldn't find that case or donation.","code":"connect_context_not_found"}`.
+- `backend/internal/handlers/chat_group_connect.go`: handler doc comment.
+- New test files: `backend/internal/chatgroups/chatgroups_connect_context_test.go` and `backend/internal/handlers/chat_group_connect_context_test.go`.
+- `chatgroups_test.go` and `chat_group_test.go`: every connect request that used a literal context id (1, 2 or 42) now uses a real case or donation fixture.
+  - Donations 1–8 and cases 1–2 exist only as demo seed rows from `migrations/001_full_v2.sql`.
+  - Donation 42 does not exist, so it would now be refused.
+
+**Findings behind the decisions:**
+- **Donation ids are plain `donations.id`.**
+  - My Donations: `donations.Store.ListByUser` (`backend/internal/donations/donations.go:562`, `FROM donations d`) feeds `DonationHistoryEntry.id` (`humanitarian/lib/modules/donations/models/donation_history_models.dart:330`), which `my_donations_page.dart:326` sends.
+  - Campaign donations list: the handler reads `d.id … FROM donations d` (`backend/internal/handlers/donations.go:569`), which `beneficiary_campaign_donations_screen.dart:464` sends.
+  - `in_kind_donations` has no connect button.
+  - Donations are therefore checked the same way as cases.
+- **Case ids come from `GET /beneficiary_cases`** (`beneficiary.Store`, `FROM beneficiary_cases`). They are sent by `beneficiary_case_detail_screen.dart:192`, which opens from `proposal_services_section.dart` and `orphan_family_profiles_screen.dart`.
+- **Soft delete.** Neither table has a trash column. The Trash (`trashRow` in `backend/internal/handlers/admin_delete.go`) copies the row into `trash_items` and then DELETEs it from the source table.
+  - A trashed case or donation is therefore unknown and refused; a restored one is accepted again.
+  - The "moved to the Trash" subtests pin this.
+
+**What the app shows for the 400:**
+- `ModuleApi.postJson` throws `Exception(<server sentence>)` and ignores `code`.
+- `connect_request_sheet.dart` passes the exception to `failureMessage(e, 'error_connect_request_submit_failed')`, which does not count it as an offline failure.
+- The member sees this under the message field: "Could not send your request. Please try again. If it keeps happening, contact support." (ar: "تعذّر إرسال طلبك. حاول مرة أخرى. وإن تكرّر الأمر، تواصل مع الدعم.").
+- The server's sentence reaches only `debugPrint`. No Flutter file was changed.
+
+**What was run and what it printed** (on DB `godonation_connect_ctx_26351`, created for this work, recreated fresh before GREEN and before the full suite, and dropped at the end):
+- **Baseline, before any edit:** `go test ./internal/chatgroups/ ./internal/handlers/ -run ConnectRequest -count=1 -p 1` printed `ok` for both.
+- **RED:**
+  - `TestSubmitConnectRequestRefusesUnknownContext` failed with `SubmitConnectRequest(case 9000000000000000) = <nil>, want errors.Is(err, ErrUnknownContext)`. All 4 subtests failed that way, plus `5 request rows written for unknown contexts, want 0`.
+  - `TestSubmitConnectRequest_RefusesUnknownContext` failed with `status = 200, want 400` for both case and donation.
+  - The accept tests passed, as guards.
+- **GREEN, fresh DB:** `go test ./internal/chatgroups/ ./internal/handlers/ -count=1 -p 1` printed `ok …/internal/chatgroups 156.858s` and `ok …/internal/handlers 420.185s`.
+- **Full suite, fresh DB:** `go test ./... -count=1 -p 1` printed `ok` for every package with tests, exit 0. Among them: `ok …/internal/chatgroups 47.347s` and `ok …/internal/handlers 41.532s`.
+- **Connect tests with `-v`:** every one printed `--- PASS`, and the `--- SKIP` count was `0`.
+- `go vet ./...` was clean. `gofmt -l` on the 8 changed files printed nothing.
+- **Reviews:**
+  - `ecc:code-reviewer` found nothing.
+  - `ecc:security-reviewer` found one Low. The route is now an existence oracle for case and donation ids (400 vs 200), though it returns no content and sits behind bearer, approved and non-guest checks. It suggested an optional per-user rate limit; not blocking.
+
+**External actions taken:** none. Nothing was pushed and no PR was opened.
+
+**What is still open:**
+- The commit is local, unpushed, and not reviewed by a human.
+- OPOS MCP needed interactive OAuth and wasn't available in this subagent session. OPOS #26351 was not moved or commented on.
+- To say "not found" specifically, the app must read `code`, for example through `ApiCodedException`. Today it shows the generic failure sentence.
+- The optional rate limit from the security review.
+
+**Traps:**
+- `gofmt -l .` in `backend/` lists `internal/handlers/admin_edit_user_profile.go`. That file is untouched here and already unformatted on `origin/main`.
+- `internal/chatgroups` tests cannot be re-run safely against the same database.
+  - `raiseUserIDFloor` in `chatgroups_test.go` recomputes the floor from `MAX(users.id)`, which falls back once earlier runs have deleted their users, so user ids are reissued. Connect-request rows are never cleaned up.
+  - A second run failed `TestListConnectRequestsForUserOnlyReturnsOwnRequests` on a row left by the first run.
+  - Use a fresh database per run. `internal/handlers` already fixed its copy by reading the sequence's `last_value`. Not fixed here because it is out of scope.
+
+---
+
 ## 2026-09-15 — OPOS #26411: team chat-group pushes get their own entity type (branch `fix/team-group-push-entity-type`)
 
 **What was asked:** team-group message pushes used the donor-chat template, which labelled a chat-GROUP id as a `chat_thread`. Give them their own template, test-first, and leave `chatErr` in `chat_group.go` untouched (parallel branches edit it).

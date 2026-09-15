@@ -1092,12 +1092,13 @@ func TestSubmitConnectRequestIsIdempotentWhilePending(t *testing.T) {
 	s := New(pool)
 	ctx := context.Background()
 	donor := makeTestUser(t, pool, "donor")
+	donationID := makeTestDonation(t, pool, donor)
 
-	id1, err := s.SubmitConnectRequest(ctx, donor, "donation", 42, nil, "I'd like to connect")
+	id1, err := s.SubmitConnectRequest(ctx, donor, "donation", donationID, nil, "I'd like to connect")
 	if err != nil {
 		t.Fatalf("SubmitConnectRequest: %v", err)
 	}
-	id2, err := s.SubmitConnectRequest(ctx, donor, "donation", 42, nil, "updated message")
+	id2, err := s.SubmitConnectRequest(ctx, donor, "donation", donationID, nil, "updated message")
 	if err != nil {
 		t.Fatalf("SubmitConnectRequest (resubmit): %v", err)
 	}
@@ -1135,7 +1136,7 @@ func TestApproveConnectRequestCreatesGroupTransactionally(t *testing.T) {
 	donor := makeTestUser(t, pool, "donor")
 	beneficiary := makeTestUser(t, pool, "beneficiary")
 
-	reqID, err := s.SubmitConnectRequest(ctx, donor, "donation", 42, nil, "I'd like to connect")
+	reqID, err := s.SubmitConnectRequest(ctx, donor, "donation", makeTestDonation(t, pool, donor), nil, "I'd like to connect")
 	if err != nil {
 		t.Fatalf("SubmitConnectRequest: %v", err)
 	}
@@ -1177,7 +1178,7 @@ func TestDeclineConnectRequestRequiresReason(t *testing.T) {
 	ctx := context.Background()
 	staff := makeTestUser(t, pool, "staff")
 	donor := makeTestUser(t, pool, "donor")
-	reqID, _ := s.SubmitConnectRequest(ctx, donor, "donation", 1, nil, "please connect me")
+	reqID, _ := s.SubmitConnectRequest(ctx, donor, "donation", makeTestDonation(t, pool, donor), nil, "please connect me")
 
 	if err := s.DeclineConnectRequest(ctx, reqID, staff, ""); err == nil {
 		t.Error("expected an error declining with an empty reason")
@@ -1205,8 +1206,8 @@ func TestListConnectRequestsFiltersByStatus(t *testing.T) {
 	staff := makeTestUser(t, pool, "staff")
 	donor := makeTestUser(t, pool, "donor")
 
-	pendingID, _ := s.SubmitConnectRequest(ctx, donor, "donation", 1, nil, "one")
-	declinedID, _ := s.SubmitConnectRequest(ctx, donor, "case", 2, nil, "two")
+	pendingID, _ := s.SubmitConnectRequest(ctx, donor, "donation", makeTestDonation(t, pool, donor), nil, "one")
+	declinedID, _ := s.SubmitConnectRequest(ctx, donor, "case", makeTestCase(t, pool, caseFixture{OwnerID: donor, Status: "approved"}), nil, "two")
 	if err := s.DeclineConnectRequest(ctx, declinedID, staff, "no"); err != nil {
 		t.Fatalf("DeclineConnectRequest: %v", err)
 	}
@@ -1343,7 +1344,7 @@ func TestApproveConnectRequestRecordsAudit(t *testing.T) {
 	s := New(pool)
 	staff := makeTestUser(t, pool, "staff")
 	donor := makeTestUser(t, pool, "donor")
-	reqID, err := s.SubmitConnectRequest(context.Background(), donor, "donation", 1, nil, "please connect me")
+	reqID, err := s.SubmitConnectRequest(context.Background(), donor, "donation", makeTestDonation(t, pool, donor), nil, "please connect me")
 	if err != nil {
 		t.Fatalf("submit: %v", err)
 	}
@@ -1368,7 +1369,7 @@ func TestApproveConnectRequestRejectsInvalidKind(t *testing.T) {
 	s := New(pool)
 	staff := makeTestUser(t, pool, "staff")
 	donor := makeTestUser(t, pool, "donor")
-	reqID, err := s.SubmitConnectRequest(context.Background(), donor, "donation", 1, nil, "please connect me")
+	reqID, err := s.SubmitConnectRequest(context.Background(), donor, "donation", makeTestDonation(t, pool, donor), nil, "please connect me")
 	if err != nil {
 		t.Fatalf("submit: %v", err)
 	}
@@ -1385,7 +1386,7 @@ func TestApproveConnectRequestRejectsMembersWithoutRequester(t *testing.T) {
 	staff := makeTestUser(t, pool, "staff")
 	donor := makeTestUser(t, pool, "donor")
 	beneficiary := makeTestUser(t, pool, "beneficiary")
-	reqID, err := s.SubmitConnectRequest(context.Background(), donor, "donation", 1, nil, "please connect me")
+	reqID, err := s.SubmitConnectRequest(context.Background(), donor, "donation", makeTestDonation(t, pool, donor), nil, "please connect me")
 	if err != nil {
 		t.Fatalf("submit: %v", err)
 	}
@@ -1411,10 +1412,10 @@ func TestListConnectRequestsForUserOnlyReturnsOwnRequests(t *testing.T) {
 	s := New(pool)
 	donorA := makeTestUser(t, pool, "donor")
 	donorB := makeTestUser(t, pool, "donor")
-	if _, err := s.SubmitConnectRequest(context.Background(), donorA, "donation", 1, nil, "a"); err != nil {
+	if _, err := s.SubmitConnectRequest(context.Background(), donorA, "donation", makeTestDonation(t, pool, donorA), nil, "a"); err != nil {
 		t.Fatalf("submit A: %v", err)
 	}
-	if _, err := s.SubmitConnectRequest(context.Background(), donorB, "donation", 2, nil, "b"); err != nil {
+	if _, err := s.SubmitConnectRequest(context.Background(), donorB, "donation", makeTestDonation(t, pool, donorB), nil, "b"); err != nil {
 		t.Fatalf("submit B: %v", err)
 	}
 	items, err := s.ListConnectRequestsForUser(context.Background(), donorA)

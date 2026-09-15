@@ -73,6 +73,8 @@ func (h *ChatGroupHandler) chatErr(c *gin.Context, err error) {
 		})
 	case errors.Is(err, chatgroups.ErrInvalidInput):
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid request."})
+	case errors.Is(err, chatgroups.ErrUnknownContext):
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "We couldn't find that case or donation.", "code": "connect_context_not_found"})
 	default:
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
 	}
