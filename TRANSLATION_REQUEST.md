@@ -32,7 +32,7 @@ made on this project once and had to be reverted.
 Every key below currently renders its **English** string to a Kurdish user.
 That is deliberate and safe. It is not a crash, and it is not Arabic text.
 
-## Count: 616 keys need Kurdish
+## Count: 617 keys need Kurdish
 
 | Client | Sorani (ckb) | Badini (kmr) | Distinct keys |
 |---|---|---|---|
@@ -56,6 +56,7 @@ That is deliberate and safe. It is not a crash, and it is not Arabic text.
 | Admin dashboard — delete confirmation bodies (were FALSE in Kurdish) | 5 | 5 | 5 |
 | Admin dashboard — OPOS #26398 chat groups page (new) | 68 | 68 | 68 |
 | Admin dashboard — OPOS #26400 connect-request inbox (new) | 41 | 41 | 41 |
+| Admin dashboard — OPOS #26492 chat delete confirmation (changed; existing Kurdish is now FALSE) | 1 | 1 | 1 |
 | Admin dashboard — OPOS #26399 chat group detail page, and #26429 notification type (new) | 35 | 35 | 35 |
 | App — City Guide map chip (place count) | 2 | 2 | 2 |
 | App — security page auth description (old Kurdish was FALSE) | 1 | 1 | 1 |
@@ -66,7 +67,7 @@ That is deliberate and safe. It is not a crash, and it is not Arabic text.
 | App — OPOS #26429 group chat message notification type (new) | 1 | 1 | 1 |
 | App — OPOS #26483 unnamed chat thread party (new) | 1 | 1 | 1 |
 | App — OPOS #26433 chat invite refusals (new) | 3 | 3 | 3 |
-| **Total distinct words to translate** | | | **616** |
+| **Total distinct words to translate** | | | **617** |
 
 > **The dashboard figure above is a floor, not a ceiling — and it is the one
 > number in this file that was never fully measured.** Counting key paths in
@@ -1861,6 +1862,17 @@ These are database values the dashboard prints as a badge or a log entry.
 | `status.created` | Created | تم الإنشاء | ckb + kmr |
 | `status.member_added` | Member added | إضافة عضو | ckb + kmr |
 | `status.member_removed` | Member removed | إزالة عضو | ckb + kmr |
+
+## Dashboard · OPOS #26492 the chat delete confirmation (dashboard, `admin-web`)  (1 key, changed)
+
+**English and Arabic rewritten; ckb and kmr NOT.** The existing Kurdish text
+of this key says a Super-Admin restores the chat, which is now **false**: Trash
+restore is open to any administrator (admin or super_admin); only permanent
+deletion stays Super-Admin. Re-translate from the English below.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `chat_lifecycle.delete_confirm` | Move this chat and all of its messages to the Trash? An administrator can restore it, and a Super-Admin can delete it permanently. | نقل هذه المحادثة وكل رسائلها إلى سلة المحذوفات؟ يمكن للمسؤول استعادتها، ويمكن لمدير عام حذفها نهائيًا. | ckb + kmr |
 
 ## Dashboard · OPOS #26400 the connect-request inbox (dashboard, `admin-web`)  (41 keys)
 

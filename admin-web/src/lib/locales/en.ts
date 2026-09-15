@@ -684,7 +684,7 @@ const en = {
     reason_placeholder: 'e.g. Under review by our team',
     reason_shown: 'Participants are being shown: {reason}',
     end_confirm: 'Ending is final — the chat becomes read-only for everyone and cannot be reopened. The history is kept.',
-    delete_confirm: 'Move this chat and all of its messages to the Trash? A Super-Admin can restore it, or delete it permanently.',
+    delete_confirm: 'Move this chat and all of its messages to the Trash? An administrator can restore it, and a Super-Admin can delete it permanently.',
     archived_hint: 'Hidden from the participants. Staff can still see it here.',
   },
   // Chat groups (Phase 6a, OPOS #26398): /chat-groups and its create dialog.

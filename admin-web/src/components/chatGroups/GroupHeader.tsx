@@ -66,7 +66,7 @@ export default function GroupHeader({ group, canEdit, onLifecycleChanged }: Prop
       </PageHead>
       <section className="card" aria-label={t('chat_groups.detail.state_aria')}>
         {canEdit ? (
-          <ChatLifecycleControls basePath={`/api/admin/chat-groups/${group.id}`} thread={group} onChanged={onLifecycleChanged} />
+          <ChatLifecycleControls basePath={`/api/admin/chat-groups/${group.id}`} deleteModule="messages" thread={group} onChanged={onLifecycleChanged} />
         ) : (
           <ReadOnlyState group={group} />
         )}
