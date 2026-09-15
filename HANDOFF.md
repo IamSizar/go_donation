@@ -6,6 +6,77 @@
 
 ---
 
+## 2026-09-15 — OPOS #26464: chat-group pause/resume/end no longer answers 500 when the reason is empty (branch `fix/chat-group-lifecycle-null-reason`)
+
+**What was asked:** test-first, fix `chatlifecycle.Apply` failing with a 500 for chat groups (Kind `group`, table `chat_group_threads`) whenever the stored reason is empty. That covers every `resume`, and every `pause` or `end` with a blank reason. Choose between a per-System flag that stores '' and a migration that makes the column nullable, then run `go test ./internal/chatlifecycle/ ./internal/handlers/ -count=1 -p 1` on a fresh `createdb` database and drop it.
+
+**What was actually changed** (one local commit on `fix/chat-group-lifecycle-null-reason`, fast-forwarded onto `origin/main` `b1809bc`):
+- **The bug, confirmed by the RED run below:**
+  - `setLifecycle` (`backend/internal/chatlifecycle/chatlifecycle.go:379`) writes SQL NULL to `lifecycle_reason` for an empty reason.
+  - Migration 118 made that column nullable on the four older thread tables.
+  - Migration 120 (`120_chat_groups.sql:24`) declared it `TEXT NOT NULL DEFAULT ''` on `chat_group_threads`.
+  - Result: SQLSTATE 23502, which `lifecycleErr` (`handlers/admin_chat_lifecycle.go:95`) turns into `500 "Database error."` on `POST /api/admin/chat-groups/:id/lifecycle`.
+- **Fix: new `backend/migrations/123_chat_group_lifecycle_reason_nullable.sql`.**
+  - It drops NOT NULL and the '' default, then runs `UPDATE ... SET lifecycle_reason = NULL WHERE lifecycle_reason = ''`.
+  - The exact DOWN is recorded as comments at the bottom, as 118 does.
+  - **No Go code changed.** The deployed binary is fixed as soon as the server starts and applies 123 (`cmd/server/main.go:94`).
+- **Why the schema and not a per-System '' flag:** a flag would give "no reason" two spellings in API responses, NULL for four systems and "" for groups. Every reader already handles NULL:
+  - `chatlifecycle.Load` scans the column into `*string`.
+  - `handlers/chat_lifecycle_gate.go` passes it through as `lifecycle_reason`.
+  - The Flutter group controller (`chat_group_conversation_controller.dart:265`) trims it and treats null and "" alike.
+  - admin-web (`ChatLifecycleControls.tsx:181`) renders it only when truthy.
+  - No `chatgroups` query reads the column, and its two INSERTs (`chatgroups.go:294`, `chatgroups_connect.go:158`) don't name it.
+- **New test file `backend/internal/chatlifecycle/apply_group_test.go`** (3 tests, 4 subtests):
+  - resume a group paused with a reason;
+  - pause and end a group with an empty reason and with a whitespace-only one;
+  - `Load` on a new group reports no reason.
+  - Each test checks both what `Apply` returned and what is stored in the row.
+
+**What was run and what it printed:**
+- **RED, before the migration**, on fresh DB `godonation_group_reason_red`: `go test ./internal/chatlifecycle/ -run Group -count=1 -v`
+  - resume: `chatlifecycle set open on chat_group_threads/1: ERROR: null value in column "lifecycle_reason" of relation "chat_group_threads" violates not-null constraint (SQLSTATE 23502)`
+  - the 4 pause/end subtests: the same error, for `paused` and `ended`
+  - Load: `Load returned lifecycle="open" reason="" for a new group, want open with no reason`
+  - ended `FAIL .../internal/chatlifecycle 155.733s`
+- **GREEN, same command:** `[migrate] applied 123_chat_group_lifecycle_reason_nullable.sql`, all 3 tests and 4 subtests PASS, `ok .../internal/chatlifecycle 19.725s`. `gofmt -l` printed nothing; `go vet ./internal/chatlifecycle/` exited 0.
+- **UP and DOWN by hand**, on the RED DB. Before 123 applied, two probe groups were seeded: one with '' and one paused with 'Kept reason'.
+  - After UP: `nullable=YES default=NONE`, '' became NULL, 'Kept reason' kept.
+  - After the commented DOWN: `nullable=NO default=''::text`, NULL back to '', the `schema_migrations` row gone.
+  - The RED DB was then dropped (confirmed `count=0`).
+- **Requested run**, on fresh DB `godonation_group_reason_final`, base `9e4a99f`: `go test ./internal/chatlifecycle/ ./internal/handlers/ -count=1 -p 1 -timeout 45m -v`
+  - exit 0: `ok .../internal/chatlifecycle 482.773s`, `ok .../internal/handlers 718.181s`
+  - 514 `--- PASS`, 0 `--- FAIL`, 0 `--- SKIP`
+  - DB dropped, confirmed gone.
+- **New-base check**, after fast-forwarding onto `b1809bc` (#99 and #100 landed during the work; neither touches a migration, chatlifecycle or `chat_group_threads`). On fresh DB `godonation_group_reason_rebase`:
+  - `go vet ./internal/chatlifecycle/ ./internal/handlers/` exited 0.
+  - `go test ./internal/chatlifecycle/ -run Group -count=1 -v`: `ok ... 162.114s`.
+  - `go test ./internal/handlers/ -run MarriageInvite -count=1 -v` (#99's new tests): `ok ... 68.313s`.
+  - 16 `--- PASS`, 0 FAIL, 0 SKIP. DB dropped, confirmed gone.
+  - The full handlers suite was not re-run on this base.
+- **Reviews:**
+  - `ecc:code-reviewer`: APPROVE, 0 findings at every severity.
+  - `ecc:database-reviewer`: nothing material. The ALTERs change only the catalog (no rewrite), and the file runs as one implicit transaction under the simple protocol. The DOWN is a correct exact inverse, and leaving `updated_at` untouched in the backfill is right.
+
+**External actions taken:**
+- **Nothing pushed, no PR.**
+- **OPOS #26464** was created in office 19 (account 6) after the work, then commented and moved to Completed.
+  - It was not created up front: the connector's tools did not load at session start (ToolSearch found nothing), and Zaid chose "proceed, log later".
+  - No timer was run and no time was logged. Account 6 had three open timers from other sessions (#26461, #26448, #26436), and moving a task to In Progress would have auto-stopped one.
+
+**What is still open:**
+- **Unpushed:** the commit is local only.
+- **Production until deploy:** a group paused in production cannot be resumed (resume always sends an empty reason). Pausing or ending one without a reason also still 500s.
+- **Trash:** group rows already in the Trash still carry `"lifecycle_reason": ""` in `trash_items.payload` and restore as ''. Readers treat that as no reason, and the next lifecycle change rewrites it.
+- **No HTTP-level test for group lifecycle:** `handlers/chat_lifecycle_trash_test.go` still covers only donor and marriage, and the new tests go through `Apply` directly. The route is registered in `chat_lifecycle_fixtures_test.go:242` if one is wanted.
+- **#26431 (apply race):** still To Do and unmerged, so nothing was rebased. Its branch touches no migration, so 123 should not conflict. Its tests can now include `KindGroup` pause/resume.
+
+**Traps:**
+- **gofmt rewrites `''` inside a Go doc comment** into a typographic quote (`”`), so `gofmt -l` flags the file. Write "empty string" in Go comments instead.
+- **The first test on a fresh DB absorbs all 122 migrations.** That took ~2 minutes (137s for the first RED test), so a slow first test is not a hang.
+- **The OPOS connector can appear mid-session** after ToolSearch found nothing at the start. Re-check before concluding it is unavailable.
+
+---
+
 ## 2026-09-15 — OPOS #26423: guests get a sign-in prompt on Messages instead of polling donor chats (branch `fix/guest-messages-no-chat-poll`)
 
 **What was asked:** stop treating guests like members for donor chats. The server is moving to give guests an empty GET /api/chats and /api/marriage/chats, and 403 guest_restricted on thread messages (OPOS #26354). The work was test-first, en + ar only, and support had to stay reachable for guests.
