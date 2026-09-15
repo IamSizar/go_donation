@@ -69,9 +69,8 @@ const sensitiveDataRequiredCode = "sensitive_data_required"
 func (h *ChatGroupHandler) refuseMaskedWithoutSensitive(c *gin.Context, groupID int64) bool {
 	kind, err := h.Store.GroupKind(c.Request.Context(), groupID)
 	if err != nil {
-		if !errors.Is(err, chatgroups.ErrNotFound) {
-			log.Printf("[chat-group] could not read the kind of group %d: %v", groupID, err)
-		}
+		// chatErr answers ErrNotFound as 404 group_not_found, and logs any
+		// other error itself before answering 500 server_error.
 		h.chatErr(c, err)
 		return true
 	}

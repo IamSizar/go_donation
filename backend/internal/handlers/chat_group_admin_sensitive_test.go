@@ -299,8 +299,9 @@ func TestAdminGroupReads_TeamGroup_MessagesViewAloneReads(t *testing.T) {
 // ─── A group that does not exist ────────────────────────────────────────
 
 // TestAdminGroupReads_MissingGroupIs404: a group id that names no row answers
-// 404 on all three routes — for a caller who could read it and for one who
-// could not, so existence is checked before the permission.
+// chatErr's 404 group_not_found body (wantGroupNotFound, OPOS #26410) on all
+// three routes — for a caller who could read it and for one who could not, so
+// existence is checked before the permission.
 func TestAdminGroupReads_MissingGroupIs404(t *testing.T) {
 	pool := newChatGroupPool(t)
 	r := newAdminGroupReadRouter(pool)
@@ -311,10 +312,8 @@ func TestAdminGroupReads_MissingGroupIs404(t *testing.T) {
 		t.Run(caller.name, func(t *testing.T) {
 			for _, route := range adminGroupReadPaths(neverExistingGroupID) {
 				t.Run(route.name, func(t *testing.T) {
-					code, raw, _ := getRawAdminAs(t, r, caller.token, route.path)
-					if code != http.StatusNotFound {
-						t.Fatalf("status = %d, want 404 (body %s)", code, raw)
-					}
+					code, _, body := getRawAdminAs(t, r, caller.token, route.path)
+					assertChatGroupRefusal(t, code, body, wantGroupNotFound)
 				})
 			}
 		})
