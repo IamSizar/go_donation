@@ -1,13 +1,21 @@
 /**
- * ExportCsvButton.tsx — the export entry point for list pages: one PIN step-up,
- * then a CSV / Excel / PDF / Word download (lib/csv.ts), gated by the
- * per-module export permission (lib/permissions.ts).
+ * ExportCsvButton.tsx — the export entry point for list pages and chat
+ * conversations: one PIN step-up, then a CSV / Excel / PDF / Word download
+ * (lib/csv.ts), gated by the per-module export permission (lib/permissions.ts).
+ *
+ * THREE WAYS TO FEED IT
+ *   - rows: the page already holds the data (every list page).
+ *   - loadRows: the data is loaded only AFTER the PIN is accepted, once per
+ *     export (a whole chat conversation, lib/chatExport.ts). Cancelling or
+ *     failing the PIN loads nothing.
+ *   - onExport: the legacy single-CSV callback.
  *
  * Every step reports its own failure. A PIN the server refused says so; a
  * verify-password request that fails outright (a 500, no network, a 403 "no
- * password is set") is shown through describeError; a download that throws
- * gets the generic line. One catch used to turn all of these into "Incorrect
- * password", which sent operators to retype a password that was never wrong.
+ * password is set") is shown through describeError; a failed load says the
+ * data couldn't be loaded, and why; a download that throws gets the generic
+ * line. One catch used to turn all of these into "Incorrect password", which
+ * sent operators to retype a password that was never wrong.
  */
 import { useEffect, useRef, useState } from 'react'
 import { api, canExportData, describeError } from '../lib/api'
@@ -23,23 +31,31 @@ type Format = 'csv' | 'excel' | 'pdf' | 'word'
 type Props<T> = {
   // --- 24-b multi-format mode: pass the data + module and get CSV/Excel/PDF ---
   rows?: T[]
+  /**
+   * Loads the rows once the PIN step-up has succeeded, for data the page does
+   * not already hold. Called exactly once per export and takes precedence over
+   * `rows`. A rejection is reported as a failed load.
+   */
+  loadRows?: () => Promise<T[]>
   columns?: CsvColumn<T>[]
   filenameBase?: string
   title?: string
   module?: string
   // --- Legacy CSV-only mode: a callback that builds + downloads the CSV ---
   onExport?: () => void
+  /** Button text. Defaults to "Export CSV" in legacy mode and "Export" for the menu. */
   label?: string
   className?: string
 }
 
-// 24-b — export entry point for every list page. When given rows+columns+
-// filenameBase it renders a menu (CSV / Excel / PDF) gated by the per-module
-// export permission. When given only onExport it stays the legacy single CSV
-// button (tier-gated) — so pages migrate incrementally without regressions.
-// One PIN step-up either way.
+// 24-b — export entry point for every list page. When given rows (or loadRows)
+// + columns + filenameBase it renders a menu (CSV / Excel / PDF / Word) gated
+// by the per-module export permission. When given only onExport it stays the
+// legacy single CSV button (tier-gated) — so pages migrate incrementally
+// without regressions. One PIN step-up either way.
 export default function ExportCsvButton<T>({
   rows,
+  loadRows,
   columns,
   filenameBase,
   title,
@@ -54,7 +70,7 @@ export default function ExportCsvButton<T>({
   const [busy, setBusy] = useState(false)
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
-  const multi = !!(rows && columns && filenameBase)
+  const multi = !!((rows || loadRows) && columns && filenameBase)
   const allowed = useExportAllowed(module ?? '', user)
 
   useEffect(() => {
@@ -108,6 +124,21 @@ export default function ExportCsvButton<T>({
   }
 
   /**
+   * The rows to write: loadRows' result when given, else `rows`.
+   *
+   * @returns the rows, or null when loading failed (already reported).
+   */
+  async function exportRows(): Promise<T[] | null> {
+    if (!loadRows) return rows ?? []
+    try {
+      return await loadRows()
+    } catch (e) {
+      toast.error(t('export.load_failed', { reason: describeError(e) }))
+      return null
+    }
+  }
+
+  /**
    * Builds the file. A throw here is a client-side fault with nothing the
    * operator can fix, so they get the generic line and the console the detail.
    */
@@ -146,7 +177,8 @@ export default function ExportCsvButton<T>({
     setBusy(true)
     try {
       if (!(await stepUp())) return
-      build(() => download(format, rows!))
+      const data = await exportRows()
+      if (data) build(() => download(format, data))
     } finally {
       setBusy(false)
     }
@@ -169,7 +201,7 @@ export default function ExportCsvButton<T>({
         aria-haspopup="menu"
         aria-expanded={open}
       >
-        {t('export.export')} <span aria-hidden="true">▾</span>
+        {label ?? t('export.export')} <span aria-hidden="true">▾</span>
       </button>
       {open && (
         // Note #3 — this used to be styled with var(--card, #fff) /

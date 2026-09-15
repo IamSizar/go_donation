@@ -7,9 +7,50 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, describeError } from '../lib/api'
+import { useAuth } from '../lib/auth'
+import { chatExportColumns, chatExportFilenameBase, chatExportTitle, staffExportRows } from '../lib/chatExport'
 import { useI18n, useStatusLabel } from '../lib/i18n'
+import ExportCsvButton from '../components/ExportCsvButton'
 import PageHead from '../components/PageHead'
 import ChatLifecycleControls from '../components/ChatLifecycleControls'
+
+/** Columns of the one-conversation export (OPOS #26397). */
+const CONVERSATION_EXPORT_COLUMNS = chatExportColumns()
+
+/**
+ * The open staff conversation's export button, gated by messages export (D5).
+ *
+ * It REUSES the messages this page already loaded instead of fetching them
+ * again. GET /api/admin/staff-chats/:id/messages marks the thread read for the
+ * caller (handlers/staff_chat.go Messages → staffchat.Store.MarkRead), and the
+ * page already sends it when the thread opens and every 3 s after, so the
+ * export itself changes no read state.
+ *
+ * Rows are filtered to this thread, because a load for the previously selected
+ * thread can land after the switch. Nothing is offered until this thread's
+ * messages are here: a file of nothing, or of rows not loaded yet, would mislead.
+ */
+function StaffConversationExport({ thread, messages }: { thread: StaffThread; messages: StaffMessage[] }) {
+  const { t } = useI18n()
+  const { user } = useAuth()
+  const own = messages.filter((m) => m.thread_id === thread.id)
+  if (own.length === 0 || !user) return null
+  // Staff chat has no sender role; each sender's tier stands in for one.
+  const parties = [
+    { user_id: thread.other_user_id, staff_tier: thread.other_staff_tier },
+    { user_id: user.user_id, staff_tier: user.staff_tier },
+  ]
+  return (
+    <ExportCsvButton
+      loadRows={async () => staffExportRows(own, parties)}
+      columns={CONVERSATION_EXPORT_COLUMNS}
+      filenameBase={chatExportFilenameBase('staff', thread.id)}
+      title={chatExportTitle('staff', thread.id)}
+      module="messages"
+      label={t('export.conversation')}
+    />
+  )
+}
 
 type StaffThread = {
   id: number
@@ -226,8 +267,13 @@ export default function StaffChatPage() {
           ) : (
             <>
               <div style={{ borderBottom: '1px solid var(--color-border, rgba(127,127,127,0.18))', paddingBottom: 10, marginBottom: 10 }}>
-                <strong>{name(selected.other_name, selected.other_user_id)}</strong>{' '}
-                <span className="muted" style={{ fontSize: 12.5 }}>· {selected.other_staff_tier}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                  <div>
+                    <strong>{name(selected.other_name, selected.other_user_id)}</strong>{' '}
+                    <span className="muted" style={{ fontSize: 12.5 }}>· {selected.other_staff_tier}</span>
+                  </div>
+                  <StaffConversationExport thread={selected} messages={messages} />
+                </div>
                 {/* Chat lifecycle (migration 117) — end / pause / resume /
                     archive / delete, staff only. */}
                 <div style={{ marginTop: 8 }}>

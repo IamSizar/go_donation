@@ -635,6 +635,22 @@ const en = {
     pdf: 'PDF',
     word: 'Word',
     rows_n: '{n} rows',
+    // Per-conversation export (OPOS #26397, lib/chatExport.ts). The button
+    // sits in a chat header while the list above has its own Export, so it
+    // says which of the two it is.
+    conversation: 'Export conversation',
+    // Shown when the rows could not be loaded AFTER the PIN was accepted.
+    // {reason} is describeError()'s already-translated sentence.
+    load_failed: "Couldn't load the data to export. {reason}",
+    // Word/PDF document title: chat type, then the thread id.
+    chat_title: '{chat} #{id}',
+    chat_donor: 'Grantor chat',
+    chat_support: 'Support chat',
+    chat_marriage: 'Marriage chat',
+    chat_staff: 'Staff chat',
+    chat_group: 'Group chat',
+    // A sender_role no mapping knows, so a file never shows a bare number.
+    role_unknown: 'Role {role}',
   },
   toolbar: {
     back: 'Back',
@@ -1142,6 +1158,14 @@ const en = {
     field: 'Field',
     change: 'Change',
     actor: 'Actor',
+    // Chat conversation export headers (lib/chatExport.ts). `body` is above.
+    message_id: 'Message ID',
+    sent_at: 'Sent at',
+    sender_name: 'Sender name',
+    sender_user_id: 'Sender user ID',
+    sender_role: 'Sender role',
+    masked_label: 'Masked label',
+    role_in_group: 'Role in group',
   },
 
   // Workflow action buttons (mission-signup lifecycle, etc.)

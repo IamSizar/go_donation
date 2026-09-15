@@ -103,6 +103,15 @@ What the fixtures contain:
 | Support chat | 20 |
 | Marriage chats | 51 and 52 |
 | Staff chats | 61, and 62 (ended, archived) |
+| Bodies with line breaks, commas and quotes | messages 7004 (donor chat 7), 5104 (marriage chat 51), 6103 (staff chat 61) |
+
+### Check a conversation export by hand
+
+1. Open **Messages**, **Marriage Chats** or **Staff Chat** and select the first conversation.
+2. Press **Export conversation**, pick **CSV**, and type any password; the mock accepts every password.
+3. Open the file. The columns are Message ID, Sent at, Sender name, Sender user ID, Sender role and Body. The last message's body sits in one cell, line breaks and all.
+
+The donor and marriage pages load the conversation again after the password. The staff page reuses the messages it already shows, because the real staff messages route marks the thread read.
 
 ## Keep it honest
 
