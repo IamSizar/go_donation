@@ -1,7 +1,12 @@
 // chat_group_admin.go — staff-facing chat-group endpoints: listing every
 // group, creating one directly (independent of the connect-request flow,
-// which is Phase 3), and managing membership. Split from chat_group.go
+// which is Phase 3), managing membership, reading a group's roster, messages
+// and contact blocks, and the connect-request inbox. Split from chat_group.go
 // (mobile) from the start — see that file's doc comment for why.
+//
+// The roster, messages and contact-block reads name the real people behind a
+// masked group's labels, so for a MASKED group they also require
+// sensitive_data per user (refuseMaskedWithoutSensitive, OPOS #26409).
 package handlers
 
 import (
@@ -34,7 +39,58 @@ func (h *ChatGroupHandler) AdminList(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "items": items})
 }
 
-// GET /api/admin/chat-groups/:id
+// ─── Masked-group identity gate (OPOS #26409, user decision D1) ─────────
+
+// sensitiveDataRequiredCode is the machine-readable code on the 403 that the
+// roster, messages and contact-block reads return for a masked group when the
+// caller may not see sensitive data. The dashboard keys its restricted state
+// on this value, so it is a contract: never reword it.
+const sensitiveDataRequiredCode = "sensitive_data_required"
+
+// refuseMaskedWithoutSensitive writes the refusal and returns true when the
+// caller must not read this group's roster, messages or contact blocks.
+//
+// Those three responses put a real user id and real name next to every masked
+// label, which is the key that de-masks the group. For a MASKED group the
+// caller must therefore hold sensitive_data:view, resolved PER USER by
+// canViewContact: the per-employee override first, then the tier. That is
+// what GET /api/admin/permissions/me tells the dashboard. main.go used to gate
+// these routes with perm("sensitive_data", "view"), which resolves by tier
+// only, so an admin revoked for themselves alone kept reading real names and
+// an employee granted it for themselves alone was refused.
+//
+// A TEAM group is a real-name group whose members already see each other, so
+// the route's messages:view is enough. Any kind other than team is treated as
+// masked, failing closed the same way groupSenderLabel does.
+//
+// The group must exist first: a missing id answers chatErr's 404 before any
+// permission question. Staff holding messages:view already list every group
+// and its kind at GET /api/admin/chat-groups, so the order discloses nothing.
+func (h *ChatGroupHandler) refuseMaskedWithoutSensitive(c *gin.Context, groupID int64) bool {
+	kind, err := h.Store.GroupKind(c.Request.Context(), groupID)
+	if err != nil {
+		if !errors.Is(err, chatgroups.ErrNotFound) {
+			log.Printf("[chat-group] could not read the kind of group %d: %v", groupID, err)
+		}
+		h.chatErr(c, err)
+		return true
+	}
+	if kind == chatgroups.KindTeam || canViewContact(c, h.Perms) {
+		return false
+	}
+	c.JSON(http.StatusForbidden, gin.H{
+		"success": false,
+		"error":   "You need permission to view sensitive data to read this masked group.",
+		"code":    sensitiveDataRequiredCode,
+	})
+	return true
+}
+
+// ─── Group reads ────────────────────────────────────────────────────────
+
+// GET /api/admin/chat-groups/:id — the group row and its full roster,
+// including removed members. A masked group also needs sensitive_data per
+// user (refuseMaskedWithoutSensitive).
 func (h *ChatGroupHandler) AdminGetGroup(c *gin.Context) {
 	if _, ok := auth.UserFromGin(c); !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
@@ -42,6 +98,9 @@ func (h *ChatGroupHandler) AdminGetGroup(c *gin.Context) {
 	}
 	id, ok := parseID(c)
 	if !ok {
+		return
+	}
+	if h.refuseMaskedWithoutSensitive(c, id) {
 		return
 	}
 	group, err := h.Store.GetGroup(c.Request.Context(), id)
@@ -154,7 +213,9 @@ func (h *ChatGroupHandler) AdminRemoveMember(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true})
 }
 
-// GET /api/admin/chat-groups/:id/messages
+// GET /api/admin/chat-groups/:id/messages — the unmasked history, real sender
+// id and name on every message. A masked group also needs sensitive_data per
+// user (refuseMaskedWithoutSensitive); a missing group is 404.
 func (h *ChatGroupHandler) AdminMessages(c *gin.Context) {
 	if _, ok := auth.UserFromGin(c); !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
@@ -162,6 +223,9 @@ func (h *ChatGroupHandler) AdminMessages(c *gin.Context) {
 	}
 	id, ok := parseID(c)
 	if !ok {
+		return
+	}
+	if h.refuseMaskedWithoutSensitive(c, id) {
 		return
 	}
 	afterID, limit := parseGroupPageParams(c)
@@ -212,7 +276,10 @@ func (h *ChatGroupHandler) AdminPostMessage(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "message_id": msgID})
 }
 
-// GET /api/admin/chat-groups/:id/contact-blocks
+// GET /api/admin/chat-groups/:id/contact-blocks — every refused attempt to
+// pass contact details, with the real sender named. A masked group also needs
+// sensitive_data per user (refuseMaskedWithoutSensitive); a missing group is
+// 404.
 func (h *ChatGroupHandler) AdminContactBlocks(c *gin.Context) {
 	if _, ok := auth.UserFromGin(c); !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
@@ -220,6 +287,9 @@ func (h *ChatGroupHandler) AdminContactBlocks(c *gin.Context) {
 	}
 	id, ok := parseID(c)
 	if !ok {
+		return
+	}
+	if h.refuseMaskedWithoutSensitive(c, id) {
 		return
 	}
 	items, err := h.Store.ListContactBlocks(c.Request.Context(), id)

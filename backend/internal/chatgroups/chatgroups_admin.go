@@ -74,6 +74,27 @@ func (s *Store) GetGroup(ctx context.Context, groupID int64) (GroupDetail, error
 	return gd, nil
 }
 
+// GroupKind reads only a group's kind: the one fact the admin roster, messages
+// and contact-block routes need before deciding whether the caller must hold
+// sensitive_data (OPOS #26409, user decision D1: masked groups need it, team
+// groups do not). Cheaper than GetGroup, which also loads the whole roster.
+//
+// Fails with ErrNotFound when no group has that id, which the handler turns
+// into its usual 404.
+func (s *Store) GroupKind(ctx context.Context, groupID int64) (Kind, error) {
+	var kind Kind
+	err := s.Pool.QueryRow(ctx,
+		`SELECT kind FROM chat_group_threads WHERE id = $1`, groupID,
+	).Scan(&kind)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", fmt.Errorf("chatgroups: group %d: %w", groupID, ErrNotFound)
+	}
+	if err != nil {
+		return "", fmt.Errorf("chatgroups: reading kind of group %d: %w", groupID, err)
+	}
+	return kind, nil
+}
+
 // GroupContactBlock is one refused message, as staff read it. Mirrors
 // internal/chat/contactblocks.go's ContactBlock exactly, scoped to a group
 // instead of a thread.
