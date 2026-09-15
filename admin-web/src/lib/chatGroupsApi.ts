@@ -62,6 +62,8 @@ export type CreateGroupBody = {
 export type ChatGroupMember = {
   id: number
   user_id: number
+  /** The member's real name (#111). null when the profile has none. */
+  full_name: string | null
   role_in_group: string
   masked: boolean
   masked_label: string
@@ -75,9 +77,16 @@ export type ChatGroupDetail = {
   member_title: string
   created_by_staff_id: number
   lifecycle: ChatGroupLifecycle
+  /** Staff's reason for pausing or ending, shown to members; null when none (#111). */
+  lifecycle_reason: string | null
+  /** Hidden from the members' own lists (#111). */
+  is_archived: boolean
   created_at: string
   members: ChatGroupMember[]
 }
+
+/** The lifecycle fields #111 sends beside `group`, not inside it. */
+type LifecycleFields = Pick<ChatGroupDetail, 'lifecycle' | 'lifecycle_reason' | 'is_archived'>
 
 /**
  * One message, oldest first (chatgroups.go, AdminGroupMessage). A staff
@@ -180,8 +189,11 @@ export async function createGroup(body: CreateGroupBody): Promise<number> {
  * @throws the axios error; 404 group_not_found, 403 sensitive_data_required.
  */
 export async function getGroup(groupId: number): Promise<ChatGroupDetail> {
-  const res = await api.get<{ group: ChatGroupDetail }>(`${BASE}/${groupId}`)
-  return res.data.group
+  // #111 sends the lifecycle fields at the top level (mergeChatLifecycle), so
+  // they are folded into the group here and 6b reads one object.
+  const res = await api.get<{ group: ChatGroupDetail } & LifecycleFields>(`${BASE}/${groupId}`)
+  const { group, lifecycle, lifecycle_reason, is_archived } = res.data
+  return { ...group, lifecycle, lifecycle_reason: lifecycle_reason ?? null, is_archived: is_archived === true }
 }
 
 /**

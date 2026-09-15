@@ -120,7 +120,7 @@ The mock is only useful while it matches the backend. When a handler's JSON chan
 
 1. Update the fixture type that names that handler.
 2. Update the route: shell and chat groups live in `scripts/mock-api-routes.mjs`; lifecycle, delete and the older chats in `scripts/mock-api-chat-routes.mjs`.
-3. Add a case to `scripts/mock-api.test.mjs`.
+3. Add a case to `scripts/mock-api-chat-groups.test.mjs` for a chat-group route, or to `scripts/mock-api.test.mjs` for anything else. `npm run test:mock-api` runs both, and they share `startMock` from `scripts/mock-api-test-helpers.mjs`.
 
 The test already fails when `backend/internal/permissions/permissions.go` gains a module or an action.
 

@@ -237,9 +237,23 @@ function declineConnectRequest({ state, body }, [id]) {
   return ok()
 }
 
+/**
+ * GET …/:id (#111): the roster with each member's `full_name`, and the
+ * lifecycle, lifecycle_reason and is_archived fields that mergeChatLifecycle
+ * puts beside `group`. The sensitive-data 403 is not mocked: every mock caller
+ * is a super_admin.
+ */
 function getGroup({ state }, [id]) {
   const group = findGroup(state, id)
-  return group ? ok({ group }) : groupNotFound()
+  if (!group) return groupNotFound()
+  const { lifecycle, lifecycle_reason, is_archived } = lifecycleRecord(state, 'group', id)
+  const members = group.members.map((m) => ({ ...m, full_name: fullNameOf(m.user_id) }))
+  return ok({ group: { ...group, members }, lifecycle, lifecycle_reason, is_archived })
+}
+
+/** A user's profile name from the users fixture, or null (GroupMember.FullName is *string). */
+function fullNameOf(userId) {
+  return ADMIN_USERS.find((u) => u.user_id === userId)?.profile?.full_name ?? null
 }
 
 /**
