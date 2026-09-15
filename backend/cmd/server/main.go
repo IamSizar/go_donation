@@ -1022,24 +1022,21 @@ func main() {
 			// OPOS #25284 Phase 2 — staff-created group chats.
 			admin.GET("/admin/chat-groups", perm("messages", "view"), chatGroupH.AdminList)
 			admin.POST("/admin/chat-groups", perm("messages", "add"), chatGroupH.AdminCreateGroup)
-			// Returns the member roster: every member's REAL user_id next to
-			// the masked_label their messages appear under — i.e. the exact
-			// key that de-masks the whole group. Same disclosure strength as
-			// the messages route below, so the same two permissions.
-			admin.GET("/admin/chat-groups/:id",
-				perm("messages", "view"), perm("sensitive_data", "view"), chatGroupH.AdminGetGroup)
+			// The next three reads name the REAL person behind every masked
+			// label: the roster (user_id next to masked_label), the messages
+			// (sender name) and the contact blocks (who kept trying to pass a
+			// number out). For a MASKED group each handler also requires
+			// sensitive_data:view, resolved PER USER with the per-employee
+			// override applied (refuseMaskedWithoutSensitive, OPOS #26409). It
+			// is not a perm() gate here because perm() resolves by tier only,
+			// and because a TEAM group — whose members already see each other's
+			// real names — needs messages:view alone.
+			admin.GET("/admin/chat-groups/:id", perm("messages", "view"), chatGroupH.AdminGetGroup)
 			admin.POST("/admin/chat-groups/:id/members", perm("messages", "edit"), chatGroupH.AdminAddMember)
 			admin.DELETE("/admin/chat-groups/:id/members/:userId", perm("messages", "edit"), chatGroupH.AdminRemoveMember)
-			// Reveals real identities inside a masked group — messages:view
-			// alone is not enough (see design spec §4).
-			admin.GET("/admin/chat-groups/:id/messages",
-				perm("messages", "view"), perm("sensitive_data", "view"), chatGroupH.AdminMessages)
+			admin.GET("/admin/chat-groups/:id/messages", perm("messages", "view"), chatGroupH.AdminMessages)
 			admin.POST("/admin/chat-groups/:id/messages", perm("messages", "add"), chatGroupH.AdminPostMessage)
-			// Names the REAL sender behind every blocked attempt to pass
-			// contact details inside a masked group — identity disclosure of
-			// the same strength, so the same two permissions.
-			admin.GET("/admin/chat-groups/:id/contact-blocks",
-				perm("messages", "view"), perm("sensitive_data", "view"), chatGroupH.AdminContactBlocks)
+			admin.GET("/admin/chat-groups/:id/contact-blocks", perm("messages", "view"), chatGroupH.AdminContactBlocks)
 
 			// OPOS #25284 Phase 3 — connect requests (admin moderation).
 			admin.GET("/admin/chat-groups/connect-requests", perm("messages", "view"), chatGroupH.AdminListConnectRequests)
