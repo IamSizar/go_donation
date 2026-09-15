@@ -50,6 +50,13 @@ func (h *ChatGroupHandler) bg() (context.Context, context.CancelFunc) {
 // explanation on this value, so it is a contract: never reword it.
 const guestMemberNotAllowedCode = "guest_member_not_allowed"
 
+// errConnectRequestNotFound marks a chatgroups.ErrNotFound that came from a
+// connect-request lookup. The store uses one ErrNotFound for groups, members
+// and connect requests alike, so the admin connect-request handlers wrap it
+// with this (connectRequestErr) to get their own sentence and code instead of
+// "Group not found." (OPOS #26478).
+var errConnectRequestNotFound = errors.New("connect request not found")
+
 // chatErrResponse is how chatErr answers one kind of failure: the HTTP status,
 // the English sentence, and the machine-readable code.
 type chatErrResponse struct {
@@ -63,7 +70,8 @@ type chatErrResponse struct {
 // chat.go's chatErr (see internal/chatgroups' sentinel doc comments for what
 // each means). chatErr checks them IN ORDER with errors.Is, so a sentinel must
 // come before any sentinel it wraps: ErrLabelContact wraps ErrInvalidInput
-// and is listed first.
+// and is listed first, and errConnectRequestNotFound travels together with
+// ErrNotFound (connectRequestErr), so it is listed before that.
 //
 // Every refusal carries a code beside its sentence (OPOS #26410). admin-web's
 // describeError translates error.<code> and falls back to the sentence; the
@@ -72,6 +80,7 @@ type chatErrResponse struct {
 // never reword one — add a new entry instead.
 var chatErrResponses = []chatErrResponse{
 	{chatgroups.ErrNotMember, http.StatusForbidden, "You are not a member of this group.", "not_group_member"},
+	{errConnectRequestNotFound, http.StatusNotFound, "Connect request not found.", "connect_request_not_found"},
 	{chatgroups.ErrNotFound, http.StatusNotFound, "Group not found.", "group_not_found"},
 	{chatgroups.ErrAlreadyDecided, http.StatusConflict, "This request has already been decided.", "connect_request_decided"},
 	{chatgroups.ErrMemberConflict, http.StatusConflict, "This person is already a member of this group.", "group_member_conflict"},

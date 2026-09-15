@@ -110,6 +110,15 @@ export const MASKED_GROUP_ID = 41
 /** The team group's id. */
 export const TEAM_GROUP_ID = 42
 
+/**
+ * A guest account (users.is_guest), listed in shell.ts's ADMIN_USERS as
+ * "Guest visitor" so the member picker can find it. Every route that adds
+ * members refuses it with 400 `guest_member_not_allowed`
+ * (chatgroups.ErrGuestMember and chatErr in handlers/chat_group.go, OPOS
+ * #26355). Picking it in the create dialog shows that refusal in a browser.
+ */
+export const GUEST_USER_ID = 107
+
 /** GET /api/admin/chat-groups items, most recent activity first. */
 export const CHAT_GROUP_SUMMARIES: ChatGroupSummary[] = [
   {
