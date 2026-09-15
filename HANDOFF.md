@@ -89,6 +89,71 @@ The filter is in SQL, before `LIMIT`. There is no separate count endpoint: the a
 
 ---
 
+## 2026-09-15 — OPOS #26431: a racing staff pause or resume can no longer reopen an ended chat (branch `fix/chat-lifecycle-apply-race`)
+
+**What was asked:** make `chatlifecycle.Apply`'s writes conditional on the state it read, working test-first. Two concurrent actions could interleave: a staff pause or resume, and an END from another staff member or from `cmd/retire-direct-chats`. The later write overwrote `ended`. Changes were to stay inside `backend/internal/chatlifecycle`.
+
+**What was actually changed** (branch from `origin/main` `0277242`):
+- Commit `2496f79`, `fix(chatlifecycle): make lifecycle writes conditional on the state that was read`.
+- `backend/internal/chatlifecycle/apply.go` (new). Apply and its two writes moved here from `chatlifecycle.go`, which went from 435 to 300 lines; the moved text and SQL are otherwise verbatim.
+  - The `setLifecycle` UPDATE gains `AND lifecycle = $5`, the lifecycle Apply decided from.
+  - Zero rows returns the unexported `errLifecycleChanged`. Apply then reads the thread again and re-decides, up to `maxApplyAttempts` = 3.
+  - Outcomes: a pause or resume that lost to an END gets the existing `ErrEnded`; a resume that lost to a resume gets `ErrNotPaused`; a deleted thread gets `ErrNotFound`; a blank END that lost to another END is the usual no-op.
+  - If all 3 attempts are lost, Apply returns a wrapped `errLifecycleChanged`.
+  - `setArchived` keeps its unconditional write, because archive and unarchive decide nothing from the read. The doc comment says why.
+  - A nil-by-default `testHookBeforeWrite` runs just before each write.
+- `backend/internal/chatlifecycle/apply_race_test.go` (new). Five tests; the interleaving is deterministic and uses no sleeps:
+  - pause and resume refused after an END, for direct, staff and group threads. The END either commits first (a nested Apply, or `RetireAllDirectThreads`), or holds its lock while Apply's write waits (the retire run's own `retireInTx`, or a plain end).
+  - a blank END keeps the winner's stamp;
+  - a lost race to an allowed change is decided again;
+  - a thread deleted mid-flight is `ErrNotFound` for all five actions;
+  - Apply gives up after 3 lost attempts.
+- **No handler changes.** `handlers/admin_chat_lifecycle.go` `lifecycleErr` already maps `ErrEnded` and `ErrNotPaused` to 409 and `ErrNotFound` to 404. Exhaustion falls to its logged 500.
+
+**What was run and what it printed** (each DB made with `createdb`):
+- **Baseline** at `0277242`, DB `gd_lifecycle_race_26431`: `go test ./internal/chatlifecycle/ -count=1` → `ok 77.280s`.
+- **RED:** the hook seam was added, but the writes were still `WHERE id = $1`.
+  - All 8 race subtests FAILED, each with the thread reopened. Examples:
+    - `thread after the race = {Lifecycle:paused Reason:cooling off ChangedBy:69 Archived:false}; want the END kept, {Lifecycle:ended …}`;
+    - resume versus the retire run: `{Lifecycle:open Reason: ChangedBy:69 Archived:true}`, want ended with the retire reason. The lock-wait cases failed the same way.
+  - The blank-END test FAILED: `{Lifecycle:ended Reason: ChangedBy:83}`, want the winner's reason and user 84.
+  - The benign re-pause test and the deleted-thread test PASSED. They pin behaviour the old code already had.
+  - The loop-bound test FAILED: `Apply(pause) = {Lifecycle:paused …}, <nil>; want errLifecycleChanged after 3 lost attempts`.
+- **GREEN:** `go test ./internal/chatlifecycle/ -count=1 -race -v -timeout 30m` → 16 top-level tests (5 new, 11 existing) and 38 results including subtests, all PASS. Nothing skipped, no `DATA RACE`, `ok 73.895s`.
+- **After the review fix,** on fresh DB `gd_lifecycle_race_26431_b`: same command, all PASS, `ok 397.245s`. It was slow only because a handlers run was going at the same time.
+- `gofmt -l` on the three changed files prints nothing. `go vet ./...` is clean, and `go build ./...` is ok.
+- `go test ./internal/handlers/ -count=1 -p 1 -timeout 45m` on `gd_lifecycle_race_26431` → `ok internal/handlers 1092.962s`.
+- **Full suite** on fresh DB `gd_lifecycle_race_26431_full2`: `go test ./... -count=1 -p 1 -timeout 45m` → 22 packages `ok`, 0 `FAIL`, exit 0. That includes `internal/chatlifecycle 120.308s` and `internal/handlers 471.043s`.
+  - An earlier attempt was stopped about a minute in, because it wrote to a log name another agent was using (see Traps).
+- **DBs:** `gd_lifecycle_race_26431`, `gd_lifecycle_race_26431_b`, `gd_lifecycle_race_26431_full` and `gd_lifecycle_race_26431_full2` were all dropped. A `pg_database` count of `gd_lifecycle_race_26431%` returns 0.
+- **Code review** (`ecc:code-reviewer`): APPROVE. It confirmed the retry-and-re-decide semantics, the READ COMMITTED claim, that no non-racing request changes HTTP status, and that the move is verbatim. One MEDIUM finding: the lock-wait harness's `pg_blocking_pids` check matched any blocked backend on the server. Fixed: the losing Apply now runs through a second pool tagged with `application_name`, and the check filters on it.
+
+**External actions taken:** nothing pushed and no PR opened.
+- A comment with these results was added to OPOS #26431. Its status and timer were left alone: the timer is the parent session's, log 24648.
+- A task chip was suggested for the group NOT NULL defect below.
+
+**What is still open:**
+- Both commits are local and unpushed, not reviewed by a human.
+- **Group lifecycle defect, pre-existing and not fixed here.** A group resume, or a group pause or end with no reason, fails with 23502 and returns HTTP 500. The cause: `setLifecycle` stores an empty reason as NULL, but `chat_group_threads.lifecycle_reason` is `NOT NULL DEFAULT ''` (migration 120). Verified with psql on a migrated DB. No existing test covered it.
+  - The user has started a separate session to fix it.
+  - That fix will conflict with this branch. Commit `2496f79` moved `setLifecycle`, including its NULL-reason line, and the resume call from `chatlifecycle.go` to `apply.go`, and changed `setLifecycle`'s signature. Whichever branch merges second has to rebase.
+- **Trash snapshot race, found by reading the code and not reproduced.** `handlers.trashChatThread` snapshots the thread with a plain SELECT, without `FOR UPDATE`, then deletes it. A delete that races a lifecycle write, or the retire run, can store the state from before that write. A later restore brings that state back, for example an open, unarchived direct thread. Separately, any direct thread already in the Trash before the retire run restores as open.
+- **Runbook `docs/runbooks/retire-direct-chats.md`**, not edited as instructed. Section 3 item 7 and risk 9 still describe the race as open.
+  - Risk 9 is now closed in code: a racing pause or resume is refused and the thread stays ended. This was tested with the run committed first and with the dashboard write blocked on the run's lock.
+  - The freeze can be narrowed to END, archive, unarchive and delete. Those are still worth freezing:
+    - their races are serial-equivalent, but they re-stamp rows, which shifts post-checks 7b, 7c, 7d and 7g;
+    - the `updated_at = run_ts` restore then skips those rows;
+    - a delete can hit the Trash snapshot race above.
+
+**Traps:**
+- **The session scratchpad is shared with sibling agents.** Another agent wrote to the same generic `full.log`, and its `exit=0` and `dropped` lines looked like this run's result. Use a per-agent subdirectory and a unique exit marker, and check `ps` before trusting a log.
+- **Background commands can start minutes late** on a loaded machine.
+- **`go test` without `-v` writes nothing to a redirected log until a package finishes.** An empty log is not a hang.
+- **Don't run two DB-backed packages against one DB at once.** The retire tests act on the whole `chat_threads` table. Use separate DBs.
+- **The group race tests must pause with a reason,** because of the NOT NULL defect above.
+
+---
+
 ## 2026-09-15 — OPOS #26408: admin-web test infrastructure and a credential-free mock API (branch `chore/admin-web-test-setup`)
 
 **What was asked:** implement Phase 6 plan sections T0 and T0b in admin-web, test-first. That meant two things:
