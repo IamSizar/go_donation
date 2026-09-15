@@ -57,6 +57,11 @@ var (
 	// machine-readable refusal. Enforced in exactly one place,
 	// insertMemberRow.
 	ErrGuestMember = errors.New("chatgroups: guest accounts cannot be chat-group members")
+	// ErrUnknownContext is returned when a connect request names a
+	// beneficiary case or donation that does not exist — never created, or
+	// moved to the Trash, which deletes the row from its source table
+	// (OPOS #26351). See Store.SubmitConnectRequest.
+	ErrUnknownContext = errors.New("chatgroups: connect request context does not exist")
 )
 
 type Store struct {
