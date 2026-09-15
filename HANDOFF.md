@@ -6,6 +6,129 @@
 
 ---
 
+## 2026-09-15 — OPOS #26474: `user_profiles.user_id` gets an index, and group chats stop repeating a message whose sender has two profile rows (branch `perf/user-profiles-user-id-index`)
+
+**What was asked:** add an index on `user_profiles.user_id` and check the table's one-row-per-user assumption. If a user can have two rows, fix `AdminListMessages`' join, test-first. The change was to stay within a new migration plus a minimal code fix, because other branches are editing the chat-group handlers and stores. A database review was then to be run, and anything real it found fixed.
+
+**What was actually changed.** There are three local commits on `perf/user-profiles-user-id-index`, based on `origin/main` `9425007`.
+
+**`bb32094` `perf(db): index user_profiles.user_id`**
+- `backend/migrations/124_user_profiles_user_id_index.sql` (new): `CREATE INDEX IF NOT EXISTS idx_user_profiles_user_id ON user_profiles (user_id);`.
+- Its header explains why the index is needed, why there is no UNIQUE and why there is no CONCURRENTLY. The DOWN is recorded in comments, the same way as in 113.
+- Numbered 124 because `fix/chat-group-lifecycle-null-reason` already adds `123_chat_group_lifecycle_reason_nullable.sql`.
+
+**`ec83248` `fix(chatgroups): stop repeating messages for senders with two profiles`**
+- `backend/internal/chatgroups/chatgroups_reads.go`: in both message reads, the plain `LEFT JOIN user_profiles up ON up.user_id = m.sender_user_id` became `LEFT JOIN LATERAL (SELECT p.full_name … ORDER BY p.id LIMIT 1) up ON true`, so the oldest profile row names the sender. Both doc comments say why.
+  - `AdminListMessages` serves `GET /admin/chat-groups/:id/messages` (`cmd/server/main.go:1035` → `handlers/chat_group_admin.go:168`).
+  - `ListMessagesForMember` is the members' own read. In a team group, the repeated copies could show one message under two names.
+- Response shapes are unchanged.
+- `backend/internal/chatgroups/chatgroups_duplicate_profiles_test.go` (new), with two tests:
+  - `TestAdminListMessagesListsEachMessageOnceWhenSenderHasTwoProfiles`;
+  - `TestListMessagesForMemberListsEachMessageOnceWhenSenderHasTwoProfiles`, with `team` and `masked` subtests.
+- The member-read half was added after the database review (see Review).
+
+**This entry** is the third commit.
+
+**Can a user have two `user_profiles` rows? Yes. One row per user is intended, not guaranteed.**
+- **The table:** `001_full_v2.sql:73-80` declares `user_id INTEGER NOT NULL`, with no UNIQUE and no index. `002_add_foreign_keys.sql:32-34` adds only the FK (ON DELETE CASCADE). No trigger or SQL function writes the table; the only SQL INSERT is the six-user seed at `001_full_v2.sql:751`.
+- **The intent is written down:** `010_phone_canonical.sql:60` says "user_profiles is one-row-per-user", and `handlers/admin_edit.go:1806` notes the missing UNIQUE.
+- **Safe inserts**, both for a brand-new user id:
+  - `users/users.go:817` `InsertGuest`, in the same transaction as the user insert;
+  - `handlers/admin_status.go:341`, right after creating the user.
+- **Racy check-then-insert**, with no lock held between the check and the INSERT:
+  - `users/profile.go` `UpsertProfile`: `GetProfileRow` at `:100` runs on the pool, outside the transaction begun at `:105`, and the INSERT is at `:139`.
+  - `users/registration.go` `SubmitRegistration`: SELECT at `:153`, INSERT at `:157`. The transaction's first `UPDATE users` is at `:238`, after the insert.
+  - `handlers/admin_edit.go` `User`: SELECT at `:1811`, INSERT at `:1930`. The users row is locked only when phone or email are sent too (`:1770`, `:1790`).
+- **So no UNIQUE constraint was added.** It would fail to apply on a database that already holds a pair, and deduping means deleting user rows. That decision belongs to a human.
+
+**Why not `CREATE INDEX CONCURRENTLY`.**
+- `internal/db/migrate.go:182` sends a whole file as one simple-protocol query.
+- Probed on local Postgres 18.6:
+  - A file with `SELECT 1;` before the CIC failed with `CREATE INDEX CONCURRENTLY cannot run inside a transaction block`.
+  - A one-statement CIC file, comments included, succeeded.
+- **But the one-statement form deadlocks against the runner's own locking.** Session A took `pg_advisory_lock` and ran the CIC. Session B blocked in `pg_advisory_lock` on the same key. B was aborted:
+  - `ERROR: deadlock detected`
+  - `Process 3460 waits for ExclusiveLock on advisory lock … blocked by process 3254.`
+  - `Process 3254 waits for ShareLock on virtual transaction 9/471; blocked by process 3460.`
+- **Concurrent callers are normal here:** every DB test package's process, and two replicas booting with `RUN_MIGRATIONS=1` (`internal/db/migrate_concurrent_test.go`).
+- **A plain build is atomic,** and 113 indexed this table the same way.
+
+**What was run and what it printed.** All ran on local databases created for this task. Nothing remote was touched.
+
+**Migration.** On `godonation_upidx_26474`:
+- Main's migrations first: `done: 121 newly applied, 121 total migration files`. At that point `\d user_profiles` showed no `user_id` index.
+- Seeded 50,000 users and profiles, 2,000 connect requests (one in ten pending), and group 900001 with 5,000 messages from 500 senders, then ran `ANALYZE`.
+- 124 applied through `db.RunMigrations`: `done: 1 newly applied, 122 total migration files`, with `indisvalid = t`.
+- DOWN executed (`DROP INDEX IF EXISTS idx_user_profiles_user_id` and the ledger delete): `index rows: 0`, `ledger rows: 0`.
+- Up again: `1 newly applied`, still valid.
+
+**EXPLAIN ANALYZE, before → after:**
+
+| query | before | after |
+|---|---|---|
+| roster `WHERE user_id = ANY('{…}'::bigint[])`, the `profileNames` shape | Seq Scan, 50,001 rows removed, 20.968 ms | Index Scan using `idx_user_profiles_user_id`, 0.417 ms |
+| requester `LATERAL (… WHERE up.user_id = r.requester_user_id ORDER BY up.id LIMIT 1)`, 200 pending requests | 200 loops of Seq Scan, 2293.849 ms | Index Scan, 200 searches, 1.610 ms |
+| old DISTINCT ON derived-table requester shape, one request | Seq Scan + Sort of 50,006 rows, 30.452 ms | Index Scan + Incremental Sort, 0.091 ms |
+| `AdminListMessages` as on main | Hash Left Join over a Seq Scan of all 50,006 profiles, 33.832 ms | Memoize + Index Scan, 0.584 ms |
+
+- With `enable_seqscan = off` before the index, there was no index path at all: `Seq Scan … Disabled: true` for the roster, and `Index Scan using user_profiles_pkey … Filter` for LATERAL.
+- The fixed `AdminListMessages` uses `idx_user_profiles_user_id` (50 loops). Over 5 warm, alternating runs each, the median was 0.408 ms for the old join and 0.469 ms for the LATERAL.
+
+**Tests first.** All run with `go -C backend test ./internal/chatgroups/ -run … -count=1 -v`.
+- **RED, admin:** `chatgroups_duplicate_profiles_test.go:53: got 2 messages, want 1: a sender with two user_profiles rows must not duplicate their message`.
+- **GREEN, admin:** `-run '^TestAdminListMessages'` passed 4 tests: `ok …/internal/chatgroups 0.713s`.
+- **RED, member** (on a fresh `godonation_upidx_member_26474`): both the `/team` and `/masked` subtests printed `chatgroups_duplicate_profiles_test.go:108: got 2 messages, want 1 …`.
+- **GREEN, both:** `-run '^Test(ListMessagesForMember|AdminListMessages)'` passed all 12 tests, including both subtests: `ok …/internal/chatgroups 0.730s`.
+
+**Format and vet:** `gofmt -l` on the two changed Go files printed nothing, and `go -C backend vet ./...` exited 0.
+
+**Suites on the final tree**, each on a brand-new DB:
+- `go test ./internal/chatgroups/ ./internal/handlers/ -count=1 -p 1 -timeout 45m` on `godonation_upidx_suite2_26474`: `ok …/internal/chatgroups 1.867s`, `ok …/internal/handlers 14.390s`, exit 0.
+- `go test ./... -count=1 -p 1 -timeout 45m -v` on `godonation_upidx_full2_26474`: exit 0, 22 packages `ok`, 995 `--- PASS`, 0 SKIP, 0 FAIL. The last package line was `ok …/internal/users 0.785s`.
+
+**Earlier suite runs,** on the tree before the member-read fix:
+- The targeted run passed on a fresh DB: chatgroups 3.036s, handlers 35.327s.
+- A full run reusing that DB failed two chatgroups tests on leftovers (see Traps).
+- The rerun on a brand-new DB passed: exit 0, 22 packages `ok`, 992 PASS, 0 FAIL.
+
+**Databases created and dropped:** `godonation_upidx_probe_26474`, `godonation_upidx_26474`, `godonation_upidx_suite_26474`, `godonation_upidx_full_26474`, `godonation_upidx_member_26474`, `godonation_upidx_suite2_26474` and `godonation_upidx_full2_26474`. `SELECT count(*) FROM pg_database WHERE datname LIKE 'godonation_upidx%'` printed `0`.
+
+**Merge check** (`git merge-tree --write-tree --name-only`), done after the commits:
+- Against `origin/feat/chat-groups-admin-data` (`891b571`, which contains `a3e9323`, the other commit editing `chatgroups_reads.go`): exit 0, no conflicts.
+- Against `origin/main`, which moved to `bbc6aa2` during this session and has merged that work as `9044379` (#111): exit 0, no conflicts.
+- `origin/main` still ends at migration 122, so 124 does not collide.
+
+**Review.** `ecc:database-reviewer` ran on the first version, which had fixed only `AdminListMessages`.
+- **HIGH:** `ListMessagesForMember` (`chatgroups_reads.go:117`) had the same fan-out, on the member-facing read. It is fixed in `ec83248`, test-first as above.
+- **LOW:** the migration and test comments named the `profile.go` writer `UpdateProfile`, but it is `UpsertProfile` (`profile.go:81`). Fixed.
+- **Verified with no issue:**
+  - the runner and CIC claims;
+  - the index name, and `(user_id)` over `(user_id, id)`;
+  - the LATERAL semantics for 0, 1 and 2+ rows, including the `COALESCE` fallback and pagination;
+  - the RED reasoning;
+  - the test cleanup.
+
+**External actions taken:** none. Nothing was pushed and no PR was opened. The OPOS MCP needed OAuth, which isn't available in this non-interactive session, so #26474 was not moved or commented on.
+
+**What is still open:**
+- All three commits are local, unpushed and not reviewed by a human.
+- **The branch is behind `origin/main`** (`9425007` vs `bbc6aa2`). It merges cleanly, but the suites have not been run on the merged tree.
+- **44 other plain name joins remain.** `grep -rn -E "JOIN user_profiles [a-z]+ +ON [a-z]+\.user_id" backend/internal` still finds 44 in non-test Go code on this branch. Each can return a row twice for a user with two profiles. In chatgroups, only `chatgroups_admin.go:115` (contact blocks) is left. These were out of scope.
+- **UNIQUE on `user_profiles.user_id`** needs a human decision on how to dedupe existing pairs. After that, the three racy writers above can become `INSERT … ON CONFLICT (user_id)`.
+- **Stale comment once 124 merges.** The comment in `chatgroups_connect.go` (on `origin/main` via #111) that says `user_id` "still has no index … an index is the remaining fix" becomes stale.
+
+**Traps:**
+- **Never run the chatgroups tests twice against one DB.** `TestListGroupsForUserUnreadCount` and `TestListConnectRequestsForUserOnlyReturnsOwnRequests` then fail on the earlier run's rows: two groups (`LastAt 18:05:22` and `18:06:41`), and two requests from `RequesterID:700000127`.
+  - `makeTestUser` cleanup deletes only the `users` row (`chatgroups_test.go:1282`).
+  - `raiseUserIDFloor` sets the id sequence to `GREATEST(MAX(id), 700000000)` once per process, so a second run reissues the same ids.
+  - No `chat_group_*` table has an FK to `users`.
+  - Use a brand-new DB for every full run.
+- **The brief's two named queries were not on this branch's base.** `profileNames` and the LATERAL requester lookup came from `feat/chat-groups-admin-data` and reached `origin/main` only in `9044379`. The first version of that branch (`3134085`) used a `DISTINCT ON` derived table.
+- **The local branch `feat/chat-groups-admin-data` was deleted mid-session.** Only `origin/feat/chat-groups-admin-data` remains; use that ref.
+- **CONCURRENTLY looks allowed but deadlocks** (see above). Don't "upgrade" this or a later index migration to CIC without changing the runner.
+- **The worktree guard refuses psql heredocs combined with `&`/`wait`.** Write the SQL to a file, run `psql -f`, and use the tool's background mode for the second session.
+- **`git show <sha> | grep` is refused too.** Use `git show <sha> --output=<file>` or `git grep <rev>`, then read the file.
+
 ## 2026-09-15 — OPOS #26467: the retire runbook's freeze list matches the lifecycle race fix (branch `docs/retire-runbook-freeze-list`)
 
 **What was asked:** bring `docs/runbooks/retire-direct-chats.md` in line with PR #103 (`95ea8fb`, OPOS #26431). Pause and resume come off the run-window freeze. End, archive and unarchive stay on it. Delete goes on it, because of the Trash risk tracked as OPOS #26466. Docs only.
