@@ -16,7 +16,9 @@
 // chat-group route refuses a guest session, so a guest account
 // (users.is_guest) is never written into chat_group_members: all three paths
 // that add members — CreateGroup, AddMember, ApproveConnectRequest — go
-// through insertMemberRow, which refuses a guest with ErrGuestMember.
+// through insertMemberRow, which refuses a guest with ErrGuestMember, and
+// AddMember's other path, bringing a removed member back, applies the same
+// check. Both live in chatgroups_members.go.
 package chatgroups
 
 import (
@@ -59,6 +61,26 @@ var (
 	// moved to the Trash, which deletes the row from its source table
 	// (OPOS #26351). See Store.SubmitConnectRequest.
 	ErrUnknownContext = errors.New("chatgroups: connect request context does not exist")
+	// ErrMemberConflict is returned when a caller adds someone who is already
+	// an active member of the group: AddMember for a current member, or a
+	// CreateGroup or ApproveConnectRequest member list naming one user twice.
+	// It is migration 120's UNIQUE (group_id, user_id), reported by name
+	// rather than as a raw unique violation (OPOS #26410). Re-adding a REMOVED
+	// member is not a conflict; see AddMember.
+	ErrMemberConflict = errors.New("chatgroups: already an active member of this group")
+	// ErrLabelConflict is returned when a masked label is already held by
+	// another active member of the same group, compared ignoring case —
+	// migration 120's uq_chat_group_members_active_label (OPOS #26410). It is
+	// also what re-adding a removed member returns when their old label has
+	// since gone to someone else.
+	ErrLabelConflict = errors.New("chatgroups: masked label already held by an active member")
+	// ErrLabelContact is returned when a caller-supplied masked label carries
+	// a phone number or email address (see refuseContactInLabel). It wraps
+	// ErrInvalidInput, so errors.Is(err, ErrInvalidInput) — what callers
+	// matched before #26410 gave this refusal its own name — still holds. A
+	// caller that wants the specific refusal must test for ErrLabelContact
+	// first.
+	ErrLabelContact = fmt.Errorf("chatgroups: masked label contains contact details: %w", ErrInvalidInput)
 )
 
 type Store struct {
@@ -123,9 +145,11 @@ type AdminGroupMessage struct {
 // For a masked group, memberTitle is ignored (masked groups never carry a
 // member-facing title — see the migration comment on member_title).
 //
-// If any member is a guest account the whole create fails with ErrGuestMember
-// and nothing is written — not the thread, not the members listed before the
-// guest.
+// If any member cannot be added, the whole create fails and nothing is
+// written — not the thread, not the members listed before it: a guest account
+// (ErrGuestMember), a user listed twice (ErrMemberConflict), two labels that
+// differ only in case (ErrLabelConflict), or a label with contact details
+// (ErrLabelContact). See insertMembers.
 func (s *Store) CreateGroup(ctx context.Context, kind Kind, memberTitle string, createdByStaffID int64, members []MemberInput) (int64, error) {
 	if kind != KindMasked && kind != KindTeam {
 		return 0, fmt.Errorf("chatgroups: kind %q: %w", kind, ErrInvalidInput)
