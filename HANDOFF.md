@@ -6,6 +6,99 @@
 
 ---
 
+## 2026-09-15 — OPOS #26443: guests' phones no longer get chat pushes (branch `fix/no-chat-push-to-guest-devices`)
+
+**What was asked:** a guest who is a grandfathered chat participant still received chat push notifications, including the 80-character message preview. #104 (OPOS #26424) had already hidden those rows from the guest's in-app list, so the push was the remaining leak. Fix it test-first in `backend/internal/notify`, and keep out of the chat, chatgroups and trash code that other branches are editing.
+
+**Findings the fix rests on** (read on `origin/main` `9425007`):
+- `activeDevicesFor` (`push.go`) selects every active device of a user and never reads `users.is_guest`.
+- `Send` (`notify.go`) always fires `sendPush` in a goroutine after writing the row. `sendPush` is its only caller.
+- `POST /api/notifications/device` is not guest-gated. By the owner's decision, it stays that way.
+- **There is no FCM interface or fake.** `Notifier.fcm` is a concrete `*fcmClient`, with an `httpClient` field and a cached `accessToken`/`tokenExpires`.
+- `users.is_guest` is `BOOLEAN NOT NULL DEFAULT FALSE` (migration 064).
+- `user_device_tokens.user_id` has an `ON DELETE CASCADE` FK (migration 002).
+- `SendPushDirect` (the admin compose endpoint) sends admin free text with no notification type, so it is out of scope.
+
+**Owner decision implemented:**
+- A guest gets no push for a type in `chatNotificationTypes` (`list.go`, #104's list, reused, not copied).
+- Guests keep every other push: broadcasts, `admin_announcement` and support-ticket updates.
+- Members are unchanged.
+- The in-app row is still written, and device registration is not gated.
+
+**What was actually changed.** There are two local commits on `fix/no-chat-push-to-guest-devices`, based on `origin/main` `9425007`.
+
+**`77d123e` `fix(notify): no chat push notifications to guest devices`**
+- `backend/internal/notify/push.go`:
+  - New unexported `shouldWithholdChatPush(ctx, userID, notificationType) bool`. For a non-chat type it returns false without querying.
+  - For a chat type it runs one `SELECT COALESCE(is_guest, FALSE) FROM users WHERE id = $1` and returns true for a guest, logging `[notify:push] chat push withheld from guest ...`.
+  - On any lookup error, including a missing user row, it fails closed: it returns true and logs `guest lookup ... failed; chat push withheld`.
+  - `sendPush` calls it once per send, not per device, after the existing "no devices" and "FCM not configured" exits, so those paths never pay for the query.
+- `backend/internal/notify/notify.go`: a doc-comment paragraph on `Send` only.
+- `backend/internal/notify/push_guest_test.go` (new, 351 lines) holds the six tests, selected by `-run '^TestGuestPush_'` (`go test -list` shows exactly six):
+  - **The fake:** a real `fcmClient` with a cached token (so no OAuth call) and an `http.Client` whose `RoundTripper` records `fcm.googleapis.com/.../messages:send` requests and refuses anything else.
+  - **Why `sendPush` is called directly:** `Send` runs it in a goroutine that a test cannot wait on without sleeping.
+  - `TestGuestPush_NoChatPushReachesAGuestDevice`: every conversation template to a guest, 0 pushes.
+  - `TestGuestPush_MemberStillGetsChatPushes`: every one to a member, 1 each.
+  - `TestGuestPush_GuestKeepsNonChatPushes`: broadcasts, support and `admin_announcement` to a guest, 1 each.
+  - `TestGuestPush_UpgradedGuestGetsChatPushesAgain`.
+  - `TestGuestPush_SendStillStoresTheChatRow`.
+  - `TestGuestPush_GuestLookupFailsClosedForChatTypesOnly`: a missing row and a closed pool.
+  - **Reused helpers:** `newCategoryTestPool`, `makeNotifyUser`, `catSeq` and `catRunTag` (category_preference_test.go), and `conversationTemplates`/`guestVisibleTemplates` (chat_types_test.go).
+
+**This entry** is the second commit.
+
+**What was run and what it printed.** All commands ran from the worktree, on a fresh DB `godonation_guest_push_26443`, created with `createdb`, passed as `TEST_DATABASE_URL='postgres://localhost:5432/godonation_guest_push_26443?sslmode=disable'`.
+
+**RED, stage 1** (the tests on unchanged `origin/main` code), `go -C backend test ./internal/notify/ -count=1 -p 1 -run '^TestGuestPush' -v -timeout 45m`, exit 1:
+- All 10 `TestGuestPush_NoChatPushReachesAGuestDevice` subtests failed. For example: `a guest's phone got 1 push(es) of type "chat_message": [{Token:test-device-70000-8 Title:Message from Donor Body:preview}]`, and likewise for `chat_request`, `chat_accepted`, `chat_group_message` (masked and team), `marriage_chat_*`, `marriage_meeting_declined` and `staff_chat_message`.
+- The member, non-chat, upgraded-guest and Send-row guard tests already passed. Last line: `FAIL .../internal/notify 10.270s`.
+
+**RED, stage 2** (the fail-closed test, before the helper existed), `-run '^TestGuestPush_GuestLookupFailsClosedForChatTypesOnly$'`, exit 1:
+- `push_guest_test.go:327:9: n.shouldWithholdChatPush undefined`, then `FAIL .../internal/notify [build failed]`.
+
+**GREEN**, the same `-run '^TestGuestPush' -v`, exit 0:
+- All 6 top-level tests PASS, 0 SKIP. That is 10 + 10 + 8 + 2 subtests, plus the upgraded-guest and Send-row tests.
+- The log shows `chat push withheld from guest user=13 type=chat_message`, and the fail-closed lines `... user=2000000000 ... no rows in result set` and `... closed pool`.
+- Last line: `ok .../internal/notify 0.600s`.
+
+**Formatting and vet:** `gofmt -l backend/internal/notify` printed nothing, and `go -C backend vet ./internal/notify/` exited 0.
+
+**The two affected packages**, `go -C backend test ./internal/notify/ ./internal/handlers/ -count=1 -p 1 -timeout 45m`, exit 0:
+- `ok .../internal/notify 0.849s`
+- `ok .../internal/handlers 14.590s`
+
+**Handlers verbose check.** `handlers` took 14.6s, where #26434's entry recorded 636s, so I checked it wasn't skipping. `go -C backend test ./internal/handlers/ -count=1 -p 1 -v` exited 0 with 242 top-level `--- PASS`, 0 `--- SKIP` and 0 `--- FAIL`, ending `ok .../internal/handlers 16.075s`. The handler tests read only `TEST_DATABASE_URL`, so the earlier 636s came from machine load.
+
+**Full suite**, `go -C backend test ./... -count=1 -p 1 -timeout 45m`, exit 0:
+- 22 packages `ok`, 0 FAIL.
+- `handlers` took 35.134s and `chatgroups` 3.986s. The last test line was `ok .../internal/users 2.034s`.
+
+**Cleanup:** `dropdb godonation_guest_push_26443` exited 0, and `SELECT count(*) FROM pg_database WHERE datname = 'godonation_guest_push_26443'` printed `0`.
+
+**Review:** `ecc:code-reviewer` on the diff returned **APPROVE, with 0 findings at any severity**. It confirmed:
+- the gate is evaluated once per `sendPush`, before the device loop;
+- it fails closed on any scan error, including `ErrNoRows`;
+- `SendPushDirect` is correctly out of scope;
+- the tests are deterministic and non-vacuous.
+
+It also mentioned a gofmt issue in `devices.go` that already exists on main. That did not reproduce here: `gofmt -l backend/internal/notify/devices.go` printed nothing, and the file is identical to `origin/main`'s.
+
+**External actions:** none. Nothing was pushed. OPOS #26443 was only read: it was already in Work In Progress, with its timer (log 24687) started by the orchestrating session. It was not moved and no timer was touched.
+
+**Still open:**
+- Both commits are local and unpushed, and there is no PR. The coordinator will merge main, re-verify on a fresh DB and ship.
+- At commit time `origin/main` had moved 4 commits past this branch's base (#106–#109). They are not merged here.
+- The OPOS task needs completion notes and a move to Completed once shipped.
+
+**Traps:**
+- **zsh expands unquoted globs.** `grep --include=*_test.go` failed with `no matches found`; quote the pattern.
+- **The worktree-isolation guard refuses complex Bash.** It rejects a `cd` + variable + `go` compound, and a Monitor loop that uses `$((…))`. Use plain `go -C <abs>/backend …` with the output redirected to a file, then grep that file in a separate call.
+- **Package run times vary about 20x with machine load**, e.g. `handlers` at 636s vs 15–35s. A fast run is not by itself evidence of skipping; check with `-v` and count `--- SKIP`.
+- **The FCM fake must not touch `*testing.T`.** `Send`'s push goroutine can outlive a test, and logging through a finished test panics. That is also why the Send-row test uses a Notifier with no FCM client.
+- **The scratchpad is shared** with other sessions, which use generic names like `commit1.txt` and `full.txt`. Give your files a task-specific name.
+
+---
+
 ## 2026-09-15 — OPOS #26473: notification_tile.dart split under the 500-line limit, no behaviour change (branch `refactor/split-notification-tile`)
 
 **What was asked:** `humanitarian/lib/modules/notifications/widgets/notification_tile.dart` had 704 lines against the 500-line limit. The request was to move the self-contained chat request Accept / Decline widget into its own file, keep #106's guest guard and every comment, and split further if the file was still too long. It was a pure refactor.
