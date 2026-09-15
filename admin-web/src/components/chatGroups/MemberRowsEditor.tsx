@@ -239,8 +239,8 @@ function LabelField({ id, value, issues, disabled, onChange, onBlur }: LabelFiel
 
 // ─── Without users:view ───
 
-/** Shown in place of the rows to staff who cannot search users (D2). */
-function UserSearchGuidance() {
+/** Shown in place of the rows to staff who cannot search users (D2). Also used by AddMemberForm. */
+export function UserSearchGuidance() {
   const { t } = useI18n()
   return (
     <div className="info-box stack" role="note">

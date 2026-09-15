@@ -6,6 +6,49 @@
 
 ---
 
+## 2026-09-15 — OPOS #26399 (Phase 6b): admin-web chat group detail page, plus E3 export and the admin-web half of #26429 (branch `feat/admin-chat-group-detail`)
+
+**What was asked:** build `/chat-groups/:id` in admin-web, test first. The page needed a header with the lifecycle, the roster with add and remove, polled messages with a composer, the contact-block log, a designed 403 `sensitive_data_required` state, the group export (E3, rest of #26397) and the `chat_group_message` label (#26429). Extend the mock API too. Commit only: no push, no PR.
+
+**What was changed.** Branched from `feat/admin-chat-groups-list` `dffbe1f`.
+- **`18bdb57` feat(admin-web): chat group detail page with roster, messages, blocks and export**
+  - `src/pages/ChatGroupDetailPage.tsx`: loads the group and shows one of four states: skeleton, 403 permission card, error with `error.retry` and a back link, or the panels. After a change it reloads in place. If the group is gone (moved to the Trash) it returns to `/chat-groups`.
+  - `src/components/chatGroups/`:
+    - `GroupHeader`: `ChatLifecycleControls` for messages:edit, a read-only state otherwise, and the ExportCsvButton.
+    - `GroupMessages` and `GroupComposer`: a full first load, then a 3 s poll on `after_id`. The composer needs messages:add; a paused or ended group shows a notice with the reason instead.
+    - `GroupRoster` and `AddMemberForm`: add and remove need messages:edit, and the picker needs users:view (6a's guidance card, now exported from `MemberRowsEditor`). Removed members sit behind a toggle. Removal asks for confirmation first.
+    - `GroupContactBlocks`: `ContactBlocksPanel` hardcodes the `/chats` URL and `thread_id`, so this reuses its strings on the group route.
+  - `src/lib/chatGroupDetail.ts`: the add-member rules (6a rules checked against the active roster, with a reactivation hint for D3), `groupExportRows` and `loadGroupChatExport`.
+  - The list rows now link to the detail page, and `App.tsx` adds the route.
+  - Locales: 34 `chat_groups.detail.*` keys and `status.chat_group_message`, in en and ar. `TRANSLATION_REQUEST.md` gets a new section (35 keys).
+  - Mock: a new `no_sensitive` scenario answers 403 `sensitive_data_required` for a masked group's detail, messages and contact blocks. Two new mock tests cover it and a member add then remove. `docs/mock-api.md` is updated.
+- **`6aecf1a`** merges `origin/main` `058b4be`, which includes 6a as #117 and #118–#122. The 6a files conflicted add/add because of the squash; this branch's side was kept.
+  - `TRANSLATION_REQUEST.md`: both sides' rows were kept, and the count and Total are now **575** (main's 540 plus 35).
+  - `HANDOFF.md`: main's entries were kept.
+
+**Runs:**
+- RED: `Error: Failed to resolve import "./chatGroupDetail"` for the lib, and the same for `./ChatGroupDetailPage`, `./GroupRoster`, `./GroupMessages` and `./GroupContactBlocks`. `ChatGroupsPage.test.tsx` failed with `Unable to find an accessible element with the role "link"`.
+- GREEN after the merge:
+  - `npm test`: `Test Files 17 passed (17)`, `Tests 158 passed (158)`
+  - `npx tsc -b`: exit 0
+  - `npm run build`: exit 0
+  - `test:mock-api`: `# pass 34`, `# fail 0`
+  - `test:nav`: `# pass 15`
+  - `check:labels`: passes
+  - `check:css-tokens`: 62 tokens, all defined
+  - eslint on the changed files: exit 0
+- The mock tests were written after the mock change, so they have no RED run.
+
+**Review:** `ecc:react-reviewer` on `dffbe1f..18bdb57` approved it, with LOW notes only: comment the stale-response guard in `GroupMessages.fetchNewer`, and optionally skip a poll tick while a fetch is in flight. Neither was changed.
+
+**External actions:** none. Nothing was pushed.
+
+**Still open / traps:**
+- **The brief was wrong about the add-member field.** It said `masked_label`, but `adminGroupMemberReq` (`backend/internal/handlers/chat_group_admin.go`) reads **`label`**, and the page sends `label`.
+- **`ChatLifecycleControls` still uses `describeError`, not `describeChatGroupError`.** `error.<code>` keys still resolve through it.
+- **Delete is gated on messages:edit, like the lifecycle controls.** The server requires messages:delete for it.
+- **Phase 6c (the connect-request inbox) is on another branch.** Expect locale and TRANSLATION_REQUEST conflicts beside `chat_groups.detail`.
+
 ## 2026-09-15 — OPOS #26433: refused chat-invite answers show accurate copy, and closed chats offer no Accept (branch `fix/app-chat-invite-refusal-copy`)
 
 **What was asked:** fix the app's chat-invite refusals, test first:

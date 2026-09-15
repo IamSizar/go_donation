@@ -67,6 +67,7 @@ The session ends like a real one:
 | `empty` | Every top-level list is empty and every total is 0. Objects such as the permission matrix, a group's roster and the pending counts are unchanged. |
 | `error` | `500 { "success": false, "error": "Database error." }` |
 | `slow` | The default answer, 2 seconds late. |
+| `no_sensitive` | The default answer, except that reading a masked group (its detail, messages or contact blocks) answers `403 { "code": "sensitive_data_required" }`, as for staff without sensitive data. Team groups are unaffected. |
 
 - **Whole run:** `MOCK_SCENARIO=empty npm run mock:api`.
 - **One request:** add `?scenario=error` to the URL, which is handy with curl. `?scenario=default` overrides `MOCK_SCENARIO` for that request.
@@ -136,6 +137,8 @@ Known differences from the real API:
   - a missing connect request is a 404 with no code, as on the backend;
   - re-adding a removed member reactivates them with their old label and role (decision D3).
 
-  Not mocked: `group_label_contact`, `sensitive_data_required`, `not_group_member`, `contact_details_blocked` and `server_error`. The dashboard translates all of them (`src/lib/chatGroupErrors.ts`).
+  `sensitive_data_required` answers only in the `no_sensitive` scenario.
+
+  Not mocked: `group_label_contact`, `not_group_member`, `contact_details_blocked` and `server_error`. The dashboard translates all of them (`src/lib/chatGroupErrors.ts`).
 - **Staff chats.** Messages are not limited to the two participants.
 - **Validation.** The mock does not check that a user id exists.

@@ -57,6 +57,10 @@ describe('ChatGroupsPage', () => {
     expect(within(masked).getByText(/Masked group/)).toHaveTextContent('#T41')
     expect(within(masked).getByText('The office will confirm the delivery details here.')).toBeInTheDocument()
 
+    // Every row opens its group (Phase 6b).
+    expect(within(team).getByRole('link', { name: 'Distribution volunteers — Mosul' })).toHaveAttribute('href', '/chat-groups/42')
+    expect(within(masked).getByRole('link', { name: /Masked group/ })).toHaveAttribute('href', '/chat-groups/41')
+
     expect(screen.getByRole('button', { name: 'New group' })).toBeInTheDocument()
     expect(api.callsTo('get', LIST_URL)).toEqual([{ method: 'get', url: LIST_URL }])
   })
