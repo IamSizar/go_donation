@@ -2,9 +2,11 @@
 // (OPOS #25284 Phase 5), drawn by ChatGroupConversationScreen.
 //
 // What it shows, and deliberately nothing else:
-//   * the sender's label exactly as the server resolved it — an alias in a
-//     masked group, a real name in a team group, "Support" for staff. The
-//     model carries no user id, so there is nothing else a bubble could leak;
+//   * the sender's label as the server resolved it — an alias in a masked
+//     group, a real name in a team group, "Support" for staff — with the words
+//     the server itself generated shown in the reader's language
+//     (localizedSenderLabel, OPOS #26419). The model carries no user id, so
+//     there is nothing else a bubble could leak;
 //   * the message body;
 //   * when it was sent, in the reader's language.
 //
@@ -17,6 +19,7 @@ import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:intl/intl.dart';
 
 import '../models/chat_group_models.dart';
+import '../utils/chat_group_sender_label.dart';
 
 /// The widest a bubble may grow, as a share of the screen width: room for a
 /// short paragraph, while the two sides of the conversation stay visibly apart.
@@ -66,11 +69,14 @@ class ChatGroupMessageBubble extends StatelessWidget {
   }
 }
 
-/// The sender's server-resolved label, above someone else's message.
+/// The sender's server-resolved label, above someone else's message, with the
+/// server's own generated words ("Support", "Donor 1") in the reader's
+/// language.
 class _SenderLabel extends StatelessWidget {
   const _SenderLabel({required this.label});
 
   /// The alias, real name or "Support", exactly as the server sent it.
+  /// Translated at draw time, never stored translated.
   final String label;
 
   @override
@@ -82,7 +88,7 @@ class _SenderLabel extends StatelessWidget {
         bottom: AppSpace.xxs,
       ),
       child: Text(
-        label,
+        localizedSenderLabel(label),
         style: TextStyle(
           fontSize: AppType.meta,
           fontWeight: AppType.wLabel,

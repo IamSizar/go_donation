@@ -89,6 +89,210 @@ The filter is in SQL, before `LIMIT`. There is no separate count endpoint: the a
 
 ---
 
+## 2026-09-15 — OPOS #26408: admin-web test infrastructure and a credential-free mock API (branch `chore/admin-web-test-setup`)
+
+**What was asked:** implement Phase 6 plan sections T0 and T0b in admin-web, test-first. That meant two things:
+- **T0:** Vitest and Testing Library, with a first ContactBlocksPanel test.
+- **T0b:** a zero-dependency mock API, so dashboard screens can be checked in a browser with no backend and no login.
+
+Commit, do not push.
+
+**What was actually changed** (branched from `origin/main` at `9bcc053`, in worktree `.claude/worktrees/agent-a5596c0e5627a3217`):
+- **`1f2424d` chore(admin-web): add Vitest and Testing Library.**
+  - devDependencies, installed without `--legacy-peer-deps`:
+    - vitest 5.0.1 and jsdom 30.0.1;
+    - @testing-library/react 16.3.3, dom 10.4.2, user-event 14.6.7 and jest-dom 7.0.1.
+  - The lockfile also moved three transitive packages, each within range:
+    - @jridgewell/sourcemap-codec 1.5.5→1.6.0;
+    - picomatch 4.0.4→4.0.7;
+    - tinyglobby 0.2.16→0.2.17.
+  - New files: `vitest.config.ts`, which merges `vite.config.ts`, and `tsconfig.test.json`. Three existing configs changed:
+    - `tsconfig.json` now references `tsconfig.test.json`;
+    - `tsconfig.app.json` excludes the tests;
+    - `tsconfig.node.json` includes `vitest.config.ts`.
+  - Under `src/test/`:
+    - `setup.ts`: jest-dom; `cleanup`, `localStorage.clear` and `resetPermissionCache` after each test.
+    - `render.tsx`: `renderWithProviders`.
+    - `mockApi.ts`: spies on `api` and rejects unregistered requests.
+    - `fixtures/session.ts`.
+  - Scripts `test` and `test:watch`.
+  - `src/lib/permissions.ts` gains `resetPermissionCache()`.
+  - Tests:
+    - `src/components/ContactBlocksPanel.test.tsx`: the empty state, which asserts the GET URL, and Retry after a 500.
+    - `src/lib/permissions.test.ts`.
+- **`493a8e1` feat(admin-web): mock API for credential-free browser checks.**
+  - The server is split across four files, `scripts/mock-api.mjs` plus `-routes`, `-chat-routes` and `-helpers`. Each file stays under 500 lines.
+  - Fixtures: `src/test/fixtures/{chatGroups,legacyChats,permissions,shell}.ts`.
+  - `scripts/mock-api.test.mjs` has 21 cases, and `docs/mock-api.md` explains how to use the mock.
+  - Scripts `mock:api` and `test:mock-api`.
+- **This entry.**
+
+**What was run and what it printed.** All runs used Node 22.23.1, via `PATH=/opt/homebrew/opt/node@22/bin:$PATH`.
+- **RED, then GREEN, for the ContactBlocksPanel test.**
+  - The expected GET URL was deliberately wrong. The run printed `AssertionError: expected [ { method: 'get', …(2) } ] to deeply equal [ { method: 'get', …(1) } ]`, with the diff `- "url": "/api/admin/chat-groups/7/contact-blocks"` / `+ "url": "/api/admin/chats/7/contact-blocks"`, and `Tests 1 failed | 1 passed (2)`.
+  - After correcting the URL, both tests passed.
+- **RED, then GREEN, for `resetPermissionCache`.**
+  - Before the function existed: `TypeError: resetPermissionCache is not a function`.
+  - With a no-op body: `AssertionError: expected false to be true`, the stale cached matrix.
+  - After implementing it: `Tests 3 passed (3)`.
+- **RED, then GREEN, for the mock.**
+  - Before the server existed: `ERR_MODULE_NOT_FOUND … scripts/mock-api.mjs`.
+  - After: `# tests 21`, `# pass 21`, `# fail 0`.
+- **Final runs on the branch:**
+  - `npm test` → `Test Files 2 passed (2)`, `Tests 3 passed (3)`.
+  - `npm run build` → exit 0.
+  - `npm run test:mock-api` → 21 pass, 0 fail.
+  - `npm run lint` → `✖ 162 problems (98 errors, 64 warnings)`, exit 1. This is identical to clean `9bcc053`: the same 137 files are flagged, none of them new.
+  - `check:labels` → exit 1, output identical to clean main (see below).
+  - The other checks pass, as they did on main:
+    - `check:pwa`: 46 checks passed (38 on main, where `dist/` was absent);
+    - `test:sw`: 13 passed;
+    - `test:nav`: 15 pass;
+    - `test:field-labels`: 4 pass;
+    - `check:pending-parity`, `check:css-tokens` and `check:feed-bodies`: ok.
+- **On the machine's default Node 23.11.0,** `npx vitest run` passed 3 of 3 and the mock test passed 21 of 21.
+- **Live check.**
+  - `npm run mock:api` equivalent, on port 8787 as PID 39334. The start-up log printed the `API_TARGET` and localStorage hints.
+  - `curl /api/admin/chat-groups` → groups 42 (team) and 41 (masked).
+  - `…/41/messages?after_id=8101&limit=2` → messages 8102 and 8103.
+  - `…/connect-requests?scenario=error` → 500.
+  - Then PID 39334 was killed.
+
+**Review follow-up, same day** (commit `fix(admin-web): mock API listens on loopback only`). The code review came back CHANGES NEEDED with one HIGH. Everything else it checked was verified solid.
+- **HIGH, fixed: the mock listened on every interface.**
+  - `scripts/mock-api.mjs` called `server.listen(port, …)` with no host.
+  - Before the fix, `lsof -nP -a -p <pid> -iTCP -sTCP:LISTEN` on the running CLI printed `IPv6 … TCP *:8787 (LISTEN)`. The start-up banner prints a super_admin session.
+  - Now a new exported `listenOnLoopback(server, port)` binds `127.0.0.1`, and both the command line and the test helper start the server through it.
+  - The banner and `docs/mock-api.md` now say 127.0.0.1 throughout.
+- **Tests first.** Two new cases in `scripts/mock-api.test.mjs`:
+  - `listenOnLoopback` binds `127.0.0.1`;
+  - the `if (isEntryPoint)` block calls `listenOnLoopback(server, port)` and never `.listen(` itself.
+
+  RED printed `SyntaxError: The requested module './mock-api.mjs' does not provide an export named 'listenOnLoopback'`. Run against the unfixed file, the CLI check found `server.listen(port, () => printStartupHint(port, scenario))` and no helper call.
+
+  GREEN, after the fix, with the same `lsof`: `IPv4 … TCP 127.0.0.1:8787 (LISTEN)`, and `curl http://127.0.0.1:8787/api/admin/chat-groups/42` answered the team group.
+- **Vite binds every interface too.** `vite.config.ts` sets `host: true`, so a plain `npm run dev` would expose the mock's data through the `/api` proxy.
+  - Checked: `npx vite --host 127.0.0.1` listened on `127.0.0.1:5199` only.
+  - The docs and banner now say `API_TARGET=http://127.0.0.1:8787 npm run dev -- --host 127.0.0.1`. `vite.config.ts` was not changed.
+- **The mock scripts have no ESLint coverage today.**
+  - `npx eslint --print-config scripts/mock-api.mjs` applies 0 rules, against 108 for `src/lib/api.ts`.
+  - A throwaway `scripts/*.mjs` file containing an unused variable linted clean, exit 0; the file was deleted.
+  - The cause: `eslint.config.js` only configures `**/*.{ts,tsx}`, and a config-protection hook blocks editing that file.
+  - Stated in `docs/mock-api.md`. The coordinator is adding it to the lint follow-up, OPOS #26437.
+- **`common.retry`:** nothing to do on this branch. The Phase 6a branch adds the key, and the test's comment stays as it is.
+- **Verification with Node 22.23.1:**
+  - `npm run test:mock-api` → `# tests 23`, `# pass 23`, `# fail 0`.
+  - `npm test` → exit 0, `Test Files 2 passed (2)`, `Tests 3 passed (3)`.
+  - `npm run build` → exit 0, `✓ built in 6.57s`.
+- **New traps:**
+  - Use `127.0.0.1` in `API_TARGET`, not `localhost`: the mock does not listen on IPv6 `::1`.
+  - localStorage is per origin, so a session pasted on `localhost:5173` is not visible on `127.0.0.1:5173`.
+
+**External actions taken:** none. Nothing was pushed. OPOS MCP needed OAuth, which wasn't available in this non-interactive subagent, so #26408 was not moved or commented on.
+
+**What is still open:**
+- **Commits.** Both commits are local, unpushed and not reviewed by a human.
+- **Lint.** `npm run lint` already fails on main with 162 problems, so the plan's "lint passes" acceptance needs a separate cleanup. This branch adds no problems.
+- **check:labels.** It already fails on main with 6 values: `status.case`, `created`, `masked`, `member_added`, `member_removed` and `team`. The fix belongs to the Phase 6 dashboard task.
+- **ESLint override.** The planned override for `src/test/**` was not added, because a config-protection hook blocks edits to `eslint.config.js`. ESLint reports no problems in the test files without it.
+- **Missing `common.retry` key.**
+  - No locale defines it, so ContactBlocksPanel.tsx:132 and EditModal.tsx:384 print the raw key.
+  - The Retry test finds the button by role, with a comment saying to pin the label once the key exists.
+  - A follow-up task was suggested.
+- **Mock vs backend.** Known differences are listed in `admin-web/docs/mock-api.md`: no auth or masking, no contact scan on labels, and borrowed empty-body 400 text on the legacy routes.
+
+**Traps:**
+- **Node version.** The default `node` on this Mac is 23.11.0. That is outside vitest 5's engines (`^22.12 || ^24`) and jsdom 30's (`^22.22.2 || ^24.15`). The tests passed on it, but `.nvmrc` says 22 and Homebrew's `node@22` is installed.
+- **Test reporter.** On Node 23, `node --test` prints `ℹ pass N`, not the TAP `# pass N`, so a grep for `# pass` finds nothing.
+- **Testing Library cleanup.** It does not clean up automatically without Vitest globals, so `setup.ts` calls `cleanup()` itself.
+- **`mockApi` scope.** It spies on `api`'s methods, so axios interceptors (the Bearer header, the delete-password dialog, the 401 sign-out) never run in those tests.
+- **Parallel branches.** Other agents' branches also edit this file. On a conflict, keep both entries.
+
+---
+
+## 2026-09-15 — OPOS #26419: masked chat-group sender labels in the reader's language (branch `fix/chat-group-sender-labels-localized`)
+
+**What was asked:** Arabic members saw the server's English sender labels ("Support", "Donor 1") in masked group chats. Fix it in the Flutter app, tests first, en + ar only.
+
+**Decision: app side (a), not server fields (b).** The app maps only the exact strings the server generates:
+- `autoLabel` in `backend/internal/chatgroups/chatgroups.go` writes "Donor N", "Beneficiary N", "Volunteer N" and "Member N".
+- `ListMessagesForMember` in `chatgroups_reads.go` writes "Support" for staff, and a bare "Member" fallback when there is no label or name.
+
+Why (a): it needs no API change and no backend release in step with the app.
+- The conversation screen is never told the group kind, so the mapping runs on every label.
+- A custom label or a team member's real name is translated only if it is literally "Support", "Member" or "Donor 3", and then it already meant that.
+
+**What was actually changed** (one commit, based on `origin/main` `60cf163`):
+- **New:** `humanitarian/lib/modules/chatgroups/utils/chat_group_sender_label.dart`, containing `localizedSenderLabel(String)`.
+  - Match rule: `^(Donor|Beneficiary|Volunteer|Member) ([1-9][0-9]*)$`, plus the exact words `Support` and `Member`. It is case-sensitive.
+  - Anything else, a number too big for an int, or a missing translation returns the label unchanged.
+  - The number is formatted with `NumberFormat.decimalPattern(AppLocaleService.dateFormatLocale(Get.locale))..turnOffGrouping()`.
+- **`chat_group_message_bubble.dart`:** `_SenderLabel` calls the mapper. This is the ONLY place the app displays `sender_label`.
+  - The Messages-tab tile's `last_message` is the message body only.
+  - My Connect Requests only uses `chatGroupTitle`.
+- **`app_translations.dart`:** 6 keys added to `_en` and `_ar` under `chat_group_sender_`:
+
+  | Key | English | Arabic |
+  |---|---|---|
+  | `support` | Support | فريق الدعم |
+  | `member` | Member | عضو |
+  | `donor_n` | Donor @n | مانح @n |
+  | `beneficiary_n` | Beneficiary @n | مستحق @n |
+  | `volunteer_n` | Volunteer @n | متطوع @n |
+  | `member_n` | Member @n | عضو @n |
+
+  The table shows the values after the review follow-up commit (below). The first commit `61311a7` shipped English `Grantor @n` / `Eligible Recipient @n` and Arabic support `الدعم`.
+- **Tests:**
+  - New `test/modules/chatgroups/chat_group_sender_label_test.dart` (unit). It includes Kurdish `ar_IQ` and `ar_TR` (English fallback, never Arabic) and a no-translations group (the key name is never shown).
+  - New `test/modules/chatgroups/chat_group_message_bubble_sender_label_test.dart` (widget).
+  - `chat_group_conversation_screen_test.dart` still expects "Donor 1" in English. The first commit changed it to "Grantor 1"; the follow-up changed it back.
+- **`TRANSLATION_REQUEST.md`:** new 6-key section; the total and the `## Count:` heading both read 465.
+
+**Review follow-up (second commit, same branch, not amended):**
+- **User decision, 2026-09-15:** English aliases use the server's own words (`Donor @n`, `Beneficiary @n`), so the app matches the dashboard and push notifications.
+- **Arabic `chat_group_sender_support`:** now `فريق الدعم`. A bare `الدعم` is already Kafala (`app_translations.dart` ~3859), and TERMINOLOGY.md T10 settles that the two must differ. The app already says فريق الدعم for the support team.
+- **Kurdish:** `ar_IQ` / `ar_TR` get English here, because `AppTranslations` merges `_en` under each Kurdish map. That means Kurdish never reaches the missing-translation branch, so a separate test clears all translations to pin that branch.
+- **Follow-up verification** (from `humanitarian/`):
+  - `dart format` on the 4 files this change owns printed `Formatted 4 files (0 changed)`.
+  - The 2 new test files printed `+43: All tests passed!`
+  - `flutter analyze` printed `6 issues found.`, the same baseline.
+  - `flutter test test/modules/chatgroups/ test/localization/` printed `08:02 +343: All tests passed!`
+  - `flutter test` printed `24:16 +1018: All tests passed!`
+  - The machine was slow: analyze took 229s and the full suite took 24 minutes, against 3 before. The chain went past the 600s Bash limit and finished in the background.
+
+**What was run and what it printed** (from `humanitarian/`):
+- **Digit probe** (a temporary test, deleted): intl 0.20.2 prints ASCII digits for `ar`, `ar_SA` and `ar_IQ`.
+  - `NumberFormat.decimalPattern('ar').format(12)` gives `12`.
+  - `DateFormat.MMMd('ar').add_jm()` gives `14 سبتمبر 9:05 ص`.
+  - So Arabic labels read `مانح 1`, matching the app's other numbers and dates.
+- **RED**, with the mapper as an identity stub: the 2 new files printed `+33 -7: Some tests failed.`
+- **GREEN:** the 2 new files printed `+40: All tests passed!`
+- `flutter test test/modules/chatgroups/ test/localization/` printed `+340: All tests passed!`
+- `flutter test` printed `+1015: All tests passed!`
+- `flutter analyze` printed `6 issues found.`, the same 6 `deprecated_member_use` as the baseline.
+
+**External actions taken:** none. Nothing was pushed and no PR was opened.
+
+**What is still open:**
+- The commit is local and unpushed.
+- OPOS MCP needs interactive OAuth and was unavailable in this subagent session, so #26419 was not moved or commented on.
+- **Resolved (was open after `61311a7`):** whether English aliases use the app's role nouns ("Grantor 1") or the server's words ("Donor 1"). The user chose the server's words on 2026-09-15, and the review follow-up commit applies that.
+- **Not fixed, server side:** the push notification for a masked-group message.
+  - `GroupMaskedNewMessageMsg` in `backend/internal/notify/templates.go` bakes the English alias into all 4 language titles ("رسالة من Donor 1").
+  - Those titles are also what the in-app notification list shows.
+  - The fix belongs in that template, translating the alias per language. The app cannot fix it without parsing server sentences.
+- **Not fixed, separate leak:** the 1:1 support chat.
+  - `lib/modules/chat/models/chat_models.dart:97` falls back to an untranslated `'Support'`.
+  - `chat_conversation_screen.dart` draws `senderName` raw.
+- The 6 new keys need Sorani and Badini.
+
+**Traps:**
+- "The device showed ١٤ سبتمبر" did not reproduce: intl 0.20.2 prints ASCII digits under `ar`. Probe it before assuming Eastern Arabic digits.
+- `dart format --set-exit-if-changed` fails on `lib/localization/app_translations.dart` (9 hunks) and on `test/modules/chatgroups/chat_group_conversation_screen_test.dart`, and it fails the same way on `origin/main`. That drift predates this change and was left alone.
+- zsh: `echo ==== X` fails with "=== not found"; quote it.
+
+---
+
 ## 2026-09-15 — OPOS #26423: guests get a sign-in prompt on Messages instead of polling donor chats (branch `fix/guest-messages-no-chat-poll`)
 
 **What was asked:** stop treating guests like members for donor chats. The server is moving to give guests an empty GET /api/chats and /api/marriage/chats, and 403 guest_restricted on thread messages (OPOS #26354). The work was test-first, en + ar only, and support had to stay reachable for guests.
