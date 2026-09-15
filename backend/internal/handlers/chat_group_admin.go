@@ -89,8 +89,14 @@ func (h *ChatGroupHandler) refuseMaskedWithoutSensitive(c *gin.Context, groupID 
 // ─── Group reads ────────────────────────────────────────────────────────
 
 // GET /api/admin/chat-groups/:id — the group row and its full roster,
-// including removed members. A masked group also needs sensitive_data per
-// user (refuseMaskedWithoutSensitive).
+// including removed members, each member with their real name (full_name,
+// null when they have no profile). A masked group also needs sensitive_data
+// per user (refuseMaskedWithoutSensitive).
+//
+// The top-level lifecycle, lifecycle_reason and is_archived come from
+// mergeChatLifecycle, the same triple every other thread read carries, so the
+// dashboard's lifecycle controls can show why a group is paused or ended and
+// whether it is archived (part of OPOS #26410).
 func (h *ChatGroupHandler) AdminGetGroup(c *gin.Context) {
 	if _, ok := auth.UserFromGin(c); !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
@@ -103,12 +109,15 @@ func (h *ChatGroupHandler) AdminGetGroup(c *gin.Context) {
 	if h.refuseMaskedWithoutSensitive(c, id) {
 		return
 	}
-	group, err := h.Store.GetGroup(c.Request.Context(), id)
+	group, err := h.Store.AdminGetGroup(c.Request.Context(), id)
 	if err != nil {
 		h.chatErr(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "group": group})
+	c.JSON(http.StatusOK, mergeChatLifecycle(c, h.Pool, chatlifecycle.KindGroup, id, gin.H{
+		"success": true,
+		"group":   group,
+	}))
 }
 
 type adminGroupMemberReq struct {
@@ -332,7 +341,43 @@ func (h *ChatGroupHandler) resolveConnectContext(ctx context.Context, contextTyp
 	return fmt.Sprintf("%s #%d", contextType, contextID)
 }
 
-// GET /api/admin/chat-groups/connect-requests
+// adminConnectRequestItem is one connect request as the admin inbox receives
+// it: the list's items, and the detail's `request`, so both screens read one
+// shape. context_label is resolveConnectContext's human-readable label.
+//
+// requester_name is present only for a caller who may view sensitive data,
+// resolved per user by canViewContact (user decision D6, part of OPOS
+// #26410). It is omitted otherwise, and also when the requester has no
+// profile name. The store type tags its own RequesterName json:"-", so this
+// field — which shadows it — is the only way the name reaches the wire.
+type adminConnectRequestItem struct {
+	chatgroups.ConnectRequest
+	ContextLabel  string  `json:"context_label"`
+	RequesterName *string `json:"requester_name,omitempty"`
+}
+
+// adminConnectRequestItems maps store rows to the inbox shape. The
+// sensitive-data answer is asked once for the whole batch, as canViewContact's
+// doc comment requires, and the requester's name is copied in only when it is
+// yes.
+func (h *ChatGroupHandler) adminConnectRequestItems(c *gin.Context, requests []chatgroups.ConnectRequest) []adminConnectRequestItem {
+	canSeeNames := canViewContact(c, h.Perms)
+	out := make([]adminConnectRequestItem, len(requests))
+	for i, r := range requests {
+		out[i] = adminConnectRequestItem{
+			ConnectRequest: r,
+			ContextLabel:   h.resolveConnectContext(c.Request.Context(), r.ContextType, r.ContextID),
+		}
+		if canSeeNames {
+			out[i].RequesterName = r.RequesterName
+		}
+	}
+	return out
+}
+
+// GET /api/admin/chat-groups/connect-requests — the inbox, newest first,
+// optionally filtered by ?status=pending|approved|declined. Every item is an
+// adminConnectRequestItem.
 func (h *ChatGroupHandler) AdminListConnectRequests(c *gin.Context) {
 	if _, ok := auth.UserFromGin(c); !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
@@ -340,21 +385,16 @@ func (h *ChatGroupHandler) AdminListConnectRequests(c *gin.Context) {
 	}
 	items, err := h.Store.ListConnectRequests(c.Request.Context(), c.Query("status"))
 	if err != nil {
+		log.Printf("[chat-group] could not list connect requests: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
 		return
 	}
-	type resolvedItem struct {
-		chatgroups.ConnectRequest
-		ContextLabel string `json:"context_label"`
-	}
-	out := make([]resolvedItem, len(items))
-	for i, r := range items {
-		out[i] = resolvedItem{ConnectRequest: r, ContextLabel: h.resolveConnectContext(c.Request.Context(), r.ContextType, r.ContextID)}
-	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "items": out})
+	c.JSON(http.StatusOK, gin.H{"success": true, "items": h.adminConnectRequestItems(c, items)})
 }
 
-// GET /api/admin/chat-groups/connect-requests/:id
+// GET /api/admin/chat-groups/connect-requests/:id — one request as `request`,
+// an adminConnectRequestItem (the list item's shape), plus the top-level
+// context_label existing callers already read.
 func (h *ChatGroupHandler) AdminGetConnectRequest(c *gin.Context) {
 	if _, ok := auth.UserFromGin(c); !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
@@ -377,10 +417,11 @@ func (h *ChatGroupHandler) AdminGetConnectRequest(c *gin.Context) {
 		h.chatErr(c, err)
 		return
 	}
+	item := h.adminConnectRequestItems(c, []chatgroups.ConnectRequest{req})[0]
 	c.JSON(http.StatusOK, gin.H{
 		"success":       true,
-		"request":       req,
-		"context_label": h.resolveConnectContext(c.Request.Context(), req.ContextType, req.ContextID),
+		"request":       item,
+		"context_label": item.ContextLabel,
 	})
 }
 
