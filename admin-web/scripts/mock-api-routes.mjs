@@ -238,14 +238,27 @@ function declineConnectRequest({ state, body }, [id]) {
 }
 
 /**
+ * The 403 a caller without sensitive data gets when reading a masked group
+ * (adminRequireGroupRead). The mock caller is a super_admin, so this answers
+ * only in the `no_sensitive` scenario (`?scenario=no_sensitive`).
+ *
+ * @returns the refusal, or null when the read may go ahead.
+ */
+function sensitiveRefusal(scenario, group) {
+  if (scenario !== 'no_sensitive' || group.kind !== 'masked') return null
+  return fail(403, 'Sensitive data permission is required to read this group.', { code: 'sensitive_data_required' })
+}
+
+/**
  * GET …/:id (#111): the roster with each member's `full_name`, and the
  * lifecycle, lifecycle_reason and is_archived fields that mergeChatLifecycle
- * puts beside `group`. The sensitive-data 403 is not mocked: every mock caller
- * is a super_admin.
+ * puts beside `group`. A masked group is refused in the no_sensitive scenario.
  */
-function getGroup({ state }, [id]) {
+function getGroup({ state, scenario }, [id]) {
   const group = findGroup(state, id)
   if (!group) return groupNotFound()
+  const refused = sensitiveRefusal(scenario, group)
+  if (refused) return refused
   const { lifecycle, lifecycle_reason, is_archived } = lifecycleRecord(state, 'group', id)
   const members = group.members.map((m) => ({ ...m, full_name: fullNameOf(m.user_id) }))
   return ok({ group: { ...group, members }, lifecycle, lifecycle_reason, is_archived })
@@ -300,8 +313,11 @@ function removeMember({ state }, [id, userId]) {
 }
 
 /** GET …/:id/messages — after_id, and a limit outside 1-100 means 50 (chatgroups_reads.go). */
-function listGroupMessages({ state, query }, [id]) {
-  if (!findGroup(state, id)) return groupNotFound()
+function listGroupMessages({ state, query, scenario }, [id]) {
+  const group = findGroup(state, id)
+  if (!group) return groupNotFound()
+  const refused = sensitiveRefusal(scenario, group)
+  if (refused) return refused
   const afterId = positiveInt(query, 'after_id', 0)
   const requested = Number(query.get('limit'))
   const limit = Number.isInteger(requested) && requested >= 1 && requested <= 100 ? requested : 50
@@ -357,8 +373,11 @@ export const ROUTES = [
   route('DELETE', `chat-groups/${ID}/members/${ID}`, removeMember),
   route('GET', `chat-groups/${ID}/messages`, listGroupMessages),
   route('POST', `chat-groups/${ID}/messages`, postGroupMessage),
-  route('GET', `chat-groups/${ID}/contact-blocks`, ({ state }, [id]) =>
-    findGroup(state, id) ? ok({ items: state.groupBlocks[id] ?? [] }) : groupNotFound()),
+  route('GET', `chat-groups/${ID}/contact-blocks`, ({ state, scenario }, [id]) => {
+    const group = findGroup(state, id)
+    if (!group) return groupNotFound()
+    return sensitiveRefusal(scenario, group) ?? ok({ items: state.groupBlocks[id] ?? [] })
+  }),
   route('POST', `chat-groups/${ID}/lifecycle`, applyLifecycle('group')),
 
   // Donor ↔ owner and support chats.

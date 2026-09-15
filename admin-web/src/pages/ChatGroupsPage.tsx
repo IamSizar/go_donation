@@ -19,11 +19,12 @@
  * Both Create buttons need messages:add; staff without it are told who can
  * create a group instead of being offered a button the server would refuse.
  *
- * Rows do not link anywhere yet: the group detail screen is Phase 6b.
+ * Each row's name links to the group's detail page (Phase 6b, /chat-groups/:id).
  */
 import { AnimatePresence } from 'framer-motion'
 import { Users } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import PageHead from '../components/PageHead'
 import CreateGroupDialog from '../components/chatGroups/CreateGroupDialog'
 import { useAuth } from '../lib/auth'
@@ -214,7 +215,9 @@ function GroupRow({ group }: { group: ChatGroupSummary }) {
     <li className="stack" style={{ gap: 'var(--space-1)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
         <span className={`badge ${KIND_TONE[group.kind]}`}>{statusLabel(group.kind)}</span>
-        <strong style={{ overflowWrap: 'anywhere' }}>{name}</strong>
+        <strong style={{ overflowWrap: 'anywhere' }}>
+          <Link to={`/chat-groups/${group.id}`}>{name}</Link>
+        </strong>
         {group.last_at && (
           <time className="muted" dateTime={group.last_at} style={{ marginInlineStart: 'auto' }}>
             {formatDateTime(group.last_at)}
