@@ -213,6 +213,11 @@ func (s *Store) GetThread(ctx context.Context, threadID int64) (Thread, error) {
 }
 
 // AcceptThread flips a pending thread to active. Only the profile owner may accept.
+//
+// It does NOT check the thread's lifecycle (paused / ended / archived). That
+// gate lives in the HTTP layer with every other lifecycle refusal —
+// handlers.MarriageChatHandler.Accept runs refuseIfInviteClosed before calling
+// this (OPOS #26426) — so any new caller must run it too.
 func (s *Store) AcceptThread(ctx context.Context, threadID, userID int64) (Thread, error) {
 	t, err := s.GetThread(ctx, threadID)
 	if err != nil {
