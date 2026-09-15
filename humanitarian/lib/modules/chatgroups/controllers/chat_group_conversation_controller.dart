@@ -7,7 +7,7 @@
 //
 // Modeled on ChatThreadController (modules/chat/controllers/chat_controller.dart)
 // — a 3-second silent poll and the same lifecycle handling — but built around
-// four facts of the chat-groups API that the 1:1 chat does not share:
+// five facts of the chat-groups API that the 1:1 chat does not share:
 //   * The transcript is PAGED oldest-first (100 per request at most). Opening
 //     walks every page; a poll asks only for messages after the newest one on
 //     screen and appends them.
@@ -16,9 +16,13 @@
 //     supervised chat, a chat staff have closed — so a send explains them.
 //   * Requests are slow where this app is used, so loads run one at a time,
 //     and nothing is applied once the screen has closed.
+//   * A group can vanish under the member: staff delete or archive it (404),
+//     or remove the member (403), and every later request is refused the same
+//     way. That is a terminal state ([isUnavailable]), not a retryable error.
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_application_1/api/api_status_exception.dart';
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/core/app_haptics.dart';
 import 'package:flutter_application_1/core/app_sound.dart';
@@ -85,6 +89,14 @@ class ChatGroupConversationController extends GetxController {
   /// Localized load failure ("what failed, then what to do next"), or null.
   final errorMessage = RxnString();
 
+  /// True once the server has said this group is gone FOR THIS MEMBER: staff
+  /// deleted or archived it (404), or removed the member from it (403).
+  ///
+  /// TERMINAL. Polling stops and nothing sets it back, because no retry can
+  /// bring the group back — which is exactly why it is kept apart from
+  /// [errorMessage], whose screen state always offers Retry.
+  final isUnavailable = false.obs;
+
   /// Localized reason the last send did not go through, or null. Kept apart
   /// from [errorMessage] so a failed send never looks like a failed load.
   final sendError = RxnString();
@@ -130,6 +142,9 @@ class ChatGroupConversationController extends GetxController {
   /// localized [errorMessage]. A silent load — the background poll — keeps
   /// the transcript on screen and reports nothing, and is skipped outright
   /// when another load is already running: that load brings the same news.
+  ///
+  /// Either kind of load that learns the group is gone for this member sets
+  /// [isUnavailable] instead of an error, and the poll stops.
   Future<void> fetchMessages({bool silent = false}) {
     if (silent && _loadsInFlight > 0) return Future<void>.value();
     return _serialized(() => _load(silent: silent));
@@ -164,6 +179,13 @@ class ChatGroupConversationController extends GetxController {
       // that has since loaded.
       errorMessage.value = null;
     } catch (e) {
+      // Checked before the silent/visible split: a member removed mid-chat
+      // learns it from a silent poll, and must end up exactly where a member
+      // who opened an already-deleted group does.
+      if (_isGoneForMember(e)) {
+        _markUnavailable(e);
+        return;
+      }
       // Only a visible failure is logged; the silent poll would repeat the
       // same line every three seconds while the phone is offline.
       if (!silent && !isClosed) {
@@ -175,6 +197,26 @@ class ChatGroupConversationController extends GetxController {
       if (!silent && !isClosed) isLoading.value = false;
     }
     await _markNewestRead();
+  }
+
+  /// True when [error] is the server saying this group no longer exists FOR
+  /// THIS MEMBER: 404 once staff deleted or archived it, 403 once they removed
+  /// the member. Read from the status itself — never parsed out of a message.
+  /// A 401 is not "gone": session_expiry.dart already signs that member out.
+  static bool _isGoneForMember(Object error) =>
+      error is ApiStatusException &&
+      (error.statusCode == 403 || error.statusCode == 404);
+
+  /// Enters the terminal "no longer available" state: no error (an error is
+  /// what puts a Retry on screen) and no more polling, since every later
+  /// request would be refused the same way. Logged here, once, because the
+  /// poll that would have repeated the line is cancelled with it.
+  void _markUnavailable(Object error) {
+    if (isClosed) return;
+    debugPrint('[chat-groups] group $groupId is no longer available: $error');
+    isUnavailable.value = true;
+    errorMessage.value = null;
+    _poll?.cancel();
   }
 
   /// Walks the pages after the newest message on screen until a short page
