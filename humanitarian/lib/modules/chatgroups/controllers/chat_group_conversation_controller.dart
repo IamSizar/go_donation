@@ -166,6 +166,11 @@ class ChatGroupConversationController extends GetxController {
 
   /// One load: fetch, apply unless the screen closed meanwhile, mark read.
   Future<void> _load({required bool silent}) async {
+    // Checked when the load reaches the front of the queue, not when it was
+    // asked for: a load queued behind the one that learned the group is gone
+    // (a send's refresh, a Retry tapped a moment earlier) would only repeat a
+    // refusal the member can do nothing about.
+    if (isUnavailable.value) return;
     if (!silent) {
       isLoading.value = true;
       errorMessage.value = null;

@@ -254,6 +254,25 @@ void main() {
       );
       Get.delete<ChatGroupConversationController>();
     });
+
+    test('a load asked for after the group is gone does not ask the server '
+        'again', () async {
+      // A load queued behind the one that learned the group is gone — a
+      // send's refresh, a Retry tapped a moment earlier — must not repeat a
+      // refusal the member can do nothing about.
+      final api = FakeChatGroupsApi()
+        ..messagesError = const ApiStatusException(404);
+      final ctrl = ChatGroupConversationController(_groupId, api: api);
+      await ctrl.fetchMessages();
+      expect(ctrl.isUnavailable.value, isTrue);
+      expect(api.messagesCalls, 1);
+
+      await ctrl.fetchMessages();
+      await ctrl.fetchMessages(silent: true);
+
+      expect(api.messagesCalls, 1);
+      expect(ctrl.isUnavailable.value, isTrue);
+    });
   });
 
   group('long conversations', () {
