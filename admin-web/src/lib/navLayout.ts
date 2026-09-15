@@ -64,6 +64,9 @@ export const NAV: NavItem[] = [
   // Phase 6a — staff-supervised chat groups. Gated on 'messages' like
   // /messages: the list needs messages:view on the server.
   { to: '/chat-groups',   tKey: 'nav.chat_groups',    module: 'messages' },
+  // Phase 6c — the connect-request inbox. Listing needs messages:view;
+  // approving and declining need messages:edit, gated on the page.
+  { to: '/chat-groups/connect-requests', tKey: 'nav.connect_requests', module: 'messages' },
   { to: '/volunteers',    tKey: 'nav.volunteers',    countKey: 'volunteers', module: 'volunteers' },
   { to: '/volunteer-board', tKey: 'nav.volunteer_board', module: 'volunteers' },
   { to: '/tasks',          tKey: 'nav.tasks',            module: 'tasks' },
@@ -198,7 +201,7 @@ export const DEFAULT_NAV_SECTIONS: NavSection[] = [
   },
   {
     kind: 'group', key: 'communication_support', tKey: 'nav_group.communication_support',
-    items: ['/messages', '/staff-chat', '/chat-groups', '/notifications', '/push', '/support', '/contact'],
+    items: ['/messages', '/staff-chat', '/chat-groups', '/chat-groups/connect-requests', '/notifications', '/push', '/support', '/contact'],
   },
   {
     kind: 'group', key: 'monitoring_reports', tKey: 'nav_group.monitoring_reports',

@@ -36,6 +36,7 @@ describe('CHAT_GROUP_ERROR_KEYS', () => {
       'chat_lifecycle_closed',
       'connect_context_not_found',
       'connect_request_decided',
+      'connect_request_not_found',
       'contact_details_blocked',
       'group_invalid_input',
       'group_label_conflict',
@@ -152,6 +153,15 @@ describe('describeConnectRequestError', () => {
     expect(describeConnectRequestError(err)).toBe(
       'This connect request no longer exists. Refresh the list to see the current requests.',
     )
+  })
+
+  it('translates the coded 404 (#26478) through either helper', () => {
+    const err = refused(404, { success: false, error: 'Connect request not found.', code: 'connect_request_not_found' })
+
+    expect(chatGroupErrorCode(err)).toBe('connect_request_not_found')
+    for (const describe of [describeConnectRequestError, describeChatGroupError]) {
+      expect(describe(err)).toBe('This connect request no longer exists. Refresh the list to see the current requests.')
+    }
   })
 
   it('still prefers a code the server sent', () => {

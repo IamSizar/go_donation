@@ -302,3 +302,58 @@ test('deciding a connect request twice answers 409 connect_request_decided; a mi
   }
   assert.deepEqual(missing, { status: 404, body: { success: false, error: 'Connect request not found.' } })
 })
+
+// ─── The connect-request inbox (Phase 6c, OPOS #26400) ───────────────────
+
+test('connect requests carry requester_name for a requester with a profile, and omit the key otherwise', async (t) => {
+  const request = await startMock(t)
+  const named = new Map(ADMIN_USERS.map((u) => [u.user_id, u.profile?.full_name ?? null]))
+
+  const { body } = await request('GET', '/api/admin/chat-groups/connect-requests')
+  const one = await request('GET', `/api/admin/chat-groups/connect-requests/${body.items[0].id}`)
+
+  assert.ok(body.items.some((item) => 'requester_name' in item), 'at least one requester is named')
+  for (const item of body.items) {
+    const name = named.get(item.requester_user_id)
+    if (name) assert.equal(item.requester_name, name)
+    else assert.ok(!('requester_name' in item), `request ${item.id} has no requester_name key`)
+  }
+  assert.equal(one.body.request.requester_name, body.items[0].requester_name)
+})
+
+test('approving a pending request opens its group; declining one records the trimmed reason', async (t) => {
+  const request = await startMock(t)
+  const pending = (await request('GET', '/api/admin/chat-groups/connect-requests?status=pending')).body.items
+  const [toApprove, toDecline] = pending
+  const body = {
+    kind: 'masked', member_title: '', members: [{ user_id: toApprove.requester_user_id, role_in_group: 'donor', label: '' }],
+  }
+  const base = '/api/admin/chat-groups/connect-requests'
+
+  const approved = await request('POST', `${base}/${toApprove.id}/approve`, body)
+  const declined = await request('POST', `${base}/${toDecline.id}/decline`, { reason: '  Not this time.  ' })
+  const approvedDetail = await request('GET', `${base}/${toApprove.id}`)
+  const declinedDetail = await request('GET', `${base}/${toDecline.id}`)
+  const blank = await request('POST', `${base}/${toDecline.id}/decline`, { reason: '  ' })
+
+  assert.equal(approved.status, 200)
+  assert.equal(approvedDetail.body.request.status, 'approved')
+  assert.equal(approvedDetail.body.request.group_id, approved.body.group_id)
+  assert.equal(declined.status, 200)
+  assert.equal(declinedDetail.body.request.status, 'declined')
+  assert.equal(declinedDetail.body.request.decline_reason, 'Not this time.')
+  assert.equal(blank.status, 400)
+})
+
+test('approving without the requester among the members is 400 group_invalid_input', async (t) => {
+  const request = await startMock(t)
+  const [pending] = (await request('GET', '/api/admin/chat-groups/connect-requests?status=pending')).body.items
+  const stranger = ADMIN_USERS.find((u) => u.user_id !== pending.requester_user_id && u.user_id !== GUEST_USER_ID)
+
+  const reply = await request('POST', `/api/admin/chat-groups/connect-requests/${pending.id}/approve`, {
+    kind: 'masked', member_title: '', members: [{ user_id: stranger.user_id, role_in_group: 'donor', label: '' }],
+  })
+
+  assert.equal(reply.status, 400)
+  assert.equal(reply.body.code, 'group_invalid_input')
+})
