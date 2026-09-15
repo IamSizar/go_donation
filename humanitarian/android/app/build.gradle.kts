@@ -66,8 +66,31 @@ android {
             // android/upload-keystore.jks, both gitignored. LOSING THAT FILE
             // MEANS THE APP CAN NEVER BE UPDATED ON PLAY under this identity,
             // so it belongs in a password manager, not only on one laptop.
-            signingConfig = signingConfigs.getByName("release")
+            //
+            // findByName, not getByName: Gradle configures EVERY build type on
+            // every build, so getByName threw "SigningConfig with name 'release'
+            // not found" for a plain debug build in any checkout without
+            // key.properties (a fresh clone, a git worktree). The loud,
+            // release-only failure is kept by the task-graph check below.
+            signingConfig = signingConfigs.findByName("release")
         }
+    }
+}
+
+// A release build without the signing material must still fail loudly (see the
+// comment on keystoreProperties above), and say what is missing. Only a RELEASE
+// build, though: debug and profile builds sign with the debug key and need no
+// secrets, so they must keep working in a checkout without key.properties.
+gradle.taskGraph.whenReady {
+    val buildsRelease = allTasks.any { task ->
+        task.project == project && task.name.contains("Release")
+    }
+    if (buildsRelease && !keystorePropertiesFile.exists()) {
+        throw GradleException(
+            "android/key.properties is missing, so this release build cannot be " +
+                "signed with the upload key. Restore key.properties and " +
+                "upload-keystore.jks from the password manager.",
+        )
     }
 }
 
