@@ -514,6 +514,20 @@ class AppTranslations extends Translations {
     'chat_groups_pending_hint': 'Our team is reviewing your request.',
     'chat_groups_open_conversation': 'Open the conversation',
     'chat_groups_decline_reason_label': 'Reason from our team',
+    // ─── chat group sender labels (OPOS #26419) ───
+    // The server writes these labels in English (autoLabel and
+    // ListMessagesForMember in backend/internal/chatgroups); the app shows
+    // them in the reader's language through localizedSenderLabel. `@n` is the
+    // alias's sequence number. English deliberately uses the server's own
+    // words, not the app's role vocabulary (user decision, 2026-09-15), so a
+    // member reads the same alias here as in the dashboard and in push
+    // notifications.
+    'chat_group_sender_support': 'Support',
+    'chat_group_sender_member': 'Member',
+    'chat_group_sender_donor_n': 'Donor @n',
+    'chat_group_sender_beneficiary_n': 'Beneficiary @n',
+    'chat_group_sender_volunteer_n': 'Volunteer @n',
+    'chat_group_sender_member_n': 'Member @n',
     'chat_groups_requests_empty_title': 'No connect requests yet',
     'chat_groups_requests_empty_message':
         'When you ask our team to connect you with someone, your request and '
@@ -3192,6 +3206,15 @@ class AppTranslations extends Translations {
     'Nothing saved yet.': 'Nothing saved yet.',
     'Remove': 'Remove',
     'Select a project': 'Select a project',
+
+    // OPOS #26423 — the Messages tab's sign-in prompt for a guest
+    // (GuestMessagesPrompt in dashboard/screens/guest_sections.dart), shown
+    // where the conversation list would be; a guest has none. Its button
+    // reuses 'Sign in'. en + ar only; Sorani and Badini fall back to English
+    // (#21431) and are listed in TRANSLATION_REQUEST.md.
+    'messages_guest_title': 'Sign in to use Messages',
+    'messages_guest_body':
+        'Your conversations will appear here once you have a full account.',
   };
 
   static const Map<String, String> _ar = {
@@ -3640,6 +3663,18 @@ class AppTranslations extends Translations {
     'chat_groups_pending_hint': 'يراجع فريقنا طلبك حالياً.',
     'chat_groups_open_conversation': 'افتح المحادثة',
     'chat_groups_decline_reason_label': 'السبب من فريقنا',
+    // ─── chat group sender labels (OPOS #26419) ───
+    // فريق الدعم is the app's existing name for the support team ('Message the
+    // staff team', 'Send a message to the support team.'); a bare الدعم is
+    // already Kafala, and TERMINOLOGY.md T10 settles that the two must differ.
+    // مانح / مستحق / متطوع are the app's role nouns (TERMINOLOGY.md T12, T4,
+    // T15).
+    'chat_group_sender_support': 'فريق الدعم',
+    'chat_group_sender_member': 'عضو',
+    'chat_group_sender_donor_n': 'مانح @n',
+    'chat_group_sender_beneficiary_n': 'مستحق @n',
+    'chat_group_sender_volunteer_n': 'متطوع @n',
+    'chat_group_sender_member_n': 'عضو @n',
     'chat_groups_requests_empty_title': 'لا توجد طلبات تواصل بعد',
     'chat_groups_requests_empty_message':
         'عندما تطلب من فريقنا أن يوصلك بشخص ما، سيظهر طلبك وحالته هنا.',
@@ -6040,6 +6075,11 @@ class AppTranslations extends Translations {
     'Nothing saved yet.': 'لا توجد عناصر محفوظة بعد.',
     'Remove': 'إزالة',
     'Select a project': 'اختر مشروعًا',
+
+    // OPOS #26423 — انظر التعليق نفسه في الخريطة الإنجليزية.
+    'messages_guest_title': 'سجّل الدخول لاستخدام الرسائل',
+    'messages_guest_body':
+        'ستظهر محادثاتك هنا عندما يصبح لديك حساب كامل.',
   };
 
   static final Map<String, String> _sorani = {

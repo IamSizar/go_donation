@@ -734,11 +734,23 @@ func main() {
 			// Support conversations contain user messages, so they require a
 			// full account just like every other chat write path.
 			authed.POST("/chats/support", auth.RequireNotGuest(), chatH.SupportThread) // #45 — direct chat with support/tech
-			authed.GET("/chats", chatH.List)
-			authed.GET("/chats/", chatH.List)
+			// OPOS #26354 — the READ routes are guarded against guests too,
+			// not only the writes (as the chat groups are, #26347): the server
+			// must not rely on the app hiding these screens from a guest
+			// session. RequireApproved does not keep a guest out (guests are
+			// created approved), and a guest party to a thread — for example
+			// a support thread opened before 9d1cde5 closed that door — could
+			// otherwise list it and read its whole history.
+			//   - The LISTS answer a guest with an ordinary empty list, not a
+			//     403: installed apps poll GET /chats on every dashboard
+			//     session and would show guests a dead-end load error. See
+			//     handlers.GuestGetsEmptyList.
+			//   - The MESSAGES read refuses a guest (403 guest_restricted).
+			authed.GET("/chats", handlers.GuestGetsEmptyList(), chatH.List)
+			authed.GET("/chats/", handlers.GuestGetsEmptyList(), chatH.List)
 			authed.POST("/chats/:id/accept", auth.RequireNotGuest(), chatH.Accept)
 			authed.POST("/chats/:id/decline", auth.RequireNotGuest(), chatH.Decline)
-			authed.GET("/chats/:id/messages", chatH.Messages)
+			authed.GET("/chats/:id/messages", auth.RequireNotGuest(), chatH.Messages)
 			authed.POST("/chats/:id/messages", auth.RequireNotGuest(), chatH.PostMessage)
 
 			// AI Support Assistant (Phase 29).
@@ -764,6 +776,11 @@ func main() {
 			// Phase 3g endpoints
 			authed.POST("/support", auth.RequireNotGuest(), supportH.Post)
 			authed.POST("/support/", auth.RequireNotGuest(), supportH.Post)
+			// OPOS #26354 — deliberately NO RequireNotGuest on this read. The
+			// owner's decision was "keep guest support": the app's Technical
+			// Support screen loads it for every session, a guest's included,
+			// and a guest only ever sees its own tickets (it cannot write one —
+			// see the POSTs above). Pinned by TestSupportMine_StaysOpenToGuest.
 			authed.GET("/support/mine", supportH.Mine)
 
 			authed.GET("/in_kind_donations", inkindH.Get)
@@ -799,11 +816,14 @@ func main() {
 			authed.POST("/marriage/", auth.RequireNotGuest(), marriageH.Post)
 
 			// Note #35 — staff-mediated marriage chat (identity-masked).
-			authed.GET("/marriage/chats", marriageChatH.List)
-			authed.GET("/marriage/chats/", marriageChatH.List)
+			// OPOS #26354 — the READ routes are guarded against guests too,
+			// exactly as the donor chat above: the lists answer a guest with
+			// an empty list, the messages read refuses one with a 403.
+			authed.GET("/marriage/chats", handlers.GuestGetsEmptyList(), marriageChatH.List)
+			authed.GET("/marriage/chats/", handlers.GuestGetsEmptyList(), marriageChatH.List)
 			authed.POST("/marriage/chats/:id/accept", auth.RequireNotGuest(), marriageChatH.Accept)
 			authed.POST("/marriage/chats/:id/decline", auth.RequireNotGuest(), marriageChatH.Decline)
-			authed.GET("/marriage/chats/:id/messages", marriageChatH.Messages)
+			authed.GET("/marriage/chats/:id/messages", auth.RequireNotGuest(), marriageChatH.Messages)
 			authed.POST("/marriage/chats/:id/messages", auth.RequireNotGuest(), marriageChatH.PostMessage)
 
 			// OPOS #25284 Phase 2 — staff-created group chats (masked
