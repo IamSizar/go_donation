@@ -18,6 +18,16 @@
 - **Section 7:** new post-check 7h lists direct threads deleted to the Trash since `snapshot_taken_at`. A paragraph after the block says what to do with a row.
 - **Section 9:** the Apply race moved to a new "Resolved by OPOS #26431" block. Risk 9 is now the Trash risk (#26466), so the existing "risk 9" cross-references still point at the right item.
 - The header table and the appendix intro each gained one sentence. The appendix one says query 6 and 7h were verified separately, here.
+- **Review fix, commit `d7a219a`** (`docs(ops): apply the review of the retire runbook freeze list`). The agent review of `ca8193a` came back CHANGES NEEDED, with 3 medium findings, 4 low, and none critical or high. All seven were checked against the code and applied:
+  - **Trash restore is admin-level, not Super-Admin only.** The route uses `RequireAdminTier` (`main.go:1176`), which accepts `admin` or `super_admin` (`auth/middleware.go:47-53`). Query 6's bullet and risk 9 now say so.
+  - **Claim and release join the freeze.** Both write `updated_at` with only `WHERE id = $1` (`chat/chat.go:281-282`, `:297-298`), and the Messages page shows them on every thread (`MessagesPage.tsx:316-330`). Staff replies stay off the list, because `handlers/chat.go:537` refuses them on ended threads.
+  - **7h also lists Trash restores** (`restored_at >= snapshot_taken_at`). Its comment now names the other causes of a query 6 difference: a purge, or a delete or restore made between the pre-flight and the snapshot.
+  - **Wording fixes:**
+    - The pause/resume text now covers a pause that lands first, which the run then ends.
+    - The resolved block no longer says delete "stays" frozen.
+    - The 7h follow-up notes that an `ended | t` copy shows in neither 7a nor 7c.
+    - Section 5 says "the section 10 restore", and the header says the freeze was revised.
+  - **Not applied, on instruction:** the review's "Sentences to update when OPOS #26466 lands" list, because #26466 has not merged.
 
 **Evidence read** (file:line at `95ea8fb`):
 - **Pause and resume are refused on an ended thread:** `backend/internal/chatlifecycle/apply.go:121-122` and `:127-128`.
@@ -48,19 +58,33 @@
   - Query 6 again: `open | f | 2`, higher by exactly the 7h row.
 - **Cleanup:** `dropdb -h /tmp gd_retire_freeze_26467`, then a `pg_database` count of `gd_retire_freeze_26467%` → `0`.
 - **Whitespace:** `git diff --check` is clean.
+- **Review fix, on a fresh throwaway DB `gd_retire_freeze_26467_b`.** It was made with `createdb`, then migrated with the same test, which printed `[migrate] done: 121 newly applied, 121 total migration files` and `ok 2.303s`.
+  - Direct threads 930001 and 930002 were deleted to the Trash before the snapshot. The snapshot then printed `snapshot_rows 1` (930003).
+  - After the snapshot, 930001 was restored with `Restore`'s INSERT plus `restored_at = NOW()`, and 930003 was deleted.
+  - The edited section 7 block ran verbatim and read-only. 7h returned exactly `1 | 930001 | open | f | 18:14:25.176912 | 18:14:47.151094` and `3 | 930003 | open | f | 18:14:49.451224 |` (dates 2026-09-15, +03). 930002 was not listed.
+  - The other checks: 7a `1` (the restored open thread; no retire run was made), 7b `0`, 7c and 7d `0 rows`, 7f `0`, 7g `0 rows`.
+  - After `dropdb`, a `pg_database` count of `gd_retire_freeze_26467%` returned `0`. `git diff --check` is clean.
 
 **External actions taken:** none. Nothing was pushed and no PR was opened. OPOS was not updated from this session: the `opos` MCP server needed authorization, and this non-interactive session could not run the OAuth flow.
 
 **What is still open:**
-- The commit is local and unpushed, and no human has reviewed it.
+- Both commits, `ca8193a` and `d7a219a`, are local and unpushed. The agent review's findings are applied in `d7a219a`, but no human has reviewed either commit.
 - **OPOS #26466 is not fixed.** The freeze, query 6 and 7h only work around it. The delete race itself (a delete that copies the thread before the run commits) was read in the code, not reproduced.
-- **Two additions beyond the brief:** restore from the Trash was frozen alongside delete, and section 5 gained its pause-and-resume sentence. Revert either if unwanted.
+- **When OPOS #26466 merges,** apply the review's "Sentences to update when OPOS #26466 lands" list. It is in the review output of agent `af8516112e224c0f3`. The list covers:
+  - the delete and restore freeze items in section 3, item 7;
+  - query 6's bullet, and 7h with its follow-up paragraph;
+  - risk 9;
+  - the section 10 note on `updated_at`;
+  - the header row.
+- **Additions beyond the original brief:** restore from the Trash is frozen alongside delete, section 5 has its pause-and-resume sentence, and the review added claim and release to the freeze. Revert any of them if unwanted.
+- **`origin/main` has moved at least five commits ahead,** with its own `HANDOFF.md` entries at the top. A rebase will conflict in this file only: keep both sets of entries.
 - The production run has still not been performed.
 
 **Traps:**
 - **The worktree isolation guard refuses a Bash command that uses `$(...)`** ("a construct too complex to verify"). Split it into plain separate commands.
 - **GateGuard's destructive-command check fires on any `psql` with INSERT or DELETE,** even against a throwaway DB. State the facts and retry.
 - **A `chat_threads` copy in the Trash from before migration 119 has no `kind` key,** and its restore fails on NOT NULL. That is why query 6 needs only `payload->>'kind' = 'direct'`.
+- **A review agent's `tasks/<id>.output` file is a JSONL transcript of about 1 MB,** too large for Read. The report is the text content of its last line: `sed -n <last>p <file> | jq -r '.message.content[] | select(.type=="text") | .text'`.
 
 ---
 
