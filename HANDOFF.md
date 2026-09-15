@@ -60,6 +60,87 @@
 
 ---
 
+## 2026-09-15 — OPOS #26435 and #26429 (app half): the 1:1 chat names an unnamed staff reply in the reader's language, and group chat notifications get a type label (branch `fix/app-support-name-and-group-notif-label`)
+
+**What was asked:** two Flutter localization fixes on one branch, test-first, in en and ar only.
+- **#26435:** the 1:1 support chat showed English "Support" to Arabic users.
+- **#26429:** the `chat_group_message` notification type had no label. Only the app half was in scope, not admin-web.
+
+Commit locally; do not push.
+
+**What was actually changed:**
+- **Base.** The branch was cut from `origin/main` `e66ff69`. Before any commit, it was moved onto `origin/main` `30186e5` with `git checkout -B`. Upstream #103–#107 had landed in the meantime, and none of them touch these files.
+- **`8cb9fd8` fix(chat): localize the support sender name and the group-message notification label.**
+  - `humanitarian/lib/modules/chat/models/chat_models.dart`: `ChatMessage.senderName` is now the server's trimmed `sender_name`, or `''` when the server sent none.
+    - It used to be `'Support'` for `sender_role` 0 and `'User'` for everyone else.
+    - The server sends null when a staff profile has no name, or when privacy settings hide the name. `Viewer.Name` in `backend/internal/privacy/privacy.go` returns nil on purpose and leaves the placeholder to the client.
+  - New `humanitarian/lib/modules/chat/utils/chat_sender_name.dart`: `chatSenderName(ChatMessage)`.
+    - It returns the server's name when there is one.
+    - Otherwise it returns `'chat_group_sender_support'.tr` for staff and `'User'.tr` for anyone else.
+  - `humanitarian/lib/modules/chat/screens/chat_conversation_screen.dart`: `_MessageBubble` draws `chatSenderName(message)` (~line 233), and its comment was rewritten to match.
+    - This is the only place the app displays `senderName`. Grepping `lib/` finds no other reader.
+  - `humanitarian/lib/localization/app_translations.dart`: `chat_group_message` was added to `_en` (line 37) and `_ar` (line 3258), next to `chat_message`.
+    - A comment on `chat_group_sender_support` now says the key is shared with the 1:1 chat.
+  - **Tests:**
+    - New `humanitarian/test/modules/chat/chat_sender_name_test.dart`, 14 cases:
+      - `fromMap` adds no words of its own;
+      - Arabic and English fallbacks, with real names left untouched;
+      - Kurdish never falls back to Arabic;
+      - a source guard that the screen draws `chatSenderName(message)`.
+    - It is a source test rather than a pumped screen: `ChatThreadController.onInit` calls `const ModuleApi()` directly, with no seam for a fake.
+    - `humanitarian/test/localization/localized_tag_test.dart` lists `chat_group_message`. It also has a new test that every listed type has its own `_en` entry, because the existing English test passes on the humanised token alone.
+  - `TRANSLATION_REQUEST.md`:
+    - a new 1-key section and table row;
+    - the count heading and the Total row both went from 467 to 468;
+    - a note in the #26419 section that `chat_group_sender_support` now serves both chats.
+- **This entry.**
+
+| Key | English | Arabic | Status |
+|---|---|---|---|
+| `chat_group_sender_support` | Support | فريق الدعم | reused (from #26419). T10: a bare الدعم is Kafala |
+| `User` | User | مستخدم | reused |
+| `chat_group_message` | Group chat message | رسالة محادثة جماعية | **new**. It follows `chat_message` → رسالة محادثة; جماعية is the word the chat-groups screens use |
+
+**What was run and what it printed** (from `humanitarian/`):
+- **RED.** This ran on `e66ff69`, where every file involved is byte-identical to `30186e5`. `chat_sender_name.dart` was an identity stub, and nothing else in production had changed.
+  - `flutter test test/modules/chat/chat_sender_name_test.dart test/localization/localized_tag_test.dart` printed `+24 -8: Some tests failed.` The failures were:
+    - the model tests: `Expected: ''` / `Actual: 'Support'` and `Actual: 'User'`;
+    - Arabic: `Expected: 'فريق الدعم'` / `Actual: 'Support'`, and `Expected: 'مستخدم'` / `Actual: 'User'`;
+    - the source guard;
+    - `no _en entry for chat_group_message`;
+    - `chat_group_message rendered as "Chat group message" in Arabic`.
+- **GREEN.** The same command printed `00:00 +32: All tests passed!`
+- **Format.** `dart format --output=none --set-exit-if-changed` on the 5 owned Dart files flagged only the new test, which was then formatted. `app_translations.dart` was left alone: it already fails formatting on main (see the #26419 entry).
+- **On `30186e5`:**
+  - `flutter analyze` printed `6 issues found. (ran in 10.6s)`, the same 6 `deprecated_member_use` as the baseline.
+  - `flutter test test/localization/ test/modules/chat/ test/modules/chatgroups/` printed `00:24 +357: All tests passed!`
+  - `flutter test` (full) printed `01:10 +1045: All tests passed!` (exit 0).
+- **Review.** `ecc:flutter-reviewer` returned APPROVE, with 0 CRITICAL, 0 HIGH and 0 MEDIUM findings. Neither of its two minor findings was changed:
+  - **LOW:** the Kurdish test asserts "not Arabic, not empty" rather than exactly "Support". That is deliberate: it catches the real risk and survives a future Kurdish translation.
+  - **NIT:** the "shared key" comment could drift if the key is renamed. It names `chatSenderName`, which a grep finds.
+
+**External actions taken:** none. Nothing was pushed and no PR was opened. The OPOS connector needs interactive OAuth, which this session could not do, so #26435 and #26429 were not moved or commented on.
+
+**What is still open:**
+- Both commits are local and unpushed.
+- The admin-web half of #26429, the dashboard's label for `chat_group_message`, is not done.
+- `chat_group_message` needs Sorani and Badini.
+- **Not fixed, same file:** `ChatThread.otherName` still falls back to English `'User #<id>'` (`chat_models.dart` ~line 53). It is what the Messages tile and conversation title show for a counterpart with no name.
+- **Not fixed, T10:** the marriage chat signs staff with `'Support'.tr` (`marriage_chat_conversation_screen.dart` ~line 356). That resolves to `الدعم`, the Kafala word, not `فريق الدعم`.
+- **Not fixed, server side: the 1:1 support-reply push.**
+  - The admin reply handler in `backend/internal/handlers/chat.go` (~line 561) always calls `notify.ChatNewMessageMsg("Support", …)`.
+  - That template (`backend/internal/notify/templates.go`) puts the word into every language's title.
+  - So an Arabic user's push, and the in-app notification row, both read «رسالة من Support».
+  - The fix belongs in that template, the way #26434 fixed masked group pushes.
+
+**Traps:**
+- **The shared `origin/main` ref moves under you.** Another worktree's fetch advanced it from `e66ff69` to `30186e5` mid-task. After that, `git diff origin/main` showed about 4,000 lines of unrelated upstream work. Diff against `HEAD` or the base SHA, and re-check `git log <base>..origin/main` before committing.
+- **`test/modules/chat/` did not exist before this change**, so a test command naming it would have failed on main.
+- **zsh:** an unquoted `--include=*.dart` fails with "no matches found". Quote it.
+- **The worktree guard refuses `$((...))` arithmetic in Bash.** Split the command into plain ones.
+
+---
+
 ## 2026-09-15 — OPOS #26436: a declined chat invite can't be accepted; asking again starts a fresh one (branch `fix/declined-invite-needs-reinvite`)
 
 **What was asked:** apply the owner's decision "make it decline and re invite behavior", test-first:
