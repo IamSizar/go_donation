@@ -8,8 +8,9 @@
 //   1. the shell's own requests (permissions/me, verify-password, the users
 //      search, the polls) in the shapes lib/permissions.ts, PasswordGate.tsx,
 //      UserPicker.tsx and AppShell read;
-//   2. the chat-group admin routes the Phase 6 screens call, including the
-//      after_id/limit paging the export loop depends on;
+//   2. (the chat-group admin routes live in mock-api-chat-groups.test.mjs,
+//      split out when this file passed 500 lines; npm run test:mock-api
+//      runs both);
 //   3. the three legacy chat lists and their messages;
 //   4. the fallback for every other route, and the empty/error/slow scenarios;
 //   5. two drift guards against sources of truth outside this folder: the
@@ -29,38 +30,11 @@ import { dirname, join } from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { createMockServer, listenOnLoopback } from './mock-api.mjs'
-import { MASKED_GROUP_ID, TEAM_GROUP_ID } from '../src/test/fixtures/chatGroups.ts'
+import { startMock } from './mock-api-test-helpers.mjs'
 import { PERMISSION_ACTIONS, PERMISSION_MODULES } from '../src/test/fixtures/permissions.ts'
 import { SESSION_STORAGE_KEYS } from '../src/test/fixtures/session.ts'
 
 const web = join(dirname(fileURLToPath(import.meta.url)), '..')
-
-// ─── Helpers ─────────────────────────────────────────────────────────────
-
-/**
- * Starts a mock server on a free port for one test and returns a request
- * function bound to it. The server is closed when that test ends.
- */
-async function startMock(t, options = {}) {
-  const server = createMockServer({ log: () => {}, slowMs: 10, ...options })
-  await listenOnLoopback(server, 0)
-  t.after(
-    () =>
-      new Promise((resolve) => {
-        server.closeAllConnections()
-        server.close(resolve)
-      }),
-  )
-  const { port } = server.address()
-  return async (method, path, body) => {
-    const res = await fetch(`http://127.0.0.1:${port}${path}`, {
-      method,
-      headers: body === undefined ? {} : { 'content-type': 'application/json' },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    })
-    return { status: res.status, body: await res.json() }
-  }
-}
 
 // ─── 1 · The shell's own requests ───────────────────────────────────────
 
@@ -116,102 +90,6 @@ test('the shell polls answer in the shapes AppShell and its providers read', asy
   assert.equal(unread.body.items.length, 1)
   assert.equal(unread.body.items[0].is_read, 0)
   assert.ok(unread.body.total_items >= 1)
-})
-
-// ─── 2 · Chat groups ─────────────────────────────────────────────────────
-
-test('the chat-group list has a masked and a team group, in the admin list shape', async (t) => {
-  const request = await startMock(t)
-
-  const { status, body } = await request('GET', '/api/admin/chat-groups')
-
-  assert.equal(status, 200)
-  assert.deepEqual(body.items.map((g) => g.kind).sort(), ['masked', 'team'])
-  for (const group of body.items) {
-    assert.deepEqual(Object.keys(group).sort(), ['id', 'kind', 'last_at', 'last_message', 'title', 'unread_count'])
-  }
-})
-
-test('a masked group serves its roster, messages and contact blocks', async (t) => {
-  const request = await startMock(t)
-  const base = `/api/admin/chat-groups/${MASKED_GROUP_ID}`
-
-  const detail = await request('GET', base)
-  const messages = await request('GET', `${base}/messages`)
-  const blocks = await request('GET', `${base}/contact-blocks`)
-
-  assert.equal(detail.body.group.kind, 'masked')
-  assert.ok(detail.body.group.members.length >= 2)
-  for (const member of detail.body.group.members) {
-    assert.equal(member.masked, true)
-    assert.ok(member.masked_label, 'every masked member has a label')
-  }
-  assert.ok(detail.body.group.members.some((m) => m.removed_at), 'one member was removed')
-  const ids = messages.body.items.map((m) => m.id)
-  assert.ok(ids.length >= 3)
-  assert.deepEqual(ids, [...ids].sort((a, b) => a - b), 'messages are oldest first')
-  assert.ok(blocks.body.items.length >= 1)
-  for (const block of blocks.body.items) assert.equal(block.group_id, MASKED_GROUP_ID)
-})
-
-test('a team group serves a titled roster without masked labels', async (t) => {
-  const request = await startMock(t)
-
-  const { body } = await request('GET', `/api/admin/chat-groups/${TEAM_GROUP_ID}`)
-
-  assert.equal(body.group.kind, 'team')
-  assert.ok(body.group.member_title)
-  for (const member of body.group.members) assert.equal(member.masked, false)
-})
-
-test('group messages page by after_id and limit, the way the export loop asks', async (t) => {
-  const request = await startMock(t)
-  const path = `/api/admin/chat-groups/${MASKED_GROUP_ID}/messages`
-  const all = (await request('GET', `${path}?limit=100`)).body.items
-
-  const page = await request('GET', `${path}?after_id=${all[0].id}&limit=1`)
-
-  assert.deepEqual(page.body.items, [all[1]])
-})
-
-test('a group that does not exist answers 404 in the backend error envelope', async (t) => {
-  const request = await startMock(t)
-
-  const { status, body } = await request('GET', '/api/admin/chat-groups/999999')
-
-  assert.equal(status, 404)
-  assert.equal(body.success, false)
-  assert.equal(typeof body.error, 'string')
-})
-
-test('a staff message posted to a group is appended to its history', async (t) => {
-  const request = await startMock(t)
-  const path = `/api/admin/chat-groups/${TEAM_GROUP_ID}/messages`
-
-  const posted = await request('POST', path, { body: 'Deliveries start at nine.' })
-  const blank = await request('POST', path, { body: '   ' })
-  const history = await request('GET', path)
-
-  assert.equal(posted.status, 200)
-  assert.equal(typeof posted.body.message_id, 'number')
-  assert.equal(history.body.items.at(-1).body, 'Deliveries start at nine.')
-  assert.equal(history.body.items.at(-1).id, posted.body.message_id)
-  assert.equal(blank.status, 400)
-})
-
-test('connect requests cover every status and filter by ?status=', async (t) => {
-  const request = await startMock(t)
-
-  const all = await request('GET', '/api/admin/chat-groups/connect-requests')
-  const pending = await request('GET', '/api/admin/chat-groups/connect-requests?status=pending')
-  const one = await request('GET', `/api/admin/chat-groups/connect-requests/${all.body.items[0].id}`)
-
-  assert.deepEqual([...new Set(all.body.items.map((r) => r.status))].sort(), ['approved', 'declined', 'pending'])
-  for (const r of all.body.items) assert.equal(typeof r.context_label, 'string')
-  assert.ok(pending.body.items.length >= 1)
-  for (const r of pending.body.items) assert.equal(r.status, 'pending')
-  assert.equal(one.body.request.id, all.body.items[0].id)
-  assert.equal(one.body.context_label, all.body.items[0].context_label)
 })
 
 // ─── 3 · Legacy chats ────────────────────────────────────────────────────

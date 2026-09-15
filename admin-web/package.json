@@ -13,7 +13,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "mock:api": "node --experimental-strip-types scripts/mock-api.mjs",
-    "test:mock-api": "node --experimental-strip-types --test scripts/mock-api.test.mjs",
+    "test:mock-api": "node --experimental-strip-types --test scripts/mock-api.test.mjs scripts/mock-api-chat-groups.test.mjs",
     "check:labels": "node scripts/check-labels.mjs",
     "check:pwa": "node scripts/check-pwa.mjs",
     "test:sw": "node scripts/test-sw.mjs",
