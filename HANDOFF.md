@@ -6,6 +6,83 @@
 
 ---
 
+## 2026-09-15 — Phase 5 follow-ups, backend/Android/test fixes, Motorola device pass (PR #82 branch plus 4 fix branches)
+
+**What was asked:** "log tasks on opos and continue working", then "use the connected motorola device to test". This continued from PR #82 (Phase 5 chat groups) with the open follow-ups. Every task was logged in OPOS before work started.
+
+**OPOS tasks** (office 19, account 6). Created today: #26344–#26351, #26353–#26355, #26357, #26364.
+
+Status when this was written:
+- **Completed:** #26344, #26345, #26346, #26350.
+- **Under Review** (local commits; pushing and opening PRs needs the user's OK): #26347, #26348, #26349, #26353.
+- **To Do:** #26351 (needs user decisions), #26354, #26355, #26357, #26364.
+- **WIP:** #26047 (final Phase 5 verification), blocked on the Android device pass.
+
+**What was actually changed**
+1. **`feat/chat-groups-phase5-ui` (PR #82)**: four new local commits, **not pushed**.
+   - `995beda`: the connect sheet's send button moved to `widgets/connect_request_submit_button.dart`. The sheet went from 498 to 397 lines. (#26344)
+   - `b9a525c`: a connect request that fails after the member dismissed the sheet is now reported through a SnackBar (`onFailedAfterDismiss`). (#26345)
+   - `0e1a97f`, merged in `e74651a` (#26346):
+     - New `lib/api/api_status_exception.dart`. `ModuleApi.getObject` now throws `ApiStatusException(status)`, whose `toString` is unchanged.
+     - A 403 or 404 on chat-group messages now gives a terminal "This conversation is no longer available" state, with no Retry and no composer.
+     - 2 new en+ar keys. TRANSLATION_REQUEST.md now lists 459 keys.
+   - `f38c58b`: queued loads stop once a group is unavailable. It also corrects three comments about the exception getObject throws.
+2. **`fix/chat-groups-guest-reads`** (worktree `.claude/worktrees/agent-afe13100798e37acf`): `56bfb95` adds `auth.RequireNotGuest()` to `GET /chat-groups`, `GET /chat-groups/:id/messages` and `GET /chat-groups/connect-requests/mine`. (#26347)
+3. **`fix/android-debug-build-without-signing`** (worktree `.claude/worktrees/android-signing-fix`): `976d876` and `b231054` change `build.gradle.kts` to use `signingConfigs.findByName("release")`, plus a task-graph guard that fails only release builds that have no signing config. Before this, a checkout without the gitignored `key.properties` could not even build debug. (#26353)
+4. **`fix/stale-flutter-tests`** (worktree `.claude/worktrees/agent-aa2e480042cf01557`): `b1a18e1`, `250d781` and `2034ffa`.
+   - The 5 tests that failed on main were updated or deleted. Each pinned behaviour that e07d59a or PR #76 changed on purpose.
+   - Added a test that Profile opens News.
+   - That branch has its own HANDOFF.md entry, so expect a trivial HANDOFF.md merge conflict. (#26348)
+5. **`fix/app-error-state-in-scroll-views`** (worktree `.claude/worktrees/app-error-state-fix`): `7471961` makes `AppErrorState` use `Expanded` for stale rows only when the height is bounded. Inside a scroll view it threw, which broke the Messages tab on a failed pull-to-refresh. (#26349)
+6. Removed the 4 merged Phase 5 agent worktrees and their branches. (#26350)
+
+**What was run and what it printed**
+- **Phase 5 branch, at `f38c58b`:**
+  - `flutter test test/modules/chatgroups/ test/api/ test/localization/` → `+330: All tests passed!`
+  - Full `flutter test` → `+947 -5`. The 5 are the known stale tests, fixed on branch 4.
+  - Full `flutter analyze` → `6 issues found`, the existing baseline.
+- **#26345:** the 2 new tests failed first ("Found 0 widgets with text containing Could not send your…"), then passed. `test/modules/chatgroups/ test/localization/` → `+270`.
+- **#26346:** 8 new tests failed first, then passed. `test/modules/chatgroups/ test/api/ test/localization/` → `+329`, and `+330` after `f38c58b`.
+- **#26347:**
+  - `TestChatGroupReads_RefuseGuest` failed first: a guest group member got 200.
+  - `go vet ./...` is clean, and `go test ./... -count=1 -p 1` on a freshly created DB → 22 packages ok.
+  - A reviewer confirmed with a mutation check that the test catches the bug.
+- **#26353**, in a checkout without `key.properties`:
+  - The debug build printed "✓ Built … app-debug.apk", then installed and ran on a Motorola Defy.
+  - `flutter build apk --release` → "No release signing config: android/key.properties is missing…", BUILD FAILED.
+  - A reviewer used a fake keystore to show that release signing is unchanged when the file is present.
+- **#26348:** full `flutter test` on that branch → `+820: All tests passed!`, 0 failures. Analyze is at the baseline.
+- **#26349:**
+  - On origin/main without the fix → `+1 -2`, failing with "RenderFlex children have non-zero flex but incoming height constraints are unbounded".
+  - With the fix → `+3: All tests passed!`
+  - Full suite on that branch → `+819 -5`, the 5 stale tests.
+- **Android device pass** on the Motorola Defy (ZY32D3QTSD, Android 11, 720×1600), through the uncommitted dev harness `humanitarian/tool/chat_groups_preview.dart` with a fake API.
+  - Verified in English, light theme: the masked chat; the composer's focus outline, send enabling and sending; the contact-details refusal (typed text kept); a paused chat with its reason; an ended, empty chat; the Messages-tab sections; My Connect Requests in all its states.
+  - The screenshots exist only in the agent scratchpad.
+
+**External actions taken:** OPOS only: tasks, comments, statuses, and manual time logs for #26347 and #26348. Nothing was pushed and no PR was opened today.
+
+**What is still open**
+- **Push and PRs, waiting on the user:** #26347, #26353, #26348, #26349, plus the 4 new commits on PR #82.
+- **#26353:** a signed release build with the real `key.properties` is still needed before merging.
+- **#26351 decisions:** whether the case-detail "Ask staff to connect me" button should show on every route, and "staff" vs "our team".
+- **Android device pass still to do:** the connect sheet (success and failure), Arabic, dark mode, guest vs donor. The Motorola disconnected twice (usb:2-1) and was not back after a 30-minute wait.
+- **Phase 5 worktree temporary files:** an UNCOMMITTED copy of the #26353 `build.gradle.kts` (needed to build on devices) and the untracked dev harness `humanitarian/tool/`. Never commit either; revert and delete both after the device pass.
+- **Worktree cleanup:** `.claude/worktrees/agent-a52e0750b3d4145aa` (`fix/phase5-chat-unavailable`, already merged) can be removed.
+- **Follow-ups:** #26354 (guest gates on the other chat read routes), #26355 (staff can add a guest to a group), #26357 (test routers out of sync with main.go), #26364 (stale Events-hub comments).
+
+**Traps**
+- **OPOS timers and statuses:**
+  - Each account has ONE running timer. Moving a task to in_progress stops any other timer.
+  - Status changes fail with `PRESENCE_NOT_WORKING` while the account is clocked out, but comments still work.
+- **OPOS uploads:** `upload_screenshot` cannot read local files (ENOENT).
+- **emulator-5554 hangs device discovery:** the Pixel Tablet emulator, used by another session, never answers `adb`, so `flutter run` hangs on its `adb shell getprop`. Kill only the hung getprop processes your own run spawned; do not touch the emulator.
+- **zsh word-splitting:** zsh does not split `$VAR` into a command plus arguments. Use a function (`adbm() { adb -s SERIAL "$@"; }`) or run the script through `bash -s`.
+- **GetX translations:** a hot reload does not load new translation keys, so raw keys show until a hot restart.
+- **GateGuard hook:** besides first file edits, it blocks the first Bash command of a session and anything it deems destructive (`git commit --amend`, `git checkout --`, `rm`) until you state the facts and retry.
+
+---
+
 ## 2026-09-14 — OPOS #25284 Phase 5 Tasks 3-5 + whole-branch review fixes + device walkthrough (branch `feat/chat-groups-phase5-ui`)
 
 **What was asked:** take Phase 5 (tracker #25608) through to a PR:
