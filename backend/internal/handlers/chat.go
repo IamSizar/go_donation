@@ -293,6 +293,11 @@ func (h *ChatHandler) Accept(c *gin.Context) {
 }
 
 // POST /api/chats/:id/decline
+//
+// Only a pending invite can be declined: an active chat answers 409 and stays
+// active (OPOS #26427; see chat.Store.DeclineThread). Declining is deliberately
+// NOT lifecycle-gated like Accept, so the recipient can still dismiss an invite
+// on a thread staff paused, ended or archived.
 func (h *ChatHandler) Decline(c *gin.Context) {
 	user, _ := auth.UserFromGin(c)
 	if user == nil {
@@ -444,6 +449,8 @@ func (h *ChatHandler) chatErr(c *gin.Context, err error) {
 		c.JSON(http.StatusForbidden, gin.H{"success": false, "error": "Only the invited party can accept or decline."})
 	case errors.Is(err, chat.ErrNotActive):
 		c.JSON(http.StatusConflict, gin.H{"success": false, "error": "This chat is not active yet."})
+	case errors.Is(err, chat.ErrNotPending):
+		c.JSON(http.StatusConflict, gin.H{"success": false, "error": "This chat is already active, so it can no longer be declined."})
 	case errors.Is(err, chat.ErrAlreadyClaimed):
 		c.JSON(http.StatusConflict, gin.H{"success": false, "error": "This chat is already claimed by another staff member."})
 	default:

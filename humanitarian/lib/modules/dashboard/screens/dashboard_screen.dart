@@ -119,7 +119,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     // Note #41 — Messages moved to the persistent top bar (shown on every
     // tab, not just its own screen), so its unread badge needs the
     // controller registered up-front here too, same as Notifications.
-    if (!Get.isRegistered<ChatController>()) {
+    //
+    // OPOS #26423 — except for a guest. The server gives a guest session an
+    // empty chat list and refuses thread messages (OPOS #26354), so a guest's
+    // ChatController would fetch /chats on start and poll it every 5 seconds
+    // for the whole session, for a badge that can never show anything. The
+    // top bar shows a guest's Messages door with no badge instead (see
+    // _TopBarActions), and Messages shows a guest a sign-in prompt.
+    if (!isGuestMode() && !Get.isRegistered<ChatController>()) {
       Get.put(ChatController());
     }
     _currentIndex = dashboardTabNotifier.value.clamp(0, _sections.length - 1);
@@ -708,10 +715,23 @@ class _TopBarActions extends StatelessWidget {
   final bool expanded;
   final VoidCallback onToggle;
 
+  /// The Messages door, badged with [unread] conversations needing attention.
+  Widget _messagesButton({required int unread}) => _TopBarIconButton(
+    icon: Icons.forum_outlined,
+    badgeCount: unread,
+    tooltip: 'Messages'.tr,
+    onTap: () => Get.to(() => const MessagesScreen()),
+  );
+
   @override
   Widget build(BuildContext context) {
     final notifications = Get.find<NotificationsController>();
-    final chats = Get.find<ChatController>();
+    // Null for a guest: DashboardScreen registers no ChatController for one
+    // (OPOS #26423), so there is no chat unread count and Get.find would
+    // throw. The registration is checked rather than assumed.
+    final chats = Get.isRegistered<ChatController>()
+        ? Get.find<ChatController>()
+        : null;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -719,7 +739,7 @@ class _TopBarActions extends StatelessWidget {
           // Summed, not "any unread": a single dot would say something is
           // waiting without saying how much, and both counts are already
           // rendered as numbers when expanded.
-          final pending = notifications.unreadCount + chats.totalUnread;
+          final pending = notifications.unreadCount + (chats?.totalUnread ?? 0);
           return _TopBarIconButton(
             icon: expanded ? Icons.close_rounded : Icons.more_horiz_rounded,
             badgeCount: expanded ? 0 : pending,
@@ -786,14 +806,17 @@ class _TopBarActions extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: DashboardTopBar._gap),
-                          Obx(
-                            () => _TopBarIconButton(
-                              icon: Icons.forum_outlined,
-                              badgeCount: chats.totalUnread,
-                              tooltip: 'Messages'.tr,
-                              onTap: () => Get.to(() => const MessagesScreen()),
+                          // Kept for a guest too, because Messages is where
+                          // support is reached from. A guest's door has no
+                          // badge and no Obx: without a ChatController there is
+                          // nothing to observe, and GetX throws on an Obx that
+                          // reads no observable.
+                          if (chats == null)
+                            _messagesButton(unread: 0)
+                          else
+                            Obx(
+                              () => _messagesButton(unread: chats.totalUnread),
                             ),
-                          ),
                           const SizedBox(width: DashboardTopBar._gap),
                           // "Ninth: Improve the Home Interface Design" — the profile photo
                           // sits top-right and opens the account hub.
