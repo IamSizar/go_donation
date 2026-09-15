@@ -1,25 +1,28 @@
+// messages_screen.dart — the Messages tab.
+//
+// Holds openSupportChat and its two notifiers, and MessagesScreen, which
+// builds the assistant and support doors, the thread list sections and the
+// group chats (or the guest prompt). The row widgets live in
+// widgets/chat_thread_tiles.dart, widgets/chat_request_card.dart and
+// widgets/messages_support_tiles.dart (OPOS #26495).
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/core/design/directional_icons.dart';
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/api/support_chat_result.dart';
 import 'package:flutter_application_1/modules/chat/widgets/support_chat_unavailable_notice.dart';
 import 'package:flutter_application_1/modules/support/screens/technical_support_screen.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
-import 'package:flutter_application_1/modules/bot/screens/bot_chat_screen.dart';
 import 'package:flutter_application_1/modules/chat/controllers/chat_controller.dart';
-import 'package:flutter_application_1/modules/chat/models/chat_models.dart';
-import 'package:flutter_application_1/modules/chat/utils/chat_sender_name.dart';
 import 'package:flutter_application_1/modules/chat/screens/chat_conversation_screen.dart';
-import 'package:flutter_application_1/modules/chat/utils/chat_invite_refusal.dart';
-import 'package:flutter_application_1/modules/chat/widgets/chat_lifecycle_notice.dart';
 import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/modules/chatgroups/controllers/chat_groups_controller.dart';
 import 'package:flutter_application_1/modules/chatgroups/widgets/chat_groups_section.dart';
 import 'package:flutter_application_1/modules/dashboard/screens/guest_sections.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
-import 'package:intl/intl.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
+import 'package:flutter_application_1/modules/chat/widgets/chat_request_card.dart';
+import 'package:flutter_application_1/modules/chat/widgets/chat_thread_tiles.dart';
+import 'package:flutter_application_1/modules/chat/widgets/messages_support_tiles.dart';
 
 /// The "Messages" tab — lists all of a user's chat threads.
 // #45 — open (or reuse) a direct chat with support/tech and jump into it.
@@ -134,7 +137,7 @@ class MessagesScreen extends StatelessWidget {
         // previously duplicated across the empty branch and the content
         // branch, which is why the empty state had to re-list them. They now
         // live outside the async region and are written once.
-        const _BotAssistantCard(),
+        const BotAssistantCard(),
         const SizedBox(height: 10),
         // #45 — direct chat with support/tech staff.
         SectionTile(
@@ -219,25 +222,29 @@ class MessagesScreen extends StatelessWidget {
               builder: (_) => Column(
                 children: [
                   if (incoming.isNotEmpty) ...[
-                    _SectionLabel(
+                    ChatThreadSectionLabel(
                       label: 'Chat requests',
                       count: incoming.length,
                     ),
                     for (final t in incoming)
-                      _IncomingRequestCard(thread: t, ctrl: ctrl),
+                      IncomingChatRequestCard(thread: t, ctrl: ctrl),
                     const SizedBox(height: 8),
                   ],
                   if (active.isNotEmpty) ...[
-                    _SectionLabel(label: 'Conversations', count: active.length),
-                    for (final t in active) _ThreadTile(thread: t),
+                    ChatThreadSectionLabel(
+                      label: 'Conversations',
+                      count: active.length,
+                    ),
+                    for (final t in active) ChatThreadTile(thread: t),
                   ],
                   if (outgoing.isNotEmpty) ...[
                     const SizedBox(height: 8),
-                    _SectionLabel(
+                    ChatThreadSectionLabel(
                       label: 'Waiting for accept',
                       count: outgoing.length,
                     ),
-                    for (final t in outgoing) _OutgoingPendingTile(thread: t),
+                    for (final t in outgoing)
+                      OutgoingPendingChatTile(thread: t),
                   ],
                 ],
               ),
@@ -267,460 +274,6 @@ class MessagesScreen extends StatelessWidget {
               ]),
               child: list,
             ),
-    );
-  }
-}
-
-class _SectionLabel extends StatelessWidget {
-  const _SectionLabel({required this.label, required this.count});
-  final String label;
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 14, 4, 8),
-      child: Row(
-        children: [
-          Text(
-            label.tr,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w900,
-              color: AppThemeConfig.mutedText(context),
-              letterSpacing: 0.3,
-            ),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            '($count)',
-            style: TextStyle(
-              fontSize: 12,
-              color: AppThemeConfig.mutedText(context),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Avatar extends StatelessWidget {
-  const _Avatar({required this.name, this.color});
-  final String name;
-  final Color? color;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = color ?? AppThemeConfig.primary;
-    return Container(
-      width: 48,
-      height: 48,
-      decoration: BoxDecoration(
-        color: c.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: Center(
-        child: Text(
-          name.isNotEmpty ? name[0].toUpperCase() : '?',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: c),
-        ),
-      ),
-    );
-  }
-}
-
-class _ThreadTile extends StatelessWidget {
-  const _ThreadTile({required this.thread});
-  final ChatThread thread;
-
-  @override
-  Widget build(BuildContext context) {
-    final roleLabel = thread.myRole == 'donor' ? 'Campaign owner' : 'Donor';
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: GlassPanel(
-        padding: EdgeInsets.zero,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(24),
-          onTap: () => Get.to(
-            () => ChatConversationScreen(
-              threadId: thread.id,
-              title: chatThreadOtherName(thread),
-              subtitle: thread.campaignTitle ?? roleLabel.tr,
-            ),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                _Avatar(name: chatThreadOtherName(thread)),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              chatThreadOtherName(thread),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w800,
-                                color: AppThemeConfig.text(context),
-                              ),
-                            ),
-                          ),
-                          if (thread.lastMessageAt != null)
-                            Text(
-                              DateFormat('MMM d').format(thread.lastMessageAt!),
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: AppThemeConfig.mutedText(context),
-                              ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        thread.lastMessage ??
-                            '${roleLabel.tr} · ${thread.campaignTitle ?? ''}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: thread.unreadCount > 0
-                              ? AppThemeConfig.text(context)
-                              : AppThemeConfig.mutedText(context),
-                          fontWeight: thread.unreadCount > 0
-                              ? FontWeight.w700
-                              : FontWeight.w400,
-                        ),
-                      ),
-                      // Note #36 — the "Responsible Staff Member," if claimed.
-                      if (thread.assignedStaffName != null) ...[
-                        const SizedBox(height: 2),
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.shield_rounded,
-                              size: 11,
-                              color: AppThemeConfig.subtleText(context),
-                            ),
-                            const SizedBox(width: 3),
-                            Text(
-                              'helped_by'.trParams({
-                                'name': thread.assignedStaffName!,
-                              }),
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: AppThemeConfig.subtleText(context),
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                if (thread.unreadCount > 0) ...[
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.all(7),
-                    decoration: BoxDecoration(
-                      color: AppThemeConfig.primary,
-                      shape: BoxShape.circle,
-                    ),
-                    constraints: const BoxConstraints(
-                      minWidth: 24,
-                      minHeight: 24,
-                    ),
-                    child: Center(
-                      child: Text(
-                        '${thread.unreadCount}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _OutgoingPendingTile extends StatelessWidget {
-  const _OutgoingPendingTile({required this.thread});
-  final ChatThread thread;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: GlassPanel(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          children: [
-            _Avatar(
-              name: chatThreadOtherName(thread),
-              color: AppThemeConfig.pending(context),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    chatThreadOtherName(thread),
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      color: AppThemeConfig.text(context),
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    'Waiting for them to accept your chat request…'.tr,
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      color: AppThemeConfig.mutedText(context),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.hourglass_top_rounded,
-              color: AppThemeConfig.pending(context),
-              size: 20,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _IncomingRequestCard extends StatelessWidget {
-  const _IncomingRequestCard({required this.thread, required this.ctrl});
-  final ChatThread thread;
-  final ChatController ctrl;
-
-  Future<void> _accept(BuildContext context) async {
-    try {
-      await ctrl.accept(thread.id);
-      if (context.mounted) {
-        Get.to(
-          () => ChatConversationScreen(
-            threadId: thread.id,
-            title: chatThreadOtherName(thread),
-            subtitle: thread.campaignTitle,
-          ),
-        );
-      }
-    } catch (e) {
-      // Was `Text('$e')`, the raw English exception on every locale. The
-      // controller has already refreshed the list, so a declined, active or
-      // closed invite leaves this section on its own (OPOS #26433).
-      debugPrint('accept thread ${thread.id} failed: $e');
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(chatInviteRefusalMessage(e, ChatInviteAnswer.accept)),
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _decline(BuildContext context) async {
-    try {
-      await ctrl.decline(thread.id);
-    } catch (e) {
-      // Was `catch (_) {}` — a failed decline did nothing at all: the request
-      // card stayed on screen with no explanation, so the tap read as a dead
-      // button. Declining is a real mutation, not best-effort, so the failure
-      // is told to the user and the technical cause goes to the log.
-      debugPrint('decline thread ${thread.id} failed: $e');
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              chatInviteRefusalMessage(e, ChatInviteAnswer.decline),
-            ),
-          ),
-        );
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final roleLabel =
-        (thread.myRole == 'donor' ? 'campaign owner' : 'donor').tr;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: GlassPanel(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                _Avatar(
-                  name: chatThreadOtherName(thread),
-                  color: AppThemeConfig.primary,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        chatThreadOtherName(thread),
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w900,
-                          color: AppThemeConfig.text(context),
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'wants to chat with you (@role)'.trParams({
-                          'role': roleLabel,
-                        }),
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          color: AppThemeConfig.mutedText(context),
-                        ),
-                      ),
-                      if (thread.campaignTitle != null) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          '“${thread.campaignTitle}”',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontStyle: FontStyle.italic,
-                            color: AppThemeConfig.mutedText(context),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => _decline(context),
-                    child: Text('Decline'.tr),
-                  ),
-                ),
-                // No Accept on a paused or ended thread: the server refuses
-                // it. Decline stays, to dismiss the invite (OPOS #26433).
-                if (!ChatLifecycle.isClosed(thread.lifecycle)) ...[
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: () => _accept(context),
-                      child: Text('Accept'.tr),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Support-bot entry card ───────────────────────────────────────────────────
-
-/// A card pinned at the top of the Messages screen that opens the support bot.
-class _BotAssistantCard extends StatelessWidget {
-  const _BotAssistantCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14, top: 8),
-      child: InkWell(
-        onTap: () => Get.to(() => const BotChatScreen()),
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AppThemeConfig.accent(context).withValues(alpha: 0.10),
-            border: Border.all(
-              color: Colors.deepPurple.withValues(alpha: 0.22),
-            ),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: AppThemeConfig.accent(context),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(
-                  Icons.smart_toy_rounded,
-                  color: AppThemeConfig.onAccent(context),
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Support Assistant'.tr,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: AppThemeConfig.accent(context),
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Ask me anything — I\'ll guide you through the app'.tr,
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        color: AppThemeConfig.mutedText(context),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(
-                AppIcons.chevronForward(context),
-                color: AppThemeConfig.accent(context),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }
