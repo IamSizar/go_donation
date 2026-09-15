@@ -32,7 +32,7 @@ made on this project once and had to be reverted.
 Every key below currently renders its **English** string to a Kurdish user.
 That is deliberate and safe. It is not a crash, and it is not Arabic text.
 
-## Count: 578 keys need Kurdish
+## Count: 616 keys need Kurdish
 
 | Client | Sorani (ckb) | Badini (kmr) | Distinct keys |
 |---|---|---|---|
@@ -56,6 +56,7 @@ That is deliberate and safe. It is not a crash, and it is not Arabic text.
 | Admin dashboard — delete confirmation bodies (were FALSE in Kurdish) | 5 | 5 | 5 |
 | Admin dashboard — OPOS #26398 chat groups page (new) | 68 | 68 | 68 |
 | Admin dashboard — OPOS #26400 connect-request inbox (new) | 41 | 41 | 41 |
+| Admin dashboard — OPOS #26399 chat group detail page, and #26429 notification type (new) | 35 | 35 | 35 |
 | App — City Guide map chip (place count) | 2 | 2 | 2 |
 | App — security page auth description (old Kurdish was FALSE) | 1 | 1 | 1 |
 | App — K14 خطوبتي owner self-management (new) | 20 | 20 | 20 |
@@ -64,7 +65,8 @@ That is deliberate and safe. It is not a crash, and it is not Arabic text.
 | App — OPOS #26419 chat group sender labels (new) | 6 | 6 | 6 |
 | App — OPOS #26429 group chat message notification type (new) | 1 | 1 | 1 |
 | App — OPOS #26483 unnamed chat thread party (new) | 1 | 1 | 1 |
-| **Total distinct words to translate** | | | **578** |
+| App — OPOS #26433 chat invite refusals (new) | 3 | 3 | 3 |
+| **Total distinct words to translate** | | | **616** |
 
 > **The dashboard figure above is a floor, not a ceiling — and it is the one
 > number in this file that was never fully measured.** Counting key paths in
@@ -222,6 +224,25 @@ Updated 2026-09-15 (OPOS #26435): the 1:1 support chat now also uses
 `chat_group_sender_support`, for a staff reply that arrives with no name. No
 key was added and the count is unchanged; translate the row above once and it
 serves both chats.
+
+## chat · OPOS #26433 chat invite refusals  (3 keys)
+
+Added 2026-09-15. What a person sees when the server refuses their answer to a
+chat invite, in the donor chat and the marriage chat alike. English and Arabic
+written; ckb and kmr NOT, so they fall back to English. No Kurdish invented.
+
+`error_chat_accept_failed` is followed by one of the two `error_next_*`
+recovery clauses (see "Write failures" below), so it must read as a complete
+first sentence. The other two stand alone: trying again cannot change them.
+A refusal because staff closed the thread reuses the existing "...closed by our
+team." / "...paused by our team." rows, and the decline failure reuses
+`Could not decline this chat request.`, so neither adds a key.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `error_chat_accept_failed` | Could not accept this chat request. | تعذّر قبول طلب المحادثة. | ckb + kmr |
+| `chat_invite_refusal_declined` | You declined this invitation. | لقد رفضتَ هذه الدعوة. | ckb + kmr |
+| `chat_invite_refusal_already_active` | This chat is already active, so it can no longer be declined. | هذه المحادثة نشطة بالفعل، لذا لم يعد بالإمكان رفضها. | ckb + kmr |
 
 ## notifications · OPOS #26429 group chat message notification type  (1 key)
 
@@ -1897,6 +1918,65 @@ written, and the invisible `⁦`/`⁩` marks around `#T{id}`.
 | `chat_groups.inbox.decline.submit` | Decline request | رفض الطلب | ckb + kmr |
 | `chat_groups.inbox.decline.submitting` | Declining… | جارٍ الرفض… | ckb + kmr |
 | `chat_groups.inbox.decline.declined_toast` | Request declined | تم رفض الطلب | ckb + kmr |
+## Dashboard · OPOS #26399 the chat group detail page (dashboard, `admin-web`)  (35 keys)
+
+Same rule: **English and Arabic written; ckb (سۆرانی) and kmr (بادینی) NOT** —
+they fall back to English. No Kurdish invented.
+
+Added 2026-09-15. `/chat-groups/:id` shows one chat group to staff: its
+members, its messages, the refused contact-sharing attempts and its state.
+The wording follows the #26398 section above: a masked member's **label**
+(«الاسم الظاهر») is what other members see; staff see real names.
+
+Keep every placeholder exactly as written: `{n}`, `{name}` and `{label}`.
+
+### The page  (34 keys)
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `chat_groups.detail.member_active` | This person is already an active member of this group. | هذا الشخص عضو فعّال في هذه المجموعة بالفعل. | ckb + kmr |
+| `chat_groups.detail.back` | Back to chat groups | العودة إلى المجموعات الحوارية | ckb + kmr |
+| `chat_groups.detail.loading` | Loading the group… | جارٍ تحميل المجموعة… | ckb + kmr |
+| `chat_groups.detail.masked_note` | Members see each other only by their labels. Staff see real names. | يرى الأعضاء بعضهم بالأسماء الظاهرة فقط، أما الفريق فيرى الأسماء الحقيقية. | ckb + kmr |
+| `chat_groups.detail.state_aria` | Group state | حالة المجموعة | ckb + kmr |
+| `chat_groups.detail.forbidden_title` | Sensitive-data access needed | تحتاج إلى صلاحية البيانات الحساسة | ckb + kmr |
+| `chat_groups.detail.forbidden_body` | This is a masked group, so opening it shows the real identities behind the labels. Your access level does not include sensitive data. Ask the Primary Administrator for it if your work needs this group. | هذه مجموعة بأسماء مستعارة، وفتحها يكشف الهويات الحقيقية خلف الأسماء الظاهرة. مستوى صلاحيتك لا يشمل البيانات الحساسة. اطلبها من المشرف الرئيسي إذا كان عملك يتطلب هذه المجموعة. | ckb + kmr |
+| `chat_groups.detail.no_profile` | No profile name | بلا اسم في الملف الشخصي | ckb + kmr |
+| `chat_groups.detail.active_count` | {n} active | {n} فعّال | ckb + kmr |
+| `chat_groups.detail.roster_empty` | No active members. Add someone so the group can be used. | لا يوجد أعضاء فعّالون. أضف شخصاً ليمكن استخدام المجموعة. | ckb + kmr |
+| `chat_groups.detail.show_removed` | Show removed members ({n}) | إظهار الأعضاء المُزالين ({n}) | ckb + kmr |
+| `chat_groups.detail.hide_removed` | Hide removed members | إخفاء الأعضاء المُزالين | ckb + kmr |
+| `chat_groups.detail.removed_aria` | Removed members | الأعضاء المُزالون | ckb + kmr |
+| `chat_groups.detail.removed` | Removed | مُزال | ckb + kmr |
+| `chat_groups.detail.label_of` | Label: {label} | الاسم الظاهر: {label} | ckb + kmr |
+| `chat_groups.detail.remove_title` | Remove member | إزالة عضو | ckb + kmr |
+| `chat_groups.detail.remove_body` | {name} will stop receiving this group's messages. The history stays. If you add them back later, they keep their old label. | لن تصل رسائل هذه المجموعة إلى {name} بعد الآن، ويبقى السجل محفوظاً. إذا أعدت إضافته لاحقاً يحتفظ باسمه الظاهر السابق. | ckb + kmr |
+| `chat_groups.detail.remove_aria` | Remove {name} | إزالة {name} | ckb + kmr |
+| `chat_groups.detail.removed_toast` | Member removed | تمت إزالة العضو | ckb + kmr |
+| `chat_groups.detail.no_edit` | Your access level can view the members but not change them. | مستوى صلاحيتك يسمح بعرض الأعضاء دون تعديلهم. | ckb + kmr |
+| `chat_groups.detail.add_title` | Add a member | إضافة عضو | ckb + kmr |
+| `chat_groups.detail.adding` | Adding… | جارٍ الإضافة… | ckb + kmr |
+| `chat_groups.detail.added_toast` | Member added | تمت إضافة العضو | ckb + kmr |
+| `chat_groups.detail.reactivate_hint` | This person was removed earlier. Adding them back restores their old role and label. | أُزيل هذا الشخص سابقاً. إعادة إضافته تستعيد دوره واسمه الظاهر السابقين. | ckb + kmr |
+| `chat_groups.detail.messages_title` | Messages | الرسائل | ckb + kmr |
+| `chat_groups.detail.messages_loading` | Loading messages… | جارٍ تحميل الرسائل… | ckb + kmr |
+| `chat_groups.detail.messages_empty` | No messages yet. Messages from members and staff appear here. | لا توجد رسائل بعد. تظهر هنا رسائل الأعضاء والفريق. | ckb + kmr |
+| `chat_groups.detail.messages_aria` | Group messages | رسائل المجموعة | ckb + kmr |
+| `chat_groups.detail.poll_failed` | New messages could not be loaded. The list may be out of date; it will try again shortly. | تعذّر تحميل الرسائل الجديدة. قد لا تكون القائمة محدّثة، وستُعاد المحاولة قريباً. | ckb + kmr |
+| `chat_groups.detail.composer_label` | Message to the group | رسالة إلى المجموعة | ckb + kmr |
+| `chat_groups.detail.composer_hint` | Members see your real name. Do not include phone numbers or email addresses. | يرى الأعضاء اسمك الحقيقي. لا تكتب أرقام هواتف أو عناوين بريد إلكتروني. | ckb + kmr |
+| `chat_groups.detail.composer_no_permission` | Your access level can read this group but not send messages to it. | مستوى صلاحيتك يسمح بقراءة هذه المجموعة دون إرسال رسائل إليها. | ckb + kmr |
+| `chat_groups.detail.closed_paused` | This group is paused, so nobody can send messages. Resume it to write here. | هذه المجموعة موقوفة مؤقتاً، لذلك لا يمكن لأحد إرسال رسائل. استأنفها للكتابة هنا. | ckb + kmr |
+| `chat_groups.detail.closed_ended` | This group has ended. Its history stays readable, but no new messages can be sent. | انتهت هذه المجموعة. يبقى سجلها متاحاً للقراءة، لكن لا يمكن إرسال رسائل جديدة. | ckb + kmr |
+
+### Notification type  (1 key, OPOS #26429)
+
+The dashboard's label for the app's `chat_group_message` notification, worded
+as the app's own map (`humanitarian/lib/localization/app_translations.dart`).
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `status.chat_group_message` | Group chat message | رسالة محادثة جماعية | ckb + kmr |
 
 ## Write failures: what happened, and what to do next (app, `humanitarian`)
 

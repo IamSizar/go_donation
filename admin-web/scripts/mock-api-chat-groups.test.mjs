@@ -112,6 +112,41 @@ test('a group that does not exist answers 404 group_not_found, for its detail, m
   }
 })
 
+test('?scenario=no_sensitive refuses a masked group with 403 sensitive_data_required, and still serves a team group', async (t) => {
+  const request = await startMock(t)
+  const masked = `/api/admin/chat-groups/${MASKED_GROUP_ID}`
+  const q = '?scenario=no_sensitive'
+
+  const replies = [
+    await request('GET', `${masked}${q}`),
+    await request('GET', `${masked}/messages${q}`),
+    await request('GET', `${masked}/contact-blocks${q}`),
+  ]
+  const team = await request('GET', `/api/admin/chat-groups/${TEAM_GROUP_ID}${q}`)
+
+  for (const { status, body } of replies) {
+    assert.equal(status, 403)
+    assert.equal(body.code, 'sensitive_data_required')
+  }
+  assert.equal(team.status, 200)
+})
+
+test('a member added to a group and then removed shows in the roster with removed_at', async (t) => {
+  const request = await startMock(t)
+  const path = `/api/admin/chat-groups/${TEAM_GROUP_ID}`
+
+  const added = await request('POST', `${path}/members`, { user_id: 101, role_in_group: 'donor', label: '' })
+  const removed = await request('DELETE', `${path}/members/101`)
+  const again = await request('DELETE', `${path}/members/101`)
+  const { body } = await request('GET', path)
+
+  assert.equal(added.status, 200)
+  assert.equal(removed.status, 200)
+  assert.equal(again.status, 404)
+  const row = body.group.members.find((m) => m.user_id === 101)
+  assert.equal(typeof row.removed_at, 'string')
+})
+
 test('connect requests cover every status and filter by ?status=', async (t) => {
   const request = await startMock(t)
 

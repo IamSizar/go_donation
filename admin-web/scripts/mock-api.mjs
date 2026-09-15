@@ -24,6 +24,7 @@
 //   empty    every top-level list empty and every total 0; objects unchanged
 //   error    every request answers 500 { success: false, error: 'Database error.' }
 //   slow     the default answer, 2 seconds late
+//   no_sensitive  reading a masked group answers 403 sensitive_data_required
 // An unknown name answers 400, so a typo cannot quietly look like "default".
 //
 // Every route the fixtures do not cover answers { success: true, items: [],
@@ -38,7 +39,7 @@ import { MOCK_STAFF_USER, MOCK_TOKEN, SESSION_STORAGE_KEYS } from '../src/test/f
 import { createState, ROUTES } from './mock-api-routes.mjs'
 
 /** Every scenario name a request or MOCK_SCENARIO may use. */
-export const SCENARIOS = ['default', 'empty', 'error', 'slow']
+export const SCENARIOS = ['default', 'empty', 'error', 'slow', 'no_sensitive']
 
 /** The only address the mock listens on: the IPv4 loopback interface. */
 export const LOOPBACK_HOST = '127.0.0.1'
@@ -129,19 +130,19 @@ async function replyFor(context, { method, url, req, scenario }) {
 
   const parsed = await readJsonBody(req)
   if (!parsed.ok) return fail(400, 'Invalid JSON.')
-  const reply = dispatch(context.state, { method, url, body: parsed.value })
+  const reply = dispatch(context.state, { method, url, body: parsed.value, scenario })
   return scenario === 'empty' ? emptied(reply) : reply
 }
 
 /** Runs the first route whose method and path match; the fallback otherwise. */
-function dispatch(state, { method, url, body }) {
+function dispatch(state, { method, url, body, scenario }) {
   for (const route of ROUTES) {
     if (route.method !== method) continue
     const match = route.path.exec(url.pathname)
     if (!match) continue
     // Every path parameter in the table is a numeric id.
     const params = match.slice(1).map(Number)
-    return route.handle({ state, query: url.searchParams, body }, params)
+    return route.handle({ state, query: url.searchParams, body, scenario }, params)
   }
   return { status: 200, body: FALLBACK_BODY }
 }
