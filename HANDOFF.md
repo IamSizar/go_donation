@@ -6,6 +6,60 @@
 
 ---
 
+## 2026-09-15 — OPOS #26473: notification_tile.dart split under the 500-line limit, no behaviour change (branch `refactor/split-notification-tile`)
+
+**What was asked:** `humanitarian/lib/modules/notifications/widgets/notification_tile.dart` had 704 lines against the 500-line limit. The request was to move the self-contained chat request Accept / Decline widget into its own file, keep #106's guest guard and every comment, and split further if the file was still too long. It was a pure refactor.
+
+**What was actually changed** (on `refactor/split-notification-tile`, off `origin/main` `30186e5`, which includes #106 `686eb89`; not pushed):
+- **`672519c` refactor(notifications): split the chat request actions out of notification_tile.dart.** Module map, all in `humanitarian/lib/modules/notifications/widgets/`:
+
+  | File | Lines | Holds |
+  |---|---|---|
+  | `notification_tile.dart` | 446 (was 704) | `NotificationTile`, `_relativeTime`, `_IconBadge`, `_CategoryChip`, `_MiniChip`, `_ReadBackground`; new file header |
+  | `chat_request_actions.dart` (new) | 197 | `ChatRequestActions`, formerly `_ChatRequestActions`, with its private State: the inline Accept / Decline row |
+  | `notification_visuals.dart` (new) | 149 | `NotificationVisuals`, formerly `_NotificationVisuals`: category and type map to colour, icon and `isPinned` |
+
+  `notification_tile.dart` imports both new files; neither imports it back. Moving only the actions would have left the tile at about 550 lines, so the icon and colour lookup was moved as well.
+- **Why the classes are public.** `lib/` has no `part` / `part of` libraries, so library-private was not an option in the house style. Two constructor lines changed:
+  - `ChatRequestActions` gained `super.key`, which `use_key_in_widget_constructors` expects on a public widget. The tile passes no key.
+  - `NotificationVisuals` has a private `._` constructor and is built only through `.of`, as before.
+- **The guest guard is still at the call site.** `NotificationTile` builds `ChatRequestActions` only when `notificationType == 'chat_request'`, the related id parses, and `!isGuestMode()`, with `isGuestMode()` last. The new file's header and class doc say that any other host must apply the same guard, because building the widget registers `ChatController` and starts its 5-second `/api/chats` poll.
+- **Proof of no change** (Python, against `git show HEAD:…`): with comments ignored and the two renames normalized, the kept tile code (318 lines) and both moved bodies (124 and 105 lines) match line for line, except the two constructor changes above. All 109 original comment lines are still present.
+
+**What was run and what it printed** (from `humanitarian/`):
+- `flutter analyze` on untouched main printed `6 issues found.`, and after the split also `6 issues found.`: the same six deprecation infos, nothing new.
+- `dart format` on the three files: `Formatted 3 files (1 changed)`. The change re-joined the `NotificationVisuals.of` signature.
+- `flutter test test/notifications/ test/localization/notification_relative_time_test.dart` printed `00:03 +18: All tests passed!`. These are the only tests that render `NotificationTile`; grep finds no dashboard test that does.
+- Full `flutter test` printed `00:57 +1031: All tests passed!` and exited 0.
+- Full `flutter test --reporter json`, parsed:
+  - `suites run: 135 | test files on disk: 135`, `on disk but not run: none`;
+  - `{'success': 1031}`, with no failures;
+  - `chat_request_tile_guest_test.dart` 4, `support_destination_test.dart` 9 and `notification_relative_time_test.dart` 5, all success.
+
+**Review** (`ecc:flutter-reviewer` on `git diff origin/main`): the verdict was **no behaviour change**. It independently confirmed the moved bodies match, the guard and its OPOS #26448 comment are intact, all imports are used, and consumers reference only `NotificationTile`. It reported two findings; neither changed the code:
+- **MEDIUM, the guest guard is now enforced by documentation instead of the compiler.** As a library-private class in a codebase with no `part` files, `_ChatRequestActions` could not be built outside the tile. As a public class it can be, and only the header, the class doc and the `_ctrl` comment warn against it. This is real, and it is the trade-off the task accepted: public with a clear doc if there is no `part` pattern. The suggested `assert(!isGuestMode(), …)` in `initState` would add debug-mode runtime behaviour to a change meant to have none, so it was not added. See Still open.
+- **LOW, `notification_tile.dart:6` is 81 columns.** This is a false positive: the line is 77 characters and 81 bytes, because "•" and "—" are three bytes each. By character count the only lines over 80 in the three files are four carried over verbatim: two comments in the tile, and the `chat_controller` and `chat_conversation_screen` imports.
+
+**External actions:** none. Nothing was pushed, and there is no PR. The OPOS MCP needed authentication in this session, so #26473 was not moved to WIP or Completed and no timer was run.
+
+**Still open:**
+- Push the branch and open a PR.
+- Update OPOS #26473 once the connector is authorised.
+- Decide whether to restore some enforcement of the guest guard on the now-public `ChatRequestActions`. The reviewer's option is a debug-only `assert(!isGuestMode(), 'ChatRequestActions must not be built for a guest — OPOS #26448')` in `initState`, with a test that a guest-mode build trips it. It is a behaviour change in debug and test builds, so it belongs in its own commit.
+- Pre-existing issues in the moved code were left untouched on purpose:
+  - `ChatRequestActions._accept` shows the raw exception (`'$e'`) in a SnackBar;
+  - `_decline` catches its error and only re-enables the buttons, so a failed decline tells the member nothing.
+
+  Both break the error-UX rules and deserve their own fix with a test.
+
+**Traps:**
+- The expanded reporter's log names only the test files whose tests happened to print, 82 of 135 here, so it cannot prove a full run. Use `flutter test --reporter json` and count the `suite` events.
+- `wc -l` gives 704 for the original tile. The Read tool shows 705 because it numbers the empty line after the final newline.
+- In zsh, `grep --include=*.dart` must be quoted (`--include='*.dart'`), or it fails with "no matches found".
+- In a worktree-isolated agent, the isolation hook refuses git inside `for` loops and multi-statement Monitor scripts. Run plain, single git commands from the worktree root.
+
+---
+
 ## 2026-09-15 — OPOS #26410 (part): chat-group membership conflicts answer 409 with codes, and re-adding a removed member reactivates them (branch `feat/chat-groups-conflict-codes`)
 
 **What was asked:** on the chat-group admin routes, adding someone who is already a member, or giving a masked label that another active member holds, returned 500 "Database error.". Three changes were requested, test-first:
