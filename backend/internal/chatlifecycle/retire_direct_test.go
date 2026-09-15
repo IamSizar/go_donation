@@ -76,7 +76,7 @@ func randomDigits(t *testing.T, n int) string {
 func TestRetireAllDirectThreadsEndsAndArchivesOpenDirectThreads(t *testing.T) {
 	pool := newTestPool(t)
 	ctx := context.Background()
-	staff := makeTestUser(t, pool, "staff")
+	staff := makeStaffUser(t, pool, "admin")
 	donor := makeTestUser(t, pool, "donor")
 	owner := makeTestUser(t, pool, "owner")
 
@@ -92,12 +92,15 @@ func TestRetireAllDirectThreadsEndsAndArchivesOpenDirectThreads(t *testing.T) {
 		t.Fatalf("insert support: %v", err)
 	}
 
-	count, err := RetireAllDirectThreads(ctx, pool, staff)
+	// Exact counts come from the table, not from "1": a run acts on every
+	// pending direct thread, including ones other tests left behind.
+	want := pendingDirectRetirement(t, pool)
+	res, err := RetireAllDirectThreads(ctx, pool, staff)
 	if err != nil {
 		t.Fatalf("RetireAllDirectThreads: %v", err)
 	}
-	if count != 1 {
-		t.Fatalf("count = %d, want 1 (only the direct thread)", count)
+	if res != want || res.Ended < 1 {
+		t.Fatalf("result = %+v, want %+v including the seeded direct thread, and never the support one", res, want)
 	}
 
 	var directLifecycle string
@@ -122,7 +125,7 @@ func TestRetireAllDirectThreadsEndsAndArchivesOpenDirectThreads(t *testing.T) {
 func TestRetireAllDirectThreadsIsIdempotent(t *testing.T) {
 	pool := newTestPool(t)
 	ctx := context.Background()
-	staff := makeTestUser(t, pool, "staff")
+	staff := makeStaffUser(t, pool, "admin")
 	donor := makeTestUser(t, pool, "donor")
 	owner := makeTestUser(t, pool, "owner")
 	if _, err := pool.Exec(ctx, `
@@ -134,11 +137,11 @@ func TestRetireAllDirectThreadsIsIdempotent(t *testing.T) {
 	if _, err := RetireAllDirectThreads(ctx, pool, staff); err != nil {
 		t.Fatalf("first run: %v", err)
 	}
-	count, err := RetireAllDirectThreads(ctx, pool, staff)
+	res, err := RetireAllDirectThreads(ctx, pool, staff)
 	if err != nil {
 		t.Fatalf("second run: %v", err)
 	}
-	if count != 0 {
-		t.Fatalf("second run count = %d, want 0 (already ended+archived, lifecycle != 'open')", count)
+	if res != (RetireResult{}) {
+		t.Fatalf("second run = %+v, want nothing changed (every direct thread already ended+archived)", res)
 	}
 }

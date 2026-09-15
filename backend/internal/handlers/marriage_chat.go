@@ -50,6 +50,8 @@ func (h *MarriageChatHandler) chatErr(c *gin.Context, err error) {
 		c.JSON(http.StatusForbidden, gin.H{"success": false, "error": "Only the profile owner can accept or decline."})
 	case errors.Is(err, marriagechat.ErrNotActive):
 		c.JSON(http.StatusConflict, gin.H{"success": false, "error": "This chat is not active yet."})
+	case errors.Is(err, marriagechat.ErrNotPending):
+		c.JSON(http.StatusConflict, gin.H{"success": false, "error": "This chat is already active, so it can no longer be declined."})
 	case errors.Is(err, marriagechat.ErrRequestGone):
 		c.JSON(http.StatusConflict, gin.H{"success": false, "error": "This request was already decided."})
 	default:
@@ -193,6 +195,11 @@ func (h *MarriageChatHandler) Accept(c *gin.Context) {
 }
 
 // POST /api/marriage/chats/:id/decline — profile owner only.
+//
+// Only a pending invite can be declined: an active chat answers 409 and stays
+// active (OPOS #26427; see marriagechat.Store.DeclineThread). Declining is not
+// lifecycle-gated, so the owner can still dismiss an invite on a thread staff
+// paused, ended or archived.
 func (h *MarriageChatHandler) Decline(c *gin.Context) {
 	user, _ := auth.UserFromGin(c)
 	if user == nil {
