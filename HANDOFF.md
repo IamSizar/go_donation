@@ -6,6 +6,106 @@
 
 ---
 
+## 2026-09-15 — OPOS #26434: masked chat-group pushes name the sender in Arabic and Kurdish, not English (branch `fix/masked-push-title-localized-alias`)
+
+**What was asked:** masked chat-group pushes put the server's English label ("Donor 1", "Support", …) into every language's title. An Arabic push read «رسالة من Donor 1», and the in-app list stored the same. Fix it test-first in `backend/internal/notify`, without touching files other branches are editing.
+
+**Owner decisions (2026-09-15).** These were relayed mid-task and replaced the brief's first word table.
+- **English:** keep the server's words exactly: "Donor 1", "Beneficiary 2", "Volunteer 3", "Member 4", "Support". Do not use "Grantor" or "Eligible Recipient". The app's chat bubbles are being changed to show the same English.
+- **Arabic:**
+  - The role labels become مانح N, مستحق N, متطوع N and عضو N; a bare "Member" becomes عضو.
+  - **"Support" becomes فريق الدعم**, not الدعم. The app already uses الدعم for Kafala (`'Kafala': 'الدعم'`, `humanitarian/lib/localization/app_translations.dart:3837`), and TERMINOLOGY.md T10 says the two must differ.
+- **Kurdish:** reuse only exact existing translations. Anything without one stays the English server word and goes on a translator list.
+
+**What was actually changed.** There are two local commits on `fix/masked-push-title-localized-alias`, based on `origin/main` `3c3a612`.
+
+**`38271bc` `fix(notify): localize masked chat-group aliases in push titles`**
+- `backend/internal/notify/group_alias.go` (new): `localizedGroupAlias(label, lang string) string`, a pure lookup.
+  - It translates only the exact shapes the server writes: the anchored, case-sensitive `^(Donor|Beneficiary|Volunteer|Member) ([1-9][0-9]*)$`, and the whole labels "Support" and "Member".
+  - Everything else passes through unchanged, as does any language with no word for the label.
+- `backend/internal/notify/templates.go`:
+  - `GroupMaskedNewMessageMsg` applies the empty → "Member" fallback, then asks the helper for each language's label.
+  - `GroupTeamNewMessageMsg` passes the real name unchanged to all four languages, so team output is byte-identical to before.
+  - The shared `chatGroupNewMessageMsg` now takes a per-language `LocalText`. Its only callers are these two templates.
+- `backend/internal/notify/templates_group_alias_test.go` (new) checks:
+  - all four titles for every generated shape;
+  - English kept verbatim;
+  - Arabic "Support" is not the Kafala word;
+  - 14 near-miss and custom labels kept verbatim (lowercase, leading zero, `\n`, Arabic-Indic digit, …);
+  - team names untouched, even "Donor 1".
+- `backend/internal/notify/group_alias_test.go` (new): the helper's own contract, including an unknown language, an upper-case code and an empty label.
+- Existing tests are unchanged. `templates_chat_groups_test.go` and `handlers/chat_group_push_message_test.go` still pin «Message from Donor 1» and «Message from Beneficiary 2», which is exactly the owner's English decision.
+
+**This entry** is the second commit.
+
+**Kurdish words used.** Each is copied byte for byte from the app's shipped keys. A Python byte-compare against `app_translations.dart` showed no hidden joiners or direction marks.
+
+| label | ckb (`_sorani`) | kmr (`_badini`) |
+|---|---|---|
+| Donor N | بەخشەر N (`'Donor'`, `:6246`) | بەخشەر N (`"Donor"`, `:8541`) |
+| Beneficiary N | وەرگری شایستە N (`:6247`) | وەرگرێ شایستە N (`:8542`) |
+| Volunteer N | خۆبەخش N (`:6248`) | خۆبەخش N (`:8543`) |
+| Member N / Member | **stays English**: no Kurdish "Member" exists | **stays English** |
+| Support | **stays English** (see below) | **stays English** |
+
+**Why Kurdish "Support" stays English:**
+- **The candidate word is ambiguous.** The app's Kurdish for its bare `'Support'` key, پشتیوانی / پشتەڤانی, is also its word for *financial* support: ckb `'Next support due'` (`:6159`), kmr `"General Support"` (`:8878`), kmr `"Kafala Sponsorship"` → «کەفالەت و پشتەڤانی» (`:8632`). That is the same ambiguity T10 settles for Arabic.
+- **There is no standalone Kurdish "support team" label.** The phrase appears only inside sentences, and ckb is inconsistent: «تیمی پاڵپشتی» (`:7039`) vs «تیمی پشتگیری» (`:7541`), while kmr uses «تیما پشتەڤانیێ» (`:8699`, `:9444`).
+
+**What was run and what it printed.** All commands ran from the worktree root.
+
+**RED on the `origin/main` code**, with the Arabic and Kurdish expectations above, run as `go -C backend test ./internal/notify/ -count=1 -run '^TestGroup' -v`, exit 1:
+- `Title[ar] = "رسالة من Donor 1", want "رسالة من مانح 1"`, and likewise for Beneficiary, Volunteer, Member 4, Support and Member, in ckb and kmr too.
+- `Arabic text "رسالة من Donor 1" still contains the English noun "Donor"`.
+- The custom-label and team guard tests already passed, as intended.
+
+**RED for the helper**, before it existed, with `-run '^TestLocalizedGroupAlias'`, exit 1:
+- `group_alias_test.go:38:14: undefined: localizedGroupAlias`.
+
+**RED again after the owner decisions**, against the first implementation, with `-run '^Test(Group|LocalizedGroupAlias)'`, exit 1:
+- `localizedGroupAlias("Support", "ar") = "الدعم", want "فريق الدعم"`
+- `Title[en] = "Message from Grantor 1", want "Message from Donor 1"`
+- `Title[ckb] = "نامە لە پشتیوانی", want "نامە لە Support"`
+- `Title.Ar = "رسالة من الدعم", which names the Kafala section, not the support team`
+- The handler test `chat_group_push_message_test.go:86` printed `Title.En = "Message from Eligible Recipient 2", want exactly the alias`.
+
+**GREEN:**
+- `go -C backend test ./internal/notify/ -count=1 -v` exited 0 with 18 top-level PASS, 0 FAIL and 6 SKIP (the DB tests, without `TEST_DATABASE_URL`). The last line was `ok .../internal/notify 0.976s`.
+- `go -C backend test ./internal/handlers/ -count=1 -run '^TestGroupMessageFor' -v` passed: `ok .../internal/handlers 1.029s`.
+
+**Full suite** on a fresh DB, `godonation_masked_alias_26434`:
+- Command: `createdb` it, then `TEST_DATABASE_URL='postgres://localhost:5432/godonation_masked_alias_26434?sslmode=disable' go -C backend test ./... -count=1 -p 1 -timeout 45m`.
+- Exit 0. 22 packages `ok`, 0 FAIL. `chatgroups` took 604.963s and `handlers` 636.225s. The last lines were `ok .../internal/storage 1.225s` and `ok .../internal/users 39.573s`.
+- The DB was then dropped, and `SELECT count(*) FROM pg_database WHERE datname = 'godonation_masked_alias_26434'` printed `0`.
+
+**Formatting and vet:**
+- `gofmt -l` on the four changed Go files prints nothing, and `go -C backend vet ./...` is clean.
+- `gofmt -l backend` still lists only `internal/handlers/admin_edit_user_profile.go`, which was already on `main` and is not touched here.
+
+**Code review** (`ecc:code-reviewer`, two passes):
+- **First pass:** APPROVE with one LOW. The comments claimed *every* label staff typed passes through untouched. But a typed label that is exactly a generated shape (e.g. "Donor 5") is stored identically (`MemberInput.Label`, `chatgroups.go:246-253` and `:329-342`), so it is translated too. The comments were reworded in `38271bc`.
+- **Second pass**, on the final diff: APPROVE, no findings. It byte-checked the Kurdish against the app, and confirmed `groupMessageFor` (`handlers/chat_group.go:348`) is the only production caller and that nothing parses stored titles.
+
+**External actions taken:** none. Nothing was pushed and no PR was opened. OPOS MCP needed OAuth and wasn't available in this non-interactive session, so #26434 was not moved or commented on.
+
+**What is still open:**
+- Both commits are local, unpushed and not reviewed by a human.
+- **Translator request (ckb + kmr):**
+  - "Member", standalone and as «Member N»;
+  - "Support", meaning the support team, with the candidates listed above.
+- **The Flutter branch `fix/chat-group-sender-labels-localized` (OPOS #26419, unmerged) contradicts the owner's decisions.** It still has English `Grantor @n` / `Eligible Recipient @n` and Arabic `الدعم`. The coordinator reports the bubbles are being changed to match; until then, push and bubble differ.
+- **Kurdish push and Kurdish bubble will differ.** That branch also leaves ckb/kmr to fall back to English, so a Kurdish reader sees Kurdish Donor/Beneficiary/Volunteer in the push but English in the bubble, unless the app reuses the same three values.
+- **The team-group empty-name fallback is still the English "Member"** in every language («رسالة من Member»). It was left untouched on purpose, since team groups were out of scope.
+- **Script mix in Badini titles.** The Badini chat title template `Peyam ji %s` (shared with `ChatNewMessageMsg`) is Latin script, while the Badini nouns are Arabic script, so a title reads «Peyam ji بەخشەر 1». This is for the native-speaker review (#21431).
+- **The in-app notification list reads only `title` and `title_ar`** (`internal/notify/list.go:152`). Sorani and Badini titles reach the push only.
+
+**Traps:**
+- **Wrong premise in the brief:** the brief said the label sat in the title *and body*. The body is the message preview verbatim; only the title carries the label.
+- **Wrong path in the brief:** `TERMINOLOGY.md` is at the repo root, not `humanitarian/TERMINOLOGY.md`.
+- **The worktree-isolation guard refuses compound Bash commands:** git combined with pipes, loops or `cd`, and `go test -run 'A|B'` inside a pipeline. Run plain commands such as `go -C backend test … > file`, then read the file.
+- **`dropdb`/`createdb` can take over 2 minutes** while other agents' suites load Postgres. It is not a hang.
+- **Stale Grantor/الدعم version:** the first implementation followed the brief's table (Grantor / Eligible Recipient / الدعم / Kurdish پشتیوانی). It was replaced before any commit. The first review agent was launched on that version but reviewed the final files.
+
 ## 2026-09-15 — OPOS #26424: guests no longer see chat notifications or their previews (branch `fix/guest-notifications-no-chat-previews`)
 
 **What was asked:** guests must not read chats. The chat read routes already refuse guests (PR #83, and #26354 in flight). But `GET /api/notifications` was not guest-gated, and a chat message writes a notification whose body is an 80-character preview of the message. A guest who was in a chat before `9d1cde5` could still read snippets there. The task was to close that, test-first, touching only notification list/count code.

@@ -1654,8 +1654,22 @@ func ChatNewMessageMsg(senderName, preview string, threadID int64) LocalizedMess
 // own masked_label, or "Support" for a staff sender — never a real name, so
 // a masked group's push notification cannot re-identify anyone the chat
 // screen itself hides. Real-name team groups use GroupTeamNewMessageMsg.
+//
+// The labels the server generates in English ("Donor 1", "Support", ...) are
+// shown in Arabic, and in Kurdish where an exact translation exists, through
+// localizedGroupAlias (OPOS #26434), so an Arabic title reads
+// "رسالة من مانح 1", not "رسالة من Donor 1". English keeps the server's words
+// by decision. A label staff typed reaches every language verbatim, unless it
+// is itself exactly a generated shape such as "Donor 5": that is stored the
+// same way as a generated label, so it is translated too.
 func GroupMaskedNewMessageMsg(alias, preview string, groupID int64) LocalizedMessage {
-	return chatGroupNewMessageMsg(alias, preview, groupID)
+	alias = groupLabelOrFallback(alias)
+	return chatGroupNewMessageMsg(LocalText{
+		En:  localizedGroupAlias(alias, "en"),
+		Ar:  localizedGroupAlias(alias, "ar"),
+		Ckb: localizedGroupAlias(alias, "ckb"),
+		Kmr: localizedGroupAlias(alias, "kmr"),
+	}, preview, groupID)
 }
 
 // GroupTeamNewMessageMsg notifies a member of a real-name TEAM chat group of a
@@ -1666,27 +1680,36 @@ func GroupMaskedNewMessageMsg(alias, preview string, groupID int64) LocalizedMes
 // every stored row pointed at the wrong conversation. Rows written before this
 // fix keep that wrong type; they cannot be told apart from real donor-chat rows.
 func GroupTeamNewMessageMsg(senderName, preview string, groupID int64) LocalizedMessage {
-	return chatGroupNewMessageMsg(senderName, preview, groupID)
+	name := groupLabelOrFallback(senderName)
+	return chatGroupNewMessageMsg(LocalText{En: name, Ar: name, Ckb: name, Kmr: name}, preview, groupID)
+}
+
+// groupLabelOrFallback returns label, or the neutral "Member" when the caller
+// resolved none, so a chat-group title never reads "Message from ".
+func groupLabelOrFallback(label string) string {
+	if label == "" {
+		return groupMemberLabel
+	}
+	return label
 }
 
 // chatGroupNewMessageMsg is the one body behind both chat-group templates, so
 // masked and team pushes can never drift onto different notification types or
-// entity types. `who` is whatever label the caller resolved; an empty one falls
-// back to a neutral "Member". The Kurdish titles are the same strings
-// ChatNewMessageMsg already ships, reused rather than re-drafted.
-func chatGroupNewMessageMsg(who, preview string, groupID int64) LocalizedMessage {
-	if who == "" {
-		who = "Member"
-	}
+// entity types. `who` is the sender's label per language, already resolved by
+// the caller: the masked template translates the labels the server generates,
+// the team template passes the real name through unchanged. The Kurdish titles
+// are the same strings ChatNewMessageMsg already ships, reused rather than
+// re-drafted.
+func chatGroupNewMessageMsg(who LocalText, preview string, groupID int64) LocalizedMessage {
 	return LocalizedMessage{
 		Type:              "chat_group_message",
 		RelatedEntityType: "chat_group_thread",
 		RelatedEntityID:   groupID,
 		Title: LocalText{
-			En:  fmt.Sprintf("Message from %s", who),
-			Ar:  fmt.Sprintf("رسالة من %s", who),
-			Ckb: fmt.Sprintf("نامە لە %s", who),
-			Kmr: fmt.Sprintf("Peyam ji %s", who),
+			En:  fmt.Sprintf("Message from %s", who.En),
+			Ar:  fmt.Sprintf("رسالة من %s", who.Ar),
+			Ckb: fmt.Sprintf("نامە لە %s", who.Ckb),
+			Kmr: fmt.Sprintf("Peyam ji %s", who.Kmr),
 		},
 		Body: LocalText{
 			En:  preview,
