@@ -5,8 +5,9 @@
 // Nothing here asserts anything. It builds one real thread in each of the
 // four chat systems — including the parent rows each one requires (a marriage
 // profile and meeting request, a mission signup and beneficiary case) — and
-// mounts the routes with the SAME middleware main.go uses, because the
-// middleware is what makes the lifecycle actions staff-only.
+// mounts the routes behind main.go's gates, because the middleware is what
+// makes the lifecycle actions staff-only. Which of main.go's admin gates are
+// deliberately left out, and why, is spelled out on newLifecycleRouter.
 //
 // Every fixture removes what it wrote in its own t.Cleanup: the suite must
 // leave the shared test database exactly as it found it.
@@ -169,12 +170,24 @@ func seedGroupChat(t *testing.T, pool *pgxpool.Pool) chatFixture {
 		fmt.Sprintf("/api/chat-groups/%d/messages", id), "group_id"}
 }
 
-// ─── The router, wired exactly as main.go wires it ──────────────────────
+// ─── The router, wired with main.go's gates ─────────────────────────────
 
 // newLifecycleRouter mounts every send route plus the staff-only lifecycle
-// and delete routes, with the SAME middleware main.go uses — RequireBearer on
-// the participant routes, RequireAdmin on the admin group. The middleware is
-// the point: it is what makes these actions staff-only.
+// and delete routes behind main.go's gates. The middleware is the point: it is
+// what makes these actions staff-only.
+//
+// The participant routes get main.go's full chain: the authed group's
+// RequireBearer + RequireApproved, plus RequireNotGuest on each send route, so
+// no test here can pass a guest send that production refuses (OPOS #26357).
+//
+// The admin routes get RequireAdmin, but NOT the rest of main.go's admin chain:
+//   - RequireDeletePassword is left out because the staff DELETE in
+//     chat_lifecycle_trash_test.go sends no password; that gate is covered by
+//     delete_password_test.go.
+//   - The perm("messages" / "marriage", …) gates main.go puts on the chat
+//     lists, lifecycle and delete routes are left out because these tests
+//     assert the participant/staff boundary RequireAdmin draws, not the
+//     per-tier permission matrix.
 func newLifecycleRouter(pool *pgxpool.Pool) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	tokens := auth.NewTokenStore(pool)
@@ -186,11 +199,11 @@ func newLifecycleRouter(pool *pgxpool.Pool) *gin.Engine {
 	lifeH := NewChatLifecycleHandler(pool)
 
 	r := gin.New()
-	participant := r.Group("/api", auth.RequireBearer(tokens))
-	participant.POST("/chats/:id/messages", chatH.PostMessage)
+	participant := r.Group("/api", auth.RequireBearer(tokens), auth.RequireApproved())
+	participant.POST("/chats/:id/messages", auth.RequireNotGuest(), chatH.PostMessage)
 	participant.GET("/chats", chatH.List)
 	participant.GET("/chats/:id/messages", chatH.Messages)
-	participant.POST("/marriage/chats/:id/messages", marriageH.PostMessage)
+	participant.POST("/marriage/chats/:id/messages", auth.RequireNotGuest(), marriageH.PostMessage)
 	participant.GET("/marriage/chats", marriageH.List)
 
 	admin := r.Group("/api", auth.RequireAdmin(tokens))
@@ -207,7 +220,7 @@ func newLifecycleRouter(pool *pgxpool.Pool) *gin.Engine {
 
 	groupsStore := chatgroups.New(pool)
 	groupsH := NewChatGroupHandler(groupsStore, n, nil, pool)
-	participant.POST("/chat-groups/:id/messages", groupsH.PostMessage)
+	participant.POST("/chat-groups/:id/messages", auth.RequireNotGuest(), groupsH.PostMessage)
 	admin.POST("/admin/chat-groups/:id/lifecycle", lifeH.Apply(chatlifecycle.KindGroup))
 	admin.DELETE("/admin/chat-groups/:id", lifeH.Delete(chatlifecycle.KindGroup))
 	return r

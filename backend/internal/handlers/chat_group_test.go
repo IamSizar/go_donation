@@ -197,15 +197,17 @@ func makeChatGroup(t *testing.T, pool *pgxpool.Pool, staffID int64, kind chatgro
 	return id
 }
 
-// newChatGroupRouter wires the mobile chat-group routes with the same
-// per-route gates main.go uses. The authed group's RequireApproved is left out
-// (see OPOS #26357); every test user here is approved, so no result depends on
-// it.
+// newChatGroupRouter wires the mobile chat-group read routes exactly as
+// main.go does: the authed group's RequireBearer + RequireApproved, then each
+// route's own RequireNotGuest. Every test user here is created approved, so
+// RequireApproved never refuses one — it is wired so the chain under test is
+// the chain production builds, not because a result depends on it (OPOS
+// #26357).
 func newChatGroupRouter(pool *pgxpool.Pool) (*gin.Engine, *ChatGroupHandler) {
 	gin.SetMode(gin.TestMode)
 	h := NewChatGroupHandler(chatgroups.New(pool), notify.New(pool), permissions.New(pool), pool)
 	r := gin.New()
-	participant := r.Group("/api", auth.RequireBearer(auth.NewTokenStore(pool)))
+	participant := r.Group("/api", auth.RequireBearer(auth.NewTokenStore(pool)), auth.RequireApproved())
 	participant.GET("/chat-groups", auth.RequireNotGuest(), h.List)
 	participant.GET("/chat-groups/:id/messages", auth.RequireNotGuest(), h.Messages)
 	return r, h
@@ -503,12 +505,13 @@ func TestChatGroupMarkRead_RefusesNonMember(t *testing.T) {
 }
 
 // newWriteChatGroupRouter extends newChatGroupRouter with the write routes
-// this task adds.
+// this task adds, behind the same main.go chain: RequireBearer +
+// RequireApproved on the group, RequireNotGuest on every route.
 func newWriteChatGroupRouter(pool *pgxpool.Pool) (*gin.Engine, *ChatGroupHandler) {
 	gin.SetMode(gin.TestMode)
 	h := NewChatGroupHandler(chatgroups.New(pool), notify.New(pool), permissions.New(pool), pool)
 	r := gin.New()
-	participant := r.Group("/api", auth.RequireBearer(auth.NewTokenStore(pool)))
+	participant := r.Group("/api", auth.RequireBearer(auth.NewTokenStore(pool)), auth.RequireApproved())
 	participant.GET("/chat-groups", auth.RequireNotGuest(), h.List)
 	participant.GET("/chat-groups/:id/messages", auth.RequireNotGuest(), h.Messages)
 	participant.POST("/chat-groups/:id/messages", auth.RequireNotGuest(), h.PostMessage)
@@ -905,11 +908,14 @@ func TestChatGroupMessages_HTTPResponseNeverLeaksRealIdentity(t *testing.T) {
 	}
 }
 
+// newConnectRequestRouter wires the two mobile connect-request routes exactly
+// as main.go does: RequireBearer + RequireApproved on the group,
+// RequireNotGuest on each route.
 func newConnectRequestRouter(pool *pgxpool.Pool) (*gin.Engine, *ChatGroupHandler) {
 	gin.SetMode(gin.TestMode)
 	h := NewChatGroupHandler(chatgroups.New(pool), notify.New(pool), permissions.New(pool), pool)
 	r := gin.New()
-	participant := r.Group("/api", auth.RequireBearer(auth.NewTokenStore(pool)))
+	participant := r.Group("/api", auth.RequireBearer(auth.NewTokenStore(pool)), auth.RequireApproved())
 	participant.POST("/chat-groups/connect-requests", auth.RequireNotGuest(), h.SubmitConnectRequest)
 	participant.GET("/chat-groups/connect-requests/mine", auth.RequireNotGuest(), h.MyConnectRequests)
 	return r, h

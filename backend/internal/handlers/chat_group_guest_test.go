@@ -6,10 +6,12 @@
 // it — RequireApproved does not, because guests are created approved.
 //
 // The routers used here are chat_group_test.go's newChatGroupRouter and
-// newConnectRequestRouter, which wire these routes with the same PER-ROUTE
-// gates main.go puts on them — the gates ARE what is under test, same as
-// chat_guest_support_test.go does for the direct chat. They leave out the
-// authed group's RequireApproved (main.go), which a guest passes anyway.
+// newConnectRequestRouter, which wire these routes exactly as main.go does —
+// the authed group's RequireBearer + RequireApproved, then each route's
+// RequireNotGuest. The gates ARE what is under test, same as
+// chat_guest_support_test.go does for the direct chat. A guest is created
+// approved and so passes RequireApproved; the refusal pinned here comes from
+// RequireNotGuest alone, as it does in production.
 //
 // Needs a throwaway Postgres; skipped unless TEST_DATABASE_URL is set:
 //
