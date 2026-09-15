@@ -17,6 +17,11 @@
  * with no messages, and an archived, ended staff chat. Every person, message
  * and number is invented. Type-only import, so Node can load this file with
  * --experimental-strip-types.
+ *
+ * The first thread of each system ends with a body that has line breaks,
+ * commas and quotes (messages 7004, 5104 and 6103), so a conversation export
+ * (lib/chatExport.ts) can be checked by hand against the mock: each such body
+ * must stay in one cell. scripts/mock-api.test.mjs fails if one goes missing.
  */
 import type { ContactBlock } from '../../components/ContactBlocksPanel'
 
@@ -127,6 +132,13 @@ export type StaffDirectoryEntry = {
 
 const OPEN: LifecycleFields = { lifecycle: 'open', lifecycle_reason: null, is_archived: false }
 
+// ─── Bodies an export has to escape ───
+// Line breaks, commas and double quotes: every character CSV must quote.
+
+const DONOR_LIST_BODY = 'Great. Please bring:\n- 20 notebooks, lined\n- 10 pencil cases, "any colour"'
+const MARRIAGE_MEETING_BODY = 'Meeting details:\nSaturday, 10:00, at the family centre.\nPlease arrive 15 minutes early.'
+const STAFF_TODO_BODY = 'Two things for today:\n1. Connect requests 31 and 32\n2. The Mosul group roster, once it is final'
+
 // ─── Donor ↔ owner, and support ───
 
 /** GET /api/admin/chats?kind=direct items. */
@@ -145,11 +157,11 @@ export const DONOR_THREADS: DonorThread[] = [
     owner_phone: '+9647503334455',
     assigned_staff_user_id: null,
     assigned_staff_name: null,
-    message_count: 3,
-    last_message: 'See you at the distribution point on Thursday.',
-    last_message_at: '2026-09-14T15:20:00Z',
+    message_count: 4,
+    last_message: DONOR_LIST_BODY,
+    last_message_at: '2026-09-14T15:40:00Z',
     created_at: '2026-09-12T11:00:00Z',
-    updated_at: '2026-09-14T15:20:00Z',
+    updated_at: '2026-09-14T15:40:00Z',
   },
   {
     id: 8,
@@ -229,6 +241,7 @@ export const DONOR_MESSAGES: Record<number, DonorMessage[]> = {
     donorMsg(7001, 7, 101, 1, 'Layla Hassan', 'I bought the notebooks. When can I drop them off?', '2026-09-14T14:50:00Z'),
     donorMsg(7002, 7, 103, 2, 'Sara Ali', 'Thank you! Thursday morning works for us.', '2026-09-14T15:05:00Z'),
     donorMsg(7003, 7, 101, 1, 'Layla Hassan', 'See you at the distribution point on Thursday.', '2026-09-14T15:20:00Z'),
+    donorMsg(7004, 7, 103, 2, 'Sara Ali', DONOR_LIST_BODY, '2026-09-14T15:40:00Z'),
   ],
   8: [
     donorMsg(7101, 8, 104, 1, 'Omar Khalid', 'Can I send the blankets directly to the family?', '2026-09-13T11:50:00Z'),
@@ -276,11 +289,11 @@ export const MARRIAGE_THREADS: MarriageThread[] = [
     owner_user_id: 109,
     owner_name: 'Huda Salim',
     owner_phone: '+9647738889900',
-    message_count: 3,
-    last_message: 'The family agreed to a meeting at the centre on Saturday.',
-    last_message_at: '2026-09-14T13:00:00Z',
+    message_count: 4,
+    last_message: MARRIAGE_MEETING_BODY,
+    last_message_at: '2026-09-14T13:10:00Z',
     created_at: '2026-09-11T10:00:00Z',
-    updated_at: '2026-09-14T13:00:00Z',
+    updated_at: '2026-09-14T13:10:00Z',
   },
   {
     ...OPEN,
@@ -308,6 +321,7 @@ export const MARRIAGE_MESSAGES: Record<number, MarriageMessage[]> = {
     marriageMsg(5101, 51, 108, 'requester', 'Karim Adel', 'I would like to arrange a family meeting.', '2026-09-12T09:00:00Z'),
     marriageMsg(5102, 51, 109, 'owner', 'Huda Salim', 'My family is open to that.', '2026-09-13T18:30:00Z'),
     marriageMsg(5103, 51, 1, 'staff', 'Rana Aziz', 'The family agreed to a meeting at the centre on Saturday.', '2026-09-14T13:00:00Z'),
+    marriageMsg(5104, 51, 1, 'staff', 'Rana Aziz', MARRIAGE_MEETING_BODY, '2026-09-14T13:10:00Z'),
   ],
   52: [],
 }
@@ -322,10 +336,10 @@ export const STAFF_THREADS: StaffThread[] = [
     other_user_id: 2,
     other_name: 'Ahmed Faris',
     other_staff_tier: 'admin',
-    last_message: 'Can you review the two pending connect requests today?',
-    last_message_at: '2026-09-15T08:50:00Z',
-    unread_count: 1,
-    updated_at: '2026-09-15T08:50:00Z',
+    last_message: STAFF_TODO_BODY,
+    last_message_at: '2026-09-15T09:05:00Z',
+    unread_count: 2,
+    updated_at: '2026-09-15T09:05:00Z',
   },
   {
     id: 62,
@@ -347,6 +361,7 @@ export const STAFF_MESSAGES: Record<number, StaffMessage[]> = {
   61: [
     staffMsg(6101, 61, 1, 'Rana Aziz', 'Morning. The Mosul distribution group is set up.', '2026-09-15T08:30:00Z'),
     staffMsg(6102, 61, 2, 'Ahmed Faris', 'Can you review the two pending connect requests today?', '2026-09-15T08:50:00Z'),
+    staffMsg(6103, 61, 2, 'Ahmed Faris', STAFF_TODO_BODY, '2026-09-15T09:05:00Z'),
   ],
   62: [
     staffMsg(6201, 62, 3, 'Zainab Kadhim', 'All the donor files are in the shared folder now.', '2026-09-05T16:00:00Z'),

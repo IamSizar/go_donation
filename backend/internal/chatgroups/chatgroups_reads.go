@@ -147,8 +147,9 @@ func (s *Store) ListMessagesForMember(ctx context.Context, groupID, viewerUserID
 //
 // Deliberately NO membership/access check, unlike ListMessagesForMember. Per
 // spec §9, admin authority to read a group comes from the CALLER's permission
-// level (perm("messages", ...) plus sensitive_data:view), checked by a later
-// phase's HTTP handler — not from having a chat_group_members row. This
+// level — not from having a chat_group_members row. The HTTP layer checks it:
+// messages:view on the route, plus, for a masked group, sensitive_data:view
+// resolved per user (handlers' refuseMaskedWithoutSensitive, OPOS #26409). This
 // mirrors PostMessageAsStaff, which already lets any admin holding the
 // messages permission post into a group without needing a member row.
 func (s *Store) AdminListMessages(ctx context.Context, groupID, afterID int64, limit int) ([]AdminGroupMessage, error) {
