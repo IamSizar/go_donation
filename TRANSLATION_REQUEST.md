@@ -32,7 +32,7 @@ made on this project once and had to be reverted.
 Every key below currently renders its **English** string to a Kurdish user.
 That is deliberate and safe. It is not a crash, and it is not Arabic text.
 
-## Count: 467 keys need Kurdish
+## Count: 535 keys need Kurdish
 
 | Client | Sorani (ckb) | Badini (kmr) | Distinct keys |
 |---|---|---|---|
@@ -54,13 +54,14 @@ That is deliberate and safe. It is not a crash, and it is not Arabic text.
 | Admin dashboard — H10 sensitive contact data (new) | 2 | 2 | 2 |
 | Admin dashboard — content page save confirmation | 2 | 2 | 2 |
 | Admin dashboard — delete confirmation bodies (were FALSE in Kurdish) | 5 | 5 | 5 |
+| Admin dashboard — OPOS #26398 chat groups page (new) | 68 | 68 | 68 |
 | App — City Guide map chip (place count) | 2 | 2 | 2 |
 | App — security page auth description (old Kurdish was FALSE) | 1 | 1 | 1 |
 | App — K14 خطوبتي owner self-management (new) | 20 | 20 | 20 |
 | App — K15 product-list labels (new) | 27 | 27 | 27 |
 | App — OPOS #25284 Phase 5 staff-mediated group chats (new) | 38 | 38 | 38 |
 | App — OPOS #26419 chat group sender labels (new) | 6 | 6 | 6 |
-| **Total distinct words to translate** | | | **467** |
+| **Total distinct words to translate** | | | **535** |
 
 > **The dashboard figure above is a floor, not a ceiling — and it is the one
 > number in this file that was never fully measured.** Counting key paths in
@@ -1683,6 +1684,127 @@ line 1020) for the account and the case, and the profile's own status words
 | `error.case_has_records` | This case has a chat conversation or uploaded documents, so it cannot be deleted — the messages and the documents would be lost permanently and could not be restored from the Trash. Archive the case instead. | هذه الحالة تحتوي على محادثة أو مستندات مرفوعة، لذلك لا يمكن حذفها — ستضيع الرسائل والمستندات نهائياً ولن يمكن استرجاعها من المهملات. استخدم «أرشفة» للحالة بدلاً من ذلك. | **needed** |
 | `error.sponsorship_has_settled_schedule` | This sponsorship has schedule dates that were already paid or skipped, so it cannot be deleted — that payment history would be lost permanently and could not be restored from the Trash. Change its status instead. | هذه الكفالة تحتوي على مواعيد جرى دفعها أو تخطّيها، لذلك لا يمكن حذفها — سيضيع سجلّ الدفع هذا نهائياً ولن يمكن استرجاعه من المهملات. غيّر حالتها بدلاً من ذلك. | **needed** |
 | `error.project_request_has_comments` | People have commented on this request, so it cannot be deleted — their comments would be lost permanently and could not be restored from the Trash. Change its status instead. | كتب أشخاص تعليقات على هذا الطلب، لذلك لا يمكن حذفه — ستضيع تعليقاتهم نهائياً ولن يمكن استرجاعها من المهملات. غيّر حالته بدلاً من ذلك. | **needed** |
+
+## Dashboard · OPOS #26398 the chat groups page (dashboard, `admin-web`)  (68 keys)
+
+Same rule: **English and Arabic written; ckb (سۆرانی) and kmr (بادینی) NOT** —
+they fall back to English. No Kurdish invented.
+
+Added 2026-09-15. The dashboard's new page for chat groups (`/chat-groups`)
+lists the chat groups staff supervise and opens a dialog that creates one. It
+also has a message for every refusal the chat-group routes send. The strings
+are dashboard-only, so none of the app's `chat_groups_*` keys above could be
+reused. The wording follows them, though: a masked group's members see a
+**label** («الاسم الظاهر»), never a name. The group's kind is "masked"
+(«بأسماء مستعارة») or "team" («فريق»).
+
+Keep every placeholder exactly as written: `{id}`, `{n}` and `{max}`. In the
+two `list.*_title` rows, `\u2066` and `\u2069` are invisible direction marks.
+They keep `#T{id}` reading left to right inside a right-to-left sentence, so
+keep them around the id, as the Arabic does.
+
+### Sidebar  (1 key)
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `nav.chat_groups` | Chat groups | المجموعات الحوارية | ckb + kmr |
+
+### The page and the create dialog  (48 keys)
+
+`form.*` are the messages shown under a field that breaks a rule. The member
+roles in the dialog reuse `status.donor`, `status.beneficiary`,
+`status.volunteer` and `status.staff`, which already exist.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `chat_groups.title` | Chat groups | المجموعات الحوارية | ckb + kmr |
+| `chat_groups.subtitle` | Supervised conversations between donors, recipients, volunteers and staff. In a masked group members see only each other's labels; a team group uses real names. | محادثات يشرف عليها الفريق بين المانحين والمستحقين والمتطوعين والموظفين. في المجموعة ذات الأسماء المستعارة يرى الأعضاء أسماء ظاهرة فقط، أما مجموعة الفريق فتظهر فيها الأسماء الحقيقية. | ckb + kmr |
+| `chat_groups.new_group` | New group | مجموعة جديدة | ckb + kmr |
+| `chat_groups.list.aria` | Chat groups | المجموعات الحوارية | ckb + kmr |
+| `chat_groups.list.loading` | Loading chat groups… | جارٍ تحميل المجموعات الحوارية… | ckb + kmr |
+| `chat_groups.list.masked_title` | Masked group \u2066#T{id}\u2069 | مجموعة بأسماء مستعارة \u2066#T{id}\u2069 | ckb + kmr |
+| `chat_groups.list.team_untitled` | Team group \u2066#T{id}\u2069 | مجموعة فريق \u2066#T{id}\u2069 | ckb + kmr |
+| `chat_groups.list.no_messages` | No messages yet | لا توجد رسائل بعد | ckb + kmr |
+| `chat_groups.empty.title` | No chat groups yet | لا توجد مجموعات حوارية بعد | ckb + kmr |
+| `chat_groups.empty.body` | A chat group lets staff open a supervised conversation, for example between a donor and the family they support. Create one to get started. | تتيح المجموعة الحوارية للفريق فتح محادثة تحت الإشراف، مثلاً بين مانح والعائلة التي يدعمها. أنشئ مجموعة للبدء. | ckb + kmr |
+| `chat_groups.empty.cta` | Create a group | إنشاء مجموعة | ckb + kmr |
+| `chat_groups.empty.no_permission` | Your access level cannot create groups. A staff member who can add messages can create the first one. | مستوى صلاحيتك لا يسمح بإنشاء المجموعات. يمكن لموظف لديه صلاحية إضافة الرسائل إنشاء أول مجموعة. | ckb + kmr |
+| `chat_groups.create.title` | New chat group | مجموعة حوارية جديدة | ckb + kmr |
+| `chat_groups.create.intro` | Choose the kind of group, then add the people in it. Staff can read and moderate every group. | اختر نوع المجموعة، ثم أضف الأشخاص المشاركين فيها. يستطيع الفريق قراءة كل مجموعة والإشراف عليها. | ckb + kmr |
+| `chat_groups.create.kind_label` | Group type | نوع المجموعة | ckb + kmr |
+| `chat_groups.create.kind_masked_title` | Masked group | مجموعة بأسماء مستعارة | ckb + kmr |
+| `chat_groups.create.kind_masked_desc` | Members see each other only by a label, such as "Donor 1". Names and contact details stay hidden. | يرى الأعضاء بعضهم باسم ظاهر فقط، مثل «مانح 1». تبقى الأسماء وبيانات التواصل مخفية. | ckb + kmr |
+| `chat_groups.create.kind_team_title` | Team group | مجموعة فريق | ckb + kmr |
+| `chat_groups.create.kind_team_desc` | A named working group. Members see each other's real names. | مجموعة عمل باسم محدد، يرى أعضاؤها أسماء بعضهم الحقيقية. | ckb + kmr |
+| `chat_groups.create.title_label` | Team name | اسم الفريق | ckb + kmr |
+| `chat_groups.create.title_hint` | Members see this name at the top of the chat. Up to {max} characters. | يظهر هذا الاسم للأعضاء أعلى المحادثة. {max} حرفاً كحد أقصى. | ckb + kmr |
+| `chat_groups.create.members_label` | Members | الأعضاء | ckb + kmr |
+| `chat_groups.create.member_n` | Member {n} | العضو {n} | ckb + kmr |
+| `chat_groups.create.person_label` | Person | الشخص | ckb + kmr |
+| `chat_groups.create.role_label` | Role in the group | الدور في المجموعة | ckb + kmr |
+| `chat_groups.create.role_placeholder` | Choose a role | اختر دوراً | ckb + kmr |
+| `chat_groups.create.label_label` | Label shown to other members | الاسم الظاهر لبقية الأعضاء | ckb + kmr |
+| `chat_groups.create.label_placeholder` | e.g. Donor 1 | مثال: مانح 1 | ckb + kmr |
+| `chat_groups.create.label_hint` | Optional. Leave it blank and a label such as "Donor 1" is given automatically. | اختياري. إذا تركته فارغاً يُعطى اسماً تلقائياً مثل «مانح 1». | ckb + kmr |
+| `chat_groups.create.add_member` | Add member | إضافة عضو | ckb + kmr |
+| `chat_groups.create.remove_member` | Remove | إزالة | ckb + kmr |
+| `chat_groups.create.remove_member_aria` | Remove member {n} | إزالة العضو {n} | ckb + kmr |
+| `chat_groups.create.submit` | Create group | إنشاء المجموعة | ckb + kmr |
+| `chat_groups.create.submitting` | Creating… | جارٍ الإنشاء… | ckb + kmr |
+| `chat_groups.create.created_toast` | Chat group created | تم إنشاء المجموعة الحوارية | ckb + kmr |
+| `chat_groups.create.gated_hint` | To create the group, choose its type, name a team group, and give every member a person and a role. | لإنشاء المجموعة، اختر نوعها، وسمِّ مجموعة الفريق، وحدّد لكل عضو شخصاً ودوراً. | ckb + kmr |
+| `chat_groups.create.no_user_search_title` | You can't search for people here | لا يمكنك البحث عن الأشخاص هنا | ckb + kmr |
+| `chat_groups.create.no_user_search_body` | Members are picked from the Users list, which your access level cannot view. Ask the Primary Administrator for permission to view users, or ask a colleague who has it to create this group. | يُختار الأعضاء من قائمة المستخدمين، ومستوى صلاحيتك لا يسمح بعرضها. اطلب من المشرف الرئيسي صلاحية عرض المستخدمين، أو اطلب من زميل لديه هذه الصلاحية إنشاء المجموعة. | ckb + kmr |
+| `chat_groups.form.kind_required` | Choose a group type. | اختر نوع المجموعة. | ckb + kmr |
+| `chat_groups.form.title_required` | Enter a name for the team group. | أدخل اسماً لمجموعة الفريق. | ckb + kmr |
+| `chat_groups.form.title_too_long` | Use {max} characters or fewer. | استخدم {max} حرفاً أو أقل. | ckb + kmr |
+| `chat_groups.form.members_required` | Add at least one member. | أضف عضواً واحداً على الأقل. | ckb + kmr |
+| `chat_groups.form.member_user_required` | Choose a person for this member, or remove the row. | اختر شخصاً لهذا العضو، أو احذف الصف. | ckb + kmr |
+| `chat_groups.form.member_duplicate` | This person is already in the group. Remove this row. | هذا الشخص موجود في المجموعة بالفعل. احذف هذا الصف. | ckb + kmr |
+| `chat_groups.form.member_role_required` | Choose a role for this member. | اختر دوراً لهذا العضو. | ckb + kmr |
+| `chat_groups.form.label_too_long` | Use {max} characters or fewer. | استخدم {max} حرفاً أو أقل. | ckb + kmr |
+| `chat_groups.form.label_duplicate` | Another member already has this label. Give each member a different one. | لدى عضو آخر الاسم الظاهر نفسه. أعطِ كل عضو اسماً مختلفاً. | ckb + kmr |
+| `chat_groups.form.label_contact_hint` | This looks like a phone number or email address. Labels cannot contain contact details, so the group would be refused. | يبدو هذا رقم هاتف أو بريداً إلكترونياً. لا يُسمح ببيانات التواصل في الأسماء الظاهرة، لذا ستُرفض المجموعة. | ckb + kmr |
+
+### Refusals  (13 keys)
+
+Each is keyed off the machine `code` the server sends, resolved by
+`admin-web/src/lib/chatGroupErrors.ts`. On screen, `error.chat_lifecycle_closed`
+can be followed by `chat_lifecycle.reason_shown`, which already exists, so the
+two must read correctly as two separate sentences.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `error.guest_member_not_allowed` | Guest accounts cannot join a chat group. Remove the guest account from the members and try again. | لا يمكن إضافة حسابات الزوّار إلى مجموعة حوارية. أزل حساب الزائر من الأعضاء ثم أعد المحاولة. | ckb + kmr |
+| `error.connect_context_not_found` | The case or donation this request is about could not be found, so no group was opened for it. | تعذّر العثور على الحالة أو المساهمة التي يخصّها هذا الطلب، لذلك لم تُفتح مجموعة لها. | ckb + kmr |
+| `error.group_member_conflict` | One of these people is already a member of this group. Remove the repeated person and try again. | أحد هؤلاء الأشخاص عضو في هذه المجموعة بالفعل. أزل الشخص المكرّر ثم أعد المحاولة. | ckb + kmr |
+| `error.group_label_conflict` | Another member of this group already has this label. Each member's label must be different. | لدى عضو آخر في هذه المجموعة الاسم الظاهر نفسه. يجب أن يكون لكل عضو اسم ظاهر مختلف. | ckb + kmr |
+| `error.group_label_contact` | A label contains a phone number or email address. Other members see labels, so remove the contact detail. | أحد الأسماء الظاهرة يحتوي على رقم هاتف أو بريد إلكتروني. يرى بقية الأعضاء هذه الأسماء، لذا احذف بيانات التواصل منه. | ckb + kmr |
+| `error.group_invalid_input` | Some details of this group were not accepted. Check the type, the name and every member, then try again. | لم تُقبل بعض تفاصيل هذه المجموعة. راجع النوع والاسم وكل عضو ثم أعد المحاولة. | ckb + kmr |
+| `error.group_not_found` | This chat group no longer exists. Go back to the list and refresh it. | هذه المجموعة الحوارية لم تعد موجودة. عُد إلى القائمة وحدّثها. | ckb + kmr |
+| `error.not_group_member` | The group's members have changed, so this could not be done. Refresh the group and try again. | تغيّر أعضاء المجموعة، لذلك تعذّر إتمام هذا الإجراء. حدّث المجموعة ثم أعد المحاولة. | ckb + kmr |
+| `error.connect_request_decided` | Another staff member has already decided this request. Refresh the list to see the outcome. | اتخذ موظف آخر قراراً بشأن هذا الطلب بالفعل. حدّث القائمة لرؤية النتيجة. | ckb + kmr |
+| `error.sensitive_data_required` | This group hides its members' identities, and your access level does not include sensitive data. Ask the Primary Administrator if you need it. | هذه المجموعة تُخفي هويات أعضائها، ومستوى صلاحيتك لا يشمل البيانات الحساسة. راجع المشرف الرئيسي إذا كنت بحاجة إليها. | ckb + kmr |
+| `error.chat_lifecycle_closed` | This group is paused or has ended, so no new messages can be sent. | هذه المجموعة موقوفة مؤقتاً أو منتهية، لذلك لا يمكن إرسال رسائل جديدة. | ckb + kmr |
+| `error.contact_details_blocked` | This message contains a phone number or email address, so it was not sent. Remove the contact detail and send it again. | تحتوي هذه الرسالة على رقم هاتف أو بريد إلكتروني، لذلك لم تُرسَل. احذف بيانات التواصل ثم أعد إرسالها. | ckb + kmr |
+| `error.connect_request_not_found` | This connect request no longer exists. Refresh the list to see the current requests. | طلب التواصل هذا لم يعد موجوداً. حدّث القائمة لرؤية الطلبات الحالية. | ckb + kmr |
+
+### Controlled values  (6 keys)
+
+These are database values the dashboard prints as a badge or a log entry.
+- `masked` and `team` are the two kinds of group.
+- `created`, `member_added` and `member_removed` are entries in a group's audit
+  log, so each reads as an event, not as an instruction.
+- `case` is what a connect request is about: a case, as opposed to a donation.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `status.masked` | Masked | بأسماء مستعارة | ckb + kmr |
+| `status.team` | Team | فريق | ckb + kmr |
+| `status.case` | Case | حالة | ckb + kmr |
+| `status.created` | Created | تم الإنشاء | ckb + kmr |
+| `status.member_added` | Member added | إضافة عضو | ckb + kmr |
+| `status.member_removed` | Member removed | إزالة عضو | ckb + kmr |
 
 ## Write failures: what happened, and what to do next (app, `humanitarian`)
 
