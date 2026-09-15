@@ -131,11 +131,20 @@ export type ConnectRequest = {
   decided_by_staff_id?: number
   created_at: string
   context_label: string
+  /**
+   * The requester's profile name. The key is ABSENT unless the caller may view
+   * sensitive data (per user) and the requester has a profile (D6), so a
+   * screen must fall back to the requester's id.
+   */
+  requester_name?: string
 }
 
-/** GET …/connect-requests/:id: the request, with its label beside it. */
+/**
+ * GET …/connect-requests/:id: the request, with its label beside it. The
+ * backend's `request` is the list item's full shape, context_label included.
+ */
 export type ConnectRequestDetail = {
-  request: Omit<ConnectRequest, 'context_label'>
+  request: Omit<ConnectRequest, 'context_label'> & { context_label?: string }
   context_label: string
 }
 

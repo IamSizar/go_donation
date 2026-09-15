@@ -197,16 +197,28 @@ function createGroup({ state, body }) {
   return error ?? ok({ group_id: insertGroup(state, body) })
 }
 
+/**
+ * A request as the admin reads it: requester_name is added only when the
+ * requester has a profile name, and the key is absent otherwise
+ * (adminConnectRequestItems). Every mock caller is a super_admin, so the
+ * sensitive-data half of that rule is not mocked.
+ */
+function withRequesterName(request) {
+  const name = fullNameOf(request.requester_user_id)
+  return name ? { ...request, requester_name: name } : { ...request }
+}
+
 function listConnectRequests({ state, query }) {
   const status = query.get('status')
-  return ok({ items: state.connectRequests.filter((r) => !status || r.status === status) })
+  const items = state.connectRequests.filter((r) => !status || r.status === status)
+  return ok({ items: items.map(withRequesterName) })
 }
 
 /** GET …/connect-requests/:id — `request` has no context_label; it travels beside it. */
 function getConnectRequest({ state }, [id]) {
   const found = state.connectRequests.find((r) => r.id === id)
   if (!found) return requestNotFound()
-  const { context_label, ...request } = found
+  const { context_label, ...request } = withRequesterName(found)
   return ok({ request, context_label })
 }
 

@@ -29,15 +29,14 @@ import { useId, useMemo, useRef, useState, type FormEvent } from 'react'
 import FieldNote from './FieldNote'
 import KindCards from './KindCards'
 import MemberRowsEditor from './MemberRowsEditor'
+import TeamTitleField from './TeamTitleField'
 import { useDialogKeyboard } from './useDialogKeyboard'
 import { chatGroupErrorArea, describeChatGroupError, type ChatGroupErrorArea } from '../../lib/chatGroupErrors'
 import {
-  TEAM_TITLE_MAX_LENGTH,
   buildCreateGroupBody,
   emptyGroupDraft,
   validateGroupDraft,
   visibleIssues,
-  type FieldMessage,
   type GroupDraft,
 } from '../../lib/chatGroupForm'
 import { createGroup } from '../../lib/chatGroupsApi'
@@ -217,44 +216,3 @@ export default function CreateGroupDialog({ onClose, onCreated }: Props) {
   )
 }
 
-// ─── The team name ───
-
-type TeamTitleFieldProps = {
-  value: string
-  issue?: FieldMessage
-  disabled: boolean
-  onChange: (title: string) => void
-  onBlur: () => void
-}
-
-/** The team group's name, with its limit as a standing hint and the broken rule under it. */
-function TeamTitleField({ value, issue, disabled, onChange, onBlur }: TeamTitleFieldProps) {
-  const { t } = useI18n()
-  const id = useId()
-  const hintId = `${id}-hint`
-  const errorId = `${id}-error`
-
-  return (
-    <div className="form-row field">
-      <label className="form-label" htmlFor={id}>
-        {t('chat_groups.create.title_label')}
-      </label>
-      <input
-        id={id}
-        type="text"
-        value={value}
-        dir="auto"
-        autoComplete="off"
-        disabled={disabled}
-        aria-invalid={issue ? true : undefined}
-        aria-describedby={issue ? `${hintId} ${errorId}` : hintId}
-        onChange={(e) => onChange(e.target.value)}
-        onBlur={onBlur}
-      />
-      <span id={hintId} className="form-hint">
-        {t('chat_groups.create.title_hint', { max: TEAM_TITLE_MAX_LENGTH })}
-      </span>
-      <FieldNote id={errorId} issue={issue} />
-    </div>
-  )
-}
