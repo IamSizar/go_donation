@@ -11,6 +11,12 @@
 // GroupMessage (the type every non-staff response is built from) has no
 // field capable of holding a user id or a real name. See
 // docs/superpowers/specs/2026-09-12-masked-group-chats-design.md §5.
+//
+// Membership is for full accounts only (OPOS #26355). Every participant
+// chat-group route refuses a guest session, so a guest account
+// (users.is_guest) is never written into chat_group_members: all three paths
+// that add members — CreateGroup, AddMember, ApproveConnectRequest — go
+// through insertMemberRow, which refuses a guest with ErrGuestMember.
 package chatgroups
 
 import (
@@ -21,6 +27,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/karam-flutter/humanitarian-backend/internal/moderation"
@@ -41,6 +48,15 @@ var (
 	// ErrInvalidInput is returned when caller-supplied arguments fail
 	// validation before any query runs.
 	ErrInvalidInput = errors.New("chatgroups: invalid input")
+	// ErrGuestMember is returned when a caller tries to make a guest account
+	// (users.is_guest = TRUE) a member of a group (OPOS #26355). Every
+	// participant chat-group route refuses guest sessions
+	// (auth.RequireNotGuest), so a guest member could never read or post —
+	// locked out of a group staff believe they are in. Deliberately distinct
+	// from ErrInvalidInput so the HTTP layer can give staff a specific,
+	// machine-readable refusal. Enforced in exactly one place,
+	// insertMemberRow.
+	ErrGuestMember = errors.New("chatgroups: guest accounts cannot be chat-group members")
 )
 
 type Store struct {
@@ -154,10 +170,70 @@ func refuseContactInLabel(label string) error {
 	return nil
 }
 
+// ─── Membership writes ──────────────────────────────────────────────────
+
+// memberExecer is the one method insertMemberRow needs. pgx.Tx satisfies it
+// (CreateGroup and ApproveConnectRequest insert inside their transaction), and
+// so does *pgxpool.Pool (AddMember's single statement).
+type memberExecer interface {
+	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
+}
+
+// memberRow is one chat_group_members row, fully resolved by the caller:
+// masked and label are already derived from the group's kind.
+type memberRow struct {
+	groupID        int64
+	userID         int64
+	roleInGroup    string
+	masked         bool
+	label          string
+	addedByStaffID int64
+}
+
+// insertMemberRowSQL writes one membership row only if the user is not a
+// guest account. The guest check is part of the INSERT itself rather than a
+// separate SELECT beforehand, so it adds no round trip per member and leaves
+// no gap between checking and writing.
+//
+// A user id with no users row at all is not a guest, so it is inserted exactly
+// as before this rule existed — the rule refuses guests and changes nothing
+// else. Every parameter is cast to its column's type so the INSERT ... SELECT
+// is typed explicitly rather than by inference.
+const insertMemberRowSQL = `
+	INSERT INTO chat_group_members (group_id, user_id, role_in_group, masked, masked_label, added_by_staff_id)
+	SELECT $1::bigint, $2::integer, $3::varchar, $4::boolean, $5::varchar, $6::integer
+	 WHERE NOT EXISTS (SELECT 1 FROM users WHERE id = $2::integer AND is_guest)`
+
+// insertMemberRow is the ONLY place this package writes a chat_group_members
+// row, so the guest rule holds on every path that adds a member: CreateGroup
+// and ApproveConnectRequest (through insertMembers) and AddMember.
+//
+// Returns ErrGuestMember, wrapped with the user and group ids, when row.userID
+// is a guest account; any database failure is returned wrapped with the same
+// context.
+func insertMemberRow(ctx context.Context, q memberExecer, row memberRow) error {
+	tag, err := q.Exec(ctx, insertMemberRowSQL,
+		row.groupID, row.userID, row.roleInGroup, row.masked, nullIfEmpty(row.label), row.addedByStaffID,
+	)
+	if err != nil {
+		return fmt.Errorf("chatgroups: adding member %d to group %d: %w", row.userID, row.groupID, err)
+	}
+	// The SELECT always yields exactly one row unless its NOT EXISTS guest
+	// check filters it out, so zero rows written means the user is a guest.
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("chatgroups: adding member %d to group %d: %w", row.userID, row.groupID, ErrGuestMember)
+	}
+	return nil
+}
+
 // insertMembers adds members to an existing group within tx. masked is
-// derived from kind ONCE, here — every call site (CreateGroup, AddMember,
-// ApproveConnectRequest) goes through this, so a masked group can never end
-// up with an unmasked member.
+// derived from kind ONCE, here — CreateGroup and ApproveConnectRequest both go
+// through this (and AddMember applies the same derivation), so a masked group
+// can never end up with an unmasked member.
+//
+// Stops at the first member it cannot add — a contact detail in a label
+// (ErrInvalidInput) or a guest account (ErrGuestMember) — and returns that
+// error; the caller's transaction then rolls back every member before it.
 func insertMembers(ctx context.Context, tx pgx.Tx, groupID int64, kind Kind, addedByStaffID int64, members []MemberInput) error {
 	masked := kind == KindMasked
 	counters := map[string]int{}
@@ -173,12 +249,15 @@ func insertMembers(ctx context.Context, tx pgx.Tx, groupID int64, kind Kind, add
 		} else {
 			label = "" // team-group members are never masked; no label stored
 		}
-		if _, err := tx.Exec(ctx,
-			`INSERT INTO chat_group_members (group_id, user_id, role_in_group, masked, masked_label, added_by_staff_id)
-			 VALUES ($1, $2, $3, $4, $5, $6)`,
-			groupID, m.UserID, m.RoleInGroup, masked, nullIfEmpty(label), addedByStaffID,
-		); err != nil {
-			return fmt.Errorf("chatgroups: adding member %d to group %d: %w", m.UserID, groupID, err)
+		if err := insertMemberRow(ctx, tx, memberRow{
+			groupID:        groupID,
+			userID:         m.UserID,
+			roleInGroup:    m.RoleInGroup,
+			masked:         masked,
+			label:          label,
+			addedByStaffID: addedByStaffID,
+		}); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -187,6 +266,10 @@ func insertMembers(ctx context.Context, tx pgx.Tx, groupID int64, kind Kind, add
 // CreateGroup creates a thread and its initial members in one transaction.
 // For a masked group, memberTitle is ignored (masked groups never carry a
 // member-facing title — see the migration comment on member_title).
+//
+// If any member is a guest account the whole create fails with ErrGuestMember
+// and nothing is written — not the thread, not the members listed before the
+// guest.
 func (s *Store) CreateGroup(ctx context.Context, kind Kind, memberTitle string, createdByStaffID int64, members []MemberInput) (int64, error) {
 	if kind != KindMasked && kind != KindTeam {
 		return 0, fmt.Errorf("chatgroups: kind %q: %w", kind, ErrInvalidInput)
@@ -224,6 +307,9 @@ func (s *Store) CreateGroup(ctx context.Context, kind Kind, memberTitle string, 
 // group's existing per-role auto-label sequence (the count of members ever
 // added under that role), so a member added later gets the next number, not
 // a restarted "1" — matching insertMembers' counter for the initial batch.
+//
+// Returns ErrNotFound for an unknown group and ErrGuestMember, writing
+// nothing, when input.UserID is a guest account (see insertMemberRow).
 func (s *Store) AddMember(ctx context.Context, groupID int64, input MemberInput, addedByStaffID int64) error {
 	var kind Kind
 	if err := s.Pool.QueryRow(ctx,
@@ -252,14 +338,14 @@ func (s *Store) AddMember(ctx context.Context, groupID int64, input MemberInput,
 	} else {
 		label = "" // team-group members are never masked; no label stored
 	}
-	if _, err := s.Pool.Exec(ctx,
-		`INSERT INTO chat_group_members (group_id, user_id, role_in_group, masked, masked_label, added_by_staff_id)
-		 VALUES ($1, $2, $3, $4, $5, $6)`,
-		groupID, input.UserID, input.RoleInGroup, masked, nullIfEmpty(label), addedByStaffID,
-	); err != nil {
-		return fmt.Errorf("chatgroups: adding member %d to group %d: %w", input.UserID, groupID, err)
-	}
-	return nil
+	return insertMemberRow(ctx, s.Pool, memberRow{
+		groupID:        groupID,
+		userID:         input.UserID,
+		roleInGroup:    input.RoleInGroup,
+		masked:         masked,
+		label:          label,
+		addedByStaffID: addedByStaffID,
+	})
 }
 
 // RemoveMember soft-removes a member (removed_at/removed_by). Never DELETE
