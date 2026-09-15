@@ -32,7 +32,7 @@ made on this project once and had to be reverted.
 Every key below currently renders its **English** string to a Kurdish user.
 That is deliberate and safe. It is not a crash, and it is not Arabic text.
 
-## Count: 459 keys need Kurdish
+## Count: 467 keys need Kurdish
 
 | Client | Sorani (ckb) | Badini (kmr) | Distinct keys |
 |---|---|---|---|
@@ -40,6 +40,7 @@ That is deliberate and safe. It is not a crash, and it is not Arabic text.
 | Flutter app — B1 notification types (new) | 81 | 81 | 81 |
 | Flutter app — B21 widget literals (new) | 19 | 19 | 19 |
 | Flutter app — J1 guest sign-up name (new) | 2 | 2 | 2 |
+| Flutter app — OPOS #26423 guest Messages sign-in prompt (new) | 2 | 2 | 2 |
 | Flutter app — K7 alert categories (new) | 8 | 8 | 8 |
 | Flutter app — L19 engagement field privacy (new) | 2 | 2 | 2 |
 | Flutter app — K12 content page states (new) | 1 | 1 | 1 |
@@ -58,7 +59,8 @@ That is deliberate and safe. It is not a crash, and it is not Arabic text.
 | App — K14 خطوبتي owner self-management (new) | 20 | 20 | 20 |
 | App — K15 product-list labels (new) | 27 | 27 | 27 |
 | App — OPOS #25284 Phase 5 staff-mediated group chats (new) | 38 | 38 | 38 |
-| **Total distinct words to translate** | | | **459** |
+| App — OPOS #26419 chat group sender labels (new) | 6 | 6 | 6 |
+| **Total distinct words to translate** | | | **467** |
 
 > **The dashboard figure above is a floor, not a ceiling — and it is the one
 > number in this file that was never fully measured.** Counting key paths in
@@ -95,6 +97,21 @@ before adding — `_badini` mixes quote styles and a duplicate is a silent bug.*
 | `Registration` | Registration | التسجيل | ckb + kmr |
 | `Sign in or create an account with your phone number.` | Sign in or create an account with your phone number. | سجّل الدخول أو أنشئ حساباً برقم هاتفك. | ckb + kmr |
 | `Your registration was saved, but your documents did not upload. You can add them from your profile.` | Your registration was saved, but your documents did not upload. You can add them from your profile. | تم حفظ تسجيلك، لكن لم يتم رفع مستنداتك. يمكنك إضافتها من ملفك الشخصي. | ckb + kmr |
+
+## chat · OPOS #26423 guest Messages sign-in prompt  (2 keys)
+
+Added 2026-09-15. A guest has no conversations: the server gives a guest
+session an empty chat list (OPOS #26354). So the Messages tab now shows a guest
+this prompt where the conversation list would be. Its button reuses `Sign in`,
+which already has Sorani and Badini, so only the heading and the sentence are
+new. "a full account" means a real, registered account as opposed to the
+guest one, the same sense as the existing `Create a full account to use this
+feature.`
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `messages_guest_title` | Sign in to use Messages | سجّل الدخول لاستخدام الرسائل | ckb + kmr |
+| `messages_guest_body` | Your conversations will appear here once you have a full account. | ستظهر محادثاتك هنا عندما يصبح لديك حساب كامل. | ckb + kmr |
 
 ## auth · J1 guest sign-up name  (2 keys)
 
@@ -171,6 +188,31 @@ unchanged.
 | `connect_request_sent_title` | Request sent | تم إرسال الطلب | ckb + kmr |
 | `connect_request_sent_body` | Our team will review it shortly. You can follow it in My Connect Requests on the Messages tab. | سيراجعه فريقنا قريبًا. يمكنك متابعته من «طلبات التواصل الخاصة بي» في تبويب «الرسائل». | **ckb + kmr — REWORDED**, the English changed on 2026-09-15: it said "Staff", it now says "Our team" |
 | `error_connect_request_submit_failed` | Could not send your request. | تعذّر إرسال طلبك. | ckb + kmr |
+
+## chat groups · OPOS #26419 sender labels  (6 keys)
+
+Added 2026-09-15. The name shown above someone else's message in a
+staff-mediated group chat. The server writes these in English, so the app
+translates exactly these words and leaves every other label, including names
+and labels staff type, as sent.
+
+`@n` is the member's number within the group ("Donor 2" is the second donor).
+Keep `@n` exactly as it is, and put it where a number naturally goes after the
+noun. The noun is a **label**, like a name tag, not a sentence. The English is
+deliberately the server's own words, so it matches the dashboard and push
+notifications; translate the meaning, using the Arabic column for the app's
+role nouns. `chat_group_sender_support` is how every staff message is signed:
+it names the support team (Arabic فريق الدعم), not financial support or Kafala
+(TERMINOLOGY.md T10).
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `chat_group_sender_support` | Support | فريق الدعم | ckb + kmr |
+| `chat_group_sender_member` | Member | عضو | ckb + kmr |
+| `chat_group_sender_donor_n` | Donor @n | مانح @n | ckb + kmr |
+| `chat_group_sender_beneficiary_n` | Beneficiary @n | مستحق @n | ckb + kmr |
+| `chat_group_sender_volunteer_n` | Volunteer @n | متطوع @n | ckb + kmr |
+| `chat_group_sender_member_n` | Member @n | عضو @n | ckb + kmr |
 
 ## notifications · K7 alert categories  (8 keys)
 

@@ -12,6 +12,7 @@ import 'package:flutter_application_1/modules/chat/screens/chat_conversation_scr
 import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/modules/chatgroups/controllers/chat_groups_controller.dart';
 import 'package:flutter_application_1/modules/chatgroups/widgets/chat_groups_section.dart';
+import 'package:flutter_application_1/modules/dashboard/screens/guest_sections.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -90,152 +91,179 @@ Future<void> openSupportChat(
   }
 }
 
+/// The Messages tab: the assistant and support doors, then the user's 1:1 chat
+/// threads, then their staff-mediated group chats.
+///
+/// A GUEST gets the same doors and, in place of the threads and groups, a
+/// sign-in prompt (OPOS #26423). The comment at the top of [build] says why.
 class MessagesScreen extends StatelessWidget {
   const MessagesScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final ctrl = Get.isRegistered<ChatController>()
+    // OPOS #26423 — no ChatController for a guest. The server gives a guest
+    // session an empty /api/chats and refuses thread messages (OPOS #26354),
+    // so a controller here would fetch on open and poll every 5 seconds for a
+    // list that can never fill, and the tab would draw its empty or error
+    // state for something a guest simply does not have. The guest gets
+    // GuestMessagesPrompt in the list's place; the doors above it stay.
+    final guest = isGuestMode();
+    final ctrl = guest
+        ? null
+        : Get.isRegistered<ChatController>()
         ? Get.find<ChatController>()
         : Get.put(ChatController());
     // Put here, never in the lazily built ChatGroupsSection: GetX deletes a
     // controller with the route current when it was put, and only this build
     // is sure to run while Messages is that route. Guests have no groups.
-    final groups = isGuestMode()
+    final groups = guest
         ? null
         : Get.isRegistered<ChatGroupsController>()
         ? Get.find<ChatGroupsController>()
         : Get.put(ChatGroupsController());
 
+    final list = ListView(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+      children: [
+        // These three are standing entry points, not content: the bot,
+        // support chat and case chats are reachable whether or not the user
+        // has any threads, and whether or not the user is a guest. They were
+        // previously duplicated across the empty branch and the content
+        // branch, which is why the empty state had to re-list them. They now
+        // live outside the async region and are written once.
+        const _BotAssistantCard(),
+        const SizedBox(height: 10),
+        // #45 — direct chat with support/tech staff.
+        SectionTile(
+          icon: Icons.support_agent_rounded,
+          title: 'chat_support'.tr,
+          subtitle: 'chat_support_desc'.tr,
+          color: AppThemeConfig.accent(context),
+          onTap: () => openSupportChat(context),
+        ),
+        const SizedBox(height: 10),
+        // A standing (not error-gated) route to the ticket form. This is not a
+        // duplicate of chat_support above: that is a live conversation with a
+        // human, this files a tracked request that survives no one being
+        // online to answer chat — which, in production today, is the common
+        // case (support chat returns 503 until a staff account is configured).
+        SectionTile(
+          icon: Icons.contact_support_outlined,
+          title: 'support_request_form'.tr,
+          subtitle: 'support_request_form_desc'.tr,
+          color: AppThemeConfig.accent(context),
+          onTap: () => Get.to(() => const TechnicalSupportScreen()),
+        ),
+        // Sits directly beneath the control that failed, so the message is
+        // attached to the thing the user just pressed.
+        ValueListenableBuilder<String?>(
+          valueListenable: supportChatError,
+          builder: (context, message, _) {
+            if (message == null) return const SizedBox.shrink();
+            return Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: AppErrorState(
+                message: message,
+                onRetry: () => openSupportChat(context),
+              ),
+            );
+          },
+        ),
+        // The PERMANENT case, which deliberately looks nothing like the error
+        // above: no Retry, because retrying cannot work, and a route to the
+        // two support channels that do.
+        ValueListenableBuilder<bool>(
+          valueListenable: supportChatUnavailable,
+          builder: (context, unavailable, _) {
+            if (!unavailable) return const SizedBox.shrink();
+            return const Padding(
+              padding: EdgeInsets.only(top: 10),
+              child: SupportChatUnavailableNotice(),
+            );
+          },
+        ),
+        // Only the THREAD list has four states. Its error branch used to
+        // replace the whole screen, taking the support and bot entry points
+        // down with it - so a failed thread fetch also removed the user's way
+        // to contact support about it.
+        //
+        // The Obx wraps this region alone rather than the whole list: nothing
+        // above it reads the threads, and a guest has no controller to observe
+        // at all (an Obx that reads no observable throws in GetX).
+        if (ctrl == null)
+          const GuestMessagesPrompt()
+        else
+          Obx(() {
+            final incoming = ctrl.threads
+                .where((t) => t.incomingPending)
+                .toList();
+            final active = ctrl.threads.where((t) => t.isActive).toList();
+            final outgoing = ctrl.threads
+                .where((t) => t.isPending && !t.incomingPending)
+                .toList();
+
+            return AppAsync<List<dynamic>>(
+              loading: ctrl.isLoading.value,
+              error: ctrl.errorMessage.value,
+              onRetry: ctrl.fetchThreads,
+              data: ctrl.threads,
+              isEmpty: (list) => list.isEmpty,
+              empty: const AppEmpty(
+                title: 'No conversations yet',
+                message:
+                    'Start a chat from a donation (donor) or from your campaign donations (owner).',
+              ),
+              builder: (_) => Column(
+                children: [
+                  if (incoming.isNotEmpty) ...[
+                    _SectionLabel(
+                      label: 'Chat requests',
+                      count: incoming.length,
+                    ),
+                    for (final t in incoming)
+                      _IncomingRequestCard(thread: t, ctrl: ctrl),
+                    const SizedBox(height: 8),
+                  ],
+                  if (active.isNotEmpty) ...[
+                    _SectionLabel(label: 'Conversations', count: active.length),
+                    for (final t in active) _ThreadTile(thread: t),
+                  ],
+                  if (outgoing.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    _SectionLabel(
+                      label: 'Waiting for accept',
+                      count: outgoing.length,
+                    ),
+                    for (final t in outgoing) _OutgoingPendingTile(thread: t),
+                  ],
+                ],
+              ),
+            );
+          }),
+        // OPOS #25284 — staff-mediated group chats. Last, so nothing in it can
+        // displace the doors above; guests cannot message at all.
+        if (!isGuestMode()) const ChatGroupsSection(),
+      ],
+    );
+
     return SectionScaffold(
       assistantRoute: 'messages',
       title: 'Messages',
       subtitle: 'Chat with campaign owners and donors. Support is included.',
-      child: Obx(() {
-        final incoming = ctrl.threads.where((t) => t.incomingPending).toList();
-        final active = ctrl.threads.where((t) => t.isActive).toList();
-        final outgoing = ctrl.threads
-            .where((t) => t.isPending && !t.incomingPending)
-            .toList();
-
-        return RefreshIndicator(
-          // Pulling down refreshes everything the tab lists, groups included.
-          onRefresh: () => Future.wait([
-            ctrl.fetchThreads(),
-            if (groups != null) groups.fetchGroups(),
-          ]),
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
-            children: [
-              // These three are standing entry points, not content: the bot,
-              // support chat and case chats are reachable whether or not the
-              // user has any threads. They were previously duplicated across
-              // the empty branch and the content branch, which is why the
-              // empty state had to re-list them. They now live outside the
-              // async region and are written once.
-              const _BotAssistantCard(),
-              const SizedBox(height: 10),
-              // #45 — direct chat with support/tech staff.
-              SectionTile(
-                icon: Icons.support_agent_rounded,
-                title: 'chat_support'.tr,
-                subtitle: 'chat_support_desc'.tr,
-                color: AppThemeConfig.accent(context),
-                onTap: () => openSupportChat(context),
-              ),
-              const SizedBox(height: 10),
-              // A standing (not error-gated) route to the ticket form. This
-              // is not a duplicate of chat_support above: that is a live
-              // conversation with a human, this files a tracked request that
-              // survives no one being online to answer chat — which, in
-              // production today, is the common case (support chat returns
-              // 503 until a staff account is configured).
-              SectionTile(
-                icon: Icons.contact_support_outlined,
-                title: 'support_request_form'.tr,
-                subtitle: 'support_request_form_desc'.tr,
-                color: AppThemeConfig.accent(context),
-                onTap: () => Get.to(() => const TechnicalSupportScreen()),
-              ),
-              // Sits directly beneath the control that failed, so the message
-              // is attached to the thing the user just pressed.
-              ValueListenableBuilder<String?>(
-                valueListenable: supportChatError,
-                builder: (context, message, _) {
-                  if (message == null) return const SizedBox.shrink();
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 10),
-                    child: AppErrorState(
-                      message: message,
-                      onRetry: () => openSupportChat(context),
-                    ),
-                  );
-                },
-              ),
-              // The PERMANENT case, which deliberately looks nothing like the
-              // error above: no Retry, because retrying cannot work, and a
-              // route to the two support channels that do.
-              ValueListenableBuilder<bool>(
-                valueListenable: supportChatUnavailable,
-                builder: (context, unavailable, _) {
-                  if (!unavailable) return const SizedBox.shrink();
-                  return const Padding(
-                    padding: EdgeInsets.only(top: 10),
-                    child: SupportChatUnavailableNotice(),
-                  );
-                },
-              ),
-              // Only the THREAD list has four states. Its error branch used to
-              // replace the whole screen, taking the support and bot entry
-              // points down with it - so a failed thread fetch also removed
-              // the user's way to contact support about it.
-              AppAsync<List<dynamic>>(
-                loading: ctrl.isLoading.value,
-                error: ctrl.errorMessage.value,
-                onRetry: ctrl.fetchThreads,
-                data: ctrl.threads,
-                isEmpty: (list) => list.isEmpty,
-                empty: const AppEmpty(
-                  title: 'No conversations yet',
-                  message:
-                      'Start a chat from a donation (donor) or from your campaign donations (owner).',
-                ),
-                builder: (_) => Column(
-                  children: [
-                    if (incoming.isNotEmpty) ...[
-                      _SectionLabel(
-                        label: 'Chat requests',
-                        count: incoming.length,
-                      ),
-                      for (final t in incoming)
-                        _IncomingRequestCard(thread: t, ctrl: ctrl),
-                      const SizedBox(height: 8),
-                    ],
-                    if (active.isNotEmpty) ...[
-                      _SectionLabel(
-                        label: 'Conversations',
-                        count: active.length,
-                      ),
-                      for (final t in active) _ThreadTile(thread: t),
-                    ],
-                    if (outgoing.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      _SectionLabel(
-                        label: 'Waiting for accept',
-                        count: outgoing.length,
-                      ),
-                      for (final t in outgoing) _OutgoingPendingTile(thread: t),
-                    ],
-                  ],
-                ),
-              ),
-              // OPOS #25284 — staff-mediated group chats. Last, so nothing in
-              // it can displace the doors above; guests cannot message at all.
-              if (!isGuestMode()) const ChatGroupsSection(),
-            ],
-          ),
-        );
-      }),
+      // Pull-to-refresh only where there is something to refresh: a guest has
+      // no threads and no groups, so a spinner would promise an update that
+      // cannot come.
+      child: ctrl == null
+          ? list
+          : RefreshIndicator(
+              // Pulling down refreshes everything the tab lists, groups
+              // included.
+              onRefresh: () => Future.wait([
+                ctrl.fetchThreads(),
+                if (groups != null) groups.fetchGroups(),
+              ]),
+              child: list,
+            ),
     );
   }
 }
