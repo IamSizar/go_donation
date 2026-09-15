@@ -6,6 +6,44 @@
 
 ---
 
+## 2026-09-15 — OPOS #26496: codes on the chat-group handlers' inline refusals (branch `fix/chat-group-admin-refusal-codes`)
+
+**What was asked:** some chat-group refusals, on both admin and member routes, were still written inline as `{success:false, error}` without a `code`. Each needed a machine code, with its status and English sentence unchanged. Test-first, not pushed.
+
+**What was changed** (branch cut from `origin/main` `b0c9eb8`):
+- **`backend/internal/handlers/chat_group.go`** adds three helpers next to `chatErr` / `respondChatErr` (#107, #118):
+  - `chatErrUnauthorized`: 401 `Unauthorized.`, code **`unauthorized`** (new code).
+  - `chatInvalidInput(msg)`: 400 with the handler's own sentence, code **`group_invalid_input`**.
+  - `h.chatServerErr(c, err)`: logs, then answers 500 `Database error.` with code **`server_error`**. It never maps a sentinel.
+- **Call sites.** Every inline refusal in `chat_group.go`, `chat_group_admin.go`, `chat_group_admin_connect.go` and `chat_group_connect.go` now goes through those helpers.
+  - The 400 sentences are `Invalid JSON.`, `kind and at least one member are required.`, `user_id is required.`, `Invalid user id.`, `Message body is required.`, `A decline reason is required.`, and also the member route's `context_type, context_id, and message are required.`.
+  - The 500s are on the admin and member group lists, admin messages, contact blocks, the admin connect-request list, the member connect-request list, and member mark-read.
+  - The admin connect-request list used to log the error itself. That `log.Printf` was removed, because `chatServerErr` logs it, and so was the now-unused `log` import.
+- **New test file `backend/internal/handlers/chat_group_inline_refusal_codes_test.go`** (existing chat-group test files are near 500 lines):
+  - `TestChatGroupHandlers_UnauthorizedCarriesItsCode` needs no DB. It calls all 18 handlers with no user.
+  - `TestChatGroupRoutes_InlineBadRequestCarriesItsCode` covers 11 route and body cases.
+  - `TestChatGroupRoutes_DatabaseErrorCarriesItsCode` covers 7 routes. Each handler's store uses a pool whose `search_path` is a temporary schema of views over every public table except the one that query reads. Auth and lifecycle keep the real pool. The schema is dropped in `t.Cleanup`.
+
+**For admin-web (not edited):** `unauthorized` is a new code. Add `error.unauthorized` to the error map. `group_invalid_input` and `server_error` are already known.
+
+**What was run:**
+- **RED** on a throwaway DB, before any handler change. All three tests failed on `code = <nil>`: 18/18, 11/11 and 7/7 subtests, e.g. `code = <nil>, want "unauthorized" (body map[error:Unauthorized. success:false])`.
+- `gofmt -l` on the 5 changed files printed nothing. `go build ./...` and `go vet ./...` passed.
+- `go test ./internal/chatgroups/ ./internal/handlers/ -count=1 -p 1 -timeout 45m` on a fresh DB: `ok` for both packages.
+- `-v -run 'TestChatGroupHandlers_UnauthorizedCarriesItsCode|TestChatGroupRoutes_InlineBadRequestCarriesItsCode|TestChatGroupRoutes_DatabaseErrorCarriesItsCode'` on a fresh DB: PASS=39, FAIL=0, SKIP=0.
+- `go test ./... -count=1 -p 1 -timeout 45m` on a fresh DB: exit 0, 22 packages `ok`, no FAIL lines.
+- Review (`ecc:go-reviewer`): **APPROVE**. No CRITICAL, HIGH or MEDIUM findings. One LOW, fixed: `chatServerErr`'s doc said "reads" although `MarkRead` writes.
+
+**External actions:** none. Nothing was pushed. Each throwaway DB (`godonation_26496_{red,pkg,run,full}`) was dropped and confirmed gone with `psql -lqt`.
+
+**Still open:** the admin-web locale key for `unauthorized`.
+
+**Traps:**
+- A 500 inside `AdminMessages` / `AdminContactBlocks` cannot be reached with a closed pool, because `GroupKind` fails first through `chatErr`. That is why the test uses the missing-table schema.
+- The worktree guard rejects compound shell commands that mention `git`. Run `git grep` on its own.
+
+---
+
 ## 2026-09-15 — OPOS #26400 (Phase 6c): admin-web connect-request inbox (branch `feat/admin-connect-request-inbox`)
 
 **What was asked:** the connect-request inbox in admin-web, test-first. It needed:

@@ -34,12 +34,12 @@ type submitConnectRequestReq struct {
 func (h *ChatGroupHandler) SubmitConnectRequest(c *gin.Context) {
 	user, ok := auth.UserFromGin(c)
 	if !ok || user == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		respondChatErr(c, chatErrUnauthorized)
 		return
 	}
 	var req submitConnectRequestReq
 	if err := c.ShouldBindJSON(&req); err != nil || strings.TrimSpace(req.Message) == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "context_type, context_id, and message are required."})
+		respondChatErr(c, chatInvalidInput("context_type, context_id, and message are required."))
 		return
 	}
 	id, err := h.Store.SubmitConnectRequest(c.Request.Context(), user.UserID, req.ContextType, req.ContextID, req.TargetHint, req.Message)
@@ -74,12 +74,12 @@ type myConnectRequestItem struct {
 func (h *ChatGroupHandler) MyConnectRequests(c *gin.Context) {
 	user, ok := auth.UserFromGin(c)
 	if !ok || user == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		respondChatErr(c, chatErrUnauthorized)
 		return
 	}
 	requests, err := h.Store.ListConnectRequestsForUser(c.Request.Context(), user.UserID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		h.chatServerErr(c, err)
 		return
 	}
 	items := make([]myConnectRequestItem, 0, len(requests))

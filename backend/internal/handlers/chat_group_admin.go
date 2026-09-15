@@ -26,12 +26,12 @@ import (
 // GET /api/admin/chat-groups
 func (h *ChatGroupHandler) AdminList(c *gin.Context) {
 	if _, ok := auth.UserFromGin(c); !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		respondChatErr(c, chatErrUnauthorized)
 		return
 	}
 	items, err := h.Store.ListGroupsForStaff(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		h.chatServerErr(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "items": items})
@@ -96,7 +96,7 @@ func (h *ChatGroupHandler) refuseMaskedWithoutSensitive(c *gin.Context, groupID 
 // whether it is archived (part of OPOS #26410).
 func (h *ChatGroupHandler) AdminGetGroup(c *gin.Context) {
 	if _, ok := auth.UserFromGin(c); !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		respondChatErr(c, chatErrUnauthorized)
 		return
 	}
 	id, ok := parseID(c)
@@ -133,16 +133,16 @@ type adminCreateGroupReq struct {
 func (h *ChatGroupHandler) AdminCreateGroup(c *gin.Context) {
 	user, ok := auth.UserFromGin(c)
 	if !ok || user == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		respondChatErr(c, chatErrUnauthorized)
 		return
 	}
 	var req adminCreateGroupReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid JSON."})
+		respondChatErr(c, chatInvalidInput("Invalid JSON."))
 		return
 	}
 	if strings.TrimSpace(req.Kind) == "" || len(req.Members) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "kind and at least one member are required."})
+		respondChatErr(c, chatInvalidInput("kind and at least one member are required."))
 		return
 	}
 	members := make([]chatgroups.MemberInput, len(req.Members))
@@ -168,7 +168,7 @@ func (h *ChatGroupHandler) AdminCreateGroup(c *gin.Context) {
 func (h *ChatGroupHandler) AdminAddMember(c *gin.Context) {
 	user, ok := auth.UserFromGin(c)
 	if !ok || user == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		respondChatErr(c, chatErrUnauthorized)
 		return
 	}
 	id, ok := parseID(c)
@@ -177,7 +177,7 @@ func (h *ChatGroupHandler) AdminAddMember(c *gin.Context) {
 	}
 	var req adminGroupMemberReq
 	if err := c.ShouldBindJSON(&req); err != nil || req.UserID <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "user_id is required."})
+		respondChatErr(c, chatInvalidInput("user_id is required."))
 		return
 	}
 	input := chatgroups.MemberInput{UserID: req.UserID, RoleInGroup: req.RoleInGroup, Label: req.Label}
@@ -196,7 +196,7 @@ func (h *ChatGroupHandler) AdminAddMember(c *gin.Context) {
 func (h *ChatGroupHandler) AdminRemoveMember(c *gin.Context) {
 	user, ok := auth.UserFromGin(c)
 	if !ok || user == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		respondChatErr(c, chatErrUnauthorized)
 		return
 	}
 	id, ok := parseID(c)
@@ -205,7 +205,7 @@ func (h *ChatGroupHandler) AdminRemoveMember(c *gin.Context) {
 	}
 	memberUserID, err := strconv.ParseInt(c.Param("userId"), 10, 64)
 	if err != nil || memberUserID <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid user id."})
+		respondChatErr(c, chatInvalidInput("Invalid user id."))
 		return
 	}
 	if err := h.Store.RemoveMember(c.Request.Context(), id, memberUserID, user.UserID); err != nil {
@@ -224,7 +224,7 @@ func (h *ChatGroupHandler) AdminRemoveMember(c *gin.Context) {
 // user (refuseMaskedWithoutSensitive); a missing group is 404.
 func (h *ChatGroupHandler) AdminMessages(c *gin.Context) {
 	if _, ok := auth.UserFromGin(c); !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		respondChatErr(c, chatErrUnauthorized)
 		return
 	}
 	id, ok := parseID(c)
@@ -237,7 +237,7 @@ func (h *ChatGroupHandler) AdminMessages(c *gin.Context) {
 	afterID, limit := parseGroupPageParams(c)
 	items, err := h.Store.AdminListMessages(c.Request.Context(), id, afterID, limit)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		h.chatServerErr(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "items": items})
@@ -248,7 +248,7 @@ func (h *ChatGroupHandler) AdminMessages(c *gin.Context) {
 func (h *ChatGroupHandler) AdminPostMessage(c *gin.Context) {
 	user, ok := auth.UserFromGin(c)
 	if !ok || user == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		respondChatErr(c, chatErrUnauthorized)
 		return
 	}
 	id, ok := parseID(c)
@@ -267,7 +267,7 @@ func (h *ChatGroupHandler) AdminPostMessage(c *gin.Context) {
 	}
 	var req chatGroupMessageReq
 	if err := c.ShouldBindJSON(&req); err != nil || strings.TrimSpace(req.Body) == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Message body is required."})
+		respondChatErr(c, chatInvalidInput("Message body is required."))
 		return
 	}
 	if h.refuseGroupContactDetails(c, group, user, req.Body) {
@@ -288,7 +288,7 @@ func (h *ChatGroupHandler) AdminPostMessage(c *gin.Context) {
 // 404.
 func (h *ChatGroupHandler) AdminContactBlocks(c *gin.Context) {
 	if _, ok := auth.UserFromGin(c); !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		respondChatErr(c, chatErrUnauthorized)
 		return
 	}
 	id, ok := parseID(c)
@@ -300,7 +300,7 @@ func (h *ChatGroupHandler) AdminContactBlocks(c *gin.Context) {
 	}
 	items, err := h.Store.ListContactBlocks(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		h.chatServerErr(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "items": items})
