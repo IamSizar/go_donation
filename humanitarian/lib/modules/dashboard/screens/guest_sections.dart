@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
+import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/routes/app_routes.dart';
 import 'package:get/get.dart';
 
-/// Section 27 — guest-facing versions of the Home and Account tabs. They make
-/// no authenticated calls, so a signed-out guest gets a clean browse landing
-/// and a clear path to sign in (instead of an auth-error placeholder).
+/// Section 27 — guest-facing versions of the Home and Account tabs, and of the
+/// Messages tab's conversation list (OPOS #26423). They make no authenticated
+/// calls, so a signed-out guest gets a clean browse landing and a clear path
+/// to sign in (instead of an auth-error placeholder).
 
 void _goSignIn() {
   exitGuestMode();
@@ -216,6 +218,47 @@ class GuestAccountSection extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// OPOS #26423 — what a guest sees on the Messages tab in place of the
+/// conversation list.
+///
+/// WHY A PROMPT AND NOT THE LIST
+/// The server gives a guest session an empty GET /api/chats and GET
+/// /api/marriage/chats, and refuses thread messages with 403
+/// guest_restricted (OPOS #26354). A guest has no conversations and cannot
+/// start one. Showing them the list meant polling for an answer that is always
+/// empty, then drawing "no conversations yet" or "could not load your chats",
+/// as if something were missing rather than simply not open to a guest. This
+/// says what the tab is for and how to get it.
+///
+/// WHAT IT REUSES
+///   * The shape and tone of [GuestAccountSection]: a mark, a heading, one
+///     explanatory sentence and a "Sign in" button.
+///   * [_goSignIn], so this button leaves guest mode exactly as the guest Home
+///     and Account tabs do.
+///   * [AppEmpty] to draw it. The Messages tab already uses AppEmpty in this
+///     same slot for a member with no conversations, so both states share one
+///     layout, whose padding is directional and whose text is centred, and so
+///     reads the same right to left.
+///
+/// Support is deliberately NOT in this widget: the support doors sit above it
+/// on the Messages tab, for guests and members alike.
+class GuestMessagesPrompt extends StatelessWidget {
+  const GuestMessagesPrompt({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const AppEmpty(
+      // The same mark as the Messages door in the dashboard's top bar, so the
+      // prompt visibly belongs to the button that opened it.
+      icon: Icons.forum_outlined,
+      title: 'messages_guest_title',
+      message: 'messages_guest_body',
+      actionLabel: 'Sign in',
+      onAction: _goSignIn,
     );
   }
 }
