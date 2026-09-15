@@ -70,6 +70,14 @@ class ChatMessage {
   final int threadId;
   final int senderUserId;
   final int senderRole; // 0 support/admin, 1 donor, 2 beneficiary, 3 volunteer
+  /// The sender's name as the server sent it, trimmed. Empty when the server
+  /// sent none: a staff account with no profile name, or a name the sender's
+  /// privacy settings hide from this viewer.
+  ///
+  /// Deliberately no fallback word here (OPOS #26435). An English "Support"
+  /// baked in at parse time reached Arabic screens; the model stays
+  /// independent of the reader's language, and the screen names an unnamed
+  /// sender through `chatSenderName`.
   final String senderName;
   final String body;
   final DateTime? createdAt;
@@ -87,15 +95,12 @@ class ChatMessage {
   bool get isSupport => senderRole == 0;
 
   factory ChatMessage.fromMap(Map<String, dynamic> m) {
-    final rawName = (m['sender_name'] ?? '').toString().trim();
     return ChatMessage(
       id: int.tryParse('${m['id']}') ?? 0,
       threadId: int.tryParse('${m['thread_id']}') ?? 0,
       senderUserId: int.tryParse('${m['sender_user_id']}') ?? 0,
       senderRole: int.tryParse('${m['sender_role'] ?? 0}') ?? 0,
-      senderName: rawName.isEmpty
-          ? (int.tryParse('${m['sender_role'] ?? 0}') == 0 ? 'Support' : 'User')
-          : rawName,
+      senderName: (m['sender_name'] ?? '').toString().trim(),
       body: (m['body'] ?? '').toString(),
       createdAt: DateTime.tryParse((m['created_at'] ?? '').toString()),
     );

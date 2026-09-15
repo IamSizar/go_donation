@@ -31,6 +31,13 @@ const (
 // title / case number / donation amount) belongs in the handler layer in a
 // later phase — this type carries the raw ids, not a bare "context_id" the
 // admin-web page would have to make sense of unassisted.
+//
+// RequesterName is the requester's user_profiles.full_name. Only the admin
+// reads, ListConnectRequests and GetConnectRequest, load it; it is nil
+// everywhere else, and nil when the requester has no profile. It is tagged
+// json:"-" so this type never puts a real name on the wire by itself: the
+// admin handler copies it into its response only for a caller who may view
+// sensitive data (user decision D6, part of OPOS #26410).
 type ConnectRequest struct {
 	ID             int64                `json:"id"`
 	RequesterID    int64                `json:"requester_user_id"`
@@ -43,6 +50,7 @@ type ConnectRequest struct {
 	DeclineReason  string               `json:"decline_reason,omitempty"`
 	DecidedByStaff *int64               `json:"decided_by_staff_id,omitempty"`
 	CreatedAt      time.Time            `json:"created_at"`
+	RequesterName  *string              `json:"-"`
 }
 
 // submitConnectRequestSQL writes a connect request only when the case or
@@ -219,19 +227,55 @@ func (s *Store) DeclineConnectRequest(ctx context.Context, requestID, staffID in
 	return nil
 }
 
-// ListConnectRequests lists requests, optionally filtered by status ("" for
-// all statuses).
+// adminConnectRequestSelect is the admin inbox's read of a connect request:
+// every column ConnectRequest carries plus the requester's profile name, for
+// RequesterName. ListConnectRequests and GetConnectRequest share it, and
+// scanAdminConnectRequest reads it, so the two reads cannot drift apart.
+//
+// The name comes through a LATERAL subquery scoped to each request's own
+// requester, not a plain join: user_profiles.user_id carries no UNIQUE
+// constraint, so a requester with two profile rows would otherwise list their
+// request twice. ORDER BY id LIMIT 1 names them from the oldest profile row. A
+// requester with no profile gets NULL, because LEFT JOIN ... ON true keeps the
+// request when the subquery finds nothing.
+//
+// Scoped per request rather than joined to a DISTINCT ON view of the whole
+// table, which scanned and sorted every profile on every call — including
+// GetConnectRequest's single-request read. user_profiles.user_id still has no
+// index, so each lookup scans that table; an index is the remaining fix.
+// Every request column is qualified with r. because user_profiles has an id
+// of its own.
+const adminConnectRequestSelect = `
+	SELECT r.id, r.requester_user_id, r.context_type, r.context_id, r.target_hint,
+	       r.message, r.group_id, r.status, r.decline_reason, r.decided_by_staff_id, r.created_at,
+	       p.full_name
+	  FROM chat_group_connect_requests r
+	  LEFT JOIN LATERAL (SELECT up.full_name
+	                       FROM user_profiles up
+	                      WHERE up.user_id = r.requester_user_id
+	                      ORDER BY up.id
+	                      LIMIT 1) p ON true`
+
+// scanAdminConnectRequest reads one row of adminConnectRequestSelect.
+func scanAdminConnectRequest(row pgx.Row) (ConnectRequest, error) {
+	var r ConnectRequest
+	err := row.Scan(&r.ID, &r.RequesterID, &r.ContextType, &r.ContextID, &r.TargetHint,
+		&r.Message, &r.GroupID, &r.Status, &r.DeclineReason, &r.DecidedByStaff, &r.CreatedAt,
+		&r.RequesterName)
+	return r, err
+}
+
+// ListConnectRequests lists requests for the admin inbox, newest first,
+// optionally filtered by status ("" for all statuses), each with the
+// requester's name loaded (see adminConnectRequestSelect).
 func (s *Store) ListConnectRequests(ctx context.Context, status string) ([]ConnectRequest, error) {
-	query := `
-		SELECT id, requester_user_id, context_type, context_id, target_hint,
-		       message, group_id, status, decline_reason, decided_by_staff_id, created_at
-		  FROM chat_group_connect_requests`
+	query := adminConnectRequestSelect
 	args := []any{}
 	if status != "" {
-		query += ` WHERE status = $1`
+		query += ` WHERE r.status = $1`
 		args = append(args, status)
 	}
-	query += ` ORDER BY created_at DESC`
+	query += ` ORDER BY r.created_at DESC`
 
 	rows, err := s.Pool.Query(ctx, query, args...)
 	if err != nil {
@@ -241,9 +285,8 @@ func (s *Store) ListConnectRequests(ctx context.Context, status string) ([]Conne
 
 	out := []ConnectRequest{}
 	for rows.Next() {
-		var r ConnectRequest
-		if err := rows.Scan(&r.ID, &r.RequesterID, &r.ContextType, &r.ContextID, &r.TargetHint,
-			&r.Message, &r.GroupID, &r.Status, &r.DeclineReason, &r.DecidedByStaff, &r.CreatedAt); err != nil {
+		r, err := scanAdminConnectRequest(rows)
+		if err != nil {
 			return nil, fmt.Errorf("chatgroups: scanning connect request row: %w", err)
 		}
 		out = append(out, r)
@@ -254,15 +297,10 @@ func (s *Store) ListConnectRequests(ctx context.Context, status string) ([]Conne
 	return out, nil
 }
 
-// GetConnectRequest reads one request by id.
+// GetConnectRequest reads one request by id for the admin inbox, with the
+// requester's name loaded (see adminConnectRequestSelect).
 func (s *Store) GetConnectRequest(ctx context.Context, id int64) (ConnectRequest, error) {
-	var r ConnectRequest
-	err := s.Pool.QueryRow(ctx, `
-		SELECT id, requester_user_id, context_type, context_id, target_hint,
-		       message, group_id, status, decline_reason, decided_by_staff_id, created_at
-		  FROM chat_group_connect_requests WHERE id = $1`, id,
-	).Scan(&r.ID, &r.RequesterID, &r.ContextType, &r.ContextID, &r.TargetHint,
-		&r.Message, &r.GroupID, &r.Status, &r.DeclineReason, &r.DecidedByStaff, &r.CreatedAt)
+	r, err := scanAdminConnectRequest(s.Pool.QueryRow(ctx, adminConnectRequestSelect+` WHERE r.id = $1`, id))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ConnectRequest{}, fmt.Errorf("chatgroups: connect request %d: %w", id, ErrNotFound)
 	}

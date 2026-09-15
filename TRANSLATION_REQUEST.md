@@ -32,7 +32,7 @@ made on this project once and had to be reverted.
 Every key below currently renders its **English** string to a Kurdish user.
 That is deliberate and safe. It is not a crash, and it is not Arabic text.
 
-## Count: 467 keys need Kurdish
+## Count: 468 keys need Kurdish
 
 | Client | Sorani (ckb) | Badini (kmr) | Distinct keys |
 |---|---|---|---|
@@ -60,7 +60,8 @@ That is deliberate and safe. It is not a crash, and it is not Arabic text.
 | App — K15 product-list labels (new) | 27 | 27 | 27 |
 | App — OPOS #25284 Phase 5 staff-mediated group chats (new) | 38 | 38 | 38 |
 | App — OPOS #26419 chat group sender labels (new) | 6 | 6 | 6 |
-| **Total distinct words to translate** | | | **467** |
+| App — OPOS #26429 group chat message notification type (new) | 1 | 1 | 1 |
+| **Total distinct words to translate** | | | **468** |
 
 > **The dashboard figure above is a floor, not a ceiling — and it is the one
 > number in this file that was never fully measured.** Counting key paths in
@@ -213,6 +214,27 @@ it names the support team (Arabic فريق الدعم), not financial support or
 | `chat_group_sender_beneficiary_n` | Beneficiary @n | مستحق @n | ckb + kmr |
 | `chat_group_sender_volunteer_n` | Volunteer @n | متطوع @n | ckb + kmr |
 | `chat_group_sender_member_n` | Member @n | عضو @n | ckb + kmr |
+
+Updated 2026-09-15 (OPOS #26435): the 1:1 support chat now also uses
+`chat_group_sender_support`, for a staff reply that arrives with no name. No
+key was added and the count is unchanged; translate the row above once and it
+serves both chats.
+
+## notifications · OPOS #26429 group chat message notification type  (1 key)
+
+Added 2026-09-15. The notification type every message in a staff-mediated
+group chat is filed under, masked and team groups alike. The app shows it in
+the الإشعارات type filter. It is the group-chat counterpart of `chat_message`
+("Chat message") in the B1 vocabulary below, and like those rows it is a
+**label**, not a sentence. "Group chat" is the name the Messages tab already
+uses for these conversations.
+
+This row counts the Flutter app key only. The dashboard's label for the same
+type is the other half of #26429 and is not part of this change.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `chat_group_message` | Group chat message | رسالة محادثة جماعية | ckb + kmr |
 
 ## notifications · K7 alert categories  (8 keys)
 
