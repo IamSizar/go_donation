@@ -18,8 +18,9 @@
  * group_invalid_input 400, connect_context_not_found 400, server_error 500 and
  * sensitive_data_required 403. Sending a message can also answer
  * chat_lifecycle_closed 409 (with the staff reason in `lifecycle_reason`) and
- * contact_details_blocked 422. A missing connect request is a plain 404,
- * "Connect request not found.", with no code yet.
+ * contact_details_blocked 422. A missing connect request answers 404
+ * connect_request_not_found (#26478); an older backend sends the same 404
+ * with no code, which describeConnectRequestError still translates.
  *
  * HOW IT EXTENDS describeError
  * lib/api.ts's describeError already resolves `code` through `error.<code>`,
@@ -52,6 +53,7 @@ export const CHAT_GROUP_ERROR_CODES = [
   'group_not_found',
   'not_group_member',
   'connect_request_decided',
+  'connect_request_not_found',
   'sensitive_data_required',
   'server_error',
   'chat_lifecycle_closed',
@@ -76,6 +78,7 @@ export const CHAT_GROUP_ERROR_KEYS: Record<ChatGroupErrorCode, string> = {
   group_not_found: 'error.group_not_found',
   not_group_member: 'error.not_group_member',
   connect_request_decided: 'error.connect_request_decided',
+  connect_request_not_found: 'error.connect_request_not_found',
   sensitive_data_required: 'error.sensitive_data_required',
   // A 500 reads as the dashboard's generic server line, never as the
   // driver's "Database error.".
