@@ -6,6 +6,89 @@
 
 ---
 
+## 2026-09-15 — OPOS #26424: guests no longer see chat notifications or their previews (branch `fix/guest-notifications-no-chat-previews`)
+
+**What was asked:** guests must not read chats. The chat read routes already refuse guests (PR #83, and #26354 in flight). But `GET /api/notifications` was not guest-gated, and a chat message writes a notification whose body is an 80-character preview of the message. A guest who was in a chat before `9d1cde5` could still read snippets there. The task was to close that, test-first, touching only notification list/count code.
+
+**What was actually changed** (commit `7d8a563` on `fix/guest-notifications-no-chat-previews`, based on `origin/main` `a1da04f`; `main.go` untouched):
+- `backend/internal/notify/list.go`:
+  - `chatNotificationTypes` (line 72) is the one named list of chat types. `ChatNotificationTypes()` (line 86) returns a copy of it.
+  - `GuestChatExclusionSQL(userIDArg, typesArg)` (line 103) is the shared SQL predicate. It uses placeholders only and is NULL-safe. It drops chat-type rows when `users.is_guest` is true.
+  - `Notifier.List` applies it for every user id (line 199).
+- `backend/internal/dashboard/dashboard.go`: `recentNotifications` (line 139) applies the same predicate (line 148). It is a second leak with the same cause: `GET /api/dashboard` returns the newest three notification bodies and is not guest-gated.
+- `backend/internal/handlers/notifications.go`: the doc comment on `List` changed; nothing else.
+- New tests:
+  - `backend/internal/handlers/notifications_guest_test.go`: HTTP tests with a router that mirrors `main.go`, guest vs member.
+  - `backend/internal/notify/chat_types_test.go`: pure unit tests that stop the type list drifting from the templates.
+
+**Decision: option (a), filter by type for guests; the routes stay open.** Option (b), gating the route, was rejected for two reasons:
+- Guests legitimately receive `new_campaign`, `new_media_post`, `new_partner`, `new_volunteer_mission` and `admin_announcement` broadcasts (`Notifier.Broadcast` selects every active user), plus support-ticket notifications.
+- The app polls `/notifications` for guests too, so a 403 would turn the Alerts screen into an error state.
+
+The filter is in SQL, before `LIMIT`. There is no separate count endpoint: the app counts `is_read` from the same list, and `?read_status=unread` / `?unread_only=1` filter the same query.
+
+**Type classification** (every `Type:` the backend writes: `notify/templates.go` plus `handlers/push.go`):
+
+| Class | Types | Guest sees it? |
+|---|---|---|
+| Chat | `chat_request`, `chat_accepted`, `chat_message` (donor↔owner chat, and support-chat staff replies), `chat_group_message`, `marriage_chat_request`, `marriage_chat_accepted`, `marriage_chat_message`, `marriage_meeting_declined` (refusal of a request to open a marriage chat), `staff_chat_message` | No |
+| Support tickets | `support_request_submitted`, `support_ticket_replied`, `support_ticket_<status>` | Yes. `GET /api/support/mine` stays guest-readable, and these rows never quote the reply |
+| Everything else | donations, sponsorships, in-kind, marketplace, marriage profile/subscription, registration, volunteer, project/case, broadcasts, `admin_*`, `task_assigned`, reminders | Yes, unchanged |
+
+**Routes affected:**
+- `GET /api/notifications` and `GET /api/notifications/` (`cmd/server/main.go:753-754`): `NotificationsHandler.List` (`handlers/notifications.go:32`) calls `Notifier.List`.
+- `GET /api/dashboard` and `GET /api/dashboard/` (`main.go:855-856`): `DashboardHandler.Get` (`handlers/extras.go:1109`) calls `recentNotifications`.
+- Not changed: `POST /api/notifications` mark_read (`main.go:755-756`).
+
+**What the app shows a guest:**
+- `NotificationsController` is registered for every session and polls every 5s. The bell (`humanitarian/lib/modules/dashboard/screens/dashboard_screen.dart:781-787`) has no guest check.
+- After this change the list simply contains no chat rows. The bell badge and the "N new" card count only the rows shown.
+- There is no error state. If nothing is left, the screen shows its normal empty state.
+- The app does not fetch `/dashboard` for guests (`dashboard_screen.dart:113`), but the server filters it anyway.
+- No Flutter file changed.
+
+**What was run and what it printed** (DB `godonation_guest_notif_26424`, created for this work, recreated fresh before each full run, then dropped):
+- **RED:**
+  - `go test ./internal/notify/ -run ChatNotificationTypes` failed with `undefined: ChatNotificationTypes … [build failed]`.
+  - `go test ./internal/handlers/ -run GuestNotifications -v`:
+    - On `/api/notifications`, `/api/notifications/`, `?read_status=unread` and `?unread_only=1`, it printed `guest was shown chat notifications [chat_group_message chat_message]`.
+    - `?type=chat_message` printed `got 1 rows (body … "body":"meet me at the clinic gate…")`.
+    - The dashboard guest check printed `recent_notifications = [40 39 42], want [40 39 38]`, where 42 is the `chat_group_message` row.
+    - Both member controls printed `--- PASS`.
+- **GREEN:** `ok …/internal/handlers 1.745s` with all 3 tests `--- PASS`, and the 3 notify tests `--- PASS`.
+- **Fresh DB, the two packages:** `go test ./internal/notify/ ./internal/handlers/ -count=1 -p 1 -timeout 45m` printed `ok …/internal/notify 24.829s` and `ok …/internal/handlers 385.555s`.
+- **Fresh DB, full suite:** `go test ./... -count=1 -p 1 -timeout 45m` printed `ok` for all 22 packages with tests, and no `FAIL` or `panic` line. Among them: `ok …/internal/chatgroups 597.998s`, `ok …/internal/handlers 1511.426s`, `ok …/internal/notify 23.885s`.
+- **New tests with `-v`:** 6 `--- PASS`, 0 `--- SKIP`.
+- **Static checks:** `go vet ./...` exited 0. `gofmt -l` on the 5 changed files printed nothing.
+- **DB removed:** after `dropdb`, `select count(*) from pg_database where datname='godonation_guest_notif_26424'` printed `0`.
+- **Review:** `ecc:code-reviewer` approved, with 0 critical, 0 high and 0 medium findings. Two LOW notes, not applied, are listed below.
+
+**External actions taken:** none. Nothing was pushed and no PR was opened.
+
+**What is still open:**
+- Both commits are local and unpushed, with no human review.
+- OPOS MCP needed interactive OAuth and wasn't available in this subagent session, so I didn't move or comment on #26424.
+- Reviewer LOW 1: `Notifier.MarkRead` (`notify/list.go:291`) does not apply the guest exclusion.
+  - A guest can mark a hidden chat row as read by id.
+  - No body is returned, so nothing leaks.
+- Reviewer LOW 2: `seedNotificationMix` registers no `t.Cleanup` for its `app_notifications` rows.
+  - They are removed by the `ON DELETE CASCADE` FK when `makeGuestUser` / `makeChatGroupUser` delete the user.
+  - Those deletes discard their error, so a failed delete would leave the rows behind.
+- Out of scope, tracked as **OPOS #26443**: FCM pushes still deliver the chat preview to a guest's devices.
+  - `activeDevicesFor` (`notify/push.go:249`) has no `is_guest` check.
+  - `POST /api/notifications/device` is not guest-gated.
+- By design, a guest who upgrades sees their old chat notifications again: `is_guest` is read per request.
+
+**Traps:**
+- `dashboard.RecentNotification` has no `user_id` field.
+  - A test that filters its rows by user gets `[]` and fails for the wrong reason, which is what my first RED run did.
+  - `recentNotifications` also turns query errors into an empty list, so assert exact ids, never just "no chat rows".
+- `NULL = ANY(...)` is NULL, and `NOT NULL` would hide untyped rows. The predicate wraps `COALESCE(n.notification_type, '')` to avoid that.
+- This worktree's command guard refuses chained commands that mix `TEST_DATABASE_URL` and `go test` with `&&`, `;` or `echo $?`. Run `dropdb`, `createdb` and `go test` as separate plain commands.
+- Under machine load, `dropdb` overran the 120s default and was moved to the background.
+
+---
+
 ## 2026-09-15 — OPOS #26351: the server refuses a connect request for a case or donation that does not exist (branch `fix/connect-request-unknown-context`)
 
 **What was asked:** `POST /api/chat-groups/connect-requests` accepted any `context_id`, including a case or donation that does not exist. Refuse such a request on the server, test-first. The user's decision: keep the "Ask our team to connect me" button everywhere, and have the server refuse only an unknown context. There are no status, visibility or ownership checks.
