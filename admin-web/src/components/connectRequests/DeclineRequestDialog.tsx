@@ -8,7 +8,7 @@
  * disabled while the reason breaks a rule; the rule itself is named once the
  * field has been touched.
  *
- * On success: a toast, then onDeclined() so the page refetches. A refusal
+ * On success: a toast, then onDeclined(reason) with the trimmed reason sent. A refusal
  * (409 connect_request_decided, the 404 for a request that is gone) is
  * translated by describeConnectRequestError and shown atop the form; the
  * typed reason is kept.
@@ -25,8 +25,8 @@ import { useToast } from '../../lib/toast'
 type Props = {
   request: ConnectRequest
   onClose: () => void
-  /** Called after the server recorded the decline. */
-  onDeclined: () => void
+  /** Called after the server recorded the decline, with the reason it was sent. */
+  onDeclined: (reason: string) => void
 }
 
 export default function DeclineRequestDialog({ request, onClose, onDeclined }: Props) {
@@ -47,9 +47,10 @@ export default function DeclineRequestDialog({ request, onClose, onDeclined }: P
     setBusy(true)
     setSubmitError(null)
     try {
-      await declineConnectRequest(request.id, reason.trim())
+      const sentReason = reason.trim()
+      await declineConnectRequest(request.id, sentReason)
       toast.success(t('chat_groups.inbox.decline.declined_toast'))
-      onDeclined()
+      onDeclined(sentReason)
     } catch (err) {
       setSubmitError(describeConnectRequestError(err))
       setBusy(false)
