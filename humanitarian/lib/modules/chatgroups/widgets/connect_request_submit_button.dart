@@ -1,5 +1,5 @@
 // ConnectRequestSubmitButton — the "Send request" button at the foot of the
-// "Ask staff to connect me" sheet (OPOS #25284 Phase 5).
+// "Ask our team to connect me" sheet (OPOS #25284 Phase 5).
 //
 // Moved out of connect_request_sheet.dart (OPOS #26344) when that file reached
 // the 500-line cap. Behaviour is unchanged: the existing connect-request tests
