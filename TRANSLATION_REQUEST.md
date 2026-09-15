@@ -117,10 +117,16 @@ The `٢٠٠` in the second row is the database column limit and must stay 200.
 
 Added 2026-09-14. The app's side of the new staff-mediated group chats: the
 conversation screen, the Messages tab's "My Connections" / "My Team Groups"
-sections, the My Connect Requests screen, and the "Ask staff to connect me"
+sections, the My Connect Requests screen, and the "Ask our team to connect me"
 sheet on donations and cases. Donors, beneficiaries and volunteers never
 message each other directly any more — staff open a supervised chat, in which
 members of a masked group see each other only by an alias.
+
+Updated 2026-09-15 (OPOS #26351): the six `connect_request_*` rows marked
+**REWORDED** changed their English from "staff" to "our team", so a member reads
+the same words here as in the rest of these chats. If you translated from an
+earlier copy of this file, redo those six from the rows below. The key count is
+unchanged.
 
 `chat_groups_unread_count` must keep the `@count` placeholder exactly as it is.
 `Send message` is the send button's screen-reader label, not visible text.
@@ -154,16 +160,16 @@ members of a masked group see each other only by an alias.
 | `chat_groups_decline_reason_label` | Reason from our team | السبب من فريقنا | ckb + kmr |
 | `chat_groups_requests_empty_title` | No connect requests yet | لا توجد طلبات تواصل بعد | ckb + kmr |
 | `chat_groups_requests_empty_message` | When you ask our team to connect you with someone, your request and its status will appear here. | عندما تطلب من فريقنا أن يوصلك بشخص ما، سيظهر طلبك وحالته هنا. | ckb + kmr |
-| `connect_request_action` | Ask staff to connect me | اطلب التواصل عبر الفريق | ckb + kmr |
-| `connect_request_title` | Ask staff to connect you | طلب تواصل عبر الفريق | ckb + kmr |
-| `connect_request_explainer` | Our staff will review your request. If they approve it, they will open a supervised chat for you here in the app. | سيراجع فريقنا طلبك، وإذا وافق عليه فسيفتح لك محادثة خاضعة للإشراف هنا في التطبيق. | ckb + kmr |
+| `connect_request_action` | Ask our team to connect me | اطلب التواصل عبر فريقنا | **ckb + kmr — REWORDED**, the English changed on 2026-09-15: it said "staff", it now says "our team" |
+| `connect_request_title` | Ask our team to connect you | طلب تواصل عبر فريقنا | **ckb + kmr — REWORDED**, the English changed on 2026-09-15: it said "staff", it now says "our team" |
+| `connect_request_explainer` | Our team will review your request. If they approve it, they will open a supervised chat for you here in the app. | سيراجع فريقنا طلبك، وإذا وافق عليه فسيفتح لك محادثة خاضعة للإشراف هنا في التطبيق. | **ckb + kmr — REWORDED**, the English changed on 2026-09-15: it said "Our staff", it now says "Our team" (the Arabic already said فريقنا) |
 | `connect_request_message_label` | What do you need? | ما الذي تحتاجه؟ | ckb + kmr |
-| `connect_request_message_hint` | Tell staff what you would like to discuss, and why. | أخبر الفريق بما تود مناقشته، ولماذا. | ckb + kmr |
+| `connect_request_message_hint` | Tell our team what you would like to discuss, and why. | أخبر فريقنا بما تود مناقشته، ولماذا. | **ckb + kmr — REWORDED**, the English changed on 2026-09-15: it said "staff", it now says "our team" |
 | `connect_request_message_required` | Please describe what you need. | يرجى وصف ما تحتاجه. | ckb + kmr |
 | `connect_request_submit` | Send request | إرسال الطلب | ckb + kmr |
-| `connect_request_sent` | Request sent. Staff will review it shortly. | تم إرسال الطلب. سيراجعه الفريق قريبًا. | ckb + kmr |
+| `connect_request_sent` | Request sent. Our team will review it shortly. | تم إرسال الطلب. سيراجعه فريقنا قريبًا. | **ckb + kmr — REWORDED**, the English changed on 2026-09-15: it said "Staff", it now says "Our team" |
 | `connect_request_sent_title` | Request sent | تم إرسال الطلب | ckb + kmr |
-| `connect_request_sent_body` | Staff will review it shortly. You can follow it in My Connect Requests on the Messages tab. | سيراجعه الفريق قريبًا. يمكنك متابعته من «طلبات التواصل الخاصة بي» في تبويب «الرسائل». | ckb + kmr |
+| `connect_request_sent_body` | Our team will review it shortly. You can follow it in My Connect Requests on the Messages tab. | سيراجعه فريقنا قريبًا. يمكنك متابعته من «طلبات التواصل الخاصة بي» في تبويب «الرسائل». | **ckb + kmr — REWORDED**, the English changed on 2026-09-15: it said "Staff", it now says "Our team" |
 | `error_connect_request_submit_failed` | Could not send your request. | تعذّر إرسال طلبك. | ckb + kmr |
 
 ## notifications · K7 alert categories  (8 keys)

@@ -1,4 +1,4 @@
-// ConnectRequestButton — how a screen offers "Ask staff to connect me"
+// ConnectRequestButton — how a screen offers "Ask our team to connect me"
 // (OPOS #25284 Phase 5 Task 5, OPOS #26046).
 //
 // One widget for every entry point, so the rules for WHEN the action is
@@ -35,7 +35,7 @@ const IconData _actionIcon = Icons.support_agent_rounded;
 /// The labelled button's height — above the 44pt minimum touch target.
 const double _buttonHeight = 48;
 
-/// Offers the "Ask staff to connect me" sheet for one donation or case, or
+/// Offers the "Ask our team to connect me" sheet for one donation or case, or
 /// renders nothing when the member cannot use it.
 class ConnectRequestButton extends StatelessWidget {
   /// A full-width labelled outline button, for detail screens and sheets.

@@ -1,5 +1,5 @@
-// ConnectRequestSentView — what the "Ask staff to connect me" sheet shows once
-// staff have the request (OPOS #25284 Phase 5, OPOS #26331).
+// ConnectRequestSentView — what the "Ask our team to connect me" sheet shows
+// once staff have the request (OPOS #25284 Phase 5, OPOS #26331).
 //
 // WHY IT LIVES INSIDE THE SHEET
 // The confirmation used to be a SnackBar on the screen underneath, and the

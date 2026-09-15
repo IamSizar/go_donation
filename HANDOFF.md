@@ -6,6 +6,47 @@
 
 ---
 
+## 2026-09-15 — OPOS #26351 ("our team" decision): connect-request copy says "our team", not "staff" (branch `fix/connect-copy-our-team`)
+
+**What was asked:** implement one of OPOS #26351's decisions. All member-facing chat-group and connect-request copy says "our team" (Arabic فريقنا), never "staff" (الفريق). Tests first. Do not write Kurdish.
+
+**What was actually changed** (one commit on `fix/connect-copy-our-team`, based on `origin/main` `9bcc053`):
+- `humanitarian/lib/localization/app_translations.dart`: values only. No key was renamed, because no key name contains "staff".
+  - English: `connect_request_action`, `_title`, `_explainer`, `_message_hint`, `_sent` and `_sent_body`.
+  - Arabic: the same keys except `_explainer`, which already said فريقنا.
+- Two new tests:
+  - `humanitarian/test/modules/chatgroups/connect_request_our_team_copy_test.dart` renders the button, the sheet and the success view in en and ar.
+  - `humanitarian/test/localization/chat_groups_our_team_copy_test.dart` holds exact-value pins, plus a scan so that no chat-group or connect value says staff/الفريق/موظف. `chat_groups_my_team_groups` (the "team" kind of group) is allowlisted.
+- Comments that quoted the old "Ask staff to connect me" label were updated in 7 files: the sheet, button, sent view, submit button, My Connect Requests controller, `failure_message_test.dart` and `connect_request_sheet_test.dart`.
+- `TRANSLATION_REQUEST.md`: the 6 rows now show the new English and Arabic and are marked `**ckb + kmr — REWORDED**`. An intro note was added. The key count stays at 459.
+
+**What was run and what it printed** (from `humanitarian/`):
+- **RED, before the value change:**
+  - The new widget test printed `+0 -6: Some tests failed.`
+  - The new localization test printed `+2 -13: Some tests failed.` The 2 that passed are the Arabic explainer pin and the guard against an empty scan.
+- **GREEN:**
+  - `flutter test test/modules/chatgroups/ test/localization/` printed `+300: All tests passed!`
+  - Full `flutter test` printed `+975: All tests passed!` (main's 954 plus the 21 new tests).
+  - `flutter analyze` printed `6 issues found.`, the same 6 `deprecated_member_use` as the baseline.
+  - `dart format --set-exit-if-changed` on the 2 new files changed 0.
+- An `ecc:code-reviewer` pass found 0 issues.
+
+**External actions taken:** none. Nothing was pushed and no PR was opened.
+
+**What is still open:**
+- The commit is local and unpushed.
+- OPOS MCP needs interactive OAuth, so it was unavailable in this subagent session. OPOS #26351 was not commented on or moved.
+- #26351's OTHER decision is untouched: whether the case-detail connect button should show on every route.
+- The 6 REWORDED rows need Sorani and Badini from a native speaker.
+- "staff" was deliberately left in other features: the support chat ("Message the staff team", "Staff support", `chat_support_unavailable_body`'s الفريق), marriage chat ("mediated by staff"), and the `staff_chat_message` notification type, which belongs to the older `staffchat` threads. Also left: profile-approval, checkout, marriage-owner and "Staff only" visibility strings.
+
+**Traps:**
+- macOS `awk` does not support `\s`, so an awk grep over the translation map silently matched nothing. Use perl.
+- The first English edit missed `connect_request_sent_body`. Only the new pins caught it.
+- `connect_request_sheet_test.dart` was already 515 lines, over the 500-line cap, so the new widget tests went into their own file.
+
+---
+
 ## 2026-09-15 — OPOS #26348: 5 stale Flutter tests on `main` brought up to current behaviour (branch `fix/stale-flutter-tests`)
 
 **What was asked:** fix the 5 Flutter tests failing on `origin/main`: 1 in `main_menu_button_test.dart` and 4 in `marriage_hub_feed_test.dart`. Update or delete each test whose subject was changed on purpose. Change no product code, and report a real regression rather than fix it. None was found.
