@@ -172,6 +172,11 @@ func (s *Store) RequestSupportThread(ctx context.Context, userID, supportID int6
 // AcceptThread flips a pending thread to active. Only the recipient (the party
 // who did NOT initiate) may accept. Returns the thread and the initiator id so
 // the caller can notify them.
+//
+// It does NOT check the thread's lifecycle (paused / ended / archived). That
+// gate lives in the HTTP layer with every other lifecycle refusal —
+// handlers.ChatHandler.Accept runs refuseIfInviteClosed before calling this —
+// so any new caller must run it too.
 func (s *Store) AcceptThread(ctx context.Context, threadID, userID int64) (Thread, int64, error) {
 	t, err := s.GetThread(ctx, threadID)
 	if err != nil {

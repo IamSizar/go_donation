@@ -6,6 +6,49 @@
 
 ---
 
+## 2026-09-15 — OPOS #26413: donor-chat invite accept now respects the thread lifecycle (branch `fix/chat-accept-respects-lifecycle`)
+
+**What was asked:** confirm, then fix test-first, that `POST /api/chats/:id/accept` ignored `chat_threads.lifecycle`, so a pending invite on an ended or archived thread could be accepted and push "chat accepted". Report whether decline or other invite transitions have the same gap. Fix only accept.
+
+**What was actually changed:** one commit, `d790230`, based on `origin/main` `9374edc`:
+- `backend/internal/handlers/chat_lifecycle_gate.go` gained the new `refuseIfInviteClosed`, which reuses the two existing gates.
+  - It calls `refuseIfNotSendable` first. A paused or ended thread gets 409 `chat_lifecycle_closed`, the same response the send path gives.
+  - It then calls `refuseIfArchivedForParticipant`. An archived-but-open thread gets 404, the same as the participant messages route.
+- `backend/internal/handlers/chat.go` `ChatHandler.Accept` now runs `GetThread`, then `IsParticipant` (403), then the gate, before `AcceptThread` and the push.
+  - The participant check comes first because the 409 carries staff's reason.
+- `backend/internal/chat/chat.go`: a doc comment on `AcceptThread` says the lifecycle gate is the handler's job.
+- New test `backend/internal/handlers/chat_invite_accept_lifecycle_test.go` (6 tests):
+  - Four refusal cases: ended, paused, retired (real `chatlifecycle.Apply` end+archive), and archived-open. Each asserts that the status stays `pending` and that no `chat_accepted` row exists in `app_notifications`.
+  - An open control, which accepts and waits for the push row.
+  - A stranger test, which gets a plain 403 with no lifecycle detail.
+
+**What was run and what it printed:** all runs used a fresh DB, `godonation_accept_lifecycle_26413`, which has since been dropped.
+- **RED, before the fix:** `go test ./internal/handlers/ -run ChatInviteAccept -count=1 -v` failed 4 tests. The ended, paused, retired and archived-open cases each printed `200 map[status:active success:true ...]`. The open control and the stranger test passed.
+- **GREEN, same command after the fix:** 6/6 PASS. The ended case, for example, printed `409 map[code:chat_lifecycle_closed ... lifecycle:ended lifecycle_reason:Resolved by our team ...]`, and the archived-open case printed `404 map[error:Chat not found.]`.
+- `go test ./internal/handlers/ -count=1` printed `ok ... internal/handlers 24.223s`.
+- `go test ./... -count=1 -p 1` printed `ok` for every package with tests, and no FAIL.
+- `go vet ./...` was clean.
+- `gofmt -l .` printed only `internal/handlers/admin_edit_user_profile.go`, which is not part of this diff (see Traps). The 4 changed files are gofmt-clean.
+- An `ecc:code-reviewer` pass on the diff returned APPROVE with 0 critical, high or medium findings. Its 2 LOW notes are listed under "still open".
+
+**External actions taken:** none. Nothing was pushed and no PR was opened. OPOS MCP needed interactive OAuth in this subagent session, so OPOS #26413 was not moved or commented on.
+
+**What is still open:**
+- `d790230` and this entry are local and unpushed.
+- **Same gap in marriage chat, not fixed:** `MarriageChatHandler.Accept` (`backend/internal/handlers/marriage_chat.go:147`) has no lifecycle gate and pushes `MarriageChatAcceptedMsg`. Approving a meeting request opens a `pending` marriage thread (`marriagechat.go:125`), so the path can be reached. The fix would be the same pattern with `chatlifecycle.KindMarriage`, done as a separate task.
+- **Decline was deliberately left ungated,** in both donor and marriage chat.
+  - Reasons: decline sends no push, and it is the only way an invitee can dismiss a dead invite, because `ListThreadsForUser` hides `status='declined'`. Gating decline would leave an ended invite stuck in their list forever.
+  - Found in passing: `chat.Store.DeclineThread` never checks `status = 'pending'`, so the recipient can flip an ACTIVE thread to declined. The marriage store's decline does the same. Not changed here.
+- **Race window:** there is a gap between the gate's SELECT and `AcceptThread`'s UPDATE. The send path has the same shape. A `SELECT ... FOR UPDATE` in one transaction would close it.
+- **Oversized files:** `backend/internal/handlers/chat.go` was already 581 lines before this change, over the 500-line limit, and is now 598 (+17).
+- **App behaviour:** the Flutter caller, `humanitarian/lib/modules/chat/controllers/chat_controller.dart:90`, has not been checked for how it shows a 409 or 404 on accept.
+
+**Traps:**
+- `gofmt -l` flags `internal/handlers/admin_edit_user_profile.go` on `origin/main` itself (unchanged since `a6c74d5`). Do not "fix" it blindly: gofmt rewrites the SQL `''` inside its doc comments into a typographic `”`.
+- `chatlifecycle.RetireAllDirectThreads` sweeps every open direct thread in whatever DB it is pointed at. The retired-invite test applies the same two transitions to its own thread only, so the shared test DB is not swept.
+
+---
+
 ## 2026-09-15 — OPOS #26355: guest accounts can no longer be added to a chat group (branch `fix/chat-groups-no-guest-members`)
 
 **What was asked:** staff could add a guest account (`users.is_guest = TRUE`) to a chat group in three ways: create group, add member, or approve a connect request. Every participant chat-group route refuses guest sessions, so that guest was locked out and staff got no warning. The brief: enforce the rule once, in the store, test-first, and return a 400 with a machine code.
