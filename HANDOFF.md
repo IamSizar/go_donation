@@ -6,6 +6,55 @@
 
 ---
 
+## 2026-09-15 — OPOS #26423: guests get a sign-in prompt on Messages instead of polling donor chats (branch `fix/guest-messages-no-chat-poll`)
+
+**What was asked:** stop treating guests like members for donor chats. The server is moving to give guests an empty GET /api/chats and /api/marriage/chats, and 403 guest_restricted on thread messages (OPOS #26354). The work was test-first, en + ar only, and support had to stay reachable for guests.
+
+**What was actually changed** (one local commit on `fix/guest-messages-no-chat-poll`, branched from `origin/main` at `aa32268`):
+- `humanitarian/lib/modules/dashboard/screens/dashboard_screen.dart`:
+  - `initState` registers `ChatController` only when `!isGuestMode()`.
+  - `_TopBarActions` uses `Get.isRegistered` instead of `Get.find`, so a guest's Messages button has no badge and no `Obx`. GetX 4.7.3 throws on an `Obx` that reads no observable (`rx_interface.dart:27`).
+  - The Messages button stays visible for guests, because Messages is where support is reached from.
+- `humanitarian/lib/modules/chat/screens/messages_screen.dart`:
+  - A guest gets no `ChatController` and no `ChatGroupsController`, and sees `GuestMessagesPrompt` where the thread list was. There is no pull-to-refresh for a guest.
+  - The bot card, support-chat tile and support-form tile are unchanged for everyone.
+  - The `Obx` now wraps only the thread-list `AppAsync`.
+- `humanitarian/lib/modules/dashboard/screens/guest_sections.dart`: new `GuestMessagesPrompt`, built on `AppEmpty`. Its button reuses the file's `_goSignIn`, which leaves guest mode and goes to `/login`, the same as `GuestAccountSection`.
+- `humanitarian/lib/localization/app_translations.dart`: added `messages_guest_title` and `messages_guest_body` at the end of `_en` and `_ar`. The button reuses `Sign in`. No Kurdish was written.
+- `TRANSLATION_REQUEST.md` (repo root; there is none under `humanitarian/`): a new section for the 2 keys, and the count went from 459 to 461.
+- New tests:
+  - `humanitarian/test/widgets/messages_guest_prompt_test.dart` (6 tests)
+  - `humanitarian/test/widgets/dashboard_guest_chat_polling_test.dart` (3 tests)
+
+**What was run and what it printed** (all from `humanitarian/`):
+- Baseline before any edit: `flutter analyze` printed `6 issues found.`, all `deprecated_member_use`.
+- RED: the two new files printed `+3 -6: Some tests failed.`
+  - The guest tests failed with `Expected: false / Actual: <true>` on ChatController, `Found 0 widgets with text "Sign in to use Messages"`, and `"ChatController" not found`.
+  - The 3 passing tests were the support-doors guard and the two member tests.
+- GREEN:
+  - The new tests plus 10 related files (Messages wiring, stale threads and support doors; top bar, assistant hint and dashboard keyboard; Arabic purity, widget literals, guest-gate language; chat groups section) printed `+54: All tests passed!`
+  - Full `flutter test` on the final tree printed `18:18 +963: All tests passed!` with exit 0.
+  - `flutter analyze` printed `6 issues found.`, the same 6.
+- An `ecc:flutter-reviewer` pass approved with 0 critical and 0 high findings. Its medium copy finding was applied: the body line no longer says "with our team".
+
+**External actions taken:** none. Nothing was pushed and no PR was opened.
+
+**What is still open:**
+- The commit is local, unpushed and not reviewed by a human.
+- OPOS MCP needed interactive OAuth and was unavailable in this subagent, so OPOS #26423 has no status update or notes yet.
+- Not changed, flagged by review: `humanitarian/lib/modules/notifications/widgets/notification_tile.dart:433-435` still does `Get.put(ChatController())` for `chat_request` notifications with no guest check. It is probably unreachable for a guest.
+- Not changed: on `origin/main`, `POST /chats/support` is `RequireNotGuest` (`backend/cmd/server/main.go:736`). So a guest tapping "Contact support" on Messages gets the existing failure state. The support form (`TechnicalSupportScreen`) opens for guests, but its submit is behind `requireSignIn`.
+- Review LOW items left as they are:
+  - `if (!isGuestMode()) const ChatGroupsSection()` was kept as written, because `messages_screen_chat_groups_wiring_test.dart:98` pins that exact text.
+  - The private `_messagesButton` helper in `_TopBarActions` stays.
+
+**Traps:**
+- Branch `fix/connect-copy-our-team` edits chat-group strings. These keys sit at the END of `_en`/`_ar`, away from those strings, to keep the merge simple.
+- `dart format` already flags the `IndexedStack(...)` block around `dashboard_screen.dart:248` on main. It was left unformatted so the diff stays readable.
+- Running the full `flutter test` alongside `flutter analyze` pushed it past a 600s tool timeout (18 min). Run them one after the other.
+
+---
+
 ## 2026-09-15 — OPOS #26348: 5 stale Flutter tests on `main` brought up to current behaviour (branch `fix/stale-flutter-tests`)
 
 **What was asked:** fix the 5 Flutter tests failing on `origin/main`: 1 in `main_menu_button_test.dart` and 4 in `marriage_hub_feed_test.dart`. Update or delete each test whose subject was changed on purpose. Change no product code, and report a real regression rather than fix it. None was found.

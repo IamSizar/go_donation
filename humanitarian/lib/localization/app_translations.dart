@@ -3190,6 +3190,15 @@ class AppTranslations extends Translations {
     'Nothing saved yet.': 'Nothing saved yet.',
     'Remove': 'Remove',
     'Select a project': 'Select a project',
+
+    // OPOS #26423 — the Messages tab's sign-in prompt for a guest
+    // (GuestMessagesPrompt in dashboard/screens/guest_sections.dart), shown
+    // where the conversation list would be; a guest has none. Its button
+    // reuses 'Sign in'. en + ar only; Sorani and Badini fall back to English
+    // (#21431) and are listed in TRANSLATION_REQUEST.md.
+    'messages_guest_title': 'Sign in to use Messages',
+    'messages_guest_body':
+        'Your conversations will appear here once you have a full account.',
   };
 
   static const Map<String, String> _ar = {
@@ -6037,6 +6046,11 @@ class AppTranslations extends Translations {
     'Nothing saved yet.': 'لا توجد عناصر محفوظة بعد.',
     'Remove': 'إزالة',
     'Select a project': 'اختر مشروعًا',
+
+    // OPOS #26423 — انظر التعليق نفسه في الخريطة الإنجليزية.
+    'messages_guest_title': 'سجّل الدخول لاستخدام الرسائل',
+    'messages_guest_body':
+        'ستظهر محادثاتك هنا عندما يصبح لديك حساب كامل.',
   };
 
   static final Map<String, String> _sorani = {
