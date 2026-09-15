@@ -14,7 +14,9 @@
 //   4. the fallback for every other route, and the empty/error/slow scenarios;
 //   5. two drift guards against sources of truth outside this folder: the
 //      backend's permission module and action lists, and the localStorage keys
-//      the app reads a session from.
+//      the app reads a session from;
+//   6. that the server listens on 127.0.0.1 only, from the tests and from the
+//      command line, because it serves a super_admin view with no credentials.
 //
 // Each test starts its own server on a port the OS picks (listen(0)), so the
 // suite never collides with a running `npm run mock:api` or a local backend.
@@ -26,7 +28,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
-import { createMockServer } from './mock-api.mjs'
+import { createMockServer, listenOnLoopback } from './mock-api.mjs'
 import { MASKED_GROUP_ID, TEAM_GROUP_ID } from '../src/test/fixtures/chatGroups.ts'
 import { PERMISSION_ACTIONS, PERMISSION_MODULES } from '../src/test/fixtures/permissions.ts'
 import { SESSION_STORAGE_KEYS } from '../src/test/fixtures/session.ts'
@@ -41,7 +43,7 @@ const web = join(dirname(fileURLToPath(import.meta.url)), '..')
  */
 async function startMock(t, options = {}) {
   const server = createMockServer({ log: () => {}, slowMs: 10, ...options })
-  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
+  await listenOnLoopback(server, 0)
   t.after(
     () =>
       new Promise((resolve) => {
@@ -329,4 +331,39 @@ test('the storage keys the start-up hint prints are the ones the app reads', () 
   assert.ok(apiSource.includes(`const TOKEN_KEY = '${SESSION_STORAGE_KEYS.token}'`))
   assert.ok(apiSource.includes(`const USER_KEY = '${SESSION_STORAGE_KEYS.user}'`))
   assert.ok(i18nSource.includes(`localStorage.getItem('${SESSION_STORAGE_KEYS.locale}')`))
+})
+
+// ─── 6 · Network exposure ────────────────────────────────────────────────
+// Every route answers without credentials and the start-up banner prints a
+// super_admin session, so the server must never be reachable from another
+// machine. A listen() without a host binds every interface (`::`).
+
+test('listenOnLoopback binds the server to 127.0.0.1 only, never to every interface', async (t) => {
+  const server = createMockServer({ log: () => {} })
+  t.after(
+    () =>
+      new Promise((resolve) => {
+        server.closeAllConnections()
+        server.close(resolve)
+      }),
+  )
+
+  const address = await listenOnLoopback(server, 0)
+
+  assert.equal(address.address, '127.0.0.1')
+  assert.equal(server.address().address, '127.0.0.1')
+})
+
+test('the command-line entry point starts the server through listenOnLoopback', () => {
+  // The CLI block only runs when mock-api.mjs is the entry point, on a fixed
+  // port, so it cannot be started from inside this suite. Pinning that it goes
+  // through the helper tested above keeps it from binding every interface.
+  const source = readFileSync(join(web, 'scripts/mock-api.mjs'), 'utf8')
+  const start = source.indexOf('if (isEntryPoint)')
+  assert.notEqual(start, -1, 'mock-api.mjs still has its `if (isEntryPoint)` block')
+
+  const cli = source.slice(start)
+
+  assert.match(cli, /listenOnLoopback\(server, port\)/)
+  assert.doesNotMatch(cli, /\.listen\(/, 'the CLI must not call server.listen itself')
 })

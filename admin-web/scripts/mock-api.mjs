@@ -9,9 +9,15 @@
 // src/test/fixtures/*.ts: the same fixtures the component tests use.
 //
 // HOW TO RUN (details in admin-web/docs/mock-api.md)
-//   npm run mock:api                               listens on :8787, or MOCK_API_PORT
-//   API_TARGET=http://localhost:8787 npm run dev   the SPA proxies /api here
+//   npm run mock:api                                                  127.0.0.1:8787, or MOCK_API_PORT
+//   API_TARGET=http://127.0.0.1:8787 npm run dev -- --host 127.0.0.1  the SPA proxies /api here
 // On start-up it prints the localStorage lines that skip the login screen.
+//
+// WHO CAN REACH IT
+// Only this machine. The server listens on 127.0.0.1 (listenOnLoopback below),
+// never on every interface, because every route answers without credentials
+// and the start-up banner prints a super_admin session. Vite's own config
+// binds every interface (host: true), hence the `--host 127.0.0.1` above.
 //
 // SCENARIOS: `?scenario=<name>` on one request, or MOCK_SCENARIO for all.
 //   default  the fixtures, with POSTs remembered in memory until restart
@@ -34,6 +40,9 @@ import { createState, ROUTES } from './mock-api-routes.mjs'
 /** Every scenario name a request or MOCK_SCENARIO may use. */
 export const SCENARIOS = ['default', 'empty', 'error', 'slow']
 
+/** The only address the mock listens on: the IPv4 loopback interface. */
+export const LOOPBACK_HOST = '127.0.0.1'
+
 const DEFAULT_PORT = 8787
 const DEFAULT_SLOW_MS = 2000
 const FALLBACK_BODY = { success: true, items: [], data: [] }
@@ -41,7 +50,8 @@ const FALLBACK_BODY = { success: true, items: [], data: [] }
 // ─── Server ──────────────────────────────────────────────────────────────
 
 /**
- * Builds the mock API server without starting it; call listen() on the result.
+ * Builds the mock API server without starting it. Start it with
+ * {@link listenOnLoopback}, never with a bare listen().
  *
  * Each server owns its own copy of the fixtures, so what one server's POSTs
  * change is never visible to another (or to the next test).
@@ -73,6 +83,29 @@ export function createMockServer(options = {}) {
       // for the deliberate "error" scenario.
       log(`[mock-api] ${req.method} ${req.url} crashed: ${err?.stack ?? err}`)
       send(res, 500, { success: false, error: 'The mock API crashed; see its console.' })
+    })
+  })
+}
+
+/**
+ * Starts `server` on the loopback interface only.
+ *
+ * WHY: `listen(port)` with no host binds every interface (`::`), which would
+ * put a credential-free super_admin API on the local network. Both the command
+ * line below and the tests start the server through this one function, so the
+ * host cannot be forgotten in one place.
+ *
+ * @param {import('node:http').Server} server  from {@link createMockServer}.
+ * @param {number} port  the port; 0 lets the OS pick a free one.
+ * @returns {Promise<import('node:net').AddressInfo>} the bound address, once listening.
+ * @throws rejects with the listen error, such as EADDRINUSE.
+ */
+export function listenOnLoopback(server, port) {
+  return new Promise((resolve, reject) => {
+    server.once('error', reject)
+    server.listen(port, LOOPBACK_HOST, () => {
+      server.off('error', reject)
+      resolve(server.address())
     })
   })
 }
@@ -177,10 +210,11 @@ function portFromEnv() {
 
 /** Prints where the server is and how to point the dashboard at it. */
 function printStartupHint(port, scenario) {
+  const base = `http://${LOOPBACK_HOST}:${port}`
   const user = JSON.stringify(MOCK_STAFF_USER)
-  console.log(`[mock-api] listening on http://localhost:${port} (scenario: ${scenario})`)
-  console.log(`[mock-api] run the dashboard against it:  API_TARGET=http://localhost:${port} npm run dev`)
-  console.log('[mock-api] skip the login: paste this in the dashboard tab\'s console, then reload:')
+  console.log(`[mock-api] listening on ${base}, this machine only (scenario: ${scenario})`)
+  console.log(`[mock-api] run the dashboard against it:  API_TARGET=${base} npm run dev -- --host ${LOOPBACK_HOST}`)
+  console.log(`[mock-api] skip the login: open http://${LOOPBACK_HOST}:5173, paste this in its console, then reload:`)
   console.log(
     `  localStorage.setItem('${SESSION_STORAGE_KEYS.token}', '${MOCK_TOKEN}'); ` +
       `localStorage.setItem('${SESSION_STORAGE_KEYS.user}', '${user}'); ` +
@@ -199,9 +233,10 @@ if (isEntryPoint) {
   const port = portFromEnv()
   const scenario = process.env.MOCK_SCENARIO || 'default'
   const server = createMockServer({ scenario })
-  server.on('error', (err) => {
-    console.error(`[mock-api] cannot listen on port ${port}: ${err.message}`)
-    process.exit(1)
-  })
-  server.listen(port, () => printStartupHint(port, scenario))
+  listenOnLoopback(server, port)
+    .then(() => printStartupHint(port, scenario))
+    .catch((err) => {
+      console.error(`[mock-api] cannot listen on ${LOOPBACK_HOST}:${port}: ${err.message}`)
+      process.exit(1)
+    })
 }

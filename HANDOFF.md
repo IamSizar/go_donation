@@ -75,6 +75,36 @@ Commit, do not push.
   - `…/connect-requests?scenario=error` → 500.
   - Then PID 39334 was killed.
 
+**Review follow-up, same day** (commit `fix(admin-web): mock API listens on loopback only`). The code review came back CHANGES NEEDED with one HIGH. Everything else it checked was verified solid.
+- **HIGH, fixed: the mock listened on every interface.**
+  - `scripts/mock-api.mjs` called `server.listen(port, …)` with no host.
+  - Before the fix, `lsof -nP -a -p <pid> -iTCP -sTCP:LISTEN` on the running CLI printed `IPv6 … TCP *:8787 (LISTEN)`. The start-up banner prints a super_admin session.
+  - Now a new exported `listenOnLoopback(server, port)` binds `127.0.0.1`, and both the command line and the test helper start the server through it.
+  - The banner and `docs/mock-api.md` now say 127.0.0.1 throughout.
+- **Tests first.** Two new cases in `scripts/mock-api.test.mjs`:
+  - `listenOnLoopback` binds `127.0.0.1`;
+  - the `if (isEntryPoint)` block calls `listenOnLoopback(server, port)` and never `.listen(` itself.
+
+  RED printed `SyntaxError: The requested module './mock-api.mjs' does not provide an export named 'listenOnLoopback'`. Run against the unfixed file, the CLI check found `server.listen(port, () => printStartupHint(port, scenario))` and no helper call.
+
+  GREEN, after the fix, with the same `lsof`: `IPv4 … TCP 127.0.0.1:8787 (LISTEN)`, and `curl http://127.0.0.1:8787/api/admin/chat-groups/42` answered the team group.
+- **Vite binds every interface too.** `vite.config.ts` sets `host: true`, so a plain `npm run dev` would expose the mock's data through the `/api` proxy.
+  - Checked: `npx vite --host 127.0.0.1` listened on `127.0.0.1:5199` only.
+  - The docs and banner now say `API_TARGET=http://127.0.0.1:8787 npm run dev -- --host 127.0.0.1`. `vite.config.ts` was not changed.
+- **The mock scripts have no ESLint coverage today.**
+  - `npx eslint --print-config scripts/mock-api.mjs` applies 0 rules, against 108 for `src/lib/api.ts`.
+  - A throwaway `scripts/*.mjs` file containing an unused variable linted clean, exit 0; the file was deleted.
+  - The cause: `eslint.config.js` only configures `**/*.{ts,tsx}`, and a config-protection hook blocks editing that file.
+  - Stated in `docs/mock-api.md`. The coordinator is adding it to the lint follow-up, OPOS #26437.
+- **`common.retry`:** nothing to do on this branch. The Phase 6a branch adds the key, and the test's comment stays as it is.
+- **Verification with Node 22.23.1:**
+  - `npm run test:mock-api` → `# tests 23`, `# pass 23`, `# fail 0`.
+  - `npm test` → exit 0, `Test Files 2 passed (2)`, `Tests 3 passed (3)`.
+  - `npm run build` → exit 0, `✓ built in 6.57s`.
+- **New traps:**
+  - Use `127.0.0.1` in `API_TARGET`, not `localhost`: the mock does not listen on IPv6 `::1`.
+  - localStorage is per origin, so a session pasted on `localhost:5173` is not visible on `127.0.0.1:5173`.
+
 **External actions taken:** none. Nothing was pushed. OPOS MCP needed OAuth, which wasn't available in this non-interactive subagent, so #26408 was not moved or commented on.
 
 **What is still open:**

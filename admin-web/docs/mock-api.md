@@ -16,17 +16,24 @@ Its data comes from `src/test/fixtures/*.ts`, the same fixtures the component te
 Use Node 22, as `.nvmrc` says. Open two terminals, both in `admin-web/`:
 
 ```sh
-npm run mock:api                                # terminal 1: listens on :8787
-API_TARGET=http://localhost:8787 npm run dev    # terminal 2: Vite proxies /api to the mock
+npm run mock:api                                                     # terminal 1: 127.0.0.1:8787
+API_TARGET=http://127.0.0.1:8787 npm run dev -- --host 127.0.0.1     # terminal 2: Vite proxies /api to the mock
 ```
 
 To use another port, set `MOCK_API_PORT` for the mock and point `API_TARGET` at the same port. `vite.config.ts` reads `API_TARGET`.
+
+## Who can reach it
+
+**The mock listens on the IPv4 loopback interface, 127.0.0.1, and nowhere else.** Other machines cannot connect to it. This matters because every route answers without credentials and the start-up banner prints a super_admin session.
+
+- **Write 127.0.0.1, not `localhost`.** The mock does not listen on IPv6 (`::1`), so name the address explicitly rather than rely on how a tool resolves `localhost`.
+- **Keep Vite on loopback too.** `vite.config.ts` sets `host: true`, so a plain `npm run dev` listens on every interface. Anyone on the same network could then reach the mock's data through Vite's `/api` proxy. The `-- --host 127.0.0.1` above overrides that setting; with it, Vite listens on 127.0.0.1 only.
 
 ## Skip the login
 
 `RequireAuth` in `src/lib/auth.tsx` only checks that localStorage holds a token and a user. It never asks the server. The mock never checks the token either.
 
-1. Open the dashboard at http://localhost:5173.
+1. Open the dashboard at http://127.0.0.1:5173.
 2. Open the browser console on that tab.
 3. Paste the lines below, then reload.
 
@@ -41,6 +48,8 @@ localStorage.setItem('locale', 'en')
 | `humanitarian.admin.token` | `getToken()` in `src/lib/api.ts` | any non-empty string |
 | `humanitarian.admin.user` | `getStoredUser()` in `src/lib/api.ts` | a `StoredUser` as JSON; `super_admin` passes every client-side gate |
 | `locale` | `currentLocale()` in `src/lib/i18n.tsx` | `en`, `ar`, `ckb` or `kmr` |
+
+localStorage belongs to one origin. Paste the lines on the same address you browse, 127.0.0.1:5173 as above; a session pasted on `localhost:5173` is not visible on `127.0.0.1:5173`.
 
 The mock prints the same lines when it starts. They are built from `src/test/fixtures/session.ts`, and `npm run test:mock-api` fails if those key names stop matching `api.ts` and `i18n.tsx`.
 
@@ -77,11 +86,11 @@ Every admin DELETE asks for the operator's password first; the interceptor lives
 
 ```sh
 npm run test:mock-api
-curl -s localhost:8787/api/admin/chat-groups
-curl -s 'localhost:8787/api/admin/chat-groups/41/messages?after_id=8101&limit=2'
+curl -s http://127.0.0.1:8787/api/admin/chat-groups
+curl -s 'http://127.0.0.1:8787/api/admin/chat-groups/41/messages?after_id=8101&limit=2'
 ```
 
-`npm run test:mock-api` (node --test) checks the route shapes, the scenarios and two drift guards.
+`npm run test:mock-api` (node --test) checks the route shapes, the scenarios, that the server binds to loopback only, and two drift guards.
 
 What the fixtures contain:
 
@@ -104,6 +113,8 @@ The mock is only useful while it matches the backend. When a handler's JSON chan
 3. Add a case to `scripts/mock-api.test.mjs`.
 
 The test already fails when `backend/internal/permissions/permissions.go` gains a module or an action.
+
+**The mock scripts have no ESLint coverage today.** `eslint.config.js` configures only `**/*.{ts,tsx}`, so `npm run lint` applies zero rules to `scripts/*.mjs`, this mock included (check with `npx eslint --print-config scripts/mock-api.mjs`). Until the lint follow-up (OPOS #26437) covers them, `npm run test:mock-api` is their only automated check.
 
 Known differences from the real API:
 
