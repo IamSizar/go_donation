@@ -18,6 +18,11 @@ class ChatThread {
   // if any (null = unclaimed, any admin may still reply as "Support").
   final String? assignedStaffName;
 
+  /// Migration 117 — the staff-controlled lifecycle: open | paused | ended.
+  /// Read by the invite answers (OPOS #26433), which stop offering Accept on a
+  /// closed thread. Defaults to open, so an older server leaves Accept working.
+  final String lifecycle;
+
   const ChatThread({
     required this.id,
     required this.status,
@@ -33,6 +38,7 @@ class ChatThread {
     required this.lastMessageAt,
     required this.unreadCount,
     required this.assignedStaffName,
+    this.lifecycle = 'open',
   });
 
   bool get isActive => status == 'active';
@@ -61,6 +67,7 @@ class ChatThread {
           (m['assigned_staff_name'] as String?)?.trim().isEmpty == true
           ? null
           : m['assigned_staff_name'] as String?,
+      lifecycle: (m['lifecycle'] ?? 'open').toString(),
     );
   }
 }

@@ -22,6 +22,8 @@ import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/modules/chat/controllers/chat_controller.dart';
 import 'package:flutter_application_1/modules/chat/models/chat_models.dart';
 import 'package:flutter_application_1/modules/chat/screens/chat_conversation_screen.dart';
+import 'package:flutter_application_1/modules/chat/utils/chat_invite_refusal.dart';
+import 'package:flutter_application_1/modules/chat/widgets/chat_lifecycle_notice.dart';
 import 'package:get/get.dart';
 
 /// Accept / Decline buttons shown inline on a `chat_request` notification.
@@ -31,9 +33,13 @@ import 'package:get/get.dart';
 /// if the thread is already `active` (accepted) or `declined`, the buttons
 /// never reappear even when the notification list re-polls.
 ///
-/// Accepting opens [ChatConversationScreen] for the thread. A failed accept
-/// shows the error in a SnackBar and re-enables the buttons; a failed decline
-/// only re-enables them.
+/// Accepting opens [ChatConversationScreen] for the thread. A refused accept
+/// or decline shows a localized SnackBar from chat_invite_refusal.dart and
+/// settles the row to what the refusal means (OPOS #26433): a declined invite
+/// reads Declined, an already-active chat reads Accepted, and a closed thread
+/// loses Accept but keeps Decline, the one way to dismiss it. Only an
+/// unexplained failure re-enables both buttons. Accept is also hidden when the
+/// loaded thread list already reports the thread paused or ended.
 ///
 /// Never build this for a guest: it registers [ChatController] when none is
 /// registered, which starts that controller's /api/chats poll. See the file
@@ -57,6 +63,10 @@ class _ChatRequestActionsState extends State<ChatRequestActions> {
   // before the next fetchThreads() result arrives.
   bool _localDone = false;
   String? _localResult;
+
+  /// Set when the server refused Accept because staff closed or archived the
+  /// thread, which an archived thread's absence from the list cannot show.
+  bool _acceptClosed = false;
 
   // The put below starts ChatController's /api/chats fetch and 5-second poll,
   // which is why NotificationTile never builds this widget for a guest
@@ -83,12 +93,7 @@ class _ChatRequestActionsState extends State<ChatRequestActions> {
             ChatConversationScreen(threadId: widget.threadId, title: 'Chat'.tr),
       );
     } catch (e) {
-      if (mounted) {
-        setState(() => _busy = false);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('$e')));
-      }
+      _settleRefusal(e, ChatInviteAnswer.accept);
     }
   }
 
@@ -104,8 +109,34 @@ class _ChatRequestActionsState extends State<ChatRequestActions> {
         _busy = false;
       });
     } catch (e) {
-      if (mounted) setState(() => _busy = false);
+      _settleRefusal(e, ChatInviteAnswer.decline);
     }
+  }
+
+  /// Tells the user why [answer] was refused and moves the row to the state
+  /// that refusal implies, so a refused button is not silently offered again.
+  void _settleRefusal(Object error, ChatInviteAnswer answer) {
+    debugPrint('chat invite $answer for ${widget.threadId} refused: $error');
+    if (!mounted) return;
+    final refusal = classifyChatInviteRefusal(error, answer);
+    setState(() {
+      _busy = false;
+      switch (refusal) {
+        case ChatInviteRefusal.closed:
+          _acceptClosed = true;
+        case ChatInviteRefusal.declined:
+          _localDone = true;
+          _localResult = 'Declined';
+        case ChatInviteRefusal.alreadyActive:
+          _localDone = true;
+          _localResult = 'Accepted';
+        case ChatInviteRefusal.other:
+          break;
+      }
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(chatInviteRefusalMessage(error, answer))),
+    );
   }
 
   // ─── UI Builders ───
@@ -134,7 +165,9 @@ class _ChatRequestActionsState extends State<ChatRequestActions> {
     );
   }
 
-  Widget _buildButtons() {
+  /// [showAccept] is false on a closed thread: the server refuses that accept,
+  /// while Decline still dismisses the invite.
+  Widget _buildButtons({required bool showAccept}) {
     return Row(
       children: [
         Expanded(
@@ -143,22 +176,24 @@ class _ChatRequestActionsState extends State<ChatRequestActions> {
             child: Text('Decline'.tr),
           ),
         ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: FilledButton(
-            onPressed: _busy ? null : _accept,
-            child: _busy
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : Text('Accept'.tr),
+        if (showAccept) ...[
+          const SizedBox(width: 10),
+          Expanded(
+            child: FilledButton(
+              onPressed: _busy ? null : _accept,
+              child: _busy
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Text('Accept'.tr),
+            ),
           ),
-        ),
+        ],
       ],
     );
   }
@@ -191,7 +226,10 @@ class _ChatRequestActionsState extends State<ChatRequestActions> {
       // during the in-flight API call.
       if (_localDone) return _buildDone(_localResult ?? '');
 
-      return _buildButtons();
+      final closed =
+          _acceptClosed ||
+          (thread != null && ChatLifecycle.isClosed(thread.lifecycle));
+      return _buildButtons(showAccept: !closed);
     });
   }
 }

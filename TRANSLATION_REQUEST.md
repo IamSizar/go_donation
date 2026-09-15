@@ -32,7 +32,7 @@ made on this project once and had to be reverted.
 Every key below currently renders its **English** string to a Kurdish user.
 That is deliberate and safe. It is not a crash, and it is not Arabic text.
 
-## Count: 468 keys need Kurdish
+## Count: 471 keys need Kurdish
 
 | Client | Sorani (ckb) | Badini (kmr) | Distinct keys |
 |---|---|---|---|
@@ -61,7 +61,8 @@ That is deliberate and safe. It is not a crash, and it is not Arabic text.
 | App — OPOS #25284 Phase 5 staff-mediated group chats (new) | 38 | 38 | 38 |
 | App — OPOS #26419 chat group sender labels (new) | 6 | 6 | 6 |
 | App — OPOS #26429 group chat message notification type (new) | 1 | 1 | 1 |
-| **Total distinct words to translate** | | | **468** |
+| App — OPOS #26433 chat invite refusals (new) | 3 | 3 | 3 |
+| **Total distinct words to translate** | | | **471** |
 
 > **The dashboard figure above is a floor, not a ceiling — and it is the one
 > number in this file that was never fully measured.** Counting key paths in
@@ -219,6 +220,25 @@ Updated 2026-09-15 (OPOS #26435): the 1:1 support chat now also uses
 `chat_group_sender_support`, for a staff reply that arrives with no name. No
 key was added and the count is unchanged; translate the row above once and it
 serves both chats.
+
+## chat · OPOS #26433 chat invite refusals  (3 keys)
+
+Added 2026-09-15. What a person sees when the server refuses their answer to a
+chat invite, in the donor chat and the marriage chat alike. English and Arabic
+written; ckb and kmr NOT, so they fall back to English. No Kurdish invented.
+
+`error_chat_accept_failed` is followed by one of the two `error_next_*`
+recovery clauses (see "Write failures" below), so it must read as a complete
+first sentence. The other two stand alone: trying again cannot change them.
+A refusal because staff closed the thread reuses the existing "...closed by our
+team." / "...paused by our team." rows, and the decline failure reuses
+`Could not decline this chat request.`, so neither adds a key.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `error_chat_accept_failed` | Could not accept this chat request. | تعذّر قبول طلب المحادثة. | ckb + kmr |
+| `chat_invite_refusal_declined` | You declined this invitation. | لقد رفضتَ هذه الدعوة. | ckb + kmr |
+| `chat_invite_refusal_already_active` | This chat is already active, so it can no longer be declined. | هذه المحادثة نشطة بالفعل، لذا لم يعد بالإمكان رفضها. | ckb + kmr |
 
 ## notifications · OPOS #26429 group chat message notification type  (1 key)
 

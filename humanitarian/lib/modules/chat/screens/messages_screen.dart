@@ -9,6 +9,8 @@ import 'package:flutter_application_1/modules/bot/screens/bot_chat_screen.dart';
 import 'package:flutter_application_1/modules/chat/controllers/chat_controller.dart';
 import 'package:flutter_application_1/modules/chat/models/chat_models.dart';
 import 'package:flutter_application_1/modules/chat/screens/chat_conversation_screen.dart';
+import 'package:flutter_application_1/modules/chat/utils/chat_invite_refusal.dart';
+import 'package:flutter_application_1/modules/chat/widgets/chat_lifecycle_notice.dart';
 import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/modules/chatgroups/controllers/chat_groups_controller.dart';
 import 'package:flutter_application_1/modules/chatgroups/widgets/chat_groups_section.dart';
@@ -527,10 +529,16 @@ class _IncomingRequestCard extends StatelessWidget {
         );
       }
     } catch (e) {
+      // Was `Text('$e')`, the raw English exception on every locale. The
+      // controller has already refreshed the list, so a declined, active or
+      // closed invite leaves this section on its own (OPOS #26433).
+      debugPrint('accept thread ${thread.id} failed: $e');
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(chatInviteRefusalMessage(e, ChatInviteAnswer.accept)),
+          ),
+        );
       }
     }
   }
@@ -546,7 +554,11 @@ class _IncomingRequestCard extends StatelessWidget {
       debugPrint('decline thread ${thread.id} failed: $e');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not decline this chat request.'.tr)),
+          SnackBar(
+            content: Text(
+              chatInviteRefusalMessage(e, ChatInviteAnswer.decline),
+            ),
+          ),
         );
       }
     }
@@ -616,13 +628,17 @@ class _IncomingRequestCard extends StatelessWidget {
                     child: Text('Decline'.tr),
                   ),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: () => _accept(context),
-                    child: Text('Accept'.tr),
+                // No Accept on a paused or ended thread: the server refuses
+                // it. Decline stays, to dismiss the invite (OPOS #26433).
+                if (!ChatLifecycle.isClosed(thread.lifecycle)) ...[
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () => _accept(context),
+                      child: Text('Accept'.tr),
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ],
