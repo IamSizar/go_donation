@@ -32,7 +32,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -165,19 +164,6 @@ func requireTierPermission(t *testing.T, pool *pgxpool.Pool, tier, module string
 	if got != want {
 		t.Fatalf("premise broken: tier %s %s:view = %v, want %v", tier, module, got, want)
 	}
-}
-
-// getRawAs sends a GET and returns the status, the raw body and the decoded
-// body. The raw body is what a leak assertion searches.
-func getRawAs(t *testing.T, r *gin.Engine, token, path string) (int, string, map[string]any) {
-	t.Helper()
-	req := httptest.NewRequest(http.MethodGet, path, nil)
-	req.Header.Set("Authorization", "Bearer "+token)
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-	decoded := map[string]any{}
-	_ = json.Unmarshal(w.Body.Bytes(), &decoded)
-	return w.Code, w.Body.String(), decoded
 }
 
 // assertAllReadable walks every read route and requires a 200 success.
