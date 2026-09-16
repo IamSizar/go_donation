@@ -1698,15 +1698,110 @@ func ChatNewMessageMsg(senderName, preview string, threadID int64) LocalizedMess
 	if who == "" {
 		who = "New message"
 	}
+	return chatThreadNewMessageMsg(LocalText{En: who, Ar: who, Ckb: who, Kmr: who}, preview, threadID)
+}
+
+// ChatSupportReplyMsg notifies a party of a 1:1 donor chat that staff replied
+// (OPOS #26483). The admin reply used to send ChatNewMessageMsg("Support"),
+// which put the English word into every language, so Arabic read
+// «رسالة من Support». The sender is named per language through
+// localizedGroupAlias, the same lookup the masked chat groups use, so the
+// support team has one name everywhere: "Support" in English, فريق الدعم in
+// Arabic (never الدعم, which is Kafala: TERMINOLOGY.md T10). Sorani and Badini
+// have no word for the support team yet and keep "Support" (OPOS #26468).
+func ChatSupportReplyMsg(preview string, threadID int64) LocalizedMessage {
+	return chatThreadNewMessageMsg(LocalText{
+		En:  localizedGroupAlias(supportSenderLabel, "en"),
+		Ar:  localizedGroupAlias(supportSenderLabel, "ar"),
+		Ckb: localizedGroupAlias(supportSenderLabel, "ckb"),
+		Kmr: localizedGroupAlias(supportSenderLabel, "kmr"),
+	}, preview, threadID)
+}
+
+// chatThreadNewMessageMsg is the one body behind both 1:1 chat templates, so
+// a staff reply and a member's message can never drift onto different types.
+// `who` is the sender's name per language, already resolved by the caller.
+func chatThreadNewMessageMsg(who LocalText, preview string, threadID int64) LocalizedMessage {
 	return LocalizedMessage{
 		Type:              "chat_message",
 		RelatedEntityType: "chat_thread",
 		RelatedEntityID:   threadID,
 		Title: LocalText{
-			En:  fmt.Sprintf("Message from %s", who),
-			Ar:  fmt.Sprintf("رسالة من %s", who),
-			Ckb: fmt.Sprintf("نامە لە %s", who),
-			Kmr: fmt.Sprintf("Peyam ji %s", who),
+			En:  fmt.Sprintf("Message from %s", who.En),
+			Ar:  fmt.Sprintf("رسالة من %s", who.Ar),
+			Ckb: fmt.Sprintf("نامە لە %s", who.Ckb),
+			Kmr: fmt.Sprintf("Peyam ji %s", who.Kmr),
+		},
+		Body: LocalText{
+			En:  preview,
+			Ar:  preview,
+			Ckb: preview,
+			Kmr: preview,
+		},
+	}
+}
+
+// GroupMaskedNewMessageMsg is ChatNewMessageMsg's masked-group twin (OPOS
+// #25284 Phase 2). `alias` is how the sender appears in THIS group — their
+// own masked_label, or "Support" for a staff sender — never a real name, so
+// a masked group's push notification cannot re-identify anyone the chat
+// screen itself hides. Real-name team groups use GroupTeamNewMessageMsg.
+//
+// The labels the server generates in English ("Donor 1", "Support", ...) are
+// shown in Arabic, and in Kurdish where an exact translation exists, through
+// localizedGroupAlias (OPOS #26434), so an Arabic title reads
+// "رسالة من مانح 1", not "رسالة من Donor 1". English keeps the server's words
+// by decision. A label staff typed reaches every language verbatim, unless it
+// is itself exactly a generated shape such as "Donor 5": that is stored the
+// same way as a generated label, so it is translated too.
+func GroupMaskedNewMessageMsg(alias, preview string, groupID int64) LocalizedMessage {
+	alias = groupLabelOrFallback(alias)
+	return chatGroupNewMessageMsg(LocalText{
+		En:  localizedGroupAlias(alias, "en"),
+		Ar:  localizedGroupAlias(alias, "ar"),
+		Ckb: localizedGroupAlias(alias, "ckb"),
+		Kmr: localizedGroupAlias(alias, "kmr"),
+	}, preview, groupID)
+}
+
+// GroupTeamNewMessageMsg notifies a member of a real-name TEAM chat group of a
+// new message (OPOS #26411). `senderName` is the sender's real full name, which
+// a team group shows by design. Team groups used to reuse ChatNewMessageMsg,
+// but that template stamps RelatedEntityType "chat_thread" (the donor ↔ owner
+// table) onto a chat-GROUP id, and the two tables' ids overlap by accident, so
+// every stored row pointed at the wrong conversation. Rows written before this
+// fix keep that wrong type; they cannot be told apart from real donor-chat rows.
+func GroupTeamNewMessageMsg(senderName, preview string, groupID int64) LocalizedMessage {
+	name := groupLabelOrFallback(senderName)
+	return chatGroupNewMessageMsg(LocalText{En: name, Ar: name, Ckb: name, Kmr: name}, preview, groupID)
+}
+
+// groupLabelOrFallback returns label, or the neutral "Member" when the caller
+// resolved none, so a chat-group title never reads "Message from ".
+func groupLabelOrFallback(label string) string {
+	if label == "" {
+		return groupMemberLabel
+	}
+	return label
+}
+
+// chatGroupNewMessageMsg is the one body behind both chat-group templates, so
+// masked and team pushes can never drift onto different notification types or
+// entity types. `who` is the sender's label per language, already resolved by
+// the caller: the masked template translates the labels the server generates,
+// the team template passes the real name through unchanged. The Kurdish titles
+// are the same strings ChatNewMessageMsg already ships, reused rather than
+// re-drafted.
+func chatGroupNewMessageMsg(who LocalText, preview string, groupID int64) LocalizedMessage {
+	return LocalizedMessage{
+		Type:              "chat_group_message",
+		RelatedEntityType: "chat_group_thread",
+		RelatedEntityID:   groupID,
+		Title: LocalText{
+			En:  fmt.Sprintf("Message from %s", who.En),
+			Ar:  fmt.Sprintf("رسالة من %s", who.Ar),
+			Ckb: fmt.Sprintf("نامە لە %s", who.Ckb),
+			Kmr: fmt.Sprintf("Peyam ji %s", who.Kmr),
 		},
 		Body: LocalText{
 			En:  preview,
@@ -1804,51 +1899,6 @@ func MarriageChatNewMessageMsg(threadID int64) LocalizedMessage {
 			Ar:  "لديك رسالة جديدة في محادثة قسم الزواج.",
 			Ckb: "نامەیەکی نوێت هەیە لە گفتوگۆی هاوسەرگیریدا.",
 			Kmr: "Peyameke te ya nû di axaftina Hevsergiriyê de heye.",
-		},
-	}
-}
-
-// ===== Staff↔Volunteer↔Beneficiary chat (Note #36, part 3) =====
-
-// CaseVolunteerChatOpenedMsg tells the volunteer and beneficiary a 3-way
-// chat is now open — fires once, when a case-linked signup becomes eligible.
-func CaseVolunteerChatOpenedMsg(threadID int64) LocalizedMessage {
-	return LocalizedMessage{
-		Type:              "case_volunteer_chat_opened",
-		RelatedEntityType: "case_volunteer_chat_thread",
-		RelatedEntityID:   threadID,
-		Title: LocalText{
-			En:  "Chat opened",
-			Ar:  "تم فتح محادثة",
-			Ckb: "گفتوگۆ کرایەوە",
-			Kmr: "Axaftin hate vekirin",
-		},
-		Body: LocalText{
-			En:  "You can now message about this case, with staff able to help.",
-			Ar:  "يمكنك الآن مراسلة الطرف الآخر بخصوص هذه الحالة، والموظفون يمكنهم المساعدة.",
-			Ckb: "ئێستا دەتوانیت دەربارەی ئەم دۆسیەیە نامە بنێریت، کارمەندانیش دەتوانن یارمەتی بدەن.",
-			Kmr: "Niha tu dikarî derbarê vê dosyeyê de peyaman bişînî, karmend jî dikarin arîkarî bikin.",
-		},
-	}
-}
-
-// CaseVolunteerChatNewMessageMsg notifies the other party of a new message.
-func CaseVolunteerChatNewMessageMsg(preview string, threadID int64) LocalizedMessage {
-	return LocalizedMessage{
-		Type:              "case_volunteer_chat_message",
-		RelatedEntityType: "case_volunteer_chat_thread",
-		RelatedEntityID:   threadID,
-		Title: LocalText{
-			En:  "New message",
-			Ar:  "رسالة جديدة",
-			Ckb: "نامەیەکی نوێ",
-			Kmr: "Peyameke nû",
-		},
-		Body: LocalText{
-			En:  preview,
-			Ar:  preview,
-			Ckb: preview,
-			Kmr: preview,
 		},
 	}
 }

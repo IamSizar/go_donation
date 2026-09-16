@@ -1,19 +1,19 @@
-// Pins that the Events hub asks the server for its own slice of the feed.
+// Pins the `?type=` query that ModuleApi.mediaPosts builds: a post-type filter
+// goes on the request, and the general feed sends none.
 //
-// WHY THIS IS A SERVER-SIDE FILTER, AND WHY THAT NEEDS A TEST
-// The owner asked for the activity posts and news published from the admin
-// panel to appear on the Events hub, under the two cards. `GET /api/media`
-// caps its result at 50 rows (clampLimit) and orders newest-first across
-// EVERY post type, so fetching the general feed and dropping articles/videos
-// in the client would quietly hide older activity posts behind newer posts of
-// types the hub never renders — a feed that looks fine on a young database
-// and silently truncates on a busy one. The fix is `?type=activity,news`, and
-// this file pins the request the app actually puts on the wire, because the
-// failure mode is invisible from the widget tree.
+// WHY THE FILTER IS SERVER-SIDE
+// `GET /api/media` caps its result at 50 rows (clampLimit) and orders
+// newest-first across EVERY post type. Fetching the general feed and dropping
+// unwanted types in the client would quietly hide older posts of the wanted
+// types behind newer posts of the rest: a feed that looks fine on a young
+// database and silently truncates on a busy one. The filter has to travel as
+// `?type=`, and that failure is invisible from the widget tree, so this file
+// pins the request the app actually puts on the wire.
 //
-// The `type` param is also the ONLY thing separating the hub's feed from the
-// full News & Activities feed, so an omitted param is a real regression: the
-// hub would show marriage-adjacent articles and videos it was never meant to.
+// SCOPE. Only mediaPosts is called here. Filtered feeds reach the server
+// through MediaPostsController(postType:) and ModuleApi.mediaPostsPage, which
+// no test in this file covers. The Events hub's news feed ("activity,news")
+// was one until PR #76 (commit 33d6891, OPOS #25858) removed it.
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -41,7 +41,7 @@ Future<Uri> _capturedUri(Future<void> Function(ModuleApi api) call) async {
 }
 
 void main() {
-  test('the Events hub feed requests only activity posts and news', () async {
+  test('a post-type filter is sent as the type query parameter', () async {
     final uri = await _capturedUri(
       (api) => api.mediaPosts(type: 'activity,news'),
     );

@@ -38,7 +38,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/karam-flutter/humanitarian-backend/internal/beneficiary"
-	"github.com/karam-flutter/humanitarian-backend/internal/casevolchat"
 	"github.com/karam-flutter/humanitarian-backend/internal/chat"
 	"github.com/karam-flutter/humanitarian-backend/internal/db"
 	"github.com/karam-flutter/humanitarian-backend/internal/postengagement"
@@ -427,31 +426,9 @@ func TestCommentFeedHidesTheCommenterName(t *testing.T) {
 	}
 }
 
-// ─── Case ↔ volunteer chat (GET /api/case-chats) ────────────────────────
-
-func TestCaseVolunteerChatHidesTheCounterpartName(t *testing.T) {
-	pool := newPool(t)
-	ctx := context.Background()
-
-	volunteer, _ := makeUser(t, pool, "Hidden Volunteer", []string{"full_name"})
-	beneficiaryUser, _ := makeUser(t, pool, "Beneficiary", nil)
-	makeCaseVolThread(t, pool, volunteer, beneficiaryUser)
-
-	views, err := casevolchat.New(pool).ListThreadsForUser(ctx, beneficiaryUser)
-	if err != nil {
-		t.Fatalf("ListThreadsForUser: %v", err)
-	}
-	var seen bool
-	for _, v := range views {
-		if v.OtherUserID != volunteer {
-			continue
-		}
-		seen = true
-		if v.OtherName != nil {
-			t.Errorf("other_name = %q — the volunteer hid full_name", deref(v.OtherName))
-		}
-	}
-	if !seen {
-		t.Fatalf("fixture problem: the thread was not returned")
-	}
-}
+// Case ↔ volunteer chat (GET /api/case-chats) — RETIRED by OPOS #25284
+// Phase 4: volunteers and beneficiaries no longer message each other
+// directly, casevolchat.Store lost ListThreadsForUser along with every other
+// read/write method except MessageCountForSignup, and the route this test
+// exercised no longer exists. Removed along with makeCaseVolThread
+// (fixtures_test.go), which had no other caller.

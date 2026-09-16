@@ -31,6 +31,25 @@ function fetchMatrix(): Promise<PermMatrix | null> {
   return inflight
 }
 
+/**
+ * resetPermissionCache — forget the cached matrix and any fetch in flight, so
+ * the next hook call requests /api/admin/permissions/me again.
+ *
+ * EXISTS FOR TESTS. The cache above lives for as long as this module does. In
+ * the browser that is one page load, which is the point of caching. In a test
+ * runner it is a whole test file, so the matrix the first test served would
+ * answer every later test's permission question and silently override that
+ * test's own reply. src/test/setup.ts calls this after every test.
+ *
+ * Nothing in the app calls it. A promise already in flight when this runs can
+ * still settle afterwards and write its matrix into the cache; a test that
+ * unmounts before its request settles should await it first.
+ */
+export function resetPermissionCache(): void {
+  cache = null
+  inflight = null
+}
+
 // H10 — `useCanViewSensitive` and `maskContact` used to live here, and the
 // Users page painted a mask over a phone number the API had already sent in
 // full. That hid the value on the screen while the real one stayed in the
