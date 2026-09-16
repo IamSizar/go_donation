@@ -9,7 +9,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api, isSuperAdmin } from '../lib/api'
 import { useAuth } from '../lib/auth'
-import { useGlobalAlerts } from '../lib/globalAlerts'
+import { useGlobalAlerts } from '../lib/globalAlertsContext'
 import { useI18n, useStatusLabel } from '../lib/i18n'
 import { useToast } from '../lib/toast'
 

@@ -14,15 +14,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useI18n } from '../lib/i18n'
 
-/** The same shapes the app offers, so a photo means one thing across both. */
-export const SHAPES = [
-  { key: 'free', label: 'crop.free', ratio: null },
-  { key: 'square', label: 'crop.square', ratio: 1 },
-  { key: 'standard', label: 'crop.standard', ratio: 4 / 3 },
-  { key: 'wide', label: 'crop.wide', ratio: 16 / 9 },
-] as const
-
-export type ShapeKey = (typeof SHAPES)[number]['key']
+import { SHAPES, type ShapeKey } from './cropShapes'
 
 type Box = { x: number; y: number; w: number; h: number }
 

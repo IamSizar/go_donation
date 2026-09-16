@@ -17,6 +17,7 @@ import { useFieldLabel, useI18n } from '../lib/i18n'
 import { type CsvColumn } from '../lib/csv'
 import { formatPhone } from '../lib/phone'
 import { usePermission } from '../lib/permissions'
+import { isStaffAccount } from '../lib/staffAccounts'
 import { useFieldRules } from '../lib/fieldRules'
 import { rulePrefixForRole, useUserFieldRules } from '../lib/fieldRuleColumns'
 import FieldRuleCell from '../components/FieldRuleCell'
@@ -41,15 +42,7 @@ const GUEST_PLACEHOLDER_NAME = 'Guest'
 // the current value as an extra <option> whenever it isn't in `allowed`, so
 // the dropdown falls back to showing 'none' (بلا) for those rows without it
 // being a selectable target for anyone else.
-export const ROLE_LABELS = ['donor', 'beneficiary', 'volunteer', 'employee', 'marriage']
-
-// Staff relocation — a row counts as "staff" the same way A15 defines it
-// everywhere else: staff_tier set to anything other than the default 'user'.
-// Shared here so UsersPage (which now excludes these rows) and StaffPage
-// (which shows only these rows) can never drift on the definition.
-export function isStaffAccount(u: UserAccount): boolean {
-  return !!u.staff_tier && u.staff_tier !== 'user'
-}
+const ROLE_LABELS = ['donor', 'beneficiary', 'volunteer', 'employee', 'marriage']
 
 // Phase 18's field lists moved to lib/userEditFields.ts when the Edit form
 // grew from 15 boxes to the whole registration profile — this file was already
@@ -67,7 +60,7 @@ const USER_CSV_COLUMNS: CsvColumn<UserAccount>[] = [
   { header: 'created_at', get: (u) => u.created_at },
 ]
 
-export function roleLabelToId(label: string): number {
+function roleLabelToId(label: string): number {
   if (label === 'donor') return 1
   if (label === 'beneficiary') return 2
   if (label === 'volunteer') return 3

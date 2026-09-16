@@ -24,7 +24,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { describeError } from '../lib/api'
 import { useFieldLabel, useI18n, useStatusLabel } from '../lib/i18n'
 import FileInput from './FileInput'
-import type { ShapeKey } from './CropDialog'
+import type { ShapeKey } from './cropShapes'
 import GalleryInput from './GalleryInput'
 import { canonicalPhone, isRedactedContact, stripPhoneFormatting } from '../lib/phone'
 

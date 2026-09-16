@@ -14,7 +14,8 @@ import { useToast } from '../lib/toast'
 import { useI18n, useStatusLabel } from '../lib/i18n'
 import { useSelection } from '../lib/useSelection'
 import { downloadCsv, type CsvColumn } from '../lib/csv'
-import { HighlightBanner, useHighlightedRow } from '../lib/useHighlightedRow'
+import { HighlightBanner } from '../lib/HighlightBanner'
+import { useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForStatus } from '../lib/statusColors'
 import { usePendingCounts } from '../lib/pendingCounts'
 import { formatDateParts, formatDateTime } from '../lib/dates'
@@ -38,7 +39,7 @@ import ActionsMenu from '../components/ActionsMenu'
 // transitions, not view/edit/delete), so it cannot get the role-aware delete
 // label from RowActionsMenu the way every other table does. Pulling the same
 // hook keeps one convention: Super-Admin reads حذف, everyone else أرشفة.
-import { useRowDeleteLabel } from '../components/RowDeleteButton'
+import { useRowDeleteLabel } from '../components/useRowDeleteLabel'
 import IdWithNeedsAction from '../components/IdWithNeedsAction'
 
 const VOLUNTEER_CSV_COLUMNS: CsvColumn<AdminVolunteerApp>[] = [

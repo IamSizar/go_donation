@@ -29,7 +29,7 @@ import { usePermission } from '../lib/permissions'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
 import { formatDateTime } from '../lib/dates'
-import { isStaffAccount } from './UsersPage'
+import { isStaffAccount } from '../lib/staffAccounts'
 import { USER_FIELDS, flattenForEdit } from '../lib/userEditFields'
 import { useUserEditProfile } from '../lib/useUserEditProfile'
 
