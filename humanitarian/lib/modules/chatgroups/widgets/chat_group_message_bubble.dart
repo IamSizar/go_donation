@@ -1,0 +1,188 @@
+// ChatGroupMessageBubble — one message in a staff-mediated group chat
+// (OPOS #25284 Phase 5), drawn by ChatGroupConversationScreen.
+//
+// What it shows, and deliberately nothing else:
+//   * the sender's label as the server resolved it — an alias in a masked
+//     group, a real name in a team group, "Support" for staff — with the words
+//     the server itself generated shown in the reader's language
+//     (localizedSenderLabel, OPOS #26419). The model carries no user id, so
+//     there is nothing else a bubble could leak;
+//   * the message body;
+//   * when it was sent, in the reader's language.
+//
+// Everything is directional, so the member's own messages sit at the reading
+// END of the line: on the right in English, on the left in Arabic and Kurdish.
+import 'package:flutter/material.dart';
+import 'package:flutter_application_1/core/design/tokens.dart';
+import 'package:flutter_application_1/core/theme/app_theme_config.dart';
+import 'package:flutter_application_1/localization/content_localizer.dart';
+import 'package:intl/intl.dart';
+
+import '../models/chat_group_models.dart';
+import '../utils/chat_group_sender_label.dart';
+
+/// The widest a bubble may grow, as a share of the screen width: room for a
+/// short paragraph, while the two sides of the conversation stay visibly apart.
+const double _maxWidthFraction = 0.76;
+
+/// The radius of the bubble's corner on the sender's side — nearly square, so
+/// the bubble points at who wrote it.
+const double _squaredCornerRadius = 4;
+
+/// One message — label, body and time — aligned by who sent it.
+class ChatGroupMessageBubble extends StatelessWidget {
+  /// Draws [message].
+  const ChatGroupMessageBubble({super.key, required this.message});
+
+  /// The message to draw.
+  final ChatGroupMessage message;
+
+  @override
+  Widget build(BuildContext context) {
+    final mine = message.isMine;
+    final createdAt = message.createdAt;
+    return Align(
+      alignment: mine
+          ? AlignmentDirectional.centerEnd
+          : AlignmentDirectional.centerStart,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.sizeOf(context).width * _maxWidthFraction,
+        ),
+        child: Padding(
+          padding: const EdgeInsetsDirectional.only(bottom: AppSpace.xs),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: mine
+                ? CrossAxisAlignment.end
+                : CrossAxisAlignment.start,
+            children: [
+              // Only the other side is named — a member knows who they are.
+              if (!mine) _SenderLabel(label: message.senderLabel),
+              _BubbleBody(text: message.body, mine: mine),
+              if (createdAt != null) _SentAt(time: createdAt),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The sender's server-resolved label, above someone else's message, with the
+/// server's own generated words ("Support", "Donor 1") in the reader's
+/// language.
+class _SenderLabel extends StatelessWidget {
+  const _SenderLabel({required this.label});
+
+  /// The alias, real name or "Support", exactly as the server sent it.
+  /// Translated at draw time, never stored translated.
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsetsDirectional.only(
+        start: AppSpace.xxs,
+        end: AppSpace.xxs,
+        bottom: AppSpace.xxs,
+      ),
+      child: Text(
+        localizedSenderLabel(label),
+        style: TextStyle(
+          fontSize: AppType.meta,
+          fontWeight: AppType.wLabel,
+          color: AppThemeConfig.mutedText(context),
+        ),
+      ),
+    );
+  }
+}
+
+/// The filled bubble holding the text. The bottom corner on the sender's side
+/// is squared off, so the bubble points at who wrote it in either direction.
+class _BubbleBody extends StatelessWidget {
+  const _BubbleBody({required this.text, required this.mine});
+
+  /// The message body.
+  final String text;
+
+  /// True for the member's own message, which takes the accent fill.
+  final bool mine;
+
+  @override
+  Widget build(BuildContext context) {
+    const round = Radius.circular(AppRadius.md);
+    const squared = Radius.circular(_squaredCornerRadius);
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpace.sm,
+        vertical: AppSpace.xs,
+      ),
+      decoration: BoxDecoration(
+        // accent/onAccent is the theme's contrast-checked pair (measured 7.5:1
+        // in light mode and 7.7:1 in dark).
+        color: mine
+            ? AppThemeConfig.accent(context)
+            : AppThemeConfig.softSurface(context),
+        borderRadius: BorderRadiusDirectional.only(
+          topStart: round,
+          topEnd: round,
+          bottomStart: mine ? round : squared,
+          bottomEnd: mine ? squared : round,
+        ),
+      ),
+      child: Text(
+        text,
+        // Laid out in the direction of what was typed, not of the screen: an
+        // English message on an Arabic screen otherwise shows ".campaign",
+        // its full stop moved to the wrong end.
+        textDirection: contentDirection(
+          text,
+          fallback: Directionality.of(context),
+        ),
+        style: TextStyle(
+          fontSize: AppType.body,
+          height: AppType.leadDense,
+          color: mine
+              ? AppThemeConfig.onAccent(context)
+              : AppThemeConfig.text(context),
+        ),
+      ),
+    );
+  }
+}
+
+/// When the message was sent, in the reader's language.
+///
+/// `Intl.defaultLocale` is pinned to the app's language at startup and on
+/// every switch (AppLocaleService.syncDateFormatLocale). English and Arabic
+/// get their own month names; both Kurdish locales fall back to Arabic
+/// calendar data, because `intl` ships none for Sorani or Badini. Either way
+/// it beats the fixed `'MMM d · HH:mm'` pattern the 1:1 chat uses, which
+/// prints English month names on an Arabic screen. The year is left out to
+/// keep the line short — chats are read close to when they happen.
+class _SentAt extends StatelessWidget {
+  const _SentAt({required this.time});
+
+  /// The moment the server stored the message (UTC).
+  final DateTime time;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsetsDirectional.only(
+        top: AppSpace.xxs,
+        start: AppSpace.xxs,
+        end: AppSpace.xxs,
+      ),
+      child: Text(
+        DateFormat.MMMd().add_jm().format(time.toLocal()),
+        style: TextStyle(
+          fontSize: AppType.label,
+          color: AppThemeConfig.mutedText(context),
+        ),
+      ),
+    );
+  }
+}

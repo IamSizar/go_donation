@@ -42,12 +42,26 @@ export default function ConfirmDialog({
   const [typed, setTyped] = useState('')
   const confirmRef = useRef<HTMLButtonElement | null>(null)
 
+  // Reset the per-open state the moment `open` flips to true, during render
+  // rather than in an effect. Doing it in an effect meant the dialog painted
+  // once with the previous open's error/typed text before the reset landed,
+  // and cost a second render every time it opened.
+  const [wasOpen, setWasOpen] = useState(open)
+  if (wasOpen !== open) {
+    setWasOpen(open)
+    if (open) {
+      setBusy(false)
+      setErr(null)
+      setTyped('')
+    }
+  }
+
+  // Focus is a DOM side effect, so it stays in an effect. The delay lets the
+  // open animation mount the button before we reach for it.
   useEffect(() => {
     if (!open) return
-    setBusy(false)
-    setErr(null)
-    setTyped('')
-    setTimeout(() => confirmRef.current?.focus(), 50)
+    const timer = setTimeout(() => confirmRef.current?.focus(), 50)
+    return () => clearTimeout(timer)
   }, [open])
 
   useEffect(() => {

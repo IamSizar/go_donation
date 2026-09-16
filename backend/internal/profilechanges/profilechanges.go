@@ -105,8 +105,17 @@ func (s *Store) List(ctx context.Context, status string, limit int) ([]Request, 
 		        COALESCE(r.decide_note, '')
 		   FROM profile_change_requests r
 		   JOIN users u ON u.id = r.user_id
-		   LEFT JOIN user_profiles p ON p.user_id = r.user_id
-		   LEFT JOIN user_profiles dp ON dp.user_id = r.decided_by
+		   -- OPOS #26603: user_profiles.user_id has no UNIQUE constraint, so a
+		   -- requester or a decider with two profile rows repeated the request
+		   -- (both together squared it). Each LATERAL takes the oldest row.
+		   LEFT JOIN LATERAL (
+		          SELECT pf.full_name FROM user_profiles pf
+		           WHERE pf.user_id = r.user_id ORDER BY pf.id LIMIT 1
+		        ) p ON TRUE
+		   LEFT JOIN LATERAL (
+		          SELECT pf.full_name FROM user_profiles pf
+		           WHERE pf.user_id = r.decided_by ORDER BY pf.id LIMIT 1
+		        ) dp ON TRUE
 		   LEFT JOIN users du ON du.id = r.decided_by
 		  WHERE `+where+`
 		  ORDER BY (r.status = 'pending') DESC, r.created_at ASC

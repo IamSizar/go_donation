@@ -129,11 +129,15 @@ func doJSON(t *testing.T, r *gin.Engine, method, path, token string, body any) (
 
 // countRows is the assertion that actually matters: a refused send must leave
 // NOTHING behind, because a stored message is also a pushed notification.
-func countRows(t *testing.T, pool *pgxpool.Pool, table string, threadID int64) int {
+//
+// idColumn is the column on table that points back at threadID — "thread_id"
+// for every pre-existing system, "group_id" for chat_group_messages (see
+// chatFixture.MsgIDColumn).
+func countRows(t *testing.T, pool *pgxpool.Pool, table, idColumn string, threadID int64) int {
 	t.Helper()
 	var n int
 	if err := pool.QueryRow(context.Background(),
-		"SELECT COUNT(*) FROM "+table+" WHERE thread_id = $1", threadID).Scan(&n); err != nil {
+		"SELECT COUNT(*) FROM "+table+" WHERE "+idColumn+" = $1", threadID).Scan(&n); err != nil {
 		t.Fatalf("count %s: %v", table, err)
 	}
 	return n
@@ -178,7 +182,7 @@ func TestChatLifecycle_PausedThreadRefusesMessage(t *testing.T) {
 			// the test log, not just asserted about.
 			t.Logf("server refusal: %d %v", code, body)
 			// The guarantee: nothing stored, so nothing pushed.
-			if n := countRows(t, pool, f.MsgTable, f.ThreadID); n != 0 {
+			if n := countRows(t, pool, f.MsgTable, f.MsgIDColumn, f.ThreadID); n != 0 {
 				t.Fatalf("%s has %d rows after a refused send; want 0", f.MsgTable, n)
 			}
 		})
@@ -202,7 +206,7 @@ func TestChatLifecycle_EndedThreadRefusesMessage(t *testing.T) {
 			if body["lifecycle"] != chatlifecycle.StateEnded {
 				t.Fatalf("lifecycle = %v, want %q", body["lifecycle"], chatlifecycle.StateEnded)
 			}
-			if n := countRows(t, pool, f.MsgTable, f.ThreadID); n != 0 {
+			if n := countRows(t, pool, f.MsgTable, f.MsgIDColumn, f.ThreadID); n != 0 {
 				t.Fatalf("%s has %d rows after a refused send; want 0", f.MsgTable, n)
 			}
 		})
@@ -222,7 +226,7 @@ func TestChatLifecycle_OpenThreadStillWorks(t *testing.T) {
 			if code != http.StatusOK {
 				t.Fatalf("status = %d, want 200 (body %v)", code, body)
 			}
-			if n := countRows(t, pool, f.MsgTable, f.ThreadID); n != 1 {
+			if n := countRows(t, pool, f.MsgTable, f.MsgIDColumn, f.ThreadID); n != 1 {
 				t.Fatalf("%s has %d rows; want 1", f.MsgTable, n)
 			}
 		})
@@ -263,7 +267,7 @@ func TestChatLifecycle_ResumeRestoresAPausedChat(t *testing.T) {
 		map[string]string{"body": "we are back"}); code != http.StatusOK {
 		t.Fatalf("resumed send status = %d, want 200 (body %v)", code, body)
 	}
-	if n := countRows(t, pool, f.MsgTable, f.ThreadID); n != 1 {
+	if n := countRows(t, pool, f.MsgTable, f.MsgIDColumn, f.ThreadID); n != 1 {
 		t.Fatalf("chat_messages = %d, want the one message sent after resume", n)
 	}
 }
@@ -309,7 +313,7 @@ func TestChatLifecycle_EndKeepsTheHistory(t *testing.T) {
 		staffToken, map[string]string{"action": "end"}); code != http.StatusOK {
 		t.Fatalf("end: status %d body %v", code, body)
 	}
-	if n := countRows(t, pool, "chat_messages", f.ThreadID); n != 1 {
+	if n := countRows(t, pool, "chat_messages", "thread_id", f.ThreadID); n != 1 {
 		t.Fatalf("chat_messages = %d after END; ending must not delete history", n)
 	}
 }
@@ -333,11 +337,15 @@ func TestChatLifecycle_ParticipantCannotModerate(t *testing.T) {
 				participant = makeLifecycleUser(t, pool, "user")
 			}
 			token := tokenFor(t, pool, participant)
+			// KindCase carries no entry here: OPOS #25284 Phase 4 retired
+			// casevolchat's direct volunteer↔beneficiary messaging entirely,
+			// so it is no longer in allFixtures (see chat_lifecycle_fixtures_test.go)
+			// and f.Kind can never be KindCase in this loop.
 			base := map[chatlifecycle.Kind]string{
 				chatlifecycle.KindDonor:    "/api/admin/chats/%d",
 				chatlifecycle.KindMarriage: "/api/admin/marriage/chats/%d",
 				chatlifecycle.KindStaff:    "/api/admin/staff-chats/%d",
-				chatlifecycle.KindCase:     "/api/admin/case-chats/%d",
+				chatlifecycle.KindGroup:    "/api/admin/chat-groups/%d",
 			}[f.Kind]
 			path := fmt.Sprintf(base, f.ThreadID)
 

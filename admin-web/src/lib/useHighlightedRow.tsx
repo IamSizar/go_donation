@@ -18,8 +18,6 @@
 
 import { useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { useI18n } from './i18n'
-import { fmtId } from './formatId'
 
 // useHighlightedRow — wraps the URL param + scroll plumbing into a single
 // hook with a focused API surface.
@@ -76,26 +74,4 @@ export function useHighlightedRow(opts?: {
   }
 
   return { highlightedId, active, isHighlighted, clearHighlight }
-}
-
-// HighlightBanner — drop this at the top of a list page to confirm where the
-// admin landed and offer a quick "dismiss" button. Renders nothing when there
-// is no highlighted id, so it's safe to include unconditionally.
-//
-// `kind` is the noun shown ("Donation #11", "Sponsorship #4"). The default
-// "Item" is fine but pages should pass a specific noun for clarity.
-export function HighlightBanner({ kind = 'Item' }: { kind?: string }) {
-  const { highlightedId, clearHighlight } = useHighlightedRow()
-  const { t } = useI18n()
-  if (!highlightedId) return null
-  return (
-    <div className="highlight-banner" role="status">
-      <span className="hb-icon" aria-hidden="true">⚡</span>
-      <span className="hb-text">
-        <strong>{kind} {fmtId(highlightedId)}</strong>{' '}
-        {t('highlight.opened_from_feed')}
-      </span>
-      <button type="button" onClick={clearHighlight}>{t('highlight.dismiss')}</button>
-    </div>
-  )
 }

@@ -1,11 +1,12 @@
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
-import { AuthProvider, RequireAuth } from './lib/auth'
-import { DialogHost } from './lib/dialogs'
+import { AuthProvider, RequireAuth } from './lib/AuthProvider'
+import { DialogHost } from './lib/DialogHost'
 import { GlobalAlertsProvider } from './lib/globalAlerts'
-import { PendingCountsProvider } from './lib/pendingCounts'
-import { ToastProvider } from './lib/toast'
-import { I18nProvider, useI18n } from './lib/i18n'
+import { PendingCountsProvider } from './lib/PendingCountsProvider'
+import { ToastProvider } from './lib/ToastProvider'
+import { I18nProvider } from './lib/I18nProvider'
+import { useI18n } from './lib/i18n'
 import LoginPage from './pages/LoginPage'
 import AppShell from './components/AppShell'
 import OfflineBanner from './components/OfflineBanner'
@@ -35,7 +36,9 @@ const CityGuidePage = lazy(() => import('./pages/CityGuidePage'))
 const CitySectorsPage = lazy(() => import('./pages/CitySectorsPage'))
 const MessagesPage = lazy(() => import('./pages/MessagesPage'))
 const StaffChatPage = lazy(() => import('./pages/StaffChatPage'))
-const CaseVolunteerChatsPage = lazy(() => import('./pages/CaseVolunteerChatsPage'))
+const ChatGroupsPage = lazy(() => import('./pages/ChatGroupsPage'))
+const ConnectRequestsPage = lazy(() => import('./pages/ConnectRequestsPage'))
+const ChatGroupDetailPage = lazy(() => import('./pages/ChatGroupDetailPage'))
 const VolunteersPage = lazy(() => import('./pages/VolunteersPage'))
 const VolunteerBoardPage = lazy(() => import('./pages/VolunteerBoardPage'))
 const MissionsPage = lazy(() => import('./pages/MissionsPage'))
@@ -164,7 +167,9 @@ export default function App() {
             <Route path="city-sectors" element={<CitySectorsPage />} />
             <Route path="messages" element={<MessagesPage />} />
             <Route path="staff-chat" element={<StaffChatPage />} />
-            <Route path="case-volunteer-chats" element={<CaseVolunteerChatsPage />} />
+            <Route path="chat-groups" element={<ChatGroupsPage />} />
+            <Route path="chat-groups/connect-requests" element={<ConnectRequestsPage />} />
+            <Route path="chat-groups/:id" element={<ChatGroupDetailPage />} />
             <Route path="volunteers" element={<VolunteersPage />} />
             <Route path="volunteer-board" element={<VolunteerBoardPage />} />
             <Route path="tasks" element={<TasksPage />} />

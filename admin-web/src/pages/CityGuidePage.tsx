@@ -78,7 +78,10 @@ const CITY_GUIDE_FIELDS: FieldSpec[] = [
 
 export default function CityGuidePage() {
   const [resp, setResp] = useState<Resp | null>(null)
-  const [loading, setLoading] = useState(false)
+  // Which request last came back. `loading` is derived from it below rather
+  // than set at the top of the fetch effect, which costs a second render and
+  // is what `react-hooks/set-state-in-effect` objects to.
+  const [loadedKey, setLoadedKey] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [editing, setEditing] = useState<CommunityEntry | null>(null)
   const [creating, setCreating] = useState(false)
@@ -96,20 +99,23 @@ export default function CityGuidePage() {
   const { t, locale } = useI18n()
   const statusLabel = useStatusLabel()
 
+  // Every dependency of the fetch effect below, so the page reads as loading
+  // from the render that changes either of them.
+  const requestKey = `${statusFilter}|${refreshTick}`
+  const loading = loadedKey !== requestKey
+
   useEffect(() => {
     let cancelled = false
-    setLoading(true)
-    setErr(null)
     // #30 — use the admin list so pending user submissions are visible/actionable.
     api
       .get<Resp>('/api/admin/community', {
         params: { status: statusFilter || undefined, limit: 200 },
       })
-      .then((res) => { if (!cancelled) setResp(res.data) })
+      .then((res) => { if (!cancelled) { setResp(res.data); setErr(null) } })
       .catch((e) => { if (!cancelled) setErr(describeError(e)) })
-      .finally(() => { if (!cancelled) setLoading(false) })
+      .finally(() => { if (!cancelled) setLoadedKey(requestKey) })
     return () => { cancelled = true }
-  }, [statusFilter, refreshTick])
+  }, [statusFilter, refreshTick, requestKey])
 
   // #29 — the sector list is admin-managed, so fetch it to populate the
   // multiselect (values are slugs; labels resolve via the status.* namespace).
@@ -385,7 +391,9 @@ export default function CityGuidePage() {
         </div>
       )}
 
-      {err && <div className="error-box">{err}</div>}
+      {/* Hidden while a newer request is in flight, which is what clearing the
+          error at the top of the fetch effect used to achieve. */}
+      {!loading && err && <div className="error-box">{err}</div>}
 
       <Table<CommunityEntry>
         rows={items}
