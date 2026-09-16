@@ -3,6 +3,7 @@ import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/modules/chat/controllers/chat_controller.dart';
 import 'package:flutter_application_1/modules/chat/models/chat_models.dart';
+import 'package:flutter_application_1/modules/chat/utils/chat_sender_name.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_application_1/core/widgets/app_pressable.dart';
@@ -209,11 +210,12 @@ class _MessageBubble extends StatelessWidget {
               ? CrossAxisAlignment.end
               : CrossAxisAlignment.start,
           children: [
-            // Note #36 — sender label: name for the other party, and now also
-            // the real name of the "Responsible Staff Member" for admin
-            // replies (message.senderName already resolves to the claimed
-            // staff's name, falling back to "Support" only when no staff
-            // member has claimed the thread — see ChatMessage.fromMap).
+            // Note #36 — sender label: the other party's name, and the real
+            // name of the staff member for admin replies. When the server
+            // sends no name (no profile name, or one hidden by privacy
+            // settings), chatSenderName supplies one in the reader's language:
+            // فريق الدعم / "Support" for staff, مستخدم / "User" for anyone
+            // else (OPOS #26435).
             if (!mine || isSupport)
               Padding(
                 padding: const EdgeInsets.only(bottom: 3, left: 4, right: 4),
@@ -228,7 +230,7 @@ class _MessageBubble extends StatelessWidget {
                       ),
                     if (isSupport) const SizedBox(width: 4),
                     Text(
-                      message.senderName,
+                      chatSenderName(message),
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,

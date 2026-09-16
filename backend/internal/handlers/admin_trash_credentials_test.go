@@ -157,11 +157,17 @@ func trashItemAs(t *testing.T, pool *pgxpool.Pool, actorID, trashID int64) (map[
 	return nil, ""
 }
 
-// postAsStaff replays a POST with a JSON body as `actorID`, authenticated the
-// way main.go authenticates the restore route. getAsStaff covers the GETs; the
-// restore half of this file needs a body and a password.
+// postAsStaff replays a POST with a JSON body as `actorID` through the chain
+// main.go builds on its admin group: RequireAdmin with a genuine token, then
+// RequireDeletePassword, then `chain`. `chain` is what main.go passes after the
+// path, which is the route's own gates followed by the handler, for example
+// auth.RequireAdminTier() and AdminTrashHandler.Restore. getAsStaff covers the
+// GETs; the restore half of this file needs a body and a password.
+//
+// RequireDeletePassword only acts on DELETE, so a POST passes straight through
+// it. It is mounted anyway because main.go mounts it on the whole group.
 func postAsStaff(t *testing.T, pool *pgxpool.Pool, actorID int64,
-	routePattern, requestPath string, reqBody any, handler gin.HandlerFunc) (int, map[string]any) {
+	routePattern, requestPath string, reqBody any, chain ...gin.HandlerFunc) (int, map[string]any) {
 	t.Helper()
 
 	tokenStore := auth.NewTokenStore(pool)
@@ -176,7 +182,8 @@ func postAsStaff(t *testing.T, pool *pgxpool.Pool, actorID int64,
 
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	r.POST(routePattern, auth.RequireAdmin(tokenStore), handler)
+	admin := r.Group("/", auth.RequireAdmin(tokenStore), RequireDeletePassword(pool))
+	admin.POST(routePattern, chain...)
 
 	req := httptest.NewRequest(http.MethodPost, requestPath, bytes.NewReader(encoded))
 	req.Header.Set("Authorization", "Bearer "+session.AccessToken)
@@ -351,13 +358,15 @@ func TestTrashRestoreKeepsTheCredentialIntact(t *testing.T) {
 		t.Fatal("the hash reached the viewer — restore is not the interesting failure yet")
 	}
 
-	// The restore route is PIN-gated on the caller's OWN password (Note #26).
+	// The restore route is PIN-gated on the caller's OWN password (Note #26),
+	// and main.go puts RequireAdminTier in front of it, so the caller is an
+	// admin: the lowest tier that gate lets through.
 	const actorPassword = "restore-pin-1234"
 	actor := insertAccount(t, pool, "admin", actorPassword)
 	status, body := postAsStaff(t, pool, actor.id, "/api/admin/trash/:id/restore",
 		"/api/admin/trash/"+strconv.FormatInt(trashID, 10)+"/restore",
 		map[string]string{"password": actorPassword},
-		(&AdminTrashHandler{Pool: pool, Perms: permissions.New(pool)}).Restore)
+		auth.RequireAdminTier(), (&AdminTrashHandler{Pool: pool, Perms: permissions.New(pool)}).Restore)
 	if status != http.StatusOK {
 		t.Fatalf("restore: status = %d, want 200 (body: %v)", status, body)
 	}

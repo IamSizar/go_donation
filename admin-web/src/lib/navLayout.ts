@@ -61,10 +61,15 @@ export const NAV: NavItem[] = [
   { to: '/receipts',      tKey: 'nav.receipts',       module: 'beneficiary' },
   { to: '/messages',      tKey: 'nav.messages',        module: 'messages' },
   { to: '/staff-chat',    tKey: 'nav.staff_chat' },
+  // Phase 6a — staff-supervised chat groups. Gated on 'messages' like
+  // /messages: the list needs messages:view on the server.
+  { to: '/chat-groups',   tKey: 'nav.chat_groups',    module: 'messages' },
+  // Phase 6c — the connect-request inbox. Listing needs messages:view;
+  // approving and declining need messages:edit, gated on the page.
+  { to: '/chat-groups/connect-requests', tKey: 'nav.connect_requests', module: 'messages' },
   { to: '/volunteers',    tKey: 'nav.volunteers',    countKey: 'volunteers', module: 'volunteers' },
   { to: '/volunteer-board', tKey: 'nav.volunteer_board', module: 'volunteers' },
   { to: '/tasks',          tKey: 'nav.tasks',            module: 'tasks' },
-  { to: '/case-volunteer-chats', tKey: 'nav.case_volunteer_chats', module: 'volunteers' },
   { to: '/missions',      tKey: 'nav.missions',        module: 'missions' },
   { to: '/sponsorships',  tKey: 'nav.sponsorships',  countKey: 'sponsorships', module: 'sponsorships' },
   { to: '/in-kind',       tKey: 'nav.in_kind',       countKey: 'in_kind', module: 'in_kind' },
@@ -172,7 +177,7 @@ export const DEFAULT_NAV_SECTIONS: NavSection[] = [
   {
     kind: 'group', key: 'users_members', tKey: 'nav_group.users_members',
     items: ['/users', '/beneficiary', '/volunteers', '/volunteer-board', '/tasks',
-            '/case-volunteer-chats', '/partners'],
+            '/partners'],
   },
   {
     kind: 'group', key: 'aid_campaigns', tKey: 'nav_group.aid_campaigns',
@@ -196,7 +201,7 @@ export const DEFAULT_NAV_SECTIONS: NavSection[] = [
   },
   {
     kind: 'group', key: 'communication_support', tKey: 'nav_group.communication_support',
-    items: ['/messages', '/staff-chat', '/notifications', '/push', '/support', '/contact'],
+    items: ['/messages', '/staff-chat', '/chat-groups', '/chat-groups/connect-requests', '/notifications', '/push', '/support', '/contact'],
   },
   {
     kind: 'group', key: 'monitoring_reports', tKey: 'nav_group.monitoring_reports',

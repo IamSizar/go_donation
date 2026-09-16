@@ -13,13 +13,18 @@ export default function BannedWordsPage() {
   const { t } = useI18n()
   const toast = useToast()
   const [items, setItems] = useState<Word[]>([])
-  const [loading, setLoading] = useState(true)
+  // `loading` is derived from which reload tick last came back, so the fetch
+  // effect below sets nothing synchronously. `reload()` bumps the tick, which
+  // is what re-runs the effect.
+  const [tick, setTick] = useState(0)
+  const [loadedTick, setLoadedTick] = useState(-1)
+  const loading = loadedTick !== tick
+  const reload = () => setTick((n) => n + 1)
   const [err, setErr] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const [adding, setAdding] = useState(false)
 
   const load = () => {
-    setLoading(true)
     api
       .get<{ items: Word[] }>('/api/admin/banned-words')
       .then((res) => {
@@ -27,9 +32,9 @@ export default function BannedWordsPage() {
         setErr(null)
       })
       .catch((e) => setErr(describeError(e)))
-      .finally(() => setLoading(false))
+      .finally(() => setLoadedTick(tick))
   }
-  useEffect(load, [])
+  useEffect(load, [tick])
 
   const add = async () => {
     if (!draft.trim()) {
@@ -41,7 +46,7 @@ export default function BannedWordsPage() {
       await api.post('/api/admin/banned-words', { word: draft.trim() })
       toast.success(t('bannedWords.added'))
       setDraft('')
-      load()
+      reload()
     } catch (e) {
       toast.error(describeError(e))
     } finally {
@@ -53,7 +58,7 @@ export default function BannedWordsPage() {
     try {
       await api.delete(`/api/admin/banned-words/${id}`)
       toast.success(t('bannedWords.deleted'))
-      load()
+      reload()
     } catch (e) {
       toast.error(describeError(e))
     }

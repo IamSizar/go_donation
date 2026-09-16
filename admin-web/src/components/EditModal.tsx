@@ -24,7 +24,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { describeError } from '../lib/api'
 import { useFieldLabel, useI18n, useStatusLabel } from '../lib/i18n'
 import FileInput from './FileInput'
-import type { ShapeKey } from './CropDialog'
+import type { ShapeKey } from './cropShapes'
 import GalleryInput from './GalleryInput'
 import { canonicalPhone, isRedactedContact, stripPhoneFormatting } from '../lib/phone'
 
@@ -276,7 +276,7 @@ export default function EditModal({ open, title, initial, fields: declaredFields
         if (next === '' && !f.required) continue
       }
       if (f.type === 'gallery' || f.type === 'multiselect') {
-        let arr: string[] = []
+        let arr: string[]
         try {
           const parsed = JSON.parse(next || '[]')
           arr = Array.isArray(parsed) ? parsed.map((x) => String(x)).filter((s) => s.trim() !== '') : []

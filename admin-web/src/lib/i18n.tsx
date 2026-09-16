@@ -1,5 +1,13 @@
 // i18n — Phase 19 lightweight in-app translation hook.
 //
+// <I18nProvider> lives in I18nProvider.tsx. It is split off because a file
+// that exports a component may not also export hooks or a context: fast
+// refresh recreates a module bindings on every edit, so the context would be
+// swapped for a brand-new one and every Provider/consumer pair would come
+// apart mid-session (react-refresh/only-export-components). useI18n is
+// imported by 113 files and the provider by four, so the hook kept the module
+// name.
+//
 // Why custom: react-i18next pulls in ~30 KB and its full feature set
 // (plurals, namespaces, suspense) is not needed here. We have 4 locales,
 // flat key paths, and simple {var} interpolation. ~70 lines of code.
@@ -14,8 +22,7 @@
 // document.documentElement.dir on every change so RTL flips happen at
 // the root.
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import type { ReactNode } from 'react'
+import { createContext, useContext } from 'react'
 import en from './locales/en'
 import ar from './locales/ar'
 import ckb from './locales/ckb'
@@ -37,9 +44,9 @@ export type MessageTree = typeof en
 // and falls back to en for any key a locale doesn't define.
 const messages: Record<Locale, unknown> = { en, ar, ckb, kmr }
 
-const RTL_LOCALES: Locale[] = ['ar', 'ckb', 'kmr']
+export const RTL_LOCALES: Locale[] = ['ar', 'ckb', 'kmr']
 
-type Ctx = {
+export type Ctx = {
   locale: Locale
   setLocale: (l: Locale) => void
   // t looks up a dotted key and interpolates {var} placeholders.
@@ -49,7 +56,7 @@ type Ctx = {
   dir: 'ltr' | 'rtl'
 }
 
-const I18nContext = createContext<Ctx | null>(null)
+export const I18nContext = createContext<Ctx | null>(null)
 
 // Look up a dotted path inside a nested message tree.
 function dig(tree: unknown, parts: string[]): unknown {
@@ -91,28 +98,6 @@ export function translate(
   if (typeof v !== 'string') v = dig(messages.en, parts)
   if (typeof v !== 'string') return key
   return interpolate(v, vars)
-}
-
-export function I18nProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>(() => currentLocale())
-
-  const dir: 'ltr' | 'rtl' = RTL_LOCALES.includes(locale) ? 'rtl' : 'ltr'
-
-  // Mirror to <html dir> so descendants inherit direction.
-  useEffect(() => {
-    document.documentElement.dir = dir
-    document.documentElement.lang = locale
-  }, [dir, locale])
-
-  const setLocale = useCallback((l: Locale) => {
-    setLocaleState(l)
-    localStorage.setItem('locale', l)
-  }, [])
-
-  const t = useCallback<Ctx['t']>((key, vars) => translate(key, vars, locale), [locale])
-
-  const value = useMemo<Ctx>(() => ({ locale, setLocale, t, dir }), [locale, setLocale, t, dir])
-  return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>
 }
 
 export function useI18n(): Ctx {

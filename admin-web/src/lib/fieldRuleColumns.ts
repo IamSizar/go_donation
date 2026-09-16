@@ -168,13 +168,16 @@ export function useUserFieldRules(): {
   ruleFor: (column: string, roleId: number | undefined) => ColumnRule
 } {
   const [rows, setRows] = useState<FieldRuleRow[]>([])
-  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [tick, setTick] = useState(0)
+  // `loading` is derived from which tick last came back rather than set at the
+  // top of the effect: a reload bumps the tick, so the hook reports loading
+  // from that render on, with no extra render pass.
+  const [loadedTick, setLoadedTick] = useState(-1)
+  const loading = loadedTick !== tick
 
   useEffect(() => {
     let cancelled = false
-    setLoading(true)
     api
       .get<{ items: FieldRuleRow[] }>('/api/admin/registration/field-rules')
       .then((r) => {
@@ -190,7 +193,7 @@ export function useUserFieldRules(): {
         setError(e instanceof Error ? e.message : String(e))
       })
       .finally(() => {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) setLoadedTick(tick)
       })
     return () => {
       cancelled = true

@@ -157,6 +157,11 @@ func RequireApproved() gin.HandlerFunc {
 // route (donations, marketplace orders, beneficiary cases/project requests,
 // sponsorships, in-kind donations, marriage profile submission/meeting
 // requests, community submissions).
+//
+// NOT on the donor and marriage chat LIST routes: those use
+// handlers.GuestGetsEmptyList on purpose, so installed apps that poll the list
+// show a guest their empty state instead of an error (OPOS #26354). The
+// messages routes beside those lists do use this gate.
 func RequireNotGuest() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		u, ok := UserFromGin(c)
