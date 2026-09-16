@@ -154,6 +154,217 @@ before it was made.
 
 ---
 
+## 2026-09-16 — OPOS #26603: the rest of the `user_profiles` reads, and the one that 500s (branch `fix/user-profiles-remaining-reads`)
+
+**What was asked:** finish what #26497 (PR #127) left open. First the worst
+item — `beneficiary/beneficiary.go`'s scalar subquery, which does not merely
+duplicate a row but fails the whole query — then the ~21 remaining duplicating
+reads from #127's audit table, person-facing lists first. Test-first, a test
+per package. Do NOT touch the three writers (another agent is adding locks).
+No migration, no UNIQUE constraint, no data deletion. Not pushed.
+
+**Branch** cut from `origin/main` `e7c9f77`, which did not move during the work.
+
+### The two commits
+
+- **`02b66e9` `fix(beneficiary): a reviewer with two profile rows no longer 500s every case list`**
+  — `caseColumns`' reviewer-name **scalar subquery** now reads the profile
+  through `LEFT JOIN LATERAL (SELECT p.full_name … ORDER BY p.id LIMIT 1) rp ON TRUE`.
+  The subquery form is kept deliberately (its comment explains why: joining
+  `users` would put a second `phone`/`full_name`/`city` in scope and change
+  what `AdminListCases`' unqualified search filter matches); only the profile
+  read inside it changed. Plus `internal/beneficiary/duplicate_profiles_test.go`.
+- **`4a0d88d` `fix(admin): a user with two profile rows stops duplicating every admin list`**
+  — 21 join sites across nine packages, plus seven new test files.
+
+### Audit — the #26497 table, updated
+
+| Site | Read | Verdict |
+|---|---|---|
+| `beneficiary/beneficiary.go:193` | `caseColumns` reviewer name (**scalar subquery**) | was the worst item → **fixed (`02b66e9`)** |
+| `donations/donations.go:677,705` | `AdminList` count + page | duplicating → **fixed** |
+| `users/users.go:1033,1056` | `PaginatedList` count + page | duplicating → **fixed** (`SELECT p.*` — the projection reads 18 profile columns) |
+| `users/registration.go:692,713` | `ListRegistrations` count + page | duplicating → **fixed** |
+| `postengagement/postengagement.go:230,258,309,318` | ListComments, AdminListComments, ActivityFeed ×2 | duplicating → **fixed** |
+| `permissions/permissions.go:555` | `ListAudit` | duplicating → **fixed** |
+| `profilechanges/profilechanges.go:108,109` | `List` (requester **and** decider) | duplicating ×4 → **fixed** |
+| `sponsorships/sponsorships.go:87` | `List` | duplicating → **fixed** |
+| `staffactivity/store.go:128` | `timelineSQL` registration branch | duplicating → **fixed** |
+| `handlers/admin_lists.go:239,330,652,750,774,1069` | InKindDonations, SupportTickets, Campaigns, VolunteerMissionSignups (count + page), VolunteerBoard | duplicating → **fixed** |
+| `handlers/admin_trash.go:141` | trash list | duplicating → **fixed** |
+| `handlers/donations.go:572` | BeneficiaryCampaignDonations | duplicating → **fixed** |
+| `chat`, `chatgroups`, `marriagechat`, `staffchat` (11 sites) | — | fixed earlier by #26497 / PR #127 |
+| `chatgroups/chatgroups_reads.go:125,192`, `chatgroups_connect.go:254`, `chatgroups_admin.go:89`, the three last-message LATERALs | — | safe — already LATERAL / keyed by `ANY(...)` into a map |
+| `users/users.go:894` | account-by-id read | **safe but nondeterministic — still open** (`QueryRow`, first of two rows wins) |
+| `staffactivity/store.go:167` (now :173) | `Load`'s header | same — **still open** |
+| `handlers/admin_status_events.go:78` | `userNamePhone` | same — **still open** |
+| `handlers/admin_detail.go:301` | sponsorship donor contact | same — **still open** (`pgx.CollectOneRow`) |
+
+Counts after this branch: **33 duplicating reads fixed** (11 in #127, 22 here,
+counting the scalar subquery), **9 safe**, **4 single-row reads still
+nondeterministic**, **0 duplicating join sites left**.
+
+**Why the output is unchanged for a normal account.** Every rewritten alias was
+checked against what the surrounding query actually reads from it:
+`grep -oE '\b(up|dp|rp|p|u)\.[a-z_]+'` per file. Every one projects exactly the
+columns used — `full_name` alone at 19 of the 21 sites, `full_name, address,
+date_of_birth` in `registration.go`, and `p.*` in `users.go`, whose projection
+reads 18 profile columns and whose search predicate reads three identity codes.
+The `ILIKE` search predicates (`up.full_name` in donations, users, registration,
+admin_lists) and `staffchat`-style `ORDER BY`s still resolve: the aliases still
+exist, they simply hold one row each.
+
+### RED, then GREEN — every test watched fail first
+
+**The beneficiary failure, on a fresh `godonation_dup_red_26603`** —
+`-run 'TwoProfiles' -count=1 -p 1 -timeout 45m -v`. Not a duplicated row; the
+statement aborts:
+
+```
+duplicate_profiles_test.go:107: ListCasesForUser: ERROR: more than one row returned by a subquery used as an expression (SQLSTATE 21000)
+duplicate_profiles_test.go:125: AdminListCases:   ERROR: more than one row returned by a subquery used as an expression (SQLSTATE 21000)
+```
+
+**The seven store packages, on a fresh `godonation_dup_red2_26603`**, same flags
+(the fixes were reverted with `git checkout --` for this run, then restored from
+a copy — the commits were made after):
+
+```
+donations:      got 2 rows for reference DUPREF-772652972, want 1
+users:          got 2 rows for phone 964754540071, want exactly user 9 once      (PaginatedList)
+users:          got 2 rows for phone 964726321187, want exactly user 10 once     (ListRegistrations)
+postengagement: got 2 comments on post 927837569, want 1
+postengagement: comment 2 listed 2 times, want 1
+postengagement: the comment appeared 2 times in the feed, want 1 / the like appeared 2 times in the feed, want 1
+permissions:    audit entry 1 listed 2 times, want 1
+profilechanges: request 1 listed 4 times, want 1
+sponsorships:   got 2 rows for donor 17, want exactly sponsorship 5 once
+staffactivity:  registration 19 appears 2 times on the timeline, want 1
+```
+
+**The handlers package, on fresh `godonation_dup_h_red_26603` / `_red3_`:**
+
+```
+in-kind donations: got 2 items, want 1
+support tickets:   got 2 items, want 1
+campaigns:         got 2 items, want 1
+mission signups:   got 2 items, want 1
+mission 6: pending = 2, want 1  /  pending lane holds 2 signups, want 1
+trash item 1 listed 2 times, want 1  /  deleted_by_name = "Newer Duplicate Profile Name"
+```
+
+That last line is worth keeping: the trash list was not only repeating the row,
+it was labelling one copy with the NEWER profile name — so two different names
+appeared for one deletion.
+
+**GREEN.** On a brand-new `godonation_dup_green3_26603`, the eight store
+packages with `-run 'TwoProfiles|BothPartiesHaveTwoProfiles' -count=1 -p 1
+-timeout 45m -v`: **12 PASS, 0 SKIP, 0 FAIL**, `ok` for all eight. On a
+brand-new `godonation_dup_h_green2_26603`, `./internal/handlers/ -run
+'DuplicateProfiles'` with the same flags: **6 PASS, 0 SKIP, 0 FAIL**, `ok` in
+1.189s. 18 new tests in total.
+
+**Package suites**, on a brand-new `godonation_dup_suite2_26603`,
+`go test ./internal/beneficiary/ ./internal/donations/ ./internal/users/
+./internal/postengagement/ ./internal/permissions/ ./internal/profilechanges/
+./internal/sponsorships/ ./internal/staffactivity/ ./internal/handlers/
+-count=1 -p 1 -timeout 45m`: exit 0, nine `ok` lines (handlers 15.8s, the rest
+under a second each). No FAIL, no SKIP.
+
+**Format, build, vet:** `go build ./...` and `go vet ./...` exit 0. `gofmt -l
+./internal ./cmd` prints one file, `internal/handlers/admin_edit_user_profile.go`
+— **pre-existing**, `git diff origin/main` on it is empty, same as #26497 saw.
+
+**Re-verified after merging `origin/main` `72b7ac5` (#129, the writer locks).**
+The merge was clean. On a brand-new `godonation_dup_m_green_26603`, all nine
+packages with `-run 'TwoProfiles|BothPartiesHaveTwoProfiles|DuplicateProfiles'
+-count=1 -p 1 -timeout 45m -v`: **18 PASS, 0 SKIP, 0 FAIL**. On a brand-new
+`godonation_dup_m_suite_26603`, the same nine packages with no `-run`, `-count=1
+-p 1 -timeout 45m`: exit 0, nine `ok` lines — #129's own
+`user_profiles_writer_race_test.go` and `admin_edit_user_profile_race_test.go`
+included. `go build ./...` and `go vet ./...` still exit 0 on the merged tree.
+
+**New test files** (all integration tests, skipped without `TEST_DATABASE_URL`;
+each seeds a user with two `user_profiles` rows named "Oldest Profile Name" and
+"Newer Duplicate Profile Name", and several assert the OLDEST name is served):
+`internal/beneficiary/duplicate_profiles_test.go`,
+`internal/donations/duplicate_profiles_test.go`,
+`internal/users/duplicate_profiles_test.go`,
+`internal/postengagement/duplicate_profiles_test.go`,
+`internal/permissions/duplicate_profiles_test.go`,
+`internal/profilechanges/duplicate_profiles_test.go`,
+`internal/sponsorships/duplicate_profiles_test.go`,
+`internal/staffactivity/duplicate_profiles_test.go`,
+`internal/handlers/admin_lists_duplicate_profiles_test.go`.
+`postengagement` and `profilechanges` had no test file at all before.
+
+**Review:** no reviewer agent was run — the coordinator instructed skipping it,
+those runs keep stalling in this environment. Instead every rewritten query was
+re-read by hand; the alias-column grep above is the evidence, and the paginated
+lists were each asserted on BOTH the page and `total_items`, because the COUNT
+query joins profiles separately from the page query and fixing only one of them
+leaves a list whose pager disagrees with its own rows.
+
+**Databases created and dropped:** `godonation_dup_red_26603`,
+`godonation_dup_green1_26603`, `godonation_dup_red2_26603`,
+`godonation_dup_green2_26603`, `godonation_dup_green3_26603`,
+`godonation_dup_suite_26603`, `godonation_dup_h_green_26603`,
+`godonation_dup_h_red_26603`, `godonation_dup_h_red2_26603`,
+`godonation_dup_h_red3_26603`, `godonation_dup_h_green2_26603`,
+`godonation_dup_suite2_26603`. All dropped; `psql -lqt` lists no
+`godonation_dup%` database.
+
+**External actions taken:** none. Nothing pushed, no PR opened. OPOS was
+unavailable in this session, so #26603 was not moved, timed or commented on.
+
+### What is still open
+
+- **Both commits are local and unpushed**, and unreviewed by a human.
+- **The three writers are untouched on this branch, by instruction** —
+  `users/profile.go` `UpsertProfile`, `users/registration.go`
+  `SubmitRegistration`, `handlers/admin_edit.go` `User`. Their advisory locks
+  landed separately as **#129 (`72b7ac5`)**, which was merged into this branch
+  after the work (a clean merge — no conflict in `admin_edit.go`, because #129
+  touched its write path and this branch touched none of it). Post-merge
+  verification is the run recorded below. Between them the two changes cover
+  both halves: #129 stops a second profile row being created, this branch makes
+  every read survive the rows that already exist.
+- **The four single-row `QueryRow` / `CollectOneRow` reads** listed in the table
+  still return a nondeterministic name for a duplicated user. They never error
+  and never repeat a row, so they were left alone, but they are a one-line
+  LATERAL each whenever someone wants determinism.
+- **UNIQUE on `user_profiles.user_id`** still needs a human decision about how
+  to dedupe the existing pairs. No migration was added here, and none should
+  add UNIQUE or delete rows without that decision.
+- The full `go test ./...` was NOT run on this branch — only the nine packages
+  it touches.
+
+### Traps
+
+- **A Go raw-string SQL literal cannot contain a backtick**, not even inside a
+  `--` SQL comment: it closes the literal and yields a Go syntax error pointing
+  somewhere else entirely. #26497 hit this; every comment written here spells
+  WHERE and ORDER BY in capitals instead of quoting them.
+- **An alias collision that only shows up at runtime.** In
+  `postengagement.AdminListComments` and `ActivityFeed`, `p` is already the
+  `media_posts` alias, so the LATERAL's inner profile alias is `pf`. Reusing `p`
+  compiles and then resolves against the wrong table.
+- **Seeding `campaigns` costs three rounds of guessing** unless you look first:
+  `title, title_ar, description, description_ar, address, beneficiaries,
+  goal_amount, raised_amount` are all NOT NULL with no default. `SELECT
+  column_name FROM information_schema.columns WHERE table_name='campaigns' AND
+  is_nullable='NO' AND column_default IS NULL` answers it in one go.
+- **Never run these packages twice against one database** — same trap as #26497
+  and #26474. The fixtures delete only their own rows and the seeded ids are
+  random per process, but the counting assertions in `handlers` scan whole
+  lists, so leftovers from an earlier run can change the answer.
+- **`requireAuth` is all the admin-list handlers check**, so a handler test only
+  needs `c.Set("auth.user", &auth.ResolvedUser{…})` — the string key is
+  `auth.contextUserKey`, which is unexported, but the literal `"auth.user"`
+  works from any package.
+
+---
+
 ## 2026-09-16 — OPOS #26601: the three `user_profiles` writers stop racing each other into duplicate rows (branch `fix/user-profiles-writer-race`)
 
 **What was asked:** close the check-then-insert race in the three writers named

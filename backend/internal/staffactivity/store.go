@@ -125,7 +125,13 @@ const timelineSQL = `
 		       COALESCE(NULLIF(p.full_name, ''), u.username, ''),
 		       u.id, u.registration_reviewed_at
 		  FROM users u
-		  LEFT JOIN user_profiles p ON p.user_id = u.id
+		  -- OPOS #26603: user_profiles.user_id has no UNIQUE constraint, so a
+		  -- registrant with two profile rows put the same registration on the
+		  -- timeline twice. LATERAL takes the oldest row only.
+		  LEFT JOIN LATERAL (
+		         SELECT pf.full_name FROM user_profiles pf
+		          WHERE pf.user_id = u.id ORDER BY pf.id LIMIT 1
+		       ) p ON TRUE
 		 WHERE u.registration_reviewed_by = $1 AND u.registration_reviewed_at IS NOT NULL
 
 		UNION ALL
