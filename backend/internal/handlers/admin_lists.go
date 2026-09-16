@@ -236,7 +236,12 @@ func (h *AdminListsHandler) InKindDonations(c *gin.Context) {
 		       k.quantity, k.condition_note, k.pickup_address, k.status, k.notes, k.created_at
 		  FROM in_kind_donations k
 		  LEFT JOIN users u ON u.id = k.donor_user_id
-		  LEFT JOIN user_profiles up ON up.user_id = k.donor_user_id
+		  -- OPOS #26603: user_profiles.user_id has no UNIQUE constraint, so a
+		  -- donor with two profile rows repeated every contribution they made.
+		  LEFT JOIN LATERAL (
+		         SELECT pf.full_name FROM user_profiles pf
+		          WHERE pf.user_id = k.donor_user_id ORDER BY pf.id LIMIT 1
+		       ) up ON TRUE
 		 WHERE `+whereSQL+`
 		 ORDER BY k.id DESC
 		 LIMIT $`+strconv.Itoa(limitIdx)+` OFFSET $`+strconv.Itoa(offsetIdx),
@@ -327,7 +332,12 @@ func (h *AdminListsHandler) SupportTickets(c *gin.Context) {
 		       t.admin_reply, t.replied_at
 		  FROM support_tickets t
 		  LEFT JOIN users u ON u.id = t.user_id
-		  LEFT JOIN user_profiles up ON up.user_id = t.user_id
+		  -- OPOS #26603: user_profiles.user_id has no UNIQUE constraint, so a
+		  -- requester with two profile rows repeated every ticket they opened.
+		  LEFT JOIN LATERAL (
+		         SELECT pf.full_name FROM user_profiles pf
+		          WHERE pf.user_id = t.user_id ORDER BY pf.id LIMIT 1
+		       ) up ON TRUE
 		 WHERE `+whereSQL+`
 		 ORDER BY t.id DESC
 		 LIMIT $`+strconv.Itoa(limitIdx)+` OFFSET $`+strconv.Itoa(offsetIdx),
@@ -649,7 +659,12 @@ func (h *AdminListsHandler) Campaigns(c *gin.Context) {
 		       c.owner_user_id, u.phone, up.full_name
 		  FROM campaigns c
 		  LEFT JOIN users u ON u.id = c.owner_user_id
-		  LEFT JOIN user_profiles up ON up.user_id = c.owner_user_id
+		  -- OPOS #26603: user_profiles.user_id has no UNIQUE constraint, so an
+		  -- owner with two profile rows repeated every campaign they own.
+		  LEFT JOIN LATERAL (
+		         SELECT pf.full_name FROM user_profiles pf
+		          WHERE pf.user_id = c.owner_user_id ORDER BY pf.id LIMIT 1
+		       ) up ON TRUE
 		 `+where+`
 		 ORDER BY c.id DESC
 		 LIMIT $`+strconv.Itoa(limitIdx)+` OFFSET $`+strconv.Itoa(offsetIdx),
@@ -747,7 +762,13 @@ func (h *AdminListsHandler) VolunteerMissionSignups(c *gin.Context) {
 		   FROM volunteer_mission_signups s
 		   LEFT JOIN volunteer_missions m ON m.id = s.mission_id
 		   LEFT JOIN users u              ON u.id = s.user_id
-		   LEFT JOIN user_profiles up     ON up.user_id = s.user_id `+where,
+		   -- OPOS #26603: user_profiles.user_id has no UNIQUE constraint, so a
+		   -- volunteer with two profile rows was counted twice per signup and
+		   -- repeated in the page below. LATERAL takes the oldest row only.
+		   LEFT JOIN LATERAL (
+		          SELECT pf.full_name FROM user_profiles pf
+		           WHERE pf.user_id = s.user_id ORDER BY pf.id LIMIT 1
+		        ) up ON TRUE `+where,
 		args...,
 	).Scan(&total); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
@@ -771,7 +792,11 @@ func (h *AdminListsHandler) VolunteerMissionSignups(c *gin.Context) {
 		  FROM volunteer_mission_signups s
 		  LEFT JOIN volunteer_missions m ON m.id = s.mission_id
 		  LEFT JOIN users u              ON u.id = s.user_id
-		  LEFT JOIN user_profiles up     ON up.user_id = s.user_id
+		  -- OPOS #26603: one profile row per volunteer, oldest wins (see the count above).
+		  LEFT JOIN LATERAL (
+		         SELECT pf.full_name FROM user_profiles pf
+		          WHERE pf.user_id = s.user_id ORDER BY pf.id LIMIT 1
+		       ) up ON TRUE
 		  LEFT JOIN beneficiary_cases bc ON bc.id = s.beneficiary_case_id
 		 `+where+`
 		 ORDER BY
@@ -1066,7 +1091,12 @@ func (h *AdminListsHandler) VolunteerBoard(c *gin.Context) {
 		       s.checkout_lat, s.checkout_lng, s.checkout_photo_path
 		  FROM volunteer_mission_signups s
 		  LEFT JOIN users u          ON u.id = s.user_id
-		  LEFT JOIN user_profiles up ON up.user_id = s.user_id
+		  -- OPOS #26603: user_profiles.user_id has no UNIQUE constraint, so a
+		  -- volunteer with two profile rows repeated every signup on the board.
+		  LEFT JOIN LATERAL (
+		         SELECT pf.full_name FROM user_profiles pf
+		          WHERE pf.user_id = s.user_id ORDER BY pf.id LIMIT 1
+		       ) up ON TRUE
 		  LEFT JOIN beneficiary_cases bc ON bc.id = s.beneficiary_case_id
 		 WHERE s.status IN ('pending', 'approved', 'joined', 'completion_requested', 'completed')
 		   AND (s.status <> 'completed' OR s.completed_at >= CURRENT_TIMESTAMP - INTERVAL '30 days')

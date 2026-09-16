@@ -30,12 +30,17 @@ export default function DonationCodesPage() {
   const toast = useToast()
   const [codes, setCodes] = useState<SectionCode[]>([])
   const [drafts, setDrafts] = useState<Record<string, Draft>>({})
-  const [loading, setLoading] = useState(true)
+  // `loading` is derived from which reload tick last came back, so the fetch
+  // effect below sets nothing synchronously. `reload()` bumps the tick, which
+  // is what re-runs the effect.
+  const [tick, setTick] = useState(0)
+  const [loadedTick, setLoadedTick] = useState(-1)
+  const loading = loadedTick !== tick
+  const reload = () => setTick((n) => n + 1)
   const [savingKind, setSavingKind] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
 
   const load = () => {
-    setLoading(true)
     api
       .get<{ codes: SectionCode[] }>('/api/admin/donation-codes')
       .then((res) => {
@@ -52,10 +57,10 @@ export default function DonationCodesPage() {
         setErr(null)
       })
       .catch((e) => setErr(describeError(e)))
-      .finally(() => setLoading(false))
+      .finally(() => setLoadedTick(tick))
   }
 
-  useEffect(load, [])
+  useEffect(load, [tick])
 
   const kindLabel = (kind: string) => {
     const key = `donationCodes.kind_${kind}`
@@ -87,7 +92,7 @@ export default function DonationCodesPage() {
         notify_enabled: draft.enabled,
       })
       toast.success(t('donationCodes.saved'))
-      load()
+      reload()
     } catch (e) {
       toast.error(describeError(e))
     } finally {

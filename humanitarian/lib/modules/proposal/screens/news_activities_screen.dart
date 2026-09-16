@@ -360,15 +360,21 @@ class MediaPostCard extends StatelessWidget {
   final Map<String, dynamic> item;
   final String categoryLabel;
 
-  /// The controller whose `posts` list contains [item].
+  /// The controller whose `posts` list contains [item]. Null falls back to
+  /// the shared untagged instance.
   ///
-  /// MUST be passed by any screen that registers its own MediaPostsController
-  /// under a GetX tag (the Events hub does). The engagement bar mutates the
-  /// post map and then calls `posts.refresh()` to redraw; refreshing a
-  /// DIFFERENT controller than the one the screen is observing updates nothing
-  /// on screen, so like/save appear completely dead even though the request
-  /// went out. Null falls back to the untagged instance, which is what the
-  /// News & Activities and Our Work screens share.
+  /// A screen that registers its own MediaPostsController under a GetX tag
+  /// MUST pass it here. The engagement bar mutates the post map and then
+  /// calls `posts.refresh()` to redraw, so refreshing a different controller
+  /// than the one the screen observes leaves like/save looking dead even
+  /// though the request went out.
+  ///
+  /// MarriageHubScreen (the Events hub) passed the controller it registered
+  /// under the 'events-hub-feed' tag until PR #76 (commit 33d6891,
+  /// OPOS #25858) removed that feed. The parameter stays for a
+  /// marriage-specific feed (OPOS #25862). Whoever passes it next should
+  /// restore the card-wiring test that PR #87 (commit 4ed2c86) deleted:
+  /// `git show 4ed2c86^:humanitarian/test/widgets/marriage_hub_feed_test.dart`.
   final MediaPostsController? controller;
 
   @override

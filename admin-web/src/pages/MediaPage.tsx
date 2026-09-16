@@ -82,7 +82,10 @@ export default function MediaPage() {
   const [postType, setPostType] = useState('')
   const [q, setQ] = useState('')
   const [resp, setResp] = useState<Resp | null>(null)
-  const [loading, setLoading] = useState(false)
+  // Which request last came back. `loading` is derived from it below
+  // rather than set at the top of the fetch effect, which costs a second
+  // render and is what `react-hooks/set-state-in-effect` objects to.
+  const [loadedKey, setLoadedKey] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [editing, setEditing] = useState<MediaPost | null>(null)
   const [creating, setCreating] = useState(false)
@@ -94,23 +97,26 @@ export default function MediaPage() {
   const statusLabel = useStatusLabel()
   const sel = useSelection<MediaPost>((m) => m.id)
 
+  // Every dependency of the fetch effect below, so the page reads as loading
+  // from the render that changes any of them.
+  const requestKey = `${status}|${postType}|${q}|${refreshTick}`
+  const loading = loadedKey !== requestKey
+
   useEffect(() => {
     let cancelled = false
-    setLoading(true)
-    setErr(null)
     api
       .get<Resp>('/api/media', { params: { status, type: postType, q: q || undefined, limit: 100 } })
       .then((res) => {
-        if (!cancelled) setResp(res.data)
+        if (!cancelled) { setResp(res.data); setErr(null) }
       })
       .catch((e) => {
         if (!cancelled) setErr(describeError(e))
       })
       .finally(() => {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) setLoadedKey(requestKey)
       })
     return () => { cancelled = true }
-  }, [status, postType, q, refreshTick])
+  }, [status, postType, q, refreshTick, requestKey])
 
   // #22 — load the "Our Work" categories so the post form can offer them as a
   // dropdown. Best-effort: on failure the category select just shows "none".
@@ -322,7 +328,9 @@ export default function MediaPage() {
           <button onClick={() => setCreating(true)}>{t('page.media.new')}</button>
         </div>
       </PageHead>
-      {err && <div className="error-box">{err}</div>}
+      {/* Hidden while a newer request is in flight, which is what clearing
+          the error at the top of the fetch effect used to achieve. */}
+      {!loading && err && <div className="error-box">{err}</div>}
       <Table<MediaPost>
         rows={resp?.items ?? []}
         columns={columns}
