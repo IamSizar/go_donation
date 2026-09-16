@@ -276,7 +276,7 @@ export default function EditModal({ open, title, initial, fields: declaredFields
         if (next === '' && !f.required) continue
       }
       if (f.type === 'gallery' || f.type === 'multiselect') {
-        let arr: string[] = []
+        let arr: string[]
         try {
           const parsed = JSON.parse(next || '[]')
           arr = Array.isArray(parsed) ? parsed.map((x) => String(x)).filter((s) => s.trim() !== '') : []

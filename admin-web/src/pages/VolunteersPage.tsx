@@ -20,7 +20,6 @@ import { usePendingCounts } from '../lib/pendingCounts'
 import { formatDateParts, formatDateTime } from '../lib/dates'
 import AvailabilityCell from '../components/AvailabilityCell'
 import {
-  ALL_SKILL_KEYS,
   DAY_KEYS,
   SKILL_CATEGORIES,
   dayLabelFor,
@@ -514,8 +513,6 @@ function ApplicationsTab() {
                   ))}
                 </optgroup>
               )}
-              {/* Unused — ALL_SKILL_KEYS kept for future flat-iteration. */}
-              {false && ALL_SKILL_KEYS.map((k) => <option key={k} value={k} />)}
             </select>
           </label>
           {/* Section 13 — add a new profession to the skill dropdown. */}

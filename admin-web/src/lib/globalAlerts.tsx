@@ -196,7 +196,7 @@ function readBoolLS(key: string, fallback: boolean): boolean {
   }
 }
 function writeBoolLS(key: string, v: boolean) {
-  try { localStorage.setItem(key, v ? '1' : '0') } catch {}
+  try { localStorage.setItem(key, v ? '1' : '0') } catch { /* storage disabled or full — the flag is a convenience, not state we must keep */ }
 }
 
 export function GlobalAlertsProvider({ children }: { children: ReactNode }) {
@@ -348,7 +348,6 @@ export function GlobalAlertsProvider({ children }: { children: ReactNode }) {
         handleSnapshot(res.data.items ?? [])
       } catch (err) {
         if (cancelled) return
-        // eslint-disable-next-line no-console
         console.error('global alerts feed error:', err)
         setStatus('error')
         setError((err as Error)?.message || String(err))

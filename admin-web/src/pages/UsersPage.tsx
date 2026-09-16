@@ -533,7 +533,13 @@ export default function UsersPage() {
     // Note #34 — everything besides phone/role passes through as-is; EditModal
     // already omits untouched optional fields and converts family_size to a
     // number, matching what POST /api/admin/users now accepts.
-    const { phone: _phone, role: _role, username: _username, password: _password, ...profileFields } = patch
+    // Copy-then-delete rather than destructure-and-discard: unused rest
+    // siblings are a lint error under this config.
+    const profileFields: Record<string, unknown> = { ...patch }
+    delete profileFields.phone
+    delete profileFields.role
+    delete profileFields.username
+    delete profileFields.password
     // Sent only when actually filled. An untouched pair must arrive as absent
     // rather than as two empty strings, because the backend reads "" as "this
     // account gets no dashboard access" and would otherwise reject the whole

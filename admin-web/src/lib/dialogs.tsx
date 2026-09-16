@@ -92,7 +92,6 @@ let enqueueRequest: ((request: DialogRequest) => Promise<DialogAnswer>) | null =
 // it aborts the action instead of letting it run ungated.
 function ask(request: DialogRequest, cancelled: DialogAnswer): Promise<DialogAnswer> {
   if (!enqueueRequest) {
-    // eslint-disable-next-line no-console
     console.error('dialogs: no <DialogHost /> is mounted — treating the ask as cancelled.')
     return Promise.resolve(cancelled)
   }

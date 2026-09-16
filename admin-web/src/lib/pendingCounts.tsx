@@ -105,7 +105,6 @@ export function PendingCountsProvider({ children }: { children: ReactNode }) {
       const e = err as { name?: string; code?: string }
       if (e?.name !== 'CanceledError' && e?.code !== 'ERR_CANCELED') {
         // Keep the previous counts on the screen; just log for diagnostics.
-        // eslint-disable-next-line no-console
         console.warn('pending-counts poll failed:', err)
       }
     } finally {
