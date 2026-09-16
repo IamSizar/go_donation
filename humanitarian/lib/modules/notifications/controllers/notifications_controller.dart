@@ -7,9 +7,9 @@ import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/core/app_haptics.dart';
 import 'package:flutter_application_1/core/app_sound.dart';
 import 'package:flutter_application_1/core/app_state.dart';
-import 'package:flutter_application_1/modules/proposal/screens/news_activities_screen.dart';
-import 'package:flutter_application_1/modules/proposal/screens/partners_screen.dart';
-import 'package:flutter_application_1/modules/support/screens/technical_support_screen.dart';
+import 'package:flutter_application_1/api/guest_session.dart';
+import 'package:flutter_application_1/modules/notifications/utils/notification_destination.dart';
+import 'package:flutter_application_1/modules/notifications/utils/notification_navigator.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/app_notification_model.dart';
@@ -318,35 +318,36 @@ class NotificationsController extends GetxController {
   /// Where this notification leads, or null when it has nowhere to go.
   ///
   /// Split out of [openNotification] so the detail dialog can offer it as an
-  /// explicit "Open" action instead of a tap silently navigating — most types
-  /// fall through to null, which is why tapping them used to do nothing.
+  /// explicit "Open" action instead of a tap silently navigating.
+  ///
+  /// The mapping itself is NOT here. The client asked that a tapped
+  /// notification land on the thing it is about, in the list as well as from
+  /// the phone's tray, so both ask the one decision —
+  /// [resolveNotificationDestination] — and this method only turns its answer
+  /// into the callback the UI wants. It used to carry its own small table
+  /// (support tickets, media posts, partners) and returned null for
+  /// everything else, which is why tapping a chat, a donation or a
+  /// sponsorship notification did nothing.
+  ///
+  /// Null means "nowhere to go from here": the shared decision fell back to
+  /// the notifications list, which is the screen this list already is.
   VoidCallback? destinationFor(AppNotificationModel notification) {
+    // A server-supplied deep link is more specific than any type mapping.
     if (notification.hasActionUrl) {
       final uri = Uri.tryParse(notification.actionUrl.trim());
       if (uri != null) {
         return () => launchUrl(uri, mode: LaunchMode.externalApplication);
       }
     }
-    // Support alerts are a FAMILY of types, not one: the backend emits
-    // `support_request_submitted`, `support_ticket_<status>` and
-    // `support_ticket_replied`. The old exact match on 'support_ticket'
-    // matched none of them, so every support notification was a dead tap —
-    // and when it did fire it opened a blank compose form rather than the
-    // ticket whose reply the user was being told about.
-    final type = notification.notificationType;
-    if (type.startsWith('support_ticket') ||
-        type.startsWith('support_request')) {
-      return () => Get.to(() => const TechnicalSupportScreen());
-    }
-    switch (type) {
-      case 'media_post':
-      case 'news':
-      case 'activity':
-        return () => Get.to(() => const NewsActivitiesScreen());
-      case 'partner':
-        return () => Get.to(() => const PartnersScreen());
-      default:
-        return null;
-    }
+
+    final destination = resolveNotificationDestination({
+      'type': notification.notificationType,
+      'related_entity_type': notification.relatedEntityType,
+      'related_entity_id': notification.relatedEntityId,
+    }, isGuest: isGuestMode);
+
+    if (destination == NotificationDestination.notificationsList) return null;
+    return () =>
+        openNotificationDestination(destination, alreadyOnList: true);
   }
 }

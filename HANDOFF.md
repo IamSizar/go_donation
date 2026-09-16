@@ -6,6 +6,89 @@
 
 ---
 
+## 2026-09-16 — tapping a notification opens what it is about (branch `feat/notification-tap-opens-chat`, NOT pushed)
+
+**Asked for:** the client reported that tapping a push notification opens the
+app at home and leaves him hunting for the conversation. Mid-task the scope was
+widened with his own words: *"when I tap on a notification inside the app it
+should take me to the exact place of this notifications"* — so the in-app list
+counts too, and every notification type, not only chat.
+
+**Branch** `feat/notification-tap-opens-chat`, cut from `origin/main` `1a6062d`.
+Commit `<SHA>`. NOT pushed. Nothing under `backend/` or `admin-web/` touched.
+
+### What was wrong
+- `lib/main.dart:114-118` subscribed to `FirebaseMessaging.onMessageOpenedApp`
+  and only called `debugPrint` — it navigated nowhere.
+- `FirebaseMessaging.instance.getInitialMessage()` — the tap that LAUNCHES the
+  app from killed, delivered once at startup and never repeated on the stream —
+  was not handled at all.
+- `NotificationsController.destinationFor` knew three families (support
+  tickets, media posts, partners) and returned `null` for everything else, so a
+  tap on a chat, donation, sponsorship or marriage row in the in-app list did
+  nothing.
+
+### What was built
+- **NEW `lib/modules/notifications/utils/notification_destination.dart`** — one
+  pure function, `resolveNotificationDestination(data, isGuest:)`, from a
+  notification's data to a `NotificationDestination` (a closed enum of 20
+  places + an optional id). No Flutter, no Firebase, no I/O.
+- **NEW `lib/modules/notifications/utils/notification_navigator.dart`** — the
+  only file that navigates. One `Get.to` per destination, no decisions. Follows
+  `modules/bot/bot_navigation.dart` (switch dashboard tab → pop to shell → push
+  one frame later); the app has no named routes for these screens and none were
+  invented.
+- **NEW `lib/core/push_tap_router.dart`** — wires BOTH tray paths
+  (`onMessageOpenedApp` and `getInitialMessage()`) into one `handleData`.
+- `lib/main.dart` — the dead listener replaced by `PushTapRouter.wire()`.
+- `notifications_controller.dart` — `destinationFor` now asks the same shared
+  decision; its own mini-table is gone. `action_url` still wins over it.
+
+### Data keys depended on (for OPOS #26709, which is changing the payload)
+`type` (alias `notification_type`), `related_entity_type` (alias `entity_type`),
+`related_entity_id` (aliases `entity_id`, `thread_id`, `group_id`). Values may
+be strings or ints. `related_entity_type` wins when present. These mirror the
+columns `notify.LocalizedMessage` already writes to `app_notifications`, so the
+app routes whichever shape the push ends up carrying — **but a chat push MUST
+carry its thread/group id**, or the tap lands on the notifications list instead
+of the conversation. That is the one hard requirement on the payload.
+
+### Traps for the next agent
+- **The cold-start tap must wait for the shell.** `getInitialMessage()` resolves
+  while the app is still on the splash screen, and the splash finishes with
+  `Get.offAllNamed` (splash_screen.dart:101) — anything pushed before that is
+  wiped out. `PushTapRouter._waitForShell` polls `Get.currentRoute` twice a
+  second for 15s and opens nothing if the app lands on welcome/login instead.
+- **Marriage conversations need three values a push cannot carry**
+  (`other_label`, `my_role`, `status`), so the navigator re-fetches
+  `GET /marriage-chats` and finds the thread by id; a failed fetch or a missing
+  thread opens the marriage chats list, which has its own retry.
+- **Group titles must go through `chatGroupTitle`** — a masked group is always
+  "Connection". The navigator copies `MyConnectRequestsScreen._titleFor`.
+- `flutter analyze` baseline is 6 issues (5 deprecations + 1 pre-existing);
+  a missing import in main.dart briefly made it 7 — check the count, not "clean".
+
+### Verification (actually run, in this worktree)
+- RED, new tests against the pre-fix tree `1a6062d` in a throwaway worktree:
+  `00:00 +3 -3: Some tests failed.` — the three "no longer a dead tap" cases.
+- GREEN, `flutter test`: `00:38 +1266: All tests passed!`
+- `flutter analyze`: `6 issues found. (ran in 1.8s)` — the baseline.
+
+### Still open
+- Not pushed, no PR.
+- Types with no mobile screen fall back to the list on purpose:
+  `staff_chat_message` (admin-web only), `wallet_topup` (no wallet screen),
+  `task_assigned`, and the six `admin_*` staff alerts. Each is asserted in
+  `test/notifications/notification_destination_table_test.dart` so it is a
+  recorded decision, not an oversight.
+- Approximate destinations, worth a product call: in-kind donations land on the
+  donation history (no in-kind list exists); a donation lands on the history
+  rather than that donation (`DonationDetailsScreen` is an unwired placeholder);
+  a beneficiary case lands on the services section rather than the case.
+- Not tested on a device. See the report for what the client should confirm.
+
+---
+
 ## 2026-09-16 — seed-test-users also seeds the MARRIAGE fixtures (branch `feat/seed-marriage-fixtures`, NOT pushed)
 
 **Asked for:** the client is testing live and wants step 5 (the marriage flow)

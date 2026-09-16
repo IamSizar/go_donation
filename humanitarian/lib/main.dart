@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/auth_session.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/push_registration.dart';
+import 'package:flutter_application_1/core/push_tap_router.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/localization/app_translations.dart';
 import 'package:flutter_application_1/localization/locale_service.dart';
@@ -110,12 +111,14 @@ Future<void> main() async {
     );
   });
 
-  // Tapping a notification when the app is in the background or terminated.
-  FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-    debugPrint(
-      '[push] opened from notification: ${message.notification?.title}',
-    );
-  });
+  // Tapping a notification, from the background AND from a killed app.
+  //
+  // This used to be an onMessageOpenedApp listener that printed a line and
+  // navigated nowhere — the client's report: "tapping a notification doesn't
+  // open what it's about". PushTapRouter wires both tap paths (the stream
+  // here, and getInitialMessage() for the tap that launches the process) to
+  // one decision, so a tap lands on the thing the notification is about.
+  PushTapRouter.wire();
 
   await initializeAppState();
   // Loads the persisted access token into memory from the OS-encrypted
