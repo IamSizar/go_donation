@@ -138,7 +138,12 @@ func (h *AdminTrashHandler) List(c *gin.Context) {
 		       ti.payload
 		  FROM trash_items ti
 		  LEFT JOIN users u ON u.id = ti.deleted_by
-		  LEFT JOIN user_profiles up ON up.user_id = ti.deleted_by
+		  -- OPOS #26603: user_profiles.user_id has no UNIQUE constraint, so a
+		  -- deleter with two profile rows repeated every row they had deleted.
+		  LEFT JOIN LATERAL (
+		         SELECT pf.full_name FROM user_profiles pf
+		          WHERE pf.user_id = ti.deleted_by ORDER BY pf.id LIMIT 1
+		       ) up ON TRUE
 		 WHERE ti.restored_at IS NULL
 		 ORDER BY ti.deleted_at DESC
 		 LIMIT 500`)
