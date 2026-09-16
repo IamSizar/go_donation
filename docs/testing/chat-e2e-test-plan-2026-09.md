@@ -177,6 +177,65 @@ table above allows it.
 already has it. E1 is the one who lacks it, and you grant it to E1 during
 step 8 and watch the screen change.
 
+## 1.7 Making all of them in one command
+
+You do not have to create these by hand. `backend/cmd/seed-test-users` makes the
+whole set — including **A**, an Administrator who is not the Super Admin — and
+prints the phone numbers and passwords as a table.
+
+**Every number it uses is `+964 1 555 000 0xx`.** That block is reserved for
+this: a real Iraqi mobile always starts `07…`, so these cannot collide with
+anybody's account, and the command refuses to write a number outside the block.
+No OTP is involved — each account gets a password and signs in with it.
+
+### Running it against Railway
+
+1. Get the database's **public proxy** URL from Railway: the Postgres service →
+   **Variables** → `DATABASE_PUBLIC_URL`. The internal `…railway.internal` host
+   only resolves from inside Railway and will not connect from your laptop.
+2. From `backend/`:
+
+```bash
+# 1. Look before you leap. This writes NOTHING — it prints the database it
+#    would write to and the ten accounts it would make.
+DATABASE_URL='postgresql://...proxy.rlwy.net:PORT/railway' go run ./cmd/seed-test-users
+
+# 2. Same command with -confirm actually creates them, and prints the
+#    credentials table. Keep that output — it is the only place the
+#    passwords are shown.
+DATABASE_URL='postgresql://...proxy.rlwy.net:PORT/railway' go run ./cmd/seed-test-users -confirm
+```
+
+The first line of every run is the host and database name it is pointed at.
+**Read it before you type `-confirm`.** Without `-confirm` nothing is written,
+ever.
+
+### The flags
+
+| Flag | What it does |
+|---|---|
+| `-confirm` | Required for any write. Without it the command only reports. |
+| `-prefix=test` | Goes in front of every username and display name (`test_d`, "test D Donor"), so the fixture is obvious in the Users list. Use a different one to keep two sets apart. |
+| `-cleanup` | Deletes the accounts **this command created for that prefix**, and only those. It checks the username *and* the exact reserved phone number before deleting anything; an account that fails either check is listed as `KEPT` and left alone. |
+
+### Things to know before you run it on the live database
+
+- **Running it twice is safe.** It reuses what is already there and creates
+  nothing new. It does not overwrite a password that has been changed by hand —
+  if you changed one, delete that account and re-seed.
+- **It re-runs the reset.** Each run clears the fixture accounts' per-person
+  permission boxes back to their tier defaults. So after you finish step 8, the
+  next run takes E1's `sensitive_data` grant off again — which is what you want,
+  and is worth knowing if you run it mid-test.
+- **E1 never gets `sensitive_data`.** That is the point of E1; step 8 is you
+  granting it by hand and watching the screen change.
+- **`-cleanup` will not delete the last Super Admin.** If the seeded **SA** is
+  the only super_admin in that database, it is kept and says so.
+- **`-cleanup` cannot delete an account with real records attached.** Donations,
+  sponsorships, marketplace orders and a marriage profile are deliberately
+  protected by the database. Chats and messages, by contrast, go with the
+  account. An account it cannot delete is reported, not forced.
+
 ---
 
 # Part 2 — The test script
