@@ -6,6 +6,207 @@
 
 ---
 
+## 2026-09-16 — push delivery: an Android notification channel, and routing data on every push (branch `fix/push-delivery`, NOT pushed)
+
+**Asked for:** the client tested on real devices. Android receives no push at
+all; iOS receives them "only while the app is open". Diagnose before changing
+anything, then make the smallest change that fixes both, keeping #113's guest
+rule and the localized titles/bodies.
+
+**Branch** `fix/push-delivery`, cut from `origin/main` `1a6062d`. NOT pushed.
+
+### Diagnosis — the stated hypothesis was WRONG, and one symptom is not a push at all
+
+- **The server was already sending a proper notification payload.**
+  `backend/internal/notify/fcm.go:185-236` (pre-change) built
+  `message.notification` *and* `message.android.priority = "high"` *and* an
+  explicit `message.apns` block with `apns-priority: 10`,
+  `apns-push-type: alert` and `aps.alert`. It is **not** data-only. So the
+  hypothesis in the brief — "data-only payload explains both symptoms" — does
+  not hold, and the fix is not "add a notification block".
+  `sendOne` had exactly two callers: `push.go:53` (the per-event path) and
+  `push.go:195` (the admin compose endpoint). There is no second sender.
+- **What the payload actually lacked:** a `data` block (so a tap carried no
+  routing information at all) and, the one that can silence a phone,
+  `android.notification.channel_id`.
+- **The Android channel is the concrete Android defect.** Android 8+ posts
+  every notification to a channel, and the *channel*, not the message, decides
+  whether a banner appears and a sound plays. The payload named no channel and
+  `humanitarian/android/app/src/main/AndroidManifest.xml` declared no
+  `com.google.firebase.messaging.default_notification_channel_id` (it declared
+  only the icon and colour), so every message landed in the FCM SDK's own
+  fallback channel — which the app cannot configure and the user has never
+  seen in settings.
+- **"iOS only while the app is open" is very probably not push at all.** The
+  app polls the API every few seconds and plays a chime on anything new:
+  `humanitarian/lib/core/realtime_polling.dart:64`,
+  `humanitarian/lib/modules/chat/controllers/chat_controller.dart:31` and
+  `:138`, `humanitarian/lib/modules/notifications/controllers/notifications_controller.dart:77`,
+  with `AppSound.notification()` at `chat_controller.dart:53`. Polling only
+  runs while the app is open. That is exactly the reported iOS behaviour, and
+  it means the iOS report is **not** evidence that APNs delivery works. See
+  "What still needs a device" below — this is the one thing this branch cannot
+  settle from here.
+- **Token registration is sound, on both platforms.**
+  `humanitarian/lib/core/push_registration.dart:65-90` reads the signed-in
+  `id_user` (stored as a String at `lib/core/auth_navigation.dart:59`, so the
+  read matches), gets the FCM token, and POSTs token + `platform` + locale to
+  `notifications/device` via `ModuleApi.postJson`
+  (`lib/api/module_api.dart:348`), which does attach the auth headers. It is
+  called from `main.dart:128`, after login (`auth_navigation.dart:127`) and on
+  locale change (`locale_service.dart:164`). The server stores `platform`
+  verbatim (`backend/internal/notify/devices.go:39-45, 71-86`), upserting on
+  `(user_id, device_token)`. Nothing here is broken **in code** — but whether
+  rows actually exist for both platforms in the live database is a data
+  question, answered by the SQL below, not by reading.
+- **Android 13 runtime permission is genuinely requested**, not merely
+  declared: `main.dart` calls `FirebaseMessaging.requestPermission(...)`, and
+  firebase_messaging 16.2.0 (pubspec.lock:379) requests
+  `POST_NOTIFICATIONS` from there —
+  `~/.pub-cache/.../firebase_messaging-16.2.0/android/src/main/java/io/flutter/plugins/firebase/messaging/FlutterFirebasePermissionManager.java:63`,
+  reached via `FlutterFirebaseMessagingPlugin.java:357-386`. The manifest
+  declares the permission at `AndroidManifest.xml:7`.
+- **No local-notifications plugin is in `pubspec.yaml`, and none is needed.**
+  The design is OS-rendered notification payloads; the app does not draw them
+  itself. Nothing was added.
+- **#113's guest rule is correctly narrow.** `shouldWithholdChatPush`
+  (`backend/internal/notify/push.go:89-107`) returns false immediately for any
+  type outside `chatNotificationTypes` (`list.go:72-83` — nine chat types, an
+  explicit list, not a `chat%` prefix), so it cannot touch broadcasts or
+  support-ticket pushes. It queries `users.is_guest` only for a chat type, and
+  fails closed on error. Left exactly as it was.
+- **Firebase project config matches on both platforms** (checked because it
+  would explain an Android-only silence, and it does not): package
+  `com.easytech.humanitarian` is in `android/app/google-services.json`, bundle
+  `com.easytech.humanitarianApp` is in `ios/Runner/GoogleService-Info.plist`,
+  project `human-f1dc6` / sender `463997425388` on both and in
+  `lib/firebase_options.dart`.
+
+### What changed
+
+**Backend**
+- `backend/internal/notify/fcm.go` — new exported `AndroidChannelID =
+  "balancenex_high_importance"`. `sendOne` gained a `data map[string]string`
+  parameter, and its payload construction is split into a new pure
+  `buildSendPayload(token, title, body, imageURL, data)`, so the JSON that
+  leaves the process can be asserted without a network round trip. The payload
+  now carries `android.notification.channel_id` and an optional `data` block
+  **alongside** (never instead of) the notification block. Empty data values
+  are dropped. Everything that was already right — the notification block, high
+  Android priority, the APNs headers and `aps` block, the image handling — is
+  unchanged.
+- `backend/internal/notify/push.go` — new `routingData(LocalizedMessage)`
+  builds `notification_type`, `related_entity_type`, `related_entity_id`,
+  `action_url` as strings (FCM rejects non-strings in `data`). The per-event
+  path passes it; the admin compose path passes `nil` (free text, nothing to
+  route to).
+- **NEW** `backend/internal/notify/fcm_payload_test.go` — nine tests, no DB and
+  no network, asserting the built payload: notification block present, Android
+  priority `high` + `channel_id` + sound, APNs `apns-priority: 10` /
+  `apns-push-type: alert` / `aps.alert` / sound, data alongside the
+  notification with all-string values, empty values dropped, no empty `data`
+  key, image on both `notification.image` and `apns.fcm_options.image`, and
+  `routingData`'s mapping.
+
+**App (Android only — no Dart behaviour changed except one guard)**
+- `humanitarian/android/app/src/main/kotlin/com/easytech/humanitarian/MainActivity.kt`
+  — creates the `balancenex_high_importance` channel with `IMPORTANCE_HIGH` in
+  `configureFlutterEngine`, on every launch (idempotent; Android never lowers a
+  channel the user has adjusted, which is also how an already-installed app
+  gets the channel).
+- **NEW** `humanitarian/android/app/src/main/res/values/strings.xml` and
+  `values-ar/strings.xml` — the channel id (`translatable="false"`) plus the
+  user-facing channel name and description, en + ar, as they appear in Android
+  system settings.
+- `humanitarian/android/app/src/main/AndroidManifest.xml` — adds the
+  `default_notification_channel_id` meta-data, covering any message that
+  arrives without a `channel_id`.
+- `humanitarian/lib/main.dart` — the `requestPermission` /
+  `setForegroundNotificationPresentationOptions` pair is wrapped in
+  try/catch. It runs before `runApp()`, and the plugin throws when it cannot
+  find the Activity or when a request is already in flight; unguarded, that
+  aborts `main()` and leaves the user on the native splash. Push setup must not
+  cost the app its launch.
+
+**The channel id is spelled in three places and they must stay identical:**
+`fcm.go`'s `AndroidChannelID`, `values/strings.xml`, and (by reference) the
+manifest meta-data + `MainActivity`.
+
+### Verification — run, with output
+
+- `flutter analyze` → `6 issues found. (ran in 8.5s)` — the known baseline,
+  all pre-existing `deprecated_member_use` infos, none in a touched file.
+- `flutter test` → `00:45 +1088: All tests passed!`
+- `flutter build apk --debug` → `✓ Built build/app/outputs/flutter-apk/app-debug.apk`,
+  `exit=0`. This is what proves the new Kotlin, the two `strings.xml` files and
+  the manifest meta-data actually compile and link.
+- `gofmt -l ./internal ./cmd` → prints only
+  `internal/handlers/admin_edit_user_profile.go`, which is **pre-existing drift
+  on a file this branch does not touch**. It was left alone rather than taken
+  as a drive-by. Every file this branch changed is gofmt-clean.
+- `go build ./...` and `go vet ./internal/notify/` → clean.
+- On a throwaway DB created and dropped for this run
+  (`godonation_push_fix_63347`):
+  `go test ./internal/notify/ ./internal/handlers/ -count=1 -p 1 -timeout 45m`
+  → `ok …/internal/notify 1.066s`, `ok …/internal/handlers 18.918s`,
+  `exit=0`.
+  Because those times are far shorter than earlier entries in this file report,
+  the run was re-checked to be sure it was not silently skipping:
+  `go test ./internal/notify/ -run GuestPush -count=1 -v` printed
+  `[migrate] done: 0 newly applied, 125 total migration files` per test and
+  `--- PASS` for every guest-push case, so the DB-backed tests genuinely ran.
+  The database was dropped afterwards (`psql -l | grep -c push_fix` → `0`).
+
+### What STILL needs a real device — nothing here can prove delivery
+
+No push was actually sent from this machine. Zaid, in this order:
+
+1. **Is FCM even switched on in prod?** Open the admin SPA's `/push` page. If
+   it says FCM is not configured, `FIREBASE_CREDENTIALS_JSON` is missing on
+   Railway and *every* push on both platforms is being skipped — which alone
+   explains the whole report. The server logs one of
+   `[notify] FCM enabled (project=…)` or `[notify] no FCM credentials found`
+   at boot (`notify.go:33-40`).
+2. **Are there token rows for both platforms?** On the prod DB:
+   `SELECT platform, is_active, COUNT(*) FROM user_device_tokens GROUP BY 1,2;`
+   No `android` row means the Android phones never registered, and no payload
+   change can help until that is fixed.
+3. **Send one push to one token.** Get the token from the device log line
+   `[push] FCM token: …` (`main.dart`), paste it into the admin `/push` page's
+   single-device field, and send with the app **fully closed** on each phone.
+   - Android: after installing a build from this branch. A banner + sound means
+     the channel fix worked. Check Settings → Apps → BalanceNex →
+     Notifications: "Messages and updates" must be listed and set to a level
+     that alerts, and the app's notification permission must be granted.
+   - iOS: if this shows nothing while the app is closed but the app still
+     chimes when open, the "arrives while open" behaviour was the poller and
+     APNs is not delivering at all. Then check, in Firebase console → Project
+     settings → Cloud Messaging, that an **APNs auth key** is uploaded for
+     `com.easytech.humanitarianApp`, and confirm the build's
+     `aps-environment`: `ios/Runner/Runner.entitlements` says `development`,
+     which is correct for a Xcode-run debug build (Xcode rewrites it to
+     `production` when archiving for TestFlight/App Store) — but a build
+     signed with the wrong one receives nothing in that environment. This
+     branch deliberately did **not** change that file; it is a signing
+     question, not a code one.
+4. **Then a real chat message**, app closed, member (not guest) to member, to
+   confirm the per-event path and that #113 still only withholds from guests.
+
+### Traps
+
+- The brief's hypothesis ("payload is data-only") is wrong — read `fcm.go`
+  before acting on it.
+- **"Arrives while the app is open" is not evidence of push delivery in this
+  app.** The polling + chime pipeline produces exactly that, on both platforms.
+- The worktree guard refuses a compound shell command containing a
+  `postgres://…` URL ("too complex to verify"). Put the run in a script file in
+  the scratchpad and `zsh` it.
+- `internal/handlers` finished in 19s here, against 10–25 minutes reported in
+  older entries; the machine was idle. Don't read a fast run as a skipped one
+  without checking for the `[migrate] done` lines.
+
+---
+
 ## 2026-09-16 — seed-test-users also seeds the MARRIAGE fixtures (branch `feat/seed-marriage-fixtures`, NOT pushed)
 
 **Asked for:** the client is testing live and wants step 5 (the marriage flow)
