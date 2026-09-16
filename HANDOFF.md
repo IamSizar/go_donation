@@ -6,6 +6,222 @@
 
 ---
 
+## 2026-09-16 — every kind of notification pushes (branch `fix/every-notification-pushes`, NOT pushed)
+
+**Asked for:** the client's words are *"make sure all kind of notifications have
+push"*. He was testing live, sent several staff replies in a marriage chat from
+the dashboard, and no push arrived on either phone. OPOS #26481.
+
+**Branch** `fix/every-notification-pushes`, cut from `origin/main` `a186eb5`.
+NOT pushed. Nothing under `humanitarian/` (the Flutter app) or `admin-web/`
+touched.
+
+### What was actually wrong
+
+`notify.Notifier.Send` dropped a notification whenever a row with the same
+`(user_id, title, body, notification_type)` already existed — **no time limit
+and no reference to which record it was about**. The comment called it the PHP
+helper's protection against "re-running an admin action". In practice it meant:
+any notification whose wording repeats is delivered **once per user, ever**.
+
+Conversation templates repeat their wording by design.
+`MarriageChatNewMessageMsg` is the fixed sentence "You have a new message in
+your Marriage chat." — no sender, no preview, nothing that varies. So the first
+message of a marriage chat pushed and every later one was silently dropped, for
+the life of that account. That is exactly what the client hit. A chat group hits
+it whenever a preview repeats ("ok" twice). `MarketplaceOrderSubmittedMsg` has
+constant text too: a member's second order produced no notification at all.
+
+Everything else about the pipeline was sound: every one of the 68 templates has
+a live call site, and every call site goes through `Send`, which always reaches
+`sendPush`. There is no path in the backend that writes an in-app row without
+attempting a push (`INSERT INTO app_notifications` appears exactly once in the
+tree, in `Send`).
+
+### The audit — every notification type, with its call site
+
+Columns: **Send called?** — is a `Send`/`Broadcast*` actually made at the event.
+**Reaches sendPush?** — `Send` fires `sendPush` for every row it writes, so this
+is "yes" wherever a row is written. **Dedupe could swallow it (before this
+change)** — could a genuine repeat of that event be dropped. **Other gates** —
+the master/category switch applies to all of them; the guest rule (#26443) only
+to conversation types.
+
+| # | Template / `notification_type` | Call site | Send called? | Reaches sendPush? | Dedupe could swallow (before) | Other gates |
+|---|---|---|---|---|---|---|
+| 1 | `DonationSubmittedMsg` / donation_submitted | `internal/handlers/donations.go:273` | yes | yes | no — amount + campaign + donation id vary | category `payment` |
+| 2 | `WalletToppedUpMsg` / wallet_topup | `internal/handlers/wallet.go:126` | yes | yes | **yes** — same top-up amount landing on the same resulting balance (no entity id) | category `normal` |
+| 3 | `TaskAssignedMsg` / task_assigned | `internal/handlers/tasks.go:132` | yes | yes | **yes** — same task title re-assigned, forever (no entity id) | category `normal` |
+| 4 | `MarriageSubscriptionActivatedMsg` / marriage_subscription_activated | `internal/handlers/marriage_subscription.go:112`, `:263` | yes | yes | **yes** — renewal of the same package never announced again | category `normal` |
+| 5 | `MarriageSubscriptionPendingMsg` / marriage_subscription_pending | `marriage_subscription.go:123` | yes | yes | **yes** — second purchase of the same package | category `normal` |
+| 6 | `MarriageSubscriptionRejectedMsg` / marriage_subscription_rejected | `marriage_subscription.go:280` | yes | yes | **yes** — text is constant; a second rejection is silent | category `normal` |
+| 7 | `NewMarriageSubscriptionPendingAdminMsg` / marriage_subscription_pending_admin | `marriage_subscription.go:124` (BroadcastToStaff) | yes | yes | no — purchase id in the entity, package name in the text | category `normal` |
+| 8 | `SponsorshipSubmittedMsg` / sponsorship_submitted | `internal/handlers/extras.go:851` | yes | yes | no — id + amount vary | category `payment` |
+| 9 | `SponsorshipCancelledByDonorMsg` / sponsorship_cancelled | `admin_status_notify.go:270`, `extras.go:771` | yes | yes | no | category `payment` |
+| 10 | `InKindSubmittedMsg` / in_kind_donation_submitted | `extras.go:269` | yes | yes | **yes** — donating the same item twice (item name is the only variable) | category `payment` |
+| 11 | `MarketplaceOrderSubmittedMsg` / marketplace_order_submitted | `internal/handlers/marketplace.go:263` | yes | yes | **yes** — constant text, so only the FIRST order a user ever placed was announced | category `normal` |
+| 12 | `SupportSubmittedMsg` / support_request_submitted | `extras.go:114` | yes | yes | **yes** — two tickets with the same subject | category `urgent` |
+| 13 | `SupportRepliedMsg` / support_ticket_replied | `extras.go:188` | yes | yes | **yes** — every reply after the first on the same ticket (subject is the only variable) | category `urgent` |
+| 14 | `MarriageSubmittedMsg` / marriage_profile_submitted | `extras.go:633` | yes | yes | no — profile code varies | category `normal` |
+| 15 | `BeneficiaryCaseSubmittedMsg` / beneficiary_case_submitted | `beneficiary.go:155` | yes | yes | **yes** — two cases with the same title | category `urgent` |
+| 16 | `NewBeneficiaryCaseAdminMsg` / admin_new_beneficiary_case | `beneficiary.go:158` (staff) | yes | yes | **yes** — same title, different case | category `urgent` |
+| 17 | `NewProjectRequestAdminMsg` / admin_new_project_request | `beneficiary.go:283` (staff) | yes | yes | **yes** — same title | category `system` |
+| 18 | `NewGuestAccountAdminMsg` / admin_new_guest_account | `internal/handlers/auth.go:1101` (staff) | yes | yes | no — username varies | category `system` |
+| 19 | `NewMarriageProfileAdminMsg` / admin_new_marriage_profile | `extras.go:637` (staff) | yes | yes | no — profile code varies | category `system` |
+| 20 | `VolunteerApplicationSubmittedMsg` / volunteer_application_submitted | `extras.go:1062` | yes | yes | **yes** — same applicant re-applying | category `normal` |
+| 21 | `VolunteerMissionJoinSubmittedMsg` / volunteer_mission_join_submitted | `extras.go:999` | yes | yes | **yes** — re-joining the same mission | category `normal` |
+| 22 | `ProjectRequestSubmittedMsg` / project_request_submitted | `beneficiary.go:280` | yes | yes | **yes** — same title | category `campaign` |
+| 23 | `NewUserRegistrationAdminMsg` / admin_new_registration | `internal/handlers/registration.go:353` (staff) | yes | yes | **yes** — two people with the same full name | category `system` |
+| 24 | `RegistrationApprovedMsg` / registration_approved | `registration_admin.go:84` | yes | yes | no in practice — a one-time event per account | category `system` |
+| 25 | `RegistrationRejectedMsg` / registration_rejected | `registration_admin.go:118` | yes | yes | **yes** — rejected twice with the same reason | category `system` |
+| 26 | `DonationCancelledByDonorMsg` / donation_cancelled_by_donor | `donations.go:382` | yes | yes | no — donation id varies | category `payment` |
+| 27 | `DonationApprovedMsg` / donation_approved | `admin_status_notify.go:492` | yes | yes | **yes** — two donations reading identically | category `payment` |
+| 28 | `DonationRejectedMsg` / donation_rejected | `admin_status_notify.go:494` | yes | yes | **yes** — same | category `payment` |
+| 29 | `DonationPaymentConfirmedMsg` / donation_payment_confirmed | `admin_status_notify.go:544` | yes | yes | **yes** — same | category `payment` |
+| 30 | `DonationPaymentFailedMsg` / donation_payment_failed | `admin_status_notify.go:546` | yes | yes | **yes** — a retry failing the same way | category `payment` |
+| 31 | `DonationReceivedOnProjectMsg` / donation_received_on_project | `donations.go:323` | yes | yes | **yes** — the same donor giving the same amount twice | category `payment` |
+| 32 | `SponsorshipAcceptedMsg` / sponsorship_accepted | `admin_status_notify.go:266` | yes | yes | **yes** — two sponsorships alike | category `payment` |
+| 33 | `SponsorshipStatusChangedMsg` / sponsorship_status_changed | `admin_status_notify.go:272` | yes | yes | **yes** — a status set back and forth | category `payment` |
+| 34 | `SponsorshipPaymentDueMsg` / sponsorship_payment_due_reminder | `internal/scheduler/scheduler.go:91` | yes | yes | **yes** — a recurring reminder is the same words every cycle (the due date varies, so monthly differs; a re-run in the same cycle does not) | category `reminder` |
+| 35 | `MarketplaceOrderApprovedMsg` / marketplace_order_approved | `admin_status_notify.go:150` | yes | yes | **yes** — two orders of the same product and quantity | category `normal` |
+| 36 | `MarketplaceOrderCompletedMsg` / marketplace_order_completed | `admin_status_notify.go:152` | yes | yes | **yes** — same | category `normal` |
+| 37 | `MarketplaceOrderCancelledMsg` / marketplace_order_cancelled | `admin_status_notify.go:154` | yes | yes | **yes** — same | category `normal` |
+| 38–41 | `InKindScheduled/Received/Delivered/CancelledMsg` / in_kind_donation_* | `admin_status_notify.go:311`, `:313`, `:315`, `:317` | yes | yes | **yes** — same item + quantity on a second donation | category `payment` |
+| 42 | `MarriageApprovedMsg` / marriage_approved | `admin_status_notify.go:185` | yes | yes | no — profile code varies | category `normal` |
+| 43 | `MarriageRejectedMsg` / marriage_rejected | `admin_status_notify.go:187` | yes | yes | no | category `normal` |
+| 44 | `MarriageStatusChangedMsg` / marriage_status_changed | `admin_status_notify.go:189` | yes | yes | **yes** — a status returned to a value it already held | category `normal` |
+| 45 | `BeneficiaryCaseApprovedMsg` / beneficiary_case_approved | `admin_status_notify.go:74` | yes | yes | **yes** — same title | category `urgent` |
+| 46 | `BeneficiaryCaseRejectedMsg` / beneficiary_case_rejected | `admin_status_notify.go:76` | yes | yes | **yes** — same title + reason | category `urgent` |
+| 47 | `ProjectRequestApprovedMsg` / project_request_approved | `admin_status_notify.go:107` | yes | yes | **yes** — same title | category `campaign` |
+| 48 | `ProjectRequestRejectedMsg` / project_request_rejected | `admin_status_notify.go:109` | yes | yes | **yes** — same | category `campaign` |
+| 49 | `ProjectRequestStatusChangedMsg` / project_request_status_changed | `admin_status_notify.go:113` | yes | yes | **yes** — back-and-forth status | category `campaign` |
+| 50 | `VolunteerApplicationDecisionMsg` / volunteer_application_&lt;status&gt; | `admin_status_notify.go:222` | yes | yes | **yes** — same applicant decided twice | category `normal` |
+| 51 | `MissionSignupDecisionMsg` / volunteer_mission_&lt;status&gt; | `admin_status_notify.go:439` | yes | yes | **yes** — same mission decided twice | category `normal` |
+| 52 | `SupportTicketStatusMsg` / support_ticket_&lt;status&gt; | `admin_status_notify.go:348` | yes | yes | **yes** — a ticket reopened and resolved again | category `urgent` |
+| 53 | `NewVolunteerMissionMsg` / new_volunteer_mission | `admin_status_notify.go:394`, `admin_create.go:1433` (Broadcast) | yes | yes | **yes** — a mission re-posted with the same title/city/date | category `normal` |
+| 54 | `NewPartnerMsg` / new_partner | `admin_create.go:186` (Broadcast) | yes | yes | no — partner name varies | category `normal` |
+| 55 | `NewMediaPostMsg` / new_media_post | `admin_create.go:280` (Broadcast) | yes | yes | **yes** — two posts with the same title | category `campaign` |
+| 56 | `NewCommentOnYourPostMsg` / post_comment_received | `media_engagement.go:161` | yes | yes | **yes** — the same person commenting the same words again | category `campaign` |
+| 57 | `NewCampaignMsg` / new_campaign | `admin_create.go:1295` (Broadcast) | yes | yes | **yes** — two campaigns with the same title | category `campaign` |
+| 58 | `ChatRequestMsg` / chat_request | `internal/handlers/chat.go:188`, `:245` | yes | yes | **YES — conversation** | guest rule; category `normal` |
+| 59 | `ChatAcceptedMsg` / chat_accepted | `chat.go:293` | yes | yes | **YES — conversation** | guest rule |
+| 60 | `ChatNewMessageMsg` / chat_message | `chat.go:441` | yes | yes | **YES — conversation**: same sender, same words | guest rule |
+| 61 | `ChatSupportReplyMsg` / chat_message | `chat.go:590` | yes | yes | **YES — conversation**: "Support" + a repeated reply | guest rule |
+| 62 | `GroupTeamNewMessageMsg` / chat_group_message | `chat_group.go:415` | yes | yes | **YES — conversation** | guest rule |
+| 63 | `GroupMaskedNewMessageMsg` / chat_group_message | `chat_group.go:417` | yes | yes | **YES — conversation** | guest rule |
+| 64 | `MarriageChatRequestMsg` / marriage_chat_request | `marriage_chat.go:120` | yes | yes | **YES — constant text**: a re-approved invite was never re-announced (was recorded as a known gap in `marriage_chat.go`) | guest rule |
+| 65 | `MarriageMeetingDeclinedMsg` / marriage_meeting_declined | `marriage_chat.go:144` | yes | yes | **YES — constant text**: only the first decline ever | guest rule |
+| 66 | `MarriageChatAcceptedMsg` / marriage_chat_accepted | `marriage_chat.go:216` | yes | yes | **YES — constant text** | guest rule |
+| 67 | `MarriageChatNewMessageMsg` / marriage_chat_message | `marriage_chat.go:334` (member), `:421` (staff) | yes | yes | **YES — THE CLIENT'S BUG**: constant text, so only the first message of a marriage chat ever pushed | guest rule |
+| 68 | `StaffChatNewMessageMsg` / staff_chat_message | `internal/handlers/staff_chat.go:223` | yes | yes | **YES — conversation**: same colleague, same words | guest rule |
+| 69 | `SponsorshipDueGrantorMsg` / sponsorship_due_grantor | `sponsorship_schedule.go:132` | yes | yes | **yes** — same amount + due date re-run | category `reminder` |
+| 70 | `SponsorshipDueRecipientMsg` / sponsorship_due_recipient | `sponsorship_schedule.go:141` | yes | yes | **yes** — same | category `reminder` |
+
+Not a template: `admin_announcement`, composed inline in `internal/handlers/push.go`
+and delivered by `SendPushDirect` — push only, never an in-app row, never deduped.
+
+**Nothing in the table never fires, and nothing stops at the in-app row.** Every
+"no push" in production traces back to one of four things: the dedupe (fixed
+here), the master/category switch, the guest rule, or the user having no active
+device token / FCM not being configured on the server.
+
+### What was changed
+
+- **`backend/internal/notify/notify.go`** — the dedupe. Conversation types are
+  now exempt entirely; everything else is deduped on
+  `(user, title, body, type, related_entity_id)` **within `dedupeWindow`
+  (2 minutes)** instead of forever and entity-blind.
+  - *Why exempt the conversations rather than shorten the window for them:* a
+    chat's wording legitimately repeats within seconds ("ok", "ok") and its
+    related entity id is the thread/group, not the message — so neither a
+    window nor an entity id saves it. Each conversation notification is sent
+    once per row already inserted into its own messages table, so a repeat is a
+    real second message; there is no retry path that could fabricate one.
+  - *Why keep a dedupe at all:* it was protecting against a re-run of the same
+    admin action (a double-clicked Approve, a retried request) — a burst,
+    seconds apart, about the same record. The window plus the entity id covers
+    that case exactly and nothing more.
+  - Adding the entity id also fixed a second class of loss on its own: two
+    different donations, orders or cases that happen to read identically used to
+    collapse into one notification (rows 27–41 above).
+- **`backend/internal/notify/list.go`** — new `isConversationType`, reading the
+  same `chatNotificationTypes` list the guest filter uses, so "is this a
+  conversation?" has one answer in the package.
+- **`backend/internal/handlers/marriage_chat.go`** — the marriage-chat message
+  notification was being handed the **message** id as its `related_entity_id`
+  while its `related_entity_type` said `marriage_chat_thread`. The template's
+  parameter has always been named `threadID`; the caller passed `msgID` by
+  mistake. #145 routes a tapped notification by exactly that pair, so a tap
+  opened whichever thread happened to share the number, or nothing. Both call
+  sites now pass the thread id. Two stale comments in the same file, which
+  documented the dropped-as-duplicate invite as a known gap, were corrected.
+- **NEW `backend/internal/notify/dedupe_test.go`** — seven tests.
+
+### What was run
+
+```
+gofmt -l internal/     → internal/handlers/admin_edit_user_profile.go  (pre-existing, not a file this branch touches)
+go build ./...         → clean
+go vet ./...           → clean
+```
+
+Tests, on throwaway databases created and dropped for the run:
+
+```
+createdb godonation_dedupe_a651
+TEST_DATABASE_URL=...  go test ./internal/notify/ -count=1 -run Dedupe
+  → with the fix REVERTED (git show HEAD:...notify.go): 5 of 7 FAIL, each on its own message,
+    incl. "stored ids = 19, 0 — both marriage-chat messages must be written as separate rows"
+  → with the fix in place: 7 PASS
+
+createdb godonation_full_a651
+TEST_DATABASE_URL=...  go test ./internal/notify/ ./internal/handlers/ -count=1 -p 1 -timeout 45m
+  ok  github.com/karam-flutter/humanitarian-backend/internal/notify    31.438s
+  ok  github.com/karam-flutter/humanitarian-backend/internal/handlers  18.372s
+
+createdb godonation_new_a651
+TEST_DATABASE_URL=...  go test ./internal/notify/ -count=1 -v -run Dedupe
+  → 7 PASS, 0 SKIP, 0 FAIL
+
+dropdb for all three; psql -lqt confirms none remain.
+```
+
+### Still open
+
+- **Not pushed.** The branch is local; no PR.
+- **The push only works where FCM is configured.** `New()` logs
+  `no FCM credentials found; push delivery disabled` and every send then writes
+  the in-app row and nothing else. If the client still sees no push after this,
+  check that log line on the server first — it is the one failure mode this
+  change cannot reach.
+- **A user with no registered device token gets no push,** by definition.
+  `POST /api/notifications/device` must have run on that phone.
+- **`WalletToppedUpMsg` and `TaskAssignedMsg` carry no `related_entity_id`,** so
+  their dedupe key is still text-only inside the 2-minute window. Two identical
+  top-ups two minutes apart are fine; two within the window would collapse.
+  Giving them their entity ids would close it properly.
+- **The `sponsorship_payment_due_reminder` scheduler** re-running inside the
+  window is still deduped, which is the intended protection, but it means a
+  manual re-run to "resend" a reminder does nothing for 2 minutes.
+
+### Traps
+
+- **The dedupe compares against `created_at`, a plain `TIMESTAMP`** defaulted
+  from `CURRENT_TIMESTAMP` (migration 001). The query uses `LOCALTIMESTAMP`, not
+  `NOW()`, on purpose: `NOW()` is a `timestamptz` and the comparison would go
+  through a session-timezone cast.
+- **`Send` fires its push in a goroutine**, so a test cannot read the FCM
+  recorder straight after calling it. `dedupe_test.go` polls with a deadline;
+  `push_guest_test.go` sidesteps it by calling `sendPush` directly. Do not add a
+  bare `time.Sleep`.
+- **Adding a new chat template means adding its type to
+  `chatNotificationTypes`** — that one list now drives three things: the guest
+  in-app filter, the guest push filter, and the dedupe exemption.
+  `chat_types_test.go` fails if a conversation template is missing from it.
+- `gofmt -l internal/` has flagged `internal/handlers/admin_edit_user_profile.go`
+  since before this branch. Don't mistake it for your own change.
+
+---
 ## 2026-09-16 — tapping a notification opens what it is about (branch `feat/notification-tap-opens-chat`, NOT pushed)
 
 **Asked for:** the client reported that tapping a push notification opens the
