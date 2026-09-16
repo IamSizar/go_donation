@@ -15,10 +15,29 @@ import 'package:url_launcher/url_launcher.dart';
 import '../models/app_notification_model.dart';
 
 class NotificationsController extends GetxController {
+  /// [api] is a seam for tests, matching [ModuleApi.httpClient]'s own reason
+  /// for existing: production always uses `const ModuleApi()`, and only a test
+  /// ever passes one with a mock client. Without it the mark-read and clear
+  /// paths — the two things this controller is for — could not be driven.
+  NotificationsController({ModuleApi api = const ModuleApi()}) : _api = api;
+
+  final ModuleApi _api;
+
   final notifications = <AppNotificationModel>[].obs;
   final isLoading = false.obs;
   final errorMessage = RxnString();
-  final selectedReadStatus = 'all'.obs;
+
+  /// The list opens on UNREAD, not on everything.
+  ///
+  /// The client's report was "marking a notification as read doesnt make it go
+  /// away". It did not: this started at 'all', so a row that had just been
+  /// read kept its place and only changed colour, and the swipe gesture —
+  /// which calls markAsRead — slid the card off screen only for the next
+  /// rebuild to put it back.
+  ///
+  /// Nothing is hidden with no way back: the Read and All chips above the list
+  /// are unchanged and still show every row that has not been cleared.
+  final selectedReadStatus = 'unread'.obs;
   final selectedCategory = 'all'.obs;
   final selectedType = 'all'.obs;
 
@@ -58,6 +77,16 @@ class NotificationsController extends GetxController {
         })
         .toList(growable: false);
   }
+
+  /// True when no filter has been touched — the list as it opens.
+  ///
+  /// The empty state reads differently in the two cases: on the default
+  /// filters an empty list means the user has read everything, which is the
+  /// good outcome, not "nothing matched what you asked for".
+  bool get isDefaultFilter =>
+      selectedReadStatus.value == 'unread' &&
+      selectedCategory.value == 'all' &&
+      selectedType.value == 'all';
 
   // Phase 25 — auto-refresh polling so notifications fired by admin
   // (approve / mark completed / etc.) appear in the inbox within ~5s
@@ -133,7 +162,7 @@ class NotificationsController extends GetxController {
       errorMessage.value = null;
     }
     try {
-      final rows = await const ModuleApi().getItems(uri.toString());
+      final rows = await _api.getItems(uri.toString());
       final fetched =
           rows
               .map(
@@ -247,7 +276,7 @@ class NotificationsController extends GetxController {
     final failures = <AppNotificationModel>[];
     for (final n in pending) {
       try {
-        await const ModuleApi().postJson(appNotificationsUrl, {
+        await _api.postJson(appNotificationsUrl, {
           'action': 'mark_read',
           'id': n.id,
           'user_id': userId,
@@ -286,7 +315,7 @@ class NotificationsController extends GetxController {
     notifications[index] = updated;
     notifications.refresh();
     try {
-      await const ModuleApi().postJson(appNotificationsUrl, {
+      await _api.postJson(appNotificationsUrl, {
         'action': 'mark_read',
         'id': notification.id,
         'user_id': userId,
@@ -295,6 +324,48 @@ class NotificationsController extends GetxController {
       notifications[index] = notification;
       notifications.refresh();
       errorMessage.value = 'Unable to mark notification as read.'.tr;
+    }
+  }
+
+  /// Clears every notification the user has already read.
+  ///
+  /// The client's second report was "old notifications must go away". Nothing
+  /// in the app could remove a notification — there was no clear action, no
+  /// endpoint behind one, and no retention rule — so a volunteer's list only
+  /// ever grew.
+  ///
+  /// Only READ rows are cleared. An unread notification is something the user
+  /// has not seen yet, and a button that threw those away would be a way to
+  /// lose a case update by tapping the wrong thing.
+  ///
+  /// Nothing is destroyed: the server stamps `cleared_at` on the user's read
+  /// rows (migration 125) and simply stops listing them. Optimistic, like
+  /// [markAllAsRead] — the rows leave the list at once and come back if the
+  /// request fails, so a failure cannot leave the app claiming an empty inbox
+  /// the server still has rows for.
+  Future<void> clearReadNotifications() async {
+    final userId = sharedPreferences.getString('id_user') ?? '';
+    if (userId.isEmpty) return;
+
+    final cleared = notifications
+        .where((n) => n.isRead)
+        .toList(growable: false);
+    if (cleared.isEmpty) return;
+
+    final snapshot = notifications.toList(growable: false);
+    notifications.assignAll(notifications.where((n) => !n.isRead).toList());
+
+    try {
+      await _api.postJson(appNotificationsUrl, {
+        'action': 'clear_read',
+        'user_id': userId,
+      });
+    } catch (_) {
+      // Put the list back exactly as it was. Restoring the snapshot rather
+      // than re-adding the cleared rows keeps the original order, which the
+      // server's sort decided and this controller cannot rebuild.
+      notifications.assignAll(snapshot);
+      errorMessage.value = 'Unable to clear notifications.'.tr;
     }
   }
 
@@ -347,7 +418,6 @@ class NotificationsController extends GetxController {
     }, isGuest: isGuestMode);
 
     if (destination == NotificationDestination.notificationsList) return null;
-    return () =>
-        openNotificationDestination(destination, alreadyOnList: true);
+    return () => openNotificationDestination(destination, alreadyOnList: true);
   }
 }

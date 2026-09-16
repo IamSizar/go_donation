@@ -6,6 +6,114 @@
 
 ---
 
+## 2026-09-16 — A read notification leaves the list, and old ones go away
+
+**Asked for:** Zaid, verbatim: *"also, marking a notifcation as read doesnt make
+it go aweay old notifications must go away"* — the in-app alerts list.
+
+**Branch:** `fix/notifications-read-and-clear`, cut from `main` at `62f5a55`.
+One commit, **NOT pushed**, no PR.
+
+### What was actually broken
+
+1. `NotificationsController.selectedReadStatus` started at `'all'`
+   (`humanitarian/lib/modules/notifications/controllers/notifications_controller.dart:21`
+   before this change). Marking read only changed the card's styling; the row
+   stayed. Swiping was worse: `NotificationTile` wraps the card in a
+   `Dismissible` (`widgets/notification_tile.dart:259-267`) whose `onDismissed`
+   only calls `markAsRead`, so the card slid away and the next rebuild put it
+   straight back.
+2. **Nothing in the system could ever remove a notification.** No delete or
+   clear endpoint (`backend/internal/handlers/notifications.go` knew one action,
+   `mark_read`), no `deleted`/`cleared` column, and no retention rule anywhere
+   in `notify.List`. A member's list held everything they had ever been sent.
+
+### What was changed
+
+**App**
+* Controller: default filter is now `unread`; new `clearReadNotifications()`
+  (optimistic, restores the list on failure); new injectable `api` seam;
+  `isDefaultFilter` for the empty state.
+* `screens/notifications_screen.dart` was 673 lines (already over the 500
+  limit) — the hero card moved out to
+  `widgets/notification_summary_card.dart`. Screen is now 306, card 442.
+* New "Clear N read" action on the hero card, behind `showAdaptiveConfirm`
+  (destructive styling, success haptic). Read rows only.
+* Empty state now distinguishes "you have read everything" from "nothing
+  matches your filters".
+* 5 new keys in `app_translations.dart`, **en + ar only** — Kurdish falls back
+  to English, per the project's standing "never invent Kurdish" rule (the
+  best-effort draft lives on `chore/kurdish-best-effort-draft`, not here).
+
+**Backend**
+* `migrations/125_notification_clearing.sql` — `cleared_at` on
+  `app_notifications` and on `app_notification_reads`, plus a partial index.
+  Additive only; the DOWN is recorded in the file and was executed.
+* `notify.ClearRead` + `notify.ReadRetention` (30 days) in
+  `internal/notify/list.go`; `List` now skips cleared rows and read rows older
+  than the window. **Unread rows never age out.**
+* `POST /api/notifications` accepts `action=clear_read`; the caller-identity
+  check moved above the action switch so every action gets it.
+* `internal/dashboard/dashboard.go` — the summary card skips cleared rows too.
+
+**Nothing is deleted.** Clearing stamps a time and the list stops selecting the
+row; the admin export still has it.
+
+### What was run, and what it printed
+
+```
+humanitarian $ flutter analyze  → 6 issues found        (unchanged baseline)
+humanitarian $ flutter test     → 00:42 +1274: All tests passed!
+backend      $ go build ./...   → clean
+backend      $ go vet ./...     → clean
+backend      $ TEST_DATABASE_URL=…/tnotif3 go test ./... -count=1 -p 1
+               → every package ok (handlers 18.6s, notify 30.8s)
+```
+
+RED before GREEN, both halves:
+
+```
+# Flutter, with the default filter put back to 'all':
+  Expected: ['1']
+    Actual: ['1', '2']
+  a read notification must leave the list it was read in
+
+# Go, with the new List predicates removed:
+  the read notification 30 is still listed after clear_read: [30 29]
+  my read row 31 survived my clear: [33 31]
+  the broadcast 34 I read and cleared is still in my list: [34]
+  a read notification older than the 720h0m0s window is still listed (35)
+```
+
+Migration 125's DOWN was executed against a throwaway database and the
+migration re-applied cleanly afterwards. Databases `tnotif1/2/3` were created
+and **dropped**. Nothing was run against Railway.
+
+### What is still open
+
+* The commit is **not pushed** and there is no PR.
+* **OPOS was not used.** The OPOS MCP server needs authorisation and this
+  session was non-interactive, so no task was created or timed. Section 18.3
+  says to say so rather than skip silently — this is that. The work needs a
+  task logged retroactively.
+* **A human decision:** 30 days for `notify.ReadRetention` is a judgement, not
+  a client instruction. If Zaid wants a different window it is a one-constant
+  change.
+* `admin-web` was not touched. The dashboard's notifications view is an admin
+  audit list and still shows cleared rows, which is intended.
+
+### Traps
+
+* `dart format` on a directory reformats files your change never touched —
+  five unrelated files were reverted before committing. Format the files you
+  edited, not the folder.
+* `flutter test` prints `registration: could not load Nineveh district lists`
+  as it runs. That is expected noise from an unrelated suite, not a failure.
+* A Postgres seed that binds the same `$n` to both an int column and a `CASE`
+  fails with *"inconsistent types deduced for parameter"* — cast it (`$3::int`).
+
+---
+
 ## 2026-09-16 — Kurdish (Sorani + Badini) best-effort DRAFT across all three clients
 
 **Asked for:** Zaid's decision, 2026-09-16: *"translate them to best effort."*

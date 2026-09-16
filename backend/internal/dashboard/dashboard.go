@@ -131,6 +131,10 @@ func (s *Store) Compute(ctx context.Context, userID int64, roleID int) (*Summary
 // recentNotifications returns the user's three most pressing notifications for
 // the summary card.
 //
+// A notification the user has cleared (migration 125) is gone from here too.
+// This card and the alerts list are the same inbox seen from two places, so a
+// row that has left one must not be waiting in the other.
+//
 // OPOS #26424: a guest account's chat-type rows are left out, by the same
 // predicate GET /api/notifications uses (notify.GuestChatExclusionSQL).
 // Otherwise this card would show a guest the chat message previews that the
@@ -145,6 +149,7 @@ func (s *Store) recentNotifications(ctx context.Context, userID int64) ([]Recent
 		       n.notification_category, n.priority, n.created_at
 		  FROM app_notifications n
 		 WHERE n.user_id = $1
+		   AND n.cleared_at IS NULL
 		   AND `+notify.GuestChatExclusionSQL("$2", "$3")+`
 		 ORDER BY n.is_read ASC, n.priority DESC, n.id DESC
 		 LIMIT 3`, userID, userID, notify.ChatNotificationTypes())

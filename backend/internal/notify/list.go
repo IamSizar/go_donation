@@ -34,6 +34,18 @@ type Notification struct {
 	CreatedAt            time.Time  `json:"created_at"`
 }
 
+// ReadRetention is how long a READ notification stays in a user's list.
+//
+// The client's report was "old notifications must go away". Thirty days is
+// long enough that a member can still find the confirmation of something they
+// did last month, and short enough that the list is about now. It applies ONLY
+// to rows the user has read: an unread notification is one they have never
+// seen, and ageing it out would be losing it.
+//
+// It is a display rule, not a deletion: nothing removes the row, and raising
+// this number brings the rows back.
+const ReadRetention = 30 * 24 * time.Hour
+
 // ListFilter narrows the notifications query.
 type ListFilter struct {
 	UserID     int64  // 0 = anonymous (only system-wide rows); a guest never gets chat-type rows
@@ -206,6 +218,27 @@ func (n *Notifier) List(ctx context.Context, f ListFilter) ([]Notification, erro
 	}
 
 	where := []string{"1=1"}
+	// Cleared rows are gone from every list, whoever asked and whatever the
+	// filters say. A row the user owns carries its own stamp; a broadcast row
+	// carries the user's stamp on their app_notification_reads row, so one
+	// user clearing an announcement leaves everyone else's list alone.
+	where = append(where, "n.cleared_at IS NULL")
+	if f.UserID > 0 {
+		clearUserArg := nextArg(f.UserID)
+		where = append(where, `NOT EXISTS (
+		    SELECT 1 FROM app_notification_reads rc
+		     WHERE rc.notification_id = n.id
+		       AND rc.user_id = `+clearUserArg+`
+		       AND rc.cleared_at IS NOT NULL)`)
+	}
+	// Retention. A READ notification older than ReadRetention drops out on its
+	// own: the client asked that old notifications go away, and a row the user
+	// has already read is the one kind it is safe to retire without asking.
+	// UNREAD rows never age out at any age — the user has not seen them, and
+	// hiding one would be losing it. Nothing is deleted; this is what the list
+	// selects.
+	where = append(where, "NOT (("+effectiveReadSQL+") = 1 AND n.created_at < NOW() - INTERVAL '"+
+		itoa(int(ReadRetention.Hours()))+" hours')")
 	if f.UserID > 0 {
 		uidArg := nextArg(f.UserID)
 		where = append(where, "(n.user_id = "+uidArg+" OR n.user_id IS NULL)")
@@ -347,6 +380,50 @@ func (n *Notifier) MarkRead(ctx context.Context, notificationID, userID int64) (
 		return MarkNotFound, err
 	}
 	return MarkOK, nil
+}
+
+// ClearRead takes every notification the user has already READ out of their
+// list, and returns how many rows that was.
+//
+// Unread rows are deliberately untouched: the app puts this behind a button,
+// and a button that could throw away a case update the user has not opened yet
+// is not a button worth having.
+//
+// Nothing is deleted. Rows the user owns get app_notifications.cleared_at;
+// shared broadcast rows get it on the user's own app_notification_reads row,
+// so clearing an announcement for one member leaves it in every other member's
+// list. Migration 125 added both columns and List skips what they mark.
+//
+// Idempotent: a second call finds nothing left to stamp and reports 0.
+func (n *Notifier) ClearRead(ctx context.Context, userID int64) (int64, error) {
+	if userID <= 0 {
+		return 0, errors.New("invalid args")
+	}
+
+	owned, err := n.Pool.Exec(ctx,
+		`UPDATE app_notifications
+		    SET cleared_at = NOW()
+		  WHERE user_id = $1 AND is_read = 1 AND cleared_at IS NULL`,
+		userID,
+	)
+	if err != nil {
+		return 0, err
+	}
+
+	// A row exists in app_notification_reads only because this user read that
+	// broadcast, so "every uncleared row of theirs" is exactly the broadcasts
+	// they have read.
+	broadcast, err := n.Pool.Exec(ctx,
+		`UPDATE app_notification_reads
+		    SET cleared_at = NOW()
+		  WHERE user_id = $1 AND cleared_at IS NULL`,
+		userID,
+	)
+	if err != nil {
+		return 0, err
+	}
+
+	return owned.RowsAffected() + broadcast.RowsAffected(), nil
 }
 
 func itoa(n int) string {
