@@ -15,7 +15,7 @@ should take me to the exact place of this notifications"* — so the in-app list
 counts too, and every notification type, not only chat.
 
 **Branch** `feat/notification-tap-opens-chat`, cut from `origin/main` `1a6062d`.
-Commit `<SHA>`. NOT pushed. Nothing under `backend/` or `admin-web/` touched.
+Commit `578d66e`. NOT pushed. Nothing under `backend/` or `admin-web/` touched.
 
 ### What was wrong
 - `lib/main.dart:114-118` subscribed to `FirebaseMessaging.onMessageOpenedApp`
