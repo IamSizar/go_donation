@@ -6,6 +6,79 @@
 
 ---
 
+## 2026-09-16 — chat policy conformance audit (OPOS #25284, read-only)
+
+**Asked for:** prove or disprove each of the client's 8 chat rules against the
+code as it stands, server-first. Read-only pass; change nothing unless a real
+violation is found.
+
+**Branch:** worktree off `origin/main` @ `fcc5b10`. One commit, docs only. **Not
+pushed.** OPOS was unavailable in this session, so no task was logged.
+
+**What was changed:** `docs/chat-policy-conformance-2026-09.md` (new) and this
+entry. No code touched — the two findings are reported, not fixed, per the
+brief.
+
+**What was run:** nothing executable. This was a read of
+`backend/internal/{chat,chatgroups,marriagechat,staffchat,casevolchat,chatlifecycle}`,
+the route table in `backend/cmd/server/main.go:735-1093`, `humanitarian/lib/`
+and `admin-web/src/`. Evidence in the doc is file:line throughout.
+
+### Verdicts
+Rules 2, 4, 5, 6, 7, 8 hold. Rules 1 and 3 are **partial**, for one shared
+reason, plus a second independent gap.
+
+- **V1 — the important one.** Donor↔owner chat origination is dead
+  (`backend/internal/chat/chat.go:104-107` always returns
+  `ErrDirectChatRetired`), but *pre-existing* `chat_threads` rows are still
+  postable: `backend/internal/handlers/chat.go:387-411` checks party, `status`
+  and lifecycle, never the thread's kind. `chatlifecycle/retire.go:10-13` says
+  so in as many words. Closing those rows is a **manual script**
+  (`backend/cmd/retire-direct-chats`), not a migration — I checked
+  `backend/migrations/` and nothing there ends them. So rules 1 and 3 hold
+  only on an environment where someone ran it, and a staff pause→resume puts a
+  direct chat back into service afterwards. Suggested fix in the doc: a kind
+  predicate on the send and accept paths in `handlers/chat.go`.
+- **V2.** `kind='team'` groups accept any `role_in_group` — it is a free-form
+  string (`handlers/chat_group_admin.go:122`) and `CreateGroup` validates only
+  the kind (`chatgroups/chatgroups.go:153-156`). A staff member can therefore
+  build a **real-name** room containing a donor and a beneficiary
+  (`chatgroups_reads.go:112-113` serves `full_name` in non-masked groups); the
+  dashboard offers all four roles regardless of kind
+  (`admin-web/src/lib/chatGroupForm.ts:40`). The repo's own test builds this
+  shape at `chatgroups_admin_kind_test.go:24-32`. **Ambiguous** — rule 5 says
+  staff choose the members, so whether this is a bug depends on client intent.
+  Ask before changing.
+- V3, cosmetic: two stale app strings pointing at the retired flow
+  (`humanitarian/lib/modules/chat/screens/messages_screen.dart:135, 217-218`).
+
+### Things worth not re-deriving
+- `casevolchat` is genuinely dead: 64 lines, one method
+  (`MessageCountForSignup`), zero routes in `main.go`, and only four orphan
+  translation strings left in the app. It is kept solely for the admin delete
+  guard. Don't go hunting for its routes again.
+- Masking in both masked groups and marriage chat is **structural**, not a
+  filter: the mobile response types (`chatgroups.GroupMessage`,
+  `marriagechat.ThreadView`/`Message`) have no field able to hold a user id,
+  name or phone. Real identities live on separately named `Admin*` types.
+- Rule 8's **export** is not a server route — it is client-side CSV/Excel/PDF
+  in `admin-web/src/lib/chatExport.ts`, behind a PIN step-up. I initially
+  concluded export was missing because `grep -i export` over the backend finds
+  only `/admin/export/all`. It isn't missing. Check the dashboard first.
+- The app has **no named routes and no deep links** (`Get.to(() => Widget())`
+  everywhere) and push taps do not route anywhere
+  (`humanitarian/lib/main.dart:114-118` only `debugPrint`s). That closes a
+  whole class of "could a link reach a chat" questions.
+
+### Still open
+- Unpushed commit on this worktree branch; no PR.
+- Nobody has confirmed whether `cmd/retire-direct-chats` has run on production
+  or staging. Rules 1 and 3 hinge on it. `docs/runbooks/retire-direct-chats.md`
+  has the post-check queries.
+- V1 and V2 are reported, not fixed.
+
+---
+
 ## 2026-09-16 — a team group is for volunteers and staff only
 
 **Asked for:** Zaid's decision of 2026-09-16 — a `kind='team'` chat group is
