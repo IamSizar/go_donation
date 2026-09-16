@@ -1,7 +1,85 @@
 # TRANSLATION REQUEST — Kurdish Sorani (ckb) and Badini (kmr)
 
-**For a native speaker. Nothing in this file is machine-translated, and
-nothing in the codebase was guessed.**
+**REVIEW REQUEST, NOT A TRANSLATION REQUEST ANY MORE.** On 2026-09-16 Zaid
+lifted this project's "never invent Kurdish" rule for a draft, and the keys
+listed below were machine-drafted into the codebase.
+
+> **Everything drafted on 2026-09-16 needs a native speaker's review before
+> anyone relies on it. It will contain errors.**
+
+## Status as of 2026-09-16
+
+| File | Drafted (ckb) | Drafted (kmr) | Deliberately left |
+|---|---|---|---|
+| `humanitarian/lib/localization/app_translations.dart` | 469 | 470 | 3 |
+| `admin-web/src/lib/locales/{ckb,kmr}.ts` | 467 | 467 | 1 |
+| `backend/internal/notify/templates.go` | 2 slots | 2 slots | 0 |
+
+That is **936 Sorani and 937 Badini app strings, 934 dashboard strings and 4
+push-template slots**, against the 621 this file had asked for — the drafting
+pass measured the real gap (`_en` against `_sorani`/`_badini`, and `en.ts`
+against `ckb.ts`/`kmr.ts`) rather than working from the counts below, which
+were a floor and had gone stale. Every key either file was missing is now
+filled except the four named next.
+
+### The four left untranslated, and why
+
+Three are the terms **OPOS #26468** flagged, which are waiting on a native
+translator and still fall back to English:
+
+* `chat_group_sender_support` — "Support", meaning the support team.
+* `chat_group_sender_member` — "Member", alone.
+* `chat_group_sender_member_n` — "Member @n".
+
+The fourth is the dashboard's half of the same word: `chat_groups.create.member_n`
+("Member {n}"). Nothing else was skipped: no key's meaning turned out to be
+unreadable from its English, its Arabic and its use site.
+
+### How to find the drafts
+
+In all three files the drafted entries sit under a line reading
+
+```
+// ─── Machine-drafted Kurdish — UNREVIEWED (see file header) ───
+```
+
+and each file's header says the same thing in prose. In the Flutter map they
+are appended at the end of `_sorani` and of `_badini`; in the dashboard they
+are appended inside each block they belong to, so a reviewer reads them next to
+the block's existing wording.
+
+### What the drafting pass reused rather than invented
+
+* The role and domain nouns already in the files — **بەخشەر** (donor),
+  **وەرگری شایستە / وەرگرێ شایستە** (eligible recipient), **خۆبەخش**
+  (volunteer), **کارمەند** (staff), **کەیس** (case), **کەفالەت** (sponsorship),
+  **بەخشین** (donation), **چات** (chat), **جزدان** (wallet), **ئەرک** (mission).
+* The dashboard's own status vocabulary for the app's status tokens, so the
+  phone and the dashboard say the same word for the same state.
+* The 74 notification types were translated once in the Flutter map and
+  **copied** into the dashboard's `status.*`, as the B1 section below asks.
+* `perm.sensitive_data`'s existing Kurdish inside `hint.contact_hidden`, and
+  the Trash screen's own word (**زبڵدان / ژبڵدان**) inside every
+  moved-to-the-Trash sentence.
+
+### Two things a native speaker must decide
+
+1. **`kmr.ts` mixes scripts.** Its first blocks (`support_wa`, `profileChanges`
+   and neighbours) are Latin Kurmanji; everything else is Arabic script. The
+   drafts follow whichever script the surrounding block already used, so no
+   screen changes appearance mid-way — but the file should be unified one way
+   or the other, and that is not a machine's call.
+2. **`status.news` in `kmr.ts` reads هەڤال**, which means *friend*, not *news*.
+   It predates this pass and was left alone, but it looks wrong; the Flutter
+   Badini map uses **نووچە** for the same word.
+
+---
+
+## The original request follows, kept as the record of what was asked for
+
+**The counts and the "these are empty" reasoning below describe the state
+before 2026-09-16. They are no longer true; they are kept so a reviewer can see
+which change introduced each key and what it was for.**
 
 Generated 2026-08-15 by measuring the committed tree, not by estimating.
 Updated 2026-08-15 with the 25 strings the A16 password sign-in flow added.
@@ -23,7 +101,7 @@ Updated 2026-08-16 again with the 20 keys the K14 خطوبتي owner self-manage
 (edit / pause / resume / remove) added, and the 27 keys the K15 product-list
 labels added.
 
-## Why these are empty rather than wrong
+## Why these were empty rather than wrong (superseded 2026-09-16)
 
 This project's standing decision (recorded in `app_translations.dart` and in
 `TERMINOLOGY.md`, issue **#21431**) is that **invented Kurdish is worse than a
@@ -34,7 +112,7 @@ made on this project once and had to be reverted.
 Every key below currently renders its **English** string to a Kurdish user.
 That is deliberate and safe. It is not a crash, and it is not Arabic text.
 
-## Count: 621 keys need Kurdish
+## Count as first measured: 621 keys needed Kurdish (see the status block above)
 
 | Client | Sorani (ckb) | Badini (kmr) | Distinct keys |
 |---|---|---|---|

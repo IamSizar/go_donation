@@ -6,6 +6,117 @@
 
 ---
 
+## 2026-09-16 — Kurdish (Sorani + Badini) best-effort DRAFT across all three clients
+
+**Asked for:** Zaid's decision, 2026-09-16: *"translate them to best effort."*
+This lifts the project's standing "never invent Kurdish" rule (#21431) **for a
+draft only**. He has been told the draft will contain errors.
+
+**Branch:** `chore/kurdish-best-effort-draft`, cut from `origin/main` at
+`fcc5b10`. Four commits, **NOT pushed**, no PR:
+
+| Commit | What |
+|---|---|
+| `242bbb1` | app: notification types, B21 widget literals, A16 password sign-in, M3/M4 donation steps (172 keys) |
+| `1794cf7` | app: everything else the map was missing, + the sender-label test |
+| `706947e` | admin-web: the 467 keys `ckb.ts`/`kmr.ts` were missing |
+| `d9416e8` | backend: `SupportRepliedMsg`, + its test |
+
+### What was actually changed
+
+* `humanitarian/lib/localization/app_translations.dart` — **469 Sorani, 470
+  Badini** entries appended to `_sorani` / `_badini`.
+* `admin-web/src/lib/locales/ckb.ts` and `kmr.ts` — **467 entries each**,
+  inserted into the block each key belongs to.
+* `backend/internal/notify/templates.go` — `SupportRepliedMsg` title and body,
+  the only builder in the file with empty Ckb/Kmr.
+* `TRANSLATION_REQUEST.md` — the summary at the top is rewritten; the original
+  request is kept below it as the record.
+* Two tests were rewritten because they **pinned the old decision**, not a
+  behaviour worth keeping (see Traps).
+
+Every drafted line in all three source files sits under a line reading
+`// ─── Machine-drafted Kurdish — UNREVIEWED (see file header) ───`, and each
+file's header now says the entries are unreviewed machine drafts.
+
+### What was deliberately left untranslated — four keys
+
+The three OPOS #26468 flagged terms (`chat_group_sender_support` "Support",
+`chat_group_sender_member` "Member", `chat_group_sender_member_n` "Member @n")
+and the dashboard's half of the same word, `chat_groups.create.member_n`
+("Member {n}"). They still fall back to English, which is intended. Nothing
+else was skipped — no key's meaning was unreadable from its English, its Arabic
+and its use site.
+
+### What was run, and what it printed
+
+```
+humanitarian $ flutter analyze     → 6 issues found        (unchanged baseline)
+humanitarian $ flutter test        → +1090: All tests passed!
+admin-web    $ npx tsc -b          → clean, exit 0         (Node 22)
+admin-web    $ npm test            → Test Files 22 passed (22) · Tests 197 passed (197)
+admin-web    $ npm run build       → ✓ built in 380ms
+admin-web    $ npm run check:labels→ every controlled value and permission module has a label.
+admin-web    $ npm run lint        → ✖ 62 problems (0 errors, 62 warnings), exit 0
+backend      $ go build ./...      → clean
+backend      $ go vet ./...        → clean
+backend      $ TEST_DATABASE_URL=… go test ./internal/notify/... → ok  1.252s
+```
+
+The notify run used a throwaway database `godonation_kt_draft`, created with
+`createdb` for the run and `dropdb`-ed after. It is gone; recreate it the same
+way if you need it.
+
+### External actions taken
+
+**None.** Nothing was pushed, no PR opened, nothing deployed, no store or
+remote system touched. OPOS was unavailable in this session, so no task was
+logged there.
+
+### Still open
+
+* The four commits above are **unpushed**. `chore/kurdish-best-effort-draft`
+  exists only in this worktree's repo.
+* **Every drafted string is unreviewed.** Nothing here should be relied on
+  before a native Sorani and a native Badini speaker have read it.
+* `kmr.ts` mixes scripts: its first blocks (`support_wa`, `profileChanges`) are
+  Latin Kurmanji, everything after is Arabic script. The drafts follow whichever
+  script their surrounding block already used, so no screen changes appearance
+  mid-way, but the file should be unified — a native speaker's call.
+* `status.news` in `kmr.ts` reads **هەڤال**, which means *friend*, not *news*.
+  It predates this pass and was left alone. The Flutter Badini map uses
+  **نووچە** for the same word.
+
+### Traps — things that cost time here
+
+1. **Two tests pinned the "no Kurdish" decision, not a behaviour.** Drafting
+   made them fail, which looks like a regression and is not:
+   * `humanitarian/test/modules/chatgroups/chat_group_sender_label_test.dart`
+     asserted every Kurdish alias falls back to English. Rewritten: the role
+     nouns now read in Kurdish with the number kept, and the three flagged terms
+     are still asserted to fall back to English **on purpose**.
+   * `backend/internal/notify/templates_support_test.go` asserted the Ckb/Kmr
+     slots stay empty. Renamed and rewritten to guard what still matters: the
+     Kurdish must be present and must not equal the Arabic (the paste this
+     project already had to revert once) or the English.
+   Search for other such "pins the absence" tests before drafting anything else.
+2. **`TRANSLATION_REQUEST.md`'s counts were stale.** It asks for ~621 keys; the
+   real gap measured against the sources was 472/476 in the app and 468 in the
+   dashboard. The file says so itself for the dashboard ("a floor, not a
+   ceiling"). Measure, do not trust the table.
+3. **The 94 `field.*` labels the file lists as missing are already present** in
+   `ckb.ts`/`kmr.ts`. Only 3 `field.*` keys were actually missing.
+4. **`app_translations.dart` is not `dart format` clean on `main` either** — do
+   not reformat it, the repo does not enforce it there and the diff would bury
+   the change.
+5. Writing into these files by hand is error-prone in two specific ways that
+   both produced broken files during this pass: a Dart value containing `\n`
+   must keep the escape (a real newline breaks the single-quoted literal), and
+   a one-line TS block such as `support: { title: '…', new: '…' }` needs the
+   line broken open and a comma added before anything is appended inside it.
+
+---
+
 ## 2026-09-12 — pending profile-change requests now visible on the Users list
 
 **Asked for:** OPOS #25287 — "profile edits sometimes don't sync to
