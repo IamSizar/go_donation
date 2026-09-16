@@ -81,6 +81,23 @@ var chatNotificationTypes = []string{
 	"staff_chat_message",
 }
 
+// isConversationType reports whether a notification_type describes a message in
+// a conversation, rather than an event about a record.
+//
+// Send uses it to exempt these types from the duplicate check (OPOS #26481):
+// their wording repeats by design — the marriage-chat template is one fixed
+// sentence, and a chat group's body is the message preview — so a text-based
+// dedupe reads every message after the first as a duplicate and silences the
+// chat. Each of these is sent once per row already inserted into its own
+// messages table, so a repeat is a real second message.
+//
+// The same list as the guest filter on purpose: "is this a conversation?" has
+// one answer in this package, and a new chat template added to that list is
+// exempted here without anybody having to remember a second place.
+func isConversationType(notificationType string) bool {
+	return slices.Contains(chatNotificationTypes, notificationType)
+}
+
 // ChatNotificationTypes returns a copy of the chat-type list, so a caller can
 // bind it as a query argument without being able to edit the shared list.
 func ChatNotificationTypes() []string {
