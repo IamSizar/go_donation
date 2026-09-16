@@ -13,7 +13,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 
@@ -108,13 +107,12 @@ func connectRequestErr(err error) error {
 // adminConnectRequestItem.
 func (h *ChatGroupHandler) AdminListConnectRequests(c *gin.Context) {
 	if _, ok := auth.UserFromGin(c); !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		respondChatErr(c, chatErrUnauthorized)
 		return
 	}
 	items, err := h.Store.ListConnectRequests(c.Request.Context(), c.Query("status"))
 	if err != nil {
-		log.Printf("[chat-group] could not list connect requests: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		h.chatServerErr(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "items": h.adminConnectRequestItems(c, items)})
@@ -125,7 +123,7 @@ func (h *ChatGroupHandler) AdminListConnectRequests(c *gin.Context) {
 // context_label existing callers already read.
 func (h *ChatGroupHandler) AdminGetConnectRequest(c *gin.Context) {
 	if _, ok := auth.UserFromGin(c); !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		respondChatErr(c, chatErrUnauthorized)
 		return
 	}
 	id, ok := parseID(c)
@@ -149,7 +147,7 @@ func (h *ChatGroupHandler) AdminGetConnectRequest(c *gin.Context) {
 func (h *ChatGroupHandler) AdminApproveConnectRequest(c *gin.Context) {
 	user, ok := auth.UserFromGin(c)
 	if !ok || user == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		respondChatErr(c, chatErrUnauthorized)
 		return
 	}
 	id, ok := parseID(c)
@@ -158,11 +156,11 @@ func (h *ChatGroupHandler) AdminApproveConnectRequest(c *gin.Context) {
 	}
 	var req adminCreateGroupReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid JSON."})
+		respondChatErr(c, chatInvalidInput("Invalid JSON."))
 		return
 	}
 	if strings.TrimSpace(req.Kind) == "" || len(req.Members) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "kind and at least one member are required."})
+		respondChatErr(c, chatInvalidInput("kind and at least one member are required."))
 		return
 	}
 	members := make([]chatgroups.MemberInput, len(req.Members))
@@ -185,7 +183,7 @@ type declineConnectRequestReq struct {
 func (h *ChatGroupHandler) AdminDeclineConnectRequest(c *gin.Context) {
 	user, ok := auth.UserFromGin(c)
 	if !ok || user == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		respondChatErr(c, chatErrUnauthorized)
 		return
 	}
 	id, ok := parseID(c)
@@ -194,7 +192,7 @@ func (h *ChatGroupHandler) AdminDeclineConnectRequest(c *gin.Context) {
 	}
 	var req declineConnectRequestReq
 	if err := c.ShouldBindJSON(&req); err != nil || strings.TrimSpace(req.Reason) == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "A decline reason is required."})
+		respondChatErr(c, chatInvalidInput("A decline reason is required."))
 		return
 	}
 	if err := h.Store.DeclineConnectRequest(c.Request.Context(), id, user.UserID, req.Reason); err != nil {

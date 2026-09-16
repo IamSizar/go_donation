@@ -114,6 +114,27 @@ func respondChatErr(c *gin.Context, r chatErrResponse) {
 	c.JSON(r.status, gin.H{"success": false, "error": r.message, "code": r.code})
 }
 
+// chatErrUnauthorized answers a chat-group request with no user behind it
+// (OPOS #26496). The auth middleware normally refuses first; this is the
+// handlers' own guard, in the same envelope.
+var chatErrUnauthorized = chatErrResponse{status: http.StatusUnauthorized, message: "Unauthorized.", code: "unauthorized"}
+
+// chatInvalidInput answers a request body or path the handler itself rejects
+// before reaching the store (OPOS #26496). It keeps the handler's own
+// sentence, which clients already show, under chatErrResponses' generic
+// group_invalid_input code rather than a code per sentence.
+func chatInvalidInput(message string) chatErrResponse {
+	return chatErrResponse{status: http.StatusBadRequest, message: message, code: "group_invalid_input"}
+}
+
+// chatServerErr logs an unexpected store failure and answers
+// chatErrServerError. Unlike chatErr it never maps a sentinel, for store calls
+// whose only failure is the database itself (OPOS #26496).
+func (h *ChatGroupHandler) chatServerErr(c *gin.Context, err error) {
+	log.Printf("[chat-group] %s %s failed: %v", c.Request.Method, c.FullPath(), err)
+	respondChatErr(c, chatErrServerError)
+}
+
 // parseGroupPageParams reads after_id/limit query params, both optional —
 // zero values fall back to chatgroups' own defaults.
 func parseGroupPageParams(c *gin.Context) (afterID int64, limit int) {
@@ -126,12 +147,12 @@ func parseGroupPageParams(c *gin.Context) (afterID int64, limit int) {
 func (h *ChatGroupHandler) List(c *gin.Context) {
 	user, ok := auth.UserFromGin(c)
 	if !ok || user == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		respondChatErr(c, chatErrUnauthorized)
 		return
 	}
 	items, err := h.Store.ListGroupsForUser(c.Request.Context(), user.UserID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		h.chatServerErr(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "items": items})
@@ -141,7 +162,7 @@ func (h *ChatGroupHandler) List(c *gin.Context) {
 func (h *ChatGroupHandler) Messages(c *gin.Context) {
 	user, ok := auth.UserFromGin(c)
 	if !ok || user == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		respondChatErr(c, chatErrUnauthorized)
 		return
 	}
 	id, ok := parseID(c)
@@ -229,7 +250,7 @@ func isActiveGroupMember(group chatgroups.GroupDetail, userID int64) bool {
 func (h *ChatGroupHandler) PostMessage(c *gin.Context) {
 	user, ok := auth.UserFromGin(c)
 	if !ok || user == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		respondChatErr(c, chatErrUnauthorized)
 		return
 	}
 	id, ok := parseID(c)
@@ -255,7 +276,7 @@ func (h *ChatGroupHandler) PostMessage(c *gin.Context) {
 	}
 	var req chatGroupMessageReq
 	if err := c.ShouldBindJSON(&req); err != nil || strings.TrimSpace(req.Body) == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Message body is required."})
+		respondChatErr(c, chatInvalidInput("Message body is required."))
 		return
 	}
 	if h.refuseGroupContactDetails(c, group, user, req.Body) {
@@ -278,7 +299,7 @@ type chatGroupReadReq struct {
 func (h *ChatGroupHandler) MarkRead(c *gin.Context) {
 	user, ok := auth.UserFromGin(c)
 	if !ok || user == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		respondChatErr(c, chatErrUnauthorized)
 		return
 	}
 	id, ok := parseID(c)
@@ -300,11 +321,11 @@ func (h *ChatGroupHandler) MarkRead(c *gin.Context) {
 	}
 	var req chatGroupReadReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid JSON."})
+		respondChatErr(c, chatInvalidInput("Invalid JSON."))
 		return
 	}
 	if err := h.Store.MarkRead(c.Request.Context(), id, user.UserID, req.LastReadMsgID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		h.chatServerErr(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true})
