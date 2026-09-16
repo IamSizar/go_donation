@@ -43,16 +43,16 @@ func TestSupportRepliedMsg_PointsAtTheTicket(t *testing.T) {
 	}
 }
 
-// English and Arabic are supplied and genuinely different; Kurdish is left
-// EMPTY on purpose.
+// All four locales are supplied, and each is genuinely different from the
+// others.
 //
-// Both Kurdish locales are written in ARABIC SCRIPT, so Arabic text pasted
-// into Ckb/Kmr looks plausible and is wrong — a mistake this project has
-// already made once and had to revert. Send() stores an empty slot as NULL and
-// every client falls back to English, which is legible and honest. This test
-// exists so a later "helpful" fill-in has to be a deliberate act by someone
-// who reads this comment, not a silent paste.
-func TestSupportRepliedMsg_ArabicIsRealAndKurdishIsLeftToATranslator(t *testing.T) {
+// Kurdish was empty here until 2026-09-16, when the owner asked for a
+// best-effort draft. What this test still guards is the mistake that made the
+// empty slot worth having: both Kurdish locales are written in ARABIC SCRIPT,
+// so Arabic text pasted into Ckb/Kmr looks plausible and is wrong — something
+// this project has already done once and had to revert. So the Kurdish must be
+// present and must NOT equal the Arabic or the English.
+func TestSupportRepliedMsg_EveryLocaleIsSuppliedAndDistinct(t *testing.T) {
 	m := SupportRepliedMsg("Payment did not arrive", 7)
 
 	if strings.TrimSpace(m.Title.En) == "" || strings.TrimSpace(m.Body.En) == "" {
@@ -70,12 +70,31 @@ func TestSupportRepliedMsg_ArabicIsRealAndKurdishIsLeftToATranslator(t *testing.
 		t.Errorf("Arabic title %q contains Latin letters", m.Title.Ar)
 	}
 
-	if m.Title.Ckb != "" || m.Body.Ckb != "" {
-		t.Errorf("Sorani must stay empty until a native speaker supplies it, got title=%q body=%q",
-			m.Title.Ckb, m.Body.Ckb)
+	for _, k := range []struct {
+		name        string
+		title, body string
+	}{
+		{"Sorani", m.Title.Ckb, m.Body.Ckb},
+		{"Badini", m.Title.Kmr, m.Body.Kmr},
+	} {
+		if strings.TrimSpace(k.title) == "" || strings.TrimSpace(k.body) == "" {
+			t.Errorf("%s title/body must be supplied", k.name)
+			continue
+		}
+		if k.title == m.Title.Ar || k.body == m.Body.Ar {
+			t.Errorf("%s is identical to the Arabic — Arabic pasted into a Kurdish slot", k.name)
+		}
+		if k.title == m.Title.En || k.body == m.Body.En {
+			t.Errorf("%s is identical to the English — untranslated", k.name)
+		}
+		if latinLetters.MatchString(k.title) {
+			t.Errorf("%s title %q contains Latin letters", k.name, k.title)
+		}
+		if !strings.Contains(k.body, "Payment did not arrive") {
+			t.Errorf("%s body %q dropped the ticket subject", k.name, k.body)
+		}
 	}
-	if m.Title.Kmr != "" || m.Body.Kmr != "" {
-		t.Errorf("Badini must stay empty until a native speaker supplies it, got title=%q body=%q",
-			m.Title.Kmr, m.Body.Kmr)
+	if m.Title.Ckb == m.Title.Kmr && m.Body.Ckb == m.Body.Kmr {
+		t.Error("Sorani and Badini are word-for-word identical — one was copied into the other")
 	}
 }
