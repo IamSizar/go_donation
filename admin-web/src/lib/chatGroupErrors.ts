@@ -18,7 +18,8 @@
  * group_invalid_input 400, connect_context_not_found 400, server_error 500 and
  * sensitive_data_required 403. Sending a message can also answer
  * chat_lifecycle_closed 409 (with the staff reason in `lifecycle_reason`) and
- * contact_details_blocked 422. A missing connect request answers 404
+ * contact_details_blocked 422. A signed-out or rejected session answers 401
+ * unauthorized (#26496), which reuses A15's `error.auth_required` wording. A missing connect request answers 404
  * connect_request_not_found (#26478); an older backend sends the same 404
  * with no code, which describeConnectRequestError still translates.
  *
@@ -58,6 +59,7 @@ export const CHAT_GROUP_ERROR_CODES = [
   'server_error',
   'chat_lifecycle_closed',
   'contact_details_blocked',
+  'unauthorized',
 ] as const
 
 /** One chat-group refusal code. */
@@ -85,6 +87,11 @@ export const CHAT_GROUP_ERROR_KEYS: Record<ChatGroupErrorCode, string> = {
   server_error: 'error.server',
   chat_lifecycle_closed: 'error.chat_lifecycle_closed',
   contact_details_blocked: 'error.contact_details_blocked',
+  // #26496 — the 401 the chat-group routes now code. It is the same situation
+  // A15's `error.auth_required` already words ("Your session has ended. Please
+  // sign in again."), in all four locales, so it is reused rather than
+  // duplicated under a second key.
+  unauthorized: 'error.auth_required',
 }
 
 /** The message for the uncoded 404 a missing connect request answers. */
