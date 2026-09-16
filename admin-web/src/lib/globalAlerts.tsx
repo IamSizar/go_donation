@@ -153,6 +153,9 @@ function writeBoolLS(key: string, v: boolean) {
   try { localStorage.setItem(key, v ? '1' : '0') } catch { /* storage disabled or full — the flag is a convenience, not state we must keep */ }
 }
 
+/** The signed-out feed. One shared instance, so it is referentially stable. */
+const NO_EVENTS: AlertEvent[] = []
+
 export function GlobalAlertsProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -172,7 +175,9 @@ export function GlobalAlertsProvider({ children }: { children: ReactNode }) {
   // Signed out means no feed and no connection, derived rather than reset by
   // the polling effect below: it stops polling, and these two say so without
   // it having to write state on the way out.
-  const events = user ? polledEvents : []
+  // NO_EVENTS rather than a fresh `[]`: this feeds the context's useMemo, and
+  // a new array every render would hand every consumer a new context value.
+  const events = user ? polledEvents : NO_EVENTS
   const status = user ? pollStatus : 'connecting'
   const [error, setError] = useState<string | null>(null)
 
