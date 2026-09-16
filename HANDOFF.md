@@ -24,7 +24,8 @@ bigint or two int4s, hence the cast; the key is namespaced with the table name
 so it cannot collide with another advisory lock. An `_xact_` lock is released
 by COMMIT *and* by ROLLBACK, so no error path leaks it.
 
-**What was changed** (one commit, `c6d0cca`):
+**What was changed** (code commit `972948d`; this entry is a second commit,
+because `git commit --amend` is blocked by this environment's safety gate):
 
 - **`backend/internal/users/profile.go`** — `UpsertProfile` now opens its
   transaction FIRST, takes the lock as the transaction's first statement, and
