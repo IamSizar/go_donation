@@ -6,6 +6,152 @@
 
 ---
 
+## 2026-09-16 — OPOS #26437, part 2: `react-hooks/set-state-in-effect` (branch `chore/admin-web-lint-set-state`, NOT pushed) — **`npm run lint` now exits 0**
+
+**What was asked:** finish #26437. PR #131 left `npm run lint` at
+`119 problems (58 errors, 61 warnings)`, every one of the 58 errors being
+`react-hooks/set-state-in-effect`. Clear them without changing behaviour, in
+small commits, no blanket disables, `eslint.config.js` off-limits.
+
+**Result: 58 errors → 0. `npm run lint` exits 0.** Warnings went 61 → 62, all
+`react-hooks/exhaustive-deps`, which do not affect the exit code.
+
+**Branch** cut from `origin/main` `e95bfc8`. `origin/main` did not move during
+the work (re-fetched at the end), so nothing was merged back in. Nine commits,
+oldest first:
+
+| SHA | What |
+|---|---|
+| `4cde8ce` | `refactor(admin-web): derive three effect-reset states during render` |
+| `bdbc8cd` | `refactor(admin-web): derive the super-admin loading gates instead of setting them` |
+| `ac1f6c0` | `refactor(admin-web): derive \`loading\` from the request that last finished` |
+| `59f5396` | `refactor(admin-web): reload the simple list pages by tick, not by calling load()` |
+| `f82661e` | `refactor(admin-web): key the filtered list pages on their request too` |
+| `377bff3` | `refactor(admin-web): derive \`loading\` on the six remaining filtered tables` |
+| `5bfa24d` | `refactor(admin-web): clear the last set-state-in-effect errors under src/pages` |
+| `4910bbd` | `refactor(admin-web): clear the last set-state-in-effect errors in components and lib` |
+| `f1a2121` | `fix(admin-web): keep the signed-out alerts feed referentially stable` |
+
+### The one idea that cleared most of them
+
+Nearly every error was `setLoading(true)` (often with `setErr(null)`) at the
+top of a fetch effect. Both are now **derived during render** instead of
+stored: the render builds a `requestKey` out of exactly the effect's
+dependencies, the effect's `.finally` records which key came back, and
+
+```ts
+const loading = loadedKey !== requestKey
+```
+
+says the same thing without a render pass. Where the reload path was a
+`load()` the handlers called directly, the page now keeps a **tick**: `reload()`
+bumps it, which re-runs the same effect. `loading` is `loadedTick !== tick`.
+
+Error text follows the same logic. `setErr(null)` moved from the top of the
+effect into the success callback, and the error box renders as
+`{!loading && err && …}` — so a stale message still disappears the moment a
+newer request starts, which is all the up-front clear ever did. **What the
+operator sees is unchanged.**
+
+Three sites were prop-to-state mirrors and now adjust during render
+(`StatusCell`, `VolunteersPage`'s profession dialog, `CropDialog`'s per-file
+reset). `AppShell` closes the mobile drawer by remembering which route it was
+opened on. `ConfirmDialog` resets its per-open state during render, which also
+fixes a real glitch: a reopened dialog used to flash the previous attempt's
+error for one frame.
+
+### The 16 inline disables, and why they are not a cop-out
+
+**The rule has a false positive this codebase hits 15 times.** It steps into a
+`useCallback` called from an effect, but does **not** model `await`. So
+
+```ts
+const load = useCallback(async () => {
+  const res = await api.get(...)   // ← the setState below is NOT synchronous
+  setThings(res.data)
+}, [])
+useEffect(() => { void load() }, [load])
+```
+
+is reported, even though no cascading render is possible. Proven with a
+three-case probe file: a `.then(cb)` callback is fine, a locally-declared
+async function inside the effect is not followed at all, and an awaited
+`useCallback` **is** flagged. Each of those 15 carries the reason beside it:
+`ContentPage`, `PermissionsPage` (`loadAudit`), `VolunteerBoardPage`,
+`VolunteersPage`, `TrashPage`, `StaffActivityPage`, `ContactBlocksPanel`,
+`PendingCountsProvider`, `useUnreadNotifications`, and the three chat pages
+(`loadThreads` + `loadMessages` each).
+
+**One is a genuine synchronous write, kept deliberately:**
+`CropDialog.tsx:87`'s `setSrc(null)`. Creating and revoking an object URL is a
+call into the browser, so it belongs in an effect; deriving `src` during render
+would allocate a browser resource from a render pass React is free to discard.
+
+### Two things that are not pure refactors
+
+- **`PendingCounts`' context lost its `loading` field.** No consumer ever read
+  it (`AppShell`, `VolunteersPage`, `VolunteerBoardPage`, `RegistrationsPage`
+  take `counts` and `refresh` only), and keeping it meant the provider writing
+  state synchronously on every mount. Removed rather than faked.
+- **`f1a2121`** fixes something the commit before it introduced: deriving
+  `events` as `user ? polledEvents : []` fed a fresh array into the alerts
+  provider's context `useMemo`, which would have given every consumer a new
+  context value on every render. Now one shared `NO_EVENTS` constant. Watch for
+  this whenever you derive an array or object that feeds a memo.
+
+### Verification on the final tree
+
+Each command's last meaningful line, run from `admin-web/`:
+
+| Command | Exit | Final line |
+|---|---|---|
+| `npm run lint` | **0** | `✖ 62 problems (0 errors, 62 warnings)` |
+| `npm test` | 0 | `Tests  197 passed (197)` / `Test Files  22 passed (22)` |
+| `npx tsc -b` | 0 | (no output) |
+| `npm run build` | 0 | `✓ built in 329ms` |
+| `npm run test:mock-api` | 0 | `ℹ pass 37` / `ℹ fail 0` |
+| `npm run test:nav` | 0 | `ℹ pass 15` / `ℹ fail 0` |
+| `npm run check:labels` | 0 | `check-labels: every controlled value and permission module has a label.` |
+| `npm run check:css-tokens` | 0 | `check-css-tokens: 62 tokens read, all defined.` |
+
+Every commit was checked with `tsc -b` + `npm test` + `npm run build` before it
+was made. No test was touched — 197 passed before, 197 after.
+
+Two things were re-checked by hand across the 53 changed files, because they
+are what a careless version of this change would break:
+
+- **No page lost its loading state.** Every file that renders `loading` still
+  defines it; `tsc` would have failed otherwise, since a leftover
+  `setLoading(...)` anywhere would reference a name that no longer exists.
+- **Polling still stops on unmount.** Every `setInterval` in the tree still has
+  its `clearInterval` in the effect's cleanup, and `VolunteerBoardPage` and
+  `PendingCountsProvider` still abort their in-flight request too.
+
+### What is still open
+
+1. **`react-hooks/exhaustive-deps` — 62 warnings, untouched.** They do not
+   affect the exit code and want a pass with judgement per site.
+2. **`scripts/**/*.mjs` is still not linted.** `eslint.config.js` only matches
+   `**/*.{ts,tsx}` and a hook blocks editing it. Out of scope for #26437.
+3. **Nothing was pushed.** The branch exists locally only.
+4. **OPOS was unavailable in this session**, so #26437 was not moved and no
+   timer ran.
+
+### Traps for the next agent
+
+- Run npm with Node 22: `/opt/homebrew/opt/node@22/bin/npm`.
+- **Do not "fix" `set-state-in-effect` by moving the call into a locally-declared
+  async function inside the effect.** The rule does not follow into one, but the
+  body still runs synchronously up to the first `await` — it silences the rule
+  and changes nothing. That is why this branch derives instead.
+- A derived value that feeds a `useMemo`/context must be referentially stable.
+  See `f1a2121`.
+- `requestKey` must contain **every** dependency of its effect, and must itself
+  be in the dependency array, or the `.finally` closure records a stale key and
+  the page can hang on "loading".
+
+---
+
 ## 2026-09-16 — OPOS #26437: `npm run lint` in `admin-web/` (branch `chore/admin-web-lint-clean`, NOT pushed, NOT finished)
 
 **What was asked:** `npm run lint` fails on a clean `main`, so lint cannot gate
