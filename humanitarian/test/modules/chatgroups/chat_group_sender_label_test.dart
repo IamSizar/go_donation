@@ -118,19 +118,33 @@ void main() {
   });
 
   // Both Kurdish locales ride on `ar` with a region (AppLocaleService:
-  // kurdishSorani = ar_IQ, kurdishBadini = ar_TR) and have no Kurdish for these
-  // keys yet. AppTranslations merges English underneath each Kurdish map, so
-  // the reader must get the English alias — never the Arabic one that GetX's
+  // kurdishSorani = ar_IQ, kurdishBadini = ar_TR). AppTranslations merges
+  // English underneath each Kurdish map, so a key with no Kurdish value must
+  // give the reader the ENGLISH alias — never the Arabic one that GetX's
   // language-code bucket (`ar`) would otherwise hand them.
-  for (final kurdish in const [Locale('ar', 'IQ'), Locale('ar', 'TR')]) {
-    group('Kurdish ($kurdish) falls back to English, not Arabic', () {
+  //
+  // The role nouns carry machine-drafted Kurdish since 2026-09-16. "Support"
+  // and the bare/numbered "Member" deliberately do NOT: OPOS #26468 flagged
+  // those three terms and they are waiting on a native translator, so they are
+  // still expected to fall back to English here. If someone translates them,
+  // these rows fail on purpose.
+  const kurdishRoleNouns = [
+    (Locale('ar', 'IQ'), ['بەخشەر 1', 'وەرگری شایستە 12']),
+    (Locale('ar', 'TR'), ['بەخشەر 1', 'وەرگرێ شایستە 12']),
+  ];
+  for (final (kurdish, expected) in kurdishRoleNouns) {
+    group('Kurdish ($kurdish)', () {
       setUp(() => Get.updateLocale(kurdish));
 
-      test('generated labels read in English', () {
+      test('the flagged terms still fall back to English, not Arabic', () {
         expect(localizedSenderLabel('Support'), 'Support');
         expect(localizedSenderLabel('Member'), 'Member');
-        expect(localizedSenderLabel('Donor 1'), 'Donor 1');
-        expect(localizedSenderLabel('Beneficiary 12'), 'Beneficiary 12');
+        expect(localizedSenderLabel('Member 2'), 'Member 2');
+      });
+
+      test('the role nouns read in Kurdish, with the number kept', () {
+        expect(localizedSenderLabel('Donor 1'), expected[0]);
+        expect(localizedSenderLabel('Beneficiary 12'), expected[1]);
       });
     });
   }
