@@ -12,6 +12,12 @@
 // Donor direct chats cannot be requested again (RequestThread answers
 // ErrDirectChatRetired), so for this store a declined invite is final.
 //
+// The fixtures are KindSupport threads. AcceptThread now refuses a KindDirect
+// one outright with ErrDirectChatRetired (OPOS #25284, pinned by
+// handlers/chat_direct_kind_gate_test.go), so a direct fixture would prove
+// nothing about the declined/pending/active contract these tests are for —
+// every case would come back as the retirement refusal.
+//
 // The fixtures (seedDeclineThread, storedStatus) live in
 // chat_decline_pending_test.go.
 //
@@ -34,7 +40,7 @@ import (
 func TestAcceptThreadRefusesDeclinedInvite(t *testing.T) {
 	pool := newTestPool(t)
 	s := New(pool)
-	threadID, recipient := seedDeclineThread(t, pool, "declined")
+	threadID, recipient := seedDeclineThreadOfKind(t, pool, KindSupport, "declined")
 
 	_, initiator, err := s.AcceptThread(context.Background(), threadID, recipient)
 	if !errors.Is(err, ErrInviteDeclined) {
@@ -52,7 +58,7 @@ func TestAcceptThreadRefusesDeclinedInvite(t *testing.T) {
 func TestAcceptThreadAcceptsPendingInvite(t *testing.T) {
 	pool := newTestPool(t)
 	s := New(pool)
-	threadID, recipient := seedDeclineThread(t, pool, "pending")
+	threadID, recipient := seedDeclineThreadOfKind(t, pool, KindSupport, "pending")
 
 	th, initiator, err := s.AcceptThread(context.Background(), threadID, recipient)
 	if err != nil || th.Status != "active" {
@@ -71,7 +77,7 @@ func TestAcceptThreadAcceptsPendingInvite(t *testing.T) {
 func TestAcceptThreadIsIdempotentOnActiveThread(t *testing.T) {
 	pool := newTestPool(t)
 	s := New(pool)
-	threadID, recipient := seedDeclineThread(t, pool, "active")
+	threadID, recipient := seedDeclineThreadOfKind(t, pool, KindSupport, "active")
 
 	th, initiator, err := s.AcceptThread(context.Background(), threadID, recipient)
 	if err != nil || th.Status != "active" {

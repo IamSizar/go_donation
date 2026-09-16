@@ -6,6 +6,111 @@
 
 ---
 
+## 2026-09-16 — the chat SEND and ACCEPT paths finally check `kind`
+
+**Asked for:** OPOS #25284's policy (a donor, beneficiary or volunteer never
+messages another one directly) was enforced at CREATION only. A conformance
+audit found the send path never looked at the thread's `kind` — the hole
+`chatlifecycle/retire.go:10-13` names in its own header: "Left paused, staff
+could resume one into a working direct chat: sending checks lifecycle, never
+kind." Plus two stale strings on the app's Messages screen.
+
+**Branch:** `fix/direct-chat-kind-gate`, cut from `origin/main` (`fcc5b10`).
+One commit, NOT pushed, no PR.
+
+### What was actually changed
+- `backend/internal/chat/chat.go` — `Thread.Kind` is now loaded (every
+  SELECT/RETURNING on `chat_threads` carries `kind`), plus exported
+  `KindDirect`/`KindSupport`. `AcceptThread` and `PostMessage` refuse a
+  `kind='direct'` thread with the EXISTING `ErrDirectChatRetired` sentinel.
+- `backend/internal/handlers/chat.go` — `chatErr` maps that sentinel to
+  **410 Gone, `{"success": false, "error": "Direct messaging has been retired.
+  Ask staff to connect you instead."}`** — the exact shape (status, body, no
+  `code` field) `POST /api/chats/request` has answered with since Phase 4. The
+  Request handler's inline copy of that response was deleted in favour of the
+  shared mapping, and both send handlers now route store errors through
+  `chatErr` instead of a flat 500.
+- `backend/internal/handlers/chat_direct_kind_gate_test.go` — NEW, 5 tests.
+
+**Why the STORE and not the handler:** the bug was a path that forgot to check.
+Creation's refusal already lives in the store (`RequestThread`), and the store
+covers both send callers (participant route and admin reply route) plus any
+future one. The handler only maps the sentinel.
+
+### Decisions worth knowing
+- **Reading is untouched.** `GET /api/chats/:id/messages` still serves a direct
+  thread's history — the policy retires new messages, not the record.
+- **Staff are refused too**, exactly as a lifecycle pause refuses them: a staff
+  reply into a retired direct thread would deliver a message its participants
+  cannot answer. Say so if the client disagrees; it is a one-line revert of the
+  `AdminPostMessage` path.
+- **Team-group membership rules were NOT touched** (a separate decision is
+  pending).
+- Ordering note: K19's contact-details block still runs BEFORE the store, so a
+  direct thread sent a phone number answers 422, not 410. Nothing is stored
+  either way.
+
+### Test-fixture fallout (read this before you think a test is wrong)
+`kind='direct'` used to be the default fixture everywhere, so several suites
+were posting into or accepting one. Every fixture whose SUBJECT is not
+direct-ness now seeds `kind='support'` — the only kind on `chat_threads` that
+can still be posted into — and says why in a comment:
+`makeContactThread` (K19), `seedPendingSupportInvite` (invite accept controls
+and the declined-invite donor case), `seedSupportChat` (moved into
+`chat_lifecycle_fixtures_test.go` and used by `allFixtures`, the resume test,
+the end-keeps-history test and the delete/restore test),
+`seedDeclineThreadOfKind` (store-level accept tests).
+Left DIRECT on purpose: `seedDonorChat`, the archive/staff-list case (the staff
+list only shows `kind='direct'`), and
+`TestTrashRestore_OpenDirectChatComesBackClosed` — that one now seeds its two
+messages and its `chat_reads` row with SQL, because the route it used before
+is the route this fix closed.
+**A consequence for a human:** K19's peer-thread filter on `chat_threads` is
+now unreachable in production (the only peer thread it covered is the retired
+direct one). Its tests still pass on support-kind rows, and the group chat has
+its own filter. Whether the `chat_threads` half should be deleted is a call for
+the client, not a drive-by.
+
+### App (V3)
+- `humanitarian/lib/modules/chat/screens/messages_screen.dart` — the empty
+  state said "Start a chat from a donation (donor) or from your campaign
+  donations (owner)", a flow that no longer exists. It is now two localised
+  keys pointing at "Ask our team to connect me" and the supervised group. The
+  second stale string was the comment above the standing tiles, which still
+  listed "case chats" (retired); it now names the support ticket form, which is
+  what the third tile actually is.
+- `app_translations.dart` — `chat_empty_title` / `chat_empty_message`, **en +
+  ar only** (ckb/kmr fall back, #21431). `TRANSLATION_REQUEST.md` has a new
+  section and its count was recounted 621 → **623**.
+
+### What was run, and what it printed
+- RED first, on `godonation_direct_kind`: `SendRefusedOnOpenDirectThread`
+  "status = 200, want 410 Gone"; `AcceptRefusedOnDirectThread` "status = 200,
+  want 410 Gone". The three control tests (read history, support posts,
+  marriage posts) passed before the fix, as they must.
+- GREEN, fresh DB `godonation_final`: `go test ./internal/chat/
+  ./internal/handlers/ -count=1 -p 1 -timeout 45m` → `ok ...internal/chat
+  1.092s`, `ok ...internal/handlers 18.989s`.
+- `-run 'DirectKindGate' -v` on fresh `godonation_runcheck`: 5 PASS, 0 SKIP.
+- Whole backend on fresh `godonation_all`: `go test ./... -count=1 -p 1` — no
+  FAIL lines.
+- `gofmt -l .` reports only `internal/handlers/admin_edit_user_profile.go`,
+  which is PRE-EXISTING on main and untouched here (gofmt rewrites two `''`
+  quote pairs inside its comments). Every file this branch touches is clean.
+  `go build ./...` and `go vet ./...` clean.
+- App: `flutter analyze` → 6 issues (the baseline, all pre-existing
+  deprecations); `flutter test` → 1088 passed.
+- All throwaway databases dropped afterwards; `psql -lqt` confirmed.
+
+### Still open
+- Nothing is pushed. One commit sits on `fix/direct-chat-kind-gate` in the
+  worktree; no PR was opened.
+- The K19 dead-filter question above.
+- Nothing was clicked through in a running app (same OTP-gated limitation as
+  every backend fix here); the app change is covered by analyze + tests only.
+
+---
+
 ## 2026-09-12 — pending profile-change requests now visible on the Users list
 
 **Asked for:** OPOS #25287 — "profile edits sometimes don't sync to
