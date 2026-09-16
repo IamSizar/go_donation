@@ -307,23 +307,30 @@ func SupportSubmittedMsg(subject string, ticketID int64) LocalizedMessage {
 // a place to dump it — the user is told an answer arrived and taps through to
 // read it in the ticket, where it renders in full.
 //
-// Ckb/Kmr are intentionally EMPTY. Both Kurdish locales use Arabic script, so
-// pasting the Arabic here would look plausible and be wrong; the project's
-// standing decision (TRANSLATION_REQUEST.md) is that a visible English
-// fallback beats invented Kurdish. Empty slots are stored NULL and every
-// client falls back to En. Listed for a translator in TRANSLATION_REQUEST.md.
+// Ckb/Kmr were left EMPTY until 2026-09-16, when the owner asked for a
+// best-effort draft (TRANSLATION_REQUEST.md). They are now filled to the same
+// standard as the rest of this file — UNREVIEWED machine drafts that a native
+// speaker must check. Both Kurdish locales use Arabic script, so a wrong value
+// cannot be spotted by eye; do not paste the Arabic here.
+//
+// The %s is the ticket subject. It is the only thing telling a user with
+// several open tickets which one was answered, so it must survive in place.
 func SupportRepliedMsg(subject string, ticketID int64) LocalizedMessage {
 	return LocalizedMessage{
 		Type:              "support_ticket_replied",
 		RelatedEntityType: "support_tickets",
 		RelatedEntityID:   ticketID,
 		Title: LocalText{
-			En: "Support replied",
-			Ar: "رد فريق الدعم",
+			En:  "Support replied",
+			Ar:  "رد فريق الدعم",
+			Ckb: "پشتیوانی وەڵامی دایەوە",
+			Kmr: "پشتەڤانیێ بەرسڤ دا",
 		},
 		Body: LocalText{
-			En: fmt.Sprintf("The support team answered your request \"%s\". Open it to read the reply.", subject),
-			Ar: fmt.Sprintf("أجاب فريق الدعم على طلبك \"%s\". افتحه لقراءة الرد.", subject),
+			En:  fmt.Sprintf("The support team answered your request \"%s\". Open it to read the reply.", subject),
+			Ar:  fmt.Sprintf("أجاب فريق الدعم على طلبك \"%s\". افتحه لقراءة الرد.", subject),
+			Ckb: fmt.Sprintf("تیمی پشتیوانی وەڵامی داواکارییەکەت «%s» ی دایەوە. بیکەرەوە بۆ خوێندنەوەی وەڵامەکە.", subject),
+			Kmr: fmt.Sprintf("تیمێ پشتەڤانیێ بەرسڤا داخوازا تە «%s» دا. وێ ڤەکە دا بەرسڤێ بخوینی.", subject),
 		},
 	}
 }
