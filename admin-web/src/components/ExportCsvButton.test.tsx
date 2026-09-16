@@ -360,6 +360,8 @@ describe('ExportCsvButton format menu from the keyboard', () => {
 
     await waitFor(() => expect(askForText).toHaveBeenCalledTimes(1))
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    // Focus is never dropped on <body> when the menu closes.
+    expect(trigger).toHaveFocus()
   })
 
   it('closes on Escape and returns focus to the trigger', async () => {

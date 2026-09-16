@@ -226,7 +226,11 @@ export default function ExportCsvButton<T>({
   }
 
   async function run(format: Format) {
+    // Focus goes back to the trigger before the menu item is unmounted, so a
+    // keyboard operator is not dropped on <body>. The PIN dialog takes focus
+    // from there.
     setOpen(false)
+    triggerRef.current?.focus()
     if (busy || !multi) return
     setBusy(true)
     try {
