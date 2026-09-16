@@ -318,6 +318,21 @@ const en = {
     need_en: 'English name is required.',
     active: 'Active (shown in the app)',
   },
+  districts: {
+    title: 'Districts & neighborhoods',
+    subtitle: 'Manage the Nineveh district and neighborhood lists shown on the registration form. Add a missing place without a code deploy.',
+    manage_button: 'Manage districts',
+    group_district: 'Nineveh districts',
+    group_neighborhood_left: 'Mosul neighborhoods — left bank',
+    group_neighborhood_right: 'Mosul neighborhoods — right bank',
+    add_new: 'Add district',
+    saved: 'District saved.',
+    added: 'District added.',
+    deleted: 'District deleted.',
+    confirm_delete: 'Delete this district?',
+    need_en: 'English name is required.',
+    active: 'Active (shown in the app)',
+  },
   marketplaceCategories: {
     title: 'Product categories',
     subtitle: 'Manage the marketplace product categories. Shown as filter chips in the app, in all languages.',
@@ -911,6 +926,8 @@ const en = {
     lang_ar: 'AR', lang_sorani: 'Sorani', lang_badini: 'Badini', lang_en: 'EN',
     actor_admin: 'Admin', actor_system: 'System', actor_mobile_app: 'Mobile app', actor_cron: 'Scheduled',
     meta_for: 'Metadata for \u2066#T{id}\u2069',
+    audit_show_metadata: 'Show details',
+    audit_hide_metadata: 'Hide details',
     city_add_place: '+ Add place',
     city_empty: "No places yet. Click '+ Add place' to create the first one.",
     set_password: 'Password',
@@ -1371,8 +1388,16 @@ const en = {
     logout_title: 'Sign out of the admin dashboard',
     logout_message: "You'll be signed out of the admin dashboard.",
     language: 'Language',
-    pending_aria: '{label} — {count} pending',
-    pending_count: '{count} pending',
+    // OPOS #25285 — staff read a bare "{count} pending" and could not tell
+    // what it counted or why it did not clear after they had looked at
+    // everything. It counts rows waiting on a staff ACTION (a status change),
+    // not "unread" rows, and stays until that action happens — the "Needs
+    // action" tag (badge.needs_action) on the list page marks exactly which
+    // rows. Spelling that out here, since a sidebar badge's hover tooltip is
+    // the one place every one of these numbers is seen before the confusion
+    // starts.
+    pending_aria: "{label} — {count} waiting on staff action, marked 'Needs action' in the list",
+    pending_count: "{count} waiting on staff action — see the 'Needs action' tag in the list",
     unread_aria: '{label} — {count} unread',
     unread_count: '{count} unread',
     admin_word: 'admin',

@@ -11,9 +11,10 @@ import { useLivePoll } from '../lib/useLivePoll'
 import { formatPhone } from '../lib/phone'
 import { type CsvColumn } from '../lib/csv'
 import PageHead from '../components/PageHead'
-import { formatDateTime } from '../lib/dates'
+import { formatDateParts } from '../lib/dates'
 import ActionsMenu from '../components/ActionsMenu'
 import { NeedsActionTag } from '../components/IdWithNeedsAction'
+import DistrictsManager from '../components/DistrictsManager'
 
 const PER_PAGE = 20
 const STATUSES = ['pending', 'rejected', 'all'] as const
@@ -59,6 +60,10 @@ export default function RegistrationsPage() {
   const [busyId, setBusyId] = useState<number | null>(null)
   const [rejecting, setRejecting] = useState<AdminRegistration | null>(null)
   const [reason, setReason] = useState('')
+  // OPOS #25271 — the registration form's Nineveh district/neighborhood
+  // pickers, admin-editable from here since districts are a registration
+  // concept and this is where staff already review submitted registrations.
+  const [districtsOpen, setDistrictsOpen] = useState(false)
   const toast = useToast()
   const { t } = useI18n()
   const pending = usePendingCounts()
@@ -183,9 +188,17 @@ export default function RegistrationsPage() {
     {
       key: 'submitted',
       header: t('registrations.col_submitted'),
-      cell: (r) => (
-        <span className="muted">{formatDateTime(r.submitted_at) ?? '—'}</span>
-      ),
+      // OPOS #25297 — stacked date over time, matching UsersPage/
+      // DonationsPage/VolunteersPage's convention for this column.
+      cell: (r) => {
+        const { date, time } = formatDateParts(r.submitted_at)
+        return (
+          <div className="cell-stack">
+            <span className="muted">{date || '—'}</span>
+            {time && <span className="muted" style={{ fontSize: '0.85em' }}>{time}</span>}
+          </div>
+        )
+      },
     },
     {
       key: 'status',
@@ -280,6 +293,9 @@ export default function RegistrationsPage() {
               </option>
             ))}
           </select>
+          <button className="secondary" onClick={() => setDistrictsOpen(true)}>
+            {t('districts.manage_button')}
+          </button>
           <ExportCsvButton
             rows={resp?.items ?? []}
             columns={REGISTRATION_CSV_COLUMNS}
@@ -289,6 +305,7 @@ export default function RegistrationsPage() {
           />
         </div>
       </PageHead>
+      <DistrictsManager open={districtsOpen} onClose={() => setDistrictsOpen(false)} />
 
       {/* Hidden while a newer request is in flight, which is what clearing
           the error at the top of the fetch effect used to achieve. */}

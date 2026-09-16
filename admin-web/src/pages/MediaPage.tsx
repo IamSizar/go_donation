@@ -36,7 +36,7 @@ type Resp = { success: true; items: MediaPost[] }
 
 const STATUSES = ['all', 'draft', 'published', 'hidden']
 const EDITABLE_STATUSES = STATUSES.filter((s) => s !== 'all')
-const POST_TYPES = ['', 'news', 'activity', 'event', 'article', 'video', 'marriage']
+const POST_TYPES = ['', 'news', 'activity', 'event', 'article', 'video', 'marriage', 'community']
 const EDITABLE_POST_TYPES = POST_TYPES.filter((t) => t !== '')
 
 type MediaCategory = { slug: string; name_en: string; name_ar: string; name_ckb: string; name_kmr: string }
@@ -63,7 +63,13 @@ const MEDIA_BASE_FIELDS: FieldSpec[] = [
   { key: 'title_badini',  label: 'Title (Badini)', labelKey: 'field.title_badini',     type: 'text',     dir: 'rtl' },
   { key: 'post_type',     label: 'Type', labelKey: 'field.type',               type: 'select',   options: EDITABLE_POST_TYPES },
   { key: 'status',        label: 'Status', labelKey: 'field.status',             type: 'select',   options: EDITABLE_STATUSES },
-  { key: 'media_url',     label: 'Media', labelKey: 'field.media',              type: 'file', full: true },
+  // OPOS #25291 — this field also backs post_type 'video', but with no
+  // `accept` override FileInput defaulted to images only: the file picker
+  // wouldn't even show a .mp4/.mov/.webm to pick, so a video post could
+  // only ever get a video by pasting an already-hosted external URL by
+  // hand. The upload endpoint now accepts those extensions too (see
+  // backend/internal/handlers/admin_upload.go).
+  { key: 'media_url',     label: 'Media', labelKey: 'field.media',              type: 'file', full: true, accept: 'image/*,video/*' },
   { key: 'gallery',       label: 'Gallery', labelKey: 'field.gallery',            type: 'gallery', full: true },
   { key: 'link_url',      label: 'Link URL', labelKey: 'field.link_url',           type: 'text' },
   { key: 'event_date',    label: 'Event date', labelKey: 'field.event_date',         type: 'text',     placeholder: 'YYYY-MM-DD' },
