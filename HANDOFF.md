@@ -89,6 +89,336 @@ plan itself has not been executed against Railway.**
 
 ---
 
+## 2026-09-16 — chat policy conformance audit (OPOS #25284, read-only)
+
+**Asked for:** prove or disprove each of the client's 8 chat rules against the
+code as it stands, server-first. Read-only pass; change nothing unless a real
+violation is found.
+
+**Branch:** worktree off `origin/main` @ `fcc5b10`. One commit, docs only. **Not
+pushed.** OPOS was unavailable in this session, so no task was logged.
+
+**What was changed:** `docs/chat-policy-conformance-2026-09.md` (new) and this
+entry. No code touched — the two findings are reported, not fixed, per the
+brief.
+
+**What was run:** nothing executable. This was a read of
+`backend/internal/{chat,chatgroups,marriagechat,staffchat,casevolchat,chatlifecycle}`,
+the route table in `backend/cmd/server/main.go:735-1093`, `humanitarian/lib/`
+and `admin-web/src/`. Evidence in the doc is file:line throughout.
+
+### Verdicts
+Rules 2, 4, 5, 6, 7, 8 hold. Rules 1 and 3 are **partial**, for one shared
+reason, plus a second independent gap.
+
+- **V1 — the important one.** Donor↔owner chat origination is dead
+  (`backend/internal/chat/chat.go:104-107` always returns
+  `ErrDirectChatRetired`), but *pre-existing* `chat_threads` rows are still
+  postable: `backend/internal/handlers/chat.go:387-411` checks party, `status`
+  and lifecycle, never the thread's kind. `chatlifecycle/retire.go:10-13` says
+  so in as many words. Closing those rows is a **manual script**
+  (`backend/cmd/retire-direct-chats`), not a migration — I checked
+  `backend/migrations/` and nothing there ends them. So rules 1 and 3 hold
+  only on an environment where someone ran it, and a staff pause→resume puts a
+  direct chat back into service afterwards. Suggested fix in the doc: a kind
+  predicate on the send and accept paths in `handlers/chat.go`.
+- **V2.** `kind='team'` groups accept any `role_in_group` — it is a free-form
+  string (`handlers/chat_group_admin.go:122`) and `CreateGroup` validates only
+  the kind (`chatgroups/chatgroups.go:153-156`). A staff member can therefore
+  build a **real-name** room containing a donor and a beneficiary
+  (`chatgroups_reads.go:112-113` serves `full_name` in non-masked groups); the
+  dashboard offers all four roles regardless of kind
+  (`admin-web/src/lib/chatGroupForm.ts:40`). The repo's own test builds this
+  shape at `chatgroups_admin_kind_test.go:24-32`. **Ambiguous** — rule 5 says
+  staff choose the members, so whether this is a bug depends on client intent.
+  Ask before changing.
+- V3, cosmetic: two stale app strings pointing at the retired flow
+  (`humanitarian/lib/modules/chat/screens/messages_screen.dart:135, 217-218`).
+
+### Things worth not re-deriving
+- `casevolchat` is genuinely dead: 64 lines, one method
+  (`MessageCountForSignup`), zero routes in `main.go`, and only four orphan
+  translation strings left in the app. It is kept solely for the admin delete
+  guard. Don't go hunting for its routes again.
+- Masking in both masked groups and marriage chat is **structural**, not a
+  filter: the mobile response types (`chatgroups.GroupMessage`,
+  `marriagechat.ThreadView`/`Message`) have no field able to hold a user id,
+  name or phone. Real identities live on separately named `Admin*` types.
+- Rule 8's **export** is not a server route — it is client-side CSV/Excel/PDF
+  in `admin-web/src/lib/chatExport.ts`, behind a PIN step-up. I initially
+  concluded export was missing because `grep -i export` over the backend finds
+  only `/admin/export/all`. It isn't missing. Check the dashboard first.
+- The app has **no named routes and no deep links** (`Get.to(() => Widget())`
+  everywhere) and push taps do not route anywhere
+  (`humanitarian/lib/main.dart:114-118` only `debugPrint`s). That closes a
+  whole class of "could a link reach a chat" questions.
+
+### Still open
+- Unpushed commit on this worktree branch; no PR.
+- Nobody has confirmed whether `cmd/retire-direct-chats` has run on production
+  or staging. Rules 1 and 3 hinge on it. `docs/runbooks/retire-direct-chats.md`
+  has the post-check queries.
+- V1 and V2 are reported, not fixed.
+
+---
+
+## 2026-09-16 — a team group is for volunteers and staff only
+
+**Asked for:** Zaid's decision of 2026-09-16 — a `kind='team'` chat group is
+for volunteers and staff only. Donors and beneficiaries must go in a masked
+group, where members see labels instead of names.
+
+**Branch:** `fix/team-groups-staff-and-volunteers-only`, cut from
+`origin/main` at `fcc5b10`. One commit, NOT pushed. No OPOS task (OPOS was
+unavailable in that session).
+
+### The facts that were established first, by reading the code
+
+1. **`role_in_group` is free text and gates nothing.** Migration 120 declares
+   it `VARCHAR(16) NOT NULL DEFAULT ''` with **no CHECK constraint** and the
+   comment "donor|beneficiary|volunteer|staff, **informational**". The backend
+   reads it only to number auto-labels ("Donor 1" — `autoLabelName` in
+   `chatgroups_members.go`) and to collapse staff senders to "Support"
+   (`chatgroups_reads.go:112`). `admin-web/src/lib/chatGroupForm.ts`'s
+   `CHAT_GROUP_ROLES` is the same four words. Staff type it; nothing validates
+   it.
+2. **The account is authoritative, not the group's word for it.**
+   `users.role_id` — 1 donor, 2 beneficiary, 3 volunteer
+   (`handlers/registration.go:194` accepts 1..3, then branches: 1 assigns the
+   grantor code, 2 the recipient details, 3 the volunteer code) — and
+   `users.staff_tier` for staff. The rule reads those two, never
+   `role_in_group`.
+3. **Staff are identified by `staff_tier`**, one of
+   `super_admin|admin|supervisor|employee` (`internal/notify/notify.go:302-317`
+   says so in as many words; `internal/auth/middleware.go` calls it "THE
+   authoritative field"; `users.is_admin` is legacy and is not read).
+   `staff_tier` therefore WINS over `role_id`: a coordinator whose `role_id` is
+   still 1 because they first registered as a donor is staff, and a team group
+   takes them. There is a test for exactly that.
+
+### What was actually changed
+
+Backend:
+- `internal/chatgroups/chatgroups.go` — new sentinel `ErrTeamMemberRole`.
+- `internal/chatgroups/chatgroups_members.go` — `teamMemberRefusedSQL` and
+  `refuseTeamMemberRole`, called from `insertMemberRow` (every new member, on
+  every path: CreateGroup, ApproveConnectRequest, AddMember) and from
+  `addMemberInTx`'s **reactivation** branch, so #26410's "bring a removed
+  member back" obeys the rule too.
+- `internal/handlers/chat_group.go` — the `chatErr` table gains
+  `{ErrTeamMemberRole, 400, "A team group can only include volunteers and
+  staff.", team_member_role_not_allowed}`, following #107/#118/#26496's
+  pattern.
+
+Dashboard:
+- `lib/chatGroupForm.ts` — `TEAM_GROUP_ROLES` and `rolesForKind(kind)`.
+- `components/chatGroups/MemberRowsEditor.tsx` and `AddMemberForm.tsx` — a
+  team group's role select offers only volunteer and staff, with one line
+  under it saying why (`aria-describedby` on the select in the create dialog).
+  The masked form is untouched.
+- `lib/chatGroupErrors.ts` — the new code, mapped to
+  `error.team_member_role_not_allowed`, in the 'members' area so the message
+  lands beside the rows.
+- `lib/locales/en.ts` and `ar.ts` — two new keys. **en and ar only**;
+  ckb/kmr fall back to English on purpose (#21431).
+- `TRANSLATION_REQUEST.md` — recounted, 621 + 2 = **623**.
+
+Test-helper fixes that came with the rule (they were not incidental):
+- `chatgroups_test.go`'s `makeTestUser` **ignored its `role` argument** and
+  inserted `role_id = 1` for every user, so every "volunteer" and "staff" in
+  that package was really a donor. It now maps the word it is already given
+  (donor 1, beneficiary 2, volunteer 3, staff 3 + `staff_tier='employee'`).
+  Six existing tests that built a TEAM group out of donors were changed to use
+  volunteers — the intent of each was never about donors.
+- `internal/handlers` got `makeChatGroupRoleUser` / `setChatGroupRole`
+  (`chat_group_team_roles_test.go`), because `makeChatGroupUser` also always
+  inserts `role_id = 1`. Four handler tests that built team groups were moved
+  onto it.
+
+### What was run, and what it printed
+
+RED first, on both layers:
+- `go test ./internal/chatgroups/ -run 'Team|MaskedGroupStill'` →
+  `CreateGroup with a donor = <nil>, want ErrTeamMemberRole` (and the same for
+  beneficiary, AddMember, and the reactivation case) — 4 tests failing for the
+  right reason before a line of the rule existed.
+- `npx vitest run src/components/chatGroups/MemberRowsEditor.test.tsx` →
+  the team select still listed `donor` and `beneficiary`; 1 failed, 7 passed.
+
+GREEN, on throwaway databases created and dropped for this work
+(`gd_team_cg_a9`, `gd_team_h_a9`, both dropped afterwards, absence confirmed
+with `psql -lqt`):
+- `go test ./internal/chatgroups/ -count=1 -p 1 -timeout 45m` →
+  `ok  github.com/karam-flutter/humanitarian-backend/internal/chatgroups  3.274s`
+- `go test ./internal/handlers/ -count=1 -p 1 -timeout 45m` →
+  `ok  github.com/karam-flutter/humanitarian-backend/internal/handlers  57.881s`
+- `-v -run 'TeamGroup|TeamMember|TeamRole|MaskedGroupStillTakes|TeamRoles'`
+  (chatgroups) → 11 PASS, 0 SKIP, 0 FAIL.
+- `-v -run 'TeamRole|MaskedGroupStillTakes'` (handlers) → 5 PASS, 0 SKIP.
+- `gofmt -l` clean on every file touched; `go build ./...` and `go vet ./...`
+  both exit 0.
+- admin-web (Node 22): `npm test` 199 passed / 22 files; `npx tsc -b`,
+  `npm run build`, `npm run test:mock-api`, `npm run test:nav`,
+  `npm run check:labels`, `npm run check:css-tokens`, `npm run lint` — all
+  **exit 0** (lint prints 62 pre-existing warnings, 0 errors).
+
+### For Zaid to run against PRODUCTION — read-only, nothing was changed
+
+How many existing team groups already hold a donor or a beneficiary. Deliberately
+NOT fixed here: repairing live rows is a membership decision, not a code change.
+
+```sql
+SELECT COUNT(DISTINCT t.id) AS team_groups_with_a_donor_or_beneficiary,
+       COUNT(*)             AS offending_member_rows
+  FROM chat_group_threads t
+  JOIN chat_group_members m ON m.group_id = t.id
+  JOIN users u             ON u.id = m.user_id
+ WHERE t.kind = 'team'
+   AND m.removed_at IS NULL
+   AND u.role_id IN (1, 2)
+   AND u.staff_tier NOT IN ('super_admin', 'admin', 'supervisor', 'employee');
+```
+
+Add `SELECT t.id, m.user_id` in place of the counts to list them. The query
+ran clean against a migrated test database (0, 0); it has not been run against
+production from here.
+
+### Still open / needs a human
+
+- The commit is **not pushed** and no PR exists.
+- **Existing team groups are left exactly as they are.** The rule is about who
+  can be ADDED; nobody already in a team group is removed, and what such a
+  group serves its members is unchanged. If the production count above is
+  non-zero, someone has to decide whether those people are removed, moved to a
+  masked group, or left alone.
+- ckb/kmr for the two new keys, as always.
+- The dashboard change was verified by tests and `tsc`, not clicked through
+  live (OTP-gated admin login, the same limitation every session here hits).
+
+### Traps
+
+- **`makeTestUser`'s role argument was a lie** (see above) and
+  `makeChatGroupUser` still hardcodes `role_id = 1`. Any future rule that reads
+  `users.role_id` will trip over the handlers helper the same way. Use
+  `makeChatGroupRoleUser`.
+- **A test database here is reused across runs and hands out the SAME user ids
+  each time**, because `raiseUserIDFloor` resets the id sequence to a fixed
+  floor per process. An assertion keyed on "groups created by this staff id"
+  therefore sees groups left behind by an EARLIER run and fails for no reason.
+  Count per user against a watermark instead. This cost real time.
+- `internal/handlers/admin_edit_user_profile.go` is **already unformatted on
+  `origin/main`** — `gofmt -l internal` names it and always did. Not from this
+  work; do not "fix" it in an unrelated commit.
+- `admin-web` needs its own `npm ci` in a fresh worktree; the tests fail with
+  "Cannot find package 'vitest'" until you do.
+
+---
+
+## 2026-09-16 — the chat SEND and ACCEPT paths finally check `kind`
+
+**Asked for:** OPOS #25284's policy (a donor, beneficiary or volunteer never
+messages another one directly) was enforced at CREATION only. A conformance
+audit found the send path never looked at the thread's `kind` — the hole
+`chatlifecycle/retire.go:10-13` names in its own header: "Left paused, staff
+could resume one into a working direct chat: sending checks lifecycle, never
+kind." Plus two stale strings on the app's Messages screen.
+
+**Branch:** `fix/direct-chat-kind-gate`, cut from `origin/main` (`fcc5b10`).
+One commit, NOT pushed, no PR.
+
+### What was actually changed
+- `backend/internal/chat/chat.go` — `Thread.Kind` is now loaded (every
+  SELECT/RETURNING on `chat_threads` carries `kind`), plus exported
+  `KindDirect`/`KindSupport`. `AcceptThread` and `PostMessage` refuse a
+  `kind='direct'` thread with the EXISTING `ErrDirectChatRetired` sentinel.
+- `backend/internal/handlers/chat.go` — `chatErr` maps that sentinel to
+  **410 Gone, `{"success": false, "error": "Direct messaging has been retired.
+  Ask staff to connect you instead."}`** — the exact shape (status, body, no
+  `code` field) `POST /api/chats/request` has answered with since Phase 4. The
+  Request handler's inline copy of that response was deleted in favour of the
+  shared mapping, and both send handlers now route store errors through
+  `chatErr` instead of a flat 500.
+- `backend/internal/handlers/chat_direct_kind_gate_test.go` — NEW, 5 tests.
+
+**Why the STORE and not the handler:** the bug was a path that forgot to check.
+Creation's refusal already lives in the store (`RequestThread`), and the store
+covers both send callers (participant route and admin reply route) plus any
+future one. The handler only maps the sentinel.
+
+### Decisions worth knowing
+- **Reading is untouched.** `GET /api/chats/:id/messages` still serves a direct
+  thread's history — the policy retires new messages, not the record.
+- **Staff are refused too**, exactly as a lifecycle pause refuses them: a staff
+  reply into a retired direct thread would deliver a message its participants
+  cannot answer. Say so if the client disagrees; it is a one-line revert of the
+  `AdminPostMessage` path.
+- **Team-group membership rules were NOT touched** (a separate decision is
+  pending).
+- Ordering note: K19's contact-details block still runs BEFORE the store, so a
+  direct thread sent a phone number answers 422, not 410. Nothing is stored
+  either way.
+
+### Test-fixture fallout (read this before you think a test is wrong)
+`kind='direct'` used to be the default fixture everywhere, so several suites
+were posting into or accepting one. Every fixture whose SUBJECT is not
+direct-ness now seeds `kind='support'` — the only kind on `chat_threads` that
+can still be posted into — and says why in a comment:
+`makeContactThread` (K19), `seedPendingSupportInvite` (invite accept controls
+and the declined-invite donor case), `seedSupportChat` (moved into
+`chat_lifecycle_fixtures_test.go` and used by `allFixtures`, the resume test,
+the end-keeps-history test and the delete/restore test),
+`seedDeclineThreadOfKind` (store-level accept tests).
+Left DIRECT on purpose: `seedDonorChat`, the archive/staff-list case (the staff
+list only shows `kind='direct'`), and
+`TestTrashRestore_OpenDirectChatComesBackClosed` — that one now seeds its two
+messages and its `chat_reads` row with SQL, because the route it used before
+is the route this fix closed.
+**A consequence for a human:** K19's peer-thread filter on `chat_threads` is
+now unreachable in production (the only peer thread it covered is the retired
+direct one). Its tests still pass on support-kind rows, and the group chat has
+its own filter. Whether the `chat_threads` half should be deleted is a call for
+the client, not a drive-by.
+
+### App (V3)
+- `humanitarian/lib/modules/chat/screens/messages_screen.dart` — the empty
+  state said "Start a chat from a donation (donor) or from your campaign
+  donations (owner)", a flow that no longer exists. It is now two localised
+  keys pointing at "Ask our team to connect me" and the supervised group. The
+  second stale string was the comment above the standing tiles, which still
+  listed "case chats" (retired); it now names the support ticket form, which is
+  what the third tile actually is.
+- `app_translations.dart` — `chat_empty_title` / `chat_empty_message`, **en +
+  ar only** (ckb/kmr fall back, #21431). `TRANSLATION_REQUEST.md` has a new
+  section and its count was recounted 621 → **623**.
+
+### What was run, and what it printed
+- RED first, on `godonation_direct_kind`: `SendRefusedOnOpenDirectThread`
+  "status = 200, want 410 Gone"; `AcceptRefusedOnDirectThread` "status = 200,
+  want 410 Gone". The three control tests (read history, support posts,
+  marriage posts) passed before the fix, as they must.
+- GREEN, fresh DB `godonation_final`: `go test ./internal/chat/
+  ./internal/handlers/ -count=1 -p 1 -timeout 45m` → `ok ...internal/chat
+  1.092s`, `ok ...internal/handlers 18.989s`.
+- `-run 'DirectKindGate' -v` on fresh `godonation_runcheck`: 5 PASS, 0 SKIP.
+- Whole backend on fresh `godonation_all`: `go test ./... -count=1 -p 1` — no
+  FAIL lines.
+- `gofmt -l .` reports only `internal/handlers/admin_edit_user_profile.go`,
+  which is PRE-EXISTING on main and untouched here (gofmt rewrites two `''`
+  quote pairs inside its comments). Every file this branch touches is clean.
+  `go build ./...` and `go vet ./...` clean.
+- App: `flutter analyze` → 6 issues (the baseline, all pre-existing
+  deprecations); `flutter test` → 1088 passed.
+- All throwaway databases dropped afterwards; `psql -lqt` confirmed.
+
+### Still open
+- Nothing is pushed. One commit sits on `fix/direct-chat-kind-gate` in the
+  worktree; no PR was opened.
+- The K19 dead-filter question above.
+- Nothing was clicked through in a running app (same OTP-gated limitation as
+  every backend fix here); the app change is covered by analyze + tests only.
+
+---
+
 ## 2026-09-12 — pending profile-change requests now visible on the Users list
 
 **Asked for:** OPOS #25287 — "profile edits sometimes don't sync to

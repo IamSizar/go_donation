@@ -139,13 +139,17 @@ func TestCreateGroupRefusesGuestMember(t *testing.T) {
 	for _, kind := range []Kind{KindMasked, KindTeam} {
 		t.Run(string(kind), func(t *testing.T) {
 			staff := makeTestUser(t, pool, "staff")
-			donor := makeTestUser(t, pool, "donor")
+			// A VOLUNTEER, not a donor: a team group takes only volunteers and
+			// staff (ErrTeamMemberRole), and a masked group takes a volunteer
+			// just as happily, so one account serves both kinds here and this
+			// test stays about the guest rule.
+			volunteer := makeTestUser(t, pool, "volunteer")
 			guest := makeGuestTestUser(t, pool)
 			before := memberRowWatermark(t, pool)
 
 			_, err := s.CreateGroup(ctx, kind, "Distribution team", staff, []MemberInput{
-				{UserID: donor, RoleInGroup: "donor"},
-				{UserID: guest, RoleInGroup: "donor"},
+				{UserID: volunteer, RoleInGroup: "volunteer"},
+				{UserID: guest, RoleInGroup: "volunteer"},
 			})
 
 			if !errors.Is(err, ErrGuestMember) {
@@ -154,19 +158,19 @@ func TestCreateGroupRefusesGuestMember(t *testing.T) {
 			if n := membershipRowsSince(t, pool, guest, before); n != 0 {
 				t.Errorf("guest gained %d membership rows, want 0", n)
 			}
-			if n := membershipRowsSince(t, pool, donor, before); n != 0 {
-				t.Errorf("donor gained %d membership rows from the refused create, want 0 — the transaction must roll back", n)
+			if n := membershipRowsSince(t, pool, volunteer, before); n != 0 {
+				t.Errorf("the volunteer gained %d membership rows from the refused create, want 0 — the transaction must roll back", n)
 			}
 
 			groupID, err := s.CreateGroup(ctx, kind, "Distribution team", staff, []MemberInput{
-				{UserID: donor, RoleInGroup: "donor"},
+				{UserID: volunteer, RoleInGroup: "volunteer"},
 			})
 			if err != nil {
 				t.Fatalf("CreateGroup with only a full account: %v", err)
 			}
 			removeGroupOnCleanup(t, pool, groupID)
-			if n := membershipRowsSince(t, pool, donor, before); n != 1 {
-				t.Errorf("donor gained %d membership rows, want 1", n)
+			if n := membershipRowsSince(t, pool, volunteer, before); n != 1 {
+				t.Errorf("the volunteer gained %d membership rows, want 1", n)
 			}
 		})
 	}

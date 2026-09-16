@@ -13,6 +13,7 @@
  * THE CONTRACT
  * Every chatErr answer on the backend is `{ success: false, error, code }`:
  * not_group_member 403, group_not_found 404, connect_request_decided 409,
+ * team_member_role_not_allowed 400,
  * group_member_conflict 409, group_label_conflict 409,
  * guest_member_not_allowed 400, group_label_contact 400,
  * group_invalid_input 400, connect_context_not_found 400, server_error 500 and
@@ -46,6 +47,7 @@ import { translate } from './i18n'
 /** Every refusal code a chat-group admin route sends. */
 export const CHAT_GROUP_ERROR_CODES = [
   'guest_member_not_allowed',
+  'team_member_role_not_allowed',
   'connect_context_not_found',
   'group_member_conflict',
   'group_label_conflict',
@@ -72,6 +74,9 @@ export type ChatGroupErrorCode = (typeof CHAT_GROUP_ERROR_CODES)[number]
  */
 export const CHAT_GROUP_ERROR_KEYS: Record<ChatGroupErrorCode, string> = {
   guest_member_not_allowed: 'error.guest_member_not_allowed',
+  // A team group shows real names, so the server takes only volunteer and
+  // staff accounts in one (Zaid's decision, 2026-09-16).
+  team_member_role_not_allowed: 'error.team_member_role_not_allowed',
   connect_context_not_found: 'error.connect_context_not_found',
   group_member_conflict: 'error.group_member_conflict',
   group_label_conflict: 'error.group_label_conflict',
@@ -103,6 +108,7 @@ export type ChatGroupErrorArea = 'members' | 'form'
 /** Refusals about WHO is in the group or what they are called. */
 const MEMBER_AREA_CODES: ReadonlySet<ChatGroupErrorCode> = new Set<ChatGroupErrorCode>([
   'guest_member_not_allowed',
+  'team_member_role_not_allowed',
   'group_member_conflict',
   'group_label_conflict',
   'group_label_contact',

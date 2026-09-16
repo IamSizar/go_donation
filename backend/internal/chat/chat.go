@@ -30,6 +30,23 @@ const (
 	RoleSupport = 0 // admin replying as support
 )
 
+// Thread kinds, mirroring the CHECK constraint migration 119 puts on
+// chat_threads.kind.
+//
+// KindDirect is the RETIRED donor↔campaign-owner conversation (OPOS #25284):
+// no new one can be created (RequestThread), none may be posted into
+// (PostMessage) and no invite on one may be accepted (AcceptThread). Its
+// history stays readable — that is deliberate, and the read paths are
+// therefore NOT gated on kind.
+//
+// KindSupport is the user↔staff conversation, which is not retired and must
+// keep working: it lives on the same table and is told apart only by this
+// column, so every gate here reads the column, never the table.
+const (
+	KindDirect  = "direct"
+	KindSupport = "support"
+)
+
 var (
 	ErrNotFound          = errors.New("thread not found")
 	ErrNotParty          = errors.New("you are not a participant in this chat")
@@ -55,6 +72,11 @@ type Thread struct {
 	CampaignID  *int64 `json:"campaign_id"`
 	Status      string `json:"status"`
 	InitiatedBy int64  `json:"initiated_by"`
+	// Kind is KindDirect or KindSupport (migration 119). It decides whether
+	// this conversation may still be written into at all — see the constants
+	// above — so it travels on every loaded thread rather than being looked up
+	// separately at each gate.
+	Kind string `json:"kind"`
 	// Note #36 — the specific staff member who has claimed this thread, so a
 	// donor/beneficiary sees a named "Responsible Staff Member" instead of an
 	// anonymous "Support" relay. Nil = unclaimed (any admin may still reply).
@@ -134,13 +156,13 @@ func (s *Store) RequestSupportThread(ctx context.Context, userID, supportID int6
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	const cols = `id, donor_user_id, owner_user_id, campaign_id, status, initiated_by, assigned_staff_user_id, created_at, updated_at`
+	const cols = `id, donor_user_id, owner_user_id, campaign_id, status, initiated_by, kind, assigned_staff_user_id, created_at, updated_at`
 
 	err = tx.QueryRow(ctx,
 		`SELECT `+cols+` FROM chat_threads
 		  WHERE donor_user_id = $1 AND owner_user_id = $2
 		  FOR UPDATE`, userID, supportID,
-	).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt)
+	).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.Kind, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt)
 
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
@@ -149,7 +171,7 @@ func (s *Store) RequestSupportThread(ctx context.Context, userID, supportID int6
 			 VALUES ($1, $2, NULL, 'active', $1, 'support')
 			 RETURNING `+cols,
 			userID, supportID,
-		).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt); err != nil {
+		).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.Kind, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt); err != nil {
 			return t, false, err
 		}
 		if err := tx.Commit(ctx); err != nil {
@@ -168,7 +190,7 @@ func (s *Store) RequestSupportThread(ctx context.Context, userID, supportID int6
 		    SET status = 'active', kind = 'support', updated_at = CURRENT_TIMESTAMP
 		  WHERE id = $1
 		 RETURNING `+cols, t.ID,
-	).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt); err != nil {
+	).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.Kind, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt); err != nil {
 		return t, false, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -206,12 +228,20 @@ func (s *Store) AcceptThread(ctx context.Context, threadID, userID int64) (Threa
 	if userID == t.InitiatedBy {
 		return t, 0, ErrNotRecipient
 	}
+	// OPOS #25284 — a DIRECT invite can no longer be accepted, however old it
+	// is. Accepting one activates the thread and pushes the initiator "chat
+	// accepted", which is the retired donor↔owner conversation opening by
+	// another door. Checked after the party checks, like every other refusal
+	// here, so a stranger guessing thread ids learns nothing about the thread.
+	if t.Kind == KindDirect {
+		return t, 0, ErrDirectChatRetired
+	}
 	err = s.Pool.QueryRow(ctx, `
 		UPDATE chat_threads SET status = 'active', updated_at = CURRENT_TIMESTAMP
 		 WHERE id = $1 AND status = 'pending'
-		RETURNING id, donor_user_id, owner_user_id, campaign_id, status, initiated_by, assigned_staff_user_id, created_at, updated_at`,
+		RETURNING id, donor_user_id, owner_user_id, campaign_id, status, initiated_by, kind, assigned_staff_user_id, created_at, updated_at`,
 		threadID,
-	).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt)
+	).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.Kind, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return s.acceptNotPending(ctx, threadID)
 	}
@@ -269,9 +299,9 @@ func (s *Store) DeclineThread(ctx context.Context, threadID, userID int64) (Thre
 	err = s.Pool.QueryRow(ctx, `
 		UPDATE chat_threads SET status = 'declined', updated_at = CURRENT_TIMESTAMP
 		 WHERE id = $1 AND status IN ('pending', 'declined')
-		RETURNING id, donor_user_id, owner_user_id, campaign_id, status, initiated_by, assigned_staff_user_id, created_at, updated_at`,
+		RETURNING id, donor_user_id, owner_user_id, campaign_id, status, initiated_by, kind, assigned_staff_user_id, created_at, updated_at`,
 		threadID,
-	).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt)
+	).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.Kind, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return t, ErrNotPending
 	}
@@ -282,10 +312,10 @@ func (s *Store) DeclineThread(ctx context.Context, threadID, userID int64) (Thre
 func (s *Store) GetThread(ctx context.Context, threadID int64) (Thread, error) {
 	var t Thread
 	err := s.Pool.QueryRow(ctx, `
-		SELECT id, donor_user_id, owner_user_id, campaign_id, status, initiated_by, assigned_staff_user_id, created_at, updated_at
+		SELECT id, donor_user_id, owner_user_id, campaign_id, status, initiated_by, kind, assigned_staff_user_id, created_at, updated_at
 		  FROM chat_threads WHERE id = $1`,
 		threadID,
-	).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt)
+	).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.Kind, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return t, ErrNotFound
 	}
@@ -507,8 +537,28 @@ func (s *Store) ListMessages(ctx context.Context, threadID int64) ([]Message, er
 // PostMessage inserts a message and bumps the thread's updated_at. The caller
 // must have verified the sender is allowed to post (active thread; participant
 // or admin).
+//
+// It refuses a DIRECT thread outright with ErrDirectChatRetired (OPOS #25284).
+// That refusal lives HERE, beside RequestThread's, rather than in each
+// handler, because the hole it closes was exactly a path that forgot to check:
+// the send path checked participant, status and lifecycle and never kind, so a
+// direct thread staff resumed became postable again
+// (chatlifecycle/retire.go's header names this). Both of this store's send
+// callers — the participant route and the admin reply route — are covered, and
+// so is any future one. Support threads are untouched; reading is untouched.
 func (s *Store) PostMessage(ctx context.Context, threadID, senderID int64, senderRole int, body string) (Message, error) {
 	var m Message
+	var kind string
+	if err := s.Pool.QueryRow(ctx,
+		`SELECT kind FROM chat_threads WHERE id = $1`, threadID).Scan(&kind); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return m, ErrNotFound
+		}
+		return m, fmt.Errorf("reading kind of chat thread %d: %w", threadID, err)
+	}
+	if kind == KindDirect {
+		return m, ErrDirectChatRetired
+	}
 	body = strings.TrimSpace(body)
 	if body == "" {
 		return m, errors.New("empty message")

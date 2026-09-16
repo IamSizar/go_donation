@@ -25,14 +25,24 @@ import (
 // seedDeclineThread inserts a donor-initiated direct thread with the given
 // status and removes it afterwards. It returns the thread id and the owner,
 // who as the non-initiator is the only party allowed to decline.
+//
+// Declining is not gated on kind — a user may always dismiss an invite — so
+// these fixtures stay 'direct'. ACCEPTING is gated (OPOS #25284), which is why
+// chat_accept_declined_test.go asks for KindSupport instead.
 func seedDeclineThread(t *testing.T, pool *pgxpool.Pool, status string) (threadID, recipient int64) {
+	return seedDeclineThreadOfKind(t, pool, KindDirect, status)
+}
+
+// seedDeclineThreadOfKind is seedDeclineThread with the thread's kind spelled
+// out, for the tests whose subject is a path kind decides.
+func seedDeclineThreadOfKind(t *testing.T, pool *pgxpool.Pool, kind, status string) (threadID, recipient int64) {
 	t.Helper()
 	donor := makeTestUser(t, pool, "donor")
 	owner := makeTestUser(t, pool, "owner")
 	if err := pool.QueryRow(context.Background(),
 		`INSERT INTO chat_threads (donor_user_id, owner_user_id, status, initiated_by, kind)
-		 VALUES ($1, $2, $3, $1, 'direct') RETURNING id`, donor, owner, status).Scan(&threadID); err != nil {
-		t.Fatalf("insert %s thread: %v", status, err)
+		 VALUES ($1, $2, $3, $1, $4) RETURNING id`, donor, owner, status, kind).Scan(&threadID); err != nil {
+		t.Fatalf("insert %s/%s thread: %v", kind, status, err)
 	}
 	t.Cleanup(func() {
 		_, _ = pool.Exec(context.Background(), `DELETE FROM chat_threads WHERE id = $1`, threadID)

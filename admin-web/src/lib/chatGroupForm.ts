@@ -42,6 +42,33 @@ export const CHAT_GROUP_ROLES = ['donor', 'beneficiary', 'volunteer', 'staff'] a
 /** One member role. */
 export type ChatGroupRole = (typeof CHAT_GROUP_ROLES)[number]
 
+/**
+ * The roles a TEAM group's member rows may offer.
+ *
+ * A team group shows its members each other's real names, so the server
+ * accepts only volunteer and staff accounts in one and refuses a grantor or a
+ * recipient with 400 team_member_role_not_allowed (Zaid's decision,
+ * 2026-09-16). Offering a role the server would refuse is a doomed request, so
+ * the form does not offer it.
+ *
+ * The server decides on the ACCOUNT (users.role_id and users.staff_tier), not
+ * on this value — role_in_group is free text and gates nothing. Narrowing the
+ * list is honesty about what a team group is for, not the check itself.
+ */
+export const TEAM_GROUP_ROLES = ['volunteer', 'staff'] as const satisfies readonly ChatGroupRole[]
+
+/**
+ * The roles to offer for a group of this kind: a team group's two, and all
+ * four for a masked group — which is exactly where a grantor and a recipient
+ * belong, since its members see labels, never names.
+ *
+ * @param kind  the group's kind, or null before one is chosen.
+ * @returns     the roles the select should list, in order.
+ */
+export function rolesForKind(kind: ChatGroupKind | null): readonly ChatGroupRole[] {
+  return kind === 'team' ? TEAM_GROUP_ROLES : CHAT_GROUP_ROLES
+}
+
 /** The longest team title, in characters, after trimming. */
 export const TEAM_TITLE_MAX_LENGTH = 200
 

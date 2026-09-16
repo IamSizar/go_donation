@@ -101,9 +101,16 @@ func seedAdminReadGroup(t *testing.T, pool *pgxpool.Pool, kind chatgroups.Kind) 
 	t.Helper()
 	ctx := context.Background()
 	creator := makeChatGroupStaffUser(t, pool, "Group Creator", "admin")
-	donor := makeChatGroupUser(t, pool, sensitiveFixtureRealName)
+	// A team group takes only volunteers and staff, so the fixture's one
+	// member is a volunteer account there, and a donor in a masked group —
+	// which is where a donor belongs.
+	memberRoleID, roleInGroup := 1, "donor"
+	if kind == chatgroups.KindTeam {
+		memberRoleID, roleInGroup = 3, "volunteer"
+	}
+	donor := makeChatGroupRoleUser(t, pool, sensitiveFixtureRealName, memberRoleID)
 	groupID := makeChatGroup(t, pool, creator, kind,
-		[]chatgroups.MemberInput{{UserID: donor, RoleInGroup: "donor"}})
+		[]chatgroups.MemberInput{{UserID: donor, RoleInGroup: roleInGroup}})
 	store := chatgroups.New(pool)
 	if _, err := store.PostMessage(ctx, groupID, donor, "hello from the donor"); err != nil {
 		t.Fatalf("seed message: %v", err)

@@ -116,11 +116,17 @@ func newDeclinedInviteRouter(pool *pgxpool.Pool) *gin.Engine {
 	return r
 }
 
-// declineDonorInvite seeds a pending donor invite and has the invitee decline
-// it through the real decline route, the way a user turns one down.
+// declineDonorInvite seeds a pending invite on chat_threads and has the
+// invitee decline it through the real decline route, the way a user turns one
+// down.
+//
+// A SUPPORT invite: a direct one is refused by kind before the declined check
+// is ever reached (OPOS #25284), so it could not show that a DECLINED invite
+// is refused as declined — which is this file's subject. Same table, same
+// handler, same store path.
 func declineDonorInvite(t *testing.T, r *gin.Engine, pool *pgxpool.Pool) pendingInvite {
 	t.Helper()
-	inv := seedPendingInvite(t, pool)
+	inv := seedPendingSupportInvite(t, pool)
 	code, body := doJSON(t, r, http.MethodPost, fmt.Sprintf("/api/chats/%d/decline", inv.ThreadID),
 		tokenFor(t, pool, inv.Invitee), nil)
 	if code != http.StatusOK || body["status"] != "declined" {
@@ -276,7 +282,7 @@ func TestDeclinedInviteAccept_PendingAcceptsThenRepeatIsIdempotent(t *testing.T)
 	r := newDeclinedInviteRouter(pool)
 
 	t.Run("donor", func(t *testing.T) {
-		inv := seedPendingInvite(t, pool)
+		inv := seedPendingSupportInvite(t, pool)
 		for attempt := 1; attempt <= 2; attempt++ {
 			code, body := acceptDonorInvite(t, r, pool, inv, inv.Invitee)
 			if code != http.StatusOK || body["status"] != "active" {

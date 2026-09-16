@@ -19,6 +19,11 @@ Updated 2026-08-16 again with the 2 keys H10's sensitive-contact redaction
 added to the dashboard.
 Updated 2026-09-16 with the 4 keys the OPOS #26636 sign-in-phone refusals
 added to the dashboard.
+Updated 2026-09-16 again with 4 keys: the 2 the team-group membership rule
+added to the dashboard (`chat_groups.create.team_roles_note` and
+`error.team_member_role_not_allowed`), and the 2 the OPOS #25284 Messages
+empty state added to the app (its old copy described the retired donor-chat
+flow). Recounted: 621 + 2 + 2 = 625.
 Updated 2026-08-16 again with the 20 keys the K14 خطوبتي owner self-management
 (edit / pause / resume / remove) added, and the 27 keys the K15 product-list
 labels added.
@@ -34,7 +39,7 @@ made on this project once and had to be reverted.
 Every key below currently renders its **English** string to a Kurdish user.
 That is deliberate and safe. It is not a crash, and it is not Arabic text.
 
-## Count: 621 keys need Kurdish
+## Count: 625 keys need Kurdish
 
 | Client | Sorani (ckb) | Badini (kmr) | Distinct keys |
 |---|---|---|---|
@@ -70,7 +75,9 @@ That is deliberate and safe. It is not a crash, and it is not Arabic text.
 | App — OPOS #26483 unnamed chat thread party (new) | 1 | 1 | 1 |
 | App — OPOS #26433 chat invite refusals (new) | 3 | 3 | 3 |
 | Admin dashboard — OPOS #26636 sign-in phone refusals (new) | 4 | 4 | 4 |
-| **Total distinct words to translate** | | | **621** |
+| Admin dashboard — team groups are volunteers and staff only (new) | 2 | 2 | 2 |
+| App — OPOS #25284 Messages empty state (new) | 2 | 2 | 2 |
+| **Total distinct words to translate** | | | **625** |
 
 > **The dashboard figure above is a floor, not a ceiling — and it is the one
 > number in this file that was never fully measured.** Counting key paths in
@@ -122,6 +129,21 @@ feature.`
 |---|---|---|---|
 | `messages_guest_title` | Sign in to use Messages | سجّل الدخول لاستخدام الرسائل | ckb + kmr |
 | `messages_guest_body` | Your conversations will appear here once you have a full account. | ستظهر محادثاتك هنا عندما يصبح لديك حساب كامل. | ckb + kmr |
+
+## chat · OPOS #25284 Messages empty state  (2 keys)
+
+Added 2026-09-16. The Messages tab's empty state used to read "Start a chat
+from a donation (donor) or from your campaign donations (owner)" — a flow that
+no longer exists: members cannot message each other at all, and the send path
+now refuses a retired direct thread outright. The replacement points at the
+door that does exist: `connect_request_action` ("Ask our team to connect me"),
+after which our team opens a supervised group chat. "our team" is deliberate —
+a member never reads "staff" (OPOS #26351).
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `chat_empty_title` | No conversations yet | لا توجد محادثات بعد | ckb + kmr |
+| `chat_empty_message` | You and our team can talk here. Members do not message each other directly — use "Ask our team to connect me", and our team will open a supervised group chat for you. | يمكنك التحدث هنا مع فريقنا. لا يتراسل الأعضاء فيما بينهم مباشرة — استخدم «اطلب التواصل عبر فريقنا»، وسيفتح لك فريقنا محادثة جماعية تحت إشرافه. | ckb + kmr |
 
 ## auth · J1 guest sign-up name  (2 keys)
 
