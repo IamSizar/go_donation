@@ -3,9 +3,28 @@ import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/localization/content_localizer.dart';
+import 'package:flutter_application_1/localization/failure_message.dart';
 import 'package:flutter_application_1/modules/community/controllers/community_controller.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
+
+/// OPOS #25280 — the translation key for a failed submission's snackbar.
+///
+/// A top-level function (not inlined in the catch block) so it can be pinned
+/// directly with synthetic exceptions, the same way `isOfflineFailure` itself
+/// is tested — no widget pump or real timer needed.
+///
+/// [isOfflineFailure] covers exactly the class of error where the request may
+/// have reached the server anyway: ModuleApi's 12s request timeout does not
+/// cancel the underlying HTTP call (Dart's Future.timeout only stops
+/// AWAITING it), so a slow-but-alive server can still insert the row after
+/// the app has already given up. For that class we say we couldn't CONFIRM
+/// success, never that it failed. A genuine server rejection (validation, DB
+/// error -- postJson's plain Exception) still gets the definite failure
+/// message.
+String activitySubmitFailureKey(Object error) => isOfflineFailure(error)
+    ? 'activity_submit_unconfirmed'
+    : 'activity_submit_failed';
 
 /// #30 — "Add an Activity": an app user suggests a new City Guide place. It is
 /// submitted with status='pending' and appears in the admin approval queue
@@ -93,8 +112,11 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
       if (!mounted) return;
       Get.back();
       Get.snackbar('add_activity'.tr, 'activity_submitted'.tr);
-    } catch (_) {
-      if (mounted) Get.snackbar('add_activity'.tr, 'activity_submit_failed'.tr);
+    } catch (e) {
+      debugPrint('add activity submit failed: $e');
+      if (mounted) {
+        Get.snackbar('add_activity'.tr, activitySubmitFailureKey(e).tr);
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }

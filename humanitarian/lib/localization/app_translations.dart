@@ -669,6 +669,8 @@ class AppTranslations extends Translations {
     // "your whole submission was lost".
     'Your registration was saved, but your documents did not upload. You can add them from your profile.':
         'Your registration was saved, but your documents did not upload. You can add them from your profile.',
+    'Your registration was saved, but your photo did not upload. You can add it from your profile.':
+        'Your registration was saved, but your photo did not upload. You can add it from your profile.',
     // L2 — same shape, same reason, for the donor's optional social links:
     // reassure first, then name the one thing that did not happen and where to
     // do it instead. "Privacy settings" is the screen that owns these three
@@ -2862,6 +2864,11 @@ class AppTranslations extends Translations {
     'activity_submitting': 'Submitting…',
     'activity_submitted': 'Thanks! Your suggestion was sent for review.',
     'activity_submit_failed': 'Could not submit. Please try again.',
+    // OPOS #25280 — a timed-out or dropped-connection request may have
+    // already reached the server; unlike activity_submit_failed, this does
+    // NOT claim the submission failed.
+    'activity_submit_unconfirmed':
+        "We couldn't confirm this went through. Check the list before trying again.",
     // K16 — the category field is a picker over the curated sub-categories
     // now, and they are scoped to the sectors ticked above it, so this is what
     // the field says before a sector is chosen.
@@ -3773,6 +3780,8 @@ class AppTranslations extends Translations {
     'Registration': 'التسجيل',
     'Your registration was saved, but your documents did not upload. You can add them from your profile.':
         'تم حفظ تسجيلك، لكن لم يتم رفع مستنداتك. يمكنك إضافتها من ملفك الشخصي.',
+    'Your registration was saved, but your photo did not upload. You can add it from your profile.':
+        'تم حفظ تسجيلك، لكن لم يتم رفع صورتك. يمكنك إضافتها من ملفك الشخصي.',
     'Your registration was saved, but your social links did not. You can add them from Privacy settings.':
         'تم حفظ تسجيلك، لكن لم يتم حفظ روابط التواصل. يمكنك إضافتها من إعدادات الخصوصية.',
     'Could not save that preference. Please try again.':
@@ -5784,6 +5793,8 @@ class AppTranslations extends Translations {
     'activity_submitting': 'جارٍ الإرسال…',
     'activity_submitted': 'شكرًا! تم إرسال اقتراحك للمراجعة.',
     'activity_submit_failed': 'تعذّر الإرسال. حاول مرة أخرى.',
+    'activity_submit_unconfirmed':
+        'لم نتمكن من التأكد من وصول الطلب. تحقق من القائمة قبل المحاولة مرة أخرى.',
     // K16 — حقل التصنيف صار قائمة اختيار من الفئات الفرعية المعتمدة.
     'activity_pick_sector_first': 'اختر قطاعًا في الأعلى لعرض فئاته الفرعية.',
     'activity_need_fields': 'يرجى إدخال الاسم واختيار فئة فرعية.',
