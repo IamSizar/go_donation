@@ -40,6 +40,12 @@ type CleanupResult struct {
 	// Refused names the accounts that exist under a fixture username but did
 	// not prove they were ours, plus any the database would not let go.
 	Refused []Refusal
+	// MarriageProfilesDeleted / MarriageRequestsDeleted count the marriage
+	// fixture rows removed along with the accounts (see marriage.go). They are
+	// reported separately because they are rows the operator never asked for
+	// by name and would otherwise not know had gone.
+	MarriageProfilesDeleted int64
+	MarriageRequestsDeleted int64
 }
 
 // Cleanup removes the accounts this command created for a prefix.
@@ -56,6 +62,9 @@ func Cleanup(ctx context.Context, pool *pgxpool.Pool, prefix string) (*CleanupRe
 		return nil, errors.New("seedtestusers: nil pool")
 	}
 	res := &CleanupResult{}
+	// The stamp the seeded marriage profiles carry, so this run removes only
+	// the ones Seed wrote for THIS prefix.
+	marriageNote := marriageFixtureNote(prefix)
 	for _, acct := range Plan(prefix) {
 		id, ok, reason, err := identify(ctx, pool, acct)
 		if err != nil {
@@ -82,6 +91,20 @@ func Cleanup(ctx context.Context, pool *pgxpool.Pool, prefix string) (*CleanupRe
 				continue
 			}
 		}
+		// The marriage fixtures go first: marriage_profiles.user_id is
+		// ON DELETE RESTRICT, so a surviving profile makes the DELETE below
+		// fail outright (see cleanupMarriageRows).
+		profiles, requests, err := cleanupMarriageRows(ctx, pool, id, marriageNote)
+		res.MarriageProfilesDeleted += profiles
+		res.MarriageRequestsDeleted += requests
+		if err != nil {
+			res.Refused = append(res.Refused, Refusal{
+				Key:    acct.Key,
+				Reason: fmt.Sprintf("its marriage fixtures could not be removed, so the account was left in place: %v", err),
+			})
+			continue
+		}
+
 		if _, err := pool.Exec(ctx, `DELETE FROM users WHERE id = $1`, id); err != nil {
 			// Almost always an ON DELETE RESTRICT foreign key: the account has
 			// real records attached. The operator needs the database's own

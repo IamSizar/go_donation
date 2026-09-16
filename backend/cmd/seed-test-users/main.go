@@ -8,6 +8,11 @@
 // running server uses, so it behaves like an account a person made (see
 // internal/seedtestusers/seed.go for the list).
 //
+// The same run also seeds what step 5 of the plan needs and nothing in the
+// database otherwise has: two marriage profiles owned by fixture accounts, and
+// one PENDING meeting request from D about B's profile, waiting for staff to
+// approve it on the dashboard (see internal/seedtestusers/marriage.go).
+//
 // It writes data, so nothing happens without -confirm. Without it, the command
 // prints the database it would write to and exactly what it would do, and
 // exits.
@@ -83,6 +88,12 @@ func runSeed(ctx context.Context, pool *pgxpool.Pool, prefix string, confirm boo
 		fmt.Printf("DRY RUN — nothing was written. Add -confirm to create these %d account(s):\n\n", len(planned))
 		printTable(planned, false)
 		fmt.Println("\nAn account that already exists is reused, not duplicated.")
+		fmt.Printf("\nIt would also create the marriage fixtures step 5 of the test plan needs: %d marriage\n",
+			len(seedtestusers.MarriageProfileSpecs))
+		fmt.Printf("profile(s) owned by the fixture accounts, and one PENDING meeting request from %s about\n",
+			seedtestusers.MarriageRequesterKey)
+		fmt.Printf("%s's profile, for staff to approve on the dashboard's Marriage → Marriage Requests page.\n",
+			seedtestusers.MarriageRequestAboutKey)
 		return
 	}
 
@@ -99,6 +110,7 @@ func runSeed(ctx context.Context, pool *pgxpool.Pool, prefix string, confirm boo
 	fmt.Println("  · E1 has no sensitive_data grant, on purpose — step 8 of the test plan is about turning it on.")
 	fmt.Println("  · if a password was changed by hand after an earlier run, this command does not overwrite it,")
 	fmt.Println("    and that row of the table is then wrong. Delete the account with -cleanup and re-seed it.")
+	printMarriageSummary(res.Marriage)
 	fmt.Printf("\nTo remove them again: -cleanup -confirm -prefix=%s\n", seedtestusers.NormalizePrefix(prefix))
 }
 
@@ -108,6 +120,8 @@ func runCleanup(ctx context.Context, pool *pgxpool.Pool, prefix string, confirm 
 		fmt.Println("DRY RUN — nothing was deleted. Add -confirm to delete the accounts below,")
 		fmt.Println("and only those: each one must match BOTH its seeded username AND its seeded")
 		fmt.Println("phone number inside the reserved block, or it is left alone.")
+		fmt.Println("The marriage profiles and meeting requests seeded for those accounts go with them;")
+		fmt.Println("a marriage profile created by hand on a test account is NOT touched.")
 		fmt.Println()
 		printTable(seedtestusers.Plan(prefix), false)
 		return
@@ -118,6 +132,12 @@ func runCleanup(ctx context.Context, pool *pgxpool.Pool, prefix string, confirm 
 		log.Fatalf("seed-test-users: %v", err)
 	}
 	fmt.Printf("Deleted %d account(s): %s\n", res.Deleted, joinOrNone(res.DeletedKeys))
+	// The marriage rows go with the accounts and are counted separately,
+	// because nobody asked for them by name and they are easy to miss.
+	if res.MarriageProfilesDeleted > 0 || res.MarriageRequestsDeleted > 0 {
+		fmt.Printf("Also removed %d seeded marriage profile(s) and %d meeting request(s), with the chats they opened.\n",
+			res.MarriageProfilesDeleted, res.MarriageRequestsDeleted)
+	}
 	if len(res.Missing) > 0 {
 		fmt.Printf("Not present (nothing to do): %s\n", strings.Join(res.Missing, ", "))
 	}
@@ -127,6 +147,45 @@ func runCleanup(ctx context.Context, pool *pgxpool.Pool, prefix string, confirm 
 	if len(res.Refused) > 0 {
 		fmt.Println("\nEvery account marked KEPT is untouched. Deal with each one on the dashboard and re-run if you want it gone.")
 	}
+}
+
+// printMarriageSummary explains, in plain language, the marriage fixtures the
+// run created and what the client is meant to do with them next.
+//
+// This is the part of the output somebody acts on rather than reads, so it
+// names the screen, the row and the button, not the tables.
+func printMarriageSummary(m *seedtestusers.MarriageResult) {
+	if m == nil {
+		return
+	}
+	fmt.Println("\nMARRIAGE — the fixtures for step 5 of the test plan (the meeting request and the chat it opens):")
+	for _, p := range m.Profiles {
+		state := "already existed"
+		if p.Created {
+			state = "created now"
+		}
+		fmt.Printf("  · profile %s — owned by %s, %s, %s (%s). Visible in the app's marriage search.\n",
+			p.ProfileCode, p.OwnerKey, p.Gender, p.City, state)
+	}
+	state := "was already waiting"
+	if m.RequestCreated {
+		state = "created now"
+	}
+	fmt.Printf("  · %s has asked for a meeting about %s's profile %s — the request %s and is PENDING.\n",
+		m.RequesterKey, m.AboutOwnerKey, m.AboutProfileCode, state)
+	fmt.Println("\nWHAT TO DO NEXT, on the dashboard:")
+	fmt.Println("  1. Sign in as SA (or any staff account with the Marriage module).")
+	fmt.Println("  2. Open the sidebar group \"Marriage\" → \"Marriage Requests\" (page /marriage-requests,")
+	fmt.Println("     «طلبات الزواج»).")
+	fmt.Printf("  3. Find the row FROM the %s account, ABOUT PROFILE %s, with the status \"Pending\",\n",
+		m.RequesterKey, m.AboutProfileCode)
+	fmt.Println("     and click \"Approve\". That opens the staff-mediated chat and sends the profile")
+	fmt.Printf("     owner (%s) an invite to accept in the app.\n", m.AboutOwnerKey)
+	fmt.Println("  4. Sign in to the app as that owner to Accept or Decline the invite (step 5a / 5b).")
+	fmt.Println("\n  Approving needs nothing else filled in by hand: the request carries a message, and the")
+	fmt.Println("  approving staff member is taken from the dashboard session.")
+	fmt.Println("  Re-running this command after you approve opens a FRESH pending request, so step 5 can")
+	fmt.Println("  be repeated; a request still waiting for a decision is reused, never duplicated.")
 }
 
 // printTable prints the credentials, one row per account. withIDs adds the

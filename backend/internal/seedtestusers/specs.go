@@ -6,6 +6,10 @@
 // The matrix, the names and the reasons are taken from that document, not
 // invented here — if the plan changes, this file changes with it.
 //
+// This file is the ACCOUNTS. The marriage profiles and the meeting request the
+// same run creates for step 5 live in marriage.go, keyed to the account Keys
+// below.
+//
 // Two properties the rest of the package depends on:
 //
 //   - Every identity is a pure function of the -prefix flag. The same prefix

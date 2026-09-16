@@ -6,6 +6,84 @@
 
 ---
 
+## 2026-09-16 — seed-test-users also seeds the MARRIAGE fixtures (branch `feat/seed-marriage-fixtures`, NOT pushed)
+
+**Asked for:** the client is testing live and wants step 5 (the marriage flow)
+next, but his database has no marriage profiles and no meeting requests, so
+there is nothing to approve. Extend `cmd/seed-test-users` so the same run also
+creates the profiles and a pending request, under the same rules as the
+accounts (idempotent, `-cleanup`-able, nothing without `-confirm`).
+
+**Branch** `feat/seed-marriage-fixtures`, cut from `origin/main` `7a8f9aa`.
+Commit `76f78a6`. NOT pushed.
+
+### What it seeds now, on top of the ten accounts
+- **Two marriage profiles**: **B** (Female, Baghdad, 27) and **D2** (Male,
+  Erbil, 31), status `active`, `visibility_level = 'employee_only'`,
+  `owner_deleted_at` NULL — the exact set `marriage.Store.List` serves to a
+  searching member. Gender is **capitalised** because the app's own filter
+  offers `'Male'`/`'Female'`
+  (`humanitarian/lib/modules/marriage/screens/marriage_search_screen.dart:425`)
+  and matches exactly; lowercase would be unfindable.
+- **One PENDING `marriage_meeting_requests` row** from **D** about **B**'s
+  profile, `request_type = 'meeting'` — the row the dashboard lists with an
+  Approve button.
+- Nothing else is needed to approve: `ApproveMeetingRequest` wants only a
+  pending request, a profile, and requester ≠ owner. The test exercises the
+  real approval to prove it.
+
+### Files
+- **NEW** `backend/internal/seedtestusers/marriage.go` — `MarriageProfileSpecs`,
+  `MarriageRequesterKey`/`MarriageRequestAboutKey`, `seedMarriage`,
+  `ensureMarriageProfile`, `ensureMarriageProfileSearchable`,
+  `ensureMeetingRequest`, `cleanupMarriageRows`.
+- `seed.go` — `Result.Marriage`; `seedMarriage` runs after the accounts.
+- `cleanup.go` — marriage rows are deleted **before** the user row (
+  `marriage_profiles.user_id` is ON DELETE RESTRICT, migration 002, so a
+  surviving profile makes the account undeletable); counts reported.
+- `cmd/seed-test-users/main.go` — `printMarriageSummary`: profile codes, who
+  asked about what, and the dashboard path to approve.
+- `docs/testing/chat-e2e-test-plan-2026-09.md` — §1.7 mentions the fixtures;
+  step 5's **[NOT CONFIRMED]** wording is replaced with the real labels.
+
+### Identity rule (how cleanup stays exact)
+Every seeded profile carries a stamp in `private_notes`:
+`"Seeded by seed-test-users (prefix <p>) — fixture data, not a real person."`
+Cleanup deletes only profiles with that stamp owned by an account that already
+passed the existing username+reserved-phone identity check. A profile made **by
+hand** on a fixture account is left alone — and then the existing RESTRICT
+refusal reports the account as `KEPT`, which is the honest outcome.
+`marriage_saved` and `marriage_meeting_requests` carry **no foreign keys**
+(migration 046), so they are deleted explicitly; chat threads/messages cascade
+(migration 058).
+
+### Verification (run, not assumed)
+- `gofmt -l ./cmd ./internal` → only `internal/handlers/admin_edit_user_profile.go`,
+  which is **pre-existing on `origin/main`** and untouched here.
+- `go build ./...`, `go vet ./...` → clean.
+- RED first: `go vet ./internal/seedtestusers/` →
+  `res.Marriage undefined (type *Result has no field or method Marriage)`.
+- GREEN on a fresh throwaway DB: all 5 tests in `internal/seedtestusers` pass,
+  plus `go test ./internal/marriage/ ./internal/marriagechat/
+  ./internal/handlers/ -count=1 -p 1 -timeout 45m` → all `ok`.
+- The command itself was run against a migrated throwaway DB and printed the
+  marriage summary. Every throwaway DB was dropped; `psql -lqt | grep -c
+  seedfix` → `0`.
+
+### Trap worth knowing
+**The seeded phone numbers do not depend on `-prefix`** (they are
+`reservedNSN` + a fixed per-account index). So a leftover fixture account from
+an earlier run is found *by phone* under a new prefix, keeps its old username,
+and the package tests then fail with confusing "created 9, want 10" /
+"username = 0x…" messages. Run these tests against a **clean** database. That
+is pre-existing behaviour, not something this branch introduced.
+
+### Still open
+- Nothing pushed; no PR. Commit `76f78a6` sits on the branch.
+- OPOS was not used (unavailable in that session), so there is no task row.
+
+---
+
 ## 2026-09-16 — a connect request's OTHER PARTY is resolved and added automatically (branch `feat/connect-request-other-party`, NOT pushed)
 
 **Asked for:** the client, testing live, asked to connect from a beneficiary
