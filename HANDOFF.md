@@ -131,6 +131,102 @@ was written.
 
 ---
 
+## 2026-09-16 — OPOS #26497: chat, staff-chat and marriage lists stop repeating rows when a user has two `user_profiles` rows (branch `fix/user-profiles-duplicate-joins`)
+
+**What was asked:** audit every `user_profiles` join in `backend/internal`, fix the duplicating reads, close the three writers' check-then-insert race, and test all of it. Mid-session the scope was narrowed by the coordinator to: keep the audit, fix only the reads covered by the four test files already written (chat, chatgroups contact blocks, marriagechat, staffchat), drop the writer-lock work to a separate task, skip the full `./...` run and skip the reviewer agent.
+
+**What was actually changed.** One code commit on `fix/user-profiles-duplicate-joins`, branched from `origin/main` `b0c9eb8`:
+
+- **`afbe4bf` `fix(chat): a user with two profile rows stops duplicating chat list rows`** — eleven reads across four packages, plus four new test files. Each plain `LEFT JOIN user_profiles x ON x.user_id = …` became the #115 LATERAL form, `LEFT JOIN LATERAL (SELECT p.full_name FROM user_profiles p WHERE p.user_id = … ORDER BY p.id LIMIT 1) x ON TRUE`, with a comment on each saying why.
+  - `internal/chat/chat.go`: `ListThreadsForUser` (other party + assigned staff), `ListMessages`, `ListAllThreads` (donor + owner + staff).
+  - `internal/chat/contactblocks.go`: `ListContactBlocks`.
+  - `internal/chatgroups/chatgroups_admin.go`: `ListContactBlocks` (the `chatgroups_admin.go:115` named in the task; it sits at :209 on current main).
+  - `internal/staffchat/staffchat.go`: `ListThreadsForUser`, `ListMessages`, `Directory`.
+  - `internal/marriagechat/marriagechat.go`: `ListMeetingRequests`, `ListAllThreads`, `AdminListMessages`.
+- **This entry** is the second commit.
+
+**Why the output is unchanged for a normal account.** Every one of those aliases is referenced only as `full_name` (verified by grepping `alias.column` across the four files), which is exactly what each LATERAL projects. For a user with one profile row, `ORDER BY p.id LIMIT 1` returns that row; for a user with none, `ON TRUE` keeps the outer row with NULLs, as `LEFT JOIN` did. The `WHERE … ILIKE` filters on `dp.`/`opf.` (chat) and `rp.`/`op.` (marriagechat) and the `ORDER BY p.full_name` in staffchat's `Directory` all still resolve, because the aliases still exist — they simply hold one row each now.
+
+### Audit — every `user_profiles` join in non-test Go under `backend/internal`
+
+40 `JOIN user_profiles` lines, plus one scalar subquery. Classification:
+
+| Site | Read | Verdict |
+|---|---|---|
+| `chat/chat.go:363,364` | ListThreadsForUser | duplicating → **fixed** |
+| `chat/chat.go:466` | ListMessages | duplicating → **fixed** |
+| `chat/chat.go:612,614,615` | ListAllThreads | duplicating → **fixed** |
+| `chat/contactblocks.go:65` | ListContactBlocks | duplicating → **fixed** |
+| `chatgroups/chatgroups_admin.go:209` | ListContactBlocks | duplicating → **fixed** |
+| `staffchat/staffchat.go:128` | ListThreadsForUser | duplicating → **fixed** |
+| `staffchat/staffchat.go:168` | ListMessages | duplicating → **fixed** |
+| `staffchat/staffchat.go:256` | Directory | duplicating → **fixed** |
+| `marriagechat/marriagechat.go:81,83` | ListMeetingRequests | duplicating → **fixed** |
+| `marriagechat/marriagechat.go:541,543` | ListAllThreads | duplicating → **fixed** |
+| `marriagechat/marriagechat.go:587` | AdminListMessages | duplicating → **fixed** |
+| `chatgroups/chatgroups_reads.go:125,192` | AdminListMessages, ListMessagesForMember | safe — already LATERAL (#115) |
+| `chatgroups/chatgroups_connect.go:254` | connect-request reads | safe — already LATERAL |
+| `chatgroups/chatgroups_admin.go:89` | `profileNames` | safe — one row per key by `WHERE user_id = ANY(...)`, read into a map |
+| `chat/chat.go:365`, `staffchat:129`, `marriagechat:544` | last-message lookups | safe — LATERAL on messages, not profiles |
+| `users/users.go:894` | account-by-id read | **safe but nondeterministic** — `QueryRow` takes the first of two rows |
+| `staffactivity/store.go:167` | `Load`'s header | same: `QueryRow`, first row wins |
+| `handlers/admin_status_events.go:78` | `userNamePhone` | same: `QueryRow`, first row wins |
+| `handlers/admin_detail.go:301` | sponsorship donor contact | same: `pgx.CollectOneRow`, first row wins |
+| `donations/donations.go:677,705` | `AdminList` count + page | **duplicating — still open** |
+| `users/users.go:1033,1056` | `PaginatedList` count + page | **duplicating — still open** |
+| `users/registration.go:692,713` | `ListRegistrations` count + page | **duplicating — still open** |
+| `postengagement/postengagement.go:230,258,309,318` | ListComments, AdminListComments, ActivityFeed ×2 | **duplicating — still open** |
+| `permissions/permissions.go:555` | `ListAudit` | **duplicating — still open** |
+| `profilechanges/profilechanges.go:108,109` | `List` | **duplicating — still open** |
+| `sponsorships/sponsorships.go:87` | `List` | **duplicating — still open** |
+| `staffactivity/store.go:128` | `timelineSQL` registration branch | **duplicating — still open** |
+| `handlers/admin_lists.go:239,330,652,750,774,1069` | InKindDonations, SupportTickets, Campaigns, VolunteerMissionSignups (count + page), VolunteerBoard | **duplicating — still open** |
+| `handlers/admin_trash.go:141` | trash list | **duplicating — still open** |
+| `handlers/donations.go:572` | BeneficiaryCampaignDonations | **duplicating — still open** |
+| `beneficiary/beneficiary.go:193` | `caseColumns` reviewer-name **scalar subquery** | **worse than duplicating — still open**: a reviewer with two profile rows makes the subquery return two rows, and Postgres then fails the whole query with `more than one row returned by a subquery used as an expression`. Every case list that reviewer touched 500s. The fix is one line: `ORDER BY rp.id LIMIT 1` inside the subquery. |
+
+Counts: **11 fixed**, **9 safe** (already LATERAL / keyed / aggregated), **4 safe-but-nondeterministic** single-row reads, **~21 join sites still duplicating**, plus the one scalar subquery.
+
+**Tests first.** Four new files, all integration tests skipped without `TEST_DATABASE_URL`:
+`internal/chat/chat_duplicate_profiles_test.go`, `internal/chatgroups/chatgroups_contact_blocks_duplicate_profiles_test.go`, `internal/marriagechat/marriagechat_duplicate_profiles_test.go`, `internal/staffchat/staffchat_duplicate_profiles_test.go`. Each seeds a user with two `user_profiles` rows (named "Oldest Profile Name" and "Newer Duplicate Profile Name") and asserts one result row; several also assert the OLDEST name is the one served. The staffchat and marriagechat packages had no test file at all before this; both now carry their own `newDupTestPool` harness, modelled on `internal/chat/chat_test.go`.
+
+**RED**, on a brand-new `godonation_dupprof_red_26497`, `-run 'DuplicateProfiles|Duplicated|WhenSenderHasTwoProfiles|WhenItHasTwoProfiles' -count=1 -p 1 -timeout 45m -v`. All 11 new tests failed, and the counts are the point:
+- `chat_duplicate_profiles_test.go:84: thread 1 listed 4 times, want 1` (owner AND staff duplicated → ×4)
+- `chat_duplicate_profiles_test.go:97: got 2 messages, want 1`
+- `chat_duplicate_profiles_test.go:119: thread 3 listed 8 times, want 1` (donor, owner and staff → ×8)
+- `chat_duplicate_profiles_test.go:137: got 2 contact blocks, want 1`
+- `chatgroups_contact_blocks_duplicate_profiles_test.go:44: got 2 contact blocks, want 1`
+- `marriagechat_duplicate_profiles_test.go:131: request 1 listed 4 times, want 1`; `:153: thread 2 listed 4 times, want 1`; `:166: got 2 messages, want 1`
+- `staffchat_duplicate_profiles_test.go:104: got 2 threads, want exactly thread 1 once`; `:120: got 2 messages, want 1`; `:139: user 700000019 listed 2 times in the directory, want 1`
+The two #115 tests in chatgroups passed throughout, as expected.
+
+**GREEN**, on a brand-new `godonation_dupprof_green_26497`, same `-run` and flags: **14 `--- PASS`, 0 SKIP, 0 FAIL** across the four packages (`ok` for chat 0.860s, chatgroups 0.431s, marriagechat 0.610s, staffchat 0.458s). The 14 are the 11 new tests plus the three #115 ones the regex also matches.
+
+**Package suites**, on a brand-new `godonation_dupprof_suite_26497`, `go test ./internal/chat/ ./internal/chatgroups/ ./internal/marriagechat/ ./internal/staffchat/ -count=1 -p 1 -timeout 45m`: exit 0 — `ok` chat 1.001s, chatgroups 2.850s, marriagechat 0.396s, staffchat 0.448s.
+
+**Format, build, vet:** `go build ./...` and `go vet ./...` both exit 0. `gofmt -l ./internal ./cmd` prints one file, `internal/handlers/admin_edit_user_profile.go` — **pre-existing, not touched by this branch** (`git diff origin/main` on it is empty). None of the files changed here are listed.
+
+**Review:** the `ecc:database-reviewer` agent was skipped at the coordinator's instruction (its runs were stalling). Instead each changed query was re-read by hand against the criteria above; the alias-usage grep is the evidence that no column other than `full_name` is read from any of the rewritten aliases.
+
+**Databases created and dropped:** `godonation_dupprof_schema_26497`, `godonation_dupprof_red_26497`, `godonation_dupprof_green_26497`, `godonation_dupprof_suite_26497`. All dropped; `psql -lqt` lists no `godonation_dupprof%` database.
+
+**External actions taken:** none. Nothing was pushed, no PR was opened. OPOS was unavailable in this session (the connector needs OAuth), so #26497 was not moved or commented on.
+
+**What is still open:**
+- **Both commits are local and unpushed**, and unreviewed by a human.
+- **The writer race is untouched on this branch, by instruction.** `users/profile.go` `UpsertProfile` (its `GetProfileRow` check still runs on the pool, OUTSIDE the transaction it later opens), `users/registration.go` `SubmitRegistration` and `handlers/admin_edit.go` `User` all check-then-insert with no lock. The intended fix is `pg_advisory_xact_lock(hashtext('user_profiles:' || user_id))` as the FIRST statement inside each transaction. **Take it first, before any `UPDATE users`** — `admin_edit.go` updates `users` before reaching the profile block while `SubmitRegistration` updates it after, so locking in the middle would make those two deadlock against each other.
+- **~21 duplicating join sites remain**, listed in the audit table above, plus the `beneficiary/beneficiary.go:193` scalar subquery, which is the most severe single item on the list because it makes the query ERROR rather than merely repeat a row.
+- **The four single-row `QueryRow`/`CollectOneRow` reads** return a nondeterministic name for a duplicated user. Cheap to make deterministic with the same LATERAL pattern; nobody has.
+- **UNIQUE on `user_profiles.user_id`** still needs a human decision on how to dedupe the existing pairs. No migration was added on this branch, and none should add UNIQUE or delete rows without that decision.
+- The full `go test ./...` was NOT run here — the coordinator is running it on main.
+
+**Traps:**
+- **A Go raw-string SQL literal cannot contain a backtick.** Two of the explanatory comments written into these queries quoted `` `where` ``, which closed the literal and produced the baffling `syntax error: unexpected name where in argument list` at a line far from the edit. Write WHERE in capitals in SQL comments instead.
+- **Never run these packages twice against one database** — the same trap as #26474. `makeTestUser`-style helpers delete only the `users` row, and the id floor is reset per process, so a second run sees the first run's threads and fails counting assertions.
+- The marriagechat fixture's cleanup deletes messages → threads → requests → profile explicitly, because those tables' FKs to `users` do not all cascade.
+
+---
+
 ## 2026-09-15 — OPOS #26496: codes on the chat-group handlers' inline refusals (branch `fix/chat-group-admin-refusal-codes`)
 
 **What was asked:** some chat-group refusals, on both admin and member routes, were still written inline as `{success:false, error}` without a `code`. Each needed a machine code, with its status and English sentence unchanged. Test-first, not pushed.

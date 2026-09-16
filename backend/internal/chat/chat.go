@@ -360,8 +360,23 @@ func (s *Store) ListThreadsForUser(ctx context.Context, userID int64) ([]ThreadV
 		  FROM chat_threads t
 		  LEFT JOIN campaigns c ON c.id = t.campaign_id
 		  LEFT JOIN users ou ON ou.id = (CASE WHEN t.donor_user_id = $1 THEN t.owner_user_id ELSE t.donor_user_id END)
-		  LEFT JOIN user_profiles op ON op.user_id = (CASE WHEN t.donor_user_id = $1 THEN t.owner_user_id ELSE t.donor_user_id END)
-		  LEFT JOIN user_profiles sp ON sp.user_id = t.assigned_staff_user_id
+		  -- user_profiles.user_id carries no UNIQUE constraint (migration 124
+		  -- adds only a plain index), so a user can own two rows and a plain
+		  -- join would list the thread once per row — twice per duplicated
+		  -- party, four times when both have two. LATERAL … LIMIT 1 takes the
+		  -- OLDEST row (lowest id), so the name does not depend on which row
+		  -- the planner reaches first. Identical output for the normal
+		  -- one-row-per-user case.
+		  LEFT JOIN LATERAL (
+		      SELECT p.full_name FROM user_profiles p
+		       WHERE p.user_id = (CASE WHEN t.donor_user_id = $1 THEN t.owner_user_id ELSE t.donor_user_id END)
+		       ORDER BY p.id LIMIT 1
+		  ) op ON TRUE
+		  LEFT JOIN LATERAL (
+		      SELECT p.full_name FROM user_profiles p
+		       WHERE p.user_id = t.assigned_staff_user_id
+		       ORDER BY p.id LIMIT 1
+		  ) sp ON TRUE
 		  LEFT JOIN LATERAL (
 		      SELECT body, created_at FROM chat_messages m
 		       WHERE m.thread_id = t.id ORDER BY m.id DESC LIMIT 1
@@ -463,7 +478,13 @@ func (s *Store) ListMessages(ctx context.Context, threadID int64) ([]Message, er
 	rows, err := s.Pool.Query(ctx, `
 		SELECT m.id, m.thread_id, m.sender_user_id, m.sender_role, p.full_name, m.body, m.created_at
 		  FROM chat_messages m
-		  LEFT JOIN user_profiles p ON p.user_id = m.sender_user_id
+		  -- LATERAL, not a plain join: user_profiles.user_id has no UNIQUE
+		  -- constraint, so a sender with two rows would have every message of
+		  -- theirs listed twice. The oldest row (lowest id) names them.
+		  LEFT JOIN LATERAL (
+		      SELECT up.full_name FROM user_profiles up
+		       WHERE up.user_id = m.sender_user_id ORDER BY up.id LIMIT 1
+		  ) p ON TRUE
 		 WHERE m.thread_id = $1
 		 ORDER BY m.id ASC`,
 		threadID,
@@ -609,10 +630,26 @@ func (s *Store) ListAllThreads(ctx context.Context, q, kind string) ([]AdminThre
 		  FROM chat_threads t
 		  LEFT JOIN campaigns c ON c.id = t.campaign_id
 		  LEFT JOIN users du ON du.id = t.donor_user_id
-		  LEFT JOIN user_profiles dp ON dp.user_id = t.donor_user_id
+		  -- Three LATERALs rather than three plain joins: user_profiles.user_id
+		  -- has no UNIQUE constraint, and a plain join multiplies the row by
+		  -- each party's profile count — a thread whose donor and owner both
+		  -- have two rows appeared four times on the admin Messages page. Each
+		  -- takes the oldest row (lowest id). The WHERE clause's ILIKE
+		  -- filters on dp./opf. still work: the aliases still resolve to one
+		  -- row each.
+		  LEFT JOIN LATERAL (
+		      SELECT p.full_name FROM user_profiles p
+		       WHERE p.user_id = t.donor_user_id ORDER BY p.id LIMIT 1
+		  ) dp ON TRUE
 		  LEFT JOIN users ou ON ou.id = t.owner_user_id
-		  LEFT JOIN user_profiles opf ON opf.user_id = t.owner_user_id
-		  LEFT JOIN user_profiles sp ON sp.user_id = t.assigned_staff_user_id
+		  LEFT JOIN LATERAL (
+		      SELECT p.full_name FROM user_profiles p
+		       WHERE p.user_id = t.owner_user_id ORDER BY p.id LIMIT 1
+		  ) opf ON TRUE
+		  LEFT JOIN LATERAL (
+		      SELECT p.full_name FROM user_profiles p
+		       WHERE p.user_id = t.assigned_staff_user_id ORDER BY p.id LIMIT 1
+		  ) sp ON TRUE
 		  LEFT JOIN LATERAL (
 		     SELECT body, created_at FROM chat_messages m
 		      WHERE m.thread_id = t.id ORDER BY m.id DESC LIMIT 1
