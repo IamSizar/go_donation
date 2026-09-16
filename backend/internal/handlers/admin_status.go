@@ -232,12 +232,27 @@ func (h *AdminStatusHandler) CreateUser(c *gin.Context) {
 	}
 	phone := strings.TrimSpace(req.Phone)
 	if phone == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Phone number is required."})
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false, "code": "phone_required",
+			"error": "Phone number is required.",
+		})
 		return
 	}
 	// H10 — an account created with a redacted phone could never sign in and
 	// could never be reached; `users.phone` is the sign-in identity.
+	//
+	// Checked BEFORE normalisation: a redaction ("••••03") reduces to "" under
+	// auth.NormalizePhone, so normalising first would answer "that is not a
+	// valid phone number" and send the operator hunting a typo instead of
+	// telling them they were never shown the number they are about to save.
 	if rejectMaskedContactWrite(c, contactWrite{"phone", &phone}) {
+		return
+	}
+	// #26636 — reduce the typed number to the ONE form `users.phone` stores, so
+	// its UNIQUE index actually means "one account per number". See
+	// phone_identity.go for why a bare TrimSpace did not.
+	phone, ok := normalizeIdentityPhone(c, phone)
+	if !ok {
 		return
 	}
 	// Sign-in credentials, both optional and validated before anything is
@@ -297,16 +312,23 @@ func (h *AdminStatusHandler) CreateUser(c *gin.Context) {
 		`INSERT INTO users (phone, role_id, registration_status, username, password_hash)
 		 VALUES ($1, $2, 'approved', $3, $4) RETURNING id`, phone, roleArg, usernameArg, passwordHash).Scan(&id)
 	if err != nil {
-		if strings.Contains(err.Error(), "23505") || strings.Contains(strings.ToLower(err.Error()), "duplicate") {
+		if isUniqueViolation(err) {
 			// Two unique constraints can fire here now, and "phone already
 			// exists" pointing at a username collision would send the operator
 			// hunting the wrong field. idx_users_username is the partial index
 			// from migration 014.
 			if strings.Contains(err.Error(), "idx_users_username") {
-				c.JSON(http.StatusConflict, gin.H{"success": false, "error": "This username is already taken."})
+				c.JSON(http.StatusConflict, gin.H{
+					"success": false, "code": "username_taken",
+					"error": "This username is already taken.",
+				})
 				return
 			}
-			c.JSON(http.StatusConflict, gin.H{"success": false, "error": "A user with this phone already exists."})
+			// #26636 — the owner's rule, enforced by the database rather than by
+			// a check this handler makes first: two operators creating the same
+			// number at the same moment both pass any read, and only one of the
+			// INSERTs survives the UNIQUE index.
+			refusePhoneTaken(c)
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
