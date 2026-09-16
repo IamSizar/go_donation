@@ -6,6 +6,89 @@
 
 ---
 
+## 2026-09-16 — chat end-to-end test plan for the Railway deployment (branch `docs/chat-e2e-test-plan`, NOT pushed)
+
+**Asked for:** a test plan Zaid can follow to test the whole chat system end to
+end against Railway, on a real phone plus the dashboard. Two things were wanted:
+the list of account types and roles he needs to create, and a step-by-step
+script. Read-only research — no product code was to change, and OPOS was not
+usable in this session.
+
+**Branch** `docs/chat-e2e-test-plan`, cut from `origin/main` `fcc5b10`.
+
+**What was changed:** one new file, `docs/testing/chat-e2e-test-plan-2026-09.md`
+(the `docs/testing/` directory is new), plus this entry. No product code.
+
+### What the plan contains
+- **Part 1 — the account matrix.** The three member roles (`role_id` 1/2/3) with
+  English and Arabic labels; the five `staff_tier` values; the default
+  permission table for the chat modules; how each account type is really created;
+  and a minimum set of nine named accounts (SA, E1, SUP, D, B, V1, V2, G, D2)
+  with a reason for each.
+- **Part 2 — a ten-step script**, each step written as "what to tap" and "what
+  should happen", quoting the exact button label and message text in English and
+  Arabic from the locale files.
+- **Part 3 — known gaps**, so the tester is not surprised.
+
+### Findings worth carrying forward
+- **Every chat PR #100–#135 is merged on `main`.** Several HANDOFF entries for
+  this work say "NOT pushed"; those branches were later squash-merged. The
+  deployment should have all of it if it is at `fcc5b10` or later.
+- **`sensitive_data` is the only module whose `view` is NOT default-on.**
+  `permissions.go:139-145` — super_admin and admin only; supervisor and employee
+  must be granted it by name. This is the hinge of the masked-group test.
+- **`AllActions` has six entries, not four** (`permissions.go:164`): view, add,
+  edit, archive, delete, export. A four-column matrix misstates supervisor
+  (gets archive + export) and employee (gets neither).
+- **Chat invites are only reachable through the Marriage flow now.** Direct
+  donor chats answer 410 (`handlers/chat.go:176`), so no new donor invite can be
+  produced. `marriage_chat.go:99`'s approve is the only live invite source. The
+  plan says so rather than pretending a donor invite can be created.
+- **Group-chat export IS built** — `GroupHeader.tsx:57` wires `ExportCsvButton`
+  with `groupChatExportColumns()`. `lib/chatExport.ts:27-30` still says
+  "GROUP CHATS (E3, not built yet)". **That header comment is stale and
+  misleading**; a first read of it says the opposite of the truth. Worth fixing
+  in its own commit.
+- **Guests can read support but cannot write it.** `POST /api/support` and
+  `POST /api/chats/support` are both `RequireNotGuest` (`main.go:739`, `:780`);
+  only `GET /api/support/mine` is deliberately open (`:787`). "Support still
+  works for guests" is true only for the read.
+- **The retire-direct-chats production run has still NOT happened**
+  (`docs/runbooks/retire-direct-chats.md` header). Pre-existing direct chats are
+  therefore still open on production. The plan warns the tester up front.
+- **Role 3's label is untranslated in the app.** `profile.dart:180` and
+  `pending_approval.dart:74` return a bare `'Volunteer'` with no `.tr`, while
+  roles 1 and 2 use `.tr`. «متطوع» exists at `app_translations.dart:3906` and
+  «خۆبەخش» at `:6340`, but neither is ever reached from those two screens. This
+  is a real Arabic-UI English leak against standing rule 2. Listed in the plan
+  as expected, not fixed here.
+
+### What was run
+Nothing to run — the deliverable is prose and no code changed. The facts were
+taken from `origin/main` `fcc5b10` by reading the files cited inline in the plan
+and in this entry. **No deployment was contacted, no database was read, and the
+plan itself has not been executed against Railway.**
+
+### Still open
+- The branch is **local and unpushed**, and there is no PR.
+- **OPOS was not usable in this session**, so no task was created, moved to WIP,
+  timed or completed for this work. It needs logging by whoever has access.
+- The plan is **written from the code, not from a run**. Nothing in Part 2 has
+  been clicked through. Expect the marriage search and "request a meeting"
+  wording in step 5 to need correcting from the screen — the plan marks it
+  `[NOT CONFIRMED]`.
+- The stale `chatExport.ts` header comment above deserves its own fix.
+
+### Traps
+- **Do not trust "NOT pushed" in older HANDOFF entries** as evidence a feature is
+  missing from `main`. Check `git log --oneline origin/main` for the PR number —
+  most of the chat branches were squash-merged after their entry was written.
+- **`Locale('ar', 'IQ')` is the SORANI map in this app**, not Arabic; Arabic is
+  `ar_SA`. Reading Arabic strings under `ar_IQ` gives Kurdish.
+- The reviewer agent was skipped, as the task asked.
+
+---
+
 ## 2026-09-16 — chat policy conformance audit (OPOS #25284, read-only)
 
 **Asked for:** prove or disprove each of the client's 8 chat rules against the
