@@ -140,6 +140,11 @@ var trashPreviewColumns = map[string][]string{
 	"marriage_chat_threads":       {"requester_user_id", "owner_user_id", "status", "lifecycle"},
 	"staff_chat_threads":          {"user_a_id", "user_b_id", "lifecycle"},
 	"case_volunteer_chat_threads": {"volunteer_user_id", "beneficiary_user_id", "case_id", "lifecycle"},
+	// chat_group_threads has no participant columns of its own — membership
+	// lives in chat_group_members, which the preview does not join — so
+	// `kind` (masked/team) and the staff-authored `member_title` (team
+	// groups only) are what the operator has to recognise it by.
+	"chat_group_threads": {"kind", "member_title", "created_by_staff_id", "lifecycle"},
 
 	// ─── Catalogue rows (H15 / M7) ───────────────────────────────────────
 	// Authored in four languages, so all four names stay: the Trash reads the

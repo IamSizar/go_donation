@@ -9,6 +9,8 @@ import 'package:intl/intl.dart';
 import 'package:flutter_application_1/core/widgets/app_pressable.dart';
 import 'package:flutter_application_1/modules/chat/widgets/chat_lifecycle_notice.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
+import 'package:flutter_application_1/modules/chat/utils/chat_invite_refusal.dart';
+import 'package:flutter_application_1/modules/marriage/widgets/marriage_chat_invite_bar.dart';
 
 /// Note #35 — one staff-mediated marriage chat thread. Every bubble is
 /// labeled only by role ("You" / the counterpart's masked label / "Staff")
@@ -54,6 +56,10 @@ class _MarriageChatConversationScreenState
   /// handshake (pending/active/declined) and means something else entirely.
   String _lifecycle = ChatLifecycle.open;
   String? _lifecycleReason;
+
+  /// Set when the server refused Accept as closed. An archived thread answers
+  /// 404 and its reload fails too, so [_lifecycle] alone cannot hide Accept.
+  bool _acceptClosed = false;
 
   @override
   void initState() {
@@ -149,23 +155,30 @@ class _MarriageChatConversationScreenState
     }
   }
 
-  Future<void> _decide(bool accept) async {
+  /// Answers the invite. A refusal used to show the send-failure line; it now
+  /// shows what the server named and settles the screen to match, then
+  /// reloads quietly so the handshake and lifecycle are current (OPOS #26433).
+  Future<void> _decide(ChatInviteAnswer answer) async {
     setState(() => _deciding = true);
     try {
-      if (accept) {
+      if (answer == ChatInviteAnswer.accept) {
         await const ModuleApi().acceptMarriageChat(widget.threadId);
       } else {
         await const ModuleApi().declineMarriageChat(widget.threadId);
       }
       await _load();
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(failureMessage(e, 'error_message_send_failed')),
-          ),
-        );
-      }
+      debugPrint('marriage chat $answer ${widget.threadId} refused: $e');
+      if (!mounted) return;
+      final refusal = classifyChatInviteRefusal(e, answer);
+      setState(() {
+        if (refusal == ChatInviteRefusal.closed) _acceptClosed = true;
+        if (refusal == ChatInviteRefusal.declined) _status = 'declined';
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(chatInviteRefusalMessage(e, answer))),
+      );
+      await _load(silent: true);
     } finally {
       if (mounted) setState(() => _deciding = false);
     }
@@ -210,28 +223,10 @@ class _MarriageChatConversationScreenState
             ),
           ),
           if (_status == 'pending' && isOwner)
-            Padding(
-              padding: const EdgeInsets.all(14),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'marriage_chat_pending_owner_notice'.tr,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  OutlinedButton(
-                    onPressed: _deciding ? null : () => _decide(false),
-                    child: Text('marriage_chat_decline'.tr),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: _deciding ? null : () => _decide(true),
-                    child: Text('marriage_chat_accept'.tr),
-                  ),
-                ],
-              ),
+            MarriageChatInviteBar(
+              deciding: _deciding,
+              canAccept: !_acceptClosed && !ChatLifecycle.isClosed(_lifecycle),
+              onAnswer: _decide,
             )
           else if (_status == 'pending' && !isOwner)
             Padding(
@@ -353,7 +348,10 @@ class _Bubble extends StatelessWidget {
                     mine
                         ? 'marriage_chat_you'.tr
                         : isStaff
-                        ? 'Support'.tr
+                        // The support team (فريق الدعم), never the bare
+                        // 'Support' key, whose Arabic الدعم means Kafala
+                        // (TERMINOLOGY.md T10, OPOS #26483).
+                        ? 'chat_group_sender_support'.tr
                         : 'marriage_chat_other_party'.tr,
                     style: TextStyle(
                       fontSize: 11,

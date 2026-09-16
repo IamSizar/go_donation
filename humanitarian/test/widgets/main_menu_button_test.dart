@@ -30,9 +30,14 @@ import 'package:flutter_application_1/localization/app_translations.dart';
 // form in edit mode, which now holds the avatar and every field the person's
 // role asks for. Keeping a second profile form only to satisfy this list
 // would be keeping the drift this change removed.
+//
+// case_chat_conversation_screen.dart is deliberately absent too: Phase 4 of
+// the chat-groups work (OPOS #25284, PR #79, commit e07d59a) DELETED the
+// screen together with the rest of the casevolchat UI. A file that no longer
+// exists cannot re-add the button, and listing it only turned this guard red
+// for a reason that had nothing to do with the button.
 const _formerOwnAppBarPages = <String>[
   'lib/modules/bot/screens/bot_chat_screen.dart',
-  'lib/modules/chat/screens/case_chat_conversation_screen.dart',
   'lib/modules/chat/screens/chat_conversation_screen.dart',
   'lib/modules/donations/screens/donation_details_screen.dart',
   'lib/modules/donations/screens/donations_screen.dart',

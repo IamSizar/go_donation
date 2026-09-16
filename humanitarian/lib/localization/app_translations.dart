@@ -31,6 +31,10 @@ class AppTranslations extends Translations {
     'case_volunteer_chat_message': 'Case chat message',
     'case_volunteer_chat_opened': 'Case chat opened',
     'chat_accepted': 'Chat accepted',
+    // OPOS #26429 — masked and team chat-group messages share this one type
+    // (chatGroupNewMessageMsg in templates.go). "Group chat" is the name the
+    // Messages tab already uses ('Could not load your group chats.').
+    'chat_group_message': 'Group chat message',
     'chat_message': 'Chat message',
     'chat_request': 'Chat request',
     'donation_approved': 'Donation approved',
@@ -454,13 +458,93 @@ class AppTranslations extends Translations {
         'Could not read your location. Make sure location is turned on for '
         'this app, then try again.',
     // Everything below crosses the network and takes a recovery clause.
-    'error_role_change_failed': 'Could not change your account type.',
     'error_history_load_failed': 'Could not load your record.',
     'error_otp_send_failed': 'Could not send the verification code.',
     'error_otp_verify_failed': 'Could not verify that code.',
     'error_password_setup_failed': 'Could not set your password.',
     'error_message_send_failed': 'Could not send your message.',
     'error_messages_load_failed': 'Could not load this conversation.',
+    // OPOS #26433 — a refused chat-invite answer (chat_invite_refusal.dart).
+    // The accept line takes a recovery clause; the two refusals do not,
+    // because trying again cannot change them.
+    'error_chat_accept_failed': 'Could not accept this chat request.',
+    'chat_invite_refusal_declined': 'You declined this invitation.',
+    'chat_invite_refusal_already_active':
+        'This chat is already active, so it can no longer be declined.',
+    // An empty chat staff closed before anyone wrote: no "say hello" invite,
+    // because nothing can be sent into it.
+    'chat_group_closed_empty_title': 'No messages here',
+    'chat_group_closed_empty_message':
+        'This conversation was closed before any messages were sent.',
+    // OPOS #25284 Phase 5 — staff-mediated group chats. en + ar only;
+    // Sorani and Badini await a native speaker (#21431).
+    'error_chat_groups_load_failed': 'Could not load your group chats.',
+    'error_connect_requests_load_failed':
+        'Could not load your connect requests.',
+    // A send the server refused BY NAME. Retrying cannot help either one, so
+    // neither says "try again" — see ChatGroupConversationController.
+    'chat_group_send_contact_blocked':
+        'Phone numbers and email addresses cannot be shared in this chat. '
+        'It is supervised for your safety — please keep the conversation '
+        'here, and ask our team if you need to arrange contact.',
+    'chat_group_send_closed':
+        'Your message was not sent because this conversation is no longer '
+        'open.',
+    // A group that is gone for this member: staff deleted or archived it, or
+    // removed the member (the server answers 404 / 403). No "try again" —
+    // retrying cannot bring it back — so the copy points the way back instead.
+    // "our team" matches the lifecycle notices on the same screen.
+    'chat_group_unavailable_title': 'This conversation is no longer available',
+    'chat_group_unavailable_message':
+        'It may have been closed by our team, or you are no longer part of it. '
+        'Go back to see your other conversations.',
+    // The send button's accessibility label: the button itself is an icon, so
+    // a screen reader has nothing else to announce.
+    'Send message': 'Send message',
+    // OPOS #25284 Phase 5 Task 4 — the Messages tab's group-chat block and the
+    // My Connect Requests screen. en + ar only; Sorani and Badini fall back to
+    // English until a native speaker translates them (#21431).
+    'chat_groups_my_connect_requests': 'My Connect Requests',
+    'chat_groups_my_connect_requests_desc':
+        'See where the requests you sent to our team stand.',
+    'chat_groups_my_connections': 'My Connections',
+    'chat_groups_my_team_groups': 'My Team Groups',
+    // A masked group's title: its members never see each other's names.
+    'chat_groups_connection_title': 'Connection',
+    // A team group whose title staff left blank.
+    'chat_groups_team_group_title': 'Team group',
+    'chat_groups_no_messages_yet': 'No messages yet',
+    // Read aloud for the unread badge, which on screen is only a number.
+    'chat_groups_unread_count': 'Unread messages: @count',
+    'chat_groups_status_pending': 'Pending',
+    'chat_groups_status_approved': 'Approved',
+    'chat_groups_status_declined': 'Declined',
+    'chat_groups_about_donation': 'About a donation',
+    'chat_groups_about_case': 'About a case',
+    'chat_groups_pending_hint': 'Our team is reviewing your request.',
+    'chat_groups_open_conversation': 'Open the conversation',
+    'chat_groups_decline_reason_label': 'Reason from our team',
+    // ─── chat group sender labels (OPOS #26419) ───
+    // The server writes these labels in English (autoLabel and
+    // ListMessagesForMember in backend/internal/chatgroups); the app shows
+    // them in the reader's language through localizedSenderLabel. `@n` is the
+    // alias's sequence number. English deliberately uses the server's own
+    // words, not the app's role vocabulary (user decision, 2026-09-15), so a
+    // member reads the same alias here as in the dashboard and in push
+    // notifications.
+    // chat_group_sender_support also names an unnamed staff reply in the 1:1
+    // support chat (chatSenderName, OPOS #26435), so the support team has one
+    // name in both kinds of chat. Renaming the key means updating both.
+    'chat_group_sender_support': 'Support',
+    'chat_group_sender_member': 'Member',
+    'chat_group_sender_donor_n': 'Donor @n',
+    'chat_group_sender_beneficiary_n': 'Beneficiary @n',
+    'chat_group_sender_volunteer_n': 'Volunteer @n',
+    'chat_group_sender_member_n': 'Member @n',
+    'chat_groups_requests_empty_title': 'No connect requests yet',
+    'chat_groups_requests_empty_message':
+        'When you ask our team to connect you with someone, your request and '
+        'its status will appear here.',
     'error_privacy_settings_save_failed':
         'Could not save your privacy settings.',
     'error_service_request_failed': 'Could not send your service request.',
@@ -585,6 +669,8 @@ class AppTranslations extends Translations {
     // "your whole submission was lost".
     'Your registration was saved, but your documents did not upload. You can add them from your profile.':
         'Your registration was saved, but your documents did not upload. You can add them from your profile.',
+    'Your registration was saved, but your photo did not upload. You can add it from your profile.':
+        'Your registration was saved, but your photo did not upload. You can add it from your profile.',
     // L2 — same shape, same reason, for the donor's optional social links:
     // reassure first, then name the one thing that did not happen and where to
     // do it instead. "Privacy settings" is the screen that owns these three
@@ -1495,6 +1581,31 @@ class AppTranslations extends Translations {
         'No one is assigned to receive chat messages right now. You can still '
         'reach the team through the support form or on WhatsApp.',
     'chat_support_unavailable_action': 'Open technical support',
+    // OPOS #25284 Phase 5 Task 5 — "Ask our team to connect me". Members
+    // cannot contact each other directly; they ask staff, who may open a
+    // supervised chat. en + ar only; Sorani and Badini fall back to English
+    // (#21431). A member reads "our team", never "staff" — the same words as
+    // the chat-group strings and lifecycle notices (OPOS #26351).
+    'connect_request_action': 'Ask our team to connect me',
+    'connect_request_title': 'Ask our team to connect you',
+    'connect_request_explainer':
+        'Our team will review your request. If they approve it, they will '
+        'open a supervised chat for you here in the app.',
+    'connect_request_message_label': 'What do you need?',
+    'connect_request_message_hint':
+        'Tell our team what you would like to discuss, and why.',
+    'connect_request_message_required': 'Please describe what you need.',
+    'connect_request_submit': 'Send request',
+    'connect_request_sent': 'Request sent. Our team will review it shortly.',
+    // The success view that replaces the form INSIDE the sheet once the
+    // request is accepted. `connect_request_sent` above is now only the toast
+    // for a member who closed the sheet before the answer arrived. The Done
+    // button reuses the existing `Done` key, already translated everywhere.
+    'connect_request_sent_title': 'Request sent',
+    'connect_request_sent_body':
+        'Our team will review it shortly. You can follow it in My Connect '
+        'Requests on the Messages tab.',
+    'error_connect_request_submit_failed': 'Could not send your request.',
     // The standing (not error-triggered) route to the ticket form, offered
     // next to chat_support so the two read as different things: one is a
     // live conversation, the other files a tracked request.
@@ -1518,7 +1629,6 @@ class AppTranslations extends Translations {
         'Could not save that just now. Please try again.',
     'marriage_saved_unsave_failed':
         'Could not remove that just now. Please try again.',
-    'case_chats_label': 'Case chats',
     'Confirm': 'Confirm',
     'check_in_action': 'Check in (photo + location)',
     'check_out_action': 'Check out (photo + location)',
@@ -2014,6 +2124,10 @@ class AppTranslations extends Translations {
     'Browse partner and supporting entities.':
         'Browse partner and supporting entities.',
     'News and activities': 'News and activities',
+    // OPOS #25869 — short form of 'News and activities' above, for a
+    // section label that sits directly above a tile already spelling out
+    // the full phrase (ProfileMenuScreen).
+    'News': 'News',
     'See activities, news, articles, and events.':
         'See activities, news, articles, and events.',
     'Technical support': 'Technical support',
@@ -2752,6 +2866,11 @@ class AppTranslations extends Translations {
     'activity_submitting': 'Submitting…',
     'activity_submitted': 'Thanks! Your suggestion was sent for review.',
     'activity_submit_failed': 'Could not submit. Please try again.',
+    // OPOS #25280 — a timed-out or dropped-connection request may have
+    // already reached the server; unlike activity_submit_failed, this does
+    // NOT claim the submission failed.
+    'activity_submit_unconfirmed':
+        "We couldn't confirm this went through. Check the list before trying again.",
     // K16 — the category field is a picker over the curated sub-categories
     // now, and they are scoped to the sectors ticked above it, so this is what
     // the field says before a sector is chosen.
@@ -3065,6 +3184,10 @@ class AppTranslations extends Translations {
         "Couldn't start guest browsing. Check your connection and try again.",
     'Use a different number': 'Use a different number',
     'User': 'User',
+    // Names a 1:1 thread's other party the server sent no name for, keeping
+    // their user id so unnamed threads stay distinguishable
+    // (chatThreadOtherName, OPOS #26483). No Kurdish yet: English fallback.
+    'chat_thread_other_user_id': 'User #@id',
     'Verify & Continue': 'Verify & Continue',
     'Verify your phone': 'Verify your phone',
     'We sent a 6-digit code to @phone': 'We sent a 6-digit code to @phone',
@@ -3100,15 +3223,20 @@ class AppTranslations extends Translations {
     'Marriage dashboard': 'Events dashboard',
     'Gender cannot be changed after sign-up.':
         'Gender cannot be changed after sign-up.',
-    'Account type': 'Account type',
-    'Switch account type?': 'Switch account type?',
     'You can switch to @type yourself, but only staff can switch you back.':
         'You can switch to @type yourself, but only staff can switch you back.',
-    'Account type updated.': 'Account type updated.',
-    'Account type unchanged.': 'Account type unchanged.',
     'Nothing saved yet.': 'Nothing saved yet.',
     'Remove': 'Remove',
     'Select a project': 'Select a project',
+
+    // OPOS #26423 — the Messages tab's sign-in prompt for a guest
+    // (GuestMessagesPrompt in dashboard/screens/guest_sections.dart), shown
+    // where the conversation list would be; a guest has none. Its button
+    // reuses 'Sign in'. en + ar only; Sorani and Badini fall back to English
+    // (#21431) and are listed in TRANSLATION_REQUEST.md.
+    'messages_guest_title': 'Sign in to use Messages',
+    'messages_guest_body':
+        'Your conversations will appear here once you have a full account.',
   };
 
   static const Map<String, String> _ar = {
@@ -3140,6 +3268,9 @@ class AppTranslations extends Translations {
     'case_volunteer_chat_message': 'رسالة محادثة الحالة',
     'case_volunteer_chat_opened': 'فتح محادثة الحالة',
     'chat_accepted': 'قبول المحادثة',
+    // OPOS #26429 — follows رسالة محادثة below; جماعية is the chat-groups
+    // screens' own word ('تعذّر تحميل محادثاتك الجماعية.').
+    'chat_group_message': 'رسالة محادثة جماعية',
     'chat_message': 'رسالة محادثة',
     'chat_request': 'طلب محادثة',
     'donation_approved': 'قبول التبرع',
@@ -3517,13 +3648,64 @@ class AppTranslations extends Translations {
     'error_gps_capture_failed':
         'تعذّر تحديد موقعك. تأكّد من تفعيل خدمة الموقع لهذا التطبيق ثم حاول '
         'مرة أخرى.',
-    'error_role_change_failed': 'تعذّر تغيير نوع حسابك.',
     'error_history_load_failed': 'تعذّر تحميل سجلك.',
     'error_otp_send_failed': 'تعذّر إرسال رمز التحقق.',
     'error_otp_verify_failed': 'تعذّر التحقق من الرمز.',
     'error_password_setup_failed': 'تعذّر تعيين كلمة المرور.',
     'error_message_send_failed': 'تعذّر إرسال رسالتك.',
     'error_messages_load_failed': 'تعذّر تحميل هذه المحادثة.',
+    'error_chat_accept_failed': 'تعذّر قبول طلب المحادثة.',
+    'chat_invite_refusal_declined': 'لقد رفضتَ هذه الدعوة.',
+    'chat_invite_refusal_already_active':
+        'هذه المحادثة نشطة بالفعل، لذا لم يعد بالإمكان رفضها.',
+    'chat_group_closed_empty_title': 'لا توجد رسائل هنا',
+    'chat_group_closed_empty_message':
+        'أُغلقت هذه المحادثة قبل إرسال أي رسالة.',
+    // OPOS #25284 Phase 5 — staff-mediated group chats.
+    'error_chat_groups_load_failed': 'تعذّر تحميل محادثاتك الجماعية.',
+    'error_connect_requests_load_failed': 'تعذّر تحميل طلبات التواصل الخاصة بك.',
+    'chat_group_send_contact_blocked':
+        'لا يمكن مشاركة أرقام الهواتف أو عناوين البريد الإلكتروني في هذه '
+        'المحادثة. المحادثة تحت إشراف فريقنا حفاظاً على سلامتك — يُرجى إبقاء '
+        'التواصل هنا، واطلب من فريقنا إن احتجت إلى ترتيب وسيلة تواصل.',
+    'chat_group_send_closed': 'لم تُرسَل رسالتك لأن هذه المحادثة لم تعد مفتوحة.',
+    'chat_group_unavailable_title': 'هذه المحادثة لم تعد متاحة',
+    'chat_group_unavailable_message':
+        'ربما أغلقها فريقنا، أو لم تعد مشاركاً فيها. ارجع لرؤية محادثاتك الأخرى.',
+    'Send message': 'إرسال الرسالة',
+    // OPOS #25284 Phase 5 Task 4 — انظر شرح المفاتيح في كتلة الإنجليزية أعلاه.
+    'chat_groups_my_connect_requests': 'طلبات التواصل الخاصة بي',
+    'chat_groups_my_connect_requests_desc':
+        'تابِع حالة الطلبات التي أرسلتها إلى فريقنا.',
+    'chat_groups_my_connections': 'محادثات التواصل',
+    'chat_groups_my_team_groups': 'مجموعات الفريق',
+    'chat_groups_connection_title': 'محادثة تواصل',
+    'chat_groups_team_group_title': 'مجموعة فريق',
+    'chat_groups_no_messages_yet': 'لا توجد رسائل بعد',
+    'chat_groups_unread_count': 'رسائل غير مقروءة: @count',
+    'chat_groups_status_pending': 'قيد المراجعة',
+    'chat_groups_status_approved': 'تمت الموافقة',
+    'chat_groups_status_declined': 'مرفوض',
+    'chat_groups_about_donation': 'بخصوص تبرّع',
+    'chat_groups_about_case': 'بخصوص حالة',
+    'chat_groups_pending_hint': 'يراجع فريقنا طلبك حالياً.',
+    'chat_groups_open_conversation': 'افتح المحادثة',
+    'chat_groups_decline_reason_label': 'السبب من فريقنا',
+    // ─── chat group sender labels (OPOS #26419) ───
+    // فريق الدعم is the app's existing name for the support team ('Message the
+    // staff team', 'Send a message to the support team.'); a bare الدعم is
+    // already Kafala, and TERMINOLOGY.md T10 settles that the two must differ.
+    // مانح / مستحق / متطوع are the app's role nouns (TERMINOLOGY.md T12, T4,
+    // T15).
+    'chat_group_sender_support': 'فريق الدعم',
+    'chat_group_sender_member': 'عضو',
+    'chat_group_sender_donor_n': 'مانح @n',
+    'chat_group_sender_beneficiary_n': 'مستحق @n',
+    'chat_group_sender_volunteer_n': 'متطوع @n',
+    'chat_group_sender_member_n': 'عضو @n',
+    'chat_groups_requests_empty_title': 'لا توجد طلبات تواصل بعد',
+    'chat_groups_requests_empty_message':
+        'عندما تطلب من فريقنا أن يوصلك بشخص ما، سيظهر طلبك وحالته هنا.',
     'error_privacy_settings_save_failed': 'تعذّر حفظ إعدادات الخصوصية.',
     'error_service_request_failed': 'تعذّر إرسال طلب الخدمة.',
     'error_subscription_failed': 'تعذّر إتمام اشتراكك.',
@@ -3600,6 +3782,8 @@ class AppTranslations extends Translations {
     'Registration': 'التسجيل',
     'Your registration was saved, but your documents did not upload. You can add them from your profile.':
         'تم حفظ تسجيلك، لكن لم يتم رفع مستنداتك. يمكنك إضافتها من ملفك الشخصي.',
+    'Your registration was saved, but your photo did not upload. You can add it from your profile.':
+        'تم حفظ تسجيلك، لكن لم يتم رفع صورتك. يمكنك إضافتها من ملفك الشخصي.',
     'Your registration was saved, but your social links did not. You can add them from Privacy settings.':
         'تم حفظ تسجيلك، لكن لم يتم حفظ روابط التواصل. يمكنك إضافتها من إعدادات الخصوصية.',
     'Could not save that preference. Please try again.':
@@ -4423,6 +4607,22 @@ class AppTranslations extends Translations {
         'لا يوجد حاليًا من يستقبل رسائل المحادثة. ما زال بإمكانك الوصول إلى '
         'الفريق عبر نموذج الدعم أو عبر واتساب.',
     'chat_support_unavailable_action': 'فتح الدعم الفني',
+    // "فريقنا" and never "الفريق", as in the chat-group strings (OPOS #26351).
+    'connect_request_action': 'اطلب التواصل عبر فريقنا',
+    'connect_request_title': 'طلب تواصل عبر فريقنا',
+    'connect_request_explainer':
+        'سيراجع فريقنا طلبك، وإذا وافق عليه فسيفتح لك محادثة خاضعة للإشراف '
+        'هنا في التطبيق.',
+    'connect_request_message_label': 'ما الذي تحتاجه؟',
+    'connect_request_message_hint': 'أخبر فريقنا بما تود مناقشته، ولماذا.',
+    'connect_request_message_required': 'يرجى وصف ما تحتاجه.',
+    'connect_request_submit': 'إرسال الطلب',
+    'connect_request_sent': 'تم إرسال الطلب. سيراجعه فريقنا قريبًا.',
+    'connect_request_sent_title': 'تم إرسال الطلب',
+    'connect_request_sent_body':
+        'سيراجعه فريقنا قريبًا. يمكنك متابعته من «طلبات التواصل الخاصة بي» '
+        'في تبويب «الرسائل».',
+    'error_connect_request_submit_failed': 'تعذّر إرسال طلبك.',
     'support_request_form': 'إرسال طلب دعم',
     'support_request_form_desc':
         'قدّم تذكرة وتابع حالتها — دون الحاجة لمحادثة مباشرة.',
@@ -4441,7 +4641,6 @@ class AppTranslations extends Translations {
     'marriage_saved_toggle_failed': 'تعذّر الحفظ الآن. يرجى المحاولة مرة أخرى.',
     'marriage_saved_unsave_failed':
         'تعذّر الإزالة الآن. يرجى المحاولة مرة أخرى.',
-    'case_chats_label': 'محادثات الحالات',
     'Confirm': 'تأكيد',
     'check_in_action': 'تسجيل حضور (صورة + موقع)',
     'check_out_action': 'تسجيل انصراف (صورة + موقع)',
@@ -4906,6 +5105,7 @@ class AppTranslations extends Translations {
     'Partners': 'الشركاء',
     'Browse partner and supporting entities.': 'تصفح الشركاء والجهات الداعمة.',
     'News and activities': 'الأخبار والنشاطات',
+    'News': 'الأخبار',
     'See activities, news, articles, and events.':
         'اطلع على النشاطات والأخبار والمقالات والفعاليات.',
     'Technical support': 'الدعم الفني',
@@ -5597,6 +5797,8 @@ class AppTranslations extends Translations {
     'activity_submitting': 'جارٍ الإرسال…',
     'activity_submitted': 'شكرًا! تم إرسال اقتراحك للمراجعة.',
     'activity_submit_failed': 'تعذّر الإرسال. حاول مرة أخرى.',
+    'activity_submit_unconfirmed':
+        'لم نتمكن من التأكد من وصول الطلب. تحقق من القائمة قبل المحاولة مرة أخرى.',
     // K16 — حقل التصنيف صار قائمة اختيار من الفئات الفرعية المعتمدة.
     'activity_pick_sector_first': 'اختر قطاعًا في الأعلى لعرض فئاته الفرعية.',
     'activity_need_fields': 'يرجى إدخال الاسم واختيار فئة فرعية.',
@@ -5862,6 +6064,8 @@ class AppTranslations extends Translations {
         'تعذّر بدء التصفح كزائر. تحقّق من اتصالك وحاول مرة أخرى.',
     'Use a different number': 'استخدم رقمًا مختلفًا',
     'User': 'مستخدم',
+    // انظر التعليق نفسه في الخريطة الإنجليزية.
+    'chat_thread_other_user_id': 'مستخدم #@id',
     'Verify & Continue': 'تحقّق وتابع',
     'Verify your phone': 'تحقّق من هاتفك',
     'We sent a 6-digit code to @phone':
@@ -5898,15 +6102,16 @@ class AppTranslations extends Translations {
     'Marriage dashboard': 'لوحة الفعاليات',
     'Gender cannot be changed after sign-up.':
         'لا يمكن تغيير الجنس بعد إنشاء الحساب.',
-    'Account type': 'نوع الحساب',
-    'Switch account type?': 'تغيير نوع الحساب؟',
     'You can switch to @type yourself, but only staff can switch you back.':
         'يمكنك التحويل إلى @type بنفسك، لكن لا يمكن إرجاعك إلا عن طريق الموظفين.',
-    'Account type updated.': 'تم تحديث نوع الحساب.',
-    'Account type unchanged.': 'لم يتغيّر نوع الحساب.',
     'Nothing saved yet.': 'لا توجد عناصر محفوظة بعد.',
     'Remove': 'إزالة',
     'Select a project': 'اختر مشروعًا',
+
+    // OPOS #26423 — انظر التعليق نفسه في الخريطة الإنجليزية.
+    'messages_guest_title': 'سجّل الدخول لاستخدام الرسائل',
+    'messages_guest_body':
+        'ستظهر محادثاتك هنا عندما يصبح لديك حساب كامل.',
   };
 
   static final Map<String, String> _sorani = {
@@ -6786,7 +6991,6 @@ class AppTranslations extends Translations {
         'ئێستا نەتوانرا پاشەکەوت بکرێت. تکایە دووبارە هەوڵ بدەرەوە.',
     'marriage_saved_unsave_failed':
         'ئێستا نەتوانرا لابردرێت. تکایە دووبارە هەوڵ بدەرەوە.',
-    'case_chats_label': 'گفتوگۆکانی دۆسیە',
     'Confirm': 'دڵنیاکردنەوە',
     'check_in_action': 'تۆمارکردنی هاتن (وێنە + شوێن)',
     'check_out_action': 'تۆمارکردنی ڕۆیشتن (وێنە + شوێن)',
@@ -7080,6 +7284,7 @@ class AppTranslations extends Translations {
     'Marriage service': 'خزمەتگوزاری هاوسەرگیری',
     'Partners': 'هاوبەشەکان',
     'News and activities': 'هەواڵ و چالاکییەکان',
+    'News': 'هەواڵ',
     'Technical support': 'پشتیوانی تەکنیکی',
     'Create sponsorship': 'دروستکردنی کەفالەت',
     'In-kind donation': 'بەشداریی کاڵا (جگە لە پارە)',
@@ -8199,9 +8404,6 @@ class AppTranslations extends Translations {
     'Marriage dashboard': 'داشبۆردی هاوسەرگیری',
     'Gender cannot be changed after sign-up.':
         'ڕەگەز ناتوانرێت بگۆڕدرێت دوای دروستکردنی هەژمار.',
-    'Account type': 'جۆری هەژمار',
-    'Account type updated.': 'جۆری هەژمار نوێکرایەوە.',
-    'Account type unchanged.': 'جۆری هەژمار نەگۆڕا.',
     'Nothing saved yet.': 'هێشتا هیچ شتێک پاشەکەوت نەکراوە.',
     'Remove': 'لابردن',
     'Select a project': 'پڕۆژەیەک هەڵبژێرە',
@@ -8878,6 +9080,7 @@ class AppTranslations extends Translations {
     "Browse partner and supporting entities.":
         "ل لایەنێن هەڤپشک و پشتەڤان بگەرە.",
     "News and activities": "نووچە و چالاکی",
+    "News": "نووچە",
     "See activities, news, articles, and events.":
         "چالاکی، نووچە، بابەت و بۆنەیان ببینە.",
     "Technical support": "پشتەڤانیا تەکنیکی",
@@ -10062,7 +10265,6 @@ class AppTranslations extends Translations {
         'نوکە نەشیا بهێتە پاراستن. ژ کەرەما خۆ دیسا هەوڵ بدە.',
     'marriage_saved_unsave_failed':
         'نوکە نەشیا بهێتە ژێبرن. ژ کەرەما خۆ دیسا هەوڵ بدە.',
-    'case_chats_label': 'گفتوگۆیێن دۆسیێ',
     'Confirm': 'پشتراستکرن',
     'check_in_action': 'تۆمارکرنا هاتنێ (وێنە + جهـ)',
     'check_out_action': 'تۆمارکرنا چوونا دەرڤە (وێنە + جهـ)',
@@ -10473,9 +10675,6 @@ class AppTranslations extends Translations {
     'Marriage dashboard': 'داشبۆردا زەواجێ',
     'Gender cannot be changed after sign-up.':
         'زایەند پشتی چێکرنا هەژماری ناهێتە گهۆڕین.',
-    'Account type': 'جۆرێ هەژماری',
-    'Account type updated.': 'جۆرێ هەژماری هاتە نویکرن.',
-    'Account type unchanged.': 'جۆرێ هەژماری نەهاتە گهۆڕین.',
     'Nothing saved yet.': 'هێشتا چ تشت نەهاتیە پاراستن.',
     'Remove': 'ژێبرن',
     'Select a project': 'پرۆژەکێ هەلبژێرە',

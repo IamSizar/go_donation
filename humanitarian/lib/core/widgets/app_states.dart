@@ -478,14 +478,32 @@ class AppErrorState extends StatelessWidget {
       );
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        insetBanner,
-        const SizedBox(height: AppSpace.md),
-        // Dimmed, not hidden: the data is real, just possibly out of date.
-        Expanded(child: Opacity(opacity: 0.55, child: staleContent!)),
-      ],
+    return _overStaleContent(insetBanner);
+  }
+
+  /// [banner] above the dimmed [staleContent].
+  ///
+  /// The stale rows take the rest of the height only where there IS a rest:
+  /// inside an Expanded, the common placement. Inside a scroll view the height
+  /// is unbounded and an Expanded there asserts — the Messages tab's thread
+  /// list broke that way on every failed refresh (OPOS #26349) — so the rows
+  /// keep their natural height instead.
+  Widget _overStaleContent(Widget banner) {
+    // Dimmed, not hidden: the data is real, just possibly out of date.
+    final stale = Opacity(opacity: 0.55, child: staleContent!);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bounded = constraints.hasBoundedHeight;
+        return Column(
+          mainAxisSize: bounded ? MainAxisSize.max : MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            banner,
+            const SizedBox(height: AppSpace.md),
+            if (bounded) Expanded(child: stale) else stale,
+          ],
+        );
+      },
     );
   }
 }

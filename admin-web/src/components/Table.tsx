@@ -160,7 +160,10 @@ export default function Table<T>({ rows, columns, rowKey, empty, loading, select
                 extra.className ?? '',
               ].filter(Boolean).join(' ') || undefined
               // Strip className from the spread so we don't pass it twice.
-              const { className: _ignored, ...dataAttrs } = extra
+              // Copy-then-delete rather than destructure-and-discard: an
+              // unused rest sibling is a lint error under this config.
+              const dataAttrs: RowAttrs = { ...extra }
+              delete dataAttrs.className
               return (
                 // Note #1 — this used to also animate `y` (translateY), a
                 // CSS transform. If that mount animation didn't finish

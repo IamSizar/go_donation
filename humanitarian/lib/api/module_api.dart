@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter_application_1/api/api_status_exception.dart';
 import 'package:flutter_application_1/api/auth_session.dart';
 import 'package:flutter_application_1/api/links.dart';
 import 'package:flutter_application_1/api/support_chat_result.dart';
@@ -25,14 +26,32 @@ import 'package:http/http.dart' as http;
 /// caller tells "a failure I have copy for" apart from "a failure I do not".
 /// [developerMessage] is for `debugPrint` and crash reports only — never for a
 /// widget.
+///
+/// [statusCode] and [payload] were added for the chat-invite answers
+/// (OPOS #26433). Two of those refusals carry no code — an archived thread's
+/// accept is a bare 404, and a decline on an active chat is an uncoded 409 —
+/// and the lifecycle refusal carries staff's reason beside its code. Both
+/// default to "nothing known", so the K14 callers are unchanged.
 class ApiCodedException implements Exception {
-  const ApiCodedException({required this.code, required this.developerMessage});
+  const ApiCodedException({
+    required this.code,
+    required this.developerMessage,
+    this.statusCode = 0,
+    this.payload = const {},
+  });
 
   /// The server's machine code, or '' when it sent none.
   final String code;
 
   /// The server's English sentence. LOG THIS, DO NOT RENDER IT.
   final String developerMessage;
+
+  /// The HTTP status of the refusal, or 0 when unknown.
+  final int statusCode;
+
+  /// The whole decoded refusal body (e.g. `lifecycle`, `lifecycle_reason`),
+  /// or empty when the body was not JSON.
+  final Map<Object?, Object?> payload;
 
   @override
   String toString() =>
@@ -44,12 +63,12 @@ class ModuleApi {
 
   /// An HTTP client to use instead of the package-level functions.
   ///
-  /// A SEAM FOR TESTS, and narrow on purpose: only [openSupportThread] honours
-  /// it. That method's whole job is to tell three server responses apart, and
-  /// there is no way to assert it does so without being able to produce those
-  /// responses. Everything else in this class still goes through the
-  /// package-level helpers, so nothing about production behaviour changes —
-  /// `const ModuleApi()` keeps meaning exactly what it did.
+  /// A SEAM FOR TESTS. Honoured by every GET (through `_authedGet`), by
+  /// [postJson], by `_sendCodedJson` and by [openSupportThread] — the calls
+  /// whose request or response a test needs to see. [postJsonNoTrack] still
+  /// uses the package-level helper. In production this is always null, so
+  /// nothing about production behaviour changes — `const ModuleApi()` keeps
+  /// meaning exactly what it did.
   final http.Client? httpClient;
 
   /// How long any single request may hang before it is treated as a failure.
@@ -313,7 +332,7 @@ class ModuleApi {
     final response = await _authedGet(url);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       await _endSessionIfTokenRejected(response.statusCode);
-      throw Exception('Request failed (${response.statusCode})');
+      throw ApiStatusException(response.statusCode);
     }
     final decoded = _decodeJson(response);
     if (decoded is! Map<String, dynamic> || decoded['success'] != true) {
@@ -416,7 +435,11 @@ class ModuleApi {
       )
       ..body = jsonEncode(withApiAuthJsonBody(body));
 
-    final streamed = await http.Client().send(request).timeout(_requestTimeout);
+    // `httpClient ?? http.Client()` mirrors [postJson] and [_authedGet]: in
+    // production [httpClient] is null and this is the fresh client it always
+    // was; a test passes a MockClient to see which code a refusal carries.
+    final client = httpClient ?? http.Client();
+    final streamed = await client.send(request).timeout(_requestTimeout);
     final response = await http.Response.fromStream(streamed);
 
     // Same reasoning as [postJson]: the session check goes before the decode.
@@ -438,6 +461,8 @@ class ModuleApi {
       developerMessage:
           (map['error'] ?? 'Request failed (${response.statusCode})')
               .toString(),
+      statusCode: response.statusCode,
+      payload: map,
     );
   }
 
@@ -846,11 +871,26 @@ class ModuleApi {
       getItems(marriageChatsUrl);
 
   // Only the profile owner may accept/decline (enforced server-side too).
+  //
+  // Coded, not postJson (OPOS #26433): the refusals these answer with
+  // (`chat_lifecycle_closed`, `chat_invite_declined`, a 404 for an archived
+  // thread, a 409 for declining an active chat) each have their own copy, and
+  // postJson keeps only the English sentence. No analytics is lost:
+  // _trackEvent tracks no chat path.
   Future<Map<String, dynamic>> acceptMarriageChat(int threadId) =>
-      postJson('$marriageChatsUrl/$threadId/accept', {});
+      _sendCodedJson('POST', '$marriageChatsUrl/$threadId/accept', const {});
 
   Future<Map<String, dynamic>> declineMarriageChat(int threadId) =>
-      postJson('$marriageChatsUrl/$threadId/decline', {});
+      _sendCodedJson('POST', '$marriageChatsUrl/$threadId/decline', const {});
+
+  /// POST /api/chats/:id/accept — the donor chat invite, coded for the same
+  /// reason as [acceptMarriageChat].
+  Future<Map<String, dynamic>> acceptChat(int threadId) =>
+      _sendCodedJson('POST', chatAcceptUrl(threadId), const {});
+
+  /// POST /api/chats/:id/decline — see [acceptChat].
+  Future<Map<String, dynamic>> declineChat(int threadId) =>
+      _sendCodedJson('POST', chatDeclineUrl(threadId), const {});
 
   // Returns {status, items} — status gates whether the reply box shows.
   Future<Map<String, dynamic>> marriageChatMessages(int threadId) =>
@@ -861,17 +901,60 @@ class ModuleApi {
     String body,
   ) => postJson('$marriageChatsUrl/$threadId/messages', {'body': body});
 
-  // Note #36 — Staff↔Volunteer↔Beneficiary chat. Opens automatically once a
-  // volunteer's signup is linked to a case and approved (or further along);
-  // real identities, no accept/decline step needed (staff already confirmed
-  // the pairing by approving the signup).
-  Future<List<Map<String, dynamic>>> caseChats() => getItems(caseChatsUrl);
+  // OPOS #25284 — staff-mediated masked/team group chats.
+  Future<List<Map<String, dynamic>>> chatGroups() => getItems(chatGroupsUrl);
 
-  Future<Map<String, dynamic>> caseChatMessages(int threadId) =>
-      getObject('$caseChatsUrl/$threadId/messages');
+  /// One page of a group's transcript: the messages with an id above
+  /// [afterId], oldest first, at most [limit] of them. The server caps [limit]
+  /// at 100 and uses 50 when it is omitted, so a caller that wants the whole
+  /// history must keep asking from the newest id it has received.
+  Future<Map<String, dynamic>> chatGroupMessages(
+    int groupId, {
+    int afterId = 0,
+    int? limit,
+  }) => getObject(
+    Uri.parse(chatGroupMessagesUrl(groupId))
+        .replace(
+          queryParameters: {
+            'after_id': '$afterId',
+            if (limit != null) 'limit': '$limit',
+          },
+        )
+        .toString(),
+  );
 
-  Future<Map<String, dynamic>> sendCaseChatMessage(int threadId, String body) =>
-      postJson('$caseChatsUrl/$threadId/messages', {'body': body});
+  /// Posts [body] to a group. Goes through [_sendCodedJson] rather than
+  /// [postJson] because the server NAMES the refusals a member can hit here —
+  /// `contact_details_blocked` (contact details in a supervised chat) and
+  /// `chat_lifecycle_closed` (staff paused or ended it) — and the member must
+  /// be told which, not just "try again". [postJson]'s analytics hook has no
+  /// entry for this path, so nothing is lost by bypassing it.
+  Future<Map<String, dynamic>> sendChatGroupMessage(int groupId, String body) =>
+      _sendCodedJson('POST', chatGroupMessagesUrl(groupId), {'body': body});
+
+  /// Moves the member's read cursor in [groupId] up to [lastReadMessageId],
+  /// the newest message id they have been shown. The server keeps the greater
+  /// of the stored and sent ids, so an older id is harmless — but an omitted
+  /// one is recorded as 0 and the group's unread count never goes down.
+  Future<void> markChatGroupRead(
+    int groupId, {
+    required int lastReadMessageId,
+  }) => postJson(chatGroupReadUrl(groupId), {
+    'last_read_msg_id': lastReadMessageId,
+  });
+
+  Future<Map<String, dynamic>> submitConnectRequest({
+    required String contextType,
+    required int contextId,
+    required String message,
+  }) => postJson(connectRequestsUrl, {
+    'context_type': contextType,
+    'context_id': contextId,
+    'message': message,
+  });
+
+  Future<List<Map<String, dynamic>>> myConnectRequests() =>
+      getItems(myConnectRequestsUrl);
 
   // Note #37 — uploads a photo (e.g. a check-in/out live photo) and returns
   // the stored relative path (same "upload, then save the path" convention
@@ -1115,10 +1198,16 @@ class ModuleApi {
   /// — and it searches every published post, not the 50 the feed is capped to.
   ///
   /// [type] narrows the feed to one or more `post_type` values, passed as the
-  /// comma-separated `?type=` the API accepts ("activity,news"). The Events hub
-  /// uses it to show only the activity posts and news the admin panel
-  /// publishes. Omit it for the general feed, which the server then serves
-  /// minus `marriage` posts.
+  /// comma-separated `?type=` the API accepts ("activity,news"). Omit it for
+  /// the general feed, which the server then serves minus `marriage` posts.
+  ///
+  /// Filtered feeds do not come through here: `MediaPostsController(postType:)`
+  /// has passed its filter to [mediaPostsPage] since PR #5 (a6c74d5). The
+  /// Events hub's news feed was one such controller until PR #76 (commit
+  /// 33d6891, OPOS #25858) removed it. The call in
+  /// proposal_services_section.dart asks for the general feed.
+  /// `test/api/media_posts_type_filter_test.dart` pins the query this method
+  /// builds, not the one [mediaPostsPage] builds.
   Future<List<Map<String, dynamic>>> mediaPosts({
     int? userId,
     String? q,
