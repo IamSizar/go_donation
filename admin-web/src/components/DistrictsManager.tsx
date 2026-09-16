@@ -43,27 +43,45 @@ export default function DistrictsManager({ open, onClose, onChanged }: Props) {
   const { t } = useI18n()
   const toast = useToast()
   const [items, setItems] = useState<District[]>([])
-  const [loading, setLoading] = useState(true)
+  // `loading` is derived, not stored: setting it inside the effect is the
+  // synchronous state write React's lint rule flags. Each render builds the
+  // key the effect will fetch for, the request records which key came back,
+  // and anything newer than that reads as still loading.
+  const [reloadTick, setReloadTick] = useState(0)
+  const [loadedKey, setLoadedKey] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [savingId, setSavingId] = useState<number | null>(null)
   const [adding, setAdding] = useState(false)
   const [draft, setDraft] = useState({ ...EMPTY_DRAFT })
   const [group, setGroup] = useState<(typeof GROUPS)[number]['key']>(GROUPS[0].key)
 
-  const load = () => {
-    setLoading(true)
+  // The key of the request this render expects: it changes when the dialog
+  // opens and whenever something asks for a reload.
+  const requestKey = open ? `open:${reloadTick}` : 'closed'
+  const loading = open && loadedKey !== requestKey
+
+  const reload = () => setReloadTick((n) => n + 1)
+
+  useEffect(() => {
+    if (!open) return
+    let alive = true
     api
       .get<{ items: District[] }>('/api/admin/districts')
       .then((res) => {
+        if (!alive) return
         setItems(res.data.items ?? [])
         setErr(null)
       })
-      .catch((e) => setErr(describeError(e)))
-      .finally(() => setLoading(false))
-  }
-  useEffect(() => {
-    if (open) load()
-  }, [open])
+      .catch((e) => {
+        if (alive) setErr(describeError(e))
+      })
+      .finally(() => {
+        if (alive) setLoadedKey(requestKey)
+      })
+    return () => {
+      alive = false
+    }
+  }, [open, requestKey])
 
   const visible = items.filter((d) => d.group_key === group)
 
@@ -85,7 +103,7 @@ export default function DistrictsManager({ open, onClose, onChanged }: Props) {
         active: d.active,
       })
       toast.success(t('districts.saved'))
-      load()
+      reload()
       onChanged?.()
     } catch (e) {
       toast.error(describeError(e))
@@ -99,7 +117,7 @@ export default function DistrictsManager({ open, onClose, onChanged }: Props) {
     try {
       await api.delete(`/api/admin/districts/${id}`)
       toast.success(t('districts.deleted'))
-      load()
+      reload()
       onChanged?.()
     } catch (e) {
       toast.error(describeError(e))
@@ -116,7 +134,7 @@ export default function DistrictsManager({ open, onClose, onChanged }: Props) {
       await api.post('/api/admin/districts', { ...draft, group_key: group })
       toast.success(t('districts.added'))
       setDraft({ ...EMPTY_DRAFT })
-      load()
+      reload()
       onChanged?.()
     } catch (e) {
       toast.error(describeError(e))
@@ -141,7 +159,7 @@ export default function DistrictsManager({ open, onClose, onChanged }: Props) {
       onChanged?.()
     } catch (e) {
       toast.error(describeError(e))
-      load()
+      reload()
     }
   }
 
