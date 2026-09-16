@@ -65,6 +65,7 @@ class CommunityController extends GetxController {
     try {
       final rows = await const ModuleApi().communityDirectory(
         q: searchQuery.value,
+        sector: selectedSector.value,
       );
       entries.assignAll(rows);
     } catch (_) {
@@ -119,12 +120,18 @@ class CommunityController extends GetxController {
     }
   }
 
-  void selectSector(String? slug) {
+  /// Applies the sector filter and reloads from the server (OPOS #25274 —
+  /// sector used to only narrow whatever page had already loaded; the chip
+  /// now reflects the whole approved directory, the same way [setSearchQuery]
+  /// already refetches for a search term). A no-op when unchanged.
+  Future<void> selectSector(String? slug) async {
+    if (slug == selectedSector.value) return;
     selectedSector.value = slug;
     // A sub-category belongs to exactly one sector, so keeping the old one
     // selected after switching would filter the list to nothing and read as
     // "the guide is empty" rather than "that combination cannot exist".
     selectedCategory.value = null;
+    await fetchEntries();
   }
 
   void selectCategory(String? slug) {
@@ -171,33 +178,20 @@ class CommunityController extends GetxController {
     return {categorySlug.toLowerCase()};
   }
 
-  // Entries filtered by the selected sector (#29) and, under it, the selected
-  // sub-category (K16). An entry matches the sector when its `sectors` array
-  // contains the slug; it matches the sub-category when its free-text
-  // `category` equals any spelling of that sub-category.
+  // Entries filtered by the selected sub-category (K16). The sector filter
+  // (OPOS #25274) is now applied SERVER-SIDE — `entries` already only
+  // contains the selected sector's rows, fetched fresh by [selectSector] —
+  // so re-filtering by sector here would only re-narrow an already-narrowed
+  // set. Sub-category stays client-side: it matches the free-text `category`
+  // column against any spelling of the chosen slug (see [_spellingsOf] for
+  // why an exact-match server-side filter would silently miss legacy rows).
   List<Map<String, dynamic>> get filteredEntries {
-    final slug = selectedSector.value;
-    var rows = entries.toList();
-
-    if (slug != null && slug.isNotEmpty) {
-      rows = rows.where((e) {
-        final raw = e['sectors'];
-        if (raw is List) {
-          return raw.map((s) => s.toString()).contains(slug);
-        }
-        return false;
-      }).toList();
-    }
-
     final category = selectedCategory.value;
-    if (category != null && category.isNotEmpty) {
-      final spellings = _spellingsOf(category);
-      rows = rows.where((e) {
-        final value = (e['category'] ?? '').toString().trim().toLowerCase();
-        return value.isNotEmpty && spellings.contains(value);
-      }).toList();
-    }
-
-    return rows;
+    if (category == null || category.isEmpty) return entries;
+    final spellings = _spellingsOf(category);
+    return entries.where((e) {
+      final value = (e['category'] ?? '').toString().trim().toLowerCase();
+      return value.isNotEmpty && spellings.contains(value);
+    }).toList();
   }
 }

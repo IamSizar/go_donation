@@ -121,16 +121,19 @@ class MyDonationsController extends GetxController with RealtimePollingMixin {
       final map = decoded;
 
       if (response.statusCode == 400) {
-        errorMessage.value =
-            map['error']?.toString() ?? 'Missing or invalid user.'.tr;
+        // The backend's own `error` text is an untranslated English literal
+        // (see backend/internal/handlers/donations.go) — showing it verbatim
+        // would leak English into an ar/ckb/kmr screen (OPOS #25282). Always
+        // use the client's own localized copy instead of trusting it.
+        errorMessage.value = 'Missing or invalid user.'.tr;
         summary.value = DonationHistorySummary.empty;
         items.clear();
         return;
       }
 
       if (map['success'] != true) {
-        errorMessage.value =
-            map['error']?.toString() ?? 'Could not load donations.'.tr;
+        // Same reasoning as the 400 branch above.
+        errorMessage.value = 'Could not load donations.'.tr;
         if (map['summary'] is Map) {
           summary.value = DonationHistorySummary.fromJson(
             map['summary'] as Map,
