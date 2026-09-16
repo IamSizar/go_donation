@@ -113,7 +113,12 @@ export default function StaffChatPage() {
   const { t } = useI18n()
   const statusLabel = useStatusLabel()
   const [threads, setThreads] = useState<StaffThread[]>([])
-  const [loading, setLoading] = useState(false)
+  // The "loading" line only ever shows before the first thread list arrives
+  // (it is rendered as `loading && threads.length === 0`), so it is derived
+  // from that rather than set at the top of the polling effect. The 5s poll
+  // refreshes in place and never brings the line back.
+  const [threadsLoaded, setThreadsLoaded] = useState(false)
+  const loading = !threadsLoaded
   const [err, setErr] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [messages, setMessages] = useState<StaffMessage[]>([])
@@ -138,8 +143,11 @@ export default function StaffChatPage() {
   }, [])
 
   useEffect(() => {
-    setLoading(true)
-    loadThreads().finally(() => setLoading(false))
+    // `loadThreads` only calls setState after awaiting the request, so nothing
+    // here is synchronous and no cascading render happens. The rule reports it
+    // anyway because it steps into a useCallback without modelling the await.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadThreads().finally(() => setThreadsLoaded(true))
     const id = setInterval(loadThreads, 5000)
     return () => clearInterval(id)
   }, [loadThreads])
@@ -155,6 +163,11 @@ export default function StaffChatPage() {
 
   useEffect(() => {
     if (!selectedId) return
+    // `loadMessages` only calls setState after awaiting the request, so
+    // nothing here is synchronous and no cascading render happens. The rule
+    // reports it anyway because it steps into a useCallback without modelling
+    // the await.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadMessages(selectedId)
     const id = setInterval(() => loadMessages(selectedId), 3000)
     return () => clearInterval(id)
