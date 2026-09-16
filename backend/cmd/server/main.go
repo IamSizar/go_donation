@@ -290,7 +290,7 @@ func main() {
 	profileH := handlers.NewProfileHandler(userStore, mediaStore, profileChangesStore)
 	profileChangesH := handlers.NewProfileChangesHandler(profileChangesStore)
 	chooseRoleH := handlers.NewChooseRoleHandler(userStore)
-	registrationH := handlers.NewRegistrationHandler(userStore, mediaStore)
+	registrationH := handlers.NewRegistrationHandler(userStore, mediaStore, notifier)
 	registrationAdminH := handlers.NewRegistrationAdminHandler(userStore, notifier)
 	campaignsH := handlers.NewCampaignsHandler(campaignStore)
 	donationsH := handlers.NewDonationsHandler(donationStore, notifier, walletStore)
