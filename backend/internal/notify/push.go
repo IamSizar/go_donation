@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -50,7 +51,7 @@ func (n *Notifier) sendPush(ctx context.Context, userID int64, m LocalizedMessag
 	}
 	for _, d := range devices {
 		title, body := pickLocalizedText(m, d.LocaleCode)
-		r := n.fcm.sendOne(ctx, d.Token, title, body, "")
+		r := n.fcm.sendOne(ctx, d.Token, title, body, "", routingData(m))
 		if !r.OK {
 			log.Printf("[notify:push] send to user=%d (locale=%q) failed: %s",
 				userID, d.LocaleCode, r.Error)
@@ -104,6 +105,26 @@ func (n *Notifier) shouldWithholdChatPush(ctx context.Context, userID int64, not
 		log.Printf("[notify:push] chat push withheld from guest user=%d type=%s", userID, notificationType)
 	}
 	return isGuest
+}
+
+// routingData is the FCM `data` payload for one notification: what the app
+// needs to open the right screen when the user taps the banner.
+//
+// It rides alongside the notification block (see buildSendPayload) rather than
+// replacing it, so the OS still draws the alert on its own. Keys match the
+// columns app_notifications stores, so the phone and the in-app list describe
+// the same event. Values must be strings — FCM rejects any other JSON type in
+// data. Empty fields are dropped by buildSendPayload.
+func routingData(m LocalizedMessage) map[string]string {
+	d := map[string]string{
+		"notification_type":   m.Type,
+		"related_entity_type": m.RelatedEntityType,
+		"action_url":          m.ActionURL,
+	}
+	if m.RelatedEntityID > 0 {
+		d["related_entity_id"] = strconv.FormatInt(m.RelatedEntityID, 10)
+	}
+	return d
 }
 
 // pickLocalizedText resolves a LocalizedMessage + locale code into the
@@ -192,7 +213,9 @@ func (n *Notifier) SendPushDirect(ctx context.Context, deviceToken string, userI
 
 	results := make([]SendResult, 0, len(tokens))
 	for _, t := range tokens {
-		r := n.fcm.sendOne(ctx, t, title, body, imageURL)
+		// The admin compose endpoint sends free text with no related entity,
+		// so there is nothing to route to: notification block only.
+		r := n.fcm.sendOne(ctx, t, title, body, imageURL, nil)
 		results = append(results, r)
 		// Phase 27.4 — same dead-token cleanup as the automatic per-event
 		// path. The admin compose endpoint can re-broadcast frequently

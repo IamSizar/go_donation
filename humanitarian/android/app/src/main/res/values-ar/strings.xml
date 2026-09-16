@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Arabic for the notification-channel name and description shown in the
+  Android system settings (Settings → Apps → BalanceNex → Notifications).
+  The channel ID is deliberately absent: it is not user-facing and must stay
+  identical across every locale (see values/strings.xml).
+-->
+<resources>
+    <string name="default_notification_channel_name">الرسائل والتحديثات</string>
+    <string name="default_notification_channel_description">رسائل المحادثات وتحديثات الطلبات والإعلانات من BalanceNex.</string>
+</resources>
