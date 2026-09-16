@@ -8,7 +8,7 @@
 //
 // Use anywhere you'd render a status badge but want it editable.
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { describeError } from '../lib/api'
 import { useToast } from '../lib/toast'
 import { useI18n, useStatusLabel } from '../lib/i18n'
@@ -56,7 +56,14 @@ export default function StatusCell({ value, allowed, onSave, reasonRequiredFor, 
   const statusLabel = (v: string) => labelOverrides?.[v] ?? globalStatusLabel(v)
 
   // Keep in sync if the parent passes a new value (e.g. after refetch).
-  useEffect(() => { setVal(value) }, [value])
+  // Adjusting during render instead of in an effect: the cell now shows the
+  // refetched status on the very first render after it arrives, rather than
+  // painting the stale one once and correcting it on a second pass.
+  const [seenValue, setSeenValue] = useState(value)
+  if (seenValue !== value) {
+    setSeenValue(value)
+    setVal(value)
+  }
 
   async function change(next: string) {
     if (next === val || busy) return

@@ -1,4 +1,5 @@
-// Pins the two entries the client's profile menu was still missing (J6).
+// Pins the doors the client's profile menu was missing: two J6 entries, and
+// the News door it gained when the Marriage hub's feed was removed.
 //
 // WHY THIS FILE EXISTS
 // J6 asks for the circular avatar top-right to open a menu holding eleven
@@ -18,6 +19,12 @@
 //             changes a preference; it never opens the user's notifications.
 //             The client listed it among menu entries, i.e. as somewhere you
 //             go, so the row has to be a door as well as a switch.
+//
+// A third door came later and is not a J6 entry: PR #76 (OPOS #25858) removed
+// the general news and activities feed from the Marriage hub, and PR #77
+// (OPOS #25869) relocated it here as one tile that opens NewsActivitiesScreen.
+// marriage_hub_feed_test.dart pins the removal; the News group below pins the
+// new door, so the feed cannot quietly go missing from both places at once.
 //
 // WHY THESE ARE SOURCE TESTS
 // Same reasoning as sound_vibration_reach_test.dart and partners_doors_test.dart:
@@ -86,6 +93,23 @@ void main() {
         reason:
             'found only $doors. The donor Home panel is rendered for role 1 '
             'alone, so a single door there leaves every other role with no way in.',
+      );
+    });
+  });
+
+  group('News is reachable from the profile menu (OPOS #25869)', () {
+    test('the profile menu offers a door to News and activities', () {
+      // Matches the navigation, not just the name: an import left behind
+      // after the tile is deleted would still contain `NewsActivitiesScreen`.
+      expect(
+        RegExp(
+          r'=>\s*const\s+NewsActivitiesScreen\(\)',
+        ).hasMatch(_read(_profileMenu)),
+        isTrue,
+        reason:
+            'the general feed was taken off the Marriage hub (OPOS #25858) on '
+            'the understanding that it moved here. Without this door that '
+            'relocation is undone and nothing else would say so.',
       );
     });
   });

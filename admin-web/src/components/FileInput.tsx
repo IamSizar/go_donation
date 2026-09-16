@@ -16,7 +16,8 @@
 import { useRef, useState } from 'react'
 import { api, describeError, assetUrl } from '../lib/api'
 import { useI18n } from '../lib/i18n'
-import CropDialog, { type ShapeKey } from './CropDialog'
+import CropDialog from './CropDialog'
+import type { ShapeKey } from './cropShapes'
 
 type Props = {
   value: string

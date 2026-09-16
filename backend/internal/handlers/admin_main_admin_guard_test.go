@@ -54,6 +54,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
+	"github.com/karam-flutter/humanitarian-backend/internal/permissions"
 )
 
 // ─── Harness ────────────────────────────────────────────────────────────
@@ -215,22 +216,35 @@ func storedPhone(t *testing.T, pool *pgxpool.Pool, userID int64) string {
 	return *phone
 }
 
-// newUserWriteRouter wires the two routes H20 touches exactly as main.go does,
-// with the guard built from whichever gateways the test supplies. Passing nil
-// for both is the production shape today: no SMTP, no OTPIQ.
+// newUserWriteRouter wires the two routes H20 touches behind the chain main.go
+// builds for them: the admin group's RequireAdmin and RequireDeletePassword,
+// then each route's own permission gate (users/edit on the PATCH, users/archive
+// on account_status), then the handler. RequireDeletePassword only acts on
+// DELETE, so both routes pass through it; it is mounted because main.go mounts
+// it on the whole group.
+//
+// The guard is built from whichever gateways the test supplies. Passing nil for
+// both is the production shape today: no SMTP, no OTPIQ.
+//
+// Every actor in this file is a super_admin, whom RequirePermission always
+// allows, so the gates change no result here. They are wired so that no test in
+// this file can pass a request production would refuse.
 func newUserWriteRouter(pool *pgxpool.Pool, mailer *auth.Mailer, otpiq *auth.OTPIQClient) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	tokens := auth.NewTokenStore(pool)
+	perms := permissions.New(pool)
 	guard := NewMainAdminConfirm(pool, otpiq, mailer)
 
 	editH := NewAdminEditHandler(pool)
 	editH.MainAdmin = guard
-	statusH := NewAdminStatusHandler(pool, nil, nil, nil)
+	statusH := NewAdminStatusHandler(pool, nil, nil)
 	statusH.MainAdmin = guard
 
 	r := gin.New()
-	r.PATCH("/api/admin/users/:id", auth.RequireAdmin(tokens), editH.User)
-	r.POST("/api/admin/users/:id/account_status", auth.RequireAdmin(tokens), statusH.UserAccountStatus)
+	admin := r.Group("/api", auth.RequireAdmin(tokens), RequireDeletePassword(pool))
+	admin.PATCH("/admin/users/:id", auth.RequirePermission(perms, "users", "edit"), editH.User)
+	admin.POST("/admin/users/:id/account_status",
+		auth.RequirePermission(perms, "users", "archive"), statusH.UserAccountStatus)
 	return r
 }
 

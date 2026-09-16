@@ -125,10 +125,27 @@ flutter:
   uses-material-design: true
 
   fonts:
-    - family: Kurdfont
+    # OPOS #25612 — replaces the single-weight Kurdfont.ttf (bundled at 400
+    # only, so every non-400 weight was synthesized/faux-bolded, which
+    # damages Arabic-script letterforms). NotoKufiArabic[wght].ttf is a
+    # variable font — one file registered at multiple `weight:` entries,
+    # which is the supported Flutter pattern for pulling real per-weight
+    # glyphs out of a single variable-font asset (see
+    # https://docs.flutter.dev/cookbook/design/fonts#variable-fonts).
+    # Covers every FontWeight the type scale actually uses (AppType.wDisplay
+    # /wBody/wLabel/wAction in core/design/tokens.dart: w300/w400/w600) plus
+    # the two hardcoded FontWeight.w600 headline styles in
+    # core/theme/app_theme_config.dart. Verified to cover the same
+    # Kurdish-Sorani/Badini-specific characters Kurdfont did (ڕ ڵ ۆ ێ ھ etc.)
+    # with broader glyph coverage overall (1558 vs 805 cmap entries).
+    - family: NotoKufiArabic
       fonts:
-        - asset: assets/fonts/Kurdfont.ttf
+        - asset: assets/fonts/NotoKufiArabic-Variable.ttf
+          weight: 300
+        - asset: assets/fonts/NotoKufiArabic-Variable.ttf
           weight: 400
+        - asset: assets/fonts/NotoKufiArabic-Variable.ttf
+          weight: 600
 
   # Phase 27.1 — notification chime asset (350ms two-note WAV ~15KB).
   # Played by lib/core/app_sound.dart on every new-notification arrival.

@@ -50,6 +50,17 @@ func (h *MarriageChatHandler) chatErr(c *gin.Context, err error) {
 		c.JSON(http.StatusForbidden, gin.H{"success": false, "error": "Only the profile owner can accept or decline."})
 	case errors.Is(err, marriagechat.ErrNotActive):
 		c.JSON(http.StatusConflict, gin.H{"success": false, "error": "This chat is not active yet."})
+	case errors.Is(err, marriagechat.ErrNotPending):
+		c.JSON(http.StatusConflict, gin.H{"success": false, "error": "This chat is already active, so it can no longer be declined."})
+	case errors.Is(err, marriagechat.ErrInviteDeclined):
+		// Says what happens next, because here something can: the requester
+		// may ask again, and staff approving that re-opens the invite in the
+		// owner's chat list (marriagechat.Store.ApproveMeetingRequest). It
+		// does not promise a push: notify.Notifier.Send dedupes on user, title,
+		// body and type, and the invite template's text never changes, so an
+		// owner who was already sent one invite is not pushed again.
+		c.JSON(http.StatusConflict, gin.H{"success": false, "code": chatInviteDeclinedCode,
+			"error": "This chat request was declined, so it can no longer be accepted. If a new request is approved, it will come to you as a new invite."})
 	case errors.Is(err, marriagechat.ErrRequestGone):
 		c.JSON(http.StatusConflict, gin.H{"success": false, "error": "This request was already decided."})
 	default:
@@ -78,6 +89,13 @@ func (h *MarriageChatHandler) AdminListMeetingRequests(c *gin.Context) {
 
 // POST /api/admin/marriage/meeting-requests/:id/approve — opens the chat
 // thread and notifies the profile owner they must accept it.
+//
+// For a pair whose earlier invite the owner declined, this is the re-invite:
+// the pair's one thread comes back as a pending invite in the owner's chat list
+// (OPOS #26436; see marriagechat.Store.ApproveMeetingRequest). The push below
+// is still sent, but notify.Notifier.Send drops it as a duplicate when the
+// owner already holds an invite notification, because the template's title
+// and body never change. That gap is recorded in HANDOFF.md, not fixed here.
 func (h *MarriageChatHandler) AdminApproveMeetingRequest(c *gin.Context) {
 	user, ok := auth.UserFromGin(c)
 	if !ok || user == nil {
@@ -144,6 +162,23 @@ func (h *MarriageChatHandler) List(c *gin.Context) {
 }
 
 // POST /api/marriage/chats/:id/accept — profile owner only.
+//
+// A paused, ended or archived thread is refused BEFORE AcceptThread and the
+// push, so the requester is never told a chat was accepted that neither party
+// can use (OPOS #26426, the marriage twin of the donor fix in #26413; see
+// refuseIfInviteClosed). Paused or ended answers the send path's 409;
+// archived-but-open answers the same 404 as this thread's messages route.
+//
+// The owner check runs first, and answers exactly what AcceptThread answered
+// before the gate existed, because the lifecycle refusal carries staff's
+// reason in their own words and a stranger guessing thread ids must not read
+// it. AcceptThread still checks ownership itself, for any other caller.
+//
+// An invite the owner already declined is refused after both checks, by
+// AcceptThread itself: 409 with code chat_invite_declined, the status stays
+// declined, and the requester is not pushed (OPOS #26436). The requester asks
+// again with a new meeting request; staff approving it re-opens the invite.
+// Accepting a thread that is already active is still a 200.
 func (h *MarriageChatHandler) Accept(c *gin.Context) {
 	user, _ := auth.UserFromGin(c)
 	if user == nil {
@@ -152,6 +187,18 @@ func (h *MarriageChatHandler) Accept(c *gin.Context) {
 	}
 	id, ok := parseID(c)
 	if !ok {
+		return
+	}
+	current, err := h.Store.GetThread(c.Request.Context(), id)
+	if err != nil {
+		h.chatErr(c, err)
+		return
+	}
+	if current.OwnerUserID != user.UserID {
+		h.chatErr(c, marriagechat.ErrNotOwner)
+		return
+	}
+	if refuseIfInviteClosed(c, h.Pool, chatlifecycle.KindMarriage, id) {
 		return
 	}
 	thread, err := h.Store.AcceptThread(c.Request.Context(), id, user.UserID)
@@ -170,6 +217,11 @@ func (h *MarriageChatHandler) Accept(c *gin.Context) {
 }
 
 // POST /api/marriage/chats/:id/decline — profile owner only.
+//
+// Only a pending invite can be declined: an active chat answers 409 and stays
+// active (OPOS #26427; see marriagechat.Store.DeclineThread). Declining is not
+// lifecycle-gated, so the owner can still dismiss an invite on a thread staff
+// paused, ended or archived.
 func (h *MarriageChatHandler) Decline(c *gin.Context) {
 	user, _ := auth.UserFromGin(c)
 	if user == nil {

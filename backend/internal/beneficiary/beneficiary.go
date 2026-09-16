@@ -180,6 +180,13 @@ const priorityOrderClause = `
 // unqualified column names. A subquery adds the column without putting
 // anything new in the FROM clause, so no existing WHERE or ORDER BY changes
 // meaning. It is a primary-key lookup on a list capped at 200 rows.
+//
+// The profile inside that subquery is read through a LATERAL taking one row
+// (OPOS #26603). user_profiles.user_id has no UNIQUE constraint, so a reviewer
+// can own two rows; two rows out of a SCALAR subquery is not a repeated row,
+// it aborts the whole statement with "more than one row returned by a subquery
+// used as an expression", and every case list that reviewer touched failed.
+// ORDER BY p.id keeps the oldest row, which is the name already being served.
 const caseColumns = `id, user_id, case_code, public_title, public_title_ar,
 	             NULL::text, NULL::text,
 	             full_name, national_id, phone, gender, date_of_birth::text, marital_status,
@@ -190,7 +197,10 @@ const caseColumns = `id, user_id, case_code, public_title, public_title_ar,
 	             category_slug, review_notes,
 	             (SELECT COALESCE(NULLIF(TRIM(rp.full_name), ''), NULLIF(TRIM(ru.username), ''))
 	                FROM users ru
-	                LEFT JOIN user_profiles rp ON rp.user_id = ru.id
+	                LEFT JOIN LATERAL (
+	                       SELECT p.full_name FROM user_profiles p
+	                        WHERE p.user_id = ru.id ORDER BY p.id LIMIT 1
+	                     ) rp ON TRUE
 	               WHERE ru.id = beneficiary_cases.reviewed_by_user_id),
 	             reviewed_at,
 	             created_at, updated_at`

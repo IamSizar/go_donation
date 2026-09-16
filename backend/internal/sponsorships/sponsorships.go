@@ -84,7 +84,12 @@ func (s *Store) List(ctx context.Context, f ListFilters) ([]Sponsorship, error) 
 		  FROM sponsorships s
 		  LEFT JOIN campaigns p ON p.id = s.project_request_id
 		  LEFT JOIN users u ON u.id = s.donor_user_id
-		  LEFT JOIN user_profiles up ON up.user_id = s.donor_user_id
+		  -- OPOS #26603: user_profiles.user_id has no UNIQUE constraint, so a
+		  -- donor with two profile rows repeated every sponsorship they hold.
+		  LEFT JOIN LATERAL (
+		         SELECT pf.full_name FROM user_profiles pf
+		          WHERE pf.user_id = s.donor_user_id ORDER BY pf.id LIMIT 1
+		       ) up ON TRUE
 		 WHERE ` + strings.Join(where, " AND ") + `
 		 ORDER BY
 		   CASE s.status

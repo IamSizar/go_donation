@@ -6,7 +6,7 @@
 // State lives in GlobalAlertsProvider — this component is just the UI.
 
 import { useEffect, useRef, useState } from 'react'
-import { useGlobalAlerts } from '../lib/globalAlerts'
+import { useGlobalAlerts } from '../lib/globalAlertsContext'
 import { useI18n } from '../lib/i18n'
 
 export default function SoundMenu() {
