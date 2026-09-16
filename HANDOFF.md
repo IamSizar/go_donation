@@ -48,6 +48,286 @@ already-hosted external URL into Link URL.
 
 ---
 
+## 2026-09-12 — pending profile-change requests now visible on the Users list
+
+**Asked for:** OPOS #25287 — "profile edits sometimes don't sync to
+dashboard," reported as intermittent.
+
+**Branch:** `fix/profile-changes-dashboard-visibility`, cut from `main`. One
+commit, pushed, PR opened:
+https://github.com/IamSizar/go_donation/pull/68 (`6e73d89`).
+
+### Root cause (Explore-agent audit) — not intermittent, deterministic per field
+The app's real "Edit Profile" screen (`RegistrationFormPage`, edit mode)
+writes name/address straight through via `SubmitRegistration` — instant,
+no review. That SAME screen's avatar edit goes through a different
+endpoint (`POST /api/profile/set`), which DELIBERATELY queues
+`full_name`/`profile_picture` in `profile_change_requests` for staff
+review (`internal/profilechanges` — confirmed intentional by reading its
+own package doc: "a rejected change never appears anywhere"). The Users
+list had no way to show a pending row, so staff saw the name update
+instantly and the photo silently not update from the same save action —
+that's the whole "sometimes doesn't sync."
+
+### What was actually changed
+- `backend/internal/users/users.go` — `PaginatedList` now marks
+  `HasPendingProfileChange` per account via one batched query per page.
+- `admin-web/src/pages/UsersPage.tsx` — "Pending review" badge/link next
+  to the name, pointing at the existing `/profile-changes` page.
+- `api-types.ts` + `en.ts`/`ar.ts` — new field + two new strings (ckb/kmr
+  inherit English via the existing fallback chain, nothing invented).
+
+### Deliberately NOT changed
+Whether name/address edits should ALSO require staff review, to match
+photo. That's a moderation-policy call for the client — the two write
+paths behaving differently isn't necessarily a bug on its own; unifying
+them without asking would have been guessing at product intent.
+
+### What was run, and what it printed
+- New `backend/internal/users/pending_profile_change_test.go`
+  (TEST_DATABASE_URL-gated): seeds one user with a pending row, one
+  without, asserts both are marked correctly. Mutation-checked (removed
+  the marking call, confirmed the exact expected/actual failure, restored).
+- `go build/vet/test ./...` — all green, `gofmt -l` clean.
+- admin-web: `tsc --noEmit` and `npm run build` clean. Confirmed
+  `GET /api/admin/users` still 401s without auth.
+
+### Still open / needs a human
+- The moderation-policy question above (should name/address also require
+  review) needs a client decision.
+- Badge placement/copy verified by code + tsc, not clicked through live
+  (OTP-gated admin login, same limitation as every fix this session).
+
+---
+
+## 2026-09-12 — Community Services stops duplicating City Guide, becomes a real events feed
+
+**Asked for:** OPOS #25272 — a bug report said City Guide and Community
+Services overlap and confuse users. Auditing (Explore agent, not a guess)
+found they weren't two overlapping features but the SAME one: both read
+`city_directory_entries` through the shared `CommunityController` singleton.
+Two clarifying questions were put to Zaid before writing any code: (1) how to
+resolve it → **keep both, differentiate by content**; (2) what Community
+Services' real content should be → **community events/announcements**.
+
+**Branch:** `feat/community-events-feed`, cut from `main`. One commit, pushed,
+PR opened: https://github.com/IamSizar/go_donation/pull/65 (`677c4fa`).
+
+### What was actually changed
+- `backend/migrations/121_community_media_type.sql` adds `'community'` to the
+  `media_posts.post_type` CHECK constraint — same precedent
+  `011_marriage_media.sql` set for `'marriage'`: reuse the existing table
+  and admin CRUD rather than build a new one.
+- `internal/listings/listings.go` — the untyped/general News & Activities
+  feed now excludes `post_type = 'community'` the same way it already
+  excludes `'marriage'`, so the two feeds don't leak into each other.
+- `internal/handlers/admin_edit.go`'s `mediaPostTypes` whitelist and
+  `admin-web/src/pages/MediaPage.tsx`'s `POST_TYPES` dropdown both updated
+  to allow the new value — staff author these posts with the EXISTING Media
+  form, no new admin page.
+- `humanitarian/lib/modules/community/screens/community_events_feed.dart`
+  (new) — `CommunityEventsFeed`, built entirely from existing pieces
+  (`MediaPostsController`, the public `MediaPostCard`, `FeedPaginationFooter`)
+  under its own GetX tag, mirroring `MarriageHubScreen`'s
+  `type=activity,news` pattern exactly.
+- `community_services_section.dart` — `CommunityServicesSection` now renders
+  the new feed; deleted the now-dead `_CommunityServicesList` and
+  `_CityServiceCard` widgets. The "About/Contact the Mosul Guide" tiles that
+  used to live on Community Services (they're about City Guide, not events)
+  moved onto `CityGuideScreen`'s own header as an info-button → action sheet,
+  so those two required entry points stay reachable.
+
+### What was run, and what it printed
+- `go build ./... && go vet ./... && go test ./...` — all green.
+  `gofmt -l` clean on the touched Go files.
+- Live scratch-DB check (`createdb donation_scratch_community`,
+  `RUN_MIGRATIONS=1 DATABASE_URL=... go run ./cmd/server`, dropped after):
+  seeded one `post_type='community'` row and one `post_type='news'` row
+  directly with `psql`. `GET /api/media?type=community` returned ONLY the
+  community post. `GET /api/media` (no type) returned the news post plus
+  the migration's other seed posts but NOT the community one — confirming
+  the exclusion. `POST /api/admin/media` still 401s with no token.
+- `flutter analyze` on every touched Dart file — `No issues found!`.
+- admin-web: `npx tsc --noEmit -p .` clean; `npm run build` succeeded.
+
+### Still open / needs a human
+- The concrete content type ("events/announcements") came from a clarifying
+  question, not from the original bug report — worth confirming with the
+  client that this is what they actually want Community Services to become,
+  before staff start relying on it.
+- The admin-web Media form's actual click-through creating a `'community'`
+  post was **not** verified in a browser (OTP-gated login, same limitation
+  as the districts-CMS entry above) — verified at the API/DB layer instead.
+- Moving "About/Contact the Mosul Guide" to an info-button sheet on City
+  Guide is a UX judgment call to preserve two required entry points that no
+  longer had a home — a designer should sanity-check the placement.
+
+---
+
+## 2026-09-12 — Nineveh district/neighborhood lists moved from hardcoded Dart to an admin CMS
+
+**Asked for:** OPOS #25271 — the district/neighborhood dropdowns in the
+registration form were English-only and the list itself was hardcoded and
+incomplete, with no way for staff to add or correct an entry without a code
+change and app release ("in the registration form and anywhere else the list
+is used").
+
+**Branch:** `fix/districts-list-cms`, cut from `main`. One commit, pushed,
+PR opened: https://github.com/IamSizar/go_donation/pull/64 (`963182d`).
+
+### What was actually changed
+- New table `districts` (migration `backend/migrations/120_districts.sql`):
+  `group_key` scopes rows to `nineveh_district` / `nineveh_neighborhood_left`
+  / `nineveh_neighborhood_right`; seeded with the same 10 districts + 24
+  neighborhoods the old hardcoded lists had. Kurdish (ckb/kmr) is filled in
+  for the 10 governorate-level districts only — deliberately left blank for
+  the 24 neighborhood rows, since nobody here can vouch for a Kurdish
+  translation of a Mosul neighborhood name and the client localizer already
+  falls back en→ar when a Kurdish value is blank.
+- `backend/internal/districts/districts.go` + `internal/handlers/admin_districts.go`
+  — store + handler, copied line-for-line from `citycategories`/
+  `admin_city_categories.go` (same CMS-clone convention as every other
+  admin-managed list in this codebase), wired into `cmd/server/main.go`.
+- `admin-web/src/components/DistrictsManager.tsx` — modal opened from the
+  Registrations page toolbar (not a new sidebar entry — per earlier client
+  feedback that the admin nav already has too many one-off modules).
+- Flutter: `registration_form.dart` (both the recipient and volunteer
+  sub-forms) and `marriage_form_screen.dart` (a second usage site the
+  original bug report didn't mention — found by grep, not by guessing) now
+  fetch the three lists via `ModuleApi.districts(groupKey)` on `initState`
+  and render them through the existing `localizedContentFromValues` helper.
+  Deleted `lib/data/nineveh_neighborhoods.dart` outright and removed the
+  `ninevehDistricts` const from `nineveh_districts.dart` (its
+  `volunteerLanguages` const is unrelated and was kept).
+- Added a small loading-spinner / error+retry banner above the affected
+  dropdowns in both screens — new string `'Districts could not load. Tap to
+  retry.'` in `app_translations.dart`, en+ar only (same reasoning as the
+  Kurdish note above: Sorani/Badini fall back to English automatically for
+  any key this session didn't add a real translation for).
+
+### What was run, and what it printed
+- `go build ./... && go vet ./... && go test ./...` — all packages `ok`,
+  nothing failed. `gofmt -l .` flagged one pre-existing unrelated file
+  (`admin_edit_user_profile.go`), untouched by this branch, left alone.
+- Live verification against a scratch DB (`createdb donation_scratch_districts`,
+  `RUN_MIGRATIONS=1 DATABASE_URL=... go run ./cmd/server`, dropped after):
+  `GET /api/districts?group=nineveh_district` returned the 10 seeded rows
+  with correct ckb/kmr values; `GET /api/districts` (no `group`) returned
+  `400 {"error":"group is required."}`; `GET /api/admin/districts` returned
+  `401 auth_required` with no token. A throwaway `cmd/districtsverify/main.go`
+  (deleted before commit, never pushed) exercised the store's
+  Add→List→Update→Reorder→Delete directly against the scratch DB — printed
+  `ALL DISTRICTS STORE CHECKS PASSED`.
+- `flutter analyze` on every touched Dart file — `No issues found!`.
+- admin-web: `npx tsc --noEmit -p .` — no output (clean); `npm run build` —
+  succeeded, `RegistrationsPage` (which imports `DistrictsManager`) bundled
+  with no errors.
+
+### Still open / needs a human
+- The admin-web `DistrictsManager` modal's actual click-through was **not**
+  verified in a browser — the dashboard login is OTP/2FA-gated and this
+  session didn't attempt to simulate that flow. Everything it calls was
+  verified at the API/store layer instead. Worth a manual pass before or
+  right after merge.
+- This branch was cut from `main`, not from `fix/messaging-channels-reachable`
+  (a different, still-unmerged branch with its own HANDOFF entry above this
+  one won't appear until that branch merges) — the two are independent and
+  should merge cleanly against each other.
+
+### A trap worth flagging
+Started this task's edits on `fix/registration-photo-not-displaying` (the
+previous task's already-pushed branch) before realizing no dedicated branch
+had been created — caught it before anything was committed, via
+`git stash` → `git checkout -b fix/districts-list-cms main` → `git stash pop`.
+Always create the task's branch **before** the first edit, not after.
+
+---
+
+## 2026-09-12 — publishing a project request with no Arabic title no longer crashes
+
+**Asked for:** OPOS #25292 — "'Add Campaign' UI inconsistent," reported
+vague, no further detail.
+
+**Branch:** `fix/publish-project-request-crash`, cut from `main`. One commit,
+pushed, PR opened: https://github.com/IamSizar/go_donation/pull/69 (`8ce3d1c`).
+
+### Root cause (Explore-agent audit found this despite the vague report)
+Two paths `INSERT INTO campaigns`: the direct "Add Campaign" admin form
+requires `title_ar` with clear inline validation; "Publish" a beneficiary's
+approved project request maps `project_title_ar` (nullable, and the app's
+own submission form never collects it) onto the same `NOT NULL
+campaigns.title_ar` column, passing `nil` straight into the INSERT — a raw
+`"null value... violates not-null constraint"` 500 on essentially every
+real publish. That's the "inconsistency": one flow demands Arabic title,
+the other crashes instead of asking for it.
+
+### What was actually changed
+- `backend/internal/handlers/admin_status.go` — `title_ar` now defaults to
+  `""` when the source has none, matching the exact pattern this same
+  function already uses for `description`/`description_ar`. Never falls
+  back to the English title (house rule: Arabic UI = no English).
+
+### Deliberately NOT changed
+Whether the project-request submission form should start collecting an
+Arabic title, or whether staff should be prompted for missing
+translations before publish. Both are real product/UX decisions for the
+client — not something to decide unilaterally while fixing a crash.
+
+### What was run, and what it printed
+- New `publish_project_request_test.go` drives the real HTTP route
+  (`RequireAdmin` + `RequirePermission`, matching `main.go`'s wiring),
+  asserts 200 + no English-in-Arabic leak. Mutation-checked: reverted to
+  the nil-passthrough, confirmed the test fails with the EXACT originally
+  reported error, restored the fix.
+- `go build/vet/test ./...` — all green, `gofmt -l` clean.
+
+### Still open / needs a human
+The two deliberately-deferred decisions above.
+
+---
+
+## 2026-09-12 — video posts can now actually have a video file attached
+
+**Asked for:** OPOS #25291 — "News & Media post bug," reported with no
+further detail.
+
+**Branch:** `fix/media-video-upload`, cut from `main`. One commit, pushed,
+PR opened: https://github.com/IamSizar/go_donation/pull/70 (`32657af`).
+
+### Root cause (Explore-agent audit found this despite the vague report)
+`post_type: 'video'` has existed since the seed data, but attaching a real
+video file was a dead end on both ends: `MediaPage.tsx`'s file field had no
+`accept` override (defaulted to images only, so the OS picker wouldn't
+even list a `.mp4`), and the backend's `AdminUploadHandler` extension
+whitelist had no video extension at all (would 400 even if bypassed by
+hand). The only way a video post ever worked was pasting an
+already-hosted external URL into Link URL.
+
+### What was actually changed
+- `backend/internal/handlers/admin_upload.go` — new `allowedVideoExts`
+  map (`.mp4`/`.mov`/`.webm`) with its OWN 50 MB `MaxVideoBytes` ceiling,
+  kept separate from the existing 5 MB image/PDF cap so the larger limit
+  doesn't leak to the other things sharing this one endpoint (partner
+  logos, case documents, product images).
+- `admin-web/src/pages/MediaPage.tsx` — `media_url` sets
+  `accept="image/*,video/*"`.
+
+### What was run, and what it printed
+- Extended `admin_upload_test.go`: `TestUploadAcceptsVideoExtensions`,
+  `TestUploadEnforcesPerCategorySizeLimits` (6 MB video passes, 6 MB
+  image still rejected, 51 MB video still rejected). Mutation-checked:
+  emptied the video map, confirmed both fail with the exact
+  "Unsupported file type" error, restored.
+- `go build/vet/test ./...` green, gofmt clean. admin-web `tsc --noEmit`
+  + `npm run build` clean.
+
+### Still open / needs a human
+- 50 MB is a judgment call — confirm against real content the client
+  expects to post.
+- Not clicked through with a real video file in a live browser session.
+
+---
+
 ## 2026-09-12 — Arabic-script text gets its own line-height instead of the Latin scale
 
 **Asked for:** OPOS #25281 — "Arabic text overlaps/garbles," described as

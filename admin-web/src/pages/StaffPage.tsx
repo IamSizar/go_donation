@@ -28,7 +28,7 @@ import { formatPhone } from '../lib/phone'
 import { usePermission } from '../lib/permissions'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
-import { formatDateTime } from '../lib/dates'
+import { formatDateParts } from '../lib/dates'
 import { isStaffAccount } from '../lib/staffAccounts'
 import { USER_FIELDS, flattenForEdit } from '../lib/userEditFields'
 import { useUserEditProfile } from '../lib/useUserEditProfile'
@@ -284,7 +284,17 @@ export default function StaffPage() {
     {
       key: 'created',
       header: t('col.created'),
-      cell: (u) => <span className="muted">{formatDateTime(u.created_at)}</span>,
+      // OPOS #25297 — stacked date over time, matching UsersPage/
+      // DonationsPage/VolunteersPage's convention for this column.
+      cell: (u) => {
+        const { date, time } = formatDateParts(u.created_at)
+        return (
+          <div className="cell-stack">
+            <span className="muted">{date}</span>
+            {time && <span className="muted" style={{ fontSize: '0.85em' }}>{time}</span>}
+          </div>
+        )
+      },
     },
     {
       key: 'actions',

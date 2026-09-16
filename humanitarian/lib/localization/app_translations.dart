@@ -461,6 +461,13 @@ class AppTranslations extends Translations {
     'error_history_load_failed': 'Could not load your record.',
     'error_otp_send_failed': 'Could not send the verification code.',
     'error_otp_verify_failed': 'Could not verify that code.',
+    // OPOS #25270 — the backend's own "error" text for these two responses
+    // is a raw English literal (backend/internal/handlers/auth.go and
+    // auth_staff_otp.go); the client now matches on the machine `code` field
+    // instead and shows this localized copy, never the backend's text.
+    'otp_resend_cooldown_message': 'Please wait before requesting another code.',
+    'staff_otp_unavailable_message':
+        "Staff sign-in isn't available yet. Ask the administrator for your code.",
     'error_password_setup_failed': 'Could not set your password.',
     'error_message_send_failed': 'Could not send your message.',
     'error_messages_load_failed': 'Could not load this conversation.',
@@ -950,6 +957,11 @@ class AppTranslations extends Translations {
     'View order status, fulfillment, and delivery updates.':
         'View order status, fulfillment, and delivery updates.',
     'Community Services': 'Community Services',
+    'Community events, announcements, and updates.':
+        'Community events, announcements, and updates.',
+    'Community events': 'Community events',
+    'No community events or announcements yet. Check back soon.':
+        'No community events or announcements yet. Check back soon.',
     'Browse local support programs by category, region, and urgency.':
         'Browse local support programs by category, region, and urgency.',
     'Services Directory': 'Services Directory',
@@ -2181,6 +2193,8 @@ class AppTranslations extends Translations {
     'Sponsorship target': 'Support target',
     'Campaigns could not load. Tap to retry.':
         'Campaigns could not load. Tap to retry.',
+    'Districts could not load. Tap to retry.':
+        'Districts could not load. Tap to retry.',
     'In-kind donation saved.': 'In-kind contribution saved.',
     'Marriage service profile saved.': 'Event service profile saved.',
     'Support ticket saved.': 'Support ticket saved.',
@@ -3649,6 +3663,9 @@ class AppTranslations extends Translations {
     'error_history_load_failed': 'تعذّر تحميل سجلك.',
     'error_otp_send_failed': 'تعذّر إرسال رمز التحقق.',
     'error_otp_verify_failed': 'تعذّر التحقق من الرمز.',
+    'otp_resend_cooldown_message': 'يرجى الانتظار قبل طلب رمز جديد.',
+    'staff_otp_unavailable_message':
+        'تسجيل دخول الموظفين غير متاح بعد. يرجى طلب الرمز من المشرف.',
     'error_password_setup_failed': 'تعذّر تعيين كلمة المرور.',
     'error_message_send_failed': 'تعذّر إرسال رسالتك.',
     'error_messages_load_failed': 'تعذّر تحميل هذه المحادثة.',
@@ -4027,6 +4044,11 @@ class AppTranslations extends Translations {
     'View order status, fulfillment, and delivery updates.':
         'اعرض حالة الطلب والتجهيز وتحديثات التوصيل.',
     'Community Services': 'خدمات المجتمع',
+    'Community events, announcements, and updates.':
+        'فعاليات وإعلانات وتحديثات المجتمع.',
+    'Community events': 'فعاليات المجتمع',
+    'No community events or announcements yet. Check back soon.':
+        'لا توجد فعاليات أو إعلانات مجتمعية بعد. تحقق مرة أخرى قريبًا.',
     'Browse local support programs by category, region, and urgency.':
         'تصفح برامج الدعم المحلية حسب الفئة والمنطقة والأولوية.',
     'Services Directory': 'دليل الخدمات',
@@ -5149,6 +5171,8 @@ class AppTranslations extends Translations {
     'Sponsorship target': 'هدف الدعم',
     'Campaigns could not load. Tap to retry.':
         'تعذر تحميل الحملات. اضغط لإعادة المحاولة.',
+    'Districts could not load. Tap to retry.':
+        'تعذر تحميل قائمة المناطق. اضغط لإعادة المحاولة.',
     'In-kind donation saved.': 'تم حفظ المساهمة العينية.',
     'Marriage service profile saved.': 'تم حفظ ملف خدمة الفعاليات.',
     'Support ticket saved.': 'تم حفظ تذكرة الدعم.',
