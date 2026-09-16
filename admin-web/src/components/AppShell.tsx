@@ -130,10 +130,14 @@ export default function AppShell() {
   // index.css), opened via the hamburger button below and closed by tapping
   // the scrim or navigating anywhere. Deliberately NOT persisted like
   // sidebarCollapsed — a drawer should always start closed on a fresh load.
-  const [mobileNavOpen, setMobileNavOpen] = useState(false)
-  useEffect(() => {
-    setMobileNavOpen(false)
-  }, [location.pathname])
+  // "Closed on navigation" is derived rather than reset by an effect: we
+  // remember the route the drawer was opened on, and it counts as open only
+  // while we are still on that route. Navigating anywhere closes it in the
+  // same render as the route change, with no extra render pass.
+  const [mobileNavOpenPath, setMobileNavOpenPath] = useState<string | null>(null)
+  const mobileNavOpen = mobileNavOpenPath === location.pathname
+  const setMobileNavOpen = (next: boolean) =>
+    setMobileNavOpenPath(next ? location.pathname : null)
 
   // PWA/mobile pass — an overlay that traps the eye must be dismissible the
   // way every other overlay in this app is. The scrim already handles a tap;
@@ -143,7 +147,7 @@ export default function AppShell() {
   useEffect(() => {
     if (!mobileNavOpen) return
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setMobileNavOpen(false)
+      if (e.key === 'Escape') setMobileNavOpenPath(null)
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
@@ -480,7 +484,7 @@ export default function AppShell() {
             <button
               type="button"
               className="mobile-nav-toggle-btn"
-              onClick={() => setMobileNavOpen((o) => !o)}
+              onClick={() => setMobileNavOpen(!mobileNavOpen)}
               title={mobileNavOpen ? t('shell.menu_close') : t('shell.menu_open')}
               aria-label={mobileNavOpen ? t('shell.menu_close') : t('shell.menu_open')}
               // The pair a screen reader needs to describe a disclosure: what
