@@ -31,11 +31,20 @@ const (
 )
 
 var (
-	ErrNotFound       = errors.New("thread not found")
-	ErrNotParty       = errors.New("you are not a participant in this chat")
-	ErrNotRecipient   = errors.New("only the invited party can accept or decline")
-	ErrNotActive      = errors.New("this chat is not active yet")
-	ErrAlreadyClaimed = errors.New("this chat is already claimed by another staff member")
+	ErrNotFound          = errors.New("thread not found")
+	ErrNotParty          = errors.New("you are not a participant in this chat")
+	ErrNotRecipient      = errors.New("only the invited party can accept or decline")
+	ErrNotActive         = errors.New("this chat is not active yet")
+	ErrAlreadyClaimed    = errors.New("this chat is already claimed by another staff member")
+	ErrDirectChatRetired = errors.New("direct donor-owner chat has been retired; use a staff-mediated connect request instead")
+	// ErrNotPending is returned by DeclineThread when the thread is no longer
+	// an invite waiting for an answer — it is already active — so declining it
+	// would end a conversation both parties are using (OPOS #26427).
+	ErrNotPending = errors.New("this chat is no longer a pending invite")
+	// ErrInviteDeclined is returned by AcceptThread when the invite was
+	// declined. A declined invite is final (OPOS #26436): accepting it would
+	// revive a request the initiator was told was turned down.
+	ErrInviteDeclined = errors.New("this chat invite was declined")
 )
 
 // Thread is the raw row.
@@ -86,74 +95,17 @@ type Message struct {
 	CreatedAt    time.Time `json:"created_at"`
 }
 
-// RequestThread opens (or re-opens) a pending thread between a donor and an
-// owner. initiatorID must equal donorID or ownerID (validated by the caller).
-// Returns the thread, the recipient's user id (the party who must accept), and
-// whether a fresh request was created (true → caller should notify recipient).
+// RequestThread used to open (or re-open) a pending thread between a donor
+// and an owner. Phase 4 of OPOS #25284 retires the old donor↔campaign-owner
+// direct-chat system in favor of staff-mediated masked group chats
+// (internal/chatgroups): every call now refuses up front with
+// ErrDirectChatRetired and writes nothing. The signature is kept so the one
+// remaining call site (handlers.ChatHandler.Request) does not need touching
+// beyond mapping the new sentinel to a clean HTTP response — see that
+// handler's Request method.
 func (s *Store) RequestThread(ctx context.Context, donorID, ownerID int64, campaignID *int64, initiatorID int64) (Thread, int64, bool, error) {
 	var t Thread
-	recipient := ownerID
-	if initiatorID == ownerID {
-		recipient = donorID
-	}
-
-	tx, err := s.Pool.Begin(ctx)
-	if err != nil {
-		return t, 0, false, err
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	err = tx.QueryRow(ctx, `
-		SELECT id, donor_user_id, owner_user_id, campaign_id, status, initiated_by, assigned_staff_user_id, created_at, updated_at
-		  FROM chat_threads
-		 WHERE donor_user_id = $1 AND owner_user_id = $2
-		 FOR UPDATE`,
-		donorID, ownerID,
-	).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt)
-
-	switch {
-	case errors.Is(err, pgx.ErrNoRows):
-		// Brand-new request.
-		if err := tx.QueryRow(ctx, `
-			INSERT INTO chat_threads (donor_user_id, owner_user_id, campaign_id, status, initiated_by)
-			VALUES ($1, $2, $3, 'pending', $4)
-			RETURNING id, donor_user_id, owner_user_id, campaign_id, status, initiated_by, assigned_staff_user_id, created_at, updated_at`,
-			donorID, ownerID, campaignID, initiatorID,
-		).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt); err != nil {
-			return t, 0, false, err
-		}
-		if err := tx.Commit(ctx); err != nil {
-			return t, 0, false, err
-		}
-		return t, recipient, true, nil
-	case err != nil:
-		return t, 0, false, err
-	}
-
-	// A thread already exists.
-	if t.Status == "declined" {
-		// Re-open as a fresh pending request from this initiator.
-		if err := tx.QueryRow(ctx, `
-			UPDATE chat_threads
-			   SET status = 'pending', initiated_by = $2,
-			       campaign_id = COALESCE($3, campaign_id), updated_at = CURRENT_TIMESTAMP
-			 WHERE id = $1
-			RETURNING id, donor_user_id, owner_user_id, campaign_id, status, initiated_by, assigned_staff_user_id, created_at, updated_at`,
-			t.ID, initiatorID, campaignID,
-		).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt); err != nil {
-			return t, 0, false, err
-		}
-		if err := tx.Commit(ctx); err != nil {
-			return t, 0, false, err
-		}
-		return t, recipient, true, nil
-	}
-
-	// Already pending or active — nothing to do, no new notification.
-	if err := tx.Commit(ctx); err != nil {
-		return t, 0, false, err
-	}
-	return t, recipient, false, nil
+	return t, 0, false, ErrDirectChatRetired
 }
 
 // RequestSupportThread opens (or reuses) the thread between a user and the
@@ -225,9 +177,24 @@ func (s *Store) RequestSupportThread(ctx context.Context, userID, supportID int6
 	return t, false, nil
 }
 
-// AcceptThread flips a pending thread to active. Only the recipient (the party
-// who did NOT initiate) may accept. Returns the thread and the initiator id so
-// the caller can notify them.
+// AcceptThread flips a pending invite to active. Only the recipient (the party
+// who did NOT initiate) may accept; the party checks run first, so a user with
+// no right to accept is never told the thread's status. Returns the thread and
+// the initiator id so the caller can notify them.
+//
+// Only a PENDING invite can be accepted (OPOS #26436). This used to update by
+// id alone, so a recipient who had declined could accept later, reviving the
+// thread and pushing the initiator "chat accepted" for a request they had been
+// told was turned down. The status condition lives in the UPDATE itself, as in
+// DeclineThread, so a decline cannot land between reading the status and
+// writing it. When the UPDATE matches no row, acceptNotPending reads the thread
+// again to say why. A declined donor invite is final: new direct chats are
+// retired (RequestThread), so nobody can send a fresh one.
+//
+// It does NOT check the thread's lifecycle (paused / ended / archived). That
+// gate lives in the HTTP layer with every other lifecycle refusal —
+// handlers.ChatHandler.Accept runs refuseIfInviteClosed before calling this —
+// so any new caller must run it too.
 func (s *Store) AcceptThread(ctx context.Context, threadID, userID int64) (Thread, int64, error) {
 	t, err := s.GetThread(ctx, threadID)
 	if err != nil {
@@ -239,21 +206,55 @@ func (s *Store) AcceptThread(ctx context.Context, threadID, userID int64) (Threa
 	if userID == t.InitiatedBy {
 		return t, 0, ErrNotRecipient
 	}
-	if t.Status == "active" {
-		return t, t.InitiatedBy, nil // idempotent
-	}
-	if err := s.Pool.QueryRow(ctx, `
+	err = s.Pool.QueryRow(ctx, `
 		UPDATE chat_threads SET status = 'active', updated_at = CURRENT_TIMESTAMP
-		 WHERE id = $1
+		 WHERE id = $1 AND status = 'pending'
 		RETURNING id, donor_user_id, owner_user_id, campaign_id, status, initiated_by, assigned_staff_user_id, created_at, updated_at`,
 		threadID,
-	).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt); err != nil {
-		return t, 0, err
+	).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return s.acceptNotPending(ctx, threadID)
+	}
+	if err != nil {
+		return t, 0, fmt.Errorf("accepting chat thread %d: %w", threadID, err)
 	}
 	return t, t.InitiatedBy, nil
 }
 
-// DeclineThread marks a pending thread declined. Only the recipient may decline.
+// acceptNotPending answers an accept whose guarded UPDATE matched no row, so
+// the thread was not pending when it ran. A fresh read says why:
+//   - already active: the idempotent success accept has always given, with
+//     the initiator id as before;
+//   - any other status: ErrInviteDeclined, with no initiator id, so no caller
+//     pushes "chat accepted".
+func (s *Store) acceptNotPending(ctx context.Context, threadID int64) (Thread, int64, error) {
+	t, err := s.GetThread(ctx, threadID)
+	if err != nil {
+		return t, 0, err
+	}
+	if t.Status == "active" {
+		return t, t.InitiatedBy, nil
+	}
+	return t, 0, ErrInviteDeclined
+}
+
+// DeclineThread marks a pending invite declined. Only the recipient (the party
+// who did NOT initiate) may decline; the party checks run first, so a user
+// with no right to decline is never told the thread's status.
+//
+// Only an invite can be declined (OPOS #26427). This used to update by id
+// alone, so the recipient could flip an ACTIVE chat to declined, hiding it from
+// both participants and refusing every further message. The status condition
+// lives in the UPDATE itself, so nothing can change between reading the status
+// and writing it: an active thread matches no row and comes back as
+// ErrNotPending, untouched. Declining an invite that is already declined still
+// succeeds, as it always has — the app's notification tile offers Decline again
+// for one, because the thread list it reads hides declined threads.
+//
+// Like AcceptThread it does NOT check the thread's lifecycle, but here that is
+// the rule rather than a job left to the caller: a pending invite on a paused,
+// ended or archived thread can still be declined, which is how the recipient
+// dismisses a dead invite (OPOS #26413).
 func (s *Store) DeclineThread(ctx context.Context, threadID, userID int64) (Thread, error) {
 	t, err := s.GetThread(ctx, threadID)
 	if err != nil {
@@ -265,10 +266,15 @@ func (s *Store) DeclineThread(ctx context.Context, threadID, userID int64) (Thre
 	if userID == t.InitiatedBy {
 		return t, ErrNotRecipient
 	}
-	_, err = s.Pool.Exec(ctx, `
-		UPDATE chat_threads SET status = 'declined', updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
-		threadID)
-	t.Status = "declined"
+	err = s.Pool.QueryRow(ctx, `
+		UPDATE chat_threads SET status = 'declined', updated_at = CURRENT_TIMESTAMP
+		 WHERE id = $1 AND status IN ('pending', 'declined')
+		RETURNING id, donor_user_id, owner_user_id, campaign_id, status, initiated_by, assigned_staff_user_id, created_at, updated_at`,
+		threadID,
+	).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return t, ErrNotPending
+	}
 	return t, err
 }
 
@@ -354,8 +360,23 @@ func (s *Store) ListThreadsForUser(ctx context.Context, userID int64) ([]ThreadV
 		  FROM chat_threads t
 		  LEFT JOIN campaigns c ON c.id = t.campaign_id
 		  LEFT JOIN users ou ON ou.id = (CASE WHEN t.donor_user_id = $1 THEN t.owner_user_id ELSE t.donor_user_id END)
-		  LEFT JOIN user_profiles op ON op.user_id = (CASE WHEN t.donor_user_id = $1 THEN t.owner_user_id ELSE t.donor_user_id END)
-		  LEFT JOIN user_profiles sp ON sp.user_id = t.assigned_staff_user_id
+		  -- user_profiles.user_id carries no UNIQUE constraint (migration 124
+		  -- adds only a plain index), so a user can own two rows and a plain
+		  -- join would list the thread once per row — twice per duplicated
+		  -- party, four times when both have two. LATERAL … LIMIT 1 takes the
+		  -- OLDEST row (lowest id), so the name does not depend on which row
+		  -- the planner reaches first. Identical output for the normal
+		  -- one-row-per-user case.
+		  LEFT JOIN LATERAL (
+		      SELECT p.full_name FROM user_profiles p
+		       WHERE p.user_id = (CASE WHEN t.donor_user_id = $1 THEN t.owner_user_id ELSE t.donor_user_id END)
+		       ORDER BY p.id LIMIT 1
+		  ) op ON TRUE
+		  LEFT JOIN LATERAL (
+		      SELECT p.full_name FROM user_profiles p
+		       WHERE p.user_id = t.assigned_staff_user_id
+		       ORDER BY p.id LIMIT 1
+		  ) sp ON TRUE
 		  LEFT JOIN LATERAL (
 		      SELECT body, created_at FROM chat_messages m
 		       WHERE m.thread_id = t.id ORDER BY m.id DESC LIMIT 1
@@ -457,7 +478,13 @@ func (s *Store) ListMessages(ctx context.Context, threadID int64) ([]Message, er
 	rows, err := s.Pool.Query(ctx, `
 		SELECT m.id, m.thread_id, m.sender_user_id, m.sender_role, p.full_name, m.body, m.created_at
 		  FROM chat_messages m
-		  LEFT JOIN user_profiles p ON p.user_id = m.sender_user_id
+		  -- LATERAL, not a plain join: user_profiles.user_id has no UNIQUE
+		  -- constraint, so a sender with two rows would have every message of
+		  -- theirs listed twice. The oldest row (lowest id) names them.
+		  LEFT JOIN LATERAL (
+		      SELECT up.full_name FROM user_profiles up
+		       WHERE up.user_id = m.sender_user_id ORDER BY up.id LIMIT 1
+		  ) p ON TRUE
 		 WHERE m.thread_id = $1
 		 ORDER BY m.id ASC`,
 		threadID,
@@ -603,10 +630,26 @@ func (s *Store) ListAllThreads(ctx context.Context, q, kind string) ([]AdminThre
 		  FROM chat_threads t
 		  LEFT JOIN campaigns c ON c.id = t.campaign_id
 		  LEFT JOIN users du ON du.id = t.donor_user_id
-		  LEFT JOIN user_profiles dp ON dp.user_id = t.donor_user_id
+		  -- Three LATERALs rather than three plain joins: user_profiles.user_id
+		  -- has no UNIQUE constraint, and a plain join multiplies the row by
+		  -- each party's profile count — a thread whose donor and owner both
+		  -- have two rows appeared four times on the admin Messages page. Each
+		  -- takes the oldest row (lowest id). The WHERE clause's ILIKE
+		  -- filters on dp./opf. still work: the aliases still resolve to one
+		  -- row each.
+		  LEFT JOIN LATERAL (
+		      SELECT p.full_name FROM user_profiles p
+		       WHERE p.user_id = t.donor_user_id ORDER BY p.id LIMIT 1
+		  ) dp ON TRUE
 		  LEFT JOIN users ou ON ou.id = t.owner_user_id
-		  LEFT JOIN user_profiles opf ON opf.user_id = t.owner_user_id
-		  LEFT JOIN user_profiles sp ON sp.user_id = t.assigned_staff_user_id
+		  LEFT JOIN LATERAL (
+		      SELECT p.full_name FROM user_profiles p
+		       WHERE p.user_id = t.owner_user_id ORDER BY p.id LIMIT 1
+		  ) opf ON TRUE
+		  LEFT JOIN LATERAL (
+		      SELECT p.full_name FROM user_profiles p
+		       WHERE p.user_id = t.assigned_staff_user_id ORDER BY p.id LIMIT 1
+		  ) sp ON TRUE
 		  LEFT JOIN LATERAL (
 		     SELECT body, created_at FROM chat_messages m
 		      WHERE m.thread_id = t.id ORDER BY m.id DESC LIMIT 1

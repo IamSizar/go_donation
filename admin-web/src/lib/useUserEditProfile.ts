@@ -31,41 +31,44 @@ export type UserEditProfile = {
  *   reopening on a different row can never flash the previous person's data.
  */
 export function useUserEditProfile(userId: number | null): UserEditProfile {
-  const [profile, setProfile] = useState<Record<string, unknown> | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  // One piece of state holding the outcome of one request, tagged with the
+  // request it answered. Everything the hook returns is then derived from it,
+  // so the effect below clears nothing: a result for a different user (or a
+  // previous reload) simply is not the current one, which is exactly the
+  // guarantee the old reset-then-fetch was written to give.
+  const [result, setResult] = useState<{
+    key: string
+    profile: Record<string, unknown> | null
+    error: string | null
+  } | null>(null)
   const [tick, setTick] = useState(0)
 
   const reload = useCallback(() => setTick((n) => n + 1), [])
 
+  const requestKey = `${userId}|${tick}`
+  const current = result && result.key === requestKey ? result : null
+  const profile = current?.profile ?? null
+  const error = current?.error ?? null
+  // Closed means nothing is being fetched, so it is not loading either.
+  const loading = userId !== null && current === null
+
   useEffect(() => {
-    if (userId === null) {
-      setProfile(null)
-      setError(null)
-      setLoading(false)
-      return
-    }
+    if (userId === null) return
     let cancelled = false
-    setProfile(null)
-    setError(null)
-    setLoading(true)
     api
       .get<{ item: Record<string, unknown> }>(`/api/admin/detail/users/${userId}`)
       .then((r) => {
-        if (!cancelled) setProfile(r.data.item)
+        if (!cancelled) setResult({ key: requestKey, profile: r.data.item, error: null })
       })
       .catch((e) => {
         // Never swallowed: the operator sees a localized message and a Retry,
         // and the technical detail stays in the console for support.
-        if (!cancelled) setError(describeError(e))
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) setResult({ key: requestKey, profile: null, error: describeError(e) })
       })
     return () => {
       cancelled = true
     }
-  }, [userId, tick])
+  }, [userId, tick, requestKey])
 
   return { profile, loading, error, reload }
 }

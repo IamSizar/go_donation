@@ -1,62 +1,28 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Navigate, useLocation } from 'react-router-dom'
-import { api, getStoredUser, getToken, setStoredUser, setToken, type StoredUser } from './api'
+// auth.tsx — the signed-in admin's identity, as a context plus the hook that
+// reads it.
+//
+// The <AuthProvider> and <RequireAuth> components live in AuthProvider.tsx.
+// They are split because a file that exports a component may not also export a
+// hook or a context: fast refresh recreates a module's bindings on every edit,
+// so a context declared beside a component would be swapped for a brand-new
+// one and every Provider/consumer pair would come apart mid-session
+// (react-refresh/only-export-components). useAuth is imported by two dozen
+// files and the two components by three, so the hook kept the module name.
 
-type AuthCtx = {
+import { createContext, useContext } from 'react'
+import type { StoredUser } from './api'
+
+export type AuthCtx = {
   user: StoredUser | null
   isAuthenticated: boolean
   login: (token: string, user: StoredUser) => void
   logout: () => Promise<void>
 }
 
-const AuthContext = createContext<AuthCtx | null>(null)
-
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<StoredUser | null>(() => getStoredUser())
-
-  const login = useCallback((token: string, u: StoredUser) => {
-    setToken(token)
-    setStoredUser(u)
-    setUser(u)
-  }, [])
-
-  const logout = useCallback(async () => {
-    try {
-      await api.post('/api/auth/logout')
-    } catch {
-      // best-effort
-    }
-    setToken(null)
-    setStoredUser(null)
-    setUser(null)
-  }, [])
-
-  // Cross-tab sync: another tab logging out should reflect here.
-  useEffect(() => {
-    const onStorage = () => setUser(getStoredUser())
-    window.addEventListener('storage', onStorage)
-    return () => window.removeEventListener('storage', onStorage)
-  }, [])
-
-  const value = useMemo<AuthCtx>(
-    () => ({ user, isAuthenticated: !!user && !!getToken(), login, logout }),
-    [user, login, logout],
-  )
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
-}
+export const AuthContext = createContext<AuthCtx | null>(null)
 
 export function useAuth(): AuthCtx {
   const ctx = useContext(AuthContext)
   if (!ctx) throw new Error('useAuth must be used inside <AuthProvider>')
   return ctx
-}
-
-export function RequireAuth({ children }: { children: ReactNode }) {
-  const { isAuthenticated } = useAuth()
-  const location = useLocation()
-  if (!isAuthenticated) {
-    return <Navigate to="/login" state={{ from: location }} replace />
-  }
-  return <>{children}</>
 }

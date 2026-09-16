@@ -63,7 +63,13 @@ export default function TasksPage() {
   const { t } = useI18n()
   const toast = useToast()
   const [items, setItems] = useState<Task[]>([])
-  const [loading, setLoading] = useState(true)
+  // `loading` is derived from which reload tick last came back, so the fetch
+  // effect below sets nothing synchronously. `reload()` bumps the tick, which
+  // is what re-runs the effect.
+  const [tick, setTick] = useState(0)
+  const [loadedTick, setLoadedTick] = useState(-1)
+  const loading = loadedTick !== tick
+  const reload = () => setTick((n) => n + 1)
   const [err, setErr] = useState<string | null>(null)
   const [assigning, setAssigning] = useState(false)
   // The people this task is going to. UserPicker picks one at a time; each
@@ -73,7 +79,6 @@ export default function TasksPage() {
   const [description, setDescription] = useState('')
 
   const load = () => {
-    setLoading(true)
     api
       .get<{ tasks: Task[] }>('/api/admin/tasks')
       .then((res) => {
@@ -81,9 +86,9 @@ export default function TasksPage() {
         setErr(null)
       })
       .catch((e) => setErr(describeError(e)))
-      .finally(() => setLoading(false))
+      .finally(() => setLoadedTick(tick))
   }
-  useEffect(load, [])
+  useEffect(load, [tick])
 
   const groups = useMemo(() => groupTasks(items), [items])
 
@@ -112,7 +117,7 @@ export default function TasksPage() {
       setAssignees([])
       setTitle('')
       setDescription('')
-      load()
+      reload()
     } catch (e) {
       toast.error(describeError(e))
     } finally {
@@ -128,7 +133,7 @@ export default function TasksPage() {
     try {
       await Promise.all(rows.map((r) => api.delete(`/api/admin/tasks/${r.id}`)))
       toast.success(t('tasks.deleted'))
-      load()
+      reload()
     } catch (e) {
       toast.error(describeError(e))
     }

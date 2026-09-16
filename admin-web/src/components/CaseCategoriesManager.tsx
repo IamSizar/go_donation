@@ -39,14 +39,24 @@ export default function CaseCategoriesManager({ open, onClose, onChanged }: Prop
   const { t } = useI18n()
   const toast = useToast()
   const [items, setItems] = useState<CaseCategory[]>([])
-  const [loading, setLoading] = useState(true)
+  // `loading` is derived from which request last came back, so the effect
+  // below sets nothing synchronously. The key bumps on every reload and on
+  // every fresh open, because opening the dialog refetches.
+  const [requestKey, setRequestKey] = useState(0)
+  const [loadedKey, setLoadedKey] = useState(-1)
+  const loading = loadedKey !== requestKey
+  const reload = () => setRequestKey((n) => n + 1)
+  const [wasOpen, setWasOpen] = useState(open)
+  if (wasOpen !== open) {
+    setWasOpen(open)
+    if (open) reload()
+  }
   const [err, setErr] = useState<string | null>(null)
   const [savingId, setSavingId] = useState<number | null>(null)
   const [adding, setAdding] = useState(false)
   const [draft, setDraft] = useState({ ...EMPTY_DRAFT })
 
   const load = () => {
-    setLoading(true)
     api
       .get<{ items: CaseCategory[] }>('/api/admin/case-categories')
       .then((res) => {
@@ -54,11 +64,11 @@ export default function CaseCategoriesManager({ open, onClose, onChanged }: Prop
         setErr(null)
       })
       .catch((e) => setErr(describeError(e)))
-      .finally(() => setLoading(false))
+      .finally(() => setLoadedKey(requestKey))
   }
   useEffect(() => {
     if (open) load()
-  }, [open])
+  }, [open, requestKey])
 
   const patchItem = (id: number, patch: Partial<CaseCategory>) =>
     setItems((xs) => xs.map((x) => (x.id === id ? { ...x, ...patch } : x)))
@@ -78,7 +88,7 @@ export default function CaseCategoriesManager({ open, onClose, onChanged }: Prop
         active: c.active,
       })
       toast.success(t('caseCategories.saved'))
-      load()
+      reload()
       onChanged?.()
     } catch (e) {
       toast.error(describeError(e))
@@ -92,7 +102,7 @@ export default function CaseCategoriesManager({ open, onClose, onChanged }: Prop
     try {
       await api.delete(`/api/admin/case-categories/${id}`)
       toast.success(t('caseCategories.deleted'))
-      load()
+      reload()
       onChanged?.()
     } catch (e) {
       toast.error(describeError(e))
@@ -109,7 +119,7 @@ export default function CaseCategoriesManager({ open, onClose, onChanged }: Prop
       await api.post('/api/admin/case-categories', draft)
       toast.success(t('caseCategories.added'))
       setDraft({ ...EMPTY_DRAFT })
-      load()
+      reload()
       onChanged?.()
     } catch (e) {
       toast.error(describeError(e))
@@ -132,7 +142,7 @@ export default function CaseCategoriesManager({ open, onClose, onChanged }: Prop
       onChanged?.()
     } catch (e) {
       toast.error(describeError(e))
-      load()
+      reload()
     }
   }
 
