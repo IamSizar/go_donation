@@ -689,7 +689,14 @@ func (s *Store) ListRegistrations(ctx context.Context, statusFilter string, page
 
 	var total int
 	if err := s.Pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM users u LEFT JOIN user_profiles up ON up.user_id = u.id`+where,
+		// OPOS #26603: user_profiles.user_id has no UNIQUE constraint, so an
+		// account with two profile rows was counted twice and repeated in the
+		// page below. LATERAL takes the oldest row only.
+		`SELECT COUNT(*) FROM users u
+		   LEFT JOIN LATERAL (
+		          SELECT p.full_name FROM user_profiles p
+		           WHERE p.user_id = u.id ORDER BY p.id LIMIT 1
+		        ) up ON TRUE`+where,
 		args...,
 	).Scan(&total); err != nil {
 		return nil, err
@@ -710,7 +717,11 @@ func (s *Store) ListRegistrations(ctx context.Context, statusFilter string, page
 		        COALESCE(up.full_name, ''), COALESCE(up.address, ''),
 		        COALESCE(to_char(up.date_of_birth, 'YYYY-MM-DD'), '')
 		   FROM users u
-		   LEFT JOIN user_profiles up ON up.user_id = u.id`+where+`
+		   -- OPOS #26603: one profile row per account, oldest wins (see the count above).
+		   LEFT JOIN LATERAL (
+		          SELECT p.full_name, p.address, p.date_of_birth FROM user_profiles p
+		           WHERE p.user_id = u.id ORDER BY p.id LIMIT 1
+		        ) up ON TRUE`+where+`
 		  ORDER BY u.registration_submitted_at ASC NULLS LAST, u.id ASC
 		  LIMIT $`+strconvItoa(limIdx)+` OFFSET $`+strconvItoa(offIdx),
 		args...,
