@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import ExportCsvButton from '../components/ExportCsvButton'
+import DateCell from '../components/DateCell'
 import { api, describeError } from '../lib/api'
 import type { AdminPageResp, AdminRegistration } from '../lib/api-types'
 import Table, { type Column } from '../components/Table'
@@ -11,7 +12,6 @@ import { useLivePoll } from '../lib/useLivePoll'
 import { formatPhone } from '../lib/phone'
 import { type CsvColumn } from '../lib/csv'
 import PageHead from '../components/PageHead'
-import { formatDateParts } from '../lib/dates'
 import ActionsMenu from '../components/ActionsMenu'
 import { NeedsActionTag } from '../components/IdWithNeedsAction'
 import DistrictsManager from '../components/DistrictsManager'
@@ -188,17 +188,9 @@ export default function RegistrationsPage() {
     {
       key: 'submitted',
       header: t('registrations.col_submitted'),
-      // OPOS #25297 — stacked date over time, matching UsersPage/
-      // DonationsPage/VolunteersPage's convention for this column.
-      cell: (r) => {
-        const { date, time } = formatDateParts(r.submitted_at)
-        return (
-          <div className="cell-stack">
-            <span className="muted">{date || '—'}</span>
-            {time && <span className="muted" style={{ fontSize: '0.85em' }}>{time}</span>}
-          </div>
-        )
-      },
+      // Client item C3 — one shared DateCell for every table timestamp:
+      // the date on top, the time underneath. See components/DateCell.tsx.
+      cell: (r) => <DateCell value={r.submitted_at} />,
     },
     {
       key: 'status',

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import LocalizedCell from '../components/LocalizedCell'
+import DateCell from '../components/DateCell'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError } from '../lib/api'
 import { useLivePoll } from '../lib/useLivePoll'
@@ -26,7 +27,7 @@ import { stripeForStatus } from '../lib/statusColors'
 import { IRAQ_GOVERNORATES } from '../lib/iraqGovernorates'
 import { useFieldRules, type FieldRuleState } from '../lib/fieldRules'
 import PageHead from '../components/PageHead'
-import { formatDateTime, formatDateParts } from '../lib/dates'
+import { formatDateTime } from '../lib/dates'
 import RowActionsMenu from '../components/RowActionsMenu'
 import IdWithNeedsAction from '../components/IdWithNeedsAction'
 
@@ -480,18 +481,9 @@ function CasesTab() {
     {
       key: 'updated',
       header: t('col.updated'),
-      // OPOS #25297 — stacked date over time, matching the convention
-      // UsersPage/DonationsPage/VolunteersPage already use for this exact
-      // kind of column, instead of one cramped inline string.
-      cell: (r) => {
-        const { date, time } = formatDateParts(r.updated_at)
-        return (
-          <div className="cell-stack">
-            <span className="muted">{date}</span>
-            {time && <span className="muted" style={{ fontSize: '0.85em' }}>{time}</span>}
-          </div>
-        )
-      },
+      // Client item C3 — one shared DateCell for every table timestamp:
+      // the date on top, the time underneath. See components/DateCell.tsx.
+      cell: (r) => <DateCell value={r.updated_at} />,
     },
     {
       key: 'actions', header: t('common.actions'), width: '170px',

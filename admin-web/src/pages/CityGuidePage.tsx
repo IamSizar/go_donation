@@ -11,6 +11,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import LocalizedCell from '../components/LocalizedCell'
+import DateCell from '../components/DateCell'
 import { Link } from 'react-router-dom'
 import { api, describeError } from '../lib/api'
 import type { CommunityEntry, CitySector } from '../lib/api-types'
@@ -22,7 +23,6 @@ import { useI18n, useStatusLabel, type Locale } from '../lib/i18n'
 import PageHead, { PageActions, BarSecondary } from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
 import RowActionsMenu from '../components/RowActionsMenu'
-import { formatDateTime } from '../lib/dates'
 
 type Resp = { success: true; items: CommunityEntry[] }
 
@@ -283,7 +283,7 @@ export default function CityGuidePage() {
     {
       key: 'created',
       header: t('col.created'),
-      cell: (e) => <span className="muted">{formatDateTime(e.created_at)}</span>,
+      cell: (e) => <DateCell value={e.created_at} />,
     },
     {
       key: 'status', header: t('col.status'),

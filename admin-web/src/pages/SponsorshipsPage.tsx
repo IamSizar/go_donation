@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, useRef } from 'react'
 import ExportCsvButton from '../components/ExportCsvButton'
+import DateCell from '../components/DateCell'
 import { api, describeError } from '../lib/api'
 import { useLivePoll } from '../lib/useLivePoll'
 import type { Sponsorship, SponsorshipsListResp } from '../lib/api-types'
@@ -15,7 +16,6 @@ import { type CsvColumn } from '../lib/csv'
 import { HighlightBanner } from '../lib/HighlightBanner'
 import { useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForStatus } from '../lib/statusColors'
-import { formatDateParts } from '../lib/dates'
 import PageHead from '../components/PageHead'
 import RowActionsMenu from '../components/RowActionsMenu'
 import { NeedsActionTag } from '../components/IdWithNeedsAction'
@@ -243,15 +243,7 @@ export default function SponsorshipsPage() {
     {
       key: 'created',
       header: t('col.created'),
-      cell: (s) => {
-        const { date, time } = formatDateParts(s.created_at)
-        return (
-          <div className="cell-stack">
-            <span>{date}</span>
-            {time && <span className="muted">{time}</span>}
-          </div>
-        )
-      },
+      cell: (s) => <DateCell value={s.created_at} />,
     },
     {
       key: 'status',

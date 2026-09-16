@@ -18,7 +18,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import ChatGroupsPage from './ChatGroupsPage'
-import { formatDateTime } from '../lib/dates'
+import { formatDateParts } from '../lib/dates'
 import { EMPLOYEE_USER, PERMISSIONS_URL, matrixWith, servePermissions } from '../test/chatGroupsKit'
 import { CHAT_GROUP_SUMMARIES } from '../test/fixtures/chatGroups'
 import { mockApi } from '../test/mockApi'
@@ -50,7 +50,10 @@ describe('ChatGroupsPage', () => {
     expect(within(team).getByText('Thanks both. Report any shortages here.')).toBeInTheDocument()
     const teamTime = team.querySelector('time')
     expect(teamTime).toHaveAttribute('datetime', '2026-09-14T09:00:00Z')
-    expect(teamTime).toHaveTextContent(formatDateTime('2026-09-14T09:00:00Z'))
+    // Client item C3: the stamp is the shared DateCell — the date on top, the
+    // time under it — not one combined line.
+    const { date, time } = formatDateParts('2026-09-14T09:00:00Z')
+    expect(Array.from(teamTime!.querySelectorAll('span')).map((s) => s.textContent)).toEqual([date, time])
 
     // A masked group has no title of its own, so it is named by its id.
     expect(within(masked).getByText('Masked')).toBeInTheDocument()

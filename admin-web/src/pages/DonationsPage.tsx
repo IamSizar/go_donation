@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, useRef } from 'react'
 import ExportCsvButton from '../components/ExportCsvButton'
+import DateCell from '../components/DateCell'
 import { api, describeError } from '../lib/api'
 import { useLivePoll } from '../lib/useLivePoll'
 import {
@@ -19,7 +20,6 @@ import { HighlightBanner } from '../lib/HighlightBanner'
 import { useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForDonation } from '../lib/statusColors'
 import IdWithNeedsAction from '../components/IdWithNeedsAction'
-import { formatDateParts } from '../lib/dates'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
 import RowActionsMenu from '../components/RowActionsMenu'
@@ -80,11 +80,10 @@ function formatAmount(s: string): string {
   return n.toLocaleString()
 }
 
-// Note #14 — was one combined date+time string on a single line, wide enough
-// to squeeze the columns after it. formatDateParts (lib/dates.ts, now also
-// used by VolunteersPage per Note #20) splits it so the cell stacks
-// vertically instead (reuses the .cell-stack class the Donor column already
-// uses for the same reason).
+// Note #14 / client item C3 — the Date column was one combined date+time
+// string on a single line, wide enough to squeeze the columns after it. It
+// now renders through components/DateCell.tsx, the single stacked-timestamp
+// cell every table in the dashboard shares.
 
 export default function DonationsPage() {
   const [page, setPage] = useState(1)
@@ -308,15 +307,7 @@ export default function DonationsPage() {
     {
       key: 'date',
       header: t('col.date'),
-      cell: (d) => {
-        const { date, time } = formatDateParts(d.transaction_date)
-        return (
-          <div className="cell-stack">
-            <span className="muted">{date}</span>
-            {time && <span className="muted" style={{ fontSize: '0.85em' }}>{time}</span>}
-          </div>
-        )
-      },
+      cell: (d) => <DateCell value={d.transaction_date} />,
     },
     {
       key: 'actions', header: t('common.actions'), width: '170px',

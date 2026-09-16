@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import LocalizedCell from '../components/LocalizedCell'
+import DateCell from '../components/DateCell'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError, assetUrl } from '../lib/api'
 import { useLivePoll } from '../lib/useLivePoll'
@@ -21,7 +22,6 @@ import { downloadCsv, type CsvColumn } from '../lib/csv'
 import { HighlightBanner } from '../lib/HighlightBanner'
 import { useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForStatus } from '../lib/statusColors'
-import { formatDateParts } from '../lib/dates'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
 import RowActionsMenu from '../components/RowActionsMenu'
@@ -575,16 +575,7 @@ function OrdersTab() {
     {
       key: 'created',
       header: t('col.placed'),
-      cell: (o) => {
-        if (!o.created_at) return <span className="muted">—</span>
-        const { date, time } = formatDateParts(o.created_at)
-        return (
-          <div className="cell-stack">
-            <span>{date}</span>
-            <span className="muted">{time}</span>
-          </div>
-        )
-      },
+      cell: (o) => <DateCell value={o.created_at} />,
     },
     {
       key: 'actions', header: t('common.actions'), width: '170px',

@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api, describeError } from '../lib/api'
 import Table, { type Column } from '../components/Table'
+import DateCell from '../components/DateCell'
 import PageHead from '../components/PageHead'
 import ActionsMenu from '../components/ActionsMenu'
 import { useToast } from '../lib/toast'
 import { useI18n, useStatusLabel } from '../lib/i18n'
 import { fmtId } from '../lib/formatId'
-import { formatDateTime } from '../lib/dates'
 
 // #22 — users' own name / photo changes wait here until staff approve them.
 // The live profile is untouched until approval, so rejecting simply drops the
@@ -153,7 +153,7 @@ export default function ProfileChangesPage() {
     },
     { key: 'old', header: t('profileChanges.old'), cell: (r) => renderValue(r.field, r.old_value) },
     { key: 'new', header: t('profileChanges.new'), cell: (r) => renderValue(r.field, r.new_value) },
-    { key: 'created', header: t('col.created'), cell: (r) => <span className="muted">{formatDateTime(r.created_at)}</span> },
+    { key: 'created', header: t('col.created'), cell: (r) => <DateCell value={r.created_at} /> },
     {
       key: 'status',
       header: t('col.status'),
@@ -182,9 +182,7 @@ export default function ProfileChangesPage() {
         ) : (
           <div className="cell-stack">
             <span>{r.decided_by_name?.trim() || t('profileChanges.reviewer_unknown')}</span>
-            {r.decided_at && (
-              <span className="muted">{formatDateTime(r.decided_at)}</span>
-            )}
+            {r.decided_at && <DateCell value={r.decided_at} />}
             {r.decide_note?.trim() && (
               <span className="muted">
                 {t('profileChanges.reason')}: {r.decide_note}

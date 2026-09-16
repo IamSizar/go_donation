@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, useRef, type ChangeEvent } from 'react'
 import { Link } from 'react-router-dom'
 import ExportCsvButton from '../components/ExportCsvButton'
+import DateCell from '../components/DateCell'
 import { api, describeError } from '../lib/api'
 import { useLivePoll } from '../lib/useLivePoll'
 import type { AdminMissionSignup, AdminPageResp, AdminVolunteerApp } from '../lib/api-types'
@@ -18,7 +19,7 @@ import { HighlightBanner } from '../lib/HighlightBanner'
 import { useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForStatus } from '../lib/statusColors'
 import { usePendingCounts } from '../lib/pendingCounts'
-import { formatDateParts, formatDateTime } from '../lib/dates'
+import { formatDateTime } from '../lib/dates'
 import AvailabilityCell from '../components/AvailabilityCell'
 import {
   DAY_KEYS,
@@ -432,18 +433,10 @@ function ApplicationsTab() {
       ),
     },
     {
-      // Note #20 — was date-only, single line. Now splits date/time onto two
-      // lines like Donations (Note #14) — reuses the same shared helper.
+      // Client item C3 — one shared DateCell for every table timestamp:
+      // the date on top, the time underneath. See components/DateCell.tsx.
       key: 'created', header: t('col.created'),
-      cell: (a) => {
-        const { date, time } = formatDateParts(a.created_at)
-        return (
-          <div className="cell-stack">
-            <span className="muted">{date}</span>
-            {time && <span className="muted" style={{ fontSize: '0.85em' }}>{time}</span>}
-          </div>
-        )
-      },
+      cell: (a) => <DateCell value={a.created_at} />,
     },
     {
       key: 'actions', header: t('common.actions'), width: '170px',

@@ -26,11 +26,11 @@ import { Users } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import PageHead from '../components/PageHead'
+import DateCell from '../components/DateCell'
 import CreateGroupDialog from '../components/chatGroups/CreateGroupDialog'
 import { useAuth } from '../lib/auth'
 import { describeChatGroupError } from '../lib/chatGroupErrors'
 import { listGroups, type ChatGroupKind, type ChatGroupSummary } from '../lib/chatGroupsApi'
-import { formatDateTime } from '../lib/dates'
 import { useI18n, useStatusLabel } from '../lib/i18n'
 import { usePermission } from '../lib/permissions'
 
@@ -219,9 +219,7 @@ function GroupRow({ group }: { group: ChatGroupSummary }) {
           <Link to={`/chat-groups/${group.id}`}>{name}</Link>
         </strong>
         {group.last_at && (
-          <time className="muted" dateTime={group.last_at} style={{ marginInlineStart: 'auto' }}>
-            {formatDateTime(group.last_at)}
-          </time>
+          <DateCell value={group.last_at} style={{ marginInlineStart: 'auto', alignItems: 'flex-end' }} />
         )}
       </div>
       <p className="muted" style={{ margin: 0, overflowWrap: 'anywhere' }}>

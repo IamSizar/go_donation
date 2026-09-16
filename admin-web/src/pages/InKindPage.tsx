@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, useRef } from 'react'
 import ExportCsvButton from '../components/ExportCsvButton'
+import DateCell from '../components/DateCell'
 import { api, describeError } from '../lib/api'
 import { useLivePoll } from '../lib/useLivePoll'
 import type { AdminPageResp, AdminInKind } from '../lib/api-types'
@@ -17,7 +18,6 @@ import { HighlightBanner } from '../lib/HighlightBanner'
 import { useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForStatus } from '../lib/statusColors'
 import PageHead from '../components/PageHead'
-import { formatDateTime } from '../lib/dates'
 import RowActionsMenu from '../components/RowActionsMenu'
 import IdWithNeedsAction from '../components/IdWithNeedsAction'
 
@@ -182,7 +182,7 @@ export default function InKindPage() {
         />
       ),
     },
-    { key: 'created', header: t('col.created'), cell: (k) => <span className="muted">{formatDateTime(k.created_at)}</span> },
+    { key: 'created', header: t('col.created'), cell: (k) => <DateCell value={k.created_at} /> },
     {
       key: 'actions', header: t('common.actions'), width: '170px',
       cell: (k) => (

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, useRef } from 'react'
 import ExportCsvButton from '../components/ExportCsvButton'
+import DateCell from '../components/DateCell'
 import { api, describeError } from '../lib/api'
 import SupportWhatsappCard from '../components/SupportWhatsappCard'
 import { useLivePoll } from '../lib/useLivePoll'
@@ -18,7 +19,6 @@ import { HighlightBanner } from '../lib/HighlightBanner'
 import { useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForStatus } from '../lib/statusColors'
 import PageHead from '../components/PageHead'
-import { formatDateTime } from '../lib/dates'
 import RowActionsMenu from '../components/RowActionsMenu'
 import IdWithNeedsAction from '../components/IdWithNeedsAction'
 
@@ -218,7 +218,7 @@ export default function SupportPage() {
         />
       ),
     },
-    { key: 'created', header: tr('col.created'), cell: (t) => <span className="muted">{formatDateTime(t.created_at)}</span> },
+    { key: 'created', header: tr('col.created'), cell: (t) => <DateCell value={t.created_at} /> },
     {
       key: 'actions', header: tr('common.actions'), width: '170px',
       cell: (t) => (
