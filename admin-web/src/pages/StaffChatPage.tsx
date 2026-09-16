@@ -4,12 +4,74 @@
  * Staff Member, or any other staff pair). Never reachable by app users —
  * these routes require a valid dashboard session and are open to every
  * staff tier, not gated by a business-module permission.
+ *
+ * EXPORT (OPOS #26397). The open conversation exports the messages already on
+ * screen and never fetches them again, because this page's messages route
+ * marks the thread read. It still exports the LATEST of them: the rows are
+ * read when the export runs, after the PIN, not when the button rendered.
+ * StaffConversationExport below has the details.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, describeError } from '../lib/api'
+import { useAuth } from '../lib/auth'
+import { chatExportColumns, chatExportFilenameBase, chatExportTitle, staffExportRows } from '../lib/chatExport'
 import { useI18n, useStatusLabel } from '../lib/i18n'
+import ExportCsvButton from '../components/ExportCsvButton'
 import PageHead from '../components/PageHead'
 import ChatLifecycleControls from '../components/ChatLifecycleControls'
+
+/** Columns of the one-conversation export (OPOS #26397). */
+const CONVERSATION_EXPORT_COLUMNS = chatExportColumns()
+
+/**
+ * The open staff conversation's export button, gated by messages export (D5).
+ *
+ * NO RE-FETCH. It exports the messages this page already holds instead of
+ * loading them again. GET /api/admin/staff-chats/:id/messages marks the thread
+ * read for the caller (handlers/staff_chat.go Messages → staffchat.Store.MarkRead),
+ * and the page already sends it when the thread opens and every 3 s after, so
+ * the export itself changes no read state.
+ *
+ * BUT THE LATEST ROWS. The rows are read when the export runs, after the PIN,
+ * not when the button rendered. Typing a PIN takes a while and the poll keeps
+ * landing meanwhile, so a copy taken at render time would silently leave out
+ * every message that arrived during the PIN. `latestMessages` always holds the
+ * page's newest list.
+ *
+ * ONE THREAD ONLY. Rows are filtered to the thread that was open when the
+ * operator clicked Export, because a load for the previously selected thread
+ * can land after a switch and replace the list. Nothing is offered while the
+ * list holds none of this thread's messages: a file of nothing, or of another
+ * thread's rows, would mislead.
+ */
+function StaffConversationExport({ thread, messages }: { thread: StaffThread; messages: StaffMessage[] }) {
+  const { t } = useI18n()
+  const { user } = useAuth()
+  const latestMessages = useRef(messages)
+  useEffect(() => {
+    latestMessages.current = messages
+  }, [messages])
+  if (!user || !messages.some((m) => m.thread_id === thread.id)) return null
+  const threadId = thread.id
+  // Staff chat has no sender role; each sender's tier stands in for one.
+  const parties = [
+    { user_id: thread.other_user_id, staff_tier: thread.other_staff_tier },
+    { user_id: user.user_id, staff_tier: user.staff_tier },
+  ]
+  // Runs after the PIN; reads the newest list, never this render's copy.
+  const loadRows = async () =>
+    staffExportRows(latestMessages.current.filter((m) => m.thread_id === threadId), parties)
+  return (
+    <ExportCsvButton
+      loadRows={loadRows}
+      columns={CONVERSATION_EXPORT_COLUMNS}
+      filenameBase={chatExportFilenameBase('staff', thread.id)}
+      title={chatExportTitle('staff', thread.id)}
+      module="messages"
+      label={t('export.conversation')}
+    />
+  )
+}
 
 type StaffThread = {
   id: number
@@ -51,7 +113,12 @@ export default function StaffChatPage() {
   const { t } = useI18n()
   const statusLabel = useStatusLabel()
   const [threads, setThreads] = useState<StaffThread[]>([])
-  const [loading, setLoading] = useState(false)
+  // The "loading" line only ever shows before the first thread list arrives
+  // (it is rendered as `loading && threads.length === 0`), so it is derived
+  // from that rather than set at the top of the polling effect. The 5s poll
+  // refreshes in place and never brings the line back.
+  const [threadsLoaded, setThreadsLoaded] = useState(false)
+  const loading = !threadsLoaded
   const [err, setErr] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [messages, setMessages] = useState<StaffMessage[]>([])
@@ -76,8 +143,11 @@ export default function StaffChatPage() {
   }, [])
 
   useEffect(() => {
-    setLoading(true)
-    loadThreads().finally(() => setLoading(false))
+    // `loadThreads` only calls setState after awaiting the request, so nothing
+    // here is synchronous and no cascading render happens. The rule reports it
+    // anyway because it steps into a useCallback without modelling the await.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadThreads().finally(() => setThreadsLoaded(true))
     const id = setInterval(loadThreads, 5000)
     return () => clearInterval(id)
   }, [loadThreads])
@@ -93,6 +163,11 @@ export default function StaffChatPage() {
 
   useEffect(() => {
     if (!selectedId) return
+    // `loadMessages` only calls setState after awaiting the request, so
+    // nothing here is synchronous and no cascading render happens. The rule
+    // reports it anyway because it steps into a useCallback without modelling
+    // the await.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadMessages(selectedId)
     const id = setInterval(() => loadMessages(selectedId), 3000)
     return () => clearInterval(id)
@@ -226,13 +301,19 @@ export default function StaffChatPage() {
           ) : (
             <>
               <div style={{ borderBottom: '1px solid var(--color-border, rgba(127,127,127,0.18))', paddingBottom: 10, marginBottom: 10 }}>
-                <strong>{name(selected.other_name, selected.other_user_id)}</strong>{' '}
-                <span className="muted" style={{ fontSize: 12.5 }}>· {selected.other_staff_tier}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                  <div>
+                    <strong>{name(selected.other_name, selected.other_user_id)}</strong>{' '}
+                    <span className="muted" style={{ fontSize: 12.5 }}>· {selected.other_staff_tier}</span>
+                  </div>
+                  <StaffConversationExport thread={selected} messages={messages} />
+                </div>
                 {/* Chat lifecycle (migration 117) — end / pause / resume /
                     archive / delete, staff only. */}
                 <div style={{ marginTop: 8 }}>
                   <ChatLifecycleControls
                     basePath={`/api/admin/staff-chats/${selected.id}`}
+                    deleteModule="messages"
                     thread={selected}
                     onChanged={loadThreads}
                   />

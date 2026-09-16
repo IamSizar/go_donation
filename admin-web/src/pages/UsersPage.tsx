@@ -17,6 +17,7 @@ import { useFieldLabel, useI18n } from '../lib/i18n'
 import { type CsvColumn } from '../lib/csv'
 import { formatPhone } from '../lib/phone'
 import { usePermission } from '../lib/permissions'
+import { isStaffAccount } from '../lib/staffAccounts'
 import { useFieldRules } from '../lib/fieldRules'
 import { rulePrefixForRole, useUserFieldRules } from '../lib/fieldRuleColumns'
 import FieldRuleCell from '../components/FieldRuleCell'
@@ -41,15 +42,7 @@ const GUEST_PLACEHOLDER_NAME = 'Guest'
 // the current value as an extra <option> whenever it isn't in `allowed`, so
 // the dropdown falls back to showing 'none' (بلا) for those rows without it
 // being a selectable target for anyone else.
-export const ROLE_LABELS = ['donor', 'beneficiary', 'volunteer', 'employee', 'marriage']
-
-// Staff relocation — a row counts as "staff" the same way A15 defines it
-// everywhere else: staff_tier set to anything other than the default 'user'.
-// Shared here so UsersPage (which now excludes these rows) and StaffPage
-// (which shows only these rows) can never drift on the definition.
-export function isStaffAccount(u: UserAccount): boolean {
-  return !!u.staff_tier && u.staff_tier !== 'user'
-}
+const ROLE_LABELS = ['donor', 'beneficiary', 'volunteer', 'employee', 'marriage']
 
 // Phase 18's field lists moved to lib/userEditFields.ts when the Edit form
 // grew from 15 boxes to the whole registration profile — this file was already
@@ -67,7 +60,7 @@ const USER_CSV_COLUMNS: CsvColumn<UserAccount>[] = [
   { header: 'created_at', get: (u) => u.created_at },
 ]
 
-export function roleLabelToId(label: string): number {
+function roleLabelToId(label: string): number {
   if (label === 'donor') return 1
   if (label === 'beneficiary') return 2
   if (label === 'volunteer') return 3
@@ -89,7 +82,10 @@ export default function UsersPage() {
   const [hideGuests, setHideGuests] = useState(false)
   const [q, setQ] = useState('')
   const [resp, setResp] = useState<UsersListResp | null>(null)
-  const [loading, setLoading] = useState(false)
+  // Which request last came back. `loading` is derived from it below
+  // rather than set at the top of the fetch effect, which costs a second
+  // render and is what `react-hooks/set-state-in-effect` objects to.
+  const [loadedKey, setLoadedKey] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [editing, setEditing] = useState<UserAccount | null>(null)
   // The Edit form covers all 104 profile columns and the LIST endpoint carries
@@ -145,25 +141,28 @@ export default function UsersPage() {
     if (!data?.ok) throw new Error(data?.error || t('export.pin_incorrect'))
   }
 
+  // Every dependency of the fetch effect below, so the page reads as loading
+  // from the render that changes any of them.
+  const requestKey = `${page}|${q}|${refreshTick}|${statusView}|${hideGuests}`
+  const loading = loadedKey !== requestKey
+
   useEffect(() => {
     let cancelled = false
-    setLoading(true)
-    setErr(null)
     api
       .get<UsersListResp>('/api/admin/users', { params: { page, per_page: PER_PAGE, q: q || undefined, status: statusView || undefined, hide_guests: hideGuests ? 1 : undefined } })
       .then((res) => {
-        if (!cancelled) setResp(res.data)
+        if (!cancelled) { setResp(res.data); setErr(null) }
       })
       .catch((e) => {
         if (!cancelled) setErr(describeError(e))
       })
       .finally(() => {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) setLoadedKey(requestKey)
       })
     return () => {
       cancelled = true
     }
-  }, [page, q, refreshTick, statusView, hideGuests])
+  }, [page, q, refreshTick, statusView, hideGuests, requestKey])
 
   // Staff relocation — staff accounts (staff_tier set to anything besides the
   // default 'user') are managed on the Staff page under System Settings
@@ -533,7 +532,13 @@ export default function UsersPage() {
     // Note #34 — everything besides phone/role passes through as-is; EditModal
     // already omits untouched optional fields and converts family_size to a
     // number, matching what POST /api/admin/users now accepts.
-    const { phone: _phone, role: _role, username: _username, password: _password, ...profileFields } = patch
+    // Copy-then-delete rather than destructure-and-discard: unused rest
+    // siblings are a lint error under this config.
+    const profileFields: Record<string, unknown> = { ...patch }
+    delete profileFields.phone
+    delete profileFields.role
+    delete profileFields.username
+    delete profileFields.password
     // Sent only when actually filled. An untouched pair must arrive as absent
     // rather than as two empty strings, because the backend reads "" as "this
     // account gets no dashboard access" and would otherwise reject the whole
@@ -644,7 +649,9 @@ export default function UsersPage() {
           />
         </div>
       </PageHead>
-      {err && <div className="error-box">{err}</div>}
+      {/* Hidden while a newer request is in flight, which is what clearing
+          the error at the top of the fetch effect used to achieve. */}
+      {!loading && err && <div className="error-box">{err}</div>}
       <Table<UserAccount>
         rows={visibleRows}
         columns={columns}

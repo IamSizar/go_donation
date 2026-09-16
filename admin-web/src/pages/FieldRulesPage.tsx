@@ -77,17 +77,20 @@ export default function FieldRulesPage() {
   const { t } = useI18n()
   const toast = useToast()
   const [items, setItems] = useState<Rule[]>([])
-  const [loading, setLoading] = useState(true)
+  // `loading` is derived from whether the one fetch this page makes has come
+  // back, so the effect below sets nothing synchronously. Nothing here reloads
+  // the list, so there is no tick to key it on.
+  const [loaded, setLoaded] = useState(false)
+  const loading = !loaded
   const [err, setErr] = useState<string | null>(null)
   const [savingKey, setSavingKey] = useState<string | null>(null)
 
   const load = () => {
-    setLoading(true)
     api
       .get<{ items: Rule[] }>('/api/admin/registration/field-rules')
       .then((res) => { setItems(res.data.items ?? []); setErr(null) })
       .catch((e) => setErr(describeError(e)))
-      .finally(() => setLoading(false))
+      .finally(() => setLoaded(true))
   }
   useEffect(load, [])
 
