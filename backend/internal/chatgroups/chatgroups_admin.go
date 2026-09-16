@@ -206,7 +206,14 @@ func (s *Store) ListContactBlocks(ctx context.Context, groupID int64) ([]GroupCo
 		SELECT b.id, b.group_id, b.sender_user_id, up.full_name,
 		       b.kind, b.match_count, b.redacted_body, b.created_at
 		  FROM chat_group_contact_blocks b
-		  LEFT JOIN user_profiles up ON up.user_id = b.sender_user_id
+		  -- LATERAL, not a plain join, for the same reason AdminListMessages
+		  -- uses one (chatgroups_reads.go): user_profiles.user_id has no
+		  -- UNIQUE constraint, so a sender with two rows would have each of
+		  -- their refused attempts listed twice. The oldest row names them.
+		  LEFT JOIN LATERAL (
+		      SELECT p.full_name FROM user_profiles p
+		       WHERE p.user_id = b.sender_user_id ORDER BY p.id LIMIT 1
+		  ) up ON TRUE
 		 WHERE b.group_id = $1
 		 ORDER BY b.id DESC`, groupID)
 	if err != nil {

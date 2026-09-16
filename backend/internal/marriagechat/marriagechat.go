@@ -78,9 +78,19 @@ func (s *Store) ListMeetingRequests(ctx context.Context) ([]MeetingRequestView, 
 		  FROM marriage_meeting_requests r
 		  JOIN marriage_profiles mp ON mp.id = r.profile_id
 		  LEFT JOIN users fu ON fu.id = r.from_user_id
-		  LEFT JOIN user_profiles fp ON fp.user_id = r.from_user_id
+		  -- LATERAL, not plain joins: user_profiles.user_id has no UNIQUE
+		  -- constraint, so a plain join multiplies the request by each party's
+		  -- profile count — four copies when both have two rows. Each takes
+		  -- the oldest row (lowest id).
+		  LEFT JOIN LATERAL (
+		      SELECT p.full_name FROM user_profiles p
+		       WHERE p.user_id = r.from_user_id ORDER BY p.id LIMIT 1
+		  ) fp ON TRUE
 		  LEFT JOIN users ou ON ou.id = mp.user_id
-		  LEFT JOIN user_profiles op ON op.user_id = mp.user_id
+		  LEFT JOIN LATERAL (
+		      SELECT p.full_name FROM user_profiles p
+		       WHERE p.user_id = mp.user_id ORDER BY p.id LIMIT 1
+		  ) op ON TRUE
 		 ORDER BY r.created_at DESC`)
 	if err != nil {
 		return nil, err
@@ -538,9 +548,20 @@ func (s *Store) ListAllThreads(ctx context.Context, q string) ([]AdminThreadView
 		  FROM marriage_chat_threads t
 		  JOIN marriage_profiles mp ON mp.id = t.profile_id
 		  LEFT JOIN users ru ON ru.id = t.requester_user_id
-		  LEFT JOIN user_profiles rp ON rp.user_id = t.requester_user_id
+		  -- LATERAL, not plain joins, so a party with two user_profiles rows
+		  -- (the column has no UNIQUE constraint) cannot repeat the thread on
+		  -- the oversight page. Each takes the oldest row (lowest id); the
+		  -- WHERE clause's ILIKE filters on rp./op. still resolve to one row
+		  -- each.
+		  LEFT JOIN LATERAL (
+		      SELECT p.full_name FROM user_profiles p
+		       WHERE p.user_id = t.requester_user_id ORDER BY p.id LIMIT 1
+		  ) rp ON TRUE
 		  LEFT JOIN users ou ON ou.id = t.owner_user_id
-		  LEFT JOIN user_profiles op ON op.user_id = t.owner_user_id
+		  LEFT JOIN LATERAL (
+		      SELECT p.full_name FROM user_profiles p
+		       WHERE p.user_id = t.owner_user_id ORDER BY p.id LIMIT 1
+		  ) op ON TRUE
 		  LEFT JOIN LATERAL (
 		     SELECT body, created_at FROM marriage_chat_messages m
 		      WHERE m.thread_id = t.id ORDER BY m.id DESC LIMIT 1
@@ -584,7 +605,13 @@ func (s *Store) AdminListMessages(ctx context.Context, threadID int64) ([]AdminM
 	rows, err := s.Pool.Query(ctx, `
 		SELECT m.id, m.thread_id, m.sender_user_id, m.sender_role, p.full_name, m.body, m.created_at
 		  FROM marriage_chat_messages m
-		  LEFT JOIN user_profiles p ON p.user_id = m.sender_user_id
+		  -- LATERAL, not a plain join: a sender with two user_profiles rows
+		  -- (the column has no UNIQUE constraint) would otherwise have every
+		  -- message of theirs listed twice. The oldest row names them.
+		  LEFT JOIN LATERAL (
+		      SELECT up.full_name FROM user_profiles up
+		       WHERE up.user_id = m.sender_user_id ORDER BY up.id LIMIT 1
+		  ) p ON TRUE
 		 WHERE m.thread_id = $1
 		 ORDER BY m.id ASC`,
 		threadID,
