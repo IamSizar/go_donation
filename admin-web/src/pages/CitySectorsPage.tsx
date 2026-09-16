@@ -36,14 +36,19 @@ export default function CitySectorsPage() {
   const { t } = useI18n()
   const toast = useToast()
   const [items, setItems] = useState<Sector[]>([])
-  const [loading, setLoading] = useState(true)
+  // `loading` is derived from which reload tick last came back, so the fetch
+  // effect below sets nothing synchronously. `reload()` bumps the tick, which
+  // is what re-runs the effect.
+  const [tick, setTick] = useState(0)
+  const [loadedTick, setLoadedTick] = useState(-1)
+  const loading = loadedTick !== tick
+  const reload = () => setTick((n) => n + 1)
   const [err, setErr] = useState<string | null>(null)
   const [savingId, setSavingId] = useState<number | null>(null)
   const [adding, setAdding] = useState(false)
   const [draft, setDraft] = useState({ ...EMPTY_DRAFT })
 
   const load = () => {
-    setLoading(true)
     api
       .get<{ items: Sector[] }>('/api/admin/city-sectors')
       .then((res) => {
@@ -51,9 +56,9 @@ export default function CitySectorsPage() {
         setErr(null)
       })
       .catch((e) => setErr(describeError(e)))
-      .finally(() => setLoading(false))
+      .finally(() => setLoadedTick(tick))
   }
-  useEffect(load, [])
+  useEffect(load, [tick])
 
   const patchItem = (id: number, patch: Partial<Sector>) =>
     setItems((xs) => xs.map((x) => (x.id === id ? { ...x, ...patch } : x)))
@@ -73,7 +78,7 @@ export default function CitySectorsPage() {
         active: c.active,
       })
       toast.success(t('citySectors.saved'))
-      load()
+      reload()
     } catch (e) {
       toast.error(describeError(e))
     } finally {
@@ -86,7 +91,7 @@ export default function CitySectorsPage() {
     try {
       await api.delete(`/api/admin/city-sectors/${id}`)
       toast.success(t('citySectors.deleted'))
-      load()
+      reload()
     } catch (e) {
       toast.error(describeError(e))
     }
@@ -102,7 +107,7 @@ export default function CitySectorsPage() {
       await api.post('/api/admin/city-sectors', draft)
       toast.success(t('citySectors.added'))
       setDraft({ ...EMPTY_DRAFT })
-      load()
+      reload()
     } catch (e) {
       toast.error(describeError(e))
     } finally {
@@ -123,7 +128,7 @@ export default function CitySectorsPage() {
       })
     } catch (e) {
       toast.error(describeError(e))
-      load()
+      reload()
     }
   }
 

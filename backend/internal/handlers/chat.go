@@ -172,11 +172,9 @@ func (h *ChatHandler) Request(c *gin.Context) {
 
 	thread, recipient, isNew, err := h.Store.RequestThread(c.Request.Context(), donorID, ownerID, campaignID, user.UserID)
 	if err != nil {
-		if errors.Is(err, chat.ErrDirectChatRetired) {
-			c.JSON(http.StatusGone, gin.H{"success": false, "error": "Direct messaging has been retired. Ask staff to connect you instead."})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
+		// chat.ErrDirectChatRetired lands on chatErr's 410 Gone, the same
+		// answer the send and accept paths now give for the same reason.
+		h.chatErr(c, err)
 		return
 	}
 
@@ -256,6 +254,11 @@ func (h *ChatHandler) SupportThread(c *gin.Context) {
 // push, so the initiator is never told a chat was accepted that neither party
 // can use (OPOS #26413; see refuseIfInviteClosed). The participant check runs
 // first because that refusal carries staff's reason.
+//
+// An invite the recipient already declined is refused after both checks, by
+// AcceptThread itself: 409 with code chat_invite_declined, the status stays
+// declined, and nobody is pushed (OPOS #26436). Accepting a thread that is
+// already active is still a 200.
 func (h *ChatHandler) Accept(c *gin.Context) {
 	user, _ := auth.UserFromGin(c)
 	if user == nil {
@@ -417,9 +420,11 @@ func (h *ChatHandler) PostMessage(c *gin.Context) {
 	if h.refuseContactDetails(c, thread, user, req.Body) {
 		return
 	}
+	// chatErr, not a flat 500: a DIRECT thread is refused in the store with
+	// chat.ErrDirectChatRetired and must reach the app as the 410 it is.
 	msg, err := h.Store.PostMessage(c.Request.Context(), id, user.UserID, user.RoleID, req.Body)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		h.chatErr(c, err)
 		return
 	}
 	// Notify the other participant(s).
@@ -439,8 +444,27 @@ func (h *ChatHandler) PostMessage(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": msg})
 }
 
+// chatInviteDeclinedCode marks the 409 that accepting an already-declined
+// invite gets, in both the donor and the marriage chat (OPOS #26436). It is
+// for the app to switch on, so it can stop offering Accept and show its own
+// localised copy. The English `error` beside it serves clients that do not
+// know the code.
+const chatInviteDeclinedCode = "chat_invite_declined"
+
 func (h *ChatHandler) chatErr(c *gin.Context, err error) {
 	switch {
+	case errors.Is(err, chat.ErrDirectChatRetired):
+		// 410 Gone: the conversation is not refused to this person, it no
+		// longer exists as a thing anyone may write into (OPOS #25284). Sending
+		// and accepting answer exactly as requesting a new chat has since
+		// Phase 4, so one client branch covers all three.
+		c.JSON(http.StatusGone, gin.H{"success": false,
+			"error": "Direct messaging has been retired. Ask staff to connect you instead."})
+	case errors.Is(err, chat.ErrInviteDeclined):
+		// Promises nothing further: direct donor chats are retired, so a
+		// declined one cannot be requested again.
+		c.JSON(http.StatusConflict, gin.H{"success": false, "code": chatInviteDeclinedCode,
+			"error": "This chat request was declined, so it can no longer be accepted."})
 	case errors.Is(err, chat.ErrNotFound):
 		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Chat not found."})
 	case errors.Is(err, chat.ErrNotParty):
@@ -543,9 +567,13 @@ func (h *ChatHandler) AdminPostMessage(c *gin.Context) {
 		return
 	}
 	// Admin posts as "support" (sender_role = RoleSupport).
+	// The retirement holds for STAFF too, exactly as the pause above does: a
+	// staff reply into a retired direct thread would deliver a message its two
+	// participants cannot answer, and would revive the surface the policy
+	// closed. chatErr turns the store's refusal into the same 410.
 	msg, err := h.Store.PostMessage(c.Request.Context(), id, user.UserID, chat.RoleSupport, req.Body)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		h.chatErr(c, err)
 		return
 	}
 	// Notify BOTH the donor and owner that support replied.
@@ -558,7 +586,8 @@ func (h *ChatHandler) AdminPostMessage(c *gin.Context) {
 		go func() {
 			ctx, cancel := h.bg()
 			defer cancel()
-			_, _ = h.Notifier.Send(ctx, oid, notify.ChatNewMessageMsg("Support", preview, id))
+			// Names the support team in each reader's language (OPOS #26483).
+			_, _ = h.Notifier.Send(ctx, oid, notify.ChatSupportReplyMsg(preview, id))
 		}()
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": msg})

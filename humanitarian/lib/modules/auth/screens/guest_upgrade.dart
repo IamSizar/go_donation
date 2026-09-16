@@ -221,7 +221,10 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen>
                   authInputDecoration(
                     context,
                     label: 'Phone'.tr,
-                    hintText: '750 858 2031',
+                    // OPOS #25266 — a format example, not a real person's
+                    // number. All-zero, not translatable (it's digits, not
+                    // prose).
+                    hintText: '000 000 0000',
                     icon: Icons.phone_outlined,
                   ).copyWith(
                     // Was previously built with only `key`/`countryList` —

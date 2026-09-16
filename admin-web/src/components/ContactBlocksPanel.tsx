@@ -106,6 +106,10 @@ export default function ContactBlocksPanel({ threadId }: { threadId: number }) {
   // second 3s timer on the same page would buy nothing.
   useEffect(() => {
     let cancelled = false
+    // `load` only calls setState after awaiting the request, so nothing here is
+    // synchronous and no cascading render happens. The rule reports it anyway
+    // because it steps into a useCallback without modelling the await.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load(() => cancelled)
     return () => {
       cancelled = true

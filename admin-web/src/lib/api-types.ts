@@ -38,6 +38,10 @@ export type UserAccount = {
   // a bootstrap "set first password" action (no PIN step-up possible yet)
   // apart from "change existing password" (still requires PIN step-up).
   has_password?: boolean
+  // OPOS #25287 — true when this user has an unreviewed name/photo edit
+  // sitting in the profile_change_requests queue (see ProfileChangesPage).
+  // Without this, a queued edit looked identical to one that "never synced".
+  has_pending_profile_change?: boolean
 }
 
 export type PaginationMeta = {
@@ -247,6 +251,22 @@ export type BeneficiaryCase = {
 export type CaseCategory = {
   id: number
   slug: string
+  name_en: string
+  name_ar: string
+  name_ckb: string
+  name_kmr: string
+  display_order: number
+  active: boolean
+}
+
+// District — OPOS #25271. One entry in the registration form's Nineveh
+// district/neighborhood pickers, scoped by group_key (which picker it
+// belongs to): 'nineveh_district' | 'nineveh_neighborhood_left' |
+// 'nineveh_neighborhood_right'.
+export type District = {
+  id: number
+  slug: string
+  group_key: string
   name_en: string
   name_ar: string
   name_ckb: string

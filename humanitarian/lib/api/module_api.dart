@@ -26,14 +26,32 @@ import 'package:http/http.dart' as http;
 /// caller tells "a failure I have copy for" apart from "a failure I do not".
 /// [developerMessage] is for `debugPrint` and crash reports only — never for a
 /// widget.
+///
+/// [statusCode] and [payload] were added for the chat-invite answers
+/// (OPOS #26433). Two of those refusals carry no code — an archived thread's
+/// accept is a bare 404, and a decline on an active chat is an uncoded 409 —
+/// and the lifecycle refusal carries staff's reason beside its code. Both
+/// default to "nothing known", so the K14 callers are unchanged.
 class ApiCodedException implements Exception {
-  const ApiCodedException({required this.code, required this.developerMessage});
+  const ApiCodedException({
+    required this.code,
+    required this.developerMessage,
+    this.statusCode = 0,
+    this.payload = const {},
+  });
 
   /// The server's machine code, or '' when it sent none.
   final String code;
 
   /// The server's English sentence. LOG THIS, DO NOT RENDER IT.
   final String developerMessage;
+
+  /// The HTTP status of the refusal, or 0 when unknown.
+  final int statusCode;
+
+  /// The whole decoded refusal body (e.g. `lifecycle`, `lifecycle_reason`),
+  /// or empty when the body was not JSON.
+  final Map<Object?, Object?> payload;
 
   @override
   String toString() =>
@@ -443,6 +461,8 @@ class ModuleApi {
       developerMessage:
           (map['error'] ?? 'Request failed (${response.statusCode})')
               .toString(),
+      statusCode: response.statusCode,
+      payload: map,
     );
   }
 
@@ -521,16 +541,28 @@ class ModuleApi {
     );
   }
 
-  Future<List<Map<String, dynamic>>> communityDirectory({String? q}) {
+  Future<List<Map<String, dynamic>>> communityDirectory({
+    String? q,
+    String? sector,
+  }) {
     // #33 — optional q so a single-entry lookup isn't capped by the default
     // page limit (see _fetchPlaceEntry in global_search_screen.dart).
-    if (q != null && q.isNotEmpty) {
-      final uri = Uri.parse(
-        communityDirectoryUrl,
-      ).replace(queryParameters: {'q': q});
-      return getItems(uri.toString());
-    }
-    return getItems(communityDirectoryUrl);
+    //
+    // OPOS #25274 — sector is sent to the server (`sectors @> $1`, a clean
+    // array match) rather than filtered client-side over whatever page
+    // happened to load, so a sector's chip reflects the whole approved
+    // directory rather than just its first 50 city-wide rows. Sub-category
+    // stays client-side on purpose — see CommunityController._spellingsOf —
+    // the free-text `category` column holds legacy values an exact-match
+    // server-side filter would silently miss.
+    final params = <String, String>{};
+    if (q != null && q.isNotEmpty) params['q'] = q;
+    if (sector != null && sector.isNotEmpty) params['sector'] = sector;
+    if (params.isEmpty) return getItems(communityDirectoryUrl);
+    final uri = Uri.parse(
+      communityDirectoryUrl,
+    ).replace(queryParameters: params);
+    return getItems(uri.toString());
   }
 
   Future<List<Map<String, dynamic>>> citySectors() => getItems(citySectorsUrl);
@@ -539,6 +571,13 @@ class ModuleApi {
   /// `slug`, `sector_slug` and the four `name_*` columns.
   Future<List<Map<String, dynamic>>> cityCategories() =>
       getItems(cityCategoriesUrl);
+
+  /// OPOS #25271 — one of the registration form's Nineveh district/
+  /// neighborhood lists. [groupKey] is 'nineveh_district',
+  /// 'nineveh_neighborhood_left', or 'nineveh_neighborhood_right'. Each row
+  /// carries `slug` and the four `name_*` columns.
+  Future<List<Map<String, dynamic>>> districts(String groupKey) =>
+      getItems('$districtsUrl?group=$groupKey');
 
   Future<Map<String, dynamic>> submitCommunity(Map<String, dynamic> body) =>
       postJson(communitySubmitUrl, body);
@@ -844,11 +883,26 @@ class ModuleApi {
       getItems(marriageChatsUrl);
 
   // Only the profile owner may accept/decline (enforced server-side too).
+  //
+  // Coded, not postJson (OPOS #26433): the refusals these answer with
+  // (`chat_lifecycle_closed`, `chat_invite_declined`, a 404 for an archived
+  // thread, a 409 for declining an active chat) each have their own copy, and
+  // postJson keeps only the English sentence. No analytics is lost:
+  // _trackEvent tracks no chat path.
   Future<Map<String, dynamic>> acceptMarriageChat(int threadId) =>
-      postJson('$marriageChatsUrl/$threadId/accept', {});
+      _sendCodedJson('POST', '$marriageChatsUrl/$threadId/accept', const {});
 
   Future<Map<String, dynamic>> declineMarriageChat(int threadId) =>
-      postJson('$marriageChatsUrl/$threadId/decline', {});
+      _sendCodedJson('POST', '$marriageChatsUrl/$threadId/decline', const {});
+
+  /// POST /api/chats/:id/accept — the donor chat invite, coded for the same
+  /// reason as [acceptMarriageChat].
+  Future<Map<String, dynamic>> acceptChat(int threadId) =>
+      _sendCodedJson('POST', chatAcceptUrl(threadId), const {});
+
+  /// POST /api/chats/:id/decline — see [acceptChat].
+  Future<Map<String, dynamic>> declineChat(int threadId) =>
+      _sendCodedJson('POST', chatDeclineUrl(threadId), const {});
 
   // Returns {status, items} — status gates whether the reply box shows.
   Future<Map<String, dynamic>> marriageChatMessages(int threadId) =>

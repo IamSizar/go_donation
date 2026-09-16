@@ -54,15 +54,24 @@ import (
 type AdminUploadHandler struct {
 	// Store is where the bytes go. Never nil — main.go builds one backend at
 	// startup and every upload path in the process shares it.
-	Store       storage.Storage
-	MaxBytes    int64
-	allowedExts map[string]string
+	Store    storage.Storage
+	MaxBytes int64
+	// MaxVideoBytes (OPOS #25291) — a separate, larger ceiling for the video
+	// extensions in allowedVideoExts. A single flat MaxBytes shared by every
+	// caller of this ONE handler (partner logos, case documents, product
+	// images, AND media posts) cannot serve both: an image-sized cap makes
+	// video posts impossible to attach a real clip to, while a video-sized
+	// cap loosens the limit for everything else that shares this endpoint too.
+	MaxVideoBytes    int64
+	allowedExts      map[string]string
+	allowedVideoExts map[string]string
 }
 
 func NewAdminUploadHandler(store storage.Storage) *AdminUploadHandler {
 	return &AdminUploadHandler{
-		Store:    store,
-		MaxBytes: 5 * 1024 * 1024, // 5 MB
+		Store:         store,
+		MaxBytes:      5 * 1024 * 1024,  // 5 MB — images, PDFs.
+		MaxVideoBytes: 50 * 1024 * 1024, // 50 MB — enough for a short clip without opening this shared endpoint to arbitrarily large uploads.
 		// extension → mime. The mime is informational: content is NOT sniffed,
 		// so the extension is trusted to describe the bytes.
 		//
@@ -85,13 +94,26 @@ func NewAdminUploadHandler(store storage.Storage) *AdminUploadHandler {
 			".webp": "image/webp",
 			".pdf":  "application/pdf",
 		},
+		// OPOS #25291 — the Media admin form has offered "Video" as a
+		// post_type since the original seed data, but this handler had no
+		// video extension at all: the upload always 400'd with "Unsupported
+		// file type," so a video post could only ever work by pasting an
+		// already-hosted external URL by hand. Kept in a separate map (rather
+		// than folded into allowedExts) so the larger MaxVideoBytes ceiling
+		// applies only to these three extensions, not to every upload.
+		allowedVideoExts: map[string]string{
+			".mp4":  "video/mp4",
+			".mov":  "video/quicktime",
+			".webm": "video/webm",
+		},
 	}
 }
 
 func (h *AdminUploadHandler) Upload(c *gin.Context) {
-	// Cap the request body so a malicious upload can't OOM us before we
-	// even read the form.
-	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, h.MaxBytes+1024)
+	// Cap the request body at the LARGER of the two ceilings (video), so we
+	// don't OOM before we even read the form. The smaller image/PDF ceiling
+	// is enforced below, once the extension tells us which one applies.
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, h.MaxVideoBytes+1024)
 
 	file, err := c.FormFile("file")
 	if err != nil {
@@ -101,20 +123,31 @@ func (h *AdminUploadHandler) Upload(c *gin.Context) {
 		})
 		return
 	}
-	if file.Size > h.MaxBytes {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"error":   "File too large (max 5 MB).",
-		})
-		return
-	}
 
 	ext := strings.ToLower(filepath.Ext(file.Filename))
-	mime, ok := h.allowedExts[ext]
-	if !ok {
+	mime, isVideo := h.allowedVideoExts[ext]
+	if !isVideo {
+		var ok bool
+		mime, ok = h.allowedExts[ext]
+		if !ok {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"error":   "Unsupported file type. Allowed: png, jpg, jpeg, gif, webp, pdf, mp4, mov, webm.",
+			})
+			return
+		}
+	}
+
+	maxBytes := h.MaxBytes
+	maxLabel := "5 MB"
+	if isVideo {
+		maxBytes = h.MaxVideoBytes
+		maxLabel = "50 MB"
+	}
+	if file.Size > maxBytes {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
-			"error":   "Unsupported file type. Allowed: png, jpg, jpeg, gif, webp, pdf.",
+			"error":   "File too large (max " + maxLabel + ").",
 		})
 		return
 	}

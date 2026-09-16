@@ -431,7 +431,9 @@ func TestChatGroupPostMessage_TeamGroupAllowsContactDetails(t *testing.T) {
 	pool := newChatGroupPool(t)
 	r, _ := newWriteChatGroupRouter(pool)
 	staff := makeChatGroupUser(t, pool, "Staff")
-	volunteer := makeChatGroupUser(t, pool, "Volunteer Name")
+	// A real volunteer account (role_id 3) — a team group takes only
+	// volunteers and staff.
+	volunteer := makeChatGroupRoleUser(t, pool, "Volunteer Name", 3)
 	groupID := makeChatGroup(t, pool, staff, chatgroups.KindTeam, []chatgroups.MemberInput{{UserID: volunteer, RoleInGroup: "volunteer"}})
 
 	code, body := postAs(t, r, tokenForChatGroupUser(t, pool, volunteer),

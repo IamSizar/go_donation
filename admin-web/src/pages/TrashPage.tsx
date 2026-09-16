@@ -57,6 +57,8 @@ const MODULE_TKEY: Record<string, string> = {
   city_categories: 'nav.city_categories',
   media_categories: 'nav.media_categories',
   case_categories: 'nav.beneficiary',
+  // OPOS #25271 — managed from the Registrations page, not its own nav entry.
+  districts: 'nav.registrations',
   marketplace_categories: 'nav.marketplace_categories',
   payment_methods: 'nav.payment_methods',
   // M7 — donation types are deleted through trashRow like every sibling list,
@@ -160,6 +162,10 @@ export default function TrashPage() {
     }
   }, [])
 
+  // `load` only calls setState after awaiting the request, so nothing here is
+  // synchronous and no cascading render happens. The rule reports it anyway
+  // because it steps into a useCallback without modelling the await.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { if (allowed) void load() }, [allowed, load])
 
   // Note #26 — used to restore with a single click and no confirmation, so

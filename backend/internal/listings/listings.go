@@ -260,9 +260,11 @@ func (s *Store) ListMediaPosts(ctx context.Context, status, postType, q string, 
 		where = append(where, "post_type = ANY($"+itoa(len(args))+")")
 	} else {
 		// No explicit type → the general news/activities feed. Keep
-		// 'marriage' posts out of it; they're only shown when the marriage
-		// screen asks for them with ?type=marriage.
-		where = append(where, "post_type <> 'marriage'")
+		// 'marriage' and 'community' posts out of it; they're only shown
+		// when the marriage screen or the Community Services feed ask for
+		// them explicitly with ?type=marriage / ?type=community (OPOS
+		// #25272 — same carve-out as 'marriage', see 121_community_media_type.sql).
+		where = append(where, "post_type NOT IN ('marriage', 'community')")
 	}
 	if q = strings.TrimSpace(q); q != "" {
 		args = append(args, "%"+q+"%")

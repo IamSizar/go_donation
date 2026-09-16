@@ -28,8 +28,8 @@ import { formatPhone } from '../lib/phone'
 import { usePermission } from '../lib/permissions'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
-import { formatDateTime } from '../lib/dates'
-import { isStaffAccount } from './UsersPage'
+import { formatDateParts } from '../lib/dates'
+import { isStaffAccount } from '../lib/staffAccounts'
 import { USER_FIELDS, flattenForEdit } from '../lib/userEditFields'
 import { useUserEditProfile } from '../lib/useUserEditProfile'
 
@@ -50,7 +50,10 @@ export default function StaffPage() {
   const [q, setQ] = useState('')
   const [statusView, setStatusView] = useState('')
   const [resp, setResp] = useState<UsersListResp | null>(null)
-  const [loading, setLoading] = useState(false)
+  // Which request last came back. `loading` is derived from it below
+  // rather than set at the top of the fetch effect, which costs a second
+  // render and is what `react-hooks/set-state-in-effect` objects to.
+  const [loadedKey, setLoadedKey] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [editing, setEditing] = useState<UserAccount | null>(null)
   // Same modal as the Users page, so the same on-demand profile load — see
@@ -94,27 +97,30 @@ export default function StaffPage() {
     if (!data?.ok) throw new Error(data?.error || t('export.pin_incorrect'))
   }
 
+  // Every dependency of the fetch effect below, so the page reads as loading
+  // from the render that changes any of them.
+  const requestKey = `${q}|${statusView}|${refreshTick}`
+  const loading = loadedKey !== requestKey
+
   useEffect(() => {
     let cancelled = false
-    setLoading(true)
-    setErr(null)
     api
       .get<UsersListResp>('/api/admin/users', {
         params: { page: 1, per_page: FETCH_PER_PAGE, q: q || undefined, status: statusView || undefined },
       })
       .then((res) => {
-        if (!cancelled) setResp(res.data)
+        if (!cancelled) { setResp(res.data); setErr(null) }
       })
       .catch((e) => {
         if (!cancelled) setErr(describeError(e))
       })
       .finally(() => {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) setLoadedKey(requestKey)
       })
     return () => {
       cancelled = true
     }
-  }, [q, statusView, refreshTick])
+  }, [q, statusView, refreshTick, requestKey])
 
   const staffRows = useMemo(() => (resp?.data ?? []).filter(isStaffAccount), [resp])
 
@@ -278,7 +284,17 @@ export default function StaffPage() {
     {
       key: 'created',
       header: t('col.created'),
-      cell: (u) => <span className="muted">{formatDateTime(u.created_at)}</span>,
+      // OPOS #25297 — stacked date over time, matching UsersPage/
+      // DonationsPage/VolunteersPage's convention for this column.
+      cell: (u) => {
+        const { date, time } = formatDateParts(u.created_at)
+        return (
+          <div className="cell-stack">
+            <span className="muted">{date}</span>
+            {time && <span className="muted" style={{ fontSize: '0.85em' }}>{time}</span>}
+          </div>
+        )
+      },
     },
     {
       key: 'actions',
@@ -412,7 +428,9 @@ export default function StaffPage() {
         </div>
       )}
 
-      {err && <div className="error-box">{err}</div>}
+      {/* Hidden while a newer request is in flight, which is what clearing
+          the error at the top of the fetch effect used to achieve. */}
+      {!loading && err && <div className="error-box">{err}</div>}
       <Table<UserAccount>
         rows={staffRows}
         columns={columns}

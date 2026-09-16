@@ -20,12 +20,13 @@ import { useToast } from '../lib/toast'
 import { useI18n, useStatusLabel } from '../lib/i18n'
 import { useSelection } from '../lib/useSelection'
 import { downloadCsv, type CsvColumn } from '../lib/csv'
-import { HighlightBanner, useHighlightedRow } from '../lib/useHighlightedRow'
+import { HighlightBanner } from '../lib/HighlightBanner'
+import { useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForStatus } from '../lib/statusColors'
 import { IRAQ_GOVERNORATES } from '../lib/iraqGovernorates'
 import { useFieldRules, type FieldRuleState } from '../lib/fieldRules'
 import PageHead from '../components/PageHead'
-import { formatDateTime } from '../lib/dates'
+import { formatDateTime, formatDateParts } from '../lib/dates'
 import RowActionsMenu from '../components/RowActionsMenu'
 import IdWithNeedsAction from '../components/IdWithNeedsAction'
 
@@ -479,7 +480,18 @@ function CasesTab() {
     {
       key: 'updated',
       header: t('col.updated'),
-      cell: (r) => <span className="muted">{formatDateTime(r.updated_at)}</span>,
+      // OPOS #25297 — stacked date over time, matching the convention
+      // UsersPage/DonationsPage/VolunteersPage already use for this exact
+      // kind of column, instead of one cramped inline string.
+      cell: (r) => {
+        const { date, time } = formatDateParts(r.updated_at)
+        return (
+          <div className="cell-stack">
+            <span className="muted">{date}</span>
+            {time && <span className="muted" style={{ fontSize: '0.85em' }}>{time}</span>}
+          </div>
+        )
+      },
     },
     {
       key: 'actions', header: t('common.actions'), width: '170px',
@@ -520,11 +532,15 @@ function CasesTab() {
               </option>
             ))}
           </select>
-          <ExportCsvButton onExport={exportCsv} />
+          {/* OPOS #25297 — reordered to match UsersPage.tsx's toolbar
+              convention: filters/search, page-specific actions, the create
+              button, Export last. This used to put Export before the create
+              button, which is what the report flagged as inconsistent. */}
           <button className="secondary" onClick={() => setCategoriesOpen(true)}>
             {t('caseCategories.manage_button')}
           </button>
           <button onClick={() => setCreating(true)}>{t('page.beneficiary.new_case')}</button>
+          <ExportCsvButton onExport={exportCsv} />
         </div>
       </div>
       {err && <div className="error-box">{err}</div>}
@@ -817,8 +833,10 @@ function RequestsTab() {
               </option>
             ))}
           </select>
-          <ExportCsvButton onExport={exportCsv} />
+          {/* OPOS #25297 — same reorder as the Cases tab above: create button
+              before Export, matching UsersPage.tsx's toolbar convention. */}
           <button onClick={() => setCreating(true)}>{t('page.beneficiary.new_request')}</button>
+          <ExportCsvButton onExport={exportCsv} />
         </div>
       </div>
       {err && <div className="error-box">{err}</div>}

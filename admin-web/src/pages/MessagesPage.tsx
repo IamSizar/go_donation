@@ -20,9 +20,24 @@ import { api, describeError } from '../lib/api'
 import { useI18n, useStatusLabel } from '../lib/i18n'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { type CsvColumn } from '../lib/csv'
+import {
+  chatExportColumns,
+  chatExportFilenameBase,
+  chatExportTitle,
+  loadDonorChatExport,
+  type ChatExportKind,
+} from '../lib/chatExport'
 import PageHead from '../components/PageHead'
 import ChatLifecycleControls from '../components/ChatLifecycleControls'
 import ContactBlocksPanel from '../components/ContactBlocksPanel'
+
+/** Columns of the one-conversation export (OPOS #26397), the same for every thread. */
+const CONVERSATION_EXPORT_COLUMNS = chatExportColumns()
+
+/** The chat type an export's filename and title name: support threads say so. */
+function exportKindFor(kind: MessagesPageProps['kind']): ChatExportKind {
+  return kind === 'support' ? 'support' : 'donor'
+}
 
 type AdminThread = {
   id: number
@@ -123,7 +138,11 @@ export default function MessagesPage({
   const { t } = useI18n()
   const statusLabel = useStatusLabel()
   const [threads, setThreads] = useState<AdminThread[]>([])
-  const [loading, setLoading] = useState(false)
+  // The "loading" line only ever shows before a thread list arrives (it is
+  // rendered as `loading && threads.length === 0`), so it is derived from
+  // which filter combination last came back rather than set at the top of the
+  // polling effect. The 5s poll refreshes in place and never brings it back.
+  const [loadedKey, setLoadedKey] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [q, setQ] = useState('')
   const [selected, setSelected] = useState<AdminThread | null>(null)
@@ -153,12 +172,18 @@ export default function MessagesPage({
     }
   }, [q, kind])
 
+  const requestKey = `${q}|${kind}`
+  const loading = loadedKey !== requestKey
+
   useEffect(() => {
-    setLoading(true)
-    loadThreads().finally(() => setLoading(false))
+    // `loadThreads` only calls setState after awaiting the request, so nothing
+    // here is synchronous and no cascading render happens. The rule reports it
+    // anyway because it steps into a useCallback without modelling the await.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadThreads().finally(() => setLoadedKey(requestKey))
     const id = setInterval(loadThreads, 5000)
     return () => clearInterval(id)
-  }, [loadThreads])
+  }, [loadThreads, requestKey])
 
   // ── poll the open conversation ──────────────────────────────────
   const loadMessages = useCallback(async (threadId: number) => {
@@ -174,6 +199,11 @@ export default function MessagesPage({
 
   useEffect(() => {
     if (!selected) return
+    // `loadMessages` only calls setState after awaiting the request, so
+    // nothing here is synchronous and no cascading render happens. The rule
+    // reports it anyway because it steps into a useCallback without modelling
+    // the await.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadMessages(selected.id)
     const id = setInterval(() => loadMessages(selected.id), 3000)
     return () => clearInterval(id)
@@ -303,11 +333,24 @@ export default function MessagesPage({
           ) : (
             <>
               <div style={{ borderBottom: '1px solid var(--color-border, rgba(127,127,127,0.18))', paddingBottom: 10, marginBottom: 10 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
                   <strong>
                     {name(selected.donor_name, selected.donor_user_id, t)} {t(leftPartyKey)} ↔ {name(selected.owner_name, selected.owner_user_id, t)} {t(rightPartyKey)}
                   </strong>
-                  <StatusBadge status={selected.status} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <StatusBadge status={selected.status} />
+                    {/* OPOS #26397 — export THIS conversation. The rows load
+                        only after the PIN, from the messages:view route this
+                        pane reads, so the file holds what the page may show. */}
+                    <ExportCsvButton
+                      loadRows={() => loadDonorChatExport(selected.id)}
+                      columns={CONVERSATION_EXPORT_COLUMNS}
+                      filenameBase={chatExportFilenameBase(exportKindFor(kind), selected.id)}
+                      title={chatExportTitle(exportKindFor(kind), selected.id)}
+                      module="messages"
+                      label={t('export.conversation')}
+                    />
+                  </div>
                 </div>
                 {selected.campaign_title && (
                   <span className="muted" style={{ fontSize: 12.5 }}>{t('common.msg_campaign')}: {selected.campaign_title}</span>
@@ -334,6 +377,7 @@ export default function MessagesPage({
                 <div style={{ marginTop: 8 }}>
                   <ChatLifecycleControls
                     basePath={`/api/admin/chats/${selected.id}`}
+                    deleteModule="messages"
                     thread={selected}
                     onChanged={async () => {
                       const items = await loadThreads()

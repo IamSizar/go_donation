@@ -40,11 +40,16 @@ export default function PostActivityPage() {
   const label = useStatusLabel()
   const [items, setItems] = useState<Activity[]>([])
   const [kind, setKind] = useState<(typeof KINDS)[number]>('all')
-  const [loading, setLoading] = useState(true)
+  // `loading` is derived from which request last came back, so nothing about
+  // it has to be set from inside the effect. Nothing on this page reloads the
+  // list, so the key is just the filter the fetch depends on.
+  const [loadedKey, setLoadedKey] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
 
+  const requestKey = kind
+  const loading = loadedKey !== requestKey
+
   const load = useCallback(() => {
-    setLoading(true)
     api
       .get<{ items: Activity[] }>('/api/admin/post-activity', {
         params: { kind: kind === 'all' ? undefined : kind, limit: 200 },
@@ -54,8 +59,8 @@ export default function PostActivityPage() {
         setErr(null)
       })
       .catch((e) => setErr(describeError(e)))
-      .finally(() => setLoading(false))
-  }, [kind])
+      .finally(() => setLoadedKey(requestKey))
+  }, [kind, requestKey])
   useEffect(load, [load])
 
   return (

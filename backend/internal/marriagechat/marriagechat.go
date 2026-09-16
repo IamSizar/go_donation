@@ -19,6 +19,7 @@ package marriagechat
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -42,6 +43,11 @@ var (
 	// an invite waiting for the owner's answer — it is already active — so
 	// declining it would end a conversation both parties are using (OPOS #26427).
 	ErrNotPending = errors.New("this chat is no longer a pending invite")
+	// ErrInviteDeclined is returned by AcceptThread when the owner already
+	// declined the invite. A declined invite cannot be accepted (OPOS #26436);
+	// the requester starts again with a new meeting request, and staff
+	// approving it re-opens the thread (ApproveMeetingRequest).
+	ErrInviteDeclined = errors.New("this chat invite was declined")
 )
 
 // MeetingRequestView is one row for the admin's meeting-requests inbox.
@@ -72,9 +78,19 @@ func (s *Store) ListMeetingRequests(ctx context.Context) ([]MeetingRequestView, 
 		  FROM marriage_meeting_requests r
 		  JOIN marriage_profiles mp ON mp.id = r.profile_id
 		  LEFT JOIN users fu ON fu.id = r.from_user_id
-		  LEFT JOIN user_profiles fp ON fp.user_id = r.from_user_id
+		  -- LATERAL, not plain joins: user_profiles.user_id has no UNIQUE
+		  -- constraint, so a plain join multiplies the request by each party's
+		  -- profile count — four copies when both have two rows. Each takes
+		  -- the oldest row (lowest id).
+		  LEFT JOIN LATERAL (
+		      SELECT p.full_name FROM user_profiles p
+		       WHERE p.user_id = r.from_user_id ORDER BY p.id LIMIT 1
+		  ) fp ON TRUE
 		  LEFT JOIN users ou ON ou.id = mp.user_id
-		  LEFT JOIN user_profiles op ON op.user_id = mp.user_id
+		  LEFT JOIN LATERAL (
+		      SELECT p.full_name FROM user_profiles p
+		       WHERE p.user_id = mp.user_id ORDER BY p.id LIMIT 1
+		  ) op ON TRUE
 		 ORDER BY r.created_at DESC`)
 	if err != nil {
 		return nil, err
@@ -97,6 +113,15 @@ func (s *Store) ListMeetingRequests(ctx context.Context) ([]MeetingRequestView, 
 // ApproveMeetingRequest opens (or reuses) a thread for a pending meeting
 // request and marks the request approved. Returns the thread and the profile
 // owner's user id (the party who must accept next, to notify).
+//
+// There is ONE thread per requester and profile (uq_marriage_chat_pair,
+// migration 058), so a new request for a pair that already has one reuses it.
+// A DECLINED thread comes back as a fresh 'pending' invite. That is the
+// re-invite: a declined invite can no longer be accepted (AcceptThread, OPOS
+// #26436), so asking again through a new meeting request that staff approve is
+// how the requester starts over. A pending or active thread keeps its status,
+// because a new approval must never send a live chat back to waiting for the
+// owner.
 func (s *Store) ApproveMeetingRequest(ctx context.Context, requestID, staffUserID int64) (Thread, int64, error) {
 	var t Thread
 	tx, err := s.Pool.Begin(ctx)
@@ -128,7 +153,9 @@ func (s *Store) ApproveMeetingRequest(ctx context.Context, requestID, staffUserI
 		INSERT INTO marriage_chat_threads (meeting_request_id, profile_id, requester_user_id, owner_user_id, status)
 		VALUES ($1, $2, $3, $4, 'pending')
 		ON CONFLICT (requester_user_id, profile_id) DO UPDATE
-		  SET meeting_request_id = EXCLUDED.meeting_request_id
+		  SET meeting_request_id = EXCLUDED.meeting_request_id,
+		      status = CASE WHEN marriage_chat_threads.status = 'declined'
+		                    THEN 'pending' ELSE marriage_chat_threads.status END
 		RETURNING id, meeting_request_id, profile_id, requester_user_id, owner_user_id, status, created_at, updated_at`,
 		requestID, profileID, fromUserID, ownerUserID,
 	).Scan(&t.ID, &t.MeetingRequestID, &t.ProfileID, &t.RequesterUserID, &t.OwnerUserID, &t.Status, &t.CreatedAt, &t.UpdatedAt)
@@ -212,7 +239,18 @@ func (s *Store) GetThread(ctx context.Context, threadID int64) (Thread, error) {
 	return t, err
 }
 
-// AcceptThread flips a pending thread to active. Only the profile owner may accept.
+// AcceptThread flips a pending invite to active. Only the profile owner may
+// accept; that check runs first, so anyone else is never told the status.
+//
+// Only a PENDING invite can be accepted (OPOS #26436). This used to update by
+// id alone, so an owner who had declined could accept later, reviving the
+// thread and pushing the requester "chat accepted" for a request they had been
+// told was turned down. The status condition lives in the UPDATE itself, as in
+// DeclineThread, so a decline cannot land between reading the status and
+// writing it. When the UPDATE matches no row, acceptNotPending reads the thread
+// again to say why. To talk after a decline the requester sends a new meeting
+// request: staff approving it re-opens this same thread as a fresh pending
+// invite (ApproveMeetingRequest), and that one can be accepted.
 //
 // It does NOT check the thread's lifecycle (paused / ended / archived). That
 // gate lives in the HTTP layer with every other lifecycle refusal —
@@ -226,16 +264,37 @@ func (s *Store) AcceptThread(ctx context.Context, threadID, userID int64) (Threa
 	if userID != t.OwnerUserID {
 		return t, ErrNotOwner
 	}
-	if t.Status == "active" {
-		return t, nil // idempotent
-	}
 	err = s.Pool.QueryRow(ctx, `
 		UPDATE marriage_chat_threads SET status = 'active', updated_at = CURRENT_TIMESTAMP
-		 WHERE id = $1
+		 WHERE id = $1 AND status = 'pending'
 		RETURNING id, meeting_request_id, profile_id, requester_user_id, owner_user_id, status, created_at, updated_at`,
 		threadID,
 	).Scan(&t.ID, &t.MeetingRequestID, &t.ProfileID, &t.RequesterUserID, &t.OwnerUserID, &t.Status, &t.CreatedAt, &t.UpdatedAt)
-	return t, err
+	if errors.Is(err, pgx.ErrNoRows) {
+		return s.acceptNotPending(ctx, threadID)
+	}
+	if err != nil {
+		return t, fmt.Errorf("accepting marriage chat thread %d: %w", threadID, err)
+	}
+	return t, nil
+}
+
+// acceptNotPending answers an accept whose guarded UPDATE matched no row, so
+// the thread was not pending when it ran. A fresh read says why:
+//   - already active: the idempotent success accept has always given;
+//   - any other status: ErrInviteDeclined. That includes the rare thread a new
+//     approval re-opened after the UPDATE ran: what the owner tapped was
+//     declined, and the re-opened invite is back in their list as pending, so
+//     accepting it again succeeds.
+func (s *Store) acceptNotPending(ctx context.Context, threadID int64) (Thread, error) {
+	t, err := s.GetThread(ctx, threadID)
+	if err != nil {
+		return t, err
+	}
+	if t.Status == "active" {
+		return t, nil
+	}
+	return t, ErrInviteDeclined
 }
 
 // DeclineThread marks a pending invite declined. Only the profile owner may
@@ -489,9 +548,20 @@ func (s *Store) ListAllThreads(ctx context.Context, q string) ([]AdminThreadView
 		  FROM marriage_chat_threads t
 		  JOIN marriage_profiles mp ON mp.id = t.profile_id
 		  LEFT JOIN users ru ON ru.id = t.requester_user_id
-		  LEFT JOIN user_profiles rp ON rp.user_id = t.requester_user_id
+		  -- LATERAL, not plain joins, so a party with two user_profiles rows
+		  -- (the column has no UNIQUE constraint) cannot repeat the thread on
+		  -- the oversight page. Each takes the oldest row (lowest id); the
+		  -- WHERE clause's ILIKE filters on rp./op. still resolve to one row
+		  -- each.
+		  LEFT JOIN LATERAL (
+		      SELECT p.full_name FROM user_profiles p
+		       WHERE p.user_id = t.requester_user_id ORDER BY p.id LIMIT 1
+		  ) rp ON TRUE
 		  LEFT JOIN users ou ON ou.id = t.owner_user_id
-		  LEFT JOIN user_profiles op ON op.user_id = t.owner_user_id
+		  LEFT JOIN LATERAL (
+		      SELECT p.full_name FROM user_profiles p
+		       WHERE p.user_id = t.owner_user_id ORDER BY p.id LIMIT 1
+		  ) op ON TRUE
 		  LEFT JOIN LATERAL (
 		     SELECT body, created_at FROM marriage_chat_messages m
 		      WHERE m.thread_id = t.id ORDER BY m.id DESC LIMIT 1
@@ -535,7 +605,13 @@ func (s *Store) AdminListMessages(ctx context.Context, threadID int64) ([]AdminM
 	rows, err := s.Pool.Query(ctx, `
 		SELECT m.id, m.thread_id, m.sender_user_id, m.sender_role, p.full_name, m.body, m.created_at
 		  FROM marriage_chat_messages m
-		  LEFT JOIN user_profiles p ON p.user_id = m.sender_user_id
+		  -- LATERAL, not a plain join: a sender with two user_profiles rows
+		  -- (the column has no UNIQUE constraint) would otherwise have every
+		  -- message of theirs listed twice. The oldest row names them.
+		  LEFT JOIN LATERAL (
+		      SELECT up.full_name FROM user_profiles up
+		       WHERE up.user_id = m.sender_user_id ORDER BY up.id LIMIT 1
+		  ) p ON TRUE
 		 WHERE m.thread_id = $1
 		 ORDER BY m.id ASC`,
 		threadID,

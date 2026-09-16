@@ -128,14 +128,19 @@ export default function PaymentMethodsPage() {
   const { t } = useI18n()
   const toast = useToast()
   const [items, setItems] = useState<Method[]>([])
-  const [loading, setLoading] = useState(true)
+  // `loading` is derived from which reload tick last came back, so the fetch
+  // effect below sets nothing synchronously. `reload()` bumps the tick, which
+  // is what re-runs the effect.
+  const [tick, setTick] = useState(0)
+  const [loadedTick, setLoadedTick] = useState(-1)
+  const loading = loadedTick !== tick
+  const reload = () => setTick((n) => n + 1)
   const [err, setErr] = useState<string | null>(null)
   const [savingId, setSavingId] = useState<number | null>(null)
   const [adding, setAdding] = useState(false)
   const [draft, setDraft] = useState<Draft>({ ...EMPTY_DRAFT })
 
   const load = () => {
-    setLoading(true)
     api
       .get<{ items: Method[] }>('/api/admin/payment-methods')
       .then((res) => {
@@ -143,9 +148,9 @@ export default function PaymentMethodsPage() {
         setErr(null)
       })
       .catch((e) => setErr(describeError(e)))
-      .finally(() => setLoading(false))
+      .finally(() => setLoadedTick(tick))
   }
-  useEffect(load, [])
+  useEffect(load, [tick])
 
   const patchItem = (id: number, patch: Partial<Method>) =>
     setItems((xs) => xs.map((x) => (x.id === id ? { ...x, ...patch } : x)))
@@ -165,7 +170,7 @@ export default function PaymentMethodsPage() {
         account_number: m.account_number, account_name: m.account_name, active: m.active,
       })
       toast.success(t('paymentMethods.saved'))
-      load()
+      reload()
     } catch (e) {
       toast.error(describeError(e))
     } finally {
@@ -178,7 +183,7 @@ export default function PaymentMethodsPage() {
     try {
       await api.delete(`/api/admin/payment-methods/${id}`)
       toast.success(t('paymentMethods.deleted'))
-      load()
+      reload()
     } catch (e) {
       toast.error(describeError(e))
     }
@@ -194,7 +199,7 @@ export default function PaymentMethodsPage() {
       await api.post('/api/admin/payment-methods', draft)
       toast.success(t('paymentMethods.added'))
       setDraft({ ...EMPTY_DRAFT })
-      load()
+      reload()
     } catch (e) {
       toast.error(describeError(e))
     } finally {
@@ -215,7 +220,7 @@ export default function PaymentMethodsPage() {
       })
     } catch (e) {
       toast.error(describeError(e))
-      load()
+      reload()
     }
   }
 

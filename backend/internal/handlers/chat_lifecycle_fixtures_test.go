@@ -182,6 +182,31 @@ func seedGroupChat(t *testing.T, pool *pgxpool.Pool) chatFixture {
 		fmt.Sprintf("/api/chat-groups/%d/messages", id), "group_id"}
 }
 
+// seedSupportChat inserts an open kind='support' thread: a user and the staff
+// account that answers them, with no campaign. It removes what it wrote in its
+// own t.Cleanup, as seedDonorChat does.
+func seedSupportChat(t *testing.T, pool *pgxpool.Pool) chatFixture {
+	t.Helper()
+	user := makeLifecycleUser(t, pool, "user")
+	agent := makeLifecycleUser(t, pool, "employee")
+	var id int64
+	if err := pool.QueryRow(context.Background(),
+		`INSERT INTO chat_threads (donor_user_id, owner_user_id, status, initiated_by, kind)
+		 VALUES ($1, $2, 'active', $1, 'support') RETURNING id`, user, agent).Scan(&id); err != nil {
+		t.Fatalf("insert support thread: %v", err)
+	}
+	t.Cleanup(func() {
+		ctx := context.Background()
+		_, _ = pool.Exec(ctx, `DELETE FROM chat_contact_blocks WHERE thread_id = $1`, id)
+		_, _ = pool.Exec(ctx, `DELETE FROM chat_reads WHERE thread_id = $1`, id)
+		_, _ = pool.Exec(ctx, `DELETE FROM chat_messages WHERE thread_id = $1`, id)
+		_, _ = pool.Exec(ctx, `DELETE FROM trash_items WHERE source_table = 'chat_threads' AND row_id = $1`, id)
+		_, _ = pool.Exec(ctx, `DELETE FROM chat_threads WHERE id = $1`, id)
+	})
+	return chatFixture{chatlifecycle.KindDonor, "chat_threads", "chat_messages", id, user,
+		fmt.Sprintf("/api/chats/%d/messages", id), "thread_id"}
+}
+
 // ─── The router, wired with main.go's gates ─────────────────────────────
 
 // newLifecycleRouter mounts every send route plus the staff-only lifecycle
@@ -251,7 +276,11 @@ func newLifecycleRouter(pool *pgxpool.Pool) *gin.Engine {
 // chatlifecycle.Systems() and has no route left to fixture.
 func allFixtures(t *testing.T, pool *pgxpool.Pool) []chatFixture {
 	return []chatFixture{
-		seedDonorChat(t, pool),
+		// seedSupportChat, not seedDonorChat: a kind='direct' thread refuses
+		// every message now (OPOS #25284), so it cannot stand for "a chat_threads
+		// conversation that works". Support is the kind that still does, and it
+		// travels the same routes, handler and lifecycle (KindDonor) as before.
+		seedSupportChat(t, pool),
 		seedMarriageChat(t, pool),
 		seedStaffChat(t, pool),
 		seedGroupChat(t, pool),

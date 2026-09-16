@@ -30,6 +30,23 @@ const (
 	RoleSupport = 0 // admin replying as support
 )
 
+// Thread kinds, mirroring the CHECK constraint migration 119 puts on
+// chat_threads.kind.
+//
+// KindDirect is the RETIRED donor↔campaign-owner conversation (OPOS #25284):
+// no new one can be created (RequestThread), none may be posted into
+// (PostMessage) and no invite on one may be accepted (AcceptThread). Its
+// history stays readable — that is deliberate, and the read paths are
+// therefore NOT gated on kind.
+//
+// KindSupport is the user↔staff conversation, which is not retired and must
+// keep working: it lives on the same table and is told apart only by this
+// column, so every gate here reads the column, never the table.
+const (
+	KindDirect  = "direct"
+	KindSupport = "support"
+)
+
 var (
 	ErrNotFound          = errors.New("thread not found")
 	ErrNotParty          = errors.New("you are not a participant in this chat")
@@ -41,6 +58,10 @@ var (
 	// an invite waiting for an answer — it is already active — so declining it
 	// would end a conversation both parties are using (OPOS #26427).
 	ErrNotPending = errors.New("this chat is no longer a pending invite")
+	// ErrInviteDeclined is returned by AcceptThread when the invite was
+	// declined. A declined invite is final (OPOS #26436): accepting it would
+	// revive a request the initiator was told was turned down.
+	ErrInviteDeclined = errors.New("this chat invite was declined")
 )
 
 // Thread is the raw row.
@@ -51,6 +72,11 @@ type Thread struct {
 	CampaignID  *int64 `json:"campaign_id"`
 	Status      string `json:"status"`
 	InitiatedBy int64  `json:"initiated_by"`
+	// Kind is KindDirect or KindSupport (migration 119). It decides whether
+	// this conversation may still be written into at all — see the constants
+	// above — so it travels on every loaded thread rather than being looked up
+	// separately at each gate.
+	Kind string `json:"kind"`
 	// Note #36 — the specific staff member who has claimed this thread, so a
 	// donor/beneficiary sees a named "Responsible Staff Member" instead of an
 	// anonymous "Support" relay. Nil = unclaimed (any admin may still reply).
@@ -130,13 +156,13 @@ func (s *Store) RequestSupportThread(ctx context.Context, userID, supportID int6
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	const cols = `id, donor_user_id, owner_user_id, campaign_id, status, initiated_by, assigned_staff_user_id, created_at, updated_at`
+	const cols = `id, donor_user_id, owner_user_id, campaign_id, status, initiated_by, kind, assigned_staff_user_id, created_at, updated_at`
 
 	err = tx.QueryRow(ctx,
 		`SELECT `+cols+` FROM chat_threads
 		  WHERE donor_user_id = $1 AND owner_user_id = $2
 		  FOR UPDATE`, userID, supportID,
-	).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt)
+	).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.Kind, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt)
 
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
@@ -145,7 +171,7 @@ func (s *Store) RequestSupportThread(ctx context.Context, userID, supportID int6
 			 VALUES ($1, $2, NULL, 'active', $1, 'support')
 			 RETURNING `+cols,
 			userID, supportID,
-		).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt); err != nil {
+		).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.Kind, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt); err != nil {
 			return t, false, err
 		}
 		if err := tx.Commit(ctx); err != nil {
@@ -164,7 +190,7 @@ func (s *Store) RequestSupportThread(ctx context.Context, userID, supportID int6
 		    SET status = 'active', kind = 'support', updated_at = CURRENT_TIMESTAMP
 		  WHERE id = $1
 		 RETURNING `+cols, t.ID,
-	).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt); err != nil {
+	).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.Kind, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt); err != nil {
 		return t, false, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -173,9 +199,19 @@ func (s *Store) RequestSupportThread(ctx context.Context, userID, supportID int6
 	return t, false, nil
 }
 
-// AcceptThread flips a pending thread to active. Only the recipient (the party
-// who did NOT initiate) may accept. Returns the thread and the initiator id so
-// the caller can notify them.
+// AcceptThread flips a pending invite to active. Only the recipient (the party
+// who did NOT initiate) may accept; the party checks run first, so a user with
+// no right to accept is never told the thread's status. Returns the thread and
+// the initiator id so the caller can notify them.
+//
+// Only a PENDING invite can be accepted (OPOS #26436). This used to update by
+// id alone, so a recipient who had declined could accept later, reviving the
+// thread and pushing the initiator "chat accepted" for a request they had been
+// told was turned down. The status condition lives in the UPDATE itself, as in
+// DeclineThread, so a decline cannot land between reading the status and
+// writing it. When the UPDATE matches no row, acceptNotPending reads the thread
+// again to say why. A declined donor invite is final: new direct chats are
+// retired (RequestThread), so nobody can send a fresh one.
 //
 // It does NOT check the thread's lifecycle (paused / ended / archived). That
 // gate lives in the HTTP layer with every other lifecycle refusal —
@@ -192,18 +228,44 @@ func (s *Store) AcceptThread(ctx context.Context, threadID, userID int64) (Threa
 	if userID == t.InitiatedBy {
 		return t, 0, ErrNotRecipient
 	}
-	if t.Status == "active" {
-		return t, t.InitiatedBy, nil // idempotent
+	// OPOS #25284 — a DIRECT invite can no longer be accepted, however old it
+	// is. Accepting one activates the thread and pushes the initiator "chat
+	// accepted", which is the retired donor↔owner conversation opening by
+	// another door. Checked after the party checks, like every other refusal
+	// here, so a stranger guessing thread ids learns nothing about the thread.
+	if t.Kind == KindDirect {
+		return t, 0, ErrDirectChatRetired
 	}
-	if err := s.Pool.QueryRow(ctx, `
+	err = s.Pool.QueryRow(ctx, `
 		UPDATE chat_threads SET status = 'active', updated_at = CURRENT_TIMESTAMP
-		 WHERE id = $1
-		RETURNING id, donor_user_id, owner_user_id, campaign_id, status, initiated_by, assigned_staff_user_id, created_at, updated_at`,
+		 WHERE id = $1 AND status = 'pending'
+		RETURNING id, donor_user_id, owner_user_id, campaign_id, status, initiated_by, kind, assigned_staff_user_id, created_at, updated_at`,
 		threadID,
-	).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt); err != nil {
-		return t, 0, err
+	).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.Kind, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return s.acceptNotPending(ctx, threadID)
+	}
+	if err != nil {
+		return t, 0, fmt.Errorf("accepting chat thread %d: %w", threadID, err)
 	}
 	return t, t.InitiatedBy, nil
+}
+
+// acceptNotPending answers an accept whose guarded UPDATE matched no row, so
+// the thread was not pending when it ran. A fresh read says why:
+//   - already active: the idempotent success accept has always given, with
+//     the initiator id as before;
+//   - any other status: ErrInviteDeclined, with no initiator id, so no caller
+//     pushes "chat accepted".
+func (s *Store) acceptNotPending(ctx context.Context, threadID int64) (Thread, int64, error) {
+	t, err := s.GetThread(ctx, threadID)
+	if err != nil {
+		return t, 0, err
+	}
+	if t.Status == "active" {
+		return t, t.InitiatedBy, nil
+	}
+	return t, 0, ErrInviteDeclined
 }
 
 // DeclineThread marks a pending invite declined. Only the recipient (the party
@@ -237,9 +299,9 @@ func (s *Store) DeclineThread(ctx context.Context, threadID, userID int64) (Thre
 	err = s.Pool.QueryRow(ctx, `
 		UPDATE chat_threads SET status = 'declined', updated_at = CURRENT_TIMESTAMP
 		 WHERE id = $1 AND status IN ('pending', 'declined')
-		RETURNING id, donor_user_id, owner_user_id, campaign_id, status, initiated_by, assigned_staff_user_id, created_at, updated_at`,
+		RETURNING id, donor_user_id, owner_user_id, campaign_id, status, initiated_by, kind, assigned_staff_user_id, created_at, updated_at`,
 		threadID,
-	).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt)
+	).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.Kind, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return t, ErrNotPending
 	}
@@ -250,10 +312,10 @@ func (s *Store) DeclineThread(ctx context.Context, threadID, userID int64) (Thre
 func (s *Store) GetThread(ctx context.Context, threadID int64) (Thread, error) {
 	var t Thread
 	err := s.Pool.QueryRow(ctx, `
-		SELECT id, donor_user_id, owner_user_id, campaign_id, status, initiated_by, assigned_staff_user_id, created_at, updated_at
+		SELECT id, donor_user_id, owner_user_id, campaign_id, status, initiated_by, kind, assigned_staff_user_id, created_at, updated_at
 		  FROM chat_threads WHERE id = $1`,
 		threadID,
-	).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt)
+	).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.Kind, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return t, ErrNotFound
 	}
@@ -328,8 +390,23 @@ func (s *Store) ListThreadsForUser(ctx context.Context, userID int64) ([]ThreadV
 		  FROM chat_threads t
 		  LEFT JOIN campaigns c ON c.id = t.campaign_id
 		  LEFT JOIN users ou ON ou.id = (CASE WHEN t.donor_user_id = $1 THEN t.owner_user_id ELSE t.donor_user_id END)
-		  LEFT JOIN user_profiles op ON op.user_id = (CASE WHEN t.donor_user_id = $1 THEN t.owner_user_id ELSE t.donor_user_id END)
-		  LEFT JOIN user_profiles sp ON sp.user_id = t.assigned_staff_user_id
+		  -- user_profiles.user_id carries no UNIQUE constraint (migration 124
+		  -- adds only a plain index), so a user can own two rows and a plain
+		  -- join would list the thread once per row — twice per duplicated
+		  -- party, four times when both have two. LATERAL … LIMIT 1 takes the
+		  -- OLDEST row (lowest id), so the name does not depend on which row
+		  -- the planner reaches first. Identical output for the normal
+		  -- one-row-per-user case.
+		  LEFT JOIN LATERAL (
+		      SELECT p.full_name FROM user_profiles p
+		       WHERE p.user_id = (CASE WHEN t.donor_user_id = $1 THEN t.owner_user_id ELSE t.donor_user_id END)
+		       ORDER BY p.id LIMIT 1
+		  ) op ON TRUE
+		  LEFT JOIN LATERAL (
+		      SELECT p.full_name FROM user_profiles p
+		       WHERE p.user_id = t.assigned_staff_user_id
+		       ORDER BY p.id LIMIT 1
+		  ) sp ON TRUE
 		  LEFT JOIN LATERAL (
 		      SELECT body, created_at FROM chat_messages m
 		       WHERE m.thread_id = t.id ORDER BY m.id DESC LIMIT 1
@@ -431,7 +508,13 @@ func (s *Store) ListMessages(ctx context.Context, threadID int64) ([]Message, er
 	rows, err := s.Pool.Query(ctx, `
 		SELECT m.id, m.thread_id, m.sender_user_id, m.sender_role, p.full_name, m.body, m.created_at
 		  FROM chat_messages m
-		  LEFT JOIN user_profiles p ON p.user_id = m.sender_user_id
+		  -- LATERAL, not a plain join: user_profiles.user_id has no UNIQUE
+		  -- constraint, so a sender with two rows would have every message of
+		  -- theirs listed twice. The oldest row (lowest id) names them.
+		  LEFT JOIN LATERAL (
+		      SELECT up.full_name FROM user_profiles up
+		       WHERE up.user_id = m.sender_user_id ORDER BY up.id LIMIT 1
+		  ) p ON TRUE
 		 WHERE m.thread_id = $1
 		 ORDER BY m.id ASC`,
 		threadID,
@@ -454,8 +537,28 @@ func (s *Store) ListMessages(ctx context.Context, threadID int64) ([]Message, er
 // PostMessage inserts a message and bumps the thread's updated_at. The caller
 // must have verified the sender is allowed to post (active thread; participant
 // or admin).
+//
+// It refuses a DIRECT thread outright with ErrDirectChatRetired (OPOS #25284).
+// That refusal lives HERE, beside RequestThread's, rather than in each
+// handler, because the hole it closes was exactly a path that forgot to check:
+// the send path checked participant, status and lifecycle and never kind, so a
+// direct thread staff resumed became postable again
+// (chatlifecycle/retire.go's header names this). Both of this store's send
+// callers — the participant route and the admin reply route — are covered, and
+// so is any future one. Support threads are untouched; reading is untouched.
 func (s *Store) PostMessage(ctx context.Context, threadID, senderID int64, senderRole int, body string) (Message, error) {
 	var m Message
+	var kind string
+	if err := s.Pool.QueryRow(ctx,
+		`SELECT kind FROM chat_threads WHERE id = $1`, threadID).Scan(&kind); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return m, ErrNotFound
+		}
+		return m, fmt.Errorf("reading kind of chat thread %d: %w", threadID, err)
+	}
+	if kind == KindDirect {
+		return m, ErrDirectChatRetired
+	}
 	body = strings.TrimSpace(body)
 	if body == "" {
 		return m, errors.New("empty message")
@@ -577,10 +680,26 @@ func (s *Store) ListAllThreads(ctx context.Context, q, kind string) ([]AdminThre
 		  FROM chat_threads t
 		  LEFT JOIN campaigns c ON c.id = t.campaign_id
 		  LEFT JOIN users du ON du.id = t.donor_user_id
-		  LEFT JOIN user_profiles dp ON dp.user_id = t.donor_user_id
+		  -- Three LATERALs rather than three plain joins: user_profiles.user_id
+		  -- has no UNIQUE constraint, and a plain join multiplies the row by
+		  -- each party's profile count — a thread whose donor and owner both
+		  -- have two rows appeared four times on the admin Messages page. Each
+		  -- takes the oldest row (lowest id). The WHERE clause's ILIKE
+		  -- filters on dp./opf. still work: the aliases still resolve to one
+		  -- row each.
+		  LEFT JOIN LATERAL (
+		      SELECT p.full_name FROM user_profiles p
+		       WHERE p.user_id = t.donor_user_id ORDER BY p.id LIMIT 1
+		  ) dp ON TRUE
 		  LEFT JOIN users ou ON ou.id = t.owner_user_id
-		  LEFT JOIN user_profiles opf ON opf.user_id = t.owner_user_id
-		  LEFT JOIN user_profiles sp ON sp.user_id = t.assigned_staff_user_id
+		  LEFT JOIN LATERAL (
+		      SELECT p.full_name FROM user_profiles p
+		       WHERE p.user_id = t.owner_user_id ORDER BY p.id LIMIT 1
+		  ) opf ON TRUE
+		  LEFT JOIN LATERAL (
+		      SELECT p.full_name FROM user_profiles p
+		       WHERE p.user_id = t.assigned_staff_user_id ORDER BY p.id LIMIT 1
+		  ) sp ON TRUE
 		  LEFT JOIN LATERAL (
 		     SELECT body, created_at FROM chat_messages m
 		      WHERE m.thread_id = t.id ORDER BY m.id DESC LIMIT 1

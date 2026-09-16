@@ -232,12 +232,27 @@ func (h *AdminStatusHandler) CreateUser(c *gin.Context) {
 	}
 	phone := strings.TrimSpace(req.Phone)
 	if phone == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Phone number is required."})
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false, "code": "phone_required",
+			"error": "Phone number is required.",
+		})
 		return
 	}
 	// H10 — an account created with a redacted phone could never sign in and
 	// could never be reached; `users.phone` is the sign-in identity.
+	//
+	// Checked BEFORE normalisation: a redaction ("••••03") reduces to "" under
+	// auth.NormalizePhone, so normalising first would answer "that is not a
+	// valid phone number" and send the operator hunting a typo instead of
+	// telling them they were never shown the number they are about to save.
 	if rejectMaskedContactWrite(c, contactWrite{"phone", &phone}) {
+		return
+	}
+	// #26636 — reduce the typed number to the ONE form `users.phone` stores, so
+	// its UNIQUE index actually means "one account per number". See
+	// phone_identity.go for why a bare TrimSpace did not.
+	phone, ok := normalizeIdentityPhone(c, phone)
+	if !ok {
 		return
 	}
 	// Sign-in credentials, both optional and validated before anything is
@@ -297,16 +312,23 @@ func (h *AdminStatusHandler) CreateUser(c *gin.Context) {
 		`INSERT INTO users (phone, role_id, registration_status, username, password_hash)
 		 VALUES ($1, $2, 'approved', $3, $4) RETURNING id`, phone, roleArg, usernameArg, passwordHash).Scan(&id)
 	if err != nil {
-		if strings.Contains(err.Error(), "23505") || strings.Contains(strings.ToLower(err.Error()), "duplicate") {
+		if isUniqueViolation(err) {
 			// Two unique constraints can fire here now, and "phone already
 			// exists" pointing at a username collision would send the operator
 			// hunting the wrong field. idx_users_username is the partial index
 			// from migration 014.
 			if strings.Contains(err.Error(), "idx_users_username") {
-				c.JSON(http.StatusConflict, gin.H{"success": false, "error": "This username is already taken."})
+				c.JSON(http.StatusConflict, gin.H{
+					"success": false, "code": "username_taken",
+					"error": "This username is already taken.",
+				})
 				return
 			}
-			c.JSON(http.StatusConflict, gin.H{"success": false, "error": "A user with this phone already exists."})
+			// #26636 — the owner's rule, enforced by the database rather than by
+			// a check this handler makes first: two operators creating the same
+			// number at the same moment both pass any read, and only one of the
+			// INSERTs survives the UNIQUE index.
+			refusePhoneTaken(c)
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
@@ -1030,9 +1052,21 @@ func (h *AdminStatusHandler) PublishProjectRequest(c *gin.Context) {
 	// Also clamp the address / title in case any of those columns has data
 	// that overflows the 200-char column the schema enforces.
 	title = clamp200(title)
+	// campaigns.title_ar is NOT NULL (unlike description/description_ar,
+	// which the same-shaped nil checks above already default to "").
+	// project_title_ar is nullable on beneficiary_project_requests, and the
+	// app's own project-request submission form never collects one (OPOS
+	// #25292) — so titleAr is nil for essentially every user-submitted
+	// project. Passing that nil straight into the INSERT crashed with a raw
+	// "null value... violates not-null constraint" instead of the clear,
+	// inline validation the sibling "Add Campaign" admin form gives for the
+	// exact same required field. Defaulting to "" (never to the English
+	// title — this app never substitutes English text into an Arabic
+	// column) makes this path consistent with how every other
+	// NOT-NULL-but-possibly-absent field here already degrades.
+	titleArValue := ""
 	if titleAr != nil {
-		v := clamp200(*titleAr)
-		titleAr = &v
+		titleArValue = clamp200(*titleAr)
 	}
 	beneficiaries := "—"
 	if peopleAffected != nil && *peopleAffected > 0 {
@@ -1056,7 +1090,7 @@ func (h *AdminStatusHandler) PublishProjectRequest(c *gin.Context) {
 		   is_active, status, owner_user_id)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,1,'active',$13)
 		RETURNING id`,
-		title, titleAr, titleSorani, titleBadini,
+		title, titleArValue, titleSorani, titleBadini,
 		desc, descAr, nil, nil,
 		addr, beneficiaries, goal, raised, ownerID,
 	).Scan(&newID)

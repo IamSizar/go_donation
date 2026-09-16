@@ -93,7 +93,8 @@ void main() {
     }
     final source = file.readAsStringSync();
 
-    final bot = source.indexOf('const _BotAssistantCard()');
+    // Public since OPOS #26495 moved it to widgets/messages_support_tiles.dart.
+    final bot = source.indexOf('const BotAssistantCard()');
     final threads = source.indexOf('AppAsync<List<dynamic>>(');
     final block = source.indexOf('if (!isGuestMode()) const ChatGroupsSection()');
 

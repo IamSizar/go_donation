@@ -32,9 +32,7 @@
 // amber pulse ("needs-unlock").
 
 import {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -45,24 +43,7 @@ import { useNavigate } from 'react-router-dom'
 import { api } from './api'
 import { useAuth } from './auth'
 import { translate, useI18n } from './i18n'
-
-// Mirrors the EventRow type in EventsFeed.tsx. Kept local (with the fields
-// this provider actually consumes) so the two files don't have to share
-// a third module.
-export type AlertEvent = {
-  id: string | number
-  event_type: string
-  created_at_ms?: number
-  name?: string
-  number?: string
-  user_id?: number | string
-  entity_id?: number | string
-  target_id?: number | string
-  note?: string
-  event_label?: string
-  module?: string
-  action?: string
-}
+import { GlobalAlertsContext, type AlertEvent, type Ctx } from './globalAlertsContext'
 
 // === route + meta tables (mirrors EventsFeed; kept local to avoid coupling) ===
 type RouteSpec = { list: string; useUserId?: boolean }
@@ -156,33 +137,6 @@ function playChime(audioCtx: AudioContext, eventType: string) {
   osc.stop(audioCtx.currentTime + p.dur + 0.02)
 }
 
-// === Context shape ===
-type Ctx = {
-  /** Latest 100 events (sorted desc by created_at_ms). The dashboard feed
-   *  reuses this so it doesn't open a second subscription. */
-  events: AlertEvent[]
-  /** Subscription state — surfaces connection status to the dashboard. */
-  status: 'connecting' | 'connected' | 'error'
-  /** Last connection error, if status === 'error'. */
-  error: string | null
-  /** Sound toggle. setSound persists to localStorage. */
-  sound: boolean
-  setSound: (on: boolean) => void
-  /** Whether the audio context has been "unlocked" by a user gesture.
-   *  When sound=true but unlocked=false, the topbar button pulses. */
-  audioUnlocked: boolean
-  /** OS-notification toggle (only meaningful once permission is granted). */
-  osNotify: boolean
-  setOsNotify: (on: boolean) => void
-  /** Current Notification permission. */
-  notifPermission: NotificationPermission | 'unsupported'
-  /** Asks the browser for Notification permission (one-time prompt). */
-  requestOSNotifications: () => Promise<void>
-  /** Fires the chime once for the admin to confirm sound works. */
-  playTest: () => void
-}
-
-const GlobalAlertsContext = createContext<Ctx | null>(null)
 
 // LocalStorage helpers — small wrappers that don't throw on private-mode
 // or sandboxed iframes.
@@ -196,8 +150,11 @@ function readBoolLS(key: string, fallback: boolean): boolean {
   }
 }
 function writeBoolLS(key: string, v: boolean) {
-  try { localStorage.setItem(key, v ? '1' : '0') } catch {}
+  try { localStorage.setItem(key, v ? '1' : '0') } catch { /* storage disabled or full — the flag is a convenience, not state we must keep */ }
 }
+
+/** The signed-out feed. One shared instance, so it is referentially stable. */
+const NO_EVENTS: AlertEvent[] = []
 
 export function GlobalAlertsProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate()
@@ -213,8 +170,15 @@ export function GlobalAlertsProvider({ children }: { children: ReactNode }) {
   const [audioUnlocked, setAudioUnlocked] = useState<boolean>(false)
 
   // Firestore subscription state.
-  const [events, setEvents] = useState<AlertEvent[]>([])
-  const [status, setStatus] = useState<'connecting' | 'connected' | 'error'>('connecting')
+  const [polledEvents, setPolledEvents] = useState<AlertEvent[]>([])
+  const [pollStatus, setPollStatus] = useState<'connecting' | 'connected' | 'error'>('connecting')
+  // Signed out means no feed and no connection, derived rather than reset by
+  // the polling effect below: it stops polling, and these two say so without
+  // it having to write state on the way out.
+  // NO_EVENTS rather than a fresh `[]`: this feeds the context's useMemo, and
+  // a new array every render would hand every consumer a new context value.
+  const events = user ? polledEvents : NO_EVENTS
+  const status = user ? pollStatus : 'connecting'
   const [error, setError] = useState<string | null>(null)
 
   // Seen-id set lets us detect genuinely-new events vs. backfilled ones on
@@ -277,11 +241,7 @@ export function GlobalAlertsProvider({ children }: { children: ReactNode }) {
   // rows (so we don't chime on the initial backfill).
   useEffect(() => {
     // Don't poll when signed out — saves bandwidth + avoids 401s.
-    if (!user) {
-      setEvents([])
-      setStatus('connecting')
-      return
-    }
+    if (!user) return
 
     let cancelled = false
 
@@ -335,8 +295,8 @@ export function GlobalAlertsProvider({ children }: { children: ReactNode }) {
 
       seenIdsRef.current = new Set(next.map((r) => String(r.id)))
       firstSnapshotRef.current = false
-      setEvents(next)
-      setStatus('connected')
+      setPolledEvents(next)
+      setPollStatus('connected')
     }
 
     async function poll() {
@@ -348,9 +308,8 @@ export function GlobalAlertsProvider({ children }: { children: ReactNode }) {
         handleSnapshot(res.data.items ?? [])
       } catch (err) {
         if (cancelled) return
-        // eslint-disable-next-line no-console
         console.error('global alerts feed error:', err)
-        setStatus('error')
+        setPollStatus('error')
         setError((err as Error)?.message || String(err))
       }
     }
@@ -441,11 +400,4 @@ export function GlobalAlertsProvider({ children }: { children: ReactNode }) {
       )}
     </GlobalAlertsContext.Provider>
   )
-}
-
-// useGlobalAlerts — sound controls + access to the shared events stream.
-export function useGlobalAlerts(): Ctx {
-  const ctx = useContext(GlobalAlertsContext)
-  if (!ctx) throw new Error('useGlobalAlerts must be inside <GlobalAlertsProvider>')
-  return ctx
 }

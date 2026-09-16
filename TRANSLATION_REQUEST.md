@@ -17,6 +17,13 @@ Updated 2026-08-16 once more with the 94 keys that gave every field-rule row on
 قواعد الحقول an Arabic label (NEW FINDING 9).
 Updated 2026-08-16 again with the 2 keys H10's sensitive-contact redaction
 added to the dashboard.
+Updated 2026-09-16 with the 4 keys the OPOS #26636 sign-in-phone refusals
+added to the dashboard.
+Updated 2026-09-16 again with 4 keys: the 2 the team-group membership rule
+added to the dashboard (`chat_groups.create.team_roles_note` and
+`error.team_member_role_not_allowed`), and the 2 the OPOS #25284 Messages
+empty state added to the app (its old copy described the retired donor-chat
+flow). Recounted: 621 + 2 + 2 = 625.
 Updated 2026-08-16 again with the 20 keys the K14 خطوبتي owner self-management
 (edit / pause / resume / remove) added, and the 27 keys the K15 product-list
 labels added.
@@ -32,7 +39,7 @@ made on this project once and had to be reverted.
 Every key below currently renders its **English** string to a Kurdish user.
 That is deliberate and safe. It is not a crash, and it is not Arabic text.
 
-## Count: 461 keys need Kurdish
+## Count: 625 keys need Kurdish
 
 | Client | Sorani (ckb) | Badini (kmr) | Distinct keys |
 |---|---|---|---|
@@ -54,12 +61,23 @@ That is deliberate and safe. It is not a crash, and it is not Arabic text.
 | Admin dashboard — H10 sensitive contact data (new) | 2 | 2 | 2 |
 | Admin dashboard — content page save confirmation | 2 | 2 | 2 |
 | Admin dashboard — delete confirmation bodies (were FALSE in Kurdish) | 5 | 5 | 5 |
+| Admin dashboard — OPOS #26398 chat groups page (new) | 68 | 68 | 68 |
+| Admin dashboard — OPOS #26400 connect-request inbox (new) | 41 | 41 | 41 |
+| Admin dashboard — OPOS #26492 chat delete confirmation (changed; existing Kurdish is now FALSE) | 1 | 1 | 1 |
+| Admin dashboard — OPOS #26399 chat group detail page, and #26429 notification type (new) | 35 | 35 | 35 |
 | App — City Guide map chip (place count) | 2 | 2 | 2 |
 | App — security page auth description (old Kurdish was FALSE) | 1 | 1 | 1 |
 | App — K14 خطوبتي owner self-management (new) | 20 | 20 | 20 |
 | App — K15 product-list labels (new) | 27 | 27 | 27 |
 | App — OPOS #25284 Phase 5 staff-mediated group chats (new) | 38 | 38 | 38 |
-| **Total distinct words to translate** | | | **461** |
+| App — OPOS #26419 chat group sender labels (new) | 6 | 6 | 6 |
+| App — OPOS #26429 group chat message notification type (new) | 1 | 1 | 1 |
+| App — OPOS #26483 unnamed chat thread party (new) | 1 | 1 | 1 |
+| App — OPOS #26433 chat invite refusals (new) | 3 | 3 | 3 |
+| Admin dashboard — OPOS #26636 sign-in phone refusals (new) | 4 | 4 | 4 |
+| Admin dashboard — team groups are volunteers and staff only (new) | 2 | 2 | 2 |
+| App — OPOS #25284 Messages empty state (new) | 2 | 2 | 2 |
+| **Total distinct words to translate** | | | **625** |
 
 > **The dashboard figure above is a floor, not a ceiling — and it is the one
 > number in this file that was never fully measured.** Counting key paths in
@@ -111,6 +129,21 @@ feature.`
 |---|---|---|---|
 | `messages_guest_title` | Sign in to use Messages | سجّل الدخول لاستخدام الرسائل | ckb + kmr |
 | `messages_guest_body` | Your conversations will appear here once you have a full account. | ستظهر محادثاتك هنا عندما يصبح لديك حساب كامل. | ckb + kmr |
+
+## chat · OPOS #25284 Messages empty state  (2 keys)
+
+Added 2026-09-16. The Messages tab's empty state used to read "Start a chat
+from a donation (donor) or from your campaign donations (owner)" — a flow that
+no longer exists: members cannot message each other at all, and the send path
+now refuses a retired direct thread outright. The replacement points at the
+door that does exist: `connect_request_action` ("Ask our team to connect me"),
+after which our team opens a supervised group chat. "our team" is deliberate —
+a member never reads "staff" (OPOS #26351).
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `chat_empty_title` | No conversations yet | لا توجد محادثات بعد | ckb + kmr |
+| `chat_empty_message` | You and our team can talk here. Members do not message each other directly — use "Ask our team to connect me", and our team will open a supervised group chat for you. | يمكنك التحدث هنا مع فريقنا. لا يتراسل الأعضاء فيما بينهم مباشرة — استخدم «اطلب التواصل عبر فريقنا»، وسيفتح لك فريقنا محادثة جماعية تحت إشرافه. | ckb + kmr |
 
 ## auth · J1 guest sign-up name  (2 keys)
 
@@ -187,6 +220,82 @@ unchanged.
 | `connect_request_sent_title` | Request sent | تم إرسال الطلب | ckb + kmr |
 | `connect_request_sent_body` | Our team will review it shortly. You can follow it in My Connect Requests on the Messages tab. | سيراجعه فريقنا قريبًا. يمكنك متابعته من «طلبات التواصل الخاصة بي» في تبويب «الرسائل». | **ckb + kmr — REWORDED**, the English changed on 2026-09-15: it said "Staff", it now says "Our team" |
 | `error_connect_request_submit_failed` | Could not send your request. | تعذّر إرسال طلبك. | ckb + kmr |
+
+## chat groups · OPOS #26419 sender labels  (6 keys)
+
+Added 2026-09-15. The name shown above someone else's message in a
+staff-mediated group chat. The server writes these in English, so the app
+translates exactly these words and leaves every other label, including names
+and labels staff type, as sent.
+
+`@n` is the member's number within the group ("Donor 2" is the second donor).
+Keep `@n` exactly as it is, and put it where a number naturally goes after the
+noun. The noun is a **label**, like a name tag, not a sentence. The English is
+deliberately the server's own words, so it matches the dashboard and push
+notifications; translate the meaning, using the Arabic column for the app's
+role nouns. `chat_group_sender_support` is how every staff message is signed:
+it names the support team (Arabic فريق الدعم), not financial support or Kafala
+(TERMINOLOGY.md T10).
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `chat_group_sender_support` | Support | فريق الدعم | ckb + kmr |
+| `chat_group_sender_member` | Member | عضو | ckb + kmr |
+| `chat_group_sender_donor_n` | Donor @n | مانح @n | ckb + kmr |
+| `chat_group_sender_beneficiary_n` | Beneficiary @n | مستحق @n | ckb + kmr |
+| `chat_group_sender_volunteer_n` | Volunteer @n | متطوع @n | ckb + kmr |
+| `chat_group_sender_member_n` | Member @n | عضو @n | ckb + kmr |
+
+Updated 2026-09-15 (OPOS #26435): the 1:1 support chat now also uses
+`chat_group_sender_support`, for a staff reply that arrives with no name. No
+key was added and the count is unchanged; translate the row above once and it
+serves both chats.
+
+## chat · OPOS #26433 chat invite refusals  (3 keys)
+
+Added 2026-09-15. What a person sees when the server refuses their answer to a
+chat invite, in the donor chat and the marriage chat alike. English and Arabic
+written; ckb and kmr NOT, so they fall back to English. No Kurdish invented.
+
+`error_chat_accept_failed` is followed by one of the two `error_next_*`
+recovery clauses (see "Write failures" below), so it must read as a complete
+first sentence. The other two stand alone: trying again cannot change them.
+A refusal because staff closed the thread reuses the existing "...closed by our
+team." / "...paused by our team." rows, and the decline failure reuses
+`Could not decline this chat request.`, so neither adds a key.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `error_chat_accept_failed` | Could not accept this chat request. | تعذّر قبول طلب المحادثة. | ckb + kmr |
+| `chat_invite_refusal_declined` | You declined this invitation. | لقد رفضتَ هذه الدعوة. | ckb + kmr |
+| `chat_invite_refusal_already_active` | This chat is already active, so it can no longer be declined. | هذه المحادثة نشطة بالفعل، لذا لم يعد بالإمكان رفضها. | ckb + kmr |
+
+## notifications · OPOS #26429 group chat message notification type  (1 key)
+
+Added 2026-09-15. The notification type every message in a staff-mediated
+group chat is filed under, masked and team groups alike. The app shows it in
+the الإشعارات type filter. It is the group-chat counterpart of `chat_message`
+("Chat message") in the B1 vocabulary below, and like those rows it is a
+**label**, not a sentence. "Group chat" is the name the Messages tab already
+uses for these conversations.
+
+This row counts the Flutter app key only. The dashboard's label for the same
+type is the other half of #26429 and is not part of this change.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `chat_group_message` | Group chat message | رسالة محادثة جماعية | ckb + kmr |
+
+## chat · OPOS #26483 unnamed chat thread party  (1 key)
+
+Added 2026-09-15. The Messages list names the other party of a 1:1 thread
+the server sent no name for. The app used to write the English "User #57"
+into every language; it now uses this key, keeping the user id so two unnamed
+threads stay distinguishable. `@id` is the number and must stay in the text.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `chat_thread_other_user_id` | User #@id | مستخدم #@id | ckb + kmr |
 
 ## notifications · K7 alert categories  (8 keys)
 
@@ -1657,6 +1766,274 @@ line 1020) for the account and the case, and the profile's own status words
 | `error.case_has_records` | This case has a chat conversation or uploaded documents, so it cannot be deleted — the messages and the documents would be lost permanently and could not be restored from the Trash. Archive the case instead. | هذه الحالة تحتوي على محادثة أو مستندات مرفوعة، لذلك لا يمكن حذفها — ستضيع الرسائل والمستندات نهائياً ولن يمكن استرجاعها من المهملات. استخدم «أرشفة» للحالة بدلاً من ذلك. | **needed** |
 | `error.sponsorship_has_settled_schedule` | This sponsorship has schedule dates that were already paid or skipped, so it cannot be deleted — that payment history would be lost permanently and could not be restored from the Trash. Change its status instead. | هذه الكفالة تحتوي على مواعيد جرى دفعها أو تخطّيها، لذلك لا يمكن حذفها — سيضيع سجلّ الدفع هذا نهائياً ولن يمكن استرجاعه من المهملات. غيّر حالتها بدلاً من ذلك. | **needed** |
 | `error.project_request_has_comments` | People have commented on this request, so it cannot be deleted — their comments would be lost permanently and could not be restored from the Trash. Change its status instead. | كتب أشخاص تعليقات على هذا الطلب، لذلك لا يمكن حذفه — ستضيع تعليقاتهم نهائياً ولن يمكن استرجاعها من المهملات. غيّر حالته بدلاً من ذلك. | **needed** |
+
+## Dashboard · OPOS #26398 the chat groups page (dashboard, `admin-web`)  (68 keys)
+
+Same rule: **English and Arabic written; ckb (سۆرانی) and kmr (بادینی) NOT** —
+they fall back to English. No Kurdish invented.
+
+Added 2026-09-15. The dashboard's new page for chat groups (`/chat-groups`)
+lists the chat groups staff supervise and opens a dialog that creates one. It
+also has a message for every refusal the chat-group routes send. The strings
+are dashboard-only, so none of the app's `chat_groups_*` keys above could be
+reused. The wording follows them, though: a masked group's members see a
+**label** («الاسم الظاهر»), never a name. The group's kind is "masked"
+(«بأسماء مستعارة») or "team" («فريق»).
+
+Keep every placeholder exactly as written: `{id}`, `{n}` and `{max}`. In the
+two `list.*_title` rows, `\u2066` and `\u2069` are invisible direction marks.
+They keep `#T{id}` reading left to right inside a right-to-left sentence, so
+keep them around the id, as the Arabic does.
+
+### Sidebar  (1 key)
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `nav.chat_groups` | Chat groups | المجموعات الحوارية | ckb + kmr |
+
+### The page and the create dialog  (48 keys)
+
+`form.*` are the messages shown under a field that breaks a rule. The member
+roles in the dialog reuse `status.donor`, `status.beneficiary`,
+`status.volunteer` and `status.staff`, which already exist.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `chat_groups.title` | Chat groups | المجموعات الحوارية | ckb + kmr |
+| `chat_groups.subtitle` | Supervised conversations between donors, recipients, volunteers and staff. In a masked group members see only each other's labels; a team group uses real names. | محادثات يشرف عليها الفريق بين المانحين والمستحقين والمتطوعين والموظفين. في المجموعة ذات الأسماء المستعارة يرى الأعضاء أسماء ظاهرة فقط، أما مجموعة الفريق فتظهر فيها الأسماء الحقيقية. | ckb + kmr |
+| `chat_groups.new_group` | New group | مجموعة جديدة | ckb + kmr |
+| `chat_groups.list.aria` | Chat groups | المجموعات الحوارية | ckb + kmr |
+| `chat_groups.list.loading` | Loading chat groups… | جارٍ تحميل المجموعات الحوارية… | ckb + kmr |
+| `chat_groups.list.masked_title` | Masked group \u2066#T{id}\u2069 | مجموعة بأسماء مستعارة \u2066#T{id}\u2069 | ckb + kmr |
+| `chat_groups.list.team_untitled` | Team group \u2066#T{id}\u2069 | مجموعة فريق \u2066#T{id}\u2069 | ckb + kmr |
+| `chat_groups.list.no_messages` | No messages yet | لا توجد رسائل بعد | ckb + kmr |
+| `chat_groups.empty.title` | No chat groups yet | لا توجد مجموعات حوارية بعد | ckb + kmr |
+| `chat_groups.empty.body` | A chat group lets staff open a supervised conversation, for example between a donor and the family they support. Create one to get started. | تتيح المجموعة الحوارية للفريق فتح محادثة تحت الإشراف، مثلاً بين مانح والعائلة التي يدعمها. أنشئ مجموعة للبدء. | ckb + kmr |
+| `chat_groups.empty.cta` | Create a group | إنشاء مجموعة | ckb + kmr |
+| `chat_groups.empty.no_permission` | Your access level cannot create groups. A staff member who can add messages can create the first one. | مستوى صلاحيتك لا يسمح بإنشاء المجموعات. يمكن لموظف لديه صلاحية إضافة الرسائل إنشاء أول مجموعة. | ckb + kmr |
+| `chat_groups.create.title` | New chat group | مجموعة حوارية جديدة | ckb + kmr |
+| `chat_groups.create.intro` | Choose the kind of group, then add the people in it. Staff can read and moderate every group. | اختر نوع المجموعة، ثم أضف الأشخاص المشاركين فيها. يستطيع الفريق قراءة كل مجموعة والإشراف عليها. | ckb + kmr |
+| `chat_groups.create.kind_label` | Group type | نوع المجموعة | ckb + kmr |
+| `chat_groups.create.kind_masked_title` | Masked group | مجموعة بأسماء مستعارة | ckb + kmr |
+| `chat_groups.create.kind_masked_desc` | Members see each other only by a label, such as "Donor 1". Names and contact details stay hidden. | يرى الأعضاء بعضهم باسم ظاهر فقط، مثل «مانح 1». تبقى الأسماء وبيانات التواصل مخفية. | ckb + kmr |
+| `chat_groups.create.kind_team_title` | Team group | مجموعة فريق | ckb + kmr |
+| `chat_groups.create.kind_team_desc` | A named working group. Members see each other's real names. | مجموعة عمل باسم محدد، يرى أعضاؤها أسماء بعضهم الحقيقية. | ckb + kmr |
+| `chat_groups.create.title_label` | Team name | اسم الفريق | ckb + kmr |
+| `chat_groups.create.title_hint` | Members see this name at the top of the chat. Up to {max} characters. | يظهر هذا الاسم للأعضاء أعلى المحادثة. {max} حرفاً كحد أقصى. | ckb + kmr |
+| `chat_groups.create.members_label` | Members | الأعضاء | ckb + kmr |
+| `chat_groups.create.member_n` | Member {n} | العضو {n} | ckb + kmr |
+| `chat_groups.create.person_label` | Person | الشخص | ckb + kmr |
+| `chat_groups.create.role_label` | Role in the group | الدور في المجموعة | ckb + kmr |
+| `chat_groups.create.role_placeholder` | Choose a role | اختر دوراً | ckb + kmr |
+| `chat_groups.create.label_label` | Label shown to other members | الاسم الظاهر لبقية الأعضاء | ckb + kmr |
+| `chat_groups.create.label_placeholder` | e.g. Donor 1 | مثال: مانح 1 | ckb + kmr |
+| `chat_groups.create.label_hint` | Optional. Leave it blank and a label such as "Donor 1" is given automatically. | اختياري. إذا تركته فارغاً يُعطى اسماً تلقائياً مثل «مانح 1». | ckb + kmr |
+| `chat_groups.create.add_member` | Add member | إضافة عضو | ckb + kmr |
+| `chat_groups.create.remove_member` | Remove | إزالة | ckb + kmr |
+| `chat_groups.create.remove_member_aria` | Remove member {n} | إزالة العضو {n} | ckb + kmr |
+| `chat_groups.create.submit` | Create group | إنشاء المجموعة | ckb + kmr |
+| `chat_groups.create.submitting` | Creating… | جارٍ الإنشاء… | ckb + kmr |
+| `chat_groups.create.created_toast` | Chat group created | تم إنشاء المجموعة الحوارية | ckb + kmr |
+| `chat_groups.create.gated_hint` | To create the group, choose its type, name a team group, and give every member a person and a role. | لإنشاء المجموعة، اختر نوعها، وسمِّ مجموعة الفريق، وحدّد لكل عضو شخصاً ودوراً. | ckb + kmr |
+| `chat_groups.create.no_user_search_title` | You can't search for people here | لا يمكنك البحث عن الأشخاص هنا | ckb + kmr |
+| `chat_groups.create.no_user_search_body` | Members are picked from the Users list, which your access level cannot view. Ask the Primary Administrator for permission to view users, or ask a colleague who has it to create this group. | يُختار الأعضاء من قائمة المستخدمين، ومستوى صلاحيتك لا يسمح بعرضها. اطلب من المشرف الرئيسي صلاحية عرض المستخدمين، أو اطلب من زميل لديه هذه الصلاحية إنشاء المجموعة. | ckb + kmr |
+| `chat_groups.form.kind_required` | Choose a group type. | اختر نوع المجموعة. | ckb + kmr |
+| `chat_groups.form.title_required` | Enter a name for the team group. | أدخل اسماً لمجموعة الفريق. | ckb + kmr |
+| `chat_groups.form.title_too_long` | Use {max} characters or fewer. | استخدم {max} حرفاً أو أقل. | ckb + kmr |
+| `chat_groups.form.members_required` | Add at least one member. | أضف عضواً واحداً على الأقل. | ckb + kmr |
+| `chat_groups.form.member_user_required` | Choose a person for this member, or remove the row. | اختر شخصاً لهذا العضو، أو احذف الصف. | ckb + kmr |
+| `chat_groups.form.member_duplicate` | This person is already in the group. Remove this row. | هذا الشخص موجود في المجموعة بالفعل. احذف هذا الصف. | ckb + kmr |
+| `chat_groups.form.member_role_required` | Choose a role for this member. | اختر دوراً لهذا العضو. | ckb + kmr |
+| `chat_groups.form.label_too_long` | Use {max} characters or fewer. | استخدم {max} حرفاً أو أقل. | ckb + kmr |
+| `chat_groups.form.label_duplicate` | Another member already has this label. Give each member a different one. | لدى عضو آخر الاسم الظاهر نفسه. أعطِ كل عضو اسماً مختلفاً. | ckb + kmr |
+| `chat_groups.form.label_contact_hint` | This looks like a phone number or email address. Labels cannot contain contact details, so the group would be refused. | يبدو هذا رقم هاتف أو بريداً إلكترونياً. لا يُسمح ببيانات التواصل في الأسماء الظاهرة، لذا ستُرفض المجموعة. | ckb + kmr |
+
+### Refusals  (13 keys)
+
+Each is keyed off the machine `code` the server sends, resolved by
+`admin-web/src/lib/chatGroupErrors.ts`. On screen, `error.chat_lifecycle_closed`
+can be followed by `chat_lifecycle.reason_shown`, which already exists, so the
+two must read correctly as two separate sentences.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `error.guest_member_not_allowed` | Guest accounts cannot join a chat group. Remove the guest account from the members and try again. | لا يمكن إضافة حسابات الزوّار إلى مجموعة حوارية. أزل حساب الزائر من الأعضاء ثم أعد المحاولة. | ckb + kmr |
+| `error.connect_context_not_found` | The case or donation this request is about could not be found, so no group was opened for it. | تعذّر العثور على الحالة أو المساهمة التي يخصّها هذا الطلب، لذلك لم تُفتح مجموعة لها. | ckb + kmr |
+| `error.group_member_conflict` | One of these people is already a member of this group. Remove the repeated person and try again. | أحد هؤلاء الأشخاص عضو في هذه المجموعة بالفعل. أزل الشخص المكرّر ثم أعد المحاولة. | ckb + kmr |
+| `error.group_label_conflict` | Another member of this group already has this label. Each member's label must be different. | لدى عضو آخر في هذه المجموعة الاسم الظاهر نفسه. يجب أن يكون لكل عضو اسم ظاهر مختلف. | ckb + kmr |
+| `error.group_label_contact` | A label contains a phone number or email address. Other members see labels, so remove the contact detail. | أحد الأسماء الظاهرة يحتوي على رقم هاتف أو بريد إلكتروني. يرى بقية الأعضاء هذه الأسماء، لذا احذف بيانات التواصل منه. | ckb + kmr |
+| `error.group_invalid_input` | Some details of this group were not accepted. Check the type, the name and every member, then try again. | لم تُقبل بعض تفاصيل هذه المجموعة. راجع النوع والاسم وكل عضو ثم أعد المحاولة. | ckb + kmr |
+| `error.group_not_found` | This chat group no longer exists. Go back to the list and refresh it. | هذه المجموعة الحوارية لم تعد موجودة. عُد إلى القائمة وحدّثها. | ckb + kmr |
+| `error.not_group_member` | The group's members have changed, so this could not be done. Refresh the group and try again. | تغيّر أعضاء المجموعة، لذلك تعذّر إتمام هذا الإجراء. حدّث المجموعة ثم أعد المحاولة. | ckb + kmr |
+| `error.connect_request_decided` | Another staff member has already decided this request. Refresh the list to see the outcome. | اتخذ موظف آخر قراراً بشأن هذا الطلب بالفعل. حدّث القائمة لرؤية النتيجة. | ckb + kmr |
+| `error.sensitive_data_required` | This group hides its members' identities, and your access level does not include sensitive data. Ask the Primary Administrator if you need it. | هذه المجموعة تُخفي هويات أعضائها، ومستوى صلاحيتك لا يشمل البيانات الحساسة. راجع المشرف الرئيسي إذا كنت بحاجة إليها. | ckb + kmr |
+| `error.chat_lifecycle_closed` | This group is paused or has ended, so no new messages can be sent. | هذه المجموعة موقوفة مؤقتاً أو منتهية، لذلك لا يمكن إرسال رسائل جديدة. | ckb + kmr |
+| `error.contact_details_blocked` | This message contains a phone number or email address, so it was not sent. Remove the contact detail and send it again. | تحتوي هذه الرسالة على رقم هاتف أو بريد إلكتروني، لذلك لم تُرسَل. احذف بيانات التواصل ثم أعد إرسالها. | ckb + kmr |
+| `error.connect_request_not_found` | This connect request no longer exists. Refresh the list to see the current requests. | طلب التواصل هذا لم يعد موجوداً. حدّث القائمة لرؤية الطلبات الحالية. | ckb + kmr |
+
+### Controlled values  (6 keys)
+
+These are database values the dashboard prints as a badge or a log entry.
+- `masked` and `team` are the two kinds of group.
+- `created`, `member_added` and `member_removed` are entries in a group's audit
+  log, so each reads as an event, not as an instruction.
+- `case` is what a connect request is about: a case, as opposed to a donation.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `status.masked` | Masked | بأسماء مستعارة | ckb + kmr |
+| `status.team` | Team | فريق | ckb + kmr |
+| `status.case` | Case | حالة | ckb + kmr |
+| `status.created` | Created | تم الإنشاء | ckb + kmr |
+| `status.member_added` | Member added | إضافة عضو | ckb + kmr |
+| `status.member_removed` | Member removed | إزالة عضو | ckb + kmr |
+
+## Dashboard · OPOS #26492 the chat delete confirmation (dashboard, `admin-web`)  (1 key, changed)
+
+**English and Arabic rewritten; ckb and kmr NOT.** The existing Kurdish text
+of this key says a Super-Admin restores the chat, which is now **false**: Trash
+restore is open to any administrator (admin or super_admin); only permanent
+deletion stays Super-Admin. Re-translate from the English below.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `chat_lifecycle.delete_confirm` | Move this chat and all of its messages to the Trash? An administrator can restore it, and a Super-Admin can delete it permanently. | نقل هذه المحادثة وكل رسائلها إلى سلة المحذوفات؟ يمكن للمسؤول استعادتها، ويمكن لمدير عام حذفها نهائيًا. | ckb + kmr |
+
+## Dashboard · OPOS #26636 the sign-in phone refusals (dashboard, `admin-web`)  (4 keys)
+
+Added 2026-09-16. `users.phone` is the number a person signs in with, and the
+owner's rule is that **no phone number can be on 2 accounts**. The two write
+paths on المستخدمون — مستخدم جديد and تعديل — used to store the number exactly as
+it was typed, so one number written two ways became two accounts. They now
+reduce it to one canonical form first and refuse a number that is already in
+use; these are the four words the operator reads when they do.
+
+Note the distinction from the existing `error.invalid_phone`, which is NOT
+being changed: that one governs the ORGANISATION's published contact numbers
+and asks only for five digits. These four govern an account's identity.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `error.phone_required` | A phone number is required — it is how this person signs in. | رقم الهاتف مطلوب — به يسجّل صاحب الحساب دخوله. | ckb + kmr |
+| `error.phone_invalid` | That is not a phone number we can use for signing in. Enter a mobile number, for example 0750 858 2031. | هذا ليس رقم هاتف صالحاً لتسجيل الدخول. أدخل رقم هاتف محمول، مثل 0750 858 2031. | ckb + kmr |
+| `error.phone_taken` | Another account already uses this phone number. A number can only be on one account, so open that account instead, or enter a different number. | هذا الرقم مستخدم في حساب آخر. لا يمكن أن يكون الرقم على أكثر من حساب واحد، فافتح ذلك الحساب أو أدخل رقماً مختلفاً. | ckb + kmr |
+| `error.username_taken` | This username is already taken. Choose a different one. | اسم المستخدم هذا محجوز. اختر اسماً آخر. | ckb + kmr |
+
+## Dashboard · OPOS #26400 the connect-request inbox (dashboard, `admin-web`)  (41 keys)
+
+Same rule: **English and Arabic written; ckb and kmr NOT** — they fall back to
+English. No Kurdish invented.
+
+Added 2026-09-15. The page `/chat-groups/connect-requests` lists the requests
+members send to be put in touch, and lets staff approve one (by opening a
+group) or decline it with a reason **the member reads in the app**. The status
+words on the filter and badges reuse `status.pending`, `status.approved` and
+`status.declined`, which already exist. Keep `{id}` and `{max}` exactly as
+written, and the invisible `⁦`/`⁩` marks around `#T{id}`.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `nav.connect_requests` | Connect requests | طلبات التواصل | ckb + kmr |
+| `chat_groups.inbox.title` | Connect requests | طلبات التواصل | ckb + kmr |
+| `chat_groups.inbox.subtitle` | Members ask to be put in touch about a donation or a case. Approve a request by opening a supervised group, or decline it with a reason the member will read. | يطلب الأعضاء التواصل بشأن مساهمة أو حالة. وافق على الطلب بفتح مجموعة تحت الإشراف، أو ارفضه مع سبب يقرؤه العضو. | ckb + kmr |
+| `chat_groups.inbox.filter_aria` | Filter by status | التصفية حسب الحالة | ckb + kmr |
+| `chat_groups.inbox.list_aria` | Connect requests | طلبات التواصل | ckb + kmr |
+| `chat_groups.inbox.loading` | Loading connect requests… | جارٍ تحميل طلبات التواصل… | ckb + kmr |
+| `chat_groups.inbox.requester_fallback` | Requester ⁦#T{id}⁩ | مقدّم الطلب ⁦#T{id}⁩ | ckb + kmr |
+| `chat_groups.inbox.context_donation` | Donation | مساهمة | ckb + kmr |
+| `chat_groups.inbox.context_case` | Case | حالة | ckb + kmr |
+| `chat_groups.inbox.empty.pending_title` | No pending requests | لا توجد طلبات قيد الانتظار | ckb + kmr |
+| `chat_groups.inbox.empty.pending_body` | When a member asks to be put in touch, their request waits here for a decision. | عندما يطلب عضو التواصل، ينتظر طلبه هنا إلى أن يُتخذ قرار بشأنه. | ckb + kmr |
+| `chat_groups.inbox.empty.approved_title` | No approved requests | لا توجد طلبات موافق عليها | ckb + kmr |
+| `chat_groups.inbox.empty.approved_body` | Requests that are approved appear here, with a link to the group opened for them. | تظهر هنا الطلبات الموافق عليها، مع رابط للمجموعة التي فُتحت لها. | ckb + kmr |
+| `chat_groups.inbox.empty.declined_title` | No declined requests | لا توجد طلبات مرفوضة | ckb + kmr |
+| `chat_groups.inbox.empty.declined_body` | Requests that are declined appear here, with the reason the member was given. | تظهر هنا الطلبات المرفوضة، مع السبب الذي أُبلغ به العضو. | ckb + kmr |
+| `chat_groups.inbox.detail.aria` | Request details | تفاصيل الطلب | ckb + kmr |
+| `chat_groups.inbox.detail.choose` | Choose a request to read it in full. | اختر طلباً لقراءته كاملاً. | ckb + kmr |
+| `chat_groups.inbox.detail.loading` | Loading the request… | جارٍ تحميل الطلب… | ckb + kmr |
+| `chat_groups.inbox.detail.context` | About | بخصوص | ckb + kmr |
+| `chat_groups.inbox.detail.message` | Message | الرسالة | ckb + kmr |
+| `chat_groups.inbox.detail.sent_at` | Sent | أُرسل | ckb + kmr |
+| `chat_groups.inbox.detail.decline_reason` | Reason given to the member | السبب الذي أُبلغ به العضو | ckb + kmr |
+| `chat_groups.inbox.detail.open_group` | Open the group ⁦#T{id}⁩ | فتح المجموعة ⁦#T{id}⁩ | ckb + kmr |
+| `chat_groups.inbox.detail.approve` | Approve | موافقة | ckb + kmr |
+| `chat_groups.inbox.detail.decline` | Decline | رفض | ckb + kmr |
+| `chat_groups.inbox.detail.no_edit` | Your access level can read requests but not decide them. | مستوى صلاحيتك يسمح بقراءة الطلبات دون اتخاذ قرار بشأنها. | ckb + kmr |
+| `chat_groups.inbox.approve.title` | Approve request | الموافقة على الطلب | ckb + kmr |
+| `chat_groups.inbox.approve.intro` | Approving opens a supervised group for this request. The person who sent it is already the first member; add anyone else they should talk to. | تفتح الموافقة مجموعة تحت الإشراف لهذا الطلب. مقدّم الطلب مضاف مسبقاً كأول عضو؛ أضف أي شخص آخر ينبغي أن يتواصل معه. | ckb + kmr |
+| `chat_groups.inbox.approve.requester_required` | The person who sent the request must be a member of the group. | يجب أن يكون مقدّم الطلب عضواً في المجموعة. | ckb + kmr |
+| `chat_groups.inbox.approve.submit` | Approve and open group | الموافقة وفتح المجموعة | ckb + kmr |
+| `chat_groups.inbox.approve.submitting` | Approving… | جارٍ الموافقة… | ckb + kmr |
+| `chat_groups.inbox.approve.approved_toast` | Request approved. The group is open. | تمت الموافقة على الطلب وفُتحت المجموعة. | ckb + kmr |
+| `chat_groups.inbox.approve.gated_hint` | To approve, choose a group type, name a team group, and give every member a person and a role. | للموافقة، اختر نوع المجموعة، وسمِّ مجموعة الفريق، وحدّد لكل عضو شخصاً ودوراً. | ckb + kmr |
+| `chat_groups.inbox.decline.title` | Decline request | رفض الطلب | ckb + kmr |
+| `chat_groups.inbox.decline.intro` | A declined request cannot be reopened. | لا يمكن إعادة فتح الطلب بعد رفضه. | ckb + kmr |
+| `chat_groups.inbox.decline.reason_label` | Reason | السبب | ckb + kmr |
+| `chat_groups.inbox.decline.reason_hint` | The member sees this reason in the app. Up to {max} characters. | يرى العضو هذا السبب في التطبيق. {max} حرف كحد أقصى. | ckb + kmr |
+| `chat_groups.inbox.decline.reason_required` | Enter a reason for the member. | أدخل سبباً للعضو. | ckb + kmr |
+| `chat_groups.inbox.decline.reason_too_long` | Use {max} characters or fewer. | استخدم {max} حرفاً أو أقل. | ckb + kmr |
+| `chat_groups.inbox.decline.submit` | Decline request | رفض الطلب | ckb + kmr |
+| `chat_groups.inbox.decline.submitting` | Declining… | جارٍ الرفض… | ckb + kmr |
+| `chat_groups.inbox.decline.declined_toast` | Request declined | تم رفض الطلب | ckb + kmr |
+## Dashboard · OPOS #26399 the chat group detail page (dashboard, `admin-web`)  (35 keys)
+
+Same rule: **English and Arabic written; ckb (سۆرانی) and kmr (بادینی) NOT** —
+they fall back to English. No Kurdish invented.
+
+Added 2026-09-15. `/chat-groups/:id` shows one chat group to staff: its
+members, its messages, the refused contact-sharing attempts and its state.
+The wording follows the #26398 section above: a masked member's **label**
+(«الاسم الظاهر») is what other members see; staff see real names.
+
+Keep every placeholder exactly as written: `{n}`, `{name}` and `{label}`.
+
+### The page  (34 keys)
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `chat_groups.detail.member_active` | This person is already an active member of this group. | هذا الشخص عضو فعّال في هذه المجموعة بالفعل. | ckb + kmr |
+| `chat_groups.detail.back` | Back to chat groups | العودة إلى المجموعات الحوارية | ckb + kmr |
+| `chat_groups.detail.loading` | Loading the group… | جارٍ تحميل المجموعة… | ckb + kmr |
+| `chat_groups.detail.masked_note` | Members see each other only by their labels. Staff see real names. | يرى الأعضاء بعضهم بالأسماء الظاهرة فقط، أما الفريق فيرى الأسماء الحقيقية. | ckb + kmr |
+| `chat_groups.detail.state_aria` | Group state | حالة المجموعة | ckb + kmr |
+| `chat_groups.detail.forbidden_title` | Sensitive-data access needed | تحتاج إلى صلاحية البيانات الحساسة | ckb + kmr |
+| `chat_groups.detail.forbidden_body` | This is a masked group, so opening it shows the real identities behind the labels. Your access level does not include sensitive data. Ask the Primary Administrator for it if your work needs this group. | هذه مجموعة بأسماء مستعارة، وفتحها يكشف الهويات الحقيقية خلف الأسماء الظاهرة. مستوى صلاحيتك لا يشمل البيانات الحساسة. اطلبها من المشرف الرئيسي إذا كان عملك يتطلب هذه المجموعة. | ckb + kmr |
+| `chat_groups.detail.no_profile` | No profile name | بلا اسم في الملف الشخصي | ckb + kmr |
+| `chat_groups.detail.active_count` | {n} active | {n} فعّال | ckb + kmr |
+| `chat_groups.detail.roster_empty` | No active members. Add someone so the group can be used. | لا يوجد أعضاء فعّالون. أضف شخصاً ليمكن استخدام المجموعة. | ckb + kmr |
+| `chat_groups.detail.show_removed` | Show removed members ({n}) | إظهار الأعضاء المُزالين ({n}) | ckb + kmr |
+| `chat_groups.detail.hide_removed` | Hide removed members | إخفاء الأعضاء المُزالين | ckb + kmr |
+| `chat_groups.detail.removed_aria` | Removed members | الأعضاء المُزالون | ckb + kmr |
+| `chat_groups.detail.removed` | Removed | مُزال | ckb + kmr |
+| `chat_groups.detail.label_of` | Label: {label} | الاسم الظاهر: {label} | ckb + kmr |
+| `chat_groups.detail.remove_title` | Remove member | إزالة عضو | ckb + kmr |
+| `chat_groups.detail.remove_body` | {name} will stop receiving this group's messages. The history stays. If you add them back later, they keep their old label. | لن تصل رسائل هذه المجموعة إلى {name} بعد الآن، ويبقى السجل محفوظاً. إذا أعدت إضافته لاحقاً يحتفظ باسمه الظاهر السابق. | ckb + kmr |
+| `chat_groups.detail.remove_aria` | Remove {name} | إزالة {name} | ckb + kmr |
+| `chat_groups.detail.removed_toast` | Member removed | تمت إزالة العضو | ckb + kmr |
+| `chat_groups.detail.no_edit` | Your access level can view the members but not change them. | مستوى صلاحيتك يسمح بعرض الأعضاء دون تعديلهم. | ckb + kmr |
+| `chat_groups.detail.add_title` | Add a member | إضافة عضو | ckb + kmr |
+| `chat_groups.detail.adding` | Adding… | جارٍ الإضافة… | ckb + kmr |
+| `chat_groups.detail.added_toast` | Member added | تمت إضافة العضو | ckb + kmr |
+| `chat_groups.detail.reactivate_hint` | This person was removed earlier. Adding them back restores their old role and label. | أُزيل هذا الشخص سابقاً. إعادة إضافته تستعيد دوره واسمه الظاهر السابقين. | ckb + kmr |
+| `chat_groups.detail.messages_title` | Messages | الرسائل | ckb + kmr |
+| `chat_groups.detail.messages_loading` | Loading messages… | جارٍ تحميل الرسائل… | ckb + kmr |
+| `chat_groups.detail.messages_empty` | No messages yet. Messages from members and staff appear here. | لا توجد رسائل بعد. تظهر هنا رسائل الأعضاء والفريق. | ckb + kmr |
+| `chat_groups.detail.messages_aria` | Group messages | رسائل المجموعة | ckb + kmr |
+| `chat_groups.detail.poll_failed` | New messages could not be loaded. The list may be out of date; it will try again shortly. | تعذّر تحميل الرسائل الجديدة. قد لا تكون القائمة محدّثة، وستُعاد المحاولة قريباً. | ckb + kmr |
+| `chat_groups.detail.composer_label` | Message to the group | رسالة إلى المجموعة | ckb + kmr |
+| `chat_groups.detail.composer_hint` | Members see your real name. Do not include phone numbers or email addresses. | يرى الأعضاء اسمك الحقيقي. لا تكتب أرقام هواتف أو عناوين بريد إلكتروني. | ckb + kmr |
+| `chat_groups.detail.composer_no_permission` | Your access level can read this group but not send messages to it. | مستوى صلاحيتك يسمح بقراءة هذه المجموعة دون إرسال رسائل إليها. | ckb + kmr |
+| `chat_groups.detail.closed_paused` | This group is paused, so nobody can send messages. Resume it to write here. | هذه المجموعة موقوفة مؤقتاً، لذلك لا يمكن لأحد إرسال رسائل. استأنفها للكتابة هنا. | ckb + kmr |
+| `chat_groups.detail.closed_ended` | This group has ended. Its history stays readable, but no new messages can be sent. | انتهت هذه المجموعة. يبقى سجلها متاحاً للقراءة، لكن لا يمكن إرسال رسائل جديدة. | ckb + kmr |
+
+### Notification type  (1 key, OPOS #26429)
+
+The dashboard's label for the app's `chat_group_message` notification, worded
+as the app's own map (`humanitarian/lib/localization/app_translations.dart`).
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `status.chat_group_message` | Group chat message | رسالة محادثة جماعية | ckb + kmr |
 
 ## Write failures: what happened, and what to do next (app, `humanitarian`)
 

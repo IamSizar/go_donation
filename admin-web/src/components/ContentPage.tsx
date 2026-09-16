@@ -70,13 +70,18 @@ export default function ContentPage({
   }
   const [form, setForm] = useState<Content>(empty)
   const [sections, setSections] = useState<ContentSection[]>([])
-  const [loading, setLoading] = useState(true)
+  // `loading` is derived from which slug the last finished fetch was for, so
+  // nothing has to be set from inside the effect: a non-super admin never
+  // fetches and is never loading, and switching slug reads as loading from
+  // the render that changes it.
+  const [loadedSlug, setLoadedSlug] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   // True when the slug is valid but has no row yet — a hint, not an error.
   const [notYetCreated, setNotYetCreated] = useState(false)
 
   const amSuper = isSuperAdmin(user)
+  const loading = amSuper && loadedSlug !== slug
 
   // Loads the page and its sub-sections. Extracted from the effect because
   // save() re-runs it: the backend recomposes `body_*` from the sub-sections,
@@ -91,9 +96,12 @@ export default function ContentPage({
   }, [slug])
 
   useEffect(() => {
-    if (!amSuper) { setLoading(false); return }
+    if (!amSuper) return
     let cancelled = false
-    setLoading(true)
+    // `load` only calls setState after awaiting the request, so nothing here
+    // is synchronous and no cascading render happens. The rule reports it
+    // anyway because it steps into a useCallback without modelling the await.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load()
       .catch((e) => {
         if (cancelled) return
@@ -111,7 +119,7 @@ export default function ContentPage({
         }
         setErr(describeError(e))
       })
-      .finally(() => { if (!cancelled) setLoading(false) })
+      .finally(() => { if (!cancelled) setLoadedSlug(slug) })
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [amSuper, slug, load])

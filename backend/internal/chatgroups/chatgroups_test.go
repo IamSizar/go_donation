@@ -1263,18 +1263,41 @@ func setPhone(t *testing.T, pool *pgxpool.Pool, userID int64, phone string) {
 	}
 }
 
-// makeTestUser inserts a minimal users row and removes it on cleanup. role
-// is informational only here (chatgroups doesn't read users.role_id); it's
-// recorded so test failures are easier to read.
+// testRoleID maps makeTestUser's role word onto the users.role_id the app
+// actually stores: 1 donor, 2 beneficiary, 3 volunteer (see
+// handlers/registration.go, which accepts 1..3 and branches on each). A "staff"
+// test user gets the volunteer role plus a real staff_tier, because
+// staff_tier — not role_id — is what makes an account staff everywhere in this
+// codebase (internal/auth/middleware.go, internal/notify).
+//
+// This used to be ignored: every test user was inserted with role_id = 1,
+// which made every one of them a donor. The team-group rule
+// (chatgroups_team_roles_test.go) reads users.role_id, so the word each test
+// already passes now has to mean what it says.
+var testRoleID = map[string]int{"donor": 1, "beneficiary": 2, "volunteer": 3, "staff": 3}
+
+// makeTestUser inserts a minimal users row for the given role and removes it
+// on cleanup. role is one of testRoleID's words; anything else is a donor, the
+// role_id every test user carried before testRoleID existed.
 func makeTestUser(t *testing.T, pool *pgxpool.Pool, role string) int64 {
 	t.Helper()
 	ctx := context.Background()
 	raiseUserIDFloor(t, pool)
 	phone := "9647" + randomDigits(t, 8)
+	roleID, ok := testRoleID[role]
+	if !ok {
+		roleID = 1
+	}
+	// 'user' is migration 015's default: an ordinary app account, no dashboard
+	// access. Only a "staff" test user gets a real tier.
+	staffTier := "user"
+	if role == "staff" {
+		staffTier = "employee"
+	}
 	var id int64
 	if err := pool.QueryRow(ctx,
-		`INSERT INTO users (phone, role_id, active) VALUES ($1, 1, 1) RETURNING id`,
-		phone,
+		`INSERT INTO users (phone, role_id, active, staff_tier) VALUES ($1, $2, 1, $3) RETURNING id`,
+		phone, roleID, staffTier,
 	).Scan(&id); err != nil {
 		t.Fatalf("insert test user (%s): %v", role, err)
 	}

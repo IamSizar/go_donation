@@ -31,11 +31,18 @@ export default function CommentsPage() {
   const toast = useToast()
   const [items, setItems] = useState<Comment[]>([])
   const [status, setStatus] = useState('pending')
-  const [loading, setLoading] = useState(true)
+  // `loading` is derived from which request last came back: the key holds
+  // every input the fetch depends on, plus a tick that `reload()` bumps.
+  // Nothing about loading has to be set from inside the effect any more.
+  const [tick, setTick] = useState(0)
+  const [loadedKey, setLoadedKey] = useState<string | null>(null)
+  const reload = () => setTick((n) => n + 1)
   const [err, setErr] = useState<string | null>(null)
 
+  const requestKey = `${status}|${tick}`
+  const loading = loadedKey !== requestKey
+
   const load = useCallback(() => {
-    setLoading(true)
     api
       .get<{ items: Comment[] }>('/api/admin/media-comments', {
         params: { status: status === 'all' ? undefined : status, limit: 200 },
@@ -45,15 +52,15 @@ export default function CommentsPage() {
         setErr(null)
       })
       .catch((e) => setErr(describeError(e)))
-      .finally(() => setLoading(false))
-  }, [status])
+      .finally(() => setLoadedKey(requestKey))
+  }, [status, requestKey])
   useEffect(load, [load])
 
   const setStatusFor = async (c: Comment, next: string) => {
     try {
       await api.post(`/api/admin/media-comments/${c.id}/status`, { status: next })
       toast.success(t('comments.status_saved'))
-      load()
+      reload()
     } catch (e) {
       toast.error(describeError(e))
     }
@@ -64,7 +71,7 @@ export default function CommentsPage() {
     try {
       await api.delete(`/api/admin/media-comments/${id}`)
       toast.success(t('comments.deleted'))
-      load()
+      reload()
     } catch (e) {
       toast.error(describeError(e))
     }

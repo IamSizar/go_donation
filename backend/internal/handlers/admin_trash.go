@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/karam-flutter/humanitarian-backend/internal/auth"
 	"github.com/karam-flutter/humanitarian-backend/internal/moderation"
 	"github.com/karam-flutter/humanitarian-backend/internal/permissions"
 )
@@ -137,7 +138,12 @@ func (h *AdminTrashHandler) List(c *gin.Context) {
 		       ti.payload
 		  FROM trash_items ti
 		  LEFT JOIN users u ON u.id = ti.deleted_by
-		  LEFT JOIN user_profiles up ON up.user_id = ti.deleted_by
+		  -- OPOS #26603: user_profiles.user_id has no UNIQUE constraint, so a
+		  -- deleter with two profile rows repeated every row they had deleted.
+		  LEFT JOIN LATERAL (
+		         SELECT pf.full_name FROM user_profiles pf
+		          WHERE pf.user_id = ti.deleted_by ORDER BY pf.id LIMIT 1
+		       ) up ON TRUE
 		 WHERE ti.restored_at IS NULL
 		 ORDER BY ti.deleted_at DESC
 		 LIMIT 500`)
@@ -206,6 +212,12 @@ func (h *AdminTrashHandler) List(c *gin.Context) {
 // single click with no confirmation, so any admin tier could accidentally
 // restore a deleted record. PIN-gated the same way Purge already is: the
 // caller must re-supply their own password, verified server-side.
+//
+// A donor↔owner DIRECT chat does not come back as it was deleted. It comes
+// back ended and archived, as cmd/retire-direct-chats leaves every direct chat,
+// with the restoring staff member recorded (closeRestoredDirectChat, OPOS
+// #26466). Every other record, support chats included, comes back exactly as
+// it was deleted.
 // POST /api/admin/trash/:id/restore   body {password}
 func (h *AdminTrashHandler) Restore(c *gin.Context) {
 	id, ok := parseID(c)
@@ -216,6 +228,16 @@ func (h *AdminTrashHandler) Restore(c *gin.Context) {
 	// failing closed. Shared with delete and purge (delete_password.go) so
 	// there is exactly ONE implementation of this check in the codebase.
 	if !requireOwnPassword(c, h.Pool, "restore") {
+		return
+	}
+	// requireOwnPassword has just verified this staff member, so they are in
+	// the context. They are read here because a restored direct chat records
+	// them as the one who closed it. The check repeats requireOwnPassword's on
+	// purpose: this handler dereferences the user itself, and must not depend
+	// on another function's guard to avoid a nil pointer.
+	restorer, ok := auth.UserFromGin(c)
+	if !ok || restorer == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Not authenticated."})
 		return
 	}
 
@@ -274,6 +296,16 @@ func (h *AdminTrashHandler) Restore(c *gin.Context) {
 		return
 	}
 
+	// A direct chat comes back closed, inside this same transaction, so it is
+	// never visible open, not even for a moment. No-op for every other table.
+	closedChatID, closed, err := closeRestoredDirectChat(ctx, tx, table, payload, restorer.UserID)
+	if err != nil {
+		log.Printf("[trash] restore of trash item %d (%s/%d): %v", id, table, rowID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false,
+			"error": "Restore failed: this chat could not be closed on its way back, so nothing was restored. Please try again."})
+		return
+	}
+
 	if _, err = tx.Exec(ctx, `UPDATE trash_items SET restored_at = NOW() WHERE id = $1`, id); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
 		return
@@ -286,6 +318,12 @@ func (h *AdminTrashHandler) Restore(c *gin.Context) {
 	// table has to be told, or the restore is only half-real. Today that is the
 	// moderation blocklist; the switch keeps the list explicit and auditable
 	// rather than refreshing everything on every restore.
+	// Logged only now, after the commit, so the line never describes a
+	// restore that was rolled back.
+	if closed.Total() > 0 {
+		log.Printf("[trash] INFO restored direct chat %d came back closed (ended %d, archived %d) by staff %d",
+			closedChatID, closed.Ended, closed.Archived, restorer.UserID)
+	}
 	if table == "banned_words" && h.BannedWords != nil {
 		h.BannedWords.Invalidate()
 	}
