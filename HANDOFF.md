@@ -6,6 +6,109 @@
 
 ---
 
+## 2026-09-16 — Client item C3: one stacked date cell for every dashboard table
+
+**Asked for:** finish client item C3 in `docs/client-feedback-2026-09.md` —
+every dashboard table must print a timestamp as DATE ON TOP, TIME UNDERNEATH,
+consistently.
+
+**Branch:** `fix/dashboard-date-cells`, cut from `main` at `71fe4b8`. One
+commit `bfdcc7d`, **NOT pushed**, no PR.
+
+### What was found
+
+* `formatDateParts()` (`admin-web/src/lib/dates.ts:6`) already existed, but the
+  markup around it — a `.cell-stack` wrapper plus a 0.85em second line — was
+  copy-pasted into **nine** pages, and the copies had drifted: Sponsorships and
+  Marketplace did not mute the date, Registrations and Marketplace printed an
+  em dash for a missing value while the other seven left the cell blank.
+* Eleven more cells were still one combined line via `formatDateTime()`.
+* `MarriageMeetingRequestsPage.tsx` had a dead fallback:
+  `formatDateTime(r.decided_at) ?? '—'` never fired, because formatDateTime
+  returns `''` (not null) for a null timestamp. That cell went blank instead of
+  showing the em dash. DateCell fixes it.
+
+### What was changed
+
+* **New** `admin-web/src/components/DateCell.tsx` — the single implementation.
+  Renders `<time class="cell-stack" datetime=...>` with the date muted on line
+  one and the time in 0.85em on line two; `—` for a missing value; an
+  unparseable string verbatim with no `datetime` attribute (that attribute must
+  be a valid HTML date string). `<time>` rather than `<div>` because the two
+  list rows that already used `<time>` (ChatGroupsPage, ConnectRequestsPage)
+  carried the machine-readable value and the table cells were dropping it.
+* Nine inline copies replaced: Donations, Marriage, Users, Beneficiary
+  (`updated`), Volunteers, Sponsorships, Registrations, Marketplace (orders),
+  Staff.
+* Eleven one-line cells converted: InKind, Support, ProfileChanges (`created`
+  and `decided_at`), MarriageMeetingRequests (`created` and `decided_at`),
+  Media (`created`), CityGuide (`created`), ChatGroups (`last_at`),
+  ConnectRequests (`created`).
+* Stale comments on the nine pages (they described the copy-pasted markup and
+  pointed at each other) rewritten to point at `components/DateCell.tsx`.
+
+### Tests (written first, watched fail)
+
+* **New** `admin-web/src/components/DateCell.test.tsx` — stacked order, the
+  `datetime` attribute, the null em dash, the unparseable value.
+* **New** `admin-web/src/pages/InKindPage.test.tsx` — the rendered Created cell
+  of a page that was one line before.
+* RED evidence: `DateCell.test.tsx` failed to resolve `./DateCell`;
+  `InKindPage.test.tsx` failed at `expect(stamp).not.toBeNull()` — the row had
+  no `<time>`.
+* `admin-web/src/pages/ChatGroupsPage.test.tsx:53` was updated: it asserted the
+  single-line `formatDateTime` text, which the stacked cell no longer produces.
+  The `datetime` assertion above it still passes untouched.
+
+### Verification run (all from `admin-web/`)
+
+* `npm run lint` → exit 0, 62 warnings, 0 errors (all pre-existing
+  `react-hooks/exhaustive-deps`, none in the touched cells).
+* `npx tsc --noEmit -p tsconfig.app.json` → clean. (Eight unused
+  `formatDateTime` imports surfaced here and were removed.)
+* `npm test` → **206 passed / 25 files** (202 before, +4 new).
+* `npm run build` → built in 713ms.
+* `test:mock-api`, `check:labels`, `check:pwa`, `test:sw`, `test:nav`,
+  `test:field-labels`, `check:pending-parity`, `check:css-tokens`,
+  `check:feed-bodies` → all exit 0.
+
+### Deliberately left alone
+
+* **`formatDateOnly` call sites** — `MediaPage` `event_date` and
+  `SponsorshipsPage` `next_due_date` are true DATE columns with no time.
+  Stacking them would print a meaningless 00:00 (the reason is already written
+  out above `formatDateTime` in `lib/dates.ts`).
+* **`BeneficiaryPage.tsx:473`** — the reviewed-at stamp is interpolated into
+  the sentence `common.reviewed_by_on` ("Reviewed by {name} on {date}"). It is
+  prose inside a cell, not a timestamp column, and stacking it would mean
+  splitting that string in en/ar/ku. Needs a localization decision.
+* **Detail/feed views** that print a timestamp inline in a sentence or a chat
+  row: `VolunteersPage:1006-1007` (mission progress), `TasksPage`,
+  `CommentsPage`, `PostActivityPage`, `StaffActivityPage`, `DetailPage`. None
+  is a table column; C3 is about tables.
+* **Column ORDER, the other half of the same client item.** There is no shared
+  column-order constant anywhere in `admin-web/src` — every page declares its
+  own `columns` array — so a mass reorder is a product decision, not a
+  refactor, and was not attempted. What was observed: nearly every list ends
+  `… status → created/date → actions`, but **CityGuidePage** (`… created status
+  actions`) and **SponsorshipsPage** (`… next created status actions`) put the
+  status AFTER the timestamp, and **DonationsPage** buries its `date` behind
+  `delivery / method / type`. Those three are the visible inconsistencies to
+  raise with the client.
+
+### Traps for the next agent
+
+* `admin-web/node_modules` was not installed in this worktree; `npx vitest`
+  fails with a confusing "failed to load config" / `ERR_MODULE_NOT_FOUND
+  vitest` until `npm ci` is run.
+* `npm run lint` exits 0 **with** 62 warnings — the warning count is the
+  pre-existing baseline, not a regression from this branch.
+* OPOS MCP was NOT used for this work: the `opos` MCP server is unauthorized in
+  this session and the session is non-interactive, so no task could be created
+  or timed. Section 18.3 is unmet for this branch and needs doing by hand.
+
+---
+
 ## 2026-09-16 — A read notification leaves the list, and old ones go away
 
 **Asked for:** Zaid, verbatim: *"also, marking a notifcation as read doesnt make
