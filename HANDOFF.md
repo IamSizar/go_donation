@@ -51,6 +51,47 @@
 
 ---
 
+## 2026-09-15 — OPOS #26495: messages_screen.dart split under the 500-line limit, no behaviour change (branch `refactor/split-messages-screen`)
+
+**What was asked:** `humanitarian/lib/modules/chat/screens/messages_screen.dart` had 726 lines against the 500-line limit. The request was to split it into widgets under `modules/chat/widgets/`, following the #26473 pattern. It was a pure refactor.
+
+**What was changed** (branch cut from `origin/main` `b0c9eb8`; not pushed):
+- **`a87e47b` refactor(chat): split messages_screen.dart into chat widgets.** Module map:
+
+  | File | Lines | Holds |
+  |---|---|---|
+  | `screens/messages_screen.dart` | 279 (was 726) | `supportChatError`, `supportChatUnavailable`, `openSupportChat`, `MessagesScreen` (guest prompt, support tiles, thread sections, `ChatGroupsSection`, refresh); new file header |
+  | `widgets/chat_thread_tiles.dart` (new) | 270 | `ChatThreadSectionLabel`, `ChatThreadAvatar`, `ChatThreadTile`, `OutgoingPendingChatTile` (formerly `_SectionLabel`, `_Avatar`, `_ThreadTile`, `_OutgoingPendingTile`) |
+  | `widgets/chat_request_card.dart` (new) | 164 | `IncomingChatRequestCard` (formerly `_IncomingRequestCard`), with the #26433 refusal copy through `chatInviteRefusalMessage` |
+  | `widgets/messages_support_tiles.dart` (new) | 85 | `BotAssistantCard` (formerly `_BotAssistantCard`) |
+
+  - The screen imports all three new files, and `chat_request_card.dart` imports `chat_thread_tiles.dart` for the avatar. Nothing imports back.
+  - The support-chat and ticket-form tiles and their two `ValueListenableBuilder`s stay inline in the screen. Wrapping them in a widget would have added a node to the `ListView` children and moved `openSupportChat` and its notifiers, so the tree would no longer be identical.
+  - The section assembly (the `Obx` / `AppAsync` builder) stays in the screen for the same reason.
+  - Every moved widget gained `super.key`; nothing passes a key.
+- **Two source-reading tests were repointed; no assertion was weakened.**
+  - `test/modules/chat/chat_thread_other_name_test.dart` now reads the screen plus the two thread widget files.
+  - `test/modules/chatgroups/messages_screen_chat_groups_wiring_test.dart` now looks for `const BotAssistantCard()`.
+  - Both had failed after the split: `Expected: true Actual: <false>` and `Expected: not <-1> Actual: <-1>`.
+
+**Proof of no change** (Python against `git show HEAD:…`, comments, imports and blank lines ignored, renames normalized, lines compared as sorted multisets):
+- The only differing lines are the six constructors gaining `super.key`, plus `dart format` re-wrapping three call and constructor lines made longer by the new names.
+- All 96 original comment lines are present.
+
+**What was run** (from `humanitarian/`):
+- `flutter analyze`, before and after: `6 issues found.`
+- `flutter test test/modules/chat/ test/notifications/`: `00:03 +49: All tests passed!`
+- Full `flutter test`: `00:54 +1077: All tests passed!`
+- **Trap:** `dart format lib/modules/chat/widgets` also reformats the untouched `chat_lifecycle_notice.dart`. That change was reverted, so format only the files you changed.
+
+**Review** (`ecc:flutter-reviewer`): **APPROVE**. It found 0 CRITICAL, HIGH or MEDIUM issues, and one LOW that is informational only. It confirmed the bodies are verbatim, imports are correct and there is no cycle.
+
+**External actions:** none. Nothing was pushed and no PR was opened. OPOS was unavailable to this agent, so #26495 was not moved.
+
+**Still open:** push, open a PR, and update OPOS #26495.
+
+---
+
 ## 2026-09-15 — OPOS #26400 (Phase 6c): admin-web connect-request inbox (branch `feat/admin-connect-request-inbox`)
 
 **What was asked:** the connect-request inbox in admin-web, test-first. It needed:

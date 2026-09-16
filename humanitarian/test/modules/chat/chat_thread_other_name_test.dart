@@ -103,10 +103,18 @@ void main() {
   // A source test for the same reason as chat_sender_name_test.dart: the
   // Messages screen's controller calls ModuleApi directly with no seam.
   group('the Messages screen', () {
-    const screenPath = 'lib/modules/chat/screens/messages_screen.dart';
+    // OPOS #26495 moved the thread rows and the request card out of the screen
+    // file, so the Messages tab's source is these three files together.
+    const screenPaths = [
+      'lib/modules/chat/screens/messages_screen.dart',
+      'lib/modules/chat/widgets/chat_thread_tiles.dart',
+      'lib/modules/chat/widgets/chat_request_card.dart',
+    ];
 
     test('draws chatThreadOtherName, never the raw otherName field', () {
-      final source = File(screenPath).readAsStringSync();
+      final source = screenPaths
+          .map((p) => File(p).readAsStringSync())
+          .join('\n');
       expect(source.contains('chatThreadOtherName(thread)'), isTrue);
       expect(source.contains('thread.otherName'), isFalse);
     });
