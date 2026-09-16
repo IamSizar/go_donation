@@ -125,7 +125,14 @@ func (s *Store) ListThreadsForUser(ctx context.Context, userID int64, includeArc
 		       t.lifecycle, t.lifecycle_reason, (t.archived_at IS NOT NULL)
 		  FROM staff_chat_threads t
 		  LEFT JOIN users ou ON ou.id = (CASE WHEN t.user_a_id = $1 THEN t.user_b_id ELSE t.user_a_id END)
-		  LEFT JOIN user_profiles op ON op.user_id = (CASE WHEN t.user_a_id = $1 THEN t.user_b_id ELSE t.user_a_id END)
+		  -- LATERAL, not a plain join: user_profiles.user_id has no UNIQUE
+		  -- constraint, so a colleague with two profile rows would put the
+		  -- same conversation in the list twice. The oldest row names them.
+		  LEFT JOIN LATERAL (
+		      SELECT p.full_name FROM user_profiles p
+		       WHERE p.user_id = (CASE WHEN t.user_a_id = $1 THEN t.user_b_id ELSE t.user_a_id END)
+		       ORDER BY p.id LIMIT 1
+		  ) op ON TRUE
 		  LEFT JOIN LATERAL (
 		      SELECT body, created_at FROM staff_chat_messages m
 		       WHERE m.thread_id = t.id ORDER BY m.id DESC LIMIT 1
@@ -165,7 +172,13 @@ func (s *Store) ListMessages(ctx context.Context, threadID int64) ([]Message, er
 	rows, err := s.Pool.Query(ctx, `
 		SELECT m.id, m.thread_id, m.sender_user_id, p.full_name, m.body, m.created_at
 		  FROM staff_chat_messages m
-		  LEFT JOIN user_profiles p ON p.user_id = m.sender_user_id
+		  -- LATERAL, not a plain join: a sender with two user_profiles rows
+		  -- (the column has no UNIQUE constraint) would otherwise have every
+		  -- message of theirs listed twice. The oldest row names them.
+		  LEFT JOIN LATERAL (
+		      SELECT up.full_name FROM user_profiles up
+		       WHERE up.user_id = m.sender_user_id ORDER BY up.id LIMIT 1
+		  ) p ON TRUE
 		 WHERE m.thread_id = $1
 		 ORDER BY m.id ASC`,
 		threadID,
@@ -253,7 +266,14 @@ func (s *Store) Directory(ctx context.Context, excludeUserID int64) ([]Directory
 	rows, err := s.Pool.Query(ctx, `
 		SELECT u.id, p.full_name, COALESCE(u.phone, ''), u.staff_tier
 		  FROM users u
-		  LEFT JOIN user_profiles p ON p.user_id = u.id
+		  -- LATERAL, not a plain join: an account with two user_profiles rows
+		  -- (the column has no UNIQUE constraint) appeared twice in the "start
+		  -- a new chat" picker. The oldest row names it, and the ORDER BY on
+		  -- p.full_name below still sees exactly one name per account.
+		  LEFT JOIN LATERAL (
+		      SELECT up.full_name FROM user_profiles up
+		       WHERE up.user_id = u.id ORDER BY up.id LIMIT 1
+		  ) p ON TRUE
 		 WHERE u.staff_tier <> 'user' AND u.id <> $1
 		 ORDER BY u.staff_tier, p.full_name NULLS LAST`,
 		excludeUserID,
