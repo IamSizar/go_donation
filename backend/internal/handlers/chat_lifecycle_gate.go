@@ -135,10 +135,22 @@ func mergeChatLifecycle(c *gin.Context, pool *pgxpool.Pool, kind chatlifecycle.K
 	state, err := chatlifecycle.Load(c.Request.Context(), pool, kind, threadID)
 	if err != nil {
 		log.Printf("[chat-lifecycle] could not read state for %s/%d: %v", kind, threadID, err)
-		state = chatlifecycle.State{Lifecycle: chatlifecycle.StateOpen}
+		// A state that could not be read answers `null`, which is what
+		// distinguishes it from a chat that simply has no reason.
+		body["lifecycle"] = chatlifecycle.StateOpen
+		body["lifecycle_reason"] = nil
+		body["is_archived"] = false
+		return body
 	}
 	body["lifecycle"] = state.Lifecycle
-	body["lifecycle_reason"] = state.Reason
+	// The column is nullable since migration 123, because a chat group can
+	// carry no reason at all. The API's contract is unchanged though: a
+	// reason is a string, and "" means there isn't one.
+	reason := ""
+	if state.Reason != nil {
+		reason = *state.Reason
+	}
+	body["lifecycle_reason"] = reason
 	body["is_archived"] = state.IsArchived
 	return body
 }
