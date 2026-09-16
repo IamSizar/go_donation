@@ -12,8 +12,11 @@
  *                    There is no un-end, so it is confirmed before it fires.
  *   Archive /      — hides the thread from the PARTICIPANTS. Staff keep
  *   Unarchive        seeing it here, and can put it back.
- *   Delete         — to the Trash, where a Super-Admin can restore or
- *                    permanently destroy it.
+ *   Delete         — to the Trash, where an administrator (admin or
+ *                    super_admin) can restore it and a super_admin can
+ *                    purge it. Offered only with the
+ *                    delete permission of the module the server guards the
+ *                    route with (`deleteModule`), not merely edit.
  *
  * Only staff ever see this: the whole dashboard is behind a staff session,
  * and the endpoints it calls live on the admin route group. The app has no
@@ -27,7 +30,9 @@
 import { useState } from 'react'
 import { api, describeError } from '../lib/api'
 import { useI18n } from '../lib/i18n'
+import { useAuth } from '../lib/auth'
 import { askForText, askToConfirm } from '../lib/dialogs'
+import { usePermission } from '../lib/permissions'
 
 /** The lifecycle a thread can be in, as the API reports it. */
 export type ChatLifecycle = 'open' | 'paused' | 'ended'
@@ -48,13 +53,21 @@ type Props = {
    * a compile-time-visible literal instead of a silent mapping miss.
    */
   basePath: string
+  /**
+   * The permission module whose `delete` action the server's DELETE route for
+   * this chat requires (backend/cmd/server/main.go): `messages` for donor,
+   * staff and group chats, `marriage` for marriage chats.
+   */
+  deleteModule: 'messages' | 'marriage'
   thread: LifecycleThread
   /** Re-fetch the page's list once the state has actually changed. */
   onChanged: () => void | Promise<void>
 }
 
-export default function ChatLifecycleControls({ basePath, thread, onChanged }: Props) {
+export default function ChatLifecycleControls({ basePath, deleteModule, thread, onChanged }: Props) {
   const { t } = useI18n()
+  const { user } = useAuth()
+  const canDelete = usePermission(deleteModule, 'delete', user)
   const [busy, setBusy] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
 
@@ -171,9 +184,13 @@ export default function ChatLifecycleControls({ basePath, thread, onChanged }: P
             : t(archived ? 'chat_lifecycle.unarchive' : 'chat_lifecycle.archive')}
         </button>
 
-        <button className="danger" disabled={busy !== null} onClick={remove}>
-          {busy === 'delete' ? t('common.saving') : t('chat_lifecycle.delete')}
-        </button>
+        {/* Hidden rather than disabled without the permission: the server
+            would refuse it with a 403 either way. */}
+        {canDelete && (
+          <button className="danger" disabled={busy !== null} onClick={remove}>
+            {busy === 'delete' ? t('common.saving') : t('chat_lifecycle.delete')}
+          </button>
+        )}
       </div>
 
       {/* The reason staff gave, echoed back so they can see what the two

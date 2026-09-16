@@ -1,0 +1,61 @@
+-- 124 — Index user_profiles.user_id (OPOS #26474).
+--
+-- WHY
+-- user_profiles.user_id has had no index since the table was created
+-- (001_full_v2.sql); 002 added only the foreign key. But user_id is how every
+-- read in internal/ reaches a profile: the `LEFT JOIN user_profiles … ON
+-- user_id = …` name joins (chat, staff chat, marriage chat, donations, admin
+-- lists, the chat-group stores) and the `WHERE user_id = $1` point reads in
+-- internal/users and internal/handlers. Each of them scanned the whole table,
+-- and so did the FK's ON DELETE CASCADE on every user delete. A name read that
+-- looks a profile up once per outer row (`LATERAL … WHERE user_id = …`) paid
+-- that scan once for every row: on a local copy with 50,000 profiles, 200
+-- requests took 2.29 s with a scan each and 1.6 ms with this index.
+--
+-- WHY NOT UNIQUE
+-- The application means one profile row per user (010_phone_canonical.sql
+-- says so), but nothing enforces it, and three writers can break it. Each
+-- checks for a row and then INSERTs with no lock between the two, so two
+-- concurrent saves for a user who has no profile yet both insert:
+--   internal/users/profile.go        Store.UpsertProfile
+--   internal/users/registration.go   Store.SubmitRegistration
+--   internal/handlers/admin_edit.go  AdminEditHandler.User
+-- A UNIQUE constraint would fail to apply on any database that already holds
+-- such a pair, and making it apply means choosing which of a user's rows to
+-- delete. That is a data-deletion decision this migration does not take.
+-- A reader that must not repeat a row has to pick one profile itself, e.g.
+-- the oldest with ORDER BY id LIMIT 1.
+--
+-- WHY NOT CONCURRENTLY
+-- internal/db/migrate.go sends a whole file as ONE simple-protocol query. A
+-- file with several statements therefore runs as an implicit transaction, and
+-- Postgres refuses CREATE INDEX CONCURRENTLY there. A one-statement file is
+-- accepted, but RunMigrations serialises its callers with a session advisory
+-- lock, and a concurrent build waits for every older snapshot, including one
+-- held by a second caller that is blocked on that same lock. Reproduced
+-- locally on Postgres 18.6: the waiting caller was aborted with "deadlock
+-- detected". Concurrent callers are normal here: each test package's
+-- process, or two replicas booting with RUN_MIGRATIONS=1 (see
+-- internal/db/migrate_concurrent_test.go). A failed concurrent build would also
+-- leave an INVALID index behind, which IF NOT EXISTS would then silently skip.
+--
+-- A plain build is atomic: either a valid index exists afterwards or nothing
+-- changed. It blocks writes to user_profiles (reads continue) for one pass
+-- over a table holding about one row per account. Migration 113 indexed this
+-- table the same way.
+--
+-- ADDITIVE ONLY: one index. No column is added or changed, and no row is
+-- touched.
+CREATE INDEX IF NOT EXISTS idx_user_profiles_user_id
+  ON user_profiles (user_id);
+
+-- ─── DOWN (reversal) ───────────────────────────────────────────────────────
+-- The runner (internal/db/migrate.go) is forward-only and has no .down.sql
+-- convention, so, as in 113, the reversal is recorded here. It was EXECUTED
+-- against a local database before this migration was committed:
+--
+--   DROP INDEX IF EXISTS idx_user_profiles_user_id;
+--   DELETE FROM schema_migrations WHERE version = '124_user_profiles_user_id_index.sql';
+--
+-- Reversing loses no data: an index holds nothing that is not already in the
+-- table. The reads keep working; they just scan again.

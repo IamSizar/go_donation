@@ -14,13 +14,13 @@ import { useToast } from '../lib/toast'
 import { useI18n, useStatusLabel } from '../lib/i18n'
 import { useSelection } from '../lib/useSelection'
 import { downloadCsv, type CsvColumn } from '../lib/csv'
-import { HighlightBanner, useHighlightedRow } from '../lib/useHighlightedRow'
+import { HighlightBanner } from '../lib/HighlightBanner'
+import { useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForStatus } from '../lib/statusColors'
 import { usePendingCounts } from '../lib/pendingCounts'
 import { formatDateParts, formatDateTime } from '../lib/dates'
 import AvailabilityCell from '../components/AvailabilityCell'
 import {
-  ALL_SKILL_KEYS,
   DAY_KEYS,
   SKILL_CATEGORIES,
   dayLabelFor,
@@ -39,7 +39,7 @@ import ActionsMenu from '../components/ActionsMenu'
 // transitions, not view/edit/delete), so it cannot get the role-aware delete
 // label from RowActionsMenu the way every other table does. Pulling the same
 // hook keeps one convention: Super-Admin reads حذف, everyone else أرشفة.
-import { useRowDeleteLabel } from '../components/RowDeleteButton'
+import { useRowDeleteLabel } from '../components/useRowDeleteLabel'
 import IdWithNeedsAction from '../components/IdWithNeedsAction'
 
 const VOLUNTEER_CSV_COLUMNS: CsvColumn<AdminVolunteerApp>[] = [
@@ -195,6 +195,11 @@ function ApplicationsTab() {
       setProfs(r.data.items ?? [])
     } catch { /* dropdown just shows the built-in catalogue */ }
   }, [])
+  // `loadProfessions` only calls setState after awaiting the request, so
+  // nothing here is synchronous and no cascading render happens. The rule
+  // reports it anyway because it steps into a useCallback without modelling
+  // the await.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void loadProfessions() }, [loadProfessions])
 
   const handleAddProfession = useCallback(
@@ -514,8 +519,6 @@ function ApplicationsTab() {
                   ))}
                 </optgroup>
               )}
-              {/* Unused — ALL_SKILL_KEYS kept for future flat-iteration. */}
-              {false && ALL_SKILL_KEYS.map((k) => <option key={k} value={k} />)}
             </select>
           </label>
           {/* Section 13 — add a new profession to the skill dropdown. */}
@@ -642,7 +645,14 @@ function ManageProfessionsModal({
   const [confirmDel, setConfirmDel] = useState<CustomProfession | null>(null)
   const [busy, setBusy] = useState(false)
 
-  useEffect(() => { setOrder(professions) }, [professions])
+  // Re-seed the working copy when the parent hands over a new list, adjusting
+  // during render rather than in an effect so the dialog never paints the
+  // previous order for one frame.
+  const [seenProfessions, setSeenProfessions] = useState(professions)
+  if (seenProfessions !== professions) {
+    setSeenProfessions(professions)
+    setOrder(professions)
+  }
 
   if (!open) return null
 

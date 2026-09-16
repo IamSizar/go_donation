@@ -62,7 +62,6 @@ const ckb: DeepPartial<typeof en> = {
     receipts: 'وەسڵی یارمەتی',
     messages: 'نامەکان',
     staff_chat: 'گفتوگۆی کارمەندان',
-    case_volunteer_chats: 'گفتوگۆکانی دۆسیە ↔ خۆبەخش',
     volunteers: 'خۆبەخشەکان',
     volunteer_board: 'تابلۆی خۆبەخشان',
     tasks: 'ئەرکەکان',
@@ -847,12 +846,6 @@ const ckb: DeepPartial<typeof en> = {
     staff_chat: {
       subtitle: 'نامەی ڕاستەوخۆ لەنێوان کارمەندانی داشبۆرد — بەڕێوەبەر ↔ کارمەند، یان هەر جووتێکی تر.',
       new: '+ گفتوگۆی نوێ', empty: 'هێشتا هیچ گفتوگۆیەک نییە.', pick_someone: 'گفتوگۆ دەست پێبکە لەگەڵ…',
-    },
-    case_volunteer_chats: {
-      subtitle: 'خۆکارانە دەکرێتەوە کاتێک تۆمارکردنی خۆبەخشێک بە دۆسیەیەکەوە دەبەسترێت و پەسەند دەکرێت.',
-      empty: 'هێشتا هیچ گفتوگۆیەک نییە.',
-      volunteer_paren: '(خۆبەخش)',
-      beneficiary_paren: '(سوودمەند)',
     },
     partners: { title: 'هاوبەشەکان', search_placeholder: 'گەڕان بە ناو / جۆر', new: '+ هاوبەشی نوێ' },
     media: { title: 'میدیا', search_placeholder: 'گەڕان بە سەردێر / ناوەڕۆک', new: '+ بابەتی نوێ' },
