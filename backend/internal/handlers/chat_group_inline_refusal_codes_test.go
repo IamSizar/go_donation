@@ -135,8 +135,9 @@ func TestChatGroupRoutes_InlineBadRequestCarriesItsCode(t *testing.T) {
 func TestChatGroupRoutes_DatabaseErrorCarriesItsCode(t *testing.T) {
 	pool := newChatGroupPool(t)
 	staff := makeChatGroupUser(t, pool, "Staff")
-	donor := makeChatGroupUser(t, pool, "Donor Name")
-	groupID := makeChatGroup(t, pool, staff, chatgroups.KindTeam, []chatgroups.MemberInput{{UserID: donor, RoleInGroup: "donor"}})
+	// A VOLUNTEER: this is a team group, which takes only volunteers and staff.
+	donor := makeChatGroupRoleUser(t, pool, "Volunteer Name", 3)
+	groupID := makeChatGroup(t, pool, staff, chatgroups.KindTeam, []chatgroups.MemberInput{{UserID: donor, RoleInGroup: "volunteer"}})
 	staffToken := tokenForStaffUser(t, pool, staff)
 	donorToken := tokenForChatGroupUser(t, pool, donor)
 

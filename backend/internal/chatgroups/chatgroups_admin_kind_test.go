@@ -18,7 +18,9 @@ func TestGroupKindReadsEachKind(t *testing.T) {
 	s := New(pool)
 	ctx := context.Background()
 	staff := makeTestUser(t, pool, "staff")
-	donor := makeTestUser(t, pool, "donor")
+	// A volunteer, not a donor: this test builds a group of BOTH kinds, and a
+	// team group takes only volunteers and staff (ErrTeamMemberRole).
+	member := makeTestUser(t, pool, "volunteer")
 
 	for _, kind := range []Kind{KindMasked, KindTeam} {
 		t.Run(string(kind), func(t *testing.T) {
@@ -27,7 +29,7 @@ func TestGroupKindReadsEachKind(t *testing.T) {
 				title = "Kind test team"
 			}
 			groupID, err := s.CreateGroup(ctx, kind, title, staff,
-				[]MemberInput{{UserID: donor, RoleInGroup: "donor"}})
+				[]MemberInput{{UserID: member, RoleInGroup: "volunteer"}})
 			if err != nil {
 				t.Fatalf("create %s group: %v", kind, err)
 			}

@@ -10,7 +10,10 @@
  *   - a removed member can be added back, and keeps their old role and label
  *     (decision D3), which a hint says before the operator submits;
  *   - a label an active member already has is refused; a label that looks
- *     like a phone or email gets a warning, not a block.
+ *     like a phone or email gets a warning, not a block;
+ *   - a TEAM group offers only volunteer and staff, with one line saying why:
+ *     it shows real names, so the server refuses a grantor or a recipient in
+ *     one (rolesForKind, lib/chatGroupForm.ts).
  * Add member stays disabled until nothing blocks, so a doomed request is
  * never sent. Issues show only on fields the operator has touched.
  *
@@ -28,7 +31,7 @@ import UserPicker from '../UserPicker'
 import { useAuth } from '../../lib/auth'
 import { buildAddMemberBody, emptyAddMemberDraft, validateAddMember, type AddMemberDraft } from '../../lib/chatGroupDetail'
 import { describeChatGroupError } from '../../lib/chatGroupErrors'
-import { CHAT_GROUP_ROLES, isChatGroupRole, type MemberRowIssues } from '../../lib/chatGroupForm'
+import { isChatGroupRole, rolesForKind, type MemberRowIssues } from '../../lib/chatGroupForm'
 import { addGroupMember, type ChatGroupDetail } from '../../lib/chatGroupsApi'
 import { useI18n, useStatusLabel } from '../../lib/i18n'
 import { usePermission } from '../../lib/permissions'
@@ -148,12 +151,13 @@ function AddMemberFields({ group, draft, issues, busy, onChange }: FieldsProps) 
           onChange={(e) => onChange({ role: isChatGroupRole(e.target.value) ? e.target.value : '' }, 'role')}
         >
           <option value="">{t('chat_groups.create.role_placeholder')}</option>
-          {CHAT_GROUP_ROLES.map((role) => (
+          {rolesForKind(group.kind).map((role) => (
             <option key={role} value={role}>
               {statusLabel(role)}
             </option>
           ))}
         </select>
+        {group.kind === 'team' && <span className="form-hint">{t('chat_groups.create.team_roles_note')}</span>}
         <FieldNote id={`${id}-role-note`} issue={issues.role} />
       </div>
       {group.kind === 'masked' && (

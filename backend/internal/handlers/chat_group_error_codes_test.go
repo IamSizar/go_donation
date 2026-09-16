@@ -92,6 +92,7 @@ func TestChatErr_EveryRefusalCarriesAStableCode(t *testing.T) {
 		{"already an active member", chatgroups.ErrMemberConflict, wantGroupMemberConflict},
 		{"label held by another active member", chatgroups.ErrLabelConflict, wantGroupLabelConflict},
 		{"guest account as a member", chatgroups.ErrGuestMember, wantGuestMemberNotAllowed},
+		{"donor or beneficiary in a team group", chatgroups.ErrTeamMemberRole, wantTeamMemberRole},
 		// ErrLabelContact wraps ErrInvalidInput, so this case also proves the
 		// specific code wins over the generic one.
 		{"contact details in a label", chatgroups.ErrLabelContact, wantGroupLabelContact},
