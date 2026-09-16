@@ -179,9 +179,15 @@ function PerEmployeeCard({
   const toast = useToast()
   const [staff, setStaff] = useState<StaffOption[]>([])
   const [selected, setSelected] = useState<number | null>(null)
-  const [userMatrix, setUserMatrix] = useState<UserMatrixResp | null>(null)
+  // The loaded matrix carries the employee it belongs to, and "a matrix has
+  // arrived for employee N" is tracked separately so a failed request does not
+  // leave the card spinning. Both `userMatrix` and `loadingMatrix` are then
+  // derived, which is what lets the effect below stop clearing state itself.
+  const [loadedMatrix, setLoadedMatrix] = useState<{ userID: number; data: UserMatrixResp } | null>(null)
+  const [matrixDoneFor, setMatrixDoneFor] = useState<number | null>(null)
+  const userMatrix = loadedMatrix && loadedMatrix.userID === selected ? loadedMatrix.data : null
+  const loadingMatrix = selected != null && matrixDoneFor !== selected
   const [loadingStaff, setLoadingStaff] = useState(true)
-  const [loadingMatrix, setLoadingMatrix] = useState(false)
   const [saving, setSaving] = useState<string | null>(null)
 
   useEffect(() => {
@@ -202,17 +208,15 @@ function PerEmployeeCard({
   }, [t])
 
   const loadUserMatrix = useCallback((userID: number) => {
-    setLoadingMatrix(true)
     api
       .get<UserMatrixResp>(`/api/admin/permissions/user/${userID}`)
-      .then((res) => setUserMatrix(res.data))
+      .then((res) => setLoadedMatrix({ userID, data: res.data }))
       .catch((e) => toast.error(describeError(e)))
-      .finally(() => setLoadingMatrix(false))
+      .finally(() => setMatrixDoneFor(userID))
   }, [toast])
 
   useEffect(() => {
     if (selected != null) loadUserMatrix(selected)
-    else setUserMatrix(null)
   }, [selected, loadUserMatrix])
 
   // set: change this employee's override for (module, action). clear: wipe
@@ -233,6 +237,9 @@ function PerEmployeeCard({
         }),
       )
       reportFactors(saved, toast, t)
+      // Re-show the loading line while the refreshed matrix is on its way,
+      // exactly as the first load does.
+      setMatrixDoneFor(null)
       loadUserMatrix(selected)
       onChanged()
     } catch (e) {
@@ -324,11 +331,15 @@ export default function PermissionsPage() {
   const [matrix, setMatrix] = useState<Matrix | null>(null)
   const [state, setState] = useState<Record<string, boolean>>({})
   const [audit, setAudit] = useState<AuditRow[]>([])
-  const [loading, setLoading] = useState(true)
+  // `loading` is derived from whether the matrix fetch has come back, so
+  // nothing has to be set from inside the effect: a non-super admin never
+  // fetches and is therefore never loading.
+  const [loaded, setLoaded] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [saving, setSaving] = useState<string | null>(null)
 
   const amSuper = isSuperAdmin(user)
+  const loading = amSuper && !loaded
 
   // PIN step-up — required before every permission change (Section 24 2FA:
   // the PIN factor; the OTP factor is a separate follow-up).
@@ -356,9 +367,8 @@ export default function PermissionsPage() {
   }, [])
 
   useEffect(() => {
-    if (!amSuper) { setLoading(false); return }
+    if (!amSuper) return
     let cancelled = false
-    setLoading(true)
     api
       .get<Matrix>('/api/admin/permissions')
       .then((res) => {
@@ -379,7 +389,11 @@ export default function PermissionsPage() {
         setErr(null)
       })
       .catch((e) => { if (!cancelled) setErr(describeError(e)) })
-      .finally(() => { if (!cancelled) setLoading(false) })
+      .finally(() => { if (!cancelled) setLoaded(true) })
+    // `loadAudit` only calls setState after awaiting the request, so nothing
+    // here is synchronous and no cascading render happens. The rule reports it
+    // anyway because it steps into a useCallback without modelling the await.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadAudit()
     return () => { cancelled = true }
   }, [amSuper, loadAudit])

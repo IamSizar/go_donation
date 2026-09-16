@@ -172,6 +172,10 @@ func (h *ChatHandler) Request(c *gin.Context) {
 
 	thread, recipient, isNew, err := h.Store.RequestThread(c.Request.Context(), donorID, ownerID, campaignID, user.UserID)
 	if err != nil {
+		if errors.Is(err, chat.ErrDirectChatRetired) {
+			c.JSON(http.StatusGone, gin.H{"success": false, "error": "Direct messaging has been retired. Ask staff to connect you instead."})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
 		return
 	}
@@ -247,6 +251,16 @@ func (h *ChatHandler) SupportThread(c *gin.Context) {
 }
 
 // POST /api/chats/:id/accept
+//
+// A paused, ended or archived thread is refused BEFORE AcceptThread and the
+// push, so the initiator is never told a chat was accepted that neither party
+// can use (OPOS #26413; see refuseIfInviteClosed). The participant check runs
+// first because that refusal carries staff's reason.
+//
+// An invite the recipient already declined is refused after both checks, by
+// AcceptThread itself: 409 with code chat_invite_declined, the status stays
+// declined, and nobody is pushed (OPOS #26436). Accepting a thread that is
+// already active is still a 200.
 func (h *ChatHandler) Accept(c *gin.Context) {
 	user, _ := auth.UserFromGin(c)
 	if user == nil {
@@ -255,6 +269,18 @@ func (h *ChatHandler) Accept(c *gin.Context) {
 	}
 	id, ok := parseID(c)
 	if !ok {
+		return
+	}
+	current, err := h.Store.GetThread(c.Request.Context(), id)
+	if err != nil {
+		h.chatErr(c, err)
+		return
+	}
+	if !current.IsParticipant(user.UserID) {
+		h.chatErr(c, chat.ErrNotParty)
+		return
+	}
+	if refuseIfInviteClosed(c, h.Pool, chatlifecycle.KindDonor, id) {
 		return
 	}
 	thread, initiator, err := h.Store.AcceptThread(c.Request.Context(), id, user.UserID)
@@ -272,6 +298,11 @@ func (h *ChatHandler) Accept(c *gin.Context) {
 }
 
 // POST /api/chats/:id/decline
+//
+// Only a pending invite can be declined: an active chat answers 409 and stays
+// active (OPOS #26427; see chat.Store.DeclineThread). Declining is deliberately
+// NOT lifecycle-gated like Accept, so the recipient can still dismiss an invite
+// on a thread staff paused, ended or archived.
 func (h *ChatHandler) Decline(c *gin.Context) {
 	user, _ := auth.UserFromGin(c)
 	if user == nil {
@@ -413,8 +444,20 @@ func (h *ChatHandler) PostMessage(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": msg})
 }
 
+// chatInviteDeclinedCode marks the 409 that accepting an already-declined
+// invite gets, in both the donor and the marriage chat (OPOS #26436). It is
+// for the app to switch on, so it can stop offering Accept and show its own
+// localised copy. The English `error` beside it serves clients that do not
+// know the code.
+const chatInviteDeclinedCode = "chat_invite_declined"
+
 func (h *ChatHandler) chatErr(c *gin.Context, err error) {
 	switch {
+	case errors.Is(err, chat.ErrInviteDeclined):
+		// Promises nothing further: direct donor chats are retired, so a
+		// declined one cannot be requested again.
+		c.JSON(http.StatusConflict, gin.H{"success": false, "code": chatInviteDeclinedCode,
+			"error": "This chat request was declined, so it can no longer be accepted."})
 	case errors.Is(err, chat.ErrNotFound):
 		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Chat not found."})
 	case errors.Is(err, chat.ErrNotParty):
@@ -423,6 +466,8 @@ func (h *ChatHandler) chatErr(c *gin.Context, err error) {
 		c.JSON(http.StatusForbidden, gin.H{"success": false, "error": "Only the invited party can accept or decline."})
 	case errors.Is(err, chat.ErrNotActive):
 		c.JSON(http.StatusConflict, gin.H{"success": false, "error": "This chat is not active yet."})
+	case errors.Is(err, chat.ErrNotPending):
+		c.JSON(http.StatusConflict, gin.H{"success": false, "error": "This chat is already active, so it can no longer be declined."})
 	case errors.Is(err, chat.ErrAlreadyClaimed):
 		c.JSON(http.StatusConflict, gin.H{"success": false, "error": "This chat is already claimed by another staff member."})
 	default:
@@ -530,7 +575,8 @@ func (h *ChatHandler) AdminPostMessage(c *gin.Context) {
 		go func() {
 			ctx, cancel := h.bg()
 			defer cancel()
-			_, _ = h.Notifier.Send(ctx, oid, notify.ChatNewMessageMsg("Support", preview, id))
+			// Names the support team in each reader's language (OPOS #26483).
+			_, _ = h.Notifier.Send(ctx, oid, notify.ChatSupportReplyMsg(preview, id))
 		}()
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": msg})
