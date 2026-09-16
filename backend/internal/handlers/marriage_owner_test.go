@@ -42,6 +42,7 @@ import (
 
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
 	"github.com/karam-flutter/humanitarian-backend/internal/marriage"
+	"github.com/karam-flutter/humanitarian-backend/internal/permissions"
 )
 
 // ─── Harness ────────────────────────────────────────────────────────────
@@ -49,10 +50,16 @@ import (
 var marriageOwnerSeq = time.Now().UnixNano() % 100000
 
 // callAsUser drives an owner-scoped handler through the REAL request chain
-// main.go builds for these routes — RequireBearer + RequireApproved, with a
-// genuine token minted for the caller. Nothing about who-is-asking is stubbed,
-// because "the handler is fine but the gate resolves the wrong user" is a way
-// this feature could be wrong that a faked context would hide.
+// main.go builds for the owner routes — the authed group's RequireBearer +
+// RequireApproved, then the route's own RequireNotGuest — with a genuine token
+// minted for the caller. Nothing about who-is-asking is stubbed, because "the
+// handler is fine but the gate resolves the wrong user" is a way this feature
+// could be wrong that a faked context would hide.
+//
+// Only the owner routes go through here. The staff route that clears the
+// owner's delete lives on main.go's admin group, so
+// TestMarriageOwnerDeleteIsUndoneByAStaffStatusDecision sends it through
+// postAsStaff with that group's chain instead.
 func callAsUser(t *testing.T, pool *pgxpool.Pool, method, route, path string, userID int64, handler gin.HandlerFunc, body string) (int, string) {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
@@ -62,7 +69,7 @@ func callAsUser(t *testing.T, pool *pgxpool.Pool, method, route, path string, us
 		t.Fatalf("issue token for user %d: %v", userID, err)
 	}
 	r := gin.New()
-	r.Handle(method, route, auth.RequireBearer(tokenStore), auth.RequireApproved(), handler)
+	r.Handle(method, route, auth.RequireBearer(tokenStore), auth.RequireApproved(), auth.RequireNotGuest(), handler)
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -231,12 +238,18 @@ func TestMarriageOwnerDeleteIsUndoneByAStaffStatusDecision(t *testing.T) {
 		t.Fatalf("the deleted profile is still in the owner's list")
 	}
 
-	// Staff reinstate it through the route they already use.
-	adminH := NewAdminStatusHandler(pool, nil, nil, nil)
-	if code, body := callAsUser(t, pool, http.MethodPost, "/api/admin/marriage/:id/status",
-		"/api/admin/marriage/"+idStr+"/status", owner, adminH.Marriage,
-		`{"status":"active"}`); code != http.StatusOK {
-		t.Fatalf("admin status returned %d: %s", code, body)
+	// Staff reinstate it through the route they already use, behind the chain
+	// main.go puts in front of it: the admin group's RequireAdmin, then
+	// perm("marriage", "edit"). The owner cannot send this request, because
+	// RequireAdmin refuses an app user. An employee is the lowest tier that
+	// holds marriage/edit by default, so it is the least-privileged caller
+	// production lets through.
+	staff := insertAccount(t, pool, "employee", "")
+	adminH := NewAdminStatusHandler(pool, nil, nil)
+	if code, body := postAsStaff(t, pool, staff.id, "/api/admin/marriage/:id/status",
+		"/api/admin/marriage/"+idStr+"/status", map[string]string{"status": "active"},
+		auth.RequirePermission(permissions.New(pool), "marriage", "edit"), adminH.Marriage); code != http.StatusOK {
+		t.Fatalf("admin status returned %d: %v", code, body)
 	}
 
 	var stamped bool

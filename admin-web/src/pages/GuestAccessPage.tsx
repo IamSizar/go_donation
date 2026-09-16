@@ -31,11 +31,15 @@ export default function GuestAccessPage() {
   const toast = useToast()
   const [screens, setScreens] = useState<string[]>([])
   const [config, setConfig] = useState<Record<string, boolean>>({})
-  const [loading, setLoading] = useState(true)
+  // `loading` is derived from whether the one fetch this page makes has come
+  // back, so nothing has to be set from inside the effect: a non-super admin
+  // never fetches and is therefore never loading.
+  const [loaded, setLoaded] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [saving, setSaving] = useState<string | null>(null)
 
   const amSuper = isSuperAdmin(user)
+  const loading = amSuper && !loaded
 
   const verifyPin = async () => {
     const pin = await askForText({
@@ -49,9 +53,8 @@ export default function GuestAccessPage() {
   }
 
   useEffect(() => {
-    if (!amSuper) { setLoading(false); return }
+    if (!amSuper) return
     let cancelled = false
-    setLoading(true)
     api
       .get<Resp>('/api/admin/guest_settings')
       .then((res) => {
@@ -61,7 +64,7 @@ export default function GuestAccessPage() {
         setErr(null)
       })
       .catch((e) => { if (!cancelled) setErr(describeError(e)) })
-      .finally(() => { if (!cancelled) setLoading(false) })
+      .finally(() => { if (!cancelled) setLoaded(true) })
     return () => { cancelled = true }
   }, [amSuper])
 

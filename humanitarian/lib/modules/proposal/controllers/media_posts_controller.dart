@@ -12,6 +12,13 @@ class MediaPostsController extends GetxController {
   /// so `Get.find<MediaPostsController>()` — the untagged lookup the News &
   /// Activities screen does — cannot pick it up and silently inherit the
   /// narrower feed.
+  ///
+  /// Filtered feeds reach the server through here, not through
+  /// [ModuleApi.mediaPosts]: every page load hands this to
+  /// [ModuleApi.mediaPostsPage]. The Events hub's news feed ('activity,news')
+  /// set it until PR #76 (commit 33d6891, OPOS #25858) removed that feed. A
+  /// marriage-specific feed (OPOS #25862) would set it here, and pass this
+  /// instance to `MediaPostCard(controller:)`.
   MediaPostsController({this.postType});
 
   final String? postType;

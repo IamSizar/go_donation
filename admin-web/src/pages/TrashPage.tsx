@@ -160,6 +160,10 @@ export default function TrashPage() {
     }
   }, [])
 
+  // `load` only calls setState after awaiting the request, so nothing here is
+  // synchronous and no cascading render happens. The rule reports it anyway
+  // because it steps into a useCallback without modelling the await.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { if (allowed) void load() }, [allowed, load])
 
   // Note #26 — used to restore with a single click and no confirmation, so

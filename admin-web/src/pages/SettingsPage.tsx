@@ -40,7 +40,11 @@ export default function SettingsPage() {
   const toast = useToast()
   const amSuper = isSuperAdmin(user)
 
-  const [loading, setLoading] = useState(true)
+  // `loading` is derived from whether the one batch of fetches below has come
+  // back, so nothing has to be set from inside the effect: a non-super admin
+  // never fetches and is therefore never loading.
+  const [loaded, setLoaded] = useState(false)
+  const loading = amSuper && !loaded
   const [err, setErr] = useState<string | null>(null)
 
   const [whatsapp, setWhatsapp] = useState('')
@@ -66,9 +70,8 @@ export default function SettingsPage() {
   const [assistantStats, setAssistantStats] = useState<AssistantStats | null>(null)
 
   useEffect(() => {
-    if (!amSuper) { setLoading(false); return }
+    if (!amSuper) return
     let cancelled = false
-    setLoading(true)
     Promise.all([
       api.get<{ number: string }>('/api/admin/settings/support-whatsapp'),
       api.get<{ number: string }>('/api/admin/settings/fib-number'),
@@ -93,7 +96,7 @@ export default function SettingsPage() {
         setErr(null)
       })
       .catch((e) => { if (!cancelled) setErr(describeError(e)) })
-      .finally(() => { if (!cancelled) setLoading(false) })
+      .finally(() => { if (!cancelled) setLoaded(true) })
     return () => { cancelled = true }
   }, [amSuper])
 

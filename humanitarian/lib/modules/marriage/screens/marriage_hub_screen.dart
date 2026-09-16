@@ -1,9 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
-import 'package:flutter_application_1/core/widgets/app_screen.dart';
-import 'package:flutter_application_1/core/widgets/app_states.dart';
-import 'package:flutter_application_1/modules/proposal/controllers/media_posts_controller.dart';
-import 'package:flutter_application_1/modules/proposal/screens/news_activities_screen.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 
@@ -35,115 +31,58 @@ import '../widgets/event_hub_cards.dart';
 /// support chat) and stays in the Events-section grid — do not confuse the
 /// two when re-adding an about/contact entry in the future.
 ///
-/// THE FEED BELOW THE GRID
-/// The owner asked for the activity posts and news published from the admin
-/// panel to appear on this screen, under the two cards. Both are `media_posts`
-/// rows, so the feed is `GET /api/media?type=activity,news` — the server-side
-/// filter, not a client-side one: the endpoint caps its result at 50 rows, so
-/// fetching the general feed and dropping the other types here would hide
-/// older activity posts behind newer articles and videos that never render.
+/// OPOS #25858 — the general humanitarian news/activities feed that used to
+/// render below the grid (`GET /api/media?type=activity,news`, the same
+/// `media_posts` rows the general News & Activities screen shows) was removed
+/// entirely: it mixed humanitarian-work posts into the Marriage section,
+/// which the client flagged as a leak. The actual Marriage feed is unaffected
+/// — it's the approved profile listings in `marriage_posts_screen.dart`, which
+/// never touched `media_posts` in the first place. A marriage-specific
+/// staff-authored news feed is tracked separately (OPOS #25862) pending its
+/// own scoping — do not re-add this general feed as a stand-in for that.
 class MarriageHubScreen extends StatelessWidget {
   const MarriageHubScreen({super.key});
 
-  /// GetX tag for this screen's [MediaPostsController].
-  ///
-  /// The instance is type-filtered, and `Get.find<MediaPostsController>()` with
-  /// no tag — what NewsActivitiesScreen does — must never resolve to it, or the
-  /// full News & Activities feed would silently narrow to these two types.
-  static const _feedTag = 'events-hub-feed';
-
-  /// The post types the admin panel publishes that belong on the Events hub.
-  /// Sent verbatim as `?type=`, which accepts a comma-separated list.
-  static const _feedTypes = 'activity,news';
-
   @override
   Widget build(BuildContext context) {
-    final feed = Get.isRegistered<MediaPostsController>(tag: _feedTag)
-        ? Get.find<MediaPostsController>(tag: _feedTag)
-        : Get.put(
-            MediaPostsController(postType: _feedTypes),
-            tag: _feedTag,
-          );
-
     // Title moved to the persistent top bar (dashboard_screen.dart).
     return SectionScaffold(
       title: '',
       subtitle: '',
-      child: RefreshIndicator(
-        onRefresh: feed.fetchPosts,
-        child: ListView(
-          // Scaffold already reserves space above the bottom nav bar — this
-          // only needs a small resting margin, not extra clearance for it.
-          padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
-          children: [
-            CardGrid(
-              children: [
-                StaggeredEntrance(
-                  index: 0,
-                  child: EventHubCard(
-                    heroTag: 'events-hub-services',
-                    icon: Icons.celebration_outlined,
-                    color: AppThemeConfig.accent(context),
-                    title: 'Event services',
-                    subtitle:
-                        'Book halls, photographers, and everything your event needs',
-                    onTap: () => Get.to(() => const EventServicesGroupScreen()),
-                  ),
-                ),
-                StaggeredEntrance(
-                  index: 1,
-                  child: EventHubCard(
-                    heroTag: 'events-hub-section',
-                    icon: Icons.groups_outlined,
-                    color: AppThemeConfig.accent(context),
-                    title: 'Events section',
-                    subtitle:
-                        'Profiles, posts, and support for the events community',
-                    onTap: () => Get.to(() => const EventsSectionGroupScreen()),
-                  ),
-                ),
-              ],
-            ),
-            // "See all" opens the full News & Activities screen — this feed is
-            // a preview capped by the endpoint, so a post that falls off the
-            // end still has a reachable home.
-            AppSectionHeader(
-              label: 'News and activities',
-              action: 'See all',
-              onActionTap: () => Get.to(() => const NewsActivitiesScreen()),
-            ),
-            Obx(
-              () => AppAsync<List<Map<String, dynamic>>>(
-                loading: feed.isLoading.value,
-                error: feed.errorMessage.value,
-                onRetry: feed.fetchPosts,
-                data: feed.posts.toList(growable: false),
-                isEmpty: (list) => list.isEmpty,
-                empty: const AppEmpty(
-                  title: 'News and activities',
-                  message: 'No published posts are available yet.',
-                ),
-                builder: (list) => Column(
-                  children: [
-                    for (final item in list) ...[
-                      const SizedBox(height: 14),
-                      MediaPostCard(
-                        item: item,
-                        // Without this the engagement bar would refresh the
-                        // untagged controller instead of this one, and like /
-                        // save would silently do nothing on screen.
-                        controller: feed,
-                        categoryLabel: feed.categoryLabelForSlug(
-                          (item['category_slug'] ?? '').toString(),
-                        ),
-                      ),
-                    ],
-                  ],
+      child: ListView(
+        // Scaffold already reserves space above the bottom nav bar — this
+        // only needs a small resting margin, not extra clearance for it.
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+        children: [
+          CardGrid(
+            children: [
+              StaggeredEntrance(
+                index: 0,
+                child: EventHubCard(
+                  heroTag: 'events-hub-services',
+                  icon: Icons.celebration_outlined,
+                  color: AppThemeConfig.accent(context),
+                  title: 'Event services',
+                  subtitle:
+                      'Book halls, photographers, and everything your event needs',
+                  onTap: () => Get.to(() => const EventServicesGroupScreen()),
                 ),
               ),
-            ),
-          ],
-        ),
+              StaggeredEntrance(
+                index: 1,
+                child: EventHubCard(
+                  heroTag: 'events-hub-section',
+                  icon: Icons.groups_outlined,
+                  color: AppThemeConfig.accent(context),
+                  title: 'Events section',
+                  subtitle:
+                      'Profiles, posts, and support for the events community',
+                  onTap: () => Get.to(() => const EventsSectionGroupScreen()),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

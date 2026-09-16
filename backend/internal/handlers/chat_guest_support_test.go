@@ -71,15 +71,19 @@ func configureSupportUser(t *testing.T, pool *pgxpool.Pool, userID int64) {
 }
 
 // newGuestChatRouter wires the guest-reachable chat routes exactly as main.go
-// does — including the gates, because the gates ARE what is under test.
+// does — the authed group's RequireBearer + RequireApproved, then each route's
+// RequireNotGuest — because the gates ARE what is under test. A guest is
+// created approved, so RequireApproved lets it through and the refusal comes
+// from RequireNotGuest, as it does in production.
 func newGuestChatRouter(pool *pgxpool.Pool) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	h := NewChatHandler(chat.New(pool), notify.New(pool), pool)
 	bearer := auth.RequireBearer(auth.NewTokenStore(pool))
+	approved := auth.RequireApproved()
 	r := gin.New()
-	r.POST("/api/chats/support", bearer, auth.RequireNotGuest(), h.SupportThread)
-	r.POST("/api/chats/request", bearer, auth.RequireNotGuest(), h.Request)
-	r.POST("/api/chats/:id/messages", bearer, auth.RequireNotGuest(), h.PostMessage)
+	r.POST("/api/chats/support", bearer, approved, auth.RequireNotGuest(), h.SupportThread)
+	r.POST("/api/chats/request", bearer, approved, auth.RequireNotGuest(), h.Request)
+	r.POST("/api/chats/:id/messages", bearer, approved, auth.RequireNotGuest(), h.PostMessage)
 	return r
 }
 

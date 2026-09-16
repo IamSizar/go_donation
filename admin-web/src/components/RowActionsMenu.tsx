@@ -1,5 +1,5 @@
 import ActionsMenu, { type ActionItem } from './ActionsMenu'
-import { useRowDeleteLabel } from './RowDeleteButton'
+import { useRowDeleteLabel } from './useRowDeleteLabel'
 import { useI18n } from '../lib/i18n'
 
 // The View / Edit / Delete trio that nearly every table row carries, as one

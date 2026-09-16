@@ -168,6 +168,10 @@ export default function VolunteerBoardPage() {
 
   useEffect(() => {
     const ac = new AbortController()
+    // `fetchBoard` only calls setState after awaiting the request, so nothing
+    // here is synchronous and no cascading render happens. The rule reports it
+    // anyway because it steps into a useCallback without modelling the await.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void fetchBoard(ac.signal)
     const id = window.setInterval(() => fetchBoard(), POLL_MS)
     return () => {
@@ -398,32 +402,26 @@ function SignupCard({
   )
 }
 
-// CaseLinkControl — pairs this specific volunteer's signup with a specific
-// beneficiary case (migration 060). Foundation for the future
-// Staff↔Volunteer↔Beneficiary chat: most signups (generic missions) leave
-// this blank; only case-specific missions (e.g. a home visit) link one.
-// CheckinEvidence — Note #37: the volunteer's own GPS + live-photo proof
-// from check-in (arrival) and/or check-out (departure), shown so staff are
-// actually verifying something before confirming a completion request
-// rather than taking the volunteer's word for it.
-function CheckinEvidence({ signup }: { signup: AdminBoardSignup }) {
-  const { t } = useI18n()
-  // The photo opens IN PLACE. It used to be an <a target="_blank">, which threw
-  // the operator into a bare tab holding nothing but an image — no close
-  // control, no dashboard, and in an embedded browser view no tab chrome to
-  // escape with either. It also broke the photo's one job: verifying a
-  // completion request means seeing the picture and the row together.
-  const [viewing, setViewing] = useState<{ src: string; label: string } | null>(null)
-  const hasCheckin = signup.checkin_photo_path || (signup.checkin_lat != null && signup.checkin_lng != null)
-  const hasCheckout = signup.checkout_photo_path || (signup.checkout_lat != null && signup.checkout_lng != null)
-  if (!hasCheckin && !hasCheckout) return null
-
-  const Evidence = ({ label, photo, lat, lng, at }: { label: string; photo: string | null; lat: number | null; lng: number | null; at: string | null }) => (
+// EvidenceRow — one check-in or check-out proof line (photo thumbnail, label,
+// timestamp, map pin). Declared at module scope, not inside CheckinEvidence:
+// a component created during render is a brand-new type on every render, so
+// React would remount it and reset its state each time (react-hooks/
+// static-components). Opening the viewer is passed in as `onView` instead of
+// closed over.
+function EvidenceRow({ label, photo, lat, lng, at, onView }: {
+  label: string
+  photo: string | null
+  lat: number | null
+  lng: number | null
+  at: string | null
+  onView: (v: { src: string; label: string }) => void
+}) {
+  return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
       {photo && (
         <button
           type="button"
-          onClick={() => setViewing({ src: assetUrl(photo), label })}
+          onClick={() => onView({ src: assetUrl(photo), label })}
           aria-label={label}
           style={{ padding: 0, border: 'none', background: 'none', cursor: 'pointer', lineHeight: 0 }}
         >
@@ -454,14 +452,36 @@ function CheckinEvidence({ signup }: { signup: AdminBoardSignup }) {
       </div>
     </div>
   )
+}
+
+
+// CaseLinkControl — pairs this specific volunteer's signup with a specific
+// beneficiary case (migration 060). Foundation for the future
+// Staff↔Volunteer↔Beneficiary chat: most signups (generic missions) leave
+// this blank; only case-specific missions (e.g. a home visit) link one.
+// CheckinEvidence — Note #37: the volunteer's own GPS + live-photo proof
+// from check-in (arrival) and/or check-out (departure), shown so staff are
+// actually verifying something before confirming a completion request
+// rather than taking the volunteer's word for it.
+function CheckinEvidence({ signup }: { signup: AdminBoardSignup }) {
+  const { t } = useI18n()
+  // The photo opens IN PLACE. It used to be an <a target="_blank">, which threw
+  // the operator into a bare tab holding nothing but an image — no close
+  // control, no dashboard, and in an embedded browser view no tab chrome to
+  // escape with either. It also broke the photo's one job: verifying a
+  // completion request means seeing the picture and the row together.
+  const [viewing, setViewing] = useState<{ src: string; label: string } | null>(null)
+  const hasCheckin = signup.checkin_photo_path || (signup.checkin_lat != null && signup.checkin_lng != null)
+  const hasCheckout = signup.checkout_photo_path || (signup.checkout_lat != null && signup.checkout_lng != null)
+  if (!hasCheckin && !hasCheckout) return null
 
   return (
     <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
       {hasCheckin && (
-        <Evidence label={t('board.checkin_evidence')} photo={signup.checkin_photo_path} lat={signup.checkin_lat} lng={signup.checkin_lng} at={signup.checked_in_at} />
+        <EvidenceRow label={t('board.checkin_evidence')} photo={signup.checkin_photo_path} lat={signup.checkin_lat} lng={signup.checkin_lng} at={signup.checked_in_at} onView={setViewing} />
       )}
       {hasCheckout && (
-        <Evidence label={t('board.checkout_evidence')} photo={signup.checkout_photo_path} lat={signup.checkout_lat} lng={signup.checkout_lng} at={signup.completion_requested_at ?? signup.completed_at} />
+        <EvidenceRow label={t('board.checkout_evidence')} photo={signup.checkout_photo_path} lat={signup.checkout_lat} lng={signup.checkout_lng} at={signup.completion_requested_at ?? signup.completed_at} onView={setViewing} />
       )}
       {viewing && (
         <PhotoViewer src={viewing.src} label={viewing.label} onClose={() => setViewing(null)} />

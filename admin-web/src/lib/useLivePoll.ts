@@ -41,8 +41,17 @@ export function useLivePoll(
 
   // Stash the latest tick in a ref so we don't have to rebuild the
   // interval every time the consuming component re-renders.
+  //
+  // The assignment happens in an effect, not during render: a ref written
+  // during render is a side effect React is allowed to discard or replay
+  // (react-hooks/refs). Nothing reads tickRef during render either — only
+  // the interval and the visibility listener do, both of which run after
+  // commit — so an effect is the correct place and the behaviour is the
+  // same: by the time any tick fires, the ref holds the latest closure.
   const tickRef = useRef(tick)
-  tickRef.current = tick
+  useEffect(() => {
+    tickRef.current = tick
+  }, [tick])
 
   useEffect(() => {
     if (!enabled) return
