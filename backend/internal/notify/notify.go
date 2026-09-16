@@ -1,8 +1,10 @@
 // Package notify is the central notification helper for the Go backend.
 //
 // It mirrors module_notify_user() in percentage/api/_module_helpers.php:
-// it inserts a row into app_notifications (deduped by user+title+body+type)
-// and resolves a category + priority based on the notification type string.
+// it inserts a row into app_notifications and resolves a category + priority
+// based on the notification type string. The PHP helper's duplicate check came
+// with it, narrowed since to the same related entity inside dedupeWindow and
+// dropped entirely for conversations — see the dedupe block in Send.
 //
 // FCM push delivery is intentionally a no-op stub here — the PHP API also
 // only writes to the DB; the admin panel sends pushes out-of-band. When/if
@@ -74,9 +76,17 @@ type LocalizedMessage struct {
 	ActionURL         string
 }
 
+// dedupeWindow is how long one notification shadows an identical one about the
+// same entity for the same user. Long enough to swallow a double-clicked admin
+// action or a retried request — which is the only thing the dedupe was ever
+// protecting against — and far too short to mute a conversation (OPOS #26481).
+const dedupeWindow = 2 * time.Minute
+
 // Send writes one row to app_notifications with all 4 language columns
-// populated, then fires a best-effort FCM push. Returns 0 if a duplicate
-// (same user + EN title + EN body + type) already exists.
+// populated, then fires a best-effort FCM push. Returns 0 if the send was
+// suppressed: by the user's notification switches, or as a duplicate of a
+// notification about the same entity sent within dedupeWindow (conversation
+// types are never deduped — see the dedupe block below).
 //
 // This is the preferred API. NotifyUser remains as a thin back-compat
 // wrapper for old EN+AR callsites.
@@ -122,23 +132,8 @@ func (n *Notifier) Send(ctx context.Context, userID int64, m LocalizedMessage) (
 		}
 	}
 
-	// Dedupe: same user + EN title + EN body + type. Matches the PHP
-	// helper's behavior so re-running an admin action doesn't double-fire.
-	var existing int64
-	err := n.Pool.QueryRow(ctx,
-		`SELECT id FROM app_notifications
-		  WHERE user_id = $1 AND title = $2 AND body = $3 AND notification_type = $4
-		  LIMIT 1`,
-		userID, m.Title.En, m.Body.En, m.Type,
-	).Scan(&existing)
-	if err == nil {
-		return 0, nil
-	}
-	if !errors.Is(err, pgx.ErrNoRows) {
-		return 0, err
-	}
-
 	// Optional pointer-to-nil args so NULL is stored when fields aren't set.
+	// Built before the dedupe below, which keys on the related entity too.
 	var actionArg, retArg any
 	if m.ActionURL != "" {
 		actionArg = m.ActionURL
@@ -149,6 +144,49 @@ func (n *Notifier) Send(ctx context.Context, userID int64, m LocalizedMessage) (
 	var reIDArg any
 	if m.RelatedEntityID > 0 {
 		reIDArg = m.RelatedEntityID
+	}
+
+	// OPOS #26481 — the dedupe.
+	//
+	// What it is for: the PHP helper this mirrors exists so re-running an admin
+	// action does not double-fire. That is a burst — an operator double-clicking
+	// Approve, a retried request — seconds apart, about the same record.
+	//
+	// What it used to do instead: suppress ANY notification whose user, EN
+	// title, EN body and type matched a row that already existed, with no time
+	// limit and no reference to WHICH record it was about. Conversation
+	// templates repeat their words by design, so the first message of a chat
+	// pushed and every later one was dropped for the life of the account. That
+	// is what the client hit: several staff replies in a marriage chat, no push.
+	//
+	// What it does now:
+	//   - Conversation types are exempt (isConversationType). Each of those is
+	//     sent once per row that was just inserted into its own messages table,
+	//     so a repeat is a real second message and never a retry artefact —
+	//     there is nothing here to protect against, and plenty to lose.
+	//   - Every other type is still deduped, now narrowed twice: to the same
+	//     related entity, so two separate donations that happen to read alike
+	//     both arrive; and to dedupeWindow, so a status set back and forth an
+	//     hour later is heard while the double-click is still swallowed.
+	//
+	// created_at is a plain TIMESTAMP defaulted from CURRENT_TIMESTAMP, so the
+	// comparison uses LOCALTIMESTAMP — the same clock, no timezone cast.
+	if !isConversationType(m.Type) {
+		var existing int64
+		err := n.Pool.QueryRow(ctx,
+			`SELECT id FROM app_notifications
+			  WHERE user_id = $1 AND title = $2 AND body = $3 AND notification_type = $4
+			    AND related_entity_id IS NOT DISTINCT FROM $5
+			    AND created_at >= LOCALTIMESTAMP - make_interval(secs => $6)
+			  LIMIT 1`,
+			userID, m.Title.En, m.Body.En, m.Type, reIDArg, dedupeWindow.Seconds(),
+		).Scan(&existing)
+		if err == nil {
+			return 0, nil
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return 0, err
+		}
 	}
 
 	// nilIfEmpty keeps NULLs out of the optional language columns so the
@@ -162,7 +200,7 @@ func (n *Notifier) Send(ctx context.Context, userID int64, m LocalizedMessage) (
 	}
 
 	var id int64
-	err = n.Pool.QueryRow(ctx,
+	err := n.Pool.QueryRow(ctx,
 		`INSERT INTO app_notifications
 		   (user_id,
 		    title,        title_ar,        title_sorani,        title_badini,

@@ -57,6 +57,18 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_color"
             android:resource="@color/notification_color" />
+        <!-- The channel the FCM SDK posts to when a message carries no
+             channel_id of its own. Android 8+ posts every notification to a
+             channel, and the channel decides whether the phone shows a
+             heads-up banner at all; without this the SDK falls back to its own
+             "Miscellaneous" channel, whose importance the app cannot raise.
+             MainActivity creates this channel (IMPORTANCE_HIGH) at launch, and
+             the backend names the same id in its payload — see
+             AndroidChannelID in backend/internal/notify/fcm.go. All three
+             spellings must match. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="@string/default_notification_channel_id" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/auth_session.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/push_registration.dart';
+import 'package:flutter_application_1/core/push_tap_router.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/localization/app_translations.dart';
 import 'package:flutter_application_1/localization/locale_service.dart';
@@ -72,23 +73,39 @@ Future<void> main() async {
   // Android, but on iOS the user-facing prompt only includes the types
   // you ask for. Without these the system shows a stripped-down prompt
   // and may not grant banner/sound — silently dropping later pushes.
-  final settings = await FirebaseMessaging.instance.requestPermission(
-    alert: true,
-    badge: true,
-    sound: true,
-    provisional: false,
-  );
-  debugPrint('[push] permission status: ${settings.authorizationStatus}');
+  //
+  // On Android 13+ this same call is what requests the POST_NOTIFICATIONS
+  // runtime permission (the manifest only declares it). Until the user grants
+  // it, Android drops every notification silently — no error anywhere.
+  //
+  // Wrapped: this runs before runApp(), so an exception here — the plugin
+  // raises one when it cannot find the current Activity, and a permission
+  // request already in flight is also an error — would abort main() and leave
+  // the user staring at the native splash screen. Push setup failing must
+  // never cost the app its launch; the permission can be granted later from
+  // system settings, and the rest of startup still runs.
+  try {
+    final settings = await FirebaseMessaging.instance.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+      provisional: false,
+    );
+    debugPrint('[push] permission status: ${settings.authorizationStatus}');
 
-  // iOS-only: tell the system to display foreground notifications as
-  // banner/list/sound. Without this, an incoming push while the app is
-  // open is delivered to onMessage but the OS does NOT show any UI —
-  // which is what makes admins think "nothing happened".
-  await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
-    alert: true,
-    badge: true,
-    sound: true,
-  );
+    // iOS-only: tell the system to display foreground notifications as
+    // banner/list/sound. Without this, an incoming push while the app is
+    // open is delivered to onMessage but the OS does NOT show any UI —
+    // which is what makes admins think "nothing happened".
+    await FirebaseMessaging.instance
+        .setForegroundNotificationPresentationOptions(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+  } catch (e) {
+    debugPrint('[push] permission/presentation setup failed: $e');
+  }
 
   // Print the FCM token (NOT the APNs token — they're different strings).
   // Admins paste this into the /push admin form.
@@ -110,12 +127,14 @@ Future<void> main() async {
     );
   });
 
-  // Tapping a notification when the app is in the background or terminated.
-  FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-    debugPrint(
-      '[push] opened from notification: ${message.notification?.title}',
-    );
-  });
+  // Tapping a notification, from the background AND from a killed app.
+  //
+  // This used to be an onMessageOpenedApp listener that printed a line and
+  // navigated nowhere — the client's report: "tapping a notification doesn't
+  // open what it's about". PushTapRouter wires both tap paths (the stream
+  // here, and getInitialMessage() for the tap that launches the process) to
+  // one decision, so a tap lands on the thing the notification is about.
+  PushTapRouter.wire();
 
   await initializeAppState();
   // Loads the persisted access token into memory from the OS-encrypted

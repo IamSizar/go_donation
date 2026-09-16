@@ -50,6 +50,15 @@ func (h *ChatGroupHandler) bg() (context.Context, context.CancelFunc) {
 // explanation on this value, so it is a contract: never reword it.
 const guestMemberNotAllowedCode = "guest_member_not_allowed"
 
+// teamMemberRoleNotAllowedCode is the machine-readable code on the 400 an
+// admin route returns when staff put a donor or beneficiary account into a
+// kind='team' group (chatgroups.ErrTeamMemberRole, Zaid's decision
+// 2026-09-16). A team group serves real names, so it is for volunteers and
+// staff only; a donor or beneficiary belongs in a masked group. The admin
+// dashboard keys its explanation on this value, so it is a contract: never
+// reword it.
+const teamMemberRoleNotAllowedCode = "team_member_role_not_allowed"
+
 // errConnectRequestNotFound marks a chatgroups.ErrNotFound that came from a
 // connect-request lookup. The store uses one ErrNotFound for groups, members
 // and connect requests alike, so the admin connect-request handlers wrap it
@@ -86,6 +95,7 @@ var chatErrResponses = []chatErrResponse{
 	{chatgroups.ErrMemberConflict, http.StatusConflict, "This person is already a member of this group.", "group_member_conflict"},
 	{chatgroups.ErrLabelConflict, http.StatusConflict, "Another member of this group already has this label.", "group_label_conflict"},
 	{chatgroups.ErrGuestMember, http.StatusBadRequest, "Guest accounts cannot be added to a chat group.", guestMemberNotAllowedCode},
+	{chatgroups.ErrTeamMemberRole, http.StatusBadRequest, "A team group can only include volunteers and staff.", teamMemberRoleNotAllowedCode},
 	{chatgroups.ErrLabelContact, http.StatusBadRequest, "A member label cannot contain a phone number or email address.", "group_label_contact"},
 	{chatgroups.ErrInvalidInput, http.StatusBadRequest, "Invalid request.", "group_invalid_input"},
 	{chatgroups.ErrUnknownContext, http.StatusBadRequest, "We couldn't find that case or donation.", "connect_context_not_found"},

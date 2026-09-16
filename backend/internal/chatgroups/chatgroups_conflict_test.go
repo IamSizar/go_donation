@@ -229,15 +229,18 @@ func TestAddMemberRefusesActiveMember(t *testing.T) {
 	for _, kind := range []Kind{KindMasked, KindTeam} {
 		t.Run(string(kind), func(t *testing.T) {
 			staff := makeTestUser(t, pool, "staff")
-			donor := makeTestUser(t, pool, "donor")
+			// A VOLUNTEER account, so the one member suits both kinds: a team
+			// group takes only volunteers and staff (ErrTeamMemberRole), and a
+			// masked group takes anyone.
+			member := makeTestUser(t, pool, "volunteer")
 			groupID := createConflictGroup(t, s, conflictGroup{kind: kind, staffID: staff,
-				members: []MemberInput{{UserID: donor, RoleInGroup: "donor"}}})
+				members: []MemberInput{{UserID: member, RoleInGroup: "volunteer"}}})
 			before, err := s.GetGroup(ctx, groupID)
 			if err != nil {
 				t.Fatalf("GetGroup before: %v", err)
 			}
 
-			err = s.AddMember(ctx, groupID, MemberInput{UserID: donor, RoleInGroup: "volunteer", Label: "Someone Else"}, staff)
+			err = s.AddMember(ctx, groupID, MemberInput{UserID: member, RoleInGroup: "volunteer", Label: "Someone Else"}, staff)
 
 			if !errors.Is(err, ErrMemberConflict) {
 				t.Fatalf("AddMember for an active member = %v, want errors.Is(err, ErrMemberConflict)", err)
@@ -284,7 +287,11 @@ func TestCreateGroupRefusesDuplicateMembers(t *testing.T) {
 	for _, tc := range duplicateMembersCases {
 		t.Run(tc.name, func(t *testing.T) {
 			staff := makeTestUser(t, pool, "staff")
-			first := makeTestUser(t, pool, "donor")
+			// A volunteer account: one of these cases builds a TEAM group,
+			// which takes only volunteers and staff. The RoleInGroup strings
+			// the cases pass are unaffected — they are free text and decide
+			// nothing.
+			first := makeTestUser(t, pool, "volunteer")
 			second := makeTestUser(t, pool, "beneficiary")
 			mark := takeWriteWatermark(t, pool)
 
@@ -313,7 +320,7 @@ func TestApproveConnectRequestRefusesDuplicateMembers(t *testing.T) {
 	for _, tc := range duplicateMembersCases {
 		t.Run(tc.name, func(t *testing.T) {
 			staff := makeTestUser(t, pool, "staff")
-			requester := makeTestUser(t, pool, "donor")
+			requester := makeTestUser(t, pool, "volunteer") // see duplicateMembersCases: one case is a team group
 			second := makeTestUser(t, pool, "beneficiary")
 			reqID, err := s.SubmitConnectRequest(ctx, requester, "donation", 1, nil, "please connect me")
 			if err != nil {

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android resource strings. The app's own UI copy lives in Flutter's
+  localization files (lib/localization); this file holds only the few strings
+  the ANDROID PLATFORM needs before any Dart runs — currently the notification
+  channel, which MainActivity creates at launch and the FCM SDK names as the
+  default for any message that arrives without an explicit channel.
+
+  The channel id is not user-facing and must never be translated: it has to
+  match AndroidChannelID in backend/internal/notify/fcm.go exactly. The name
+  and description ARE user-facing — they appear in Settings → Notifications —
+  and are translated in values-ar/strings.xml.
+-->
+<resources>
+    <string name="default_notification_channel_id" translatable="false">balancenex_high_importance</string>
+    <string name="default_notification_channel_name">Messages and updates</string>
+    <string name="default_notification_channel_description">Chat messages, request updates and announcements from BalanceNex.</string>
+</resources>

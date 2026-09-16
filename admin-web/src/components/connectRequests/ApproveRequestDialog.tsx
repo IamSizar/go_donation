@@ -10,8 +10,11 @@
  *       └── MemberRowsEditor  (6a; the D2 guidance card without users:view)
  *
  * DATA FLOW
- * The draft starts with the requester in member row 1 (approveDraftFor),
- * because ApproveConnectRequest refuses a body without them. Every change
+ * The draft starts with the requester in member row 1 and, when the request
+ * has one, the other party in row 2 (approveDraftFor). Row 1 is required —
+ * ApproveConnectRequest refuses a non-empty body without the requester — while
+ * row 2 is removable: the server adds the other party itself on approve, so
+ * removing it here cannot leave the group one-sided. Every change
  * re-runs 6a's validateGroupDraft plus requesterIssue; Approve stays disabled
  * until both pass, and the requester rule is shown whenever it is broken.
  *

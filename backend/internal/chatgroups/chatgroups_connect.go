@@ -117,6 +117,20 @@ func (s *Store) SubmitConnectRequest(ctx context.Context, requesterID int64, con
 // ONE transaction — there is never an "approved, no group yet" state. Fails
 // if the request is not currently pending.
 //
+// The final member list is connectGroupMembers': `members` as the caller sent
+// it, plus the requester when it was EMPTY, plus the other party the context
+// belongs to (the case's owner, or the owner of the campaign the donation went
+// to) whenever one resolves and is not already listed. Both additions happen
+// inside this transaction, so an approval either opens a complete group or
+// leaves the request pending. See chatgroups_connect_party.go for the rules
+// and the bug behind them.
+//
+// A team group takes only volunteers and staff (#137), and that rule is
+// applied to the auto-added other party like any other member: an owner who is
+// a donor or beneficiary account fails the approval with ErrTeamMemberRole
+// rather than being silently dropped, which would recreate the one-member
+// group this exists to prevent.
+//
 // Members go through insertMembers, so a guest account anywhere in members
 // fails the whole approval with ErrGuestMember and leaves the request pending
 // (OPOS #26355). That includes the requester, who must be a member: a pending
@@ -130,11 +144,12 @@ func (s *Store) ApproveConnectRequest(ctx context.Context, requestID int64, kind
 	}
 	defer tx.Rollback(ctx)
 
-	var status string
-	var requesterID int64
+	var status, contextType string
+	var requesterID, contextID int64
 	if err := tx.QueryRow(ctx,
-		`SELECT status, requester_user_id FROM chat_group_connect_requests WHERE id = $1 FOR UPDATE`, requestID,
-	).Scan(&status, &requesterID); err != nil {
+		`SELECT status, requester_user_id, context_type, context_id
+		   FROM chat_group_connect_requests WHERE id = $1 FOR UPDATE`, requestID,
+	).Scan(&status, &requesterID, &contextType, &contextID); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return 0, fmt.Errorf("chatgroups: connect request %d: %w", requestID, ErrNotFound)
 		}
@@ -146,15 +161,9 @@ func (s *Store) ApproveConnectRequest(ctx context.Context, requestID int64, kind
 	if kind != KindMasked && kind != KindTeam {
 		return 0, fmt.Errorf("chatgroups: kind %q: %w", kind, ErrInvalidInput)
 	}
-	requesterIncluded := false
-	for _, m := range members {
-		if m.UserID == requesterID {
-			requesterIncluded = true
-			break
-		}
-	}
-	if !requesterIncluded {
-		return 0, fmt.Errorf("chatgroups: approving connect request %d: requester %d not in members: %w", requestID, requesterID, ErrInvalidInput)
+	members, err = connectGroupMembers(ctx, tx, requestID, requesterID, contextType, contextID, members)
+	if err != nil {
+		return 0, err
 	}
 
 	title := memberTitle

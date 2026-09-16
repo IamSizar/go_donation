@@ -3,8 +3,9 @@
  *
  * Pins, through the real editor, UserPicker and i18n strings:
  *   - rows are added and removed, and removing one keeps the others' input;
- *   - the role select offers exactly donor, beneficiary, volunteer and staff,
- *     in the dashboard's own words for them;
+ *   - the role select offers exactly donor, beneficiary, volunteer and staff
+ *     for a masked group, in the dashboard's own words for them, and only
+ *     volunteer and staff for a team group, with one line saying why;
  *   - the label box exists only for a masked group;
  *   - staff without users:view get a guidance card instead of a search box
  *     they could not use (decision D2), and staff with it get the search box;
@@ -61,11 +62,11 @@ describe('MemberRowsEditor', () => {
     expect(labelBox(1)).toHaveValue('Second')
   }, 15_000)
 
-  it("offers exactly the four roles, in the dashboard's words for them", async () => {
+  it("offers exactly the four roles for a masked group, in the dashboard's words for them", async () => {
     // Arrange
     const user = userEvent.setup()
     servePermissions(mockApi())
-    renderWithProviders(<Harness kind="team" />)
+    renderWithProviders(<Harness kind="masked" />)
     const select = within(memberRow(1)).getByRole('combobox', { name: 'Role in the group' })
 
     // Act
@@ -76,6 +77,22 @@ describe('MemberRowsEditor', () => {
     expect(options.map((o) => o.value)).toEqual(['', 'donor', 'beneficiary', 'volunteer', 'staff'])
     expect(options.map((o) => o.textContent)).toEqual(['Choose a role', 'Grantor', 'Recipient', 'Volunteer', 'Staff'])
     expect(select).toHaveValue('staff')
+  })
+
+  it('offers only volunteer and staff for a team group, and says why', async () => {
+    // A team group shows real names, so the server refuses a grantor or a
+    // recipient in one. The form must not offer what would be refused.
+    // Arrange
+    servePermissions(mockApi())
+    renderWithProviders(<Harness kind="team" />)
+    const select = within(memberRow(1)).getByRole('combobox', { name: 'Role in the group' })
+
+    // Assert
+    const options = within(select).getAllByRole('option') as HTMLOptionElement[]
+    expect(options.map((o) => o.value)).toEqual(['', 'volunteer', 'staff'])
+    expect(
+      screen.getByText('A team group shows real names, so it is for volunteers and staff only.'),
+    ).toBeInTheDocument()
   })
 
   it('asks for a label in a masked group and not in a team group', () => {

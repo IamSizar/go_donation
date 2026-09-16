@@ -132,8 +132,11 @@ class MessagesScreen extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
       children: [
         // These three are standing entry points, not content: the bot,
-        // support chat and case chats are reachable whether or not the user
-        // has any threads, and whether or not the user is a guest. They were
+        // support chat and the support ticket form are reachable whether or
+        // not the user has any threads, and whether or not the user is a
+        // guest. (It used to say "case chats" — those were retired with the
+        // rest of the direct volunteer↔beneficiary messaging, OPOS #25284.)
+        // They were
         // previously duplicated across the empty branch and the content
         // branch, which is why the empty state had to re-list them. They now
         // live outside the async region and are written once.
@@ -214,10 +217,14 @@ class MessagesScreen extends StatelessWidget {
               onRetry: ctrl.fetchThreads,
               data: ctrl.threads,
               isEmpty: (list) => list.isEmpty,
-              empty: const AppEmpty(
-                title: 'No conversations yet',
-                message:
-                    'Start a chat from a donation (donor) or from your campaign donations (owner).',
+              // The old copy told the user to "start a chat from a donation" —
+              // a flow that no longer exists: members cannot open a chat with
+              // each other at all (OPOS #25284). What they do instead is ask
+              // our team, who open a supervised group. Localised keys, en +
+              // ar; Sorani and Badini fall back to English (#21431).
+              empty: AppEmpty(
+                title: 'chat_empty_title'.tr,
+                message: 'chat_empty_message'.tr,
               ),
               builder: (_) => Column(
                 children: [

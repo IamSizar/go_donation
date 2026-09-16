@@ -173,8 +173,28 @@ type SendResult struct {
 	Error       string `json:"error,omitempty"`
 }
 
+// AndroidChannelID is the id of the Android notification channel every push
+// from this backend is posted to.
+//
+// It MUST match the channel the app creates at startup
+// (humanitarian/android/app/src/main/kotlin/.../MainActivity.kt) and the
+// `com.google.firebase.messaging.default_notification_channel_id` meta-data in
+// the Android manifest. Naming a channel that does not exist is the same to
+// Android as naming none: the message is dropped into FCM's own fallback
+// channel, whose importance the app cannot raise, so the phone shows no
+// heads-up banner and makes no sound — which a user reports as "no
+// notifications arrive".
+//
+// Exported so the id has one greppable definition on the Go side rather than
+// a literal buried in the payload builder.
+const AndroidChannelID = "balancenex_high_importance"
+
 // sendOne sends a notification to a single device token.
-func (c *fcmClient) sendOne(ctx context.Context, token, title, body, imageURL string) SendResult {
+//
+// data is the routing payload (notification type, related entity, deep link).
+// FCM requires every data value to be a string; nil is fine.
+func (c *fcmClient) sendOne(ctx context.Context, token, title, body, imageURL string,
+	data map[string]string) SendResult {
 	r := SendResult{DeviceToken: token}
 	accessToken, err := c.accessTokenFor(ctx)
 	if err != nil {
@@ -182,6 +202,42 @@ func (c *fcmClient) sendOne(ctx context.Context, token, title, body, imageURL st
 		return r
 	}
 
+	buf, _ := json.Marshal(buildSendPayload(token, title, body, imageURL, data))
+	url := "https://fcm.googleapis.com/v1/projects/" + c.projectID + "/messages:send"
+
+	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(buf))
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		r.Error = err.Error()
+		return r
+	}
+	defer resp.Body.Close()
+	respBody, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		var ok struct {
+			Name string `json:"name"`
+		}
+		_ = json.Unmarshal(respBody, &ok)
+		r.OK = true
+		r.MessageName = ok.Name
+		return r
+	}
+	r.Error = fmt.Sprintf("HTTP %d: %s", resp.StatusCode, string(respBody))
+	return r
+}
+
+// buildSendPayload builds the FCM HTTP v1 `{"message": …}` body for one
+// device. Split out of sendOne so the payload shape can be asserted by a test
+// without a network round trip — the shape IS the behaviour here: get it wrong
+// and a phone shows nothing, with FCM still answering 200.
+//
+// It is a *notification* message (an alert block) carrying data alongside, not
+// a data-only message: a data-only message displays nothing by itself, and on
+// Android a backgrounded app would show nothing at all.
+func buildSendPayload(token, title, body, imageURL string, data map[string]string) map[string]any {
 	notif := map[string]any{"title": title, "body": body}
 	if imageURL != "" {
 		notif["image"] = imageURL
@@ -220,43 +276,49 @@ func (c *fcmClient) sendOne(ctx context.Context, token, title, body, imageURL st
 		apnsBlock["fcm_options"] = map[string]any{"image": imageURL}
 	}
 
-	payload := map[string]any{
-		"message": map[string]any{
-			"token":        token,
-			"notification": notif,
-			"android": map[string]any{
-				"priority": "high",
-				"notification": map[string]any{
-					"sound":         "default",
-					"default_sound": true,
-				},
-			},
-			"apns": apnsBlock,
+	// The Android block. Two things here are what make a backgrounded phone
+	// actually light up:
+	//
+	//   priority = "high"          → FCM wakes a dozing device instead of
+	//                                batching the message until the next
+	//                                maintenance window.
+	//   notification.channel_id    → Android 8+ posts EVERY notification to a
+	//                                channel. Naming one the app created with
+	//                                IMPORTANCE_HIGH is what produces the
+	//                                heads-up banner and the sound; leaving it
+	//                                out drops the message into FCM's fallback
+	//                                channel, whose importance we cannot set.
+	androidBlock := map[string]any{
+		"priority": "high",
+		"notification": map[string]any{
+			"sound":         "default",
+			"default_sound": true,
+			"channel_id":    AndroidChannelID,
 		},
 	}
-	buf, _ := json.Marshal(payload)
-	url := "https://fcm.googleapis.com/v1/projects/" + c.projectID + "/messages:send"
 
-	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(buf))
-	req.Header.Set("Authorization", "Bearer "+accessToken)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		r.Error = err.Error()
-		return r
+	message := map[string]any{
+		"token":        token,
+		"notification": notif,
+		"android":      androidBlock,
+		"apns":         apnsBlock,
 	}
-	defer resp.Body.Close()
-	respBody, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		var ok struct {
-			Name string `json:"name"`
+	// Data rides ALONGSIDE the notification block: the OS still draws the
+	// alert, and the app receives the routing keys when the user taps it.
+	if len(data) > 0 {
+		payloadData := make(map[string]any, len(data))
+		for k, v := range data {
+			// An unset field (no action_url, no related entity) would arrive on
+			// the phone as a present-but-empty key the app then has to
+			// distinguish from a real value. Dropping it keeps "absent" absent.
+			if v == "" {
+				continue
+			}
+			payloadData[k] = v
 		}
-		_ = json.Unmarshal(respBody, &ok)
-		r.OK = true
-		r.MessageName = ok.Name
-		return r
+		if len(payloadData) > 0 {
+			message["data"] = payloadData
+		}
 	}
-	r.Error = fmt.Sprintf("HTTP %d: %s", resp.StatusCode, string(respBody))
-	return r
+	return map[string]any{"message": message}
 }

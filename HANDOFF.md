@@ -115,6 +115,1238 @@ logged there.
    a one-line TS block such as `support: { title: '…', new: '…' }` needs the
    line broken open and a comma added before anything is appended inside it.
 
+## 2026-09-16 — every kind of notification pushes (branch `fix/every-notification-pushes`, NOT pushed)
+
+**Asked for:** the client's words are *"make sure all kind of notifications have
+push"*. He was testing live, sent several staff replies in a marriage chat from
+the dashboard, and no push arrived on either phone. OPOS #26481.
+
+**Branch** `fix/every-notification-pushes`, cut from `origin/main` `a186eb5`.
+NOT pushed. Nothing under `humanitarian/` (the Flutter app) or `admin-web/`
+touched.
+
+### What was actually wrong
+
+`notify.Notifier.Send` dropped a notification whenever a row with the same
+`(user_id, title, body, notification_type)` already existed — **no time limit
+and no reference to which record it was about**. The comment called it the PHP
+helper's protection against "re-running an admin action". In practice it meant:
+any notification whose wording repeats is delivered **once per user, ever**.
+
+Conversation templates repeat their wording by design.
+`MarriageChatNewMessageMsg` is the fixed sentence "You have a new message in
+your Marriage chat." — no sender, no preview, nothing that varies. So the first
+message of a marriage chat pushed and every later one was silently dropped, for
+the life of that account. That is exactly what the client hit. A chat group hits
+it whenever a preview repeats ("ok" twice). `MarketplaceOrderSubmittedMsg` has
+constant text too: a member's second order produced no notification at all.
+
+Everything else about the pipeline was sound: every one of the 68 templates has
+a live call site, and every call site goes through `Send`, which always reaches
+`sendPush`. There is no path in the backend that writes an in-app row without
+attempting a push (`INSERT INTO app_notifications` appears exactly once in the
+tree, in `Send`).
+
+### The audit — every notification type, with its call site
+
+Columns: **Send called?** — is a `Send`/`Broadcast*` actually made at the event.
+**Reaches sendPush?** — `Send` fires `sendPush` for every row it writes, so this
+is "yes" wherever a row is written. **Dedupe could swallow it (before this
+change)** — could a genuine repeat of that event be dropped. **Other gates** —
+the master/category switch applies to all of them; the guest rule (#26443) only
+to conversation types.
+
+| # | Template / `notification_type` | Call site | Send called? | Reaches sendPush? | Dedupe could swallow (before) | Other gates |
+|---|---|---|---|---|---|---|
+| 1 | `DonationSubmittedMsg` / donation_submitted | `internal/handlers/donations.go:273` | yes | yes | no — amount + campaign + donation id vary | category `payment` |
+| 2 | `WalletToppedUpMsg` / wallet_topup | `internal/handlers/wallet.go:126` | yes | yes | **yes** — same top-up amount landing on the same resulting balance (no entity id) | category `normal` |
+| 3 | `TaskAssignedMsg` / task_assigned | `internal/handlers/tasks.go:132` | yes | yes | **yes** — same task title re-assigned, forever (no entity id) | category `normal` |
+| 4 | `MarriageSubscriptionActivatedMsg` / marriage_subscription_activated | `internal/handlers/marriage_subscription.go:112`, `:263` | yes | yes | **yes** — renewal of the same package never announced again | category `normal` |
+| 5 | `MarriageSubscriptionPendingMsg` / marriage_subscription_pending | `marriage_subscription.go:123` | yes | yes | **yes** — second purchase of the same package | category `normal` |
+| 6 | `MarriageSubscriptionRejectedMsg` / marriage_subscription_rejected | `marriage_subscription.go:280` | yes | yes | **yes** — text is constant; a second rejection is silent | category `normal` |
+| 7 | `NewMarriageSubscriptionPendingAdminMsg` / marriage_subscription_pending_admin | `marriage_subscription.go:124` (BroadcastToStaff) | yes | yes | no — purchase id in the entity, package name in the text | category `normal` |
+| 8 | `SponsorshipSubmittedMsg` / sponsorship_submitted | `internal/handlers/extras.go:851` | yes | yes | no — id + amount vary | category `payment` |
+| 9 | `SponsorshipCancelledByDonorMsg` / sponsorship_cancelled | `admin_status_notify.go:270`, `extras.go:771` | yes | yes | no | category `payment` |
+| 10 | `InKindSubmittedMsg` / in_kind_donation_submitted | `extras.go:269` | yes | yes | **yes** — donating the same item twice (item name is the only variable) | category `payment` |
+| 11 | `MarketplaceOrderSubmittedMsg` / marketplace_order_submitted | `internal/handlers/marketplace.go:263` | yes | yes | **yes** — constant text, so only the FIRST order a user ever placed was announced | category `normal` |
+| 12 | `SupportSubmittedMsg` / support_request_submitted | `extras.go:114` | yes | yes | **yes** — two tickets with the same subject | category `urgent` |
+| 13 | `SupportRepliedMsg` / support_ticket_replied | `extras.go:188` | yes | yes | **yes** — every reply after the first on the same ticket (subject is the only variable) | category `urgent` |
+| 14 | `MarriageSubmittedMsg` / marriage_profile_submitted | `extras.go:633` | yes | yes | no — profile code varies | category `normal` |
+| 15 | `BeneficiaryCaseSubmittedMsg` / beneficiary_case_submitted | `beneficiary.go:155` | yes | yes | **yes** — two cases with the same title | category `urgent` |
+| 16 | `NewBeneficiaryCaseAdminMsg` / admin_new_beneficiary_case | `beneficiary.go:158` (staff) | yes | yes | **yes** — same title, different case | category `urgent` |
+| 17 | `NewProjectRequestAdminMsg` / admin_new_project_request | `beneficiary.go:283` (staff) | yes | yes | **yes** — same title | category `system` |
+| 18 | `NewGuestAccountAdminMsg` / admin_new_guest_account | `internal/handlers/auth.go:1101` (staff) | yes | yes | no — username varies | category `system` |
+| 19 | `NewMarriageProfileAdminMsg` / admin_new_marriage_profile | `extras.go:637` (staff) | yes | yes | no — profile code varies | category `system` |
+| 20 | `VolunteerApplicationSubmittedMsg` / volunteer_application_submitted | `extras.go:1062` | yes | yes | **yes** — same applicant re-applying | category `normal` |
+| 21 | `VolunteerMissionJoinSubmittedMsg` / volunteer_mission_join_submitted | `extras.go:999` | yes | yes | **yes** — re-joining the same mission | category `normal` |
+| 22 | `ProjectRequestSubmittedMsg` / project_request_submitted | `beneficiary.go:280` | yes | yes | **yes** — same title | category `campaign` |
+| 23 | `NewUserRegistrationAdminMsg` / admin_new_registration | `internal/handlers/registration.go:353` (staff) | yes | yes | **yes** — two people with the same full name | category `system` |
+| 24 | `RegistrationApprovedMsg` / registration_approved | `registration_admin.go:84` | yes | yes | no in practice — a one-time event per account | category `system` |
+| 25 | `RegistrationRejectedMsg` / registration_rejected | `registration_admin.go:118` | yes | yes | **yes** — rejected twice with the same reason | category `system` |
+| 26 | `DonationCancelledByDonorMsg` / donation_cancelled_by_donor | `donations.go:382` | yes | yes | no — donation id varies | category `payment` |
+| 27 | `DonationApprovedMsg` / donation_approved | `admin_status_notify.go:492` | yes | yes | **yes** — two donations reading identically | category `payment` |
+| 28 | `DonationRejectedMsg` / donation_rejected | `admin_status_notify.go:494` | yes | yes | **yes** — same | category `payment` |
+| 29 | `DonationPaymentConfirmedMsg` / donation_payment_confirmed | `admin_status_notify.go:544` | yes | yes | **yes** — same | category `payment` |
+| 30 | `DonationPaymentFailedMsg` / donation_payment_failed | `admin_status_notify.go:546` | yes | yes | **yes** — a retry failing the same way | category `payment` |
+| 31 | `DonationReceivedOnProjectMsg` / donation_received_on_project | `donations.go:323` | yes | yes | **yes** — the same donor giving the same amount twice | category `payment` |
+| 32 | `SponsorshipAcceptedMsg` / sponsorship_accepted | `admin_status_notify.go:266` | yes | yes | **yes** — two sponsorships alike | category `payment` |
+| 33 | `SponsorshipStatusChangedMsg` / sponsorship_status_changed | `admin_status_notify.go:272` | yes | yes | **yes** — a status set back and forth | category `payment` |
+| 34 | `SponsorshipPaymentDueMsg` / sponsorship_payment_due_reminder | `internal/scheduler/scheduler.go:91` | yes | yes | **yes** — a recurring reminder is the same words every cycle (the due date varies, so monthly differs; a re-run in the same cycle does not) | category `reminder` |
+| 35 | `MarketplaceOrderApprovedMsg` / marketplace_order_approved | `admin_status_notify.go:150` | yes | yes | **yes** — two orders of the same product and quantity | category `normal` |
+| 36 | `MarketplaceOrderCompletedMsg` / marketplace_order_completed | `admin_status_notify.go:152` | yes | yes | **yes** — same | category `normal` |
+| 37 | `MarketplaceOrderCancelledMsg` / marketplace_order_cancelled | `admin_status_notify.go:154` | yes | yes | **yes** — same | category `normal` |
+| 38–41 | `InKindScheduled/Received/Delivered/CancelledMsg` / in_kind_donation_* | `admin_status_notify.go:311`, `:313`, `:315`, `:317` | yes | yes | **yes** — same item + quantity on a second donation | category `payment` |
+| 42 | `MarriageApprovedMsg` / marriage_approved | `admin_status_notify.go:185` | yes | yes | no — profile code varies | category `normal` |
+| 43 | `MarriageRejectedMsg` / marriage_rejected | `admin_status_notify.go:187` | yes | yes | no | category `normal` |
+| 44 | `MarriageStatusChangedMsg` / marriage_status_changed | `admin_status_notify.go:189` | yes | yes | **yes** — a status returned to a value it already held | category `normal` |
+| 45 | `BeneficiaryCaseApprovedMsg` / beneficiary_case_approved | `admin_status_notify.go:74` | yes | yes | **yes** — same title | category `urgent` |
+| 46 | `BeneficiaryCaseRejectedMsg` / beneficiary_case_rejected | `admin_status_notify.go:76` | yes | yes | **yes** — same title + reason | category `urgent` |
+| 47 | `ProjectRequestApprovedMsg` / project_request_approved | `admin_status_notify.go:107` | yes | yes | **yes** — same title | category `campaign` |
+| 48 | `ProjectRequestRejectedMsg` / project_request_rejected | `admin_status_notify.go:109` | yes | yes | **yes** — same | category `campaign` |
+| 49 | `ProjectRequestStatusChangedMsg` / project_request_status_changed | `admin_status_notify.go:113` | yes | yes | **yes** — back-and-forth status | category `campaign` |
+| 50 | `VolunteerApplicationDecisionMsg` / volunteer_application_&lt;status&gt; | `admin_status_notify.go:222` | yes | yes | **yes** — same applicant decided twice | category `normal` |
+| 51 | `MissionSignupDecisionMsg` / volunteer_mission_&lt;status&gt; | `admin_status_notify.go:439` | yes | yes | **yes** — same mission decided twice | category `normal` |
+| 52 | `SupportTicketStatusMsg` / support_ticket_&lt;status&gt; | `admin_status_notify.go:348` | yes | yes | **yes** — a ticket reopened and resolved again | category `urgent` |
+| 53 | `NewVolunteerMissionMsg` / new_volunteer_mission | `admin_status_notify.go:394`, `admin_create.go:1433` (Broadcast) | yes | yes | **yes** — a mission re-posted with the same title/city/date | category `normal` |
+| 54 | `NewPartnerMsg` / new_partner | `admin_create.go:186` (Broadcast) | yes | yes | no — partner name varies | category `normal` |
+| 55 | `NewMediaPostMsg` / new_media_post | `admin_create.go:280` (Broadcast) | yes | yes | **yes** — two posts with the same title | category `campaign` |
+| 56 | `NewCommentOnYourPostMsg` / post_comment_received | `media_engagement.go:161` | yes | yes | **yes** — the same person commenting the same words again | category `campaign` |
+| 57 | `NewCampaignMsg` / new_campaign | `admin_create.go:1295` (Broadcast) | yes | yes | **yes** — two campaigns with the same title | category `campaign` |
+| 58 | `ChatRequestMsg` / chat_request | `internal/handlers/chat.go:188`, `:245` | yes | yes | **YES — conversation** | guest rule; category `normal` |
+| 59 | `ChatAcceptedMsg` / chat_accepted | `chat.go:293` | yes | yes | **YES — conversation** | guest rule |
+| 60 | `ChatNewMessageMsg` / chat_message | `chat.go:441` | yes | yes | **YES — conversation**: same sender, same words | guest rule |
+| 61 | `ChatSupportReplyMsg` / chat_message | `chat.go:590` | yes | yes | **YES — conversation**: "Support" + a repeated reply | guest rule |
+| 62 | `GroupTeamNewMessageMsg` / chat_group_message | `chat_group.go:415` | yes | yes | **YES — conversation** | guest rule |
+| 63 | `GroupMaskedNewMessageMsg` / chat_group_message | `chat_group.go:417` | yes | yes | **YES — conversation** | guest rule |
+| 64 | `MarriageChatRequestMsg` / marriage_chat_request | `marriage_chat.go:120` | yes | yes | **YES — constant text**: a re-approved invite was never re-announced (was recorded as a known gap in `marriage_chat.go`) | guest rule |
+| 65 | `MarriageMeetingDeclinedMsg` / marriage_meeting_declined | `marriage_chat.go:144` | yes | yes | **YES — constant text**: only the first decline ever | guest rule |
+| 66 | `MarriageChatAcceptedMsg` / marriage_chat_accepted | `marriage_chat.go:216` | yes | yes | **YES — constant text** | guest rule |
+| 67 | `MarriageChatNewMessageMsg` / marriage_chat_message | `marriage_chat.go:334` (member), `:421` (staff) | yes | yes | **YES — THE CLIENT'S BUG**: constant text, so only the first message of a marriage chat ever pushed | guest rule |
+| 68 | `StaffChatNewMessageMsg` / staff_chat_message | `internal/handlers/staff_chat.go:223` | yes | yes | **YES — conversation**: same colleague, same words | guest rule |
+| 69 | `SponsorshipDueGrantorMsg` / sponsorship_due_grantor | `sponsorship_schedule.go:132` | yes | yes | **yes** — same amount + due date re-run | category `reminder` |
+| 70 | `SponsorshipDueRecipientMsg` / sponsorship_due_recipient | `sponsorship_schedule.go:141` | yes | yes | **yes** — same | category `reminder` |
+
+Not a template: `admin_announcement`, composed inline in `internal/handlers/push.go`
+and delivered by `SendPushDirect` — push only, never an in-app row, never deduped.
+
+**Nothing in the table never fires, and nothing stops at the in-app row.** Every
+"no push" in production traces back to one of four things: the dedupe (fixed
+here), the master/category switch, the guest rule, or the user having no active
+device token / FCM not being configured on the server.
+
+### What was changed
+
+- **`backend/internal/notify/notify.go`** — the dedupe. Conversation types are
+  now exempt entirely; everything else is deduped on
+  `(user, title, body, type, related_entity_id)` **within `dedupeWindow`
+  (2 minutes)** instead of forever and entity-blind.
+  - *Why exempt the conversations rather than shorten the window for them:* a
+    chat's wording legitimately repeats within seconds ("ok", "ok") and its
+    related entity id is the thread/group, not the message — so neither a
+    window nor an entity id saves it. Each conversation notification is sent
+    once per row already inserted into its own messages table, so a repeat is a
+    real second message; there is no retry path that could fabricate one.
+  - *Why keep a dedupe at all:* it was protecting against a re-run of the same
+    admin action (a double-clicked Approve, a retried request) — a burst,
+    seconds apart, about the same record. The window plus the entity id covers
+    that case exactly and nothing more.
+  - Adding the entity id also fixed a second class of loss on its own: two
+    different donations, orders or cases that happen to read identically used to
+    collapse into one notification (rows 27–41 above).
+- **`backend/internal/notify/list.go`** — new `isConversationType`, reading the
+  same `chatNotificationTypes` list the guest filter uses, so "is this a
+  conversation?" has one answer in the package.
+- **`backend/internal/handlers/marriage_chat.go`** — the marriage-chat message
+  notification was being handed the **message** id as its `related_entity_id`
+  while its `related_entity_type` said `marriage_chat_thread`. The template's
+  parameter has always been named `threadID`; the caller passed `msgID` by
+  mistake. #145 routes a tapped notification by exactly that pair, so a tap
+  opened whichever thread happened to share the number, or nothing. Both call
+  sites now pass the thread id. Two stale comments in the same file, which
+  documented the dropped-as-duplicate invite as a known gap, were corrected.
+- **NEW `backend/internal/notify/dedupe_test.go`** — seven tests.
+
+### What was run
+
+```
+gofmt -l internal/     → internal/handlers/admin_edit_user_profile.go  (pre-existing, not a file this branch touches)
+go build ./...         → clean
+go vet ./...           → clean
+```
+
+Tests, on throwaway databases created and dropped for the run:
+
+```
+createdb godonation_dedupe_a651
+TEST_DATABASE_URL=...  go test ./internal/notify/ -count=1 -run Dedupe
+  → with the fix REVERTED (git show HEAD:...notify.go): 5 of 7 FAIL, each on its own message,
+    incl. "stored ids = 19, 0 — both marriage-chat messages must be written as separate rows"
+  → with the fix in place: 7 PASS
+
+createdb godonation_full_a651
+TEST_DATABASE_URL=...  go test ./internal/notify/ ./internal/handlers/ -count=1 -p 1 -timeout 45m
+  ok  github.com/karam-flutter/humanitarian-backend/internal/notify    31.438s
+  ok  github.com/karam-flutter/humanitarian-backend/internal/handlers  18.372s
+
+createdb godonation_new_a651
+TEST_DATABASE_URL=...  go test ./internal/notify/ -count=1 -v -run Dedupe
+  → 7 PASS, 0 SKIP, 0 FAIL
+
+dropdb for all three; psql -lqt confirms none remain.
+```
+
+### Still open
+
+- **Not pushed.** The branch is local; no PR.
+- **The push only works where FCM is configured.** `New()` logs
+  `no FCM credentials found; push delivery disabled` and every send then writes
+  the in-app row and nothing else. If the client still sees no push after this,
+  check that log line on the server first — it is the one failure mode this
+  change cannot reach.
+- **A user with no registered device token gets no push,** by definition.
+  `POST /api/notifications/device` must have run on that phone.
+- **`WalletToppedUpMsg` and `TaskAssignedMsg` carry no `related_entity_id`,** so
+  their dedupe key is still text-only inside the 2-minute window. Two identical
+  top-ups two minutes apart are fine; two within the window would collapse.
+  Giving them their entity ids would close it properly.
+- **The `sponsorship_payment_due_reminder` scheduler** re-running inside the
+  window is still deduped, which is the intended protection, but it means a
+  manual re-run to "resend" a reminder does nothing for 2 minutes.
+
+### Traps
+
+- **The dedupe compares against `created_at`, a plain `TIMESTAMP`** defaulted
+  from `CURRENT_TIMESTAMP` (migration 001). The query uses `LOCALTIMESTAMP`, not
+  `NOW()`, on purpose: `NOW()` is a `timestamptz` and the comparison would go
+  through a session-timezone cast.
+- **`Send` fires its push in a goroutine**, so a test cannot read the FCM
+  recorder straight after calling it. `dedupe_test.go` polls with a deadline;
+  `push_guest_test.go` sidesteps it by calling `sendPush` directly. Do not add a
+  bare `time.Sleep`.
+- **Adding a new chat template means adding its type to
+  `chatNotificationTypes`** — that one list now drives three things: the guest
+  in-app filter, the guest push filter, and the dedupe exemption.
+  `chat_types_test.go` fails if a conversation template is missing from it.
+- `gofmt -l internal/` has flagged `internal/handlers/admin_edit_user_profile.go`
+  since before this branch. Don't mistake it for your own change.
+
+---
+## 2026-09-16 — tapping a notification opens what it is about (branch `feat/notification-tap-opens-chat`, NOT pushed)
+
+**Asked for:** the client reported that tapping a push notification opens the
+app at home and leaves him hunting for the conversation. Mid-task the scope was
+widened with his own words: *"when I tap on a notification inside the app it
+should take me to the exact place of this notifications"* — so the in-app list
+counts too, and every notification type, not only chat.
+
+**Branch** `feat/notification-tap-opens-chat`, cut from `origin/main` `1a6062d`.
+Commit `578d66e`. NOT pushed. Nothing under `backend/` or `admin-web/` touched.
+
+### What was wrong
+- `lib/main.dart:114-118` subscribed to `FirebaseMessaging.onMessageOpenedApp`
+  and only called `debugPrint` — it navigated nowhere.
+- `FirebaseMessaging.instance.getInitialMessage()` — the tap that LAUNCHES the
+  app from killed, delivered once at startup and never repeated on the stream —
+  was not handled at all.
+- `NotificationsController.destinationFor` knew three families (support
+  tickets, media posts, partners) and returned `null` for everything else, so a
+  tap on a chat, donation, sponsorship or marriage row in the in-app list did
+  nothing.
+
+### What was built
+- **NEW `lib/modules/notifications/utils/notification_destination.dart`** — one
+  pure function, `resolveNotificationDestination(data, isGuest:)`, from a
+  notification's data to a `NotificationDestination` (a closed enum of 20
+  places + an optional id). No Flutter, no Firebase, no I/O.
+- **NEW `lib/modules/notifications/utils/notification_navigator.dart`** — the
+  only file that navigates. One `Get.to` per destination, no decisions. Follows
+  `modules/bot/bot_navigation.dart` (switch dashboard tab → pop to shell → push
+  one frame later); the app has no named routes for these screens and none were
+  invented.
+- **NEW `lib/core/push_tap_router.dart`** — wires BOTH tray paths
+  (`onMessageOpenedApp` and `getInitialMessage()`) into one `handleData`.
+- `lib/main.dart` — the dead listener replaced by `PushTapRouter.wire()`.
+- `notifications_controller.dart` — `destinationFor` now asks the same shared
+  decision; its own mini-table is gone. `action_url` still wins over it.
+
+### Data keys depended on (for OPOS #26709, which is changing the payload)
+`type` (alias `notification_type`), `related_entity_type` (alias `entity_type`),
+`related_entity_id` (aliases `entity_id`, `thread_id`, `group_id`). Values may
+be strings or ints. `related_entity_type` wins when present. These mirror the
+columns `notify.LocalizedMessage` already writes to `app_notifications`, so the
+app routes whichever shape the push ends up carrying — **but a chat push MUST
+carry its thread/group id**, or the tap lands on the notifications list instead
+of the conversation. That is the one hard requirement on the payload.
+
+### Traps for the next agent
+- **The cold-start tap must wait for the shell.** `getInitialMessage()` resolves
+  while the app is still on the splash screen, and the splash finishes with
+  `Get.offAllNamed` (splash_screen.dart:101) — anything pushed before that is
+  wiped out. `PushTapRouter._waitForShell` polls `Get.currentRoute` twice a
+  second for 15s and opens nothing if the app lands on welcome/login instead.
+- **Marriage conversations need three values a push cannot carry**
+  (`other_label`, `my_role`, `status`), so the navigator re-fetches
+  `GET /marriage-chats` and finds the thread by id; a failed fetch or a missing
+  thread opens the marriage chats list, which has its own retry.
+- **Group titles must go through `chatGroupTitle`** — a masked group is always
+  "Connection". The navigator copies `MyConnectRequestsScreen._titleFor`.
+- `flutter analyze` baseline is 6 issues (5 deprecations + 1 pre-existing);
+  a missing import in main.dart briefly made it 7 — check the count, not "clean".
+
+### Verification (actually run, in this worktree)
+- RED, new tests against the pre-fix tree `1a6062d` in a throwaway worktree:
+  `00:00 +3 -3: Some tests failed.` — the three "no longer a dead tap" cases.
+- GREEN, `flutter test`: `00:38 +1266: All tests passed!`
+- `flutter analyze`: `6 issues found. (ran in 1.8s)` — the baseline.
+
+### Still open
+- Not pushed, no PR.
+- Types with no mobile screen fall back to the list on purpose:
+  `staff_chat_message` (admin-web only), `wallet_topup` (no wallet screen),
+  `task_assigned`, and the six `admin_*` staff alerts. Each is asserted in
+  `test/notifications/notification_destination_table_test.dart` so it is a
+  recorded decision, not an oversight.
+- Approximate destinations, worth a product call: in-kind donations land on the
+  donation history (no in-kind list exists); a donation lands on the history
+  rather than that donation (`DonationDetailsScreen` is an unwired placeholder);
+  a beneficiary case lands on the services section rather than the case.
+- Not tested on a device. See the report for what the client should confirm.
+
+---
+
+## 2026-09-16 — push delivery: an Android notification channel, and routing data on every push (branch `fix/push-delivery`, NOT pushed)
+
+**Asked for:** the client tested on real devices. Android receives no push at
+all; iOS receives them "only while the app is open". Diagnose before changing
+anything, then make the smallest change that fixes both, keeping #113's guest
+rule and the localized titles/bodies.
+
+**Branch** `fix/push-delivery`, cut from `origin/main` `1a6062d`. NOT pushed.
+
+### Diagnosis — the stated hypothesis was WRONG, and one symptom is not a push at all
+
+- **The server was already sending a proper notification payload.**
+  `backend/internal/notify/fcm.go:185-236` (pre-change) built
+  `message.notification` *and* `message.android.priority = "high"` *and* an
+  explicit `message.apns` block with `apns-priority: 10`,
+  `apns-push-type: alert` and `aps.alert`. It is **not** data-only. So the
+  hypothesis in the brief — "data-only payload explains both symptoms" — does
+  not hold, and the fix is not "add a notification block".
+  `sendOne` had exactly two callers: `push.go:53` (the per-event path) and
+  `push.go:195` (the admin compose endpoint). There is no second sender.
+- **What the payload actually lacked:** a `data` block (so a tap carried no
+  routing information at all) and, the one that can silence a phone,
+  `android.notification.channel_id`.
+- **The Android channel is the concrete Android defect.** Android 8+ posts
+  every notification to a channel, and the *channel*, not the message, decides
+  whether a banner appears and a sound plays. The payload named no channel and
+  `humanitarian/android/app/src/main/AndroidManifest.xml` declared no
+  `com.google.firebase.messaging.default_notification_channel_id` (it declared
+  only the icon and colour), so every message landed in the FCM SDK's own
+  fallback channel — which the app cannot configure and the user has never
+  seen in settings.
+- **"iOS only while the app is open" is very probably not push at all.** The
+  app polls the API every few seconds and plays a chime on anything new:
+  `humanitarian/lib/core/realtime_polling.dart:64`,
+  `humanitarian/lib/modules/chat/controllers/chat_controller.dart:31` and
+  `:138`, `humanitarian/lib/modules/notifications/controllers/notifications_controller.dart:77`,
+  with `AppSound.notification()` at `chat_controller.dart:53`. Polling only
+  runs while the app is open. That is exactly the reported iOS behaviour, and
+  it means the iOS report is **not** evidence that APNs delivery works. See
+  "What still needs a device" below — this is the one thing this branch cannot
+  settle from here.
+- **Token registration is sound, on both platforms.**
+  `humanitarian/lib/core/push_registration.dart:65-90` reads the signed-in
+  `id_user` (stored as a String at `lib/core/auth_navigation.dart:59`, so the
+  read matches), gets the FCM token, and POSTs token + `platform` + locale to
+  `notifications/device` via `ModuleApi.postJson`
+  (`lib/api/module_api.dart:348`), which does attach the auth headers. It is
+  called from `main.dart:128`, after login (`auth_navigation.dart:127`) and on
+  locale change (`locale_service.dart:164`). The server stores `platform`
+  verbatim (`backend/internal/notify/devices.go:39-45, 71-86`), upserting on
+  `(user_id, device_token)`. Nothing here is broken **in code** — but whether
+  rows actually exist for both platforms in the live database is a data
+  question, answered by the SQL below, not by reading.
+- **Android 13 runtime permission is genuinely requested**, not merely
+  declared: `main.dart` calls `FirebaseMessaging.requestPermission(...)`, and
+  firebase_messaging 16.2.0 (pubspec.lock:379) requests
+  `POST_NOTIFICATIONS` from there —
+  `~/.pub-cache/.../firebase_messaging-16.2.0/android/src/main/java/io/flutter/plugins/firebase/messaging/FlutterFirebasePermissionManager.java:63`,
+  reached via `FlutterFirebaseMessagingPlugin.java:357-386`. The manifest
+  declares the permission at `AndroidManifest.xml:7`.
+- **No local-notifications plugin is in `pubspec.yaml`, and none is needed.**
+  The design is OS-rendered notification payloads; the app does not draw them
+  itself. Nothing was added.
+- **#113's guest rule is correctly narrow.** `shouldWithholdChatPush`
+  (`backend/internal/notify/push.go:89-107`) returns false immediately for any
+  type outside `chatNotificationTypes` (`list.go:72-83` — nine chat types, an
+  explicit list, not a `chat%` prefix), so it cannot touch broadcasts or
+  support-ticket pushes. It queries `users.is_guest` only for a chat type, and
+  fails closed on error. Left exactly as it was.
+- **Firebase project config matches on both platforms** (checked because it
+  would explain an Android-only silence, and it does not): package
+  `com.easytech.humanitarian` is in `android/app/google-services.json`, bundle
+  `com.easytech.humanitarianApp` is in `ios/Runner/GoogleService-Info.plist`,
+  project `human-f1dc6` / sender `463997425388` on both and in
+  `lib/firebase_options.dart`.
+
+### What changed
+
+**Backend**
+- `backend/internal/notify/fcm.go` — new exported `AndroidChannelID =
+  "balancenex_high_importance"`. `sendOne` gained a `data map[string]string`
+  parameter, and its payload construction is split into a new pure
+  `buildSendPayload(token, title, body, imageURL, data)`, so the JSON that
+  leaves the process can be asserted without a network round trip. The payload
+  now carries `android.notification.channel_id` and an optional `data` block
+  **alongside** (never instead of) the notification block. Empty data values
+  are dropped. Everything that was already right — the notification block, high
+  Android priority, the APNs headers and `aps` block, the image handling — is
+  unchanged.
+- `backend/internal/notify/push.go` — new `routingData(LocalizedMessage)`
+  builds `notification_type`, `related_entity_type`, `related_entity_id`,
+  `action_url` as strings (FCM rejects non-strings in `data`). The per-event
+  path passes it; the admin compose path passes `nil` (free text, nothing to
+  route to).
+- **NEW** `backend/internal/notify/fcm_payload_test.go` — nine tests, no DB and
+  no network, asserting the built payload: notification block present, Android
+  priority `high` + `channel_id` + sound, APNs `apns-priority: 10` /
+  `apns-push-type: alert` / `aps.alert` / sound, data alongside the
+  notification with all-string values, empty values dropped, no empty `data`
+  key, image on both `notification.image` and `apns.fcm_options.image`, and
+  `routingData`'s mapping.
+
+**App (Android only — no Dart behaviour changed except one guard)**
+- `humanitarian/android/app/src/main/kotlin/com/easytech/humanitarian/MainActivity.kt`
+  — creates the `balancenex_high_importance` channel with `IMPORTANCE_HIGH` in
+  `configureFlutterEngine`, on every launch (idempotent; Android never lowers a
+  channel the user has adjusted, which is also how an already-installed app
+  gets the channel).
+- **NEW** `humanitarian/android/app/src/main/res/values/strings.xml` and
+  `values-ar/strings.xml` — the channel id (`translatable="false"`) plus the
+  user-facing channel name and description, en + ar, as they appear in Android
+  system settings.
+- `humanitarian/android/app/src/main/AndroidManifest.xml` — adds the
+  `default_notification_channel_id` meta-data, covering any message that
+  arrives without a `channel_id`.
+- `humanitarian/lib/main.dart` — the `requestPermission` /
+  `setForegroundNotificationPresentationOptions` pair is wrapped in
+  try/catch. It runs before `runApp()`, and the plugin throws when it cannot
+  find the Activity or when a request is already in flight; unguarded, that
+  aborts `main()` and leaves the user on the native splash. Push setup must not
+  cost the app its launch.
+
+**The channel id is spelled in three places and they must stay identical:**
+`fcm.go`'s `AndroidChannelID`, `values/strings.xml`, and (by reference) the
+manifest meta-data + `MainActivity`.
+
+### Verification — run, with output
+
+- `flutter analyze` → `6 issues found. (ran in 8.5s)` — the known baseline,
+  all pre-existing `deprecated_member_use` infos, none in a touched file.
+- `flutter test` → `00:45 +1088: All tests passed!`
+- `flutter build apk --debug` → `✓ Built build/app/outputs/flutter-apk/app-debug.apk`,
+  `exit=0`. This is what proves the new Kotlin, the two `strings.xml` files and
+  the manifest meta-data actually compile and link.
+- `gofmt -l ./internal ./cmd` → prints only
+  `internal/handlers/admin_edit_user_profile.go`, which is **pre-existing drift
+  on a file this branch does not touch**. It was left alone rather than taken
+  as a drive-by. Every file this branch changed is gofmt-clean.
+- `go build ./...` and `go vet ./internal/notify/` → clean.
+- On a throwaway DB created and dropped for this run
+  (`godonation_push_fix_63347`):
+  `go test ./internal/notify/ ./internal/handlers/ -count=1 -p 1 -timeout 45m`
+  → `ok …/internal/notify 1.066s`, `ok …/internal/handlers 18.918s`,
+  `exit=0`.
+  Because those times are far shorter than earlier entries in this file report,
+  the run was re-checked to be sure it was not silently skipping:
+  `go test ./internal/notify/ -run GuestPush -count=1 -v` printed
+  `[migrate] done: 0 newly applied, 125 total migration files` per test and
+  `--- PASS` for every guest-push case, so the DB-backed tests genuinely ran.
+  The database was dropped afterwards (`psql -l | grep -c push_fix` → `0`).
+
+### What STILL needs a real device — nothing here can prove delivery
+
+No push was actually sent from this machine. Zaid, in this order:
+
+1. **Is FCM even switched on in prod?** Open the admin SPA's `/push` page. If
+   it says FCM is not configured, `FIREBASE_CREDENTIALS_JSON` is missing on
+   Railway and *every* push on both platforms is being skipped — which alone
+   explains the whole report. The server logs one of
+   `[notify] FCM enabled (project=…)` or `[notify] no FCM credentials found`
+   at boot (`notify.go:33-40`).
+2. **Are there token rows for both platforms?** On the prod DB:
+   `SELECT platform, is_active, COUNT(*) FROM user_device_tokens GROUP BY 1,2;`
+   No `android` row means the Android phones never registered, and no payload
+   change can help until that is fixed.
+3. **Send one push to one token.** Get the token from the device log line
+   `[push] FCM token: …` (`main.dart`), paste it into the admin `/push` page's
+   single-device field, and send with the app **fully closed** on each phone.
+   - Android: after installing a build from this branch. A banner + sound means
+     the channel fix worked. Check Settings → Apps → BalanceNex →
+     Notifications: "Messages and updates" must be listed and set to a level
+     that alerts, and the app's notification permission must be granted.
+   - iOS: if this shows nothing while the app is closed but the app still
+     chimes when open, the "arrives while open" behaviour was the poller and
+     APNs is not delivering at all. Then check, in Firebase console → Project
+     settings → Cloud Messaging, that an **APNs auth key** is uploaded for
+     `com.easytech.humanitarianApp`, and confirm the build's
+     `aps-environment`: `ios/Runner/Runner.entitlements` says `development`,
+     which is correct for a Xcode-run debug build (Xcode rewrites it to
+     `production` when archiving for TestFlight/App Store) — but a build
+     signed with the wrong one receives nothing in that environment. This
+     branch deliberately did **not** change that file; it is a signing
+     question, not a code one.
+4. **Then a real chat message**, app closed, member (not guest) to member, to
+   confirm the per-event path and that #113 still only withholds from guests.
+
+### Traps
+
+- The brief's hypothesis ("payload is data-only") is wrong — read `fcm.go`
+  before acting on it.
+- **"Arrives while the app is open" is not evidence of push delivery in this
+  app.** The polling + chime pipeline produces exactly that, on both platforms.
+- The worktree guard refuses a compound shell command containing a
+  `postgres://…` URL ("too complex to verify"). Put the run in a script file in
+  the scratchpad and `zsh` it.
+- `internal/handlers` finished in 19s here, against 10–25 minutes reported in
+  older entries; the machine was idle. Don't read a fast run as a skipped one
+  without checking for the `[migrate] done` lines.
+
+---
+
+## 2026-09-16 — seed-test-users also seeds the MARRIAGE fixtures (branch `feat/seed-marriage-fixtures`, NOT pushed)
+
+**Asked for:** the client is testing live and wants step 5 (the marriage flow)
+next, but his database has no marriage profiles and no meeting requests, so
+there is nothing to approve. Extend `cmd/seed-test-users` so the same run also
+creates the profiles and a pending request, under the same rules as the
+accounts (idempotent, `-cleanup`-able, nothing without `-confirm`).
+
+**Branch** `feat/seed-marriage-fixtures`, cut from `origin/main` `7a8f9aa`.
+Commit `b3d8784`. NOT pushed.
+
+### What it seeds now, on top of the ten accounts
+- **Two marriage profiles**: **B** (Female, Baghdad, 27) and **D2** (Male,
+  Erbil, 31), status `active`, `visibility_level = 'employee_only'`,
+  `owner_deleted_at` NULL — the exact set `marriage.Store.List` serves to a
+  searching member. Gender is **capitalised** because the app's own filter
+  offers `'Male'`/`'Female'`
+  (`humanitarian/lib/modules/marriage/screens/marriage_search_screen.dart:425`)
+  and matches exactly; lowercase would be unfindable.
+- **One PENDING `marriage_meeting_requests` row** from **D** about **B**'s
+  profile, `request_type = 'meeting'` — the row the dashboard lists with an
+  Approve button.
+- Nothing else is needed to approve: `ApproveMeetingRequest` wants only a
+  pending request, a profile, and requester ≠ owner. The test exercises the
+  real approval to prove it.
+
+### Files
+- **NEW** `backend/internal/seedtestusers/marriage.go` — `MarriageProfileSpecs`,
+  `MarriageRequesterKey`/`MarriageRequestAboutKey`, `seedMarriage`,
+  `ensureMarriageProfile`, `ensureMarriageProfileSearchable`,
+  `ensureMeetingRequest`, `cleanupMarriageRows`.
+- `seed.go` — `Result.Marriage`; `seedMarriage` runs after the accounts.
+- `cleanup.go` — marriage rows are deleted **before** the user row (
+  `marriage_profiles.user_id` is ON DELETE RESTRICT, migration 002, so a
+  surviving profile makes the account undeletable); counts reported.
+- `cmd/seed-test-users/main.go` — `printMarriageSummary`: profile codes, who
+  asked about what, and the dashboard path to approve.
+- `docs/testing/chat-e2e-test-plan-2026-09.md` — §1.7 mentions the fixtures;
+  step 5's **[NOT CONFIRMED]** wording is replaced with the real labels.
+
+### Identity rule (how cleanup stays exact)
+Every seeded profile carries a stamp in `private_notes`:
+`"Seeded by seed-test-users (prefix <p>) — fixture data, not a real person."`
+Cleanup deletes only profiles with that stamp owned by an account that already
+passed the existing username+reserved-phone identity check. A profile made **by
+hand** on a fixture account is left alone — and then the existing RESTRICT
+refusal reports the account as `KEPT`, which is the honest outcome.
+`marriage_saved` and `marriage_meeting_requests` carry **no foreign keys**
+(migration 046), so they are deleted explicitly; chat threads/messages cascade
+(migration 058).
+
+### Verification (run, not assumed)
+- `gofmt -l ./cmd ./internal` → only `internal/handlers/admin_edit_user_profile.go`,
+  which is **pre-existing on `origin/main`** and untouched here.
+- `go build ./...`, `go vet ./...` → clean.
+- RED first: `go vet ./internal/seedtestusers/` →
+  `res.Marriage undefined (type *Result has no field or method Marriage)`.
+- GREEN on a fresh throwaway DB: all 5 tests in `internal/seedtestusers` pass,
+  plus `go test ./internal/marriage/ ./internal/marriagechat/
+  ./internal/handlers/ -count=1 -p 1 -timeout 45m` → all `ok`.
+- The command itself was run against a migrated throwaway DB and printed the
+  marriage summary. Every throwaway DB was dropped; `psql -lqt | grep -c
+  seedfix` → `0`.
+
+### Trap worth knowing
+**The seeded phone numbers do not depend on `-prefix`** (they are
+`reservedNSN` + a fixed per-account index). So a leftover fixture account from
+an earlier run is found *by phone* under a new prefix, keeps its old username,
+and the package tests then fail with confusing "created 9, want 10" /
+"username = 0x…" messages. Run these tests against a **clean** database. That
+is pre-existing behaviour, not something this branch introduced.
+
+### Still open
+- Nothing pushed; no PR. Commit `b3d8784` sits on the branch.
+- OPOS was not used (unavailable in that session), so there is no task row.
+
+---
+
+## 2026-09-16 — a connect request's OTHER PARTY is resolved and added automatically (branch `feat/connect-request-other-party`, NOT pushed)
+
+**Asked for:** the client, testing live, asked to connect from a beneficiary
+case as a donor, approved it as super_admin, and got a masked group containing
+only the donor — the case's owner was never added, so the group had one member
+and nobody to talk to. Mid-task the client added: "this must be automatic" —
+pre-filling the dashboard dialog is not enough, the SERVER must add the other
+party itself on approve.
+
+**Branch** `feat/connect-request-other-party`, cut from `origin/main` `2af2d76`.
+
+### The root cause
+`resolveConnectContext` (handlers/chat_group_admin_connect.go:31) only ever
+turned a context into a human-readable LABEL. Nothing anywhere resolved WHO the
+case or campaign belongs to, and `ApproveConnectRequest` wrote exactly the
+members the dashboard sent — which, for the client, was the requester alone.
+
+### Who owns what (read from the schema, not guessed)
+- a case → `beneficiary_cases.user_id` (migrations/001_full_v2.sql:168)
+- a campaign → `campaigns.owner_user_id` (migrations/007_campaigns_owner.sql:18)
+- a donation to the GENERAL FUND (`campaign_id` NULL) has no other party, and
+  nothing is invented for it.
+
+### What changed
+- **NEW** `backend/internal/chatgroups/chatgroups_connect_party.go` —
+  `connectContextOwner` (the authoritative lookup; returns real DB errors),
+  `accountRoleWord` (role_id 1/2/3 → donor/beneficiary/volunteer, else
+  "member"), and `connectGroupMembers`, which assembles the final member list.
+- `chatgroups_connect.go` — `ApproveConnectRequest` now also reads
+  `context_type`/`context_id` under the same `FOR UPDATE`, and runs
+  `connectGroupMembers` inside the SAME transaction as the group insert. An
+  EMPTY members list is now valid and becomes requester + other party; a
+  NON-EMPTY list that omits the requester is still refused (unchanged rule,
+  its old test still passes). The owner is never added twice.
+- **NEW** `backend/internal/handlers/chat_group_admin_connect_party.go` — the
+  DISPLAY copy of the question, best-effort like `resolveConnectContext`: a
+  failed lookup yields no other party rather than breaking the inbox.
+- `chat_group_admin_connect.go` — `other_party_user_id` and `other_party_name`
+  on both the list and the detail. The NAME follows `requester_name` (D6,
+  `canViewContact`, per user); the ID is NOT gated — the inbox already ships
+  `requester_user_id` and `context_id` ungated, D6 is about names beside masked
+  identities, and the dialog needs the id to pre-fill a member. Approve now
+  requires only `kind` ("kind is required."), not members.
+- Dashboard: `ConnectRequest` gained the two fields; `approveDraftFor` puts the
+  other party in member row 2 (removable); row 1 (the requester) unchanged.
+
+### Decision worth knowing: team groups (#137)
+A team group takes only volunteers and staff. The auto-added other party goes
+through the same `insertMemberRow`, so a case owner who is a beneficiary
+account REFUSES the approval with `ErrTeamMemberRole` — a clear, existing 400,
+not a crash, and not a silent drop that would recreate the one-member group.
+Pinned by `TestApproveConnectRequest_TeamGroupRefusesAnIneligibleOwner`.
+
+### Tests (written first, each watched fail)
+NEW files: `backend/internal/chatgroups/chatgroups_connect_party_test.go`,
+`backend/internal/handlers/chat_group_connect_other_party_test.go`,
+`admin-web/src/components/connectRequests/ApproveRequestDialog.otherParty.test.tsx`.
+RED, before the fix: "approve with no members: ... requester ... not in
+members: invalid input"; "members = [{donor Donor 1}], want 2";
+"other_party_user_id = <nil>, want the owner"; approve with no members answered
+400 "kind and at least one member are required."; the dialog had no "Remove
+member 2".
+
+One EXISTING test was updated deliberately: the approve case in
+`chat_group_inline_refusal_codes_test.go` now expects "kind is required."
+
+### Verification actually run
+- `gofmt -l .` → only `internal/handlers/admin_edit_user_profile.go`, which is
+  pre-existing on `origin/main` and untouched here. `go build ./...`,
+  `go vet ./...` clean.
+- Throwaway DBs created and dropped (`psql -lqt` shows none left):
+  `go test ./internal/chatgroups/ ./internal/handlers/ -count=1 -p 1 -timeout 45m`
+  → both `ok`. The `-v -run` of the new tests → 14 PASS, 0 SKIP, 0 FAIL.
+- Dashboard (Node 22): `npm test` 23 files / 202 tests, `npx tsc -b`,
+  `npm run build`, `test:mock-api`, `test:nav`, `check:labels`,
+  `check:css-tokens`, `npm run lint` — all exit 0 (lint: 0 errors, 62
+  pre-existing warnings, none in the new files).
+
+### Still open / traps
+- **Not pushed.** One commit on the branch, no PR.
+- No new locale keys, so `TRANSLATION_REQUEST.md` is untouched.
+- `npm ci` had to be run in this worktree first; without it vitest cannot even
+  load its config ("Cannot find package 'vitest'"), which looks like a broken
+  test rather than a missing install.
+- Trap: a member draft array literal in `connectRequestForm.ts` must be typed
+  `MemberDraft[]` explicitly, or TS widens `role` to `string` and `tsc -b`
+  fails while `vitest` passes.
+- The inbox list now does one extra owner lookup per request. Fine at today's
+  volumes; if the inbox ever pages large it wants batching.
+
+## 2026-09-15 — OPOS #26464: chat-group pause/resume/end no longer answers 500 when the reason is empty (branch `fix/chat-group-lifecycle-null-reason`)
+
+**What was asked:** test-first, fix `chatlifecycle.Apply` failing with a 500 for chat groups (Kind `group`, table `chat_group_threads`) whenever the stored reason is empty. That covers every `resume`, and every `pause` or `end` with a blank reason. Choose between a per-System flag that stores '' and a migration that makes the column nullable, then run `go test ./internal/chatlifecycle/ ./internal/handlers/ -count=1 -p 1` on a fresh `createdb` database and drop it.
+
+**What was actually changed** (one local commit on `fix/chat-group-lifecycle-null-reason`, fast-forwarded onto `origin/main` `b1809bc`):
+- **The bug, confirmed by the RED run below:**
+  - `setLifecycle` (`backend/internal/chatlifecycle/chatlifecycle.go:379`) writes SQL NULL to `lifecycle_reason` for an empty reason.
+  - Migration 118 made that column nullable on the four older thread tables.
+  - Migration 120 (`120_chat_groups.sql:24`) declared it `TEXT NOT NULL DEFAULT ''` on `chat_group_threads`.
+  - Result: SQLSTATE 23502, which `lifecycleErr` (`handlers/admin_chat_lifecycle.go:95`) turns into `500 "Database error."` on `POST /api/admin/chat-groups/:id/lifecycle`.
+- **Fix: new `backend/migrations/123_chat_group_lifecycle_reason_nullable.sql`.**
+  - It drops NOT NULL and the '' default, then runs `UPDATE ... SET lifecycle_reason = NULL WHERE lifecycle_reason = ''`.
+  - The exact DOWN is recorded as comments at the bottom, as 118 does.
+  - **No Go code changed.** The deployed binary is fixed as soon as the server starts and applies 123 (`cmd/server/main.go:94`).
+- **Why the schema and not a per-System '' flag:** a flag would give "no reason" two spellings in API responses, NULL for four systems and "" for groups. Every reader already handles NULL:
+  - `chatlifecycle.Load` scans the column into `*string`.
+  - `handlers/chat_lifecycle_gate.go` passes it through as `lifecycle_reason`.
+  - The Flutter group controller (`chat_group_conversation_controller.dart:265`) trims it and treats null and "" alike.
+  - admin-web (`ChatLifecycleControls.tsx:181`) renders it only when truthy.
+  - No `chatgroups` query reads the column, and its two INSERTs (`chatgroups.go:294`, `chatgroups_connect.go:158`) don't name it.
+- **New test file `backend/internal/chatlifecycle/apply_group_test.go`** (3 tests, 4 subtests):
+  - resume a group paused with a reason;
+  - pause and end a group with an empty reason and with a whitespace-only one;
+  - `Load` on a new group reports no reason.
+  - Each test checks both what `Apply` returned and what is stored in the row.
+
+**What was run and what it printed:**
+- **RED, before the migration**, on fresh DB `godonation_group_reason_red`: `go test ./internal/chatlifecycle/ -run Group -count=1 -v`
+  - resume: `chatlifecycle set open on chat_group_threads/1: ERROR: null value in column "lifecycle_reason" of relation "chat_group_threads" violates not-null constraint (SQLSTATE 23502)`
+  - the 4 pause/end subtests: the same error, for `paused` and `ended`
+  - Load: `Load returned lifecycle="open" reason="" for a new group, want open with no reason`
+  - ended `FAIL .../internal/chatlifecycle 155.733s`
+- **GREEN, same command:** `[migrate] applied 123_chat_group_lifecycle_reason_nullable.sql`, all 3 tests and 4 subtests PASS, `ok .../internal/chatlifecycle 19.725s`. `gofmt -l` printed nothing; `go vet ./internal/chatlifecycle/` exited 0.
+- **UP and DOWN by hand**, on the RED DB. Before 123 applied, two probe groups were seeded: one with '' and one paused with 'Kept reason'.
+  - After UP: `nullable=YES default=NONE`, '' became NULL, 'Kept reason' kept.
+  - After the commented DOWN: `nullable=NO default=''::text`, NULL back to '', the `schema_migrations` row gone.
+  - The RED DB was then dropped (confirmed `count=0`).
+- **Requested run**, on fresh DB `godonation_group_reason_final`, base `9e4a99f`: `go test ./internal/chatlifecycle/ ./internal/handlers/ -count=1 -p 1 -timeout 45m -v`
+  - exit 0: `ok .../internal/chatlifecycle 482.773s`, `ok .../internal/handlers 718.181s`
+  - 514 `--- PASS`, 0 `--- FAIL`, 0 `--- SKIP`
+  - DB dropped, confirmed gone.
+- **New-base check**, after fast-forwarding onto `b1809bc` (#99 and #100 landed during the work; neither touches a migration, chatlifecycle or `chat_group_threads`). On fresh DB `godonation_group_reason_rebase`:
+  - `go vet ./internal/chatlifecycle/ ./internal/handlers/` exited 0.
+  - `go test ./internal/chatlifecycle/ -run Group -count=1 -v`: `ok ... 162.114s`.
+  - `go test ./internal/handlers/ -run MarriageInvite -count=1 -v` (#99's new tests): `ok ... 68.313s`.
+  - 16 `--- PASS`, 0 FAIL, 0 SKIP. DB dropped, confirmed gone.
+  - The full handlers suite was not re-run on this base.
+- **Reviews:**
+  - `ecc:code-reviewer`: APPROVE, 0 findings at every severity.
+  - `ecc:database-reviewer`: nothing material. The ALTERs change only the catalog (no rewrite), and the file runs as one implicit transaction under the simple protocol. The DOWN is a correct exact inverse, and leaving `updated_at` untouched in the backfill is right.
+
+**External actions taken:**
+- **Nothing pushed, no PR.**
+- **OPOS #26464** was created in office 19 (account 6) after the work, then commented and moved to Completed.
+  - It was not created up front: the connector's tools did not load at session start (ToolSearch found nothing), and Zaid chose "proceed, log later".
+  - No timer was run and no time was logged. Account 6 had three open timers from other sessions (#26461, #26448, #26436), and moving a task to In Progress would have auto-stopped one.
+
+**What is still open:**
+- **Unpushed:** the commit is local only.
+- **Production until deploy:** a group paused in production cannot be resumed (resume always sends an empty reason). Pausing or ending one without a reason also still 500s.
+- **Trash:** group rows already in the Trash still carry `"lifecycle_reason": ""` in `trash_items.payload` and restore as ''. Readers treat that as no reason, and the next lifecycle change rewrites it.
+- **No HTTP-level test for group lifecycle:** `handlers/chat_lifecycle_trash_test.go` still covers only donor and marriage, and the new tests go through `Apply` directly. The route is registered in `chat_lifecycle_fixtures_test.go:242` if one is wanted.
+- **#26431 (apply race):** still To Do and unmerged, so nothing was rebased. Its branch touches no migration, so 123 should not conflict. Its tests can now include `KindGroup` pause/resume.
+
+**Traps:**
+- **gofmt rewrites `''` inside a Go doc comment** into a typographic quote (`”`), so `gofmt -l` flags the file. Write "empty string" in Go comments instead.
+- **The first test on a fresh DB absorbs all 122 migrations.** That took ~2 minutes (137s for the first RED test), so a slow first test is not a hang.
+- **The OPOS connector can appear mid-session** after ToolSearch found nothing at the start. Re-check before concluding it is unavailable.
+
+---
+
+## 2026-09-16 — chat end-to-end test plan for the Railway deployment (branch `docs/chat-e2e-test-plan`, NOT pushed)
+
+**Asked for:** a test plan Zaid can follow to test the whole chat system end to
+end against Railway, on a real phone plus the dashboard. Two things were wanted:
+the list of account types and roles he needs to create, and a step-by-step
+script. Read-only research — no product code was to change, and OPOS was not
+usable in this session.
+
+**Branch** `docs/chat-e2e-test-plan`, cut from `origin/main` `fcc5b10`.
+
+**What was changed:** one new file, `docs/testing/chat-e2e-test-plan-2026-09.md`
+(the `docs/testing/` directory is new), plus this entry. No product code.
+
+### What the plan contains
+- **Part 1 — the account matrix.** The three member roles (`role_id` 1/2/3) with
+  English and Arabic labels; the five `staff_tier` values; the default
+  permission table for the chat modules; how each account type is really created;
+  and a minimum set of nine named accounts (SA, E1, SUP, D, B, V1, V2, G, D2)
+  with a reason for each.
+- **Part 2 — a ten-step script**, each step written as "what to tap" and "what
+  should happen", quoting the exact button label and message text in English and
+  Arabic from the locale files.
+- **Part 3 — known gaps**, so the tester is not surprised.
+
+### Findings worth carrying forward
+- **Every chat PR #100–#135 is merged on `main`.** Several HANDOFF entries for
+  this work say "NOT pushed"; those branches were later squash-merged. The
+  deployment should have all of it if it is at `fcc5b10` or later.
+- **`sensitive_data` is the only module whose `view` is NOT default-on.**
+  `permissions.go:139-145` — super_admin and admin only; supervisor and employee
+  must be granted it by name. This is the hinge of the masked-group test.
+- **`AllActions` has six entries, not four** (`permissions.go:164`): view, add,
+  edit, archive, delete, export. A four-column matrix misstates supervisor
+  (gets archive + export) and employee (gets neither).
+- **Chat invites are only reachable through the Marriage flow now.** Direct
+  donor chats answer 410 (`handlers/chat.go:176`), so no new donor invite can be
+  produced. `marriage_chat.go:99`'s approve is the only live invite source. The
+  plan says so rather than pretending a donor invite can be created.
+- **Group-chat export IS built** — `GroupHeader.tsx:57` wires `ExportCsvButton`
+  with `groupChatExportColumns()`. `lib/chatExport.ts:27-30` still says
+  "GROUP CHATS (E3, not built yet)". **That header comment is stale and
+  misleading**; a first read of it says the opposite of the truth. Worth fixing
+  in its own commit.
+- **Guests can read support but cannot write it.** `POST /api/support` and
+  `POST /api/chats/support` are both `RequireNotGuest` (`main.go:739`, `:780`);
+  only `GET /api/support/mine` is deliberately open (`:787`). "Support still
+  works for guests" is true only for the read.
+- **The retire-direct-chats production run has still NOT happened**
+  (`docs/runbooks/retire-direct-chats.md` header). Pre-existing direct chats are
+  therefore still open on production. The plan warns the tester up front.
+- **Role 3's label is untranslated in the app.** `profile.dart:180` and
+  `pending_approval.dart:74` return a bare `'Volunteer'` with no `.tr`, while
+  roles 1 and 2 use `.tr`. «متطوع» exists at `app_translations.dart:3906` and
+  «خۆبەخش» at `:6340`, but neither is ever reached from those two screens. This
+  is a real Arabic-UI English leak against standing rule 2. Listed in the plan
+  as expected, not fixed here.
+
+### What was run
+Nothing to run — the deliverable is prose and no code changed. The facts were
+taken from `origin/main` `fcc5b10` by reading the files cited inline in the plan
+and in this entry. **No deployment was contacted, no database was read, and the
+plan itself has not been executed against Railway.**
+
+### Still open
+- The branch is **local and unpushed**, and there is no PR.
+- **OPOS was not usable in this session**, so no task was created, moved to WIP,
+  timed or completed for this work. It needs logging by whoever has access.
+- The plan is **written from the code, not from a run**. Nothing in Part 2 has
+  been clicked through. Expect the marriage search and "request a meeting"
+  wording in step 5 to need correcting from the screen — the plan marks it
+  `[NOT CONFIRMED]`.
+- The stale `chatExport.ts` header comment above deserves its own fix.
+
+### Traps
+- **Do not trust "NOT pushed" in older HANDOFF entries** as evidence a feature is
+  missing from `main`. Check `git log --oneline origin/main` for the PR number —
+  most of the chat branches were squash-merged after their entry was written.
+- **`Locale('ar', 'IQ')` is the SORANI map in this app**, not Arabic; Arabic is
+  `ar_SA`. Reading Arabic strings under `ar_IQ` gives Kurdish.
+- The reviewer agent was skipped, as the task asked.
+
+---
+
+## 2026-09-16 — `seed-test-users`: the chat test accounts in one command
+
+**Asked for:** Zaid needs to run the chat end-to-end test plan now, so build a
+command that creates its whole account matrix in one go, idempotently, with a
+cleanup that cannot touch anything it did not create.
+
+**Branch:** `feat/seed-test-users`, worktree off `origin/main` @ `edb3d08`. One
+commit. **Not pushed.** OPOS was unavailable in this session, so no task was
+logged.
+
+### What was changed
+- `backend/internal/seedtestusers/` (new) — `specs.go` (the matrix and the
+  identities), `seed.go` (create/repair), `cleanup.go` (delete, with the
+  identity proof), `seed_test.go` (four integration tests).
+- `backend/cmd/seed-test-users/main.go` (new) — flags, the destination banner,
+  the credentials table.
+- `docs/testing/chat-e2e-test-plan-2026-09.md` — new §1.7, how to run it
+  against Railway and what to know first.
+
+### The design decisions worth not re-deriving
+- **It goes through the real code paths**, which is why a seeded account can
+  actually sign in: `auth.NormalizePhone`, `bcrypt.GenerateFromPassword`,
+  `users.InsertWithPhone` → `SubmitRegistration` → `ApproveRegistration`,
+  `EnsureGrantorCode`/`EnsureVolunteerCode` (the `ER-` code is minted inside
+  `SubmitRegistration`), `users.InsertGuest`, `users.UpsertProfile`. Three
+  writes have no callable function — the username, the staff tier, and
+  `registration_status='approved'` on a role-less staff row — because they live
+  inside `internal/handlers` behind an HTTP request. Those are done with the
+  same SQL the handler uses, and each says so at the call site.
+- **Reserved phone block `+964 1 555 000 0xx`.** A real Iraqi mobile NSN starts
+  with 7, so this block cannot collide with anybody. `ensurePhoneRow` refuses to
+  write a number that falls outside it or that does not normalise to itself.
+- **No permission rows are written.** "Grant each staff account its tier
+  defaults" is satisfied by writing *nothing*: the defaults live in
+  `permissions.moduleDefaultAllowed` and apply when no row exists. Writing rows
+  that repeated them would pin the accounts against the tier matrix. Each run
+  instead DELETEs the fixture accounts' `role_permissions` rows, which is what
+  keeps E1 free of `sensitive_data` after a previous pass through step 8.
+- **Cleanup proves identity, it does not pattern-match.** An account is deleted
+  only if its username AND its exact reserved phone number match what `Plan`
+  would have produced (guest: username + `is_guest` + no phone). Anything else
+  is reported `KEPT`.
+
+### What was run, and what it printed
+- RED first: `go test ./internal/seedtestusers/` → `build failed`, `undefined:
+  Seed`, `undefined: Cleanup`, `undefined: Specs`.
+- GREEN: all four tests pass.
+- `gofmt -l backend` lists only `internal/handlers/admin_edit_user_profile.go`,
+  which is **pre-existing on main** and untouched here (`git diff HEAD` on it is
+  empty). `go build ./...` and `go vet ./...` clean.
+- `TEST_DATABASE_URL=…/seed_users_suite_c go test ./internal/seedtestusers/
+  ./internal/users/ ./internal/handlers/ -count=1 -p 1 -timeout 45m` → all `ok`
+  (handlers 18.5s).
+- Ran the command for real against a throwaway DB: dry run, `-confirm` (created
+  10), `-confirm` again (created 0, reused 10), `-cleanup -confirm` (deleted 9,
+  KEPT SA as the last super_admin).
+- **Started the server against the seeded database and signed in as three of
+  them**: `POST /api/auth/login` as D (phone + password) → token; wrong password
+  → `"Incorrect phone or password."`; `POST /api/auth/admin/login` as E1
+  (username + password) → token; `POST /api/auth/guest/login` as G → token.
+  Identity codes verified in `user_profiles`: `GR-`, `ER-`, `VL-`.
+- All three databases created here (`seed_users_test_a`, `seed_users_live_b`,
+  `seed_users_suite_c`) were dropped; `psql -lqt` confirmed.
+
+### Traps
+- **`cmd/server` does not run migrations.** Pointing it at an empty database
+  gives you a listening server and no tables. Migrations run through
+  `db.RunMigrations`, which is what the tests call. To migrate a scratch DB
+  quickly, run any integration test against it.
+- **A non-staff account's `staff_tier` is `'user'`, not `''`** — migration 015's
+  NOT NULL default. This cost one red test run.
+- `rehearse_retire_13998` in the local Postgres belongs to another session.
+  Left alone.
+
+### Still open
+- Not pushed, no PR. The reviewer agent was skipped by instruction; the diff was
+  re-read by hand instead.
+- The command has never been run against Railway. §1.7 of the test plan tells
+  Zaid how; the dry run is the safe first step.
+
+---
+
+## 2026-09-16 — chat policy conformance audit (OPOS #25284, read-only)
+
+**Asked for:** prove or disprove each of the client's 8 chat rules against the
+code as it stands, server-first. Read-only pass; change nothing unless a real
+violation is found.
+
+**Branch:** worktree off `origin/main` @ `fcc5b10`. One commit, docs only. **Not
+pushed.** OPOS was unavailable in this session, so no task was logged.
+
+**What was changed:** `docs/chat-policy-conformance-2026-09.md` (new) and this
+entry. No code touched — the two findings are reported, not fixed, per the
+brief.
+
+**What was run:** nothing executable. This was a read of
+`backend/internal/{chat,chatgroups,marriagechat,staffchat,casevolchat,chatlifecycle}`,
+the route table in `backend/cmd/server/main.go:735-1093`, `humanitarian/lib/`
+and `admin-web/src/`. Evidence in the doc is file:line throughout.
+
+### Verdicts
+Rules 2, 4, 5, 6, 7, 8 hold. Rules 1 and 3 are **partial**, for one shared
+reason, plus a second independent gap.
+
+- **V1 — the important one.** Donor↔owner chat origination is dead
+  (`backend/internal/chat/chat.go:104-107` always returns
+  `ErrDirectChatRetired`), but *pre-existing* `chat_threads` rows are still
+  postable: `backend/internal/handlers/chat.go:387-411` checks party, `status`
+  and lifecycle, never the thread's kind. `chatlifecycle/retire.go:10-13` says
+  so in as many words. Closing those rows is a **manual script**
+  (`backend/cmd/retire-direct-chats`), not a migration — I checked
+  `backend/migrations/` and nothing there ends them. So rules 1 and 3 hold
+  only on an environment where someone ran it, and a staff pause→resume puts a
+  direct chat back into service afterwards. Suggested fix in the doc: a kind
+  predicate on the send and accept paths in `handlers/chat.go`.
+- **V2.** `kind='team'` groups accept any `role_in_group` — it is a free-form
+  string (`handlers/chat_group_admin.go:122`) and `CreateGroup` validates only
+  the kind (`chatgroups/chatgroups.go:153-156`). A staff member can therefore
+  build a **real-name** room containing a donor and a beneficiary
+  (`chatgroups_reads.go:112-113` serves `full_name` in non-masked groups); the
+  dashboard offers all four roles regardless of kind
+  (`admin-web/src/lib/chatGroupForm.ts:40`). The repo's own test builds this
+  shape at `chatgroups_admin_kind_test.go:24-32`. **Ambiguous** — rule 5 says
+  staff choose the members, so whether this is a bug depends on client intent.
+  Ask before changing.
+- V3, cosmetic: two stale app strings pointing at the retired flow
+  (`humanitarian/lib/modules/chat/screens/messages_screen.dart:135, 217-218`).
+
+### Things worth not re-deriving
+- `casevolchat` is genuinely dead: 64 lines, one method
+  (`MessageCountForSignup`), zero routes in `main.go`, and only four orphan
+  translation strings left in the app. It is kept solely for the admin delete
+  guard. Don't go hunting for its routes again.
+- Masking in both masked groups and marriage chat is **structural**, not a
+  filter: the mobile response types (`chatgroups.GroupMessage`,
+  `marriagechat.ThreadView`/`Message`) have no field able to hold a user id,
+  name or phone. Real identities live on separately named `Admin*` types.
+- Rule 8's **export** is not a server route — it is client-side CSV/Excel/PDF
+  in `admin-web/src/lib/chatExport.ts`, behind a PIN step-up. I initially
+  concluded export was missing because `grep -i export` over the backend finds
+  only `/admin/export/all`. It isn't missing. Check the dashboard first.
+- The app has **no named routes and no deep links** (`Get.to(() => Widget())`
+  everywhere) and push taps do not route anywhere
+  (`humanitarian/lib/main.dart:114-118` only `debugPrint`s). That closes a
+  whole class of "could a link reach a chat" questions.
+
+### Still open
+- Unpushed commit on this worktree branch; no PR.
+- Nobody has confirmed whether `cmd/retire-direct-chats` has run on production
+  or staging. Rules 1 and 3 hinge on it. `docs/runbooks/retire-direct-chats.md`
+  has the post-check queries.
+- V1 and V2 are reported, not fixed.
+
+---
+
+## 2026-09-16 — a team group is for volunteers and staff only
+
+**Asked for:** Zaid's decision of 2026-09-16 — a `kind='team'` chat group is
+for volunteers and staff only. Donors and beneficiaries must go in a masked
+group, where members see labels instead of names.
+
+**Branch:** `fix/team-groups-staff-and-volunteers-only`, cut from
+`origin/main` at `fcc5b10`. One commit, NOT pushed. No OPOS task (OPOS was
+unavailable in that session).
+
+### The facts that were established first, by reading the code
+
+1. **`role_in_group` is free text and gates nothing.** Migration 120 declares
+   it `VARCHAR(16) NOT NULL DEFAULT ''` with **no CHECK constraint** and the
+   comment "donor|beneficiary|volunteer|staff, **informational**". The backend
+   reads it only to number auto-labels ("Donor 1" — `autoLabelName` in
+   `chatgroups_members.go`) and to collapse staff senders to "Support"
+   (`chatgroups_reads.go:112`). `admin-web/src/lib/chatGroupForm.ts`'s
+   `CHAT_GROUP_ROLES` is the same four words. Staff type it; nothing validates
+   it.
+2. **The account is authoritative, not the group's word for it.**
+   `users.role_id` — 1 donor, 2 beneficiary, 3 volunteer
+   (`handlers/registration.go:194` accepts 1..3, then branches: 1 assigns the
+   grantor code, 2 the recipient details, 3 the volunteer code) — and
+   `users.staff_tier` for staff. The rule reads those two, never
+   `role_in_group`.
+3. **Staff are identified by `staff_tier`**, one of
+   `super_admin|admin|supervisor|employee` (`internal/notify/notify.go:302-317`
+   says so in as many words; `internal/auth/middleware.go` calls it "THE
+   authoritative field"; `users.is_admin` is legacy and is not read).
+   `staff_tier` therefore WINS over `role_id`: a coordinator whose `role_id` is
+   still 1 because they first registered as a donor is staff, and a team group
+   takes them. There is a test for exactly that.
+
+### What was actually changed
+
+Backend:
+- `internal/chatgroups/chatgroups.go` — new sentinel `ErrTeamMemberRole`.
+- `internal/chatgroups/chatgroups_members.go` — `teamMemberRefusedSQL` and
+  `refuseTeamMemberRole`, called from `insertMemberRow` (every new member, on
+  every path: CreateGroup, ApproveConnectRequest, AddMember) and from
+  `addMemberInTx`'s **reactivation** branch, so #26410's "bring a removed
+  member back" obeys the rule too.
+- `internal/handlers/chat_group.go` — the `chatErr` table gains
+  `{ErrTeamMemberRole, 400, "A team group can only include volunteers and
+  staff.", team_member_role_not_allowed}`, following #107/#118/#26496's
+  pattern.
+
+Dashboard:
+- `lib/chatGroupForm.ts` — `TEAM_GROUP_ROLES` and `rolesForKind(kind)`.
+- `components/chatGroups/MemberRowsEditor.tsx` and `AddMemberForm.tsx` — a
+  team group's role select offers only volunteer and staff, with one line
+  under it saying why (`aria-describedby` on the select in the create dialog).
+  The masked form is untouched.
+- `lib/chatGroupErrors.ts` — the new code, mapped to
+  `error.team_member_role_not_allowed`, in the 'members' area so the message
+  lands beside the rows.
+- `lib/locales/en.ts` and `ar.ts` — two new keys. **en and ar only**;
+  ckb/kmr fall back to English on purpose (#21431).
+- `TRANSLATION_REQUEST.md` — recounted, 621 + 2 = **623**.
+
+Test-helper fixes that came with the rule (they were not incidental):
+- `chatgroups_test.go`'s `makeTestUser` **ignored its `role` argument** and
+  inserted `role_id = 1` for every user, so every "volunteer" and "staff" in
+  that package was really a donor. It now maps the word it is already given
+  (donor 1, beneficiary 2, volunteer 3, staff 3 + `staff_tier='employee'`).
+  Six existing tests that built a TEAM group out of donors were changed to use
+  volunteers — the intent of each was never about donors.
+- `internal/handlers` got `makeChatGroupRoleUser` / `setChatGroupRole`
+  (`chat_group_team_roles_test.go`), because `makeChatGroupUser` also always
+  inserts `role_id = 1`. Four handler tests that built team groups were moved
+  onto it.
+
+### What was run, and what it printed
+
+RED first, on both layers:
+- `go test ./internal/chatgroups/ -run 'Team|MaskedGroupStill'` →
+  `CreateGroup with a donor = <nil>, want ErrTeamMemberRole` (and the same for
+  beneficiary, AddMember, and the reactivation case) — 4 tests failing for the
+  right reason before a line of the rule existed.
+- `npx vitest run src/components/chatGroups/MemberRowsEditor.test.tsx` →
+  the team select still listed `donor` and `beneficiary`; 1 failed, 7 passed.
+
+GREEN, on throwaway databases created and dropped for this work
+(`gd_team_cg_a9`, `gd_team_h_a9`, both dropped afterwards, absence confirmed
+with `psql -lqt`):
+- `go test ./internal/chatgroups/ -count=1 -p 1 -timeout 45m` →
+  `ok  github.com/karam-flutter/humanitarian-backend/internal/chatgroups  3.274s`
+- `go test ./internal/handlers/ -count=1 -p 1 -timeout 45m` →
+  `ok  github.com/karam-flutter/humanitarian-backend/internal/handlers  57.881s`
+- `-v -run 'TeamGroup|TeamMember|TeamRole|MaskedGroupStillTakes|TeamRoles'`
+  (chatgroups) → 11 PASS, 0 SKIP, 0 FAIL.
+- `-v -run 'TeamRole|MaskedGroupStillTakes'` (handlers) → 5 PASS, 0 SKIP.
+- `gofmt -l` clean on every file touched; `go build ./...` and `go vet ./...`
+  both exit 0.
+- admin-web (Node 22): `npm test` 199 passed / 22 files; `npx tsc -b`,
+  `npm run build`, `npm run test:mock-api`, `npm run test:nav`,
+  `npm run check:labels`, `npm run check:css-tokens`, `npm run lint` — all
+  **exit 0** (lint prints 62 pre-existing warnings, 0 errors).
+
+### For Zaid to run against PRODUCTION — read-only, nothing was changed
+
+How many existing team groups already hold a donor or a beneficiary. Deliberately
+NOT fixed here: repairing live rows is a membership decision, not a code change.
+
+```sql
+SELECT COUNT(DISTINCT t.id) AS team_groups_with_a_donor_or_beneficiary,
+       COUNT(*)             AS offending_member_rows
+  FROM chat_group_threads t
+  JOIN chat_group_members m ON m.group_id = t.id
+  JOIN users u             ON u.id = m.user_id
+ WHERE t.kind = 'team'
+   AND m.removed_at IS NULL
+   AND u.role_id IN (1, 2)
+   AND u.staff_tier NOT IN ('super_admin', 'admin', 'supervisor', 'employee');
+```
+
+Add `SELECT t.id, m.user_id` in place of the counts to list them. The query
+ran clean against a migrated test database (0, 0); it has not been run against
+production from here.
+
+### Still open / needs a human
+
+- The commit is **not pushed** and no PR exists.
+- **Existing team groups are left exactly as they are.** The rule is about who
+  can be ADDED; nobody already in a team group is removed, and what such a
+  group serves its members is unchanged. If the production count above is
+  non-zero, someone has to decide whether those people are removed, moved to a
+  masked group, or left alone.
+- ckb/kmr for the two new keys, as always.
+- The dashboard change was verified by tests and `tsc`, not clicked through
+  live (OTP-gated admin login, the same limitation every session here hits).
+
+### Traps
+
+- **`makeTestUser`'s role argument was a lie** (see above) and
+  `makeChatGroupUser` still hardcodes `role_id = 1`. Any future rule that reads
+  `users.role_id` will trip over the handlers helper the same way. Use
+  `makeChatGroupRoleUser`.
+- **A test database here is reused across runs and hands out the SAME user ids
+  each time**, because `raiseUserIDFloor` resets the id sequence to a fixed
+  floor per process. An assertion keyed on "groups created by this staff id"
+  therefore sees groups left behind by an EARLIER run and fails for no reason.
+  Count per user against a watermark instead. This cost real time.
+- `internal/handlers/admin_edit_user_profile.go` is **already unformatted on
+  `origin/main`** — `gofmt -l internal` names it and always did. Not from this
+  work; do not "fix" it in an unrelated commit.
+- `admin-web` needs its own `npm ci` in a fresh worktree; the tests fail with
+  "Cannot find package 'vitest'" until you do.
+
+---
+
+## 2026-09-16 — the chat SEND and ACCEPT paths finally check `kind`
+
+**Asked for:** OPOS #25284's policy (a donor, beneficiary or volunteer never
+messages another one directly) was enforced at CREATION only. A conformance
+audit found the send path never looked at the thread's `kind` — the hole
+`chatlifecycle/retire.go:10-13` names in its own header: "Left paused, staff
+could resume one into a working direct chat: sending checks lifecycle, never
+kind." Plus two stale strings on the app's Messages screen.
+
+**Branch:** `fix/direct-chat-kind-gate`, cut from `origin/main` (`fcc5b10`).
+One commit, NOT pushed, no PR.
+
+### What was actually changed
+- `backend/internal/chat/chat.go` — `Thread.Kind` is now loaded (every
+  SELECT/RETURNING on `chat_threads` carries `kind`), plus exported
+  `KindDirect`/`KindSupport`. `AcceptThread` and `PostMessage` refuse a
+  `kind='direct'` thread with the EXISTING `ErrDirectChatRetired` sentinel.
+- `backend/internal/handlers/chat.go` — `chatErr` maps that sentinel to
+  **410 Gone, `{"success": false, "error": "Direct messaging has been retired.
+  Ask staff to connect you instead."}`** — the exact shape (status, body, no
+  `code` field) `POST /api/chats/request` has answered with since Phase 4. The
+  Request handler's inline copy of that response was deleted in favour of the
+  shared mapping, and both send handlers now route store errors through
+  `chatErr` instead of a flat 500.
+- `backend/internal/handlers/chat_direct_kind_gate_test.go` — NEW, 5 tests.
+
+**Why the STORE and not the handler:** the bug was a path that forgot to check.
+Creation's refusal already lives in the store (`RequestThread`), and the store
+covers both send callers (participant route and admin reply route) plus any
+future one. The handler only maps the sentinel.
+
+### Decisions worth knowing
+- **Reading is untouched.** `GET /api/chats/:id/messages` still serves a direct
+  thread's history — the policy retires new messages, not the record.
+- **Staff are refused too**, exactly as a lifecycle pause refuses them: a staff
+  reply into a retired direct thread would deliver a message its participants
+  cannot answer. Say so if the client disagrees; it is a one-line revert of the
+  `AdminPostMessage` path.
+- **Team-group membership rules were NOT touched** (a separate decision is
+  pending).
+- Ordering note: K19's contact-details block still runs BEFORE the store, so a
+  direct thread sent a phone number answers 422, not 410. Nothing is stored
+  either way.
+
+### Test-fixture fallout (read this before you think a test is wrong)
+`kind='direct'` used to be the default fixture everywhere, so several suites
+were posting into or accepting one. Every fixture whose SUBJECT is not
+direct-ness now seeds `kind='support'` — the only kind on `chat_threads` that
+can still be posted into — and says why in a comment:
+`makeContactThread` (K19), `seedPendingSupportInvite` (invite accept controls
+and the declined-invite donor case), `seedSupportChat` (moved into
+`chat_lifecycle_fixtures_test.go` and used by `allFixtures`, the resume test,
+the end-keeps-history test and the delete/restore test),
+`seedDeclineThreadOfKind` (store-level accept tests).
+Left DIRECT on purpose: `seedDonorChat`, the archive/staff-list case (the staff
+list only shows `kind='direct'`), and
+`TestTrashRestore_OpenDirectChatComesBackClosed` — that one now seeds its two
+messages and its `chat_reads` row with SQL, because the route it used before
+is the route this fix closed.
+**A consequence for a human:** K19's peer-thread filter on `chat_threads` is
+now unreachable in production (the only peer thread it covered is the retired
+direct one). Its tests still pass on support-kind rows, and the group chat has
+its own filter. Whether the `chat_threads` half should be deleted is a call for
+the client, not a drive-by.
+
+### App (V3)
+- `humanitarian/lib/modules/chat/screens/messages_screen.dart` — the empty
+  state said "Start a chat from a donation (donor) or from your campaign
+  donations (owner)", a flow that no longer exists. It is now two localised
+  keys pointing at "Ask our team to connect me" and the supervised group. The
+  second stale string was the comment above the standing tiles, which still
+  listed "case chats" (retired); it now names the support ticket form, which is
+  what the third tile actually is.
+- `app_translations.dart` — `chat_empty_title` / `chat_empty_message`, **en +
+  ar only** (ckb/kmr fall back, #21431). `TRANSLATION_REQUEST.md` has a new
+  section and its count was recounted 621 → **623**.
+
+### What was run, and what it printed
+- RED first, on `godonation_direct_kind`: `SendRefusedOnOpenDirectThread`
+  "status = 200, want 410 Gone"; `AcceptRefusedOnDirectThread` "status = 200,
+  want 410 Gone". The three control tests (read history, support posts,
+  marriage posts) passed before the fix, as they must.
+- GREEN, fresh DB `godonation_final`: `go test ./internal/chat/
+  ./internal/handlers/ -count=1 -p 1 -timeout 45m` → `ok ...internal/chat
+  1.092s`, `ok ...internal/handlers 18.989s`.
+- `-run 'DirectKindGate' -v` on fresh `godonation_runcheck`: 5 PASS, 0 SKIP.
+- Whole backend on fresh `godonation_all`: `go test ./... -count=1 -p 1` — no
+  FAIL lines.
+- `gofmt -l .` reports only `internal/handlers/admin_edit_user_profile.go`,
+  which is PRE-EXISTING on main and untouched here (gofmt rewrites two `''`
+  quote pairs inside its comments). Every file this branch touches is clean.
+  `go build ./...` and `go vet ./...` clean.
+- App: `flutter analyze` → 6 issues (the baseline, all pre-existing
+  deprecations); `flutter test` → 1088 passed.
+- All throwaway databases dropped afterwards; `psql -lqt` confirmed.
+
+### Still open
+- Nothing is pushed. One commit sits on `fix/direct-chat-kind-gate` in the
+  worktree; no PR was opened.
+- The K19 dead-filter question above.
+- Nothing was clicked through in a running app (same OTP-gated limitation as
+  every backend fix here); the app change is covered by analyze + tests only.
+
 ---
 
 ## 2026-09-12 — pending profile-change requests now visible on the Users list

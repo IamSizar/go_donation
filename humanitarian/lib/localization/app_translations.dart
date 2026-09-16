@@ -1612,6 +1612,15 @@ class AppTranslations extends Translations {
     // supervised chat. en + ar only; Sorani and Badini fall back to English
     // (#21431). A member reads "our team", never "staff" — the same words as
     // the chat-group strings and lifecycle notices (OPOS #26351).
+    // The Messages tab's empty state. It must point at the only door that
+    // exists now: members do not chat each other, they ask our team, who open
+    // a supervised group (OPOS #25284). Same words as connect_request_action
+    // below, so the sentence names the button the user has to find.
+    'chat_empty_title': 'No conversations yet',
+    'chat_empty_message':
+        'You and our team can talk here. Members do not message each other '
+        'directly — use "Ask our team to connect me", and our team will open '
+        'a supervised group chat for you.',
     'connect_request_action': 'Ask our team to connect me',
     'connect_request_title': 'Ask our team to connect you',
     'connect_request_explainer':
@@ -4642,6 +4651,11 @@ class AppTranslations extends Translations {
         'الفريق عبر نموذج الدعم أو عبر واتساب.',
     'chat_support_unavailable_action': 'فتح الدعم الفني',
     // "فريقنا" and never "الفريق", as in the chat-group strings (OPOS #26351).
+    'chat_empty_title': 'لا توجد محادثات بعد',
+    'chat_empty_message':
+        'يمكنك التحدث هنا مع فريقنا. لا يتراسل الأعضاء فيما بينهم مباشرة — '
+        'استخدم «اطلب التواصل عبر فريقنا»، وسيفتح لك فريقنا محادثة جماعية '
+        'تحت إشرافه.',
     'connect_request_action': 'اطلب التواصل عبر فريقنا',
     'connect_request_title': 'طلب تواصل عبر فريقنا',
     'connect_request_explainer':

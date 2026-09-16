@@ -8,6 +8,13 @@
  * Remove button. Rows are numbered by position, so removing one renumbers the
  * rest.
  *
+ * TEAM GROUPS OFFER TWO ROLES ONLY
+ * A team group shows its members each other's real names, so the server takes
+ * only volunteer and staff accounts in one and refuses a grantor or a
+ * recipient (400 team_member_role_not_allowed). The role select therefore
+ * lists only what the server would accept (rolesForKind, lib/chatGroupForm.ts),
+ * with one line under it saying why.
+ *
  * WHO CAN PICK MEMBERS (decision D2)
  * Picking uses the users search, GET /api/admin/users?q=, which needs
  * users:view. Staff without it would get a search box whose every request is
@@ -24,11 +31,11 @@ import FieldNote from './FieldNote'
 import UserPicker from '../UserPicker'
 import { useAuth } from '../../lib/auth'
 import {
-  CHAT_GROUP_ROLES,
   emptyMemberDraft,
   isChatGroupRole,
   memberFieldId,
   nextMemberKey,
+  rolesForKind,
   type MemberDraft,
   type MemberField,
   type MemberRowIssues,
@@ -118,6 +125,11 @@ function MemberRow({ row, position, kind, issues, disabled, onChange, onBlur, on
   const id = useId()
   const heading = t('chat_groups.create.member_n', { n: position })
   const roleErrorId = `${id}-role-error`
+  // Why a team row offers only two roles; shown under the select and named by
+  // its aria-describedby, so it is read out with the field.
+  const teamRolesNoteId = `${id}-role-team-note`
+  const roleDescribedBy =
+    [issues.role ? roleErrorId : '', kind === 'team' ? teamRolesNoteId : ''].filter(Boolean).join(' ') || undefined
 
   return (
     <div className="card stack" role="group" aria-label={heading}>
@@ -150,17 +162,22 @@ function MemberRow({ row, position, kind, issues, disabled, onChange, onBlur, on
             value={row.role}
             disabled={disabled}
             aria-invalid={issues.role ? true : undefined}
-            aria-describedby={issues.role ? roleErrorId : undefined}
+            aria-describedby={roleDescribedBy}
             onChange={(e) => onChange({ role: isChatGroupRole(e.target.value) ? e.target.value : '' }, 'role')}
             onBlur={() => onBlur('role')}
           >
             <option value="">{t('chat_groups.create.role_placeholder')}</option>
-            {CHAT_GROUP_ROLES.map((role) => (
+            {rolesForKind(kind).map((role) => (
               <option key={role} value={role}>
                 {statusLabel(role)}
               </option>
             ))}
           </select>
+          {kind === 'team' && (
+            <span id={teamRolesNoteId} className="form-hint">
+              {t('chat_groups.create.team_roles_note')}
+            </span>
+          )}
           <FieldNote id={roleErrorId} issue={issues.role} />
         </div>
 

@@ -56,9 +56,10 @@ func (h *MarriageChatHandler) chatErr(c *gin.Context, err error) {
 		// Says what happens next, because here something can: the requester
 		// may ask again, and staff approving that re-opens the invite in the
 		// owner's chat list (marriagechat.Store.ApproveMeetingRequest). It
-		// does not promise a push: notify.Notifier.Send dedupes on user, title,
-		// body and type, and the invite template's text never changes, so an
-		// owner who was already sent one invite is not pushed again.
+		// really does arrive as a new invite: OPOS #26481 exempted the
+		// conversation types from notify.Notifier.Send's duplicate check, so a
+		// re-approved invite reaches an owner who was already sent one before,
+		// even though the invite template's text never changes.
 		c.JSON(http.StatusConflict, gin.H{"success": false, "code": chatInviteDeclinedCode,
 			"error": "This chat request was declined, so it can no longer be accepted. If a new request is approved, it will come to you as a new invite."})
 	case errors.Is(err, marriagechat.ErrRequestGone):
@@ -93,9 +94,10 @@ func (h *MarriageChatHandler) AdminListMeetingRequests(c *gin.Context) {
 // For a pair whose earlier invite the owner declined, this is the re-invite:
 // the pair's one thread comes back as a pending invite in the owner's chat list
 // (OPOS #26436; see marriagechat.Store.ApproveMeetingRequest). The push below
-// is still sent, but notify.Notifier.Send drops it as a duplicate when the
-// owner already holds an invite notification, because the template's title
-// and body never change. That gap is recorded in HANDOFF.md, not fixed here.
+// reaches the owner every time. It used to be dropped as a duplicate whenever
+// they already held an invite notification, because the template's title and
+// body never change; OPOS #26481 exempted the conversation types from that
+// check, so a re-invite is announced like the first one.
 func (h *MarriageChatHandler) AdminApproveMeetingRequest(c *gin.Context) {
 	user, ok := auth.UserFromGin(c)
 	if !ok || user == nil {
@@ -314,17 +316,22 @@ func (h *MarriageChatHandler) PostMessage(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Message body is required."})
 		return
 	}
-	msg, msgID, err := h.Store.PostMessage(c.Request.Context(), id, user.UserID, thread.RoleFor(user.UserID), req.Body)
+	msg, _, err := h.Store.PostMessage(c.Request.Context(), id, user.UserID, thread.RoleFor(user.UserID), req.Body)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
 		return
 	}
+	// The notification carries the THREAD id, not the id of the message just
+	// posted. Its related_entity_type is marriage_chat_thread, and #145 routes a
+	// tapped notification by that pair — a message id there opens whatever
+	// thread happens to share the number, or nothing. (The template's parameter
+	// has always been named threadID; the message id was passed by mistake.)
 	for _, other := range thread.CounterpartIDs(user.UserID) {
 		oid := other
 		go func() {
 			ctx, cancel := h.bg()
 			defer cancel()
-			_, _ = h.Notifier.Send(ctx, oid, notify.MarriageChatNewMessageMsg(msgID))
+			_, _ = h.Notifier.Send(ctx, oid, notify.MarriageChatNewMessageMsg(id))
 		}()
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": msg})
@@ -399,17 +406,19 @@ func (h *MarriageChatHandler) AdminPostMessage(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Message body is required."})
 		return
 	}
-	msg, msgID, err := h.Store.PostMessage(c.Request.Context(), id, user.UserID, marriagechat.RoleStaff, req.Body)
+	msg, _, err := h.Store.PostMessage(c.Request.Context(), id, user.UserID, marriagechat.RoleStaff, req.Body)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
 		return
 	}
+	// The thread id, for the same reason as the member endpoint above: this is
+	// what a tapped notification opens.
 	for _, uid := range []int64{thread.RequesterUserID, thread.OwnerUserID} {
 		oid := uid
 		go func() {
 			ctx, cancel := h.bg()
 			defer cancel()
-			_, _ = h.Notifier.Send(ctx, oid, notify.MarriageChatNewMessageMsg(msgID))
+			_, _ = h.Notifier.Send(ctx, oid, notify.MarriageChatNewMessageMsg(id))
 		}()
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": msg})
