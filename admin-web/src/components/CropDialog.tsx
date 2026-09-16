@@ -14,15 +14,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useI18n } from '../lib/i18n'
 
-/** The same shapes the app offers, so a photo means one thing across both. */
-export const SHAPES = [
-  { key: 'free', label: 'crop.free', ratio: null },
-  { key: 'square', label: 'crop.square', ratio: 1 },
-  { key: 'standard', label: 'crop.standard', ratio: 4 / 3 },
-  { key: 'wide', label: 'crop.wide', ratio: 16 / 9 },
-] as const
-
-export type ShapeKey = (typeof SHAPES)[number]['key']
+import { SHAPES, type ShapeKey } from './cropShapes'
 
 type Box = { x: number; y: number; w: number; h: number }
 
@@ -73,26 +65,40 @@ export default function CropDialog({ file, lockRatio, onDone, onCancel }: Props)
 
   const ratio = SHAPES.find((s) => s.key === shape)?.ratio ?? null
 
+  // A new file means a new crop: forget the old image's size, box and shape.
+  // Done during render rather than in an effect so the dialog never paints the
+  // previous picture's crop box over the new photo for one frame.
+  const [seenFile, setSeenFile] = useState(file)
+  if (seenFile !== file) {
+    setSeenFile(file)
+    setNat(null)
+    setBox(null)
+    setShape(lockRatio ?? 'free')
+  }
+
   // Object URLs must be revoked or every pick leaks a blob for the life of
-  // the tab.
+  // the tab. Creating one is a call into the browser, not a computation, so it
+  // stays in an effect with its revoke in the cleanup; deriving `src` during
+  // render would mean allocating a browser resource from a render pass React
+  // is free to throw away.
   useEffect(() => {
     if (!file) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSrc(null)
       return
     }
     const url = URL.createObjectURL(file)
     setSrc(url)
-    setNat(null)
-    setBox(null)
-    setShape(lockRatio ?? 'free')
     return () => URL.revokeObjectURL(url)
-  }, [file, lockRatio])
+  }, [file])
 
-  // Re-fit whenever the shape changes, so switching to 1:1 always yields a
-  // valid square rather than squashing whatever box was there.
-  useEffect(() => {
+  // Re-fit whenever the image or the shape changes, so switching to 1:1 always
+  // yields a valid square rather than squashing whatever box was there.
+  const [fittedFor, setFittedFor] = useState<{ nat: typeof nat; ratio: number | null }>({ nat, ratio })
+  if (fittedFor.nat !== nat || fittedFor.ratio !== ratio) {
+    setFittedFor({ nat, ratio })
     if (nat) setBox(fitBox(nat.w, nat.h, ratio))
-  }, [nat, ratio])
+  }
 
   useEffect(() => {
     if (!file) return

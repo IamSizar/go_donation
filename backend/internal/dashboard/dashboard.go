@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/karam-flutter/humanitarian-backend/internal/notify"
 )
 
 type Stats map[string]any
@@ -126,17 +128,26 @@ func (s *Store) Compute(ctx context.Context, userID int64, roleID int) (*Summary
 	}
 }
 
+// recentNotifications returns the user's three most pressing notifications for
+// the summary card.
+//
+// OPOS #26424: a guest account's chat-type rows are left out, by the same
+// predicate GET /api/notifications uses (notify.GuestChatExclusionSQL).
+// Otherwise this card would show a guest the chat message previews that the
+// notifications list hides. The filter runs before LIMIT 3, so a guest still
+// gets up to three rows it may see.
 func (s *Store) recentNotifications(ctx context.Context, userID int64) ([]RecentNotification, error) {
 	if userID <= 0 {
 		return []RecentNotification{}, nil
 	}
 	rows, err := s.Pool.Query(ctx, `
-		SELECT id, title, title_ar, body, body_ar, notification_type,
-		       notification_category, priority, created_at
-		  FROM app_notifications
-		 WHERE user_id = $1
-		 ORDER BY is_read ASC, priority DESC, id DESC
-		 LIMIT 3`, userID)
+		SELECT n.id, n.title, n.title_ar, n.body, n.body_ar, n.notification_type,
+		       n.notification_category, n.priority, n.created_at
+		  FROM app_notifications n
+		 WHERE n.user_id = $1
+		   AND `+notify.GuestChatExclusionSQL("$2", "$3")+`
+		 ORDER BY n.is_read ASC, n.priority DESC, n.id DESC
+		 LIMIT 3`, userID, userID, notify.ChatNotificationTypes())
 	if err != nil {
 		return []RecentNotification{}, nil
 	}

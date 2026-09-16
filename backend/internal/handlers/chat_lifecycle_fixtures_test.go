@@ -5,8 +5,9 @@
 // Nothing here asserts anything. It builds one real thread in each of the
 // four chat systems — including the parent rows each one requires (a marriage
 // profile and meeting request, a mission signup and beneficiary case) — and
-// mounts the routes with the SAME middleware main.go uses, because the
-// middleware is what makes the lifecycle actions staff-only.
+// mounts the routes behind main.go's gates, participant and admin alike,
+// because the middleware is what makes the lifecycle actions staff-only. The
+// chain each group gets is spelled out on newLifecycleRouter.
 //
 // Every fixture removes what it wrote in its own t.Cleanup: the suite must
 // leave the shared test database exactly as it found it.
@@ -15,17 +16,18 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"testing"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"testing"
 
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
-	"github.com/karam-flutter/humanitarian-backend/internal/casevolchat"
 	"github.com/karam-flutter/humanitarian-backend/internal/chat"
+	"github.com/karam-flutter/humanitarian-backend/internal/chatgroups"
 	"github.com/karam-flutter/humanitarian-backend/internal/chatlifecycle"
 	"github.com/karam-flutter/humanitarian-backend/internal/marriagechat"
 	"github.com/karam-flutter/humanitarian-backend/internal/notify"
+	"github.com/karam-flutter/humanitarian-backend/internal/permissions"
 	"github.com/karam-flutter/humanitarian-backend/internal/staffchat"
 )
 
@@ -41,6 +43,12 @@ type chatFixture struct {
 	ThreadID    int64
 	SenderID    int64 // a participant allowed to post when the thread is open
 	SendPath    string
+	// MsgIDColumn is the column on MsgTable that points back at ThreadID.
+	// Every pre-existing system calls it "thread_id"; chat_group_messages
+	// (migration 120) calls it "group_id" instead, since a group is not a
+	// "thread" in this schema's vocabulary. countRows needs this to build a
+	// query that actually matches a column that exists.
+	MsgIDColumn string
 }
 
 func seedDonorChat(t *testing.T, pool *pgxpool.Pool) chatFixture {
@@ -62,7 +70,7 @@ func seedDonorChat(t *testing.T, pool *pgxpool.Pool) chatFixture {
 		_, _ = pool.Exec(ctx, `DELETE FROM chat_threads WHERE id = $1`, id)
 	})
 	return chatFixture{chatlifecycle.KindDonor, "chat_threads", "chat_messages", id, donor,
-		fmt.Sprintf("/api/chats/%d/messages", id)}
+		fmt.Sprintf("/api/chats/%d/messages", id), "thread_id"}
 }
 
 func seedStaffChat(t *testing.T, pool *pgxpool.Pool) chatFixture {
@@ -87,14 +95,26 @@ func seedStaffChat(t *testing.T, pool *pgxpool.Pool) chatFixture {
 		_, _ = pool.Exec(ctx, `DELETE FROM staff_chat_threads WHERE id = $1`, id)
 	})
 	return chatFixture{chatlifecycle.KindStaff, "staff_chat_threads", "staff_chat_messages", id, a,
-		fmt.Sprintf("/api/admin/staff-chats/%d/messages", id)}
+		fmt.Sprintf("/api/admin/staff-chats/%d/messages", id), "thread_id"}
 }
 
 func seedMarriageChat(t *testing.T, pool *pgxpool.Pool) chatFixture {
 	t.Helper()
-	ctx := context.Background()
 	requester := makeLifecycleUser(t, pool, "user")
 	owner := makeLifecycleUser(t, pool, "user")
+	id := insertMarriageChatThread(t, pool, requester, owner)
+	return chatFixture{chatlifecycle.KindMarriage, "marriage_chat_threads", "marriage_chat_messages", id, requester,
+		fmt.Sprintf("/api/marriage/chats/%d/messages", id), "thread_id"}
+}
+
+// insertMarriageChatThread inserts an ACTIVE marriage chat thread between two
+// existing users, with the parent rows the schema requires: the owner's
+// marriage profile and the requester's meeting request. Split out of
+// seedMarriageChat so chat_guest_reads_test.go can put a guest on one side.
+// Removes everything it wrote in its own t.Cleanup.
+func insertMarriageChatThread(t *testing.T, pool *pgxpool.Pool, requester, owner int64) int64 {
+	t.Helper()
+	ctx := context.Background()
 	lifecycleSeq++
 	var profileID, requestID, id int64
 	if err := pool.QueryRow(ctx,
@@ -123,102 +143,117 @@ func seedMarriageChat(t *testing.T, pool *pgxpool.Pool) chatFixture {
 		_, _ = pool.Exec(ctx, `DELETE FROM marriage_meeting_requests WHERE id = $1`, requestID)
 		_, _ = pool.Exec(ctx, `DELETE FROM marriage_profiles WHERE id = $1`, profileID)
 	})
-	return chatFixture{chatlifecycle.KindMarriage, "marriage_chat_threads", "marriage_chat_messages", id, requester,
-		fmt.Sprintf("/api/marriage/chats/%d/messages", id)}
+	return id
 }
 
-func seedCaseChat(t *testing.T, pool *pgxpool.Pool) chatFixture {
+// seedCaseChat and the case-chats routes it fed were removed by OPOS #25284
+// Phase 4, which retired casevolchat's direct volunteer↔beneficiary
+// messaging entirely: there is no more handler or route to seed a fixture
+// for, and KindCase is no longer in chatlifecycle.Systems(). See
+// chatlifecycle.go and casevolchat.go.
+
+func seedGroupChat(t *testing.T, pool *pgxpool.Pool) chatFixture {
 	t.Helper()
 	ctx := context.Background()
-	volunteer := makeLifecycleUser(t, pool, "user")
-	beneficiary := makeLifecycleUser(t, pool, "user")
-	lifecycleSeq++
-	var missionID, signupID, caseID, id int64
+	member := makeLifecycleUser(t, pool, "user")
+	staff := makeLifecycleUser(t, pool, "employee")
+	var id, memberRowID int64
 	if err := pool.QueryRow(ctx,
-		`INSERT INTO volunteer_missions (title) VALUES ($1) RETURNING id`,
-		fmt.Sprintf("LC mission %d", lifecycleSeq)).Scan(&missionID); err != nil {
-		t.Fatalf("insert mission: %v", err)
+		`INSERT INTO chat_group_threads (kind, created_by_staff_id) VALUES ('masked', $1) RETURNING id`,
+		staff).Scan(&id); err != nil {
+		t.Fatalf("insert chat group thread: %v", err)
 	}
 	if err := pool.QueryRow(ctx,
-		`INSERT INTO volunteer_mission_signups (mission_id, user_id) VALUES ($1, $2) RETURNING id`,
-		missionID, volunteer).Scan(&signupID); err != nil {
-		t.Fatalf("insert signup: %v", err)
-	}
-	if err := pool.QueryRow(ctx,
-		`INSERT INTO beneficiary_cases (case_code, public_title, user_id) VALUES ($1, $2, $3) RETURNING id`,
-		fmt.Sprintf("CSE-LC-%d", lifecycleSeq), "LC case", beneficiary).Scan(&caseID); err != nil {
-		t.Fatalf("insert case: %v", err)
-	}
-	if err := pool.QueryRow(ctx,
-		`INSERT INTO case_volunteer_chat_threads (signup_id, case_id, volunteer_user_id, beneficiary_user_id)
-		 VALUES ($1, $2, $3, $4) RETURNING id`,
-		signupID, caseID, volunteer, beneficiary).Scan(&id); err != nil {
-		t.Fatalf("insert case-volunteer thread: %v", err)
+		`INSERT INTO chat_group_members (group_id, user_id, role_in_group, masked, masked_label, added_by_staff_id)
+		 VALUES ($1, $2, 'donor', true, 'Donor 1', $3) RETURNING id`,
+		id, member, staff).Scan(&memberRowID); err != nil {
+		t.Fatalf("insert chat group member: %v", err)
 	}
 	t.Cleanup(func() {
 		ctx := context.Background()
-		_, _ = pool.Exec(ctx, `DELETE FROM case_volunteer_chat_reads WHERE thread_id = $1`, id)
-		_, _ = pool.Exec(ctx, `DELETE FROM case_volunteer_chat_messages WHERE thread_id = $1`, id)
-		_, _ = pool.Exec(ctx, `DELETE FROM trash_items WHERE source_table = 'case_volunteer_chat_threads' AND row_id = $1`, id)
-		_, _ = pool.Exec(ctx, `DELETE FROM case_volunteer_chat_threads WHERE id = $1`, id)
-		_, _ = pool.Exec(ctx, `DELETE FROM beneficiary_cases WHERE id = $1`, caseID)
-		_, _ = pool.Exec(ctx, `DELETE FROM volunteer_mission_signups WHERE id = $1`, signupID)
-		_, _ = pool.Exec(ctx, `DELETE FROM volunteer_missions WHERE id = $1`, missionID)
+		_, _ = pool.Exec(ctx, `DELETE FROM chat_group_contact_blocks WHERE group_id = $1`, id)
+		_, _ = pool.Exec(ctx, `DELETE FROM chat_group_reads WHERE group_id = $1`, id)
+		_, _ = pool.Exec(ctx, `DELETE FROM chat_group_messages WHERE group_id = $1`, id)
+		_, _ = pool.Exec(ctx, `DELETE FROM trash_items WHERE source_table = 'chat_group_threads' AND row_id = $1`, id)
+		_, _ = pool.Exec(ctx, `DELETE FROM chat_group_members WHERE group_id = $1`, id)
+		_, _ = pool.Exec(ctx, `DELETE FROM chat_group_threads WHERE id = $1`, id)
 	})
-	return chatFixture{chatlifecycle.KindCase, "case_volunteer_chat_threads", "case_volunteer_chat_messages", id, volunteer,
-		fmt.Sprintf("/api/case-chats/%d/messages", id)}
+	return chatFixture{chatlifecycle.KindGroup, "chat_group_threads", "chat_group_messages", id, member,
+		fmt.Sprintf("/api/chat-groups/%d/messages", id), "group_id"}
 }
 
-// ─── The router, wired exactly as main.go wires it ──────────────────────
+// ─── The router, wired with main.go's gates ─────────────────────────────
 
 // newLifecycleRouter mounts every send route plus the staff-only lifecycle
-// and delete routes, with the SAME middleware main.go uses — RequireBearer on
-// the participant routes, RequireAdmin on the admin group. The middleware is
-// the point: it is what makes these actions staff-only.
+// and delete routes behind main.go's gates. The middleware is the point: it is
+// what makes these actions staff-only.
+//
+// The participant routes get main.go's full chain: the authed group's
+// RequireBearer + RequireApproved, plus RequireNotGuest on each send and
+// messages route and GuestGetsEmptyList on each list route, so no test here can
+// get a guest a response production would not give (OPOS #26357, #26354).
+//
+// The admin routes get main.go's full admin chain too (OPOS #26367):
+//   - the admin group's RequireAdmin and RequireDeletePassword, so a staff
+//     DELETE has to carry the acting staff member's own password, exactly as
+//     the dashboard sends it (see
+//     TestChatLifecycle_DeleteTrashesAndRestoreBringsBackMessages);
+//   - each route's own perm() gate: messages/* for the donor, staff and group
+//     chats, marriage/* for the marriage chat. The staff-chat list and send
+//     routes carry no perm() gate in main.go, so they carry none here.
 func newLifecycleRouter(pool *pgxpool.Pool) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	tokens := auth.NewTokenStore(pool)
 	n := notify.New(pool)
+	perms := permissions.New(pool)
+	// perm mirrors main.go's helper of the same name.
+	perm := func(module, action string) gin.HandlerFunc {
+		return auth.RequirePermission(perms, module, action)
+	}
 
 	chatH := NewChatHandler(chat.New(pool), n, pool)
 	marriageH := NewMarriageChatHandler(marriagechat.New(pool), n, pool)
 	staffH := NewStaffChatHandler(staffchat.New(pool), n, pool)
-	caseH := NewCaseVolunteerChatHandler(casevolchat.New(pool), n)
 	lifeH := NewChatLifecycleHandler(pool)
 
 	r := gin.New()
-	participant := r.Group("/api", auth.RequireBearer(tokens))
-	participant.POST("/chats/:id/messages", chatH.PostMessage)
-	participant.GET("/chats", chatH.List)
-	participant.GET("/chats/:id/messages", chatH.Messages)
-	participant.POST("/marriage/chats/:id/messages", marriageH.PostMessage)
-	participant.GET("/marriage/chats", marriageH.List)
-	participant.POST("/case-chats/:id/messages", caseH.PostMessage)
-	participant.GET("/case-chats", caseH.List)
+	participant := r.Group("/api", auth.RequireBearer(tokens), auth.RequireApproved())
+	participant.POST("/chats/:id/messages", auth.RequireNotGuest(), chatH.PostMessage)
+	participant.GET("/chats", GuestGetsEmptyList(), chatH.List)
+	participant.GET("/chats/:id/messages", auth.RequireNotGuest(), chatH.Messages)
+	participant.POST("/marriage/chats/:id/messages", auth.RequireNotGuest(), marriageH.PostMessage)
+	participant.GET("/marriage/chats", GuestGetsEmptyList(), marriageH.List)
 
-	admin := r.Group("/api", auth.RequireAdmin(tokens))
+	admin := r.Group("/api", auth.RequireAdmin(tokens), RequireDeletePassword(pool))
 	admin.POST("/admin/staff-chats/:id/messages", staffH.PostMessage)
 	admin.GET("/admin/staff-chats", staffH.List)
-	admin.GET("/admin/chats", chatH.AdminList)
-	admin.GET("/admin/marriage/chats", marriageH.AdminList)
-	admin.GET("/admin/case-chats", caseH.AdminList)
-	admin.POST("/admin/chats/:id/lifecycle", lifeH.Apply(chatlifecycle.KindDonor))
-	admin.POST("/admin/staff-chats/:id/lifecycle", lifeH.Apply(chatlifecycle.KindStaff))
-	admin.POST("/admin/marriage/chats/:id/lifecycle", lifeH.Apply(chatlifecycle.KindMarriage))
-	admin.POST("/admin/case-chats/:id/lifecycle", lifeH.Apply(chatlifecycle.KindCase))
-	admin.DELETE("/admin/chats/:id", lifeH.Delete(chatlifecycle.KindDonor))
-	admin.DELETE("/admin/staff-chats/:id", lifeH.Delete(chatlifecycle.KindStaff))
-	admin.DELETE("/admin/marriage/chats/:id", lifeH.Delete(chatlifecycle.KindMarriage))
-	admin.DELETE("/admin/case-chats/:id", lifeH.Delete(chatlifecycle.KindCase))
+	admin.GET("/admin/chats", perm("messages", "view"), chatH.AdminList)
+	admin.GET("/admin/marriage/chats", perm("marriage", "view"), marriageH.AdminList)
+	admin.POST("/admin/chats/:id/lifecycle", perm("messages", "edit"), lifeH.Apply(chatlifecycle.KindDonor))
+	admin.POST("/admin/staff-chats/:id/lifecycle", perm("messages", "edit"), lifeH.Apply(chatlifecycle.KindStaff))
+	admin.POST("/admin/marriage/chats/:id/lifecycle", perm("marriage", "edit"), lifeH.Apply(chatlifecycle.KindMarriage))
+	admin.DELETE("/admin/chats/:id", perm("messages", "delete"), lifeH.Delete(chatlifecycle.KindDonor))
+	admin.DELETE("/admin/staff-chats/:id", perm("messages", "delete"), lifeH.Delete(chatlifecycle.KindStaff))
+	admin.DELETE("/admin/marriage/chats/:id", perm("marriage", "delete"), lifeH.Delete(chatlifecycle.KindMarriage))
+
+	groupsStore := chatgroups.New(pool)
+	groupsH := NewChatGroupHandler(groupsStore, n, nil, pool)
+	participant.POST("/chat-groups/:id/messages", auth.RequireNotGuest(), groupsH.PostMessage)
+	admin.POST("/admin/chat-groups/:id/lifecycle", perm("messages", "edit"), lifeH.Apply(chatlifecycle.KindGroup))
+	admin.DELETE("/admin/chat-groups/:id", perm("messages", "delete"), lifeH.Delete(chatlifecycle.KindGroup))
 	return r
 }
 
-// allFixtures seeds one thread in each of the four systems.
+// allFixtures seeds one thread in each of the four ACTIVELY REACHABLE systems
+// (chatlifecycle.Systems()) — donor, marriage, staff, and group. KindCase is
+// deliberately excluded: OPOS #25284 Phase 4 retired casevolchat's direct
+// volunteer↔beneficiary messaging entirely, so it is no longer in
+// chatlifecycle.Systems() and has no route left to fixture.
 func allFixtures(t *testing.T, pool *pgxpool.Pool) []chatFixture {
 	return []chatFixture{
 		seedDonorChat(t, pool),
 		seedMarriageChat(t, pool),
 		seedStaffChat(t, pool),
-		seedCaseChat(t, pool),
+		seedGroupChat(t, pool),
 	}
 }
