@@ -240,7 +240,9 @@ func TestChatLifecycle_ResumeRestoresAPausedChat(t *testing.T) {
 	r := newLifecycleRouter(pool)
 	staff := makeLifecycleUser(t, pool, "admin")
 	staffToken := tokenFor(t, pool, staff)
-	f := seedDonorChat(t, pool)
+	// Support, not direct: this test sends after the resume, and a direct
+	// thread refuses every send regardless of lifecycle (OPOS #25284).
+	f := seedSupportChat(t, pool)
 
 	// Pause through the real staff route, not by hand.
 	code, body := doJSON(t, r, http.MethodPost, fmt.Sprintf("/api/admin/chats/%d/lifecycle", f.ThreadID),
@@ -303,7 +305,9 @@ func TestChatLifecycle_EndKeepsTheHistory(t *testing.T) {
 	pool := newLifecyclePool(t)
 	r := newLifecycleRouter(pool)
 	staffToken := tokenFor(t, pool, makeLifecycleUser(t, pool, "admin"))
-	f := seedDonorChat(t, pool)
+	// Support, not direct: the history this test keeps is seeded through the
+	// send route, which a direct thread now refuses (OPOS #25284).
+	f := seedSupportChat(t, pool)
 
 	if code, _ := doJSON(t, r, http.MethodPost, f.SendPath, tokenFor(t, pool, f.SenderID),
 		map[string]string{"body": "something worth keeping"}); code != http.StatusOK {

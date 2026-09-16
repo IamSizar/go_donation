@@ -106,13 +106,21 @@ func makeContactUser(t *testing.T, pool *pgxpool.Pool, tier string) int64 {
 // makeContactThread inserts an ACTIVE thread between two users. Active because
 // the block sits downstream of the accept step and this test is not about the
 // accept step.
+//
+// kind='support' because it has to be: a kind='direct' thread refuses every
+// message outright now (OPOS #25284, chat_direct_kind_gate_test.go), so a
+// direct fixture would answer 410 before K19 was reached and these tests would
+// prove nothing about the filter. Nothing about K19 itself changes — it
+// decides by the parties' staff tier (chat.Store.IsPeerThread), not by kind,
+// so two public users on a support-kind row are still the "peer thread" it
+// covers.
 func makeContactThread(t *testing.T, pool *pgxpool.Pool, donorID, ownerID int64) int64 {
 	t.Helper()
 	ctx := context.Background()
 	var id int64
 	if err := pool.QueryRow(ctx,
-		`INSERT INTO chat_threads (donor_user_id, owner_user_id, status, initiated_by)
-		 VALUES ($1, $2, 'active', $1) RETURNING id`,
+		`INSERT INTO chat_threads (donor_user_id, owner_user_id, status, initiated_by, kind)
+		 VALUES ($1, $2, 'active', $1, 'support') RETURNING id`,
 		donorID, ownerID,
 	).Scan(&id); err != nil {
 		t.Fatalf("insert thread: %v", err)
