@@ -5,7 +5,8 @@
  * WHAT IT CONTAINS
  * - CONNECT_REQUEST_FILTERS: the statuses the inbox filters by.
  * - validateDeclineReason(): what is wrong with a decline reason, if anything.
- * - approveDraftFor(): the approve dialog's starting draft, requester first.
+ * - approveDraftFor(): the approve dialog's starting draft — the requester,
+ *   then the other party the request's context belongs to, when it has one.
  * - requesterIssue(): the one approve rule 6a's create form does not have.
  *
  * THE RULES, AND WHY
@@ -20,7 +21,7 @@
  * 6a's validateGroupDraft, reused as it is.
  */
 import type { ConnectRequest, ConnectRequestStatus } from './chatGroupsApi'
-import type { FieldMessage, GroupDraft } from './chatGroupForm'
+import type { FieldMessage, GroupDraft, MemberDraft } from './chatGroupForm'
 
 /** The inbox's filters, in the order they are shown; pending is the default. */
 export const CONNECT_REQUEST_FILTERS: readonly ConnectRequestStatus[] = ['pending', 'approved', 'declined']
@@ -64,18 +65,34 @@ export function validateDeclineReason(reason: string): FieldMessage | undefined 
 }
 
 /**
- * The approve dialog's first draft: no kind yet, and the requester already in
- * member row 1. Only the id and (when sent) the name are known, so the phone
- * is '' and the app role null; the picker's chip shows "#id" either way.
+ * A person the approve dialog pre-fills, from the little the inbox knows about
+ * them. Only the id and (when the caller may see it, D6) the name are known,
+ * so the phone is '' and the app role null; the picker's chip shows "#id"
+ * either way.
+ */
+function draftPerson(userID: number, fullName: string | undefined) {
+  return { user_id: userID, phone: '', role_id: null, full_name: fullName ?? null }
+}
+
+/**
+ * The approve dialog's first draft: no kind yet, the requester in member row 1
+ * and, when the request has one, the OTHER PARTY in row 2 — the person the
+ * case or campaign belongs to.
+ *
+ * Row 2 is a convenience, not the mechanism: the server adds that person to
+ * the group itself on approve, so removing the row here does not leave the
+ * group one-sided. Removing it is still worth allowing, because staff may know
+ * the conversation belongs with somebody else.
  */
 export function approveDraftFor(request: ConnectRequest): GroupDraft {
-  const person = {
-    user_id: request.requester_user_id,
-    phone: '',
-    role_id: null,
-    full_name: request.requester_name ?? null,
+  const members: MemberDraft[] = [
+    { key: 'm1', user: draftPerson(request.requester_user_id, request.requester_name), role: '', label: '' },
+  ]
+  const otherParty = request.other_party_user_id
+  if (otherParty !== undefined && otherParty !== request.requester_user_id) {
+    members.push({ key: 'm2', user: draftPerson(otherParty, request.other_party_name), role: '', label: '' })
   }
-  return { kind: null, title: '', members: [{ key: 'm1', user: person, role: '', label: '' }] }
+  return { kind: null, title: '', members }
 }
 
 /**

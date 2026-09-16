@@ -63,10 +63,18 @@ func (h *ChatGroupHandler) resolveConnectContext(ctx context.Context, contextTyp
 // #26410). It is omitted otherwise, and also when the requester has no
 // profile name. The store type tags its own RequesterName json:"-", so this
 // field — which shadows it — is the only way the name reaches the wire.
+//
+// other_party_user_id and other_party_name are the person the context belongs
+// to — the case's owner, or the owner of the campaign the donation went to.
+// Both are absent when there is nobody (a general-fund donation) or the lookup
+// failed, and the NAME is gated like requester_name while the ID is not; see
+// chat_group_admin_connect_party.go for both rules and the reasoning.
 type adminConnectRequestItem struct {
 	chatgroups.ConnectRequest
-	ContextLabel  string  `json:"context_label"`
-	RequesterName *string `json:"requester_name,omitempty"`
+	ContextLabel   string  `json:"context_label"`
+	RequesterName  *string `json:"requester_name,omitempty"`
+	OtherPartyID   *int64  `json:"other_party_user_id,omitempty"`
+	OtherPartyName *string `json:"other_party_name,omitempty"`
 }
 
 // adminConnectRequestItems maps store rows to the inbox shape. The
@@ -81,8 +89,11 @@ func (h *ChatGroupHandler) adminConnectRequestItems(c *gin.Context, requests []c
 			ConnectRequest: r,
 			ContextLabel:   h.resolveConnectContext(c.Request.Context(), r.ContextType, r.ContextID),
 		}
+		party := h.resolveConnectParty(c.Request.Context(), r.ContextType, r.ContextID)
+		out[i].OtherPartyID = party.userID
 		if canSeeNames {
 			out[i].RequesterName = r.RequesterName
+			out[i].OtherPartyName = party.name
 		}
 	}
 	return out
@@ -159,8 +170,12 @@ func (h *ChatGroupHandler) AdminApproveConnectRequest(c *gin.Context) {
 		respondChatErr(c, chatInvalidInput("Invalid JSON."))
 		return
 	}
-	if strings.TrimSpace(req.Kind) == "" || len(req.Members) == 0 {
-		respondChatErr(c, chatInvalidInput("kind and at least one member are required."))
+	// Only the kind is required here. An EMPTY members list is a valid
+	// approval: the store fills it with the two people the request is about —
+	// the requester and whoever the case or campaign belongs to — so staff can
+	// approve without typing anybody (chatgroups.ApproveConnectRequest).
+	if strings.TrimSpace(req.Kind) == "" {
+		respondChatErr(c, chatInvalidInput("kind is required."))
 		return
 	}
 	members := make([]chatgroups.MemberInput, len(req.Members))

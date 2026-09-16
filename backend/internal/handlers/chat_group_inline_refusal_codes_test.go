@@ -107,7 +107,10 @@ func TestChatGroupRoutes_InlineBadRequestCarriesItsCode(t *testing.T) {
 		{"admin remove member: bad user id", adminRouter, staffToken, http.MethodDelete, fmt.Sprintf("/api/admin/chat-groups/%d/members/abc", groupID), nil, wantInvalidGroupInput("Invalid user id.")},
 		{"admin post: blank body", adminMessages, staffToken, http.MethodPost, fmt.Sprintf("/api/admin/chat-groups/%d/messages", groupID), map[string]any{"body": "  "}, wantInvalidGroupInput("Message body is required.")},
 		{"admin approve: not an object", connectAdmin, staffToken, http.MethodPost, approvePath, "x", wantInvalidGroupInput("Invalid JSON.")},
-		{"admin approve: no kind", connectAdmin, staffToken, http.MethodPost, approvePath, map[string]any{"members": []map[string]any{{"user_id": donor}}}, kindRequired},
+		// Approve needs ONLY the kind: an empty members list is valid there,
+		// because the store adds the requester and the context's other party
+		// itself. Hence its own sentence, not create's kindRequired.
+		{"admin approve: no kind", connectAdmin, staffToken, http.MethodPost, approvePath, map[string]any{"members": []map[string]any{{"user_id": donor}}}, wantInvalidGroupInput("kind is required.")},
 		{"admin decline: blank reason", connectAdmin, staffToken, http.MethodPost, fmt.Sprintf("/api/admin/chat-groups/connect-requests/%d/decline", reqID), map[string]any{"reason": " "}, wantInvalidGroupInput("A decline reason is required.")},
 		{"member post: blank body", memberRouter, donorToken, http.MethodPost, fmt.Sprintf("/api/chat-groups/%d/messages", groupID), map[string]any{"body": ""}, wantInvalidGroupInput("Message body is required.")},
 		{"member mark read: not an object", memberRouter, donorToken, http.MethodPost, fmt.Sprintf("/api/chat-groups/%d/read", groupID), "x", wantInvalidGroupInput("Invalid JSON.")},
