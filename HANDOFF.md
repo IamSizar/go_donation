@@ -89,6 +89,88 @@ plan itself has not been executed against Railway.**
 
 ---
 
+## 2026-09-16 — `seed-test-users`: the chat test accounts in one command
+
+**Asked for:** Zaid needs to run the chat end-to-end test plan now, so build a
+command that creates its whole account matrix in one go, idempotently, with a
+cleanup that cannot touch anything it did not create.
+
+**Branch:** `feat/seed-test-users`, worktree off `origin/main` @ `edb3d08`. One
+commit. **Not pushed.** OPOS was unavailable in this session, so no task was
+logged.
+
+### What was changed
+- `backend/internal/seedtestusers/` (new) — `specs.go` (the matrix and the
+  identities), `seed.go` (create/repair), `cleanup.go` (delete, with the
+  identity proof), `seed_test.go` (four integration tests).
+- `backend/cmd/seed-test-users/main.go` (new) — flags, the destination banner,
+  the credentials table.
+- `docs/testing/chat-e2e-test-plan-2026-09.md` — new §1.7, how to run it
+  against Railway and what to know first.
+
+### The design decisions worth not re-deriving
+- **It goes through the real code paths**, which is why a seeded account can
+  actually sign in: `auth.NormalizePhone`, `bcrypt.GenerateFromPassword`,
+  `users.InsertWithPhone` → `SubmitRegistration` → `ApproveRegistration`,
+  `EnsureGrantorCode`/`EnsureVolunteerCode` (the `ER-` code is minted inside
+  `SubmitRegistration`), `users.InsertGuest`, `users.UpsertProfile`. Three
+  writes have no callable function — the username, the staff tier, and
+  `registration_status='approved'` on a role-less staff row — because they live
+  inside `internal/handlers` behind an HTTP request. Those are done with the
+  same SQL the handler uses, and each says so at the call site.
+- **Reserved phone block `+964 1 555 000 0xx`.** A real Iraqi mobile NSN starts
+  with 7, so this block cannot collide with anybody. `ensurePhoneRow` refuses to
+  write a number that falls outside it or that does not normalise to itself.
+- **No permission rows are written.** "Grant each staff account its tier
+  defaults" is satisfied by writing *nothing*: the defaults live in
+  `permissions.moduleDefaultAllowed` and apply when no row exists. Writing rows
+  that repeated them would pin the accounts against the tier matrix. Each run
+  instead DELETEs the fixture accounts' `role_permissions` rows, which is what
+  keeps E1 free of `sensitive_data` after a previous pass through step 8.
+- **Cleanup proves identity, it does not pattern-match.** An account is deleted
+  only if its username AND its exact reserved phone number match what `Plan`
+  would have produced (guest: username + `is_guest` + no phone). Anything else
+  is reported `KEPT`.
+
+### What was run, and what it printed
+- RED first: `go test ./internal/seedtestusers/` → `build failed`, `undefined:
+  Seed`, `undefined: Cleanup`, `undefined: Specs`.
+- GREEN: all four tests pass.
+- `gofmt -l backend` lists only `internal/handlers/admin_edit_user_profile.go`,
+  which is **pre-existing on main** and untouched here (`git diff HEAD` on it is
+  empty). `go build ./...` and `go vet ./...` clean.
+- `TEST_DATABASE_URL=…/seed_users_suite_c go test ./internal/seedtestusers/
+  ./internal/users/ ./internal/handlers/ -count=1 -p 1 -timeout 45m` → all `ok`
+  (handlers 18.5s).
+- Ran the command for real against a throwaway DB: dry run, `-confirm` (created
+  10), `-confirm` again (created 0, reused 10), `-cleanup -confirm` (deleted 9,
+  KEPT SA as the last super_admin).
+- **Started the server against the seeded database and signed in as three of
+  them**: `POST /api/auth/login` as D (phone + password) → token; wrong password
+  → `"Incorrect phone or password."`; `POST /api/auth/admin/login` as E1
+  (username + password) → token; `POST /api/auth/guest/login` as G → token.
+  Identity codes verified in `user_profiles`: `GR-`, `ER-`, `VL-`.
+- All three databases created here (`seed_users_test_a`, `seed_users_live_b`,
+  `seed_users_suite_c`) were dropped; `psql -lqt` confirmed.
+
+### Traps
+- **`cmd/server` does not run migrations.** Pointing it at an empty database
+  gives you a listening server and no tables. Migrations run through
+  `db.RunMigrations`, which is what the tests call. To migrate a scratch DB
+  quickly, run any integration test against it.
+- **A non-staff account's `staff_tier` is `'user'`, not `''`** — migration 015's
+  NOT NULL default. This cost one red test run.
+- `rehearse_retire_13998` in the local Postgres belongs to another session.
+  Left alone.
+
+### Still open
+- Not pushed, no PR. The reviewer agent was skipped by instruction; the diff was
+  re-read by hand instead.
+- The command has never been run against Railway. §1.7 of the test plan tells
+  Zaid how; the dry run is the safe first step.
+
+---
+
 ## 2026-09-16 — chat policy conformance audit (OPOS #25284, read-only)
 
 **Asked for:** prove or disprove each of the client's 8 chat rules against the
