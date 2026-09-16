@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/karam-flutter/humanitarian-backend/internal/permissions"
+	"github.com/karam-flutter/humanitarian-backend/internal/users"
 	"github.com/karam-flutter/humanitarian-backend/internal/volunteers"
 )
 
@@ -1759,6 +1760,18 @@ func (h *AdminEditHandler) User(c *gin.Context) {
 		return
 	}
 	defer tx.Rollback(c.Request.Context())
+
+	// FIRST statement of the transaction, before the `users` UPDATEs below and
+	// before the profile block's check-then-insert. See
+	// users.LockUserProfileWrite: this handler touches `users` BEFORE the
+	// profile while users.SubmitRegistration touches it AFTER, so a lock taken
+	// anywhere but first would let the two take the same pair of resources in
+	// opposite orders and deadlock. It is taken unconditionally, even when this
+	// save has no profile change, so there is exactly one order for everybody.
+	if err := users.LockUserProfileWrite(c.Request.Context(), tx, id); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
+		return
+	}
 
 	// users.phone — NOT NULL, so reject empty.
 	if req.Phone != nil {
