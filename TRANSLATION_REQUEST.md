@@ -17,6 +17,8 @@ Updated 2026-08-16 once more with the 94 keys that gave every field-rule row on
 قواعد الحقول an Arabic label (NEW FINDING 9).
 Updated 2026-08-16 again with the 2 keys H10's sensitive-contact redaction
 added to the dashboard.
+Updated 2026-09-16 with the 4 keys the OPOS #26636 sign-in-phone refusals
+added to the dashboard.
 Updated 2026-08-16 again with the 20 keys the K14 خطوبتي owner self-management
 (edit / pause / resume / remove) added, and the 27 keys the K15 product-list
 labels added.
@@ -32,7 +34,7 @@ made on this project once and had to be reverted.
 Every key below currently renders its **English** string to a Kurdish user.
 That is deliberate and safe. It is not a crash, and it is not Arabic text.
 
-## Count: 617 keys need Kurdish
+## Count: 621 keys need Kurdish
 
 | Client | Sorani (ckb) | Badini (kmr) | Distinct keys |
 |---|---|---|---|
@@ -67,7 +69,8 @@ That is deliberate and safe. It is not a crash, and it is not Arabic text.
 | App — OPOS #26429 group chat message notification type (new) | 1 | 1 | 1 |
 | App — OPOS #26483 unnamed chat thread party (new) | 1 | 1 | 1 |
 | App — OPOS #26433 chat invite refusals (new) | 3 | 3 | 3 |
-| **Total distinct words to translate** | | | **617** |
+| Admin dashboard — OPOS #26636 sign-in phone refusals (new) | 4 | 4 | 4 |
+| **Total distinct words to translate** | | | **621** |
 
 > **The dashboard figure above is a floor, not a ceiling — and it is the one
 > number in this file that was never fully measured.** Counting key paths in
@@ -1873,6 +1876,26 @@ deletion stays Super-Admin. Re-translate from the English below.
 | Key | English | Arabic | Needs |
 |---|---|---|---|
 | `chat_lifecycle.delete_confirm` | Move this chat and all of its messages to the Trash? An administrator can restore it, and a Super-Admin can delete it permanently. | نقل هذه المحادثة وكل رسائلها إلى سلة المحذوفات؟ يمكن للمسؤول استعادتها، ويمكن لمدير عام حذفها نهائيًا. | ckb + kmr |
+
+## Dashboard · OPOS #26636 the sign-in phone refusals (dashboard, `admin-web`)  (4 keys)
+
+Added 2026-09-16. `users.phone` is the number a person signs in with, and the
+owner's rule is that **no phone number can be on 2 accounts**. The two write
+paths on المستخدمون — مستخدم جديد and تعديل — used to store the number exactly as
+it was typed, so one number written two ways became two accounts. They now
+reduce it to one canonical form first and refuse a number that is already in
+use; these are the four words the operator reads when they do.
+
+Note the distinction from the existing `error.invalid_phone`, which is NOT
+being changed: that one governs the ORGANISATION's published contact numbers
+and asks only for five digits. These four govern an account's identity.
+
+| Key | English | Arabic | Needs |
+|---|---|---|---|
+| `error.phone_required` | A phone number is required — it is how this person signs in. | رقم الهاتف مطلوب — به يسجّل صاحب الحساب دخوله. | ckb + kmr |
+| `error.phone_invalid` | That is not a phone number we can use for signing in. Enter a mobile number, for example 0750 858 2031. | هذا ليس رقم هاتف صالحاً لتسجيل الدخول. أدخل رقم هاتف محمول، مثل 0750 858 2031. | ckb + kmr |
+| `error.phone_taken` | Another account already uses this phone number. A number can only be on one account, so open that account instead, or enter a different number. | هذا الرقم مستخدم في حساب آخر. لا يمكن أن يكون الرقم على أكثر من حساب واحد، فافتح ذلك الحساب أو أدخل رقماً مختلفاً. | ckb + kmr |
+| `error.username_taken` | This username is already taken. Choose a different one. | اسم المستخدم هذا محجوز. اختر اسماً آخر. | ckb + kmr |
 
 ## Dashboard · OPOS #26400 the connect-request inbox (dashboard, `admin-web`)  (41 keys)
 

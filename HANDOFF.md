@@ -6,6 +6,149 @@
 
 ---
 
+## 2026-09-16 — OPOS #26636: "no phone number can be on 2 accounts" (branch `fix/one-account-per-phone`, NOT pushed)
+
+**What was asked:** audit every path that creates an account or sets a phone
+number, against the owner's rule verbatim — *"no phone number can be on 2
+accounts"* — and close the gap if there is one. Branch cut from `origin/main`
+`a554ec3`.
+
+**There was a gap, and it was on the dashboard.** `users.phone` has been UNIQUE
+since migration 001, but a UNIQUE index compares STRINGS: it only means "one
+account per number" while every writer agrees how a number is spelled. The app
+paths agreed; the two dashboard paths did not.
+
+### The audit
+
+| Path | file:line | Normalisation | Uniqueness | Refusal |
+|---|---|---|---|---|
+| App sign-in | `handlers/auth.go:100` | `auth.NormalizePhone` | lookup only — no longer creates accounts (A16) | `otp_required`, 401 |
+| OTP request | `handlers/auth.go:595` | `auth.NormalizePhone` | n/a | 400, English |
+| OTP verify | `handlers/auth.go:849` | `auth.NormalizePhone` | n/a | coded, 409 |
+| Password set-up (creates the row) | `handlers/auth_password_setup.go:103` → `users.InsertWithPhone` (`users/users.go:638`) | `auth.NormalizePhone` at the handler | DB UNIQUE | coded |
+| Guest sign-up | `users.InsertGuest` (`users/users.go:786`) | n/a — no phone at all | `username` only | `ErrUsernameTaken` |
+| Guest → member upgrade | `handlers/auth.go:1188` → `users.UpgradeGuestPhone` (`users/users.go:838`) | `auth.NormalizePhone` at the handler | DB UNIQUE, caught as `ErrPhoneTaken` | 409, English prose |
+| Google sign-in | `users.UpsertGoogleUser` (`users/users.go:686`) | n/a — inserts `phone NULL` | by `google_sub`/`email` | n/a |
+| `SubmitRegistration` | `users/registration.go:107` | **does not touch `users.phone`** — only `user_profiles.phone1/phone2/emergency_phone`, which are secondary contact fields, not the sign-in identity | n/a | n/a |
+| **Dashboard create** | `handlers/admin_status.go:233` | **NONE** — bare `TrimSpace` | UNIQUE, defeated by spelling | 409 English, no `code` |
+| **Dashboard edit** | `handlers/admin_edit.go:1778` | **NONE** — bare `TrimSpace` | UNIQUE, defeated by spelling | **HTTP 500 with the raw Postgres text on screen** |
+
+**The database:** `backend/migrations/001_full_v2.sql:66` —
+`phone VARCHAR(255) NOT NULL UNIQUE`. `017_google_oauth.sql:8` drops only the
+NOT NULL (`ALTER TABLE users ALTER COLUMN phone DROP NOT NULL`), so the UNIQUE
+survives and NULLs — guests, Google accounts — are allowed to repeat, which is
+what those account types need. `010_phone_canonical.sql` and
+`063_phone_international.sql` already canonicalised the existing rows. **No new
+constraint was added and no migration was written**, so nothing could fail on
+existing data.
+
+**OPOS #26454 / PR #47 did the client half only, and said so.**
+`admin-web/src/lib/phone.ts:64-74` carries the note: the dashboard stops sending
+a non-canonical string, "until the two handlers call NormalizePhone themselves
+— the real single-source fix". `VERIFICATION_REPORT.md` line 369 (E7) records
+the same thing as an outstanding backend change. This is that change. Nothing
+from #47 was duplicated.
+
+### What was changed
+
+- **`backend/internal/handlers/phone_identity.go` (new, 97 lines)** —
+  `normalizeIdentityPhone()` wraps the existing `auth.NormalizePhone` (the one
+  authority; `admin-web/src/lib/phone.ts` already mirrors it) in the HTTP
+  refusal, and `isUniqueViolation()` recognises SQLSTATE 23505 by unwrapping to
+  `pgconn.PgError` instead of grepping the message for "duplicate".
+- **`admin_status.go` CreateUser** — normalises after the H10 mask guard
+  (a redaction normalises to `""`, so normalising first would have answered
+  "invalid phone" instead of "you were never shown this number"); conflicts now
+  answer `phone_taken` / `username_taken`.
+- **`admin_edit.go` User** — normalises after the H10 and H13 guards and
+  **before** the H20 main-admin gate, which compares submitted against stored to
+  decide whether the sign-in channel is changing: un-normalised, re-saving the
+  same number in a different spelling looked like a change and demanded an
+  out-of-band confirmation code for nothing. The UPDATE's 23505 is now a 409
+  instead of a 500 carrying raw Postgres text.
+- **`admin-web/src/lib/locales/{en,ar}.ts`** — `error.phone_required`,
+  `error.phone_invalid`, `error.phone_taken`, `error.username_taken`. These ride
+  the existing contract: `describeError` (`lib/api.ts:241`) resolves a refusal's
+  `code` through the `error.<code>` namespace. Deliberately separate from the
+  existing `error.invalid_phone`, which governs the organisation's PUBLISHED
+  contact numbers and asks only for five digits.
+- **`TRANSLATION_REQUEST.md`** — new section for the 4 keys; count 617 → **621**.
+  No Kurdish was written; ckb/kmr fall back to English as the standing decision
+  requires.
+
+**No advisory lock was taken, and none is needed.** Once both writers normalise,
+two simultaneous creates of one number are two INSERTs of the same key and the
+UNIQUE index refuses one inside the database. `LockUserProfileWrite` stays where
+it was, for the `user_profiles` check-then-insert it was written for.
+
+### Verification
+
+`backend/`, on throwaway databases created and dropped for this work:
+
+| Command | Result |
+|---|---|
+| `go build ./...` | exit 0 |
+| `go vet ./...` | exit 0 |
+| `gofmt -l ./internal ./cmd` | lists only `internal/handlers/admin_edit_user_profile.go`, which is **pre-existing on `origin/main`** (confirmed by piping that file's `origin/main` copy through `gofmt -l`) and was not touched |
+| `go test ./internal/handlers/ -run PhoneIdentity -v` | **7 PASS, 0 SKIP, 0 FAIL** — and all 7 were confirmed FAILING against the unfixed code first |
+| `go test ./internal/handlers/` | `ok … 17.036s` |
+| `go test ./internal/auth/` | `ok … 0.936s` |
+| `go test ./internal/users/` | `ok … 1.181s` |
+
+`admin-web/`, Node 22.23.1 from `/opt/homebrew/opt/node@22/bin` (the worktree
+had no `node_modules`; `npm ci` first):
+
+| Command | Exit | Final line |
+|---|---|---|
+| `npx tsc -b` | 0 | (no output) |
+| `npm test` | 0 | `Tests  197 passed (197)` / `Test Files  22 passed (22)` |
+| `npm run build` | 0 | built |
+| `npm run lint` | 0 | `✖ 62 problems (0 errors, 62 warnings)` — the #131/#132 baseline, unchanged |
+| `npm run check:labels` | 0 | `every controlled value and permission module has a label.` |
+
+The Flutter app was **not touched**, so `flutter analyze` / `flutter test` were
+not run.
+
+### The new tests
+
+`backend/internal/handlers/admin_user_phone_unique_test.go`, all driving the
+real routes through the real middleware over the real migrated schema:
+canonical storage on create and on edit; a refusal when the number is already
+held **in a different spelling** (the owner's rule itself, and the case the old
+code let through); a refusal for an unreadable number on both paths; and
+`TestPhoneIdentityConcurrentCreateLeavesOneAccount` — two simultaneous creates
+of one number, one spelled canonically and one locally, asserting exactly one
+200, one 409, and one row.
+
+### Still open / for the owner
+
+1. **Existing duplicates were NOT searched for or merged.** Adding no
+   constraint meant nothing had to be clean, so no production data was read.
+   If two accounts already hold one number in two spellings, this change stops a
+   third but does not merge the two — merging or deactivating real accounts is
+   the owner's decision. A read-only count is the next step if he wants one.
+2. **`volunteer_applications.phone`** (`admin_edit.go:1472`) is deliberately
+   untouched: it is a contact field on an application row, not a sign-in
+   identity, and nothing signs in with it.
+3. **The app's own refusals are still English prose.** The guest-upgrade 409
+   (`auth.go:1210`) sends no `code`, so the Flutter side cannot translate it.
+   Out of scope here — it would need an app release.
+4. **Commits are NOT pushed.**
+
+### Traps
+
+- `storedPhone()` already exists in `admin_main_admin_guard_test.go`; declaring
+  it again is a build failure for the whole package, which is how the first test
+  run failed.
+- The H10 mask guard must run BEFORE normalisation. A redaction (`••••03`)
+  reduces to `""`, so the order decides whether the operator is told "invalid
+  number" or "you never saw this number".
+- A fresh worktree has no `admin-web/node_modules`, and `npx tsc` without them
+  fetches an unrelated package that prints "This is not the tsc command you are
+  looking for". Run `npm ci` first.
+
+---
+
 ## 2026-09-16 — OPOS #26437, part 2: `react-hooks/set-state-in-effect` (branch `chore/admin-web-lint-set-state`, NOT pushed) — **`npm run lint` now exits 0**
 
 **What was asked:** finish #26437. PR #131 left `npm run lint` at

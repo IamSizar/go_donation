@@ -1454,6 +1454,16 @@ const en = {
     // form (it sends the same codes).
     invalid_phone: 'Enter a phone number — at least 5 digits. Spaces, +, brackets and an extension are fine.',
     invalid_email: 'Enter a full email address, like info@example.com.',
+    // #26636 — the sign-in phone on المستخدمون (New User and تعديل). Distinct
+    // from invalid_phone above, which governs the ORGANISATION's published
+    // contact numbers and only asks for five digits: this one is the account's
+    // identity, so it has to be a real, dialable number and no two accounts may
+    // share it. The server sends these codes from admin_status.go CreateUser
+    // and admin_edit.go User.
+    phone_required: 'A phone number is required — it is how this person signs in.',
+    phone_invalid: 'That is not a phone number we can use for signing in. Enter a mobile number, for example 0750 858 2031.',
+    phone_taken: 'Another account already uses this phone number. A number can only be on one account, so open that account instead, or enter a different number.',
+    username_taken: 'This username is already taken. Choose a different one.',
     invalid_social_links: 'One link per line, each with a website address — for example facebook.com/yourpage.',
     invalid_logo_path: 'That logo could not be used. Upload the image again.',
     value_too_long: 'This is too long. Please shorten it.',

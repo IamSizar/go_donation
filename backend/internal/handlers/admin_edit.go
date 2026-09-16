@@ -1709,6 +1709,28 @@ func (h *AdminEditHandler) User(c *gin.Context) {
 		return
 	}
 
+	// #26636 — reduce the typed number to the ONE form `users.phone` stores, so
+	// its UNIQUE index actually means "one account per number" (phone_identity.go).
+	//
+	// Done HERE, before the H20 gate below, for two reasons. The gate decides
+	// whether the main admin's sign-in channel is CHANGING by comparing the
+	// submitted value against the stored one; comparing a raw "0750 858 2031"
+	// against the stored "9647508582031" made re-saving the SAME number look
+	// like a change and demanded an out-of-band confirmation code for nothing.
+	// And everything downstream — the diff, the UPDATE, the conflict — then sees
+	// one shape.
+	//
+	// After the H10 mask guard and the H13 rank check above, so a redaction and
+	// a caller who may not touch this field are each answered in their own
+	// terms rather than as "invalid phone".
+	if req.Phone != nil {
+		canonical, ok := normalizeIdentityPhone(c, *req.Phone)
+		if !ok {
+			return
+		}
+		req.Phone = &canonical
+	}
+
 	// H20 — and, if this is the main admin's account, the change has to be
 	// confirmed on BOTH of that account's channels before it is applied.
 	if h.guardMainAdminUserEdit(c, id, &req) {
@@ -1773,16 +1795,21 @@ func (h *AdminEditHandler) User(c *gin.Context) {
 		return
 	}
 
-	// users.phone — NOT NULL, so reject empty.
+	// users.phone — already reduced to its canonical form (and an unreadable or
+	// empty one already refused) by normalizeIdentityPhone above.
 	if req.Phone != nil {
-		s := strings.TrimSpace(*req.Phone)
-		if s == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "phone cannot be empty."})
-			return
-		}
 		ct, err := tx.Exec(c.Request.Context(),
-			"UPDATE users SET phone = $1 WHERE id = $2", s, id)
+			"UPDATE users SET phone = $1 WHERE id = $2", *req.Phone, id)
 		if err != nil {
+			// #26636 — the only UNIQUE key this statement can break is
+			// `users.phone`: moving this account onto a number another account
+			// already holds. It used to answer 500 with the raw Postgres text
+			// painted across the screen, which told the operator nothing about
+			// what to do and could not be translated.
+			if isUniqueViolation(err) {
+				refusePhoneTaken(c)
+				return
+			}
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
 			return
 		}
