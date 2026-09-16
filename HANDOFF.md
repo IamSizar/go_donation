@@ -149,6 +149,42 @@ of one number, one spelled canonically and one locally, asserting exactly one
 
 ---
 
+## 2026-09-16 — OPOS #25284 (last deploy step): readiness check for the retire-direct-chats production run (branch `docs/retire-run-readiness`, NOT pushed)
+
+**What was asked:** read-and-verify only. Confirm `docs/runbooks/retire-direct-chats.md` still matches the code after this week's changes, produce an operator's plan for Zaid, and fix the runbook where it is wrong. No production access, no database writes, no Go/Flutter/admin-web changes. OPOS was not usable in this session (the connector needs OAuth), so nothing was logged there.
+
+**Branch** cut from `origin/main` `a554ec3` (fetched at the start; it did not move during the work).
+
+**What was changed — two commits, docs only:**
+- **`83eef69` `docs(runbooks): an operator's plan for the retire-direct-chats production run`** — new file `docs/runbooks/retire-run-readiness-2026-09.md`. Verdict, a step-by-step table of every runbook step with file:line evidence, the commands in order with expected output, a failure table for mid-run problems, the freeze (what, how long, who to tell), and seven caveats.
+- **`e1a299b` `docs(runbooks): the retire runbook matches the code again after this week`** — three fixes to `docs/runbooks/retire-direct-chats.md`:
+  1. **Risk 4 was stale.** "A retired pending invitation can still be accepted" stopped being true with OPOS #26413: `ChatHandler.Accept` calls `refuseIfInviteClosed` before `AcceptThread` and before the push (`internal/handlers/chat.go:283`, `internal/handlers/chat_lifecycle_gate.go:121-126`), which refuses paused, ended **and archived** threads. Moved to a "Resolved by OPOS #26413" block; the remaining open risks renumbered 1-8. The only cross-reference, "risk 3" in section 10, still points at the right item.
+  2. **Section 3 actor lookup** used a plain `LEFT JOIN user_profiles`, which repeats a staff member with two profile rows. Rewritten as `LEFT JOIN LATERAL … ORDER BY pr.id LIMIT 1`, matching `internal/chat/chat.go:640-643` (PR #127/#130).
+  3. **Stale citations:** `admin_trash.go:273` → `:278`, `admin_trash.go:296` → `:301`.
+  The header row now records the 2026-09-16 re-verification and points at the readiness file.
+
+**The verdict: ready to run.** The script, both SQL statements, the freeze list, the pre-flight, the post-checks and the section 10 restore all still match the code. Migration 124 (an index on `user_profiles(user_id)`) touches no chat table; PR #127/#130 changed application reads only; PR #129 touches only the profile writers. Claim and release still write `updated_at` (`internal/chat/chat.go:314`, `:330`), so they still need freezing; pause/resume and Trash delete/restore correctly do not.
+
+**What was run:**
+- `createdb gd_runbook_readiness_0916`, migrated by the test harness: `[migrate] done: 122 newly applied, 122 total migration files`, then `--- PASS: TestRetireAllDirectThreadsIsIdempotent`.
+- Every SQL block from runbook sections 4, 5, 7 and 10 executed verbatim against that database (empty tables, actor id 1). All ran without error: pre-flight returned both migration rows and `will_end 0 | will_archive 0`; the snapshot `CREATE TABLE … AS` and every post-check ran; the section 10 restore returned `restored_rows 0 | snapshot_rows 0`; the snapshot table was dropped.
+- `go test ./internal/chatlifecycle/ -count=1` → `ok … 1.360s`.
+- `dropdb gd_runbook_readiness_0916`, then `SELECT count(*) FROM pg_database WHERE datname LIKE 'gd_runbook_readiness%'` → `0`.
+- **This is a schema check, not a data check.** No production database was contacted and no production credential was used.
+
+**External actions:** none. Nothing was pushed. OPOS was not available.
+
+**Still open:**
+- Both commits are local on `docs/retire-run-readiness` and unpushed.
+- The production run itself has still **not** been performed. It needs Zaid's explicit go.
+- Four single-row profile reads are still nondeterministic (see the #26603 entry). None of them is on the retire path.
+
+**Traps:**
+- **The section 10 restore does not protect a thread deleted after the run and then restored.** Its `updated_at` is still `run_ts` — the restore re-inserts the payload verbatim (`admin_trash.go:278`), `chat_threads` has no `updated_at` trigger (only the marriage, staff and case-volunteer thread tables have one), and the close is a no-op on an already ended+archived row. So the restore would revert a deletion staff made after the run. **Run post-check 7h before using the section 10 restore** and exclude any thread with a `restored_at` after the snapshot. This is caveat C1 in the readiness file.
+- `go run ./cmd/retire-direct-chats` is not in the production image; it runs from a checkout with the production `DATABASE_URL` in the environment.
+
+---
+
 ## 2026-09-16 — OPOS #26437, part 2: `react-hooks/set-state-in-effect` (branch `chore/admin-web-lint-set-state`, NOT pushed) — **`npm run lint` now exits 0**
 
 **What was asked:** finish #26437. PR #131 left `npm run lint` at
