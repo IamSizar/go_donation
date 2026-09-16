@@ -195,6 +195,11 @@ function ApplicationsTab() {
       setProfs(r.data.items ?? [])
     } catch { /* dropdown just shows the built-in catalogue */ }
   }, [])
+  // `loadProfessions` only calls setState after awaiting the request, so
+  // nothing here is synchronous and no cascading render happens. The rule
+  // reports it anyway because it steps into a useCallback without modelling
+  // the await.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void loadProfessions() }, [loadProfessions])
 
   const handleAddProfession = useCallback(
@@ -640,7 +645,14 @@ function ManageProfessionsModal({
   const [confirmDel, setConfirmDel] = useState<CustomProfession | null>(null)
   const [busy, setBusy] = useState(false)
 
-  useEffect(() => { setOrder(professions) }, [professions])
+  // Re-seed the working copy when the parent hands over a new list, adjusting
+  // during render rather than in an effect so the dialog never paints the
+  // previous order for one frame.
+  const [seenProfessions, setSeenProfessions] = useState(professions)
+  if (seenProfessions !== professions) {
+    setSeenProfessions(professions)
+    setOrder(professions)
+  }
 
   if (!open) return null
 

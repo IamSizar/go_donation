@@ -35,14 +35,19 @@ export default function ProjectCategoriesPage() {
   const { t } = useI18n()
   const toast = useToast()
   const [items, setItems] = useState<Category[]>([])
-  const [loading, setLoading] = useState(true)
+  // `loading` is derived from which reload tick last came back, so the fetch
+  // effect below sets nothing synchronously. `reload()` bumps the tick, which
+  // is what re-runs the effect.
+  const [tick, setTick] = useState(0)
+  const [loadedTick, setLoadedTick] = useState(-1)
+  const loading = loadedTick !== tick
+  const reload = () => setTick((n) => n + 1)
   const [err, setErr] = useState<string | null>(null)
   const [savingId, setSavingId] = useState<number | null>(null)
   const [adding, setAdding] = useState(false)
   const [draft, setDraft] = useState({ ...EMPTY_DRAFT })
 
   const load = () => {
-    setLoading(true)
     api
       .get<{ items: Category[] }>('/api/admin/project-categories')
       .then((res) => {
@@ -50,9 +55,9 @@ export default function ProjectCategoriesPage() {
         setErr(null)
       })
       .catch((e) => setErr(describeError(e)))
-      .finally(() => setLoading(false))
+      .finally(() => setLoadedTick(tick))
   }
-  useEffect(load, [])
+  useEffect(load, [tick])
 
   const patchItem = (id: number, patch: Partial<Category>) =>
     setItems((xs) => xs.map((x) => (x.id === id ? { ...x, ...patch } : x)))
@@ -72,7 +77,7 @@ export default function ProjectCategoriesPage() {
         active: c.active,
       })
       toast.success(t('projectCategories.saved'))
-      load()
+      reload()
     } catch (e) {
       toast.error(describeError(e))
     } finally {
@@ -85,7 +90,7 @@ export default function ProjectCategoriesPage() {
     try {
       await api.delete(`/api/admin/project-categories/${id}`)
       toast.success(t('projectCategories.deleted'))
-      load()
+      reload()
     } catch (e) {
       toast.error(describeError(e))
     }
@@ -101,7 +106,7 @@ export default function ProjectCategoriesPage() {
       await api.post('/api/admin/project-categories', draft)
       toast.success(t('projectCategories.added'))
       setDraft({ ...EMPTY_DRAFT })
-      load()
+      reload()
     } catch (e) {
       toast.error(describeError(e))
     } finally {
@@ -122,7 +127,7 @@ export default function ProjectCategoriesPage() {
       })
     } catch (e) {
       toast.error(describeError(e))
-      load()
+      reload()
     }
   }
 

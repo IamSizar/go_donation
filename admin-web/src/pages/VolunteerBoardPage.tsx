@@ -168,6 +168,10 @@ export default function VolunteerBoardPage() {
 
   useEffect(() => {
     const ac = new AbortController()
+    // `fetchBoard` only calls setState after awaiting the request, so nothing
+    // here is synchronous and no cascading render happens. The rule reports it
+    // anyway because it steps into a useCallback without modelling the await.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void fetchBoard(ac.signal)
     const id = window.setInterval(() => fetchBoard(), POLL_MS)
     return () => {

@@ -48,9 +48,13 @@ export const EMPTY: PendingCounts = {
 // it, change the docstring on the backend endpoint too.
 export const POLL_MS = 5_000
 
+// `loading` used to sit here beside `counts`, set true at the top of every
+// poll. No consumer ever read it — the badges just show the last known number
+// — and keeping it meant the provider's effect writing state synchronously on
+// every mount, which is what react-hooks/set-state-in-effect objects to. It is
+// gone rather than faked.
 export type Ctx = {
   counts: PendingCounts
-  loading: boolean
   /** Manual refresh — useful right after a mutation that we know moves a
    *  count, so the badge updates without waiting for the next tick. */
   refresh: () => void
@@ -58,7 +62,6 @@ export type Ctx = {
 
 export const PendingCountsContext = createContext<Ctx>({
   counts: EMPTY,
-  loading: false,
   refresh: () => {},
 })
 // usePendingCounts — read-only hook for any component that needs a count.

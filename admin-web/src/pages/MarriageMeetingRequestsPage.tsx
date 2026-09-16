@@ -44,18 +44,25 @@ export default function MarriageMeetingRequestsPage() {
   const { t } = useI18n()
   const toast = useToast()
   const [items, setItems] = useState<MeetingRequest[]>([])
-  const [loading, setLoading] = useState(false)
+  // `loading` is derived from which request last came back: the key holds
+  // every input the fetch depends on, plus a tick that `reload()` bumps.
+  // Nothing about loading has to be set from inside the effect any more.
+  const [tick, setTick] = useState(0)
+  const [loadedKey, setLoadedKey] = useState<string | null>(null)
+  const reload = () => setTick((n) => n + 1)
   const [err, setErr] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<number | null>(null)
 
+  const requestKey = String(tick)
+  const loading = loadedKey !== requestKey
+
   const load = useCallback(() => {
-    setLoading(true)
     api
       .get<{ items: MeetingRequest[] }>('/api/admin/marriage/meeting-requests')
       .then((res) => { setItems(res.data.items ?? []); setErr(null) })
       .catch((e) => setErr(describeError(e)))
-      .finally(() => setLoading(false))
-  }, [])
+      .finally(() => setLoadedKey(requestKey))
+  }, [requestKey])
   useEffect(load, [load])
 
   const approve = async (r: MeetingRequest) => {
@@ -63,7 +70,7 @@ export default function MarriageMeetingRequestsPage() {
     try {
       await api.post(`/api/admin/marriage/meeting-requests/${r.id}/approve`)
       toast.success(t('page.marriage_requests.approved'))
-      load()
+      reload()
     } catch (e) {
       toast.error(describeError(e))
     } finally {
@@ -76,7 +83,7 @@ export default function MarriageMeetingRequestsPage() {
     try {
       await api.post(`/api/admin/marriage/meeting-requests/${r.id}/decline`)
       toast.success(t('page.marriage_requests.declined'))
-      load()
+      reload()
     } catch (e) {
       toast.error(describeError(e))
     } finally {

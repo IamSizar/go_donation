@@ -21,8 +21,11 @@ import {
 
 export function PendingCountsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
-  const [counts, setCounts] = useState<PendingCounts>(EMPTY)
-  const [loading, setLoading] = useState(false)
+  const [fetched, setFetched] = useState<PendingCounts>(EMPTY)
+  // Signed out means no badges, derived rather than reset by the effect below.
+  // The last counts stay in state, so signing back in as the same operator
+  // shows them again immediately instead of blanking until the first poll.
+  const counts = user ? fetched : EMPTY
 
   // Use a ref so multiple `refresh()` calls in the same tick coalesce —
   // and so we can cancel a stale request when one races with another.
@@ -37,12 +40,11 @@ export function PendingCountsProvider({ children }: { children: ReactNode }) {
     const ac = new AbortController()
     inFlightRef.current = ac
 
-    setLoading(true)
     try {
       const res = await api.get<PendingCounts>('/api/admin/pending-counts', {
         signal: ac.signal,
       })
-      setCounts(res.data)
+      setFetched(res.data)
     } catch (err: unknown) {
       // Swallow aborts; surface other errors silently (the sidebar should
       // never hard-fail because a count poll briefly errored — the next
@@ -52,19 +54,17 @@ export function PendingCountsProvider({ children }: { children: ReactNode }) {
         // Keep the previous counts on the screen; just log for diagnostics.
         console.warn('pending-counts poll failed:', err)
       }
-    } finally {
-      // Only clear the loading flag if THIS request is still the latest.
-      if (inFlightRef.current === ac) setLoading(false)
     }
   }, [user])
 
   useEffect(() => {
     // Skip polling entirely when signed out — saves a 401 every 5 seconds.
-    if (!user) {
-      setCounts(EMPTY)
-      return
-    }
+    if (!user) return
     // Immediate fetch on mount + login, then a steady tick.
+    // `fetchOnce` only calls setState after awaiting the request, so nothing
+    // here is synchronous and no cascading render happens. The rule reports it
+    // anyway because it steps into a useCallback without modelling the await.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchOnce()
     const id = setInterval(fetchOnce, POLL_MS)
     return () => {
@@ -74,8 +74,8 @@ export function PendingCountsProvider({ children }: { children: ReactNode }) {
   }, [user, fetchOnce])
 
   const value = useMemo<Ctx>(
-    () => ({ counts, loading, refresh: fetchOnce }),
-    [counts, loading, fetchOnce],
+    () => ({ counts, refresh: fetchOnce }),
+    [counts, fetchOnce],
   )
 
   return (

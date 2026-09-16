@@ -90,7 +90,11 @@ export default function MarriageChatsPage() {
   const { t } = useI18n()
   const statusLabel = useStatusLabel()
   const [threads, setThreads] = useState<AdminThread[]>([])
-  const [loading, setLoading] = useState(false)
+  // The "loading" line only ever shows before a thread list arrives (it is
+  // rendered as `loading && threads.length === 0`), so it is derived from
+  // which search last came back rather than set at the top of the polling
+  // effect. The 5s poll refreshes in place and never brings it back.
+  const [loadedKey, setLoadedKey] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [q, setQ] = useState('')
   const [selected, setSelected] = useState<AdminThread | null>(null)
@@ -116,12 +120,18 @@ export default function MarriageChatsPage() {
     }
   }, [q])
 
+  const requestKey = q
+  const loading = loadedKey !== requestKey
+
   useEffect(() => {
-    setLoading(true)
-    loadThreads().finally(() => setLoading(false))
+    // `loadThreads` only calls setState after awaiting the request, so nothing
+    // here is synchronous and no cascading render happens. The rule reports it
+    // anyway because it steps into a useCallback without modelling the await.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadThreads().finally(() => setLoadedKey(requestKey))
     const id = setInterval(loadThreads, 5000)
     return () => clearInterval(id)
-  }, [loadThreads])
+  }, [loadThreads, requestKey])
 
   const loadMessages = useCallback(async (threadId: number) => {
     try {
@@ -134,6 +144,11 @@ export default function MarriageChatsPage() {
 
   useEffect(() => {
     if (!selected) return
+    // `loadMessages` only calls setState after awaiting the request, so
+    // nothing here is synchronous and no cascading render happens. The rule
+    // reports it anyway because it steps into a useCallback without modelling
+    // the await.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadMessages(selected.id)
     const id = setInterval(() => loadMessages(selected.id), 3000)
     return () => clearInterval(id)
