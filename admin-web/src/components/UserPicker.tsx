@@ -79,23 +79,31 @@ export default function UserPicker({ value, onChange, disabled, placeholder }: P
   // active search doesn't immediately overwrite the picked user.
   const [query, setQuery] = useState('')
   const debounced = useDebounced(query, 300)
-  const [results, setResults] = useState<PickedUser[]>([])
+  // What the last finished search returned, together with the query it was
+  // for. Both the visible results and the loading flag are derived from it, so
+  // the effect below never has to clear or set them itself: a query the search
+  // has not answered yet simply has no results and is still loading.
+  const [searched, setSearched] = useState<{ q: string; list: PickedUser[] } | null>(null)
   const [open, setOpen] = useState(false)
-  const [loading, setLoading] = useState(false)
   const [highlight, setHighlight] = useState(-1)
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+
+  const debouncedQuery = debounced.trim()
+  // No request is made for an empty query or in the collapsed state, so
+  // neither counts as loading and neither shows results. While a new query is
+  // in flight the previous list stays on screen, which is what the old code
+  // did by only replacing `results` when a response arrived.
+  const searching = !value && debouncedQuery.length > 0
+  const results = searching ? searched?.list ?? [] : []
+  const loading = searching && searched?.q !== debouncedQuery
 
   // Fetch results when the debounced query changes. Empty query → no request.
   useEffect(() => {
     if (value) return                // collapsed-state: don't fetch
     const q = debounced.trim()
-    if (q.length === 0) {
-      setResults([])
-      return
-    }
+    if (q.length === 0) return
     let cancelled = false
-    setLoading(true)
     api
       .get<AdminUsersResp>('/api/admin/users', { params: { q, per_page: 8 } })
       .then((res) => {
@@ -106,11 +114,10 @@ export default function UserPicker({ value, onChange, disabled, placeholder }: P
           role_id: u.role_id ?? null,
           full_name: u.profile?.full_name ?? null,
         }))
-        setResults(list)
+        setSearched({ q, list })
         setHighlight(list.length > 0 ? 0 : -1)
       })
-      .catch(() => { if (!cancelled) setResults([]) })
-      .finally(() => { if (!cancelled) setLoading(false) })
+      .catch(() => { if (!cancelled) setSearched({ q, list: [] }) })
     return () => { cancelled = true }
   }, [debounced, value])
 
@@ -127,7 +134,9 @@ export default function UserPicker({ value, onChange, disabled, placeholder }: P
     onChange(u)
     setQuery('')
     setOpen(false)
-    setResults([])
+    // Clearing the query is enough: results belong to a query, and an empty
+    // one has none.
+    setSearched(null)
   }
 
   function clear() {

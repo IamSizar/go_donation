@@ -69,7 +69,10 @@ export default function PartnersPage() {
   const [status, setStatus] = useState('all')
   const [q, setQ] = useState('')
   const [resp, setResp] = useState<Resp | null>(null)
-  const [loading, setLoading] = useState(false)
+  // Which request last came back. `loading` is derived from it below
+  // rather than set at the top of the fetch effect, which costs a second
+  // render and is what `react-hooks/set-state-in-effect` objects to.
+  const [loadedKey, setLoadedKey] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [editing, setEditing] = useState<Partner | null>(null)
   const [creating, setCreating] = useState(false)
@@ -80,23 +83,26 @@ export default function PartnersPage() {
   const statusLabel = useStatusLabel()
   const sel = useSelection<Partner>((p) => p.id)
 
+  // Every dependency of the fetch effect below, so the page reads as loading
+  // from the render that changes any of them.
+  const requestKey = `${status}|${q}|${refreshTick}`
+  const loading = loadedKey !== requestKey
+
   useEffect(() => {
     let cancelled = false
-    setLoading(true)
-    setErr(null)
     api
       .get<Resp>('/api/partners', { params: { status, q: q || undefined, limit: 100 } })
       .then((res) => {
-        if (!cancelled) setResp(res.data)
+        if (!cancelled) { setResp(res.data); setErr(null) }
       })
       .catch((e) => {
         if (!cancelled) setErr(describeError(e))
       })
       .finally(() => {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) setLoadedKey(requestKey)
       })
     return () => { cancelled = true }
-  }, [status, q, refreshTick])
+  }, [status, q, refreshTick, requestKey])
 
   const handleSave = useCallback(
     async (id: number, patch: Record<string, unknown>) => {
@@ -257,7 +263,9 @@ export default function PartnersPage() {
           <button onClick={() => setCreating(true)}>{t('page.partners.new')}</button>
         </div>
       </PageHead>
-      {err && <div className="error-box">{err}</div>}
+      {/* Hidden while a newer request is in flight, which is what clearing
+          the error at the top of the fetch effect used to achieve. */}
+      {!loading && err && <div className="error-box">{err}</div>}
       <Table<Partner>
         rows={resp?.items ?? []}
         columns={columns}
