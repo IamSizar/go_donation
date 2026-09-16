@@ -6,6 +6,154 @@
 
 ---
 
+## 2026-09-16 — OPOS #26437: `npm run lint` in `admin-web/` (branch `chore/admin-web-lint-clean`, NOT pushed, NOT finished)
+
+**What was asked:** `npm run lint` fails on a clean `main`, so lint cannot gate
+any PR. Fix the problems in small commits grouped by rule, easiest and safest
+first, behaviour unchanged, no blanket disables, `eslint.config.js` off-limits
+(a hook blocks it). Session was stopped early on the coordinator's instruction,
+so **the job is partly done** — see "What is still open".
+
+**Branch:** cut from `origin/main` at `e7c9f77`, then `origin/main` (now
+`72b7ac5`) merged back in at the end. That merge touched only `backend/` and
+`HANDOFF.md` — no conflict with this work.
+
+**Commits** (oldest first):
+
+| SHA | What |
+|---|---|
+| `c33e811` | `chore(admin-web): clear the low-risk lint errors` |
+| `e5e359a` | `fix(admin-web): three React-rules violations that were real bugs` |
+| `ad208fc` | `refactor(admin-web): stop mixing components with hooks, contexts and helpers` |
+| (merge) | `origin/main` `72b7ac5` merged in |
+
+**The rule table — before and after.**
+
+| Rule | Sev | Before | After | Status |
+|---|---|---|---|---|
+| `react-hooks/exhaustive-deps` | warn | 61 | 61 | untouched (warnings; do not affect the exit code) |
+| `react-hooks/set-state-in-effect` | error | 58 | **58** | **not started** — this is what still fails the build |
+| `react-refresh/only-export-components` | error | 25 | 0 | fixed (`ad208fc`) |
+| `@typescript-eslint/no-unused-vars` | error | 5 | 0 | fixed (`c33e811`) |
+| `preserve-caught-error` | error | 3 | 0 | fixed (`c33e811`) |
+| unused `eslint-disable` directive | warn | 3 | 0 | fixed (`c33e811`) |
+| `react-hooks/static-components` | error | 2 | 0 | fixed (`e5e359a`) |
+| `no-useless-assignment` | error | 1 | 0 | fixed (`c33e811`) |
+| `react-hooks/purity` | error | 1 | 0 | fixed (`e5e359a`) |
+| `no-empty` | error | 1 | 0 | fixed (`c33e811`) |
+| `react-hooks/refs` | error | 1 | 0 | fixed (`e5e359a`) |
+| `no-constant-binary-expression` | error | 1 | 0 | fixed (`c33e811`) |
+| **Total** | | **162 (98 err / 64 warn)** | **119 (58 err / 61 warn)** | |
+
+To regenerate that table:
+`npx eslint . -f json` then group by `ruleId` + `severity`.
+
+**Three things in `e5e359a` were real bugs, not style:**
+
+- `VolunteerBoardPage.tsx` declared `Evidence` **inside** `CheckinEvidence`'s
+  body, so every render produced a fresh component type and React remounted
+  the subtree instead of updating it. Hoisted to module scope as `EvidenceRow`
+  with an `onView` prop replacing the closed-over `setViewing`.
+- `lib/useLivePoll.ts` wrote `tickRef.current = tick` during render. Moved into
+  a `useEffect([tick])`; nothing reads that ref during render.
+- `EventsFeed.tsx` called `Date.now()` inside the `visible` `useMemo`, so the
+  today/7d cutoff was whatever the clock said on whichever render happened to
+  recompute. The clock is now state, seeded on mount and refreshed every 30s,
+  and `nowMs` joined the memo deps.
+
+**What `ad208fc` actually did, and why it is not cosmetic.** Vite's fast
+refresh can only hot-swap a module whose exports are all components, and it
+recreates a module's bindings on every edit. A React context declared beside a
+component is therefore replaced by a brand-new context each edit and every
+Provider/consumer pair comes apart mid-session. Each file was split along that
+line, with **no re-exports** (a re-export is still an export and keeps the rule
+firing), and whichever half had more importers kept the original module name:
+
+- Component moved out: `i18n.tsx`→`I18nProvider.tsx`, `toast.tsx`→
+  `ToastProvider.tsx`, `auth.tsx`→`AuthProvider.tsx`, `dialogs.tsx`→
+  `DialogHost.tsx`, `saveAction.tsx`→`SaveActionProvider.tsx`,
+  `pendingCounts.tsx`→`PendingCountsProvider.tsx`, `useHighlightedRow.tsx`→
+  `HighlightBanner.tsx`.
+- Non-component API moved out: `globalAlerts.tsx`→`globalAlertsContext.ts`,
+  `CropDialog.tsx`→`cropShapes.ts`, `ThemeToggle.tsx`→`theme.ts`,
+  `RowDeleteButton.tsx`→`useRowDeleteLabel.ts`, `PageHead.tsx`→
+  `pageHeadSlots.ts`, `UsersPage.tsx`→`lib/staffAccounts.ts`.
+- `DialogHost` used to assign the module-level `enqueueRequest` directly;
+  across a module boundary it now goes through exported `setDialogEnqueue` /
+  `takeRequestId` helpers in `dialogs.tsx`. Same queue, same "no host mounted
+  means the ask resolves as cancelled".
+- `ROLE_LABELS` and `roleLabelToId` in `UsersPage.tsx` had no importer outside
+  that file, so they simply stopped being exported.
+- One dead line went along: `ToastItem` had an empty `useEffect(() => {}, [])`
+  whose only content was a comment about a close-on-Escape never written.
+
+**Verification on the final tree** (after merging `origin/main` `72b7ac5`),
+each command's last meaningful line:
+
+| Command | Exit | Final line |
+|---|---|---|
+| `npm run lint` | **1** | `✖ 119 problems (58 errors, 61 warnings)` |
+| `npm test` | 0 | `Tests  197 passed (197)` / `Test Files  22 passed (22)` |
+| `npx tsc -b` | 0 | (no output) |
+| `npm run build` | 0 | `✓ built in 280ms` |
+| `npm run test:mock-api` | 0 | `ℹ pass 37` / `ℹ fail 0` |
+| `npm run test:nav` | 0 | `ℹ pass 15` / `ℹ fail 0` |
+| `npm run check:labels` | 0 | `check-labels: every controlled value and permission module has a label.` |
+| `npm run check:css-tokens` | 0 | `check-css-tokens: 62 tokens read, all defined.` |
+
+Every commit above was verified with `tsc -b` + `npm test` + `npm run build`
+before it was made.
+
+**What is still open.**
+
+1. **`react-hooks/set-state-in-effect` — 58 errors, untouched. Lint still
+   exits 1, so it still cannot gate a PR.** The work stopped here on
+   instruction rather than mid-refactor. The occurrences fall into four
+   shapes; `npx eslint . -f json` lists all 58 with file and line:
+   - *the bulk* — `setLoading(true)` called synchronously at the top of a fetch
+     effect, either inline (`ReceiptsPage.tsx:43`, `CampaignsPage.tsx:141`, …)
+     or via `useEffect(load, [])` where `load` is a `useCallback` that starts
+     with it (`BannedWordsPage.tsx:32`, `CommentsPage.tsx:50`, …).
+   - *reset-on-dep-change* — `setResults([])`, `setEvents([])`,
+     `setCounts(EMPTY)`, `setProfile(null)`, `setSrc(null)`, `setCount(0)`.
+   - *prop→state mirrors* — `StatusCell.tsx:59`
+     (`useEffect(() => { setVal(value) }, [value])`) and
+     `VolunteersPage.tsx:645`.
+   - *permission short-circuits* — `if (!amSuper) { setLoading(false); return }`
+     in `ContentPage`, `GuestAccessPage`, `PermissionsPage`, `SettingsPage`.
+   The brief specifically asked that the chat-pages' polling occurrences
+   (`MessagesPage`, `StaffChatPage`, `MarriageChatsPage`) be fixed properly by
+   deriving state or moving the update into the fetch callback, not papered
+   over. **None of that was attempted** — do not assume any of it is half-done.
+2. **`react-hooks/exhaustive-deps` — 61 warnings, untouched.** They do not
+   affect the exit code. Worth a separate pass with its own judgement call per
+   site; several are deliberate (`saveAction.tsx` carries an inline disable
+   with a written reason, which is the only inline disable in the tree).
+3. **`scripts/**/*.mjs` is not linted at all.** `eslint.config.js` only matches
+   `**/*.{ts,tsx}`, and covering the scripts folder means editing that file,
+   which a hook blocks. Explicitly out of scope for #26437; still open.
+4. **Nothing was pushed.** The branch exists locally only.
+5. **OPOS was unavailable in this session**, so #26437 was not moved to WIP,
+   no timer ran, and no completion notes were written there.
+
+**Traps for the next agent.**
+
+- Run npm with Node 22: `/opt/homebrew/opt/node@22/bin/npm`. The default `node`
+  on this machine is older.
+- `npm run lint`'s summary line counts warnings, but only the 58 **errors**
+  drive the exit code. Clearing the exhaustive-deps warnings will not turn lint
+  green; clearing `set-state-in-effect` will.
+- `ignoreRestSiblings` is **off** under this config, so
+  `const { a: _unused, ...rest } = obj` is an error, not a warning. Both
+  occurrences were rewritten as copy-then-`delete`.
+- `no-console` is **not** enabled, so any `// eslint-disable-next-line
+  no-console` you add will itself be reported as an unused directive.
+- Re-exporting from the original module does **not** satisfy
+  `react-refresh/only-export-components` — a re-export is still an export. The
+  importers have to move.
+
+---
+
 ## 2026-09-16 — OPOS #26601: the three `user_profiles` writers stop racing each other into duplicate rows (branch `fix/user-profiles-writer-race`)
 
 **What was asked:** close the check-then-insert race in the three writers named
