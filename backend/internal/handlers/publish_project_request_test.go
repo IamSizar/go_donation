@@ -68,7 +68,7 @@ func postPublishProjectRequestAs(
 	r.POST("/api/admin/beneficiary_project_requests/:id/publish",
 		auth.RequireAdmin(tokenStore),
 		auth.RequirePermission(permissions.New(pool), "beneficiary", "edit"),
-		NewAdminStatusHandler(pool, nil, nil, nil).PublishProjectRequest,
+		NewAdminStatusHandler(pool, nil, nil).PublishProjectRequest,
 	)
 
 	session, err := tokenStore.IssueToken(context.Background(), actorID, "test-agent", "127.0.0.1")
