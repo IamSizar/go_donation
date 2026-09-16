@@ -52,12 +52,19 @@ export function useUnreadNotificationsCount(enabled = true): number {
   }
 
   useEffect(() => {
-    if (!active) { setCount(0); return }
-    fetchOnce()
+    if (!active) return
+    // `fetchOnce` only calls setState after awaiting the request, so nothing
+    // here is synchronous and no cascading render happens. The rule reports it
+    // anyway because it does not model the await.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void fetchOnce()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active])
 
   useLivePoll(fetchOnce, POLL_MS, { enabled: active })
 
-  return count
+  // Signed out or disabled reports zero without an effect having to reset the
+  // stored count — and the last known count is still there if the same user
+  // comes back before a fresh one arrives.
+  return active ? count : 0
 }

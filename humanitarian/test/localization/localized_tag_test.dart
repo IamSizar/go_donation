@@ -42,6 +42,9 @@ const notificationTypes = <String>[
   'case_volunteer_chat_message',
   'case_volunteer_chat_opened',
   'chat_accepted',
+  // OPOS #26429 — both chat-group templates (masked and team) share this one
+  // type through chatGroupNewMessageMsg.
+  'chat_group_message',
   'chat_message',
   'chat_request',
   'donation_approved',
@@ -336,6 +339,21 @@ void main() {
     test('every type has a real English label, not the raw token', () {
       for (final t in notificationTypes) {
         expect(localizedTag(t), isNot(t), reason: '$t rendered as its token');
+      }
+    });
+
+    test('every type has its own English entry, not only a humanised token', () {
+      // The test above passes for a type with no entry at all, because
+      // localizedTag humanises `chat_group_message` into "Chat group message".
+      // English would then read however the token happens to be spelled, and
+      // the missing entry would go unnoticed, so each type needs an `_en`
+      // entry of its own.
+      for (final t in notificationTypes) {
+        expect(
+          AppTranslations.englishForTest.containsKey(t),
+          isTrue,
+          reason: 'no _en entry for $t',
+        );
       }
     });
 

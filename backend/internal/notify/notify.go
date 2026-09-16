@@ -80,6 +80,11 @@ type LocalizedMessage struct {
 //
 // This is the preferred API. NotifyUser remains as a thin back-compat
 // wrapper for old EN+AR callsites.
+//
+// OPOS #26443: a guest recipient gets no push for a chat-type notification
+// (see shouldWithholdChatPush). The in-app row is still written on purpose.
+// List already hides it from the guest, and an upgraded account finds it
+// there.
 func (n *Notifier) Send(ctx context.Context, userID int64, m LocalizedMessage) (int64, error) {
 	if userID <= 0 {
 		return 0, errors.New("invalid userID")

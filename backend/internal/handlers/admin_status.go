@@ -19,7 +19,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
-	"github.com/karam-flutter/humanitarian-backend/internal/casevolchat"
 	"github.com/karam-flutter/humanitarian-backend/internal/events"
 	"github.com/karam-flutter/humanitarian-backend/internal/notify"
 	"github.com/karam-flutter/humanitarian-backend/internal/permissions"
@@ -233,12 +232,27 @@ func (h *AdminStatusHandler) CreateUser(c *gin.Context) {
 	}
 	phone := strings.TrimSpace(req.Phone)
 	if phone == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Phone number is required."})
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false, "code": "phone_required",
+			"error": "Phone number is required.",
+		})
 		return
 	}
 	// H10 — an account created with a redacted phone could never sign in and
 	// could never be reached; `users.phone` is the sign-in identity.
+	//
+	// Checked BEFORE normalisation: a redaction ("••••03") reduces to "" under
+	// auth.NormalizePhone, so normalising first would answer "that is not a
+	// valid phone number" and send the operator hunting a typo instead of
+	// telling them they were never shown the number they are about to save.
 	if rejectMaskedContactWrite(c, contactWrite{"phone", &phone}) {
+		return
+	}
+	// #26636 — reduce the typed number to the ONE form `users.phone` stores, so
+	// its UNIQUE index actually means "one account per number". See
+	// phone_identity.go for why a bare TrimSpace did not.
+	phone, ok := normalizeIdentityPhone(c, phone)
+	if !ok {
 		return
 	}
 	// Sign-in credentials, both optional and validated before anything is
@@ -298,16 +312,23 @@ func (h *AdminStatusHandler) CreateUser(c *gin.Context) {
 		`INSERT INTO users (phone, role_id, registration_status, username, password_hash)
 		 VALUES ($1, $2, 'approved', $3, $4) RETURNING id`, phone, roleArg, usernameArg, passwordHash).Scan(&id)
 	if err != nil {
-		if strings.Contains(err.Error(), "23505") || strings.Contains(strings.ToLower(err.Error()), "duplicate") {
+		if isUniqueViolation(err) {
 			// Two unique constraints can fire here now, and "phone already
 			// exists" pointing at a username collision would send the operator
 			// hunting the wrong field. idx_users_username is the partial index
 			// from migration 014.
 			if strings.Contains(err.Error(), "idx_users_username") {
-				c.JSON(http.StatusConflict, gin.H{"success": false, "error": "This username is already taken."})
+				c.JSON(http.StatusConflict, gin.H{
+					"success": false, "code": "username_taken",
+					"error": "This username is already taken.",
+				})
 				return
 			}
-			c.JSON(http.StatusConflict, gin.H{"success": false, "error": "A user with this phone already exists."})
+			// #26636 — the owner's rule, enforced by the database rather than by
+			// a check this handler makes first: two operators creating the same
+			// number at the same moment both pass any read, and only one of the
+			// INSERTs survives the UNIQUE index.
+			refusePhoneTaken(c)
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
@@ -381,11 +402,6 @@ type AdminStatusHandler struct {
 	Events    *events.Store    // Admin Notification System — user-account CRUD is
 	// appended to app_events so it surfaces in the dashboard Notification Center
 	// and is permanently recorded (append-only audit).
-	// Note #36 — opens the Staff↔Volunteer↔Beneficiary chat the moment a
-	// case-linked signup becomes approved (or later). Optional: nil skips the
-	// check (defensive — lets this handler keep working even if the caller
-	// forgets to wire it, just without auto-opening chats).
-	CaseVolChat *casevolchat.Store
 	// "Eighth: Sponsorship Schedule and Calendar" — materialises a
 	// sponsorship's due dates the moment it goes active, so the tracking
 	// screen and the reminder sweep have something to work with without a
@@ -393,8 +409,8 @@ type AdminStatusHandler struct {
 	Schedule *sponsorshipschedule.Store
 }
 
-func NewAdminStatusHandler(pool *pgxpool.Pool, n *notify.Notifier, ev *events.Store, cvc *casevolchat.Store) *AdminStatusHandler {
-	return &AdminStatusHandler{Pool: pool, Notifier: n, Events: ev, CaseVolChat: cvc}
+func NewAdminStatusHandler(pool *pgxpool.Pool, n *notify.Notifier, ev *events.Store) *AdminStatusHandler {
+	return &AdminStatusHandler{Pool: pool, Notifier: n, Events: ev}
 }
 
 // revokeSessionsForUser revokes every active session token for one user — the
@@ -1185,48 +1201,14 @@ func (h *AdminStatusHandler) MissionSignup(c *gin.Context) {
 	// Phase 18 — fire the 4-language notification to the volunteer.
 	h.notifyMissionSignupDecision(c.Request.Context(), id, status)
 
-	// Note #36 — this status change may be what makes the signup eligible for
-	// the Staff↔Volunteer↔Beneficiary chat (already case-linked, now approved
-	// or further along).
-	ensureCaseVolChat(c.Request.Context(), h.CaseVolChat, h.Notifier, id)
-
 	c.JSON(http.StatusOK, gin.H{"success": true, "id": id, "status": status})
-}
-
-// ensureCaseVolChat opens the case-volunteer-beneficiary chat thread for a
-// signup if it just became eligible, and notifies both real parties. Safe to
-// call after every write that could change eligibility — a no-op otherwise.
-// Free function (not a method) so both admin-side status changes and the
-// volunteer's own check-in/check-out (Note #37, VolunteerCheckinHandler) can
-// share it.
-func ensureCaseVolChat(ctx context.Context, cvc *casevolchat.Store, notifier *notify.Notifier, signupID int64) {
-	if cvc == nil {
-		return
-	}
-	threadID, err := cvc.EnsureThreadForSignup(ctx, signupID)
-	if err != nil || threadID == nil {
-		return
-	}
-	thread, err := cvc.GetThread(ctx, *threadID)
-	if err != nil {
-		return
-	}
-	for _, uid := range []int64{thread.VolunteerUserID, thread.BeneficiaryUserID} {
-		oid := uid
-		go func() {
-			bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancel()
-			_, _ = notifier.Send(bgCtx, oid, notify.CaseVolunteerChatOpenedMsg(*threadID))
-		}()
-	}
 }
 
 // AssignSignupCase — POST /api/admin/volunteer_mission_signups/:id/assign-case
 // body {beneficiary_case_id: number|null}. Links (or unlinks, with null) this
-// specific volunteer's signup to a specific beneficiary case — the
-// foundation the future Staff↔Volunteer↔Beneficiary chat pairs off of.
-// Deliberately per-signup, not per-mission: one mission can serve several
-// different beneficiaries.
+// specific volunteer's signup to a specific beneficiary case. Deliberately
+// per-signup, not per-mission: one mission can serve several different
+// beneficiaries.
 func (h *AdminStatusHandler) AssignSignupCase(c *gin.Context) {
 	id, ok := parseID(c)
 	if !ok {
@@ -1263,12 +1245,6 @@ func (h *AdminStatusHandler) AssignSignupCase(c *gin.Context) {
 	if ct.RowsAffected() == 0 {
 		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Not found."})
 		return
-	}
-
-	// Note #36 — linking a case may be what makes an already-approved signup
-	// eligible for the Staff↔Volunteer↔Beneficiary chat.
-	if req.BeneficiaryCaseID != nil {
-		ensureCaseVolChat(c.Request.Context(), h.CaseVolChat, h.Notifier, id)
 	}
 
 	c.JSON(http.StatusOK, gin.H{"success": true, "id": id, "beneficiary_case_id": req.BeneficiaryCaseID})

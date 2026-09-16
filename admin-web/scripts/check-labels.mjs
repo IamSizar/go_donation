@@ -152,20 +152,41 @@ const NOT_RENDERED = new Set([
   // three values must get labels the moment the column is selected again.
   'meeting', 'intermediary', 'visit',
 
-  // chat_contact_blocks.kind — 116_chat_contact_blocks.sql:64. The one gap
-  // here is on the SPA side: the admin route exists (GET
-  // /api/admin/chats/:id/contact-blocks, cmd/server/main.go:917) and returns
-  // `kind`, but nothing under admin-web/src fetches it — MessagesPage.tsx
-  // calls only /api/admin/chats, .../messages, .../claim and .../release. So
-  // no screen can print these today. When that supervision panel is built,
-  // delete this exemption instead of labelling around it: `both` in
-  // particular must not become a global status.* word, because statusLabel is
-  // one flat namespace and "both" is not inherently about contact details.
-  'phone', 'email', 'both',
+  // chat_contact_blocks.kind ('phone', 'email', 'both') USED to sit here,
+  // exempt because nothing rendered it. ContactBlocksPanel.tsx renders it now,
+  // so the exemption is gone — and, as the note that stood here instructed,
+  // these did NOT become global status.* words. `both` in particular is not
+  // inherently about contact details, and status.* is one flat namespace, so
+  // a global `both` would be claimed by whatever printed it next. They are
+  // checked against their own scoped section instead, below.
+])
+
+/**
+ * Values that are labelled in a SCOPED locale section rather than status.*.
+ *
+ * Maps a backend value to the section and key that must carry it. This exists
+ * so a controlled value can be exempt from the flat namespace WITHOUT being
+ * exempt from being checked at all — the failure mode the old exemption list
+ * had, where "nothing renders it yet" quietly became "nothing ever checks it".
+ */
+const SCOPED_LABELS = new Map([
+  ['phone', { section: 'contact_blocks', key: 'kind_phone' }],
+  ['email', { section: 'contact_blocks', key: 'kind_email' }],
+  ['both', { section: 'contact_blocks', key: 'kind_both' }],
 ])
 
 for (const value of [...backendValues()].sort()) {
   if (NOT_RENDERED.has(value)) continue
+  const scoped = SCOPED_LABELS.get(value)
+  if (scoped) {
+    const { section, key } = scoped
+    if (!localeKeys('en.ts', section).has(key)) {
+      failures.push(`${section}.${key} — no English label for the "${value}" value`)
+    } else if (!localeKeys('ar.ts', section).has(key)) {
+      failures.push(`${section}.${key} — no Arabic label for the "${value}" value`)
+    }
+    continue
+  }
   if (!en.has(value)) failures.push(`status.${value} — no English label`)
   else if (!ar.has(value)) failures.push(`status.${value} — no Arabic label`)
 }
