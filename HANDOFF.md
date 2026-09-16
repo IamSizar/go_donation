@@ -6,6 +6,158 @@
 
 ---
 
+## 2026-09-16 — a team group is for volunteers and staff only
+
+**Asked for:** Zaid's decision of 2026-09-16 — a `kind='team'` chat group is
+for volunteers and staff only. Donors and beneficiaries must go in a masked
+group, where members see labels instead of names.
+
+**Branch:** `fix/team-groups-staff-and-volunteers-only`, cut from
+`origin/main` at `fcc5b10`. One commit, NOT pushed. No OPOS task (OPOS was
+unavailable in that session).
+
+### The facts that were established first, by reading the code
+
+1. **`role_in_group` is free text and gates nothing.** Migration 120 declares
+   it `VARCHAR(16) NOT NULL DEFAULT ''` with **no CHECK constraint** and the
+   comment "donor|beneficiary|volunteer|staff, **informational**". The backend
+   reads it only to number auto-labels ("Donor 1" — `autoLabelName` in
+   `chatgroups_members.go`) and to collapse staff senders to "Support"
+   (`chatgroups_reads.go:112`). `admin-web/src/lib/chatGroupForm.ts`'s
+   `CHAT_GROUP_ROLES` is the same four words. Staff type it; nothing validates
+   it.
+2. **The account is authoritative, not the group's word for it.**
+   `users.role_id` — 1 donor, 2 beneficiary, 3 volunteer
+   (`handlers/registration.go:194` accepts 1..3, then branches: 1 assigns the
+   grantor code, 2 the recipient details, 3 the volunteer code) — and
+   `users.staff_tier` for staff. The rule reads those two, never
+   `role_in_group`.
+3. **Staff are identified by `staff_tier`**, one of
+   `super_admin|admin|supervisor|employee` (`internal/notify/notify.go:302-317`
+   says so in as many words; `internal/auth/middleware.go` calls it "THE
+   authoritative field"; `users.is_admin` is legacy and is not read).
+   `staff_tier` therefore WINS over `role_id`: a coordinator whose `role_id` is
+   still 1 because they first registered as a donor is staff, and a team group
+   takes them. There is a test for exactly that.
+
+### What was actually changed
+
+Backend:
+- `internal/chatgroups/chatgroups.go` — new sentinel `ErrTeamMemberRole`.
+- `internal/chatgroups/chatgroups_members.go` — `teamMemberRefusedSQL` and
+  `refuseTeamMemberRole`, called from `insertMemberRow` (every new member, on
+  every path: CreateGroup, ApproveConnectRequest, AddMember) and from
+  `addMemberInTx`'s **reactivation** branch, so #26410's "bring a removed
+  member back" obeys the rule too.
+- `internal/handlers/chat_group.go` — the `chatErr` table gains
+  `{ErrTeamMemberRole, 400, "A team group can only include volunteers and
+  staff.", team_member_role_not_allowed}`, following #107/#118/#26496's
+  pattern.
+
+Dashboard:
+- `lib/chatGroupForm.ts` — `TEAM_GROUP_ROLES` and `rolesForKind(kind)`.
+- `components/chatGroups/MemberRowsEditor.tsx` and `AddMemberForm.tsx` — a
+  team group's role select offers only volunteer and staff, with one line
+  under it saying why (`aria-describedby` on the select in the create dialog).
+  The masked form is untouched.
+- `lib/chatGroupErrors.ts` — the new code, mapped to
+  `error.team_member_role_not_allowed`, in the 'members' area so the message
+  lands beside the rows.
+- `lib/locales/en.ts` and `ar.ts` — two new keys. **en and ar only**;
+  ckb/kmr fall back to English on purpose (#21431).
+- `TRANSLATION_REQUEST.md` — recounted, 621 + 2 = **623**.
+
+Test-helper fixes that came with the rule (they were not incidental):
+- `chatgroups_test.go`'s `makeTestUser` **ignored its `role` argument** and
+  inserted `role_id = 1` for every user, so every "volunteer" and "staff" in
+  that package was really a donor. It now maps the word it is already given
+  (donor 1, beneficiary 2, volunteer 3, staff 3 + `staff_tier='employee'`).
+  Six existing tests that built a TEAM group out of donors were changed to use
+  volunteers — the intent of each was never about donors.
+- `internal/handlers` got `makeChatGroupRoleUser` / `setChatGroupRole`
+  (`chat_group_team_roles_test.go`), because `makeChatGroupUser` also always
+  inserts `role_id = 1`. Four handler tests that built team groups were moved
+  onto it.
+
+### What was run, and what it printed
+
+RED first, on both layers:
+- `go test ./internal/chatgroups/ -run 'Team|MaskedGroupStill'` →
+  `CreateGroup with a donor = <nil>, want ErrTeamMemberRole` (and the same for
+  beneficiary, AddMember, and the reactivation case) — 4 tests failing for the
+  right reason before a line of the rule existed.
+- `npx vitest run src/components/chatGroups/MemberRowsEditor.test.tsx` →
+  the team select still listed `donor` and `beneficiary`; 1 failed, 7 passed.
+
+GREEN, on throwaway databases created and dropped for this work
+(`gd_team_cg_a9`, `gd_team_h_a9`, both dropped afterwards, absence confirmed
+with `psql -lqt`):
+- `go test ./internal/chatgroups/ -count=1 -p 1 -timeout 45m` →
+  `ok  github.com/karam-flutter/humanitarian-backend/internal/chatgroups  3.274s`
+- `go test ./internal/handlers/ -count=1 -p 1 -timeout 45m` →
+  `ok  github.com/karam-flutter/humanitarian-backend/internal/handlers  57.881s`
+- `-v -run 'TeamGroup|TeamMember|TeamRole|MaskedGroupStillTakes|TeamRoles'`
+  (chatgroups) → 11 PASS, 0 SKIP, 0 FAIL.
+- `-v -run 'TeamRole|MaskedGroupStillTakes'` (handlers) → 5 PASS, 0 SKIP.
+- `gofmt -l` clean on every file touched; `go build ./...` and `go vet ./...`
+  both exit 0.
+- admin-web (Node 22): `npm test` 199 passed / 22 files; `npx tsc -b`,
+  `npm run build`, `npm run test:mock-api`, `npm run test:nav`,
+  `npm run check:labels`, `npm run check:css-tokens`, `npm run lint` — all
+  **exit 0** (lint prints 62 pre-existing warnings, 0 errors).
+
+### For Zaid to run against PRODUCTION — read-only, nothing was changed
+
+How many existing team groups already hold a donor or a beneficiary. Deliberately
+NOT fixed here: repairing live rows is a membership decision, not a code change.
+
+```sql
+SELECT COUNT(DISTINCT t.id) AS team_groups_with_a_donor_or_beneficiary,
+       COUNT(*)             AS offending_member_rows
+  FROM chat_group_threads t
+  JOIN chat_group_members m ON m.group_id = t.id
+  JOIN users u             ON u.id = m.user_id
+ WHERE t.kind = 'team'
+   AND m.removed_at IS NULL
+   AND u.role_id IN (1, 2)
+   AND u.staff_tier NOT IN ('super_admin', 'admin', 'supervisor', 'employee');
+```
+
+Add `SELECT t.id, m.user_id` in place of the counts to list them. The query
+ran clean against a migrated test database (0, 0); it has not been run against
+production from here.
+
+### Still open / needs a human
+
+- The commit is **not pushed** and no PR exists.
+- **Existing team groups are left exactly as they are.** The rule is about who
+  can be ADDED; nobody already in a team group is removed, and what such a
+  group serves its members is unchanged. If the production count above is
+  non-zero, someone has to decide whether those people are removed, moved to a
+  masked group, or left alone.
+- ckb/kmr for the two new keys, as always.
+- The dashboard change was verified by tests and `tsc`, not clicked through
+  live (OTP-gated admin login, the same limitation every session here hits).
+
+### Traps
+
+- **`makeTestUser`'s role argument was a lie** (see above) and
+  `makeChatGroupUser` still hardcodes `role_id = 1`. Any future rule that reads
+  `users.role_id` will trip over the handlers helper the same way. Use
+  `makeChatGroupRoleUser`.
+- **A test database here is reused across runs and hands out the SAME user ids
+  each time**, because `raiseUserIDFloor` resets the id sequence to a fixed
+  floor per process. An assertion keyed on "groups created by this staff id"
+  therefore sees groups left behind by an EARLIER run and fails for no reason.
+  Count per user against a watermark instead. This cost real time.
+- `internal/handlers/admin_edit_user_profile.go` is **already unformatted on
+  `origin/main`** — `gofmt -l internal` names it and always did. Not from this
+  work; do not "fix" it in an unrelated commit.
+- `admin-web` needs its own `npm ci` in a fresh worktree; the tests fail with
+  "Cannot find package 'vitest'" until you do.
+
+---
+
 ## 2026-09-16 — the chat SEND and ACCEPT paths finally check `kind`
 
 **Asked for:** OPOS #25284's policy (a donor, beneficiary or volunteer never

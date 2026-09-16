@@ -125,11 +125,57 @@ func wrapMemberWriteError(what string, err error) error {
 
 // ─── Membership writes ──────────────────────────────────────────────────
 
-// memberExecer is the one method insertMemberRow and reactivateMemberRow
-// need. pgx.Tx satisfies it, and every caller writes inside a transaction:
-// CreateGroup, ApproveConnectRequest and AddMember.
+// memberExecer is what insertMemberRow, reactivateMemberRow and
+// refuseTeamMemberRole need. pgx.Tx satisfies it, and every caller writes
+// inside a transaction: CreateGroup, ApproveConnectRequest and AddMember.
 type memberExecer interface {
 	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
+// ─── The team-group rule ────────────────────────────────────────────────
+
+// Role ids as users.role_id stores them. handlers/registration.go accepts
+// 1..3 and branches on each: 1 assigns the donor's grantor code, 2 the
+// recipient details, 3 the volunteer code and profile. They are the
+// authoritative account role; chat_group_members.role_in_group is free text
+// staff type and has no constraint behind it, so it decides nothing here.
+const (
+	roleIDDonor       = 1
+	roleIDBeneficiary = 2
+)
+
+// teamMemberRefusedSQL reports whether userID may NOT join a team group:
+// their account is a donor or a beneficiary and they hold no staff tier.
+//
+// staff_tier is the single definition of a staff account across this codebase
+// (internal/auth/middleware.go; internal/notify's staff fan-out uses the same
+// four tiers), and it wins over role_id: a coordinator who first registered as
+// a donor and was later given dashboard access is staff, and belongs in a team
+// group.
+//
+// A user id with no users row at all is not refused — the rule refuses
+// confirmed donors and beneficiaries and changes nothing else, the same way
+// insertMemberRowSQL's guest check refuses only confirmed guests.
+const teamMemberRefusedSQL = `
+	SELECT EXISTS (
+		SELECT 1 FROM users
+		 WHERE id = $1::integer
+		   AND role_id IN ($2::integer, $3::integer)
+		   AND staff_tier NOT IN ('super_admin', 'admin', 'supervisor', 'employee'))`
+
+// refuseTeamMemberRole returns ErrTeamMemberRole when userID is a donor or
+// beneficiary account, and nil otherwise. Callers must only call it for a
+// kind='team' group — a masked group takes any mix.
+func refuseTeamMemberRole(ctx context.Context, q memberExecer, groupID, userID int64) error {
+	var refused bool
+	if err := q.QueryRow(ctx, teamMemberRefusedSQL, userID, roleIDDonor, roleIDBeneficiary).Scan(&refused); err != nil {
+		return fmt.Errorf("chatgroups: checking the account role of user %d for team group %d: %w", userID, groupID, err)
+	}
+	if refused {
+		return fmt.Errorf("chatgroups: adding member %d to team group %d: %w", userID, groupID, ErrTeamMemberRole)
+	}
+	return nil
 }
 
 // memberRow is one chat_group_members row, fully resolved by the caller:
@@ -163,7 +209,14 @@ const insertMemberRowSQL = `
 // AddMember. AddMember's other path, bringing a removed member back, applies
 // the same rule in reactivateMemberRowSQL.
 //
+// A row whose masked is false belongs to a TEAM group (the only two kinds are
+// masked and team), so this is also where the team-group rule holds for every
+// new member: a donor or beneficiary account is refused before anything is
+// written.
+//
 // Returns, wrapped with the user and group ids:
+//   - ErrTeamMemberRole when the group is a team group and row.userID is a
+//     donor or beneficiary account;
 //   - ErrGuestMember when row.userID is a guest account;
 //   - ErrMemberConflict when the user already has a row in the group — a
 //     member list naming them twice, or a concurrent add of the same person;
@@ -172,6 +225,11 @@ const insertMemberRowSQL = `
 //
 // Any other database failure is returned wrapped with the same context.
 func insertMemberRow(ctx context.Context, q memberExecer, row memberRow) error {
+	if !row.masked {
+		if err := refuseTeamMemberRole(ctx, q, row.groupID, row.userID); err != nil {
+			return err
+		}
+	}
 	what := fmt.Sprintf("chatgroups: adding member %d to group %d", row.userID, row.groupID)
 	tag, err := q.Exec(ctx, insertMemberRowSQL,
 		row.groupID, row.userID, row.roleInGroup, row.masked, nullIfEmpty(row.label), row.addedByStaffID,
@@ -291,7 +349,9 @@ func insertMembers(ctx context.Context, tx pgx.Tx, groupID int64, kind Kind, add
 //   - ErrMemberConflict when the user is already an active member;
 //   - ErrLabelConflict when the label — a new member's, or a returning
 //     member's old one — is held by another active member, ignoring case;
-//   - ErrGuestMember when the user is a guest account.
+//   - ErrGuestMember when the user is a guest account;
+//   - ErrTeamMemberRole when the group is a team group and the user is a donor
+//     or beneficiary account — for a returning member as much as a new one.
 func (s *Store) AddMember(ctx context.Context, groupID int64, input MemberInput, addedByStaffID int64) error {
 	kind, err := s.groupKind(ctx, groupID)
 	if err != nil {
@@ -363,6 +423,14 @@ func addMemberInTx(ctx context.Context, tx pgx.Tx, row memberRow) error {
 		return fmt.Errorf("chatgroups: looking up member %d in group %d: %w", row.userID, row.groupID, err)
 	case !isRemoved:
 		return fmt.Errorf("chatgroups: adding member %d to group %d: %w", row.userID, row.groupID, ErrMemberConflict)
+	}
+	// Bringing a removed member back (OPOS #26410) obeys the team-group rule
+	// too, so a donor who was in a team group from before the rule existed
+	// cannot return through it. insertMemberRow covers the other branch.
+	if !row.masked {
+		if err := refuseTeamMemberRole(ctx, tx, row.groupID, row.userID); err != nil {
+			return err
+		}
 	}
 	if err := reactivateMemberRow(ctx, tx, memberID); err != nil {
 		return fmt.Errorf("chatgroups: re-adding member %d to group %d: %w", row.userID, row.groupID, err)

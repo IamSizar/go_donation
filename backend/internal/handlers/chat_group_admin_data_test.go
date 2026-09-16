@@ -160,8 +160,11 @@ func TestAdminGetGroup_TeamRosterCarriesFullNameWithoutSensitive(t *testing.T) {
 	requireTierPermission(t, pool, "employee", sensitive.Module, false)
 	requireTierPermission(t, pool, "employee", "messages", true)
 	creator := makeChatGroupStaffUser(t, pool, "Team Roster Creator", "admin")
-	named := makeChatGroupUser(t, pool, "Team Volunteer Real Name")
+	// Real VOLUNTEER accounts (role_id 3): a team group takes only volunteers
+	// and staff, so the plain helper's role_id 1 would be refused.
+	named := makeChatGroupRoleUser(t, pool, "Team Volunteer Real Name", 3)
 	unnamed := makeChatGroupUserWithoutProfile(t, pool)
+	setChatGroupRole(t, pool, unnamed, 3)
 	groupID := makeChatGroup(t, pool, creator, chatgroups.KindTeam, []chatgroups.MemberInput{
 		{UserID: named, RoleInGroup: "volunteer"},
 		{UserID: unnamed, RoleInGroup: "volunteer"},
