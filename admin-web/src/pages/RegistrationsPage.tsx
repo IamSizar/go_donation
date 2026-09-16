@@ -14,6 +14,7 @@ import PageHead from '../components/PageHead'
 import { formatDateParts } from '../lib/dates'
 import ActionsMenu from '../components/ActionsMenu'
 import { NeedsActionTag } from '../components/IdWithNeedsAction'
+import DistrictsManager from '../components/DistrictsManager'
 
 const PER_PAGE = 20
 const STATUSES = ['pending', 'rejected', 'all'] as const
@@ -59,6 +60,10 @@ export default function RegistrationsPage() {
   const [busyId, setBusyId] = useState<number | null>(null)
   const [rejecting, setRejecting] = useState<AdminRegistration | null>(null)
   const [reason, setReason] = useState('')
+  // OPOS #25271 — the registration form's Nineveh district/neighborhood
+  // pickers, admin-editable from here since districts are a registration
+  // concept and this is where staff already review submitted registrations.
+  const [districtsOpen, setDistrictsOpen] = useState(false)
   const toast = useToast()
   const { t } = useI18n()
   const pending = usePendingCounts()
@@ -288,6 +293,9 @@ export default function RegistrationsPage() {
               </option>
             ))}
           </select>
+          <button className="secondary" onClick={() => setDistrictsOpen(true)}>
+            {t('districts.manage_button')}
+          </button>
           <ExportCsvButton
             rows={resp?.items ?? []}
             columns={REGISTRATION_CSV_COLUMNS}
@@ -297,6 +305,7 @@ export default function RegistrationsPage() {
           />
         </div>
       </PageHead>
+      <DistrictsManager open={districtsOpen} onClose={() => setDistrictsOpen(false)} />
 
       {/* Hidden while a newer request is in flight, which is what clearing
           the error at the top of the fetch effect used to achieve. */}
