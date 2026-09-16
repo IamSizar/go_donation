@@ -72,7 +72,10 @@ export default function AuditLogsPage() {
   const [field, setField] = useState('')
   const [actor, setActor] = useState('')
   const [resp, setResp] = useState<AdminPageResp<AdminAuditLog> | null>(null)
-  const [loading, setLoading] = useState(false)
+  // Which request last came back. `loading` is derived from it below rather
+  // than set at the top of the fetch effect, which costs a second render and
+  // is what `react-hooks/set-state-in-effect` objects to.
+  const [loadedKey, setLoadedKey] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<number | null>(null)
   const { t } = useI18n()
@@ -96,10 +99,13 @@ export default function AuditLogsPage() {
     return value
   }
 
+  // Every dependency of the fetch effect below, so the page reads as loading
+  // from the render that changes any of them.
+  const requestKey = `${page}|${userIDFilter}|${field}`
+  const loading = loadedKey !== requestKey
+
   useEffect(() => {
     let cancelled = false
-    setLoading(true)
-    setErr(null)
     api
       .get<AdminPageResp<AdminAuditLog>>('/api/admin/audit_logs', {
         params: {
@@ -108,11 +114,11 @@ export default function AuditLogsPage() {
           field: field || undefined,
         },
       })
-      .then(r => { if (!cancelled) setResp(r.data) })
+      .then(r => { if (!cancelled) { setResp(r.data); setErr(null) } })
       .catch(e => { if (!cancelled) setErr(describeError(e)) })
-      .finally(() => { if (!cancelled) setLoading(false) })
+      .finally(() => { if (!cancelled) setLoadedKey(requestKey) })
     return () => { cancelled = true }
-  }, [page, userIDFilter, field])
+  }, [page, userIDFilter, field, requestKey])
 
   const itemsAll = resp?.items ?? []
   // Client-side actor filter — the backend doesn't index actor_source.
@@ -211,7 +217,9 @@ export default function AuditLogsPage() {
           />
         </div>
       </PageHead>
-      {err && <div className="error-box">{err}</div>}
+      {/* Hidden while a newer request is in flight, which is what clearing the
+          error at the top of the fetch effect used to achieve. */}
+      {!loading && err && <div className="error-box">{err}</div>}
       <Table<AdminAuditLog> rows={items} columns={columns} rowKey={(a) => a.id} loading={loading} empty={t('empty.audit')} />
       {expanded !== null && (() => {
         const row = items.find((a) => a.id === expanded)

@@ -1,9 +1,10 @@
 // Looking a donation / support history up by identity code (K21).
 //
 // WHY THIS FILE EXISTS AND IS NOT A METHOD ON ModuleApi
-// `ModuleApi.getObject` collapses every non-2xx answer into
-// `Exception('Request failed (404)')`, which is the right shape for a load that
-// either works or does not — and the wrong shape here. This endpoint has THREE
+// `ModuleApi.getObject` throws an `ApiStatusException` for every non-2xx answer
+// (it prints as `Exception: Request failed (404)`). A throw is the right shape
+// for a load that either works or does not — and the wrong shape here. This
+// endpoint has THREE
 // meaningful failures the app must tell apart and say different things about:
 //
 //   404  the code names nobody, OR it names somebody else. The server answers

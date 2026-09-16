@@ -129,13 +129,18 @@ func makeContactThread(t *testing.T, pool *pgxpool.Pool, donorID, ownerID int64)
 	return id
 }
 
-// newContactBlockRouter wires the mobile send route exactly as main.go does.
+// newContactBlockRouter wires the mobile send route exactly as main.go does:
+// the authed group's RequireBearer + RequireApproved, then the route's own
+// RequireNotGuest. Every sender in this file is an approved, non-guest
+// account, so neither gate refuses one; both are wired so no test here can
+// pass through a chain production does not build (OPOS #26357).
 func newContactBlockRouter(pool *pgxpool.Pool) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	h := NewChatHandler(chat.New(pool), notify.New(pool), pool)
 	r := gin.New()
 	r.POST("/api/chats/:id/messages",
-		auth.RequireBearer(auth.NewTokenStore(pool)), h.PostMessage)
+		auth.RequireBearer(auth.NewTokenStore(pool)), auth.RequireApproved(),
+		auth.RequireNotGuest(), h.PostMessage)
 	return r
 }
 

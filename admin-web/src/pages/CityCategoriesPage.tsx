@@ -49,7 +49,13 @@ export default function CityCategoriesPage() {
   const { t } = useI18n()
   const toast = useToast()
   const [items, setItems] = useState<Category[]>([])
-  const [loading, setLoading] = useState(true)
+  // `loading` is derived from which reload tick last came back, so the fetch
+  // effect below sets nothing synchronously. `reload()` bumps the tick, which
+  // is what re-runs the effect.
+  const [tick, setTick] = useState(0)
+  const [loadedTick, setLoadedTick] = useState(-1)
+  const loading = loadedTick !== tick
+  const reload = () => setTick((n) => n + 1)
   const [err, setErr] = useState<string | null>(null)
   const [savingId, setSavingId] = useState<number | null>(null)
   const [adding, setAdding] = useState(false)
@@ -59,7 +65,6 @@ export default function CityCategoriesPage() {
   const [sectors, setSectors] = useState<Sector[]>([])
 
   const load = () => {
-    setLoading(true)
     api
       .get<{ items: Category[] }>('/api/admin/city-categories')
       .then((res) => {
@@ -67,9 +72,9 @@ export default function CityCategoriesPage() {
         setErr(null)
       })
       .catch((e) => setErr(describeError(e)))
-      .finally(() => setLoading(false))
+      .finally(() => setLoadedTick(tick))
   }
-  useEffect(load, [])
+  useEffect(load, [tick])
   useEffect(() => {
     api
       .get<{ items: Sector[] }>('/api/admin/city-sectors')
@@ -100,7 +105,7 @@ export default function CityCategoriesPage() {
         active: c.active,
       })
       toast.success(t('cityCategories.saved'))
-      load()
+      reload()
     } catch (e) {
       toast.error(describeError(e))
     } finally {
@@ -113,7 +118,7 @@ export default function CityCategoriesPage() {
     try {
       await api.delete(`/api/admin/city-categories/${id}`)
       toast.success(t('cityCategories.deleted'))
-      load()
+      reload()
     } catch (e) {
       toast.error(describeError(e))
     }
@@ -129,7 +134,7 @@ export default function CityCategoriesPage() {
       await api.post('/api/admin/city-categories', draft)
       toast.success(t('cityCategories.added'))
       setDraft({ ...EMPTY_DRAFT })
-      load()
+      reload()
     } catch (e) {
       toast.error(describeError(e))
     } finally {
@@ -150,7 +155,7 @@ export default function CityCategoriesPage() {
       })
     } catch (e) {
       toast.error(describeError(e))
-      load()
+      reload()
     }
   }
 

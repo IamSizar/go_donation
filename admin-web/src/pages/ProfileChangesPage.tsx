@@ -33,20 +33,26 @@ export default function ProfileChangesPage() {
   const statusLabel = useStatusLabel()
   const toast = useToast()
   const [items, setItems] = useState<ChangeRequest[]>([])
-  const [loading, setLoading] = useState(true)
+  // `loading` is derived from which request last came back: the key holds
+  // every input the fetch depends on, plus a tick that `reload()` bumps.
+  // Nothing about loading has to be set from inside the effect any more.
+  const [tick, setTick] = useState(0)
+  const [loadedKey, setLoadedKey] = useState<string | null>(null)
+  const reload = () => setTick((n) => n + 1)
   const [err, setErr] = useState<string | null>(null)
   const [status, setStatus] = useState('pending')
   const [busyId, setBusyId] = useState<number | null>(null)
 
+  const requestKey = `${status}|${tick}`
+  const loading = loadedKey !== requestKey
+
   const load = useCallback(() => {
-    setLoading(true)
-    setErr(null)
     api
       .get<{ items: ChangeRequest[] }>('/api/admin/profile-changes', { params: { status } })
-      .then((r) => setItems(r.data.items ?? []))
+      .then((r) => { setItems(r.data.items ?? []); setErr(null) })
       .catch((e) => setErr(describeError(e)))
-      .finally(() => setLoading(false))
-  }, [status])
+      .finally(() => setLoadedKey(requestKey))
+  }, [status, requestKey])
 
   useEffect(load, [load])
 
@@ -55,7 +61,7 @@ export default function ProfileChangesPage() {
     try {
       await api.post(`/api/admin/profile-changes/${r.id}/decide`, { approve })
       toast.success(approve ? t('profileChanges.approved') : t('profileChanges.rejected'))
-      load()
+      reload()
     } catch (e) {
       toast.error(describeError(e))
     } finally {
@@ -233,7 +239,9 @@ export default function ProfileChangesPage() {
         </div>
       </PageHead>
 
-      {err && <div className="error-box">{err}</div>}
+      {/* Hidden while a newer request is in flight, which is what clearing the
+          error at the top of load() used to achieve. */}
+      {!loading && err && <div className="error-box">{err}</div>}
       {loading && <p className="muted">{t('common.loading')}</p>}
       {!loading && <Table rows={items} columns={columns} rowKey={(r) => r.id} />}
     </div>

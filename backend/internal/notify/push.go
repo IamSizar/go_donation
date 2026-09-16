@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"slices"
 	"strings"
 )
 
@@ -18,11 +19,15 @@ type deviceTarget struct {
 // sendPush is the fire-and-forget hook called by Send() after writing the
 // in-DB notification. Looks up the user's active devices (one or more)
 // and pushes each its preferred-language title/body. Failures (including
-// "FCM not configured") are logged but not returned.
+// "FCM not configured") are logged; a failed device lookup is also returned,
+// which Send ignores.
 //
 // Phase 27.3 — takes the full LocalizedMessage so it can pick per-device
 // text. Previously this took raw EN strings and every push was in
 // English regardless of the volunteer's in-app language.
+//
+// OPOS #26443 — this is where the push decision is made, so it is where a
+// guest's chat pushes are withheld (shouldWithholdChatPush).
 func (n *Notifier) sendPush(ctx context.Context, userID int64, m LocalizedMessage) error {
 	devices, err := n.activeDevicesFor(ctx, userID)
 	if err != nil {
@@ -35,6 +40,12 @@ func (n *Notifier) sendPush(ctx context.Context, userID int64, m LocalizedMessag
 
 	if n.fcm == nil {
 		log.Printf("[notify:push] FCM not configured; in-DB notification written for user=%d (%d tokens skipped)", userID, len(devices))
+		return nil
+	}
+	// Checked once per send, not per device, and only after the cheap exits
+	// above, so a user with no device or a server without FCM never pays for
+	// the lookup.
+	if n.shouldWithholdChatPush(ctx, userID, m.Type) {
 		return nil
 	}
 	for _, d := range devices {
@@ -52,6 +63,47 @@ func (n *Notifier) sendPush(ctx context.Context, userID int64, m LocalizedMessag
 		}
 	}
 	return nil
+}
+
+// shouldWithholdChatPush reports whether a push of notificationType to userID
+// must be withheld because the recipient is a guest (OPOS #26443).
+//
+// Guests must not read chats. Several chat notifications carry the message
+// itself as their body (an 80-character preview), and List already hides
+// those rows from a guest (OPOS #26424). Without this gate, the push would
+// still put that preview on a grandfathered guest's lock screen.
+//
+// Only chat types are gated, using chatNotificationTypes, the same list List
+// filters on, so the in-app list and the phone always agree. For any other
+// type it returns false without querying: guests keep broadcasts and
+// support-ticket pushes, and a non-chat push costs nothing extra.
+//
+// For a chat type it makes one query. Guest status comes from users.is_guest,
+// the column the token resolver reads on every request, so an upgraded account
+// gets chat pushes again straight away.
+//
+// It fails closed. If the lookup errors, including a missing user row, the
+// chat push is withheld and the error is logged. Send has already written the
+// in-app row, so a withheld push costs a member little; a pushed preview to a
+// guest is the leak this exists to stop.
+func (n *Notifier) shouldWithholdChatPush(ctx context.Context, userID int64, notificationType string) bool {
+	if !slices.Contains(chatNotificationTypes, notificationType) {
+		return false
+	}
+	// COALESCE matches users.go. The column is NOT NULL (migration 064), but a
+	// NULL must read as a member, never as a failure that mutes their chats.
+	var isGuest bool
+	if err := n.Pool.QueryRow(ctx,
+		`SELECT COALESCE(is_guest, FALSE) FROM users WHERE id = $1`, userID,
+	).Scan(&isGuest); err != nil {
+		log.Printf("[notify:push] guest lookup user=%d type=%s failed; chat push withheld: %v",
+			userID, notificationType, err)
+		return true
+	}
+	if isGuest {
+		log.Printf("[notify:push] chat push withheld from guest user=%d type=%s", userID, notificationType)
+	}
+	return isGuest
 }
 
 // pickLocalizedText resolves a LocalizedMessage + locale code into the

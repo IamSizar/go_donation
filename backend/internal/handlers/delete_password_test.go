@@ -35,24 +35,30 @@ import (
 
 // ─── Harness ────────────────────────────────────────────────────────────
 
-// callGuardedDelete drives a delete handler through a real gin route with the
-// RequireDeletePassword middleware in front of it and `actor` as the signed-in
-// staff member — i.e. the exact chain production builds in main.go.
+// callGuardedDelete drives a delete handler through a real gin route, with
+// `actor` signed in by a genuine token, behind the chain main.go builds for an
+// admin DELETE: the admin group's RequireAdmin and RequireDeletePassword, then
+// `chain`. `chain` is what main.go passes after the path, which is the route's
+// own gate followed by the handler: auth.RequireAdminTier() for a banned word,
+// auth.RequireSuperAdmin() for an app event.
 //
 // `body` is the raw request body, so a test can send a right password, a wrong
 // one, an absent field, no body at all, or malformed JSON.
-func callGuardedDelete(t *testing.T, pool *pgxpool.Pool, actor int64, handler gin.HandlerFunc, id int64, body string) (int, string) {
+func callGuardedDelete(t *testing.T, pool *pgxpool.Pool, actor, id int64, body string, chain ...gin.HandlerFunc) (int, string) {
 	t.Helper()
+	tokenStore := auth.NewTokenStore(pool)
+	session, err := tokenStore.IssueToken(context.Background(), actor, "test-agent", "127.0.0.1")
+	if err != nil {
+		t.Fatalf("issue token for user %d: %v", actor, err)
+	}
+
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	// "auth.user" is auth.contextUserKey — the key RequireAdmin sets and
-	// auth.UserFromGin reads. Set directly because what is under test is the
-	// password gate, not token resolution.
-	r.Use(func(c *gin.Context) { c.Set("auth.user", &auth.ResolvedUser{UserID: actor, StaffTier: "super_admin"}) })
-	r.Use(RequireDeletePassword(pool))
-	r.DELETE("/x/:id", handler)
+	admin := r.Group("/", auth.RequireAdmin(tokenStore), RequireDeletePassword(pool))
+	admin.DELETE("/x/:id", chain...)
 
 	req := httptest.NewRequest(http.MethodDelete, "/x/"+strconv.FormatInt(id, 10), strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+session.AccessToken)
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
@@ -119,7 +125,7 @@ func TestDeletePasswordGate(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			id := newBannedWord(t, pool, "n3-gate-"+strings.ReplaceAll(tc.name, " ", "-"))
 
-			status, body := callGuardedDelete(t, pool, actor.id, handler, id, tc.body)
+			status, body := callGuardedDelete(t, pool, actor.id, id, tc.body, auth.RequireAdminTier(), handler)
 			if status != tc.wantStatus {
 				t.Errorf("status = %d, want %d (body: %s)", status, tc.wantStatus, body)
 			}
@@ -140,8 +146,8 @@ func TestDeletePasswordGate(t *testing.T) {
 	// And the other direction: the correct password really does delete.
 	t.Run("correct password deletes and trashes", func(t *testing.T) {
 		id := newBannedWord(t, pool, "n3-gate-correct")
-		if status, body := callGuardedDelete(t, pool, actor.id, handler, id,
-			`{"password":"`+password+`"}`); status != http.StatusOK {
+		if status, body := callGuardedDelete(t, pool, actor.id, id,
+			`{"password":"`+password+`"}`, auth.RequireAdminTier(), handler); status != http.StatusOK {
 			t.Fatalf("status = %d, want 200 (body: %s)", status, body)
 		}
 		if rowExists(t, pool, "banned_words", id) {
@@ -162,8 +168,8 @@ func TestDeletePasswordGateRefusesWithoutPasswordOnAccount(t *testing.T) {
 	actor := insertAccount(t, pool, "super_admin", "") // no password set
 	id := newBannedWord(t, pool, "n3-nopassword")
 
-	status, body := callGuardedDelete(t, pool, actor.id,
-		NewBannedWordsHandler(moderation.New(pool), pool).Delete, id, `{"password":"anything"}`)
+	status, body := callGuardedDelete(t, pool, actor.id, id, `{"password":"anything"}`,
+		auth.RequireAdminTier(), NewBannedWordsHandler(moderation.New(pool), pool).Delete)
 	if status != http.StatusForbidden {
 		t.Errorf("status = %d, want 403 (body: %s)", status, body)
 	}
@@ -199,8 +205,8 @@ func TestConvertedHardDeletesGoToTrash(t *testing.T) {
 		})
 
 		h := NewEventsHandler(nil, pool)
-		if status, body := callGuardedDelete(t, pool, actor.id, h.AdminDelete, id,
-			`{"password":"`+password+`"}`); status != http.StatusOK {
+		if status, body := callGuardedDelete(t, pool, actor.id, id,
+			`{"password":"`+password+`"}`, auth.RequireSuperAdmin(), h.AdminDelete); status != http.StatusOK {
 			t.Fatalf("status = %d, want 200 (body: %s)", status, body)
 		}
 		if rowExists(t, pool, "app_events", id) {
@@ -219,9 +225,9 @@ func TestConvertedHardDeletesGoToTrash(t *testing.T) {
 		store := moderation.New(pool)
 		id := newBannedWord(t, pool, "n3-convert-word")
 
-		if status, body := callGuardedDelete(t, pool, actor.id,
-			NewBannedWordsHandler(store, pool).Delete, id,
-			`{"password":"`+password+`"}`); status != http.StatusOK {
+		if status, body := callGuardedDelete(t, pool, actor.id, id,
+			`{"password":"`+password+`"}`,
+			auth.RequireAdminTier(), NewBannedWordsHandler(store, pool).Delete); status != http.StatusOK {
 			t.Fatalf("status = %d, want 200 (body: %s)", status, body)
 		}
 		if rowExists(t, pool, "banned_words", id) {
@@ -258,9 +264,9 @@ func TestRestoringABannedWordRefreshesTheCache(t *testing.T) {
 		t.Fatalf("fixture word %q is not being blocked before the delete", word)
 	}
 
-	if status, body := callGuardedDelete(t, pool, actor.id,
-		NewBannedWordsHandler(store, pool).Delete, id,
-		`{"password":"`+password+`"}`); status != http.StatusOK {
+	if status, body := callGuardedDelete(t, pool, actor.id, id,
+		`{"password":"`+password+`"}`,
+		auth.RequireAdminTier(), NewBannedWordsHandler(store, pool).Delete); status != http.StatusOK {
 		t.Fatalf("delete status = %d, want 200 (body: %s)", status, body)
 	}
 	if blocked, err := store.Contains(context.Background(), "a comment saying "+word); err != nil {
@@ -279,7 +285,11 @@ func TestRestoringABannedWordRefreshesTheCache(t *testing.T) {
 }
 
 // restoreFromTrash drives the real Restore handler (password and all) for the
-// newest un-restored trash entry of one row, wired the way main.go wires it.
+// newest un-restored trash entry of one row, as `actor`, behind the chain
+// main.go builds for POST /api/admin/trash/:id/restore: the admin group's
+// RequireAdmin and RequireDeletePassword (via postAsStaff), then
+// RequireAdminTier. No tier is assumed for the caller; whatever `actor` really
+// is has to get through those gates.
 //
 // `bw` is the moderation Store the handler should refresh on a successful
 // restore. A caller that wants to OBSERVE that refresh passes the very store
@@ -298,16 +308,11 @@ func restoreFromTrash(t *testing.T, pool *pgxpool.Pool, actor int64, password, t
 	// The production wiring — restoring a word has to refresh the blocklist.
 	h.BannedWords = bw
 
-	gin.SetMode(gin.TestMode)
-	r := gin.New()
-	r.Use(func(c *gin.Context) { c.Set("auth.user", &auth.ResolvedUser{UserID: actor, StaffTier: "super_admin"}) })
-	r.POST("/t/:id/restore", h.Restore)
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/t/"+strconv.FormatInt(trashID, 10)+"/restore",
-		strings.NewReader(`{"password":"`+password+`"}`))
-	req.Header.Set("Content-Type", "application/json")
-	r.ServeHTTP(rec, req)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("restore %s#%d: status = %d (body: %s)", table, rowID, rec.Code, rec.Body.String())
+	status, body := postAsStaff(t, pool, actor, "/api/admin/trash/:id/restore",
+		"/api/admin/trash/"+strconv.FormatInt(trashID, 10)+"/restore",
+		map[string]string{"password": password},
+		auth.RequireAdminTier(), h.Restore)
+	if status != http.StatusOK {
+		t.Fatalf("restore %s#%d: status = %d (body: %v)", table, rowID, status, body)
 	}
 }

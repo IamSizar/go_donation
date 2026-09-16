@@ -1,31 +1,10 @@
-import { createContext, useContext, type ReactNode } from 'react'
+import { useContext, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-
-// Every section used to render two stacked header strips: the shared
-// TopActionBar (Back / Next / Refresh … Save) and, below it, the page's own
-// `.page-head` (title + subtitle on the left, search / "New …" / Export on
-// the right). They live in different parts of the tree — TopActionBar is a
-// sibling of <Outlet/> in AppShell, the page head is two levels deeper inside
-// the route's motion wrapper — so no amount of CSS can pull them onto one
-// line.
-//
-// Instead the page head renders into a slot INSIDE the action bar via a
-// portal: the title lands next to Back/Next, and the page's action row lands
-// next to Save. Pages keep authoring the exact same JSX they always did;
-// only the wrapper element changed from <div className="page-head"> to
-// <PageHead>.
-export const PageHeadSlotContext = createContext<HTMLElement | null>(null)
-
-// Two more slots in the same bar, for pages whose header needs more than the
-// middle strip can hold:
-//   PageActions   — sits immediately LEFT of Save, for the page's primary
-//                   action ("+ Add place"), so the two main buttons are
-//                   together instead of the action being buried among filters.
-//   BarSecondary  — a full-width line that wraps BELOW the buttons, starting
-//                   under Back. For overflow filters that would otherwise
-//                   squeeze the first line.
-export const PageActionsSlotContext = createContext<HTMLElement | null>(null)
-export const BarSecondarySlotContext = createContext<HTMLElement | null>(null)
+import {
+  BarSecondarySlotContext,
+  PageActionsSlotContext,
+  PageHeadSlotContext,
+} from './pageHeadSlots'
 
 export default function PageHead({ children }: { children: ReactNode }) {
   const slot = useContext(PageHeadSlotContext)

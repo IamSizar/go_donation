@@ -552,7 +552,12 @@ func (s *Store) ListAudit(ctx context.Context, limit int) ([]AuditEntry, error) 
 		        l.action, l.target, l.old_value, l.new_value, l.ip_address, l.created_at
 		   FROM permission_audit_log l
 		   LEFT JOIN users u ON u.id = l.actor_id
-		   LEFT JOIN user_profiles p ON p.user_id = l.actor_id
+		   -- OPOS #26603: user_profiles.user_id has no UNIQUE constraint, so an
+		   -- actor with two profile rows repeated every audit row they wrote.
+		   LEFT JOIN LATERAL (
+		          SELECT pf.full_name FROM user_profiles pf
+		           WHERE pf.user_id = l.actor_id ORDER BY pf.id LIMIT 1
+		        ) p ON TRUE
 		  ORDER BY l.created_at DESC
 		  LIMIT $1`, limit)
 	if err != nil {
