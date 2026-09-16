@@ -362,6 +362,7 @@ export default function MessagesPage({
                 <div style={{ marginTop: 8 }}>
                   <ChatLifecycleControls
                     basePath={`/api/admin/chats/${selected.id}`}
+                    deleteModule="messages"
                     thread={selected}
                     onChanged={async () => {
                       const items = await loadThreads()

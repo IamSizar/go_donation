@@ -16,8 +16,14 @@
  * data couldn't be loaded, and why; a download that throws gets the generic
  * line. One catch used to turn all of these into "Incorrect password", which
  * sent operators to retype a password that was never wrong.
+ *
+ * KEYBOARD (OPOS #26477)
+ * The format menu follows the WAI-ARIA menu button pattern: the trigger
+ * carries aria-haspopup/aria-expanded/aria-controls; opening focuses the first
+ * item; ArrowUp/ArrowDown wrap, Home/End jump, with a roving tabIndex; Escape
+ * closes and returns focus to the trigger; Tab and a click outside close it.
  */
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 import { api, canExportData, describeError } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { askForText } from '../lib/dialogs'
@@ -27,6 +33,14 @@ import { useExportAllowed } from '../lib/permissions'
 import { downloadCsv, downloadExcel, downloadPdf, downloadWord, type CsvColumn } from '../lib/csv'
 
 type Format = 'csv' | 'excel' | 'pdf' | 'word'
+
+/** The menu's formats, in order, with their label keys. */
+const FORMATS: { format: Format; labelKey: string }[] = [
+  { format: 'csv', labelKey: 'export.csv' },
+  { format: 'excel', labelKey: 'export.excel' },
+  { format: 'pdf', labelKey: 'export.pdf' },
+  { format: 'word', labelKey: 'export.word' },
+]
 
 type Props<T> = {
   // --- 24-b multi-format mode: pass the data + module and get CSV/Excel/PDF ---
@@ -70,6 +84,11 @@ export default function ExportCsvButton<T>({
   const [busy, setBusy] = useState(false)
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const itemRefs = useRef<(HTMLButtonElement | null)[]>([])
+  // The one menu item that is tabbable and focused (roving tabIndex).
+  const [activeIndex, setActiveIndex] = useState(0)
+  const menuId = useId()
   const multi = !!((rows || loadRows) && columns && filenameBase)
   const allowed = useExportAllowed(module ?? '', user)
 
@@ -80,6 +99,12 @@ export default function ExportCsvButton<T>({
     document.addEventListener('mousedown', onDocClick)
     return () => document.removeEventListener('mousedown', onDocClick)
   }, [])
+
+  // Keeps DOM focus on the active item while the menu is open, including the
+  // first item right after opening.
+  useEffect(() => {
+    if (open) itemRefs.current[activeIndex]?.focus()
+  }, [open, activeIndex])
 
   if (multi ? !allowed : !canExportData(user)) return null
 
@@ -171,8 +196,41 @@ export default function ExportCsvButton<T>({
     }
   }
 
+  // ─── Menu keyboard handling ───
+
+  function toggleMenu() {
+    setActiveIndex(0)
+    setOpen((o) => !o)
+  }
+
+  /** Arrow keys wrap, Home/End jump, Escape returns to the trigger, Tab leaves. */
+  function onMenuKeyDown(e: KeyboardEvent<HTMLDivElement>) {
+    const last = FORMATS.length - 1
+    const moves: Record<string, number> = {
+      ArrowDown: activeIndex === last ? 0 : activeIndex + 1,
+      ArrowUp: activeIndex === 0 ? last : activeIndex - 1,
+      Home: 0,
+      End: last,
+    }
+    if (e.key in moves) {
+      e.preventDefault()
+      setActiveIndex(moves[e.key])
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      setOpen(false)
+      triggerRef.current?.focus()
+    } else if (e.key === 'Tab') {
+      // Not prevented: focus moves on as usual, and the menu closes behind it.
+      setOpen(false)
+    }
+  }
+
   async function run(format: Format) {
+    // Focus goes back to the trigger before the menu item is unmounted, so a
+    // keyboard operator is not dropped on <body>. The PIN dialog takes focus
+    // from there.
     setOpen(false)
+    triggerRef.current?.focus()
     if (busy || !multi) return
     setBusy(true)
     try {
@@ -195,11 +253,13 @@ export default function ExportCsvButton<T>({
   return (
     <div ref={ref} style={{ position: 'relative', display: 'inline-block' }}>
       <button
+        ref={triggerRef}
         className={className ?? 'secondary'}
-        onClick={() => setOpen((o) => !o)}
+        onClick={toggleMenu}
         disabled={busy}
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-controls={menuId}
       >
         {label ?? t('export.export')} <span aria-hidden="true">▾</span>
       </button>
@@ -213,19 +273,21 @@ export default function ExportCsvButton<T>({
         // using the theme's actual tokens, with a proper :hover state
         // (inline styles can't do :hover at all, which is why there wasn't
         // one before).
-        <div className="dropdown-menu" role="menu">
-          <button role="menuitem" className="dropdown-menu-item" onClick={() => run('csv')}>
-            {t('export.csv')}
-          </button>
-          <button role="menuitem" className="dropdown-menu-item" onClick={() => run('excel')}>
-            {t('export.excel')}
-          </button>
-          <button role="menuitem" className="dropdown-menu-item" onClick={() => run('pdf')}>
-            {t('export.pdf')}
-          </button>
-          <button role="menuitem" className="dropdown-menu-item" onClick={() => run('word')}>
-            {t('export.word')}
-          </button>
+        <div id={menuId} className="dropdown-menu" role="menu" onKeyDown={onMenuKeyDown}>
+          {FORMATS.map(({ format, labelKey }, index) => (
+            <button
+              key={format}
+              ref={(el) => {
+                itemRefs.current[index] = el
+              }}
+              role="menuitem"
+              className="dropdown-menu-item"
+              tabIndex={index === activeIndex ? 0 : -1}
+              onClick={() => run(format)}
+            >
+              {t(labelKey)}
+            </button>
+          ))}
         </div>
       )}
     </div>

@@ -300,3 +300,95 @@ describe('ExportCsvButton with onExport', () => {
     expect(onExport).not.toHaveBeenCalled()
   })
 })
+
+// ─── Keyboard (OPOS #26477): the WAI-ARIA menu button pattern ───
+
+describe('ExportCsvButton format menu from the keyboard', () => {
+  /** Renders a rows-mode menu and returns its trigger once the permission has loaded. */
+  async function renderMenu(): Promise<HTMLElement> {
+    serverAllowingExport()
+    renderWithProviders(<ExportCsvButton rows={ROWS} columns={COLUMNS} filenameBase="rows" module="messages" />)
+    return screen.findByRole('button', { name: 'Export' })
+  }
+
+  it('wires the trigger to the menu and moves focus to the first item on open', async () => {
+    const user = userEvent.setup()
+    const trigger = await renderMenu()
+    expect(trigger).toHaveAttribute('aria-haspopup', 'menu')
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+
+    trigger.focus()
+    await user.keyboard('{Enter}')
+
+    const menu = screen.getByRole('menu')
+    expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    expect(trigger).toHaveAttribute('aria-controls', menu.id)
+    const items = screen.getAllByRole('menuitem')
+    expect(items.map((i) => i.textContent)).toEqual(['CSV', 'Excel', 'PDF', 'Word'])
+    expect(items[0]).toHaveFocus()
+    expect(items.map((i) => i.tabIndex)).toEqual([0, -1, -1, -1])
+  })
+
+  it('wraps with the arrow keys and jumps with Home and End', async () => {
+    const user = userEvent.setup()
+    const trigger = await renderMenu()
+    trigger.focus()
+    await user.keyboard('{Enter}')
+    const item = (name: string) => screen.getByRole('menuitem', { name })
+
+    await user.keyboard('{ArrowUp}')
+    expect(item('Word')).toHaveFocus()
+    expect(item('Word')).toHaveAttribute('tabindex', '0')
+    await user.keyboard('{ArrowDown}')
+    expect(item('CSV')).toHaveFocus()
+    await user.keyboard('{ArrowDown}')
+    expect(item('Excel')).toHaveFocus()
+    await user.keyboard('{End}')
+    expect(item('Word')).toHaveFocus()
+    await user.keyboard('{Home}')
+    expect(item('CSV')).toHaveFocus()
+  })
+
+  it('selects the focused format with Enter, reaching the PIN step', async () => {
+    const user = userEvent.setup()
+    vi.mocked(askForText).mockResolvedValue(null)
+    const trigger = await renderMenu()
+    trigger.focus()
+    await user.keyboard('{Enter}')
+
+    await user.keyboard('{ArrowDown}{Enter}')
+
+    await waitFor(() => expect(askForText).toHaveBeenCalledTimes(1))
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    // Focus is never dropped on <body> when the menu closes.
+    expect(trigger).toHaveFocus()
+  })
+
+  it('closes on Escape and returns focus to the trigger', async () => {
+    const user = userEvent.setup()
+    const trigger = await renderMenu()
+    trigger.focus()
+    await user.keyboard('{Enter}')
+
+    await user.keyboard('{Escape}')
+
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(trigger).toHaveFocus()
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('closes on Tab, and on a click outside', async () => {
+    const user = userEvent.setup()
+    const trigger = await renderMenu()
+    trigger.focus()
+    await user.keyboard('{Enter}')
+
+    await user.tab()
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+
+    await user.click(trigger)
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+    await user.click(document.body)
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+})

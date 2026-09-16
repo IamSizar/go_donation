@@ -300,6 +300,7 @@ export default function StaffChatPage() {
                 <div style={{ marginTop: 8 }}>
                   <ChatLifecycleControls
                     basePath={`/api/admin/staff-chats/${selected.id}`}
+                    deleteModule="messages"
                     thread={selected}
                     onChanged={loadThreads}
                   />

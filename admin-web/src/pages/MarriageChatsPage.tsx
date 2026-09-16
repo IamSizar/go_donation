@@ -253,6 +253,7 @@ export default function MarriageChatsPage() {
                 <div style={{ marginTop: 8 }}>
                   <ChatLifecycleControls
                     basePath={`/api/admin/marriage/chats/${selected.id}`}
+                    deleteModule="marriage"
                     thread={selected}
                     onChanged={async () => {
                       const items = await loadThreads()

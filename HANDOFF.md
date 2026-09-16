@@ -6,6 +6,131 @@
 
 ---
 
+## 2026-09-16 — OPOS #26492, #26493, #26477, #26496: admin-web chat follow-ups (branch `fix/admin-web-chat-followups`)
+
+**What was asked:** three unrelated dashboard fixes, each test-first, each its
+own commit, cut from `origin/main` at `b0c9eb8`; then a fourth item (#26496)
+added mid-session. No push. OPOS was not available in the session, so nothing
+was tracked there.
+
+**The commits** (branch cut from `origin/main` `b0c9eb8`, which never moved
+during the work — nothing to merge):
+
+- **`37f4389` fix(admin-web): gate chat Delete on the module's delete permission (#26492).**
+  `ChatLifecycleControls` offered Delete to anyone with edit, but the server's
+  DELETE routes are stricter. Verified in `backend/cmd/server/main.go`:
+  `/admin/chats/:id`, `/admin/staff-chats/:id` and `/admin/chat-groups/:id`
+  need `messages:delete` (lines 1062, 1064, 1068); `/admin/marriage/chats/:id`
+  needs `marriage:delete` (line 1066). The component now takes a required
+  `deleteModule: 'messages' | 'marriage'` and hides Delete unless
+  `usePermission(deleteModule, 'delete', user)` — the same helper the pages
+  already use. The four call sites pass it: `MessagesPage`, `StaffChatPage`
+  (messages), `MarriageChatsPage` (marriage), `chatGroups/GroupHeader`
+  (messages). **`MarriageSupportPage` does not render the strip at all** — it
+  is in the brief's list but has no `ChatLifecycleControls`, so nothing to gate.
+  Copy: `chat_lifecycle.delete_confirm` said "A Super-Admin can restore it".
+  Restore is `RequireAdminTier` (`main.go:1173`), so en/ar now say an
+  administrator restores it; purge IS `RequireSuperAdmin` (`main.go:1176`), so
+  the sentence keeps a Super-Admin for permanent deletion. Key name unchanged.
+- **`7a377e3` fix(admin-web): keep a decided connect request open with its outcome (#26493).**
+  `ConnectRequestPanel` now renders the decision itself — approved with the new
+  `group_id`, declined with the reason just sent — instead of re-fetching the
+  detail, and `DeclineRequestDialog`'s `onDeclined` passes the trimmed reason it
+  sent. `onDecided()` still fires so the page re-fetches the list.
+- **`063d9a1` fix(admin-web): make the export format menu keyboard accessible (#26477).**
+  `ExportCsvButton`'s format menu now follows the WAI-ARIA menu button pattern:
+  `aria-haspopup`/`aria-expanded`/`aria-controls` (a `useId` id), `role="menu"`
+  + `role="menuitem"`, roving `tabIndex`, focus to the first item on open,
+  wrapping ArrowUp/ArrowDown, Home/End, Escape closing and returning focus to
+  the trigger, Tab closing, and the existing outside-click close kept. The four
+  items became a `FORMATS` array. Styles, logical properties and the PIN flow
+  are untouched.
+- **`b2191a9` fix(admin-web): return focus to the export trigger when a format
+  is picked (#26477).** The self-review below found it: Escape returned focus,
+  but CHOOSING a format closed the menu and left focus on `<body>`. It is a
+  separate commit rather than an amend of `063d9a1` because this environment's
+  safety gate blocks `git commit --amend`.
+- **`1cbdb93` fix(admin-web): word the chat-group 401 for the operator (#26496).**
+  The backend now codes the chat-group 401 `Unauthorized.` as `unauthorized`;
+  the dashboard had no message for it, so the operator would have read the
+  server's English. `unauthorized` was added to `CHAT_GROUP_ERROR_CODES` and to
+  the key map in `chatGroupErrors.ts`. **No new locale key was added:**
+  `error.auth_required` (A15) already says "Your session has ended. Please sign
+  in again." and already exists in en, ar, ckb AND kmr, so the code maps to it.
+  Nothing was added to `TRANSLATION_REQUEST.md` and the 617 count is unchanged —
+  there is no new key to translate, and no Kurdish was written.
+
+**RED then GREEN, each watched fail first:**
+
+| Commit | RED | GREEN |
+|---|---|---|
+| #26492 | `Tests  2 failed (2)` (new `ChatLifecycleControls.test.tsx`) | `Tests  32 passed (32)` |
+| #26493 | `Tests  2 failed \| 9 passed (11)` | `Tests  21 passed (21)` |
+| #26477 | `Tests  5 failed \| 8 passed (13)` | `Tests  13 passed (13)` |
+| #26496 | `Tests  2 failed \| 29 passed (31)` | `Tests  32 passed (32)` |
+
+**A finding worth recording about #26493.** The happy path already worked: the
+panel re-fetched the detail and the re-fetch showed the new status, so a test
+of "approve, then look at the panel" passes on the ORIGINAL code. The real
+weakness was that the outcome depended on that re-fetch — a detail GET that
+fails or lags after the decision replaced the result with an error, or could
+put the decision buttons back. The committed test therefore makes the detail
+route answer 500 immediately after the decision, which is what fails on the old
+code. If someone later reverts to re-fetching, that is the test that will catch it.
+
+**What was run on the final tree** (Node 22 at `/opt/homebrew/opt/node@22/bin`;
+`node_modules` installed here with `npm ci`):
+- `npm test` → `Test Files  22 passed (22)`, `Tests  197 passed (197)`
+- `npx tsc -b` → exit 0
+- `npm run build` → exit 0 (only the usual chunk-size advice)
+- `npm run test:mock-api` → `# pass 37`, `# fail 0`
+- `npm run test:nav` → `# pass 15`, `# fail 0`
+- `npm run check:labels` → `every controlled value and permission module has a label.`
+- `npm run check:css-tokens` → `62 tokens read, all defined.`
+- `npx eslint` on every file this branch changed → exit 0
+
+**Trap — pre-existing eslint errors that are NOT from this branch.** Running
+eslint on `MessagesPage.tsx`, `StaffChatPage.tsx` or `MarriageChatsPage.tsx`
+reports 6 `react-hooks/set-state-in-effect` errors (the 5s/3s polling effects).
+They are on `origin/main` already — confirmed by piping `git show
+origin/main:<file>` through `eslint --stdin` and getting the same count — and
+none are on a line this branch touched. Don't mistake them for a regression;
+fixing them is its own task.
+
+**Self-review of the three risky spots** (the `ecc:react-reviewer` run stalled
+on a harness watchdog and was skipped by the coordinator, so this is a manual
+pass, not an agent verdict):
+- *The Delete gate's fallback.* `deleteModule` is a required, union-typed prop,
+  so a page that passes none fails the build — `tsc -b` is the check. While the
+  matrix is loading (or if its fetch failed) `usePermission` falls back to the
+  admin/super_admin tier gate, so Delete is hidden from lower tiers rather than
+  flashed and then withdrawn. The server remains the authority either way.
+- *The decided panel's state.* `showDecision` merges into the panel state only
+  when it is already `ready`, so it cannot resurrect a panel that errored or is
+  still loading. Nothing re-fetches after a decision, so no late response can
+  overwrite the outcome. The panel is keyed on the selected id in the page, so
+  choosing another row remounts it, and changing the filter clears the
+  selection — both still move on as before.
+- *Focus when the menu closes.* Escape returns focus to the trigger, and after
+  `b2191a9` so does PICKING a format: `run()` focuses the trigger before the
+  item unmounts, otherwise focus fell to `<body>` and the keyboard operator lost
+  their place (the PIN dialog then takes focus from the trigger). Tab is
+  deliberately not prevented — focus moves on naturally and the menu closes
+  behind it.
+
+**What is still open:** nothing was pushed, no PR was opened, and OPOS was
+unavailable in this session, so #26492, #26493, #26477 and #26496 still need
+their status and time logged by whoever has OPOS access. #26496's dashboard
+half assumes the backend change that codes the 401 `unauthorized` actually
+lands; until it does, that 401 arrives uncoded and falls through to
+describeError as before — the mapping is harmless either way. The one string this branch
+changed is in `TRANSLATION_REQUEST.md`: `chat_lifecycle.delete_confirm` was
+RE-WRITTEN in en and ar, so its existing Kurdish is now FALSE and is listed as
+1 key to re-translate — the total was recounted from 616 to **617**. No Kurdish
+was written.
+
+---
+
 ## 2026-09-16 — OPOS #26497: chat, staff-chat and marriage lists stop repeating rows when a user has two `user_profiles` rows (branch `fix/user-profiles-duplicate-joins`)
 
 **What was asked:** audit every `user_profiles` join in `backend/internal`, fix the duplicating reads, close the three writers' check-then-insert race, and test all of it. Mid-session the scope was narrowed by the coordinator to: keep the audit, fix only the reads covered by the four test files already written (chat, chatgroups contact blocks, marriagechat, staffchat), drop the writer-lock work to a separate task, skip the full `./...` run and skip the reviewer agent.

@@ -16,8 +16,15 @@
  * GATES
  * Approve and Decline appear only on a PENDING request, and only for staff
  * with messages:edit; others with a pending request are told why they cannot
- * decide it. After a decision the panel refetches itself and calls
- * onDecided() so the page refetches the list.
+ * decide it.
+ *
+ * AFTER A DECISION (OPOS #26493)
+ * The panel stays on the request and shows its outcome straight from the
+ * decision: Approved with the new group's link, or Declined with the reason
+ * just given. It does not refetch the detail, so a refetch that fails or lags
+ * cannot put the decision buttons back or replace the outcome with an error.
+ * onDecided() lets the page refetch the list, where the row may drop out of
+ * the current filter; choosing another row or filter moves on as usual.
  */
 import { AnimatePresence } from 'framer-motion'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
@@ -69,11 +76,18 @@ export default function ConnectRequestPanel({ requestId, onDecided }: Props) {
   }, [])
 
   const closeDialog = useCallback(() => setDialog(null), [])
-  const handleDecided = useCallback(() => {
-    setDialog(null)
-    reload()
-    onDecided()
-  }, [reload, onDecided])
+
+  /** Shows the decided request as the server now holds it, then tells the page. */
+  const showDecision = useCallback(
+    (decided: Pick<ConnectRequest, 'status' | 'group_id' | 'decline_reason'>) => {
+      setDialog(null)
+      setState((prev) => (prev.status === 'ready' ? { status: 'ready', request: { ...prev.request, ...decided } } : prev))
+      onDecided()
+    },
+    [onDecided],
+  )
+  const handleApproved = useCallback((groupId: number) => showDecision({ status: 'approved', group_id: groupId }), [showDecision])
+  const handleDeclined = useCallback((reason: string) => showDecision({ status: 'declined', decline_reason: reason }), [showDecision])
 
   return (
     <section className="card stack" aria-label={t('chat_groups.inbox.detail.aria')}>
@@ -102,10 +116,10 @@ export default function ConnectRequestPanel({ requestId, onDecided }: Props) {
 
       <AnimatePresence>
         {state.status === 'ready' && dialog === 'approve' && (
-          <ApproveRequestDialog key="approve" request={state.request} onClose={closeDialog} onApproved={handleDecided} />
+          <ApproveRequestDialog key="approve" request={state.request} onClose={closeDialog} onApproved={handleApproved} />
         )}
         {state.status === 'ready' && dialog === 'decline' && (
-          <DeclineRequestDialog key="decline" request={state.request} onClose={closeDialog} onDeclined={handleDecided} />
+          <DeclineRequestDialog key="decline" request={state.request} onClose={closeDialog} onDeclined={handleDeclined} />
         )}
       </AnimatePresence>
     </section>

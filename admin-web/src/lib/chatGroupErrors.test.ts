@@ -47,6 +47,7 @@ describe('CHAT_GROUP_ERROR_KEYS', () => {
       'not_group_member',
       'sensitive_data_required',
       'server_error',
+      'unauthorized',
     ])
   })
 
@@ -103,6 +104,15 @@ describe('describeChatGroupError', () => {
     expect(describeChatGroupError(err)).toBe(
       'This message contains a phone number or email address, so it was not sent. Remove the contact detail and send it again.',
     )
+  })
+
+  it('asks the operator to sign in again on a 401 unauthorized (#26496)', () => {
+    const err = refused(401, { success: false, error: 'Unauthorized.', code: 'unauthorized' })
+
+    expect(chatGroupErrorCode(err)).toBe('unauthorized')
+    // Reuses the existing error.auth_required wording, in the operator's language.
+    expect(describeChatGroupError(err)).toBe('Your session has ended. Please sign in again.')
+    expect(describeChatGroupError(err)).not.toBe('Unauthorized.')
   })
 
   it('shows the generic server line for server_error, never "Database error."', () => {

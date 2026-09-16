@@ -52,7 +52,7 @@ describe('DeclineRequestDialog', () => {
     await user.type(reasonBox(), '  We cannot arrange this one.  ')
     await user.click(declineButton())
 
-    await waitFor(() => expect(onDeclined).toHaveBeenCalled())
+    await waitFor(() => expect(onDeclined).toHaveBeenCalledWith('We cannot arrange this one.'))
     expect(api.callsTo('post', DECLINE_URL).map((c) => c.data)).toEqual([{ reason: 'We cannot arrange this one.' }])
     expect(await screen.findByText('Request declined')).toBeInTheDocument()
   })
