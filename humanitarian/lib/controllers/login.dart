@@ -209,6 +209,25 @@ class LoginController extends GetxController {
       final body = _dioDataAsMap(resp.data);
 
       if (code != 200 && code != 201) {
+        // OPOS #25270 — these two machine `code` values each carry a raw
+        // English `error` string on the backend (auth.go / auth_staff_otp.go)
+        // that must never reach the UI directly; check the code FIRST and
+        // use this app's own localized copy, before any of the raw-text
+        // fallbacks below get a chance to run.
+        final errorCode = body?['code']?.toString();
+        if (errorCode == 'otp_resend_cooldown') {
+          final retryAfter = body?['retry_after'];
+          if (retryAfter is num) {
+            startResendCooldown(retryAfter.toInt());
+          }
+          errorMessage.value = 'otp_resend_cooldown_message'.tr;
+          return false;
+        }
+        if (errorCode == 'staff_otp_unavailable') {
+          errorMessage.value = 'staff_otp_unavailable_message'.tr;
+          return false;
+        }
+
         // Map common backend errors to user-friendly messages.
         final raw = body?['error']?.toString() ?? body?['message']?.toString();
         if (code == 429) {
@@ -329,6 +348,12 @@ class LoginController extends GetxController {
         errorMessage.value =
             body?['error']?.toString() ??
             'This code is no longer valid. Tap Resend.'.tr;
+        return OtpVerifyOutcome.failed;
+      }
+      // OPOS #25270 — same staff-OTP gate as the request side above,
+      // reached here if a staff account gets this far before verification.
+      if (body?['code']?.toString() == 'staff_otp_unavailable') {
+        errorMessage.value = 'staff_otp_unavailable_message'.tr;
         return OtpVerifyOutcome.failed;
       }
       if (status != 200 || body == null) {
