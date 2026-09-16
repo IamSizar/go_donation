@@ -295,7 +295,7 @@ func main() {
 	donationsH := handlers.NewDonationsHandler(donationStore, notifier, walletStore)
 	beneficiaryH := handlers.NewBeneficiaryHandler(beneficiaryStore, userStore, notifier)
 	marketplaceH := handlers.NewMarketplaceHandler(marketplaceStore, notifier, walletStore)
-	walletH := handlers.NewWalletHandler(walletStore, notifier)
+	walletH := handlers.NewWalletHandler(walletStore, notifier, pool, eventsStore)
 	tasksH := handlers.NewTasksHandler(tasksStore, notifier)
 	chatH := handlers.NewChatHandler(chatStore, notifier, pool)
 	chatGroupsStore := chatgroups.New(pool)
