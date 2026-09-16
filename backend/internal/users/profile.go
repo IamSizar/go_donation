@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -47,10 +48,54 @@ func (s *Store) UserExists(ctx context.Context, userID int64) (bool, error) {
 	return true, nil
 }
 
+// rowQuerier is the one method GetProfileRow needs, so the same query can be
+// run on the pool or inside a transaction. Both *pgxpool.Pool and pgx.Tx
+// satisfy it.
+type rowQuerier interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
+// LockUserProfileWrite serialises the check-then-insert that every
+// `user_profiles` writer has to perform. The table has no UNIQUE constraint on
+// user_id — it cannot get one until somebody decides how to dedupe the pairs
+// that already exist — so writers branch on "does a row exist" and INSERT when
+// it does not. Two concurrent calls for one user would otherwise both see "no
+// row" and both insert, which is the source of the duplicate profiles the
+// reads had to be rewritten for in #115 and #127.
+//
+// It MUST be the FIRST statement of the transaction that calls it. The writers
+// touch `users` in different orders — the dashboard's admin edit UPDATEs the
+// users row BEFORE its profile block, SubmitRegistration UPDATEs it AFTER — so
+// a lock taken anywhere in the middle would let those two grab the two
+// resources in opposite orders and deadlock. Taken first, by every writer,
+// there is only ever one order.
+//
+// The lock is released automatically when the transaction ends, committed or
+// rolled back (that is what the _xact_ in the name means), so no error path
+// can leak it.
+func LockUserProfileWrite(ctx context.Context, tx pgx.Tx, userID int64) error {
+	if _, err := tx.Exec(ctx,
+		// hashtext gives an int4; pg_advisory_xact_lock wants one bigint or two
+		// int4s, hence the cast. The key is namespaced with the table name so
+		// it cannot collide with an advisory lock taken for anything else.
+		`SELECT pg_advisory_xact_lock(hashtext('user_profiles:' || $1::bigint::text)::bigint)`,
+		userID,
+	); err != nil {
+		return fmt.Errorf("locking user_profiles writes for user %d: %w", userID, err)
+	}
+	return nil
+}
+
 // GetProfileRow returns the current user_profiles row, or nil if none exists.
 func (s *Store) GetProfileRow(ctx context.Context, userID int64) (*ProfileRow, error) {
+	return getProfileRow(ctx, s.Pool, userID)
+}
+
+// getProfileRow is GetProfileRow's body, parameterised over where it runs so
+// UpsertProfile can make the same check INSIDE its transaction, under the lock.
+func getProfileRow(ctx context.Context, q rowQuerier, userID int64) (*ProfileRow, error) {
 	var r ProfileRow
-	err := s.Pool.QueryRow(ctx,
+	err := q.QueryRow(ctx,
 		`SELECT id, user_id, full_name, address, gender, profile_picture,
 		        COALESCE(to_char(date_of_birth, 'YYYY-MM-DD'), '')
 		   FROM user_profiles WHERE user_id = $1 LIMIT 1`,
@@ -97,16 +142,24 @@ func (s *Store) UpsertProfile(
 		return nil, errors.New("user not found")
 	}
 
-	current, err := s.GetProfileRow(ctx, userID)
-	if err != nil {
-		return nil, err
-	}
-
 	tx, err := s.Pool.Begin(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Rollback(ctx)
+
+	// FIRST statement of the transaction, before the existence check below —
+	// see LockUserProfileWrite for why it has to be first and why the check
+	// moved in here with it. The check used to run on the pool, outside this
+	// transaction, which made any lock taken here meaningless.
+	if err := LockUserProfileWrite(ctx, tx, userID); err != nil {
+		return nil, err
+	}
+
+	current, err := getProfileRow(ctx, tx, userID)
+	if err != nil {
+		return nil, err
+	}
 
 	if current == nil {
 		// INSERT — user_profiles columns are NOT NULL in the schema. Use the same

@@ -62,7 +62,13 @@ func (s *Store) ListContactBlocks(ctx context.Context, threadID int64) ([]Contac
 		SELECT b.id, b.thread_id, b.sender_user_id, p.full_name,
 		       b.kind, b.match_count, b.redacted_body, b.created_at
 		  FROM chat_contact_blocks b
-		  LEFT JOIN user_profiles p ON p.user_id = b.sender_user_id
+		  -- LATERAL, not a plain join: user_profiles.user_id has no UNIQUE
+		  -- constraint, so a sender with two profile rows would have each of
+		  -- their refused attempts listed twice. The oldest row names them.
+		  LEFT JOIN LATERAL (
+		      SELECT up.full_name FROM user_profiles up
+		       WHERE up.user_id = b.sender_user_id ORDER BY up.id LIMIT 1
+		  ) p ON TRUE
 		 WHERE b.thread_id = $1
 		 ORDER BY b.id DESC`,
 		threadID,

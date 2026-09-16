@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/core/design/tokens.dart';
 import 'package:flutter_application_1/localization/content_localizer.dart';
+import 'package:flutter_application_1/modules/chatgroups/widgets/connect_request_button.dart';
+import 'package:flutter_application_1/modules/chatgroups/widgets/connect_request_sheet.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 
@@ -178,6 +181,17 @@ class BeneficiaryCaseDetailScreen extends StatelessWidget {
                       ),
                     ),
                   ],
+                  // OPOS #25284 Phase 5 — members cannot contact each other
+                  // directly; this asks staff to connect them about THIS case.
+                  // The server takes the case's numeric id, which a user never
+                  // sees (they see CSE-000123), so the entry point lives here
+                  // rather than behind a "type a case number" dialog. Renders
+                  // nothing for a guest or a case without an id.
+                  ConnectRequestButton(
+                    contextType: kConnectContextCase,
+                    contextId: int.tryParse('${caseItem['id'] ?? ''}'),
+                    padding: const EdgeInsetsDirectional.only(top: AppSpace.md),
+                  ),
                 ],
               ),
             ),
