@@ -167,8 +167,13 @@ export function GlobalAlertsProvider({ children }: { children: ReactNode }) {
   const [audioUnlocked, setAudioUnlocked] = useState<boolean>(false)
 
   // Firestore subscription state.
-  const [events, setEvents] = useState<AlertEvent[]>([])
-  const [status, setStatus] = useState<'connecting' | 'connected' | 'error'>('connecting')
+  const [polledEvents, setPolledEvents] = useState<AlertEvent[]>([])
+  const [pollStatus, setPollStatus] = useState<'connecting' | 'connected' | 'error'>('connecting')
+  // Signed out means no feed and no connection, derived rather than reset by
+  // the polling effect below: it stops polling, and these two say so without
+  // it having to write state on the way out.
+  const events = user ? polledEvents : []
+  const status = user ? pollStatus : 'connecting'
   const [error, setError] = useState<string | null>(null)
 
   // Seen-id set lets us detect genuinely-new events vs. backfilled ones on
@@ -231,11 +236,7 @@ export function GlobalAlertsProvider({ children }: { children: ReactNode }) {
   // rows (so we don't chime on the initial backfill).
   useEffect(() => {
     // Don't poll when signed out — saves bandwidth + avoids 401s.
-    if (!user) {
-      setEvents([])
-      setStatus('connecting')
-      return
-    }
+    if (!user) return
 
     let cancelled = false
 
@@ -289,8 +290,8 @@ export function GlobalAlertsProvider({ children }: { children: ReactNode }) {
 
       seenIdsRef.current = new Set(next.map((r) => String(r.id)))
       firstSnapshotRef.current = false
-      setEvents(next)
-      setStatus('connected')
+      setPolledEvents(next)
+      setPollStatus('connected')
     }
 
     async function poll() {
@@ -303,7 +304,7 @@ export function GlobalAlertsProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         if (cancelled) return
         console.error('global alerts feed error:', err)
-        setStatus('error')
+        setPollStatus('error')
         setError((err as Error)?.message || String(err))
       }
     }
