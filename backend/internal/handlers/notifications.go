@@ -23,6 +23,12 @@ func NewNotificationsHandler(n *notify.Notifier) *NotificationsHandler {
 
 // GET /api/notifications?user_id=N&role_id=R&category=&type=&read_status=&limit=
 // Bearer required; user_id MUST match the token's user.
+//
+// Deliberately open to guest accounts: they still receive campaign, news,
+// partner and support-ticket notifications. What a guest may not see, the
+// chat-type rows and the message previews they carry, is filtered inside
+// Notifier.List (OPOS #26424). The unread filter (?read_status=unread or
+// ?unread_only=1) is the same query, so the unread count excludes them too.
 func (h *NotificationsHandler) List(c *gin.Context) {
 	tokenUser, _ := auth.UserFromGin(c)
 	if tokenUser == nil {

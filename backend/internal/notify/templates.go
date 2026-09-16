@@ -200,8 +200,10 @@ func SponsorshipSubmittedMsg(amount, currency, projectName string, sponsorshipID
 }
 
 // SponsorshipCancelledByDonorMsg — grantor cancelled their own active sponsorship.
+// projectName is "" for a "General support" sponsorship (see the identical
+// note on SponsorshipAcceptedMsg above) — OPOS #25279.
 func SponsorshipCancelledByDonorMsg(projectName string, sponsorshipID int64) LocalizedMessage {
-	return LocalizedMessage{
+	msg := LocalizedMessage{
 		Type:              "sponsorship_cancelled",
 		RelatedEntityType: "sponsorships",
 		RelatedEntityID:   sponsorshipID,
@@ -211,13 +213,23 @@ func SponsorshipCancelledByDonorMsg(projectName string, sponsorshipID int64) Loc
 			Ckb: "سپۆنسەرکردن هەڵوەشێنرایەوە",
 			Kmr: "سپۆنسەری هاتە بەتالکرن",
 		},
-		Body: LocalText{
-			En:  fmt.Sprintf("Your monthly sponsorship for %s was cancelled.", projectName),
-			Ar:  fmt.Sprintf("تم إلغاء كفالتك الشهرية للمشروع \"%s\".", projectName),
-			Ckb: fmt.Sprintf("سپۆنسەری مانگانەی تۆ بۆ «%s» هەڵوەشێنرایەوە.", projectName),
-			Kmr: fmt.Sprintf("سپۆنسەریا تە یا مەهانە بۆ «%s» هاتە بەتالکرن.", projectName),
-		},
 	}
+	if projectName == "" {
+		msg.Body = LocalText{
+			En:  "Your monthly sponsorship was cancelled.",
+			Ar:  "تم إلغاء كفالتك الشهرية.",
+			Ckb: "سپۆنسەری مانگانەی تۆ هەڵوەشێنرایەوە.",
+			Kmr: "سپۆنسەریا تە یا مەهانە هاتە بەتالکرن.",
+		}
+		return msg
+	}
+	msg.Body = LocalText{
+		En:  fmt.Sprintf("Your monthly sponsorship for %s was cancelled.", projectName),
+		Ar:  fmt.Sprintf("تم إلغاء كفالتك الشهرية للمشروع \"%s\".", projectName),
+		Ckb: fmt.Sprintf("سپۆنسەری مانگانەی تۆ بۆ «%s» هەڵوەشێنرایەوە.", projectName),
+		Kmr: fmt.Sprintf("سپۆنسەریا تە یا مەهانە بۆ «%s» هاتە بەتالکرن.", projectName),
+	}
+	return msg
 }
 
 // InKindSubmittedMsg — grantor created an in-kind donation pending pickup.
@@ -832,8 +844,19 @@ func DonationReceivedOnProjectMsg(amount, currency, projectTitle, donorName stri
 // --- Sponsorships ----------------------------------------------------------
 
 // SponsorshipAcceptedMsg — admin accepted a pending sponsorship → active.
+//
+// projectName is "" for a "General support" sponsorship — one created with
+// neither a beneficiary_case_id nor a project_request_id (a legitimate,
+// intentional shape; see sponsorships.Store.Insert and the identical
+// COALESCE(p.title, 'General support') fallback used throughout
+// internal/sponsorships). OPOS #25279: the caller used to interpolate that
+// empty string straight into the sentence below (`للمشروع ""`), which read as
+// if the notification had simply forgotten to say which project. Below,
+// empty projectName gets its own complete sentence per language instead of a
+// blank interpolation — NOT the raw English literal "General support",
+// which would otherwise leak untranslated into the ar/ckb/kmr copy.
 func SponsorshipAcceptedMsg(amount, currency, projectName string, sponsorshipID int64) LocalizedMessage {
-	return LocalizedMessage{
+	msg := LocalizedMessage{
 		Type:              "sponsorship_accepted",
 		RelatedEntityType: "sponsorships",
 		RelatedEntityID:   sponsorshipID,
@@ -843,19 +866,54 @@ func SponsorshipAcceptedMsg(amount, currency, projectName string, sponsorshipID 
 			Ckb: "سپۆنسەرکردن وەرگیرا",
 			Kmr: "سپۆنسەری هاتە قبوولکرن",
 		},
-		Body: LocalText{
-			En:  fmt.Sprintf("Your %s %s monthly sponsorship for \"%s\" was accepted. You'll be reminded each month when payment is due.", amount, currency, projectName),
-			Ar:  fmt.Sprintf("تم قبول كفالتك الشهرية بمبلغ %s %s للمشروع \"%s\". سيتم تذكيرك كل شهر عند موعد الدفع.", amount, currency, projectName),
-			Ckb: fmt.Sprintf("سپۆنسەری مانگانەی تۆ بە بڕی %s %s بۆ «%s» وەرگیرا. هەموو مانگێک کاتی پارەدان پێشت ئاگادار دەکرێیتەوە.", amount, currency, projectName),
-			Kmr: fmt.Sprintf("سپۆنسەریا تە یا مەهانە یا %s %s بۆ «%s» هاتە قبوولکرن. هەر مەهی دەمێ پارەدانێ تە ئاگەهدار دکەین.", amount, currency, projectName),
-		},
 	}
+	if projectName == "" {
+		msg.Body = LocalText{
+			En:  fmt.Sprintf("Your %s %s monthly sponsorship was accepted. You'll be reminded each month when payment is due.", amount, currency),
+			Ar:  fmt.Sprintf("تم قبول كفالتك الشهرية بمبلغ %s %s. سيتم تذكيرك كل شهر عند موعد الدفع.", amount, currency),
+			Ckb: fmt.Sprintf("سپۆنسەری مانگانەی تۆ بە بڕی %s %s وەرگیرا. هەموو مانگێک کاتی پارەدان پێشت ئاگادار دەکرێیتەوە.", amount, currency),
+			Kmr: fmt.Sprintf("سپۆنسەریا تە یا مەهانە یا %s %s هاتە قبوولکرن. هەر مەهی دەمێ پارەدانێ تە ئاگەهدار دکەین.", amount, currency),
+		}
+		return msg
+	}
+	msg.Body = LocalText{
+		En:  fmt.Sprintf("Your %s %s monthly sponsorship for \"%s\" was accepted. You'll be reminded each month when payment is due.", amount, currency, projectName),
+		Ar:  fmt.Sprintf("تم قبول كفالتك الشهرية بمبلغ %s %s للمشروع \"%s\". سيتم تذكيرك كل شهر عند موعد الدفع.", amount, currency, projectName),
+		Ckb: fmt.Sprintf("سپۆنسەری مانگانەی تۆ بە بڕی %s %s بۆ «%s» وەرگیرا. هەموو مانگێک کاتی پارەدان پێشت ئاگادار دەکرێیتەوە.", amount, currency, projectName),
+		Kmr: fmt.Sprintf("سپۆنسەریا تە یا مەهانە یا %s %s بۆ «%s» هاتە قبوولکرن. هەر مەهی دەمێ پارەدانێ تە ئاگەهدار دکەین.", amount, currency, projectName),
+	}
+	return msg
 }
 
 // SponsorshipStatusChangedMsg — generic fallback when admin moves the
 // sponsorship to a status other than 'active' or 'cancelled'.
+// sponsorshipStatusWord localizes the raw status strings notifySponsorshipDecision
+// switches on ("paused", "delayed", "completed") — OPOS #25279, found alongside
+// the empty-projectName bug: this function used to interpolate that raw English
+// word straight into the ar/ckb/kmr sentence below. Falls back to the English
+// word itself for any value outside the three the caller actually sends, so an
+// unrecognized status degrades to readable English rather than an empty gap.
+func sponsorshipStatusWord(status string, lang int) string {
+	// lang: 0=en 1=ar 2=ckb 3=kmr — matches the four fmt.Sprintf calls below.
+	words := map[string][4]string{
+		"paused":    {"paused", "متوقفة مؤقتًا", "وەستێنراوە", "هاتییە وەستاندن"},
+		"delayed":   {"delayed", "مؤجلة", "دواخراوە", "هاتییە دواخستن"},
+		"completed": {"completed", "مكتملة", "تەواوبووە", "تەواو بووە"},
+	}
+	if w, ok := words[status]; ok {
+		return w[lang]
+	}
+	return status
+}
+
+// projectName is "" for a "General support" sponsorship (see the identical
+// note on SponsorshipAcceptedMsg above) — OPOS #25279.
 func SponsorshipStatusChangedMsg(projectName, status string, sponsorshipID int64) LocalizedMessage {
-	return LocalizedMessage{
+	en := sponsorshipStatusWord(status, 0)
+	ar := sponsorshipStatusWord(status, 1)
+	ckb := sponsorshipStatusWord(status, 2)
+	kmr := sponsorshipStatusWord(status, 3)
+	msg := LocalizedMessage{
 		Type:              "sponsorship_status_changed",
 		RelatedEntityType: "sponsorships",
 		RelatedEntityID:   sponsorshipID,
@@ -865,13 +923,23 @@ func SponsorshipStatusChangedMsg(projectName, status string, sponsorshipID int64
 			Ckb: "بارودۆخی سپۆنسەرکردن نوێ کرایەوە",
 			Kmr: "ڕەوشا سپۆنسەریێ هاتە نوێکرن",
 		},
-		Body: LocalText{
-			En:  fmt.Sprintf("Your monthly sponsorship for \"%s\" is now %s.", projectName, status),
-			Ar:  fmt.Sprintf("كفالتك الشهرية للمشروع \"%s\" أصبحت الآن %s.", projectName, status),
-			Ckb: fmt.Sprintf("سپۆنسەری مانگانەی تۆ بۆ «%s» ئێستا %s ە.", projectName, status),
-			Kmr: fmt.Sprintf("سپۆنسەریا تە یا مەهانە بۆ «%s» نوکە %s یە.", projectName, status),
-		},
 	}
+	if projectName == "" {
+		msg.Body = LocalText{
+			En:  fmt.Sprintf("Your monthly sponsorship is now %s.", en),
+			Ar:  fmt.Sprintf("كفالتك الشهرية أصبحت الآن %s.", ar),
+			Ckb: fmt.Sprintf("سپۆنسەری مانگانەی تۆ ئێستا %s ە.", ckb),
+			Kmr: fmt.Sprintf("سپۆنسەریا تە یا مەهانە نوکە %s یە.", kmr),
+		}
+		return msg
+	}
+	msg.Body = LocalText{
+		En:  fmt.Sprintf("Your monthly sponsorship for \"%s\" is now %s.", projectName, en),
+		Ar:  fmt.Sprintf("كفالتك الشهرية للمشروع \"%s\" أصبحت الآن %s.", projectName, ar),
+		Ckb: fmt.Sprintf("سپۆنسەری مانگانەی تۆ بۆ «%s» ئێستا %s ە.", projectName, ckb),
+		Kmr: fmt.Sprintf("سپۆنسەریا تە یا مەهانە بۆ «%s» نوکە %s یە.", projectName, kmr),
+	}
+	return msg
 }
 
 // SponsorshipPaymentDueMsg — task #20 (reminder scheduler). Fires from the
@@ -1630,15 +1698,110 @@ func ChatNewMessageMsg(senderName, preview string, threadID int64) LocalizedMess
 	if who == "" {
 		who = "New message"
 	}
+	return chatThreadNewMessageMsg(LocalText{En: who, Ar: who, Ckb: who, Kmr: who}, preview, threadID)
+}
+
+// ChatSupportReplyMsg notifies a party of a 1:1 donor chat that staff replied
+// (OPOS #26483). The admin reply used to send ChatNewMessageMsg("Support"),
+// which put the English word into every language, so Arabic read
+// «رسالة من Support». The sender is named per language through
+// localizedGroupAlias, the same lookup the masked chat groups use, so the
+// support team has one name everywhere: "Support" in English, فريق الدعم in
+// Arabic (never الدعم, which is Kafala: TERMINOLOGY.md T10). Sorani and Badini
+// have no word for the support team yet and keep "Support" (OPOS #26468).
+func ChatSupportReplyMsg(preview string, threadID int64) LocalizedMessage {
+	return chatThreadNewMessageMsg(LocalText{
+		En:  localizedGroupAlias(supportSenderLabel, "en"),
+		Ar:  localizedGroupAlias(supportSenderLabel, "ar"),
+		Ckb: localizedGroupAlias(supportSenderLabel, "ckb"),
+		Kmr: localizedGroupAlias(supportSenderLabel, "kmr"),
+	}, preview, threadID)
+}
+
+// chatThreadNewMessageMsg is the one body behind both 1:1 chat templates, so
+// a staff reply and a member's message can never drift onto different types.
+// `who` is the sender's name per language, already resolved by the caller.
+func chatThreadNewMessageMsg(who LocalText, preview string, threadID int64) LocalizedMessage {
 	return LocalizedMessage{
 		Type:              "chat_message",
 		RelatedEntityType: "chat_thread",
 		RelatedEntityID:   threadID,
 		Title: LocalText{
-			En:  fmt.Sprintf("Message from %s", who),
-			Ar:  fmt.Sprintf("رسالة من %s", who),
-			Ckb: fmt.Sprintf("نامە لە %s", who),
-			Kmr: fmt.Sprintf("Peyam ji %s", who),
+			En:  fmt.Sprintf("Message from %s", who.En),
+			Ar:  fmt.Sprintf("رسالة من %s", who.Ar),
+			Ckb: fmt.Sprintf("نامە لە %s", who.Ckb),
+			Kmr: fmt.Sprintf("Peyam ji %s", who.Kmr),
+		},
+		Body: LocalText{
+			En:  preview,
+			Ar:  preview,
+			Ckb: preview,
+			Kmr: preview,
+		},
+	}
+}
+
+// GroupMaskedNewMessageMsg is ChatNewMessageMsg's masked-group twin (OPOS
+// #25284 Phase 2). `alias` is how the sender appears in THIS group — their
+// own masked_label, or "Support" for a staff sender — never a real name, so
+// a masked group's push notification cannot re-identify anyone the chat
+// screen itself hides. Real-name team groups use GroupTeamNewMessageMsg.
+//
+// The labels the server generates in English ("Donor 1", "Support", ...) are
+// shown in Arabic, and in Kurdish where an exact translation exists, through
+// localizedGroupAlias (OPOS #26434), so an Arabic title reads
+// "رسالة من مانح 1", not "رسالة من Donor 1". English keeps the server's words
+// by decision. A label staff typed reaches every language verbatim, unless it
+// is itself exactly a generated shape such as "Donor 5": that is stored the
+// same way as a generated label, so it is translated too.
+func GroupMaskedNewMessageMsg(alias, preview string, groupID int64) LocalizedMessage {
+	alias = groupLabelOrFallback(alias)
+	return chatGroupNewMessageMsg(LocalText{
+		En:  localizedGroupAlias(alias, "en"),
+		Ar:  localizedGroupAlias(alias, "ar"),
+		Ckb: localizedGroupAlias(alias, "ckb"),
+		Kmr: localizedGroupAlias(alias, "kmr"),
+	}, preview, groupID)
+}
+
+// GroupTeamNewMessageMsg notifies a member of a real-name TEAM chat group of a
+// new message (OPOS #26411). `senderName` is the sender's real full name, which
+// a team group shows by design. Team groups used to reuse ChatNewMessageMsg,
+// but that template stamps RelatedEntityType "chat_thread" (the donor ↔ owner
+// table) onto a chat-GROUP id, and the two tables' ids overlap by accident, so
+// every stored row pointed at the wrong conversation. Rows written before this
+// fix keep that wrong type; they cannot be told apart from real donor-chat rows.
+func GroupTeamNewMessageMsg(senderName, preview string, groupID int64) LocalizedMessage {
+	name := groupLabelOrFallback(senderName)
+	return chatGroupNewMessageMsg(LocalText{En: name, Ar: name, Ckb: name, Kmr: name}, preview, groupID)
+}
+
+// groupLabelOrFallback returns label, or the neutral "Member" when the caller
+// resolved none, so a chat-group title never reads "Message from ".
+func groupLabelOrFallback(label string) string {
+	if label == "" {
+		return groupMemberLabel
+	}
+	return label
+}
+
+// chatGroupNewMessageMsg is the one body behind both chat-group templates, so
+// masked and team pushes can never drift onto different notification types or
+// entity types. `who` is the sender's label per language, already resolved by
+// the caller: the masked template translates the labels the server generates,
+// the team template passes the real name through unchanged. The Kurdish titles
+// are the same strings ChatNewMessageMsg already ships, reused rather than
+// re-drafted.
+func chatGroupNewMessageMsg(who LocalText, preview string, groupID int64) LocalizedMessage {
+	return LocalizedMessage{
+		Type:              "chat_group_message",
+		RelatedEntityType: "chat_group_thread",
+		RelatedEntityID:   groupID,
+		Title: LocalText{
+			En:  fmt.Sprintf("Message from %s", who.En),
+			Ar:  fmt.Sprintf("رسالة من %s", who.Ar),
+			Ckb: fmt.Sprintf("نامە لە %s", who.Ckb),
+			Kmr: fmt.Sprintf("Peyam ji %s", who.Kmr),
 		},
 		Body: LocalText{
 			En:  preview,
@@ -1736,51 +1899,6 @@ func MarriageChatNewMessageMsg(threadID int64) LocalizedMessage {
 			Ar:  "لديك رسالة جديدة في محادثة قسم الزواج.",
 			Ckb: "نامەیەکی نوێت هەیە لە گفتوگۆی هاوسەرگیریدا.",
 			Kmr: "Peyameke te ya nû di axaftina Hevsergiriyê de heye.",
-		},
-	}
-}
-
-// ===== Staff↔Volunteer↔Beneficiary chat (Note #36, part 3) =====
-
-// CaseVolunteerChatOpenedMsg tells the volunteer and beneficiary a 3-way
-// chat is now open — fires once, when a case-linked signup becomes eligible.
-func CaseVolunteerChatOpenedMsg(threadID int64) LocalizedMessage {
-	return LocalizedMessage{
-		Type:              "case_volunteer_chat_opened",
-		RelatedEntityType: "case_volunteer_chat_thread",
-		RelatedEntityID:   threadID,
-		Title: LocalText{
-			En:  "Chat opened",
-			Ar:  "تم فتح محادثة",
-			Ckb: "گفتوگۆ کرایەوە",
-			Kmr: "Axaftin hate vekirin",
-		},
-		Body: LocalText{
-			En:  "You can now message about this case, with staff able to help.",
-			Ar:  "يمكنك الآن مراسلة الطرف الآخر بخصوص هذه الحالة، والموظفون يمكنهم المساعدة.",
-			Ckb: "ئێستا دەتوانیت دەربارەی ئەم دۆسیەیە نامە بنێریت، کارمەندانیش دەتوانن یارمەتی بدەن.",
-			Kmr: "Niha tu dikarî derbarê vê dosyeyê de peyaman bişînî, karmend jî dikarin arîkarî bikin.",
-		},
-	}
-}
-
-// CaseVolunteerChatNewMessageMsg notifies the other party of a new message.
-func CaseVolunteerChatNewMessageMsg(preview string, threadID int64) LocalizedMessage {
-	return LocalizedMessage{
-		Type:              "case_volunteer_chat_message",
-		RelatedEntityType: "case_volunteer_chat_thread",
-		RelatedEntityID:   threadID,
-		Title: LocalText{
-			En:  "New message",
-			Ar:  "رسالة جديدة",
-			Ckb: "نامەیەکی نوێ",
-			Kmr: "Peyameke nû",
-		},
-		Body: LocalText{
-			En:  preview,
-			Ar:  preview,
-			Ckb: preview,
-			Kmr: preview,
 		},
 	}
 }
