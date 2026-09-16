@@ -183,6 +183,13 @@ You do not have to create these by hand. `backend/cmd/seed-test-users` makes the
 whole set — including **A**, an Administrator who is not the Super Admin — and
 prints the phone numbers and passwords as a table.
 
+**It also seeds what step 5 needs:** two marriage profiles (owned by **B** and
+**D2**) and one **pending** meeting request from **D** about **B**'s profile,
+so there is something on the dashboard to approve without creating a profile on
+a phone first. The end of the run prints the profile codes and the exact screen
+to approve on. `-cleanup` removes those rows too, along with any chat an
+approval opened.
+
 **Every number it uses is `+964 1 555 000 0xx`.** That block is reserved for
 this: a real Iraqi mobile always starts `07…`, so these cannot collide with
 anybody's account, and the command refuses to write a number outside the block.
@@ -503,14 +510,37 @@ because donor chats cannot be created any more (step 1). The only place you can
 still produce a live invite is the **Marriage / "My Engagement"** flow. So this
 step needs a marriage profile.
 
-**Setup:** **B** creates a marriage profile. **D** searches, finds it, and taps
-"request a meeting". Staff (**SA**) then approve the meeting request on the
-dashboard, at **Marriage → meeting requests**. Approving creates the chat and
-sends **B** an invite.
+**Setup — already done for you by the seeder.** `seed-test-users` leaves a
+marriage profile owned by **B**, a second one owned by **D2**, and a **pending**
+meeting request from **D** about **B**'s profile (§1.7). Its output prints the
+profile codes; you need **B**'s. Skip to point 3 if you ran it.
 
-*(Confirmed at `backend/internal/handlers/marriage_chat.go:99`. The exact
-wording of the app's own marriage search and meeting-request screens was
-**[NOT CONFIRMED]** — read them off the screen as you go.)*
+To do it by hand instead:
+
+1. As **B** in the app, create a marriage profile ("Event profile" / «ملف
+   الفعاليات»).
+2. As **D**, open **"Search profiles"** / «البحث عن ملفات», find that profile,
+   and tap **"Request meeting"** / «طلب لقاء». A sheet asks **"How would you
+   like to be put in touch?"** / «كيف تودّ أن يتم التواصل؟» with three choices:
+   **"In-person meeting"** / «لقاء مباشر», **"Through a staff member"** / «عبر
+   موظف وسيط», and **"Visit request"** / «طلب زيارة». Any of the three produces
+   a request staff can approve; the seeded one is the in-person meeting. The
+   confirmation reads **"Meeting request sent for review."** / «تم إرسال طلب
+   اللقاء للمراجعة.»
+3. On the dashboard as **SA**, open the sidebar group **Marriage** →
+   **"Marriage Requests"** / «طلبات الزواج» (the page at `/marriage-requests`).
+   Find the row whose **From** is the **D** account and whose **About profile**
+   is **B**'s profile code, with the status **Pending**, and click **"Approve"**
+   / «موافقة». The toast reads **"Request approved — chat thread opened."**
+
+Approving creates the chat and sends **B** an invite. Nothing else has to be
+filled in: the approving staff member is taken from your dashboard session.
+
+*(Every label above was read from the code: the dashboard page from
+`admin-web/src/pages/MarriageMeetingRequestsPage.tsx` and
+`admin-web/src/lib/locales/{en,ar}.ts`; the app's screens from
+`humanitarian/lib/modules/marriage/` and `lib/localization/app_translations.dart`.
+The approval itself is `backend/internal/handlers/marriage_chat.go:99`.)*
 
 ### 5a. Accept
 

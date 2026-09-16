@@ -12,6 +12,10 @@
 //	                               (the ER- code is minted inside SubmitRegistration)
 //	users.Store.InsertGuest        the "continue as guest" door
 //	users.Store.UpsertProfile      the profile writer, with its own audit rows
+//	marriage.Store.Insert          the marriage profile POST /api/marriage makes
+//	marriage.Store.RequestMeeting  the "request a meeting" the app sends
+//
+// (the last two are called from marriage.go, at the end of the same run)
 //
 // The three writes that have no function to call — the username, the staff
 // tier, and the 'approved' status on a role-less staff account — are done here
@@ -44,6 +48,9 @@ type Result struct {
 	// Created counts the accounts this run inserted; the rest already existed
 	// and were brought back to the expected state.
 	Created int
+	// Marriage is the marriage half of the fixture — the two profiles and the
+	// pending meeting request step 5 of the test plan needs. See marriage.go.
+	Marriage *MarriageResult
 }
 
 // Reused counts the accounts that were already there.
@@ -94,6 +101,14 @@ func Seed(ctx context.Context, pool *pgxpool.Pool, prefix string) (*Result, erro
 		}
 		res.Accounts = append(res.Accounts, seeded)
 	}
+
+	// The marriage fixtures come last, because every one of them belongs to an
+	// account that has to exist first.
+	marriageRes, err := seedMarriage(ctx, pool, prefix, res.Accounts)
+	if err != nil {
+		return nil, fmt.Errorf("seeding the marriage fixtures: %w", err)
+	}
+	res.Marriage = marriageRes
 	return res, nil
 }
 
