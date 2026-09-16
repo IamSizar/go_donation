@@ -46,14 +46,19 @@ export default function DonationTypesPage() {
   const { t } = useI18n()
   const toast = useToast()
   const [items, setItems] = useState<DonationType[]>([])
-  const [loading, setLoading] = useState(true)
+  // `loading` is derived from which reload tick last came back, so the fetch
+  // effect below sets nothing synchronously. `reload()` bumps the tick, which
+  // is what re-runs the effect.
+  const [tick, setTick] = useState(0)
+  const [loadedTick, setLoadedTick] = useState(-1)
+  const loading = loadedTick !== tick
+  const reload = () => setTick((n) => n + 1)
   const [err, setErr] = useState<string | null>(null)
   const [savingId, setSavingId] = useState<number | null>(null)
   const [adding, setAdding] = useState(false)
   const [draft, setDraft] = useState({ ...EMPTY_DRAFT })
 
   const load = () => {
-    setLoading(true)
     api
       .get<{ items: DonationType[] }>('/api/admin/donation-types')
       .then((res) => {
@@ -61,9 +66,9 @@ export default function DonationTypesPage() {
         setErr(null)
       })
       .catch((e) => setErr(describeError(e)))
-      .finally(() => setLoading(false))
+      .finally(() => setLoadedTick(tick))
   }
-  useEffect(load, [])
+  useEffect(load, [tick])
 
   const patchItem = (id: number, patch: Partial<DonationType>) =>
     setItems((xs) => xs.map((x) => (x.id === id ? { ...x, ...patch } : x)))
@@ -83,7 +88,7 @@ export default function DonationTypesPage() {
         active: d.active,
       })
       toast.success(t('donationTypes.saved'))
-      load()
+      reload()
     } catch (e) {
       toast.error(describeError(e))
     } finally {
@@ -96,7 +101,7 @@ export default function DonationTypesPage() {
     try {
       await api.delete(`/api/admin/donation-types/${id}`)
       toast.success(t('donationTypes.deleted'))
-      load()
+      reload()
     } catch (e) {
       toast.error(describeError(e))
     }
@@ -112,7 +117,7 @@ export default function DonationTypesPage() {
       await api.post('/api/admin/donation-types', draft)
       toast.success(t('donationTypes.added'))
       setDraft({ ...EMPTY_DRAFT })
-      load()
+      reload()
     } catch (e) {
       toast.error(describeError(e))
     } finally {
@@ -133,7 +138,7 @@ export default function DonationTypesPage() {
       })
     } catch (e) {
       toast.error(describeError(e))
-      load()
+      reload()
     }
   }
 

@@ -1,0 +1,36 @@
+/*
+ * tsconfig.test.json — type-checks the tests and their helpers.
+ *
+ * Referenced from tsconfig.json, so `npm run build` (tsc -b) fails on a type
+ * error in a test exactly as it does in the app. The compiler options mirror
+ * tsconfig.app.json on purpose: a test imports app modules, and checking them
+ * under looser rules would let the two disagree about what compiles.
+ *
+ * tsconfig.app.json excludes these same files, so nothing test-only (Vitest,
+ * Testing Library, fixtures) is part of the app's own program.
+ */
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.test.tsbuildinfo",
+    "target": "es2023",
+    "lib": ["ES2023", "DOM"],
+    "module": "esnext",
+    "types": ["vite/client"],
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    /* Linting */
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/test"]
+}

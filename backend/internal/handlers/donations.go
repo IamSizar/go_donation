@@ -569,7 +569,12 @@ func (h *DonationsHandler) BeneficiaryCampaignDonations(c *gin.Context) {
 		  FROM donations d
 		  JOIN campaigns c ON c.id = d.campaign_id
 		  LEFT JOIN users u ON u.id = d.user_id
-		  LEFT JOIN user_profiles up ON up.user_id = d.user_id
+		  -- OPOS #26603: user_profiles.user_id has no UNIQUE constraint, so a
+		  -- donor with two profile rows repeated every donation they made.
+		  LEFT JOIN LATERAL (
+		         SELECT pf.full_name FROM user_profiles pf
+		          WHERE pf.user_id = d.user_id ORDER BY pf.id LIMIT 1
+		       ) up ON TRUE
 		 WHERE c.owner_user_id = $1
 		 ORDER BY d.transaction_date DESC`, tokenUser.UserID)
 	if err != nil {

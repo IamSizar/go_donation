@@ -50,7 +50,10 @@ export default function RegistrationsPage() {
   const [status, setStatus] = useState<StatusFilter>('pending')
   const [q, setQ] = useState('')
   const [resp, setResp] = useState<AdminPageResp<AdminRegistration> | null>(null)
-  const [loading, setLoading] = useState(false)
+  // Which request last came back. `loading` is derived from it below
+  // rather than set at the top of the fetch effect, which costs a second
+  // render and is what `react-hooks/set-state-in-effect` objects to.
+  const [loadedKey, setLoadedKey] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [refreshTick, setRefreshTick] = useState(0)
   const [busyId, setBusyId] = useState<number | null>(null)
@@ -60,27 +63,30 @@ export default function RegistrationsPage() {
   const { t } = useI18n()
   const pending = usePendingCounts()
 
+  // Every dependency of the fetch effect below, so the page reads as loading
+  // from the render that changes any of them.
+  const requestKey = `${page}|${status}|${q}|${refreshTick}`
+  const loading = loadedKey !== requestKey
+
   useEffect(() => {
     let cancelled = false
-    setLoading(true)
-    setErr(null)
     api
       .get<AdminPageResp<AdminRegistration>>('/api/admin/registrations', {
         params: { page, per_page: PER_PAGE, status, q: q || undefined },
       })
       .then((r) => {
-        if (!cancelled) setResp(r.data)
+        if (!cancelled) { setResp(r.data); setErr(null) }
       })
       .catch((e) => {
         if (!cancelled) setErr(describeError(e))
       })
       .finally(() => {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) setLoadedKey(requestKey)
       })
     return () => {
       cancelled = true
     }
-  }, [page, status, q, refreshTick])
+  }, [page, status, q, refreshTick, requestKey])
 
   // Keep the queue fresh while the admin watches it.
   useLivePoll(() => setRefreshTick((n) => n + 1), 10_000)
@@ -284,7 +290,9 @@ export default function RegistrationsPage() {
         </div>
       </PageHead>
 
-      {err && <div className="error-box">{err}</div>}
+      {/* Hidden while a newer request is in flight, which is what clearing
+          the error at the top of the fetch effect used to achieve. */}
+      {!loading && err && <div className="error-box">{err}</div>}
 
       <Table<AdminRegistration>
         rows={resp?.items ?? []}

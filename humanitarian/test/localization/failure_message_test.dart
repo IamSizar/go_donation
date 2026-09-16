@@ -123,6 +123,14 @@ void main() {
           'error_mission_checkout_failed',
           'error_join_mission_failed',
           'error_volunteer_application_failed',
+          // OPOS #25284 Phase 5 — chat-groups controllers.
+          'error_chat_groups_load_failed',
+          'error_connect_requests_load_failed',
+          'error_messages_load_failed',
+          'error_message_send_failed',
+          // OPOS #25284 Phase 5 Task 5 — the "ask our team to connect me"
+          // sheet.
+          'error_connect_request_submit_failed',
           'error_next_offline',
           'error_next_retry',
         ];

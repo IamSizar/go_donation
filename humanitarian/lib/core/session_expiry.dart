@@ -7,7 +7,8 @@
 // refusal), `auth_controller.dart` and `controllers/login.dart` — all three
 // about a sign-in that was refused, which is a different statement entirely.
 // A 401 on an ALREADY SIGNED-IN screen fell through to the generic non-2xx
-// branch in `ModuleApi`, which throws `Exception('Request failed (401)')`.
+// branch in `ModuleApi`, which throws a failure printed as
+// `Exception: Request failed (401)` (an `ApiStatusException` since #26346).
 //
 // WHAT THAT LOOKED LIKE ON A DEVICE
 // The session token was lost and the app kept rendering a fully signed-in UI:
